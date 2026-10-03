@@ -1,4 +1,5 @@
 #if !MPHREAD_SERVER
+using System;
 using System.Collections.Generic;
 using Silk.NET.WebGPU;
 using WgpuBuffer = Silk.NET.WebGPU.Buffer;
@@ -13,8 +14,23 @@ internal sealed unsafe partial class ModernGraphicsCompat
         internal int Cursor;
     }
 
+    private sealed class UploadBuffer
+    {
+        internal nint Buffer;
+        internal ulong Capacity;
+        internal byte[] Staging = Array.Empty<byte>();
+    }
+
     private readonly Dictionary<ulong, UniformPool> _uniformPools = new();
-    private const int CommandBatchOperations = 256;
+    private readonly List<UploadBuffer> _uploadBuffers = new();
+    private int _uploadBufferCursor;
+
+    // A complete frame is normally well below this count. Keeping the encoder
+    // alive longer matters on Metal/Vulkan/DX12 because each QueueSubmit carries
+    // native driver scheduling overhead. Real ordering hazards still flush
+    // explicitly at readback/present/recovery boundaries.
+    private const int CommandBatchOperations = 1024;
+    private const ulong MaximumStagedTextureUploadBytes = 4UL * 1024 * 1024;
 
     private CommandEncoder* _commandEncoder;
     private int _commandOperations;
@@ -29,6 +45,97 @@ internal sealed unsafe partial class ModernGraphicsCompat
             pool.Buffers.Add((nint)_api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
             { Size = size, Usage = BufferUsage.Uniform | BufferUsage.CopyDst }));
         return (WgpuBuffer*)pool.Buffers[pool.Cursor++];
+    }
+
+    private UploadBuffer RentUploadBuffer(ulong size)
+    {
+        if (_uploadBufferCursor == _uploadBuffers.Count)
+            _uploadBuffers.Add(new UploadBuffer());
+        UploadBuffer upload = _uploadBuffers[_uploadBufferCursor++];
+        if (upload.Buffer == 0 || upload.Capacity < size)
+        {
+            if (upload.Buffer != 0)
+                _api.BufferRelease((WgpuBuffer*)upload.Buffer);
+            ulong capacity = Math.Max(4096UL, upload.Capacity);
+            while (capacity < size)
+                capacity = checked(capacity * 2);
+            WgpuBuffer* buffer = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
+            {
+                Size = capacity,
+                Usage = BufferUsage.CopySrc | BufferUsage.CopyDst
+            });
+            if (buffer == null)
+                throw new InvalidOperationException($"Could not allocate {capacity} byte WebGPU upload buffer.");
+            upload.Buffer = (nint)buffer;
+            upload.Capacity = capacity;
+        }
+        if ((ulong)upload.Staging.LongLength < size)
+            upload.Staging = new byte[checked((int)size)];
+        return upload;
+    }
+
+    /// <summary>
+    /// Preserve texture-write ordering without forcing all earlier draws through
+    /// QueueSubmit. QueueWriteBuffer targets an independent staging resource,
+    /// then CopyBufferToTexture is recorded after the draws that must see the old
+    /// image. This is the common dynamic UI/video path. Very large uploads retain
+    /// the old direct queue path to avoid keeping giant staging allocations alive.
+    /// </summary>
+    private bool TryStageTextureUpload(NativeTexture native, byte[] data,
+        int x, int y, int width, int height)
+    {
+        if (_commandEncoder == null || data.Length == 0)
+            return false;
+
+        uint pixelBytes = native.Format == TextureFormat.Rgba16float ? 8u : 4u;
+        uint rowBytes = checked((uint)width * pixelBytes);
+        uint paddedRow = (rowBytes + 255u) & ~255u;
+        ulong uploadBytes = checked((ulong)paddedRow * (uint)height);
+        if (uploadBytes > MaximumStagedTextureUploadBytes)
+            return false;
+
+        UploadBuffer upload = RentUploadBuffer(uploadBytes);
+        if (paddedRow == rowBytes)
+        {
+            data.AsSpan(0, checked((int)(rowBytes * (uint)height)))
+                .CopyTo(upload.Staging);
+        }
+        else
+        {
+            Span<byte> staging = upload.Staging.AsSpan(0, checked((int)uploadBytes));
+            staging.Clear();
+            ReadOnlySpan<byte> source = data;
+            for (int row = 0; row < height; row++)
+            {
+                source.Slice(checked(row * (int)rowBytes), checked((int)rowBytes))
+                    .CopyTo(staging.Slice(checked(row * (int)paddedRow), checked((int)rowBytes)));
+            }
+        }
+
+        fixed (byte* ptr = upload.Staging)
+            WriteProfiledBuffer((WgpuBuffer*)upload.Buffer, 0, ptr, checked((nuint)uploadBytes));
+
+        var sourceCopy = new ImageCopyBuffer
+        {
+            Buffer = (WgpuBuffer*)upload.Buffer,
+            Layout = new TextureDataLayout
+            {
+                Offset = 0,
+                BytesPerRow = paddedRow,
+                RowsPerImage = (uint)height
+            }
+        };
+        var destination = new ImageCopyTexture
+        {
+            Texture = native.Texture,
+            Origin = new Origin3D((uint)x, (uint)y, 0),
+            Aspect = TextureAspect.All,
+            MipLevel = 0
+        };
+        var extent = new Extent3D((uint)width, (uint)height, 1);
+        _api.CommandEncoderCopyBufferToTexture(BeginCommands(), &sourceCopy, &destination, &extent);
+        EndCommands();
+        return true;
     }
 
     // Each operation owns a complete pass. A shared encoder batches native
@@ -85,6 +192,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
         foreach (var pool in _uniformPools.Values) pool.Cursor = 0;
         foreach (var program in _generatedPrograms.Values) program.BindGroupCursor = 0;
         _transientGeometryCursor = 0;
+        _uploadBufferCursor = 0;
+        _frameBindGroupCursor = 0;
     }
 
     private void DisposeUniformBuffers()
@@ -92,6 +201,9 @@ internal sealed unsafe partial class ModernGraphicsCompat
         foreach (var pool in _uniformPools.Values)
             foreach (nint buffer in pool.Buffers) _api.BufferRelease((WgpuBuffer*)buffer);
         _uniformPools.Clear();
+        foreach (UploadBuffer upload in _uploadBuffers)
+            if (upload.Buffer != 0) _api.BufferRelease((WgpuBuffer*)upload.Buffer);
+        _uploadBuffers.Clear();
     }
 }
 #endif
