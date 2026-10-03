@@ -52,18 +52,60 @@ Run the content-free structural check with:
 ProjectPrime -rendergraphcheck
 ```
 
+## Slice 2: retained descriptors + order-preserving material batches
+
+The second slice moves more submission state out of the pooled `RenderItem` bridge
+without changing visible ordering.
+
+### Immutable mesh descriptors
+
+`RetainedRenderWorld` interns immutable mesh/raster descriptors across frames. A
+descriptor owns the geometry list identity plus culling, billboard, wireframe and
+viewmodel classification. The retained graph submits the descriptor's list identity
+instead of reading geometry identity back from the mutable frame item.
+
+### Immutable material snapshots
+
+Each packet captures an exact value-type material descriptor containing the material
+uniform/texture state that the current frame resolved after animation, texture
+replacement and cosmetic selection. Transforms, matrix stacks and lighting remain
+per-draw because they can differ even when two meshes share a material.
+
+### Adjacent batching without sorting
+
+Only adjacent, simple mesh packets with exactly equal material/raster state share one
+material/texture/raster application. Their sequence is never changed. Overrides,
+cosmetics, palette overrides, textured player skins, billboard geometry and viewmodels
+remain one-state-application-per-draw.
+
+This lets different mesh IDs using the same room material form a batch while preserving
+the cartridge renderer's depth/stencil ordering.
+
+### Persistent sampler-state cache
+
+World and deferred-PBR texture sampling now cache the last applied
+`TextureSamplerDescriptor + wrap mode` per texture binding. Identical filter,
+mipmap, anisotropy and wrap requests stop reissuing texture parameters. Cache entries
+are invalidated whenever a binding is released or re-uploaded, including progressive
+HD replacement, so mip generation cannot be skipped after new image data arrives.
+
+The renderer benchmark reports visible retained packets, adjacent batches, graph state
+applications/reuses, retained descriptor count and sampler-state applications/cache
+hits.
+
 ## Next slices
 
 The graph and packet seam is intended to support the remaining migration without
 another scene-wide rewrite:
 
 - retain static room packets across frames instead of rebuilding them from entities;
-- split immutable mesh/material descriptors from per-frame transforms;
-- move material/pipeline state from GL compatibility calls into packet descriptors;
-- add visibility/partition inputs before packet emission;
+- retain static room visibility templates so only changing portal/material state is
+  refreshed each frame;
+- move the retained material descriptor directly into the WebGPU uniform/bind-group
+  executor instead of replaying GL-compatible uniform calls;
+- add partition/cluster visibility before packet emission;
 - schedule shadow, PBR and post-processing as graph passes/resources;
-- batch compatible packets by pipeline/material only after parity captures prove that
-  ordering is safe;
+- allow broader pipeline/material sorting only behind visual-parity gates;
 - move modern backends to direct WebGPU packet execution, leaving the GL executor as
   the compatibility implementation.
 
