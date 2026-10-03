@@ -119,7 +119,10 @@ Implemented:
 - World, deferred PBR and post-process WGSL generated from the shared GLSL formulas.
   Production shadows, cel/player outlines, material maps, AA/TAA, bloom, SSAO,
   reflections, fog, contact shadows, dynamic lights and HDR use the shared paths.
-  PBR currently retains the existing three geometry passes; MRT is not implemented.
+  Modern WebGPU PBR uses three color attachments in one geometry pass. Its MRT
+  fragment derivative invokes the existing generated mode 1/2/3 material logic
+  inside one fragment invocation, preserving pixel math while removing two
+  vertex/raster/draw passes. Compatibility OpenGL/GLES retains three passes.
 - RGBA16F scene and history targets, ACES resolve, framebuffer-origin tracking,
   bottom-up GL-compatible readback, clipped clears, default-framebuffer depth,
   attribute restoration and viewport transformation for oversized GL viewports.
@@ -176,8 +179,9 @@ it still blocks default activation.
 | P12–P13 | Full checks, parity captures, lifetime diagnostics, benchmark and independent CI jobs implemented | Full hardware matrix, sustained runs and performance acceptance |
 | P14 | Explicit Auto already selects platform modern backends | New/default installs remain OpenGL until release gates pass |
 
-The preferred single-pass MRT optimization is not a required feature gate: PBR
-uses the existing three-pass material path with validated buffers. Wireframe
+The preferred single-pass MRT optimization is implemented on the modern WebGPU
+backends. Compatibility OpenGL/GLES intentionally retains the validated
+three-pass material path. Wireframe
 triangles now emit cached line indices instead of silently drawing filled faces.
 This is portable one-pixel triangle-edge wireframe; native wide lines and
 polygon-rasterization edge/culling rules are not emulated. Normal gameplay uses
@@ -192,3 +196,21 @@ are not driver VRAM measurements. Instrumentation is enabled only while explicit
 benchmarking. GPU timestamp milliseconds remain unavailable through the pinned
 native C ABI, which lacks the queue timestamp-period conversion function; adapter
 support is logged separately rather than treating CPU wait time as GPU timing.
+
+
+## Deferred MRT and submission batching (2026-10-03)
+
+Modern framebuffers now track ColorAttachment0/1/2. Resolve and pipeline creation
+require the MRT attachments to match dimensions and format; feedback-hazard
+validation covers all attached textures. Clears operate across all attached color
+targets, while ordinary programs still bind a single color target.
+
+Deferred PBR selects the MRT generated program only when the existing
+`gbuffer_mode` uniform is zero. The scene uses that mode only while
+`ModernGraphicsCompat` is active, so compatibility OpenGL and GLES preserve
+their previous path.
+
+The compatibility command encoder now batches up to 1,024 operations before an
+intermediate QueueSubmit instead of 256. Uniform, bind-group and transient
+geometry pools still reset only at the public frame boundary, so this changes
+submission granularity rather than resource lifetime/reuse.
