@@ -152,6 +152,7 @@ namespace MphRead.Entities
                 _combatStrafeTimer = 0;
                 _combatStrafeRight = false;
                 _combatJumpCooldown = 0;
+                ResetTacticalState();
                 for (int i = 0; i < _executionTree.Length; i++)
                 {
                     if (_executionTree[i] == null)
@@ -846,6 +847,7 @@ namespace MphRead.Entities
                 Func2134594();
                 Func2148ABC();
                 Execute(_executionTree[0]);
+                ApplyTacticalBrain();
                 ApplyCombatEnhancements();
                 ApplyEnhancedHunterChoices();
                 Array.Fill(_slotHits, 0);
@@ -966,6 +968,14 @@ namespace MphRead.Entities
                     return;
                 }
 
+                // The modern tactical layer owns biped combat movement when it found
+                // a safe, purposeful move. Keep the legacy random strafe as a fallback
+                // for modes or situations the tactical layer deliberately leaves alone.
+                if (_tacticalMovementActive)
+                {
+                    return;
+                }
+
                 float distSqr = Vector3.DistanceSquared(target.Position, _player.Position);
                 if (distSqr > tuning.CombatRange * tuning.CombatRange)
                 {
@@ -1031,13 +1041,13 @@ namespace MphRead.Entities
                         continue;
                     }
                     float w = Matrix.ProjectPosition(other.Position, _player.CameraInfo.ViewMatrix, perspectiveMatrix, out Vector2 proj);
-                    if (w < 0)
+                    if (w <= 0)
                     {
-                        // One opponent being behind the bot must not suppress awareness
-                        // of every later opponent in the roster.
+                        // One opponent being behind/on the projection plane must not suppress
+                        // awareness of every later opponent in the roster.
                         continue;
                     }
-                    if (proj.X >= 1 || proj.Y >= 1)
+                    if (!TacticalViewportContainsForTest(proj))
                     {
                         continue;
                     }
@@ -2376,36 +2386,33 @@ namespace MphRead.Entities
                     // todo?: this condition is just for efficiency, but it's probably the wrong value since OC is also checked
                     // if all affinity weapons and Omega Cannon were on the map, filling bits 0-7 would prevent finding OC (bit 8),
                     // and finding OC will prevent the efficiency check condition from being hit
-                    if (seenBits == 255)
+                    if (seenBits == 0x1FF)
                     {
                         break;
                     }
                     ItemType type = itemSpawn.Data.ItemType;
+                    int index;
                     if (type == ItemType.AffinityWeapon)
                     {
-                        // todo: bugfix: this should load the pickup type, but loads the beam ID instead
-                        // Samus    - HealthBig
-                        // Kanden   - HealthSmall
-                        // Trace    - EnergyTank
-                        // Sylux    - Battlehammer
-                        // Noxus    - VoltDriver
-                        // Spire    - MissileExpansion
-                        // Weavel   - DoubleDamage
-                        // Guardian - HealthMedium
-                        // only Sylux's and Noxus's options are covered below at all, and they aren't their actual affinity
-                        type = (ItemType)affinityWeapon;
+                        // AffinityWeapon is a generic pickup whose result depends on the hunter.
+                        // Its enum value is not a BeamType. Samus/Guardian receive missile ammo,
+                        // so there is no missing special weapon for this search to pursue.
+                        index = _player.Hunter is Hunter.Samus or Hunter.Guardian ? 0 : affinityIndex;
                     }
-                    int index = type switch
+                    else
                     {
-                        ItemType.VoltDriver => 2,
-                        ItemType.Battlehammer => 3,
-                        ItemType.Imperialist => 4,
-                        ItemType.Judicator => 5,
-                        ItemType.Magmaul => 6,
-                        ItemType.ShockCoil => 7,
-                        ItemType.OmegaCannon => 8,
-                        _ => 0
-                    };
+                        index = type switch
+                        {
+                            ItemType.VoltDriver => 2,
+                            ItemType.Battlehammer => 3,
+                            ItemType.Imperialist => 4,
+                            ItemType.Judicator => 5,
+                            ItemType.Magmaul => 6,
+                            ItemType.ShockCoil => 7,
+                            ItemType.OmegaCannon => 8,
+                            _ => 0
+                        };
+                    }
                     if ((seenBits & (1 << index)) == 0)
                     {
                         seenBits |= (1 << index);
@@ -5871,8 +5878,7 @@ namespace MphRead.Entities
                 }
                 Debug.Assert(_targetPlayer != null);
                 float dist = param.Param1 / 4096f;
-                // todo?: bug? checking distance to the origin instead of to this bot or another entity
-                return _targetPlayer.Position.LengthSquared < dist * dist ? 1 : 0;
+                return Vector3.DistanceSquared(_targetPlayer.Position, _player.Position) < dist * dist ? 1 : 0;
             }
 
             private int Func3_213AA20(AiContext context, AiPersonalityData5 param)
@@ -7057,21 +7063,24 @@ namespace MphRead.Entities
                 EquipInfo equip = _player.EquipInfo;
                 WeaponInfo weapon = equip.Weapon;
                 // sktodo-ai: add a common function for the beam stuff
+                bool chargedAim = weapon.Flags.TestFlag(WeaponFlags.CanCharge)
+                    && equip.ChargeLevel >= weapon.MinCharge * 2;
                 float chargePct = 0;
-                if (weapon.Flags.TestFlag(WeaponFlags.CanCharge)
-                    && equip.ChargeLevel >= weapon.MinCharge * 2) // todo: FPS stuff
+                if (chargedAim)
                 {
-                    // todo: FPS stuff
-                    chargePct = (equip.ChargeLevel - weapon.MinCharge * 2) / (float)(weapon.FullCharge * 2 - weapon.MinCharge * 2);
+                    chargePct = (equip.ChargeLevel - weapon.MinCharge * 2)
+                        / (float)(weapon.FullCharge * 2 - weapon.MinCharge * 2);
+                    chargePct = Math.Clamp(chargePct, 0, 1);
                 }
-                // todo: bugfix: the game's math is wrong here, using charge pct as a factor between uncharged and min charge values.
-                // it should be a factor between min and max charge values (or uncharged should be used directly for 0% charge).
-                // going between uncharged and min charge will make the calculation wrong for any weapon where uncahrged, min, and max
-                // aren't all identical.
-                float speed = (weapon.UnchargedSpeed
-                    + ((weapon.MinChargeSpeed - weapon.UnchargedSpeed) * chargePct)) / 4096f / 2; // todo: FPS stuff
-                float gravity = (weapon.UnchargedGravity
-                    + ((weapon.MinChargeGravity - weapon.UnchargedGravity) * chargePct)) / 4096f / 2; // todo: FPS stuff
+                // ChargeLevel's percentage is measured from minimum charge to full charge.
+                // Interpolate between those matching metadata endpoints; uncharged shots use
+                // the uncharged values directly.
+                float speed = (chargedAim
+                    ? weapon.MinChargeSpeed + ((weapon.ChargedSpeed - weapon.MinChargeSpeed) * chargePct)
+                    : weapon.UnchargedSpeed) / 4096f / 2;
+                float gravity = (chargedAim
+                    ? weapon.MinChargeGravity + ((weapon.ChargedGravity - weapon.MinChargeGravity) * chargePct)
+                    : weapon.UnchargedGravity) / 4096f / 2;
                 float div = distToPosH * distToPosH * gravity / (speed * speed);
                 float angle1;
                 float angle2;
@@ -7530,9 +7539,7 @@ namespace MphRead.Entities
 
             private void PressL(int frames = 0)
             {
-                // todo?: could add bugfix for checking L instead of Magmaul -- not sure how big the impact is (might lead
-                // to cases where L is treated as held instead of pressed, but only if Magmaul is also down that frame)
-                if (_touchButtons.Magmaul.FramesUp > frames * 2) // todo: FPS stuff
+                if (_buttons.L.FramesUp > frames * 2) // todo: FPS stuff
                 {
                     _buttons.L.IsDown = true;
                 }
@@ -10513,8 +10520,9 @@ namespace MphRead.Entities
                         int value = AggroFunc2148394(7, 2, 1, player, null);
                         if (value > maxValue)
                         {
+                            dist = Vector3.DistanceSquared(player.Position, position);
                             result = player;
-                            minDist = dist; // the game might use an undefined value here
+                            minDist = dist;
                             maxValue = value;
                             Flags2 &= ~AiFlags2.Bit9;
                         }
@@ -10556,8 +10564,9 @@ namespace MphRead.Entities
                         int value = AggroFunc2148394(7, 2, 1, player, null);
                         if (value > maxValue)
                         {
+                            dist = Vector3.DistanceSquared(player.Position, position);
                             result = player;
-                            minDist = dist; // the game might use an undefined value here
+                            minDist = dist;
                             maxValue = value;
                             Flags2 &= ~AiFlags2.Bit9;
                         }
@@ -11354,6 +11363,7 @@ namespace MphRead.Entities
                     {
                         if (player == _player)
                         {
+                            player.AiData.RecordTacticalThreat(attacker, damage);
                             if (source.Type == EntityType.BeamProjectile
                                 && attacker.Hunter == Hunter.Weavel && attacker.IsAltForm)
                             {
