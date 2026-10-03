@@ -313,7 +313,7 @@ namespace MphRead.Mods.MapGen
             IReadOnlyDictionary<string, ZipArchiveEntry> entries, string name,
             long limit = MaxEntryBytes)
         {
-            if (!entries.TryGetValue(name, out ZipArchiveEntry entry)
+            if (!entries.TryGetValue(name, out ZipArchiveEntry? entry) || entry == null
                 || entry.Length < 0 || entry.Length > limit)
                 throw new InvalidDataException("Missing or oversized entry: " + name);
             using Stream input = entry.Open();
