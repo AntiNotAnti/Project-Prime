@@ -913,7 +913,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             DisposeFrameBindGroups();
             ReleaseSurfaceTexture();
             foreach (PendingTextureUpload pending in _pendingTextureUploads.Values)
-                ReleaseNativeTexture(pending.Native);
+                ReleasePendingTextureUpload(pending);
             _pendingTextureUploads.Clear();
             foreach (NativeTexture texture in _nativeTextures.Values) ReleaseNativeTexture(texture);
             _nativeTextures.Clear();
@@ -2009,10 +2009,8 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                         pending.MipScratchView, pending.NextMipLevel++);
                     if (pending.NextMipLevel >= native.MipCount)
                     {
-                        _api.TextureViewRelease(pending.MipScratchView);
-                        _api.TextureRelease(pending.MipScratch);
-                        pending.MipScratchView = null;
-                        pending.MipScratch = null;
+                        // Keep the staging objects alive until FlushCommands has
+                        // submitted the final render/copy commands that reference them.
                         pending.Ready = true;
                     }
                     break;
