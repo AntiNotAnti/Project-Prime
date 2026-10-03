@@ -823,12 +823,13 @@ namespace MphRead.Mods.Launcher.Gui
             previous?.Cancel();
             previous?.Dispose();
             CancellationToken token = cancel.Token;
-            string[] builtInRooms = _rooms.ToArray();
             _startupWork = Task.Run(() =>
             {
                 try
                 {
                     DebugLog.Line("startup", "post-first-frame work begin");
+                    string[] builtInRooms = Metadata.RoomList
+                        .Select(room => room.Name).ToArray();
                     MapGen.MapDefinition[] deferred = MapGen.CustomRooms.DeferInitialRegistration
                         ? MapGen.CustomRooms.DeferredDefinitions(builtInRooms).ToArray()
                         : Array.Empty<MapGen.MapDefinition>();
