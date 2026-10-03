@@ -228,13 +228,47 @@ namespace MphRead.Mods.Render
         }
 
         private static TextureAssetQuality EffectiveQuality()
+            => EffectiveQualityForPlatform(RenderOptions.TextureQuality, OperatingSystem.IsAndroid());
+
+        internal static TextureAssetQuality EffectiveQualityForPlatform(
+            TextureAssetQuality requested, bool android)
         {
-            if (RenderOptions.TextureQuality != TextureAssetQuality.Automatic) return RenderOptions.TextureQuality;
-#if ANDROID
-            return TextureAssetQuality.Medium;
-#else
-            return TextureAssetQuality.High;
-#endif
+            if (requested != TextureAssetQuality.Automatic) return requested;
+            return android ? TextureAssetQuality.Medium : TextureAssetQuality.High;
+        }
+
+        /// <summary>
+        /// Scene-owned world/material replacements keep stable texture IDs and
+        /// therefore use admission control rather than mid-match eviction.
+        /// This budget is separate from cosmetic residency so one large map
+        /// cannot evict a hunter/viewmodel texture that another subsystem owns.
+        /// </summary>
+        internal static long WorldMaterialMemoryBudgetBytes()
+            => WorldMaterialMemoryBudgetBytesForQuality(
+                EffectiveQuality(), OperatingSystem.IsAndroid());
+
+        internal static long WorldMaterialMemoryBudgetBytesForQuality(
+            TextureAssetQuality quality, bool android)
+        {
+            quality = EffectiveQualityForPlatform(quality, android);
+            long mib = android
+                ? quality switch
+                {
+                    TextureAssetQuality.Low => 128,
+                    TextureAssetQuality.Medium => 256,
+                    TextureAssetQuality.High => 384,
+                    TextureAssetQuality.Ultra => 768,
+                    _ => 256
+                }
+                : quality switch
+                {
+                    TextureAssetQuality.Low => 256,
+                    TextureAssetQuality.Medium => 512,
+                    TextureAssetQuality.High => 1024,
+                    TextureAssetQuality.Ultra => 3072,
+                    _ => 1024
+                };
+            return mib * 1024 * 1024;
         }
 
         private static int HardwareMaxDimension()
