@@ -177,6 +177,19 @@ diagnostic/command-line renderer selection is not fenced.
 Run `ProjectPrime -renderwindowcheck -renderer vulkan` or `-renderer dx12` to exercise the staged 4096-wide mip regression and backend startup path without game assets.
 
 
+## HD companion residency optimization (2026-10-02)
+
+Normal/specular/emissive replacement maps now load only while
+`AdvancedMaterials` is enabled. Turning the option off reuses the established
+texture-binding refresh path, releasing companion GPU objects and invalidating
+in-flight companion promotions; turning it back on rebuilds them from the same
+material source. When advanced maps are disabled, a file-backed albedo no longer
+has to wait for companion sources to qualify for background decode.
+
+The HD texture path also caches the device's maximum texture dimension and
+anisotropy capability after the first successful query instead of polling
+immutable driver limits for every authored channel.
+
 ## Supersampled modern-graphics optimization (2026-10-02)
 
 High-end custom settings exposed avoidable multiplicative costs above 100%
