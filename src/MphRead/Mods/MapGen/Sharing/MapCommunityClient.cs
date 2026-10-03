@@ -405,6 +405,27 @@ public sealed class MapCommunityClient : IDisposable
         }
     }
 
+    private async Task<long> DownloadVerifiedPackageAsync(string resource, string temporary, long? expectedBytes,
+        string expectedHash, CancellationToken token, Action<long, long>? progress = null)
+    {
+        const int maximumIntegrityAttempts = 2;
+        string actualHash = "";
+        for (int attempt = 0; attempt < maximumIntegrityAttempts; attempt++)
+        {
+            long bytes = await DownloadPackageAsync(resource, temporary, expectedBytes, token, progress).ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
+            actualHash = MapBuildFingerprint.HashFile(temporary);
+            if (actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase)) return bytes;
+
+            // A same-length stale/corrupt response previously reached ZIP parsing and
+            // surfaced as a misleading project.json error. Discard it and retry once
+            // from byte zero before reporting the integrity failure.
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
+        throw new InvalidDataException($"Downloaded package SHA-256 does not match the Community listing. "
+            + $"Expected {expectedHash}, received {actualHash}. The download was discarded after a retry.");
+    }
+
     public async Task<MapDefinition> InstallAsync(CommunityMap map, string library, CancellationToken token,
         Action<long, long>? progress = null)
     {
@@ -415,7 +436,7 @@ public sealed class MapCommunityClient : IDisposable
         string temporary = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".ppmap");
         try
         {
-            await DownloadPackageAsync("packages/" + map.Hash, temporary, map.Bytes, token, progress).ConfigureAwait(false);
+            await DownloadVerifiedPackageAsync("packages/" + map.Hash, temporary, map.Bytes, map.Hash, token, progress).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
             using (var package = new MapPackageReader(temporary))
                 if (package.Manifest?.Name != map.Name) throw new InvalidDataException("Map name does not match the listing.");
@@ -434,7 +455,8 @@ public sealed class MapCommunityClient : IDisposable
         try
         {
             stage?.Invoke("Downloading");
-            await DownloadPackageAsync("packages/" + required.PackageHash, temporary, null, token,
+            await DownloadVerifiedPackageAsync("packages/" + required.PackageHash, temporary, null,
+                required.PackageHash.ToString(), token,
                 (received, total) => progress?.Invoke(total > 0 ? Math.Clamp((float)received / total, 0, 1) : 0)).ConfigureAwait(false);
             stage?.Invoke("Verifying");
             if (!MapContentIdentity.FromPackage(temporary).Matches(required)) throw new InvalidDataException("The community returned a different map package.");
@@ -452,7 +474,8 @@ public sealed class MapCommunityClient : IDisposable
         string temporary = destination + "." + Guid.NewGuid().ToString("N") + ".download";
         try
         {
-            await DownloadPackageAsync("packages/" + required.PackageHash, temporary, null, token).ConfigureAwait(false);
+            await DownloadVerifiedPackageAsync("packages/" + required.PackageHash, temporary, null,
+                required.PackageHash.ToString(), token).ConfigureAwait(false);
             if (!MapContentIdentity.FromPackage(temporary).Matches(required)) throw new InvalidDataException("Community returned a different map package.");
             token.ThrowIfCancellationRequested();
             File.Move(temporary, destination, overwrite: true);
