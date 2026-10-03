@@ -476,6 +476,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
             FlushUniformWrites();
             FlushRetainedUniformWrites();
             FlushRetainedPbrUniformWrites();
+            FlushRetainedIndirectWrites();
             long start = PerformanceStart();
             _api.QueueSubmit(_queue, 1, &commands);
             if (start != 0)
@@ -523,6 +524,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
             page.DirtyEnd = 0;
         }
         _retainedPbrUniformSlotCursor = 0;
+        ResetRetainedIndirectArena();
         foreach (var program in _generatedPrograms.Values) program.BindGroupCursor = 0;
         ResetGeometryArena();
         _uploadBufferCursor = 0;
@@ -546,6 +548,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
         _retainedPbrUniformSlotSize = 0;
         _retainedPbrUniformSlotCursor = 0;
         _retainedPbrUniformSlotHighWater = 0;
+        DisposeRetainedIndirectArena();
         foreach (UploadBuffer upload in _uploadBuffers)
             if (upload.Buffer != 0) _api.BufferRelease((WgpuBuffer*)upload.Buffer);
         _uploadBuffers.Clear();
