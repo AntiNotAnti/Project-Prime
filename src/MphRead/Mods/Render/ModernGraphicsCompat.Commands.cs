@@ -14,7 +14,10 @@ internal sealed unsafe partial class ModernGraphicsCompat
     }
 
     private readonly Dictionary<ulong, UniformPool> _uniformPools = new();
-    private const int CommandBatchOperations = 256;
+    // Pooled uniforms/geometry remain unique until the public frame boundary,
+    // so a larger encoder does not introduce buffer reuse hazards. The previous
+    // 256-op ceiling produced many QueueSubmit calls in the frozen-room profile.
+    private const int CommandBatchOperations = 1024;
 
     private CommandEncoder* _commandEncoder;
     private int _commandOperations;

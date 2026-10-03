@@ -39,12 +39,14 @@ namespace MphRead.Mods.Render
         private NativeTexture? _fallbackDepth;
 
         private static bool UsesGeneratedShader(ModernProgramKind kind) =>
-            kind == ModernProgramKind.World || kind == ModernProgramKind.DeferredPbr || kind == ModernProgramKind.PostProcess;
+            kind is ModernProgramKind.World or ModernProgramKind.DeferredPbr
+                or ModernProgramKind.DeferredPbrMrt or ModernProgramKind.PostProcess;
 
         internal static void ValidateGeneratedShaders()
         {
             Current.GeneratedShader(ModernProgramKind.World);
             Current.GeneratedShader(ModernProgramKind.DeferredPbr);
+            Current.GeneratedShader(ModernProgramKind.DeferredPbrMrt);
             Current.GeneratedShader(ModernProgramKind.PostProcess);
             Current._device.ThrowIfFailed();
         }
@@ -136,7 +138,8 @@ namespace MphRead.Mods.Render
                 string name = generated.Layout.Samplers[i];
                 string? flag = name switch
                 {
-                    "tex" when kind is ModernProgramKind.DeferredPbr or ModernProgramKind.World => "use_texture",
+                    "tex" when kind is ModernProgramKind.DeferredPbr
+                        or ModernProgramKind.DeferredPbrMrt or ModernProgramKind.World => "use_texture",
                     "normal_tex" => "use_normal_map",
                     "specular_tex" => "use_specular_map",
                     "emissive_tex" => "use_emissive_map",
