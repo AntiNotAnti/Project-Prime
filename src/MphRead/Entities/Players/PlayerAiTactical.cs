@@ -225,7 +225,8 @@ public partial class PlayerEntity
             float healthFraction = _player.HealthMax <= 0 ? 1
                 : Math.Clamp(_player.Health / (float)_player.HealthMax, 0, 1);
             if (healthFraction <= tuning.RetreatHealthFraction
-                && ((Flags2.TestFlag(AiFlags2.TargetItem) && _itemC8 != null && IsHealth(_itemC8))
+                && Flags2.TestFlag(AiFlags2.TargetItem)
+                && ((_itemC8 != null && IsHealth(_itemC8))
                     || (_itemSpawnC4 != null && IsHealth(_itemSpawnC4))))
             {
                 // The native tree already knows how to route to pickups. Do not replace a
