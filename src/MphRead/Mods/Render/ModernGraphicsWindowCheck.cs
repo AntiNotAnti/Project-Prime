@@ -718,13 +718,23 @@ namespace MphRead.Mods.Render
                     || ModernGraphicsCompat.NativeTextureSizeForCheck(texture) != (2, 2))
                     throw new InvalidOperationException("Progressive texture swapped after the second chunk.");
                 ModernGraphicsCompat.Present();
+                if (ModernGraphicsCompat.PendingTextureUploadCount != 1
+                    || ModernGraphicsCompat.NativeTextureSizeForCheck(texture) != (2, 2))
+                    throw new InvalidOperationException("Progressive texture swapped before its mip chain was complete.");
+
+                // Mips are deliberately one level per presentation after the
+                // base image. Bound the loop so a stalled promotion is a test
+                // failure rather than an infinite renderer check.
+                int mipFrames = 0;
+                while (ModernGraphicsCompat.PendingTextureUploadCount != 0 && mipFrames++ < 16)
+                    ModernGraphicsCompat.Present();
                 if (ModernGraphicsCompat.PendingTextureUploadCount != 0
                     || ModernGraphicsCompat.NativeTextureSizeForCheck(texture) != (width, height))
                 {
                     throw new InvalidOperationException(
-                        "Progressive texture did not atomically replace the fallback after its final chunk.");
+                        "Progressive texture did not atomically replace the fallback after its mip chain.");
                 }
-                Console.WriteLine("[renderwindowcheck] multi-frame large texture promotion PASS");
+                Console.WriteLine($"[renderwindowcheck] multi-frame large texture promotion PASS mipFrames={mipFrames}");
             }
             finally
             {
