@@ -73,6 +73,7 @@ namespace MphRead
                 RenderOptions.AdvancedMaterials = true;
                 RefreshTextureQuality();
                 int binding = sources[0].Key;
+                int advancedToggleVersion = _streamingTextureVersions[binding];
 
                 // Stand in for a replacement companion even on machines without
                 // an installed HD pack. Turning advanced maps off must free it
@@ -94,11 +95,15 @@ namespace MphRead
                 if (_materialMaps.ContainsKey(binding) || GL.IsTexture(companion)
                     || _flatColors.ContainsKey(companion) || _mipmappedTextures.Contains(companion))
                     throw new InvalidOperationException("Advanced material maps Off retained an unused companion texture");
+                if (_streamingTextureVersions[binding] != advancedToggleVersion)
+                    throw new InvalidOperationException("Advanced material maps Off unnecessarily rebound base albedo");
 
                 // Repeat the ownership check for the master HD replacement
                 // switch so the two live settings cannot regress independently.
                 RenderOptions.AdvancedMaterials = true;
                 RefreshTextureQuality();
+                if (_streamingTextureVersions[binding] != advancedToggleVersion)
+                    throw new InvalidOperationException("Advanced material maps On unnecessarily rebound base albedo");
                 if (_materialMaps.Remove(binding, out previous))
                 {
                     if (previous.Normal != 0) ReleaseTexture(previous.Normal);
