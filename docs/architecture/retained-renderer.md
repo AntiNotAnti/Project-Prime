@@ -348,6 +348,33 @@ while removing unnecessary compatibility replay from the main player draw.
 
 Benchmarks report these outlined normal-world direct draws separately.
 
+## Slice 13: stable retained uniform slots
+
+The expanded direct World path now uses a dedicated retained uniform arena instead
+of the generic frame arena. Direct draw slot N maps to the same WebGPU buffer and
+aligned offset on every completed public frame.
+
+Because WebGPU bind groups bake the uniform buffer and offset into the binding,
+this removes offset churn caused by unrelated shadow/PBR/UI allocations.
+
+The retained arena:
+
+- uses fixed-size aligned World-uniform slots;
+- never reuses a slot until the completed public-frame boundary;
+- stages writes and flushes them immediately before the QueueSubmit that consumes
+  those offsets;
+- keeps pages alive across frames so buffer identity is stable;
+- grows without relocating earlier slots.
+
+Direct World bind groups use a separate stable-slot cache. A cached group survives
+across frames while its slot, texture views and samplers are unchanged. Advanced
+material companion maps, viewmodels, matrix stacks, billboards, overrides,
+textured skins and outlined normal draws all share the same stable mechanism.
+
+Progressive texture replacement or sampler changes replace only affected cached
+groups. Benchmarks report retained bind-group hits/misses and uniform-slot
+high-water; steady static scenes should trend strongly toward hits after warmup.
+
 ## Next slices
 
 The graph and packet seam is intended to support the remaining migration without

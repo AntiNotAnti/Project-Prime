@@ -34,6 +34,34 @@ internal sealed unsafe partial class ModernGraphicsCompat
         internal ulong Size { get; }
     }
 
+    private sealed class RetainedUniformArenaPage
+    {
+        internal nint Buffer;
+        internal ulong Capacity;
+        internal byte[] Staging = Array.Empty<byte>();
+        internal ulong DirtyStart = ulong.MaxValue;
+        internal ulong DirtyEnd;
+    }
+
+    private readonly struct RetainedUniformAllocation
+    {
+        internal RetainedUniformAllocation(int slot, int page, nint buffer,
+            ulong offset, ulong size)
+        {
+            Slot = slot;
+            Page = page;
+            Buffer = buffer;
+            Offset = offset;
+            Size = size;
+        }
+
+        internal int Slot { get; }
+        internal int Page { get; }
+        internal nint Buffer { get; }
+        internal ulong Offset { get; }
+        internal ulong Size { get; }
+    }
+
     private sealed class UploadBuffer
     {
         internal nint Buffer;
@@ -45,6 +73,15 @@ internal sealed unsafe partial class ModernGraphicsCompat
     private const ulong UniformArenaPageBytes = 4UL * 1024 * 1024;
     private readonly List<UniformArenaPage> _uniformArena = new();
     private int _uniformArenaPage;
+
+    // Direct retained World draws use a separate deterministic arena. Slot N
+    // always maps to the same buffer+offset across completed public frames,
+    // which makes its bind group reusable even when unrelated uniform
+    // allocations before the world pass change.
+    private readonly List<RetainedUniformArenaPage> _retainedUniformArena = new();
+    private int _retainedUniformSlotCursor;
+    private ulong _retainedUniformSlotSize;
+    private int _retainedUniformSlotHighWater;
 
     private readonly List<UploadBuffer> _uploadBuffers = new();
     private int _uploadBufferCursor;
@@ -104,6 +141,64 @@ internal sealed unsafe partial class ModernGraphicsCompat
         }
     }
 
+    private RetainedUniformAllocation RentRetainedUniformSlot(ulong size)
+    {
+        ulong reserved = AlignUniform(Math.Max(4UL, size));
+        if (_retainedUniformSlotSize == 0)
+            _retainedUniformSlotSize = reserved;
+        else if (_retainedUniformSlotSize != reserved)
+            throw new InvalidOperationException(
+                $"Retained World uniform size changed from {_retainedUniformSlotSize} to {reserved} bytes.");
+
+        int slotsPerPage = checked((int)Math.Max(
+            1UL, UniformArenaPageBytes / reserved));
+        int slot = _retainedUniformSlotCursor++;
+        _retainedUniformSlotHighWater = Math.Max(
+            _retainedUniformSlotHighWater, _retainedUniformSlotCursor);
+        int pageIndex = slot / slotsPerPage;
+        int slotInPage = slot % slotsPerPage;
+        while (_retainedUniformArena.Count <= pageIndex)
+            _retainedUniformArena.Add(new RetainedUniformArenaPage());
+
+        RetainedUniformArenaPage page = _retainedUniformArena[pageIndex];
+        if (page.Buffer == 0)
+        {
+            page.Capacity = Math.Max(UniformArenaPageBytes,
+                checked((ulong)slotsPerPage * reserved));
+            WgpuBuffer* buffer = _api.DeviceCreateBuffer(_device.Device,
+                new BufferDescriptor
+                {
+                    Size = page.Capacity,
+                    Usage = BufferUsage.Uniform | BufferUsage.CopyDst
+                });
+            if (buffer == null)
+                throw new InvalidOperationException(
+                    $"Could not allocate {page.Capacity} byte retained World uniform arena.");
+            page.Buffer = (nint)buffer;
+            page.Staging = new byte[checked((int)page.Capacity)];
+        }
+
+        ulong offset = checked((ulong)slotInPage * reserved);
+        return new RetainedUniformAllocation(
+            slot, pageIndex, page.Buffer, offset, size);
+    }
+
+    private void WriteRetainedUniformBuffer(
+        in RetainedUniformAllocation allocation, void* data, nuint size)
+    {
+        if ((ulong)size > allocation.Size)
+            throw new ArgumentOutOfRangeException(nameof(size),
+                "Retained uniform write exceeds its stable slot.");
+        RetainedUniformArenaPage page = _retainedUniformArena[allocation.Page];
+        int offset = checked((int)allocation.Offset);
+        int count = checked((int)size);
+        new ReadOnlySpan<byte>(data, count).CopyTo(
+            page.Staging.AsSpan(offset, count));
+        page.DirtyStart = Math.Min(page.DirtyStart, allocation.Offset);
+        page.DirtyEnd = Math.Max(
+            page.DirtyEnd, allocation.Offset + (ulong)size);
+    }
+
     private void WriteUniformBuffer(in UniformAllocation allocation, void* data, nuint size)
     {
         if ((ulong)size > allocation.Size)
@@ -121,6 +216,29 @@ internal sealed unsafe partial class ModernGraphicsCompat
         for (int i = 0; i < _uniformArena.Count; i++)
         {
             UniformArenaPage page = _uniformArena[i];
+            if (page.Buffer == 0 || page.DirtyStart == ulong.MaxValue
+                || page.DirtyEnd <= page.DirtyStart)
+            {
+                continue;
+            }
+
+            ulong start = page.DirtyStart;
+            ulong size = page.DirtyEnd - start;
+            fixed (byte* basePtr = page.Staging)
+            {
+                WriteProfiledBuffer((WgpuBuffer*)page.Buffer, start,
+                    basePtr + checked((int)start), checked((nuint)size));
+            }
+            page.DirtyStart = ulong.MaxValue;
+            page.DirtyEnd = 0;
+        }
+    }
+
+    private void FlushRetainedUniformWrites()
+    {
+        for (int i = 0; i < _retainedUniformArena.Count; i++)
+        {
+            RetainedUniformArenaPage page = _retainedUniformArena[i];
             if (page.Buffer == 0 || page.DirtyStart == ulong.MaxValue
                 || page.DirtyEnd <= page.DirtyStart)
             {
@@ -266,6 +384,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
             // offsets, collapsing hundreds of tiny writes into one per page.
             FlushGeometryWrites();
             FlushUniformWrites();
+            FlushRetainedUniformWrites();
             long start = PerformanceStart();
             _api.QueueSubmit(_queue, 1, &commands);
             if (start != 0)
@@ -301,6 +420,12 @@ internal sealed unsafe partial class ModernGraphicsCompat
             page.DirtyEnd = 0;
         }
         _uniformArenaPage = 0;
+        foreach (RetainedUniformArenaPage page in _retainedUniformArena)
+        {
+            page.DirtyStart = ulong.MaxValue;
+            page.DirtyEnd = 0;
+        }
+        _retainedUniformSlotCursor = 0;
         foreach (var program in _generatedPrograms.Values) program.BindGroupCursor = 0;
         ResetGeometryArena();
         _uploadBufferCursor = 0;
@@ -312,6 +437,12 @@ internal sealed unsafe partial class ModernGraphicsCompat
         foreach (UniformArenaPage page in _uniformArena)
             if (page.Buffer != 0) _api.BufferRelease((WgpuBuffer*)page.Buffer);
         _uniformArena.Clear();
+        foreach (RetainedUniformArenaPage page in _retainedUniformArena)
+            if (page.Buffer != 0) _api.BufferRelease((WgpuBuffer*)page.Buffer);
+        _retainedUniformArena.Clear();
+        _retainedUniformSlotSize = 0;
+        _retainedUniformSlotCursor = 0;
+        _retainedUniformSlotHighWater = 0;
         foreach (UploadBuffer upload in _uploadBuffers)
             if (upload.Buffer != 0) _api.BufferRelease((WgpuBuffer*)upload.Buffer);
         _uploadBuffers.Clear();
