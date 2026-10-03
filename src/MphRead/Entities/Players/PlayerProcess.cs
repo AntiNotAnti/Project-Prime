@@ -34,6 +34,9 @@ namespace MphRead.Entities
 
         internal static bool BotScriptedLifecycleAllowed(bool singlePlayer) => singlePlayer;
 
+        internal static AiFlags3 FilterBotLifecycleFlags(AiFlags3 flags, bool singlePlayer)
+            => BotScriptedLifecycleAllowed(singlePlayer) ? flags : flags & ~BotScriptedLifecycleFlags;
+
         private void CheckSyluxBombCount()
         {
             int placed = 0;
@@ -107,7 +110,7 @@ namespace MphRead.Entities
                     // destroy/fade/despawn hunter actors and grant encounter invulnerability.
                     // Persistent multiplayer/practice bots share parts of those trees, so
                     // reaching one of those actions after a kill must not end the bot's life.
-                    AiData.Flags3 &= ~BotScriptedLifecycleFlags;
+                    AiData.Flags3 = FilterBotLifecycleFlags(AiData.Flags3, singlePlayer: false);
                     AiData.Flags2 &= ~AiFlags2.Bit13;
                 }
                 else
