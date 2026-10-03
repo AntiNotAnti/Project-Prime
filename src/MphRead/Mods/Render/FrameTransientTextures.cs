@@ -16,6 +16,7 @@ namespace MphRead
             internal TextureMagFilter MagFilter;
             internal bool InUse;
             internal long LastUse;
+            internal long LastReleaseRenderSequence = -1;
         }
 
         // The frame graph owns these scratch color targets. A lease may move
@@ -49,7 +50,8 @@ namespace MphRead
                     candidate.InUse = true;
                     candidate.LastUse = ++_frameTransientTextureSerial;
                     _frameTransientTextureHits++;
-                    _frameTransientTextureAliases++;
+                    if (candidate.LastReleaseRenderSequence == _renderSequence)
+                        _frameTransientTextureAliases++;
                     return candidate.Texture;
                 }
             }
@@ -95,6 +97,7 @@ namespace MphRead
                 {
                     entry.InUse = false;
                     entry.LastUse = ++_frameTransientTextureSerial;
+                    entry.LastReleaseRenderSequence = _renderSequence;
                     texture = 0;
                     TrimFrameTransientTextures();
                     return;
