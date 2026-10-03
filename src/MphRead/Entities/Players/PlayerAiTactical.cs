@@ -714,7 +714,7 @@ public partial class PlayerEntity
             if(direction.LengthSquared<=0.001f)return false;
             direction.Normalize();
             Vector3 candidate=_player.Position+direction*1.5f;
-            Vector3 from=candidate.AddY(_player.IsAltForm?.5f:1f);
+            Vector3 from=candidate.AddY(_player.IsAltForm ? 0.5f : 1f);
             Vector3 to=target.CameraInfo.Position;
             if(to==Vector3.Zero)
                 to=target.Position.AddY(target.IsAltForm
