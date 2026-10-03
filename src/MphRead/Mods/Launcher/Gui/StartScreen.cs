@@ -558,10 +558,11 @@ namespace MphRead.Mods.Launcher.Gui
             }
         }
 
-        internal void RefreshDeferredRooms()
+        internal void RefreshDeferredRooms(IReadOnlyList<string> rooms)
         {
+            _rooms.Clear();
+            _rooms.AddRange(rooms);
             bool rebuild = _prime.Router.Current == PrimeRoute.Offline;
-            RefreshRooms();
             _prime.Workspaces.Remove(PrimeRoute.Offline);
             if (rebuild) _prime.Workspaces.Show(PrimeRoute.Offline);
             _prime.Refresh();
