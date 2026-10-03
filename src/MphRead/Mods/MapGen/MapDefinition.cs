@@ -135,11 +135,41 @@ namespace MphRead.Mods.MapGen
 
         public static MapDefinition Load(string path)
         {
-            if(!MapBundle.Is(path)&&new FileInfo(path).Length>8*1024*1024)throw new InvalidDataException("Map project exceeds 8 MiB.");
-            string text = MapBundle.Is(path)
-                ? MapBundle.ReadRecipe(path)
-                    ?? throw new ProgramException($"{Path.GetFileName(path)} has no map in it.")
+            return LoadCore(path, catalogOnly: false);
+        }
+
+        /// <summary>
+        /// Read enough of a map to list it in the launcher without cryptographically
+        /// streaming every asset in a potentially hundreds-of-megabytes package.
+        /// Runtime/install/share paths continue to use <see cref="Load"/>.
+        /// </summary>
+        internal static MapDefinition LoadCatalog(string path)
+        {
+            return LoadCore(path, catalogOnly: true);
+        }
+
+        /// <summary>Rehydrate a package definition stored in the persistent catalog.</summary>
+        internal static MapDefinition FromCatalogCache(string text, string path)
+        {
+            return Parse(text, path, bundled: true);
+        }
+
+        private static MapDefinition LoadCore(string path, bool catalogOnly)
+        {
+            bool bundled = MapBundle.Is(path);
+            if (!bundled && new FileInfo(path).Length > 8 * 1024 * 1024)
+                throw new InvalidDataException("Map project exceeds 8 MiB.");
+            string text = bundled
+                ? catalogOnly
+                    ? MapPackageReader.ReadProjectForCatalog(path)
+                    : MapBundle.ReadRecipe(path)
+                        ?? throw new ProgramException($"{Path.GetFileName(path)} has no map in it.")
                 : File.ReadAllText(path);
+            return Parse(text, path, bundled);
+        }
+
+        private static MapDefinition Parse(string text, string path, bool bundled)
+        {
             MapDefinition? result = JsonSerializer.Deserialize<MapDefinition>(text, _options);
             if (result == null)
             {
@@ -148,10 +178,10 @@ namespace MphRead.Mods.MapGen
             if (result.FormatVersion is < 1 or > 2)
                 throw new MapAuthoringException("FP-MAP-008", $"Unsupported map format {result.FormatVersion}.");
             MapValidator.RequireRuntimeName(result.Name);
-            if(result.FormatVersion==1)result.Name=result.Name.ToUpperInvariant();
+            if (result.FormatVersion == 1) result.Name = result.Name.ToUpperInvariant();
             result.BaseDirectory = Path.GetDirectoryName(Path.GetFullPath(path));
             result.SourcePath = Path.GetFullPath(path);
-            result.BundlePath = MapBundle.Is(path) ? result.SourcePath : null;
+            result.BundlePath = bundled ? result.SourcePath : null;
             if (result.Import != null)
             {
                 result.Import.BaseDirectory = result.BaseDirectory;
@@ -166,10 +196,17 @@ namespace MphRead.Mods.MapGen
             {
                 foreach (var source in result.ModelSources)
                 {
-                    source.Source=Path.GetFullPath(Path.Combine(result.BaseDirectory!,source.Source));
-                    source.Dependencies=source.Dependencies.ConvertAll(d=>d with {Path=Path.GetFullPath(Path.Combine(result.BaseDirectory!,d.Path))});
+                    source.Source = Path.GetFullPath(Path.Combine(result.BaseDirectory!, source.Source));
+                    source.Dependencies = source.Dependencies.ConvertAll(d => d with
+                    {
+                        Path = Path.GetFullPath(Path.Combine(result.BaseDirectory!, d.Path))
+                    });
                 }
-                foreach(var asset in result.Assets)if(!string.IsNullOrEmpty(asset.SourcePath))asset.SourcePath=Path.GetFullPath(Path.Combine(result.BaseDirectory!,asset.SourcePath));
+                foreach (var asset in result.Assets)
+                {
+                    if (!string.IsNullOrEmpty(asset.SourcePath))
+                        asset.SourcePath = Path.GetFullPath(Path.Combine(result.BaseDirectory!, asset.SourcePath));
+                }
             }
             return result;
         }
