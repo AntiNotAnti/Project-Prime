@@ -333,13 +333,19 @@ public partial class PlayerEntity
                 }
 
                 float distance = (candidate.Position - _player.Position).Length;
-                bool objective = candidate.OctolithFlag != null || candidate.IsPrimeHunter;
+                bool occupyingObjective = TacticalOccupiesObjective(candidate);
+                int carriedTokens = (uint)candidate.SlotIndex < (uint)_scene.GameState.TokenCarried.Length
+                    ? _scene.GameState.TokenCarried[candidate.SlotIndex] : 0;
+                float objectivePriority = TacticalObjectivePriorityForTest(_scene.GameState.Mode,
+                    carriedTokens, occupyingObjective, candidate.OctolithFlag != null, candidate.IsPrimeHunter);
+                bool objective = objectivePriority > 0;
                 int aggro = AggroFunc2148394(7, 2, 1, candidate, null);
                 float healthFraction = candidate.HealthMax <= 0 ? 1
                     : Math.Clamp(candidate.Health / (float)candidate.HealthMax, 0, 1);
                 float score = TacticalTargetUtilityForTest(distance, visible,
-                    candidate == _tacticalTarget, objective, healthFraction, aggro, recentThreat,
+                    candidate == _tacticalTarget, objective: false, healthFraction, aggro, recentThreat,
                     Math.Clamp(_player.BotLevel, 0, 3));
+                score += objectivePriority;
 
                 if (candidate == _tacticalTarget)
                 {
@@ -368,6 +374,58 @@ public partial class PlayerEntity
                 }
             }
             return best;
+        }
+
+        private bool TacticalOccupiesObjective(PlayerEntity candidate)
+        {
+            GameMode mode = _scene.GameState.Mode;
+            if (mode is not (GameMode.Nodes or GameMode.NodesTeams or GameMode.Defender
+                or GameMode.DefenderTeams or GameMode.Hardpoint or GameMode.HardpointTeams))
+            {
+                return false;
+            }
+
+            foreach (NodeDefenseEntity node in _scene.GetNodeDefenseEntities())
+            {
+                if (_scene.GameState.IsHardpoint && node.Id != _scene.GameState.ActiveHardpointId)
+                {
+                    continue;
+                }
+                if ((uint)candidate.SlotIndex < (uint)node.OccupiedBy.Count
+                    && node.OccupiedBy[candidate.SlotIndex])
+                {
+                    return true;
+                }
+                if (node.CapturedPlayer == candidate)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public static float TacticalObjectivePriorityForTest(GameMode mode, int carriedTokens,
+            bool occupyingObjective, bool carriesFlag, bool primeHunter)
+        {
+            float score = 0;
+            if (carriesFlag && mode is GameMode.Capture or GameMode.Bounty or GameMode.BountyTeams)
+            {
+                score = Math.Max(score, 36);
+            }
+            if (primeHunter && mode == GameMode.PrimeHunter)
+            {
+                score = Math.Max(score, 38);
+            }
+            if (carriedTokens > 0 && mode is GameMode.KillConfirmed or GameMode.KillConfirmedTeams or GameMode.Headhunter)
+            {
+                score = Math.Max(score, 18 + Math.Min(24, carriedTokens * 3));
+            }
+            if (occupyingObjective && mode is GameMode.Nodes or GameMode.NodesTeams
+                or GameMode.Defender or GameMode.DefenderTeams or GameMode.Hardpoint or GameMode.HardpointTeams)
+            {
+                score = Math.Max(score, 32);
+            }
+            return score;
         }
 
         public static float TacticalTargetUtilityForTest(float distance, bool visible, bool current,
