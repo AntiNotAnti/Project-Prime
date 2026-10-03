@@ -354,6 +354,8 @@ namespace MphRead
         internal int RetainedGraphStateReuseCount =>
             _retainedRenderWorld.GraphStateReuseCount;
         internal int RetainedMeshDescriptorCount => _retainedRenderWorld.MeshDescriptorCount;
+        internal long RetainedRoomTemplateBuilds => _room?.RetainedRoomTemplateBuilds ?? 0;
+        internal long RetainedRoomTemplateHits => _room?.RetainedRoomTemplateHits ?? 0;
         internal ulong RetainedRenderFrameRevision => _retainedRenderWorld.FrameRevision;
 
         private void CaptureRetainedRenderWorld()

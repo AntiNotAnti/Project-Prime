@@ -101,6 +101,28 @@ large-texture promotion and pipeline prewarm from #262 remain intact, and #266's
 run-based viewmodel isolation is preserved. Retained graph pass boundaries close
 any open viewmodel run before changing pass-wide state.
 
+## Slice 3: retained room submission templates
+
+Room portal/frustum visibility remains dynamic and authoritative. Once a node is
+accepted as visible, however, its immutable mesh topology no longer has to be
+rediscovered every frame.
+
+A weak per-node template retains:
+
+- mesh reference and display-list identity;
+- material reference and material index.
+
+The live emission step still reads animated material values, mesh visibility,
+texture-coordinate animation, selection state, transforms and polygon IDs. The
+template therefore cannot freeze dynamic room behavior.
+
+The emission loop also resolves room lighting, matrix-stack metadata and portal
+alpha once per visible node instead of repeating those reads for every mesh in
+the node. Weak keys ensure room rotations do not keep an old model graph alive.
+
+Renderer benchmarks expose room-template builds and cache hits so large community
+maps can quantify whether the retained submission path is being exercised.
+
 ## Next slices
 
 The graph and packet seam is intended to support the remaining migration without
