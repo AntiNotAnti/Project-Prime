@@ -26,7 +26,10 @@ additionally clamped to the graphics-device maximum. UI assets cap at 2048.
 
 The manager uses RGBA8 uploads and accounts for the extra one-third memory of a
 complete mip chain. Cosmetic residency budgets are conservative by platform and
-quality. Existing world texture bindings retain their engine-owned IDs during
+quality. World/material replacement textures currently share the same quality
+and device-dimension limits but do not yet participate in that cosmetic
+residency budget; a scene-wide world-material VRAM policy remains follow-up
+work. Existing world texture bindings retain their engine-owned IDs during
 quality changes, so animation and material references remain valid.
 
 ## Identity and compatibility
