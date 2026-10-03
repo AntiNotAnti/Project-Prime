@@ -26,6 +26,10 @@ namespace MphRead.Mods.Render
                     out string layoutError),
                 "retained World generated uniform layout validates"
                     + (layoutError.Length == 0 ? "" : ": " + layoutError));
+            Check(ModernGraphicsCompat.ValidateRetainedDeferredPbrLayout(
+                    out string pbrLayoutError),
+                "retained DeferredPbrMrt generated uniform layout validates"
+                    + (pbrLayoutError.Length == 0 ? "" : ": " + pbrLayoutError));
 
             var opaqueA = new RenderItem
             {
@@ -166,6 +170,28 @@ namespace MphRead.Mods.Render
             direct.Alpha = 0.5f;
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
                 "alpha-blended normal mesh skips the opaque direct path");
+
+            var pbrDirect = new RenderItem
+            {
+                Type = RenderItemType.Mesh,
+                RenderMode = RenderMode.Normal,
+                Alpha = 1,
+                BillboardMode = BillboardMode.None
+            };
+            Check(ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
+                "plain opaque mesh is eligible for direct retained PBR MRT");
+            pbrDirect.ViewModel = true;
+            Check(!ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
+                "viewmodel stays off direct PBR MRT replay");
+            pbrDirect.ViewModel = false;
+            pbrDirect.Cosmetics = new Mods.Cosmetics.CosmeticSurface(
+                1, 0, 0, Vector3.One, Vector3.One, 1, 0, 0);
+            Check(!ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
+                "cosmetic surface stays on compatibility PBR replay");
+            pbrDirect.Cosmetics = default;
+            pbrDirect.Alpha = 0.5f;
+            Check(!ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
+                "alpha-blended mesh stays off direct PBR MRT replay");
 
             var baseOnly = new RetainedWorldTextureSet(
                 new RetainedTextureBinding(10, default, true),
