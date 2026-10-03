@@ -200,8 +200,8 @@ namespace MphRead.Mods.MapGen
             while (pending.Count > 0)
             {
                 string directory = pending.Pop();
-                IEnumerable<string> files;
-                try { files = Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly); }
+                string[] files;
+                try { files = Directory.GetFiles(directory, "*", SearchOption.TopDirectoryOnly); }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 { continue; }
 
@@ -217,10 +217,10 @@ namespace MphRead.Mods.MapGen
                         yield return path;
                 }
 
-                IEnumerable<string> directories;
+                string[] directories;
                 try
                 {
-                    directories = Directory.EnumerateDirectories(directory, "*",
+                    directories = Directory.GetDirectories(directory, "*",
                         SearchOption.TopDirectoryOnly);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
