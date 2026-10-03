@@ -21,7 +21,9 @@ public static class MaterialPackAuthoring
         {
             MaterialPack.ValidateImage(source);
             byte[] bytes = File.ReadAllBytes(source);
-            relative = "textures/" + Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant() + ".png";
+            string extension = Path.GetExtension(source).Equals(".ktx2", StringComparison.OrdinalIgnoreCase)
+                ? ".ktx2" : ".png";
+            relative = "textures/" + Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant() + extension;
             string path = MaterialPack.ContainedPath(root, relative);
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             if (!File.Exists(path))
