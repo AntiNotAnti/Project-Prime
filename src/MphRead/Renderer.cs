@@ -1557,6 +1557,11 @@ namespace MphRead
             Task<Mods.Render.ModernTextureAsset?> Task);
 
         private const int MaxStreamingTextureDecodes = 2;
+        // Desktop STB temporarily owns its decoded RGBA image while the
+        // managed asset copy/downscale is produced. Serialize sources above
+        // this size so two giant authoring images cannot overlap and turn
+        // an 8K pack into a >1 GiB transient-memory spike.
+        private const long SerializedStreamingDecodeBytes = 96L * 1024 * 1024;
         private int _streamingTextureVersion;
         private readonly Dictionary<int, int> _streamingTextureVersions = new();
         private readonly Queue<StreamingTextureRequest> _streamingTextureQueue = new();
@@ -1869,11 +1874,26 @@ namespace MphRead
                 break;
             }
 
-            while (_streamingTextureDecodes.Count < MaxStreamingTextureDecodes
-                && _streamingTextureQueue.Count > 0)
+            while (_streamingTextureQueue.Count > 0)
             {
-                StreamingTextureRequest request = _streamingTextureQueue.Dequeue();
-                if (!StreamingTextureRequestCurrent(request)) continue;
+                StreamingTextureRequest request = _streamingTextureQueue.Peek();
+                if (!StreamingTextureRequestCurrent(request))
+                {
+                    _streamingTextureQueue.Dequeue();
+                    continue;
+                }
+
+                bool largeQueued = SerializedStreamingDecode(request);
+                bool largeActive = _streamingTextureDecodes.Any(
+                    pending => SerializedStreamingDecode(pending.Request));
+                if (_streamingTextureDecodes.Count >= MaxStreamingTextureDecodes
+                    || largeActive
+                    || (largeQueued && _streamingTextureDecodes.Count > 0))
+                {
+                    break;
+                }
+
+                _streamingTextureQueue.Dequeue();
                 Task<Mods.Render.ModernTextureAsset?> task = Task.Run(() =>
                     Mods.Render.TextureReplacementPack.DecodePrepared(
                         request.Image, request.AssetClass, request.Channel,
@@ -1881,6 +1901,10 @@ namespace MphRead
                 _streamingTextureDecodes.Add(new StreamingTextureDecode(request, task));
             }
         }
+
+        private static bool SerializedStreamingDecode(StreamingTextureRequest request)
+            => (long)request.Image.Width * request.Image.Height * 4
+                > SerializedStreamingDecodeBytes;
 
         private void PromoteModernTextureStream(StreamingTextureRequest request,
             Mods.Render.ModernTextureAsset asset)
