@@ -26,8 +26,8 @@ namespace MphRead.Mods.Network
         private Task<ServerStatus>? _probe;
         private double _lastResponsiveAt;
         private bool _everResponsive;
-        private const double ProbeIntervalSeconds = 1.0;
-        private const double UnresponsiveSeconds = 8.0;
+        private const double ProbeIntervalSeconds = 5.0;
+        private const double UnresponsiveSeconds = 20.0;
 
         public int Port { get; }
         public bool EverOccupied { get; private set; }
@@ -72,8 +72,7 @@ namespace MphRead.Mods.Network
                     {
                         HostedMapArchive? archive = hostedMaps.Find(entry.RoomKey, entry.PackageHash);
                         if (archive == null || !File.Exists(archive.PackagePath)
-                            || archive.Identity.PackageHash != entry.PackageHash
-                            || !MapGen.MapContentIdentity.FromPackage(archive.PackagePath).Matches(archive.Identity))
+                            || archive.Identity.PackageHash != entry.PackageHash)
                         {
                             throw new InvalidDataException(
                                 "The host does not have the exact requested package for " + entry.RoomKey + ".");
