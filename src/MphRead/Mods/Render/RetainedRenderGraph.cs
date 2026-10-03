@@ -141,15 +141,60 @@ namespace MphRead.Mods.Render
 
         private static ulong BuildStateKey(RenderItem item)
         {
+            // This is deliberately a render-state key, not a geometry key.
+            // Different room meshes with identical pipeline/material state must
+            // compare equal so sorting can make them adjacent and let the batch
+            // executor reuse that state. Mesh identity remains outside the key.
             unchecked
             {
-                ulong key = (uint)item.ListId;
-                key = key * 1099511628211UL ^ (uint)item.TextureBindingId;
-                key = key * 1099511628211UL ^ (uint)item.RenderMode;
-                key = key * 1099511628211UL ^ (uint)item.CullingMode;
-                key = key * 1099511628211UL ^ (item.HasTexture ? 1UL : 0UL);
-                key = key * 1099511628211UL ^ (item.Lighting ? 1UL : 0UL);
-                key = key * 1099511628211UL ^ (item.ViewModel ? 1UL : 0UL);
+                const ulong offsetBasis = 14695981039346656037UL;
+                const ulong prime = 1099511628211UL;
+                ulong key = offsetBasis;
+
+                void Mix(uint value)
+                {
+                    key ^= value;
+                    key *= prime;
+                }
+
+                void MixFloat(float value) =>
+                    Mix(BitConverter.SingleToUInt32Bits(value));
+
+                void MixVector3(Vector3 value)
+                {
+                    MixFloat(value.X);
+                    MixFloat(value.Y);
+                    MixFloat(value.Z);
+                }
+
+                void MixMatrix(Matrix4 value)
+                {
+                    MixFloat(value.M11); MixFloat(value.M12);
+                    MixFloat(value.M13); MixFloat(value.M14);
+                    MixFloat(value.M21); MixFloat(value.M22);
+                    MixFloat(value.M23); MixFloat(value.M24);
+                    MixFloat(value.M31); MixFloat(value.M32);
+                    MixFloat(value.M33); MixFloat(value.M34);
+                    MixFloat(value.M41); MixFloat(value.M42);
+                    MixFloat(value.M43); MixFloat(value.M44);
+                }
+
+                Mix((uint)item.PolygonMode);
+                Mix((uint)item.RenderMode);
+                Mix((uint)item.CullingMode);
+                Mix(item.Wireframe ? 1u : 0u);
+                Mix(item.Lighting ? 1u : 0u);
+                MixVector3(item.Diffuse);
+                MixVector3(item.Ambient);
+                MixVector3(item.Specular);
+                MixVector3(item.Emission);
+                MixFloat(item.Alpha);
+                Mix((uint)item.TexgenMode);
+                Mix((uint)item.XRepeat);
+                Mix((uint)item.YRepeat);
+                Mix(item.HasTexture ? 1u : 0u);
+                Mix(unchecked((uint)item.TextureBindingId));
+                MixMatrix(item.TexcoordMatrix);
                 return key;
             }
         }
