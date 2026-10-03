@@ -641,7 +641,7 @@ try
     var solvedVelocity=solvedDirection*solvedSpeed;
     float solvedFrames=10f/MathF.Max(.0001f,new OpenTK.Mathematics.Vector3(solvedVelocity.X,0,solvedVelocity.Z).Length);
     float solvedGravityTime=MathF.Max(0,solvedFrames-solvedPad.ControlLockTime);
-    float solvedGravity=-MphRead.Fixed.ToFloat(MphRead.Metadata.PlayerValues[(int)MphRead.Entities.Hunter.Samus].BipedGravity);
+    float solvedGravity=-MphRead.Fixed.ToFloat(MphRead.Metadata.PlayerValues[(int)MphRead.Hunter.Samus].BipedGravity);
     var solvedLanding=new OpenTK.Mathematics.Vector3(0,0,0)+solvedVelocity*solvedFrames
         -OpenTK.Mathematics.Vector3.UnitY*(.5f*solvedGravity*solvedGravityTime*solvedGravityTime);
     Check(OpenTK.Mathematics.Vector3.Distance(solvedLanding,new OpenTK.Mathematics.Vector3(10,1.5f,0))<.002f,
@@ -989,6 +989,12 @@ try
     Check(MapBuildFingerprint.Create(realDefinition).ContentKey!=beforeAssetChange,"asset content changes fingerprint");
     string package=MapPackageBuilder.Build(realDefinition,Path.Combine(root,"real.ppmap"));
     var importedPackage=MapDefinition.Load(package);
+    string packagedTexture = importedPackage.Assets.First(a => a.Path.EndsWith(".tex", StringComparison.OrdinalIgnoreCase)).Path;
+    byte[] packagedTextureBytes = MapAssets.Read(importedPackage, packagedTexture);
+    var parallelPackageReads = await Task.WhenAll(Enumerable.Range(0, 4)
+        .Select(_ => Task.Run(() => MapAssets.Read(importedPackage, packagedTexture))));
+    Check(parallelPackageReads.All(bytes => bytes.SequenceEqual(packagedTextureBytes)),
+        "validated ppmap asset reads are concurrent and byte-exact");
     var exactIdentity = MapContentIdentity.FromPackage(package);
     var installedIndex = InstalledMapRegistry.Create(new[] { importedPackage });
     Check(installedIndex.HasExact(exactIdentity), "installed package indexed by exact identity");

@@ -177,6 +177,28 @@ diagnostic/command-line renderer selection is not fenced.
 Run `ProjectPrime -renderwindowcheck -renderer vulkan` or `-renderer dx12` to exercise the staged 4096-wide mip regression and backend startup path without game assets.
 
 
+## HD companion residency optimization (2026-10-02)
+
+Normal/specular/emissive replacement maps now load only while
+`AdvancedMaterials` is enabled. The live toggle has a companion-only refresh:
+turning it off releases companion GPU objects and removes queued companion work
+without rebinding the resident HD albedo. Already-running decodes stay tracked
+until completion so they cannot create hidden memory concurrency; if maps are
+still off their result is discarded, while a rapid re-enable can reuse the same
+deduplicated work. Turning the option back on rebuilds only missing companions. When advanced maps are disabled, a file-backed or
+immutable package-backed albedo no longer has to wait for companion sources to
+qualify for background decode.
+
+Packaged `.ppmap` materials now reuse the package validation performed when the
+map definition is loaded. Subsequent asset reads use a bounded single-entry ZIP
+path while the archive length/timestamp remain unchanged; a changed package
+invalidates the shortcut and falls back to full validation. Queued material
+requests retain only dimensions and identity; encoded entry bytes are reopened
+lazily on the decode worker instead of accumulating a compressed copy of the
+whole texture pack in memory. Optional companion channels are not read at all
+while Advanced Materials is disabled, and concurrent reads use independent
+archive handles.
+
 ## Supersampled modern-graphics optimization (2026-10-02)
 
 High-end custom settings exposed avoidable multiplicative costs above 100%

@@ -1249,7 +1249,7 @@ namespace MphRead.Mods.Launcher.Gui
             _textureQualityRow = Add(page, new ChoiceRow("HD asset resolution",
                 new[] { "Automatic", "Low (1K)", "Medium (2K)", "High (4K)", "Ultra (8K)" },
                 (int)RenderOptions.TextureQuality));
-            Explain(page, "Scale2x/4x enlarges cartridge art. HD asset resolution controls authored map/material, hunter, weapon, alternate-form, turret and effect textures; the runtime still clamps to the GPU and memory budget.");
+            Explain(page, "Scale2x/4x enlarges cartridge art. HD asset resolution controls authored map/material, hunter, weapon, alternate-form, turret and effect textures. All authored textures clamp to the GPU limit; cosmetic assets also use a residency budget.");
             _filteringRow.Changed += (_, _) => ShowTextureQualityRows();
             ShowTextureQualityRows();
 

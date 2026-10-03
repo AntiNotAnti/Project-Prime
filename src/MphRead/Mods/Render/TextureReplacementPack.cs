@@ -31,7 +31,8 @@ namespace MphRead.Mods.Render
             ResolvedMaterial? local = _resolver?.Resolve(model, texture, palette, recolor, key, fallbackKey);
             if (local != null && HasChannels(local)) return local;
             MaterialAssetKey portableKey = key ?? MaterialAssetKey.Model(model, texture, palette, recolor);
-            return MapMaterialAssetRegistry.Resolve(portableKey) ?? local;
+            return MapMaterialAssetRegistry.Resolve(portableKey,
+                includeCompanions: RenderOptions.AdvancedMaterials) ?? local;
         }
 
         internal static ResolvedMaterial? ResolveLocalExplicit(MaterialAssetKey key)
@@ -81,15 +82,16 @@ namespace MphRead.Mods.Render
         }
 
         /// <summary>
-        /// Desktop file-backed replacement channels are safe to decode away from
-        /// the graphics thread. GPU object creation/upload still happens on the
-        /// Scene draw thread.
+        /// File-backed channels and explicitly immutable package-backed channels
+        /// are safe to decode away from the graphics thread. GPU object
+        /// creation/upload still happens on the Scene draw thread.
         /// </summary>
-        internal static bool CanDecodeOffThread(ResolvedMaterial material)
-            => material.Albedo?.IsFileBacked == true
-                && (material.Normal?.IsFileBacked ?? true)
-                && (material.SpecularRoughness?.IsFileBacked ?? true)
-                && (material.Emissive?.IsFileBacked ?? true);
+        internal static bool CanDecodeOffThread(ResolvedMaterial material, bool includeCompanions = true)
+            => material.Albedo?.CanDecodeOffThread == true
+                && (!includeCompanions
+                    || ((material.Normal?.CanDecodeOffThread ?? true)
+                        && (material.SpecularRoughness?.CanDecodeOffThread ?? true)
+                        && (material.Emissive?.CanDecodeOffThread ?? true)));
 
         internal static ModernTextureAsset? DecodePrepared(MaterialImage image,
             TextureAssetClass assetClass, TextureAssetChannel channel, int maximumDimension)
