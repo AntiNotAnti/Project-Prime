@@ -4,7 +4,8 @@ using System.IO;
 
 namespace MphRead.Mods.MapGen;
 
-public sealed record InstalledMapIdentity(MapContentIdentity Identity, string? Version, string PackagePath);
+public sealed record InstalledMapIdentity(MapContentIdentity Identity, string? Version,
+    string PackagePath, bool TrustedImmutable = false);
 
 /// <summary>Only validated immutable archives enter this index; loose editor sources are not installed versions.</summary>
 public sealed class InstalledMapRegistry
@@ -17,6 +18,7 @@ public sealed class InstalledMapRegistry
         && installed.Identity.Matches(required) && ArchiveMatches(installed);
     private static bool ArchiveMatches(InstalledMapIdentity installed)
     {
+        if (installed.TrustedImmutable) return File.Exists(installed.PackagePath);
         try { return MapHash256.HashFile(installed.PackagePath) == installed.Identity.PackageHash; }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return false; }
     }
@@ -28,9 +30,12 @@ public sealed class InstalledMapRegistry
             if (definition.BundlePath is not { } path) continue;
             try
             {
-                var identity = MapContentIdentity.FromPackage(path);
-                if (identity.MapId != definition.MapId || !identity.RoomKey.Equals(definition.Name, StringComparison.Ordinal)) continue;
-                var entry = new InstalledMapIdentity(identity, definition.Version, Path.GetFullPath(path));
+                bool trusted = HostedMapTrust.TryGet(path, definition, out var identity);
+                if (!trusted) identity = MapContentIdentity.FromPackage(path);
+                if (identity.MapId != definition.MapId
+                    || !identity.RoomKey.Equals(definition.Name, StringComparison.Ordinal)) continue;
+                var entry = new InstalledMapIdentity(identity, definition.Version,
+                    Path.GetFullPath(path), trusted);
                 if (registry._byId.ContainsKey(identity.MapId) || registry._byRoom.ContainsKey(identity.RoomKey))
                     throw new InvalidDataException("Duplicate installed map identity.");
                 registry._byId.Add(identity.MapId, entry); registry._byRoom.Add(identity.RoomKey, entry);
