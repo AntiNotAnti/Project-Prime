@@ -107,6 +107,11 @@ namespace MphRead.Mods.Render
                 _api.QueueWriteBuffer(_queue, geometry.Index, 0, ptr, (nuint)indexBytes);
             geometry.VertexOffset = geometry.IndexOffset = 0;
             _geometryCache.Add(key, geometry);
+            if (_measurePerformance)
+            {
+                _retainedGeometryPromotions++;
+                _retainedGeometryBytes += checked((long)(vertexBytes + indexBytes));
+            }
             return geometry;
         }
 
