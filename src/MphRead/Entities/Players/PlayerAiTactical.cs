@@ -400,6 +400,7 @@ public partial class PlayerEntity
 
                 float score = TacticalWeaponUtilityForTest(beam, distance, beam == affinity,
                     beam == _player.CurrentWeapon, target.IsAltForm, target.ModFrozen, selfHealth, visible);
+                score += TacticalHunterWeaponBiasForTest(_player.Hunter, beam, distance, target.ModFrozen);
                 if (beam == _player.CurrentWeapon)
                 {
                     currentScore = score;
@@ -491,6 +492,32 @@ public partial class PlayerEntity
             };
         }
 
+        public static float TacticalHunterWeaponBiasForTest(Hunter hunter, BeamType beam,
+            float distance, bool targetFrozen)
+        {
+            return hunter switch
+            {
+                Hunter.Samus when beam == BeamType.Missile => 8,
+                Hunter.Kanden when beam == BeamType.VoltDriver => distance >= 8 ? 12 : 6,
+                Hunter.Trace when beam == BeamType.Imperialist => distance >= 14 ? 20 : 4,
+                Hunter.Sylux when beam == BeamType.ShockCoil => distance <= 14 ? 18 : 4,
+                Hunter.Noxus when targetFrozen && beam is BeamType.Imperialist or BeamType.Magmaul => 16,
+                Hunter.Noxus when beam == BeamType.Judicator => 14,
+                Hunter.Spire when beam == BeamType.Magmaul => 14,
+                Hunter.Weavel when beam == BeamType.Battlehammer => 14,
+                _ => 0
+            };
+        }
+
+        private float TacticalPreferredRangeForHunter(BeamType beam)
+        {
+            float range=TacticalPreferredRange(beam);
+            if(_player.Hunter==Hunter.Trace&&beam==BeamType.Imperialist)range+=5;
+            else if(_player.Hunter==Hunter.Sylux&&beam==BeamType.ShockCoil)range-=1;
+            else if(_player.Hunter==Hunter.Noxus&&beam==BeamType.Judicator)range+=2;
+            return Math.Max(3,range);
+        }
+
         private void ApplyTacticalMovement(PlayerEntity target, BotTacticalTuning tuning)
         {
             if (_player.IsAltForm || _player.IsMorphing || _player.IsUnmorphing)
@@ -506,7 +533,7 @@ public partial class PlayerEntity
             }
 
             BeamType weapon = _tacticalWeapon == BeamType.None ? _player.CurrentWeapon : _tacticalWeapon;
-            float ideal = TacticalPreferredRange(weapon);
+            float ideal = TacticalPreferredRangeForHunter(weapon);
             float healthFraction = _player.HealthMax <= 0 ? 1
                 : Math.Clamp(_player.Health / (float)_player.HealthMax, 0, 1);
             bool retreat = healthFraction <= tuning.RetreatHealthFraction || distance < ideal * 0.60f;
