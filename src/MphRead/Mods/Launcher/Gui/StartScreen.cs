@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -76,7 +77,6 @@ namespace MphRead.Mods.Launcher.Gui
             AttachedToVisualTree += (_, _) => { _updateWatcher.Start(); CheckForUpdates(); };
             DetachedFromVisualTree += (_, _) => _updateWatcher.Stop();
             RefreshVersionLine();
-            _ = CatchUpPreviews();
         }
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
@@ -350,7 +350,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _prime.Refresh();
                 // Setup is already complete at this point. Fill missing preview
                 // art in the background without holding the setup sheet open.
-                if (GameFiles.Ready) _ = CatchUpPreviews();
+                if (GameFiles.Ready) BeginDeferredPreviewCatchup();
             };
             Push(view);
         }
@@ -525,16 +525,20 @@ namespace MphRead.Mods.Launcher.Gui
         /// being asked. Nothing happens in the ordinary case, which is every
         /// map already having one.
         /// </summary>
-        private async Task CatchUpPreviews()
+        internal void BeginDeferredPreviewCatchup(CancellationToken cancel = default)
+            => _ = CatchUpPreviews(cancel);
+
+        private async Task CatchUpPreviews(CancellationToken cancel = default)
         {
             try
             {
+                cancel.ThrowIfCancellationRequested();
                 if (!GameFiles.Ready || !ThumbnailHost.CanRender
                     || ThumbnailGenerator.MissingThumbnails().Count == 0)
                 {
                     return;
                 }
-                await ThumbnailHost.RenderMissingAsync(_ => { });
+                await ThumbnailHost.RenderMissingAsync(_ => { }, cancel);
                 Dispatcher.UIThread.Post(() =>
                 {
                     MapShot.Forget();
@@ -542,12 +546,25 @@ namespace MphRead.Mods.Launcher.Gui
                     LauncherBackdrop.Refresh();
                 });
             }
+            catch (OperationCanceledException)
+            {
+                // Normal during application shutdown.
+            }
             catch (Exception ex)
             {
                 // A preview is decoration. A graphics/worker failure here must
                 // never turn successful game-file setup into a launcher failure.
                 Mods.DebugLog.Exception("thumbnails", ex);
             }
+        }
+
+        internal void RefreshDeferredRooms()
+        {
+            bool rebuild = _prime.Router.Current == PrimeRoute.Offline;
+            RefreshRooms();
+            _prime.Workspaces.Remove(PrimeRoute.Offline);
+            if (rebuild) _prime.Workspaces.Show(PrimeRoute.Offline);
+            _prime.Refresh();
         }
 
         private void RefreshRooms()
