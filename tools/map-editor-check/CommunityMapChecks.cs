@@ -56,6 +56,19 @@ internal static class CommunityMapChecks
             check((await client.BrowseAsync(default)).Length == 2, "unlisted version excluded from catalog");
             byte[] bytes = await http.GetByteArrayAsync("packages/" + v1.Hash);
             check(bytes.SequenceEqual(File.ReadAllBytes(one)), "historical exact-package endpoint returns immutable bytes");
+            long rangeStart = Math.Max(1, bytes.LongLength / 2);
+            using (var request = new HttpRequestMessage(HttpMethod.Get, "packages/" + v1.Hash))
+            {
+                request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(rangeStart, null);
+                using var response = await http.SendAsync(request);
+                byte[] suffix = await response.Content.ReadAsByteArrayAsync();
+                check(response.StatusCode == HttpStatusCode.PartialContent
+                    && response.Headers.AcceptRanges.Contains("bytes")
+                    && response.Content.Headers.ContentRange?.From == rangeStart
+                    && response.Content.Headers.ContentRange?.Length == bytes.LongLength
+                    && suffix.SequenceEqual(bytes.AsSpan(checked((int)rangeStart)).ToArray()),
+                    "package endpoint returns exact byte ranges for resumable downloads");
+            }
             check((await http.GetByteArrayAsync("packages/" + hidden.Hash)).Length == hidden.Bytes, "unlisted package remains available by exact hash");
             var versions = JsonSerializer.Deserialize<CommunityMap[]>(await http.GetStringAsync("maps/" + id + "/versions"), MapPackageReader.JsonOptions)!;
             check(versions.Length == 2 && versions[0].Hash == v2.Hash, "version history resolves newest listed package");
