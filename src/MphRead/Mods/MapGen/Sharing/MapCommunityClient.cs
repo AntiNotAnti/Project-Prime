@@ -405,7 +405,8 @@ public sealed class MapCommunityClient : IDisposable
         }
     }
 
-    public async Task<MapDefinition> InstallAsync(CommunityMap map, string library, CancellationToken token)
+    public async Task<MapDefinition> InstallAsync(CommunityMap map, string library, CancellationToken token,
+        Action<long, long>? progress = null)
     {
         if (map.MinimumProtocol > Network.NetConfig.ProtocolVersion) throw new InvalidDataException("Update Project Prime before installing this map.");
         if (!ValidHash(map.Hash) || !ValidHash(map.ContentHash) || map.MapId == Guid.Empty
@@ -414,7 +415,7 @@ public sealed class MapCommunityClient : IDisposable
         string temporary = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".ppmap");
         try
         {
-            await DownloadPackageAsync("packages/" + map.Hash, temporary, map.Bytes, token).ConfigureAwait(false);
+            await DownloadPackageAsync("packages/" + map.Hash, temporary, map.Bytes, token, progress).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
             using (var package = new MapPackageReader(temporary))
                 if (package.Manifest?.Name != map.Name) throw new InvalidDataException("Map name does not match the listing.");
