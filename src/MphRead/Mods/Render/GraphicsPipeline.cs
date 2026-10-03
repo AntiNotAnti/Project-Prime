@@ -628,6 +628,13 @@ namespace MphRead
 
         private static void DrawGraphicsFullscreenQuad()
         {
+#if !MPHREAD_SERVER
+            if (Mods.Render.ModernGraphicsCompat.Active
+                && Mods.Render.ModernGraphicsCompat.TryDrawRetainedFullscreenQuad())
+            {
+                return;
+            }
+#endif
             GL.Begin(PrimitiveType.TriangleStrip);
             GL.TexCoord3(1f, 1f, 0f); GL.Vertex3(1f, 1f, 0f);
             GL.TexCoord3(0f, 1f, 0f); GL.Vertex3(-1f, 1f, 0f);
