@@ -8,7 +8,7 @@ namespace MphRead.Mods.Network
     public enum ShotAttemptResult
     {
         Spawned, AttachedEnemy, Cooldown, AutofireCooldown, GunLowered, NoAmmo,
-        NoProjectileSlot, DeadOrNotInPlay, StaleLife, OtherNoSpawn
+        NoProjectileSlot, DeadOrNotInPlay, StaleLife, InvalidSpatialState, OtherNoSpawn
     }
 
     // Logical identity; launch and ACK frames are separate timing metadata.

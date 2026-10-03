@@ -1769,11 +1769,35 @@ namespace MphRead.Entities
 
         private void UpdateAimVecs()
         {
+            RepairAimBasis();
             Vector3 facing = _facingVector;
+            Vector3 right = _gunVec2;
+            if (!SpatialDirection(right))
+            {
+                right = NormalizeSpatialOr(
+                    new Vector3(facing.Z, 0, -facing.X), Vector3.UnitX);
+                _gunVec2 = right;
+            }
             Vector3 up = _upVector;
+            if (!SpatialDirection(up))
+            {
+                up = NormalizeSpatialOr(Vector3.Cross(facing, right), Vector3.UnitY);
+                _upVector = up;
+            }
+
+            Vector3 cameraPosition = CameraInfo.Position;
+            if (!SpatialFinite(cameraPosition))
+            {
+                cameraPosition = SpatialFinite(Position)
+                    ? Position.AddY(Fixed.ToFloat(Values.AimYOffset))
+                    : Vector3.Zero;
+                CameraInfo.Position = cameraPosition;
+                CameraInfo.PrevPosition = cameraPosition;
+            }
+
             _gunDrawPos = Fixed.ToFloat(Values.FieldB8) * facing
-                + CameraInfo.Position
-                + Fixed.ToFloat(Values.FieldB0) * _gunVec2
+                + cameraPosition
+                + Fixed.ToFloat(Values.FieldB0) * right
                 + Fixed.ToFloat(Values.FieldB4) * up;
             float cos = MathF.Cos(MathHelper.DegreesToRadians(_gunViewBob));
             _gunDrawPos.Y += Fixed.ToFloat(20) * cos;
@@ -1789,12 +1813,22 @@ namespace MphRead.Entities
             }
             else
             {
-                _aimVec = _aimPosition - _gunDrawPos;
-                float dot = Vector3.Dot(_aimVec, facing);
-                Vector3 vec = facing * dot;
-                _aimVec = (_aimVec + (vec - _aimVec) / 2).Normalized();
+                Vector3 candidate = _aimPosition - _gunDrawPos;
+                float dot = SpatialFinite(candidate) ? Vector3.Dot(candidate, facing) : Single.NaN;
+                if (Single.IsFinite(dot))
+                {
+                    Vector3 vec = facing * dot;
+                    candidate = candidate + (vec - candidate) / 2;
+                }
+                _aimVec = NormalizeSpatialOr(candidate, _gunVec1);
             }
             _muzzlePos = _gunDrawPos + _aimVec * Fixed.ToFloat(Values.MuzzleOffset);
+            if (!SpatialFinite(_muzzlePos))
+            {
+                _gunDrawPos = cameraPosition;
+                _aimVec = NormalizeSpatialOr(_gunVec1, facing);
+                _muzzlePos = cameraPosition + _aimVec * Fixed.ToFloat(Values.MuzzleOffset);
+            }
         }
 
         private void InitAltTransform()

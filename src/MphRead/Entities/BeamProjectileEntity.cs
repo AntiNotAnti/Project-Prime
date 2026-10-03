@@ -1505,6 +1505,19 @@ namespace MphRead.Entities
             BeamSpawnFlags spawnFlags, NodeRef nodeRef, Scene scene, BeamProjectileEntity? parent = null,
             bool enhancedMicro = false, bool battlehammerCluster = false, float battlehammerClusterScale = 1f)
         {
+            bool finitePosition = Single.IsFinite(position.X) && Single.IsFinite(position.Y)
+                && Single.IsFinite(position.Z);
+            bool finiteDirection = Single.IsFinite(direction.X) && Single.IsFinite(direction.Y)
+                && Single.IsFinite(direction.Z);
+            if (!finitePosition || !finiteDirection || direction.LengthSquared <= 0.0000001f)
+            {
+                // Never put invalid geometry into the projectile pool. Collision
+                // math is intentionally branch-heavy and a NaN segment can make
+                // ordinary "outside" comparisons fail open against many actors.
+                Mods.DebugLog.Line("combat",
+                    $"rejected non-finite beam spawn owner={owner.Id} beam={equip.Weapon.Beam}");
+                return BeamResultFlags.NoSpawn;
+            }
             if (!scene.Services.IsReplica && NetSession.Active && parent != null && !NetPlayerLifecycle.CurrentProjectile(parent))
                 return BeamResultFlags.NoSpawn;
             PlayerEntity? turretOwner = parent == null && !scene.Services.IsReplica ? (owner as HalfturretEntity)?.Owner : null;

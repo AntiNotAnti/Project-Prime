@@ -326,6 +326,14 @@ namespace MphRead.Entities
             var result = RotationalAimAssist.Apply(_controllerAssist, candidates[..count], new(x, y), new System.Numerics.Vector2(-aim.X * (GamepadOptions.InvertX != Controls.InvertAimX ? -1 : 1),
                     aim.Y * (GamepadOptions.InvertY != Controls.InvertAimY ? -1 : 1)),
                 move, 1f / 60, eligible, profile, Controls.Shoot.IsDown, shotPhase);
+            if (!float.IsFinite(result.X) || !float.IsFinite(result.Y))
+            {
+                // Controller assist is never allowed to poison the engine's
+                // persistent gun/body basis. Fall back to the raw input for
+                // this step and reset temporal assist state.
+                _controllerAssist.Reset();
+                result = new AimAssistResult(x, y);
+            }
             AimAssistTarget chosen = default;
             foreach (ref readonly var candidate in candidates[..count]) if (candidate.Slot == result.TargetSlot) chosen = candidate;
             if (AimAssistDebug.UnassistedArm)
