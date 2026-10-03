@@ -85,11 +85,12 @@ namespace MphRead.Mods.Render
         /// the graphics thread. GPU object creation/upload still happens on the
         /// Scene draw thread.
         /// </summary>
-        internal static bool CanDecodeOffThread(ResolvedMaterial material)
+        internal static bool CanDecodeOffThread(ResolvedMaterial material, bool includeCompanions = true)
             => material.Albedo?.IsFileBacked == true
-                && (material.Normal?.IsFileBacked ?? true)
-                && (material.SpecularRoughness?.IsFileBacked ?? true)
-                && (material.Emissive?.IsFileBacked ?? true);
+                && (!includeCompanions
+                    || ((material.Normal?.IsFileBacked ?? true)
+                        && (material.SpecularRoughness?.IsFileBacked ?? true)
+                        && (material.Emissive?.IsFileBacked ?? true)));
 
         internal static ModernTextureAsset? DecodePrepared(MaterialImage image,
             TextureAssetClass assetClass, TextureAssetChannel channel, int maximumDimension)
