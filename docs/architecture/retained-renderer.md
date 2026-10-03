@@ -512,17 +512,67 @@ The core migration is complete at this point:
 The remaining renderer ideas below are optimization/expansion work, not required
 to finish the retained-renderer architecture.
 
-## Next slices
-The next tier is optional performance work rather than core migration:
+## Post-core optimization pass
 
-- partition room geometry into bounded render clusters and feed portal/frustum
-  visibility directly into packet emission;
-- add safe opaque pipeline/material sorting beyond adjacent batches;
-- evaluate indirect/multi-draw and GPU-driven visibility;
-- give the retained PBR path its own stable uniform/bind-group slots if profiling
-  shows meaningful churn;
-- migrate specialized outline/full-screen passes off the compatibility facade
-  where measurement justifies the complexity.
+The first post-core pass builds on the completed retained architecture without
+changing gameplay, simulation, networking, map data or translucent/decal ordering.
 
-The release gate remains visual parity plus measured frame-time improvement on Metal,
-DX12/Vulkan and physical Android Vulkan hardware.
+### 1. Portal-aware retained visibility clusters
+
+Room sibling chains are cached in small spatial clusters with union AABBs. Each
+cluster is tested against the active portal frusta before its member nodes reach
+the original per-node visibility test. A cluster can only reject work; surviving
+nodes still use the existing authoritative visibility path.
+
+### 2. Parity-safe opaque sorting
+
+Persistent room-owned opaque packets may be sorted by retained state within
+contiguous safe runs. Dynamic entities, viewmodels, billboards, overrides,
+outlines, textured skins, decals, translucency and other order-sensitive packets
+remain barriers and retain cartridge submission order.
+
+### 3. Stable retained PBR slots
+
+Deferred PBR MRT owns a deterministic uniform arena and slot-keyed bind-group
+cache, parallel to the retained World path. World and PBR use separate arenas so
+their different generated uniform sizes cannot perturb one another's stable
+buffer/offset identity.
+
+### 4. Frame-graph transient color pool
+
+Short-lived frame-graph color targets lease backing textures from a bounded
+descriptor-matched pool. The player-outline mask releases its RGBA8 target before
+post processing, allowing the later processed-scene target to reuse that storage
+when dimensions/filtering match. TAA history remains persistent because it spans
+frames.
+
+### 5. Indexed-indirect retained draw foundation
+
+Persistent room World/PBR draws can source their indexed draw arguments from a
+GPU-visible WebGPU indirect arena. The current stage is CPU-populated indirect
+arguments, deliberately structured so a later compute visibility/compaction pass
+can own the same argument storage. It is enabled on desktop DX12/Vulkan and kept
+off on Metal/Android until hardware benchmarks prove a win.
+
+### 6. Native outline and fullscreen paths
+
+Eligible player outline-mask geometry reuses retained World packets and native
+mesh buffers, falling back per item when necessary. Fullscreen post-process,
+tone-map, outline-composite and final-composite draws reuse one retained native
+quad on modern backends instead of rebuilding legacy immediate geometry.
+
+### 7. Backend-specific submission budgets
+
+Modern command batching and staged texture-upload limits are selected per backend.
+Desktop Metal/DX12/Vulkan receive longer command windows, while Android keeps a
+smaller upload/encoder budget to limit burst memory and tiled-GPU pressure.
+Indirect room draws remain backend-gated rather than assumed beneficial
+everywhere.
+
+The renderer benchmark reports cluster rejection, opaque sorting, World/PBR
+bind-group reuse, transient-pool reuse, retained indirect/fullscreen/outline
+draws, and the active submission/upload budgets so hardware acceptance can judge
+each optimization independently.
+
+The release gate remains visual parity plus measured frame-time improvement on
+Metal, DX12/Vulkan and physical Android Vulkan hardware.
