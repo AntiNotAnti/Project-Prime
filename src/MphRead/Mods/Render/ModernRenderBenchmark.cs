@@ -60,6 +60,8 @@ internal static class ModernRenderBenchmark
                     var submissions = new List<double>();
                     var presents = new List<double>();
                     ModernGraphicsCompat.PerformanceSample? warmup = null;
+                    long samplerApplicationsStart = scene.TextureSamplerStateApplications;
+                    long samplerHitsStart = scene.TextureSamplerStateCacheHits;
                     if (ModernGraphicsCompat.Active) ModernGraphicsCompat.BeginPerformanceSample();
                     for (int i = 0; i < 20 + sampleCount; i++)
                     {
@@ -67,6 +69,8 @@ internal static class ModernRenderBenchmark
                         {
                             warmup = ModernGraphicsCompat.EndPerformanceSample();
                             ModernGraphicsCompat.BeginPerformanceSample();
+                            samplerApplicationsStart = scene.TextureSamplerStateApplications;
+                            samplerHitsStart = scene.TextureSamplerStateCacheHits;
                         }
                         NativeWindow.ProcessWindowEvents(false);
                         DesktopGraphicsSession.Resize(window);
@@ -88,6 +92,16 @@ internal static class ModernRenderBenchmark
                     var sorted = frames.Order().ToArray();
                     results.Add(new { requestedWidth = size.X, requestedHeight = size.Y, width = scene.Size.X, height = scene.Size.Y, scale, samples = frames.Count,
                         warmup, measurement,
+                        retainedPackets = scene.RetainedRenderPacketCount,
+                        retainedVisiblePackets = scene.RetainedVisiblePacketCount,
+                        retainedBatches = scene.RetainedRenderBatchCount,
+                        retainedStateReuses = scene.RetainedRenderStateReuseCount,
+                        graphStateApplicationsPerFrame = scene.RetainedGraphStateApplicationCount,
+                        graphStateReusesPerFrame = scene.RetainedGraphStateReuseCount,
+                        retainedMeshDescriptors = scene.RetainedMeshDescriptorCount,
+                        retainedFrameRevision = scene.RetainedRenderFrameRevision,
+                        samplerStateApplications = scene.TextureSamplerStateApplications - samplerApplicationsStart,
+                        samplerStateCacheHits = scene.TextureSamplerStateCacheHits - samplerHitsStart,
                         averageCompletedMs = frames.Average(), cpuSubmissionMs = submissions.Average(),
                         averagePresentMs = presents.Average(),
                         averageSurfaceAcquireMs = measurement.HasValue && measurement.Value.SurfaceAcquisitions > 0
