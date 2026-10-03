@@ -100,11 +100,11 @@ namespace MphRead
                 GL.Uniform1(_shaderLocations.CelBands, 0);
 
 #if !MPHREAD_SERVER
-                bool directShadow = ModernGraphicsCompat.Active
+                bool directShadow = Mods.Render.ModernGraphicsCompat.Active
                     && _wireframeLevel == 0
                     && !Mods.RenderOptions.CelShading;
                 if (directShadow)
-                    ModernGraphicsCompat.BeginRetainedWorldFrame();
+                    Mods.Render.ModernGraphicsCompat.BeginRetainedWorldFrame();
 #else
                 const bool directShadow = false;
 #endif
@@ -131,7 +131,7 @@ namespace MphRead
                         };
                         Mods.Render.RetainedWorldTextureSet textures =
                             RetainedWorldTextures(item);
-                        if (ModernGraphicsCompat.TryDrawRetainedWorld(
+                        if (Mods.Render.ModernGraphicsCompat.TryDrawRetainedWorld(
                             item, packet.Mesh, textures, _showTextures,
                             useLighting: false, _faceCulling,
                             projectionOverride: null, viewInverse,
