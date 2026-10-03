@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
 using MphRead.Mods.Network;
@@ -104,6 +106,9 @@ namespace MphRead.Mods.Launcher.Gui
         // lobby/loading surface over the scene. Reveal on the committed
         // countdown edge instead of whichever frame the InMatch packet arrives.
         private static bool _matchLoading;
+        private static CancellationTokenSource? _startupWorkCancel;
+        private static Task? _startupWork;
+        private static int _firstFrameStarted;
 
         /// <summary>
         /// Open the window and run until the player quits.
@@ -128,11 +133,15 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static bool RunSession()
         {
+            LifecycleTiming.Startup("shell session begin");
             if (UiSurface.Ensure() == null)
             {
                 return false;
             }
+            LifecycleTiming.Startup("UI surface ready");
             LauncherPrefs.Load();
+            LifecycleTiming.Startup("launcher preferences loaded");
+            Interlocked.Exchange(ref _firstFrameStarted, 0);
             // The backdrop is GL's from here on: this is the one head with a
             // window under the screens, and the photograph is worth the
             // window's own pixels rather than the screens' capped ones. Said
@@ -146,9 +155,7 @@ namespace MphRead.Mods.Launcher.Gui
                 // -- and tolerates the files being absent, which is the whole
                 // reason it goes first.
                 GameFiles.ApplyPaths();
-                // A map added after the install was set up has no picture and
-                // no sweep coming to give it one.
-                ThumbnailGenerator.EnsureCustomPreviews();
+                LifecycleTiming.Startup("game paths ready");
             }
             // How the window opens: the way this one was left, unless the
             // command line said otherwise for this run.
@@ -157,10 +164,12 @@ namespace MphRead.Mods.Launcher.Gui
                 Mods.WindowMode.Startup = LauncherPrefs.WindowMode;
             }
             RenderWindow.LogCreatingWindow();
+            LifecycleTiming.Startup("creating native window");
             RenderWindow? window = null;
             try
             {
                 window = RenderWindow.Create(shell: true);
+                LifecycleTiming.Startup("native window created");
                 if (StudioWindow) { window.Title = "Project Prime · Map Studio"; window.WindowState = OpenTK.Windowing.Common.WindowState.Maximized; }
                 window.FileDrop += OnFilesDropped;
                 PublishNativeHandle(window);
@@ -168,6 +177,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Active = true;
                 OfflineRematch.StartNext = PlayAnother;
                 ShowFrontScreen();
+                LifecycleTiming.Startup("front screen ready");
                 window.Run();
                 return true;
             }
@@ -179,6 +189,12 @@ namespace MphRead.Mods.Launcher.Gui
             }
             finally
             {
+                LifecycleTiming.BeginShutdown("shell session ending");
+                CancellationTokenSource? startupCancel = _startupWorkCancel;
+                _startupWorkCancel = null;
+                startupCancel?.Cancel();
+                startupCancel?.Dispose();
+                _startupWork = null;
                 Active = false;
                 OfflineRematch.StartNext = null;
                 _window = null;
@@ -194,6 +210,7 @@ namespace MphRead.Mods.Launcher.Gui
                 NetSession.Stop();
                 NetHostSession.Stop();
                 Mods.DebugLog.Line("shutdown", "network session stopped");
+                LifecycleTiming.Shutdown("network session stopped");
                 if (window != null)
                 {
                     window.FileDrop -= OnFilesDropped;
@@ -214,6 +231,7 @@ namespace MphRead.Mods.Launcher.Gui
 #endif
                 }
                 Mods.DebugLog.Line("shutdown", "native window disposed");
+                LifecycleTiming.Shutdown("native window disposed");
             }
         }
 
@@ -633,6 +651,10 @@ namespace MphRead.Mods.Launcher.Gui
 
         public static void RequestQuit()
         {
+            LifecycleTiming.BeginShutdown("quit requested");
+            _startupWorkCancel?.Cancel();
+            ReplayWritePump.BeginProcessShutdown();
+            Sound.AudioLifetime.BeginShutdown();
             _quit = true;
         }
 
@@ -765,6 +787,11 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal static void AfterDraw(RenderWindow window)
         {
+            if (Interlocked.Exchange(ref _firstFrameStarted, 1) == 0)
+            {
+                LifecycleTiming.FirstFrame();
+                StartBackgroundStartupWork();
+            }
             Diagnostics.LauncherWindowCheck.AfterDraw(window);
             if (_shotDirectory == null)
             {
@@ -783,6 +810,40 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             script[_shotStep++](window);
+        }
+
+
+        private static void StartBackgroundStartupWork()
+        {
+            var cancel = new CancellationTokenSource();
+            CancellationTokenSource? previous = Interlocked.Exchange(
+                ref _startupWorkCancel, cancel);
+            previous?.Cancel();
+            previous?.Dispose();
+            CancellationToken token = cancel.Token;
+            _startupWork = Task.Run(() =>
+            {
+                try
+                {
+                    DebugLog.Line("startup", "post-first-frame maintenance begin");
+                    Maintenance.RunStartup();
+                    token.ThrowIfCancellationRequested();
+                    ThumbnailGenerator.EnsureCustomPreviews(
+                        line => DebugLog.Line("thumbnails", line), token);
+                    DebugLog.Line("startup", "post-first-frame maintenance complete");
+                }
+                catch (OperationCanceledException)
+                {
+                    DebugLog.Line("startup", "post-first-frame work cancelled");
+                }
+                catch (Exception ex)
+                {
+                    // Nothing here is required to reach or use the launcher.
+                    // Keep failures diagnostic rather than turning deferred
+                    // housekeeping back into a startup failure.
+                    DebugLog.Exception("startup-background", ex);
+                }
+            }, token);
         }
 
         private static Vector2i _shotWindowedSize, _shotWindowedLocation;
