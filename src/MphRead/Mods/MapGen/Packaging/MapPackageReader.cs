@@ -160,16 +160,64 @@ namespace MphRead.Mods.MapGen
         }
         public byte[]? Read(string name) => Find(name) is { } found ? ReadRequired(found) : null;
         public string ReadProject() => Encoding.UTF8.GetString(ReadRequired(ProjectEntry, 8 * 1024 * 1024));
+
+        /// <summary>
+        /// Reads one entry after MapBundle has already fully validated this exact,
+        /// unchanged package. This deliberately does not recompute the archive's
+        /// content hash for every texture/audio read.
+        /// </summary>
+        internal static byte[]? ReadValidatedEntry(string path, string name)
+        {
+            if (new FileInfo(path).Length > MaxArchiveBytes)
+                throw new InvalidDataException("Package exceeds the 512 MiB limit.");
+            name = CanonicalName(name);
+            using var archive = ZipFile.OpenRead(path);
+            if (archive.Entries.Count > MaxEntries)
+                throw new InvalidDataException("Package contains too many entries.");
+
+            ZipArchiveEntry? exact = null;
+            var suffixes = new List<ZipArchiveEntry>();
+            foreach (ZipArchiveEntry entry in archive.Entries)
+            {
+                string canonical = CanonicalName(entry.FullName);
+                if (canonical.Equals(name, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (exact != null) throw new InvalidDataException("Duplicate package path: " + name);
+                    exact = entry;
+                }
+                else if (canonical.EndsWith("/" + name, StringComparison.OrdinalIgnoreCase))
+                {
+                    suffixes.Add(entry);
+                }
+            }
+            ZipArchiveEntry? found = exact;
+            if (found == null)
+            {
+                if (suffixes.Count > 1) throw new InvalidDataException("Ambiguous package reference.");
+                found = suffixes.SingleOrDefault();
+            }
+            return found == null ? null : ReadEntryBytes(found, MaxEntryBytes);
+        }
+
         private byte[] ReadRequired(string name, long limit = MaxEntryBytes)
         {
-            if (!_entries.TryGetValue(name, out var entry) || entry.Length > limit) throw new InvalidDataException("Missing or oversized entry: " + name);
+            if (!_entries.TryGetValue(name, out var entry))
+                throw new InvalidDataException("Missing or oversized entry: " + name);
+            return ReadEntryBytes(entry, limit);
+        }
+
+        private static byte[] ReadEntryBytes(ZipArchiveEntry entry, long limit)
+        {
+            if (entry.Length < 0 || entry.Length > limit)
+                throw new InvalidDataException("Missing or oversized entry: " + entry.FullName);
             using var input = entry.Open();
             using var output = new MemoryStream();
             byte[] buffer = new byte[65536];
             int count;
             while ((count = input.Read(buffer)) > 0)
             {
-                if (output.Length + count > limit || output.Length + count > entry.Length) throw new InvalidDataException("Entry exceeds declared size.");
+                if (output.Length + count > limit || output.Length + count > entry.Length)
+                    throw new InvalidDataException("Entry exceeds declared size.");
                 output.Write(buffer, 0, count);
             }
             if (output.Length != entry.Length) throw new InvalidDataException("Truncated package entry.");
