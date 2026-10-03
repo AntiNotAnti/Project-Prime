@@ -360,7 +360,8 @@ public partial class PlayerEntity
 
             // Do not thrash between two nearly equivalent guns. Weapon swaps cost time and,
             // more importantly, look robotic when the scores oscillate around a boundary.
-            if (_player.CurrentWeapon >= BeamType.PowerBeam && _player.CurrentWeapon <= BeamType.OmegaCannon
+            if ((int)_player.CurrentWeapon >= (int)BeamType.PowerBeam
+                && (int)_player.CurrentWeapon <= (int)BeamType.OmegaCannon
                 && CheckBeam(_player.CurrentWeapon) && currentScore >= bestScore - 7)
             {
                 return _player.CurrentWeapon;
