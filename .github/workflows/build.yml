@@ -133,7 +133,7 @@ jobs:
       - name: install Android workload and native toolchain
         run: |
           dotnet workload install android
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358" "platforms;android-36" "build-tools;36.0.0"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "ndk;28.2.13676358" "platforms;android-36" "build-tools;36.0.0"
           ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/28.2.13676358" tools/wgpu/build-native.sh android-x64
       - name: Vulkan surface, readback, present and surface recreation
         run: tools/render-check/android-check.sh
