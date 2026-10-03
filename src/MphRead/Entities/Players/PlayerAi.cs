@@ -10252,10 +10252,17 @@ namespace MphRead.Entities
 
             private NodeData3 FindHighestNode()
             {
-                // todo?: bugfixs? the game has a loop that looks like it should find the node with the highest Y pos,
-                // but the first item in the node list is compared in each iteration, so the comparison never succeeds
-                // --> the correct item for the iteration is returned if the comparison could succeed, which makes it look even more like a bug
-                return _nodeList[0];
+                NodeData3 result = _nodeList[0];
+                for (int i = 1; i < _nodeList.Count; i++)
+                {
+                    NodeData3 node = _nodeList[i];
+                    if (node.NodeType != NodeType.Hazard && (result.NodeType == NodeType.Hazard
+                        || node.Position.Y > result.Position.Y))
+                    {
+                        result = node;
+                    }
+                }
+                return result;
             }
 
             private NodeData3 FindClosestVantageNodeToPosition(Vector3 position)
