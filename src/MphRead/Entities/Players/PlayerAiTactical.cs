@@ -146,10 +146,24 @@ public partial class PlayerEntity
                 return;
             }
 
+            bool visible = TacticalCanSee(_tacticalTarget);
+            bool legacyKnown = AggroFunc214857C(6, 1, 2, null, _tacticalTarget);
+            if (!visible && !legacyKnown)
+            {
+                // Damage/hearing memory stores a position, not magical access to the
+                // attacker's live transform. Do not feed a hidden moving player back
+                // into the legacy target/path tree until normal perception knows them.
+                if (_tacticalThreatFrames > 0 && _tacticalThreatPosition != Vector3.Zero)
+                {
+                    _field1038 = _tacticalThreatPosition - _player.CameraInfo.Position;
+                    Func21447E8();
+                }
+                return;
+            }
+
             Flags2 &= ~AiFlags2.Bit9;
             Func21356C0(_tacticalTarget);
 
-            bool visible = TacticalCanSee(_tacticalTarget);
             if (visible)
             {
                 _tacticalThreatSlot = _tacticalTarget.SlotIndex;
