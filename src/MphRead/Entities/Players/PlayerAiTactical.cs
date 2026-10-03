@@ -517,7 +517,7 @@ public partial class PlayerEntity
             bool obstacleJump = !moved && _player.BotLevel >= 1;
             bool combatJump = moved && _player.BotLevel >= 1 && _combatJumpCooldown == 0
                 && _tacticalStrafeTimer == tuning.StrafeFrames / 2
-                && _scene.Random.GetRandomInt2(100) < (uint)(4 + _player.BotLevel * 5);
+                && _scene.Random.GetRandomInt2(100) < 4 + _player.BotLevel * 5;
             if ((obstacleJump || combatJump) && _combatJumpCooldown == 0
                 && _player.Flags1.TestFlag(PlayerFlags1.Grounded)
                 && !_player.Flags1.TestFlag(PlayerFlags1.UsedJump)
@@ -563,7 +563,7 @@ public partial class PlayerEntity
             {
                 return false;
             }
-            return floor.Plane.Y >= 0.45f && floor.Terrain < Terrain.Lava;
+            return floor.Plane.Y >= 0.45f && (int)floor.Terrain < (int)Terrain.Lava;
         }
 
         private void UpdateTacticalProgress(bool moving)
