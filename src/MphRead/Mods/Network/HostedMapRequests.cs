@@ -12,7 +12,8 @@ namespace MphRead.Mods.Network;
 public sealed record HostedMapArchive(
     string RoomKey, MapContentIdentity Identity, string PackagePath);
 
-public sealed record HostedMapPreparation(IReadOnlyList<HostedMapArchive> Archives)
+public sealed record HostedMapPreparation(IReadOnlyList<HostedMapArchive> Archives,
+    string? LibraryPath = null, string? RuntimeNamespace = null)
 {
     public HostedMapArchive? Find(string roomKey, MapHash256 packageHash)
         => Archives.FirstOrDefault(a => StringComparer.OrdinalIgnoreCase.Equals(a.RoomKey, roomKey)
@@ -225,7 +226,34 @@ internal sealed class HostedMapRequests : IDisposable
                 throw new InvalidDataException("A hosted rotation cannot stage two versions with the same map identity.");
         }
 
-        return new HostedMapPreparation(archives);
+        if (archives.Count == 0)
+            return new HostedMapPreparation(archives);
+
+        // Child-library staging belongs to this background preparation job,
+        // not to the parent server's packet loop. Packages are immutable and
+        // content-addressed, so hard links avoid a second hundreds-of-megabytes
+        // copy per lobby. Filesystems without hard links fall back to copying.
+        string runtimeNamespace = Guid.NewGuid().ToString("N");
+        string library = Path.Combine(directory, "lobbies", runtimeNamespace);
+        try
+        {
+            Directory.CreateDirectory(library);
+            foreach (HostedMapArchive archive in archives
+                .GroupBy(a => a.Identity.MapId).Select(group => group.First()))
+            {
+                token.ThrowIfCancellationRequested();
+                string target = Path.Combine(library,
+                    archive.Identity.MapId.ToString("N") + MapBundle.Extension);
+                if (!File.Exists(target))
+                    LinkOrCopy(archive.PackagePath, target);
+            }
+            return new HostedMapPreparation(archives, library, runtimeNamespace);
+        }
+        catch
+        {
+            TryDeleteDirectory(library);
+            throw;
+        }
     }
 
     private static async Task<string> PrepareOneAsync(
@@ -265,6 +293,29 @@ internal sealed class HostedMapRequests : IDisposable
         return path;
     }
 
+    private static void LinkOrCopy(string source, string target)
+    {
+        try
+        {
+            File.CreateHardLink(target, source);
+            return;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            or PlatformNotSupportedException or NotSupportedException)
+        {
+            // Cross-device mounts and some container filesystems cannot link.
+        }
+        File.Copy(source, target, overwrite: false);
+    }
+
+    internal static void TryDeleteDirectory(string? path)
+    {
+        if (String.IsNullOrWhiteSpace(path)) return;
+        try { if (Directory.Exists(path)) Directory.Delete(path, recursive: true); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+    }
+
     // Compatibility helper for the focused single-map tests and tools.
     internal static async Task<string> PrepareArchiveAsync(
         HostRequestPacket request, string address, string directory,
@@ -286,13 +337,17 @@ internal sealed class HostedMapRequests : IDisposable
         {
             if (pending.Reply != null || !pending.Download.IsCompleted)
                 continue;
+            HostedMapPreparation? prepared = null;
             try
             {
-                pending.Reply = start(pending.Request, pending.Sender, now,
-                    pending.Download.GetAwaiter().GetResult());
+                prepared = pending.Download.GetAwaiter().GetResult();
+                pending.Reply = start(pending.Request, pending.Sender, now, prepared);
+                if (pending.Reply is { Started: false })
+                    TryDeleteDirectory(prepared.LibraryPath);
             }
             catch (Exception ex)
             {
+                if (prepared != null) TryDeleteDirectory(prepared.LibraryPath);
                 pending.Reply = new HostReplyPacket
                 { Reason = "Map preparation failed: " + ex.GetBaseException().Message };
             }
@@ -310,7 +365,10 @@ internal sealed class HostedMapRequests : IDisposable
             pending.Cancel.Cancel();
             _ = pending.Download.ContinueWith(t =>
             {
-                _ = t.Exception;
+                if (t.Status == TaskStatus.RanToCompletion)
+                    TryDeleteDirectory(t.Result.LibraryPath);
+                else
+                    _ = t.Exception;
                 pending.Cancel.Dispose();
             }, TaskScheduler.Default);
         }

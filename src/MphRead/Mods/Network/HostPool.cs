@@ -36,6 +36,7 @@ namespace MphRead.Mods.Network
             public int Port;
             public string Name = "";
             public double StartedAt;
+            public bool ReadyLogged;
             /// <summary>When it last had anybody in it, so an abandoned game can be reaped.</summary>
             public double LastOccupied;
         }
@@ -199,6 +200,12 @@ namespace MphRead.Mods.Network
                     continue;
                 }
                 int players = entry.Process.ProbePlayers(now);
+                if (!entry.ReadyLogged && entry.Process.Responsive)
+                {
+                    entry.ReadyLogged = true;
+                    Log($"hosted child {entry.Port} ready in {now - entry.StartedAt:0.00}s, "
+                        + $"RSS {entry.Process.ResidentBytes / (1024.0 * 1024.0):0.0} MiB");
+                }
                 if (entry.Process.Unresponsive(now))
                 {
                     Stop(entry, "server stopped answering status probes", now);

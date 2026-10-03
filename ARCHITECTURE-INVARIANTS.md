@@ -6,15 +6,16 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **35** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **37** (`NetConfig.ProtocolVersion`).
 - Protocol mismatches are refused during the Hello handshake. Do not make incompatible wire or simulation changes without a protocol bump.
 - Dated protocol 6/7/8 measurements in `.claude/` are historical A/B evidence, not the current architecture.
 
 - Protocol 35 adds bounded queue-only connections with endpoint-bound server-generated
   connection IDs. Queue peers cannot send gameplay packets and do not occupy player
   slots. Seat acceptance reuses normal admission and preserves the established socket.
-  Bots remain occupied seats; reservations fence ordinary joins and bot additions.
-  Gameplay packet layouts remain unchanged from protocol 34 for replay decoding.
+- Protocol 36 adds explicit spectator admission. Protocol 37 adds an endpoint-bound
+  challenge cookie to remote HostRequest allocation; gameplay/replay packet layouts
+  remain byte-identical to protocol 36.
 
 ## Authority and simulation
 
@@ -66,6 +67,10 @@ This file is the short, machine-oriented source of truth for architectural assum
 ## Lobby and match lifecycle
 
 - Persistent lobbies keep their socket/session across matches.
+- Normal public hosting keeps a lightweight master/allocator resident and starts one
+  isolated dedicated-server child per requested lobby lifetime. The child has no
+  ServerSim while idle, stays authoritative across Lobby → Match → Results → Lobby,
+  and self-reaps when an allocated lobby is abandoned.
 - Lobby match configuration is preserved across rematches unless the owner changes it.
 - Native post-match map selection can continue directly into the next match without requiring another Ready cycle. Custom-map transitions return to the lobby to prepare the exact package.
 - WorldReady requires the frozen player lanes plus a bounded, atomically assembled

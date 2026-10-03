@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -361,6 +362,9 @@ namespace MphRead.Mods.Network
             Log(_hosts.Describe());
             _clock.Restart();
             double lastReport = 0;
+            double lastHostReap = double.NegativeInfinity;
+            double lastMapPump = double.NegativeInfinity;
+            double lastUpdateCheck = double.NegativeInfinity;
             while (_running && !cancel.IsCancellationRequested)
             {
                 double now = _clock.Elapsed.TotalSeconds;
@@ -369,20 +373,32 @@ namespace MphRead.Mods.Network
                     Handle(packet, now);
                 }
                 Expire(now);
-                _hosts.Reap(now);
-                _mapRequests.Pump(now,
-                    (request, sender, time, packages) => _hosts.Start(request, sender, time, packages),
-                    SendHostReply);
+                if (now - lastHostReap >= 1.0)
+                {
+                    lastHostReap = now;
+                    _hosts.Reap(now);
+                }
+                if (now - lastMapPump >= 0.05)
+                {
+                    lastMapPump = now;
+                    _mapRequests.Pump(now,
+                        (request, sender, time, packages) => _hosts.Start(request, sender, time, packages),
+                        SendHostReply);
+                }
                 // The directory keeps itself current too, and waits on the
                 // matches it is running rather than on the servers it lists:
                 // a listed server re-announces every fifteen seconds, so the
                 // list rebuilds itself within a restart, but a hosted match
                 // lives in this process and a restart ends it.
-                if (Update.ServerUpdate.ShouldRestart(_hosts.Count + _mapRequests.ActiveCount))
+                if (now - lastUpdateCheck >= 1.0)
                 {
-                    Log("shutting down to come back on the new build");
-                    _running = false;
-                    break;
+                    lastUpdateCheck = now;
+                    if (Update.ServerUpdate.ShouldRestart(_hosts.Count + _mapRequests.ActiveCount))
+                    {
+                        Log("shutting down to come back on the new build");
+                        _running = false;
+                        break;
+                    }
                 }
                 if (now - lastReport >= 60)
                 {
@@ -411,6 +427,10 @@ namespace MphRead.Mods.Network
             {
                 SendList(packet.Sender);
             }
+            else if (packet.Type == PacketType.HostChallenge)
+            {
+                HandleHostChallenge(packet, now);
+            }
             else if (packet.Type == PacketType.HostRequest)
             {
                 HandleHostRequest(packet, now);
@@ -419,6 +439,18 @@ namespace MphRead.Mods.Network
             {
                 HandleFarewell(packet);
             }
+        }
+
+        private void HandleHostChallenge(ReceivedPacket packet, double now)
+        {
+            if (!HostChallengePacket.TryRead(packet.Payload, out var challenge)
+                || challenge.Protocol != NetConfig.ProtocolVersion)
+                return;
+            HostChallengeReplyPacket reply =
+                HostRequestGuard.Challenge(packet.Sender, challenge, now);
+            reply.Write(_scratch);
+            _transport?.Send(packet.Sender, PacketType.HostChallengeReply,
+                _scratch.AsSpan(0, HostChallengeReplyPacket.Size));
         }
 
         /// <summary>A server saying it is stopping. Take it off the list now.</summary>
@@ -472,6 +504,11 @@ namespace MphRead.Mods.Network
                 else if (!CanHost)
                 {
                     reply.Reason = "this directory does not start games";
+                }
+                else if (!HostRequestGuard.Validate(packet.Sender, request, now,
+                    out string admissionReason))
+                {
+                    reply.Reason = admissionReason;
                 }
                 else
                 {
@@ -861,10 +898,17 @@ namespace MphRead.Mods.Network
                     });
                     var jobs = new List<Task>();
                     var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    string masterMachine = Resolve(masterHost);
                     foreach (MasterListing server in listing.Servers
                         ?? Array.Empty<MasterListing>())
                     {
                         if (server.Address.Length == 0
+                            // When the always-on master itself can allocate
+                            // lobbies, probing every dynamic child on that same
+                            // machine only adds work and duplicate picker rows.
+                            || listing.CanHost == true && String.Equals(
+                                Resolve(server.Address), masterMachine,
+                                StringComparison.OrdinalIgnoreCase)
                             || !seen.Add($"{server.Address}:{server.Port}"))
                         {
                             continue;
@@ -1052,6 +1096,59 @@ namespace MphRead.Mods.Network
             try
             {
                 using var socket = new UdpClient(AddressFamily.InterNetwork);
+                ulong hostNonce;
+                do
+                {
+                    Span<byte> nonceBytes = stackalloc byte[8];
+                    RandomNumberGenerator.Fill(nonceBytes);
+                    hostNonce = System.Buffers.Binary.BinaryPrimitives
+                        .ReadUInt64LittleEndian(nonceBytes);
+                } while (hostNonce == 0);
+
+                var challenge = new HostChallengePacket(
+                    (byte)NetConfig.ProtocolVersion, hostNonce);
+                byte[] challengeWire = new byte[1 + HostChallengePacket.Size];
+                challengeWire[0] = (byte)PacketType.HostChallenge;
+                challenge.Write(challengeWire.AsSpan(1));
+                socket.Send(challengeWire, challengeWire.Length, endPoint);
+
+                var challengeFrom = new IPEndPoint(IPAddress.Any, 0);
+                socket.Client.ReceiveTimeout = Math.Clamp(timeoutMs, 250, 1500);
+                HostChallengeReplyPacket challengeReply = default;
+                bool challenged = false;
+                DateTime challengeDeadline = DateTime.UtcNow.AddMilliseconds(
+                    Math.Clamp(timeoutMs, 250, 1500));
+                while (DateTime.UtcNow < challengeDeadline)
+                {
+                    try
+                    {
+                        byte[] answer = socket.Receive(ref challengeFrom);
+                        if (challengeFrom.Equals(endPoint)
+                            && answer.Length == 1 + HostChallengeReplyPacket.Size
+                            && answer[0] == (byte)PacketType.HostChallengeReply
+                            && HostChallengeReplyPacket.TryRead(answer.AsSpan(1),
+                                out challengeReply)
+                            && challengeReply.Nonce == hostNonce)
+                        {
+                            challenged = true;
+                            break;
+                        }
+                    }
+                    catch (SocketException ex) when (ex.SocketErrorCode
+                        == SocketError.TimedOut)
+                    {
+                        break;
+                    }
+                }
+                if (!challenged)
+                {
+                    return new HostedGame
+                    {
+                        Reason = $"{masterHost}:{masterPort} did not complete the "
+                            + "protected lobby-allocation challenge"
+                    };
+                }
+
                 IReadOnlyList<HostRotationEntry>? hostedRotation = rotation?
                     .Take(HostRequestPacket.MaxRotation)
                     .Select(entry => HostRotationEntry.ForRoom(entry.RoomKey, entry.Mode))
@@ -1067,7 +1164,8 @@ namespace MphRead.Mods.Network
                     RoomKey = roomKey, MapIdentity = NetworkMapIdentity.ForRoom(roomKey),
                     ServerName = serverName,
                     Policy = policy, AllowJoinInProgress = true, RequireReady = false,
-                    Rotation = hostedRotation
+                    Rotation = hostedRotation,
+                    HostNonce = hostNonce, HostCookie = challengeReply.Cookie
                 };
                 var datagram = new byte[1 + request.Length];
                 datagram[0] = (byte)PacketType.HostRequest;

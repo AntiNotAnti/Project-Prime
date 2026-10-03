@@ -10,7 +10,7 @@ internal static class ContinuousTargetTests
     {
         try
         {
-            Check(NetConfig.ProtocolVersion == 36 && IntentPacket.FullSize == 423, "protocol 36 retains fire-event layout");
+            Check(NetConfig.ProtocolVersion == 37 && IntentPacket.FullSize == 423, "protocol 37 retains fire-event layout");
             Span<byte> bytes = stackalloc byte[102];
             foreach (byte slot in new byte[] { 0x80, 0x81, 0x88 })
             {

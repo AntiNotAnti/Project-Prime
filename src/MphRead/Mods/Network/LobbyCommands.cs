@@ -152,6 +152,11 @@ namespace MphRead.Mods.Network
             if (tokenMatches)
                 _processOwnerClientId = peer.ClientId;
             OwnerToken = Guid.Empty;
+            if (!_controlPlaneOnlyForTests)
+            {
+                BeginServerHotPathPrewarm();
+                Mods.RoomPrewarm.Begin(_lobbyMatch.RoomKey);
+            }
             TouchLobbyRevision($"owner = slot {peer.SlotIndex}");
         }
 
