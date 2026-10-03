@@ -330,10 +330,10 @@ namespace MphRead.Mods.Network
                 NetLog.Event($"server simulation step failed: {ex}");
             }
             double elapsed = Stopwatch.GetElapsedTime(start).TotalSeconds;
+            long allocatedBytes = GC.GetAllocatedBytesForCurrentThread() - allocated;
             Telemetry.ProductionTelemetry.RecordServerStep(NetSession.NetFrame, elapsed * 1000,
-                GC.GetAllocatedBytesForCurrentThread() - allocated, DroppedSteps, Stalls, failed);
-            elapsed = Stopwatch.GetElapsedTime(start).TotalSeconds;
-            StepAllocatedBytes += GC.GetAllocatedBytesForCurrentThread() - allocated;
+                allocatedBytes, DroppedSteps, Stalls, failed);
+            StepAllocatedBytes += allocatedBytes;
             _stepHistogram[Math.Min(_stepHistogram.Length - 1, (int)(elapsed * 100000))]++;
             Frames++;
             StepSeconds += elapsed;
@@ -365,7 +365,23 @@ namespace MphRead.Mods.Network
             // a static cache keyed by path: without this a rotation through
             // twenty maps keeps all twenty.
             Read.ClearCache();
-            GC.Collect(generation: 2, GCCollectionMode.Forced, blocking: true, compacting: true);
+            CollectUnderMemoryPressure();
+        }
+
+        /// <summary>
+        /// Room teardown releases its owners and clears the static room cache.
+        /// Let normal generational GC reclaim that memory unless the runtime is
+        /// already close to its process/container memory limit. A forced,
+        /// compacting Gen-2 collection at every rotation used to turn an
+        /// otherwise idle transition into a stop-the-world server hitch.
+        /// </summary>
+        private static void CollectUnderMemoryPressure()
+        {
+            GCMemoryInfo memory = GC.GetGCMemoryInfo();
+            long threshold = memory.HighMemoryLoadThresholdBytes;
+            if (threshold <= 0 || memory.MemoryLoadBytes < threshold * 9 / 10) return;
+            GC.Collect(generation: 2, GCCollectionMode.Optimized,
+                blocking: false, compacting: false);
         }
 
         /// <summary>
