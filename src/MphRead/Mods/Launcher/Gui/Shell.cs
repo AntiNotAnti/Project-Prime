@@ -109,6 +109,8 @@ namespace MphRead.Mods.Launcher.Gui
         private static CancellationTokenSource? _startupWorkCancel;
         private static Task? _startupWork;
         private static int _firstFrameStarted;
+        private static IReadOnlyList<MapGen.MapDefinition>? _deferredCustomRoomsPending;
+        private static CancellationToken _deferredCustomRoomsToken;
 
         /// <summary>
         /// Open the window and run until the player quits.
@@ -205,6 +207,8 @@ namespace MphRead.Mods.Launcher.Gui
                 startupCancel?.Cancel();
                 startupCancel?.Dispose();
                 _startupWork = null;
+                _deferredCustomRoomsPending = null;
+                _deferredCustomRoomsToken = default;
                 Active = false;
                 OfflineRematch.StartNext = null;
                 _window = null;
@@ -442,6 +446,10 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static void ShowFrontScreen()
         {
+            if (_deferredCustomRoomsPending is { } pending)
+            {
+                PublishDeferredCustomRooms(pending, _deferredCustomRoomsToken);
+            }
             UiSurface? surface = UiSurface.Current;
             if (surface == null)
             {
@@ -878,6 +886,18 @@ namespace MphRead.Mods.Launcher.Gui
             IReadOnlyList<MapGen.MapDefinition> definitions, CancellationToken token)
         {
             if (!Active || token.IsCancellationRequested) return;
+            // Runtime room metadata is a between-scenes snapshot. If the player
+            // launches faster than background catalog discovery finishes, hold
+            // publication until ShowFrontScreen runs after that scene unloads.
+            if (_window?.HasScene == true)
+            {
+                _deferredCustomRoomsPending = definitions;
+                _deferredCustomRoomsToken = token;
+                DebugLog.Line("startup",
+                    $"deferred {definitions.Count} custom map registration(s) until the next front screen");
+                return;
+            }
+            _deferredCustomRoomsPending = null;
             try
             {
                 foreach (MapGen.MapDefinition definition in definitions)
