@@ -232,9 +232,19 @@ namespace MphRead.Mods.Render
             state.BindFramebuffer(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer, framebuffer);
             state.FramebufferTexture2D(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer,
                 OpenTK.Graphics.OpenGL.FramebufferAttachment.ColorAttachment0, texture);
+            int mrtTexture1 = state.GenTexture();
+            int mrtTexture2 = state.GenTexture();
+            state.FramebufferTexture2D(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer,
+                OpenTK.Graphics.OpenGL.FramebufferAttachment.ColorAttachment1, mrtTexture1);
+            state.FramebufferTexture2D(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer,
+                OpenTK.Graphics.OpenGL.FramebufferAttachment.ColorAttachment2, mrtTexture2);
+            Check(state.Framebuffer(framebuffer).ColorTexture == texture
+                    && state.Framebuffer(framebuffer).ColorTexture1 == mrtTexture1
+                    && state.Framebuffer(framebuffer).ColorTexture2 == mrtTexture2,
+                "compat framebuffer tracks three MRT color attachments", ref failures);
             Check(state.CheckFramebufferStatus(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer)
                     == OpenTK.Graphics.OpenGL.FramebufferErrorCode.FramebufferComplete,
-                "compat framebuffer completes with color attachment", ref failures);
+                "compat framebuffer completes with MRT color attachments", ref failures);
 
             int renderbuffer = state.GenRenderbuffer();
             state.BindRenderbuffer(OpenTK.Graphics.OpenGL.RenderbufferTarget.Renderbuffer, renderbuffer);
@@ -258,6 +268,11 @@ namespace MphRead.Mods.Render
             state.FramebufferTexture2D(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer,
                 OpenTK.Graphics.OpenGL.FramebufferAttachment.ColorAttachment0, texture);
 
+            state.DeleteTexture(mrtTexture1);
+            state.DeleteTexture(mrtTexture2);
+            Check(state.Framebuffer(framebuffer).ColorTexture1 == 0
+                    && state.Framebuffer(framebuffer).ColorTexture2 == 0,
+                "deleting MRT textures clears secondary framebuffer references", ref failures);
             state.DeleteTexture(texture);
             Check(!state.IsTexture(texture) && state.Framebuffer(framebuffer).ColorTexture == 0,
                 "deleting texture clears framebuffer attachment references", ref failures);
