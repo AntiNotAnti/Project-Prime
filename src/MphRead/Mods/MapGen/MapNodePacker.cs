@@ -80,10 +80,11 @@ namespace MphRead.Mods.MapGen
 
         public static IReadOnlyList<MapNavigationLink> EffectiveLinks(MapDefinition definition)
         {
-            var result=new List<MapNavigationLink>(definition.NavigationLinks);
+            var result=definition.NavigationLinks==null?new List<MapNavigationLink>():new List<MapNavigationLink>(definition.NavigationLinks);
+            if(definition.JumpPads==null)return result;
             foreach(MapJumpPad pad in definition.JumpPads)
             {
-                if(pad.Target==null||pad.Position.Length!=3||pad.Target.Length!=3)continue;
+                if(pad==null||pad.Target==null||pad.Position.Length!=3||pad.Target.Length!=3)continue;
                 result.Add(new MapNavigationLink
                 {
                     Id=pad.Id,
