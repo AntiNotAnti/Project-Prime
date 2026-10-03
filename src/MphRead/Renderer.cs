@@ -5564,6 +5564,14 @@ namespace MphRead
         {
             if (item.ViewModel)
             {
+#if !MPHREAD_SERVER
+                // First-person geometry changes the authored projection while
+                // often sharing the same world shader/pipeline. Keep that
+                // transition out of a coalesced modern pass so the arm cannon
+                // can never inherit world draw state.
+                if (Mods.Render.ModernGraphicsCompat.Active)
+                    Mods.Render.ModernGraphicsCompat.BreakDrawPass();
+#endif
                 GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false,
                     ref _viewModelPerspectiveMatrix);
             }
@@ -5673,6 +5681,12 @@ namespace MphRead
             }
             if (item.ViewModel)
             {
+#if !MPHREAD_SERVER
+                // End the viewmodel draw before restoring the world projection.
+                // This is a pass boundary only, not a queue submission.
+                if (Mods.Render.ModernGraphicsCompat.Active)
+                    Mods.Render.ModernGraphicsCompat.BreakDrawPass();
+#endif
                 // Nothing after this item should inherit the viewmodel lens.
                 GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false,
                     ref _perspectiveMatrix);
