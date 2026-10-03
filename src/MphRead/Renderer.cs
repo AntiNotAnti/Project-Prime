@@ -1573,13 +1573,29 @@ namespace MphRead
         {
             PumpModernTextureStreaming();
             string samplingKey = Mods.Render.TextureSamplingPolicy.RuntimeKey;
-            if (Mods.Headless.Active || (_uploadedTextureUpscale == Mods.RenderOptions.TextureUpscale
+            bool replacements = Mods.RenderOptions.TextureReplacements;
+            bool advancedChanged = _uploadedAdvancedMaterials != Mods.RenderOptions.AdvancedMaterials;
+            bool baseTextureSettingsUnchanged =
+                _uploadedTextureUpscale == Mods.RenderOptions.TextureUpscale
                 && _uploadedTextureAssetQuality == Mods.RenderOptions.TextureQuality
-                && (_uploadedTextureReplacements == false || _uploadedTextureSamplingKey == samplingKey)
-                && _uploadedTextureReplacements == Mods.RenderOptions.TextureReplacements
-                && (_uploadedTextureReplacements == false
-                    || _uploadedAdvancedMaterials == Mods.RenderOptions.AdvancedMaterials)
-                && _uploadedMaterialRevision == Mods.Render.TextureReplacementPack.Revision)) return;
+                && (!replacements || _uploadedTextureSamplingKey == samplingKey)
+                && _uploadedTextureReplacements == replacements
+                && _uploadedMaterialRevision == Mods.Render.TextureReplacementPack.Revision;
+
+            if (Mods.Headless.Active) return;
+            if (baseTextureSettingsUnchanged && (!replacements || !advancedChanged)) return;
+
+            // Advanced material maps are companions of an already-resident
+            // albedo. Toggling them must not throw every HD albedo back to its
+            // native placeholder and decode it again. Refresh only the companion
+            // resources when no base-texture setting changed.
+            if (replacements && baseTextureSettingsUnchanged && advancedChanged)
+            {
+                RefreshAdvancedMaterialMaps();
+                _uploadedAdvancedMaterials = Mods.RenderOptions.AdvancedMaterials;
+                return;
+            }
+
             GL.ActiveTexture(TextureUnit.Texture0);
             // Keep binding IDs: existing materials, animations and render items
             // may refer to them. Reupload only when a source-quality option changes.
@@ -1591,9 +1607,83 @@ namespace MphRead
             _uploadedTextureUpscale = Mods.RenderOptions.TextureUpscale;
             _uploadedTextureAssetQuality = Mods.RenderOptions.TextureQuality;
             _uploadedTextureSamplingKey = samplingKey;
-            _uploadedTextureReplacements = Mods.RenderOptions.TextureReplacements;
+            _uploadedTextureReplacements = replacements;
             _uploadedAdvancedMaterials = Mods.RenderOptions.AdvancedMaterials;
             _uploadedMaterialRevision = Mods.Render.TextureReplacementPack.Revision;
+        }
+
+        private void RefreshAdvancedMaterialMaps()
+        {
+            // Companion decodes that were valid under the old toggle must never
+            // spring back to life if the option is toggled off and on quickly.
+            // Albedo streaming is independent and remains in flight/resident.
+            if (!Mods.RenderOptions.AdvancedMaterials)
+            {
+                var keep = _streamingTextureQueue
+                    .Where(request => request.Channel == Mods.Render.TextureAssetChannel.Albedo)
+                    .ToArray();
+                _streamingTextureQueue.Clear();
+                foreach (var request in keep) _streamingTextureQueue.Enqueue(request);
+                _streamingTextureDecodes.RemoveAll(pending =>
+                    pending.Request.Channel != Mods.Render.TextureAssetChannel.Albedo);
+
+                foreach (int binding in _materialMaps.Keys.ToArray())
+                {
+                    if (!_materialMaps.Remove(binding, out var maps)) continue;
+                    if (maps.Normal != 0) ReleaseTexture(maps.Normal);
+                    if (maps.Specular != 0) ReleaseTexture(maps.Specular);
+                    if (maps.Emissive != 0) ReleaseTexture(maps.Emissive);
+                }
+                return;
+            }
+
+            foreach (var source in _textureSources.ToArray())
+            {
+                int binding = source.Key;
+                // If albedo is still native/in-flight, its normal promotion path
+                // will enqueue companions after albedo succeeds.
+                if (!_modernTextureSampling.TryGetValue(binding, out var modern)
+                    || modern.Channel != Mods.Render.TextureAssetChannel.Albedo)
+                    continue;
+
+                var value = source.Value;
+                Mods.Render.Materials.MaterialAssetKey modelKey =
+                    Mods.Render.Materials.MaterialAssetKey.ForModel(
+                        value.Model, value.Texture, value.Palette, value.Recolor);
+                var material = Mods.Render.TextureReplacementPack.Resolve(
+                    value.Model.Name, value.Texture, value.Palette, value.Recolor,
+                    value.Authored ?? modelKey, modelKey);
+                if (material == null) continue;
+                Mods.Render.TextureAssetClass assetClass =
+                    Mods.Render.TextureReplacementPack.Classify(value.Model);
+
+                bool stream = !OperatingSystem.IsAndroid()
+                    && (material.Normal?.CanDecodeOffThread ?? true)
+                    && (material.SpecularRoughness?.CanDecodeOffThread ?? true)
+                    && (material.Emissive?.CanDecodeOffThread ?? true);
+                if (stream && _streamingTextureVersions.TryGetValue(binding, out int version))
+                {
+                    if (material.Normal is { } normal)
+                        QueueModernTextureStreamChannel(binding, version, material, assetClass,
+                            Mods.Render.TextureAssetChannel.Normal, normal);
+                    if (material.SpecularRoughness is { } specular)
+                        QueueModernTextureStreamChannel(binding, version, material, assetClass,
+                            Mods.Render.TextureAssetChannel.Material, specular);
+                    if (material.Emissive is { } emissive)
+                        QueueModernTextureStreamChannel(binding, version, material, assetClass,
+                            Mods.Render.TextureAssetChannel.Emissive, emissive);
+                    continue;
+                }
+
+                Mods.Render.MaterialMapBindings maps =
+                    Mods.Render.TextureReplacementPack.UploadCompanions(
+                        material, AllocateTexture, ReleaseTexture, assetClass);
+                if (!maps.Any) continue;
+                _materialMaps[binding] = maps;
+                RegisterModernTexture(maps.Normal, assetClass, Mods.Render.TextureAssetChannel.Normal);
+                RegisterModernTexture(maps.Specular, assetClass, Mods.Render.TextureAssetChannel.Material);
+                RegisterModernTexture(maps.Emissive, assetClass, Mods.Render.TextureAssetChannel.Emissive);
+            }
         }
 
         private bool BindTexture(Model model, int textureId, int paletteId, int recolorId, int existingBinding = 0, Mods.Render.Materials.MaterialAssetKey? authoredKey = null)
