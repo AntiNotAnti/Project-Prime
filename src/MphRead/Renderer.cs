@@ -1566,6 +1566,7 @@ namespace MphRead
         private Mods.TextureAssetQuality _uploadedTextureAssetQuality = Mods.RenderOptions.TextureQuality;
         private string _uploadedTextureSamplingKey = Mods.Render.TextureSamplingPolicy.RuntimeKey;
         private bool _uploadedTextureReplacements = Mods.RenderOptions.TextureReplacements;
+        private bool _uploadedAdvancedMaterials = Mods.RenderOptions.AdvancedMaterials;
         private int _uploadedMaterialRevision = Mods.Render.TextureReplacementPack.Revision;
 
         private void RefreshTextureQuality()
@@ -1576,6 +1577,7 @@ namespace MphRead
                 && _uploadedTextureAssetQuality == Mods.RenderOptions.TextureQuality
                 && (_uploadedTextureReplacements == false || _uploadedTextureSamplingKey == samplingKey)
                 && _uploadedTextureReplacements == Mods.RenderOptions.TextureReplacements
+                && _uploadedAdvancedMaterials == Mods.RenderOptions.AdvancedMaterials
                 && _uploadedMaterialRevision == Mods.Render.TextureReplacementPack.Revision)) return;
             GL.ActiveTexture(TextureUnit.Texture0);
             // Keep binding IDs: existing materials, animations and render items
@@ -1589,6 +1591,7 @@ namespace MphRead
             _uploadedTextureAssetQuality = Mods.RenderOptions.TextureQuality;
             _uploadedTextureSamplingKey = samplingKey;
             _uploadedTextureReplacements = Mods.RenderOptions.TextureReplacements;
+            _uploadedAdvancedMaterials = Mods.RenderOptions.AdvancedMaterials;
             _uploadedMaterialRevision = Mods.Render.TextureReplacementPack.Revision;
         }
 
@@ -1633,7 +1636,8 @@ namespace MphRead
 
             bool streamReplacement = !OperatingSystem.IsAndroid()
                 && replacementMaterial?.Albedo != null
-                && Mods.Render.TextureReplacementPack.CanDecodeOffThread(replacementMaterial);
+                && Mods.Render.TextureReplacementPack.CanDecodeOffThread(
+                    replacementMaterial, includeCompanions: Mods.RenderOptions.AdvancedMaterials);
             int replacementWidth = 0;
             int replacementHeight = 0;
             bool replaced = !streamReplacement
@@ -1679,7 +1683,7 @@ namespace MphRead
                 QueueModernTextureStream(_lastTextureId, streamVersion,
                     replacementMaterial, replacementClass);
             }
-            else if (replacementMaterial != null)
+            else if (replacementMaterial != null && Mods.RenderOptions.AdvancedMaterials)
             {
                 Mods.Render.MaterialMapBindings maps =
                     Mods.Render.TextureReplacementPack.UploadCompanions(
@@ -1737,6 +1741,8 @@ namespace MphRead
                 && _streamingTextureVersions.TryGetValue(request.Binding, out int version)
                 && version == request.Version
                 && Mods.RenderOptions.TextureQuality == request.Quality
+                && (request.Channel == Mods.Render.TextureAssetChannel.Albedo
+                    || Mods.RenderOptions.AdvancedMaterials)
                 && Mods.Render.TextureReplacementPack.Revision == request.MaterialRevision
                 && Mods.Render.TextureSamplingPolicy.ResolveModern(
                     request.AssetClass, request.Channel).CacheKey == request.SamplingKey;
@@ -1808,18 +1814,21 @@ namespace MphRead
                 Mods.DebugLog.Line("render",
                     $"progressive HD texture {request.Material.Key} -> {width}x{height}");
 
-                if (request.Material.Normal is { } normal)
-                    QueueModernTextureStreamChannel(request.Binding, request.Version,
-                        request.Material, request.AssetClass,
-                        Mods.Render.TextureAssetChannel.Normal, normal);
-                if (request.Material.SpecularRoughness is { } material)
-                    QueueModernTextureStreamChannel(request.Binding, request.Version,
-                        request.Material, request.AssetClass,
-                        Mods.Render.TextureAssetChannel.Material, material);
-                if (request.Material.Emissive is { } emissive)
-                    QueueModernTextureStreamChannel(request.Binding, request.Version,
-                        request.Material, request.AssetClass,
-                        Mods.Render.TextureAssetChannel.Emissive, emissive);
+                if (Mods.RenderOptions.AdvancedMaterials)
+                {
+                    if (request.Material.Normal is { } normal)
+                        QueueModernTextureStreamChannel(request.Binding, request.Version,
+                            request.Material, request.AssetClass,
+                            Mods.Render.TextureAssetChannel.Normal, normal);
+                    if (request.Material.SpecularRoughness is { } material)
+                        QueueModernTextureStreamChannel(request.Binding, request.Version,
+                            request.Material, request.AssetClass,
+                            Mods.Render.TextureAssetChannel.Material, material);
+                    if (request.Material.Emissive is { } emissive)
+                        QueueModernTextureStreamChannel(request.Binding, request.Version,
+                            request.Material, request.AssetClass,
+                            Mods.Render.TextureAssetChannel.Emissive, emissive);
+                }
                 return;
             }
 
