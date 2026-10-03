@@ -182,6 +182,21 @@ namespace MphRead.Mods.Render
                     && TextureAssetManager.RequestedDimensionLimit(TextureAssetQuality.Ultra, TextureAssetClass.Effect) == 4096,
                     "modern texture policy exposes 1K/2K/4K/8K tiers and a bounded FX tier");
 
+                const long MiB = 1024L * 1024;
+                Check(TextureAssetManager.WorldMaterialMemoryBudgetBytesForQuality(
+                        TextureAssetQuality.Automatic, android: false) == 1024 * MiB
+                    && TextureAssetManager.WorldMaterialMemoryBudgetBytesForQuality(
+                        TextureAssetQuality.High, android: false) == 1024 * MiB
+                    && TextureAssetManager.WorldMaterialMemoryBudgetBytesForQuality(
+                        TextureAssetQuality.Ultra, android: false) == 3072 * MiB
+                    && TextureAssetManager.WorldMaterialMemoryBudgetBytesForQuality(
+                        TextureAssetQuality.Automatic, android: true) == 256 * MiB
+                    && TextureAssetManager.WorldMaterialMemoryBudgetBytesForQuality(
+                        TextureAssetQuality.High, android: true) == 384 * MiB
+                    && TextureAssetManager.WorldMaterialMemoryBudgetBytesForQuality(
+                        TextureAssetQuality.Ultra, android: true) == 768 * MiB,
+                    "world material VRAM admission is quality-aware and conservative on Android");
+
                 RenderOptions.TextureSampling = TextureSamplingMode.Auto;
                 TextureSamplerDescriptor autoSampling = TextureSamplingPolicy.ResolveModern(
                     TextureAssetClass.World, TextureAssetChannel.Albedo);
