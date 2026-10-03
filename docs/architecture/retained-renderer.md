@@ -123,6 +123,43 @@ the node. Weak keys ensure room rotations do not keep an old model graph alive.
 Renderer benchmarks expose room-template builds and cache hits so large community
 maps can quantify whether the retained submission path is being exercised.
 
+## Slice 4: direct retained World submission
+
+The first backend-direct path now targets the safest opaque retained meshes on
+modern WebGPU backends. Eligible packets bypass Scene's GL-facing
+`DoMaterial`/`DoTexture`/uniform replay and submit their already-retained
+native geometry directly through the existing World WGSL, pipeline cache,
+uniform arena and bind-group cache.
+
+Eligibility is intentionally narrow:
+
+- mesh geometry only;
+- normal opaque render mode;
+- no viewmodel or billboard transform;
+- no matrix-stack skinning;
+- no wireframe;
+- no cosmetics, palette/colour overrides or textured-player skin;
+- advanced-material and cel-shading modes remain on the compatibility executor.
+
+The direct executor synchronizes the internal modern program/resource shadow
+state while writing material, light, transform, sampler and texture state
+without the public GL-style calls. This keeps a following fallback draw correct
+without requiring a compatibility warm-up draw.
+
+Texture sampling is also self-contained: retained direct draws resolve the same
+native/modern sampling policy, update the WebGPU texture record, create mip
+storage when required and reuse the progressive texture residency path.
+
+Opaque and depth-rebuild graph passes attempt direct submission per packet.
+A direct draw invalidates the adjacent compatibility-state reuse assumption, so
+the next fallback packet reapplies full compatibility state before batching can
+resume. Translucency, decals, PBR replay, viewmodels and special effects are
+unchanged.
+
+Benchmarks report direct retained World draws versus compatibility fallbacks.
+`-rendergraphcheck` verifies the direct eligibility fence independently of a
+GPU/device.
+
 ## Next slices
 
 The graph and packet seam is intended to support the remaining migration without
