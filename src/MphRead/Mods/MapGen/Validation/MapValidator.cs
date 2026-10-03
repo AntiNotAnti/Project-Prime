@@ -240,7 +240,8 @@ namespace MphRead.Mods.MapGen
             if(d.NavigationLinks==null)r.Error("FP-MAP-007","Navigation links cannot be null.");
             else if(d.NavigationLinks.Count>4096)r.Error("FP-MAP-007","Too many navigation links.");
             else foreach(var link in d.NavigationLinks)
-                if(link==null||!Position(link.From)||!Position(link.To)||!Enum.IsDefined(link.Kind))r.Error("FP-MAP-007","Invalid navigation link.");
+                if(link==null||!Position(link.From)||!Position(link.To)||!Enum.IsDefined(link.Kind)
+                    ||!Enum.IsDefined(link.FromNodeKind)||!Enum.IsDefined(link.ToNodeKind))r.Error("FP-MAP-007","Invalid navigation link.");
                 else Id(link.Id);
             return r;
         }
