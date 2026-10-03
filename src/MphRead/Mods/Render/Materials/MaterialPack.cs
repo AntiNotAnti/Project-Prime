@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ReFuel.Stb;
+using MphRead.Mods.Render;
 
 namespace MphRead.Mods.Render.Materials;
 
