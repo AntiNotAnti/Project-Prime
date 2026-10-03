@@ -520,7 +520,7 @@ namespace MphRead.Mods.MapGen
                 using var ktx = new MemoryStream(raw, writable: false);
                 Mods.Render.ModernTextureAsset asset = Mods.Render.PreparedTextureCodec.DecodeRgba(
                     ktx, "map-bake", Mods.Render.TextureAssetClass.World,
-                    Mods.Render.TextureAssetChannel.Albedo);
+                    Mods.Render.TextureAssetChannel.Albedo, maximumDimension: size);
                 long rgbLength = checked((long)asset.Width * asset.Height * 3);
                 if (rgbLength > Int32.MaxValue)
                     throw new InvalidDataException("Texture image has invalid dimensions.");

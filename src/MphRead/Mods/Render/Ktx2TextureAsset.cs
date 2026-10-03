@@ -233,10 +233,9 @@ namespace MphRead.Mods.Render
             if (nativeSize < (nuint)expected || offset > texture->DataSize
                 || (nuint)expected > texture->DataSize - offset)
                 throw new InvalidDataException("KTX2 RGBA base image is truncated.");
-            byte[] rgba = new byte[expected];
-            Marshal.Copy((IntPtr)(texture->PData + offset), rgba, 0, rgba.Length);
-            return ModernTextureAsset.FromRgba(key, assetClass, channel, width, height, rgba)
-                .Fit(maximumDimension);
+            return ModernTextureAsset.FromRgbaPointer(
+                key, assetClass, channel, width, height,
+                (IntPtr)(texture->PData + offset), maximumDimension);
         }
 
         private static GpuTextureCompressionFormat DirectCompression(Ktx2.VkFormat format) =>

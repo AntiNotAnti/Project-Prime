@@ -282,6 +282,28 @@ namespace MphRead.Mods.Render
             return new ModernTextureAsset(key, assetClass, channel, width, height, pixels);
         }
 
+        internal static ModernTextureAsset FromRgbaPointer(string key,
+            TextureAssetClass assetClass, TextureAssetChannel channel,
+            int width, int height, IntPtr pixels, int maximumDimension)
+        {
+            ValidateDimensions(width, height);
+            if (pixels == IntPtr.Zero)
+                throw new InvalidDataException("Texture decoder returned no pixels.");
+            maximumDimension = Math.Clamp(maximumDimension, 1, MaximumDimension);
+            (int targetWidth, int targetHeight) = FitDimensions(width, height, maximumDimension);
+            if (targetWidth != width || targetHeight != height)
+            {
+                byte[] fitted = Resample(pixels, width, height, targetWidth, targetHeight,
+                    channel == TextureAssetChannel.Normal);
+                return new ModernTextureAsset(key, assetClass, channel,
+                    targetWidth, targetHeight, fitted);
+            }
+
+            byte[] rgba = new byte[checked(width * height * 4)];
+            Marshal.Copy(pixels, rgba, 0, rgba.Length);
+            return new ModernTextureAsset(key, assetClass, channel, width, height, rgba);
+        }
+
         public ModernTextureAsset Fit(int maximumDimension)
         {
             maximumDimension = Math.Clamp(maximumDimension, 1, MaximumDimension);
