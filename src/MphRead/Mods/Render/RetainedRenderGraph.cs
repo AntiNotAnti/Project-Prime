@@ -179,6 +179,12 @@ namespace MphRead.Mods.Render
             + _translucentBatches.Count;
         internal int StateReuseCount => Reuses(_opaqueBatches)
             + Reuses(_decalBatches) + Reuses(_translucentBatches);
+        // Opaque state is consumed by opaque + depth rebuild; translucent
+        // state is consumed by mask + behind + front.
+        internal int GraphStateApplicationCount => _opaqueBatches.Count * 2
+            + _decalBatches.Count + _translucentBatches.Count * 3;
+        internal int GraphStateReuseCount => Reuses(_opaqueBatches) * 2
+            + Reuses(_decalBatches) + Reuses(_translucentBatches) * 3;
         internal int MeshDescriptorCount => _meshDescriptors.Count;
         internal ulong FrameRevision { get; private set; }
 
@@ -212,7 +218,7 @@ namespace MphRead.Mods.Render
             {
                 RenderItem item = source[i];
                 RetainedMeshDescriptorKey key = RetainedMeshDescriptor.KeyOf(item);
-                if (!_meshDescriptors.TryGetValue(key, out RetainedMeshDescriptor? mesh))
+                if (!_meshDescriptors.TryGetValue(key, out RetainedMeshDescriptor mesh))
                 {
                     mesh = new RetainedMeshDescriptor(key);
                     _meshDescriptors.Add(key, mesh);
@@ -343,6 +349,10 @@ namespace MphRead
         internal int RetainedVisiblePacketCount => _retainedRenderWorld.PacketCount;
         internal int RetainedRenderBatchCount => _retainedRenderWorld.BatchCount;
         internal int RetainedRenderStateReuseCount => _retainedRenderWorld.StateReuseCount;
+        internal int RetainedGraphStateApplicationCount =>
+            _retainedRenderWorld.GraphStateApplicationCount;
+        internal int RetainedGraphStateReuseCount =>
+            _retainedRenderWorld.GraphStateReuseCount;
         internal int RetainedMeshDescriptorCount => _retainedRenderWorld.MeshDescriptorCount;
         internal ulong RetainedRenderFrameRevision => _retainedRenderWorld.FrameRevision;
 
