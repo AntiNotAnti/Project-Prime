@@ -1509,6 +1509,13 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 modifiers |= Avalonia.Input.RawInputModifiers.Alt;
             }
+            if (e.Command)
+            {
+                // Avalonia's native macOS text shortcuts use Meta. Without
+                // forwarding OpenTK's Command modifier, Cmd+C/X/V reached the
+                // focused TextBox as plain C/X/V instead of clipboard commands.
+                modifiers |= Avalonia.Input.RawInputModifiers.Meta;
+            }
             return modifiers;
         }
     }
