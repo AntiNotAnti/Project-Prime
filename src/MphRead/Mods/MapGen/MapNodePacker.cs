@@ -84,7 +84,10 @@ namespace MphRead.Mods.MapGen
             return (graph.Bytes, graph.Positions.Length, graph.Edges);
         }
 
-        public sealed record NavigationGraph(byte[] Bytes, Vector3[] Positions, int[][] Neighbours, int[] Components, int Edges);
+        public sealed record NavigationGraph(byte[] Bytes, Vector3[] Positions, int[][] Neighbours, int[] Components, int Edges)
+        {
+            public NodeType[] Types { get; init; } = Array.Empty<NodeType>();
+        }
 
         public static NavigationGraph Analyze(IReadOnlyList<BuiltFace> solid, IReadOnlyList<MapNavigationLink>? links = null, CancellationToken cancellation = default)
         {
@@ -164,7 +167,10 @@ namespace MphRead.Mods.MapGen
                 component++;
             }
             return new(Write(nodes, spacing, cancellation), nodes.Select(n => n.Position).ToArray(),
-                nodes.Select(n => n.Neighbours.ToArray()).ToArray(), components, edges);
+                nodes.Select(n => n.Neighbours.ToArray()).ToArray(), components, edges)
+            {
+                Types = nodes.Select(n => n.Type).ToArray()
+            };
         }
 
         private static void ClassifyAutoNodeTypes(List<Node> nodes)
@@ -388,7 +394,7 @@ namespace MphRead.Mods.MapGen
                         {
                             continue;
                         }
-                        heights.Add((y, face.Damaging || face.Terrain >= Terrain.Lava));
+                        heights.Add((y, face.Damaging || (int)face.Terrain >= (int)Terrain.Lava));
                     }
                     heights.Sort((a,b) =>
                     {
