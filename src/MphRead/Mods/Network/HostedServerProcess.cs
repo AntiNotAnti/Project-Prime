@@ -31,6 +31,15 @@ namespace MphRead.Mods.Network
 
         public int Port { get; }
         public bool EverOccupied { get; private set; }
+        public bool Responsive => _everResponsive;
+        public long ResidentBytes
+        {
+            get
+            {
+                try { return Running ? _process.WorkingSet64 : 0; }
+                catch (Exception) { return 0; }
+            }
+        }
         public bool Running
         {
             get
