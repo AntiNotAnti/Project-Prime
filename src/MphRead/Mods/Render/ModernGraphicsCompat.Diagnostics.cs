@@ -9,7 +9,16 @@ internal sealed unsafe partial class ModernGraphicsCompat
 {
     internal readonly record struct ResourceCounts(int Textures, int Renderbuffers, int Geometry,
         int Pipelines, int Programs, int Lists, int Views, int Samplers, int Buffers, int ShaderModules, int BindGroups, int Surfaces);
+    private sealed class FrameBindGroupCacheEntry
+    {
+        internal BindGroup* Group;
+        internal nint[] Resources = Array.Empty<nint>();
+    }
+
     private int _liveBindGroups;
+    private readonly List<FrameBindGroupCacheEntry> _frameBindGroups = new();
+    private int _frameBindGroupCursor;
+
     private BindGroup* CreateTrackedBindGroup(in BindGroupDescriptor descriptor)
     {
         long start = PerformanceStart();
@@ -27,6 +36,45 @@ internal sealed unsafe partial class ModernGraphicsCompat
         if (group == null) return;
         _api.BindGroupRelease(group);
         _liveBindGroups--;
+    }
+
+    /// <summary>
+    /// Compatibility draws use a deterministic sequence of uniform buffers and
+    /// material resources from frame to frame. Cache each sequence slot so the
+    /// steady-state frame updates data rather than rebuilding native bind groups.
+    /// A slot is replaced automatically when draw order or resources change.
+    /// </summary>
+    private BindGroup* FrameBindGroup(in BindGroupDescriptor descriptor, ReadOnlySpan<nint> resources)
+    {
+        int slot = _frameBindGroupCursor++;
+        FrameBindGroupCacheEntry? cached = slot < _frameBindGroups.Count
+            ? _frameBindGroups[slot] : null;
+        if (cached != null && cached.Group != null
+            && cached.Resources.AsSpan().SequenceEqual(resources))
+        {
+            return cached.Group;
+        }
+
+        if (cached?.Group != null)
+            ReleaseTrackedBindGroup(cached.Group);
+
+        BindGroup* group = CreateTrackedBindGroup(descriptor);
+        if (cached == null)
+        {
+            cached = new FrameBindGroupCacheEntry();
+            _frameBindGroups.Add(cached);
+        }
+        cached.Group = group;
+        cached.Resources = resources.ToArray();
+        return group;
+    }
+
+    private void DisposeFrameBindGroups()
+    {
+        foreach (FrameBindGroupCacheEntry cached in _frameBindGroups)
+            if (cached.Group != null) ReleaseTrackedBindGroup(cached.Group);
+        _frameBindGroups.Clear();
+        _frameBindGroupCursor = 0;
     }
 
     internal static ResourceCounts LiveResources
