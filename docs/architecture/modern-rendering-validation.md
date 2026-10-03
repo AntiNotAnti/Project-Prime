@@ -44,9 +44,32 @@ are reported as unavailable, not approximated by CPU time.
 18–26 ms completed per frame after batching (previously 24–27 ms); [OpenGL results](render-validation/opengl-m4pro-extreme.json)
 are approximately 7–12 ms. These are development measurements, not release-quality
 percentile estimates (especially 0.1% with only 120 samples). Modern rendering
-has not met the performance gate. Native command encoders submit in batches of
-operations with distinct pooled uniforms/geometry per draw. Three-pass PBR at
-native scale and further CPU submission work remain opportunities for improvement.
+has not met the performance gate. These stored captures predate the frame-pipeline
+optimization below, so they remain the historical baseline rather than evidence
+for the optimized path. Three-pass PBR at native scale remains a separate opportunity.
+
+## Frame-pipeline optimization (2026-10-02)
+
+The shared WebGPU compatibility path now attacks the CPU submission bottleneck
+without changing simulation or graphics features:
+
+- compatible core draws coalesce into one render pass until a real attachment or
+  resource-usage boundary requires it to end;
+- transient uniforms use aligned 4 MiB arena pages and transient geometry uses
+  shared 2 MiB vertex / 512 KiB index pages instead of one GPU buffer per draw;
+- arena CPU staging is flushed once per dirty page immediately before QueueSubmit;
+- steady-state compatibility bind groups are cached by deterministic draw slot and
+  resource fingerprint;
+- dynamic texture updates up to 4 MiB stage through CopyBufferToTexture in command
+  order, avoiding the previous forced QueueSubmit before every small UI/video update;
+- the command batching ceiling is 1,024 operations, while readback, presentation,
+  recovery and explicit hazards remain hard submission boundaries;
+- benchmark samples now expose core draw count, core render-pass count and staged
+  texture-upload count in addition to queue submissions, buffer writes and bind groups.
+
+This section makes no FPS claim yet. Re-run the long Extreme benchmark on Apple
+Metal, Windows DX12/Vulkan and physical Android Vulkan hardware before closing the
+performance gate.
 
 ## Unverified release requirements
 
