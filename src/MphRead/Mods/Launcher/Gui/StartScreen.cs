@@ -77,6 +77,12 @@ namespace MphRead.Mods.Launcher.Gui
             AttachedToVisualTree += (_, _) => { _updateWatcher.Start(); CheckForUpdates(); };
             DetachedFromVisualTree += (_, _) => _updateWatcher.Stop();
             RefreshVersionLine();
+#if ANDROID
+            // Android does not run the desktop Shell.AfterDraw first-frame gate.
+            // Keep its existing background preview catch-up; desktop starts the
+            // same work explicitly after its first presented shell frame.
+            BeginDeferredPreviewCatchup();
+#endif
         }
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
