@@ -59,6 +59,13 @@ public static class BotAiChecks
             MapNavigationAnchorKind.AltForm,true,0)==NodeType.AltForm,
             "authored alt-form node overrides automatic semantics");
 
+        var jumpDefinition=new MapDefinition();
+        jumpDefinition.JumpPads.Add(new MapJumpPad{Position=new[]{0f,0f,0f},Target=new[]{4f,3f,0f}});
+        var effectiveLinks=MapNodePacker.EffectiveLinks(jumpDefinition);
+        Check(effectiveLinks.Count==1&&effectiveLinks[0].Kind==MapNavigationLinkKind.JumpPad
+            &&effectiveLinks[0].ToNodeKind==MapNavigationAnchorKind.Aerial,
+            "target-based jump pad contributes an aerial navigation link");
+
         var hazard=MapNodePacker.Analyze(new[]{Floor(-8,8,-8,8,0,Terrain.Lava)});
         Check(hazard.Types.Length>0&&hazard.Types.All(t=>t==NodeType.Hazard),
             "damaging terrain generates hazard nodes");
