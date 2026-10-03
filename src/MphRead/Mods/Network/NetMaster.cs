@@ -249,67 +249,16 @@ namespace MphRead.Mods.Network
             public double LastSeen;
         }
 
-        /// <summary>A game this directory is running on somebody else's behalf.</summary>
-        private sealed class Hosted
-        {
-            public HostedServerProcess Process = null!;
-            public int Port;
-            public string Name = "";
-            public double StartedAt;
-            /// <summary>When it last had anybody in it, so an abandoned game can be reaped.</summary>
-            public double LastOccupied;
-        }
-
         private readonly int _port;
         private readonly List<Entry> _entries = new();
-        private readonly List<Hosted> _hosted = new();
         private readonly byte[] _scratch = new byte[NetConfig.MaxPacketSize];
         private NetTransport? _transport;
         private volatile bool _running;
         private readonly HostedMapRequests _mapRequests = new();
+        private readonly HostPool _hosts;
         private readonly System.Diagnostics.Stopwatch _clock = new();
         private uint _publicAddress;
         private string _publicName = "";
-        private int _hostPortFirst;
-        private int _hostPortLast = -1;
-        /// <summary>Ports just given up, and when. See <see cref="FreeHostPort"/>.</summary>
-        private readonly Dictionary<int, double> _cooling = new();
-
-        /// <summary>
-        /// How long a port sits idle after a game on it ends.
-        ///
-        /// Two reasons, and both are races that only show up when somebody
-        /// quits and immediately hosts again -- which is exactly what a player
-        /// does when the first attempt did not go how they wanted. The socket
-        /// takes a moment to come back after the server lets go of it, and the
-        /// old server's goodbye is still in flight and would otherwise unlist
-        /// its successor on the same port. With twenty ports there is no
-        /// reason to be in a hurry.
-        /// </summary>
-        private const double PortCooldownSeconds = 5;
-
-        /// <summary>
-        /// How long a game the directory started may sit empty *before anybody
-        /// has ever joined it*.
-        ///
-        /// Generous, because the reason it is empty is that the person who
-        /// asked for it is still loading the map -- which on a cold cache is
-        /// not fast -- and shutting it down underneath them would be worse
-        /// than holding a port for a few minutes.
-        /// </summary>
-        private const double HostedStartupSeconds = 180;
-
-        /// <summary>
-        /// And how long once it *has* been played and everyone has left.
-        ///
-        /// Much shorter, because at that point the answer is known: the match
-        /// is over. Not instant, though -- a client loading the next room
-        /// sends nothing while it does, and the server drops a silent peer
-        /// after NetConfig.TimeoutSeconds, so a player mid-load can briefly
-        /// leave the game reading as empty. This has to outlast that plus the
-        /// client's own re-announce, or a slow load would end the match.
-        /// </summary>
-        private const double HostedEmptySeconds = 45;
 
         /// <summary>
         /// The range of ports this directory may start games on.
@@ -320,17 +269,21 @@ namespace MphRead.Mods.Network
         /// concerned it is simply a server at an address. The operator opens
         /// the range once.
         /// </summary>
-        public void SetHostPorts(int first, int last)
-        {
-            _hostPortFirst = first;
-            _hostPortLast = last;
-        }
+        public void SetHostPorts(int first, int last) => _hosts.SetPorts(first, last);
 
-        public bool CanHost => _hostPortLast >= _hostPortFirst && _hostPortFirst > 0;
+        public bool CanHost => _hosts.CanHost;
 
         public MasterServer(int port = NetMasterConfig.DefaultPort)
         {
             _port = port;
+            _hosts = new HostPool
+            {
+                Log = Log,
+                ListingTarget = () => ("127.0.0.1", _port),
+                // The directory owns the authoritative list and can remove a
+                // hosted child synchronously when its pool reaps it.
+                OnStopped = Unlist
+            };
         }
 
         /// <summary>
@@ -405,10 +358,7 @@ namespace MphRead.Mods.Network
             {
                 Log($"servers on this machine are listed as {_publicName}");
             }
-            Log(CanHost
-                ? $"can start games on ports {_hostPortFirst}-{_hostPortLast} "
-                    + "for players who cannot open one of their own"
-                : "not starting games for anybody (no host port range)");
+            Log(_hosts.Describe());
             _clock.Restart();
             double lastReport = 0;
             while (_running && !cancel.IsCancellationRequested)
@@ -419,14 +369,16 @@ namespace MphRead.Mods.Network
                     Handle(packet, now);
                 }
                 Expire(now);
-                ReapHosted(now);
-                _mapRequests.Pump(now, (request, sender, time, packages) => StartHosted(request, sender, time, packages), SendHostReply);
+                _hosts.Reap(now);
+                _mapRequests.Pump(now,
+                    (request, sender, time, packages) => _hosts.Start(request, sender, time, packages),
+                    SendHostReply);
                 // The directory keeps itself current too, and waits on the
                 // matches it is running rather than on the servers it lists:
                 // a listed server re-announces every fifteen seconds, so the
                 // list rebuilds itself within a restart, but a hosted match
                 // lives in this process and a restart ends it.
-                if (Update.ServerUpdate.ShouldRestart(_hosted.Count + _mapRequests.ActiveCount))
+                if (Update.ServerUpdate.ShouldRestart(_hosts.Count + _mapRequests.ActiveCount))
                 {
                     Log("shutting down to come back on the new build");
                     _running = false;
@@ -436,7 +388,7 @@ namespace MphRead.Mods.Network
                 {
                     lastReport = now;
                     Log($"{_entries.Count} server(s) listed"
-                        + (_hosted.Count > 0 ? $", {_hosted.Count} started here" : ""));
+                        + (_hosts.Count > 0 ? $", {_hosts.Count} started here" : ""));
                 }
                 // Nothing here is time-critical: a heartbeat every fifteen
                 // seconds and a query whenever somebody opens a launcher.
@@ -444,10 +396,7 @@ namespace MphRead.Mods.Network
             }
             Log("shutting down");
             _mapRequests.Dispose();
-            for (int i = _hosted.Count - 1; i >= 0; i--)
-            {
-                StopHosted(_hosted[i], "the directory is shutting down");
-            }
+            _hosts.StopAll("the directory is shutting down");
             _transport.Dispose();
             _transport = null;
         }
@@ -533,7 +482,7 @@ namespace MphRead.Mods.Network
                             _mapRequests.Enqueue(request, packet.Sender, now, SendHostReply);
                             return;
                         }
-                        reply = StartHosted(request, packet.Sender, now);
+                        reply = _hosts.Start(request, packet.Sender, now);
                     }
                     catch (Exception ex) { reply.Reason = ex.Message; }
                 }
@@ -551,147 +500,6 @@ namespace MphRead.Mods.Network
         {
             reply.Write(_scratch);
             _transport?.Send(sender, PacketType.HostReply, _scratch.AsSpan(0, HostReplyPacket.Size));
-        }
-
-        private HostReplyPacket StartHosted(HostRequestPacket request, IPEndPoint asker, double now, HostedMapPreparation? hostedMaps = null)
-        {
-            // A child can exit between the periodic reap and this packet. Free
-            // that reservation before looking for a game port so one stale
-            // process record cannot bounce a fresh create request.
-            ReapHostedExited();
-            // A public IP is not a player identity. Home NAT and carrier-grade
-            // NAT can put unrelated players behind the same address. Never
-            // replace an empty hosted game solely because another request came
-            // from that IP; the bounded idle reaper cleans abandoned attempts.
-            int port = FreeHostPort(now);
-            if (port < 0)
-            {
-                return new HostReplyPacket
-                {
-                    Reason = $"all {_hostPortLast - _hostPortFirst + 1} game slots are busy"
-                };
-            }
-            GameMode mode = Enum.IsDefined(typeof(GameMode), request.Mode)
-                ? (GameMode)request.Mode
-                : GameMode.Battle;
-            string name = request.ServerName.Length > 0 ? request.ServerName : "Hosted game";
-            Guid ownerToken = request.Policy == ServerSessionPolicy.Lobby
-                ? new Guid(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16))
-                : Guid.Empty;
-            // Every hosted match gets its own server process and therefore its
-            // own server-side NetSession. The previous in-process server could
-            // not simulate more than one static session, so it promoted the
-            // first joining player to authority.
-            HostedServerProcess? process = HostedServerProcess.Start(port, request, name,
-                "127.0.0.1", _port, listed: true, ownerToken, out string reason, hostedMaps);
-            if (process == null)
-            {
-                return new HostReplyPacket { Reason = reason };
-            }
-            var entry = new Hosted
-            {
-                Process = process,
-                Port = port,
-                Name = name,
-                StartedAt = now,
-                LastOccupied = now
-            };
-            _hosted.Add(entry);
-            int mapCount = request.Rotation != null && request.Rotation.Count > 0
-                ? request.Rotation.Count : 1;
-            Log($"started \"{name}\" on port {port} for {asker.Address} "
-                + $"({request.RoomKey}, {mode}, {mapCount} map(s), server authority)");
-            return new HostReplyPacket { Started = true, Port = (ushort)port,
-                Reason = "", OwnerToken = ownerToken };
-        }
-
-        private int FreeHostPort(double now)
-        {
-            for (int port = _hostPortFirst; port <= _hostPortLast; port++)
-            {
-                bool taken = false;
-                for (int i = 0; i < _hosted.Count; i++)
-                {
-                    if (_hosted[i].Port == port)
-                    {
-                        taken = true;
-                        break;
-                    }
-                }
-                if (taken)
-                {
-                    continue;
-                }
-                if (_cooling.TryGetValue(port, out double freedAt))
-                {
-                    if (now - freedAt < PortCooldownSeconds)
-                    {
-                        continue;
-                    }
-                    _cooling.Remove(port);
-                }
-                if (!LocalServer.PortAvailable(port))
-                {
-                    continue;
-                }
-                return port;
-            }
-            return -1;
-        }
-
-        private void ReapHostedExited()
-        {
-            for (int i = _hosted.Count - 1; i >= 0; i--)
-            {
-                Hosted entry = _hosted[i];
-                if (!entry.Process.Running)
-                {
-                    StopHosted(entry, "server process exited");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Shut down games nobody is playing. Without this a directory left
-        /// running for a week is a directory with every port allocated to a
-        /// match that ended on Tuesday.
-        /// </summary>
-        private void ReapHosted(double now)
-        {
-            for (int i = _hosted.Count - 1; i >= 0; i--)
-            {
-                Hosted entry = _hosted[i];
-                if (!entry.Process.Running)
-                {
-                    StopHosted(entry, "server process exited");
-                    continue;
-                }
-                if (entry.Process.ProbePlayers(now) > 0)
-                {
-                    entry.LastOccupied = now;
-                    continue;
-                }
-                bool played = entry.Process.EverOccupied;
-                double grace = played ? HostedEmptySeconds : HostedStartupSeconds;
-                if (now - entry.LastOccupied > grace)
-                {
-                    StopHosted(entry, played ? "everyone left" : "nobody joined");
-                }
-            }
-        }
-
-        private void StopHosted(Hosted entry, string why)
-        {
-            Log($"stopping \"{entry.Name}\" on port {entry.Port}: {why}");
-            entry.Process.Dispose();
-            _hosted.Remove(entry);
-            _cooling[entry.Port] = _clock.Elapsed.TotalSeconds;
-            // Off the list now, not in fifty seconds' time. This directory
-            // does not have to infer that a server is gone from missing
-            // heartbeats when it is the thing that just stopped it -- and a
-            // game still being offered after it ended is the whole of what a
-            // zombie server is.
-            Unlist(entry.Port);
         }
 
         /// <summary>Drop the listing for a server on this machine's port.</summary>
