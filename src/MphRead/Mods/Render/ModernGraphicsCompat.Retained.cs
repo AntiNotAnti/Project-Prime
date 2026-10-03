@@ -193,7 +193,6 @@ namespace MphRead.Mods.Render
                 32, item.MatrixStack.Length / 16)
             && item.Cosmetics == default
             && item.CosmeticMaterial == default
-            && !item.TexturedPlayerSkin
             && item.PlayerOutlineColor == null;
 
         internal static bool TryDrawRetainedWorld(RenderItem item,
@@ -435,7 +434,11 @@ namespace MphRead.Mods.Render
             {
                 RetainedInt(words, o.UseOverride, 0);
             }
-            RetainedInt(words, o.TexturedPlayerSkin, 0);
+            RetainedInt(words, o.TexturedPlayerSkin,
+                item.TexturedPlayerSkin
+                    ? RenderOptions.BrightSkinStyle
+                        == PlayerSkinStyle.HighContrastTextured ? 2 : 1
+                    : 0);
             RetainedInt(words, o.PlayerOutlineMask, 0);
             if (item.PaletteOverride.HasValue)
             {
