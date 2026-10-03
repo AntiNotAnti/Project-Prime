@@ -437,15 +437,17 @@ namespace MphRead.Mods.Network
             // socket/lag arrival must not consume the preflighted inbox slot.
             bool autoPong = false;
             bool accepted;
+            int unwrappedLength = length;
             long stamp = EnterConnectionLock();
-            try { accepted = AcceptDatagramLocked(sender, data, length, out autoPong); }
+            try { accepted = AcceptDatagramLocked(sender, data, ref unwrappedLength, out autoPong); }
             finally { ExitConnectionLock(stamp); }
             // Never enter Socket.SendTo while the connection monitor is owned.
-            if (autoPong) Send(sender, PacketType.Pong, data.AsSpan(1, length - 1));
+            if (autoPong) Send(sender, PacketType.Pong,
+                data.AsSpan(1, unwrappedLength - 1));
             return accepted;
         }
 
-        private bool AcceptDatagramLocked(IPEndPoint sender, byte[] data, int length,
+        private bool AcceptDatagramLocked(IPEndPoint sender, byte[] data, ref int length,
             out bool autoPong)
         {
             autoPong = false;
