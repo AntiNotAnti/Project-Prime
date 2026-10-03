@@ -405,7 +405,8 @@ namespace MphRead
                     // shared material/texture/raster state; transforms, lighting,
                     // matrix stacks, current vertex colour and stencil reference
                     // remain per draw.
-                    RenderItem(item, applySharedState: offset == 0);
+                    RenderItem(item, applySharedState: offset == 0,
+                        retainedMesh: packet.Mesh);
                 }
             }
         }
