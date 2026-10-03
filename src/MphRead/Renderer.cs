@@ -201,6 +201,11 @@ namespace MphRead
         private readonly HashSet<Model> _modelLeases = new();
         private readonly Dictionary<int, TextureMap> _texPalMap = new Dictionary<int, TextureMap>();
         private readonly HashSet<int> _mipmappedTextures = new();
+        private readonly Dictionary<int, Mods.Render.AppliedTextureSamplingState> _appliedTextureSampling = new();
+        private long _textureSamplerStateApplications;
+        private long _textureSamplerStateCacheHits;
+        internal long TextureSamplerStateApplications => _textureSamplerStateApplications;
+        internal long TextureSamplerStateCacheHits => _textureSamplerStateCacheHits;
         private readonly Dictionary<int, Mods.Render.MaterialMapBindings> _materialMaps = new();
         private readonly Dictionary<int, (Mods.Render.TextureAssetClass AssetClass, Mods.Render.TextureAssetChannel Channel)>
             _modernTextureSampling = new();
@@ -1529,11 +1534,17 @@ namespace MphRead
             return texture;
         }
 
+        private void InvalidateTextureSampling(int texture)
+        {
+            _mipmappedTextures.Remove(texture);
+            _appliedTextureSampling.Remove(texture);
+        }
+
         private void ReleaseTexture(int texture)
         {
             ReleaseWorldMaterialResidency(texture);
             _flatColors.Remove(texture);
-            _mipmappedTextures.Remove(texture);
+            InvalidateTextureSampling(texture);
             _modernTextureSampling.Remove(texture);
             _textureSources.Remove(texture);
             _streamingTextureVersions.Remove(texture);
@@ -1812,7 +1823,7 @@ namespace MphRead
             }
             ReleaseWorldMaterialResidency(_lastTextureId);
             _modernTextureSampling.Remove(_lastTextureId);
-            _mipmappedTextures.Remove(_lastTextureId);
+            InvalidateTextureSampling(_lastTextureId);
             bool onlyOpaque = true;
             var pixels = new List<uint>();
             var average = new FlatColor();
@@ -1885,7 +1896,7 @@ namespace MphRead
             // Native cartridge textures keep lazy mip generation so the
             // legacy path pays nothing when filtering is disabled. Modern
             // replacements arrive with their mip chain already prepared.
-            if (!replaced) _mipmappedTextures.Remove(_lastTextureId);
+            if (!replaced) InvalidateTextureSampling(_lastTextureId);
             GL.BindTexture(TextureTarget.Texture2D, 0);
             if (streamReplacement && replacementMaterial != null)
             {
@@ -2039,7 +2050,7 @@ namespace MphRead
                     ReleaseWorldMaterialResidency(request.Binding);
                     return;
                 }
-                _mipmappedTextures.Remove(request.Binding);
+                InvalidateTextureSampling(request.Binding);
                 RegisterModernTexture(request.Binding, request.AssetClass,
                     Mods.Render.TextureAssetChannel.Albedo);
                 GL.BindTexture(TextureTarget.Texture2D, 0);
@@ -2162,7 +2173,7 @@ namespace MphRead
             GL.BindTexture(TextureTarget.Texture2D, _lastTextureId);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
                 PixelFormat.Rgba, PixelType.UnsignedByte, data as ColorRgba[] ?? data.ToArray());
-            _mipmappedTextures.Remove(_lastTextureId);
+            InvalidateTextureSampling(_lastTextureId);
             GL.BindTexture(TextureTarget.Texture2D, 0);
             _flatColors[_lastTextureId] = AverageOf(data);
             return _lastTextureId;
@@ -2173,7 +2184,7 @@ namespace MphRead
             GL.BindTexture(TextureTarget.Texture2D, bindingId);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
                 PixelFormat.Rgba, PixelType.UnsignedByte, data as ColorRgba[] ?? data.ToArray());
-            _mipmappedTextures.Remove(bindingId);
+            InvalidateTextureSampling(bindingId);
             GL.BindTexture(TextureTarget.Texture2D, 0);
             // this binding may already have had a different picture in it
             _flatColors[bindingId] = AverageOf(data);
@@ -5488,6 +5499,12 @@ namespace MphRead
 
         private void RenderItem(RenderItem item)
         {
+            RenderItem(item, applySharedState: true, retainedMesh: null);
+        }
+
+        private void RenderItem(RenderItem item, bool applySharedState,
+            Mods.Render.RetainedMeshDescriptor? retainedMesh = null)
+        {
             if (item.ViewModel)
             {
                 GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false,
@@ -5501,57 +5518,76 @@ namespace MphRead
                 int matrixCount = Math.Clamp(item.MatrixStackCount, 0,
                     Math.Min(32, item.MatrixStack.Length / 16));
                 if (matrixCount > 0)
-                    GL.UniformMatrix4(_shaderLocations.MatrixStack, matrixCount, transpose: false, item.MatrixStack);
+                    GL.UniformMatrix4(_shaderLocations.MatrixStack, matrixCount,
+                        transpose: false, item.MatrixStack);
                 else
                 {
                     Matrix4 transform = item.Transform;
-                    GL.UniformMatrix4(_shaderLocations.MatrixStack, transpose: false, ref transform);
+                    GL.UniformMatrix4(_shaderLocations.MatrixStack,
+                        transpose: false, ref transform);
                 }
             }
             else
             {
                 Matrix4 transform = item.Transform;
-                GL.UniformMatrix4(_shaderLocations.MatrixStack, transpose: false, ref transform);
+                GL.UniformMatrix4(_shaderLocations.MatrixStack,
+                    transpose: false, ref transform);
             }
+
             Matrix4 viewInv = Matrix4.Identity;
             if (item.BillboardMode == BillboardMode.Sphere)
-            {
                 viewInv = _viewInvRotMatrix;
-            }
             else if (item.BillboardMode == BillboardMode.Cylinder)
-            {
                 viewInv = _viewInvRotYMatrix;
-            }
-            GL.UniformMatrix4(_shaderLocations.ViewInvMatrix, transpose: false, ref viewInv);
+            GL.UniformMatrix4(_shaderLocations.ViewInvMatrix,
+                transpose: false, ref viewInv);
 
+            if (applySharedState)
+                ApplyRenderItemSharedState(item);
+
+            // A GL display list is allowed to leave its final current colour
+            // behind. Reassert it per draw even when material/texture state is
+            // shared by an adjacent retained batch.
+            GL.Color3(item.Diffuse);
+            DrawRenderItemGeometry(item, retainedMesh);
+
+            if (item.ViewModel)
+            {
+                GL.UniformMatrix4(_shaderLocations.ProjectionMatrix,
+                    transpose: false, ref _perspectiveMatrix);
+            }
+        }
+
+        private void ApplyRenderItemSharedState(RenderItem item)
+        {
             DoMaterial(item);
-            // texgen actually uses the transform from the current node, not the matrix stack
+            // Texgen uses the transform from the current node, not the matrix stack.
             DoTexture(item);
             if (_faceCulling)
             {
                 GL.Enable(EnableCap.CullFace);
                 if (item.CullingMode == CullingMode.Neither)
-                {
                     GL.Disable(EnableCap.CullFace);
-                }
                 else if (item.CullingMode == CullingMode.Back)
-                {
                     GL.CullFace(TriangleFace.Back);
-                }
                 else if (item.CullingMode == CullingMode.Front)
-                {
                     GL.CullFace(TriangleFace.Front);
-                }
             }
+
             bool wireframe = _wireframeLevel > 0 || item.Wireframe;
             GL.PolygonMode(TriangleFace.FrontAndBack,
                 wireframe
-                ? OpenTK.Graphics.OpenGL.PolygonMode.Line
-                : OpenTK.Graphics.OpenGL.PolygonMode.Fill);
+                    ? OpenTK.Graphics.OpenGL.PolygonMode.Line
+                    : OpenTK.Graphics.OpenGL.PolygonMode.Fill);
             GL.LineWidth(wireframe ? Math.Max(1, _wireframeLevel) : 1);
+        }
+
+        private void DrawRenderItemGeometry(RenderItem item,
+            Mods.Render.RetainedMeshDescriptor? retainedMesh)
+        {
             if (item.Type == RenderItemType.Mesh)
             {
-                GL.CallList(item.ListId);
+                GL.CallList(retainedMesh?.ListId ?? item.ListId);
             }
             else if (item.Type == RenderItemType.Box)
             {
@@ -5572,14 +5608,9 @@ namespace MphRead
             else if (item.Type == RenderItemType.Ngon)
             {
                 if (_volumeEdges != 1)
-                {
                     RenderNgon(item.Points, item.ItemCount);
-                }
                 if (_volumeEdges != 2 && !item.NoLines)
-                {
-                    // todo: implement this for volumes as well
                     RenderNgonLines(item.Points, item.ItemCount);
-                }
             }
             else if (item.Type == RenderItemType.Particle)
             {
@@ -5596,12 +5627,6 @@ namespace MphRead
             else if (item.Type == RenderItemType.TrailStack)
             {
                 RenderTrailStack(item);
-            }
-            if (item.ViewModel)
-            {
-                // Nothing after this item should inherit the viewmodel lens.
-                GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false,
-                    ref _perspectiveMatrix);
             }
         }
 
@@ -6681,7 +6706,6 @@ localCenter *= _profileHudScale;
             // so the diffuse color is always set as the vertex color to start
             // (the emission color is set to white if lighting is disabled or black if lighting is enabled; we can just ignore that)
             // --> ...except for hunter models with teams enabled or with double damage
-            GL.Color3(item.Diffuse);
             GL.Uniform3(_shaderLocations.Diffuse, item.Diffuse);
             GL.Uniform3(_shaderLocations.Ambient, item.Ambient);
             GL.Uniform3(_shaderLocations.Specular, item.Specular);
@@ -6723,7 +6747,8 @@ localCenter *= _profileHudScale;
                 (TextureParameterName)TextureMaxAnisotropyExt, wanted);
         }
 
-        private void ApplyBoundTextureSampling(int bindingId)
+        private void ApplyBoundTextureSampling(int bindingId,
+            RepeatMode xRepeat, RepeatMode yRepeat)
         {
             Mods.Render.TextureSamplerDescriptor sampling;
             if (_modernTextureSampling.TryGetValue(bindingId, out var modern))
@@ -6736,13 +6761,17 @@ localCenter *= _profileHudScale;
                 sampling = Mods.Render.TextureSamplingPolicy.ResolveNativeWorld();
             }
 
-            if (sampling.Mipmaps && _mipmappedTextures.Add(bindingId))
+            var desired = new Mods.Render.AppliedTextureSamplingState(
+                sampling, xRepeat, yRepeat);
+            if (_appliedTextureSampling.TryGetValue(bindingId, out var applied)
+                && applied == desired)
             {
-                // Native cartridge textures still build lazily. Modern
-                // textures are registered as ready at upload, so this branch
-                // is only a safety net for an untracked/recycled binding.
-                GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+                _textureSamplerStateCacheHits++;
+                return;
             }
+
+            if (sampling.Mipmaps && _mipmappedTextures.Add(bindingId))
+                GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
 
             int minParameter = sampling.Mipmaps
                 ? (int)(sampling.LinearMinification
@@ -6754,9 +6783,14 @@ localCenter *= _profileHudScale;
             int magParameter = (int)(sampling.LinearMagnification
                 ? TextureMagFilter.Linear
                 : TextureMagFilter.Nearest);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, minParameter);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, magParameter);
+            GL.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureMinFilter, minParameter);
+            GL.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureMagFilter, magParameter);
             ApplyTextureAnisotropy(sampling.Anisotropy);
+            ApplyTextureWrap(xRepeat, yRepeat);
+            _appliedTextureSampling[bindingId] = desired;
+            _textureSamplerStateApplications++;
         }
 
         private static TextureWrapMode TextureWrap(RepeatMode mode)
@@ -6801,24 +6835,24 @@ localCenter *= _profileHudScale;
                 GL.BindTexture(TextureTarget.Texture2D, materialMaps.Normal);
                 if (materialMaps.Normal != 0 && _modernTextureSampling.ContainsKey(materialMaps.Normal))
                 {
-                    ApplyBoundTextureSampling(materialMaps.Normal);
-                    ApplyTextureWrap(item.XRepeat, item.YRepeat);
+                    ApplyBoundTextureSampling(materialMaps.Normal,
+                        item.XRepeat, item.YRepeat);
                 }
 
                 GL.ActiveTexture(TextureUnit.Texture2);
                 GL.BindTexture(TextureTarget.Texture2D, materialMaps.Specular);
                 if (materialMaps.Specular != 0 && _modernTextureSampling.ContainsKey(materialMaps.Specular))
                 {
-                    ApplyBoundTextureSampling(materialMaps.Specular);
-                    ApplyTextureWrap(item.XRepeat, item.YRepeat);
+                    ApplyBoundTextureSampling(materialMaps.Specular,
+                        item.XRepeat, item.YRepeat);
                 }
 
                 GL.ActiveTexture(TextureUnit.Texture3);
                 GL.BindTexture(TextureTarget.Texture2D, materialMaps.Emissive);
                 if (materialMaps.Emissive != 0 && _modernTextureSampling.ContainsKey(materialMaps.Emissive))
                 {
-                    ApplyBoundTextureSampling(materialMaps.Emissive);
-                    ApplyTextureWrap(item.XRepeat, item.YRepeat);
+                    ApplyBoundTextureSampling(materialMaps.Emissive,
+                        item.XRepeat, item.YRepeat);
                 }
             }
             GL.ActiveTexture(TextureUnit.Texture0);
@@ -6826,8 +6860,8 @@ localCenter *= _profileHudScale;
             if (item.HasTexture)
             {
                 GL.BindTexture(TextureTarget.Texture2D, item.TextureBindingId);
-                ApplyBoundTextureSampling(item.TextureBindingId);
-                ApplyTextureWrap(item.XRepeat, item.YRepeat);
+                ApplyBoundTextureSampling(item.TextureBindingId,
+                    item.XRepeat, item.YRepeat);
                 Matrix4 texcoordMatrix = item.TexcoordMatrix;
                 GL.Uniform1(_shaderLocations.TexgenMode, (int)item.TexgenMode);
                 GL.UniformMatrix4(_shaderLocations.TextureMatrix, transpose: false, ref texcoordMatrix);

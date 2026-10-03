@@ -391,8 +391,8 @@ namespace MphRead
             GL.BindTexture(TextureTarget.Texture2D, baseBinding);
             if (baseBinding != 0)
             {
-                ApplyBoundTextureSampling(baseBinding);
-                ApplyTextureWrap(item.XRepeat, item.YRepeat);
+                ApplyBoundTextureSampling(baseBinding,
+                    item.XRepeat, item.YRepeat);
             }
 
             MaterialMapBindings maps = default;
@@ -404,8 +404,8 @@ namespace MphRead
             GL.BindTexture(TextureTarget.Texture2D, advanced ? maps.Normal : 0);
             if (advanced && maps.Normal != 0 && _modernTextureSampling.ContainsKey(maps.Normal))
             {
-                ApplyBoundTextureSampling(maps.Normal);
-                ApplyTextureWrap(item.XRepeat, item.YRepeat);
+                ApplyBoundTextureSampling(maps.Normal,
+                    item.XRepeat, item.YRepeat);
             }
             GL.Uniform1(_pbrUseNormal, advanced && maps.Normal != 0 ? 1 : 0);
 
@@ -413,8 +413,8 @@ namespace MphRead
             GL.BindTexture(TextureTarget.Texture2D, advanced ? maps.Specular : 0);
             if (advanced && maps.Specular != 0 && _modernTextureSampling.ContainsKey(maps.Specular))
             {
-                ApplyBoundTextureSampling(maps.Specular);
-                ApplyTextureWrap(item.XRepeat, item.YRepeat);
+                ApplyBoundTextureSampling(maps.Specular,
+                    item.XRepeat, item.YRepeat);
             }
             GL.Uniform1(_pbrUseSpecular, advanced && maps.Specular != 0 ? 1 : 0);
 
@@ -422,8 +422,8 @@ namespace MphRead
             GL.BindTexture(TextureTarget.Texture2D, advanced ? maps.Emissive : 0);
             if (advanced && maps.Emissive != 0 && _modernTextureSampling.ContainsKey(maps.Emissive))
             {
-                ApplyBoundTextureSampling(maps.Emissive);
-                ApplyTextureWrap(item.XRepeat, item.YRepeat);
+                ApplyBoundTextureSampling(maps.Emissive,
+                    item.XRepeat, item.YRepeat);
             }
             GL.Uniform1(_pbrUseEmissive, advanced && maps.Emissive != 0 ? 1 : 0);
             GL.ActiveTexture(TextureUnit.Texture0);

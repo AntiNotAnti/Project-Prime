@@ -1,6 +1,7 @@
 #if !MPHREAD_SERVER
 using System;
 using System.Collections.Generic;
+using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Render
 {
@@ -22,31 +23,77 @@ namespace MphRead.Mods.Render
             Check(WorldRenderGraph.Validate(out string error),
                 "six-pass graph validates" + (error.Length == 0 ? "" : ": " + error));
 
-            var opaqueA = new RenderItem { ListId = 11, TextureBindingId = 21 };
-            var opaqueB = new RenderItem { ListId = 12, TextureBindingId = 22 };
-            var decal = new RenderItem { ListId = 13, RenderMode = RenderMode.Decal };
+            var opaqueA = new RenderItem
+            {
+                Type = RenderItemType.Mesh, ListId = 11,
+                HasTexture = true, TextureBindingId = 21,
+                Alpha = 1, Diffuse = Vector3.One
+            };
+            var opaqueB = new RenderItem
+            {
+                Type = RenderItemType.Mesh, ListId = 12,
+                HasTexture = true, TextureBindingId = 21,
+                Alpha = 1, Diffuse = Vector3.One
+            };
+            var overrideMesh = new RenderItem
+            {
+                Type = RenderItemType.Mesh, ListId = 13,
+                HasTexture = true, TextureBindingId = 21,
+                Alpha = 1, Diffuse = Vector3.One,
+                OverrideColor = new Vector4(1, 0, 0, 1)
+            };
+            var decal = new RenderItem
+            {
+                Type = RenderItemType.Mesh, ListId = 14,
+                RenderMode = RenderMode.Decal
+            };
             var translucent = new RenderItem
             {
-                ListId = 14,
+                Type = RenderItemType.Mesh, ListId = 15,
                 RenderMode = RenderMode.Translucent,
                 Alpha = 0.5f
             };
 
             var world = new RetainedRenderWorld();
             world.Capture(
-                new List<RenderItem> { opaqueA, opaqueB, translucent },
+                new List<RenderItem> { opaqueA, opaqueB, overrideMesh, translucent },
                 new List<RenderItem> { decal },
                 new List<RenderItem> { translucent });
 
-            Check(world.Opaque.Count == 3 && world.Decals.Count == 1
+            Check(world.Opaque.Count == 4 && world.Decals.Count == 1
                 && world.Translucent.Count == 1, "packet classes preserve membership");
             Check(ReferenceEquals(world.Opaque[0].Item, opaqueA)
                 && ReferenceEquals(world.Opaque[1].Item, opaqueB),
                 "capture preserves submission order");
             Check(world.Opaque[0].Sequence == 0 && world.Opaque[1].Sequence == 1,
                 "sequence is retained explicitly");
+            Check(world.Opaque[0].Mesh.ListId == 11
+                && world.Opaque[1].Mesh.ListId == 12,
+                "immutable mesh descriptors preserve geometry identity");
+            Check(!ReferenceEquals(world.Opaque[0].Mesh, world.Opaque[1].Mesh),
+                "different display lists keep distinct mesh descriptors");
+
+            Check(world.OpaqueBatches.Count == 3
+                && world.OpaqueBatches[0].Start == 0
+                && world.OpaqueBatches[0].Count == 2,
+                "adjacent identical material state batches across mesh IDs");
+            Check(world.OpaqueBatches[1].Start == 2
+                && world.OpaqueBatches[1].Count == 1
+                && !world.Opaque[2].Batchable,
+                "override packet breaks batching");
+            Check(world.StateReuseCount >= 1,
+                "batching records at least one shared state reuse");
+            Check(world.GraphStateReuseCount >= 2,
+                "opaque reuse is counted in both opaque and depth passes");
+
+            RetainedMaterialDescriptor captured = world.Opaque[0].Material;
+            opaqueA.Diffuse = new Vector3(.25f, .5f, .75f);
+            Check(world.Opaque[0].Material == captured,
+                "captured material descriptor is immutable for the frame");
 
             ulong firstKey = world.Opaque[0].StateKey;
+            int descriptorCount = world.MeshDescriptorCount;
+            opaqueA.Diffuse = Vector3.One;
             world.Capture(
                 new List<RenderItem> { opaqueA, opaqueB },
                 Array.Empty<RenderItem>(),
@@ -54,6 +101,10 @@ namespace MphRead.Mods.Render
             Check(world.FrameRevision == 2, "frame revision advances");
             Check(world.Opaque[0].StateKey == firstKey, "state key is deterministic");
             Check(world.PacketCount == 2, "capture reuses and clears packet lists");
+            Check(world.OpaqueBatches.Count == 1 && world.OpaqueBatches[0].Count == 2,
+                "compatible packets remain one adjacent batch next frame");
+            Check(world.MeshDescriptorCount == descriptorCount,
+                "mesh descriptor table is retained rather than rebuilt per frame");
 
             Console.WriteLine(failures == 0
                 ? "[rendergraphcheck] PASS"
