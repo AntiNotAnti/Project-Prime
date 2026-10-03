@@ -2648,9 +2648,9 @@ namespace MphRead.Entities
             _aimPosition = _gunVec1 * Fixed.ToFloat(Values.AimDistance);
             _aimPosition += CameraInfo.Position;
             // unimpl-controls: this calculation is different when exact aim is not set
-            float hMag = MathF.Sqrt(MathF.Max(0,
+            float aimHorizontalMag = MathF.Sqrt(MathF.Max(0,
                 _gunVec1.X * _gunVec1.X + _gunVec1.Z * _gunVec1.Z));
-            _aimY = MathHelper.RadiansToDegrees(MathF.Atan2(_gunVec1.Y, hMag));
+            _aimY = MathHelper.RadiansToDegrees(MathF.Atan2(_gunVec1.Y, aimHorizontalMag));
             if (_aimY > 75 || _aimY < -75)
             {
                 UpdateAimY(0);
