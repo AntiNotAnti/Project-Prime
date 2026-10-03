@@ -359,12 +359,15 @@ namespace MphRead
         private long _retainedDirectWorldDraws;
         private long _retainedDirectAdvancedWorldDraws;
         private long _retainedDirectMatrixStackWorldDraws;
+        private long _retainedDirectViewModelWorldDraws;
         private long _retainedCompatibilityWorldDraws;
         internal long RetainedDirectWorldDraws => _retainedDirectWorldDraws;
         internal long RetainedDirectAdvancedWorldDraws =>
             _retainedDirectAdvancedWorldDraws;
         internal long RetainedDirectMatrixStackWorldDraws =>
             _retainedDirectMatrixStackWorldDraws;
+        internal long RetainedDirectViewModelWorldDraws =>
+            _retainedDirectViewModelWorldDraws;
         internal long RetainedCompatibilityWorldDraws =>
             _retainedCompatibilityWorldDraws;
         internal ulong RetainedRenderFrameRevision => _retainedRenderWorld.FrameRevision;
@@ -425,17 +428,22 @@ namespace MphRead
 #if !MPHREAD_SERVER
                     if (directSceneState && Mods.Render.ModernGraphicsCompat.Active)
                     {
+                        SetViewModelRenderState(item.ViewModel);
+                        Matrix4? projectionOverride = item.ViewModel
+                            ? _viewModelPerspectiveMatrix : null;
                         Mods.Render.RetainedWorldTextureSet textures =
                             RetainedWorldTextures(item);
                         if (Mods.Render.ModernGraphicsCompat.TryDrawRetainedWorld(
                             item, packet.Mesh, textures, _showTextures,
-                            LightingOn, _faceCulling))
+                            LightingOn, _faceCulling, projectionOverride))
                         {
                             _retainedDirectWorldDraws++;
                             if (textures.Advanced)
                                 _retainedDirectAdvancedWorldDraws++;
                             if (item.MatrixStackCount > 0)
                                 _retainedDirectMatrixStackWorldDraws++;
+                            if (item.ViewModel)
+                                _retainedDirectViewModelWorldDraws++;
                             compatibilitySharedStateValid = false;
                             NoteRetainedTextureSampling(
                                 textures, item.XRepeat, item.YRepeat);

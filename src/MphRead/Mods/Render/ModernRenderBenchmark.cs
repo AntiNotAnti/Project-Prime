@@ -65,6 +65,7 @@ internal static class ModernRenderBenchmark
                     long directDrawsStart = scene.RetainedDirectWorldDraws;
                     long directAdvancedDrawsStart = scene.RetainedDirectAdvancedWorldDraws;
                     long directMatrixStackDrawsStart = scene.RetainedDirectMatrixStackWorldDraws;
+                    long directViewModelDrawsStart = scene.RetainedDirectViewModelWorldDraws;
                     long compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
                     long templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
                     long uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
@@ -80,6 +81,7 @@ internal static class ModernRenderBenchmark
                             directDrawsStart = scene.RetainedDirectWorldDraws;
                             directAdvancedDrawsStart = scene.RetainedDirectAdvancedWorldDraws;
                             directMatrixStackDrawsStart = scene.RetainedDirectMatrixStackWorldDraws;
+                            directViewModelDrawsStart = scene.RetainedDirectViewModelWorldDraws;
                             compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
                             templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
                             uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
@@ -119,6 +121,7 @@ internal static class ModernRenderBenchmark
                         retainedDirectWorldDraws = scene.RetainedDirectWorldDraws - directDrawsStart,
                         retainedDirectAdvancedWorldDraws = scene.RetainedDirectAdvancedWorldDraws - directAdvancedDrawsStart,
                         retainedDirectMatrixStackWorldDraws = scene.RetainedDirectMatrixStackWorldDraws - directMatrixStackDrawsStart,
+                        retainedDirectViewModelWorldDraws = scene.RetainedDirectViewModelWorldDraws - directViewModelDrawsStart,
                         retainedCompatibilityWorldDraws = scene.RetainedCompatibilityWorldDraws - compatibilityDrawsStart,
                         retainedWorldUniformTemplateBuilds = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds - templateBuildsStart,
                         retainedWorldUniformPatches = ModernGraphicsCompat.RetainedWorldUniformPatches - uniformPatchesStart,

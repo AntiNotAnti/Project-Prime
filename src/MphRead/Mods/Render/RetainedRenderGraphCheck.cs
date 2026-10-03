@@ -123,9 +123,13 @@ namespace MphRead.Mods.Render
                 "plain opaque mesh is eligible for direct modern submission");
 
             direct.ViewModel = true;
-            Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "viewmodel mesh stays on compatibility executor");
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "plain viewmodel mesh is eligible for direct submission");
             direct.ViewModel = false;
+            direct.BillboardMode = BillboardMode.Sphere;
+            Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "billboard mesh stays on compatibility executor");
+            direct.BillboardMode = BillboardMode.None;
             direct.OverrideColor = new Vector4(1, 0, 0, 1);
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
                 "override material stays on compatibility executor");

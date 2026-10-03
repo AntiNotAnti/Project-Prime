@@ -22,6 +22,7 @@ namespace MphRead.Mods.Render
             internal readonly int Ambient;
             internal readonly int Specular;
             internal readonly int Emission;
+            internal readonly int Projection;
             internal readonly int ViewInverse;
             internal readonly int TextureMatrix;
             internal readonly int TexgenMode;
@@ -57,6 +58,7 @@ namespace MphRead.Mods.Render
                 Ambient = Word(layout, "ambient");
                 Specular = Word(layout, "specular");
                 Emission = Word(layout, "emission");
+                Projection = Word(layout, "proj_mtx");
                 ViewInverse = Word(layout, "view_inv_mtx");
                 TextureMatrix = Word(layout, "tex_mtx");
                 TexgenMode = Word(layout, "texgen_mode");
@@ -180,7 +182,6 @@ namespace MphRead.Mods.Render
             item.Type == RenderItemType.Mesh
             && item.RenderMode == RenderMode.Normal
             && item.Alpha >= 0.999f
-            && !item.ViewModel
             && item.BillboardMode == BillboardMode.None
             && !item.Wireframe
             && item.MatrixStackCount >= 0
@@ -195,16 +196,18 @@ namespace MphRead.Mods.Render
 
         internal static bool TryDrawRetainedWorld(RenderItem item,
             RetainedMeshDescriptor mesh, RetainedWorldTextureSet textures,
-            bool showTextures, bool useLighting, bool faceCulling)
+            bool showTextures, bool useLighting, bool faceCulling,
+            Matrix4? projectionOverride)
         {
             if (_current == null || !RetainedWorldPacketEligible(item)) return false;
             return Current.TryDrawRetainedWorldCore(item, mesh, textures,
-                showTextures, useLighting, faceCulling);
+                showTextures, useLighting, faceCulling, projectionOverride);
         }
 
         private bool TryDrawRetainedWorldCore(RenderItem item,
             RetainedMeshDescriptor mesh, RetainedWorldTextureSet textures,
-            bool showTextures, bool useLighting, bool faceCulling)
+            bool showTextures, bool useLighting, bool faceCulling,
+            Matrix4? projectionOverride)
         {
             if (CurrentProgramKind() != ModernProgramKind.World
                 || _wireframe
@@ -276,7 +279,8 @@ namespace MphRead.Mods.Render
             Array.Copy(_retainedWorldFrameTemplate, generated.Words,
                 generated.Words.Length);
             PatchRetainedWorldUniformWords(
-                generated, target, item, textures, showTextures, useLighting);
+                generated, target, item, textures, showTextures, useLighting,
+                projectionOverride);
             UploadGeneratedUniformWords(generated);
 
             CorePipelineRecord pipeline = CorePipeline(
@@ -376,7 +380,8 @@ namespace MphRead.Mods.Render
         private void PatchRetainedWorldUniformWords(
             GeneratedProgram generated, CoreTarget target, RenderItem item,
             RetainedWorldTextureSet textures,
-            bool showTextures, bool useLighting)
+            bool showTextures, bool useLighting,
+            Matrix4? projectionOverride)
         {
             uint[] words = generated.Words;
             RetainedWorldUniformOffsets o = _retainedWorldOffsets!;
@@ -393,6 +398,8 @@ namespace MphRead.Mods.Render
             RetainedVec3(words, o.Ambient, item.Ambient);
             RetainedVec3(words, o.Specular, item.Specular);
             RetainedVec3(words, o.Emission, item.Emission);
+            if (projectionOverride.HasValue)
+                RetainedMatrix(words, o.Projection, projectionOverride.Value);
             RetainedMatrix(words, o.ViewInverse, Matrix4.Identity);
             RetainedMatrix(words, o.TextureMatrix, item.TexcoordMatrix);
             RetainedInt(words, o.TexgenMode, (int)item.TexgenMode);
