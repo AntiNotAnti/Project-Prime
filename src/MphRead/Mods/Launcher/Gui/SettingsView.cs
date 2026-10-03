@@ -12,6 +12,8 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Transformation;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using MphRead.Entities;
 using MphRead.Mods;
@@ -290,6 +292,7 @@ namespace MphRead.Mods.Launcher.Gui
             Background = Brushes.Transparent;
             Focusable = true;
 
+            InstallCompactSettingsScrollbars();
             BuildPages();
 
             // Keep UiTabs only as the tiny state object used by ShowSection and
@@ -509,6 +512,72 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         // ----------------------------------------------------------- structure
+
+        /// <summary>
+        /// Keep the settings scrollers narrow even while the pointer is over them.
+        ///
+        /// Avalonia's Fluent scrollbar expands its thumb, track and line buttons
+        /// when IsExpanded becomes true after hover. Settings puts interactive
+        /// values right against that edge, so the expanded rail can cover the
+        /// control the player is trying to use. Scope the override to this view:
+        /// keep the six-point hit strip and the compact thumb at every hover
+        /// state, while leaving scrolling and thumb dragging intact.
+        /// </summary>
+        private void InstallCompactSettingsScrollbars()
+        {
+            const double width = 6.0;
+            Styles.Add(new Style(x => x.OfType<ScrollBar>().Class(":vertical"))
+            {
+                Setters =
+                {
+                    new Setter(ScrollBar.WidthProperty, width),
+                    new Setter(ScrollBar.MinWidthProperty, width),
+                    new Setter(ScrollBar.MaxWidthProperty, width),
+                    new Setter(ScrollBar.BackgroundProperty, Brushes.Transparent)
+                }
+            });
+            Styles.Add(new Style(x => x.OfType<ScrollBar>()
+                .Class(":vertical")
+                .PropertyEquals(ScrollBar.IsExpandedProperty, true)
+                .Template().OfType<Thumb>())
+            {
+                Setters =
+                {
+                    new Setter(Thumb.RenderTransformProperty,
+                        TransformOperations.Parse("scaleX(0.125) translateX(-2px)"))
+                }
+            });
+            Styles.Add(new Style(x => x.OfType<ScrollBar>()
+                .Class(":vertical")
+                .PropertyEquals(ScrollBar.IsExpandedProperty, true)
+                .Template().OfType<RepeatButton>())
+            {
+                Setters =
+                {
+                    new Setter(RepeatButton.OpacityProperty, 0.0)
+                }
+            });
+            Styles.Add(new Style(x => x.OfType<ScrollBar>()
+                .Class(":vertical")
+                .PropertyEquals(ScrollBar.IsExpandedProperty, true)
+                .Template().OfType<Avalonia.Controls.Shapes.Rectangle>().Name("TrackRect"))
+            {
+                Setters =
+                {
+                    new Setter(Avalonia.Controls.Shapes.Rectangle.OpacityProperty, 0.0)
+                }
+            });
+            Styles.Add(new Style(x => x.OfType<ScrollBar>()
+                .Class(":vertical")
+                .PropertyEquals(ScrollBar.IsExpandedProperty, true)
+                .Template().OfType<Grid>().Name("Root"))
+            {
+                Setters =
+                {
+                    new Setter(Panel.BackgroundProperty, Brushes.Transparent)
+                }
+            });
+        }
 
         private StackPanel AddSection(string name)
         {
@@ -1180,7 +1249,7 @@ namespace MphRead.Mods.Launcher.Gui
             _textureQualityRow = Add(page, new ChoiceRow("HD asset resolution",
                 new[] { "Automatic", "Low (1K)", "Medium (2K)", "High (4K)", "Ultra (8K)" },
                 (int)RenderOptions.TextureQuality));
-            Explain(page, "Scale2x/4x enlarges cartridge art. HD asset resolution controls authored map/material, hunter, weapon, alternate-form, turret and effect textures; the runtime still clamps to the GPU and memory budget.");
+            Explain(page, "Scale2x/4x enlarges cartridge art. HD asset resolution controls authored map/material, hunter, weapon, alternate-form, turret and effect textures. All authored textures clamp to the GPU limit; cosmetic assets also use a residency budget.");
             _filteringRow.Changed += (_, _) => ShowTextureQualityRows();
             ShowTextureQualityRows();
 

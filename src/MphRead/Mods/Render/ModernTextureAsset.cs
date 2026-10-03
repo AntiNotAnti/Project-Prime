@@ -118,10 +118,23 @@ namespace MphRead.Mods.Render
                 {
                     ValidateDimensions(image.Width, image.Height);
                     if (image.ImagePointer == IntPtr.Zero) throw new InvalidDataException("Texture decoder returned no pixels.");
+                    (int targetWidth, int targetHeight) = FitDimensions(
+                        image.Width, image.Height, maximumDimension);
+                    if (targetWidth != image.Width || targetHeight != image.Height)
+                    {
+                        // STB already owns a full decoded RGBA surface. When a
+                        // high-resolution source is capped, sample directly from
+                        // that native surface into the final managed asset instead
+                        // of first allocating a second full-resolution byte[].
+                        byte[] fitted = Resample(image.ImagePointer, image.Width, image.Height,
+                            targetWidth, targetHeight, channel == TextureAssetChannel.Normal);
+                        return new ModernTextureAsset(key, assetClass, channel,
+                            targetWidth, targetHeight, fitted);
+                    }
+
                     byte[] rgba = new byte[checked(image.Width * image.Height * 4)];
                     Marshal.Copy(image.ImagePointer, rgba, 0, rgba.Length);
-                    return new ModernTextureAsset(key, assetClass, channel, image.Width, image.Height, rgba)
-                        .Fit(maximumDimension);
+                    return new ModernTextureAsset(key, assetClass, channel, image.Width, image.Height, rgba);
                 }
 #endif
             }
@@ -314,7 +327,21 @@ namespace MphRead.Mods.Render
                 throw new InvalidDataException("Texture dimensions exceed the 8192x8192 modern-asset limit.");
         }
 
-        private static byte[] Resample(byte[] source, int sourceWidth, int sourceHeight,
+        private static unsafe byte[] Resample(byte[] source, int sourceWidth, int sourceHeight,
+            int targetWidth, int targetHeight, bool normalMap)
+        {
+            fixed (byte* pixels = source)
+                return Resample(pixels, sourceWidth, sourceHeight, targetWidth, targetHeight, normalMap);
+        }
+
+        private static unsafe byte[] Resample(IntPtr source, int sourceWidth, int sourceHeight,
+            int targetWidth, int targetHeight, bool normalMap)
+        {
+            if (source == IntPtr.Zero) throw new InvalidDataException("Texture decoder returned no pixels.");
+            return Resample((byte*)source, sourceWidth, sourceHeight, targetWidth, targetHeight, normalMap);
+        }
+
+        private static unsafe byte[] Resample(byte* source, int sourceWidth, int sourceHeight,
             int targetWidth, int targetHeight, bool normalMap)
         {
             var result = new byte[checked(targetWidth * targetHeight * 4)];
@@ -330,16 +357,19 @@ namespace MphRead.Mods.Render
                     int x0 = Math.Clamp((int)MathF.Floor(sx), 0, sourceWidth - 1);
                     int x1 = Math.Min(sourceWidth - 1, x0 + 1);
                     float fx = Math.Clamp(sx - x0, 0, 1);
-                    int a = (y0 * sourceWidth + x0) * 4;
-                    int b = (y0 * sourceWidth + x1) * 4;
-                    int c = (y1 * sourceWidth + x0) * 4;
-                    int d = (y1 * sourceWidth + x1) * 4;
+                    int sourceA = (y0 * sourceWidth + x0) * 4;
+                    int sourceB = (y0 * sourceWidth + x1) * 4;
+                    int sourceC = (y1 * sourceWidth + x0) * 4;
+                    int sourceD = (y1 * sourceWidth + x1) * 4;
                     int target = (y * targetWidth + x) * 4;
                     for (int channel = 0; channel < 4; channel++)
                     {
-                        float top = source[a + channel] + (source[b + channel] - source[a + channel]) * fx;
-                        float bottom = source[c + channel] + (source[d + channel] - source[c + channel]) * fx;
-                        result[target + channel] = (byte)Math.Clamp((int)MathF.Round(top + (bottom - top) * fy), 0, 255);
+                        float top = source[sourceA + channel]
+                            + (source[sourceB + channel] - source[sourceA + channel]) * fx;
+                        float bottom = source[sourceC + channel]
+                            + (source[sourceD + channel] - source[sourceC + channel]) * fx;
+                        result[target + channel] = (byte)Math.Clamp(
+                            (int)MathF.Round(top + (bottom - top) * fy), 0, 255);
                     }
                     if (normalMap)
                     {

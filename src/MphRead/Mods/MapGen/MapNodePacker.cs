@@ -74,7 +74,29 @@ namespace MphRead.Mods.MapGen
         {
             public Vector3 Position;
             public int Cell;
+            public NodeType Type = NodeType.Navigation;
             public readonly List<int> Neighbours = new List<int>();
+        }
+
+        public static IReadOnlyList<MapNavigationLink> EffectiveLinks(MapDefinition definition)
+        {
+            var result=definition.NavigationLinks==null?new List<MapNavigationLink>():new List<MapNavigationLink>(definition.NavigationLinks);
+            if(definition.JumpPads==null)return result;
+            foreach(MapJumpPad pad in definition.JumpPads)
+            {
+                if(pad==null||pad.Target==null||pad.Position.Length!=3||pad.Target.Length!=3)continue;
+                result.Add(new MapNavigationLink
+                {
+                    Id=pad.Id,
+                    Kind=MapNavigationLinkKind.JumpPad,
+                    From=(float[])pad.Position.Clone(),
+                    To=(float[])pad.Target.Clone(),
+                    Bidirectional=false,
+                    FromNodeKind=MapNavigationAnchorKind.Auto,
+                    ToNodeKind=MapNavigationAnchorKind.Aerial
+                });
+            }
+            return result;
         }
 
         public static (byte[] Bytes, int Nodes, int Edges) Pack(IReadOnlyList<BuiltFace> solid, IReadOnlyList<MapNavigationLink>? links = null, CancellationToken cancellation = default)
@@ -83,7 +105,10 @@ namespace MphRead.Mods.MapGen
             return (graph.Bytes, graph.Positions.Length, graph.Edges);
         }
 
-        public sealed record NavigationGraph(byte[] Bytes, Vector3[] Positions, int[][] Neighbours, int[] Components, int Edges);
+        public sealed record NavigationGraph(byte[] Bytes, Vector3[] Positions, int[][] Neighbours, int[] Components, int Edges)
+        {
+            public NodeType[] Types { get; init; } = Array.Empty<NodeType>();
+        }
 
         public static NavigationGraph Analyze(IReadOnlyList<BuiltFace> solid, IReadOnlyList<MapNavigationLink>? links = null, CancellationToken cancellation = default)
         {
@@ -108,6 +133,7 @@ namespace MphRead.Mods.MapGen
                 spacing *= 1.4f;
             }
             if(nodes.Count==0||nodes.Count>MaxNodes)throw new MapAuthoringException("FP-MAP-007",nodes.Count==0?"No walkable navigation floor was found.":"Navigation could not fit its 700-node routing budget; simplify disconnected geometry.");
+            ClassifyAutoNodeTypes(nodes);
             if(links!=null)
                 foreach(var link in links)
                 {
@@ -127,7 +153,16 @@ namespace MphRead.Mods.MapGen
                         nodes[a].Neighbours.Add(b);
                     }
                     ConnectLink(from,to);if(link.Bidirectional)ConnectLink(to,from);
+
+                    float deltaY=nodes[to].Position.Y-nodes[from].Position.Y;
+                    ApplyAnchorType(nodes[from],NavigationAnchorTypeForTest(link.Kind,link.FromNodeKind,true,deltaY));
+                    ApplyAnchorType(nodes[to],NavigationAnchorTypeForTest(link.Kind,link.ToNodeKind,false,deltaY));
                 }
+
+            // PlayerAi finds the first index of each node type and therefore expects
+            // native-style type grouping. Reorder only after all graph edits, remapping
+            // every edge so authored one-way traversal remains intact.
+            nodes=OrderNodesByType(nodes);
             int edges = nodes.Sum(n => n.Neighbours.Count);
             if (Environment.GetEnvironmentVariable("FP_NODEDEBUG") != null)
             {
@@ -153,7 +188,74 @@ namespace MphRead.Mods.MapGen
                 component++;
             }
             return new(Write(nodes, spacing, cancellation), nodes.Select(n => n.Position).ToArray(),
-                nodes.Select(n => n.Neighbours.ToArray()).ToArray(), components, edges);
+                nodes.Select(n => n.Neighbours.ToArray()).ToArray(), components, edges)
+            {
+                Types = nodes.Select(n => n.Type).ToArray()
+            };
+        }
+
+        private static void ClassifyAutoNodeTypes(List<Node> nodes)
+        {
+            if (nodes.Count == 0) return;
+            float minY=nodes.Min(n=>n.Position.Y),maxY=nodes.Max(n=>n.Position.Y);
+            float span=maxY-minY;
+            if(span<4)return;
+            float high=minY+span*.65f;
+            foreach(Node node in nodes)
+            {
+                if(node.Type!=NodeType.Navigation||node.Position.Y<high||node.Neighbours.Count>5)continue;
+                if(node.Neighbours.Any(index=>node.Position.Y-nodes[index].Position.Y>=1.5f))
+                    node.Type=NodeType.Vantage;
+            }
+        }
+
+        public static NodeType? NavigationAnchorTypeForTest(MapNavigationLinkKind traversal,
+            MapNavigationAnchorKind authored,bool from,float deltaY)
+        {
+            if(authored!=MapNavigationAnchorKind.Auto)
+            {
+                return authored switch
+                {
+                    MapNavigationAnchorKind.Navigation=>NodeType.Navigation,
+                    MapNavigationAnchorKind.Special=>NodeType.Special,
+                    MapNavigationAnchorKind.Aerial=>NodeType.Aerial,
+                    MapNavigationAnchorKind.Vantage=>NodeType.Vantage,
+                    MapNavigationAnchorKind.AltForm=>NodeType.AltForm,
+                    MapNavigationAnchorKind.Hazard=>NodeType.Hazard,
+                    _=>null
+                };
+            }
+            return traversal switch
+            {
+                MapNavigationLinkKind.Jump or MapNavigationLinkKind.JumpPad when !from=>NodeType.Aerial,
+                MapNavigationLinkKind.Teleporter or MapNavigationLinkKind.Platform=>NodeType.Special,
+                MapNavigationLinkKind.Drop when from && deltaY < -1.5f=>NodeType.Vantage,
+                _=>null
+            };
+        }
+
+        private static void ApplyAnchorType(Node node,NodeType? type)
+        {
+            if(!type.HasValue)return;
+            // Geometry-derived hazardous floors always remain hazardous. An authored
+            // link may make a safe node more specific but may not make lava safe.
+            if(node.Type==NodeType.Hazard&&type.Value!=NodeType.Hazard)return;
+            node.Type=type.Value;
+        }
+
+        private static List<Node> OrderNodesByType(List<Node> nodes)
+        {
+            int[] order=Enumerable.Range(0,nodes.Count)
+                .OrderBy(i=>(int)nodes[i].Type).ThenBy(i=>i).ToArray();
+            var remap=new int[nodes.Count];
+            for(int i=0;i<order.Length;i++)remap[order[i]]=i;
+            var result=new List<Node>(nodes.Count);
+            foreach(int old in order)
+                result.Add(new Node{Position=nodes[old].Position,Cell=nodes[old].Cell,Type=nodes[old].Type});
+            for(int i=0;i<order.Length;i++)
+                foreach(int neighbour in nodes[order[i]].Neighbours)
+                    result[i].Neighbours.Add(remap[neighbour]);
+            return result;
         }
 
         private static int Largest(List<Node> nodes)
@@ -242,6 +344,22 @@ namespace MphRead.Mods.MapGen
             {
                 nodes.Add(new Node() { Position = fine[seed].Position, Cell = fine[seed].Cell });
             }
+            var ownedCount = new int[nodes.Count];
+            var hazardCount = new int[nodes.Count];
+            for (int i = 0; i < fine.Count; i++)
+            {
+                int coarse = owner[i];
+                if (coarse >= 0)
+                {
+                    ownedCount[coarse]++;
+                    if (fine[i].Type == NodeType.Hazard) hazardCount[coarse]++;
+                }
+            }
+            for (int i = 0; i < nodes.Count; i++)
+            {
+                if (hazardCount[i] > 0 && hazardCount[i] * 2 >= ownedCount[i])
+                    nodes[i].Type = NodeType.Hazard;
+            }
             for (int i = 0; i < fine.Count; i++)
             {
                 cancellation.ThrowIfCancellationRequested();
@@ -253,13 +371,13 @@ namespace MphRead.Mods.MapGen
                     {
                         continue;
                     }
+                    // Preserve the direction discovered on the fine graph. If the
+                    // reverse traversal is legal it appears as its own fine edge and will
+                    // be copied when that edge is visited. Adding it here unconditionally
+                    // turns drops back into impossible climbs after decimation.
                     if (nodes[a].Neighbours.Count < MaxNeighbours && !nodes[a].Neighbours.Contains(b))
                     {
                         nodes[a].Neighbours.Add(b);
-                    }
-                    if (nodes[b].Neighbours.Count < MaxNeighbours && !nodes[b].Neighbours.Contains(a))
-                    {
-                        nodes[b].Neighbours.Add(a);
                     }
                 }
             }
@@ -276,7 +394,7 @@ namespace MphRead.Mods.MapGen
             Bounds(solid, out Vector3 min, out Vector3 max);
             var buckets = Buckets(solid, min, spacing, out int columns, out int rows, cancellation);
             var nodes = new List<Node>();
-            var heights = new List<float>();
+            var heights = new List<(float Y, bool Hazard)>();
             for (int row = 0; row < rows; row++)
             {
                 cancellation.ThrowIfCancellationRequested();
@@ -297,14 +415,20 @@ namespace MphRead.Mods.MapGen
                         {
                             continue;
                         }
-                        heights.Add(y);
+                        heights.Add((y, face.Damaging || (int)face.Terrain >= (int)Terrain.Lava));
                     }
-                    heights.Sort();
+                    heights.Sort((a,b) =>
+                    {
+                        int compare=a.Y.CompareTo(b.Y);
+                        return compare!=0?compare:b.Hazard.CompareTo(a.Hazard);
+                    });
                     float last = Single.MinValue;
-                    foreach (float y in heights)
+                    foreach ((float y, bool hazard) in heights)
                     {
                         // one node per storey: a floor and the thing it rests
-                        // on are not two places to stand
+                        // on are not two places to stand. For coincident faces,
+                        // hazardous collision wins so a decorative safe face cannot
+                        // conceal lava/acid from the AI graph.
                         if (y - last < Headroom)
                         {
                             last = y;
@@ -318,7 +442,8 @@ namespace MphRead.Mods.MapGen
                         nodes.Add(new Node()
                         {
                             Position = new Vector3(x, y + 0.5f, z),
-                            Cell = row * columns + column
+                            Cell = row * columns + column,
+                            Type = hazard ? NodeType.Hazard : NodeType.Navigation
                         });
                     }
                 }
@@ -398,11 +523,10 @@ namespace MphRead.Mods.MapGen
                             {
                                 continue;
                             }
+                            // Add only the direction we just validated. The reverse edge is
+                            // evaluated when the other node is visited, so a legal drop does not
+                            // silently become an impossible climb.
                             node.Neighbours.Add(j);
-                            if (nodes[j].Neighbours.Count < MaxNeighbours && !nodes[j].Neighbours.Contains(i))
-                            {
-                                nodes[j].Neighbours.Add(i);
-                            }
                         }
                     }
                 }
@@ -611,7 +735,7 @@ namespace MphRead.Mods.MapGen
             {
                 cancellation.ThrowIfCancellationRequested();
                 Node node = nodes[i];
-                writer.Write((ushort)NodeType.Navigation);
+                writer.Write((ushort)node.Type);
                 // the id is the index: the routing table is read as indices
                 // into the list, and elsewhere as ids, and making them the
                 // same number is what lets one node answer both
@@ -643,48 +767,59 @@ namespace MphRead.Mods.MapGen
         }
 
         /// <summary>
-        /// For every node, which way to set off for every other node, run-
-        /// length encoded over the destinations. A breadth-first search from
-        /// each destination gives the distances; the neighbour that is one
-        /// step closer is the answer, and a node with nowhere to go points at
-        /// itself so the reader's own loop still advances.
+        /// For every node, which way to set off for every other node, run-length
+        /// encoded over the destinations. Authored navigation links can be directed,
+        /// so distances are propagated through the reverse graph. Hazard nodes carry
+        /// a high traversal cost: they remain legal when a route truly requires one,
+        /// but a safe path wins even when it has several extra hops.
         /// </summary>
         private static List<(ushort, ushort)>[] Routes(List<Node> nodes, CancellationToken cancellation)
         {
             int count = nodes.Count;
             var hop = new ushort[count, count];
+            var incoming = new List<int>[count];
+            for (int i = 0; i < count; i++) incoming[i] = new List<int>();
+            for (int source = 0; source < count; source++)
+                foreach (int destination in nodes[source].Neighbours)
+                    incoming[destination].Add(source);
+
             var distance = new int[count];
-            var queue = new Queue<int>();
+            var queue = new PriorityQueue<int,int>();
+            int Cost(int node) => nodes[node].Type == NodeType.Hazard ? 12 : 1;
             for (int destination = 0; destination < count; destination++)
             {
                 cancellation.ThrowIfCancellationRequested();
-                Array.Fill(distance, -1);
+                Array.Fill(distance, Int32.MaxValue);
                 distance[destination] = 0;
                 queue.Clear();
-                queue.Enqueue(destination);
-                while (queue.Count > 0)
+                queue.Enqueue(destination,0);
+                while (queue.TryDequeue(out int current,out int priority))
                 {
-                    int current = queue.Dequeue();
-                    foreach (int neighbour in nodes[current].Neighbours)
+                    if (priority != distance[current]) continue;
+                    foreach (int predecessor in incoming[current])
                     {
-                        if (distance[neighbour] < 0)
+                        int candidate=distance[current]+Cost(current);
+                        if(candidate<distance[predecessor])
                         {
-                            distance[neighbour] = distance[current] + 1;
-                            queue.Enqueue(neighbour);
+                            distance[predecessor]=candidate;
+                            queue.Enqueue(predecessor,candidate);
                         }
                     }
                 }
                 for (int source = 0; source < count; source++)
                 {
                     ushort answer = (ushort)source;
-                    if (source != destination && distance[source] > 0)
+                    if (source != destination && distance[source] < Int32.MaxValue)
                     {
+                        int best=Int32.MaxValue;
                         foreach (int neighbour in nodes[source].Neighbours)
                         {
-                            if (distance[neighbour] == distance[source] - 1)
+                            if(distance[neighbour]==Int32.MaxValue)continue;
+                            int candidate=distance[neighbour]+Cost(neighbour);
+                            if(candidate<best)
                             {
-                                answer = (ushort)neighbour;
-                                break;
+                                best=candidate;
+                                answer=(ushort)neighbour;
                             }
                         }
                     }

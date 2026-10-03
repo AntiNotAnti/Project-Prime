@@ -347,6 +347,7 @@ jobs:
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --lifecycle
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --health-shots
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --architecture
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --bot-ai
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --lobby
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --custom-map-download
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --allocations

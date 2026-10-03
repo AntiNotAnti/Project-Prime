@@ -86,13 +86,22 @@ public sealed class MaterialPackEntry
 public sealed class MaterialImage
 {
     private readonly Func<Stream>? _open;
+    private readonly bool _factoryCanDecodeOffThread;
     public string Path { get; }
     public int Width { get; }
     public int Height { get; }
     public bool IsFileBacked => _open == null;
+    public bool CanDecodeOffThread => IsFileBacked || _factoryCanDecodeOffThread;
     public MaterialImage(string path, int width, int height) : this(path, width, height, null) { }
-    internal MaterialImage(string path, int width, int height, Func<Stream>? open)
-    { Path = path; Width = width; Height = height; _open = open; }
+    internal MaterialImage(string path, int width, int height, Func<Stream>? open,
+        bool canDecodeOffThread = false)
+    {
+        Path = path;
+        Width = width;
+        Height = height;
+        _open = open;
+        _factoryCanDecodeOffThread = canDecodeOffThread;
+    }
     public Stream OpenRead() => _open?.Invoke() ?? File.OpenRead(Path);
 }
 /// <summary>Backend-independent map semantics: normal XYZ, specular R / roughness G, emissive RGB.</summary>

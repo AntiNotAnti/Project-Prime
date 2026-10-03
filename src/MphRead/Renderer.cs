@@ -1556,7 +1556,13 @@ namespace MphRead
             StreamingTextureRequest Request,
             Task<Mods.Render.ModernTextureAsset?> Task);
 
-        private const int MaxStreamingTextureDecodes = 2;
+        private const int MaxDesktopStreamingTextureDecodes = 2;
+        private static int StreamingTextureDecodeLimit => OperatingSystem.IsAndroid() ? 1 : MaxDesktopStreamingTextureDecodes;
+        // Desktop STB temporarily owns its decoded RGBA image while the
+        // managed asset copy/downscale is produced. Serialize sources above
+        // this size so two giant authoring images cannot overlap and turn
+        // an 8K pack into a >1 GiB transient-memory spike.
+        private const long SerializedStreamingDecodeBytes = 96L * 1024 * 1024;
         private int _streamingTextureVersion;
         private readonly Dictionary<int, int> _streamingTextureVersions = new();
         private readonly Queue<StreamingTextureRequest> _streamingTextureQueue = new();
@@ -1566,17 +1572,36 @@ namespace MphRead
         private Mods.TextureAssetQuality _uploadedTextureAssetQuality = Mods.RenderOptions.TextureQuality;
         private string _uploadedTextureSamplingKey = Mods.Render.TextureSamplingPolicy.RuntimeKey;
         private bool _uploadedTextureReplacements = Mods.RenderOptions.TextureReplacements;
+        private bool _uploadedAdvancedMaterials = Mods.RenderOptions.AdvancedMaterials;
         private int _uploadedMaterialRevision = Mods.Render.TextureReplacementPack.Revision;
 
         private void RefreshTextureQuality()
         {
             PumpModernTextureStreaming();
             string samplingKey = Mods.Render.TextureSamplingPolicy.RuntimeKey;
-            if (Mods.Headless.Active || (_uploadedTextureUpscale == Mods.RenderOptions.TextureUpscale
+            bool replacements = Mods.RenderOptions.TextureReplacements;
+            bool advancedChanged = _uploadedAdvancedMaterials != Mods.RenderOptions.AdvancedMaterials;
+            bool baseTextureSettingsUnchanged =
+                _uploadedTextureUpscale == Mods.RenderOptions.TextureUpscale
                 && _uploadedTextureAssetQuality == Mods.RenderOptions.TextureQuality
-                && (_uploadedTextureReplacements == false || _uploadedTextureSamplingKey == samplingKey)
-                && _uploadedTextureReplacements == Mods.RenderOptions.TextureReplacements
-                && _uploadedMaterialRevision == Mods.Render.TextureReplacementPack.Revision)) return;
+                && (!replacements || _uploadedTextureSamplingKey == samplingKey)
+                && _uploadedTextureReplacements == replacements
+                && _uploadedMaterialRevision == Mods.Render.TextureReplacementPack.Revision;
+
+            if (Mods.Headless.Active) return;
+            if (baseTextureSettingsUnchanged && (!replacements || !advancedChanged)) return;
+
+            // Advanced material maps are companions of an already-resident
+            // albedo. Toggling them must not throw every HD albedo back to its
+            // native placeholder and decode it again. Refresh only the companion
+            // resources when no base-texture setting changed.
+            if (replacements && baseTextureSettingsUnchanged && advancedChanged)
+            {
+                RefreshAdvancedMaterialMaps();
+                _uploadedAdvancedMaterials = Mods.RenderOptions.AdvancedMaterials;
+                return;
+            }
+
             GL.ActiveTexture(TextureUnit.Texture0);
             // Keep binding IDs: existing materials, animations and render items
             // may refer to them. Reupload only when a source-quality option changes.
@@ -1588,8 +1613,85 @@ namespace MphRead
             _uploadedTextureUpscale = Mods.RenderOptions.TextureUpscale;
             _uploadedTextureAssetQuality = Mods.RenderOptions.TextureQuality;
             _uploadedTextureSamplingKey = samplingKey;
-            _uploadedTextureReplacements = Mods.RenderOptions.TextureReplacements;
+            _uploadedTextureReplacements = replacements;
+            _uploadedAdvancedMaterials = Mods.RenderOptions.AdvancedMaterials;
             _uploadedMaterialRevision = Mods.Render.TextureReplacementPack.Revision;
+        }
+
+        private void RefreshAdvancedMaterialMaps()
+        {
+            // Companion decodes that were valid under the old toggle must never
+            // spring back to life if the option is toggled off and on quickly.
+            // Albedo streaming is independent and remains in flight/resident.
+            if (!Mods.RenderOptions.AdvancedMaterials)
+            {
+                var keep = _streamingTextureQueue
+                    .Where(request => request.Channel == Mods.Render.TextureAssetChannel.Albedo)
+                    .ToArray();
+                _streamingTextureQueue.Clear();
+                foreach (var request in keep) _streamingTextureQueue.Enqueue(request);
+                // Do not drop active decode tasks from the scheduler: STB work
+                // cannot be cancelled once started, so forgetting the task would
+                // only let another giant decode overlap it. Pumping discards its
+                // result while maps are off, or reuses it if the player turns
+                // them back on before it finishes.
+
+                foreach (int binding in _materialMaps.Keys.ToArray())
+                {
+                    if (!_materialMaps.Remove(binding, out var maps)) continue;
+                    if (maps.Normal != 0) ReleaseTexture(maps.Normal);
+                    if (maps.Specular != 0) ReleaseTexture(maps.Specular);
+                    if (maps.Emissive != 0) ReleaseTexture(maps.Emissive);
+                }
+                return;
+            }
+
+            foreach (var source in _textureSources.ToArray())
+            {
+                int binding = source.Key;
+                // If albedo is still native/in-flight, its normal promotion path
+                // will enqueue companions after albedo succeeds.
+                if (!_modernTextureSampling.TryGetValue(binding, out var modern)
+                    || modern.Channel != Mods.Render.TextureAssetChannel.Albedo)
+                    continue;
+
+                var value = source.Value;
+                Mods.Render.Materials.MaterialAssetKey modelKey =
+                    Mods.Render.Materials.MaterialAssetKey.ForModel(
+                        value.Model, value.Texture, value.Palette, value.Recolor);
+                var material = Mods.Render.TextureReplacementPack.Resolve(
+                    value.Model.Name, value.Texture, value.Palette, value.Recolor,
+                    value.Authored ?? modelKey, modelKey);
+                if (material == null) continue;
+                Mods.Render.TextureAssetClass assetClass =
+                    Mods.Render.TextureReplacementPack.Classify(value.Model);
+
+                bool stream = (material.Normal?.CanDecodeOffThread ?? true)
+                    && (material.SpecularRoughness?.CanDecodeOffThread ?? true)
+                    && (material.Emissive?.CanDecodeOffThread ?? true);
+                if (stream && _streamingTextureVersions.TryGetValue(binding, out int version))
+                {
+                    if (material.Normal is { } normal)
+                        QueueModernTextureStreamChannel(binding, version, material, assetClass,
+                            Mods.Render.TextureAssetChannel.Normal, normal);
+                    if (material.SpecularRoughness is { } specular)
+                        QueueModernTextureStreamChannel(binding, version, material, assetClass,
+                            Mods.Render.TextureAssetChannel.Material, specular);
+                    if (material.Emissive is { } emissive)
+                        QueueModernTextureStreamChannel(binding, version, material, assetClass,
+                            Mods.Render.TextureAssetChannel.Emissive, emissive);
+                    continue;
+                }
+
+                Mods.Render.MaterialMapBindings maps =
+                    Mods.Render.TextureReplacementPack.UploadCompanions(
+                        material, AllocateTexture, ReleaseTexture, assetClass);
+                if (!maps.Any) continue;
+                _materialMaps[binding] = maps;
+                RegisterModernTexture(maps.Normal, assetClass, Mods.Render.TextureAssetChannel.Normal);
+                RegisterModernTexture(maps.Specular, assetClass, Mods.Render.TextureAssetChannel.Material);
+                RegisterModernTexture(maps.Emissive, assetClass, Mods.Render.TextureAssetChannel.Emissive);
+            }
         }
 
         private bool BindTexture(Model model, int textureId, int paletteId, int recolorId, int existingBinding = 0, Mods.Render.Materials.MaterialAssetKey? authoredKey = null)
@@ -1631,9 +1733,9 @@ namespace MphRead
                     authoredKey ?? modelKey, modelKey);
             }
 
-            bool streamReplacement = !OperatingSystem.IsAndroid()
-                && replacementMaterial?.Albedo != null
-                && Mods.Render.TextureReplacementPack.CanDecodeOffThread(replacementMaterial);
+            bool streamReplacement = replacementMaterial?.Albedo != null
+                && Mods.Render.TextureReplacementPack.CanDecodeOffThread(
+                    replacementMaterial, includeCompanions: Mods.RenderOptions.AdvancedMaterials);
             int replacementWidth = 0;
             int replacementHeight = 0;
             bool replaced = !streamReplacement
@@ -1679,7 +1781,7 @@ namespace MphRead
                 QueueModernTextureStream(_lastTextureId, streamVersion,
                     replacementMaterial, replacementClass);
             }
-            else if (replacementMaterial != null)
+            else if (replacementMaterial != null && Mods.RenderOptions.AdvancedMaterials)
             {
                 Mods.Render.MaterialMapBindings maps =
                     Mods.Render.TextureReplacementPack.UploadCompanions(
@@ -1721,6 +1823,16 @@ namespace MphRead
             Mods.Render.TextureAssetChannel channel,
             Mods.Render.Materials.MaterialImage image)
         {
+            if (_streamingTextureQueue.Any(request =>
+                    request.Binding == bindingId && request.Version == version
+                    && request.Channel == channel)
+                || _streamingTextureDecodes.Any(pending =>
+                    pending.Request.Binding == bindingId && pending.Request.Version == version
+                    && pending.Request.Channel == channel))
+            {
+                return;
+            }
+
             int cap = Mods.Render.TextureAssetManager.DimensionLimit(assetClass, channel);
             string samplingKey = Mods.Render.TextureSamplingPolicy.ResolveModern(
                 assetClass, channel).CacheKey;
@@ -1737,6 +1849,8 @@ namespace MphRead
                 && _streamingTextureVersions.TryGetValue(request.Binding, out int version)
                 && version == request.Version
                 && Mods.RenderOptions.TextureQuality == request.Quality
+                && (request.Channel == Mods.Render.TextureAssetChannel.Albedo
+                    || Mods.RenderOptions.AdvancedMaterials)
                 && Mods.Render.TextureReplacementPack.Revision == request.MaterialRevision
                 && Mods.Render.TextureSamplingPolicy.ResolveModern(
                     request.AssetClass, request.Channel).CacheKey == request.SamplingKey;
@@ -1744,12 +1858,12 @@ namespace MphRead
 
         private void PumpModernTextureStreaming()
         {
-            if (Mods.Headless.Active || OperatingSystem.IsAndroid()) return;
+            if (Mods.Headless.Active) return;
 
-            // Promote no more than one large GPU image per frame. CPU decode
-            // stays two-wide, which prevents a pack of 8K channels from
-            // ballooning transient memory while still overlapping disk/decode
-            // with presentation.
+            // Promote no more than one large GPU image per frame. Desktop CPU
+            // decode stays two-wide; Android deliberately runs one worker so
+            // BitmapFactory I/O/decode leaves more CPU and memory headroom for
+            // the render/simulation thread.
             for (int i = 0; i < _streamingTextureDecodes.Count;)
             {
                 StreamingTextureDecode pending = _streamingTextureDecodes[i];
@@ -1772,11 +1886,26 @@ namespace MphRead
                 break;
             }
 
-            while (_streamingTextureDecodes.Count < MaxStreamingTextureDecodes
-                && _streamingTextureQueue.Count > 0)
+            while (_streamingTextureQueue.Count > 0)
             {
-                StreamingTextureRequest request = _streamingTextureQueue.Dequeue();
-                if (!StreamingTextureRequestCurrent(request)) continue;
+                StreamingTextureRequest request = _streamingTextureQueue.Peek();
+                if (!StreamingTextureRequestCurrent(request))
+                {
+                    _streamingTextureQueue.Dequeue();
+                    continue;
+                }
+
+                bool largeQueued = SerializedStreamingDecode(request);
+                bool largeActive = _streamingTextureDecodes.Any(
+                    pending => SerializedStreamingDecode(pending.Request));
+                if (_streamingTextureDecodes.Count >= StreamingTextureDecodeLimit
+                    || largeActive
+                    || (largeQueued && _streamingTextureDecodes.Count > 0))
+                {
+                    break;
+                }
+
+                _streamingTextureQueue.Dequeue();
                 Task<Mods.Render.ModernTextureAsset?> task = Task.Run(() =>
                     Mods.Render.TextureReplacementPack.DecodePrepared(
                         request.Image, request.AssetClass, request.Channel,
@@ -1784,6 +1913,10 @@ namespace MphRead
                 _streamingTextureDecodes.Add(new StreamingTextureDecode(request, task));
             }
         }
+
+        private static bool SerializedStreamingDecode(StreamingTextureRequest request)
+            => (long)request.Image.Width * request.Image.Height * 4
+                > SerializedStreamingDecodeBytes;
 
         private void PromoteModernTextureStream(StreamingTextureRequest request,
             Mods.Render.ModernTextureAsset asset)
@@ -1808,18 +1941,21 @@ namespace MphRead
                 Mods.DebugLog.Line("render",
                     $"progressive HD texture {request.Material.Key} -> {width}x{height}");
 
-                if (request.Material.Normal is { } normal)
-                    QueueModernTextureStreamChannel(request.Binding, request.Version,
-                        request.Material, request.AssetClass,
-                        Mods.Render.TextureAssetChannel.Normal, normal);
-                if (request.Material.SpecularRoughness is { } material)
-                    QueueModernTextureStreamChannel(request.Binding, request.Version,
-                        request.Material, request.AssetClass,
-                        Mods.Render.TextureAssetChannel.Material, material);
-                if (request.Material.Emissive is { } emissive)
-                    QueueModernTextureStreamChannel(request.Binding, request.Version,
-                        request.Material, request.AssetClass,
-                        Mods.Render.TextureAssetChannel.Emissive, emissive);
+                if (Mods.RenderOptions.AdvancedMaterials)
+                {
+                    if (request.Material.Normal is { } normal)
+                        QueueModernTextureStreamChannel(request.Binding, request.Version,
+                            request.Material, request.AssetClass,
+                            Mods.Render.TextureAssetChannel.Normal, normal);
+                    if (request.Material.SpecularRoughness is { } material)
+                        QueueModernTextureStreamChannel(request.Binding, request.Version,
+                            request.Material, request.AssetClass,
+                            Mods.Render.TextureAssetChannel.Material, material);
+                    if (request.Material.Emissive is { } emissive)
+                        QueueModernTextureStreamChannel(request.Binding, request.Version,
+                            request.Material, request.AssetClass,
+                            Mods.Render.TextureAssetChannel.Emissive, emissive);
+                }
                 return;
             }
 

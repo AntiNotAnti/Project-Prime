@@ -26,7 +26,10 @@ additionally clamped to the graphics-device maximum. UI assets cap at 2048.
 
 The manager uses RGBA8 uploads and accounts for the extra one-third memory of a
 complete mip chain. Cosmetic residency budgets are conservative by platform and
-quality. Existing world texture bindings retain their engine-owned IDs during
+quality. World/material replacement textures currently share the same quality
+and device-dimension limits but do not yet participate in that cosmetic
+residency budget; a scene-wide world-material VRAM policy remains follow-up
+work. Existing world texture bindings retain their engine-owned IDs during
 quality changes, so animation and material references remain valid.
 
 ## Identity and compatibility
@@ -58,18 +61,31 @@ avoid Vulkan subresource corruption while removing per-mip native texture
 allocation/destruction churn, which is especially costly for 4K/8K assets.
 
 
-### Progressive desktop promotion
+### Progressive authored texture promotion
 
-File-backed desktop HD replacements no longer block `InitTextures`. The native
-cartridge texture is uploaded first and remains valid at the same binding ID.
-At most two HD channels decode concurrently on worker threads, and the draw
-thread promotes at most one prepared GPU image per frame. Albedo is queued
-first; normal/material/emissive companions follow only after albedo succeeds.
+File-backed and immutable package-backed HD replacements no longer block
+`InitTextures` on desktop or Android. The native cartridge texture is uploaded
+first and remains valid at the same binding ID. Package-backed requests retain only dimensions and
+identity while queued; their encoded entry bytes are read lazily by the decode
+worker, so a large `.ppmap` does not become an in-memory compressed-texture
+cache just because its materials were discovered.
+Desktop runs at most two ordinary HD decode workers; Android uses one worker to
+leave CPU/memory headroom for gameplay. The draw thread promotes at most one
+prepared GPU image per frame on either platform. Source images whose raw RGBA
+decode exceeds 96 MiB are serialized because desktop STB owns its
+native decode while the managed copy/downscale is produced; this prevents two
+large 5K–8K authoring images from overlapping their peak transient allocations.
+Albedo is queued first; normal/material/emissive companions follow only after
+albedo succeeds.
 Quality, sampling, material-revision and binding-version checks discard stale
-work after a setting change, pack reload or texture release. Android keeps the
-existing synchronous path for now.
+work after a setting change, pack reload or texture release. Android uses its
+platform BitmapFactory decoder on the worker and still performs every GL/WebGPU
+upload on the render thread.
 
 This is intentionally a bounded streaming path rather than an eager whole-pack
-predecode: an Ultra 8192x8192 RGBA channel can occupy 256 MiB before mipmaps, so
-decoding an entire material pack concurrently would trade startup time for a
-large transient-memory spike.
+predecode. Desktop PNG/JPEG sources that exceed the selected runtime cap now
+resample directly from STB's native decoded surface into the final managed
+texture, avoiding the previous second full-resolution RGBA copy. Large source
+decodes above the scheduler threshold are also serialized. An Ultra 8192x8192
+RGBA channel can still occupy 256 MiB for its final pixels before mipmaps, so
+whole-pack eager decode remains deliberately avoided.

@@ -29,18 +29,24 @@ internal static class CommunityMapChecks
         Guid id = Guid.NewGuid();
         string? resumablePath = null, resumableHash = null;
         long resumableOffset = 0;
-        string Package(string version, string name = "COMMUNITY_TEST")
+        string PackageBytes(string version, string name, int? projectLength = null, string projectEntry = "project.json")
         {
             string path = Path.Combine(root, Guid.NewGuid().ToString("N") + ".ppmap");
             var definition = new MapDefinition { FormatVersion = 2, MapId = id, Name = name, Version = version, Author = "Fixture" };
-            byte[] project = Encoding.UTF8.GetBytes(definition.Serialize());
+            byte[] serialized = Encoding.UTF8.GetBytes(definition.Serialize());
+            int length = projectLength ?? serialized.Length;
+            if (length < serialized.Length) throw new ArgumentOutOfRangeException(nameof(projectLength));
+            byte[] project = new byte[length];
+            Buffer.BlockCopy(serialized, 0, project, 0, serialized.Length);
+            if (length > serialized.Length) Array.Fill(project, (byte)' ', serialized.Length, length - serialized.Length);
             var manifest = new MapPackageManifest { MapId = id, Name = name, MapVersion = version, Author = definition.Author,
-                ContentHash = MapPackageReader.ContentHash(new[] { "project.json" }, _ => project) };
+                ContentHash = MapPackageReader.ContentHash(new[] { projectEntry }, _ => project) };
             using var zip = ZipFile.Open(path, ZipArchiveMode.Create);
-            using (var stream = zip.CreateEntry("project.json").Open()) stream.Write(project);
+            using (var stream = zip.CreateEntry(projectEntry).Open()) stream.Write(project);
             using (var stream = zip.CreateEntry("manifest.json").Open()) stream.Write(JsonSerializer.SerializeToUtf8Bytes(manifest, MapPackageReader.JsonOptions));
             return path;
         }
+        string Package(string version, string name = "COMMUNITY_TEST") => PackageBytes(version, name);
         string CatalogOnlyFixture()
         {
             string path = Path.Combine(root, "catalog-lightweight.ppmap");
@@ -68,20 +74,49 @@ internal static class CommunityMapChecks
                 stream.Write(JsonSerializer.SerializeToUtf8Bytes(manifest, MapPackageReader.JsonOptions));
             return path;
         }
-
-        string catalogFixture = CatalogOnlyFixture();
-        string catalogProject = MapPackageReader.ReadProjectForCatalog(catalogFixture);
-        check(catalogProject.Contains("CATALOG_FAST_PATH", StringComparison.Ordinal),
-            "catalog package read does not require full content hashing");
-        check(MapPackageReader.ReadCatalogEntry(catalogFixture, "preview/card.png")?.Length == 24,
-            "catalog preview reads one bounded entry without full package hashing");
-        bool strictCatalogRejected = false;
-        try { using var strict = new MapPackageReader(catalogFixture); }
-        catch (InvalidDataException) { strictCatalogRejected = true; }
-        check(strictCatalogRejected,
-            "strict package reader still rejects a digest mismatch at trust boundaries");
         try
         {
+            string catalogFixture = CatalogOnlyFixture();
+            string catalogProject = MapPackageReader.ReadProjectForCatalog(catalogFixture);
+            check(catalogProject.Contains("CATALOG_FAST_PATH", StringComparison.Ordinal),
+                "catalog package read does not require full content hashing");
+            check(MapPackageReader.ReadCatalogEntry(catalogFixture, "preview/card.png")?.Length == 24,
+                "catalog preview reads one bounded entry without full package hashing");
+            bool strictCatalogRejected = false;
+            try { using var strict = new MapPackageReader(catalogFixture); }
+            catch (InvalidDataException) { strictCatalogRejected = true; }
+            check(strictCatalogRejected,
+                "strict package reader still rejects a digest mismatch at trust boundaries");
+
+            string validLargeProject = PackageBytes("reader-large", "PROJECT_LIMIT_OK",
+                checked((int)(MapPackageReader.MaxProjectBytes / 2)));
+            using (var reader = new MapPackageReader(validLargeProject))
+                check(Encoding.UTF8.GetByteCount(reader.ReadProject()) == MapPackageReader.MaxProjectBytes / 2,
+                    "multi-megabyte project.json remains valid below the dedicated project limit");
+
+            string exactLimitProject = PackageBytes("reader-exact", "PROJECT_LIMIT_EXACT",
+                checked((int)MapPackageReader.MaxProjectBytes));
+            using (var reader = new MapPackageReader(exactLimitProject))
+                check(Encoding.UTF8.GetByteCount(reader.ReadProject()) == MapPackageReader.MaxProjectBytes,
+                    "project.json at the exact dedicated limit is accepted");
+
+            string oversizedProject = PackageBytes("reader-oversized", "PROJECT_LIMIT_TOO_LARGE",
+                checked((int)MapPackageReader.MaxProjectBytes + 1));
+            string oversizedError = "";
+            try { using var ignored = new MapPackageReader(oversizedProject); }
+            catch (InvalidDataException ex) { oversizedError = ex.Message; }
+            check(oversizedError.Contains("project.json", StringComparison.Ordinal)
+                && oversizedError.Contains("oversized", StringComparison.OrdinalIgnoreCase)
+                && !oversizedError.Contains("Missing or oversized", StringComparison.Ordinal),
+                "oversized project.json reports the actual entry size failure");
+
+            string missingProject = PackageBytes("reader-missing", "PROJECT_MISSING", projectEntry: "nested/project.json");
+            string missingError = "";
+            try { using var ignored = new MapPackageReader(missingProject); }
+            catch (InvalidDataException ex) { missingError = ex.Message; }
+            check(missingError == "Missing package entry: project.json",
+                "missing root project.json is distinguished from an oversized project");
+
             string one = Package("1"); var v1 = await client.UploadAsync(one, default);
             var v2 = await client.UploadAsync(Package("2"), default);
             var hidden = await client.UploadAsync(Package("3"), default, listed: false);
@@ -95,6 +130,23 @@ internal static class CommunityMapChecks
             check((await client.BrowseAsync(default)).Length == 2, "unlisted version excluded from catalog");
             byte[] bytes = await http.GetByteArrayAsync("packages/" + v1.Hash);
             check(bytes.SequenceEqual(File.ReadAllBytes(one)), "historical exact-package endpoint returns immutable bytes");
+
+            string storedV1 = Path.Combine(storage, v1.Hash + ".ppmap");
+            byte[] storedBytes = File.ReadAllBytes(storedV1);
+            byte[] corruptBytes = (byte[])storedBytes.Clone();
+            corruptBytes[corruptBytes.Length / 2] ^= 0x5A;
+            File.WriteAllBytes(storedV1, corruptBytes);
+            bool rejectedCorruptDownload = false;
+            try { await client.InstallAsync(v1, Path.Combine(root, "corrupt-install"), default); }
+            catch (InvalidDataException ex)
+            {
+                rejectedCorruptDownload = ex.Message.Contains("SHA-256", StringComparison.Ordinal)
+                    && ex.Message.Contains("discarded after a retry", StringComparison.OrdinalIgnoreCase);
+            }
+            finally { File.WriteAllBytes(storedV1, storedBytes); }
+            check(rejectedCorruptDownload,
+                "same-length corrupted community download is rejected by package hash before ZIP parsing");
+
             long rangeStart = Math.Max(1, bytes.LongLength / 2);
             using (var request = new HttpRequestMessage(HttpMethod.Get, "packages/" + v1.Hash))
             {

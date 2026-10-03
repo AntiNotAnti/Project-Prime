@@ -32,6 +32,7 @@ namespace MphRead.Mods.MapGen
         public const long MaxArchiveBytes = 512L * 1024 * 1024;
         public const long MaxExpandedBytes = 1024L * 1024 * 1024;
         public const long MaxEntryBytes = 256L * 1024 * 1024;
+        public const long MaxProjectBytes = 8L * 1024 * 1024;
         public const int MaxEntries = 2048;
         public static readonly JsonSerializerOptions JsonOptions = new()
         { PropertyNameCaseInsensitive = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
@@ -105,7 +106,7 @@ namespace MphRead.Mods.MapGen
                 ValidateManifest(manifest);
                 projectEntry = manifest.Project;
                 RequireProjectShape(entries);
-                byte[] projectBytes = ReadRequired(entries, projectEntry, 8 * 1024 * 1024);
+                byte[] projectBytes = ReadRequired(entries, projectEntry, MaxProjectBytes);
                 MapDefinition definition = DeserializeDefinition(projectBytes, legacy: false);
                 ValidateManifestProject(manifest, definition);
                 if (manifest.Preview != null && !entries.ContainsKey(CanonicalName(manifest.Preview)))
@@ -118,7 +119,7 @@ namespace MphRead.Mods.MapGen
             if (recipes.Length != 1)
                 throw new InvalidDataException("Legacy package requires exactly one recipe.");
             projectEntry = recipes[0];
-            byte[] legacyBytes = ReadRequired(entries, projectEntry, 8 * 1024 * 1024);
+            byte[] legacyBytes = ReadRequired(entries, projectEntry, MaxProjectBytes);
             MapDefinition legacyDefinition = DeserializeDefinition(legacyBytes, legacy: true);
             MapValidator.RequireRuntimeName(legacyDefinition.Name);
             ValidateReferences(entries, legacyDefinition);
@@ -139,6 +140,20 @@ namespace MphRead.Mods.MapGen
             string? found = Find(entries, name);
             if (found == null) return null;
             return ReadRequired(entries, found, Math.Min(Math.Max(1, limit), MaxEntryBytes));
+        }
+
+        /// <summary>
+        /// Reads one entry after MapBundle has already fully validated this exact,
+        /// unchanged package. This deliberately does not recompute the archive's
+        /// content hash for every texture/audio read.
+        /// </summary>
+        internal static byte[]? ReadValidatedEntry(string path, string name)
+        {
+            RequireArchiveSize(path);
+            using ZipArchive archive = ZipFile.OpenRead(path);
+            Dictionary<string, ZipArchiveEntry> entries = ScanEntries(archive);
+            string? found = Find(entries, name);
+            return found == null ? null : ReadRequired(entries, found, MaxEntryBytes);
         }
 
         private static void RequireArchiveSize(string path)
@@ -206,7 +221,7 @@ namespace MphRead.Mods.MapGen
 
         private static MapDefinition ReadDefinition(
             IReadOnlyDictionary<string, ZipArchiveEntry> entries, string project, bool legacy)
-            => DeserializeDefinition(ReadRequired(entries, project, 8 * 1024 * 1024), legacy);
+            => DeserializeDefinition(ReadRequired(entries, project, MaxProjectBytes), legacy);
 
         private static MapDefinition DeserializeDefinition(byte[] bytes, bool legacy)
         {
@@ -307,15 +322,17 @@ namespace MphRead.Mods.MapGen
             => Find(name) is { } found ? ReadRequired(_entries, found) : null;
 
         public string ReadProject()
-            => Encoding.UTF8.GetString(ReadRequired(_entries, ProjectEntry, 8 * 1024 * 1024));
+            => Encoding.UTF8.GetString(ReadRequired(_entries, ProjectEntry, MaxProjectBytes));
 
         private static byte[] ReadRequired(
             IReadOnlyDictionary<string, ZipArchiveEntry> entries, string name,
             long limit = MaxEntryBytes)
         {
-            if (!entries.TryGetValue(name, out ZipArchiveEntry? entry) || entry == null
-                || entry.Length < 0 || entry.Length > limit)
-                throw new InvalidDataException("Missing or oversized entry: " + name);
+            if (!entries.TryGetValue(name, out ZipArchiveEntry? entry) || entry == null)
+                throw new InvalidDataException("Missing package entry: " + name);
+            if (entry.Length < 0 || entry.Length > limit)
+                throw new InvalidDataException($"Package entry '{entry.FullName}' is oversized: {entry.Length:N0} bytes uncompressed, "
+                    + $"{entry.CompressedLength:N0} bytes compressed; limit is {limit:N0} bytes.");
             using Stream input = entry.Open();
             using var output = new MemoryStream(
                 entry.Length <= Int32.MaxValue ? (int)entry.Length : 0);

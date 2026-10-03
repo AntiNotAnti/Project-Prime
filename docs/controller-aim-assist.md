@@ -1,39 +1,47 @@
-# Controller aim and head tracking
+# Controller aim assist
 
-> **Runtime status:** controller aim assistance is disabled. The live controller camera path
-> uses only the player's scoped sensitivity, zoom scaling and inversion. General target
-> following and the Shadow Freeze controller helper are bypassed, retained assist state is
-> reset, and precision/turn-acceleration assist context is forced to zero every simulation
-> step. The implementation documented below remains in the tree for diagnostics and
-> historical reference, but is not reachable from normal gameplay.
+> **Runtime status:** production controller gameplay uses `RotationalAimAssist`.
+> It provides target-relative slowdown plus bounded rotational tracking of visible target
+> angular velocity. It does **not** apply positional magnetism, flick capture, automatic
+> head refinement, projectile lead, bullet magnetism, or assistance through cover.
+> `AimAssist` remains in the tree as the legacy/reference implementation and for older
+> diagnostics, but normal gameplay is routed through the rotational controller.
 
-Aim assistance is intentionally curated internally. There are no user-facing aim-assist strength or snapping settings.
+Aim assistance is curated internally; there is no player-facing strength slider. The
+existing unassisted baseline/debug arm remains available for A/B validation.
 
-Assistance runs once per fixed 60 Hz simulation step for the local player. Render
-frames project the accepted assisted camera turn and, above 60 Hz, may preview only
-the raw difference from a newer aim-stick hardware sample. They never advance
-selection, filtering, flick state, motion history, button edges, firing or telemetry.
-The next simulation step consumes the exact previewed aim axes before accepting a
-newer hardware sample, preventing double-turn or presentation/gameplay disagreement.
-Mouse/touch, menus, spectating, death, alternate form, replay actors and remote
-players bypass assistance. Device, input source, weapon and room/context changes
-clear history. A zoom transition does not: camera FOV is already the common angular
-unit, so the retained target, body/head confidence and target-motion history survive
-scope-in/out while transient flick and shot-commit state is cleared.
+The production controller runs exactly once per fixed 60 Hz simulation/input step.
+Mouse, touch, menus, spectators, dead players, alt forms, replay actors, bots and remote
+players bypass it. High-refresh rendering may late-latch raw stick presentation only;
+target selection and assistance never advance at render frequency.
 
-The current strength pass doubles positional and tracking gains, their speed limits,
-and the correction budget and recovery relative to the previous profiles. The
-retained-follow scale ceiling also doubles, while its frequency stays unchanged.
-Friction strength increases by 50%, with up to 60% slowdown near precision edges.
-Validated head-flick capture has 2.5 times the previous snap-speed allowance (60
-degrees/second hip, 45 scoped), a 120 ms capture window, and faster settling.
-Intentional head refinement starts after 20 ms of candidate dwell; ordinary head
-refinement uses 50 ms. Head confidence and blending rise faster. Acquisition cones,
-weapon headshot ranges, visibility requirements and opposing-input release remain
-unchanged. These are strength limits, not a promise of a fixed multiplier on every
-camera sample: target distance, visibility and overshoot bounds still constrain output.
+Production behavior:
 
-## Geometry and intent
+- **Acquisition:** right-stick intent is required. Left-stick movement alone cannot acquire.
+- **Slowdown:** begins inside a 1.10 normalized target-radius bubble and bottoms out at
+  weapon-specific friction floors. A real head band gets a small extra friction reward
+  only after the player has actually aimed into it.
+- **Rotational tracking:** supplies only the visible target angular velocity that the
+  player's camera is not already supplying. Useful aligned right-stick tracking earns
+  full strength; left-stick-only retention is limited to 25%.
+- **Escape:** opposing right-stick input suppresses rotation rapidly, with strong
+  opposition cancelling it completely.
+- **Retention:** a 1.50-radius release envelope plus 1.30x challenger hysteresis prevents
+  target ping-pong when hunters cross.
+- **Distance:** point-blank and extreme-range rotation is reduced to avoid violent camera
+  pulls and long-range overtracking.
+- **Occlusion:** identity may survive the existing short grace window, but slowdown and
+  rotation are both zero while the target is hidden.
+- **Weapons:** the existing per-beam profiles remain the source of rotational personality.
+  Imperialist keeps much less rotation, especially scoped; sustained-contact weapons get
+  more tracking; splash weapons get less.
+
+## Legacy positional/head-refinement reference
+
+The sections below document the older `AimAssist` controller retained for regression,
+comparison and diagnostics. They are not the production control law.
+
+
 
 `AimAssistWorld` projects the presented player's collision cylinder into angular
 body and headshot regions. Biped bounds use MinPickupHeight/MaxPickupHeight and

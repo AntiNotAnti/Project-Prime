@@ -1,27 +1,23 @@
 namespace MphRead.Mods.Input
 {
     /// <summary>
-    /// Compatibility shim for the former assisted/unassisted controller comparison.
-    /// Controller aim assistance is permanently disabled, so every runtime is baseline.
+    /// Diagnostic A/B switch for the unassisted controller baseline.
+    /// Production starts assisted; the baseline can still be forced by the
+    /// existing debug/command-line path without exposing a gameplay setting.
     /// </summary>
     public static class ControllerBaselineState
     {
-        public static bool Enabled => true;
+        public static bool Enabled => AimAssist.AimAssistDebug.UnassistedArm;
 
         public static void Load()
         {
-            Apply();
+            AimAssist.AimAssistDebug.UnassistedArm = false;
         }
 
         public static bool Toggle()
         {
-            Apply();
-            return true;
-        }
-
-        private static void Apply()
-        {
-            AimAssist.AimAssistDebug.UnassistedArm = true;
+            AimAssist.AimAssistDebug.UnassistedArm = !AimAssist.AimAssistDebug.UnassistedArm;
+            return AimAssist.AimAssistDebug.UnassistedArm;
         }
     }
 }

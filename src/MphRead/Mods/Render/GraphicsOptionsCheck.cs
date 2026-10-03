@@ -234,6 +234,42 @@ namespace MphRead.Mods.Render
                     "modern texture downscale preserves a valid RGBA surface");
                 Check(normal.EstimateGpuBytes(false) == 4 && normal.EstimateGpuBytes(true) == 5,
                     "modern texture residency estimate includes mip overhead");
+
+                // Exercise the desktop STB pointer-to-final-buffer downscale.
+                // A 2x2 24-bit BMP uses the STB path (not the dedicated TGA
+                // decoder); forcing it to 1x1 must match the managed RGBA
+                // resampler byte-for-byte.
+                byte[] bmpRgba =
+                {
+                    255, 0, 0, 255,     0, 255, 0, 255,
+                    0, 0, 255, 255,     255, 255, 255, 255
+                };
+                ModernTextureAsset managedBmp = ModernTextureAsset.FromRgba(
+                    "managed-bmp", TextureAssetClass.World, TextureAssetChannel.Albedo,
+                    2, 2, bmpRgba).Fit(1);
+                using var bmp = new System.IO.MemoryStream();
+                using (var writer = new System.IO.BinaryWriter(
+                    bmp, System.Text.Encoding.UTF8, leaveOpen: true))
+                {
+                    writer.Write((byte)'B'); writer.Write((byte)'M');
+                    writer.Write(70); writer.Write((ushort)0); writer.Write((ushort)0);
+                    writer.Write(54); writer.Write(40);
+                    writer.Write(2); writer.Write(2);
+                    writer.Write((ushort)1); writer.Write((ushort)24);
+                    writer.Write(0); writer.Write(16);
+                    writer.Write(0); writer.Write(0); writer.Write(0); writer.Write(0);
+                    // BMP rows are bottom-up and BGR, padded to four bytes.
+                    writer.Write(new byte[] { 255, 0, 0, 255, 255, 255, 0, 0 });
+                    writer.Write(new byte[] { 0, 0, 255, 0, 255, 0, 0, 0 });
+                }
+                bmp.Position = 0;
+                ModernTextureAsset nativeBmp = ModernTextureAsset.Decode(
+                    bmp, "pointer-bmp", TextureAssetClass.World,
+                    TextureAssetChannel.Albedo, maximumDimension: 1);
+                Check(nativeBmp.Width == 1 && nativeBmp.Height == 1
+                    && nativeBmp.Pixels.AsSpan().SequenceEqual(managedBmp.Pixels),
+                    "native STB downscale matches managed modern-texture filtering");
+
                 using var tga = new System.IO.MemoryStream();
                 using (var writer = new System.IO.BinaryWriter(tga, System.Text.Encoding.UTF8, leaveOpen: true))
                 {
