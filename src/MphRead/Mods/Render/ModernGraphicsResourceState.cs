@@ -45,6 +45,8 @@ namespace MphRead.Mods.Render
         internal sealed class FramebufferRecord
         {
             internal int ColorTexture;
+            internal int ColorTexture1;
+            internal int ColorTexture2;
             internal int DepthTexture;
             internal int DepthStencilTexture;
             internal int DepthRenderbuffer;
@@ -93,6 +95,8 @@ namespace MphRead.Mods.Render
             foreach (FramebufferRecord framebuffer in _framebuffers.Values)
             {
                 if (framebuffer.ColorTexture == id) framebuffer.ColorTexture = 0;
+                if (framebuffer.ColorTexture1 == id) framebuffer.ColorTexture1 = 0;
+                if (framebuffer.ColorTexture2 == id) framebuffer.ColorTexture2 = 0;
                 if (framebuffer.DepthTexture == id) framebuffer.DepthTexture = 0;
                 if (framebuffer.DepthStencilTexture == id) framebuffer.DepthStencilTexture = 0;
             }
@@ -268,6 +272,8 @@ namespace MphRead.Mods.Render
             foreach (FramebufferRecord framebuffer in _framebuffers.Values)
             {
                 if (framebuffer.ColorTexture == texture
+                    || framebuffer.ColorTexture1 == texture
+                    || framebuffer.ColorTexture2 == texture
                     || framebuffer.DepthTexture == texture
                     || framebuffer.DepthStencilTexture == texture)
                 {
@@ -301,6 +307,12 @@ namespace MphRead.Mods.Render
             {
             case FramebufferAttachment.ColorAttachment0:
                 record.ColorTexture = texture;
+                break;
+            case FramebufferAttachment.ColorAttachment1:
+                record.ColorTexture1 = texture;
+                break;
+            case FramebufferAttachment.ColorAttachment2:
+                record.ColorTexture2 = texture;
                 break;
             case FramebufferAttachment.DepthAttachment:
                 record.DepthTexture = texture;
@@ -397,6 +409,8 @@ namespace MphRead.Mods.Render
             if (id == 0) return FramebufferErrorCode.FramebufferComplete;
             FramebufferRecord record = Framebuffer(id);
             return record.ColorTexture != 0
+                || record.ColorTexture1 != 0
+                || record.ColorTexture2 != 0
                 || record.DepthTexture != 0
                 || record.DepthStencilTexture != 0
                 || record.DepthRenderbuffer != 0
