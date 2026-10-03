@@ -69,6 +69,7 @@ internal static class ModernRenderBenchmark
                     long directBillboardDrawsStart = scene.RetainedDirectBillboardWorldDraws;
                     long directOverrideDrawsStart = scene.RetainedDirectOverrideWorldDraws;
                     long directTexturedSkinDrawsStart = scene.RetainedDirectTexturedSkinWorldDraws;
+                    long directOutlinedDrawsStart = scene.RetainedDirectOutlinedWorldDraws;
                     long compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
                     long templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
                     long uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
@@ -88,6 +89,7 @@ internal static class ModernRenderBenchmark
                             directBillboardDrawsStart = scene.RetainedDirectBillboardWorldDraws;
                             directOverrideDrawsStart = scene.RetainedDirectOverrideWorldDraws;
                             directTexturedSkinDrawsStart = scene.RetainedDirectTexturedSkinWorldDraws;
+                            directOutlinedDrawsStart = scene.RetainedDirectOutlinedWorldDraws;
                             compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
                             templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
                             uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
@@ -131,6 +133,7 @@ internal static class ModernRenderBenchmark
                         retainedDirectBillboardWorldDraws = scene.RetainedDirectBillboardWorldDraws - directBillboardDrawsStart,
                         retainedDirectOverrideWorldDraws = scene.RetainedDirectOverrideWorldDraws - directOverrideDrawsStart,
                         retainedDirectTexturedSkinWorldDraws = scene.RetainedDirectTexturedSkinWorldDraws - directTexturedSkinDrawsStart,
+                        retainedDirectOutlinedWorldDraws = scene.RetainedDirectOutlinedWorldDraws - directOutlinedDrawsStart,
                         retainedCompatibilityWorldDraws = scene.RetainedCompatibilityWorldDraws - compatibilityDrawsStart,
                         retainedWorldUniformTemplateBuilds = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds - templateBuildsStart,
                         retainedWorldUniformPatches = ModernGraphicsCompat.RetainedWorldUniformPatches - uniformPatchesStart,
