@@ -358,9 +358,6 @@ namespace MphRead
         internal long RetainedRoomTemplateHits => _room?.RetainedRoomTemplateHits ?? 0;
         internal long RetainedRoomPacketSubmissions =>
             _room?.RetainedRoomPacketSubmissions ?? 0;
-        internal long RetainedDirectShadowDraws => _retainedDirectShadowDraws;
-        internal long RetainedCompatibilityShadowDraws =>
-            _retainedCompatibilityShadowDraws;
         private long _retainedDirectWorldDraws;
         private long _retainedDirectAdvancedWorldDraws;
         private long _retainedDirectMatrixStackWorldDraws;
