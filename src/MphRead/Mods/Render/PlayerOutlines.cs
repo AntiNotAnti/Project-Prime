@@ -76,6 +76,7 @@ namespace MphRead
                         RenderItem(item);
                     }
                 }
+                FinishViewModelRenderRun();
                 _drawingPlayerOutlineMask = false;
                 GL.Uniform1(_playerOutlineMaskUniform, 0);
 
@@ -109,6 +110,9 @@ namespace MphRead
             }
             finally
             {
+                // Also covers an exception thrown in the mask replay while a
+                // viewmodel run is active.
+                FinishViewModelRenderRun();
                 _drawingPlayerOutlineMask = false;
                 GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
                 GL.UseProgram(_shaderProgramId);
