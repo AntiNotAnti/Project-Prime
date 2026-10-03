@@ -371,13 +371,13 @@ namespace MphRead.Mods.MapGen
                     {
                         continue;
                     }
+                    // Preserve the direction discovered on the fine graph. If the
+                    // reverse traversal is legal it appears as its own fine edge and will
+                    // be copied when that edge is visited. Adding it here unconditionally
+                    // turns drops back into impossible climbs after decimation.
                     if (nodes[a].Neighbours.Count < MaxNeighbours && !nodes[a].Neighbours.Contains(b))
                     {
                         nodes[a].Neighbours.Add(b);
-                    }
-                    if (nodes[b].Neighbours.Count < MaxNeighbours && !nodes[b].Neighbours.Contains(a))
-                    {
-                        nodes[b].Neighbours.Add(a);
                     }
                 }
             }
