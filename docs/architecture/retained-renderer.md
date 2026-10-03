@@ -375,6 +375,33 @@ Progressive texture replacement or sampler changes replace only affected cached
 groups. Benchmarks report retained bind-group hits/misses and uniform-slot
 high-water; steady static scenes should trend strongly toward hits after warmup.
 
+## Slice 14: direct retained deferred PBR MRT
+
+Modern backends no longer have to replay every PBR-eligible opaque mesh through
+`DrawDeferredPbrItem()` and GL-style uniform/texture calls after the forward
+World pass.
+
+When MRT PBR is active:
+
+- Scene reuses the retained opaque packet list and immutable mesh descriptors;
+- one `DeferredPbrMrt` frame template captures the global view/viewport state;
+- per packet, the direct executor patches projection, billboard view inverse,
+  matrix-stack/transform, texgen, material specular/emission and overrides;
+- the existing retained four-texture set supplies albedo, normal, specular and
+  emissive bindings with the same sampler/residency policy as the direct World
+  path;
+- the existing retained native geometry buffers are submitted directly into the
+  three-target PBR render pass.
+
+The first slice deliberately leaves cosmetic-surface/material effects on the
+compatibility PBR replay. Viewmodels remain excluded exactly as before. OpenGL
+and GLES still use the compatibility three-pass PBR path unchanged.
+
+Direct and compatibility PBR draw counts, plus MRT template builds and uniform
+patches, are included in renderer benchmark output. Mixed direct/fallback items
+remain valid inside the same MRT pass because compatibility draws fully restore
+their own per-item uniforms and texture state.
+
 ## Next slices
 
 The graph and packet seam is intended to support the remaining migration without

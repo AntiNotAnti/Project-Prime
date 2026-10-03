@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MphRead.Mods;
 using MphRead.Mods.Render;
 using OpenTK.Graphics.OpenGL;
@@ -60,6 +61,10 @@ namespace MphRead
         internal int DeferredPbrAlbedo => _pbrAlbedoTexture;
         internal int DeferredPbrNormal => _pbrNormalTexture;
         internal int DeferredPbrMaterial => _pbrMaterialTexture;
+        private long _retainedDirectPbrMrtDraws;
+        private long _retainedCompatibilityPbrDraws;
+        internal long RetainedDirectPbrMrtDraws => _retainedDirectPbrMrtDraws;
+        internal long RetainedCompatibilityPbrDraws => _retainedCompatibilityPbrDraws;
 
         private static bool DeferredPbrMrtSupported
         {
@@ -200,14 +205,50 @@ namespace MphRead
 
         private void DrawDeferredPbrOpaqueItems()
         {
-            for (int i = 0; i < _nonDecalItems.Count; i++)
+#if !MPHREAD_SERVER
+            bool directMrt = DeferredPbrMrtSupported
+                && ModernGraphicsCompat.BeginRetainedDeferredPbrFrame();
+#else
+            bool directMrt = false;
+#endif
+            IReadOnlyList<Mods.Render.RetainedDrawPacket> packets =
+                _retainedRenderWorld.Opaque;
+            for (int i = 0; i < packets.Count; i++)
             {
-                RenderItem item = _nonDecalItems[i];
-                if (item.Type != RenderItemType.Mesh || item.ViewModel || item.Alpha < .999f
+                Mods.Render.RetainedDrawPacket packet = packets[i];
+                RenderItem item = packet.Item;
+                if (item.Type != RenderItemType.Mesh
+                    || item.ViewModel
+                    || item.Alpha < .999f
                     || item.RenderMode == RenderMode.Translucent)
                 {
                     continue;
                 }
+
+#if !MPHREAD_SERVER
+                if (directMrt
+                    && ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(item))
+                {
+                    Mods.Render.RetainedWorldTextureSet textures =
+                        RetainedWorldTextures(item);
+                    Matrix4 viewInverse = item.BillboardMode switch
+                    {
+                        BillboardMode.Sphere => _viewInvRotMatrix,
+                        BillboardMode.Cylinder => _viewInvRotYMatrix,
+                        _ => Matrix4.Identity
+                    };
+                    if (ModernGraphicsCompat.TryDrawRetainedDeferredPbrMrt(
+                        item, packet.Mesh, textures, _showTextures,
+                        _faceCulling, _perspectiveMatrix, viewInverse))
+                    {
+                        _retainedDirectPbrMrtDraws++;
+                        NoteRetainedTextureSampling(
+                            textures, item.XRepeat, item.YRepeat);
+                        continue;
+                    }
+                }
+#endif
+                _retainedCompatibilityPbrDraws++;
                 DrawDeferredPbrItem(item);
             }
         }
