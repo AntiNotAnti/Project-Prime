@@ -94,6 +94,7 @@ namespace MphRead.Mods.Render
         private ShaderModule* _playerOutlineShader;
         private ShaderModule* _toneMapShader;
         private WgpuBuffer* _uniformBuffer;
+        private ulong _uniformBufferOffset;
 
         private bool _depthWrite = true;
         private DepthFunction _depthFunction = DepthFunction.Less;
@@ -426,16 +427,16 @@ namespace MphRead.Mods.Render
                 {
                     Binding = 0,
                     Buffer = _uniformBuffer,
-                    Offset = 0,
+                    Offset = _uniformBufferOffset,
                     Size = (ulong)(ModernGraphicsShaders.UniformSlots * 4 * sizeof(uint))
                 };
                 entries[1] = new BindGroupEntry { Binding = 1, TextureView = baseView };
                 entries[2] = new BindGroupEntry { Binding = 2, Sampler = baseSampler };
                 entries[3] = new BindGroupEntry { Binding = 3, TextureView = depthTexture.SampleView };
-                Span<nint> resources = stackalloc nint[5]
+                Span<nint> resources = stackalloc nint[6]
                 {
-                    (nint)pipeline.Layout, (nint)_uniformBuffer, (nint)baseView,
-                    (nint)baseSampler, (nint)depthTexture.SampleView
+                    (nint)pipeline.Layout, (nint)_uniformBuffer, (nint)_uniformBufferOffset,
+                    (nint)baseView, (nint)baseSampler, (nint)depthTexture.SampleView
                 };
                 bindGroup = FrameBindGroup(new BindGroupDescriptor
                 {
@@ -453,16 +454,16 @@ namespace MphRead.Mods.Render
                 {
                     Binding = 0,
                     Buffer = _uniformBuffer,
-                    Offset = 0,
+                    Offset = _uniformBufferOffset,
                     Size = (ulong)(ModernGraphicsShaders.UniformSlots * 4 * sizeof(uint))
                 };
                 entries[1] = new BindGroupEntry { Binding = 1, TextureView = baseView };
                 entries[2] = new BindGroupEntry { Binding = 2, Sampler = baseSampler };
                 entries[3] = new BindGroupEntry { Binding = 3, TextureView = maskView };
-                Span<nint> resources = stackalloc nint[5]
+                Span<nint> resources = stackalloc nint[6]
                 {
-                    (nint)pipeline.Layout, (nint)_uniformBuffer, (nint)baseView,
-                    (nint)baseSampler, (nint)maskView
+                    (nint)pipeline.Layout, (nint)_uniformBuffer, (nint)_uniformBufferOffset,
+                    (nint)baseView, (nint)baseSampler, (nint)maskView
                 };
                 bindGroup = FrameBindGroup(new BindGroupDescriptor
                 {
@@ -478,14 +479,15 @@ namespace MphRead.Mods.Render
                 {
                     Binding = 0,
                     Buffer = _uniformBuffer,
-                    Offset = 0,
+                    Offset = _uniformBufferOffset,
                     Size = (ulong)(ModernGraphicsShaders.UniformSlots * 4 * sizeof(uint))
                 };
                 entries[1] = new BindGroupEntry { Binding = 1, TextureView = baseView };
                 entries[2] = new BindGroupEntry { Binding = 2, Sampler = baseSampler };
-                Span<nint> resources = stackalloc nint[4]
+                Span<nint> resources = stackalloc nint[5]
                 {
-                    (nint)pipeline.Layout, (nint)_uniformBuffer, (nint)baseView, (nint)baseSampler
+                    (nint)pipeline.Layout, (nint)_uniformBuffer, (nint)_uniformBufferOffset,
+                    (nint)baseView, (nint)baseSampler
                 };
                 bindGroup = FrameBindGroup(new BindGroupDescriptor
                 {
@@ -845,11 +847,12 @@ namespace MphRead.Mods.Render
                     _resources.IsFramebufferTexture(_resources.BoundTexture(0)));
             }
 
-            _uniformBuffer = RentUniformBuffer((ulong)(words.Length * sizeof(uint)));
+            UniformAllocation allocation = RentUniformBuffer((ulong)(words.Length * sizeof(uint)));
+            _uniformBuffer = (WgpuBuffer*)allocation.Buffer;
+            _uniformBufferOffset = allocation.Offset;
             fixed (uint* ptr = words)
             {
-                WriteProfiledBuffer(_uniformBuffer, 0, ptr,
-                    (nuint)(words.Length * sizeof(uint)));
+                WriteUniformBuffer(allocation, ptr, (nuint)(words.Length * sizeof(uint)));
             }
         }
 
@@ -1081,16 +1084,22 @@ namespace MphRead.Mods.Render
                 ? FilterMode.Linear : FilterMode.Nearest;
             Silk.NET.WebGPU.Sampler* sampler = BlitSampler(sampleFilter);
 
-            _uiViewportBuffer = RentUniformBuffer(16);
+            UniformAllocation uiUniform = RentUniformBuffer(16);
+            _uiViewportBuffer = (WgpuBuffer*)uiUniform.Buffer;
+            _uiViewportOffset = uiUniform.Offset;
             var viewport = new OpenTK.Mathematics.Vector4(1, 1, 0, 0);
-            WriteProfiledBuffer(_uiViewportBuffer, 0, &viewport, 16);
+            WriteUniformBuffer(uiUniform, &viewport, 16);
             var entries = stackalloc BindGroupEntry[3];
             entries[0] = new BindGroupEntry { Binding = 0, TextureView = sourceTarget.ColorView };
             entries[1] = new BindGroupEntry { Binding = 1, Sampler = sampler };
-            entries[2] = new BindGroupEntry { Binding = 2, Buffer = _uiViewportBuffer, Size = 16 };
-            Span<nint> resources = stackalloc nint[4]
+            entries[2] = new BindGroupEntry
             {
-                (nint)pipeline.Layout, (nint)sourceTarget.ColorView, (nint)sampler, (nint)_uiViewportBuffer
+                Binding = 2, Buffer = _uiViewportBuffer, Offset = _uiViewportOffset, Size = 16
+            };
+            Span<nint> resources = stackalloc nint[5]
+            {
+                (nint)pipeline.Layout, (nint)sourceTarget.ColorView, (nint)sampler,
+                (nint)_uiViewportBuffer, (nint)_uiViewportOffset
             };
             BindGroup* bindGroup = FrameBindGroup(
                 new BindGroupDescriptor
