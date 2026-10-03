@@ -203,16 +203,22 @@ namespace MphRead
                     CheckGlError("EndWorldPass");
                     BeginCompositePass();
                     GL.Clear(ClearBufferMask.ColorBufferBit);
-                    GL.Begin(PrimitiveType.TriangleStrip);
-                    GL.TexCoord3(1f, 1f, 0f);
-                    GL.Vertex3(1f, 1f, 0f);
-                    GL.TexCoord3(0f, 1f, 0f);
-                    GL.Vertex3(-1f, 1f, 0f);
-                    GL.TexCoord3(1f, 0f, 0f);
-                    GL.Vertex3(1f, -1f, 0f);
-                    GL.TexCoord3(0f, 0f, 0f);
-                    GL.Vertex3(-1f, -1f, 0f);
-                    GL.End();
+#if !MPHREAD_SERVER
+                    if (!Mods.Render.ModernGraphicsCompat.Active
+                        || !Mods.Render.ModernGraphicsCompat.TryDrawRetainedFullscreenQuad())
+#endif
+                    {
+                        GL.Begin(PrimitiveType.TriangleStrip);
+                        GL.TexCoord3(1f, 1f, 0f);
+                        GL.Vertex3(1f, 1f, 0f);
+                        GL.TexCoord3(0f, 1f, 0f);
+                        GL.Vertex3(-1f, 1f, 0f);
+                        GL.TexCoord3(1f, 0f, 0f);
+                        GL.Vertex3(1f, -1f, 0f);
+                        GL.TexCoord3(0f, 0f, 0f);
+                        GL.Vertex3(-1f, -1f, 0f);
+                        GL.End();
+                    }
                     GL.BindTexture(TextureTarget.Texture2D, 0);
                     if (_graphicsOutputReady)
                         ReleaseFrameTransientTexture(ref _graphicsOutputTexture);
