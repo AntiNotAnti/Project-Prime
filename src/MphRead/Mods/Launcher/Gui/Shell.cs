@@ -166,6 +166,7 @@ namespace MphRead.Mods.Launcher.Gui
             RenderWindow.LogCreatingWindow();
             LifecycleTiming.Startup("creating native window");
             RenderWindow? window = null;
+            bool sessionCompleted = false;
             try
             {
                 window = RenderWindow.Create(shell: true);
@@ -179,19 +180,26 @@ namespace MphRead.Mods.Launcher.Gui
                 ShowFrontScreen();
                 LifecycleTiming.Startup("front screen ready");
                 window.Run();
+                sessionCompleted = true;
                 return true;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"The window could not be opened: {ex.Message}");
                 Mods.DebugLog.Exception("launcher", ex);
-                return false;
+                // If the user had already committed to quitting, do not turn a
+                // teardown-time renderer exception into a text-launcher fallback.
+                return _quit;
             }
             finally
             {
-                LifecycleTiming.BeginShutdown("shell session ending");
-                ReplayWritePump.BeginProcessShutdown();
-                MphRead.Sound.AudioLifetime.BeginShutdown();
+                bool processEnding = sessionCompleted || _quit;
+                if (processEnding)
+                {
+                    LifecycleTiming.BeginShutdown("shell session ending");
+                    ReplayWritePump.BeginProcessShutdown();
+                    MphRead.Sound.AudioLifetime.BeginShutdown();
+                }
                 CancellationTokenSource? startupCancel = _startupWorkCancel;
                 _startupWorkCancel = null;
                 startupCancel?.Cancel();
@@ -212,7 +220,7 @@ namespace MphRead.Mods.Launcher.Gui
                 NetSession.Stop();
                 NetHostSession.Stop();
                 Mods.DebugLog.Line("shutdown", "network session stopped");
-                LifecycleTiming.Shutdown("network session stopped");
+                if (processEnding) LifecycleTiming.Shutdown("network session stopped");
                 if (window != null)
                 {
                     window.FileDrop -= OnFilesDropped;
@@ -233,7 +241,7 @@ namespace MphRead.Mods.Launcher.Gui
 #endif
                 }
                 Mods.DebugLog.Line("shutdown", "native window disposed");
-                LifecycleTiming.Shutdown("native window disposed");
+                if (processEnding) LifecycleTiming.Shutdown("native window disposed");
             }
         }
 
