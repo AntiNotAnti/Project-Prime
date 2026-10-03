@@ -192,10 +192,8 @@ namespace MphRead.Mods.Render
             }
         }
 
-        internal static bool RetainedWorldPacketEligible(RenderItem item) =>
+        private static bool RetainedWorldPacketBaseEligible(RenderItem item) =>
             item.Type == RenderItemType.Mesh
-            && item.RenderMode == RenderMode.Normal
-            && item.Alpha >= 0.999f
             && (uint)item.BillboardMode <= (uint)BillboardMode.Cylinder
             && !item.Wireframe
             && item.MatrixStackCount >= 0
@@ -204,12 +202,43 @@ namespace MphRead.Mods.Render
             && item.Cosmetics == default
             && item.CosmeticMaterial == default;
 
+        internal static bool RetainedWorldPacketEligible(RenderItem item) =>
+            RetainedWorldPacketEligibleForPass(
+                item, WorldRenderPassKind.Opaque);
+
+        internal static bool RetainedWorldPacketEligibleForPass(
+            RenderItem item, WorldRenderPassKind kind)
+        {
+            if (!RetainedWorldPacketBaseEligible(item))
+                return false;
+            return kind switch
+            {
+                WorldRenderPassKind.Opaque
+                    or WorldRenderPassKind.RebuildDepth =>
+                    item.RenderMode == RenderMode.Normal
+                        && item.Alpha >= 0.999f,
+                WorldRenderPassKind.Decal =>
+                    item.RenderMode == RenderMode.Decal,
+                WorldRenderPassKind.MarkTranslucent
+                    or WorldRenderPassKind.TranslucentBehind
+                    or WorldRenderPassKind.TranslucentFront =>
+                    item.RenderMode == RenderMode.Translucent
+                        || item.Alpha < 0.999f,
+                _ => false
+            };
+        }
+
         internal static bool TryDrawRetainedWorld(RenderItem item,
             RetainedMeshDescriptor mesh, RetainedWorldTextureSet textures,
             bool showTextures, bool useLighting, bool faceCulling,
-            Matrix4? projectionOverride, Matrix4 viewInverse)
+            Matrix4? projectionOverride, Matrix4 viewInverse,
+            WorldRenderPassKind passKind)
         {
-            if (_current == null || !RetainedWorldPacketEligible(item)) return false;
+            if (_current == null
+                || !RetainedWorldPacketEligibleForPass(item, passKind))
+            {
+                return false;
+            }
             return Current.TryDrawRetainedWorldCore(item, mesh, textures,
                 showTextures, useLighting, faceCulling,
                 projectionOverride, viewInverse);

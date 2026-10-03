@@ -364,6 +364,8 @@ namespace MphRead
         private long _retainedDirectOverrideWorldDraws;
         private long _retainedDirectTexturedSkinWorldDraws;
         private long _retainedDirectOutlinedWorldDraws;
+        private long _retainedDirectDecalWorldDraws;
+        private long _retainedDirectTranslucentWorldDraws;
         private long _retainedCompatibilityWorldDraws;
         internal long RetainedDirectWorldDraws => _retainedDirectWorldDraws;
         internal long RetainedDirectAdvancedWorldDraws =>
@@ -380,6 +382,10 @@ namespace MphRead
             _retainedDirectTexturedSkinWorldDraws;
         internal long RetainedDirectOutlinedWorldDraws =>
             _retainedDirectOutlinedWorldDraws;
+        internal long RetainedDirectDecalWorldDraws =>
+            _retainedDirectDecalWorldDraws;
+        internal long RetainedDirectTranslucentWorldDraws =>
+            _retainedDirectTranslucentWorldDraws;
         internal long RetainedCompatibilityWorldDraws =>
             _retainedCompatibilityWorldDraws;
         internal ulong RetainedRenderFrameRevision => _retainedRenderWorld.FrameRevision;
@@ -414,10 +420,7 @@ namespace MphRead
         {
             IReadOnlyList<Mods.Render.RetainedDrawPacket> packets = PacketsFor(kind);
             IReadOnlyList<Mods.Render.RetainedDrawBatch> batches = BatchesFor(kind);
-            bool directPass = kind is Mods.Render.WorldRenderPassKind.Opaque
-                or Mods.Render.WorldRenderPassKind.RebuildDepth;
-            bool directSceneState = directPass
-                && !_editorMaterialPreview
+            bool directSceneState = !_editorMaterialPreview
                 && _wireframeLevel == 0
                 && !Mods.RenderOptions.CelShading;
 
@@ -430,57 +433,81 @@ namespace MphRead
                     Mods.Render.RetainedDrawPacket packet =
                         packets[batch.Start + offset];
                     RenderItem item = packet.Item;
-                    if (kind == Mods.Render.WorldRenderPassKind.MarkTranslucent)
-                        GL.StencilFunc(StencilFunction.Greater, item.PolygonId, 0xFF);
-                    else if (kind == Mods.Render.WorldRenderPassKind.TranslucentBehind)
-                        GL.StencilFunc(StencilFunction.Notequal, item.PolygonId, 0xFF);
-                    else if (kind == Mods.Render.WorldRenderPassKind.TranslucentFront)
-                        GL.StencilFunc(StencilFunction.Equal, item.PolygonId, 0xFF);
 
 #if !MPHREAD_SERVER
-                    if (directSceneState && Mods.Render.ModernGraphicsCompat.Active)
+                    if (Mods.Render.ModernGraphicsCompat.Active)
                     {
-                        SetViewModelRenderState(item.ViewModel);
-                        Matrix4? projectionOverride = item.ViewModel
-                            ? _viewModelPerspectiveMatrix : null;
-                        Matrix4 viewInverse = item.BillboardMode switch
+                        if (kind is Mods.Render.WorldRenderPassKind.MarkTranslucent
+                            or Mods.Render.WorldRenderPassKind.TranslucentBehind
+                            or Mods.Render.WorldRenderPassKind.TranslucentFront)
                         {
-                            BillboardMode.Sphere => _viewInvRotMatrix,
-                            BillboardMode.Cylinder => _viewInvRotYMatrix,
-                            _ => Matrix4.Identity
-                        };
-                        Mods.Render.RetainedWorldTextureSet textures =
-                            RetainedWorldTextures(item);
-                        if (Mods.Render.ModernGraphicsCompat.TryDrawRetainedWorld(
-                            item, packet.Mesh, textures, _showTextures,
-                            LightingOn, _faceCulling,
-                            projectionOverride, viewInverse))
+                            Mods.Render.ModernGraphicsCompat.SetRetainedWorldStencilReference(
+                                kind, item.PolygonId);
+                        }
+
+                        if (directSceneState)
                         {
-                            _retainedDirectWorldDraws++;
-                            if (textures.Advanced)
-                                _retainedDirectAdvancedWorldDraws++;
-                            if (item.MatrixStackCount > 0)
-                                _retainedDirectMatrixStackWorldDraws++;
-                            if (item.ViewModel)
-                                _retainedDirectViewModelWorldDraws++;
-                            if (item.BillboardMode != BillboardMode.None)
-                                _retainedDirectBillboardWorldDraws++;
-                            if (item.OverrideColor.HasValue
-                                || item.PaletteOverride.HasValue)
+                            SetViewModelRenderState(item.ViewModel);
+                            Matrix4? projectionOverride = item.ViewModel
+                                ? _viewModelPerspectiveMatrix : null;
+                            Matrix4 viewInverse = item.BillboardMode switch
                             {
-                                _retainedDirectOverrideWorldDraws++;
+                                BillboardMode.Sphere => _viewInvRotMatrix,
+                                BillboardMode.Cylinder => _viewInvRotYMatrix,
+                                _ => Matrix4.Identity
+                            };
+                            Mods.Render.RetainedWorldTextureSet textures =
+                                RetainedWorldTextures(item);
+                            if (Mods.Render.ModernGraphicsCompat.TryDrawRetainedWorld(
+                                item, packet.Mesh, textures, _showTextures,
+                                LightingOn, _faceCulling,
+                                projectionOverride, viewInverse, kind))
+                            {
+                                _retainedDirectWorldDraws++;
+                                if (kind == Mods.Render.WorldRenderPassKind.Decal)
+                                    _retainedDirectDecalWorldDraws++;
+                                else if (kind is
+                                    Mods.Render.WorldRenderPassKind.MarkTranslucent
+                                    or Mods.Render.WorldRenderPassKind.TranslucentBehind
+                                    or Mods.Render.WorldRenderPassKind.TranslucentFront)
+                                {
+                                    _retainedDirectTranslucentWorldDraws++;
+                                }
+                                if (textures.Advanced)
+                                    _retainedDirectAdvancedWorldDraws++;
+                                if (item.MatrixStackCount > 0)
+                                    _retainedDirectMatrixStackWorldDraws++;
+                                if (item.ViewModel)
+                                    _retainedDirectViewModelWorldDraws++;
+                                if (item.BillboardMode != BillboardMode.None)
+                                    _retainedDirectBillboardWorldDraws++;
+                                if (item.OverrideColor.HasValue
+                                    || item.PaletteOverride.HasValue)
+                                {
+                                    _retainedDirectOverrideWorldDraws++;
+                                }
+                                if (item.TexturedPlayerSkin)
+                                    _retainedDirectTexturedSkinWorldDraws++;
+                                if (item.PlayerOutlineColor.HasValue)
+                                    _retainedDirectOutlinedWorldDraws++;
+                                compatibilitySharedStateValid = false;
+                                NoteRetainedTextureSampling(
+                                    textures, item.XRepeat, item.YRepeat);
+                                continue;
                             }
-                            if (item.TexturedPlayerSkin)
-                                _retainedDirectTexturedSkinWorldDraws++;
-                            if (item.PlayerOutlineColor.HasValue)
-                                _retainedDirectOutlinedWorldDraws++;
-                            compatibilitySharedStateValid = false;
-                            NoteRetainedTextureSampling(
-                                textures, item.XRepeat, item.YRepeat);
-                            continue;
                         }
                     }
+                    else
 #endif
+                    {
+                        if (kind == Mods.Render.WorldRenderPassKind.MarkTranslucent)
+                            GL.StencilFunc(StencilFunction.Greater, item.PolygonId, 0xFF);
+                        else if (kind == Mods.Render.WorldRenderPassKind.TranslucentBehind)
+                            GL.StencilFunc(StencilFunction.Notequal, item.PolygonId, 0xFF);
+                        else if (kind == Mods.Render.WorldRenderPassKind.TranslucentFront)
+                            GL.StencilFunc(StencilFunction.Equal, item.PolygonId, 0xFF);
+                    }
+
                     _retainedCompatibilityWorldDraws++;
                     RenderItem(item,
                         applySharedState: !compatibilitySharedStateValid,
@@ -551,15 +578,28 @@ namespace MphRead
         private void ExecuteWorldRenderGraph()
         {
 #if !MPHREAD_SERVER
-            bool directWorldEnabled = Mods.Render.ModernGraphicsCompat.Active
+            bool modernGraph = Mods.Render.ModernGraphicsCompat.Active;
+            bool directWorldEnabled = modernGraph
                 && !_editorMaterialPreview
                 && _wireframeLevel == 0
                 && !Mods.RenderOptions.CelShading;
             if (directWorldEnabled)
                 Mods.Render.ModernGraphicsCompat.BeginRetainedWorldFrame();
+#else
+            const bool modernGraph = false;
 #endif
+
             foreach (Mods.Render.WorldRenderGraphPass pass in _worldRenderGraph.Passes)
             {
+#if !MPHREAD_SERVER
+                if (modernGraph)
+                {
+                    Mods.Render.ModernGraphicsCompat.ConfigureRetainedWorldPass(
+                        pass.Kind);
+                    DrawRenderGraphPackets(pass.Kind);
+                    continue;
+                }
+#endif
                 switch (pass.Kind)
                 {
                 case Mods.Render.WorldRenderPassKind.Opaque:
@@ -581,7 +621,8 @@ namespace MphRead
                     GL.PolygonOffset(-1, -1);
                     GL.DepthFunc(DepthFunction.Lequal);
                     GL.Enable(EnableCap.Blend);
-                    GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+                    GL.BlendFunc(BlendingFactor.SrcAlpha,
+                        BlendingFactor.OneMinusSrcAlpha);
                     DrawRenderGraphPackets(pass.Kind);
                     GL.PolygonOffset(0, 0);
                     GL.Disable(EnableCap.PolygonOffsetFill);
@@ -591,13 +632,15 @@ namespace MphRead
                     GL.Enable(EnableCap.AlphaTest);
                     GL.AlphaFunc(AlphaFunction.Less, 1.0f);
                     GL.ColorMask(false, false, false, false);
-                    GL.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
+                    GL.StencilOp(StencilOp.Keep, StencilOp.Keep,
+                        StencilOp.Replace);
                     DrawRenderGraphPackets(pass.Kind);
                     break;
 
                 case Mods.Render.WorldRenderPassKind.RebuildDepth:
                     GL.Clear(ClearBufferMask.DepthBufferBit);
-                    GL.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
+                    GL.StencilOp(StencilOp.Keep, StencilOp.Keep,
+                        StencilOp.Keep);
                     GL.StencilFunc(StencilFunction.Always, 0, 0xFF);
                     GL.AlphaFunc(AlphaFunction.Equal, 1.0f);
                     DrawRenderGraphPackets(pass.Kind);
@@ -608,21 +651,31 @@ namespace MphRead
                     GL.ColorMask(true, true, true, true);
                     GL.DepthMask(false);
                     GL.DepthFunc(DepthFunction.Lequal);
-                    GL.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
+                    GL.StencilOp(StencilOp.Keep, StencilOp.Keep,
+                        StencilOp.Keep);
                     DrawRenderGraphPackets(pass.Kind);
                     break;
 
                 case Mods.Render.WorldRenderPassKind.TranslucentFront:
-                    GL.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
+                    GL.StencilOp(StencilOp.Keep, StencilOp.Keep,
+                        StencilOp.Keep);
                     DrawRenderGraphPackets(pass.Kind);
                     break;
                 }
             }
 
+#if !MPHREAD_SERVER
+            if (modernGraph)
+            {
+                Mods.Render.ModernGraphicsCompat.FinishRetainedWorldGraph();
+                return;
+            }
+#endif
             GL.DepthMask(true);
             GL.Disable(EnableCap.AlphaTest);
             GL.Disable(EnableCap.StencilTest);
-            GL.PolygonMode(TriangleFace.FrontAndBack, OpenTK.Graphics.OpenGL.PolygonMode.Fill);
+            GL.PolygonMode(TriangleFace.FrontAndBack,
+                OpenTK.Graphics.OpenGL.PolygonMode.Fill);
         }
     }
 }

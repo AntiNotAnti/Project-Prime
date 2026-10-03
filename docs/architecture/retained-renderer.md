@@ -402,6 +402,34 @@ patches, are included in renderer benchmark output. Mixed direct/fallback items
 remain valid inside the same MRT pass because compatibility draws fully restore
 their own per-item uniforms and texture state.
 
+## Slice 15: native world-pass state + direct decals/translucency
+
+Modern backends no longer replay the six world-pass state transitions through
+the GL-style facade. `WorldRenderGraph` configures the compatibility renderer's
+native pipeline state directly for opaque, decal, translucent-mask, depth
+rebuild, behind and front passes.
+
+The OpenGL/GLES branch keeps the original switch unchanged.
+
+Direct World eligibility is now pass-aware:
+
+- opaque/depth rebuild keep the existing opaque-normal contract;
+- decal packets can submit directly in the decal pass;
+- translucent or alpha-blended packets can submit directly in the stencil-mask,
+  behind and front passes.
+
+Stencil comparison is fixed by pass and only the polygon reference changes per
+packet, preserving the existing two-sided translucency ordering without pipeline
+rebuilds per polygon ID.
+
+The modern graph owns depth/color masks, alpha test, stencil operations, blend
+state and decal depth bias directly. The depth-rebuild pass clears only depth
+through the backend-native clear path.
+
+Benchmarks report direct decal and translucent-pass draws separately. This
+removes GL-style pass-state translation from the retained World spine; fallback
+packets still consume the exact same native state.
+
 ## Next slices
 
 The graph and packet seam is intended to support the remaining migration without

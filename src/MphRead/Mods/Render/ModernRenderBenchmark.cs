@@ -70,6 +70,8 @@ internal static class ModernRenderBenchmark
                     long directOverrideDrawsStart = scene.RetainedDirectOverrideWorldDraws;
                     long directTexturedSkinDrawsStart = scene.RetainedDirectTexturedSkinWorldDraws;
                     long directOutlinedDrawsStart = scene.RetainedDirectOutlinedWorldDraws;
+                    long directDecalDrawsStart = scene.RetainedDirectDecalWorldDraws;
+                    long directTranslucentDrawsStart = scene.RetainedDirectTranslucentWorldDraws;
                     long compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
                     long templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
                     long uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
@@ -96,6 +98,8 @@ internal static class ModernRenderBenchmark
                             directOverrideDrawsStart = scene.RetainedDirectOverrideWorldDraws;
                             directTexturedSkinDrawsStart = scene.RetainedDirectTexturedSkinWorldDraws;
                             directOutlinedDrawsStart = scene.RetainedDirectOutlinedWorldDraws;
+                            directDecalDrawsStart = scene.RetainedDirectDecalWorldDraws;
+                            directTranslucentDrawsStart = scene.RetainedDirectTranslucentWorldDraws;
                             compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
                             templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
                             uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
@@ -146,6 +150,8 @@ internal static class ModernRenderBenchmark
                         retainedDirectOverrideWorldDraws = scene.RetainedDirectOverrideWorldDraws - directOverrideDrawsStart,
                         retainedDirectTexturedSkinWorldDraws = scene.RetainedDirectTexturedSkinWorldDraws - directTexturedSkinDrawsStart,
                         retainedDirectOutlinedWorldDraws = scene.RetainedDirectOutlinedWorldDraws - directOutlinedDrawsStart,
+                        retainedDirectDecalWorldDraws = scene.RetainedDirectDecalWorldDraws - directDecalDrawsStart,
+                        retainedDirectTranslucentWorldDraws = scene.RetainedDirectTranslucentWorldDraws - directTranslucentDrawsStart,
                         retainedCompatibilityWorldDraws = scene.RetainedCompatibilityWorldDraws - compatibilityDrawsStart,
                         retainedWorldUniformTemplateBuilds = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds - templateBuildsStart,
                         retainedWorldUniformPatches = ModernGraphicsCompat.RetainedWorldUniformPatches - uniformPatchesStart,

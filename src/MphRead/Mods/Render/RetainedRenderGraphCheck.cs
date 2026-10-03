@@ -158,7 +158,18 @@ namespace MphRead.Mods.Render
             direct.PlayerOutlineColor = null;
             direct.RenderMode = RenderMode.Translucent;
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "translucent mesh stays on compatibility executor");
+                "translucent mesh stays off opaque direct eligibility");
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligibleForPass(
+                    direct, WorldRenderPassKind.MarkTranslucent)
+                && ModernGraphicsCompat.RetainedWorldPacketEligibleForPass(
+                    direct, WorldRenderPassKind.TranslucentBehind)
+                && ModernGraphicsCompat.RetainedWorldPacketEligibleForPass(
+                    direct, WorldRenderPassKind.TranslucentFront),
+                "translucent mesh is eligible in retained transparency passes");
+            direct.RenderMode = RenderMode.Decal;
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligibleForPass(
+                    direct, WorldRenderPassKind.Decal),
+                "decal mesh is eligible in retained decal pass");
             direct.RenderMode = RenderMode.Normal;
             direct.MatrixStackCount = 1;
             Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
