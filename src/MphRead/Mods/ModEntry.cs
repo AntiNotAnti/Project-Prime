@@ -591,6 +591,7 @@ namespace MphRead.Mods
             if (HasFlag(args, "mapstudio"))
             {
 #if MPHREAD_SHELL
+                MapGen.CustomRooms.DeferInitialRegistration = true;
                 Launcher.Gui.Shell.OpenStudioOnStart = true;
                 Launcher.Gui.Shell.StudioWindow = true;
                 WindowMode.ForceStartup(WindowStartMode.Windowed);
