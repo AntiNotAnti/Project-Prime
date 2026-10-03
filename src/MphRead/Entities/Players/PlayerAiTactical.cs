@@ -343,7 +343,7 @@ public partial class PlayerEntity
                 float healthFraction = candidate.HealthMax <= 0 ? 1
                     : Math.Clamp(candidate.Health / (float)candidate.HealthMax, 0, 1);
                 float score = TacticalTargetUtilityForTest(distance, visible,
-                    candidate == _tacticalTarget, objective: false, healthFraction, aggro, recentThreat,
+                    candidate == _tacticalTarget, false, healthFraction, aggro, recentThreat,
                     Math.Clamp(_player.BotLevel, 0, 3));
                 score += objectivePriority;
 
@@ -356,16 +356,18 @@ public partial class PlayerEntity
                     score += _tacticalThreatWeight;
                 }
 
-                if (!objective)
+                int alliesOnTarget=0;
+                foreach(PlayerEntity ally in _scene.GetPlayerEntities())
                 {
-                    int alliesOnTarget=0;
-                    foreach(PlayerEntity ally in _scene.GetPlayerEntities())
-                    {
-                        if(ally!=_player&&ally.IsBot&&ally.TeamIndex==_player.TeamIndex
-                            && ally.AiData._targetPlayer==candidate)alliesOnTarget++;
-                    }
-                    score-=Math.Min(18,alliesOnTarget*(3+Math.Clamp(_player.BotLevel,0,3)));
+                    if(ally!=_player&&ally.IsBot&&ally.TeamIndex==_player.TeamIndex
+                        && ally.AiData._targetPlayer==candidate)alliesOnTarget++;
                 }
+                // Objective carriers deserve coordinated pressure, but once several allies
+                // are already committed, leave some bots free to deny routes or fight other
+                // threats instead of forming a single eight-bot conga line.
+                int focusStep=objective?2:3+Math.Clamp(_player.BotLevel,0,3);
+                int focusCap=objective?8:18;
+                score-=Math.Min(focusCap,alliesOnTarget*focusStep);
 
                 if (score > bestScore)
                 {
@@ -608,7 +610,8 @@ public partial class PlayerEntity
             float ideal = TacticalPreferredRangeForHunter(weapon);
             float healthFraction = _player.HealthMax <= 0 ? 1
                 : Math.Clamp(_player.Health / (float)_player.HealthMax, 0, 1);
-            bool retreat = healthFraction <= tuning.RetreatHealthFraction || distance < ideal * 0.60f;
+            bool lowHealth = healthFraction <= tuning.RetreatHealthFraction;
+            bool retreat = lowHealth || distance < ideal * 0.60f;
             bool advance = !retreat && distance > ideal * 1.35f;
 
             if (_tacticalStrafeTimer <= 0)
@@ -638,6 +641,14 @@ public partial class PlayerEntity
             {
                 moved = TryTacticalMove(_tacticalStrafeRight ? -right : right,
                     _tacticalStrafeRight ? _buttons.Y : _buttons.A);
+            }
+            else if (lowHealth)
+            {
+                moved = TryTacticalCoverMove(target, forward, right);
+                if (!moved)
+                {
+                    moved = TryTacticalMove(-forward, _buttons.B);
+                }
             }
             else if (retreat)
             {
@@ -680,6 +691,36 @@ public partial class PlayerEntity
                 _combatJumpCooldown = Math.Max(30, Difficulty.JumpCooldownMinFrames) * 2;
                 _tacticalMovementActive = true;
             }
+        }
+
+        private bool TryTacticalCoverMove(PlayerEntity target, Vector3 forward, Vector3 right)
+        {
+            // Check both lateral exits before backing straight away. A move counts as
+            // cover only when the candidate position is safe to occupy and geometry
+            // would actually interrupt the target's current sightline from there.
+            Vector3 first=_tacticalStrafeRight?right:-right;
+            AiButton firstButton=_tacticalStrafeRight?_buttons.A:_buttons.Y;
+            Vector3 second=-first;
+            AiButton secondButton=_tacticalStrafeRight?_buttons.Y:_buttons.A;
+
+            if(TacticalMoveWouldBreakSight(first,target)&&TryTacticalMove(first,firstButton))return true;
+            if(TacticalMoveWouldBreakSight(second,target)&&TryTacticalMove(second,secondButton))return true;
+            return TacticalMoveWouldBreakSight(-forward,target)&&TryTacticalMove(-forward,_buttons.B);
+        }
+
+        private bool TacticalMoveWouldBreakSight(Vector3 direction, PlayerEntity target)
+        {
+            direction=direction.WithY(0);
+            if(direction.LengthSquared<=0.001f)return false;
+            direction.Normalize();
+            Vector3 candidate=_player.Position+direction*1.5f;
+            Vector3 from=candidate.AddY(_player.IsAltForm?.5f:1f);
+            Vector3 to=target.CameraInfo.Position;
+            if(to==Vector3.Zero)
+                to=target.Position.AddY(target.IsAltForm
+                    ?Math.Max(.35f,Fixed.ToFloat(target.Values.AltColYPos)):1f);
+            CollisionResult hit=default;
+            return CollisionDetection.CheckBetweenPoints(from,to,TestFlags.None,_scene,ref hit);
         }
 
         private bool TryTacticalMove(Vector3 direction, AiButton button)
