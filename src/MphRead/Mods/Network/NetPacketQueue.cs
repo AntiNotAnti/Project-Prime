@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace MphRead.Mods.Network;
 
@@ -25,7 +26,7 @@ public sealed class NetPacketQueue
         if (capacity < 1 || criticalReserve < 0 || criticalReserve > capacity) throw new ArgumentOutOfRangeException(nameof(capacity));
         _capacity = capacity; _normalLimit = capacity - criticalReserve;
     }
-    public int Count { get { lock (_lock) return _count; } }
+    public int Count => Volatile.Read(ref _count);
     public int HighWater { get { lock (_lock) return _high; } }
     public long Drops { get { lock (_lock) return _drops; } }
     public bool CanAcceptCritical { get { lock (_lock) return _count < _capacity; } }
