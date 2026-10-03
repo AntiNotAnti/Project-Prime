@@ -17,6 +17,7 @@ namespace MphRead.Entities
 
         private void ProcessInput()
         {
+            RepairSpatialState();
             var replication = _scene.Services.PlayerReplication;
             if (replication.Active && !IsBot)
             {
@@ -390,8 +391,120 @@ namespace MphRead.Entities
             return selected;
         }
 
+        private static bool SpatialFinite(Vector3 value)
+            => Single.IsFinite(value.X) && Single.IsFinite(value.Y) && Single.IsFinite(value.Z);
+
+        private static bool SpatialDirection(Vector3 value)
+            => SpatialFinite(value) && value.LengthSquared > 0.0000001f;
+
+        private static Vector3 NormalizeSpatialOr(Vector3 value, Vector3 fallback)
+        {
+            if (SpatialDirection(value))
+            {
+                return value / MathF.Sqrt(value.LengthSquared);
+            }
+            if (SpatialDirection(fallback))
+            {
+                return fallback / MathF.Sqrt(fallback.LengthSquared);
+            }
+            return Vector3.UnitZ;
+        }
+
+        private void RepairAimBasis()
+        {
+            if (!SpatialDirection(_gunVec1))
+            {
+                _gunVec1 = NormalizeSpatialOr(_facingVector, Vector3.UnitZ);
+            }
+            if (!SpatialDirection(_facingVector))
+            {
+                _facingVector = _gunVec1;
+            }
+            if (!SpatialDirection(_gunVec2))
+            {
+                Vector3 right = new(_facingVector.Z, 0, -_facingVector.X);
+                _gunVec2 = NormalizeSpatialOr(right, Vector3.UnitX);
+            }
+            if (!SpatialDirection(_upVector))
+            {
+                _upVector = NormalizeSpatialOr(
+                    Vector3.Cross(_facingVector, _gunVec2), Vector3.UnitY);
+            }
+        }
+
+        private void RepairSpatialState()
+        {
+            bool repaired = false;
+            if (!SpatialFinite(Position))
+            {
+                Position = SpatialFinite(PrevPosition) ? PrevPosition : Vector3.Zero;
+                repaired = true;
+            }
+            if (!SpatialFinite(PrevPosition))
+            {
+                PrevPosition = Position;
+                repaired = true;
+            }
+            if (!SpatialFinite(Speed))
+            {
+                Speed = Vector3.Zero;
+                repaired = true;
+            }
+            if (!SpatialFinite(PrevSpeed))
+            {
+                PrevSpeed = Speed;
+                repaired = true;
+            }
+            if (!SpatialFinite(Acceleration))
+            {
+                Acceleration = Vector3.Zero;
+                repaired = true;
+            }
+
+            Vector3 oldGun = _gunVec1;
+            Vector3 oldFacing = _facingVector;
+            RepairAimBasis();
+            repaired |= oldGun != _gunVec1 || oldFacing != _facingVector;
+
+            Vector3 fallbackCamera = Position.AddY(Fixed.ToFloat(Values.AimYOffset));
+            if (!SpatialFinite(CameraInfo.Position))
+            {
+                CameraInfo.Position = fallbackCamera;
+                CameraInfo.PrevPosition = fallbackCamera;
+                repaired = true;
+            }
+            if (!SpatialFinite(CameraInfo.Target))
+            {
+                CameraInfo.Target = CameraInfo.Position + _gunVec1;
+                repaired = true;
+            }
+            if (!SpatialDirection(CameraInfo.UpVector))
+            {
+                CameraInfo.UpVector = _upVector;
+                repaired = true;
+            }
+
+            if (!SpatialFinite(_aimPosition) || !SpatialFinite(_muzzlePos)
+                || !SpatialFinite(_gunDrawPos) || repaired)
+            {
+                _aimPosition = CameraInfo.Position
+                    + _gunVec1 * Fixed.ToFloat(Values.AimDistance);
+                _aimVec = _gunVec1;
+                _gunDrawPos = CameraInfo.Position;
+                _muzzlePos = CameraInfo.Position
+                    + _gunVec1 * Fixed.ToFloat(Values.MuzzleOffset);
+                ModInvalidateFirstPersonRenderPose();
+                if (repaired)
+                {
+                    Mods.DebugLog.Line("player",
+                        $"slot {SlotIndex} repaired non-finite spatial state");
+                }
+            }
+        }
+
         private void UpdateAimFacing()
         {
+            RepairAimBasis();
             if (Features.FixedAimCamera)
             {
                 // Static/Quake presentation welds the camera to raw aim. A
@@ -402,15 +515,29 @@ namespace MphRead.Entities
                 _facingVector = _gunVec1;
                 return;
             }
-            float dot = Vector3.Dot(_gunVec1, _facingVector);
+
+            float dot = Math.Clamp(Vector3.Dot(_gunVec1, _facingVector), -1, 1);
             if (dot < Fixed.ToFloat(3956))
             {
-                Vector3 temp1 = (_facingVector - _gunVec1 * dot).Normalized();
-                _facingVector = Fixed.ToFloat(3956) * _gunVec1 + Fixed.ToFloat(1060) * temp1;
+                Vector3 tangent = _facingVector - _gunVec1 * dot;
+                if (!SpatialDirection(tangent))
+                {
+                    // Exactly opposed aim/body vectors have no unique shortest
+                    // tangent. Choose a stable perpendicular rather than
+                    // normalizing zero and poisoning the whole movement basis.
+                    tangent = Vector3.UnitY - _gunVec1 * Vector3.Dot(Vector3.UnitY, _gunVec1);
+                    if (!SpatialDirection(tangent))
+                    {
+                        tangent = Vector3.UnitX - _gunVec1 * Vector3.Dot(Vector3.UnitX, _gunVec1);
+                    }
+                }
+                tangent = NormalizeSpatialOr(tangent, Vector3.UnitX);
+                _facingVector = NormalizeSpatialOr(
+                    Fixed.ToFloat(3956) * _gunVec1 + Fixed.ToFloat(1060) * tangent,
+                    _gunVec1);
             }
             Vector3 temp2 = _gunVec1 - _facingVector;
-            _facingVector += temp2 * 0.1f;
-            _facingVector = _facingVector.Normalized();
+            _facingVector = NormalizeSpatialOr(_facingVector + temp2 * 0.1f, _gunVec1);
         }
 
         private float AimScopeBlend()
@@ -438,6 +565,16 @@ namespace MphRead.Entities
 
         private void UpdateAimY(float amount, bool applyInputSettings = true)
         {
+            if (!Single.IsFinite(amount))
+            {
+                return;
+            }
+            RepairAimBasis();
+            if (!Single.IsFinite(_aimY))
+            {
+                float horizontal = MathF.Sqrt(_gunVec1.X * _gunVec1.X + _gunVec1.Z * _gunVec1.Z);
+                _aimY = MathHelper.RadiansToDegrees(MathF.Atan2(_gunVec1.Y, horizontal));
+            }
             if (applyInputSettings && Controls.InvertAimY)
             {
                 amount *= -1;
@@ -465,13 +602,20 @@ namespace MphRead.Entities
             {
                 vector = new Vector3(0, -MathF.Sin(-diff), MathF.Cos(-diff));
             }
-            _gunVec1 = Matrix.Vec3MultMtx3(vector, transform).Normalized();
+            Vector3 previousGun = _gunVec1;
+            _gunVec1 = NormalizeSpatialOr(
+                Matrix.Vec3MultMtx3(vector, transform), previousGun);
             _aimPosition = CameraInfo.Position + _gunVec1 * Fixed.ToFloat(Values.AimDistance);
             UpdateAimFacing();
         }
 
         private void UpdateAimX(float amount, bool applyInputSettings = true)
         {
+            if (!Single.IsFinite(amount))
+            {
+                return;
+            }
+            RepairAimBasis();
             if (applyInputSettings && Controls.InvertAimX)
             {
                 amount *= -1;
@@ -495,7 +639,7 @@ namespace MphRead.Entities
             float z = _gunVec1.Z;
             _gunVec1.X = x * cos + z * sin;
             _gunVec1.Z = x * -sin + z * cos;
-            _gunVec1 = _gunVec1.Normalized();
+            _gunVec1 = NormalizeSpatialOr(_gunVec1, _facingVector);
             _aimPosition = CameraInfo.Position + _gunVec1 * Fixed.ToFloat(Values.AimDistance);
             if (EquipInfo.Zoomed)
             {
@@ -1200,7 +1344,14 @@ namespace MphRead.Entities
                 shotVec.Y += Fixed.ToFloat((int)_scene.Random.GetRandomInt2(24576) - 12288);
                 shotVec.Z += Fixed.ToFloat((int)_scene.Random.GetRandomInt2(24576) - 12288);
             }
-            shotVec = shotVec.Normalized();
+            if (!SpatialFinite(shotOrigin) || !SpatialDirection(shotVec))
+            {
+                // Invalid geometry must fail closed. A NaN beam can make
+                // overlap comparisons against unrelated actors fall through
+                // their rejection branches and appear to hit the whole map.
+                return NetShotDiagnostics.Finish(this, ShotAttemptResult.InvalidSpatialState);
+            }
+            shotVec = NormalizeSpatialOr(shotVec, _gunVec1);
             WeaponInfo curWeapon = EquipInfo.Weapon;
             if (IsPrimeHunter)
             {
@@ -2464,13 +2615,31 @@ namespace MphRead.Entities
                 _hSpeedMag = hSpeedMag;
             }
             // todo: check how much of this overwrites stuff done above
-            float hMag = MathF.Sqrt(_facingVector.X * _facingVector.X + _facingVector.Z * _facingVector.Z);
-            _field70 = _facingVector.X / hMag;
-            _field74 = _facingVector.Z / hMag;
+            RepairAimBasis();
+            float horizontalSq = _facingVector.X * _facingVector.X
+                + _facingVector.Z * _facingVector.Z;
+            if (!Single.IsFinite(horizontalSq) || horizontalSq < 0.0000001f)
+            {
+                Vector3 horizontal = new(_gunVec1.X, 0, _gunVec1.Z);
+                if (!SpatialDirection(horizontal))
+                {
+                    horizontal = new Vector3(_field70, 0, _field74);
+                }
+                horizontal = NormalizeSpatialOr(horizontal, Vector3.UnitZ);
+                _field70 = horizontal.X;
+                _field74 = horizontal.Z;
+            }
+            else
+            {
+                float hMag = MathF.Sqrt(horizontalSq);
+                _field70 = _facingVector.X / hMag;
+                _field74 = _facingVector.Z / hMag;
+            }
             _gunVec2 = new Vector3(_field74, 0, -_field70);
             _field78 = _gunVec2.X;
             _field7C = _gunVec2.Z;
-            _upVector = Vector3.Cross(_facingVector, _gunVec2).Normalized();
+            _upVector = NormalizeSpatialOr(
+                Vector3.Cross(_facingVector, _gunVec2), Vector3.UnitY);
             if (Values.AltFormStrafe != 0)
             {
                 _field80 = _field70;
@@ -2479,7 +2648,8 @@ namespace MphRead.Entities
             _aimPosition = _gunVec1 * Fixed.ToFloat(Values.AimDistance);
             _aimPosition += CameraInfo.Position;
             // unimpl-controls: this calculation is different when exact aim is not set
-            hMag = MathF.Sqrt(_gunVec1.X * _gunVec1.X + _gunVec1.Z * _gunVec1.Z);
+            float hMag = MathF.Sqrt(MathF.Max(0,
+                _gunVec1.X * _gunVec1.X + _gunVec1.Z * _gunVec1.Z));
             _aimY = MathHelper.RadiansToDegrees(MathF.Atan2(_gunVec1.Y, hMag));
             if (_aimY > 75 || _aimY < -75)
             {
