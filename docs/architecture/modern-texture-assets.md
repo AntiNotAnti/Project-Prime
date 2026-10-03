@@ -89,3 +89,29 @@ texture, avoiding the previous second full-resolution RGBA copy. Large source
 decodes above the scheduler threshold are also serialized. An Ultra 8192x8192
 RGBA channel can still occupy 256 MiB for its final pixels before mipmaps, so
 whole-pack eager decode remains deliberately avoided.
+
+
+## KTX2 / Basis Universal GPU compression
+
+Authored HD textures may also use `.ktx2`. Basis Universal ETC1S/UASTC payloads
+are transcoded once on the existing background decode workers and promoted through
+the same bounded streaming and VRAM-admission path as PNG/JPEG/TGA assets.
+
+When the modern renderer is active, Project Prime requests the adapter's WebGPU
+texture-compression features and chooses a portable native target:
+
+- desktop DX12/Vulkan/Metal prefers BC7 when available;
+- Android Vulkan prefers ASTC 4x4, then ETC2 RGBA8;
+- other supported adapters fall through BC7 / ASTC / ETC2 capability order;
+- legacy OpenGL/OpenGL ES or a device without a usable compressed feature
+  transcodes Basis to RGBA8 and uses the existing upload path.
+
+The complete KTX2 mip chain is retained and uploaded directly. Project Prime does
+not generate block-compressed mips at runtime. If the authored image exceeds the
+active texture-quality dimension cap, Basis is instead transcoded to RGBA8 and
+downscaled by the existing quality policy, so KTX2 never bypasses user/device
+resolution limits.
+
+The managed bindings are provided by Ktx2.NET 1.0.5. Windows x64 and Linux x64
+use its runtime assets. macOS and Android package a repository-built libktx
+pinned to KTX-Software v4.4.2 through `tools/ktx/build-native.sh`.

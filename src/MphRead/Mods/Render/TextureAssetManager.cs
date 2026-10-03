@@ -44,7 +44,8 @@ namespace MphRead.Mods.Render
             {
                 using Stream? stream = open();
                 if (stream == null) return 0;
-                ModernTextureAsset asset = ModernTextureAsset.Decode(stream, key, assetClass, channel, cap);
+                PreparedTextureAsset asset = PreparedTextureCodec.Decode(
+                    stream, key, assetClass, channel, cap);
                 return Upload(cacheKey, asset, repeat, sampling, out width, out height);
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException
@@ -79,11 +80,11 @@ namespace MphRead.Mods.Render
             }
         }
 
-        private int Upload(string cacheKey, ModernTextureAsset asset, bool repeat,
+        private int Upload(string cacheKey, PreparedTextureAsset asset, bool repeat,
             TextureSamplerDescriptor sampling, out int width, out int height)
         {
             width = asset.Width; height = asset.Height;
-            bool mipmaps = sampling.Mipmaps && (asset.Width > 1 || asset.Height > 1);
+            bool mipmaps = sampling.Mipmaps && asset.MipmapsAvailable;
             sampling = sampling with { Mipmaps = mipmaps };
             long bytes = asset.EstimateGpuBytes(mipmaps);
             if (_residentBytes + bytes > MemoryBudgetBytes())
@@ -122,11 +123,12 @@ namespace MphRead.Mods.Render
             try
             {
                 int cap = DimensionLimit(assetClass, channel);
-                ModernTextureAsset asset = ModernTextureAsset.Decode(source, key, assetClass, channel, cap);
+                PreparedTextureAsset asset = PreparedTextureCodec.Decode(
+                    source, key, assetClass, channel, cap);
                 TextureSamplerDescriptor sampling = TextureSamplingPolicy.ResolveModern(assetClass, channel);
                 sampling = sampling with
                 {
-                    Mipmaps = sampling.Mipmaps && (asset.Width > 1 || asset.Height > 1)
+                    Mipmaps = sampling.Mipmaps && asset.MipmapsAvailable
                 };
                 UploadPreparedBound(asset, repeat, sampling);
                 if (GL.GetError() != ErrorCode.NoError) return false;
@@ -141,13 +143,39 @@ namespace MphRead.Mods.Render
             }
         }
 
-        internal static void UploadPreparedBound(ModernTextureAsset asset, bool repeat,
+        internal static void UploadPreparedBound(PreparedTextureAsset asset, bool repeat,
             TextureSamplerDescriptor sampling)
         {
             ClearPriorUploadErrors();
-            GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
-                asset.Width, asset.Height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, asset.Pixels);
+            if (asset is ModernTextureAsset rgba)
+            {
+                GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
+                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
+                    rgba.Width, rgba.Height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, rgba.Pixels);
+                ApplyBoundSampling(repeat, sampling, generateMipmaps: sampling.Mipmaps);
+                return;
+            }
+#if !MPHREAD_SERVER
+            if (asset is Ktx2TextureAsset compressed)
+            {
+                if (!ModernGraphicsCompat.Active)
+                    throw new InvalidOperationException(
+                        "Compressed KTX2 promotion requires the modern renderer.");
+                sampling = sampling with
+                {
+                    Mipmaps = sampling.Mipmaps && compressed.MipmapsAvailable
+                };
+                ModernGraphicsCompat.UploadCompressedTexture(compressed, sampling.Mipmaps);
+                ApplyBoundSampling(repeat, sampling, generateMipmaps: false);
+                return;
+            }
+#endif
+            throw new NotSupportedException($"Prepared texture type {asset.GetType().Name} is unsupported.");
+        }
+
+        private static void ApplyBoundSampling(bool repeat, TextureSamplerDescriptor sampling,
+            bool generateMipmaps)
+        {
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS,
                 (int)(repeat ? TextureWrapMode.Repeat : TextureWrapMode.ClampToEdge));
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT,
@@ -156,10 +184,12 @@ namespace MphRead.Mods.Render
                 (int)(sampling.LinearMagnification ? TextureMagFilter.Linear : TextureMagFilter.Nearest));
             if (sampling.Mipmaps)
             {
-                // Modern assets build their complete mip chain while the
-                // texture is prepared, not on the first frame that happens to
-                // look at the material.
-                GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+                if (generateMipmaps)
+                {
+                    // RGBA sources generate once during promotion. KTX2 sources
+                    // arrive with their transcoded authored mip chain intact.
+                    GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+                }
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
                     (int)(sampling.LinearMinification
                         ? TextureMinFilter.LinearMipmapLinear

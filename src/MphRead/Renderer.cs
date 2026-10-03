@@ -1554,7 +1554,7 @@ namespace MphRead
 
         private sealed record StreamingTextureDecode(
             StreamingTextureRequest Request,
-            Task<Mods.Render.ModernTextureAsset?> Task);
+            Task<Mods.Render.PreparedTextureAsset?> Task);
 
         private const int MaxDesktopStreamingTextureDecodes = 2;
         private static int StreamingTextureDecodeLimit => OperatingSystem.IsAndroid() ? 1 : MaxDesktopStreamingTextureDecodes;
@@ -1906,7 +1906,7 @@ namespace MphRead
                 }
 
                 _streamingTextureQueue.Dequeue();
-                Task<Mods.Render.ModernTextureAsset?> task = Task.Run(() =>
+                Task<Mods.Render.PreparedTextureAsset?> task = Task.Run(() =>
                     Mods.Render.TextureReplacementPack.DecodePrepared(
                         request.Image, request.AssetClass, request.Channel,
                         request.DimensionCap));
@@ -1919,7 +1919,7 @@ namespace MphRead
                 > SerializedStreamingDecodeBytes;
 
         private void PromoteModernTextureStream(StreamingTextureRequest request,
-            Mods.Render.ModernTextureAsset asset)
+            Mods.Render.PreparedTextureAsset asset)
         {
             if (!StreamingTextureRequestCurrent(request)) return;
 

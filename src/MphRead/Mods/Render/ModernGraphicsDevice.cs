@@ -97,7 +97,9 @@ namespace MphRead.Mods.Render
         private unsafe delegate Surface* SurfaceFactory(WebGPU api, Instance* instance);
 
         private ModernGraphicsDevice(WebGPU api, Wgpu native, Instance* instance, Adapter* adapter, Device* device,
-            Surface* surface, GraphicsBackend backend, uint nativeVersion, string adapterName, string driverDescription, DeviceErrors errors)
+            Surface* surface, GraphicsBackend backend, uint nativeVersion, string adapterName,
+            string driverDescription, DeviceErrors errors, bool compressionBc,
+            bool compressionEtc2, bool compressionAstc)
         {
             _errors = errors;
             _api = api;
@@ -110,12 +112,18 @@ namespace MphRead.Mods.Render
             NativeVersion = nativeVersion;
             AdapterName = adapterName;
             DriverDescription = driverDescription;
+            SupportsTextureCompressionBc = compressionBc;
+            SupportsTextureCompressionEtc2 = compressionEtc2;
+            SupportsTextureCompressionAstc = compressionAstc;
         }
 
         public GraphicsBackend Backend { get; }
         public uint NativeVersion { get; }
         public string AdapterName { get; }
         public string DriverDescription { get; }
+        internal bool SupportsTextureCompressionBc { get; }
+        internal bool SupportsTextureCompressionEtc2 { get; }
+        internal bool SupportsTextureCompressionAstc { get; }
 
         internal WebGPU Api => _api;
         internal Wgpu Native => _native;
@@ -258,9 +266,19 @@ namespace MphRead.Mods.Render
                         + $"(driver={PtrString(selected.DriverDescription, "Unknown driver")})");
                     _requestedDevice = null;
                     _requestError = null;
+                    bool compressionBc = api.AdapterHasFeature(adapter, FeatureName.TextureCompressionBC);
+                    bool compressionEtc2 = api.AdapterHasFeature(adapter, FeatureName.TextureCompressionEtc2);
+                    bool compressionAstc = api.AdapterHasFeature(adapter, FeatureName.TextureCompressionAstc);
+                    FeatureName* requiredFeatures = stackalloc FeatureName[3];
+                    int requiredFeatureCount = 0;
+                    if (compressionBc) requiredFeatures[requiredFeatureCount++] = FeatureName.TextureCompressionBC;
+                    if (compressionEtc2) requiredFeatures[requiredFeatureCount++] = FeatureName.TextureCompressionEtc2;
+                    if (compressionAstc) requiredFeatures[requiredFeatureCount++] = FeatureName.TextureCompressionAstc;
                     var errors = new DeviceErrors();
                     var deviceDescriptor = new DeviceDescriptor
                     {
+                        RequiredFeatureCount = (nuint)requiredFeatureCount,
+                        RequiredFeatures = requiredFeatureCount == 0 ? null : requiredFeatures,
                         DeviceLostCallback = new PfnDeviceLostCallback(errors.Lost)
                     };
                     api.AdapterRequestDevice(adapter, &deviceDescriptor,
@@ -289,7 +307,8 @@ namespace MphRead.Mods.Render
                     string name = PtrString(properties.Name, "Unknown GPU");
                     string driver = PtrString(properties.DriverDescription, "Unknown driver");
                     return new ModernGraphicsDevice(api, native, instance, adapter, device, surface, backend,
-                        native.GetVersion(), name, driver, errors) { _surfaceFactory = surfaceFactory };
+                        native.GetVersion(), name, driver, errors, compressionBc,
+                        compressionEtc2, compressionAstc) { _surfaceFactory = surfaceFactory };
                 }
                 catch
                 {
