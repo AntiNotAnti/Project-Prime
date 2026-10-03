@@ -14,10 +14,12 @@ HOST="${MPH_SERVER_HOST:-51.161.113.128}"
 USER="${MPH_SERVER_USER:-ubuntu}"
 REMOTE_DIR="${MPH_SERVER_DIR:-/home/$USER/fruityprime-server/current}"
 SERVICE="mphread-server"
-# The same binary also runs the server directory the launcher's browser asks.
-# One upload, two units; set MPH_DEPLOY_MASTER=0 to leave the directory alone.
+# The normal public architecture is allocator-only: the master stays resident
+# and starts one authoritative child per lobby lifetime. Set
+# MPH_DEPLOY_GAME_SERVER=1 only for a permanent official/rated Continuous lane.
 MASTER_SERVICE="mphread-master"
 DEPLOY_MASTER="${MPH_DEPLOY_MASTER:-1}"
+DEPLOY_GAME_SERVER="${MPH_DEPLOY_GAME_SERVER:-0}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT="$ROOT/src/MphRead"
 STAGE="" # selected after the VPS architecture is detected
@@ -89,10 +91,21 @@ install_unit() {
       echo "==> $name.service still starts $OLD_BINARY; pointing it at $BINARY"
       ssh_run "sudo sed -i 's|$REMOTE_DIR/$OLD_BINARY |$REMOTE_DIR/$BINARY |' /etc/systemd/system/$name.service && sudo systemctl daemon-reload"
     fi
+    if [ "$name" = "$MASTER_SERVICE" ]; then
+      if ! ssh_run "grep -q -- '-public ' /etc/systemd/system/$name.service"; then
+        echo "==> adding public hosted-lobby address to $name.service"
+        ssh_run "sudo sed -i '/^ExecStart=/ s|$| -public $HOST|' /etc/systemd/system/$name.service && sudo systemctl daemon-reload"
+      fi
+      if ! ssh_run "grep -q -- '-hostports ' /etc/systemd/system/$name.service"; then
+        echo "==> adding hosted-lobby port pool to $name.service"
+        ssh_run "sudo sed -i '/^ExecStart=/ s|$| -hostports 27900-27919|' /etc/systemd/system/$name.service && sudo systemctl daemon-reload"
+      fi
+    fi
     return 0
   fi
   echo "==> installing $name.service"
-  sed -e "s|__USER__|$USER|g" -e "s|__DIR__|$REMOTE_DIR|g" "$template" \
+  sed -e "s|__USER__|$USER|g" -e "s|__DIR__|$REMOTE_DIR|g" \
+      -e "s|__PUBLIC__|$HOST|g" "$template" \
     | ssh_run "cat > /tmp/$name.service"
   ssh_run "sudo mv /tmp/$name.service /etc/systemd/system/$name.service && sudo systemctl daemon-reload && sudo systemctl enable $name"
 }
@@ -120,7 +133,9 @@ fi
 
 # The units have to be pointing at the new binary before the old one is taken
 # away, or a deploy that stops half way leaves a box with neither.
-install_unit "$SERVICE"
+if [ "$DEPLOY_GAME_SERVER" = "1" ]; then
+  install_unit "$SERVICE"
+fi
 if [ "$DEPLOY_MASTER" = "1" ]; then
   install_unit "$MASTER_SERVICE"
 fi
@@ -132,25 +147,33 @@ if [ "$BINARY" != "$OLD_BINARY" ]; then
   fi
 fi
 
-echo "==> starting $SERVICE"
-ssh_run "sudo systemctl start $SERVICE"
+if [ "$DEPLOY_GAME_SERVER" = "1" ]; then
+  echo "==> starting permanent official game server"
+  ssh_run "sudo systemctl enable --now $SERVICE"
+else
+  echo "==> permanent game server disabled; lobbies are allocated on demand"
+  ssh_run "sudo systemctl disable --now $SERVICE" || true
+fi
 if [ "$DEPLOY_MASTER" = "1" ]; then
   echo "==> starting $MASTER_SERVICE"
-  ssh_run "sudo systemctl start $MASTER_SERVICE"
+  ssh_run "sudo systemctl enable --now $MASTER_SERVICE"
 fi
 sleep 3
-ssh_run "systemctl is-active $SERVICE && journalctl -u $SERVICE -n 12 --no-pager | tail -10"
-ssh_run "journalctl -u $SERVICE -n 50 --no-pager | grep '\[career\]' | tail -6 || true"
+if [ "$DEPLOY_GAME_SERVER" = "1" ]; then
+  ssh_run "systemctl is-active $SERVICE && journalctl -u $SERVICE -n 12 --no-pager | tail -10"
+  ssh_run "journalctl -u $SERVICE -n 50 --no-pager | grep '\[career\]' | tail -6 || true"
+fi
 if [ "$DEPLOY_MASTER" = "1" ]; then
   ssh_run "systemctl is-active $MASTER_SERVICE \
-    && journalctl -u $MASTER_SERVICE -n 5 --no-pager | tail -4"
+    && journalctl -u $MASTER_SERVICE -n 8 --no-pager | tail -7"
 fi
 
 echo "==> done"
 echo
-echo "The browser in the launcher asks 51.161.113.128:27889 by default."
-echo "That name has to resolve to this machine, and UDP 27889 has to reach it,"
-echo "before any server shows up in anybody's list."
+echo "The browser and Create Lobby flow ask 51.161.113.128:27889 by default."
+echo "UDP 27889 plus the hosted range 27900-27919 must reach this machine."
+echo "Set MPH_DEPLOY_GAME_SERVER=1 only when you also want the permanent"
+echo "Continuous official/rated server on UDP 27888."
 
 # Optional map-library deployment. To avoid game restarts, invoke its script directly.
 if [ "${MPH_DEPLOY_MAPS:-0}" = "1" ]; then
