@@ -156,6 +156,7 @@ namespace MphRead.Mods.Network
         }
         private static bool Unsequenced(PacketType type) => type is PacketType.QueueHello or PacketType.Hello or PacketType.StatusQuery
             or PacketType.StatusReply or PacketType.MasterQuery or PacketType.MasterList or PacketType.MasterHeartbeat
+            or PacketType.HostChallenge or PacketType.HostChallengeReply
             or PacketType.HostRequest or PacketType.HostReply;
         private readonly UdpClient? _socket;
         private readonly Thread? _worker;
