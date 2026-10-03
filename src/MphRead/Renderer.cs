@@ -2786,6 +2786,7 @@ namespace MphRead
                 GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref _viewMatrix);
             UpdateProjection();
             GetDrawItems();
+            CaptureRetainedRenderWorld();
         }
 
         public Matrix4 GetPerspectiveMatrix(float fov)
@@ -3459,82 +3460,7 @@ namespace MphRead
             {
                 return false;
             }
-            // pass 1: opaque
-            GL.ColorMask(true, true, true, true);
-            GL.Enable(EnableCap.AlphaTest);
-            GL.AlphaFunc(AlphaFunction.Equal, 1.0f);
-            GL.DepthFunc(DepthFunction.Less);
-            GL.DepthMask(true);
-            GL.Enable(EnableCap.StencilTest);
-            GL.StencilMask(0xFF);
-            GL.StencilOp(StencilOp.Zero, StencilOp.Zero, StencilOp.Zero);
-            GL.StencilFunc(StencilFunction.Always, 0, 0xFF);
-            for (int i = 0; i < _nonDecalItems.Count; i++)
-            {
-                RenderItem item = _nonDecalItems[i];
-                RenderItem(item);
-            }
-            GL.Disable(EnableCap.AlphaTest);
-            // pass 2: decal
-            GL.Enable(EnableCap.PolygonOffsetFill);
-            GL.PolygonOffset(-1, -1);
-            // todo?: decals shouldn't render unless they have ~equal depth to the previous polygon,
-            // which means the rendering order here needs to be the same as it is in-game
-            GL.DepthFunc(DepthFunction.Lequal);
-            GL.Enable(EnableCap.Blend);
-            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-            for (int i = 0; i < _decalItems.Count; i++)
-            {
-                RenderItem item = _decalItems[i];
-                RenderItem(item);
-            }
-            GL.PolygonOffset(0, 0);
-            GL.Disable(EnableCap.PolygonOffsetFill);
-            // pass 3: mark transparent faces in stencil
-            GL.Enable(EnableCap.AlphaTest);
-            GL.AlphaFunc(AlphaFunction.Less, 1.0f);
-            GL.ColorMask(false, false, false, false);
-            GL.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Replace);
-            for (int i = 0; i < _translucentItems.Count; i++)
-            {
-                RenderItem item = _translucentItems[i];
-                GL.StencilFunc(StencilFunction.Greater, item.PolygonId, 0xFF);
-                RenderItem(item);
-            }
-            // pass 4: rebuild depth buffer
-            GL.Clear(ClearBufferMask.DepthBufferBit);
-            GL.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
-            GL.StencilFunc(StencilFunction.Always, 0, 0xFF);
-            GL.AlphaFunc(AlphaFunction.Equal, 1.0f);
-            for (int i = 0; i < _nonDecalItems.Count; i++)
-            {
-                RenderItem item = _nonDecalItems[i];
-                RenderItem(item);
-            }
-            // pass 5: translucent (behind)
-            GL.AlphaFunc(AlphaFunction.Less, 1.0f);
-            GL.ColorMask(true, true, true, true);
-            GL.DepthMask(false);
-            GL.DepthFunc(DepthFunction.Lequal);
-            GL.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
-            for (int i = 0; i < _translucentItems.Count; i++)
-            {
-                RenderItem item = _translucentItems[i];
-                GL.StencilFunc(StencilFunction.Notequal, item.PolygonId, 0xFF);
-                RenderItem(item);
-            }
-            // pass 6: translucent (before)
-            GL.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
-            for (int i = 0; i < _translucentItems.Count; i++)
-            {
-                RenderItem item = _translucentItems[i];
-                GL.StencilFunc(StencilFunction.Equal, item.PolygonId, 0xFF);
-                RenderItem(item);
-            }
-            GL.DepthMask(true);
-            GL.Disable(EnableCap.AlphaTest);
-            GL.Disable(EnableCap.StencilTest);
-            GL.PolygonMode(TriangleFace.FrontAndBack, OpenTK.Graphics.OpenGL.PolygonMode.Fill);
+            ExecuteWorldRenderGraph();
 
             DrawWorldOutlines();
 
