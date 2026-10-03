@@ -193,6 +193,35 @@ Alpha-blended `RenderMode.Normal` items are excluded from the opaque direct
 path because they are replayed in the translucent passes and would otherwise be
 submitted only to fail the opaque alpha test.
 
+## Slice 6: direct advanced material companion maps
+
+The direct retained World path now remains active when Advanced Materials is
+enabled.
+
+Scene resolves a four-slot retained texture set for each packet:
+
+1. albedo
+2. normal
+3. specular/roughness
+4. emissive
+
+Each slot carries its binding ID plus the resolved backend-independent sampler
+policy. Albedo keeps the native fallback sampling behavior; authored companion
+maps use their registered modern channel policy. The direct executor binds all
+four WebGPU resources, patches the generated World flags, and validates each
+binding against the active render target before draw encoding.
+
+Cosmetics and explicit material overrides remain on the compatibility executor;
+this slice only covers ordinary world/material replacement companion maps.
+
+The generated fallback path also gates World companion samplers on the master
+`advanced_materials` switch. This prevents stale `use_normal_map`,
+`use_specular_map` or `use_emissive_map` values from causing unnecessary
+resource binding when advanced materials are disabled.
+
+Benchmarks report how many direct retained draws used companion maps separately
+from the total direct World draw count.
+
 ## Next slices
 
 The graph and packet seam is intended to support the remaining migration without
