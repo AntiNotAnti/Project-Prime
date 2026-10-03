@@ -8,10 +8,30 @@ namespace MphRead.Mods.Render;
 
 internal sealed unsafe partial class ModernGraphicsCompat
 {
-    private sealed class UniformPool
+    private sealed class UniformArenaPage
     {
-        internal readonly List<nint> Buffers = new();
-        internal int Cursor;
+        internal nint Buffer;
+        internal ulong Capacity;
+        internal byte[] Staging = Array.Empty<byte>();
+        internal ulong Cursor;
+        internal ulong DirtyStart = ulong.MaxValue;
+        internal ulong DirtyEnd;
+    }
+
+    private readonly struct UniformAllocation
+    {
+        internal UniformAllocation(int page, nint buffer, ulong offset, ulong size)
+        {
+            Page = page;
+            Buffer = buffer;
+            Offset = offset;
+            Size = size;
+        }
+
+        internal int Page { get; }
+        internal nint Buffer { get; }
+        internal ulong Offset { get; }
+        internal ulong Size { get; }
     }
 
     private sealed class UploadBuffer
@@ -21,7 +41,11 @@ internal sealed unsafe partial class ModernGraphicsCompat
         internal byte[] Staging = Array.Empty<byte>();
     }
 
-    private readonly Dictionary<ulong, UniformPool> _uniformPools = new();
+    private const ulong UniformAlignment = 256;
+    private const ulong UniformArenaPageBytes = 4UL * 1024 * 1024;
+    private readonly List<UniformArenaPage> _uniformArena = new();
+    private int _uniformArenaPage;
+
     private readonly List<UploadBuffer> _uploadBuffers = new();
     private int _uploadBufferCursor;
 
@@ -37,14 +61,77 @@ internal sealed unsafe partial class ModernGraphicsCompat
 
     internal static void SubmitPending() => Current.FlushCommands();
 
-    private WgpuBuffer* RentUniformBuffer(ulong size)
+    private static ulong AlignUniform(ulong value) =>
+        checked((value + UniformAlignment - 1) & ~(UniformAlignment - 1));
+
+    private UniformAllocation RentUniformBuffer(ulong size)
     {
-        if (!_uniformPools.TryGetValue(size, out var pool))
-            _uniformPools.Add(size, pool = new());
-        if (pool.Cursor == pool.Buffers.Count)
-            pool.Buffers.Add((nint)_api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
-            { Size = size, Usage = BufferUsage.Uniform | BufferUsage.CopyDst }));
-        return (WgpuBuffer*)pool.Buffers[pool.Cursor++];
+        ulong reserved = AlignUniform(Math.Max(4UL, size));
+        while (true)
+        {
+            if (_uniformArenaPage == _uniformArena.Count)
+                _uniformArena.Add(new UniformArenaPage());
+
+            UniformArenaPage page = _uniformArena[_uniformArenaPage];
+            if (page.Buffer == 0)
+            {
+                page.Capacity = Math.Max(UniformArenaPageBytes, reserved);
+                WgpuBuffer* buffer = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
+                {
+                    Size = page.Capacity,
+                    Usage = BufferUsage.Uniform | BufferUsage.CopyDst
+                });
+                if (buffer == null)
+                    throw new InvalidOperationException(
+                        $"Could not allocate {page.Capacity} byte WebGPU uniform arena.");
+                page.Buffer = (nint)buffer;
+                page.Staging = new byte[checked((int)page.Capacity)];
+            }
+
+            ulong offset = AlignUniform(page.Cursor);
+            if (offset + reserved <= page.Capacity)
+            {
+                page.Cursor = offset + reserved;
+                return new UniformAllocation(_uniformArenaPage, page.Buffer, offset, size);
+            }
+
+            _uniformArenaPage++;
+        }
+    }
+
+    private void WriteUniformBuffer(in UniformAllocation allocation, void* data, nuint size)
+    {
+        if ((ulong)size > allocation.Size)
+            throw new ArgumentOutOfRangeException(nameof(size), "Uniform write exceeds its arena allocation.");
+        UniformArenaPage page = _uniformArena[allocation.Page];
+        int offset = checked((int)allocation.Offset);
+        int count = checked((int)size);
+        new ReadOnlySpan<byte>(data, count).CopyTo(page.Staging.AsSpan(offset, count));
+        page.DirtyStart = Math.Min(page.DirtyStart, allocation.Offset);
+        page.DirtyEnd = Math.Max(page.DirtyEnd, allocation.Offset + (ulong)size);
+    }
+
+    private void FlushUniformWrites()
+    {
+        for (int i = 0; i < _uniformArena.Count; i++)
+        {
+            UniformArenaPage page = _uniformArena[i];
+            if (page.Buffer == 0 || page.DirtyStart == ulong.MaxValue
+                || page.DirtyEnd <= page.DirtyStart)
+            {
+                continue;
+            }
+
+            ulong start = page.DirtyStart;
+            ulong size = page.DirtyEnd - start;
+            fixed (byte* basePtr = page.Staging)
+            {
+                WriteProfiledBuffer((WgpuBuffer*)page.Buffer, start,
+                    basePtr + checked((int)start), checked((nuint)size));
+            }
+            page.DirtyStart = ulong.MaxValue;
+            page.DirtyEnd = 0;
+        }
     }
 
     private UploadBuffer RentUploadBuffer(ulong size)
@@ -151,7 +238,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
     {
         // A frame can contain hundreds of tiny compatibility passes. Retaining
         // more of them in one encoder cuts QueueSubmit/finish churn while each
-        // draw still owns its pass and its pooled buffers remain distinct until
+        // draw still owns its pass and its arena slices remain distinct until
         // the frame boundary.
         if (++_commandOperations >= CommandBatchOperations) FlushCommands();
     }
@@ -162,6 +249,10 @@ internal sealed unsafe partial class ModernGraphicsCompat
         CommandBuffer* commands = _api.CommandEncoderFinish(_commandEncoder, new CommandBufferDescriptor());
         try
         {
+            // Uniform writes target independent arena storage. Queue them
+            // immediately before the submission that consumes the recorded
+            // offsets, collapsing hundreds of tiny writes into one per page.
+            FlushUniformWrites();
             long start = PerformanceStart();
             _api.QueueSubmit(_queue, 1, &commands);
             if (start != 0)
@@ -186,10 +277,16 @@ internal sealed unsafe partial class ModernGraphicsCompat
 
     // Call only at a completed public frame/readback boundary, never from a
     // texture upload nested inside an in-progress draw. Queue ordering permits
-    // reuse after submission without waiting for GPU completion.
+    // arena reuse after submission without waiting for GPU completion.
     private void ResetFrameBuffers()
     {
-        foreach (var pool in _uniformPools.Values) pool.Cursor = 0;
+        foreach (UniformArenaPage page in _uniformArena)
+        {
+            page.Cursor = 0;
+            page.DirtyStart = ulong.MaxValue;
+            page.DirtyEnd = 0;
+        }
+        _uniformArenaPage = 0;
         foreach (var program in _generatedPrograms.Values) program.BindGroupCursor = 0;
         _transientGeometryCursor = 0;
         _uploadBufferCursor = 0;
@@ -198,9 +295,9 @@ internal sealed unsafe partial class ModernGraphicsCompat
 
     private void DisposeUniformBuffers()
     {
-        foreach (var pool in _uniformPools.Values)
-            foreach (nint buffer in pool.Buffers) _api.BufferRelease((WgpuBuffer*)buffer);
-        _uniformPools.Clear();
+        foreach (UniformArenaPage page in _uniformArena)
+            if (page.Buffer != 0) _api.BufferRelease((WgpuBuffer*)page.Buffer);
+        _uniformArena.Clear();
         foreach (UploadBuffer upload in _uploadBuffers)
             if (upload.Buffer != 0) _api.BufferRelease((WgpuBuffer*)upload.Buffer);
         _uploadBuffers.Clear();
