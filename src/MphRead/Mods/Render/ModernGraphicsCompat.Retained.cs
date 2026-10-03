@@ -10,9 +10,143 @@ namespace MphRead.Mods.Render
 {
     internal sealed unsafe partial class ModernGraphicsCompat
     {
+        private sealed class RetainedWorldUniformOffsets
+        {
+            internal readonly int UseLight;
+            internal readonly int UseTexture;
+            internal readonly int Light1Vector;
+            internal readonly int Light1Color;
+            internal readonly int Light2Vector;
+            internal readonly int Light2Color;
+            internal readonly int Diffuse;
+            internal readonly int Ambient;
+            internal readonly int Specular;
+            internal readonly int Emission;
+            internal readonly int ViewInverse;
+            internal readonly int TextureMatrix;
+            internal readonly int TexgenMode;
+            internal readonly int MatrixStack;
+            internal readonly int AdvancedMaterials;
+            internal readonly int UseNormalMap;
+            internal readonly int UseSpecularMap;
+            internal readonly int UseEmissiveMap;
+            internal readonly int UseOverride;
+            internal readonly int TexturedPlayerSkin;
+            internal readonly int PlayerOutlineMask;
+            internal readonly int UsePaletteOverride;
+            internal readonly int MaterialAlpha;
+            internal readonly int MaterialMode;
+            internal readonly int UseFlat;
+            internal readonly int CosmeticSkin;
+            internal readonly int CosmeticPreservePalette;
+            internal readonly int CosmeticEffect;
+            internal readonly int PrimeImmColor;
+            internal readonly int PrimeImmNormal;
+            internal readonly int PrimeAlphaFunction;
+            internal readonly int PrimeAlphaReference;
+
+            internal RetainedWorldUniformOffsets(ModernShaderLayout layout)
+            {
+                UseLight = Word(layout, "use_light");
+                UseTexture = Word(layout, "use_texture");
+                Light1Vector = Word(layout, "light1vec");
+                Light1Color = Word(layout, "light1col");
+                Light2Vector = Word(layout, "light2vec");
+                Light2Color = Word(layout, "light2col");
+                Diffuse = Word(layout, "diffuse");
+                Ambient = Word(layout, "ambient");
+                Specular = Word(layout, "specular");
+                Emission = Word(layout, "emission");
+                ViewInverse = Word(layout, "view_inv_mtx");
+                TextureMatrix = Word(layout, "tex_mtx");
+                TexgenMode = Word(layout, "texgen_mode");
+                MatrixStack = Word(layout, "mtx_stack");
+                AdvancedMaterials = Word(layout, "advanced_materials");
+                UseNormalMap = Word(layout, "use_normal_map");
+                UseSpecularMap = Word(layout, "use_specular_map");
+                UseEmissiveMap = Word(layout, "use_emissive_map");
+                UseOverride = Word(layout, "use_override");
+                TexturedPlayerSkin = Word(layout, "textured_player_skin");
+                PlayerOutlineMask = Word(layout, "player_outline_mask");
+                UsePaletteOverride = Word(layout, "use_pal_override");
+                MaterialAlpha = Word(layout, "mat_alpha");
+                MaterialMode = Word(layout, "mat_mode");
+                UseFlat = Word(layout, "use_flat");
+                CosmeticSkin = Word(layout, "cosmetic_skin");
+                CosmeticPreservePalette = Word(layout, "cosmetic_preserve_palette");
+                CosmeticEffect = Word(layout, "cosmetic_effect");
+                PrimeImmColor = Word(layout, "prime_imm_color");
+                PrimeImmNormal = Word(layout, "prime_imm_normal");
+                PrimeAlphaFunction = Word(layout, "prime_alpha_func");
+                PrimeAlphaReference = Word(layout, "prime_alpha_ref");
+            }
+
+            private static int Word(ModernShaderLayout layout, string name)
+            {
+                for (int i = 0; i < layout.Uniforms.Length; i++)
+                {
+                    if (layout.Uniforms[i].Name == name)
+                        return layout.Uniforms[i].Offset / 4;
+                }
+                throw new InvalidOperationException(
+                    $"Generated World layout is missing retained uniform '{name}'.");
+            }
+        }
+
+        private uint[]? _retainedWorldFrameTemplate;
+        private RetainedWorldUniformOffsets? _retainedWorldOffsets;
+        private int _retainedWorldFrameFramebuffer = -1;
+        private int _retainedWorldFrameWidth;
+        private int _retainedWorldFrameHeight;
+        private bool _retainedWorldFrameReady;
+        private long _retainedWorldUniformTemplateBuilds;
+        private long _retainedWorldUniformPatches;
+
+        internal static long RetainedWorldUniformTemplateBuilds =>
+            _current?._retainedWorldUniformTemplateBuilds ?? 0;
+        internal static long RetainedWorldUniformPatches =>
+            _current?._retainedWorldUniformPatches ?? 0;
+
+        internal static void BeginRetainedWorldFrame()
+        {
+            if (_current != null) Current.BeginRetainedWorldFrameCore();
+        }
+
+        private void BeginRetainedWorldFrameCore()
+        {
+            _retainedWorldFrameReady = false;
+            if (CurrentProgramKind() != ModernProgramKind.World)
+                return;
+            if (_resources.DrawFramebuffer == 0 && !AcquireSurfaceTexture())
+                return;
+
+            CoreTarget target = ResolveDrawTarget();
+            GeneratedProgram generated = GeneratedShader(ModernProgramKind.World);
+            ModernGraphicsCompatState.ProgramRecord program =
+                _programs.Program(_programs.CurrentProgram);
+            PopulateGeneratedUniformWords(
+                ModernProgramKind.World, target, generated, program);
+
+            if (_retainedWorldFrameTemplate == null
+                || _retainedWorldFrameTemplate.Length != generated.Words.Length)
+            {
+                _retainedWorldFrameTemplate = new uint[generated.Words.Length];
+            }
+            Array.Copy(generated.Words, _retainedWorldFrameTemplate,
+                generated.Words.Length);
+            _retainedWorldOffsets ??=
+                new RetainedWorldUniformOffsets(generated.Layout);
+            _retainedWorldFrameFramebuffer = _resources.DrawFramebuffer;
+            _retainedWorldFrameWidth = target.Width;
+            _retainedWorldFrameHeight = target.Height;
+            _retainedWorldFrameReady = true;
+            _retainedWorldUniformTemplateBuilds++;
+        }
+
         internal static bool RetainedWorldPacketEligible(RenderItem item) =>
             item.Type == RenderItemType.Mesh
             && item.RenderMode == RenderMode.Normal
+            && item.Alpha >= 0.999f
             && !item.ViewModel
             && item.BillboardMode == BillboardMode.None
             && !item.Wireframe
@@ -69,10 +203,9 @@ namespace MphRead.Mods.Render
                 }
             }
 
-            ModernGraphicsCompatState.ProgramRecord program =
-                _programs.Program(_programs.CurrentProgram);
-            WriteRetainedWorldProgramState(program, item, showTextures, useLighting);
-
+            // Keep the tiny pieces of compatibility shadow state that are
+            // observable by a later fallback draw. Per-packet shader uniforms
+            // are written directly from the retained template below.
             // Keep compatibility shadow state synchronized even though this path
             // does not replay the public GL-style calls.
             _currentColor = new Vector4(item.Diffuse, 1f);
@@ -87,14 +220,31 @@ namespace MphRead.Mods.Render
                 _enabled.Remove(EnableCap.CullFace);
             }
 
-            BindRetainedWorldTextures(item, sampling, showTextures);
+            int baseTexture =
+                BindRetainedWorldTextures(item, sampling, showTextures);
 
             if (_resources.DrawFramebuffer == 0 && !AcquireSurfaceTexture())
                 return true;
             _device.ThrowIfFailed();
             CoreTarget target = ResolveDrawTarget();
 
-            PrepareGeneratedResources(ModernProgramKind.World, target);
+            if (!_retainedWorldFrameReady
+                || _retainedWorldFrameTemplate == null
+                || _retainedWorldOffsets == null
+                || _retainedWorldFrameFramebuffer != _resources.DrawFramebuffer
+                || _retainedWorldFrameWidth != target.Width
+                || _retainedWorldFrameHeight != target.Height)
+            {
+                return false;
+            }
+
+            GeneratedProgram generated = GeneratedShader(ModernProgramKind.World);
+            Array.Copy(_retainedWorldFrameTemplate, generated.Words,
+                generated.Words.Length);
+            PatchRetainedWorldUniformWords(
+                generated, item, baseTexture, showTextures, useLighting);
+            UploadGeneratedUniformWords(generated);
+
             CorePipelineRecord pipeline = CorePipeline(
                 ModernProgramKind.World, PrimitiveTopology.TriangleList, target);
             BindGroup* bindGroup = GeneratedBindGroup(
@@ -124,7 +274,7 @@ namespace MphRead.Mods.Render
             return true;
         }
 
-        private void BindRetainedWorldTextures(RenderItem item,
+        private int BindRetainedWorldTextures(RenderItem item,
             TextureSamplerDescriptor sampling, bool showTextures)
         {
             int baseTexture = item.HasTexture && showTextures
@@ -143,6 +293,7 @@ namespace MphRead.Mods.Render
             _resources.ActiveTexture(TextureUnit.Texture3);
             _resources.BindTexture(TextureTarget.Texture2D, 0);
             _resources.ActiveTexture(TextureUnit.Texture0);
+            return baseTexture;
         }
 
         private void ApplyRetainedTextureSampling(int texture,
@@ -191,94 +342,115 @@ namespace MphRead.Mods.Render
             _ => TextureWrapMode.ClampToEdge
         };
 
-        private static void WriteRetainedWorldProgramState(
-            ModernGraphicsCompatState.ProgramRecord program, RenderItem item,
+        private void PatchRetainedWorldUniformWords(
+            GeneratedProgram generated, RenderItem item, int baseTexture,
             bool showTextures, bool useLighting)
         {
-            DirectInt(program, "use_light", useLighting && item.Lighting ? 1 : 0);
-            DirectInt(program, "use_texture",
-                item.HasTexture && showTextures ? 1 : 0);
-            DirectVec3(program, "light1vec", item.LightInfo.Light1Vector);
-            DirectVec3(program, "light1col", item.LightInfo.Light1Color);
-            DirectVec3(program, "light2vec", item.LightInfo.Light2Vector);
-            DirectVec3(program, "light2col", item.LightInfo.Light2Color);
-            DirectVec3(program, "diffuse", item.Diffuse);
-            DirectVec3(program, "ambient", item.Ambient);
-            DirectVec3(program, "specular", item.Specular);
-            DirectVec3(program, "emission", item.Emission);
-            DirectMatrix(program, "view_inv_mtx", Matrix4.Identity);
-            DirectMatrix(program, "tex_mtx", item.TexcoordMatrix);
-            DirectInt(program, "texgen_mode", (int)item.TexgenMode);
-            DirectMatrix(program, "mtx_stack", item.Transform);
-            DirectFloat(program, "mat_alpha", item.Alpha);
-            DirectInt(program, "mat_mode", (int)item.PolygonMode);
+            uint[] words = generated.Words;
+            RetainedWorldUniformOffsets o = _retainedWorldOffsets!;
 
-            DirectInt(program, "advanced_materials", 0);
-            DirectInt(program, "use_normal_map", 0);
-            DirectInt(program, "use_specular_map", 0);
-            DirectInt(program, "use_emissive_map", 0);
-            DirectInt(program, "use_override", 0);
-            DirectInt(program, "use_pal_override", 0);
-            DirectInt(program, "textured_player_skin", 0);
-            DirectInt(program, "player_outline_mask", 0);
-            DirectInt(program, "use_flat", 0);
-            DirectInt(program, "cosmetic_skin", 0);
-            DirectInt(program, "cosmetic_preserve_palette", 0);
-            DirectInt(program, "cosmetic_effect", 0);
+            RetainedInt(words, o.UseLight,
+                useLighting && item.Lighting ? 1 : 0);
+            RetainedInt(words, o.UseTexture,
+                item.HasTexture && showTextures && baseTexture != 0 ? 1 : 0);
+            RetainedVec3(words, o.Light1Vector, item.LightInfo.Light1Vector);
+            RetainedVec3(words, o.Light1Color, item.LightInfo.Light1Color);
+            RetainedVec3(words, o.Light2Vector, item.LightInfo.Light2Vector);
+            RetainedVec3(words, o.Light2Color, item.LightInfo.Light2Color);
+            RetainedVec3(words, o.Diffuse, item.Diffuse);
+            RetainedVec3(words, o.Ambient, item.Ambient);
+            RetainedVec3(words, o.Specular, item.Specular);
+            RetainedVec3(words, o.Emission, item.Emission);
+            RetainedMatrix(words, o.ViewInverse, Matrix4.Identity);
+            RetainedMatrix(words, o.TextureMatrix, item.TexcoordMatrix);
+            RetainedInt(words, o.TexgenMode, (int)item.TexgenMode);
+            RetainedMatrix(words, o.MatrixStack, item.Transform);
+            RetainedFloat(words, o.MaterialAlpha, item.Alpha);
+            RetainedInt(words, o.MaterialMode, (int)item.PolygonMode);
 
-            // Generated shader sampler uniforms are ordinary integer uniforms.
-            DirectInt(program, "tex", 0);
-            DirectInt(program, "normal_tex", 1);
-            DirectInt(program, "specular_tex", 2);
-            DirectInt(program, "emissive_tex", 3);
-        }
+            // Direct eligibility excludes these features. Force their shader
+            // gates off so stale compatibility state cannot leak into a packet.
+            RetainedInt(words, o.AdvancedMaterials, 0);
+            RetainedInt(words, o.UseNormalMap, 0);
+            RetainedInt(words, o.UseSpecularMap, 0);
+            RetainedInt(words, o.UseEmissiveMap, 0);
+            RetainedInt(words, o.UseOverride, 0);
+            RetainedInt(words, o.TexturedPlayerSkin, 0);
+            RetainedInt(words, o.PlayerOutlineMask, 0);
+            RetainedInt(words, o.UsePaletteOverride, 0);
+            RetainedInt(words, o.UseFlat, 0);
+            RetainedInt(words, o.CosmeticSkin, 0);
+            RetainedInt(words, o.CosmeticPreservePalette, 0);
+            RetainedInt(words, o.CosmeticEffect, 0);
 
-        private static void DirectInt(ModernGraphicsCompatState.ProgramRecord program,
-            string name, int value)
-        {
-            program.Uniforms[name] = new ModernGraphicsCompatState.UniformValue(value);
-        }
+            RetainedVec4(words, o.PrimeImmColor,
+                new Vector4(item.Diffuse, 1f));
+            RetainedVec3(words, o.PrimeImmNormal, _currentNormal);
+            RetainedInt(words, o.PrimeAlphaFunction,
+                (int)(_enabled.Contains(EnableCap.AlphaTest)
+                    ? _alphaFunction : AlphaFunction.Always));
+            RetainedFloat(words, o.PrimeAlphaReference, _alphaReference);
 
-        private static void DirectFloat(ModernGraphicsCompatState.ProgramRecord program,
-            string name, float value)
-        {
-            Span<float> data = stackalloc float[1] { value };
-            DirectFloats(program, name, data);
-        }
-
-        private static void DirectVec3(ModernGraphicsCompatState.ProgramRecord program,
-            string name, Vector3 value)
-        {
-            Span<float> data = stackalloc float[3] { value.X, value.Y, value.Z };
-            DirectFloats(program, name, data);
-        }
-
-        private static void DirectMatrix(ModernGraphicsCompatState.ProgramRecord program,
-            string name, Matrix4 value)
-        {
-            Span<float> data = stackalloc float[16]
+            // Direct World uses unit zero only. Companion maps stay disabled.
+            for (int i = 0; i < generated.Textures.Length; i++)
             {
-                value.M11, value.M12, value.M13, value.M14,
-                value.M21, value.M22, value.M23, value.M24,
-                value.M31, value.M32, value.M33, value.M34,
-                value.M41, value.M42, value.M43, value.M44
-            };
-            DirectFloats(program, name, data);
-        }
-
-        private static void DirectFloats(ModernGraphicsCompatState.ProgramRecord program,
-            string name, ReadOnlySpan<float> values)
-        {
-            if (program.Uniforms.TryGetValue(name,
-                out ModernGraphicsCompatState.UniformValue existing)
-                && existing.Data?.Length == values.Length)
-            {
-                values.CopyTo(existing.Data);
-                return;
+                generated.Textures[i] = 0;
+                int flip = generated.Layout.FlipOffset / 4 + i * 4;
+                generated.Words[flip] = 0;
+                generated.Words[flip + 1] = 0;
+                generated.Words[flip + 2] = 0;
+                generated.Words[flip + 3] = 0;
             }
-            program.Uniforms[name] =
-                new ModernGraphicsCompatState.UniformValue(values.ToArray());
+            if (generated.Textures.Length > 0 && baseTexture != 0)
+            {
+                generated.Textures[0] = ValidateRenderPassResources(
+                    0, required: true, ResolveDrawTarget());
+            }
+
+            _retainedWorldUniformPatches++;
         }
+
+        private static void RetainedInt(uint[] words, int at, int value) =>
+            words[at] = unchecked((uint)value);
+
+        private static void RetainedFloat(uint[] words, int at, float value) =>
+            words[at] = BitConverter.SingleToUInt32Bits(value);
+
+        private static void RetainedVec3(uint[] words, int at, Vector3 value)
+        {
+            RetainedFloat(words, at, value.X);
+            RetainedFloat(words, at + 1, value.Y);
+            RetainedFloat(words, at + 2, value.Z);
+        }
+
+        private static void RetainedVec4(uint[] words, int at, Vector4 value)
+        {
+            RetainedFloat(words, at, value.X);
+            RetainedFloat(words, at + 1, value.Y);
+            RetainedFloat(words, at + 2, value.Z);
+            RetainedFloat(words, at + 3, value.W);
+        }
+
+        private static void RetainedMatrix(uint[] words, int at, Matrix4 value)
+        {
+            RetainedFloat(words, at, value.M11);
+            RetainedFloat(words, at + 1, value.M12);
+            RetainedFloat(words, at + 2, value.M13);
+            RetainedFloat(words, at + 3, value.M14);
+            RetainedFloat(words, at + 4, value.M21);
+            RetainedFloat(words, at + 5, value.M22);
+            RetainedFloat(words, at + 6, value.M23);
+            RetainedFloat(words, at + 7, value.M24);
+            RetainedFloat(words, at + 8, value.M31);
+            RetainedFloat(words, at + 9, value.M32);
+            RetainedFloat(words, at + 10, value.M33);
+            RetainedFloat(words, at + 11, value.M34);
+            RetainedFloat(words, at + 12, value.M41);
+            RetainedFloat(words, at + 13, value.M42);
+            RetainedFloat(words, at + 14, value.M43);
+            RetainedFloat(words, at + 15, value.M44);
+        }
+
     }
 }
 #endif
