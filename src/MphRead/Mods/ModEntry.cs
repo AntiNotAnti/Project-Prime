@@ -595,7 +595,11 @@ namespace MphRead.Mods
                 Launcher.Gui.Shell.StudioWindow = true;
                 WindowMode.ForceStartup(WindowStartMode.Windowed);
                 Launcher.Gui.Shell.StudioProjectPath = ValueAfter(args, "studioproject");
-                Launcher.Gui.Shell.Run();
+                using (Launcher.ClientInstanceGuard.Lease? instance =
+                    Launcher.ClientInstanceGuard.TryAcquire(TimeSpan.FromSeconds(3)))
+                {
+                    if (instance != null) Launcher.Gui.Shell.Run();
+                }
 #else
                 Console.WriteLine("[mapeditor] Map Studio requires a desktop game build.");
                 Environment.ExitCode = 1;
