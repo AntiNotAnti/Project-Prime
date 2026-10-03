@@ -62,6 +62,19 @@ namespace MphRead.Mods.Network
         public static Process? Running { get; private set; }
 
         /// <summary>
+        /// Transfer ownership of the most recently started process to a hosted
+        /// child wrapper. Hosted pools own their children directly; leaving the
+        /// handle in this singleton made an unrelated later Start overwrite the
+        /// only way to identify the process that had just been created.
+        /// </summary>
+        internal static Process? DetachRunning()
+        {
+            Process? process = Running;
+            Running = null;
+            return process;
+        }
+
+        /// <summary>
         /// What would be started, or null when nothing here can start a
         /// server.
         ///
@@ -672,27 +685,13 @@ namespace MphRead.Mods.Network
         /// </summary>
         private static int FreePort()
         {
-            var taken = new HashSet<int>();
-            try
+            // Binding is the authoritative availability check. Enumerating the
+            // process-wide listener table first duplicated the same work and
+            // still could not close the race between discovery and child bind.
+            for (int port = NetConfig.DefaultPort;
+                 port < NetConfig.DefaultPort + 40; port++)
             {
-                foreach (IPEndPoint endPoint in IPGlobalProperties
-                    .GetIPGlobalProperties().GetActiveUdpListeners())
-                {
-                    taken.Add(endPoint.Port);
-                }
-            }
-            catch (Exception)
-            {
-                // Not every platform will say. Binding is the real test and
-                // is done below anyway.
-            }
-            for (int port = NetConfig.DefaultPort; port < NetConfig.DefaultPort + 40; port++)
-            {
-                if (taken.Contains(port) || !CanBind(port))
-                {
-                    continue;
-                }
-                return port;
+                if (CanBind(port)) return port;
             }
             return -1;
         }
