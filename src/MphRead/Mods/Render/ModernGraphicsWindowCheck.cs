@@ -93,6 +93,7 @@ namespace MphRead.Mods.Render
                     RunDeviceRecoveryCheck();
                     RunMipmapCheck();
                     RunLargeTextureMipmapCheck();
+                    RunProgressiveTexturePromotionCheck();
                     RunReadbackOrientationCheck();
                     ModernGraphicsCompat.BeginPerformanceSample();
                     TextureUpdateCheck.Verify();
@@ -653,6 +654,87 @@ namespace MphRead.Mods.Render
                 }
                 ModernGraphicsCompat.Present();
                 Console.WriteLine("[renderwindowcheck] 4096-wide staged mip chain PASS");
+            }
+            finally
+            {
+                GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
+                GraphicsApi.DeleteTexture(texture);
+            }
+        }
+
+        private static void RunProgressiveTexturePromotionCheck()
+        {
+            const int width = 2048, height = 1536;
+            int texture = GraphicsApi.GenTexture();
+            try
+            {
+                GraphicsApi.ActiveTexture(TextureUnit.Texture0);
+                GraphicsApi.BindTexture(TextureTarget.Texture2D, texture);
+                GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                    TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+                GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                    TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+                GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0,
+                    PixelInternalFormat.Rgba8, 2, 2, 0,
+                    PixelFormat.Rgba, PixelType.UnsignedByte,
+                    new byte[]
+                    {
+                        255,0,0,255, 255,0,0,255,
+                        255,0,0,255, 255,0,0,255
+                    });
+                ModernGraphicsCompat.EnsureBoundTextureResident();
+                if (ModernGraphicsCompat.NativeTextureSizeForCheck(texture) != (2, 2))
+                    throw new InvalidOperationException("Progressive upload fixture did not establish the live fallback texture.");
+
+                byte[] replacement = new byte[width * height * 4];
+                for (int at = 0; at < replacement.Length; at += 4)
+                {
+                    replacement[at + 1] = 255;
+                    replacement[at + 3] = 255;
+                }
+                GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0,
+                    PixelInternalFormat.Rgba8, width, height, 0,
+                    PixelFormat.Rgba, PixelType.UnsignedByte, replacement);
+                GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                    TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
+                GraphicsApi.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+
+                if (ModernGraphicsCompat.PendingTextureUploadCount != 1
+                    || ModernGraphicsCompat.NativeTextureSizeForCheck(texture) != (2, 2))
+                {
+                    throw new InvalidOperationException(
+                        "Large replacement did not retain the complete live fallback while promotion began.");
+                }
+
+                // 2048 RGBA rows are 8 KiB each. A 4 MiB frame budget therefore
+                // uploads 512 rows, so this 1536-row image must take three
+                // presentation boundaries before it becomes live.
+                ModernGraphicsCompat.Present();
+                if (ModernGraphicsCompat.PendingTextureUploadCount != 1
+                    || ModernGraphicsCompat.NativeTextureSizeForCheck(texture) != (2, 2))
+                    throw new InvalidOperationException("Progressive texture swapped after the first chunk.");
+                ModernGraphicsCompat.Present();
+                if (ModernGraphicsCompat.PendingTextureUploadCount != 1
+                    || ModernGraphicsCompat.NativeTextureSizeForCheck(texture) != (2, 2))
+                    throw new InvalidOperationException("Progressive texture swapped after the second chunk.");
+                ModernGraphicsCompat.Present();
+                if (ModernGraphicsCompat.PendingTextureUploadCount != 1
+                    || ModernGraphicsCompat.NativeTextureSizeForCheck(texture) != (2, 2))
+                    throw new InvalidOperationException("Progressive texture swapped before its mip chain was complete.");
+
+                // Mips are deliberately one level per presentation after the
+                // base image. Bound the loop so a stalled promotion is a test
+                // failure rather than an infinite renderer check.
+                int mipFrames = 0;
+                while (ModernGraphicsCompat.PendingTextureUploadCount != 0 && mipFrames++ < 16)
+                    ModernGraphicsCompat.Present();
+                if (ModernGraphicsCompat.PendingTextureUploadCount != 0
+                    || ModernGraphicsCompat.NativeTextureSizeForCheck(texture) != (width, height))
+                {
+                    throw new InvalidOperationException(
+                        "Progressive texture did not atomically replace the fallback after its mip chain.");
+                }
+                Console.WriteLine($"[renderwindowcheck] multi-frame large texture promotion PASS mipFrames={mipFrames}");
             }
             finally
             {

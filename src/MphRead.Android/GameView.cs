@@ -897,6 +897,13 @@ namespace MphRead.Droid
                 try
                 {
                     AndroidPerformance.PrepareForWindow(_size.X, _size.Y);
+                    if (_modern)
+                    {
+                        // This thread owns the WebGPU device and the loading
+                        // notice still covers the surface. Compile common
+                        // pipelines here instead of lazily during gameplay.
+                        ModernGraphicsCompat.PrewarmCommonPipelines();
+                    }
                     Scene = _build(_input, _size);
                     Scene.OnLoad();
                     // Compile/execute the real presentation path once while the

@@ -43,6 +43,25 @@ namespace MphRead.Mods.Render
             internal int MipCount;
         }
 
+        private sealed class PendingTextureUpload
+        {
+            internal NativeTexture Native = null!;
+            internal byte[] SourcePixels = Array.Empty<byte>();
+            internal byte[] Data = Array.Empty<byte>();
+            internal int NextRow;
+            internal int NextMipLevel = 1;
+            internal WgpuTexture* MipScratch;
+            internal TextureView* MipScratchView;
+            internal bool Ready;
+        }
+
+        // Large RGBA HD replacements used to replace a live native texture with
+        // one 16-256 MiB QueueWriteTexture during a draw frame. Keep the old
+        // texture sampled while a hidden replacement receives bounded row
+        // chunks, then swap only after the complete image (and mip chain) exists.
+        private const int ProgressiveTextureUploadThresholdBytes = 8 * 1024 * 1024;
+        private const int ProgressiveTextureUploadChunkBytes = 4 * 1024 * 1024;
+
         private sealed class GeometryList
         {
             internal float[] Vertices = Array.Empty<float>();
@@ -117,6 +136,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         private readonly LegacyGeometryBatch _batch = new();
         private readonly Dictionary<int, GeometryList> _lists = new();
         private readonly Dictionary<int, NativeTexture> _nativeTextures = new();
+        private readonly Dictionary<int, PendingTextureUpload> _pendingTextureUploads = new();
         private readonly Dictionary<PipelineKey, PipelineRecord> _pipelines = new();
         private readonly HashSet<EnableCap> _enabled = new();
 
@@ -290,6 +310,16 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         }
 
         internal static bool Active => _current != null;
+
+        internal static int PendingTextureUploadCount
+            => _current?._pendingTextureUploads.Count ?? 0;
+
+        internal static (int Width, int Height)? NativeTextureSizeForCheck(int texture)
+        {
+            if (_current == null || !_current._nativeTextures.TryGetValue(texture, out NativeTexture? native))
+                return null;
+            return (native.Width, native.Height);
+        }
 
 #if !ANDROID
         internal static void Initialize(NativeWindow window, GraphicsBackend backend)
@@ -556,6 +586,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         {
             ModernGraphicsCompat self = Current;
             self._resources.DeleteTexture(texture);
+            self.CancelPendingTextureUpload(texture);
             if (self._nativeTextures.Remove(texture, out NativeTexture? native))
             {
                 self.ReleaseNativeTexture(native);
@@ -586,6 +617,13 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         internal static void TexImage2D<T>(TextureTarget target, PixelInternalFormat internalFormat,
             int width, int height, PixelFormat format, PixelType type, T[] pixels) where T : struct =>
             Current._resources.TexImage2D(target, internalFormat, width, height, format, type, pixels);
+
+        internal static void EnsureBoundTextureResident()
+        {
+            ModernGraphicsCompat self = Current;
+            int id = self._resources.BoundTexture(self._resources.ActiveTextureUnit);
+            if (id != 0) self.EnsureTexture(id);
+        }
 
         internal static void TexSubImage2D(TextureTarget target, int x, int y, int width, int height,
             PixelFormat format, PixelType type, IntPtr pixels)
@@ -874,6 +912,9 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             DiscardCommands();
             DisposeFrameBindGroups();
             ReleaseSurfaceTexture();
+            foreach (PendingTextureUpload pending in _pendingTextureUploads.Values)
+                ReleasePendingTextureUpload(pending);
+            _pendingTextureUploads.Clear();
             foreach (NativeTexture texture in _nativeTextures.Values) ReleaseNativeTexture(texture);
             _nativeTextures.Clear();
             foreach (PipelineRecord pipeline in _pipelines.Values)
@@ -1009,7 +1050,13 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         private void PresentCore()
         {
             _device.ThrowIfFailed();
+            // Hidden HD replacements are safe to advance after this frame has
+            // finished authoring its draws. Mip generation, when a base upload
+            // completes, joins the same submission. The live texture is swapped
+            // only after that submission is queued.
+            PumpPendingTextureUpload();
             FlushCommands();
+            FinalizePendingTextureUploads();
             ResetFrameBuffers();
             if (!_surfaceAcquired) return;
             _api.SurfacePresent(_device.Surface);
@@ -1113,6 +1160,30 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 ? Math.Max(1, record.CompressedMips?.Length ?? 1)
                 : record.HasMipmaps && !depth
                     ? 1 + (int)Math.Floor(Math.Log2(Math.Max(width, height))) : 1;
+
+            if (_pendingTextureUploads.TryGetValue(id, out PendingTextureUpload? pending))
+            {
+                if (!ReferenceEquals(pending.SourcePixels, record.Pixels)
+                    || pending.Native.Width != width || pending.Native.Height != height
+                    || pending.Native.Format != format || pending.Native.MipCount != mipCount)
+                {
+                    CancelPendingTextureUpload(id);
+                }
+                else if (existing != null)
+                {
+                    // Keep sampling the complete old/native image while the
+                    // hidden HD replacement is filled over subsequent frames.
+                    return existing;
+                }
+            }
+
+            if (existing != null && record.Dirty && !compressed && !depth
+                && !record.FramebufferOrigin && data.Length > ProgressiveTextureUploadThresholdBytes)
+            {
+                BeginPendingTextureUpload(id, record, format, width, height, mipCount, data);
+                return existing;
+            }
+
             if (existing != null && existing.Width == width && existing.Height == height
                 && existing.Format == format && existing.MipCount == mipCount)
             {
@@ -1352,46 +1423,46 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                     throw new InvalidOperationException("Could not create staged mip view.");
 
                 for (int level = 1; level < native.MipCount; level++)
-                {
-                    TextureView* source = CreateMipView(native, level - 1);
-                    try
-                    {
-                        int sw = Math.Max(1, native.Width >> (level - 1));
-                        int sh = Math.Max(1, native.Height >> (level - 1));
-                        int dw = Math.Max(1, native.Width >> level);
-                        int dh = Math.Max(1, native.Height >> level);
-
-                        // Use the reusable surface's upper-left dw x dh region.
-                        // BlitTargets receives the logical destination extent,
-                        // so the viewport and sampling remain identical to the
-                        // previous one-texture-per-level implementation.
-                        BlitTargets(new CoreTarget(native.Texture, source, native.Format, null, sw, sh),
-                            new CoreTarget(scratch, scratchView, native.Format, null, dw, dh),
-                            0, 0, sw, sh, 0, 0, dw, dh, BlitFramebufferFilter.Linear);
-
-                        var from = new ImageCopyTexture
-                        {
-                            Texture = scratch, MipLevel = 0, Aspect = TextureAspect.All
-                        };
-                        var to = new ImageCopyTexture
-                        {
-                            Texture = native.Texture, MipLevel = (uint)level, Aspect = TextureAspect.All
-                        };
-                        var extent = new Extent3D((uint)dw, (uint)dh, 1);
-                        _api.CommandEncoderCopyTextureToTexture(
-                            BeginCommands(), &from, &to, &extent);
-                        EndCommands();
-                    }
-                    finally
-                    {
-                        _api.TextureViewRelease(source);
-                    }
-                }
+                    GenerateNativeMipmapLevel(native, scratch, scratchView, level);
             }
             finally
             {
                 if (scratchView != null) _api.TextureViewRelease(scratchView);
                 if (scratch != null) _api.TextureRelease(scratch);
+            }
+        }
+
+        private void GenerateNativeMipmapLevel(NativeTexture native,
+            WgpuTexture* scratch, TextureView* scratchView, int level)
+        {
+            TextureView* source = CreateMipView(native, level - 1);
+            try
+            {
+                int sw = Math.Max(1, native.Width >> (level - 1));
+                int sh = Math.Max(1, native.Height >> (level - 1));
+                int dw = Math.Max(1, native.Width >> level);
+                int dh = Math.Max(1, native.Height >> level);
+
+                BlitTargets(new CoreTarget(native.Texture, source, native.Format, null, sw, sh),
+                    new CoreTarget(scratch, scratchView, native.Format, null, dw, dh),
+                    0, 0, sw, sh, 0, 0, dw, dh, BlitFramebufferFilter.Linear);
+
+                var from = new ImageCopyTexture
+                {
+                    Texture = scratch, MipLevel = 0, Aspect = TextureAspect.All
+                };
+                var to = new ImageCopyTexture
+                {
+                    Texture = native.Texture, MipLevel = (uint)level, Aspect = TextureAspect.All
+                };
+                var extent = new Extent3D((uint)dw, (uint)dh, 1);
+                _api.CommandEncoderCopyTextureToTexture(
+                    BeginCommands(), &from, &to, &extent);
+                EndCommands();
+            }
+            finally
+            {
+                _api.TextureViewRelease(source);
             }
         }
 
@@ -1807,6 +1878,188 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 if (mappedSuccessfully) _api.BufferUnmap(readback);
 
                 _api.BufferRelease(readback);
+            }
+        }
+
+        private void BeginPendingTextureUpload(int id,
+            ModernGraphicsResourceState.TextureRecord record, WgpuTextureFormat format,
+            int width, int height, int mipCount, byte[] data)
+        {
+            CancelPendingTextureUpload(id);
+            var descriptor = new TextureDescriptor
+            {
+                Size = new Extent3D((uint)width, (uint)height, 1),
+                Format = format,
+                Usage = TextureUsage.CopyDst | TextureUsage.TextureBinding
+                    | TextureUsage.RenderAttachment | TextureUsage.CopySrc,
+                MipLevelCount = (uint)mipCount,
+                SampleCount = 1,
+                Dimension = TextureDimension.Dimension2D
+            };
+            var native = new NativeTexture
+            {
+                Texture = _api.DeviceCreateTexture(_device.Device, descriptor),
+                Format = format,
+                Width = width,
+                Height = height,
+                MipCount = mipCount
+            };
+            if (native.Texture == null)
+                throw new InvalidOperationException($"Could not allocate progressive modern texture {id}.");
+
+            _pendingTextureUploads[id] = new PendingTextureUpload
+            {
+                Native = native,
+                SourcePixels = record.Pixels!,
+                Data = data
+            };
+            Mods.DebugLog.Line("render",
+                $"progressive GPU upload texture {id}: {width}x{height}, "
+                + $"{data.LongLength / (1024.0 * 1024.0):0.0} MiB");
+        }
+
+        private void CancelPendingTextureUpload(int id)
+        {
+            if (_pendingTextureUploads.Remove(id, out PendingTextureUpload? pending))
+                ReleasePendingTextureUpload(pending);
+        }
+
+        private void ReleasePendingTextureUpload(PendingTextureUpload pending)
+        {
+            if (pending.MipScratchView != null)
+                _api.TextureViewRelease(pending.MipScratchView);
+            if (pending.MipScratch != null)
+                _api.TextureRelease(pending.MipScratch);
+            pending.MipScratchView = null;
+            pending.MipScratch = null;
+            ReleaseNativeTexture(pending.Native);
+        }
+
+        private void EnsurePendingMipScratch(PendingTextureUpload pending)
+        {
+            if (pending.MipScratch != null) return;
+            NativeTexture native = pending.Native;
+            int width = Math.Max(1, native.Width >> 1);
+            int height = Math.Max(1, native.Height >> 1);
+            pending.MipScratch = _api.DeviceCreateTexture(_device.Device, new TextureDescriptor
+            {
+                Size = new Extent3D((uint)width, (uint)height, 1),
+                Format = native.Format,
+                Usage = TextureUsage.RenderAttachment | TextureUsage.TextureBinding
+                    | TextureUsage.CopySrc,
+                MipLevelCount = 1,
+                SampleCount = 1,
+                Dimension = TextureDimension.Dimension2D
+            });
+            if (pending.MipScratch == null)
+                throw new InvalidOperationException("Could not allocate progressive mip staging texture.");
+            pending.MipScratchView = _api.TextureCreateView(pending.MipScratch, null);
+            if (pending.MipScratchView == null)
+                throw new InvalidOperationException("Could not create progressive mip staging view.");
+        }
+
+        private void PumpPendingTextureUpload()
+        {
+            foreach (KeyValuePair<int, PendingTextureUpload> pair in _pendingTextureUploads)
+            {
+                PendingTextureUpload pending = pair.Value;
+                if (pending.Ready) continue;
+
+                NativeTexture native = pending.Native;
+                if (pending.NextRow < native.Height)
+                {
+                    int pixelBytes = native.Format == WgpuTextureFormat.Rgba16float ? 8 : 4;
+                    int rowBytes = checked(native.Width * pixelBytes);
+                    int rows = Math.Max(1, ProgressiveTextureUploadChunkBytes / Math.Max(1, rowBytes));
+                    rows = Math.Min(rows, native.Height - pending.NextRow);
+                    int byteOffset = checked(pending.NextRow * rowBytes);
+                    int byteCount = checked(rows * rowBytes);
+                    var destination = new ImageCopyTexture
+                    {
+                        Texture = native.Texture,
+                        Origin = new Origin3D(0, (uint)pending.NextRow, 0),
+                        Aspect = TextureAspect.All,
+                        MipLevel = 0
+                    };
+                    var layout = new TextureDataLayout
+                    {
+                        BytesPerRow = (uint)rowBytes,
+                        RowsPerImage = (uint)rows
+                    };
+                    var extent = new Extent3D((uint)native.Width, (uint)rows, 1);
+                    long start = PerformanceStart();
+                    fixed (byte* data = pending.Data)
+                    {
+                        _api.QueueWriteTexture(_queue, destination, data + byteOffset,
+                            (nuint)byteCount, layout, extent);
+                    }
+                    if (start != 0)
+                    {
+                        _textureUploadBytes += byteCount;
+                        _textureUploadMs += System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+                    }
+                    pending.NextRow += rows;
+                    break;
+                }
+
+                if (pending.NextMipLevel < native.MipCount)
+                {
+                    EnsurePendingMipScratch(pending);
+                    GenerateNativeMipmapLevel(native, pending.MipScratch,
+                        pending.MipScratchView, pending.NextMipLevel++);
+                    if (pending.NextMipLevel >= native.MipCount)
+                    {
+                        // Keep the staging objects alive until FlushCommands has
+                        // submitted the final render/copy commands that reference them.
+                        pending.Ready = true;
+                    }
+                    break;
+                }
+
+                pending.Ready = true;
+                break;
+            }
+        }
+
+        private void FinalizePendingTextureUploads()
+        {
+            if (_pendingTextureUploads.Count == 0) return;
+            foreach (int id in new List<int>(_pendingTextureUploads.Keys))
+            {
+                PendingTextureUpload pending = _pendingTextureUploads[id];
+                if (!pending.Ready) continue;
+
+                ModernGraphicsResourceState.TextureRecord record;
+                try { record = _resources.Texture(id); }
+                catch
+                {
+                    CancelPendingTextureUpload(id);
+                    continue;
+                }
+                if (!ReferenceEquals(record.Pixels, pending.SourcePixels)
+                    || record.Width != pending.Native.Width
+                    || record.Height != pending.Native.Height)
+                {
+                    CancelPendingTextureUpload(id);
+                    continue;
+                }
+
+                NativeTexture native = pending.Native;
+                native.View = CreateMipView(native, 0);
+                native.SampleView = native.MipCount > 1
+                    ? _api.TextureCreateView(native.Texture, null)
+                    : native.View;
+                UpdateSampler(native, record);
+
+                _pendingTextureUploads.Remove(id);
+                if (pending.MipScratchView != null) _api.TextureViewRelease(pending.MipScratchView);
+                if (pending.MipScratch != null) _api.TextureRelease(pending.MipScratch);
+                if (_nativeTextures.Remove(id, out NativeTexture? old))
+                    ReleaseNativeTexture(old);
+                _nativeTextures[id] = native;
+                record.NativeMipCount = native.MipCount;
+                record.Dirty = record.MipmapsDirty = false;
+                record.SamplerDirty = false;
             }
         }
 
