@@ -827,12 +827,27 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 try
                 {
-                    DebugLog.Line("startup", "post-first-frame maintenance begin");
+                    DebugLog.Line("startup", "post-first-frame work begin");
+                    MapGen.MapDefinition[] deferred = MapGen.CustomRooms.DeferInitialRegistration
+                        ? MapGen.CustomRooms.Definitions.ToArray()
+                        : Array.Empty<MapGen.MapDefinition>();
+                    token.ThrowIfCancellationRequested();
+                    if (deferred.Length > 0)
+                    {
+                        Avalonia.Threading.Dispatcher.UIThread.Post(
+                            () => PublishDeferredCustomRooms(deferred, token),
+                            Avalonia.Threading.DispatcherPriority.Background);
+                    }
+
                     Maintenance.RunStartup();
                     token.ThrowIfCancellationRequested();
                     ThumbnailGenerator.EnsureCustomPreviews(
                         line => DebugLog.Line("thumbnails", line), token);
-                    DebugLog.Line("startup", "post-first-frame maintenance complete");
+                    token.ThrowIfCancellationRequested();
+                    Avalonia.Threading.Dispatcher.UIThread.Post(
+                        () => _front?.BeginDeferredPreviewCatchup(token),
+                        Avalonia.Threading.DispatcherPriority.Background);
+                    DebugLog.Line("startup", "post-first-frame work complete");
                 }
                 catch (OperationCanceledException)
                 {
@@ -846,6 +861,30 @@ namespace MphRead.Mods.Launcher.Gui
                     DebugLog.Exception("startup-background", ex);
                 }
             }, token);
+        }
+
+
+        private static void PublishDeferredCustomRooms(
+            IReadOnlyList<MapGen.MapDefinition> definitions, CancellationToken token)
+        {
+            if (!Active || token.IsCancellationRequested) return;
+            try
+            {
+                foreach (MapGen.MapDefinition definition in definitions)
+                {
+                    if (token.IsCancellationRequested) return;
+                    Metadata.RegisterDownloadedMap(definition);
+                }
+                IReadOnlyList<string> rooms = ThumbnailGenerator.MultiplayerRooms();
+                _rooms = rooms;
+                _front?.RefreshDeferredRooms(rooms);
+                DebugLog.Line("startup",
+                    $"registered {definitions.Count} deferred custom map(s)");
+            }
+            catch (Exception ex)
+            {
+                DebugLog.Exception("startup-map-registration", ex);
+            }
         }
 
         private static Vector2i _shotWindowedSize, _shotWindowedLocation;
