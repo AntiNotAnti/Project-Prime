@@ -135,12 +135,18 @@ namespace MphRead
                 GL.PolygonMode(TriangleFace.FrontAndBack, OpenTK.Graphics.OpenGL.PolygonMode.Fill);
                 GL.Enable(EnableCap.Blend);
                 GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-                GL.Begin(PrimitiveType.TriangleStrip);
-                GL.TexCoord3(1f, 1f, 0f); GL.Vertex3(1f, 1f, 0f);
-                GL.TexCoord3(0f, 1f, 0f); GL.Vertex3(-1f, 1f, 0f);
-                GL.TexCoord3(1f, 0f, 0f); GL.Vertex3(1f, -1f, 0f);
-                GL.TexCoord3(0f, 0f, 0f); GL.Vertex3(-1f, -1f, 0f);
-                GL.End();
+#if !MPHREAD_SERVER
+                if (!Mods.Render.ModernGraphicsCompat.Active
+                    || !Mods.Render.ModernGraphicsCompat.TryDrawRetainedFullscreenQuad())
+#endif
+                {
+                    GL.Begin(PrimitiveType.TriangleStrip);
+                    GL.TexCoord3(1f, 1f, 0f); GL.Vertex3(1f, 1f, 0f);
+                    GL.TexCoord3(0f, 1f, 0f); GL.Vertex3(-1f, 1f, 0f);
+                    GL.TexCoord3(1f, 0f, 0f); GL.Vertex3(1f, -1f, 0f);
+                    GL.TexCoord3(0f, 0f, 0f); GL.Vertex3(-1f, -1f, 0f);
+                    GL.End();
+                }
             }
             catch (ProgramException ex)
             {
