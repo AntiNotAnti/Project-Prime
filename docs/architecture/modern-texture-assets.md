@@ -114,4 +114,8 @@ resolution limits.
 
 The managed bindings are provided by Ktx2.NET 1.0.5. Windows x64 and Linux x64
 use its runtime assets. macOS and Android package a repository-built libktx
-pinned to KTX-Software v4.4.2 through `tools/ktx/build-native.sh`.
+from the same maintainer fork/revision used when Ktx2.NET 1.0.5 refreshed its
+native libraries: BoyBaykiller/KTX-Software commit
+`6b3d8bf15788f604c6b91dd95fafabb6c59cd723`. The pin lives in
+`tools/ktx/build-native.sh` so the managed struct layout and native ABI stay
+aligned across platforms.
