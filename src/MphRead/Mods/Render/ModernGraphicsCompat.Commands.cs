@@ -252,6 +252,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
             // Uniform writes target independent arena storage. Queue them
             // immediately before the submission that consumes the recorded
             // offsets, collapsing hundreds of tiny writes into one per page.
+            FlushGeometryWrites();
             FlushUniformWrites();
             long start = PerformanceStart();
             _api.QueueSubmit(_queue, 1, &commands);
@@ -288,7 +289,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
         }
         _uniformArenaPage = 0;
         foreach (var program in _generatedPrograms.Values) program.BindGroupCursor = 0;
-        _transientGeometryCursor = 0;
+        ResetGeometryArena();
         _uploadBufferCursor = 0;
         _frameBindGroupCursor = 0;
     }
