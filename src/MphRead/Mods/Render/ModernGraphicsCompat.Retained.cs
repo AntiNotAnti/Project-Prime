@@ -1,5 +1,6 @@
 #if !MPHREAD_SERVER
 using System;
+using MphRead;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using Silk.NET.WebGPU;
@@ -9,11 +10,25 @@ namespace MphRead.Mods.Render
 {
     internal sealed unsafe partial class ModernGraphicsCompat
     {
+        internal static bool RetainedWorldPacketEligible(RenderItem item) =>
+            item.Type == RenderItemType.Mesh
+            && item.RenderMode == RenderMode.Normal
+            && !item.ViewModel
+            && item.BillboardMode == BillboardMode.None
+            && !item.Wireframe
+            && item.MatrixStackCount == 0
+            && item.Cosmetics == default
+            && item.CosmeticMaterial == default
+            && item.OverrideColor == null
+            && item.PaletteOverride == null
+            && !item.TexturedPlayerSkin
+            && item.PlayerOutlineColor == null;
+
         internal static bool TryDrawRetainedWorld(RenderItem item,
             RetainedMeshDescriptor mesh, TextureSamplerDescriptor sampling,
             bool showTextures, bool useLighting, bool faceCulling)
         {
-            if (_current == null) return false;
+            if (_current == null || !RetainedWorldPacketEligible(item)) return false;
             return Current.TryDrawRetainedWorldCore(item, mesh, sampling,
                 showTextures, useLighting, faceCulling);
         }
@@ -23,19 +38,7 @@ namespace MphRead.Mods.Render
             bool showTextures, bool useLighting, bool faceCulling)
         {
             if (CurrentProgramKind() != ModernProgramKind.World
-                || item.Type != RenderItemType.Mesh
-                || item.RenderMode != RenderMode.Normal
-                || item.ViewModel
-                || item.BillboardMode != BillboardMode.None
-                || item.Wireframe
                 || _wireframe
-                || item.MatrixStackCount != 0
-                || item.Cosmetics != default
-                || item.CosmeticMaterial != default
-                || item.OverrideColor != null
-                || item.PaletteOverride != null
-                || item.TexturedPlayerSkin
-                || item.PlayerOutlineColor != null
                 || RenderOptions.AdvancedMaterials
                 || RenderOptions.CelShading)
             {
