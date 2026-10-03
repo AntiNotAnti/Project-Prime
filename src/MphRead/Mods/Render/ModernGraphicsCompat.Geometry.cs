@@ -67,6 +67,29 @@ namespace MphRead.Mods.Render
             return edges;
         }
 
+        private void PrepareRetainedListGeometry(GeometryList geometry)
+        {
+            // Display-list arrays are immutable after EndList. Promote their
+            // triangle/line streams into persistent native buffers while the
+            // room/model is loading instead of hitching on the first visible
+            // frame that happens to call the list.
+            bool drawingList = _drawingList;
+            _drawingList = true;
+            try
+            {
+                if (geometry.Triangles.Length > 0)
+                    geometry.TriangleGeometry = PrepareGeometry(
+                        geometry.Vertices, geometry.Triangles);
+                if (geometry.Lines.Length > 0)
+                    geometry.LineGeometry = PrepareGeometry(
+                        geometry.Vertices, geometry.Lines);
+            }
+            finally
+            {
+                _drawingList = drawingList;
+            }
+        }
+
         private NativeGeometry PrepareGeometry(float[] vertices, int[] indices, bool cache = true)
         {
             bool persistent = cache && _drawingList;
@@ -81,11 +104,16 @@ namespace MphRead.Mods.Render
             GrowBuffer(ref geometry.Vertex, ref geometry.VertexCapacity, vertexBytes, BufferUsage.Vertex);
             GrowBuffer(ref geometry.Index, ref geometry.IndexCapacity, indexBytes, BufferUsage.Index);
             fixed (float* ptr = vertices)
-                _api.QueueWriteBuffer(_queue, geometry.Vertex, 0, ptr, (nuint)vertexBytes);
+                WriteProfiledBuffer(geometry.Vertex, 0, ptr, (nuint)vertexBytes);
             fixed (int* ptr = indices)
-                _api.QueueWriteBuffer(_queue, geometry.Index, 0, ptr, (nuint)indexBytes);
+                WriteProfiledBuffer(geometry.Index, 0, ptr, (nuint)indexBytes);
             geometry.VertexOffset = geometry.IndexOffset = 0;
             _geometryCache.Add(key, geometry);
+            if (_measurePerformance)
+            {
+                _retainedGeometryPromotions++;
+                _retainedGeometryBytes += checked((long)(vertexBytes + indexBytes));
+            }
             return geometry;
         }
 
