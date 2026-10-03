@@ -41,6 +41,45 @@ internal static class CommunityMapChecks
             using (var stream = zip.CreateEntry("manifest.json").Open()) stream.Write(JsonSerializer.SerializeToUtf8Bytes(manifest, MapPackageReader.JsonOptions));
             return path;
         }
+        string CatalogOnlyFixture()
+        {
+            string path = Path.Combine(root, "catalog-lightweight.ppmap");
+            Guid mapId = Guid.NewGuid();
+            const string previewPath = "preview/card.png";
+            var definition = new MapDefinition
+            {
+                FormatVersion = 2, MapId = mapId, Name = "CATALOG_FAST_PATH", Version = "1"
+            };
+            definition.Assets.Add(new MapAsset { Path = previewPath, Kind = "preview" });
+            byte[] project = Encoding.UTF8.GetBytes(definition.Serialize());
+            byte[] preview = { 137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 13,
+                73, 72, 68, 82, 0, 0, 0, 1, 0, 0, 0, 1 };
+            // Deliberately wrong digest. Catalog/presentation reads should not
+            // stream every asset to verify it; strict use must still reject it.
+            var manifest = new MapPackageManifest
+            {
+                MapId = mapId, Name = definition.Name, MapVersion = definition.Version,
+                ContentHash = new string('0', 64), Preview = previewPath
+            };
+            using var zip = ZipFile.Open(path, ZipArchiveMode.Create);
+            using (var stream = zip.CreateEntry("project.json").Open()) stream.Write(project);
+            using (var stream = zip.CreateEntry(previewPath).Open()) stream.Write(preview);
+            using (var stream = zip.CreateEntry("manifest.json").Open())
+                stream.Write(JsonSerializer.SerializeToUtf8Bytes(manifest, MapPackageReader.JsonOptions));
+            return path;
+        }
+
+        string catalogFixture = CatalogOnlyFixture();
+        string catalogProject = MapPackageReader.ReadProjectForCatalog(catalogFixture);
+        check(catalogProject.Contains("CATALOG_FAST_PATH", StringComparison.Ordinal),
+            "catalog package read does not require full content hashing");
+        check(MapPackageReader.ReadCatalogEntry(catalogFixture, "preview/card.png")?.Length == 24,
+            "catalog preview reads one bounded entry without full package hashing");
+        bool strictCatalogRejected = false;
+        try { using var strict = new MapPackageReader(catalogFixture); }
+        catch (InvalidDataException) { strictCatalogRejected = true; }
+        check(strictCatalogRejected,
+            "strict package reader still rejects a digest mismatch at trust boundaries");
         try
         {
             string one = Package("1"); var v1 = await client.UploadAsync(one, default);
