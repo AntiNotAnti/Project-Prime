@@ -148,8 +148,24 @@ namespace MphRead.Mods.Render
         {
             try
             {
-                _ = new RetainedWorldUniformOffsets(
-                    GeneratedShaderLayouts.Get(ModernProgramKind.World));
+                ModernShaderLayout layout =
+                    GeneratedShaderLayouts.Get(ModernProgramKind.World);
+                _ = new RetainedWorldUniformOffsets(layout);
+                string[] expectedSamplers =
+                    { "tex", "normal_tex", "specular_tex", "emissive_tex" };
+                if (layout.Samplers.Length != expectedSamplers.Length)
+                {
+                    error = $"generated World sampler count is {layout.Samplers.Length}, expected {expectedSamplers.Length}";
+                    return false;
+                }
+                for (int i = 0; i < expectedSamplers.Length; i++)
+                {
+                    if (layout.Samplers[i] != expectedSamplers[i])
+                    {
+                        error = $"generated World sampler {i} is '{layout.Samplers[i]}', expected '{expectedSamplers[i]}'";
+                        return false;
+                    }
+                }
                 error = "";
                 return true;
             }
@@ -176,21 +192,20 @@ namespace MphRead.Mods.Render
             && item.PlayerOutlineColor == null;
 
         internal static bool TryDrawRetainedWorld(RenderItem item,
-            RetainedMeshDescriptor mesh, TextureSamplerDescriptor sampling,
+            RetainedMeshDescriptor mesh, RetainedWorldTextureSet textures,
             bool showTextures, bool useLighting, bool faceCulling)
         {
             if (_current == null || !RetainedWorldPacketEligible(item)) return false;
-            return Current.TryDrawRetainedWorldCore(item, mesh, sampling,
+            return Current.TryDrawRetainedWorldCore(item, mesh, textures,
                 showTextures, useLighting, faceCulling);
         }
 
         private bool TryDrawRetainedWorldCore(RenderItem item,
-            RetainedMeshDescriptor mesh, TextureSamplerDescriptor sampling,
+            RetainedMeshDescriptor mesh, RetainedWorldTextureSet textures,
             bool showTextures, bool useLighting, bool faceCulling)
         {
             if (CurrentProgramKind() != ModernProgramKind.World
                 || _wireframe
-                || RenderOptions.AdvancedMaterials
                 || RenderOptions.CelShading)
             {
                 return false;
@@ -237,8 +252,8 @@ namespace MphRead.Mods.Render
                 _enabled.Remove(EnableCap.CullFace);
             }
 
-            int baseTexture =
-                BindRetainedWorldTextures(item, sampling, showTextures);
+            BindRetainedWorldTextures(
+                textures, item.XRepeat, item.YRepeat);
 
             if (_resources.DrawFramebuffer == 0 && !AcquireSurfaceTexture())
                 return true;
@@ -259,7 +274,7 @@ namespace MphRead.Mods.Render
             Array.Copy(_retainedWorldFrameTemplate, generated.Words,
                 generated.Words.Length);
             PatchRetainedWorldUniformWords(
-                generated, target, item, baseTexture, showTextures, useLighting);
+                generated, target, item, textures, showTextures, useLighting);
             UploadGeneratedUniformWords(generated);
 
             CorePipelineRecord pipeline = CorePipeline(
@@ -291,26 +306,23 @@ namespace MphRead.Mods.Render
             return true;
         }
 
-        private int BindRetainedWorldTextures(RenderItem item,
-            TextureSamplerDescriptor sampling, bool showTextures)
+        private void BindRetainedWorldTextures(
+            RetainedWorldTextureSet textures,
+            RepeatMode xRepeat, RepeatMode yRepeat)
         {
-            int baseTexture = item.HasTexture && showTextures
-                ? item.TextureBindingId : 0;
-
+            for (int unit = 0; unit < 4; unit++)
+            {
+                RetainedTextureBinding binding = textures.At(unit);
+                _resources.ActiveTexture(
+                    (TextureUnit)((int)TextureUnit.Texture0 + unit));
+                _resources.BindTexture(TextureTarget.Texture2D, binding.Id);
+                if (binding.IsBound && binding.ApplySampling)
+                {
+                    ApplyRetainedTextureSampling(
+                        binding.Id, binding.Sampling, xRepeat, yRepeat);
+                }
+            }
             _resources.ActiveTexture(TextureUnit.Texture0);
-            _resources.BindTexture(TextureTarget.Texture2D, baseTexture);
-            if (baseTexture != 0)
-                ApplyRetainedTextureSampling(baseTexture, sampling,
-                    item.XRepeat, item.YRepeat);
-
-            _resources.ActiveTexture(TextureUnit.Texture1);
-            _resources.BindTexture(TextureTarget.Texture2D, 0);
-            _resources.ActiveTexture(TextureUnit.Texture2);
-            _resources.BindTexture(TextureTarget.Texture2D, 0);
-            _resources.ActiveTexture(TextureUnit.Texture3);
-            _resources.BindTexture(TextureTarget.Texture2D, 0);
-            _resources.ActiveTexture(TextureUnit.Texture0);
-            return baseTexture;
         }
 
         private void ApplyRetainedTextureSampling(int texture,
@@ -361,7 +373,8 @@ namespace MphRead.Mods.Render
 
         private void PatchRetainedWorldUniformWords(
             GeneratedProgram generated, CoreTarget target, RenderItem item,
-            int baseTexture, bool showTextures, bool useLighting)
+            RetainedWorldTextureSet textures,
+            bool showTextures, bool useLighting)
         {
             uint[] words = generated.Words;
             RetainedWorldUniformOffsets o = _retainedWorldOffsets!;
@@ -369,7 +382,7 @@ namespace MphRead.Mods.Render
             RetainedInt(words, o.UseLight,
                 useLighting && item.Lighting ? 1 : 0);
             RetainedInt(words, o.UseTexture,
-                item.HasTexture && showTextures && baseTexture != 0 ? 1 : 0);
+                item.HasTexture && showTextures && textures.Albedo.IsBound ? 1 : 0);
             RetainedVec3(words, o.Light1Vector, item.LightInfo.Light1Vector);
             RetainedVec3(words, o.Light1Color, item.LightInfo.Light1Color);
             RetainedVec3(words, o.Light2Vector, item.LightInfo.Light2Vector);
@@ -385,12 +398,14 @@ namespace MphRead.Mods.Render
             RetainedFloat(words, o.MaterialAlpha, item.Alpha);
             RetainedInt(words, o.MaterialMode, (int)item.PolygonMode);
 
-            // Direct eligibility excludes these features. Force their shader
-            // gates off so stale compatibility state cannot leak into a packet.
-            RetainedInt(words, o.AdvancedMaterials, 0);
-            RetainedInt(words, o.UseNormalMap, 0);
-            RetainedInt(words, o.UseSpecularMap, 0);
-            RetainedInt(words, o.UseEmissiveMap, 0);
+            RetainedInt(words, o.AdvancedMaterials, textures.Advanced ? 1 : 0);
+            RetainedInt(words, o.UseNormalMap, textures.Normal.IsBound ? 1 : 0);
+            RetainedInt(words, o.UseSpecularMap, textures.Specular.IsBound ? 1 : 0);
+            RetainedInt(words, o.UseEmissiveMap, textures.Emissive.IsBound ? 1 : 0);
+
+            // Direct eligibility still excludes the remaining special material
+            // features. Force their gates off so stale compatibility state
+            // cannot leak into a packet.
             RetainedInt(words, o.UseOverride, 0);
             RetainedInt(words, o.TexturedPlayerSkin, 0);
             RetainedInt(words, o.PlayerOutlineMask, 0);
@@ -408,20 +423,21 @@ namespace MphRead.Mods.Render
                     ? _alphaFunction : AlphaFunction.Always));
             RetainedFloat(words, o.PrimeAlphaReference, _alphaReference);
 
-            // Direct World uses unit zero only. Companion maps stay disabled.
             for (int i = 0; i < generated.Textures.Length; i++)
             {
-                generated.Textures[i] = 0;
+                RetainedTextureBinding binding = textures.At(i);
+                generated.Textures[i] = binding.IsBound
+                    ? ValidateRenderPassResources(i, required: true, target)
+                    : 0;
                 int flip = generated.Layout.FlipOffset / 4 + i * 4;
-                generated.Words[flip] = 0;
+                float flipY = generated.Textures[i] != 0
+                    && _resources.IsFramebufferTexture(generated.Textures[i])
+                    ? 1f : 0f;
+                generated.Words[flip] =
+                    unchecked((uint)BitConverter.SingleToInt32Bits(flipY));
                 generated.Words[flip + 1] = 0;
                 generated.Words[flip + 2] = 0;
                 generated.Words[flip + 3] = 0;
-            }
-            if (generated.Textures.Length > 0 && baseTexture != 0)
-            {
-                generated.Textures[0] = ValidateRenderPassResources(
-                    0, required: true, target);
             }
 
             _retainedWorldUniformPatches++;

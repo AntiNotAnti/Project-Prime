@@ -63,6 +63,7 @@ internal static class ModernRenderBenchmark
                     long samplerApplicationsStart = scene.TextureSamplerStateApplications;
                     long samplerHitsStart = scene.TextureSamplerStateCacheHits;
                     long directDrawsStart = scene.RetainedDirectWorldDraws;
+                    long directAdvancedDrawsStart = scene.RetainedDirectAdvancedWorldDraws;
                     long compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
                     long templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
                     long uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
@@ -76,6 +77,7 @@ internal static class ModernRenderBenchmark
                             samplerApplicationsStart = scene.TextureSamplerStateApplications;
                             samplerHitsStart = scene.TextureSamplerStateCacheHits;
                             directDrawsStart = scene.RetainedDirectWorldDraws;
+                            directAdvancedDrawsStart = scene.RetainedDirectAdvancedWorldDraws;
                             compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
                             templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
                             uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
@@ -113,6 +115,7 @@ internal static class ModernRenderBenchmark
                         samplerStateApplications = scene.TextureSamplerStateApplications - samplerApplicationsStart,
                         samplerStateCacheHits = scene.TextureSamplerStateCacheHits - samplerHitsStart,
                         retainedDirectWorldDraws = scene.RetainedDirectWorldDraws - directDrawsStart,
+                        retainedDirectAdvancedWorldDraws = scene.RetainedDirectAdvancedWorldDraws - directAdvancedDrawsStart,
                         retainedCompatibilityWorldDraws = scene.RetainedCompatibilityWorldDraws - compatibilityDrawsStart,
                         retainedWorldUniformTemplateBuilds = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds - templateBuildsStart,
                         retainedWorldUniformPatches = ModernGraphicsCompat.RetainedWorldUniformPatches - uniformPatchesStart,

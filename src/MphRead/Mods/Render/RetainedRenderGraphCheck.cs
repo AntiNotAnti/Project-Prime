@@ -142,6 +142,22 @@ namespace MphRead.Mods.Render
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
                 "alpha-blended normal mesh skips the opaque direct path");
 
+            var baseOnly = new RetainedWorldTextureSet(
+                new RetainedTextureBinding(10, default, true),
+                default, default, default);
+            Check(!baseOnly.Advanced && baseOnly.At(0).Id == 10,
+                "base-only retained texture set stays non-advanced");
+            var advanced = new RetainedWorldTextureSet(
+                new RetainedTextureBinding(10, default, true),
+                new RetainedTextureBinding(11, default, true),
+                new RetainedTextureBinding(12, default, true),
+                new RetainedTextureBinding(13, default, true));
+            Check(advanced.Advanced
+                && advanced.At(1).Id == 11
+                && advanced.At(2).Id == 12
+                && advanced.At(3).Id == 13,
+                "retained texture set preserves companion map units");
+
             Console.WriteLine(failures == 0
                 ? "[rendergraphcheck] PASS"
                 : $"[rendergraphcheck] FAIL: {failures} check(s)");

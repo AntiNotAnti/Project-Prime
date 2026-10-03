@@ -357,9 +357,13 @@ namespace MphRead
         internal long RetainedRoomTemplateBuilds => _room?.RetainedRoomTemplateBuilds ?? 0;
         internal long RetainedRoomTemplateHits => _room?.RetainedRoomTemplateHits ?? 0;
         private long _retainedDirectWorldDraws;
+        private long _retainedDirectAdvancedWorldDraws;
         private long _retainedCompatibilityWorldDraws;
         internal long RetainedDirectWorldDraws => _retainedDirectWorldDraws;
-        internal long RetainedCompatibilityWorldDraws => _retainedCompatibilityWorldDraws;
+        internal long RetainedDirectAdvancedWorldDraws =>
+            _retainedDirectAdvancedWorldDraws;
+        internal long RetainedCompatibilityWorldDraws =>
+            _retainedCompatibilityWorldDraws;
         internal ulong RetainedRenderFrameRevision => _retainedRenderWorld.FrameRevision;
 
         private void CaptureRetainedRenderWorld()
@@ -397,7 +401,6 @@ namespace MphRead
             bool directSceneState = directPass
                 && !_editorMaterialPreview
                 && _wireframeLevel == 0
-                && !Mods.RenderOptions.AdvancedMaterials
                 && !Mods.RenderOptions.CelShading;
 
             for (int batchIndex = 0; batchIndex < batches.Count; batchIndex++)
@@ -419,22 +422,18 @@ namespace MphRead
 #if !MPHREAD_SERVER
                     if (directSceneState && Mods.Render.ModernGraphicsCompat.Active)
                     {
-                        Mods.Render.TextureSamplerDescriptor sampling =
-                            RetainedTextureSampling(item);
+                        Mods.Render.RetainedWorldTextureSet textures =
+                            RetainedWorldTextures(item);
                         if (Mods.Render.ModernGraphicsCompat.TryDrawRetainedWorld(
-                            item, packet.Mesh, sampling, _showTextures,
+                            item, packet.Mesh, textures, _showTextures,
                             LightingOn, _faceCulling))
                         {
                             _retainedDirectWorldDraws++;
+                            if (textures.Advanced)
+                                _retainedDirectAdvancedWorldDraws++;
                             compatibilitySharedStateValid = false;
-                            if (item.HasTexture && _showTextures)
-                            {
-                                _appliedTextureSampling[item.TextureBindingId] =
-                                    new Mods.Render.AppliedTextureSamplingState(
-                                        sampling, item.XRepeat, item.YRepeat);
-                                if (sampling.Mipmaps)
-                                    _mipmappedTextures.Add(item.TextureBindingId);
-                            }
+                            NoteRetainedTextureSampling(
+                                textures, item.XRepeat, item.YRepeat);
                             continue;
                         }
                     }
@@ -449,17 +448,56 @@ namespace MphRead
             FinishViewModelRenderRun();
         }
 
-        private Mods.Render.TextureSamplerDescriptor RetainedTextureSampling(
+        private Mods.Render.RetainedWorldTextureSet RetainedWorldTextures(
             RenderItem item)
         {
-            if (item.HasTexture
-                && _modernTextureSampling.TryGetValue(item.TextureBindingId,
-                    out var modern))
+            int albedo = item.HasTexture && _showTextures
+                ? item.TextureBindingId : 0;
+            Mods.Render.MaterialMapBindings maps = default;
+            if (Mods.RenderOptions.AdvancedMaterials && item.HasTexture)
+                _materialMaps.TryGetValue(item.TextureBindingId, out maps);
+
+            return new Mods.Render.RetainedWorldTextureSet(
+                RetainedTextureBinding(albedo, alwaysSample: true),
+                RetainedTextureBinding(maps.Normal, alwaysSample: false),
+                RetainedTextureBinding(maps.Specular, alwaysSample: false),
+                RetainedTextureBinding(maps.Emissive, alwaysSample: false));
+        }
+
+        private Mods.Render.RetainedTextureBinding RetainedTextureBinding(
+            int binding, bool alwaysSample)
+        {
+            if (binding == 0)
+                return default;
+            if (_modernTextureSampling.TryGetValue(binding, out var modern))
             {
-                return Mods.Render.TextureSamplingPolicy.ResolveModern(
-                    modern.AssetClass, modern.Channel);
+                return new Mods.Render.RetainedTextureBinding(
+                    binding,
+                    Mods.Render.TextureSamplingPolicy.ResolveModern(
+                        modern.AssetClass, modern.Channel),
+                    ApplySampling: true);
             }
-            return Mods.Render.TextureSamplingPolicy.ResolveNativeWorld();
+            return new Mods.Render.RetainedTextureBinding(
+                binding,
+                Mods.Render.TextureSamplingPolicy.ResolveNativeWorld(),
+                ApplySampling: alwaysSample);
+        }
+
+        private void NoteRetainedTextureSampling(
+            Mods.Render.RetainedWorldTextureSet textures,
+            RepeatMode xRepeat, RepeatMode yRepeat)
+        {
+            for (int unit = 0; unit < 4; unit++)
+            {
+                Mods.Render.RetainedTextureBinding binding = textures.At(unit);
+                if (!binding.IsBound || !binding.ApplySampling)
+                    continue;
+                _appliedTextureSampling[binding.Id] =
+                    new Mods.Render.AppliedTextureSamplingState(
+                        binding.Sampling, xRepeat, yRepeat);
+                if (binding.Sampling.Mipmaps)
+                    _mipmappedTextures.Add(binding.Id);
+            }
         }
 
         /// <summary>
@@ -473,7 +511,6 @@ namespace MphRead
             bool directWorldEnabled = Mods.Render.ModernGraphicsCompat.Active
                 && !_editorMaterialPreview
                 && _wireframeLevel == 0
-                && !Mods.RenderOptions.AdvancedMaterials
                 && !Mods.RenderOptions.CelShading;
             if (directWorldEnabled)
                 Mods.Render.ModernGraphicsCompat.BeginRetainedWorldFrame();

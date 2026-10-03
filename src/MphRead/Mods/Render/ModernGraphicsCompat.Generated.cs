@@ -176,8 +176,13 @@ namespace MphRead.Mods.Render
                     _ => null
                 };
                 int unit = Int(program, name);
-                int id = ValidateRenderPassResources(unit,
-                    flag == null || Int(program, flag) != 0, target);
+                bool required = flag == null || Int(program, flag) != 0;
+                if (kind == ModernProgramKind.World
+                    && name is "normal_tex" or "specular_tex" or "emissive_tex")
+                {
+                    required &= Int(program, "advanced_materials") != 0;
+                }
+                int id = ValidateRenderPassResources(unit, required, target);
                 generated.Textures[i] = id;
                 generated.Words[generated.Layout.FlipOffset / 4 + i * 4] =
                     unchecked((uint)BitConverter.SingleToInt32Bits(
