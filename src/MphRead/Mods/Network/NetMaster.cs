@@ -260,6 +260,8 @@ namespace MphRead.Mods.Network
         private readonly System.Diagnostics.Stopwatch _clock = new();
         private uint _publicAddress;
         private string _publicName = "";
+        private bool _hostingReady = true;
+        private string _hostingUnavailable = "";
 
         /// <summary>
         /// The range of ports this directory may start games on.
@@ -272,7 +274,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         public void SetHostPorts(int first, int last) => _hosts.SetPorts(first, last);
 
-        public bool CanHost => _hosts.CanHost;
+        public bool CanHost => _hosts.CanHost && _hostingReady;
 
         public MasterServer(int port = NetMasterConfig.DefaultPort)
         {
@@ -359,7 +361,22 @@ namespace MphRead.Mods.Network
             {
                 Log($"servers on this machine are listed as {_publicName}");
             }
-            Log(_hosts.Describe());
+            if (_hosts.CanHost)
+            {
+                string? gameProblem = Launcher.GameFiles.Problem();
+                _hostingReady = LocalServer.Ready && gameProblem == null;
+                if (!_hostingReady)
+                {
+                    _hostingUnavailable = !LocalServer.Ready
+                        ? "no dedicated-server executable is available"
+                        : gameProblem ?? "authoritative game files are unavailable";
+                    Log("hosted lobby allocation disabled: " + _hostingUnavailable);
+                }
+            }
+            Log(CanHost ? _hosts.Describe()
+                : _hosts.CanHost
+                    ? "not starting games: " + _hostingUnavailable
+                    : _hosts.Describe());
             _clock.Restart();
             double lastReport = 0;
             double lastHostReap = double.NegativeInfinity;
@@ -406,9 +423,10 @@ namespace MphRead.Mods.Network
                     Log($"{_entries.Count} server(s) listed"
                         + (_hosts.Count > 0 ? $", {_hosts.Count} started here" : ""));
                 }
-                // Nothing here is time-critical: a heartbeat every fifteen
-                // seconds and a query whenever somebody opens a launcher.
-                Thread.Sleep(20);
+                // UDP receive owns its blocking worker. Sleep this lightweight
+                // allocator until traffic arrives, with a bounded maintenance
+                // deadline for map completions, reaping and update checks.
+                _transport.WaitForActivity(50);
             }
             Log("shutting down");
             _mapRequests.Dispose();
@@ -1113,7 +1131,7 @@ namespace MphRead.Mods.Network
                 socket.Send(challengeWire, challengeWire.Length, endPoint);
 
                 var challengeFrom = new IPEndPoint(IPAddress.Any, 0);
-                socket.Client.ReceiveTimeout = Math.Clamp(timeoutMs, 250, 1500);
+                socket.Client.ReceiveTimeout = 250;
                 HostChallengeReplyPacket challengeReply = default;
                 bool challenged = false;
                 DateTime challengeDeadline = DateTime.UtcNow.AddMilliseconds(
@@ -1137,6 +1155,11 @@ namespace MphRead.Mods.Network
                     catch (SocketException ex) when (ex.SocketErrorCode
                         == SocketError.TimedOut)
                     {
+                        if (DateTime.UtcNow < challengeDeadline)
+                        {
+                            socket.Send(challengeWire, challengeWire.Length, endPoint);
+                            continue;
+                        }
                         break;
                     }
                 }
