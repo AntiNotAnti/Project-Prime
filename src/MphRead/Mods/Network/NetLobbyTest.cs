@@ -645,13 +645,26 @@ namespace MphRead.Mods.Network
                 "protocol 32 roster upgrades with handicap disabled");
             for (int length = 0; length < rosterBytes.Length; length++) Check(!RosterPacket.TryRead(rosterBytes.AsSpan(0, length), out _), "truncated roster");
             Check(!new HostRequestPacket().RequireReady, "host requests default ready off");
-            var host = new HostRequestPacket { Protocol = NetConfig.ProtocolVersion, MaxPlayers = 8, RoomKey = "room", ServerName = "test",
+            const string unicodeServerName = "Rémëlle ー's lobby";
+            var host = new HostRequestPacket { Protocol = NetConfig.ProtocolVersion, MaxPlayers = 8, RoomKey = "room", ServerName = unicodeServerName,
                 Policy = ServerSessionPolicy.Lobby, RequireReady = true, AllowJoinInProgress = true, Format = MatchFormat.FourVsFour,
                 HostNonce = 12345, HostCookie = 67890 };
             byte[] hostBytes = new byte[host.Length]; host.Write(hostBytes); var hr = HostRequestPacket.Read(hostBytes);
             Check(hr.Policy == host.Policy && hr.Format == host.Format && hr.RequireReady && hr.AllowJoinInProgress
-                && hr.HostNonce == host.HostNonce && hr.HostCookie == host.HostCookie,
-                "host options and protected allocation proof round trip");
+                && hr.HostNonce == host.HostNonce && hr.HostCookie == host.HostCookie
+                && hr.ServerName == unicodeServerName,
+                "host options, Unicode lobby name and protected allocation proof round trip");
+
+            byte[] masterBytes = new byte[MasterEntryPacket.Size];
+            new MasterEntryPacket { ServerName = unicodeServerName }.Write(masterBytes);
+            Check(MasterEntryPacket.Read(masterBytes).ServerName == unicodeServerName,
+                "directory entries preserve Unicode server names");
+
+            Span<byte> boundary = stackalloc byte[HostRequestPacket.MaxNameBytes];
+            string prefix = new string('A', HostRequestPacket.MaxNameBytes - 1);
+            NetText.Write(boundary, prefix + "é");
+            Check(NetText.Read(boundary) == prefix,
+                "fixed-width UTF-8 text never truncates inside a Unicode scalar");
             var hostSender = new IPEndPoint(IPAddress.Loopback, 30123);
             HostChallengeReplyPacket proof = HostRequestGuard.Challenge(hostSender,
                 new HostChallengePacket((byte)NetConfig.ProtocolVersion, 555), 30);
