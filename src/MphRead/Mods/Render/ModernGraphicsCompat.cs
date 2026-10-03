@@ -308,6 +308,16 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
         internal static bool Active => _current != null;
 
+        internal static int PendingTextureUploadCount
+            => _current?._pendingTextureUploads.Count ?? 0;
+
+        internal static (int Width, int Height)? NativeTextureSizeForCheck(int texture)
+        {
+            if (_current == null || !_current._nativeTextures.TryGetValue(texture, out NativeTexture? native))
+                return null;
+            return (native.Width, native.Height);
+        }
+
 #if !ANDROID
         internal static void Initialize(NativeWindow window, GraphicsBackend backend)
         {
