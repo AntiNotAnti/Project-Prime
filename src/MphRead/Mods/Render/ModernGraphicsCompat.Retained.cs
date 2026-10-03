@@ -32,9 +32,11 @@ namespace MphRead.Mods.Render
             internal readonly int UseSpecularMap;
             internal readonly int UseEmissiveMap;
             internal readonly int UseOverride;
+            internal readonly int OverrideColor;
             internal readonly int TexturedPlayerSkin;
             internal readonly int PlayerOutlineMask;
             internal readonly int UsePaletteOverride;
+            internal readonly int PaletteOverrideColor;
             internal readonly int MaterialAlpha;
             internal readonly int MaterialMode;
             internal readonly int UseFlat;
@@ -68,9 +70,11 @@ namespace MphRead.Mods.Render
                 UseSpecularMap = Word(layout, "use_specular_map");
                 UseEmissiveMap = Word(layout, "use_emissive_map");
                 UseOverride = Word(layout, "use_override");
+                OverrideColor = Word(layout, "override_color");
                 TexturedPlayerSkin = Word(layout, "textured_player_skin");
                 PlayerOutlineMask = Word(layout, "player_outline_mask");
                 UsePaletteOverride = Word(layout, "use_pal_override");
+                PaletteOverrideColor = Word(layout, "pal_override_color");
                 MaterialAlpha = Word(layout, "mat_alpha");
                 MaterialMode = Word(layout, "mat_mode");
                 UseFlat = Word(layout, "use_flat");
@@ -189,8 +193,6 @@ namespace MphRead.Mods.Render
                 32, item.MatrixStack.Length / 16)
             && item.Cosmetics == default
             && item.CosmeticMaterial == default
-            && item.OverrideColor == null
-            && item.PaletteOverride == null
             && !item.TexturedPlayerSkin
             && item.PlayerOutlineColor == null;
 
@@ -424,10 +426,27 @@ namespace MphRead.Mods.Render
             // Direct eligibility still excludes the remaining special material
             // features. Force their gates off so stale compatibility state
             // cannot leak into a packet.
-            RetainedInt(words, o.UseOverride, 0);
+            if (item.OverrideColor.HasValue)
+            {
+                RetainedInt(words, o.UseOverride, 1);
+                RetainedVec4(words, o.OverrideColor, item.OverrideColor.Value);
+            }
+            else
+            {
+                RetainedInt(words, o.UseOverride, 0);
+            }
             RetainedInt(words, o.TexturedPlayerSkin, 0);
             RetainedInt(words, o.PlayerOutlineMask, 0);
-            RetainedInt(words, o.UsePaletteOverride, 0);
+            if (item.PaletteOverride.HasValue)
+            {
+                RetainedInt(words, o.UsePaletteOverride, 1);
+                RetainedVec4(words, o.PaletteOverrideColor,
+                    item.PaletteOverride.Value);
+            }
+            else
+            {
+                RetainedInt(words, o.UsePaletteOverride, 0);
+            }
             RetainedInt(words, o.UseFlat, 0);
             RetainedInt(words, o.CosmeticSkin, 0);
             RetainedInt(words, o.CosmeticPreservePalette, 0);

@@ -291,6 +291,26 @@ fall back to the compatibility executor.
 Benchmarks report direct retained billboard draws separately from total,
 advanced-material, matrix-stack and viewmodel direct draws.
 
+## Slice 10: direct retained color and palette overrides
+
+Explicit color and palette overrides no longer force an otherwise eligible World
+packet back through the compatibility executor.
+
+The retained World layout now resolves the generated shader offsets for:
+
+- `use_override` / `override_color`;
+- `use_pal_override` / `pal_override_color`.
+
+Per packet, the direct uniform patch writes the same flag/vector pairs used by
+`DoTexture`. Player-outline replay is outside the world render graph, so this
+path does not need the outline mask's temporary override suppression.
+
+Textured-player-skin and cosmetic material paths remain compatibility-only in
+this slice.
+
+Benchmarks report direct retained override draws separately from the other
+direct submission classes.
+
 ## Next slices
 
 The graph and packet seam is intended to support the remaining migration without

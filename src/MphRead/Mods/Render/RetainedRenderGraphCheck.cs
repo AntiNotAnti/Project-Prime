@@ -137,9 +137,17 @@ namespace MphRead.Mods.Render
                 "unknown billboard mode stays on compatibility executor");
             direct.BillboardMode = BillboardMode.None;
             direct.OverrideColor = new Vector4(1, 0, 0, 1);
-            Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "override material stays on compatibility executor");
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "explicit color override is eligible for direct submission");
             direct.OverrideColor = null;
+            direct.PaletteOverride = new Vector4(0, 1, 0, 1);
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "palette override is eligible for direct submission");
+            direct.PaletteOverride = null;
+            direct.TexturedPlayerSkin = true;
+            Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "textured-player skin stays on compatibility executor");
+            direct.TexturedPlayerSkin = false;
             direct.RenderMode = RenderMode.Translucent;
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
                 "translucent mesh stays on compatibility executor");
