@@ -88,6 +88,8 @@ internal static class ModernRenderBenchmark
                     var sorted = frames.Order().ToArray();
                     results.Add(new { requestedWidth = size.X, requestedHeight = size.Y, width = scene.Size.X, height = scene.Size.Y, scale, samples = frames.Count,
                         warmup, measurement,
+                        retainedPackets = scene.RetainedRenderPacketCount,
+                        retainedFrameRevision = scene.RetainedRenderFrameRevision,
                         averageCompletedMs = frames.Average(), cpuSubmissionMs = submissions.Average(),
                         averagePresentMs = presents.Average(),
                         averageSurfaceAcquireMs = measurement.HasValue && measurement.Value.SurfaceAcquisitions > 0
