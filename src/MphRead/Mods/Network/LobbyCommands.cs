@@ -72,34 +72,41 @@ namespace MphRead.Mods.Network
             TouchLobbyRevision("phase changed");
         }
 
-        private SessionStatePacket BuildSessionState() => new()
+        private SessionStatePacket BuildSessionState()
         {
-            Phase = _phase, Policy = SessionPolicy, Revision = _sessionRevision, MatchId = _matchId,
-            AuthorityEpoch = _authorityEpoch, MapGeneration = _mapGeneration,
-            OwnerSlot = _lobbyOwnerClientId == 0 ? (byte)255 : (byte)(_peers.Find(p => p.ClientId == _lobbyOwnerClientId)?.SlotIndex ?? 255),
-            MaxPlayers = (byte)_maxPlayers, Match = CurrentDefinition,
-            MapDownloadSource = CurrentDefinition.MapIdentity.IsCustom ? MapDownloadSource : "",
-            MapAvailability = Enumerable.Range(0, 8).Select(slot => _peers.FirstOrDefault(p => p.SlotIndex == slot) is { } peer
-                && peer.PreparedMap == CurrentDefinition.MapIdentity ? peer.MapAvailability : MapAvailabilityState.Unknown).ToArray(),
-            WorldProfile = SessionPolicy == ServerSessionPolicy.Lobby && _phase != SessionPhase.Lobby
-                ? _frozenWorldProfile : LobbyRules.ResolveWorldProfile(CurrentDefinition, _maxPlayers),
-            RuleFlags = (CurrentDefinition.HideOpponentHealth ? LobbyRuleFlags.HideOpponentHealth : 0) | (RequireReady ? LobbyRuleFlags.RequireReady : 0)
-                | (AllowJoinInProgress ? LobbyRuleFlags.AllowJoinInProgress : 0)
-                | (LockTeams ? LobbyRuleFlags.LockTeams : 0),
-            ExpectedParticipants = _start.Expected, LoadedParticipants = _start.Loaded,
-            StartGeneration = _start.Identity.StartGeneration, StartStage = _start.Stage, WorldReadyParticipants = _start.WorldReady,
-            StartCountdownMilliseconds = _start.RemainingMilliseconds(_now)
-        };
-
-        private void BroadcastSessionState(int copies = 1)
-        {
-            copies = Math.Clamp(copies, 1, 3);
-            var state = BuildSessionState();
-            if (_sim != null) NetSession.ApplySessionState(state);
-            state.Write(_scratch);
+            var availability = new MapAvailabilityState[8];
+            NetworkMapIdentity required = CurrentDefinition.MapIdentity;
             foreach (Peer peer in _peers)
-                _transport?.Send(peer.EndPoint, PacketType.SessionState,
-                    _scratch.AsSpan(0, SessionStatePacket.Size), immediateCopies: copies);
+            {
+                if ((uint)peer.SlotIndex < availability.Length
+                    && peer.PreparedMap == required)
+                    availability[peer.SlotIndex] = peer.MapAvailability;
+            }
+
+            return new SessionStatePacket
+            {
+                Phase = _phase, Policy = SessionPolicy, Revision = _sessionRevision,
+                MatchId = _matchId, AuthorityEpoch = _authorityEpoch,
+                MapGeneration = _mapGeneration,
+                OwnerSlot = _lobbyOwnerClientId == 0 ? (byte)255
+                    : (byte)(_peers.Find(p => p.ClientId == _lobbyOwnerClientId)?.SlotIndex ?? 255),
+                MaxPlayers = (byte)_maxPlayers, Match = CurrentDefinition,
+                MapDownloadSource = CurrentDefinition.MapIdentity.IsCustom ? MapDownloadSource : "",
+                MapAvailability = availability,
+                WorldProfile = SessionPolicy == ServerSessionPolicy.Lobby && _phase != SessionPhase.Lobby
+                    ? _frozenWorldProfile : LobbyRules.ResolveWorldProfile(CurrentDefinition, _maxPlayers),
+                RuleFlags = (CurrentDefinition.HideOpponentHealth
+                        ? LobbyRuleFlags.HideOpponentHealth : 0)
+                    | (RequireReady ? LobbyRuleFlags.RequireReady : 0)
+                    | (AllowJoinInProgress ? LobbyRuleFlags.AllowJoinInProgress : 0)
+                    | (LockTeams ? LobbyRuleFlags.LockTeams : 0),
+                ExpectedParticipants = _start.Expected,
+                LoadedParticipants = _start.Loaded,
+                StartGeneration = _start.Identity.StartGeneration,
+                StartStage = _start.Stage,
+                WorldReadyParticipants = _start.WorldReady,
+                StartCountdownMilliseconds = _start.RemainingMilliseconds(_now)
+            };
         }
 
         private sbyte ChooseTeam(MatchDefinition match, Peer? exclude = null)
