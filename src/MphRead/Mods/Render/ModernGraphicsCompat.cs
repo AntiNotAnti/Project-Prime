@@ -1558,8 +1558,8 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             RenderPassEncoder* pass = _api.CommandEncoderBeginRenderPass(encoder, passDescriptor);
             _api.RenderPassEncoderSetPipeline(pass, pipeline.Pipeline);
             _api.RenderPassEncoderSetBindGroup(pass, 0, bindGroup, 0, null);
-            _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, 0, vertexBytes);
-            _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, 0, indexBytes);
+            _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, geometryBuffers.VertexOffset, vertexBytes);
+            _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, geometryBuffers.IndexOffset, indexBytes);
             _api.RenderPassEncoderSetViewport(pass, 0, 0, _width, _height, 0, 1);
             ApplyScissor(pass, (int)_width, (int)_height);
             _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
