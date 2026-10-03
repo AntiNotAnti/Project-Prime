@@ -270,6 +270,27 @@ unchanged.
 Benchmarks report direct retained viewmodel draws separately so the biped versus
 alt-form CPU submission gap can be measured directly.
 
+## Slice 9: direct retained billboard meshes
+
+Spherical and cylindrical billboard meshes can now use the direct retained World
+executor.
+
+The Scene resolves the same view-inverse matrix used by the compatibility path:
+
+- `BillboardMode.None` -> identity;
+- `BillboardMode.Sphere` -> `_viewInvRotMatrix`;
+- `BillboardMode.Cylinder` -> `_viewInvRotYMatrix`.
+
+That matrix is patched directly into the generated World `view_inv_mtx` slot.
+Geometry, matrix-stack data, materials, projection, draw order and pass state are
+unchanged.
+
+Eligibility accepts only the three defined billboard enum values; unknown values
+fall back to the compatibility executor.
+
+Benchmarks report direct retained billboard draws separately from total,
+advanced-material, matrix-stack and viewmodel direct draws.
+
 ## Next slices
 
 The graph and packet seam is intended to support the remaining migration without
