@@ -2332,16 +2332,14 @@ namespace MphRead.Entities
             var cameraDelta = Mods.Input.AimAssist.AimAssistMath.CameraDelta(new(x, y), AimZoomScale(),
                 Controls.InvertAimX, Controls.InvertAimY);
 
-            // Controller aim assistance is intentionally disabled. Keep the ordinary
-            // controller response/scope/inversion path, but never run target selection,
-            // friction, tracking, snap correction or the Shadow Freeze technique helper.
-            // Clear retained state and precision context every simulation step so no
-            // previous assisted frame can influence stick filtering or acceleration.
-            _controllerAssist.Reset();
+            // Production controller assist runs once at the fixed 60 Hz input/simulation
+            // step. It only applies slowdown plus bounded visible-target angular velocity;
+            // there is no positional snap, head pull or projectile lead. Shadow Freeze
+            // remains a separate technique helper and stays disabled here.
             ModResetShadowFreezeControllerAssist();
-            Mods.Input.GamepadInput.SetAimPrecisionContext(0, 0);
-            x = cameraDelta.X;
-            y = cameraDelta.Y;
+            var assisted = ApplyControllerAssist(cameraDelta.X, cameraDelta.Y);
+            x = assisted.X;
+            y = assisted.Y;
             if (x == 0 && y == 0)
             {
                 Mods.Input.GamepadInput.RecordCameraAim(0, 0);

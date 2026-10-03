@@ -46,27 +46,37 @@ internal sealed partial class MapStudioScreen
         if (_document == null) return;
         var panel = new StackPanel { Spacing = 8 };
         panel.Children.Add(Text("IMPORTED MODEL SOURCES"));
+        var sources = new StackPanel { Spacing = 8 };
         foreach (var source in _document.Project.Definition.ModelSources)
         {
-            panel.Children.Add(Text(Path.GetFileName(source.Source) + $" · {source.Objects.Count} objects"));
-            panel.Children.Add(Text(source.Source));
-            AddButton(panel, "Reimport / check external changes", () => ModelImportOptions(source.Source, source));
-            AddButton(panel, "Locate source…", () => Browse("Locate source model", false, path => ModelImportOptions(path, source), ".obj", ".gltf", ".glb"));
-            AddButton(panel, "Select generated objects", () =>
+            sources.Children.Add(Text(Path.GetFileName(source.Source) + $" · {source.Objects.Count} objects"));
+            sources.Children.Add(Text(source.Source));
+            AddButton(sources, "Reimport / check external changes", () => ModelImportOptions(source.Source, source));
+            AddButton(sources, "Locate source…", () => Browse("Locate source model", false, path => ModelImportOptions(path, source), ".obj", ".gltf", ".glb"));
+            AddButton(sources, "Select generated objects", () =>
             {
                 _document.Selection.Clear();
                 foreach (var item in source.Objects) _document.Selection.Add(item.Id);
                 _document.SelectionChanged(); _viewport?.FrameSelection(); Dismiss();
             });
-            AddButton(panel, "Detach source (keep geometry)", () =>
+            AddButton(sources, "Detach source (keep geometry)", () =>
             {
                 _document.Edit("Detach model source", d => d.ModelSources.RemoveAll(s => s.Id == source.Id), MapChangeDomain.Geometry);
                 Dismiss();
             });
         }
-        if (_document.Project.Definition.ModelSources.Count == 0) panel.Children.Add(Text("Import a 3D model to track its external source."));
+        if (_document.Project.Definition.ModelSources.Count == 0) sources.Children.Add(Text("Import a 3D model to track its external source."));
+        panel.Children.Add(ModelImportScroll(sources, 420));
         AddButton(panel, "Close", Dismiss); Modal(panel);
     }
+
+    private static ScrollViewer ModelImportScroll(Control content, double maxHeight) => new()
+    {
+        Content = content,
+        MaxHeight = maxHeight,
+        HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+        VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
+    };
 
     private void AnalyzeModel(string path, ModelImportSettings settings, Guid? sourceId) => _ = Job("Analyzing model", async token =>
     {
@@ -130,9 +140,11 @@ internal sealed partial class MapStudioScreen
         panel.Children.Add(Text($"{result.Materials.Count} materials · {result.Assets.Count} baked textures · {result.Meshes.Where(m => m.Solid).Sum(m => m.Faces.Count)} collision triangles"));
         var diff=ModelReimport.Preview(document.Project.Definition,previous,result);
         panel.Children.Add(Text($"Materials {previous?.MaterialMappings.Count??0} → {result.Materials.Count}"));
-        foreach(string name in diff.Added)panel.Children.Add(Text("+ "+name));
-        foreach(string name in diff.Changed)panel.Children.Add(Text("~ "+name));
-        foreach(string name in diff.Removed)panel.Children.Add(Text("− "+name));
+        var changes = new StackPanel { Spacing = 4 };
+        foreach(string name in diff.Added)changes.Children.Add(Text("+ "+name));
+        foreach(string name in diff.Changed)changes.Children.Add(Text("~ "+name));
+        foreach(string name in diff.Removed)changes.Children.Add(Text("− "+name));
+        if (changes.Children.Count > 0) panel.Children.Add(ModelImportScroll(changes, 180));
         panel.Children.Add(Text($"Preserved edits: {diff.Transforms} transforms · {diff.MaterialOverrides} material overrides · {diff.PaintedFaces} painted faces · {diff.UvOverrides} UV overrides"));
         var collisionPreview = new CheckBox {Content="Show collision preview"};
         collisionPreview.IsCheckedChanged += (_,_) => {preview.Collision=collisionPreview.IsChecked==true;preview.InvalidateVisual();};

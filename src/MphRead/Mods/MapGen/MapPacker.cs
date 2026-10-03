@@ -35,7 +35,7 @@ namespace MphRead.Mods.MapGen
             MapRuntimePartitionPlan runtimePlan=MapRuntimePartitioner.Create(map.Faces,def.Partitioning);
             MapRuntimePartitioner.AssignEntityNodes(map.Entities,runtimePlan);
             byte[] entities = Repack.PackEntities(map.Entities);
-            (byte[] nodes, int nodeCount, int edges) = MapNodePacker.Pack(map.Solid,def.NavigationLinks,cancellation);
+            (byte[] nodes, int nodeCount, int edges) = MapNodePacker.Pack(map.Solid,MapNodePacker.EffectiveLinks(def),cancellation);
             // Build every byte before replacing any output. The manifest is the
             // commit marker: an interrupted publication is rebuilt next launch.
             cancellation.ThrowIfCancellationRequested();

@@ -32,6 +32,7 @@ namespace MphRead.Mods.MapGen
         public const long MaxArchiveBytes = 512L * 1024 * 1024;
         public const long MaxExpandedBytes = 1024L * 1024 * 1024;
         public const long MaxEntryBytes = 256L * 1024 * 1024;
+        public const long MaxProjectBytes = 8L * 1024 * 1024;
         public const int MaxEntries = 2048;
         public static readonly JsonSerializerOptions JsonOptions = new()
         { PropertyNameCaseInsensitive = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
@@ -76,7 +77,7 @@ namespace MphRead.Mods.MapGen
                         throw new InvalidDataException("Package must have exactly one manifest and one project.");
                     string hash = ContentHash(_entries.Keys.Where(n => n != "manifest.json"), n => ReadRequired(n));
                     if (!hash.Equals(Manifest.ContentHash, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Package content hash does not match.");
-                    using JsonDocument project = JsonDocument.Parse(ReadRequired(ProjectEntry, 8 * 1024 * 1024));
+                    using JsonDocument project = JsonDocument.Parse(ReadRequired(ProjectEntry, MaxProjectBytes));
                     MapDefinition? definition = JsonSerializer.Deserialize<MapDefinition>(project.RootElement.GetRawText(), JsonOptions);
                     if (definition == null || definition.MapId != Manifest.MapId || definition.Name != Manifest.Name || definition.FormatVersion != 2)
                         throw new InvalidDataException("Manifest and project identities differ.");
@@ -92,7 +93,7 @@ namespace MphRead.Mods.MapGen
                     if (recipes.Length != 1) throw new InvalidDataException("Legacy package requires exactly one recipe.");
                     ProjectEntry = recipes[0];
                     var options = new JsonSerializerOptions(JsonOptions) { ReadCommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true };
-                    var definition = JsonSerializer.Deserialize<MapDefinition>(ReadRequired(ProjectEntry, 8 * 1024 * 1024), options)
+                    var definition = JsonSerializer.Deserialize<MapDefinition>(ReadRequired(ProjectEntry, MaxProjectBytes), options)
                         ?? throw new InvalidDataException("Invalid legacy recipe.");
                     MapValidator.RequireRuntimeName(definition.Name);
                     ValidateReferences(definition);
@@ -159,7 +160,7 @@ namespace MphRead.Mods.MapGen
             return matches.SingleOrDefault();
         }
         public byte[]? Read(string name) => Find(name) is { } found ? ReadRequired(found) : null;
-        public string ReadProject() => Encoding.UTF8.GetString(ReadRequired(ProjectEntry, 8 * 1024 * 1024));
+        public string ReadProject() => Encoding.UTF8.GetString(ReadRequired(ProjectEntry, MaxProjectBytes));
 
         /// <summary>
         /// Reads one entry after MapBundle has already fully validated this exact,
@@ -202,14 +203,15 @@ namespace MphRead.Mods.MapGen
         private byte[] ReadRequired(string name, long limit = MaxEntryBytes)
         {
             if (!_entries.TryGetValue(name, out var entry))
-                throw new InvalidDataException("Missing or oversized entry: " + name);
+                throw new InvalidDataException("Missing package entry: " + name);
             return ReadEntryBytes(entry, limit);
         }
 
         private static byte[] ReadEntryBytes(ZipArchiveEntry entry, long limit)
         {
             if (entry.Length < 0 || entry.Length > limit)
-                throw new InvalidDataException("Missing or oversized entry: " + entry.FullName);
+                throw new InvalidDataException($"Package entry '{entry.FullName}' is oversized: {entry.Length:N0} bytes uncompressed, "
+                    + $"{entry.CompressedLength:N0} bytes compressed; limit is {limit:N0} bytes.");
             using var input = entry.Open();
             using var output = new MemoryStream();
             byte[] buffer = new byte[65536];

@@ -323,7 +323,7 @@ namespace MphRead.Entities
             float move = MathF.Sqrt(movement.X * movement.X + movement.Y * movement.Y);
             // The engine's input/simulation step is fixed at 60 Hz; render rate does not change this interval.
             AimAssistShotPhase shotPhase = AssistShotPhase();
-            var result = AimAssist.Apply(_controllerAssist, candidates[..count], new(x, y), new System.Numerics.Vector2(-aim.X * (GamepadOptions.InvertX != Controls.InvertAimX ? -1 : 1),
+            var result = RotationalAimAssist.Apply(_controllerAssist, candidates[..count], new(x, y), new System.Numerics.Vector2(-aim.X * (GamepadOptions.InvertX != Controls.InvertAimX ? -1 : 1),
                     aim.Y * (GamepadOptions.InvertY != Controls.InvertAimY ? -1 : 1)),
                 move, 1f / 60, eligible, profile, Controls.Shoot.IsDown, shotPhase);
             AimAssistTarget chosen = default;
