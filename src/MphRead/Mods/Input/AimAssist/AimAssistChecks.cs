@@ -120,6 +120,7 @@ namespace MphRead.Mods.Input.AimAssist
             V4Checks();
             StrengthPassChecks();
             FlickLandingChecks();
+            RotationalAimAssistChecks.Run();
             ShadowFreezeChecks();
             AimAssistCameraChecks.Run();
 
