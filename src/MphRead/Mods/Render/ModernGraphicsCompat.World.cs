@@ -94,6 +94,10 @@ namespace MphRead.Mods.Render
         private ShaderModule* _playerOutlineShader;
         private ShaderModule* _toneMapShader;
         private WgpuBuffer* _uniformBuffer;
+        private ulong _uniformBufferOffset;
+        private RenderPassEncoder* _activeCorePass;
+        private TextureView* _activeCoreColorView;
+        private TextureView* _activeCoreDepthView;
 
         private bool _depthWrite = true;
         private DepthFunction _depthFunction = DepthFunction.Less;
@@ -218,6 +222,66 @@ namespace MphRead.Mods.Render
             }
         }
 
+        private void EndActiveCorePass()
+        {
+            if (_activeCorePass == null) return;
+            _api.RenderPassEncoderEnd(_activeCorePass);
+            _api.RenderPassEncoderRelease(_activeCorePass);
+            _activeCorePass = null;
+            _activeCoreColorView = null;
+            _activeCoreDepthView = null;
+        }
+
+        private RenderPassEncoder* CoreRenderPass(CoreTarget target)
+        {
+            if (_activeCorePass != null
+                && _activeCoreColorView == target.ColorView
+                && _activeCoreDepthView == target.DepthView)
+            {
+                return _activeCorePass;
+            }
+
+            EndActiveCorePass();
+            CommandEncoder* encoder = BeginCommandEncoder();
+            var color = new RenderPassColorAttachment
+            {
+                DepthSlice = uint.MaxValue,
+                View = target.ColorView,
+                ResolveTarget = null,
+                LoadOp = LoadOp.Load,
+                StoreOp = StoreOp.Store
+            };
+            RenderPassDepthStencilAttachment depth = default;
+            RenderPassDepthStencilAttachment* depthPtr = null;
+            if (target.HasDepth)
+            {
+                depth = new RenderPassDepthStencilAttachment
+                {
+                    View = target.DepthView,
+                    DepthLoadOp = LoadOp.Load,
+                    DepthStoreOp = StoreOp.Store,
+                    DepthReadOnly = false,
+                    StencilLoadOp = target.HasStencil ? LoadOp.Load : LoadOp.Undefined,
+                    StencilStoreOp = target.HasStencil ? StoreOp.Store : StoreOp.Undefined,
+                    StencilReadOnly = !target.HasStencil
+                };
+                depthPtr = &depth;
+            }
+            var descriptor = new RenderPassDescriptor
+            {
+                ColorAttachments = &color,
+                ColorAttachmentCount = 1,
+                DepthStencilAttachment = depthPtr
+            };
+            _activeCorePass = _api.CommandEncoderBeginRenderPass(encoder, descriptor);
+            if (_measurePerformance) _coreRenderPasses++;
+            if (_activeCorePass == null)
+                throw new InvalidOperationException("Could not begin coalesced WebGPU render pass.");
+            _activeCoreColorView = target.ColorView;
+            _activeCoreDepthView = target.DepthView;
+            return _activeCorePass;
+        }
+
         private ModernProgramKind CurrentProgramKind()
         {
             int program = _programs.CurrentProgram;
@@ -317,6 +381,7 @@ namespace MphRead.Mods.Render
 
         private void ReleaseNativeRenderbuffer(NativeRenderbuffer renderbuffer)
         {
+            EndActiveCorePass();
             if (renderbuffer.View != null) _api.TextureViewRelease(renderbuffer.View);
             if (renderbuffer.Texture != null) _api.TextureRelease(renderbuffer.Texture);
         }
@@ -326,8 +391,8 @@ namespace MphRead.Mods.Render
             return NativeTextureFormat(record);
         }
 
-        // Every compatibility operation records, ends and submits its own pass.
-        // Validate before allocating draw resources: inactive GL bindings must
+        // Validate before allocating draw resources or joining a coalesced
+        // render pass: inactive GL bindings must
         // never enter a WebGPU usage scope, even behind a uniform shader branch.
         private int ValidateRenderPassResources(int unit, bool required, CoreTarget target)
         {
@@ -426,18 +491,23 @@ namespace MphRead.Mods.Render
                 {
                     Binding = 0,
                     Buffer = _uniformBuffer,
-                    Offset = 0,
+                    Offset = _uniformBufferOffset,
                     Size = (ulong)(ModernGraphicsShaders.UniformSlots * 4 * sizeof(uint))
                 };
                 entries[1] = new BindGroupEntry { Binding = 1, TextureView = baseView };
                 entries[2] = new BindGroupEntry { Binding = 2, Sampler = baseSampler };
                 entries[3] = new BindGroupEntry { Binding = 3, TextureView = depthTexture.SampleView };
-                bindGroup = CreateTrackedBindGroup( new BindGroupDescriptor
+                Span<nint> resources = stackalloc nint[6]
+                {
+                    (nint)pipeline.Layout, (nint)_uniformBuffer, (nint)_uniformBufferOffset,
+                    (nint)baseView, (nint)baseSampler, (nint)depthTexture.SampleView
+                };
+                bindGroup = FrameBindGroup(new BindGroupDescriptor
                 {
                     Layout = pipeline.Layout,
                     Entries = entries,
                     EntryCount = 4
-                });
+                }, resources);
             }
             else if (pipeline.MaskTexture)
             {
@@ -448,18 +518,23 @@ namespace MphRead.Mods.Render
                 {
                     Binding = 0,
                     Buffer = _uniformBuffer,
-                    Offset = 0,
+                    Offset = _uniformBufferOffset,
                     Size = (ulong)(ModernGraphicsShaders.UniformSlots * 4 * sizeof(uint))
                 };
                 entries[1] = new BindGroupEntry { Binding = 1, TextureView = baseView };
                 entries[2] = new BindGroupEntry { Binding = 2, Sampler = baseSampler };
                 entries[3] = new BindGroupEntry { Binding = 3, TextureView = maskView };
-                bindGroup = CreateTrackedBindGroup( new BindGroupDescriptor
+                Span<nint> resources = stackalloc nint[6]
+                {
+                    (nint)pipeline.Layout, (nint)_uniformBuffer, (nint)_uniformBufferOffset,
+                    (nint)baseView, (nint)baseSampler, (nint)maskView
+                };
+                bindGroup = FrameBindGroup(new BindGroupDescriptor
                 {
                     Layout = pipeline.Layout,
                     Entries = entries,
                     EntryCount = 4
-                });
+                }, resources);
             }
             else
             {
@@ -468,67 +543,38 @@ namespace MphRead.Mods.Render
                 {
                     Binding = 0,
                     Buffer = _uniformBuffer,
-                    Offset = 0,
+                    Offset = _uniformBufferOffset,
                     Size = (ulong)(ModernGraphicsShaders.UniformSlots * 4 * sizeof(uint))
                 };
                 entries[1] = new BindGroupEntry { Binding = 1, TextureView = baseView };
                 entries[2] = new BindGroupEntry { Binding = 2, Sampler = baseSampler };
-                bindGroup = CreateTrackedBindGroup( new BindGroupDescriptor
+                Span<nint> resources = stackalloc nint[5]
+                {
+                    (nint)pipeline.Layout, (nint)_uniformBuffer, (nint)_uniformBufferOffset,
+                    (nint)baseView, (nint)baseSampler
+                };
+                bindGroup = FrameBindGroup(new BindGroupDescriptor
                 {
                     Layout = pipeline.Layout,
                     Entries = entries,
                     EntryCount = 3
-                });
+                }, resources);
             }
 
-            CommandEncoder* encoder = BeginCommands();
-            var color = new RenderPassColorAttachment
-            {
-                DepthSlice = uint.MaxValue, // WGPU_DEPTH_SLICE_UNDEFINED: this is a 2D view.
-                View = target.ColorView,
-                ResolveTarget = null,
-                LoadOp = LoadOp.Load,
-                StoreOp = StoreOp.Store
-            };
-            RenderPassDepthStencilAttachment depth = default;
-            RenderPassDepthStencilAttachment* depthPtr = null;
-            if (target.HasDepth)
-            {
-                depth = new RenderPassDepthStencilAttachment
-                {
-                    View = target.DepthView,
-                    DepthLoadOp = LoadOp.Load,
-                    DepthStoreOp = StoreOp.Store,
-                    DepthReadOnly = false,
-                    StencilLoadOp = target.HasStencil ? LoadOp.Load : LoadOp.Undefined,
-                    StencilStoreOp = target.HasStencil ? StoreOp.Store : StoreOp.Undefined,
-                    StencilReadOnly = !target.HasStencil
-                };
-                depthPtr = &depth;
-            }
-            var passDescriptor = new RenderPassDescriptor
-            {
-                ColorAttachments = &color,
-                ColorAttachmentCount = 1,
-                DepthStencilAttachment = depthPtr
-            };
-            RenderPassEncoder* pass = _api.CommandEncoderBeginRenderPass(encoder, passDescriptor);
+            RenderPassEncoder* pass = CoreRenderPass(target);
             _api.RenderPassEncoderSetPipeline(pass, pipeline.Pipeline);
             _api.RenderPassEncoderSetBindGroup(pass, 0, bindGroup, 0, null);
-            _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, 0, vertexBytes);
-            _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, 0, indexBytes);
+            _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex,
+                geometryBuffers.VertexOffset, vertexBytes);
+            _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32,
+                geometryBuffers.IndexOffset, indexBytes);
             _api.RenderPassEncoderSetViewport(pass, 0, 0, target.Width, target.Height, 0, 1);
             ApplyScissor(pass, target.Width, target.Height);
             if (_enabled.Contains(EnableCap.StencilTest) && target.HasDepth)
                 _api.RenderPassEncoderSetStencilReference(pass, (uint)_stencilReference);
             _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
-            _api.RenderPassEncoderEnd(pass);
-            EndCommands();
-
-            _api.RenderPassEncoderRelease(pass);
-
-            if (!generated)
-                ReleaseTrackedBindGroup(bindGroup);
+            if (_measurePerformance) _coreDraws++;
+            RecordCommandOperation();
         }
 
         private CorePipelineRecord CorePipeline(ModernProgramKind program,
@@ -834,11 +880,12 @@ namespace MphRead.Mods.Render
                     _resources.IsFramebufferTexture(_resources.BoundTexture(0)));
             }
 
-            _uniformBuffer = RentUniformBuffer((ulong)(words.Length * sizeof(uint)));
+            UniformAllocation allocation = RentUniformBuffer((ulong)(words.Length * sizeof(uint)));
+            _uniformBuffer = (WgpuBuffer*)allocation.Buffer;
+            _uniformBufferOffset = allocation.Offset;
             fixed (uint* ptr = words)
             {
-                WriteProfiledBuffer(_uniformBuffer, 0, ptr,
-                    (nuint)(words.Length * sizeof(uint)));
+                WriteUniformBuffer(allocation, ptr, (nuint)(words.Length * sizeof(uint)));
             }
         }
 
@@ -1070,20 +1117,30 @@ namespace MphRead.Mods.Render
                 ? FilterMode.Linear : FilterMode.Nearest;
             Silk.NET.WebGPU.Sampler* sampler = BlitSampler(sampleFilter);
 
-            _uiViewportBuffer = RentUniformBuffer(16);
+            UniformAllocation uiUniform = RentUniformBuffer(16);
+            _uiViewportBuffer = (WgpuBuffer*)uiUniform.Buffer;
+            _uiViewportOffset = uiUniform.Offset;
             var viewport = new OpenTK.Mathematics.Vector4(1, 1, 0, 0);
-            WriteProfiledBuffer(_uiViewportBuffer, 0, &viewport, 16);
+            WriteUniformBuffer(uiUniform, &viewport, 16);
             var entries = stackalloc BindGroupEntry[3];
             entries[0] = new BindGroupEntry { Binding = 0, TextureView = sourceTarget.ColorView };
             entries[1] = new BindGroupEntry { Binding = 1, Sampler = sampler };
-            entries[2] = new BindGroupEntry { Binding = 2, Buffer = _uiViewportBuffer, Size = 16 };
-            BindGroup* bindGroup = CreateTrackedBindGroup(
+            entries[2] = new BindGroupEntry
+            {
+                Binding = 2, Buffer = _uiViewportBuffer, Offset = _uiViewportOffset, Size = 16
+            };
+            Span<nint> resources = stackalloc nint[5]
+            {
+                (nint)pipeline.Layout, (nint)sourceTarget.ColorView, (nint)sampler,
+                (nint)_uiViewportBuffer, (nint)_uiViewportOffset
+            };
+            BindGroup* bindGroup = FrameBindGroup(
                 new BindGroupDescriptor
                 {
                     Layout = pipeline.Layout,
                     Entries = entries,
                     EntryCount = 3
-                });
+                }, resources);
 
             CommandEncoder* encoder = BeginCommands();
             var color = new RenderPassColorAttachment
@@ -1102,8 +1159,8 @@ namespace MphRead.Mods.Render
             RenderPassEncoder* pass = _api.CommandEncoderBeginRenderPass(encoder, passDescriptor);
             _api.RenderPassEncoderSetPipeline(pass, pipeline.Pipeline);
             _api.RenderPassEncoderSetBindGroup(pass, 0, bindGroup, 0, null);
-            _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, 0, vertexBytes);
-            _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, 0, indexBytes);
+            _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, geometryBuffers.VertexOffset, vertexBytes);
+            _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, geometryBuffers.IndexOffset, indexBytes);
             _api.RenderPassEncoderSetViewport(pass, 0, 0,
                 destinationTarget.Width, destinationTarget.Height, 0, 1);
             if (applyScissor) ApplyScissor(pass, destinationTarget.Width, destinationTarget.Height);
@@ -1112,8 +1169,6 @@ namespace MphRead.Mods.Render
             EndCommands();
 
             _api.RenderPassEncoderRelease(pass);
-
-            ReleaseTrackedBindGroup(bindGroup);
         }
 
         private static void WriteBlitVertex(Span<float> vertices, int vertex,

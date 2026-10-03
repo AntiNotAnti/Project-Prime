@@ -105,6 +105,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 ";
 
         private WgpuBuffer* _uiViewportBuffer;
+        private ulong _uiViewportOffset;
         private static ModernGraphicsCompat? _current;
         private static BufferMapAsyncStatus _mapStatus = BufferMapAsyncStatus.Unknown;
 
@@ -695,7 +696,14 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private void ApplyScissor(RenderPassEncoder* pass, int width, int height)
         {
-            if (!_enabled.Contains(EnableCap.ScissorTest)) return;
+            // Render-pass coalescing preserves dynamic state between draws. A
+            // draw that disables GL scissoring must therefore explicitly restore
+            // the full target instead of inheriting the previous draw's rectangle.
+            if (!_enabled.Contains(EnableCap.ScissorTest))
+            {
+                _api.RenderPassEncoderSetScissorRect(pass, 0, 0, (uint)width, (uint)height);
+                return;
+            }
             // Clip both endpoints, not the origin followed by the old extent.
             // Zero-area and wholly offscreen rectangles must remain empty.
             long left = Math.Clamp((long)_scissorX, 0, width);
@@ -864,6 +872,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             if (_disposed) return;
             _disposed = true;
             DiscardCommands();
+            DisposeFrameBindGroups();
             ReleaseSurfaceTexture();
             foreach (NativeTexture texture in _nativeTextures.Values) ReleaseNativeTexture(texture);
             _nativeTextures.Clear();
@@ -1180,6 +1189,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private void UpdateSampler(NativeTexture native, ModernGraphicsResourceState.TextureRecord record)
         {
+            EndActiveCorePass();
             if (native.Sampler != null) _api.SamplerRelease(native.Sampler);
             bool linearMip = record.MinFilter == (int)TextureMinFilter.NearestMipmapLinear
                 || record.MinFilter == (int)TextureMinFilter.LinearMipmapLinear;
@@ -1245,12 +1255,16 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             int width = 0, int height = 0)
         {
             long uploadStart = PerformanceStart();
-            // Texture updates must follow earlier draws sampling the same image.
-            FlushCommands();
             if (width == 0) width = native.Width;
             if (height == 0) height = native.Height;
-            if (data.Length > 0)
+            if (data.Length > 0 && !TryStageTextureUpload(native, data, x, y, width, height))
             {
+                // No earlier encoded work means QueueWriteTexture is already in
+                // the right queue position. Large mid-frame updates deliberately
+                // keep the conservative flush rather than retaining a huge
+                // staging allocation for a rare asset upload.
+                if (_commandEncoder != null)
+                    FlushCommands();
                 var destination = new ImageCopyTexture
                 {
                     Texture = native.Texture,
@@ -1511,19 +1525,29 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 sampler = texture.Sampler;
             }
 
-            _uiViewportBuffer = RentUniformBuffer(16);
+            UniformAllocation uiUniform = RentUniformBuffer(16);
+            _uiViewportBuffer = (WgpuBuffer*)uiUniform.Buffer;
+            _uiViewportOffset = uiUniform.Offset;
             var viewport = ViewportTransform((int)_width, (int)_height);
-            WriteProfiledBuffer(_uiViewportBuffer, 0, &viewport, 16);
+            WriteUniformBuffer(uiUniform, &viewport, 16);
             var entries = stackalloc BindGroupEntry[3];
             entries[0] = new BindGroupEntry { Binding = 0, TextureView = textureView };
             entries[1] = new BindGroupEntry { Binding = 1, Sampler = sampler };
-            entries[2] = new BindGroupEntry { Binding = 2, Buffer = _uiViewportBuffer, Size = 16 };
-            BindGroup* bindGroup = CreateTrackedBindGroup( new BindGroupDescriptor
+            entries[2] = new BindGroupEntry
+            {
+                Binding = 2, Buffer = _uiViewportBuffer, Offset = _uiViewportOffset, Size = 16
+            };
+            Span<nint> resources = stackalloc nint[5]
+            {
+                (nint)pipeline.Layout, (nint)textureView, (nint)sampler,
+                (nint)_uiViewportBuffer, (nint)_uiViewportOffset
+            };
+            BindGroup* bindGroup = FrameBindGroup(new BindGroupDescriptor
             {
                 Layout = pipeline.Layout,
                 Entries = entries,
                 EntryCount = 3
-            });
+            }, resources);
 
             CommandEncoder* encoder = BeginCommands();
             var attachment = new RenderPassColorAttachment
@@ -1542,8 +1566,8 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             RenderPassEncoder* pass = _api.CommandEncoderBeginRenderPass(encoder, passDescriptor);
             _api.RenderPassEncoderSetPipeline(pass, pipeline.Pipeline);
             _api.RenderPassEncoderSetBindGroup(pass, 0, bindGroup, 0, null);
-            _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, 0, vertexBytes);
-            _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, 0, indexBytes);
+            _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, geometryBuffers.VertexOffset, vertexBytes);
+            _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, geometryBuffers.IndexOffset, indexBytes);
             _api.RenderPassEncoderSetViewport(pass, 0, 0, _width, _height, 0, 1);
             ApplyScissor(pass, (int)_width, (int)_height);
             _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
@@ -1551,8 +1575,6 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             EndCommands();
 
             _api.RenderPassEncoderRelease(pass);
-
-            ReleaseTrackedBindGroup(bindGroup);
         }
 
         private PipelineRecord Pipeline(PrimitiveTopology topology)
@@ -1770,6 +1792,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private void ReleaseNativeTexture(NativeTexture texture)
         {
+            EndActiveCorePass();
             if (texture.Sampler != null) _api.SamplerRelease(texture.Sampler);
             if (texture.SampleView != null && texture.SampleView != texture.View)
                 _api.TextureViewRelease(texture.SampleView);

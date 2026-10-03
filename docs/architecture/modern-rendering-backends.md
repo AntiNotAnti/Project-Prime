@@ -107,8 +107,9 @@ The migration remains experimental; see [validation evidence](modern-rendering-v
 Implemented:
 
 - Shader-aware feedback checks reject sampled color/depth attachment aliases and
-  self-copies before native submission. Every operation owns and ends its render
-  pass, so framebuffer/program mutations cannot leave a pass using stale bindings.
+  self-copies before native submission. Compatible core draws now remain inside a
+  coalesced render pass; framebuffer/attachment changes, clears, copies, readback,
+  texture mutation and presentation close the pass before changing resource usage.
 - Rooted error/loss callbacks, bounded surface reacquisition, device reconstruction
   from retained logical resources, fresh-window OpenGL startup fallback, and
   fresh-process OpenGL launcher restart after failed Auto reconstruction. A failed
@@ -123,8 +124,9 @@ Implemented:
   bottom-up GL-compatible readback, clipped clears, default-framebuffer depth,
   attribute restoration and viewport transformation for oversized GL viewports.
 - Display-list GPU geometry caching with draw-time normal/color inheritance,
-  pooled per-draw uniform/geometry storage, batched command encoding/submission,
-  and common pipeline prewarming on the rendering thread.
+  frame-arena uniform/transient-geometry storage, cached steady-state bind groups,
+  ordered staged texture updates, batched command encoding/submission, and common
+  pipeline prewarming on the rendering thread.
 - Auxiliary thumbnail, replay and editor windows own the selected renderer through
   `DesktopGraphicsSession`. The launcher hunter side scene uses the same renderer.
 - macOS Vulkan uses an AppKit-view native extension to avoid the pinned library
