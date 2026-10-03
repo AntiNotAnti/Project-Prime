@@ -641,7 +641,7 @@ try
     var solvedVelocity=solvedDirection*solvedSpeed;
     float solvedFrames=10f/MathF.Max(.0001f,new OpenTK.Mathematics.Vector3(solvedVelocity.X,0,solvedVelocity.Z).Length);
     float solvedGravityTime=MathF.Max(0,solvedFrames-solvedPad.ControlLockTime);
-    float solvedGravity=-MphRead.Fixed.ToFloat(MphRead.Metadata.PlayerValues[(int)MphRead.Entities.Hunter.Samus].BipedGravity);
+    float solvedGravity=-MphRead.Fixed.ToFloat(MphRead.Metadata.PlayerValues[(int)MphRead.Hunter.Samus].BipedGravity);
     var solvedLanding=new OpenTK.Mathematics.Vector3(0,0,0)+solvedVelocity*solvedFrames
         -OpenTK.Mathematics.Vector3.UnitY*(.5f*solvedGravity*solvedGravityTime*solvedGravityTime);
     Check(OpenTK.Mathematics.Vector3.Distance(solvedLanding,new OpenTK.Mathematics.Vector3(10,1.5f,0))<.002f,
