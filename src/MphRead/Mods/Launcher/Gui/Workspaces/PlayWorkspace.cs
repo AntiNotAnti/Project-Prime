@@ -92,7 +92,9 @@ namespace MphRead.Mods.Launcher.Gui
             _detailName = new TextBlock
             {
                 Text = "SELECT A SERVER",
-                FontFamily = PrimeTypography.Display,
+                // Server names can inherit the full player-name Unicode repertoire
+                // when a hosted lobby is named after its owner.
+                FontFamily = FontFamily.Default,
                 FontWeight = FontWeight.Bold,
                 FontSize = 18,
                 Foreground = HubTheme.TextBrush,
