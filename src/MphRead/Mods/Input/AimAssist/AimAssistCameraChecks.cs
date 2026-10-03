@@ -27,6 +27,7 @@ namespace MphRead.Mods.Input.AimAssist
                 MethodInfo yawInput = typeof(PlayerEntity).GetMethod("UpdateAimX", flags)!;
                 MethodInfo pitchInput = typeof(PlayerEntity).GetMethod("UpdateAimY", flags)!;
                 MethodInfo updateFacing = typeof(PlayerEntity).GetMethod("UpdateAimFacing", flags)!;
+                MethodInfo repairSpatial = typeof(PlayerEntity).GetMethod("RepairSpatialState", flags)!;
                 void Reset()
                 {
                     gun.SetValue(player, Vector3.UnitZ);
@@ -95,6 +96,26 @@ namespace MphRead.Mods.Input.AimAssist
                     && Single.IsFinite(recoveredGun.Z)
                     && recoveredGun.LengthSquared > .99f,
                     "aim camera: non-finite gun vector self-heals before input");
+
+                // Once poisoned, the old state persisted for the match: movement
+                // divided by a NaN horizontal facing and the muzzle inherited it.
+                // The per-step repair must recover position/velocity/camera too.
+                player.PrevPosition = new Vector3(4, 5, 6);
+                player.Position = new Vector3(Single.NaN, 5, 6);
+                player.Speed = new Vector3(Single.NaN, 0, 0);
+                player.Acceleration = new Vector3(0, Single.NaN, 0);
+                gun.SetValue(player, new Vector3(Single.NaN, 0, 0));
+                facing.SetValue(player, Vector3.UnitZ);
+                player.CameraInfo.Position = new Vector3(Single.NaN);
+                repairSpatial.Invoke(player, Array.Empty<object>());
+                var repairedGun = (Vector3)gun.GetValue(player)!;
+                GamepadChecks.Check(player.Position == player.PrevPosition
+                    && player.Speed == Vector3.Zero
+                    && player.Acceleration == Vector3.Zero
+                    && Single.IsFinite(player.CameraInfo.Position.X)
+                    && Single.IsFinite(repairedGun.X)
+                    && repairedGun.LengthSquared > .99f,
+                    "aim camera: poisoned spatial state recovers from the last finite position");
             }
             finally
             {
