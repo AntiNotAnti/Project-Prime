@@ -49,11 +49,11 @@ punching or alternate gameplay transport.
 
 | Piece | What |
 |---|---|
-| `HostRequest`/`HostReply` | launcher → host service: requested lobby/match rules and rotation. The host starts an isolated authoritative server process on a port from its range and returns the port plus owner token when applicable |
+| `HostChallenge` → `HostRequest`/`HostReply` | launcher proves the UDP return path with a short-lived endpoint-bound cookie, then requests lobby rules/rotation. Valid identical retries are idempotent while Community preparation runs; per-address/global spawn budgets bound process allocation |
 | `-hostports 27900-27919` on the directory | the range it may use, one port per game. Default on — a feature that has to be configured to work is a feature nobody has. `-hostports none` disables it |
 | **Create server** (launcher, Online face) | the screen this is reached from now: name, game type, hunter, map rotation, **Host on**, and Hosted vs Dedicated. See the launcher table in CLAUDE.md |
 | `MphRead -hostgame "ROOM" [-mode M] [-maprotation "A,B,C"]` | same thing from a command line — the only way to host with no launcher |
-| `HostedIdleSeconds` (180) | an unjoined game is shut down and its port returned. Generous, since the usual reason one's empty is that the requester is still loading the map |
+| Hosted child lifetime | owner token must be claimed within 45s; never-occupied children self-reap after 90s and previously occupied empty children after 45s. The parent HostPool remains a slower watchdog |
 
 ### Hosted rotation wire and directory deployment
 
@@ -72,7 +72,9 @@ the process starts.
 
 This layout is not backward compatible with the older 41-byte rotation stride, so
 protocol 34 is refused against older launchers/directories/servers rather than
-allowing them to misread the following policy and identity fields.
+allowing them to misread the following policy and identity fields. Protocol 37
+appends the host challenge nonce/cookie proof; gameplay/replay packets remain
+byte-identical to protocol 36.
 
 | Field | Where | Contract |
 |---|---|---|
@@ -121,10 +123,11 @@ match on a machine is a property of *being that machine*, not of being a
 directory, and the machine is already listed, already pinged and already
 reachable.
 
-So: **one directory in the world.** It answers "who is up". Each server answers
-"can you open me a game". The directory is a host candidate too, since it has a
-port range and will open one — `HostPool` was lifted out of `MasterServer`, so
-both run the same code.
+So: **one directory/allocator is the normal always-on public service.** It answers
+"who is up" and can open lobbies from its own bounded HostPool. Additional
+regional servers may also advertise hosting capacity. Once the master itself is
+host-capable, host discovery skips redundant dynamic children on that same
+machine instead of probing every allocated lobby.
 
 | Piece | What |
 |---|---|
