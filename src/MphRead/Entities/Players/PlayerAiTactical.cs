@@ -265,10 +265,18 @@ public partial class PlayerEntity
                 Flags2 &= ~AiFlags2.TargetPlayer;
             }
             _tacticalDecisionTimer = 0;
+            _tacticalWeaponTimer = 0;
             _tacticalStrafeTimer = 0;
             _combatStrafeTimer = 0;
             _tacticalEscapeFrames = 0;
             _tacticalMovementActive = false;
+            if (_tacticalThreatSlot == victim.SlotIndex)
+            {
+                _tacticalThreatSlot = -1;
+                _tacticalThreatPosition = Vector3.Zero;
+                _tacticalThreatFrames = 0;
+                _tacticalThreatWeight = 0;
+            }
             Flags2 &= ~AiFlags2.Bit8;
             // Do not carry a fire/charge request into the frame after the target died.
             _buttons.R.IsDown = false;
