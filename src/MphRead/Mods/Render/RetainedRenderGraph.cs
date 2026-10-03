@@ -361,6 +361,7 @@ namespace MphRead
         private long _retainedDirectMatrixStackWorldDraws;
         private long _retainedDirectViewModelWorldDraws;
         private long _retainedDirectBillboardWorldDraws;
+        private long _retainedDirectOverrideWorldDraws;
         private long _retainedCompatibilityWorldDraws;
         internal long RetainedDirectWorldDraws => _retainedDirectWorldDraws;
         internal long RetainedDirectAdvancedWorldDraws =>
@@ -371,6 +372,8 @@ namespace MphRead
             _retainedDirectViewModelWorldDraws;
         internal long RetainedDirectBillboardWorldDraws =>
             _retainedDirectBillboardWorldDraws;
+        internal long RetainedDirectOverrideWorldDraws =>
+            _retainedDirectOverrideWorldDraws;
         internal long RetainedCompatibilityWorldDraws =>
             _retainedCompatibilityWorldDraws;
         internal ulong RetainedRenderFrameRevision => _retainedRenderWorld.FrameRevision;
@@ -456,6 +459,11 @@ namespace MphRead
                                 _retainedDirectViewModelWorldDraws++;
                             if (item.BillboardMode != BillboardMode.None)
                                 _retainedDirectBillboardWorldDraws++;
+                            if (item.OverrideColor.HasValue
+                                || item.PaletteOverride.HasValue)
+                            {
+                                _retainedDirectOverrideWorldDraws++;
+                            }
                             compatibilitySharedStateValid = false;
                             NoteRetainedTextureSampling(
                                 textures, item.XRepeat, item.YRepeat);
