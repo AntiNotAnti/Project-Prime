@@ -808,7 +808,7 @@ namespace MphRead.Mods.Network
                 long stamp = EnterConnectionLock();
                 try
                 {
-                    if (!_connections.TryGetValue(endpoint, out source!)
+                    if (!_connections.TryGetValue(endpoint, out source)
                         || source.RetiredAt.HasValue
                         || !source.Reliable.TrySend(now, out eventPacket)) return;
                 }
