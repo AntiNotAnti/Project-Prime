@@ -181,9 +181,11 @@ Run `ProjectPrime -renderwindowcheck -renderer vulkan` or `-renderer dx12` to ex
 
 Normal/specular/emissive replacement maps now load only while
 `AdvancedMaterials` is enabled. The live toggle has a companion-only refresh:
-turning it off releases companion GPU objects and invalidates in-flight companion
-promotions without rebinding the resident HD albedo; turning it back on rebuilds
-only the companion channels. When advanced maps are disabled, a file-backed or
+turning it off releases companion GPU objects and removes queued companion work
+without rebinding the resident HD albedo. Already-running decodes stay tracked
+until completion so they cannot create hidden memory concurrency; if maps are
+still off their result is discarded, while a rapid re-enable can reuse the same
+deduplicated work. Turning the option back on rebuilds only missing companions. When advanced maps are disabled, a file-backed or
 immutable package-backed albedo no longer has to wait for companion sources to
 qualify for background decode.
 
