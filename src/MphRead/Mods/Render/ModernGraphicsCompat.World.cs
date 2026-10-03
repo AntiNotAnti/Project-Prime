@@ -60,9 +60,17 @@ namespace MphRead.Mods.Render
         {
             internal CoreTarget(WgpuTexture* colorTexture, TextureView* colorView,
                 WgpuTextureFormat colorFormat, TextureView* depthView, int width, int height,
-                WgpuTextureFormat depthFormat = WgpuTextureFormat.Depth24PlusStencil8,
-                WgpuTexture* colorTexture1 = null, TextureView* colorView1 = null,
-                WgpuTexture* colorTexture2 = null, TextureView* colorView2 = null)
+                WgpuTextureFormat depthFormat = WgpuTextureFormat.Depth24PlusStencil8)
+                : this(colorTexture, colorView, colorFormat, depthView, width, height,
+                    depthFormat, null, null, null, null)
+            {
+            }
+
+            internal CoreTarget(WgpuTexture* colorTexture, TextureView* colorView,
+                WgpuTextureFormat colorFormat, TextureView* depthView, int width, int height,
+                WgpuTextureFormat depthFormat,
+                WgpuTexture* colorTexture1, TextureView* colorView1,
+                WgpuTexture* colorTexture2, TextureView* colorView2)
             {
                 ColorTexture = colorTexture;
                 ColorView = colorView;
