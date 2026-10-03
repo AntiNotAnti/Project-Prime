@@ -180,11 +180,11 @@ Run `ProjectPrime -renderwindowcheck -renderer vulkan` or `-renderer dx12` to ex
 ## HD companion residency optimization (2026-10-02)
 
 Normal/specular/emissive replacement maps now load only while
-`AdvancedMaterials` is enabled. Turning the option off reuses the established
-texture-binding refresh path, releasing companion GPU objects and invalidating
-in-flight companion promotions; turning it back on rebuilds them from the same
-material source. When advanced maps are disabled, a file-backed albedo no longer
-has to wait for companion sources to qualify for background decode.
+`AdvancedMaterials` is enabled. The live toggle has a companion-only refresh:
+turning it off releases companion GPU objects and invalidates in-flight companion
+promotions without rebinding the resident HD albedo; turning it back on rebuilds
+only the companion channels. When advanced maps are disabled, a file-backed
+albedo no longer has to wait for companion sources to qualify for background decode.
 
 Packaged `.ppmap` materials now reuse the package validation performed when the
 map definition is loaded. Subsequent asset reads use a bounded single-entry ZIP
