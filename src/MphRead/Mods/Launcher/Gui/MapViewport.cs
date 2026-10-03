@@ -562,6 +562,15 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     var p=Navigation.Positions[i];Vector a=new(p.X,p.Y,p.Z);var projectedPoint=Project(a);
                     IBrush color=Navigation.Components[i]%2==0?Brushes.Cyan:Brushes.Orange;
+                    if(i<Navigation.Types.Length)color=Navigation.Types[i] switch
+                    {
+                        Formats.NodeType.Special=>Brushes.Lime,
+                        Formats.NodeType.Aerial=>Brushes.DeepSkyBlue,
+                        Formats.NodeType.Vantage=>Brushes.White,
+                        Formats.NodeType.AltForm=>Brushes.Magenta,
+                        Formats.NodeType.Hazard=>Brushes.Red,
+                        _=>color
+                    };
                     if(projectedPoint!=null)context.DrawEllipse(color,null,projectedPoint.Value.Point,2,2);
                     foreach(int n in Navigation.Neighbours[i]){var q=Navigation.Positions[n];Line(context,a,new(q.X,q.Y,q.Z),color);}
                 }
