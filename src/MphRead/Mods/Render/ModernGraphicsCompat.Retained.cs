@@ -342,8 +342,13 @@ namespace MphRead.Mods.Render
             ApplyScissor(pass, target.Width, target.Height);
             if (_enabled.Contains(EnableCap.StencilTest) && target.HasDepth)
                 _api.RenderPassEncoderSetStencilReference(pass, (uint)_stencilReference);
-            _api.RenderPassEncoderDrawIndexed(pass,
-                (uint)geometry.Triangles.Length, 1, 0, 0, 0);
+            uint retainedIndexCount = (uint)geometry.Triangles.Length;
+            if (!TryDrawRetainedIndexedIndirect(
+                pass, retainedIndexCount, item.RetainedRoomOwned))
+            {
+                _api.RenderPassEncoderDrawIndexed(
+                    pass, retainedIndexCount, 1, 0, 0, 0);
+            }
             if (_measurePerformance) _coreDraws++;
             RecordCommandOperation();
 
