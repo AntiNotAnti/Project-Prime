@@ -215,8 +215,10 @@ jobs:
       - name: replay format compatibility
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -replayformatcheck
 
-      - name: modern renderer policy and geometry bridge
-        run: dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -renderbackendcheck
+      - name: modern renderer policy, retained graph and geometry bridge
+        run: |
+          dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -renderbackendcheck
+          dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -rendergraphcheck
   map-editor-checks:
     name: map editor regressions (${{ matrix.os }})
     needs: assets
