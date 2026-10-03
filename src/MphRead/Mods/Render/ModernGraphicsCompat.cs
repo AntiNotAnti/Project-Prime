@@ -696,7 +696,14 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private void ApplyScissor(RenderPassEncoder* pass, int width, int height)
         {
-            if (!_enabled.Contains(EnableCap.ScissorTest)) return;
+            // Render-pass coalescing preserves dynamic state between draws. A
+            // draw that disables GL scissoring must therefore explicitly restore
+            // the full target instead of inheriting the previous draw's rectangle.
+            if (!_enabled.Contains(EnableCap.ScissorTest))
+            {
+                _api.RenderPassEncoderSetScissorRect(pass, 0, 0, (uint)width, (uint)height);
+                return;
+            }
             // Clip both endpoints, not the origin followed by the old extent.
             // Zero-area and wholly offscreen rectangles must remain empty.
             long left = Math.Clamp((long)_scissorX, 0, width);
