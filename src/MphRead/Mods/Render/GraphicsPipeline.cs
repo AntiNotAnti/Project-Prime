@@ -179,7 +179,9 @@ namespace MphRead
                 if (hdrActive)
                 {
                     ResolveGraphicsHdr(target);
-                    ReleaseFrameTransientTexture(ref _graphicsHdrTexture);
+                    ReleaseFrameTransientFramebufferTexture(
+                        ref _graphicsHdrTexture, _graphicsHdrFramebuffer,
+                        _graphicsOutputFramebuffer);
                 }
                 UpdateGraphicsHistory(_targetSize, taa);
                 _graphicsOutputReady = true;
@@ -372,7 +374,9 @@ namespace MphRead
             bool sizeChanged = _graphicsOutputSize != target;
             if (_graphicsOutputTexture == 0 || sizeChanged)
             {
-                ReleaseFrameTransientTexture(ref _graphicsOutputTexture);
+                ReleaseFrameTransientFramebufferTexture(
+                    ref _graphicsOutputTexture, _graphicsOutputFramebuffer,
+                    _frameBuffer);
                 _graphicsOutputTexture = AcquireFrameTransientTexture(
                     target, PixelInternalFormat.Rgba8,
                     TextureMinFilter.Linear, TextureMagFilter.Linear);
@@ -392,7 +396,9 @@ namespace MphRead
 
                 if (_graphicsHdrTexture == 0 || sizeChanged || !_graphicsOutputHdr)
                 {
-                    ReleaseFrameTransientTexture(ref _graphicsHdrTexture);
+                    ReleaseFrameTransientFramebufferTexture(
+                        ref _graphicsHdrTexture, _graphicsHdrFramebuffer,
+                        _frameBuffer);
                     _graphicsHdrTexture = AcquireFrameTransientTexture(
                         target, PixelInternalFormat.Rgba16f,
                         TextureMinFilter.Linear, TextureMagFilter.Linear);
@@ -407,7 +413,9 @@ namespace MphRead
                     {
                         _graphicsHdrRefused = true;
                         _graphicsOutputHdr = false;
-                        ReleaseFrameTransientTexture(ref _graphicsHdrTexture);
+                        ReleaseFrameTransientFramebufferTexture(
+                            ref _graphicsHdrTexture, _graphicsHdrFramebuffer,
+                            _frameBuffer);
                         Console.WriteLine("[render] half-float HDR target unavailable; using RGBA8.");
                     }
                     else
@@ -418,7 +426,9 @@ namespace MphRead
             }
             else
             {
-                ReleaseFrameTransientTexture(ref _graphicsHdrTexture);
+                ReleaseFrameTransientFramebufferTexture(
+                    ref _graphicsHdrTexture, _graphicsHdrFramebuffer,
+                    _frameBuffer);
                 _graphicsOutputHdr = false;
             }
 
