@@ -222,6 +222,28 @@ resource binding when advanced materials are disabled.
 Benchmarks report how many direct retained draws used companion maps separately
 from the total direct World draw count.
 
+## Slice 7: direct retained matrix-stack meshes
+
+The direct World path now supports retained meshes that use the existing model
+matrix-stack array.
+
+For `MatrixStackCount > 0`, the packet's already-copied
+`RenderItem.MatrixStack` is written directly into the generated World uniform
+block. For `MatrixStackCount == 0`, the packet transform continues to populate
+matrix slot zero.
+
+Eligibility validates the authored matrix count against both the shader's
+32-matrix contract and the packet storage bounds. Invalid/out-of-range stacks
+fall back to the compatibility executor.
+
+This expands direct submission to more animated/dynamic entity geometry without
+changing skinning math, list geometry, draw order, projection handling or the
+generated World shader. Viewmodels, billboards, cosmetics, overrides, decals,
+translucency and cel shading remain outside the direct path.
+
+Benchmarks report matrix-stack direct draws separately from total direct World
+draws and direct Advanced Material draws.
+
 ## Next slices
 
 The graph and packet seam is intended to support the remaining migration without
