@@ -76,7 +76,7 @@ namespace MphRead.Mods.MapGen
                 bool package = MapBundle.Is(path);
                 try
                 {
-                    if (package && TryCached(cache, path, out CachedPackage? cached))
+                    if (package && TryCached(cache, path, out CachedPackage cached))
                     {
                         try
                         {
@@ -103,11 +103,15 @@ namespace MphRead.Mods.MapGen
                         definition = package
                             ? MapDefinition.LoadCatalog(path)
                             : MapDefinition.Load(path);
-                        // A package's entry table was already checked by the
-                        // lightweight reader. Do not reopen every embedded
-                        // texture/audio asset just to list the map.
-                        validation = MapValidator.Validate(definition,
-                            checkSources: !package);
+                        // A package's entry table, manifest/project identity,
+                        // compatibility metadata and asset references were
+                        // already checked by the lightweight reader. Full
+                        // geometry/source validation belongs to build/use
+                        // boundaries; doing it here can compile thousands of
+                        // faces before the launcher has drawn a frame.
+                        validation = package
+                            ? new MapValidationResult()
+                            : MapValidator.Validate(definition, checkSources: true);
                         if (package)
                         {
                             StoreCached(cache, path, definition, validation);
@@ -259,7 +263,8 @@ namespace MphRead.Mods.MapGen
                             StringComparison.OrdinalIgnoreCase))
                         return new();
                     cache.Packages = new Dictionary<string, CachedPackage>(
-                        cache.Packages ?? new(), StringComparer.OrdinalIgnoreCase);
+                        cache.Packages ?? new Dictionary<string, CachedPackage>(),
+                        StringComparer.OrdinalIgnoreCase);
                     return cache;
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
@@ -309,10 +314,10 @@ namespace MphRead.Mods.MapGen
         }
 
         private static bool TryCached(PackageCache cache, string path,
-            out CachedPackage? cached)
+            out CachedPackage cached)
         {
             string full = Path.GetFullPath(path);
-            if (!cache.Packages.TryGetValue(full, out cached)) return false;
+            if (!cache.Packages.TryGetValue(full, out cached!)) return false;
             try
             {
                 var info = new FileInfo(full);
@@ -321,7 +326,7 @@ namespace MphRead.Mods.MapGen
             }
             catch
             {
-                cached = null;
+                cached = null!;
                 return false;
             }
         }
