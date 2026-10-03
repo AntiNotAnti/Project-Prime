@@ -105,8 +105,11 @@ internal sealed unsafe partial class ModernGraphicsCompat
             int buffers = s._geometryCache.Count * 2;
             foreach (var page in s._uniformArena) if (page.Buffer != 0) buffers++;
             foreach (var upload in s._uploadBuffers) if (upload.Buffer != 0) buffers++;
-            foreach (var geometry in s._transientGeometry)
-                buffers += (geometry.Vertex != null ? 1 : 0) + (geometry.Index != null ? 1 : 0);
+            foreach (var page in s._geometryArena)
+            {
+                if (page.Vertex != 0) buffers++;
+                if (page.Index != 0) buffers++;
+            }
             int shaders = s._generatedPrograms.Count * 2 + (s._clearShader != null ? 1 : 0)
                 + (s._worldShader != null ? 1 : 0) + (s._rttShader != null ? 1 : 0)
                 + (s._shiftShader != null ? 1 : 0) + (s._celShader != null ? 1 : 0)
