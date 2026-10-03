@@ -186,6 +186,22 @@ static class CustomCollisionChecks
         check(denseSweepCount == boundedResults.Length,
             "continuous player sweep exposes a full contact buffer so movement can fail conservatively");
 
+        CollisionResult invalidBeamResult = default;
+        bool invalidBeamHit = CollisionDetection.CheckCylindersOverlap(
+            new Vector3(Single.NaN, 0, 0), Vector3.Zero,
+            new Vector3(2, 0, 0), Vector3.UnitY, 2, .5f,
+            ref invalidBeamResult);
+        check(!invalidBeamHit,
+            "non-finite beam segment fails closed instead of overlapping a cylinder");
+
+        CollisionResult parallelBeamResult = default;
+        bool distantDegenerateHit = CollisionDetection.CheckCylindersOverlap(
+            Vector3.Zero, Vector3.Zero,
+            new Vector3(10, 0, 0), Vector3.UnitY, 2, .5f,
+            ref parallelBeamResult);
+        check(!distantDegenerateHit,
+            "zero-length beam segment does not hit a distant cylinder");
+
         var wideFaces = new List<CollisionDataEditor>(22000);
         for (int i = 0; i < 22000; i++)
         {
