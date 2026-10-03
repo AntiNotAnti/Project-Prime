@@ -418,7 +418,7 @@ namespace MphRead.Mods.Network
                 CareerReportOutbox.Start();
             }
             if (!_controlPlaneOnlyForTests)
-                foreach (var entry in _rotation.Entries) NetworkMapIdentity.StageRoom(entry.RoomKey);
+                NetworkMapIdentity.StageRoom(_rotation.Current.RoomKey);
             _lobbyMatch = DefinitionFor(_rotation.Current);
             if (LobbyRules.ValidateDefinition(_lobbyMatch, out string ruleError) != LobbyResultCode.Ok)
                 throw new InvalidOperationException(ruleError);
