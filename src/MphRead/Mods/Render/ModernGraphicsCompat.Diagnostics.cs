@@ -103,7 +103,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
                 if (s._fallbackDepth.Sampler != null) samplers++;
             }
             int buffers = s._geometryCache.Count * 2;
-            foreach (var pool in s._uniformPools.Values) buffers += pool.Buffers.Count;
+            foreach (var page in s._uniformArena) if (page.Buffer != 0) buffers++;
+            foreach (var upload in s._uploadBuffers) if (upload.Buffer != 0) buffers++;
             foreach (var geometry in s._transientGeometry)
                 buffers += (geometry.Vertex != null ? 1 : 0) + (geometry.Index != null ? 1 : 0);
             int shaders = s._generatedPrograms.Count * 2 + (s._clearShader != null ? 1 : 0)
