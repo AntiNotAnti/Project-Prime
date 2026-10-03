@@ -10,8 +10,9 @@ namespace MphRead
     /// Optional compatibility-friendly deferred PBR path.
     ///
     /// OpenGL 2.1 has no dependable MRT contract on every machine Project Prime
-    /// supports, so the same opaque geometry is replayed into three compact
-    /// G-buffer targets (albedo, normal, material). At native scale the finished
+    /// supports, so compatibility OpenGL/GLES retains the three-pass replay.
+    /// Modern WebGPU backends bind all three compact G-buffer targets (albedo,
+    /// normal, material) in one pass. At native scale the finished
     /// scene depth remains the exact visibility contract. When the world is
     /// supersampled, the G-buffer resolves at presentation resolution with its own
     /// depth target so three PBR replays do not also pay the supersampling multiplier.
@@ -60,6 +61,18 @@ namespace MphRead
         internal int DeferredPbrNormal => _pbrNormalTexture;
         internal int DeferredPbrMaterial => _pbrMaterialTexture;
 
+        private static bool DeferredPbrMrtSupported
+        {
+            get
+            {
+#if MPHREAD_SERVER
+                return false;
+#else
+                return ModernGraphicsCompat.Active;
+#endif
+            }
+        }
+
         private void RenderDeferredPbrGBuffer()
         {
             _pbrReady = false;
@@ -104,15 +117,13 @@ namespace MphRead
                 GL.Uniform1(_pbrSpecularSampler, 2);
                 GL.Uniform1(_pbrEmissiveSampler, 3);
 
-                for (int mode = 1; mode <= 3; mode++)
+                if (DeferredPbrMrtSupported)
                 {
-                    int attachmentTexture = mode == 1 ? _pbrAlbedoTexture
-                        : mode == 2 ? _pbrNormalTexture : _pbrMaterialTexture;
-                    GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
-                        FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D,
-                        attachmentTexture, 0);
+                    // Mode zero is consumed only by ModernGraphicsCompat. It
+                    // selects the generated three-target fragment derivative;
+                    // legacy GLSL never executes this branch.
                     GL.ClearColor(0, 0, 0, 0);
-                    if (_pbrIndependentDepth && mode == 1)
+                    if (_pbrIndependentDepth)
                     {
                         GL.DepthFunc(DepthFunction.Less);
                         GL.DepthMask(true);
@@ -120,24 +131,40 @@ namespace MphRead
                     }
                     else
                     {
-                        if (_pbrIndependentDepth)
-                        {
-                            GL.DepthFunc(DepthFunction.Equal);
-                            GL.DepthMask(false);
-                        }
+                        GL.DepthFunc(DepthFunction.Equal);
+                        GL.DepthMask(false);
                         GL.Clear(ClearBufferMask.ColorBufferBit);
                     }
-                    GL.Uniform1(_pbrMode, mode);
-
-                    for (int i = 0; i < _nonDecalItems.Count; i++)
+                    GL.Uniform1(_pbrMode, 0);
+                    DrawDeferredPbrOpaqueItems();
+                }
+                else
+                {
+                    for (int mode = 1; mode <= 3; mode++)
                     {
-                        RenderItem item = _nonDecalItems[i];
-                        if (item.Type != RenderItemType.Mesh || item.ViewModel || item.Alpha < .999f
-                            || item.RenderMode == RenderMode.Translucent)
+                        int attachmentTexture = mode == 1 ? _pbrAlbedoTexture
+                            : mode == 2 ? _pbrNormalTexture : _pbrMaterialTexture;
+                        GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
+                            FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D,
+                            attachmentTexture, 0);
+                        GL.ClearColor(0, 0, 0, 0);
+                        if (_pbrIndependentDepth && mode == 1)
                         {
-                            continue;
+                            GL.DepthFunc(DepthFunction.Less);
+                            GL.DepthMask(true);
+                            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
                         }
-                        DrawDeferredPbrItem(item);
+                        else
+                        {
+                            if (_pbrIndependentDepth)
+                            {
+                                GL.DepthFunc(DepthFunction.Equal);
+                                GL.DepthMask(false);
+                            }
+                            GL.Clear(ClearBufferMask.ColorBufferBit);
+                        }
+                        GL.Uniform1(_pbrMode, mode);
+                        DrawDeferredPbrOpaqueItems();
                     }
                 }
                 _pbrReady = true;
@@ -168,6 +195,20 @@ namespace MphRead
                 GL.UseProgram(_shaderProgramId);
                 GL.Viewport(0, 0, _targetSize.X, _targetSize.Y);
                 GL.ClearColor(_clearColor);
+            }
+        }
+
+        private void DrawDeferredPbrOpaqueItems()
+        {
+            for (int i = 0; i < _nonDecalItems.Count; i++)
+            {
+                RenderItem item = _nonDecalItems[i];
+                if (item.Type != RenderItemType.Mesh || item.ViewModel || item.Alpha < .999f
+                    || item.RenderMode == RenderMode.Translucent)
+                {
+                    continue;
+                }
+                DrawDeferredPbrItem(item);
             }
         }
 
@@ -250,6 +291,15 @@ namespace MphRead
                 GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
                     FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D,
                     _pbrAlbedoTexture, 0);
+                if (DeferredPbrMrtSupported)
+                {
+                    GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
+                        FramebufferAttachment.ColorAttachment1, TextureTarget.Texture2D,
+                        _pbrNormalTexture, 0);
+                    GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
+                        FramebufferAttachment.ColorAttachment2, TextureTarget.Texture2D,
+                        _pbrMaterialTexture, 0);
+                }
                 if (independentDepth)
                 {
                     if (_pbrDepthRenderbuffer == 0)
