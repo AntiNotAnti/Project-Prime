@@ -1182,6 +1182,9 @@ namespace MphRead.Mods.Launcher.Gui
                 case MapNavigationLink link:
                     Vec("Destination",link.To,(o,v)=>((MapNavigationLink)o).To=v);
                     Field("Traversal type",link.Kind,(o,v)=>((MapNavigationLink)o).Kind=Enum.Parse<MapNavigationLinkKind>(v,true));
+                    Field("From node type",link.FromNodeKind,(o,v)=>((MapNavigationLink)o).FromNodeKind=Enum.Parse<MapNavigationAnchorKind>(v,true));
+                    Field("To node type",link.ToNodeKind,(o,v)=>((MapNavigationLink)o).ToNodeKind=Enum.Parse<MapNavigationAnchorKind>(v,true));
+                    _inspector.Children.Add(Text("Node type Auto preserves geometry-derived hazard/vantage semantics and applies safe traversal defaults."));
                     var both=new CheckBox {Content="Bidirectional",IsChecked=link.Bidirectional};_inspector.Children.Add(both);edits.Add(o=>((MapNavigationLink)o).Bidirectional=both.IsChecked==true);break;
                 case MapItem i:
                     var itemType=new ComboBox {ItemsSource=MapBuilder.MultiplayerItems.Select(t=>t.ToString()).Order().ToArray(),SelectedItem=i.Type};_inspector.Children.Add(itemType);edits.Add(o=>((MapItem)o).Type=itemType.SelectedItem as string??i.Type);

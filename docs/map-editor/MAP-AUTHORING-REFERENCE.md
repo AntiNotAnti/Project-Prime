@@ -267,7 +267,7 @@ Other modes require objective entities supplied through a native-room source wit
 
 Enable Navigation in the editor or run `-mapinspect` to build and inspect navigation. Look for disconnected regions, inaccessible pickups and routes that only appear connected visually.
 
-An explicit link contains `id`, `kind`, `from`, `to`, and `bidirectional` (default false). In project JSON, `kind` is currently a **numeric enum**:
+An explicit link contains `id`, `kind`, `from`, `to`, `bidirectional` (default false), plus optional `fromNodeKind` / `toNodeKind` semantic hints. In project JSON, `kind` is currently a **numeric enum**:
 
 | Value | Name |
 | --- | --- |
@@ -278,9 +278,11 @@ An explicit link contains `id`, `kind`, `from`, `to`, and `bidirectional` (defau
 | 4 | Platform |
 | 5 | Manual |
 
-Example: `{"id":"726a3aeb-27f0-49a8-9034-846b63d3dcdd","kind":0,"from":[0,0.1,0],"to":[4,1.1,0],"bidirectional":false}`.
+Node hints use `Auto`, `Navigation`, `Special`, `Aerial`, `Vantage`, `AltForm`, or `Hazard`. `Auto` keeps geometry-derived semantics: damaging/lava/acid floors become Hazard nodes, elevated ledges can become Vantage nodes, jump destinations infer Aerial, and teleporter/platform endpoints infer Special. Explicit hints are useful for morph-only passages and authored sniper positions. Hazard classification from collision cannot be downgraded by a link hint.
 
-Links connect nearby walkable graph nodes. They do not create walkable surfaces, movement code, jump pads, teleporters or moving platforms. Build the physical route first. Use directionality honestly: a drop may be traversable one way only. The source validator allows at most 4096 links.
+Example: `{"id":"726a3aeb-27f0-49a8-9034-846b63d3dcdd","kind":0,"from":[0,0.1,0],"to":[4,1.1,0],"bidirectional":false,"fromNodeKind":"Auto","toNodeKind":"Aerial"}`.
+
+Links connect nearby walkable graph nodes. They do not create walkable surfaces, movement code, jump pads, teleporters or moving platforms. Build the physical route first. Use directionality honestly: generated and authored drops are now kept one-way unless the reverse movement is separately valid. The routing table also prefers safe paths over Hazard nodes when both exist. The source validator allows at most 4096 links.
 
 ## 10. How to use Forge / Map Studio
 
