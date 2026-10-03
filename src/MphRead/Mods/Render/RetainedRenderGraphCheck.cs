@@ -22,6 +22,10 @@ namespace MphRead.Mods.Render
 
             Check(WorldRenderGraph.Validate(out string error),
                 "six-pass graph validates" + (error.Length == 0 ? "" : ": " + error));
+            Check(ModernGraphicsCompat.ValidateRetainedWorldUniformLayout(
+                    out string layoutError),
+                "retained World generated uniform layout validates"
+                    + (layoutError.Length == 0 ? "" : ": " + layoutError));
 
             var opaqueA = new RenderItem
             {
