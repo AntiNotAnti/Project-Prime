@@ -96,8 +96,9 @@ namespace MphRead.Mods.Render
 
     /// <summary>
     /// Frame-local submission referencing an interned immutable mesh descriptor.
-    /// Sequence is never changed; batching in this slice only joins adjacent
-    /// compatible packets and therefore cannot perturb cartridge draw ordering.
+    /// Sequence preserves cartridge submission order. Only explicitly safe,
+    /// room-owned opaque runs may be reordered; decals, translucency, dynamic
+    /// entities and every packet carrying presentation overrides remain barriers.
     /// </summary>
     internal readonly struct RetainedDrawPacket
     {
@@ -107,6 +108,7 @@ namespace MphRead.Mods.Render
         internal RetainedMeshDescriptor Mesh { get; }
         internal RetainedMaterialDescriptor Material { get; }
         internal bool Batchable { get; }
+        internal bool ReorderableOpaque { get; }
         internal RetainedBatchState BatchState { get; }
 
         internal RetainedDrawPacket(RenderItem item, int sequence,
@@ -125,6 +127,13 @@ namespace MphRead.Mods.Render
                 && item.PaletteOverride == null
                 && !item.TexturedPlayerSkin
                 && item.PlayerOutlineColor == null;
+            ReorderableOpaque = item.RetainedRoomOwned
+                && Batchable
+                && item.PolygonId == 0
+                && item.PolygonMode == PolygonMode.Modulate
+                && item.RenderMode == RenderMode.Normal
+                && item.Alpha >= 0.999f
+                && !item.Wireframe;
             BatchState = new RetainedBatchState(item.CullingMode, item.Wireframe,
                 Material);
             StateKey = BuildStateKey(item);
@@ -186,14 +195,19 @@ namespace MphRead.Mods.Render
         internal int GraphStateReuseCount => Reuses(_opaqueBatches) * 2
             + Reuses(_decalBatches) + Reuses(_translucentBatches) * 3;
         internal int MeshDescriptorCount => _meshDescriptors.Count;
+        internal int OpaqueSortRunCount { get; private set; }
+        internal int OpaqueReorderedPacketCount { get; private set; }
         internal ulong FrameRevision { get; private set; }
 
         internal void Capture(IReadOnlyList<RenderItem> nonDecal,
             IReadOnlyList<RenderItem> decals, IReadOnlyList<RenderItem> translucent)
         {
-            CaptureList(_opaque, _opaqueBatches, nonDecal);
-            CaptureList(_decals, _decalBatches, decals);
-            CaptureList(_translucent, _translucentBatches, translucent);
+            OpaqueSortRunCount = 0;
+            OpaqueReorderedPacketCount = 0;
+            CaptureList(_opaque, _opaqueBatches, nonDecal, sortOpaque: true);
+            CaptureList(_decals, _decalBatches, decals, sortOpaque: false);
+            CaptureList(_translucent, _translucentBatches, translucent,
+                sortOpaque: false);
             FrameRevision++;
         }
 
@@ -208,7 +222,8 @@ namespace MphRead.Mods.Render
         }
 
         private void CaptureList(List<RetainedDrawPacket> destination,
-            List<RetainedDrawBatch> batches, IReadOnlyList<RenderItem> source)
+            List<RetainedDrawBatch> batches, IReadOnlyList<RenderItem> source,
+            bool sortOpaque)
         {
             destination.Clear();
             batches.Clear();
@@ -225,7 +240,52 @@ namespace MphRead.Mods.Render
                 }
                 destination.Add(new RetainedDrawPacket(item, i, mesh));
             }
+            if (sortOpaque)
+                SortSafeOpaqueRuns(destination);
             BuildAdjacentBatches(destination, batches);
+        }
+
+        private sealed class OpaquePacketComparer : IComparer<RetainedDrawPacket>
+        {
+            internal static readonly OpaquePacketComparer Instance = new();
+
+            public int Compare(RetainedDrawPacket x, RetainedDrawPacket y)
+            {
+                int state = x.StateKey.CompareTo(y.StateKey);
+                return state != 0 ? state : x.Sequence.CompareTo(y.Sequence);
+            }
+        }
+
+        private void SortSafeOpaqueRuns(List<RetainedDrawPacket> packets)
+        {
+            int start = 0;
+            while (start < packets.Count)
+            {
+                while (start < packets.Count
+                    && !packets[start].ReorderableOpaque)
+                {
+                    start++;
+                }
+                if (start >= packets.Count)
+                    break;
+
+                int end = start + 1;
+                while (end < packets.Count && packets[end].ReorderableOpaque)
+                    end++;
+
+                int count = end - start;
+                if (count > 1)
+                {
+                    packets.Sort(start, count, OpaquePacketComparer.Instance);
+                    OpaqueSortRunCount++;
+                    for (int i = start; i < end; i++)
+                    {
+                        if (packets[i].Sequence != i)
+                            OpaqueReorderedPacketCount++;
+                    }
+                }
+                start = end;
+            }
         }
 
         private static void BuildAdjacentBatches(
