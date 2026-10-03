@@ -356,6 +356,10 @@ namespace MphRead
         internal int RetainedMeshDescriptorCount => _retainedRenderWorld.MeshDescriptorCount;
         internal long RetainedRoomTemplateBuilds => _room?.RetainedRoomTemplateBuilds ?? 0;
         internal long RetainedRoomTemplateHits => _room?.RetainedRoomTemplateHits ?? 0;
+        private long _retainedDirectWorldDraws;
+        private long _retainedCompatibilityWorldDraws;
+        internal long RetainedDirectWorldDraws => _retainedDirectWorldDraws;
+        internal long RetainedCompatibilityWorldDraws => _retainedCompatibilityWorldDraws;
         internal ulong RetainedRenderFrameRevision => _retainedRenderWorld.FrameRevision;
 
         private void CaptureRetainedRenderWorld()
@@ -388,9 +392,18 @@ namespace MphRead
         {
             IReadOnlyList<Mods.Render.RetainedDrawPacket> packets = PacketsFor(kind);
             IReadOnlyList<Mods.Render.RetainedDrawBatch> batches = BatchesFor(kind);
+            bool directPass = kind is Mods.Render.WorldRenderPassKind.Opaque
+                or Mods.Render.WorldRenderPassKind.RebuildDepth;
+            bool directSceneState = directPass
+                && !_editorMaterialPreview
+                && _wireframeLevel == 0
+                && !Mods.RenderOptions.AdvancedMaterials
+                && !Mods.RenderOptions.CelShading;
+
             for (int batchIndex = 0; batchIndex < batches.Count; batchIndex++)
             {
                 Mods.Render.RetainedDrawBatch batch = batches[batchIndex];
+                bool compatibilitySharedStateValid = false;
                 for (int offset = 0; offset < batch.Count; offset++)
                 {
                     Mods.Render.RetainedDrawPacket packet =
@@ -403,15 +416,50 @@ namespace MphRead
                     else if (kind == Mods.Render.WorldRenderPassKind.TranslucentFront)
                         GL.StencilFunc(StencilFunction.Equal, item.PolygonId, 0xFF);
 
-                    // A batch never reorders packets. Only the first packet emits
-                    // shared material/texture/raster state; transforms, lighting,
-                    // matrix stacks, current vertex colour and stencil reference
-                    // remain per draw.
-                    RenderItem(item, applySharedState: offset == 0,
+#if !MPHREAD_SERVER
+                    if (directSceneState && Mods.Render.ModernGraphicsCompat.Active)
+                    {
+                        Mods.Render.TextureSamplerDescriptor sampling =
+                            RetainedTextureSampling(item);
+                        if (Mods.Render.ModernGraphicsCompat.TryDrawRetainedWorld(
+                            item, packet.Mesh, sampling, _showTextures,
+                            LightingOn, _faceCulling))
+                        {
+                            _retainedDirectWorldDraws++;
+                            compatibilitySharedStateValid = false;
+                            if (item.HasTexture && _showTextures)
+                            {
+                                _appliedTextureSampling[item.TextureBindingId] =
+                                    new Mods.Render.AppliedTextureSamplingState(
+                                        sampling, item.XRepeat, item.YRepeat);
+                                if (sampling.Mipmaps)
+                                    _mipmappedTextures.Add(item.TextureBindingId);
+                            }
+                            continue;
+                        }
+                    }
+#endif
+                    _retainedCompatibilityWorldDraws++;
+                    RenderItem(item,
+                        applySharedState: !compatibilitySharedStateValid,
                         retainedMesh: packet.Mesh);
+                    compatibilitySharedStateValid = packet.Batchable;
                 }
             }
             FinishViewModelRenderRun();
+        }
+
+        private Mods.Render.TextureSamplerDescriptor RetainedTextureSampling(
+            RenderItem item)
+        {
+            if (item.HasTexture
+                && _modernTextureSampling.TryGetValue(item.TextureBindingId,
+                    out var modern))
+            {
+                return Mods.Render.TextureSamplingPolicy.ResolveModern(
+                    modern.AssetClass, modern.Channel);
+            }
+            return Mods.Render.TextureSamplingPolicy.ResolveNativeWorld();
         }
 
         /// <summary>
