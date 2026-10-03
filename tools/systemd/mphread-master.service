@@ -6,7 +6,9 @@
 #
 # Point 51.161.113.128 at this machine and open UDP 27889 to it.
 #
-# __USER__ and __DIR__ are placeholders; see mphread-server.service.
+# __USER__, __DIR__ and __PUBLIC__ are placeholders; deploy-server.sh fills
+# them. __PUBLIC__ is the internet-reachable hostname/IP advertised for child
+# lobbies whose heartbeat reaches this allocator over loopback.
 [Unit]
 Description=Project Prime server directory
 After=network-online.target
