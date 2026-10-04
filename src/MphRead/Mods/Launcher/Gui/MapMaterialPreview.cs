@@ -73,6 +73,13 @@ namespace MphRead.Mods.Launcher.Gui
             }
             if (material.Animation?.FlipbookFrames is { Count: > 0 } previewFrames)
                 details += $"\nFlipbook image {selectedFlipbookImage + 1}/{previewFrames.Count + 1}";
+            if (material.Animation is { } emissiveAnimation
+                && (emissiveAnimation.EmissiveIntensity != 1f || emissiveAnimation.EmissivePulse != 0f))
+            {
+                float strength = MapUvAnimation.EmissiveIntensity(
+                    emissiveAnimation, animationFrame);
+                details += $"\nEmissive {emissiveAnimation.EmissiveIntensity:0.##} ± {Math.Abs(emissiveAnimation.EmissivePulse):0.##} · current {strength:0.##}";
+            }
             if (material.Alpha is { } alpha) details += $"\nAlpha {alpha}/31";
             if (material.TwoSided) details += " · two-sided";
 
