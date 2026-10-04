@@ -1,6 +1,6 @@
 # Modern FPS Hub overhaul
 
-Status: **P0 validated; P1 multiplayer/lobby overhaul in progress on `feature/modern-fps-hub`**
+Status: **P0 shell + motion foundation complete; P1 presentation modernization in progress**
 
 The goal is to turn the launcher/menu collection into a coherent game shell without
 rewriting networking, replay, settings, or match startup logic at the same time.
@@ -50,10 +50,14 @@ Remaining P0/performance work:
 - Add high-contrast theme tokens.
 - Baseline UI composition cost at 1080p/1440p/4K.
 
-Implemented visual-motion guardrail:
+Implemented visual-motion system:
 
-- **Reduce menu motion** is persisted in `LauncherPrefs` and suppresses page-entry motion
-  plus cinematic GL drift; `Deck.Still` also disables them for deterministic captures.
+- **Reduce menu motion** is persisted in `LauncherPrefs` and suppresses shell motion
+  plus cinematic GL drift; `Deck.Still` also disables it for deterministic captures.
+- `PrimeMotion` provides finite, frame-clocked button, page and modal motion through
+  `Deck.NextFrame`, preserving the event-driven off-screen desktop renderer at rest.
+- `PrimeWorkspaceHost` crossfades/slides destinations and `PrimeOverlayHost` fades the
+  scrim while panels lift/scale into place. No permanent Avalonia animation loop exists.
 
 ## P1 — Play and multiplayer
 
@@ -77,9 +81,14 @@ Play now has three product-level destinations:
 
 Current implementation:
 
-- `HubPlayView` separates Multiplayer / Offline / Adventure.
-- `HubMultiplayerView` is the full multiplayer workspace and uses
-  `ServerBrowserService` for discovery, Quick Play and joins.
+- `PrimeShell` provides persistent HOME / PLAY / HUNTER LICENSE / REPLAY STUDIO /
+  MAP STUDIO / OFFLINE / SETTINGS navigation.
+- `NewsWorkspace` is the HOME command deck: cinematic hero, category filters,
+  selectable transmission cards and the existing detail/Discord actions.
+- `PlayWorkspace` is the full multiplayer workspace and uses
+  `ServerBrowserService` for discovery, Quick Play and joins. It now presents a
+  cinematic multiplayer hero, live-directory browser and deployment inspector while
+  leaving networking/session ownership unchanged.
 - `CreateServerScreen` is presented to the player as **Create Lobby**. Its
   hosted-vs-dedicated behavior, map rotation, host discovery and server package
   installation remain shared with the existing network implementation.
@@ -93,8 +102,8 @@ Current implementation:
 - Adventure uses the portable `AdventureSave` / `AdventureLaunch` contract.
 - Offline uses the shared `OfflineLaunch` contract.
 
-Visual polish now includes subtle static panel gradients, contextual map/hunter
-artwork and short one-shot page-entry transitions. The old lava/wireframe launcher JPEG
+Visual polish now includes cinematic artwork-backed hero surfaces, contextual
+map/hunter artwork, interactive selection motion and short one-shot page/modal transitions. The old lava/wireframe launcher JPEG
 has been removed from the normal player-facing path: `LauncherBackdrop` selects a
 cinematic room per destination, desktop GL pans the locally generated map render, and
 Android/headless bake the same `MapShot`. Multiplayer, Offline, Replay Studio and Lobby
@@ -103,8 +112,9 @@ Transitions and GL drift are disabled by `Deck.Still` for deterministic captures
 the user's **Reduce menu motion** setting. No perpetual Avalonia animation was added to
 the CPU-rasterised desktop surface.
 
-Still to add: server filtering/sorting/favorites/recent history and deeper Replay
-Studio filtering/timeline/analytics refinement.
+Still to add: server sorting/recent history and deeper Replay Studio
+filtering/timeline/analytics refinement. The next presentation slices are Lobby,
+Settings, Replay Studio, Map Studio, then pause/results.
 
 ## P1 — Lobby
 
