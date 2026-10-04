@@ -99,6 +99,7 @@ try
         var runtimeProject = MapTemplates.Create("RUNTIME LEASE CHECK", "basic-ffa");
         runtimeProject.Definition.Assets.Add(new() { Path = "lease.tex" });
         foreach (var material in runtimeProject.Definition.Materials) material.Texture = "lease.tex";
+        runtimeProject.Definition.Materials[0].Animation = new(); // no-op metadata must still compile as static
         MapProjectSerializer.Save(runtimeProject, Path.Combine(runtimeMaps, "lease.json"));
 
         // CustomRooms keeps a fixed runtime-ID snapshot once registration starts.
