@@ -107,6 +107,13 @@ internal static class ModernRenderBenchmark
                     if (ModernGraphicsCompat.Active) ModernGraphicsCompat.BeginPerformanceSample();
                     for (int i = 0; i < 20 + sampleCount; i++)
                     {
+                        if (i == 20 && !modern)
+                        {
+                            // OpenGL's compatibility wrapper counts requested,
+                            // submitted and skipped scalar/vector/matrix uniforms
+                            // only during the measured frames.
+                            GraphicsApi.BeginLegacyUniformSample();
+                        }
                         if (i == 20 && ModernGraphicsCompat.Active)
                         {
                             warmup = ModernGraphicsCompat.EndPerformanceSample();
@@ -173,9 +180,12 @@ internal static class ModernRenderBenchmark
                     }
                     ModernGraphicsCompat.PerformanceSample? measurement = ModernGraphicsCompat.Active
                         ? ModernGraphicsCompat.EndPerformanceSample() : null;
+                    LegacyUniformSample? legacyUniforms = !modern
+                        ? GraphicsApi.EndLegacyUniformSample() : null;
                     var sorted = frames.Order().ToArray();
                     results.Add(new { requestedWidth = size.X, requestedHeight = size.Y, width = scene.Size.X, height = scene.Size.Y, scale, samples = frames.Count,
-                        warmup, measurement,
+                        warmup, measurement, legacyUniforms,
+                        lowLatency = LowLatencyController.Status,
                         retainedPackets = scene.RetainedRenderPacketCount,
                         retainedVisiblePackets = scene.RetainedVisiblePacketCount,
                         retainedBatches = scene.RetainedRenderBatchCount,
@@ -254,7 +264,10 @@ internal static class ModernRenderBenchmark
                         onePercentLowFps = 1000 / sorted.Skip((int)(sorted.Length * .99)).Average(),
                         pointOnePercentLowFps = 1000 / sorted.Skip((int)(sorted.Length * .999)).Average(),
                         resources = ModernGraphicsCompat.Active ? ModernGraphicsCompat.LiveResources.ToString() : "OpenGL" });
-                    Console.WriteLine($"RENDERBENCH {scene.Size.X}x{scene.Size.Y} scale={scale} completed={frames.Average():F2}ms submit={submissions.Average():F2}ms");
+                    string uniformNote = legacyUniforms is { } gl
+                        ? $" glUniform={gl.Submitted}/{gl.Requested} ({gl.SkipPercent:F1}% skipped)"
+                        : "";
+                    Console.WriteLine($"RENDERBENCH {scene.Size.X}x{scene.Size.Y} scale={scale} completed={frames.Average():F2}ms submit={submissions.Average():F2}ms{uniformNote}");
                 }
             }
             finally { scene.DoCleanup(); scene.UnloadGl(); }
