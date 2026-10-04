@@ -1021,22 +1021,35 @@ namespace MphRead.Droid
                 if (Mods.Network.ReplayController.IsSeeking) return true;
                 long simulationEnd = Stopwatch.GetTimestamp();
 
+                bool gameplayOwnsPresentationAim =
+                    !MphRead.Mods.Input.GamepadContexts.MenuVisible
+                    && !MphRead.Mods.Input.GamepadContexts.TextEntryActive
+                    && !MphRead.Mods.Chat.ChatBox.Composing
+                    && !Mods.SpectatorMode.IsSpectating
+                    && !GameState.DialogPause
+                    && !GameState.MenuPause
+                    && !_controls.IsHeld(TouchAction.WeaponMenu);
+
                 // Android pad motion events may arrive between 60 Hz simulation
                 // steps. Capture the newest aim axes for the same render-only
                 // preview used on desktop; the next simulation consumes the
-                // exact captured axes.
+                // exact captured axes. UI ownership cancels any older preview
+                // immediately, even on a zero-step high-refresh frame.
                 if (FrameTiming.HighRefreshPresentation
-                    && !MphRead.Mods.Network.DemoPlayback.IsActive)
+                    && !MphRead.Mods.Network.DemoPlayback.IsActive
+                    && gameplayOwnsPresentationAim)
                 {
                     MphRead.Mods.Input.GamepadInput.CapturePresentationSample();
                 }
+                else if (!gameplayOwnsPresentationAim)
+                {
+                    MphRead.Mods.Input.GamepadInput.InvalidatePresentationAim();
+                }
 
                 // A 90/120 Hz phone often draws a picture between two 60 Hz
-                // simulation steps. Preserve the touch delta for gameplay, but
-                // preview it in the camera now so dragging the view responds at
-                // the panel rate rather than waiting for the next game tick.
-                if (!Mods.SpectatorMode.IsSpectating && !GameState.DialogPause
-                    && !GameState.MenuPause && !_controls.IsHeld(TouchAction.WeaponMenu))
+                // simulation steps. Preserve fresh gameplay touch delta, but
+                // never preview movement accumulated while chat/menu owns glass.
+                if (gameplayOwnsPresentationAim)
                 {
                     (float X, float Y) lateAim = _controls.PeekAimDelta();
                     scene.ModSetLateAim(lateAim.X * AimScale, lateAim.Y * AimScale);
@@ -1525,6 +1538,12 @@ namespace MphRead.Droid
                 bool wanted = MphRead.Mods.Chat.ChatBox.Composing;
                 if (wanted != _keyboardShown)
                 {
+                    // Both edges are ownership changes. Drop held touch actions
+                    // and render-only aim so opening chat cannot keep walking/
+                    // turning and closing it cannot manufacture a resume edge.
+                    _controls.ReleaseEverything();
+                    MphRead.Mods.Input.GamepadInput.InvalidatePresentationAim();
+                    Scene?.ModSetLateAim(0, 0);
                     _keyboardShown = wanted;
                     _onSoftKeyboard(wanted);
                 }
