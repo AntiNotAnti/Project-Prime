@@ -162,6 +162,13 @@ try
         Check(rotationValidation.Diagnostics.Any(d => d.Message.Contains("whole turn", StringComparison.OrdinalIgnoreCase)),
             "non-seamless UV rotation loop is rejected");
         animatedMaterial.Animation.UvRotationDegreesPerSecond = 180f;
+        animatedMaterial.Albedo = "textures/static-hd.png";
+        var hdFlipbookValidation = MapValidator.Validate(animatedProject.Definition, checkSources: false);
+        Check(hdFlipbookValidation.Diagnostics.Any(d =>
+            d.Severity == MapDiagnosticSeverity.Warning
+            && d.Message.Contains("Static HD albedo is ignored", StringComparison.OrdinalIgnoreCase)),
+            "flipbook warns that static HD albedo is bypassed");
+        animatedMaterial.Albedo = null;
 
         var animatedDefinition = CustomRooms.Definitions.Single(d => d.Name == "ANIMATED MATERIAL CHECK");
         CustomRooms.GenerateMissing(animatedDefinition.Name);
