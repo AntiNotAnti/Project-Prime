@@ -1026,6 +1026,7 @@ namespace MphRead
             _shaderLocations.ProjectionMatrix = GL.GetUniformLocation(_shaderProgramId, "proj_mtx");
             _shaderLocations.TextureMatrix = GL.GetUniformLocation(_shaderProgramId, "tex_mtx");
             _shaderLocations.TexgenMode = GL.GetUniformLocation(_shaderProgramId, "texgen_mode");
+            _shaderLocations.WeightedSkinning = GL.GetUniformLocation(_shaderProgramId, "weighted_skinning");
             _shaderLocations.MatrixStack = GL.GetUniformLocation(_shaderProgramId, "mtx_stack");
             _shaderLocations.ToonTable = GL.GetUniformLocation(_shaderProgramId, "toon_table");
 
@@ -4674,6 +4675,7 @@ namespace MphRead
             item.CosmeticMaterial = default;
             item.TexturedPlayerSkin = false;
             item.PlayerOutlineColor = null;
+            item.WeightedSkinning = false;
             item.RetainedRoomOwned = false;
             item.RetainedGpuVisibilityEligible = false;
             item.RetainedBoundsMin = Vector3.Zero;
@@ -4687,7 +4689,8 @@ namespace MphRead
         public void AddRenderItem(Material material, int polygonId, float alphaScale, Vector3 emission, LightInfo lightInfo, Matrix4 texcoordMatrix,
             Matrix4 transform, int listId, int matrixStackCount, IReadOnlyList<float> matrixStack, Vector4? overrideColor, Vector4? paletteOverride,
             SelectionType selectionType, BillboardMode billboardMode, float scaleFactor = 1, int? bindingOverride = null,
-            bool texturedPlayerSkin = false, Vector4? playerOutlineColor = null)
+            bool texturedPlayerSkin = false, Vector4? playerOutlineColor = null,
+            bool weightedSkinning = false)
         {
             transform.Row0.X *= scaleFactor;
             transform.Row0.Y *= scaleFactor;
@@ -4764,6 +4767,7 @@ namespace MphRead
             item.OverrideColor = overrideColor;
             item.TexturedPlayerSkin = texturedPlayerSkin;
             item.PlayerOutlineColor = playerOutlineColor;
+            item.WeightedSkinning = weightedSkinning;
             item.PaletteOverride = paletteOverride;
             item.Points = Array.Empty<Vector3>();
             item.ScaleS = 1;
@@ -4833,6 +4837,7 @@ namespace MphRead
             item.PaletteOverride = null;
             item.TexturedPlayerSkin = false;
             item.PlayerOutlineColor = null;
+            item.WeightedSkinning = false;
             item.Points = Array.Empty<Vector3>();
             item.ItemCount = 0;
             item.ScaleS = 1;
@@ -5596,6 +5601,7 @@ namespace MphRead
                 viewInv = _viewInvRotYMatrix;
             GL.UniformMatrix4(_shaderLocations.ViewInvMatrix,
                 transpose: false, ref viewInv);
+            GL.Uniform1(_shaderLocations.WeightedSkinning, item.WeightedSkinning ? 1 : 0);
 
             if (applySharedState)
                 ApplyRenderItemSharedState(item);
@@ -5966,6 +5972,7 @@ namespace MphRead
             GL.Uniform3(_shaderLocations.Emission, Vector3.One);
             GL.Uniform1(_shaderLocations.MaterialMode, (int)PolygonMode.Modulate);
             GL.Uniform1(_shaderLocations.TexgenMode, (int)TexgenMode.None);
+            GL.Uniform1(_shaderLocations.WeightedSkinning, 0);
             GL.UniformMatrix4(_shaderLocations.TextureMatrix, transpose: false, ref identity);
             GL.Uniform1(_shaderLocations.UseTexture, 1);
             GL.Uniform1(_shaderLocations.UseOverride, 0);
