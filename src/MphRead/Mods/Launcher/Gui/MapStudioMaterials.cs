@@ -213,7 +213,8 @@ internal sealed partial class MapStudioScreen
         var phase = new TextBox { Text = (material.Animation?.PhaseFrames ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Phase frames" };
         var hold = new TextBox { Text = (material.Animation?.FlipbookHoldFrames ?? 3).ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Flipbook hold frames" };
         var flipbookFrames = material.Animation?.FlipbookFrames?.ToList() ?? new System.Collections.Generic.List<string>();
-        string[] nativeTextureAssets = definition.Assets
+        var declaredAssets = definition.Assets ?? new System.Collections.Generic.List<MapAsset>();
+        string[] nativeTextureAssets = declaredAssets
             .Where(asset => asset?.Kind == "texture" && asset.Path.EndsWith(".tex", StringComparison.OrdinalIgnoreCase))
             .Select(asset => asset!.Path).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(path => path).ToArray();
         var framePicker = new ComboBox { ItemsSource = nativeTextureAssets, SelectedIndex = nativeTextureAssets.Length > 0 ? 0 : -1 };
