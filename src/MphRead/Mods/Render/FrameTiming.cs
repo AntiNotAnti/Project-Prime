@@ -62,18 +62,20 @@ namespace MphRead.Mods.Render
         public static int FrameRateCap
         {
             get => _frameRateCap;
-            set => _frameRateCap = value <= 0 ? DisplayRate : Math.Clamp(value, MinCap, MaxCap);
+            set => _frameRateCap = value == Unlimited
+                ? Unlimited
+                : value <= 0 ? DisplayRate : Math.Clamp(value, MinCap, MaxCap);
         }
 
         private static int _frameRateCap = DisplayRate;
 
         public const int DisplayRate = 0;
+        public const int Unlimited = -1;
         public const int MinCap = 30;
 
         /// <summary>
-        /// OpenTK clamps a render frequency above 500 to 500; past that the
-        /// number is decoration anyway, since the simulation is the thing that
-        /// decides what the game does and it is not moving.
+        /// Largest explicit numeric cap. Unlimited is a separate sentinel so
+        /// choosing it never installs a hidden 500 FPS software ceiling.
         /// </summary>
         public const int MaxCap = 500;
 
@@ -100,7 +102,8 @@ namespace MphRead.Mods.Render
         /// and merely draw the prior state, so presentation stays current.
         /// </summary>
         public static bool HighRefreshPresentation =>
-            (FrameRateCap != DisplayRate && FrameRateCap > SimulationHz)
+            FrameRateCap == Unlimited
+            || (FrameRateCap != DisplayRate && FrameRateCap > SimulationHz)
             || MeasuredFrameHz > 75.0;
 
         public static double PresentationAlpha => HighRefreshPresentation ? Alpha : 1.0;
@@ -153,7 +156,7 @@ namespace MphRead.Mods.Render
                 + $"{TotalSteps} steps over {TotalFrames} frames, "
                 + $"{DroppedSteps} dropped, {Stalls} stalls, "
                 + $"steps per frame [{string.Join(", ", StepHistogram)}], "
-                + $"cap {(FrameRateCap == DisplayRate ? "display" : FrameRateCap.ToString())}";
+                + $"cap {CapString(FrameRateCap)}";
         }
 
         #endregion
@@ -278,18 +281,37 @@ namespace MphRead.Mods.Render
             if (trimmed.Equals("uncapped", StringComparison.OrdinalIgnoreCase)
                 || trimmed.Equals("unlimited", StringComparison.OrdinalIgnoreCase))
             {
-                return MaxCap;
+                return Unlimited;
             }
             if (Int32.TryParse(trimmed, out int parsed))
             {
-                return parsed <= 0 ? DisplayRate : Math.Clamp(parsed, MinCap, MaxCap);
+                return parsed == Unlimited
+                    ? Unlimited
+                    : parsed <= 0 ? DisplayRate : Math.Clamp(parsed, MinCap, MaxCap);
             }
             return fallback;
         }
 
+        /// <summary>
+        /// Parse a persisted Settings value. Builds before true-unlimited support
+        /// stored the UI's Unlimited choice as 500, so only saved values migrate
+        /// that legacy representation. ParseCap still leaves an explicit CLI 500
+        /// as a genuine 500 FPS request.
+        /// </summary>
+        public static int ParseSavedCap(string? value, int fallback)
+        {
+            if (value != null && Int32.TryParse(value.Trim(), out int legacy)
+                && legacy == MaxCap)
+            {
+                return Unlimited;
+            }
+            return ParseCap(value, fallback);
+        }
+
         public static string CapString(int cap)
         {
-            return cap == DisplayRate ? "display" : cap.ToString();
+            return cap == Unlimited ? "unlimited"
+                : cap == DisplayRate ? "display" : cap.ToString();
         }
     }
 }
