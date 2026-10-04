@@ -2172,7 +2172,7 @@ namespace MphRead.Entities
                 CollisionVolume altVolume = PlayerVolumes[(int)Hunter, 2];
                 float groundedLift = UseRobustCollisionController
                     && Flags1.TestFlag(PlayerFlags1.Standing)
-                    ? ModGroundedAltFormLift(_volumeUnxf, altVolume)
+                    ? ModGroundedFormLift(_volumeUnxf, altVolume)
                     : 0;
                 Position += _volumeUnxf.SpherePosition - altVolume.SpherePosition;
                 if (groundedLift > 0)
@@ -2223,7 +2223,15 @@ namespace MphRead.Entities
             {
                 _gunVec1 = _facingVector;
                 CollisionVolume bipedVolume = PlayerVolumes[(int)Hunter, 0];
+                float groundedLift = UseRobustCollisionController
+                    && Flags1.TestFlag(PlayerFlags1.Standing)
+                    ? ModGroundedFormLift(_volumeUnxf, bipedVolume)
+                    : 0;
                 Position += _volumeUnxf.SpherePosition - bipedVolume.SpherePosition;
+                if (groundedLift > 0)
+                {
+                    Position = Position.AddY(groundedLift);
+                }
                 _volumeUnxf = bipedVolume;
             }
             StopAltFormSfx();
