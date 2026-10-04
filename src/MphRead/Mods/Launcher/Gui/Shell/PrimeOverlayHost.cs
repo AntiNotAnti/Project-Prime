@@ -23,6 +23,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         private readonly List<Entry> _stack = new();
+        private readonly List<Entry> _retiring = new();
         private readonly Border _scrim;
         private PrimeMotionHandle? _scrimMotion;
 
@@ -50,6 +51,7 @@ namespace MphRead.Mods.Launcher.Gui
         public void Show(Control view, PrimeModalSize size = PrimeModalSize.Large,
             Action? cancel = null, bool fitContent = false)
         {
+            SettleRetiring();
             var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
             double width = size switch
             {
@@ -80,7 +82,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Entry previous = _stack[^1];
                 previous.Motion?.Cancel(true);
-                previous.Frame.IsVisible = false;
+                Children.Remove(previous.Frame);
             }
 
             var entry = new Entry { Frame = frame, Cancel = cancel, Focus = focused };
@@ -118,6 +120,7 @@ namespace MphRead.Mods.Launcher.Gui
         public void Close()
         {
             if (!IsOpen) return;
+            SettleRetiring();
 
             Entry entry = _stack[^1];
             _stack.RemoveAt(_stack.Count - 1);
@@ -127,6 +130,8 @@ namespace MphRead.Mods.Launcher.Gui
             Entry? revealed = _stack.Count > 0 ? _stack[^1] : null;
             if (revealed != null)
             {
+                if (!Children.Contains(revealed.Frame))
+                    Children.Insert(1, revealed.Frame);
                 revealed.Frame.IsVisible = true;
                 revealed.Frame.IsHitTestVisible = true;
             }
@@ -144,9 +149,11 @@ namespace MphRead.Mods.Launcher.Gui
                     });
             }
 
+            _retiring.Add(entry);
             entry.Motion = PrimeMotion.ModalOut(entry.Frame, () =>
             {
                 Children.Remove(entry.Frame);
+                _retiring.Remove(entry);
                 if (!IsOpen)
                 {
                     IsVisible = false;
@@ -178,6 +185,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         public void Clear()
         {
+            SettleRetiring();
             _scrimMotion?.Cancel();
             _scrimMotion = null;
             foreach (Entry entry in _stack)
@@ -190,6 +198,14 @@ namespace MphRead.Mods.Launcher.Gui
             IsVisible = false;
             IsHitTestVisible = false;
             SetValue(ControllerNav.ModalProperty, false);
+        }
+
+        private void SettleRetiring()
+        {
+            if (_retiring.Count == 0) return;
+            foreach (Entry entry in _retiring.ToArray())
+                entry.Motion?.Cancel(true);
+            _retiring.Clear();
         }
     }
 }
