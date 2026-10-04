@@ -44,7 +44,7 @@ namespace MphRead.Mods.Launcher.Gui
             Spacing = 6
         };
         private readonly List<Bitmap> _thumbnailBitmaps = new();
-        private readonly List<Button> _thumbnailButtons = new();
+        private readonly List<Avalonia.Controls.Button> _thumbnailButtons = new();
         private readonly DeckField _search;
         private readonly ChoiceRow _filter;
         private readonly ChoiceRow _sort;
@@ -1102,7 +1102,7 @@ namespace MphRead.Mods.Launcher.Gui
                     Bitmap bitmap = Bitmap.DecodeToWidth(stream, 192);
                     _thumbnailBitmaps.Add(bitmap);
                     int index = i;
-                    var button = new Button
+                    var button = new Avalonia.Controls.Button
                     {
                         Height = 64,
                         MinWidth = 96,
