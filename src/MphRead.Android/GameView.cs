@@ -377,6 +377,8 @@ namespace MphRead.Droid
             private bool _chatWasHeld;
             private bool _clipWasHeld;
             private bool _keyboardShown;
+            private long _presentationInputRevision =
+                MphRead.Mods.Input.GamepadContexts.Revision;
 
             private bool _modern;
             private nint _nativeWindow;
@@ -1021,8 +1023,20 @@ namespace MphRead.Droid
                 if (Mods.Network.ReplayController.IsSeeking) return true;
                 long simulationEnd = Stopwatch.GetTimestamp();
 
+                long presentationRevision = MphRead.Mods.Input.GamepadContexts.Revision;
+                bool inputOwnershipChanged =
+                    presentationRevision != _presentationInputRevision;
+                _presentationInputRevision = presentationRevision;
+                if (inputOwnershipChanged)
+                {
+                    // A menu/chat can open and close between two render frames.
+                    // Release pending touch state even when the current state has
+                    // already returned to Gameplay.
+                    _controls.ReleaseEverything();
+                }
                 bool gameplayOwnsPresentationAim =
-                    !MphRead.Mods.Input.GamepadContexts.MenuVisible
+                    !inputOwnershipChanged
+                    && !MphRead.Mods.Input.GamepadContexts.MenuVisible
                     && !MphRead.Mods.Input.GamepadContexts.TextEntryActive
                     && !MphRead.Mods.Chat.ChatBox.Composing
                     && !Mods.SpectatorMode.IsSpectating
