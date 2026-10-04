@@ -40,14 +40,15 @@ namespace MphRead.Export
             return MathF.Round(input, 6, MidpointRounding.AwayFromZero).ToString("F6", CultureInfo.InvariantCulture);
         }
 
-        public static void ExportModel(Model model, bool transformRoom = false)
+        public static void ExportModel(Model model, bool transformRoom = false, string? exportRoot = null)
         {
-            string exportPath = Paths.Combine(Paths.Export, model.Name);
+            exportRoot ??= Paths.Export;
+            string exportPath = Paths.Combine(exportRoot, model.Name);
             Directory.CreateDirectory(exportPath);
             var lists = new List<Dictionary<string, IReadOnlyList<Vertex>>>();
             for (int i = 0; i < model.Recolors.Count; i++)
             {
-                lists.Add(ExportRecolor(model, transformRoom, i));
+                lists.Add(ExportRecolor(model, transformRoom, i, exportRoot));
             }
             if (lists.Count == 0)
             {
@@ -72,7 +73,8 @@ namespace MphRead.Export
             File.WriteAllText(Paths.Combine(exportPath, $"import_{model.Name}.py"), Scripting.GenerateScript(model, lists.First()));
         }
 
-        private static Dictionary<string, IReadOnlyList<Vertex>> ExportRecolor(Model model, bool transformRoom, int recolorIndex)
+        private static Dictionary<string, IReadOnlyList<Vertex>> ExportRecolor(
+            Model model, bool transformRoom, int recolorIndex, string exportRoot)
         {
             var results = new Dictionary<string, IReadOnlyList<Vertex>>();
             Recolor recolor = model.Recolors[recolorIndex];
@@ -526,7 +528,7 @@ namespace MphRead.Export
             // end
             sb.Append("\n</COLLADA>");
 
-            string exportPath = Paths.Combine(Paths.Export, model.Name);
+            string exportPath = Paths.Combine(exportRoot, model.Name);
             File.WriteAllText(Paths.Combine(exportPath, $"{model.Name}_{recolor.Name}.dae"), sb.ToString());
             return results;
         }
