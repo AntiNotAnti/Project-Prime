@@ -35,7 +35,7 @@ namespace MphRead.Mods.Launcher.Gui
             Action<double> apply, Action? completed = null, Action? cancelled = null,
             Func<double, double>? easing = null)
         {
-            if (Reduced || seconds <= 0 || TopLevel.GetTopLevel(owner) == null)
+            if (Reduced || seconds <= 0)
             {
                 apply(1);
                 completed?.Invoke();
@@ -63,7 +63,10 @@ namespace MphRead.Mods.Launcher.Gui
                     return;
                 if (TopLevel.GetTopLevel(owner) == null)
                 {
-                    handle.Cancel();
+                    // A content swap can attach on the layout pass after the motion
+                    // was requested. If it is still detached when its frame arrives,
+                    // settle it instead of leaving an intermediate transform behind.
+                    handle.Cancel(finish: true);
                     return;
                 }
 
