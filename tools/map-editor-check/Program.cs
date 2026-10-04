@@ -90,6 +90,12 @@ try
             texture.Write((ushort)0); texture.Write((ushort)8); texture.Write((ushort)8); texture.Write((ushort)1); texture.Write((ushort)0);
             texture.Write((ushort)32767); texture.Write(new byte[64]);
         }
+        using (var texture = new BinaryWriter(File.Create(Path.Combine(runtimeMaps, "lease2.tex"))))
+        {
+            texture.Write(System.Text.Encoding.ASCII.GetBytes("FPTX")); texture.Write((ushort)1); texture.Write((ushort)1);
+            texture.Write((ushort)0); texture.Write((ushort)8); texture.Write((ushort)8); texture.Write((ushort)1); texture.Write((ushort)0);
+            texture.Write((ushort)31); texture.Write(new byte[64]);
+        }
         var runtimeProject = MapTemplates.Create("RUNTIME LEASE CHECK", "basic-ffa");
         runtimeProject.Definition.Assets.Add(new() { Path = "lease.tex" });
         foreach (var material in runtimeProject.Definition.Materials) material.Texture = "lease.tex";
@@ -100,6 +106,7 @@ try
         // the same immutable snapshot behavior as the real game.
         var animatedProject = MapTemplates.Create("ANIMATED MATERIAL CHECK", "basic-ffa");
         animatedProject.Definition.Assets.Add(new() { Path = "lease.tex" });
+        animatedProject.Definition.Assets.Add(new() { Path = "lease2.tex" });
         foreach (var material in animatedProject.Definition.Materials) material.Texture = "lease.tex";
         var animatedMaterial = animatedProject.Definition.Materials[0];
         animatedMaterial.Alpha = 22;
@@ -110,6 +117,8 @@ try
             UvRotationDegreesPerSecond = 180f,
             UvScale = new[] { 1f, 1f },
             UvScalePulse = new[] { 0.08f, 0.08f },
+            FlipbookFrames = new() { "lease2.tex" },
+            FlipbookHoldFrames = 3,
             LoopFrames = 3000,
             PhaseFrames = 15
         };
@@ -162,6 +171,11 @@ try
             "pulsed UV scale publishes per-frame native scale LUT data");
         Check(translationOffset - rotationOffset > sizeof(ushort),
             "UV rotation publishes per-frame native rotation LUT data");
+        uint textureGroupOffset = BitConverter.ToUInt32(animationBytes, 40);
+        Check(textureGroupOffset > 0
+            && BitConverter.ToUInt16(animationBytes, checked((int)textureGroupOffset)) == 3000
+            && BitConverter.ToUInt16(animationBytes, checked((int)textureGroupOffset) + 8) == 1,
+            "flipbook publishes a native texture animation group");
     }
     finally
     {
