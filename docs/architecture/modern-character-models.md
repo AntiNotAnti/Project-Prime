@@ -224,18 +224,65 @@ bones, and assigns every source vertex to the corresponding native node group.
 The authoring kit therefore describes the same skeleton the game actually
 animates.
 
-## Next slice: authored Samus acceptance
+## Slice 5: Weighted4 smooth skinning
 
-The remaining work before calling the rigid Samus proof complete is asset and
-visual acceptance rather than another ingestion layer:
+`weighted4` is now a real additive renderer tier rather than a reserved
+manifest value.
 
-1. build a segmented Samus biped and arm cannon from the generated references;
-2. preserve native node-local coordinates and material names during GLB export;
-3. tune authored LOD0/LOD1 triangle budgets and transition acceptance;
-4. verify muzzle/effect attachment alignment, death/unmorph/alt transitions,
-   bright skins, outlines, team recolors and Weavel turret presentation;
+The first implementation accepts a standard glTF 2.0 skin with one shared skin
+per replacement, 1-32 named joints, `JOINTS_0` and `WEIGHTS_0` VEC4
+attributes, optional inverse-bind matrices, and identity transforms on skinned
+mesh nodes. Joint names are retargeted through the same `boneMap` to native MPH
+nodes; Project Prime still runs the original animation and uses those animated
+native transforms as the per-frame pose source.
+
+For joint `i`, the uploaded skin matrix is the glTF inverse-bind correction
+composed with the mapped native node's current animation transform. The shader
+normalizes the four authored weights and blends up to four of those matrices for
+position and normal transformation.
+
+No retained vertex-format migration was required. The legacy persistent geometry
+bridge already stores 15 floats per vertex. Weighted character geometry
+reinterprets two existing attributes only when the render item explicitly sets
+`WeightedSkinning`:
+
+- vertex color RGBA carries the four normalized weights;
+- texcoord Z carries four packed 5-bit joint indices.
+
+The four indices consume 20 bits total, so their packed integer is exactly
+representable by IEEE-754 float. Legacy cartridge geometry never sets the flag
+and continues to interpret texcoord Z as its original single matrix-stack index.
+
+Forward rendering and deferred PBR both implement the same weighted matrix
+blend. Weighted packets deliberately stay out of the direct-retained WebGPU
+packet fast paths in this parity-first slice; they still use immutable retained
+geometry, but per-item state travels through the compatibility submission path
+until visual/backend parity is accepted.
+
+The authoring kit now generates `prepare-*-weighted4.py` exporters and matching
+`*-weighted4-entry.json` snippets. The exporter validates native materials,
+1-4 non-zero mapped bone influences per vertex, a maximum 32-joint palette, and
+identity mesh/armature alignment before asking Blender's glTF exporter to write
+the skin. Rigid and Weighted4 entries for the same hunter/part/LOD are
+alternatives, never duplicates in the same manifest.
+
+The content-free `-charactermodelcheck` includes a real two-joint skinned GLB
+with normalized weights and inverse-bind matrices, and the standalone
+**HD character model contract** CI job runs it independently of networking/map
+regressions.
+
+## Next slice: authored Samus acceptance and weighted parity
+
+The engine/tooling path is now complete enough that the remaining proof needs
+real authored assets and visual/performance acceptance:
+
+1. generate the Samus kit from extracted game data;
+2. author a higher-detail biped and arm cannon, using rigid or Weighted4 per
+   asset as appropriate;
+3. validate native material names, muzzle/effect alignment, idle/combat/death
+   poses and LOD0/LOD1 transitions;
+4. verify bright skins, team recolors, double-damage texgen, alt transitions and
+   launcher preview presentation;
 5. benchmark Metal, desktop Vulkan/DX12 and physical Android Vulkan;
-6. then implement `weighted4` JOINTS_0/WEIGHTS_0 smooth GPU skinning.
-
-Weighted skinning remains an additive renderer tier; it does not change the
-asset identity, materials or native fallback contract.
+6. after parity is accepted, promote Weighted4 into the direct-retained packet
+   fast paths and tune final desktop/Android triangle budgets.
