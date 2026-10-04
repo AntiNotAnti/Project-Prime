@@ -370,6 +370,15 @@ namespace MphRead.Mods.Render
         {
             if (_disposed) return;
             _disposed = true;
+            if (_surface != null)
+            {
+                // A configured surface still refers to this device. Unconfigure
+                // and release it before releasing the device/adapter it was
+                // configured against.
+                _api.SurfaceUnconfigure(_surface);
+                _api.SurfaceRelease(_surface);
+                _surface = null;
+            }
             if (_device != null)
             {
                 _api.DeviceRelease(_device);
@@ -379,16 +388,6 @@ namespace MphRead.Mods.Render
             {
                 _api.AdapterRelease(_adapter);
                 _adapter = null;
-            }
-            if (_surface != null)
-            {
-                // A configured surface owns presentation state until explicitly
-                // unconfigured. Teardown can run after minimize, device recovery
-                // or an already-ended match, so release it at the surface
-                // boundary rather than relying on implicit native cleanup.
-                _api.SurfaceUnconfigure(_surface);
-                _api.SurfaceRelease(_surface);
-                _surface = null;
             }
             if (_instance != null)
             {
