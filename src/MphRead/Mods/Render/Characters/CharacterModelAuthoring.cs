@@ -40,19 +40,9 @@ namespace MphRead.Mods.Render.Characters
             string starterRoot = Path.Combine(root, "starter");
             Directory.CreateDirectory(referenceRoot);
             Directory.CreateDirectory(starterRoot);
-            string previousExport = Paths.Export;
-            try
-            {
-                Paths.SetPath("Export", referenceRoot);
-                Collada.ExportModel(biped);
-                Collada.ExportModel(viewModel);
-                Collada.ExportModel(alternate);
-            }
-            finally
-            {
-                if (!String.IsNullOrWhiteSpace(previousExport))
-                    Paths.SetPath("Export", previousExport);
-            }
+            Collada.ExportModel(biped, exportRoot: referenceRoot);
+            Collada.ExportModel(viewModel, exportRoot: referenceRoot);
+            Collada.ExportModel(alternate, exportRoot: referenceRoot);
 
             WriteInventory(Path.Combine(root, "native-reference.json"), hunter,
                 new[]
