@@ -141,8 +141,8 @@ namespace MphRead.Mods.Render
                         return 1;
                     }
 
-                    RunRendererRestartCheck(window, backend);
                     RunFailedRecoveryFallbackCheck();
+                    RunRendererRestartCheck(window, backend);
                     Console.WriteLine(
                         $"[renderwindowcheck] PASS backend={GraphicsBackendPolicy.DisplayName(backend)} "
                         + $"launcher=rgba({pixel[0]},{pixel[1]},{pixel[2]},{pixel[3]}) "
