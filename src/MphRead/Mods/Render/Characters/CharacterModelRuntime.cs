@@ -139,11 +139,11 @@ namespace MphRead.Mods.Render.Characters
         private static CharacterRigidRenderModel Compile(CharacterModelAsset asset, Model nativeModel)
         {
             CharacterRigidModelData geometry = CharacterRigidModelLoader.Load(asset);
-            var nodeIndices = nativeModel.Nodes.Select((node, index) => (node.Name, index))
-                .ToDictionary(value => value.Name, value => value.index, StringComparer.Ordinal);
-            var materialIndices = nativeModel.Materials.Select((material, index) => (material.Name, index))
+            var nodeIndices = nativeModel.Nodes.Select((node, index) => (Name: node.Name, Index: index))
+                .ToDictionary(value => value.Name, value => value.Index, StringComparer.Ordinal);
+            var materialIndices = nativeModel.Materials.Select((material, index) => (Name: material.Name, Index: index))
                 .GroupBy(value => value.Name, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(group => group.Key, group => group.First().index, StringComparer.OrdinalIgnoreCase);
+                .ToDictionary(group => group.Key, group => group.First().Index, StringComparer.OrdinalIgnoreCase);
 
             var compiled = new List<CharacterRigidRenderSegment>(geometry.Primitives.Count);
             try
@@ -184,7 +184,7 @@ namespace MphRead.Mods.Render.Characters
 
             Node node = nativeModel.Nodes[nodeIndex];
             int start = node.MeshId / 2;
-            if (node.MeshCount <= 0 || (uint)start >= nativeModel.Meshes.Count)
+            if (node.MeshCount <= 0 || start < 0 || start >= nativeModel.Meshes.Count)
                 throw new InvalidDataException(
                     $"HD node '{node.Name}' has no native mesh from which to inherit a material.");
             return nativeModel.Meshes[start].MaterialId;
