@@ -164,7 +164,10 @@ namespace MphRead.Entities
                     else
                     {
                         UpdateTransforms(_altModel, _modelTransform, Recolor);
-                        GetDrawItems(_altModel, _altModel.Model.Nodes[0], _curAlpha, overrideColor: brightSkin, outlineColor: outlineColor);
+                        if (!TryDrawModernCharacter(_altModel, CharacterModelPart.AlternateForm,
+                            _curAlpha, overrideColor: brightSkin, outlineColor: outlineColor))
+                            GetDrawItems(_altModel, _altModel.Model.Nodes[0], _curAlpha,
+                                overrideColor: brightSkin, outlineColor: outlineColor);
                     }
                     PaletteOverride = null;
                     if (_frozenGfxTimer > 0)
@@ -376,8 +379,10 @@ namespace MphRead.Entities
             }
             _altModel.Model.UpdateMatrixStack();
             UpdateMaterials(_altModel, Recolor);
-            GetDrawItems(_altModel, _altModel.Model.Nodes[0], _curAlpha,
-                overrideColor: brightSkin, outlineColor: outlineColor);
+            if (!TryDrawModernCharacter(_altModel, CharacterModelPart.AlternateForm,
+                _curAlpha, overrideColor: brightSkin, outlineColor: outlineColor))
+                GetDrawItems(_altModel, _altModel.Model.Nodes[0], _curAlpha,
+                    overrideColor: brightSkin, outlineColor: outlineColor);
         }
 
         private void DrawSpireAltAttack(Vector4? brightSkin, Vector4? outlineColor)
@@ -392,7 +397,10 @@ namespace MphRead.Entities
             }
             _altModel.Model.UpdateMatrixStack();
             UpdateMaterials(_altModel, Recolor);
-            GetDrawItems(_altModel, _altModel.Model.Nodes[0], _curAlpha, overrideColor: brightSkin, outlineColor: outlineColor);
+            if (!TryDrawModernCharacter(_altModel, CharacterModelPart.AlternateForm,
+                _curAlpha, overrideColor: brightSkin, outlineColor: outlineColor))
+                GetDrawItems(_altModel, _altModel.Model.Nodes[0], _curAlpha,
+                    overrideColor: brightSkin, outlineColor: outlineColor);
         }
 
         private bool ShouldFlashSpawnProtection()
@@ -442,8 +450,12 @@ namespace MphRead.Entities
                     && _curAlpha >= 1 && !_scene.GameState.Teams)
                     _scene.CosmeticMaterialSubmission = _scene.GetCosmeticMaterial(
                         CosmeticAppearance.Skin, model, segment.NativeMaterialIndex,
-                        part == CharacterModelPart.ViewModel
-                            ? Mods.Cosmetics.SkinContext.ViewModel : Mods.Cosmetics.SkinContext.Biped);
+                        part switch
+                        {
+                            CharacterModelPart.ViewModel => Mods.Cosmetics.SkinContext.ViewModel,
+                            CharacterModelPart.AlternateForm => Mods.Cosmetics.SkinContext.AltForm,
+                            _ => Mods.Cosmetics.SkinContext.Biped
+                        });
                 _scene.CosmeticSubmission = CosmeticMaterial(part == CharacterModelPart.ViewModel);
 
                 // GLB UVs are already normalized authoring coordinates. Reuse
