@@ -563,6 +563,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
         }
         _retainedPbrUniformSlotCursor = 0;
         ResetRetainedIndirectArena();
+        ResetGpuVisibilityFrameState();
         foreach (var program in _generatedPrograms.Values) program.BindGroupCursor = 0;
         ResetGeometryArena();
         _uploadBufferCursor = 0;
