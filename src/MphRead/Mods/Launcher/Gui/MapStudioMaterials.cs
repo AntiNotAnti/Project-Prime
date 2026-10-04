@@ -194,7 +194,7 @@ internal sealed partial class MapStudioScreen
         panel.Children.Add(Text("ANIMATED MATERIAL"));
         panel.Children.Add(Text("Scroll is measured in texture tiles per second. Rotation uses degrees per second. Scale pulse oscillates around the base scale once per loop. Scroll and rotation endpoints must wrap seamlessly in the native MPH animation cycle."));
 
-        var enabled = new CheckBox { Content = "Animate UVs", IsChecked = material.Animation != null };
+        var enabled = new CheckBox { Content = "Enable material animation", IsChecked = material.Animation != null };
         var twoSided = new CheckBox { Content = "Two-sided surface", IsChecked = material.TwoSided };
         var alpha = new TextBox { Text = material.Alpha?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "", PlaceholderText = "Alpha 0–31 · blank = inherit/default" };
 
