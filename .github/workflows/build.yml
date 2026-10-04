@@ -39,6 +39,17 @@ jobs:
       - name: every custom map has the level it converts
         run: tools/check-maps-shipped.sh
 
+  server-compile:
+    name: dedicated server compile gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: compile server-only surface
+        run: dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadServer=true
+
   fidelity-oracle:
     name: content-free fidelity oracle (F0/F1)
     runs-on: ubuntu-latest
