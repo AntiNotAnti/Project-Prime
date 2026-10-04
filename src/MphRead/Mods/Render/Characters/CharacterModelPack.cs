@@ -74,7 +74,7 @@ namespace MphRead.Mods.Render.Characters
         public const int MaximumManifestBytes = 1024 * 1024;
         public const long MaximumModelBytes = 128L * 1024 * 1024;
         public const int MaximumModels = 64;
-        public const int MaximumLod = 3;
+        public const int MaximumLod = 1;
         public const int MaximumBoneMappings = 128;
         public const int MaximumGlbJsonBytes = 4 * 1024 * 1024;
         public const int MaximumSourceNodes = 4096;
