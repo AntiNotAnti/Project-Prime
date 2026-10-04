@@ -4757,7 +4757,11 @@ namespace MphRead
             item.TexcoordMatrix = texcoordMatrix;
             item.Transform = transform;
             item.ListId = listId;
-            Debug.Assert(matrixStack.Count == 16 * matrixStackCount);
+            if (matrixStackCount < 0
+                || matrixStackCount > item.MatrixStack.Length / 16
+                || matrixStack.Count != 16 * matrixStackCount)
+                throw new ArgumentOutOfRangeException(nameof(matrixStackCount),
+                    "Render item matrix palette exceeds the shader's 32-slot contract.");
             item.MatrixStackCount = matrixStackCount;
             for (int i = 0; i < matrixStack.Count; i++)
             {
@@ -4829,7 +4833,11 @@ namespace MphRead
             item.TexcoordMatrix = texcoordMatrix;
             item.Transform = transform;
             item.ListId = listId;
-            Debug.Assert(matrixStack.Count == 16 * matrixStackCount);
+            if (matrixStackCount < 0
+                || matrixStackCount > item.MatrixStack.Length / 16
+                || matrixStack.Count != 16 * matrixStackCount)
+                throw new ArgumentOutOfRangeException(nameof(matrixStackCount),
+                    "Retained matrix palette exceeds the shader's 32-slot contract.");
             item.MatrixStackCount = matrixStackCount;
             for (int i = 0; i < matrixStack.Count; i++)
                 item.MatrixStack[i] = matrixStack[i];
