@@ -211,6 +211,8 @@ namespace MphRead.Mods.Launcher.Gui
             arenaCopy.Children.Add(_maps);
             _arenaHero = new PrimeHeroPanel(arenaCopy, minHeight: 220)
             {
+                Height = 340,
+                MaxHeight = 340,
                 VerticalAlignment = VerticalAlignment.Stretch
             };
 
