@@ -554,6 +554,38 @@ namespace MphRead
             for (int batchIndex = 0; batchIndex < batches.Count; batchIndex++)
             {
                 Mods.Render.RetainedDrawBatch batch = batches[batchIndex];
+#if !MPHREAD_SERVER
+                if (directSceneState
+                    && Mods.Render.ModernGraphicsCompat.Active
+                    && batch.Count > 1
+                    && kind is Mods.Render.WorldRenderPassKind.Opaque
+                        or Mods.Render.WorldRenderPassKind.RebuildDepth)
+                {
+                    RenderItem firstItem = packets[batch.Start].Item;
+                    Mods.Render.RetainedWorldTextureSet batchTextures =
+                        RetainedWorldTextures(firstItem);
+                    if (Mods.Render.ModernGraphicsCompat.TryDrawRetainedWorldMultiDraw(
+                        packets, batch.Start, batch.Count, batchTextures,
+                        _showTextures, LightingOn, _faceCulling, kind))
+                    {
+                        _retainedDirectWorldDraws += batch.Count;
+                        if (batchTextures.Advanced)
+                            _retainedDirectAdvancedWorldDraws += batch.Count;
+                        for (int multiOffset = 0;
+                            multiOffset < batch.Count; multiOffset++)
+                        {
+                            if (packets[batch.Start + multiOffset]
+                                .Item.MatrixStackCount > 0)
+                            {
+                                _retainedDirectMatrixStackWorldDraws++;
+                            }
+                        }
+                        NoteRetainedTextureSampling(
+                            batchTextures, firstItem.XRepeat, firstItem.YRepeat);
+                        continue;
+                    }
+                }
+#endif
                 bool compatibilitySharedStateValid = false;
                 for (int offset = 0; offset < batch.Count; offset++)
                 {
