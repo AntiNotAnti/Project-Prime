@@ -65,7 +65,7 @@ namespace MphRead.Mods.Render.Characters
         private static bool _packIssueLogged;
 
         public static bool TryGetRigid(Scene scene, Hunter hunter, CharacterModelPart part,
-            Model nativeModel, out CharacterRigidRenderModel model)
+            Model nativeModel, out CharacterRigidRenderModel model, int lod = 0)
         {
             model = null!;
             if (Headless.Active || !RenderOptions.CharacterModelReplacements) return false;
@@ -76,7 +76,7 @@ namespace MphRead.Mods.Render.Characters
                 _packIssueLogged = true;
                 DebugLog.Line("render", "HD character model pack disabled: " + _packIssue);
             }
-            if (!pack.TryResolve(hunter, part, out CharacterModelAsset asset)
+            if (!pack.TryResolve(hunter, part, lod, out CharacterModelAsset asset)
                 || asset.Skinning != CharacterSkinningMode.RigidNodes)
                 return false;
 
@@ -92,7 +92,7 @@ namespace MphRead.Mods.Render.Characters
                 model = Compile(asset, nativeModel);
                 resources.Models.Add(key, model);
                 DebugLog.Line("render",
-                    $"HD character ready: {hunter}/{part}, {model.Segments.Count} segments, "
+                    $"HD character ready: {hunter}/{part}/lod{asset.Lod}, {model.Segments.Count} segments, "
                     + $"{model.VertexCount} vertices, {model.IndexCount / 3} triangles");
                 return true;
             }
@@ -101,7 +101,8 @@ namespace MphRead.Mods.Render.Characters
                 or JsonException or FormatException or OverflowException or KeyNotFoundException)
             {
                 resources.Failed.Add(key);
-                DebugLog.Line("render", $"HD character fallback for {hunter}/{part}: {ex.Message}");
+                DebugLog.Line("render",
+                    $"HD character fallback for {hunter}/{part}/lod{asset.Lod}: {ex.Message}");
                 return false;
             }
         }
