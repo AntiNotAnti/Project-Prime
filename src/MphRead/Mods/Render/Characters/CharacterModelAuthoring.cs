@@ -78,6 +78,12 @@ namespace MphRead.Mods.Render.Characters
             File.WriteAllText(Path.Combine(starterRoot, "characters.json"),
                 JsonSerializer.Serialize(manifest, Json));
             Directory.CreateDirectory(Path.Combine(starterRoot, hunterFolder));
+            File.WriteAllText(Path.Combine(root, "prepare-biped-rigid.py"),
+                CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.Biped, biped,
+                    $"starter/{hunterFolder}/biped.glb"));
+            File.WriteAllText(Path.Combine(root, "prepare-viewmodel-rigid.py"),
+                CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.ViewModel, viewModel,
+                    $"starter/{hunterFolder}/viewmodel.glb"));
             File.WriteAllText(Path.Combine(root, "README.md"), Readme(hunter, biped, viewModel, alternate));
 
             Console.WriteLine($"[charactermodelkit] {hunter} authoring kit: {root}");
@@ -136,7 +142,7 @@ namespace MphRead.Mods.Render.Characters
             return entry;
         }
 
-        private static IReadOnlyList<string> RigidNodeNames(Model model)
+        internal static IReadOnlyList<string> RigidNodeNames(Model model)
         {
             IEnumerable<int> ids;
             if (model.NodeMatrixIds.Count > 0)
@@ -295,6 +301,22 @@ Generated from the currently configured extracted game data.
 The generated Blender scripts already reconstruct the native armature and assign
 vertices to native node groups from the MPH matrix IDs. Use those exports as the
 proportion/pose reference.
+
+The kit also contains `prepare-biped-rigid.py` and
+`prepare-viewmodel-rigid.py`. After the corresponding native Blender import is
+loaded and your upgraded mesh is bound to those native rigid groups, run the
+helper. It:
+
+- evaluates the current armature pose;
+- converts each rigid segment back into that native bone's local coordinates;
+- preserves UVs and native material names;
+- rejects missing/soft weights and triangles that cross bone boundaries;
+- creates unskinned objects named exactly for the native nodes; and
+- exports directly to the expected starter GLB path.
+
+Apply subdivision/remesh/topology-changing modifiers before running the helper.
+A topology-changing modifier left live is rejected so vertex-group identity
+cannot silently drift.
 
 ## Rigid replacement contract
 
