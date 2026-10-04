@@ -127,6 +127,9 @@ namespace MphRead.Mods.MapGen
                         r.Error("FP-MAP-001", "UV rotation loop endpoint must land on a whole turn for seamless repeat.", m.Id);
                     if (validFlipbook && validLoop && !MapUvAnimation.IsFlipbookSeamless(animation))
                         r.Error("FP-MAP-001", "Flipbook image cycle must divide evenly into the material loop for seamless repeat.", m.Id);
+                    if (animation.FlipbookFrames?.Count > 0 && !String.IsNullOrWhiteSpace(m.Albedo))
+                        r.Warning("FP-MAP-001",
+                            "Static HD albedo is ignored while a native flipbook is active; normal, specular/roughness and emissive companion maps still apply.", m.Id);
                 }
             }
             MapMaterial[] animatedMaterials = d.Materials
