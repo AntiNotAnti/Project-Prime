@@ -49,6 +49,7 @@ namespace MphRead.Mods.Launcher.Gui
         private bool _pointer;
         private bool _pressed;
         private bool _selected;
+        private bool _focusFromPointer;
         private readonly Tap _tap = new();
 
         public event EventHandler? Click;
@@ -149,6 +150,8 @@ namespace MphRead.Mods.Launcher.Gui
         protected override void OnPointerEntered(PointerEventArgs e)
         {
             _pointer = true;
+            if (IsEffectivelyEnabled)
+                Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Navigate);
             RefreshVisual();
             base.OnPointerEntered(e);
         }
@@ -174,12 +177,15 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (!IsEffectivelyEnabled)
             {
+                Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Error);
                 base.OnPointerPressed(e);
                 return;
             }
             _tap.Press(e, this);
             _pressed = true;
+            _focusFromPointer = true;
             Focus();
+            _focusFromPointer = false;
             e.Pointer.Capture(this);
             e.Handled = true;
             RefreshVisual();
@@ -194,6 +200,7 @@ namespace MphRead.Mods.Launcher.Gui
             if (click)
             {
                 e.Handled = true;
+                Mods.Sound.UiFeedbackAudio.Play(ActivationCue());
                 Click?.Invoke(this, EventArgs.Empty);
             }
             base.OnPointerReleased(e);
@@ -209,11 +216,18 @@ namespace MphRead.Mods.Launcher.Gui
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
-            if (IsEffectivelyEnabled && (e.Key == Key.Enter || e.Key == Key.Space))
+            if (e.Key == Key.Enter || e.Key == Key.Space)
             {
+                if (!IsEffectivelyEnabled)
+                {
+                    Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Error);
+                    e.Handled = true;
+                    return;
+                }
                 _pressed = true;
                 RefreshVisual();
                 e.Handled = true;
+                Mods.Sound.UiFeedbackAudio.Play(ActivationCue());
                 Click?.Invoke(this, EventArgs.Empty);
                 return;
             }
@@ -233,6 +247,12 @@ namespace MphRead.Mods.Launcher.Gui
 
         protected override void OnGotFocus(FocusChangedEventArgs e)
         {
+            if (!_focusFromPointer && IsEffectivelyEnabled
+                && e.NavigationMethod != NavigationMethod.Pointer
+                && Deck.KeyboardDriving)
+            {
+                Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Navigate);
+            }
             RefreshVisual();
             base.OnGotFocus(e);
         }
@@ -260,6 +280,16 @@ namespace MphRead.Mods.Launcher.Gui
             _poseMotion = null;
             base.OnDetachedFromVisualTree(e);
             RefreshVisual();
+        }
+
+        private Mods.Sound.UiFeedbackCue ActivationCue()
+        {
+            string label = Label.Trim();
+            return label.StartsWith("BACK", StringComparison.OrdinalIgnoreCase)
+                || label.StartsWith("CANCEL", StringComparison.OrdinalIgnoreCase)
+                || label.StartsWith("CLOSE", StringComparison.OrdinalIgnoreCase)
+                    ? Mods.Sound.UiFeedbackCue.Back
+                    : Mods.Sound.UiFeedbackCue.Confirm;
         }
 
         private void RefreshVisual()
