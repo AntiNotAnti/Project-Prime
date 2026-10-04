@@ -35,6 +35,18 @@ namespace MphRead.Mods.Render.Characters
             Model bipedLod1 = Read.GetModelInstance(nativeNames[1]).Model;
             Model viewModel = Read.GetModelInstance(nativeNames[3]).Model;
             Model alternate = Read.GetModelInstance(nativeNames[2]).Model;
+            Model? halfturret = hunter == Hunter.Weavel
+                ? Read.GetModelInstance("WeavelAlt_Turret_lod0").Model : null;
+
+            var references = new List<(CharacterModelPart Part, int Lod, Model Model)>
+            {
+                (CharacterModelPart.Biped, 0, biped),
+                (CharacterModelPart.Biped, 1, bipedLod1),
+                (CharacterModelPart.ViewModel, 0, viewModel),
+                (CharacterModelPart.AlternateForm, 0, alternate)
+            };
+            if (halfturret != null)
+                references.Add((CharacterModelPart.Halfturret, 0, halfturret));
 
             string root = Path.GetFullPath(output ?? DefaultOutput(hunter));
             string referenceRoot = Path.Combine(root, "reference");
@@ -45,15 +57,10 @@ namespace MphRead.Mods.Render.Characters
             Collada.ExportModel(bipedLod1, exportRoot: referenceRoot);
             Collada.ExportModel(viewModel, exportRoot: referenceRoot);
             Collada.ExportModel(alternate, exportRoot: referenceRoot);
+            if (halfturret != null)
+                Collada.ExportModel(halfturret, exportRoot: referenceRoot);
 
-            WriteInventory(Path.Combine(root, "native-reference.json"), hunter,
-                new[]
-                {
-                    (CharacterModelPart.Biped, 0, biped),
-                    (CharacterModelPart.Biped, 1, bipedLod1),
-                    (CharacterModelPart.ViewModel, 0, viewModel),
-                    (CharacterModelPart.AlternateForm, 0, alternate)
-                });
+            WriteInventory(Path.Combine(root, "native-reference.json"), hunter, references);
 
             string hunterFolder = hunter.ToString().ToLowerInvariant();
             var manifest = new CharacterModelPackManifest
@@ -73,6 +80,15 @@ namespace MphRead.Mods.Render.Characters
             File.WriteAllText(Path.Combine(starterRoot, "biped-lod1-entry.json"),
                 JsonSerializer.Serialize(StarterEntry(hunter, CharacterModelPart.Biped,
                     hunterFolder + "/biped_lod1.glb", bipedLod1, lod: 1), Json));
+            File.WriteAllText(Path.Combine(starterRoot, "alternate-form-entry.json"),
+                JsonSerializer.Serialize(StarterEntry(hunter, CharacterModelPart.AlternateForm,
+                    hunterFolder + "/altform.glb", alternate, lod: 0), Json));
+            if (halfturret != null)
+            {
+                File.WriteAllText(Path.Combine(starterRoot, "halfturret-entry.json"),
+                    JsonSerializer.Serialize(StarterEntry(hunter, CharacterModelPart.Halfturret,
+                        hunterFolder + "/halfturret.glb", halfturret, lod: 0), Json));
+            }
             Directory.CreateDirectory(Path.Combine(starterRoot, hunterFolder));
             File.WriteAllText(Path.Combine(root, "prepare-biped-rigid.py"),
                 CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.Biped, biped,
@@ -83,8 +99,17 @@ namespace MphRead.Mods.Render.Characters
             File.WriteAllText(Path.Combine(root, "prepare-viewmodel-rigid.py"),
                 CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.ViewModel, viewModel,
                     $"starter/{hunterFolder}/viewmodel.glb"));
+            File.WriteAllText(Path.Combine(root, "prepare-altform-rigid.py"),
+                CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.AlternateForm, alternate,
+                    $"starter/{hunterFolder}/altform.glb"));
+            if (halfturret != null)
+            {
+                File.WriteAllText(Path.Combine(root, "prepare-halfturret-rigid.py"),
+                    CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.Halfturret,
+                        halfturret, $"starter/{hunterFolder}/halfturret.glb"));
+            }
             File.WriteAllText(Path.Combine(root, "README.md"),
-                Readme(hunter, biped, bipedLod1, viewModel, alternate));
+                Readme(hunter, biped, bipedLod1, viewModel, alternate, halfturret));
 
             Console.WriteLine($"[charactermodelkit] {hunter} authoring kit: {root}");
             Console.WriteLine($"[charactermodelkit] biped nodes={biped.Nodes.Count}, materials={biped.Materials.Count}, matrix palette={biped.NodeMatrixIds.Count}");
@@ -107,10 +132,10 @@ namespace MphRead.Mods.Render.Characters
                             if (!pack.TryResolve(hunter, part, lod, out CharacterModelAsset asset)) continue;
                             found++;
                             Model native = Read.GetModelInstance(NativeModelName(hunter, part, lod)).Model;
-                        if (!CharacterModelPack.ValidateNativeRig(asset, native, out string? rigIssue))
-                            throw new InvalidDataException(rigIssue);
-                        CharacterRigidModelData geometry = CharacterRigidModelLoader.Load(asset);
-                        ValidateMaterials(native, geometry);
+                            if (!CharacterModelPack.ValidateNativeRig(asset, native, out string? rigIssue))
+                                throw new InvalidDataException(rigIssue);
+                            CharacterRigidModelData geometry = CharacterRigidModelLoader.Load(asset);
+                            ValidateMaterials(native, geometry);
                             Console.WriteLine($"[charactermodelvalidate] {hunter}/{part}/lod{lod}: "
                                 + $"{geometry.Primitives.Count} primitives, {geometry.VertexCount} vertices, "
                                 + $"{geometry.IndexCount / 3} triangles");
@@ -289,9 +314,17 @@ namespace MphRead.Mods.Render.Characters
         }
 
         private static string Readme(Hunter hunter, Model biped, Model bipedLod1,
-            Model viewModel, Model alternate)
+            Model viewModel, Model alternate, Model? halfturret)
         {
             string folder = hunter.ToString().ToLowerInvariant();
+            string turretReference = halfturret == null ? ""
+                : $"- `reference/{halfturret.Name}/` contains Weavel's halfturret reference.\n";
+            string turretHelper = halfturret == null ? ""
+                : " Weavel kits also include `prepare-halfturret-rigid.py`.";
+            string turretStep = halfturret == null ? ""
+                : $"9. Optional: author `starter/{folder}/halfturret.glb` and append `starter/halfturret-entry.json`.\n";
+            int validateStep = halfturret == null ? 9 : 10;
+            int installStep = validateStep + 1;
             return $"""
 # {hunter} HD character authoring kit
 
@@ -303,15 +336,16 @@ Generated from the currently configured extracted game data.
 - `reference/{bipedLod1.Name}/` contains the native distant biped reference.
 - `reference/{viewModel.Name}/` contains the first-person model reference.
 - `reference/{alternate.Name}/` contains the alternate-form reference.
-- `native-reference.json` is the exact node, parent, matrix-palette and material inventory.
+{turretReference}- `native-reference.json` is the exact node, parent, matrix-palette and material inventory.
 
 The generated Blender scripts already reconstruct the native armature and assign
 vertices to native node groups from the MPH matrix IDs. Use those exports as the
 proportion/pose reference.
 
 The kit also contains `prepare-biped-rigid.py`,
-`prepare-biped-lod1-rigid.py`, and `prepare-viewmodel-rigid.py`. After the
-corresponding native Blender import is loaded and your upgraded mesh is bound to
+`prepare-biped-lod1-rigid.py`, `prepare-viewmodel-rigid.py`, and
+`prepare-altform-rigid.py`.{turretHelper} After the corresponding native
+Blender import is loaded and your upgraded mesh is bound to
 those native rigid groups, run the helper. It evaluates the current armature
 pose, converts every segment back into native bone-local coordinates, preserves
 UV/material identity, rejects soft/missing weights and cross-bone triangles, and
@@ -333,11 +367,13 @@ The shipping GLBs must be segmented, not skinned:
    reuse the existing hunter texture/PBR replacement bindings.
 5. Export biped as `starter/{folder}/biped.glb`.
 6. Export the arm cannon as `starter/{folder}/viewmodel.glb`.
-7. Optional: author `starter/{folder}/biped_lod1.glb` and append the generated
-   `starter/biped-lod1-entry.json` object to the `models` array.
-8. Validate before installing:
+7. Optional: author `starter/{folder}/biped_lod1.glb` and append
+   `starter/biped-lod1-entry.json` to the `models` array.
+8. Optional: author `starter/{folder}/altform.glb` and append
+   `starter/alternate-form-entry.json`.
+{turretStep}{validateStep}. Validate before installing:
    `ProjectPrime -charactermodelvalidate "starter"`.
-9. Copy the completed starter contents to `character-models/default` and enable
+{installStep}. Copy the completed starter contents to `character-models/default` and enable
    **HD character models** in Graphics.
 
 The biped starter maps {RigidNodeNames(biped).Count} native matrix nodes.

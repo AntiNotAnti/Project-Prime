@@ -296,6 +296,7 @@ namespace MphRead.Mods.Render
             {
                 Mods.Cosmetics.SkinContext.Biped => CharacterModelPart.Biped,
                 Mods.Cosmetics.SkinContext.ViewModel => CharacterModelPart.ViewModel,
+                Mods.Cosmetics.SkinContext.AltForm => CharacterModelPart.AlternateForm,
                 _ => null
             };
             if (part == null
