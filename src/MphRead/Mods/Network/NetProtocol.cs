@@ -276,7 +276,7 @@ namespace MphRead.Mods.Network
             int tail = Size + 1 + src[Size] * RotationEntrySize;
             if (src.Length != tail + 4 + NetworkMapIdentity.Size + 16 || src[tail] > 1 || src[tail + 1] > 1
                 || src[tail + 2] > 1 || src[tail + 3] > (byte)MatchFormat.TwoVsTwoVsTwoVsTwo
-                || !NetworkMapIdentity.TryRead(src[(tail + 4)..], out var mapIdentity)) return default;
+                || !NetworkMapIdentity.TryRead(src.Slice(tail + 4, NetworkMapIdentity.Size), out var mapIdentity)) return default;
             return new HostRequestPacket
             {
                 Protocol = src[0], MapIdentity = mapIdentity,
