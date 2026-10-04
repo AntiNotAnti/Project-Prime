@@ -43,6 +43,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBlock _detailName;
         private readonly TextBlock _detailMeta;
         private readonly TextBlock _summary;
+        private readonly PrimeStatePanel _browserState;
         private readonly IReadOnlyList<ServerBrowserEntry>? _sample;
         private readonly HubNavButton _quick;
         private readonly HubNavButton _refresh;
@@ -54,6 +55,9 @@ namespace MphRead.Mods.Launcher.Gui
         private CancellationTokenSource? _quickSearch;
         private string _backdropRoom = "";
         private bool _joining;
+        private bool _discovering;
+        private bool _discoveryComplete;
+        private bool _directoryAnswered;
         private int _replied, _live;
 
         public event EventHandler? Closed;
@@ -180,6 +184,15 @@ namespace MphRead.Mods.Launcher.Gui
             ControllerNav.Identify(_refresh, "multiplayer.refresh");
             _refresh.Click += (_, _) => RefreshServers();
 
+            var retryDirectory = new PrimeButton("REFRESH DIRECTORY",
+                RefreshServers, primary: true);
+            ControllerNav.Identify(retryDirectory, "multiplayer.state.refresh");
+            _browserState = new PrimeStatePanel(
+                PrimeStateKind.Loading,
+                "CONTACTING DIRECTORY",
+                "Looking for reachable Project Prime lobbies.",
+                retryDirectory);
+
             _join = new PrimeButton("JOIN SESSION", primary: true) { IsEnabled = false };
             ControllerNav.Identify(_join, "multiplayer.join");
             _spectate = new PrimeButton("SPECTATE",
@@ -228,8 +241,11 @@ namespace MphRead.Mods.Launcher.Gui
             var searchRow = PrimeChrome.Columns("*,*", search, filter);
             Grid.SetRow(searchRow, 2);
             browser.Children.Add(searchRow);
-            Grid.SetRow(_servers, 3);
-            browser.Children.Add(_servers);
+            var serverStage = new Grid();
+            serverStage.Children.Add(_servers);
+            serverStage.Children.Add(_browserState);
+            Grid.SetRow(serverStage, 3);
+            browser.Children.Add(serverStage);
 
             var browserPanel = new PrimePanel(browser, raised: true)
             {
@@ -309,7 +325,54 @@ namespace MphRead.Mods.Launcher.Gui
                     && (filter == 0 || filter == 3 || row.CanJoin)
                     && (filter != 3 || LauncherPrefs.FavoriteServers.Contains(row.Endpoint))
                     && (filter != 2 || (int.TryParse(row.PingText, out int ping) && ping < 80));
+            RefreshBrowserState();
         }
+        private void RefreshBrowserState()
+        {
+            int visible = _rows.Count(row => row.IsVisible);
+            if (visible > 0)
+            {
+                _browserState.IsVisible = false;
+                return;
+            }
+
+            if (_rows.Count > 0)
+            {
+                _browserState.Set(
+                    PrimeStateKind.Empty,
+                    "NO MATCHING LOBBIES",
+                    "No discovered lobby matches the current search or directory filter.",
+                    showActions: false);
+                return;
+            }
+
+            if (_discovering)
+            {
+                _browserState.Set(
+                    PrimeStateKind.Loading,
+                    "CONTACTING DIRECTORY",
+                    "Looking for reachable Project Prime lobbies.",
+                    showActions: false);
+                return;
+            }
+
+            if (_discoveryComplete && !_directoryAnswered)
+            {
+                _browserState.Set(
+                    PrimeStateKind.Error,
+                    "DIRECTORY UNAVAILABLE",
+                    "The lobby directory did not answer. Direct Connect still works, or retry discovery.",
+                    showActions: true);
+                return;
+            }
+
+            _browserState.Set(
+                PrimeStateKind.Empty,
+                "NO OPEN LOBBIES",
+                "The directory answered, but no live lobbies are advertising right now.",
+                showActions: true);
+        }
+
         private void DirectConnect()
         {
             if (Overlays == null || _joining || NetSession.Active) return;
@@ -421,16 +484,24 @@ namespace MphRead.Mods.Launcher.Gui
             _selectedEndpoint = null; RefreshFavorite();
             _replied = 0;
             _live = 0;
+            _discovering = true;
+            _discoveryComplete = false;
+            _directoryAnswered = false;
             _join.IsEnabled = _spectate.IsEnabled = false;
             SetArenaArt(null);
+            RefreshBrowserState();
 
             if (_sample != null)
             {
                 foreach (ServerBrowserEntry entry in _sample)
                     AddEntry(entry);
+                _discovering = false;
+                _discoveryComplete = true;
+                _directoryAnswered = true;
                 _summary.Text = $"{_live} LIVE  /  {_replied} CHECKED";
                 _summary.Foreground = _live > 0
                     ? HubTheme.GoodBrush : HubTheme.WarmBrush;
+                RefreshBrowserState();
                 return;
             }
 
@@ -453,10 +524,14 @@ namespace MphRead.Mods.Launcher.Gui
 
             if (cancel.IsCancellationRequested || TopLevel.GetTopLevel(this) == null)
                 return;
+            _discovering = false;
+            _discoveryComplete = true;
+            _directoryAnswered = result.DirectoryAnswered;
             _summary.Text = result.Message.ToUpperInvariant();
             _summary.Foreground = result.DirectoryAnswered
                 ? (_live > 0 ? HubTheme.GoodBrush : HubTheme.WarmBrush)
                 : HubTheme.DangerBrush;
+            RefreshBrowserState();
         }
 
         private void AddEntry(ServerBrowserEntry entry)
@@ -470,6 +545,7 @@ namespace MphRead.Mods.Launcher.Gui
             if (entry.Live)
                 _live++;
             _summary.Text = $"{_live} LIVE  /  {_replied} CHECKED";
+            RefreshBrowserState();
         }
 
         private async Task QuickPlayAsync()
