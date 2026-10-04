@@ -24,8 +24,24 @@ namespace MphRead.Mods.Launcher.Gui
         public event EventHandler? Closed;
         public event EventHandler<MapDefinition>? PlayRequested;
         public event EventHandler<MapDefinition>? HostRequested;
-        private readonly Grid _root = new() { RowDefinitions=new("Auto,Auto,Auto,*,0,Auto"), Margin=new Thickness(16) };
+        private readonly Grid _root = new()
+        {
+            RowDefinitions = new("Auto,Auto,Auto,*,0,Auto"),
+            RowSpacing = 8,
+            Margin = new Thickness(18, 14, 18, 16)
+        };
         private readonly Panel _viewportHost = new();
+        private readonly TextBlock _projectTitle = PrimeChrome.Title("MAP STUDIO");
+        private readonly TextBlock _projectState = PrimeChrome.Eyebrow("NO PROJECT");
+        private readonly TextBlock _selectionState = PrimeChrome.Text(
+            "0 SELECTED", PrimeTypography.DataSmall, PrimeTheme.TextSecondaryBrush, data: true);
+        private readonly TextBlock _toolSelectionState = PrimeChrome.Text(
+            "OBJECT MODE", PrimeTypography.DataSmall, PrimeTheme.TextSecondaryBrush, data: true);
+        private readonly TextBlock _inspectorTitle = PrimeChrome.Title("INSPECTOR");
+        private readonly PrimeButton _studioSave;
+        private readonly PrimeButton _studioValidate;
+        private readonly PrimeButton _studioBuild;
+        private readonly PrimeButton _studioPlaytest;
         private readonly List<Control> _editingControls = new();
         private readonly Dictionary<string,Bitmap> _thumbnailCache=new(StringComparer.Ordinal);
         private readonly Dictionary<string,(Bitmap Bitmap,string Details)> _materialPreviewCache=new(StringComparer.Ordinal);
@@ -93,12 +109,46 @@ namespace MphRead.Mods.Launcher.Gui
         public MapStudioScreen(PrimeOverlayHost? overlays = null, bool preview = false)
         {
             _overlays = overlays;
-            Background=GuiTheme.InkBrush;Focusable=true;
+            Background = PrimeTheme.BackgroundDeepBrush;
+            Focusable = true;
             _hierarchy.Background = _problems.Background = PrimeTheme.PanelBrush;
             _hierarchy.Foreground = _problems.Foreground = PrimeTheme.TextBrush;
             _hierarchy.BorderBrush = _problems.BorderBrush = PrimeTheme.BorderBrush;
-            var toolbar=new StackPanel { Orientation=Orientation.Horizontal, Spacing=6 };
-            var menus=new Avalonia.Controls.Menu();toolbar.Children.Add(menus);
+            _studioSave = new PrimeButton("SAVE", Save, primary: true, compact: true);
+            _studioValidate = new PrimeButton("VALIDATE", () => _ = Validate(), compact: true);
+            _studioBuild = new PrimeButton("BUILD .PPMAP", () => _ = Build(true), compact: true);
+            _studioPlaytest = new PrimeButton("PLAYTEST", PlaytestInspector, compact: true);
+            ControllerNav.Identify(_studioSave, "studio.save");
+            ControllerNav.Identify(_studioValidate, "studio.validate");
+            ControllerNav.Identify(_studioBuild, "studio.build");
+            ControllerNav.Identify(_studioPlaytest, "studio.playtest");
+
+            var headerCopy = PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("MAP STUDIO // AUTHORING WORKSPACE"),
+                _projectTitle,
+                PrimeChrome.Text(
+                    "Build geometry, gameplay, materials and packages in one retained editor workspace.",
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush),
+                _projectState);
+            var backStudio = new PrimeButton("BACK", Close, compact: true);
+            ControllerNav.Identify(backStudio, "studio.back");
+            var headerActions = PrimeChrome.Columns("Auto,Auto,Auto,Auto,Auto",
+                backStudio, _studioSave, _studioValidate, _studioBuild, _studioPlaytest);
+            var header = PrimeChrome.Columns("*,Auto", headerCopy, headerActions);
+            _root.Children.Add(header);
+            _editingControls.AddRange(new Control[]
+            {
+                _studioSave, _studioValidate, _studioBuild, _studioPlaytest
+            });
+
+            var toolbar = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var menus = new Avalonia.Controls.Menu();
+            toolbar.Children.Add(menus);
             void MenuGroup(string name, params (string Name,Action Run)[] commands)
             {
                 var group=new MenuItem { Header=name };
@@ -120,17 +170,69 @@ namespace MphRead.Mods.Launcher.Gui
             MenuGroup("Build",("Validate",()=>_=Validate()),("Fix selected problem",FixSelectedProblem),("Build runtime",()=>_=Build(false)),
                 ("Export .ppmap",()=>_=Build(true)),("Playtest",PlaytestInspector),("Run map audit",()=>_=Audit()));
             MenuGroup("Online",("Community maps…",ShowCommunity),("Host current map…",()=>_=PrepareOnline()));
-            AddButton(toolbar,"Pop out",()=>_=PopOut());AddButton(toolbar,"Save",Save);AddButton(toolbar,"Playtest",PlaytestInspector);
+            AddButton(toolbar, "LIBRARY", ShowLibrary);
+            AddButton(toolbar, "IMPORT MODEL", ImportModel);
+            AddButton(toolbar, "ASSETS", () => ShowInspectorPage("Assets & music"));
+            AddButton(toolbar, "POP OUT", () => _ = PopOut());
+            AddButton(toolbar, "CANCEL JOB", () => _work?.Cancel());
+            _cancelJob = toolbar.Children[^1];
+            _cancelJob.IsVisible = false;
             _editingControls.AddRange(toolbar.Children);
-            AddButton(toolbar,"Cancel job",()=>_work?.Cancel());
-            _cancelJob=toolbar.Children[^1];_cancelJob.IsVisible=false;
-            _root.Children.Add(toolbar);
-            Grid.SetRow(_path,1);_root.Children.Add(_path);
-            var body=new Grid { ColumnDefinitions=new("220,5,*,5,265"), Margin=new Thickness(0,8) };
-            var tree=new DockPanel();
-            var treeTools=new StackPanel{Spacing=4};
-            treeTools.Children.Add(_search);treeTools.Children.Add(_hierarchyFilter);
-            DockPanel.SetDock(treeTools,Dock.Top);tree.Children.Add(treeTools);tree.Children.Add(_hierarchy);body.Children.Add(tree);
+
+            _path.MinWidth = 320;
+            var commandBar = new Grid
+            {
+                ColumnDefinitions = new("Auto,*,Auto"),
+                ColumnSpacing = 10
+            };
+            commandBar.Children.Add(toolbar);
+            Grid.SetColumn(_path, 1);
+            commandBar.Children.Add(_path);
+            var projectOps = PrimeChrome.Text(
+                "PROJECT FILE  //  menus retain full import / export / online operations",
+                PrimeTypography.DataSmall, PrimeTheme.TextSecondaryBrush, data: true);
+            projectOps.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(projectOps, 2);
+            commandBar.Children.Add(projectOps);
+            var commandPanel = new PrimePanel(commandBar, raised: true)
+            {
+                Padding = new Thickness(10, 7)
+            };
+            Grid.SetRow(commandPanel, 1);
+            _root.Children.Add(commandPanel);
+            var body = new Grid
+            {
+                ColumnDefinitions = new("260,6,*,6,340")
+            };
+            _search.MinHeight = 34;
+            _hierarchyFilter.MinHeight = 34;
+            var tree = new DockPanel();
+            var treeTools = new StackPanel { Spacing = 6 };
+            treeTools.Children.Add(_search);
+            treeTools.Children.Add(_hierarchyFilter);
+            DockPanel.SetDock(treeTools, Dock.Top);
+            tree.Children.Add(treeTools);
+            tree.Children.Add(_hierarchy);
+
+            var hierarchyHeader = PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("SCENE GRAPH"),
+                PrimeChrome.Title("SCENE HIERARCHY"),
+                PrimeChrome.Text(
+                    "Search and select authored geometry, spawns, pickups and navigation objects.",
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+            var hierarchyShell = new Grid
+            {
+                RowDefinitions = new("Auto,*"),
+                RowSpacing = 8
+            };
+            hierarchyShell.Children.Add(hierarchyHeader);
+            Grid.SetRow(tree, 1);
+            hierarchyShell.Children.Add(tree);
+            var treePanel = new PrimePanel(hierarchyShell, raised: true)
+            {
+                Padding = new Thickness(10)
+            };
+            body.Children.Add(treePanel);
             _hierarchy.ItemTemplate=new FuncDataTemplate<HierarchyRow>((row,_)=>
             {
                 if(row==null)return new TextBlock();
@@ -142,14 +244,40 @@ namespace MphRead.Mods.Launcher.Gui
                     Margin=row.Header?new Thickness(2,6,2,2):new Thickness(12,2,2,2)
                 };
             });
-            var center=new Grid();
-            var tools=new WrapPanel();
+            var center = new Grid
+            {
+                RowDefinitions = new("Auto,*"),
+                RowSpacing = 6
+            };
+            var viewportHeader = PrimeChrome.Columns("*,Auto",
+                PrimeChrome.Stack(
+                    PrimeChrome.Eyebrow("WORLD AUTHORING"),
+                    PrimeChrome.Title("VIEWPORT")),
+                _selectionState);
+            center.Children.Add(viewportHeader);
+            Grid.SetRow(_viewportHost, 1);
+            center.Children.Add(_viewportHost);
+            var viewportPanel = new PrimePanel(center, raised: true)
+            {
+                Padding = new Thickness(8)
+            };
+            Grid.SetColumn(viewportPanel, 2);
+            body.Children.Add(viewportPanel);
+
+            var tools = new WrapPanel();
             void Choice(string[] choices,Action<string> choose)
             {
                 var box=new ComboBox {ItemsSource=choices,SelectedIndex=0,Margin=new Thickness(2),MinWidth=85};
                 box.SelectionChanged+=(_,_)=>{if(box.SelectedItem is string text)choose(text);};tools.Children.Add(box);
             }
-            Choice(new[]{"Move","Rotate","Scale"},name=>{if(_viewport!=null)_viewport.Tool=name;});
+            Choice(new[]{"Move","Rotate","Scale"},name=>
+            {
+                if(_viewport!=null)
+                {
+                    _viewport.Tool=name;
+                    RefreshStudioChrome();
+                }
+            });
             Choice(new[]{"Object","Face","Edge","Vertex"},name=>{if(_viewport!=null){_viewport.ElementMode=name;_viewport.ClearSubSelection();ShowInspectorPage(_inspectorPage,false);}});
             foreach(string action in new[]{"Extrude region","Inset region","Bevel","Snap to surface","Merge center","Delete"})
             {
@@ -181,15 +309,108 @@ namespace MphRead.Mods.Launcher.Gui
             });
             Choice(new[]{"Inspector","Modeling","Partitioning","Collision repairs","Environment","Materials","Assets & music","Snapping","Arrange","Layers","Map health","Navigation path","Statistics"},name=>ShowInspectorPage(name));
             AddButton(tools,"Four views",ToggleFourViews);
-            Grid.SetRow(tools,2);_root.Children.Add(tools);_editingControls.Add(tools);
-            center.Children.Add(_viewportHost);Grid.SetColumn(center,2);body.Children.Add(center);
-            var inspectorScroll=new ScrollViewer { Content=_inspector };Grid.SetColumn(inspectorScroll,4);body.Children.Add(inspectorScroll);
-            foreach(int column in new[]{1,3}) { var splitter=new GridSplitter { Width=5, HorizontalAlignment=HorizontalAlignment.Stretch, Background=PrimeTheme.BorderBrush }; Grid.SetColumn(splitter,column);body.Children.Add(splitter); }
-            AddButton(tools,"Maximize view",()=>{bool show=tree.IsVisible;tree.IsVisible=inspectorScroll.IsVisible=!show;body.ColumnDefinitions[0].Width=show?new GridLength(0):new GridLength(220);body.ColumnDefinitions[4].Width=show?new GridLength(0):new GridLength(265);});
+
+            var inspectorScroll = new ScrollViewer
+            {
+                Content = _inspector,
+                HorizontalScrollBarVisibility =
+                    Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+                VerticalScrollBarVisibility =
+                    Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
+            };
+            var inspectQuick = new PrimeButton("INSPECT",
+                () => ShowInspectorPage("Inspector"), compact: true);
+            var materialsQuick = new PrimeButton("MATERIALS",
+                () => ShowInspectorPage("Materials"), compact: true);
+            var assetsQuick = new PrimeButton("ASSETS",
+                () => ShowInspectorPage("Assets & music"), compact: true);
+            var healthQuick = new PrimeButton("HEALTH",
+                () => ShowInspectorPage("Map health"), compact: true);
+            ControllerNav.Identify(inspectQuick, "studio.inspector");
+            ControllerNav.Identify(materialsQuick, "studio.materials");
+            ControllerNav.Identify(assetsQuick, "studio.assets");
+            ControllerNav.Identify(healthQuick, "studio.health");
+            var inspectorQuick = PrimeChrome.Columns("*,*,*,*",
+                inspectQuick, materialsQuick, assetsQuick, healthQuick);
+            var inspectorHeader = PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("PROPERTIES // CONTEXT"),
+                _inspectorTitle,
+                inspectorQuick);
+            var inspectorShell = new Grid
+            {
+                RowDefinitions = new("Auto,*"),
+                RowSpacing = 8
+            };
+            inspectorShell.Children.Add(inspectorHeader);
+            Grid.SetRow(inspectorScroll, 1);
+            inspectorShell.Children.Add(inspectorScroll);
+            var inspectorPanel = new PrimePanel(inspectorShell, raised: true)
+            {
+                Padding = new Thickness(8)
+            };
+            Grid.SetColumn(inspectorPanel, 4);
+            body.Children.Add(inspectorPanel);
+
+            foreach(int column in new[]{1,3})
+            {
+                var splitter=new GridSplitter
+                {
+                    Width=6,
+                    HorizontalAlignment=HorizontalAlignment.Stretch,
+                    Background=PrimeTheme.BorderBrush
+                };
+                Grid.SetColumn(splitter,column);
+                body.Children.Add(splitter);
+            }
+
+            AddButton(tools,"Maximize view",()=>{
+                bool show=treePanel.IsVisible;
+                treePanel.IsVisible=inspectorPanel.IsVisible=!show;
+                body.ColumnDefinitions[0].Width=show?new GridLength(0):new GridLength(260);
+                body.ColumnDefinitions[4].Width=show?new GridLength(0):new GridLength(340);
+            });
             Choice(new[]{"Grid: 0.25","Grid: 0.5","Grid: 1","Grid: 2","Grid: 4","Grid: 8","Grid: Off"},name=>{if(_viewport!=null){_viewport.Snap=name=="Grid: Off"?0:float.Parse(name[6..],CultureInfo.InvariantCulture);_viewport.InvalidateVisual();}});
-            Grid.SetRow(body,3);_root.Children.Add(body);
-            _editingControls.Add(body);_editingControls.Add(_path);
-            Grid.SetRow(_problems,4);_root.Children.Add(_problems);Grid.SetRow(_status,5);_root.Children.Add(_status);
+
+            var toolsScroll = new ScrollViewer
+            {
+                Content = tools,
+                HorizontalScrollBarVisibility =
+                    Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility =
+                    Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
+            };
+            var toolsShell = new Grid
+            {
+                RowDefinitions = new("Auto,Auto"),
+                RowSpacing = 4
+            };
+            toolsShell.Children.Add(PrimeChrome.Columns("*,Auto",
+                PrimeChrome.Eyebrow("AUTHORING TOOLS"), _toolSelectionState));
+            Grid.SetRow(toolsScroll, 1);
+            toolsShell.Children.Add(toolsScroll);
+            var toolsPanel = new PrimePanel(toolsShell)
+            {
+                Padding = new Thickness(8, 6)
+            };
+            Grid.SetRow(toolsPanel,2);
+            _root.Children.Add(toolsPanel);
+            _editingControls.Add(tools);
+
+            Grid.SetRow(body,3);
+            _root.Children.Add(body);
+            _editingControls.Add(body);
+            _editingControls.Add(_path);
+            Grid.SetRow(_problems,4);
+            _root.Children.Add(_problems);
+
+            var statusBar = PrimeChrome.Columns("Auto,*",
+                new PrimeBadge("EDITOR STATUS"), _status);
+            var statusPanel = new PrimePanel(statusBar)
+            {
+                Padding = new Thickness(8, 5)
+            };
+            Grid.SetRow(statusPanel,5);
+            _root.Children.Add(statusPanel);
             var layer=new Panel();layer.Children.Add(_root);layer.Children.Add(_modal);Content=layer;
             _search.TextChanged+=(_,_)=>RefreshHierarchy(true);
             _hierarchyFilter.SelectionChanged+=(_,_)=>{if(!_refreshing)RefreshHierarchy(true);};
@@ -257,6 +478,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Shell.FilesDropped-=OnFilesDropped;
 #endif
                 _detached=true;_editorGeneration++;_idle.Stop();_work?.Cancel();_autosave.Dispose();_sourceWatch?.Dispose();_sourceWatch=null;DisposePreviewCaches();};
+            RefreshStudioChrome();
             if (preview) Load(MapTemplates.Create("Studio example", true)); else ShowLibrary();
         }
         public void Dispose()
@@ -394,6 +616,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _autosave.Dispose();_autosave.Completion.GetAwaiter().GetResult();
                 _document.Save(path);_document.DiscardRecovery(CustomRooms.UserMapDirectory);
                 _path.Text=_document.FilePath;_status.Text="Saved "+_document.FilePath;
+                RefreshStudioChrome();
             }
             catch(Exception ex){Failure(ex);}
             finally{_autosave=new();}
@@ -408,6 +631,7 @@ namespace MphRead.Mods.Launcher.Gui
             try { RefreshSourceWatch(); } catch (IOException ex) { _status.Text="Source watch: "+ex.Message; }
             RefreshHierarchy();
             ShowInspectorPage(_inspectorPage, remember:false);
+            RefreshStudioChrome();
             _status.Text=(_document?.IsDirty==true?"Unsaved changes · ":"")
                 +"RMB orbit · MMB pan · WASD/QE fly · 1–4 modes · G/R/S transforms · E/I/B model · M merge · F fill (object mode: F focus, M measure) · Ctrl+Shift+P commands";
         }
@@ -835,6 +1059,9 @@ namespace MphRead.Mods.Launcher.Gui
         private void ShowInspectorPage(string name, bool remember=true)
         {
             if (remember) _inspectorPage=name;
+            _inspectorTitle.Text = name.ToUpperInvariant();
+            _toolSelectionState.Text = (_viewport?.ElementMode ?? "Object").ToUpperInvariant()
+                + " MODE  //  " + (_viewport?.Tool ?? "Move").ToUpperInvariant();
             switch(name)
             {
                 case "Modeling": ModelingInspector(); break;
@@ -851,6 +1078,43 @@ namespace MphRead.Mods.Launcher.Gui
                 case "Navigation path": NavigationInspector(); break;
                 default: Inspect(); break;
             }
+            RefreshStudioChrome();
+        }
+
+        private void RefreshStudioChrome()
+        {
+            bool loaded = _document != null;
+            _studioSave.IsEnabled = loaded;
+            _studioValidate.IsEnabled = loaded;
+            _studioBuild.IsEnabled = loaded;
+            _studioPlaytest.IsEnabled = loaded;
+
+            if (!loaded)
+            {
+                _projectTitle.Text = "MAP STUDIO";
+                _projectState.Text = "NO PROJECT LOADED";
+                _projectState.Foreground = PrimeTheme.TextSecondaryBrush;
+                _selectionState.Text = "0 SELECTED";
+                _toolSelectionState.Text = "OBJECT MODE";
+                return;
+            }
+
+            MapDefinition definition = _document!.Project.Definition;
+            int objects = MapObjects.All(definition).Count();
+            int selected = _document.Selection.Count;
+            string displayName = String.IsNullOrWhiteSpace(definition.InGameName)
+                ? definition.Name : definition.InGameName!;
+            _projectTitle.Text = displayName.ToUpperInvariant();
+            _projectState.Text = _document.IsDirty
+                ? $"UNSAVED CHANGES  //  {objects} OBJECTS"
+                : $"PROJECT SAVED  //  {objects} OBJECTS";
+            _projectState.Foreground = _document.IsDirty
+                ? PrimeTheme.WarningBrush : PrimeTheme.GreenBrush;
+            _selectionState.Text = selected == 0
+                ? $"{objects} OBJECTS  //  NOTHING SELECTED"
+                : $"{selected} SELECTED  //  {objects} OBJECTS";
+            _toolSelectionState.Text = (_viewport?.ElementMode ?? "Object").ToUpperInvariant()
+                + " MODE  //  " + (_viewport?.Tool ?? "Move").ToUpperInvariant();
         }
 
         private sealed record RepairReviewRow(string Key,MapViewportRepair Repair,bool Reviewed)

@@ -182,7 +182,24 @@ Implemented Settings presentation slice:
 - Controls category reset also restores keyboard/mouse bindings and tracked controller
   mappings without disturbing the other settings categories.
 
-Next presentation slices: Replay Studio, Map Studio, then pause/results.
+Map Studio presentation slice implemented:
+
+- full-screen authoring header surfaces project state plus Back / Save / Validate /
+  Build .ppmap / Playtest while retaining the existing File/Edit/View/Build/Online menus;
+- project/library/import/assets/pop-out operations are separated from scene-authoring tools;
+- the editor body is explicitly divided into **Scene Hierarchy / Viewport / Inspector** regions
+  with retained splitters and the existing maximize-view behavior;
+- hierarchy search/filter/selection remains authoritative while gaining dedicated scene-graph chrome;
+- the viewport exposes live object/selection context;
+- the Inspector adds direct Inspect / Materials / Assets / Health entry points while the existing
+  Modeling, Partitioning, Collision Repair, Environment, Snapping, Arrange, Layers, Navigation
+  and Statistics pages remain available;
+- live chrome reports project name, dirty/saved state, object count, selection count,
+  element mode and active transform tool;
+- no geometry, import, collision, navigation, build, package, Community or playtest authority
+  moved into the presentation layer.
+
+Replay Studio remains in its separate presentation PR; after both land, the next slice is pause/results.
 
 ### Replay Studio
 
