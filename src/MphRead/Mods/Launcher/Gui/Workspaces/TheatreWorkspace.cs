@@ -34,7 +34,17 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBlock _metadata;
         private readonly TextBlock _status;
         private readonly TextBlock _summary;
+        private readonly TextBlock _insights;
+        private readonly TextBlock _heroMeta;
         private readonly Image _preview = new() { Stretch = Stretch.UniformToFill };
+        private readonly PrimeHeroPanel _hero;
+        private readonly StackPanel _thumbnailStrip = new()
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 6
+        };
+        private readonly List<Bitmap> _thumbnailBitmaps = new();
+        private readonly List<Button> _thumbnailButtons = new();
         private readonly DeckField _search;
         private readonly ChoiceRow _filter;
         private readonly ChoiceRow _sort;
@@ -47,6 +57,8 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly HubNavButton _recover;
         private readonly HubNavButton _export;
         private readonly HubNavButton _delete;
+        private readonly PrimeButton _favoriteFiltered;
+        private readonly PrimeButton _validateFiltered;
 #if !ANDROID
         private readonly HubNavButton _reveal;
 #endif
@@ -60,6 +72,8 @@ namespace MphRead.Mods.Launcher.Gui
         private long _selectionGeneration;
         private bool _launching;
         private bool _populating;
+        private bool _batchBusy;
+        private ReplayLibraryEntry[] _shownEntries = Array.Empty<ReplayLibraryEntry>();
 
         private Bitmap? _bitmap;
         private string[] _previewPaths = Array.Empty<string>();
@@ -79,6 +93,8 @@ namespace MphRead.Mods.Launcher.Gui
             bool Recoverable,
             bool Annotated,
             bool Organized,
+            int BookmarkCount,
+            int HighlightCount,
             string Room,
             string Players,
             string SearchText);
@@ -131,15 +147,16 @@ namespace MphRead.Mods.Launcher.Gui
             root.Children.Add(HubChrome.Header(
                 "HOME  /  REPLAY STUDIO",
                 "REPLAY STUDIO",
-                "Find the moment you want, inspect it, then open the cinematic editor.",
+                "Search the archive, inspect timeline stills and highlights, then open the cinematic editor.",
                 "LOCAL LIBRARY"));
 
             _search = new DeckField("", widthEms: 0,
                 watermark: "Search name, map, mode, player, annotation...");
             _filter = new ChoiceRow("Smart view",
                 new[] { "All", "Full replays", "Clips", "Favorites", "Recent 7 days",
-                    "Same map", "Same players", "Annotated", "Tagged / collected",
-                    "Needs recovery" }, 0);
+                    "Same map", "Same players", "Annotated", "Has highlights",
+                    "Has bookmarks", "Tagged / collected", "Long sessions (10m+)",
+                    "Short clips (<60s)", "Needs recovery" }, 0);
             _sort = new ChoiceRow("Sort",
                 new[] { "Newest", "Oldest", "Name", "Longest" }, 0);
             _summary = new TextBlock
@@ -148,6 +165,14 @@ namespace MphRead.Mods.Launcher.Gui
                 FontSize = 8.5,
                 Foreground = HubTheme.TextDimBrush,
                 VerticalAlignment = VerticalAlignment.Center
+            };
+            _insights = new TextBlock
+            {
+                Text = "ARCHIVE // SCANNING",
+                FontFamily = HubTheme.Data,
+                FontSize = 9.5,
+                Foreground = PrimeTheme.HighlightBrush,
+                TextWrapping = TextWrapping.Wrap
             };
 
             _searchTimer.Tick += (_, _) => { _searchTimer.Stop(); Populate(_selected); };
@@ -158,7 +183,10 @@ namespace MphRead.Mods.Launcher.Gui
 
             _list.ItemTemplate = new FuncDataTemplate<ReplayLibraryEntry>((entry, scope) =>
             {
-                var row = new UiListRow((entry.Favorite ? "★ " : "") + entry.Title, entry.Detail)
+                var row = new UiListRow(
+                    (entry.Favorite ? "★ " : "") + entry.Title,
+                    CardDetail(entry),
+                    spacious: true)
                     { Choice = entry.Path, Focusable = false };
                 row.Clicked += (_, _) => _list.SelectedItem = entry;
                 row.Activated += (_, _) => { _list.SelectedItem = entry; _ = WatchAsync(); };
@@ -185,16 +213,26 @@ namespace MphRead.Mods.Launcher.Gui
             Grid.SetColumn(_sort, 2);
             libraryControls.Children.Add(_sort);
 
+            _favoriteFiltered = new PrimeButton("FAVORITE FILTERED",
+                () => _ = FavoriteFilteredAsync(), compact: true);
+            ControllerNav.Identify(_favoriteFiltered, "studio.batch.favorite");
+            _validateFiltered = new PrimeButton("CHECK FILTERED",
+                () => _ = ValidateFilteredAsync(), compact: true);
+            ControllerNav.Identify(_validateFiltered, "studio.batch.validate");
+            var batchBar = PrimeChrome.Columns("*,*", _favoriteFiltered, _validateFiltered);
+
             var library = new Grid
             {
-                RowDefinitions = new RowDefinitions("Auto,Auto,*"),
+                RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"),
                 RowSpacing = 8
             };
-            library.Children.Add(libraryControls);
+            library.Children.Add(_insights);
             Grid.SetRow(_summary, 1);
             library.Children.Add(_summary);
             Grid.SetRow(_list, 2);
             library.Children.Add(_list);
+            Grid.SetRow(batchBar, 3);
+            library.Children.Add(batchBar);
 
             var listPanel = new Border
             {
@@ -226,6 +264,9 @@ namespace MphRead.Mods.Launcher.Gui
                 Foreground = HubTheme.TextBrush,
                 TextWrapping = TextWrapping.Wrap
             };
+            _heroMeta = PrimeChrome.Text(
+                "ARCHIVE STANDBY",
+                12, PrimeTheme.TextSecondaryBrush, data: true);
             _metadata = new TextBlock
             {
                 Text = "Record a match or import a replay to begin.",
@@ -234,18 +275,8 @@ namespace MphRead.Mods.Launcher.Gui
                 Foreground = HubTheme.TextDimBrush,
                 TextWrapping = TextWrapping.Wrap
             };
-            detailStack.Children.Add(_title);
+            detailStack.Children.Add(new PrimeBadge("REPLAY METADATA"));
             detailStack.Children.Add(_metadata);
-
-            detailStack.Children.Add(new Border
-            {
-                Height = 150,
-                Background = HubTheme.InkBrush,
-                BorderBrush = HubTheme.EdgeBrush,
-                BorderThickness = new Thickness(1),
-                ClipToBounds = true,
-                Child = _preview
-            });
 
             _rename = new DeckField("", widthEms: 0, watermark: "Display name");
             detailStack.Children.Add(_rename);
@@ -301,19 +332,42 @@ namespace MphRead.Mods.Launcher.Gui
                 Child = detailStack
             };
 
-            detailStack.Children.Remove(_title); detailStack.Children.Remove(_metadata);
-            if (_preview.Parent is Border previewFrame) { previewFrame.Child = null; detailStack.Children.Remove(previewFrame); }
-            // Thumbnail is a preview; live transport becomes available in the editor.
-            var viewer = new Grid { RowDefinitions = new("Auto,*,Auto"), RowSpacing = 12 };
-            viewer.Children.Add(_title);
-            Grid.SetRow(_preview, 1); viewer.Children.Add(_preview);
-            Grid.SetRow(_metadata, 2); viewer.Children.Add(_metadata);
-            library.Children.Remove(libraryControls);
+            detailStack.Children.Remove(_title);
+            // Thumbnail is a static preview; live transport becomes available in the editor.
+            // Keep the historical _preview Image alive for lifecycle tests while the hero
+            // uses the same selected bitmap as its background.
+            _preview.IsVisible = false;
+            _preview.Height = 0;
+            detailStack.Children.Add(_preview);
+
+            var heroCopy = new StackPanel
+            {
+                Spacing = 8,
+                VerticalAlignment = VerticalAlignment.Bottom,
+                MaxWidth = 720
+            };
+            heroCopy.Children.Add(PrimeChrome.Eyebrow("SELECTED REPLAY // REVIEW"));
+            heroCopy.Children.Add(_title);
+            heroCopy.Children.Add(_heroMeta);
+            _hero = new PrimeHeroPanel(heroCopy, minHeight: 260);
+
+            var timeline = new StackPanel { Spacing = 6 };
+            timeline.Children.Add(PrimeChrome.Eyebrow("TIMELINE STILLS"));
+            timeline.Children.Add(_thumbnailStrip);
+            var viewer = PrimeChrome.Stack(_hero, new PrimePanel(timeline) { Padding = new Thickness(10) });
+
             libraryControls.ColumnDefinitions = new("1.6*,1*,1*");
-            var body = PrimeChrome.Columns("1*,1.25*,1*", listPanel, new PrimePanel(viewer),
-                new ScrollViewer { Content = detailPanel, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled });
+            var body = PrimeChrome.Columns("1.05*,1.5*,1*", listPanel, viewer,
+                new ScrollViewer
+                {
+                    Content = detailPanel,
+                    HorizontalScrollBarVisibility =
+                        Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
+                });
             var archive = new Grid { RowDefinitions = new("Auto,*"), RowSpacing = 12 };
-            archive.Children.Add(libraryControls); Grid.SetRow(body, 1); archive.Children.Add(body);
+            archive.Children.Add(libraryControls);
+            Grid.SetRow(body, 1);
+            archive.Children.Add(body);
             Grid.SetRow(archive, 1); root.Children.Add(archive);
 
             var footer = new Grid
