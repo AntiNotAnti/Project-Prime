@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Diagnostics;
 using MphRead.Formats;
 using MphRead.Mods.Render;
+using MphRead.Mods.Render.Characters;
 using OpenTK.Mathematics;
 
 namespace MphRead.Entities
@@ -251,7 +252,10 @@ namespace MphRead.Entities
                             alpha = Math.Clamp(alpha, 0, 1);
                         }
                         UpdateMaterials(_bipedModel2, Recolor);
-                        GetDrawItems(_bipedModel2, _bipedModel2.Model.Nodes[0], alpha, overrideColor: brightSkin, outlineColor: outlineColor);
+                        if (!TryDrawModernCharacter(_bipedModel2, CharacterModelPart.Biped, alpha,
+                            overrideColor: brightSkin, outlineColor: outlineColor))
+                            GetDrawItems(_bipedModel2, _bipedModel2.Model.Nodes[0], alpha,
+                                overrideColor: brightSkin, outlineColor: outlineColor);
                         PaletteOverride = null;
                         if (_chargeEffect != null || _muzzleEffect != null)
                         {
@@ -306,7 +310,8 @@ namespace MphRead.Entities
                             ? renderTransform
                             : GetTransformMatrix(_aimVec, _upVector, _gunDrawPos);
                         UpdateTransforms(_gunModel, transform, Recolor);
-                        GetDrawItems(_gunModel, _gunModel.Model.Nodes[0], _curAlpha);
+                        if (!TryDrawModernCharacter(_gunModel, CharacterModelPart.ViewModel, _curAlpha))
+                            GetDrawItems(_gunModel, _gunModel.Model.Nodes[0], _curAlpha);
                         if (Flags1.TestFlag(PlayerFlags1.DrawGunSmoke))
                         {
                             var drawPos = new Vector3(0, 0, Fixed.ToFloat(Values.MuzzleOffset));
@@ -399,6 +404,55 @@ namespace MphRead.Entities
             // the authority, but a cosmetic pulse does not need its remaining
             // frame count and therefore cannot drift the gameplay timer.
             return (ModSpawnProtectionVisualTicks / SpawnProtectionFlashHalfPeriodFrames & 1) == 0;
+        }
+
+        private bool TryDrawModernCharacter(ModelInstance inst, CharacterModelPart part, float alpha,
+            int recolor = -1, Vector4? overrideColor = null, Vector4? outlineColor = null)
+        {
+            if (alpha <= 0) return true;
+            Model model = inst.Model;
+            if (!CharacterModelRuntime.TryGetRigid(_scene, Hunter, part, model,
+                out CharacterRigidRenderModel replacement))
+                return false;
+
+            int polygonId = _scene.GetNextPolygonId();
+            foreach (CharacterRigidRenderSegment segment in replacement.Segments)
+            {
+                Node node = model.Nodes[segment.NativeNodeIndex];
+                if (!node.Enabled || !model.NodeParentsEnabled(node)) continue;
+                Material material = model.Materials[segment.NativeMaterialIndex];
+                Vector3 emission = GetEmission(inst, material, segment.NativeMaterialIndex);
+                Vector4? color = PaletteOverride == null
+                    ? BrightSkins.ForMaterial(overrideColor, material.TextureId != -1,
+                        material.CurrentAlpha * alpha, _scene.ShowTextures) : null;
+                int? bindingOverride = GetBindingOverride(inst, material, segment.NativeMaterialIndex);
+
+                var previousCosmetic = _scene.CosmeticSubmission;
+                var previousMaterial = _scene.CosmeticMaterialSubmission;
+                if (Mods.RenderOptions.ShowCustomCosmetics && !BrightSkinStatusOverride && !BrightSkinFrozenOverlay
+                    && !ModMatchSpawnProtectionActive && _timeSinceDamage >= Values.DamageFlashTime * 2
+                    && !BrightSkins.ShouldApply(this) && !Flags2.TestFlag(PlayerFlags2.Cloaking)
+                    && _curAlpha >= 1 && !_scene.GameState.Teams)
+                    _scene.CosmeticMaterialSubmission = _scene.GetCosmeticMaterial(
+                        CosmeticAppearance.Skin, model, segment.NativeMaterialIndex,
+                        part == CharacterModelPart.ViewModel
+                            ? Mods.Cosmetics.SkinContext.ViewModel : Mods.Cosmetics.SkinContext.Biped);
+                _scene.CosmeticSubmission = CosmeticMaterial(part == CharacterModelPart.ViewModel);
+
+                // GLB UVs are already normalized authoring coordinates. Reuse
+                // the native material's binding/shading identity but not the
+                // cartridge display-list texture matrix.
+                _scene.AddRenderItem(material, polygonId, alpha, emission, GetLightInfo(), Matrix4.Identity,
+                    node.Animation, segment.ListId, 0, Array.Empty<float>(), color,
+                    PaletteOverride, SelectionType.None, node.BillboardMode, _drawScale, bindingOverride,
+                    color.HasValue && Mods.RenderOptions.BrightSkins
+                        && Mods.RenderOptions.BrightSkinStyle != Mods.PlayerSkinStyle.Solid,
+                    PaletteOverride == null ? outlineColor : null);
+
+                _scene.CosmeticSubmission = previousCosmetic;
+                _scene.CosmeticMaterialSubmission = previousMaterial;
+            }
+            return true;
         }
 
         private void GetDrawItems(ModelInstance inst, Node node, float alpha, int polygonId = -1, int recolor = -1,
