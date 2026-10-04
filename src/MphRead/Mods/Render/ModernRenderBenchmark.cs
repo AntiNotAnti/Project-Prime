@@ -99,6 +99,9 @@ internal static class ModernRenderBenchmark
                     long gpuVisibilityCandidatesStart = ModernGraphicsCompat.GpuVisibilityCandidates;
                     long gpuVisibilityHiZStart = ModernGraphicsCompat.GpuVisibilityHiZBuilds;
                     long gpuVisibilityIndirectStart = ModernGraphicsCompat.GpuVisibilityIndirectDraws;
+                    long multiDrawCallsStart = ModernGraphicsCompat.RetainedMultiDrawCalls;
+                    long multiDrawLogicalStart = ModernGraphicsCompat.RetainedMultiDrawLogicalDraws;
+                    long multiDrawFallbackStart = ModernGraphicsCompat.RetainedMultiDrawFallbackBatches;
                     if (ModernGraphicsCompat.Active) ModernGraphicsCompat.BeginPerformanceSample();
                     for (int i = 0; i < 20 + sampleCount; i++)
                     {
@@ -145,6 +148,9 @@ internal static class ModernRenderBenchmark
                             gpuVisibilityCandidatesStart = ModernGraphicsCompat.GpuVisibilityCandidates;
                             gpuVisibilityHiZStart = ModernGraphicsCompat.GpuVisibilityHiZBuilds;
                             gpuVisibilityIndirectStart = ModernGraphicsCompat.GpuVisibilityIndirectDraws;
+                            multiDrawCallsStart = ModernGraphicsCompat.RetainedMultiDrawCalls;
+                            multiDrawLogicalStart = ModernGraphicsCompat.RetainedMultiDrawLogicalDraws;
+                            multiDrawFallbackStart = ModernGraphicsCompat.RetainedMultiDrawFallbackBatches;
                         }
                         NativeWindow.ProcessWindowEvents(false);
                         DesktopGraphicsSession.Resize(window);
@@ -225,6 +231,11 @@ internal static class ModernRenderBenchmark
                         gpuVisibilityHiZBuilds = ModernGraphicsCompat.GpuVisibilityHiZBuilds - gpuVisibilityHiZStart,
                         gpuVisibilityIndirectDraws = ModernGraphicsCompat.GpuVisibilityIndirectDraws - gpuVisibilityIndirectStart,
                         gpuVisibilityCandidateHighWater = ModernGraphicsCompat.GpuVisibilityCandidateHighWater,
+                        retainedStateMultiDrawEnabled = ModernGraphicsCompat.RetainedStateMultiDrawEnabled,
+                        retainedMultiDrawCalls = ModernGraphicsCompat.RetainedMultiDrawCalls - multiDrawCallsStart,
+                        retainedMultiDrawLogicalDraws = ModernGraphicsCompat.RetainedMultiDrawLogicalDraws - multiDrawLogicalStart,
+                        retainedMultiDrawFallbackBatches = ModernGraphicsCompat.RetainedMultiDrawFallbackBatches - multiDrawFallbackStart,
+                        retainedMultiDrawAtlasBytes = ModernGraphicsCompat.RetainedMultiDrawAtlasBytes,
                         commandBatchOperationLimit = ModernGraphicsCompat.ActiveCommandBatchOperationLimit,
                         stagedTextureUploadLimitBytes = ModernGraphicsCompat.ActiveStagedTextureUploadLimitBytes,
                         averageCompletedMs = frames.Average(), cpuSubmissionMs = submissions.Average(),
