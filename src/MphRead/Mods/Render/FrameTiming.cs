@@ -57,7 +57,8 @@ namespace MphRead.Mods.Render
         /// <summary>
         /// Frames per second to draw at. 0 is <see cref="DisplayRate"/>: no
         /// cap of our own, VSync on, so the rate is whatever the monitor
-        /// refreshes at. Any other value caps there with VSync off.
+        /// refreshes at. <see cref="Unlimited"/> disables both VSync and the
+        /// software deadline; positive values are explicit numeric caps.
         /// </summary>
         public static int FrameRateCap
         {
