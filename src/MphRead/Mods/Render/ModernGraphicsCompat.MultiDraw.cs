@@ -27,6 +27,12 @@ internal sealed unsafe partial class ModernGraphicsCompat
         int BaseVertex,
         uint IndexCount);
 
+    private readonly record struct RetainedDenseMultiDrawBucket(
+        int Id,
+        uint DenseBase,
+        uint MaxCount,
+        RetainedMultiDrawPage Page);
+
     private const ulong RetainedMultiDrawVertexPageBytes = 16UL * 1024 * 1024;
     private const ulong RetainedMultiDrawIndexPageBytes = 4UL * 1024 * 1024;
     private readonly List<RetainedMultiDrawPage> _retainedMultiDrawPages = new();
@@ -34,11 +40,17 @@ internal sealed unsafe partial class ModernGraphicsCompat
         _retainedMultiDrawEntries = new();
     private readonly Dictionary<GeometryList, bool>
         _retainedMultiDrawExplicitNormals = new();
+    private readonly Dictionary<RenderItem, RetainedDenseMultiDrawBucket>
+        _retainedDenseMultiDrawBuckets = new();
+    private int _retainedDenseBucketCount;
+    private uint _retainedDenseRecordCount;
     private uint[] _retainedMultiDrawUniformScratch = Array.Empty<uint>();
     private long _retainedMultiDrawCalls;
     private long _retainedMultiDrawLogicalDraws;
     private long _retainedMultiDrawFallbackBatches;
     private long _retainedMultiDrawAtlasBytes;
+    private long _retainedDenseMultiDrawCalls;
+    private long _retainedDenseMultiDrawCandidates;
 
     internal static bool RetainedStateMultiDrawEnabled =>
         _current?.UseRetainedStateMultiDraw ?? false;
@@ -50,6 +62,12 @@ internal sealed unsafe partial class ModernGraphicsCompat
         _current?._retainedMultiDrawFallbackBatches ?? 0;
     internal static long RetainedMultiDrawAtlasBytes =>
         _current?._retainedMultiDrawAtlasBytes ?? 0;
+    internal static bool RetainedDenseMultiDrawEnabled =>
+        _current?.UseRetainedDenseMultiDraw ?? false;
+    internal static long RetainedDenseMultiDrawCalls =>
+        _current?._retainedDenseMultiDrawCalls ?? 0;
+    internal static long RetainedDenseMultiDrawCandidates =>
+        _current?._retainedDenseMultiDrawCandidates ?? 0;
 
     private bool UseRetainedStateMultiDraw
     {
@@ -65,6 +83,10 @@ internal sealed unsafe partial class ModernGraphicsCompat
 #endif
         }
     }
+
+    private bool UseRetainedDenseMultiDraw =>
+        UseRetainedStateMultiDraw
+        && _device.SupportsMultiDrawIndirectCount;
 
     private RetainedMultiDrawEntry EnsureRetainedMultiDrawEntry(
         GeometryList geometry)
@@ -212,6 +234,190 @@ internal sealed unsafe partial class ModernGraphicsCompat
         }
         _retainedMultiDrawExplicitNormals[geometry] = explicitNormals;
         return explicitNormals;
+    }
+
+    private static bool SameFloatBits(float a, float b) =>
+        BitConverter.SingleToUInt32Bits(a)
+            == BitConverter.SingleToUInt32Bits(b);
+
+    private static bool SameVector3Bits(Vector3 a, Vector3 b) =>
+        SameFloatBits(a.X, b.X)
+        && SameFloatBits(a.Y, b.Y)
+        && SameFloatBits(a.Z, b.Z);
+
+    private static bool SameMatrixBits(Matrix4 a, Matrix4 b) =>
+        SameFloatBits(a.M11, b.M11)
+        && SameFloatBits(a.M12, b.M12)
+        && SameFloatBits(a.M13, b.M13)
+        && SameFloatBits(a.M14, b.M14)
+        && SameFloatBits(a.M21, b.M21)
+        && SameFloatBits(a.M22, b.M22)
+        && SameFloatBits(a.M23, b.M23)
+        && SameFloatBits(a.M24, b.M24)
+        && SameFloatBits(a.M31, b.M31)
+        && SameFloatBits(a.M32, b.M32)
+        && SameFloatBits(a.M33, b.M33)
+        && SameFloatBits(a.M34, b.M34)
+        && SameFloatBits(a.M41, b.M41)
+        && SameFloatBits(a.M42, b.M42)
+        && SameFloatBits(a.M43, b.M43)
+        && SameFloatBits(a.M44, b.M44);
+
+    private static bool SameRetainedMultiDrawDynamicState(
+        RenderItem a, RenderItem b)
+    {
+        if (!SameVector3Bits(
+                a.LightInfo.Light1Vector, b.LightInfo.Light1Vector)
+            || !SameVector3Bits(
+                a.LightInfo.Light1Color, b.LightInfo.Light1Color)
+            || !SameVector3Bits(
+                a.LightInfo.Light2Vector, b.LightInfo.Light2Vector)
+            || !SameVector3Bits(
+                a.LightInfo.Light2Color, b.LightInfo.Light2Color)
+            || a.MatrixStackCount != b.MatrixStackCount)
+        {
+            return false;
+        }
+
+        if (a.MatrixStackCount > 0)
+        {
+            int count = checked(a.MatrixStackCount * 16);
+            if (count > a.MatrixStack.Length
+                || count > b.MatrixStack.Length)
+            {
+                return false;
+            }
+            for (int i = 0; i < count; i++)
+            {
+                if (!SameFloatBits(
+                    a.MatrixStack[i], b.MatrixStack[i]))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return SameMatrixBits(a.Transform, b.Transform);
+    }
+
+    private void PrepareRetainedDenseMultiDrawBuckets(
+        IReadOnlyList<RetainedDrawPacket> packets)
+    {
+        _retainedDenseMultiDrawBuckets.Clear();
+        _retainedDenseBucketCount = 0;
+        _retainedDenseRecordCount = 0;
+        if (!UseRetainedDenseMultiDraw)
+            return;
+
+        int runStart = -1;
+        int runCount = 0;
+        int previousSlot = -1;
+        RetainedDrawPacket firstPacket = default;
+        RetainedMultiDrawPage? runPage = null;
+
+        void FlushRun()
+        {
+            if (runStart < 0 || runCount < 2 || runPage == null)
+            {
+                runStart = -1;
+                runCount = 0;
+                previousSlot = -1;
+                runPage = null;
+                return;
+            }
+
+            int bucketId = _retainedDenseBucketCount++;
+            uint denseBase = _retainedDenseRecordCount;
+            uint maxCount = checked((uint)runCount);
+            _retainedDenseRecordCount =
+                checked(_retainedDenseRecordCount + maxCount);
+            var bucket = new RetainedDenseMultiDrawBucket(
+                bucketId, denseBase, maxCount, runPage);
+            for (int i = 0; i < runCount; i++)
+            {
+                RenderItem item = packets[runStart + i].Item;
+                _retainedDenseMultiDrawBuckets[item] = bucket;
+                int slot = _gpuVisibilitySlots[item];
+                int at = slot * GpuVisibilityCandidateWords;
+                _gpuVisibilityCandidateWords[at + 13] =
+                    checked((uint)bucketId);
+                _gpuVisibilityCandidateWords[at + 14] = denseBase;
+            }
+
+            runStart = -1;
+            runCount = 0;
+            previousSlot = -1;
+            runPage = null;
+        }
+
+        for (int packetIndex = 0;
+            packetIndex < packets.Count; packetIndex++)
+        {
+            RetainedDrawPacket packet = packets[packetIndex];
+            RenderItem item = packet.Item;
+            bool candidate =
+                _gpuVisibilitySlots.TryGetValue(item, out int slot)
+                && _lists.TryGetValue(
+                    packet.Mesh.ListId, out GeometryList? geometry)
+                && RetainedMultiDrawGeometryHasExplicitNormals(geometry)
+                && _retainedMultiDrawEntries.TryGetValue(
+                    geometry, out RetainedMultiDrawEntry entry);
+
+            if (!candidate)
+            {
+                FlushRun();
+                continue;
+            }
+
+            bool compatible = runStart >= 0
+                && slot == previousSlot + 1
+                && packet.BatchState == firstPacket.BatchState
+                && SameRetainedMultiDrawDynamicState(
+                    firstPacket.Item, item)
+                && ReferenceEquals(runPage, entry.Page);
+            if (!compatible)
+            {
+                FlushRun();
+                runStart = packetIndex;
+                runCount = 1;
+                firstPacket = packet;
+                runPage = entry.Page;
+            }
+            else
+            {
+                runCount++;
+            }
+            previousSlot = slot;
+        }
+        FlushRun();
+    }
+
+    private bool TryGetDenseMultiDrawBucket(
+        IReadOnlyList<RetainedDrawPacket> packets,
+        int start, int count,
+        out RetainedDenseMultiDrawBucket bucket)
+    {
+        bucket = default;
+        if (!UseRetainedDenseMultiDraw
+            || count < 2
+            || !_retainedDenseMultiDrawBuckets.TryGetValue(
+                packets[start].Item, out bucket)
+            || bucket.MaxCount != checked((uint)count))
+        {
+            return false;
+        }
+
+        for (int i = 1; i < count; i++)
+        {
+            if (!_retainedDenseMultiDrawBuckets.TryGetValue(
+                    packets[start + i].Item,
+                    out RetainedDenseMultiDrawBucket next)
+                || next != bucket)
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     private bool TryGetConsecutiveVisibilityRange(
@@ -588,6 +794,9 @@ internal sealed unsafe partial class ModernGraphicsCompat
         _retainedMultiDrawPages.Clear();
         _retainedMultiDrawEntries.Clear();
         _retainedMultiDrawExplicitNormals.Clear();
+        _retainedDenseMultiDrawBuckets.Clear();
+        _retainedDenseBucketCount = 0;
+        _retainedDenseRecordCount = 0;
         _retainedMultiDrawUniformScratch = Array.Empty<uint>();
     }
 }
