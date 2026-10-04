@@ -1859,7 +1859,9 @@ namespace MphRead.Entities
                                 {
                                     node.Animation = transform;
                                 }
-                                GetItems(partInst, node);
+                                GetItems(partInst, node,
+                                    retainedGpuVisibilityEligible: true,
+                                    retainedVisibilityOffset: offset);
                                 if (_nodePairs.TryGetValue(
                                     node, out Node? exclude))
                                 {
@@ -1957,7 +1959,9 @@ namespace MphRead.Entities
             }
         }
 
-        private void GetItems(ModelInstance inst, Node node, Portal? portal = null)
+        private void GetItems(ModelInstance inst, Node node, Portal? portal = null,
+            bool retainedGpuVisibilityEligible = false,
+            Vector3 retainedVisibilityOffset = default)
         {
             if (!node.Enabled)
             {
@@ -2004,7 +2008,10 @@ namespace MphRead.Entities
                     template.Item, material, polygonId, alpha,
                     emission: Vector3.Zero, lightInfo, texcoordMatrix,
                     node.Animation, template.ListId, matrixStackCount,
-                    matrixStack, selectionType, node.BillboardMode);
+                    matrixStack, selectionType, node.BillboardMode,
+                    retainedGpuVisibilityEligible,
+                    node.MinBounds + retainedVisibilityOffset,
+                    node.MaxBounds + retainedVisibilityOffset);
                 _retainedRoomPacketSubmissions++;
             }
         }

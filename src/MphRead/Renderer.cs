@@ -2759,6 +2759,7 @@ namespace MphRead
             Vector2i target = RenderSize;
             if (target != _targetSize || _sceneColorFormat != SceneColorFormat)
             {
+                _retainedDepthHistoryValid = false;
                 OnResize();
                 target = _targetSize;
             }
@@ -3024,11 +3025,17 @@ namespace MphRead
             bool want =
                 !_depthTextureRefused
                 && ((Mods.RenderOptions.CelShading && Mods.RenderOptions.CelEdge > 0)
-                    || Mods.RenderOptions.NeedsReadableDepth);
+                    || Mods.RenderOptions.NeedsReadableDepth
+#if !MPHREAD_SERVER
+                    || (Mods.Render.ModernGraphicsCompat.Active
+                        && Mods.Render.ModernGraphicsCompat.GpuVisibilityEnabled)
+#endif
+                );
             if (want == (_depthTexture != 0))
             {
                 return;
             }
+            _retainedDepthHistoryValid = false;
             _playerOutlineDepth = -1;
             if (!want)
             {
@@ -4668,6 +4675,9 @@ namespace MphRead
             item.TexturedPlayerSkin = false;
             item.PlayerOutlineColor = null;
             item.RetainedRoomOwned = false;
+            item.RetainedGpuVisibilityEligible = false;
+            item.RetainedBoundsMin = Vector3.Zero;
+            item.RetainedBoundsMax = Vector3.Zero;
             return item;
         }
 
@@ -4781,7 +4791,8 @@ namespace MphRead
             Vector3 emission, LightInfo lightInfo, Matrix4 texcoordMatrix,
             Matrix4 transform, int listId, int matrixStackCount,
             IReadOnlyList<float> matrixStack, SelectionType selectionType,
-            BillboardMode billboardMode)
+            BillboardMode billboardMode, bool retainedGpuVisibilityEligible,
+            Vector3 retainedBoundsMin, Vector3 retainedBoundsMax)
         {
             Debug.Assert(!_collectingPreview && !_collectingViewModelItems);
             item.Type = RenderItemType.Mesh;
@@ -4797,6 +4808,9 @@ namespace MphRead
             item.Lighting = material.Lighting != 0;
             item.ViewModel = false;
             item.RetainedRoomOwned = true;
+            item.RetainedGpuVisibilityEligible = retainedGpuVisibilityEligible;
+            item.RetainedBoundsMin = retainedBoundsMin;
+            item.RetainedBoundsMax = retainedBoundsMax;
             item.NoLines = false;
             item.Diffuse = material.CurrentDiffuse;
             item.Ambient = material.CurrentAmbient;

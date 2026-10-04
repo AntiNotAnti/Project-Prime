@@ -104,7 +104,10 @@ namespace MphRead
                     && _wireframeLevel == 0
                     && !Mods.RenderOptions.CelShading;
                 if (directShadow)
+                {
+                    Mods.Render.ModernGraphicsCompat.BeginRetainedPreVisibilityPass();
                     Mods.Render.ModernGraphicsCompat.BeginRetainedWorldFrame();
+                }
 #else
                 const bool directShadow = false;
 #endif

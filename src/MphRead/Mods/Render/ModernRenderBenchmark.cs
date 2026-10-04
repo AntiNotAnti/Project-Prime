@@ -95,6 +95,10 @@ internal static class ModernRenderBenchmark
                     long transientHitsStart = scene.FrameTransientTextureHits;
                     long transientMissesStart = scene.FrameTransientTextureMisses;
                     long transientAliasesStart = scene.FrameTransientTextureAliases;
+                    long gpuVisibilityDispatchStart = ModernGraphicsCompat.GpuVisibilityDispatches;
+                    long gpuVisibilityCandidatesStart = ModernGraphicsCompat.GpuVisibilityCandidates;
+                    long gpuVisibilityHiZStart = ModernGraphicsCompat.GpuVisibilityHiZBuilds;
+                    long gpuVisibilityIndirectStart = ModernGraphicsCompat.GpuVisibilityIndirectDraws;
                     if (ModernGraphicsCompat.Active) ModernGraphicsCompat.BeginPerformanceSample();
                     for (int i = 0; i < 20 + sampleCount; i++)
                     {
@@ -137,6 +141,10 @@ internal static class ModernRenderBenchmark
                             transientHitsStart = scene.FrameTransientTextureHits;
                             transientMissesStart = scene.FrameTransientTextureMisses;
                             transientAliasesStart = scene.FrameTransientTextureAliases;
+                            gpuVisibilityDispatchStart = ModernGraphicsCompat.GpuVisibilityDispatches;
+                            gpuVisibilityCandidatesStart = ModernGraphicsCompat.GpuVisibilityCandidates;
+                            gpuVisibilityHiZStart = ModernGraphicsCompat.GpuVisibilityHiZBuilds;
+                            gpuVisibilityIndirectStart = ModernGraphicsCompat.GpuVisibilityIndirectDraws;
                         }
                         NativeWindow.ProcessWindowEvents(false);
                         DesktopGraphicsSession.Resize(window);
@@ -210,6 +218,13 @@ internal static class ModernRenderBenchmark
                         frameTransientTextureHits = scene.FrameTransientTextureHits - transientHitsStart,
                         frameTransientTextureMisses = scene.FrameTransientTextureMisses - transientMissesStart,
                         frameTransientTextureAliases = scene.FrameTransientTextureAliases - transientAliasesStart,
+                        gpuVisibilityEnabled = ModernGraphicsCompat.GpuVisibilityEnabled,
+                        gpuVisibilityRefused = ModernGraphicsCompat.GpuVisibilityRefused,
+                        gpuVisibilityDispatches = ModernGraphicsCompat.GpuVisibilityDispatches - gpuVisibilityDispatchStart,
+                        gpuVisibilityCandidates = ModernGraphicsCompat.GpuVisibilityCandidates - gpuVisibilityCandidatesStart,
+                        gpuVisibilityHiZBuilds = ModernGraphicsCompat.GpuVisibilityHiZBuilds - gpuVisibilityHiZStart,
+                        gpuVisibilityIndirectDraws = ModernGraphicsCompat.GpuVisibilityIndirectDraws - gpuVisibilityIndirectStart,
+                        gpuVisibilityCandidateHighWater = ModernGraphicsCompat.GpuVisibilityCandidateHighWater,
                         commandBatchOperationLimit = ModernGraphicsCompat.ActiveCommandBatchOperationLimit,
                         stagedTextureUploadLimitBytes = ModernGraphicsCompat.ActiveStagedTextureUploadLimitBytes,
                         averageCompletedMs = frames.Average(), cpuSubmissionMs = submissions.Average(),

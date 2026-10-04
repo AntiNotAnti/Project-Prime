@@ -2,6 +2,7 @@
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using MphRead;
 using Silk.NET.WebGPU;
 using WgpuBuffer = Silk.NET.WebGPU.Buffer;
 
@@ -116,10 +117,17 @@ internal sealed unsafe partial class ModernGraphicsCompat
     }
 
     private bool TryDrawRetainedIndexedIndirect(
-        RenderPassEncoder* pass, uint indexCount, bool roomOwned)
+        RenderPassEncoder* pass, uint indexCount, RenderItem item)
     {
-        if (!roomOwned || !UseRetainedIndirectDraws)
+        if (!item.RetainedRoomOwned || !UseRetainedIndirectDraws)
             return false;
+
+        // When the pre-world compute pass prepared this exact persistent room
+        // packet, consume its GPU-written 0/1 instanceCount directly. Shadow
+        // runs before that pass and therefore naturally takes the CPU argument
+        // fallback instead of seeing stale visibility from the prior frame.
+        if (TryGpuVisibilityIndirect(pass, item))
+            return true;
 
         RetainedIndirectAllocation allocation =
             RentRetainedIndexedIndirect(indexCount);

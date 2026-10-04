@@ -935,6 +935,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             DisposeGeometry();
             DisposeGeneratedShaders();
             DisposeCoreShaders();
+            DisposeGpuVisibility();
             DisposeUniformBuffers();
             if (_uiShader != null) _api.ShaderModuleRelease(_uiShader);
             if (_queue != null) _api.QueueRelease(_queue);

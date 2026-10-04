@@ -546,13 +546,53 @@ post processing, allowing the later processed-scene target to reuse that storage
 when dimensions/filtering match. TAA history remains persistent because it spans
 frames.
 
-### 5. Indexed-indirect retained draw foundation
+### 5. GPU visibility, compaction and temporal Hi-Z
 
-Persistent room World/PBR draws can source their indexed draw arguments from a
-GPU-visible WebGPU indirect arena. The current stage is CPU-populated indirect
-arguments, deliberately structured so a later compute visibility/compaction pass
-can own the same argument storage. It is enabled on desktop DX12/Vulkan and kept
-off on Metal/Android until hardware benchmarks prove a win.
+The indexed-indirect foundation now has a real compute producer on desktop
+DX12/Vulkan. CPU portal connectivity and the original per-node visibility walk
+remain authoritative: compute receives only persistent room packets that already
+survived those tests, so it cannot make a disconnected room visible.
+
+For each eligible opaque room packet, the pre-world compute stage:
+
+- receives its authoritative world-space node bounds and retained mesh index count;
+- repeats a conservative current-camera AABB frustum test on the GPU;
+- writes the exact 20-byte `DrawIndexedIndirect` record used by the World and
+  deferred-PBR passes;
+- expresses visibility through `instanceCount = 0/1`, so rendering consumes the
+  GPU decision without a CPU readback;
+- atomically compacts visible packet IDs into a dense GPU buffer and records a
+  visible count for future multi-draw/state-bucket consumption.
+
+Occlusion uses a persistent R32F hierarchical-Z history. The visibility pass
+consumes the pyramid from the previous rendered frame **before** WorldSetup clears
+the scene target. Immediately after the six-pass World graph finishes, a second
+compute node rebuilds the pyramid from the current world depth for the next frame,
+before outlines, HUD models, deferred lighting and post effects can contaminate
+that history. Each level stores the **maximum** standard depth of its 2x2 source
+region, making a rejection conservative. Packet bounds are projected with the
+previous camera and compared against an appropriately coarse Hi-Z level.
+
+Temporal Hi-Z is deliberately guarded. Occlusion is skipped when the projected
+packet moved more than a small pixel threshold between the previous and current
+camera, when any projected corner crosses behind the camera, on the first frame,
+after a resize/depth-target change, or whenever readable depth is unavailable.
+In those cases the GPU still produces indirect arguments from frustum visibility
+but does not make an occlusion rejection.
+
+The compact visible-ID list is real GPU compaction, but it is not yet submitted
+as one multi-draw. Project Prime's retained packets still carry different
+vertex/index buffers, bind groups and pipeline/material state. Converting those
+state buckets to shared geometry/bind tables is a separate optimization; until
+then each packet consumes its own GPU-written indirect record with no visibility
+readback.
+
+The compute path is fail-safe and backend-gated. A pipeline/resource failure
+disables GPU visibility for the session and returns to retained CPU visibility
+plus the existing indirect/direct draw fallback. Android remains off because
+forcing temporal readable depth can be a bandwidth loss on tile renderers, and
+Metal remains off until its indirect path beats the existing direct submission
+benchmark.
 
 ### 6. Native outline and fullscreen paths
 
