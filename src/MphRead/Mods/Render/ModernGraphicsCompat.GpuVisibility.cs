@@ -61,6 +61,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
     private int _gpuVisibilityPreviousWidth;
     private int _gpuVisibilityPreviousHeight;
     private bool _gpuVisibilityPrepared;
+    private bool _gpuVisibilityRefused;
+    private long _gpuVisibilityIndirectDraws;
 
     private long _gpuVisibilityDispatches;
     private long _gpuVisibilityCandidates;
@@ -77,6 +79,10 @@ internal sealed unsafe partial class ModernGraphicsCompat
         _current?._gpuVisibilityHiZBuilds ?? 0;
     internal static int GpuVisibilityCandidateHighWater =>
         _current?._gpuVisibilityCandidateHighWater ?? 0;
+    internal static long GpuVisibilityIndirectDraws =>
+        _current?._gpuVisibilityIndirectDraws ?? 0;
+    internal static bool GpuVisibilityRefused =>
+        _current?._gpuVisibilityRefused ?? false;
 
     private bool UseGpuVisibility
     {
@@ -90,7 +96,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
 #else
             // This stage consumes the indirect argument buffer directly. Metal
             // stays on direct draws until its indirect path clears the benchmark.
-            return UseRetainedIndirectDraws
+            return !_gpuVisibilityRefused
+                && UseRetainedIndirectDraws
                 && _device.Backend is GraphicsBackend.DirectX12
                     or GraphicsBackend.Vulkan;
 #endif
@@ -120,6 +127,28 @@ internal sealed unsafe partial class ModernGraphicsCompat
     }
 
     private void PrepareRetainedGpuVisibilityCore(
+        IReadOnlyList<RetainedDrawPacket> packets,
+        Matrix4 projection, Matrix4 view,
+        int depthTexture, int width, int height, bool historyValid)
+    {
+        try
+        {
+            PrepareRetainedGpuVisibilityUnsafe(
+                packets, projection, view,
+                depthTexture, width, height, historyValid);
+        }
+        catch (Exception ex) when (
+            ex is not OutOfMemoryException and not StackOverflowException)
+        {
+            _gpuVisibilityRefused = true;
+            _gpuVisibilityPrepared = false;
+            _gpuVisibilitySlots.Clear();
+            Console.WriteLine(
+                $"[render] GPU visibility unavailable; using retained CPU visibility: {ex.Message}");
+        }
+    }
+
+    private void PrepareRetainedGpuVisibilityUnsafe(
         IReadOnlyList<RetainedDrawPacket> packets,
         Matrix4 projection, Matrix4 view,
         int depthTexture, int width, int height, bool historyValid)
@@ -225,7 +254,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
         uint* counters = stackalloc uint[4];
         counters[0] = counters[1] = counters[2] = counters[3] = 0;
         WriteProfiledBuffer(_gpuVisibilityCountersBuffer, 0,
-            counters, 4 * sizeof(uint));
+            counters, checked((nuint)(4 * sizeof(uint))));
 
         bool useHistory = historyValid
             && _gpuVisibilityPreviousMatricesValid
@@ -259,7 +288,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
         fixed (uint* uniformPtr = uniforms)
         {
             WriteProfiledBuffer(_gpuVisibilityUniformBuffer, 0,
-                uniformPtr, GpuVisibilityUniformWords * sizeof(uint));
+                uniformPtr,
+                checked((nuint)(GpuVisibilityUniformWords * sizeof(uint))));
         }
 
         BindGroup* group = GpuVisibilityBindGroup(hiZView);
@@ -301,6 +331,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
             pass, _gpuVisibilityIndirectBuffer,
             checked((ulong)slot * RetainedIndexedIndirectBytes));
         _retainedIndirectDraws++;
+        _gpuVisibilityIndirectDraws++;
         return true;
     }
 
@@ -576,7 +607,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
             Binding = 4,
             Buffer = _gpuVisibilityUniformBuffer,
             Offset = 0,
-            Size = GpuVisibilityUniformWords * sizeof(uint)
+            Size = checked((ulong)(GpuVisibilityUniformWords * sizeof(uint)))
         };
         entries[5] = new BindGroupEntry
         {
@@ -592,6 +623,13 @@ internal sealed unsafe partial class ModernGraphicsCompat
             });
         _gpuVisibilityBindResources = resources;
         return (BindGroup*)_gpuVisibilityBindGroup;
+    }
+
+    internal static void BeginRetainedPreVisibilityPass()
+    {
+        if (_current == null)
+            return;
+        Current.ResetGpuVisibilityFrameState();
     }
 
     private void ResetGpuVisibilityFrameState()
