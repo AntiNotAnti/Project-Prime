@@ -66,12 +66,44 @@ namespace MphRead.Mods.MapGen
             {
                 if (id != Guid.Empty && !ids.Add(id)) r.Error("FP-MAP-010", "Duplicate object ID.", id);
             }
+            var animatedNames = new HashSet<string>(StringComparer.Ordinal);
             foreach (var m in d.Materials)
             {
                 if (m == null) { r.Error("FP-MAP-001", "Null material."); continue; }
                 Id(m.Id);
                 if (m.SourceMaterial < 0 || !float.IsFinite(m.TexScale) || m.TexScale <= 0)
                     r.Error("FP-MAP-001", "Material requires a nonnegative source index and positive UV scale.", m.Id);
+                if (m.Alpha is < 0 or > 31)
+                    r.Error("FP-MAP-001", "Material alpha must be between 0 and 31.", m.Id);
+                if (m.Animation is { } animation)
+                {
+                    bool validScroll = animation.UvScroll is { Length: 2 }
+                        && animation.UvScroll.All(float.IsFinite)
+                        && animation.UvScroll.All(value => Math.Abs(value) <= MapUvAnimation.MaxScrollSpeed);
+                    if (!validScroll)
+                        r.Error("FP-MAP-001", "UV scroll requires two finite tile-per-second values from -4 to 4.", m.Id);
+                    bool validLoop = animation.LoopFrames is >= MapUvAnimation.MinLoopFrames and <= MapUvAnimation.MaxLoopFrames;
+                    if (!validLoop)
+                        r.Error("FP-MAP-001", "Animated material loop must be 30–6000 native 30 Hz frames.", m.Id);
+                    if (validLoop && (animation.PhaseFrames < 0 || animation.PhaseFrames >= animation.LoopFrames))
+                        r.Error("FP-MAP-001", "Animated material phase must be inside its loop.", m.Id);
+                    if (!MapUvAnimation.NativeNameFits(m.Name))
+                        r.Error("FP-MAP-001", "Animated material names must be 1–31 native single-byte characters.", m.Id);
+                    else if (!animatedNames.Add(m.Name))
+                        r.Error("FP-MAP-001", "Animated material names must be unique.", m.Id);
+                    if (validScroll && validLoop && animation.UvScroll.Any(speed => !MapUvAnimation.IsSeamless(speed, animation.LoopFrames)))
+                        r.Error("FP-MAP-001", "UV scroll loop endpoints must land on whole texture tiles for seamless repeat.", m.Id);
+                }
+            }
+            MapMaterial[] animatedMaterials = d.Materials.Where(m => m?.Animation != null).Cast<MapMaterial>().ToArray();
+            bool loopsValid = animatedMaterials.All(m => m.Animation!.LoopFrames is >= MapUvAnimation.MinLoopFrames
+                and <= MapUvAnimation.MaxLoopFrames);
+            if (animatedMaterials.Length > 0 && loopsValid)
+            {
+                if (!MapUvAnimation.TryGetGroupFrameCount(animatedMaterials, out int groupFrames))
+                    r.Error("FP-MAP-001", "Animated material loop periods need a shared native cycle of 6000 frames or less.");
+                else if (MapUvAnimation.TranslationEntryCount(animatedMaterials, groupFrames) > MapUvAnimation.MaxTranslationEntries)
+                    r.Error("FP-MAP-003", "Animated material translation lookup-table budget exceeds 65535 entries.");
             }
             if (d.Import == null && d.NativeRoom == null && d.Materials.Count == 0)
                 r.Error("FP-MAP-001", "At least one material is required.");
