@@ -5,7 +5,8 @@ using System.Linq;
 
 namespace MphRead.Mods.MapGen
 {
-    internal readonly record struct MapFlipbookBinding(ushort[] TextureIds, ushort[] PaletteIds);
+    internal readonly record struct MapFlipbookBinding(
+        ushort MaterialId, ushort[] TextureIds, ushort[] PaletteIds);
 
     /// <summary>
     /// Compiles authored UV motion and texture flipbooks into the native MPH animation format.
@@ -201,9 +202,8 @@ namespace MphRead.Mods.MapGen
             var textureIds = new List<ushort>(flipbookEntries);
             var paletteIds = new List<ushort>(flipbookEntries);
             var textureTracks = new List<TextureTrack>();
-            for (int materialId = 0; materialId < materials.Count; materialId++)
+            foreach (MapMaterial material in materials)
             {
-                MapMaterial material = materials[materialId];
                 MapMaterialAnimation? animation = material.Animation;
                 if (animation?.FlipbookFrames?.Count is not > 0) continue;
                 if (flipbooks == null || !flipbooks.TryGetValue(material.Name, out MapFlipbookBinding binding))
@@ -227,7 +227,7 @@ namespace MphRead.Mods.MapGen
                 }
 
                 textureTracks.Add(new TextureTrack(material, start, checked((ushort)frameCount),
-                    binding.PaletteIds.Min(), checked((ushort)materialId), binding.TextureIds.Min()));
+                    binding.PaletteIds.Min(), binding.MaterialId, binding.TextureIds.Min()));
             }
 
             const int headerSize = 24;
