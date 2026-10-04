@@ -432,8 +432,10 @@ namespace MphRead.Mods.Launcher.Gui
             // A retained launcher view can be measured again on return from
             // playback. Detach the image before releasing its native bitmap.
             _preview.Source = null;
+            _hero.SetArt(null);
             _bitmap?.Dispose();
             _bitmap = null;
+            ClearThumbnailStrip();
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
@@ -493,7 +495,8 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 string name = $"Replay {i:D5}", path = Path.Combine(Path.GetTempPath(), "prime-library-check-model", name + ".ppdemo");
                 _entries.Add(new(path, name, "Battle · 05:00", DateTime.UnixEpoch.AddMinutes(i), 18000,
-                    false, i % 10 == 0, false, false, false, "Test arena", "Players", name));
+                    false, i % 10 == 0, false, false, false, 0, 0,
+                    "Test arena", "Players", name));
             }
             _list.LayoutUpdated += (_, _) => MaximumRealizedRows = Math.Max(MaximumRealizedRows,
                 _list.GetVisualDescendants().OfType<UiListRow>().Count());
@@ -542,7 +545,8 @@ namespace MphRead.Mods.Launcher.Gui
                 string people = demo.Metadata == null ? ""
                     : String.Join(" ", demo.Metadata.Players.Select(player => player.Name));
                 string mode = demo.Metadata?.Mode.ToString() ?? "";
-                string annotations = AnnotationSearchText(demo.Path);
+                string annotations = AnnotationSearchText(demo.Path,
+                    out int bookmarks, out int highlights);
                 string organization = OrganizationSearchText(demo.Path);
                 bool annotated = annotations.Length > 0;
                 bool organized = organization.Length > 0;
@@ -557,6 +561,8 @@ namespace MphRead.Mods.Launcher.Gui
                     recoverable,
                     annotated,
                     organized,
+                    bookmarks,
+                    highlights,
                     demo.Room,
                     people,
                     $"{demo.DisplayName} {demo.Room} {mode} {people} "
@@ -575,7 +581,8 @@ namespace MphRead.Mods.Launcher.Gui
                     : String.Join(" ", source.Metadata.Players.Select(player => player.Name));
                 string mode = source.Metadata?.Mode.ToString() ?? "";
                 uint duration = clip.EndFrame - clip.StartFrame;
-                string annotations = AnnotationSearchText(path);
+                string annotations = AnnotationSearchText(path,
+                    out int bookmarks, out int highlights);
                 string organization = OrganizationSearchText(path);
                 entries.Add(new ReplayLibraryEntry(
                     path,
@@ -588,6 +595,8 @@ namespace MphRead.Mods.Launcher.Gui
                     Recoverable: false,
                     Annotated: annotations.Length > 0,
                     Organized: organization.Length > 0,
+                    BookmarkCount: bookmarks,
+                    HighlightCount: highlights,
                     room,
                     people,
                     $"{clip.Name} {room} {mode} {people} "
@@ -625,8 +634,12 @@ namespace MphRead.Mods.Launcher.Gui
                 6 => anchorPlayers.Length == 0 ? filtered
                     : filtered.Where(entry => SharesPlayer(entry.Players, anchorPlayers)),
                 7 => filtered.Where(entry => entry.Annotated),
-                8 => filtered.Where(entry => entry.Organized),
-                9 => filtered.Where(entry => entry.Recoverable),
+                8 => filtered.Where(entry => entry.HighlightCount > 0),
+                9 => filtered.Where(entry => entry.BookmarkCount > 0),
+                10 => filtered.Where(entry => entry.Organized),
+                11 => filtered.Where(entry => entry.DurationFrames >= 10 * 60 * 60),
+                12 => filtered.Where(entry => entry.IsClip && entry.DurationFrames < 60 * 60),
+                13 => filtered.Where(entry => entry.Recoverable),
                 _ => filtered
             };
             filtered = _sort.Index switch
@@ -638,6 +651,9 @@ namespace MphRead.Mods.Launcher.Gui
                 _ => filtered.OrderByDescending(entry => entry.Recorded)
             };
             ReplayLibraryEntry[] shown = filtered.ToArray();
+            _shownEntries = shown;
+            UpdateLibraryInsights(shown);
+            UpdateBatchActions(shown);
 
             _populating = true;
             _list.ItemsSource = shown;
@@ -665,11 +681,16 @@ namespace MphRead.Mods.Launcher.Gui
             Select(selected);
         }
 
-        private static string AnnotationSearchText(string path)
-            => String.Join(" ", ReplayAnnotations.Bookmarks(path)
-                .Select(bookmark => bookmark.Name)
-                .Concat(ReplayAnnotations.Highlights(path)
-                    .Select(highlight => highlight.Name)));
+        private static string AnnotationSearchText(string path,
+            out int bookmarkCount, out int highlightCount)
+        {
+            var bookmarks = ReplayAnnotations.Bookmarks(path);
+            var highlights = ReplayAnnotations.Highlights(path);
+            bookmarkCount = bookmarks.Count;
+            highlightCount = highlights.Count;
+            return String.Join(" ", bookmarks.Select(bookmark => bookmark.Name)
+                .Concat(highlights.Select(highlight => highlight.Name)));
+        }
 
         private static bool SharesPlayer(string left, string right)
         {
@@ -718,6 +739,7 @@ namespace MphRead.Mods.Launcher.Gui
             if (path == null)
             {
                 _title.Text = "NO REPLAY SELECTED";
+                _heroMeta.Text = "ARCHIVE STANDBY";
                 _metadata.Text = "Record a match or import a replay to begin.";
                 _rename.Value = "";
                 _tags.Value = "";
@@ -741,6 +763,10 @@ namespace MphRead.Mods.Launcher.Gui
                 _rename.Value = clip.Name;
                 _tags.Value = String.Join(", ", ReplayAnnotations.Tags(path));
                 _collections.Value = String.Join(", ", ReplayAnnotations.Collections(path));
+                string clipRoom = RoomForSource(clip.SourceReplay) ?? "";
+                _heroMeta.Text =
+                    $"VIRTUAL CLIP  //  {ReplayHud.Time(clip.EndFrame - clip.StartFrame)}"
+                    + (clipRoom.Length > 0 ? $"  //  {clipRoom}" : "");
                 _metadata.Text =
                     $"VIRTUAL CLIP  /  {ReplayHud.Time(clip.EndFrame - clip.StartFrame)}\n"
                     + $"{ReplayHud.Time(clip.StartFrame)} – {ReplayHud.Time(clip.EndFrame)}\n"
@@ -749,7 +775,7 @@ namespace MphRead.Mods.Launcher.Gui
                     + OrganizationSummary(path);
                 _favorite.Label = ReplayVirtualClips.IsFavorite(path)
                     ? "UNFAVORITE" : "FAVORITE";
-                SetPreview(RoomForSource(clip.SourceReplay), clip.SourceReplay);
+                SetPreview(clipRoom, clip.SourceReplay);
                 return;
             }
 
@@ -759,6 +785,11 @@ namespace MphRead.Mods.Launcher.Gui
                 _rename.Value = demo.DisplayName;
                 _tags.Value = String.Join(", ", ReplayAnnotations.Tags(path));
                 _collections.Value = String.Join(", ", ReplayAnnotations.Collections(path));
+                _heroMeta.Text =
+                    $"{(demo.Metadata?.Type == ReplayType.Clip ? "CLIP" : "FULL REPLAY")}"
+                    + $"  //  {ReplayHud.Time(demo.DurationFrames)}"
+                    + (demo.Room.Length > 0 ? $"  //  {demo.Room}" : "")
+                    + $"  //  {demo.Recorded:g}";
                 _metadata.Text = $"{DemoLibrary.Describe(demo)}\n"
                     + DemoLibrary.Details(demo)
                     + AnnotationSummary(path)
@@ -769,6 +800,9 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             _title.Text = Path.GetFileName(path).ToUpperInvariant();
+            _heroMeta.Text = interrupted
+                ? "INTERRUPTED RECORDING  //  RECOVERY REQUIRED"
+                : "IMPORTED REPLAY";
             _rename.Value = Path.GetFileNameWithoutExtension(path);
             _tags.Value = "";
             _collections.Value = "";
@@ -801,8 +835,10 @@ namespace MphRead.Mods.Launcher.Gui
         private void SetPreview(string? room, string? replay = null)
         {
             _preview.Source = null;
+            _hero.SetArt(null);
             _bitmap?.Dispose();
             _bitmap = null;
+            ClearThumbnailStrip();
             _previewIndex = 0;
             _previewPaths = Array.Empty<string>();
             _backdropRoom = room?.Trim() ?? "";
@@ -825,6 +861,7 @@ namespace MphRead.Mods.Launcher.Gui
                     // Replay metadata remains useful even without a thumbnail.
                 }
             }
+            BuildThumbnailStrip();
             ShowPreview();
         }
 
@@ -834,7 +871,10 @@ namespace MphRead.Mods.Launcher.Gui
             _bitmap?.Dispose();
             _bitmap = null;
             if (_previewPaths.Length == 0)
+            {
+                _hero.SetArt(null);
                 return;
+            }
 
             try
             {
@@ -843,6 +883,8 @@ namespace MphRead.Mods.Launcher.Gui
                 using var stream = new MemoryStream(File.ReadAllBytes(path));
                 _bitmap = new Bitmap(stream);
                 _preview.Source = _bitmap;
+                _hero.SetArt(_bitmap, 0.78);
+                RefreshThumbnailSelection();
             }
             catch (Exception ex) when (
                 ex is IOException or UnauthorizedAccessException
