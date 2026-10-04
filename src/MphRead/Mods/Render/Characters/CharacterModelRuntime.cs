@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using MphRead.Mods;
 using OpenTK.Graphics.OpenGL;
 
@@ -96,7 +97,8 @@ namespace MphRead.Mods.Render.Characters
                 return true;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
-                or InvalidDataException or ArgumentException or InvalidOperationException)
+                or InvalidDataException or ArgumentException or InvalidOperationException
+                or JsonException or FormatException or OverflowException or KeyNotFoundException)
             {
                 resources.Failed.Add(key);
                 DebugLog.Line("render", $"HD character fallback for {hunter}/{part}: {ex.Message}");
