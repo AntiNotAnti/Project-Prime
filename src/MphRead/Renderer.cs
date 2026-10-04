@@ -8834,7 +8834,7 @@ localCenter *= _profileHudScale;
                 {
                     _reportedModernBlockingFallback = true;
                     Mods.DebugLog.Line("frametiming",
-                        $"requested {cap} FPS but "
+                        $"requested {Mods.Render.FrameTiming.CapString(cap)} FPS but "
                         + $"{Mods.Render.ModernGraphicsCompat.ActivePresentMode} is the only "
                         + "available modern presentation cadence; using display pacing "
                         + "instead of double-pacing the frame.");
@@ -8861,7 +8861,9 @@ localCenter *= _profileHudScale;
             else
             {
                 VSync = VSyncMode.Off;
-                UpdateFrequency = cap;
+                UpdateFrequency = Mods.Render.DesktopFramePacing.SoftwareFrequency(
+                    cap, refreshRate, displayPaced: false,
+                    modernPresentationBlocks: false, linuxVSyncFallback: false);
             }
         }
 
