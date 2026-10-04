@@ -131,7 +131,11 @@ namespace MphRead.Mods.Launcher.Gui
             var root = new Grid
             {
                 Margin = PrimeMetrics.PageMargin,
-                RowDefinitions = new("Auto,*"),
+                // Keep the cinematic hero as a header, not as the page's layout
+                // authority. An Auto row lets the source image contribute its
+                // native desired height and can push the live directory entirely
+                // below the viewport on desktop.
+                RowDefinitions = new("210,*"),
                 RowSpacing = 12
             };
 
@@ -160,7 +164,11 @@ namespace MphRead.Mods.Launcher.Gui
             heroCopy.Children.Add(PrimeChrome.Columns("Auto,Auto,Auto",
                 _quick, create, direct));
             _hero = new PrimeHeroPanel(
-                heroCopy, MapShot.For("MP11 BREAKTHROUGH"), minHeight: 160);
+                heroCopy, MapShot.For("MP11 BREAKTHROUGH"), minHeight: 160)
+            {
+                Height = 210,
+                MaxHeight = 210
+            };
             root.Children.Add(_hero);
 
             _refresh = new PrimeButton("REFRESH");
