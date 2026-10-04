@@ -129,6 +129,7 @@ namespace MphRead.Mods.Render
 
         internal static bool RetainedDeferredPbrPacketEligible(RenderItem item) =>
             item.Type == RenderItemType.Mesh
+            && !item.WeightedSkinning
             && !item.ViewModel
             && item.RenderMode == RenderMode.Normal
             && item.Alpha >= 0.999f
