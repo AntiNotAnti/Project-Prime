@@ -92,6 +92,8 @@ internal static class CommunityMapChecks
                         UvRotationDegreesPerSecond = 180f,
                         UvScale = new[] { 1f, 0.9f },
                         UvScalePulse = new[] { 0.05f, 0.1f },
+                        FlipbookFrames = new() { "textures/frame2.tex", "textures/frame3.tex" },
+                        FlipbookHoldFrames = 5,
                         LoopFrames = 3000,
                         PhaseFrames = 15
                     }
@@ -104,6 +106,8 @@ internal static class CommunityMapChecks
                 && animatedMaterial.Animation.UvRotationDegreesPerSecond == 180f
                 && animatedMaterial.Animation.UvScale.SequenceEqual(new[] { 1f, 0.9f })
                 && animatedMaterial.Animation.UvScalePulse.SequenceEqual(new[] { 0.05f, 0.1f })
+                && animatedMaterial.Animation.FlipbookFrames.SequenceEqual(new[] { "textures/frame2.tex", "textures/frame3.tex" })
+                && animatedMaterial.Animation.FlipbookHoldFrames == 5
                 && animatedMaterial.Animation.LoopFrames == 3000
                 && animatedMaterial.Animation.PhaseFrames == 15,
                 "animated material metadata survives editable .ppmap package roundtrip");
