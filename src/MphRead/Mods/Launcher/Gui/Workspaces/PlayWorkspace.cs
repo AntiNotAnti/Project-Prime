@@ -116,7 +116,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Text = "CONTACTING DIRECTORY",
                 FontFamily = HubTheme.Data,
-                FontSize = 9,
+                FontSize = 11,
                 Foreground = HubTheme.TextDimBrush,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -148,7 +148,8 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Spacing = 8,
                 MaxWidth = 760,
-                HorizontalAlignment = HorizontalAlignment.Left
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Center
             };
             heroCopy.Children.Add(PrimeChrome.Eyebrow("PLAY // MULTIPLAYER NETWORK"));
             heroCopy.Children.Add(PrimeChrome.HeroTitle("FIND YOUR NEXT HUNT"));
