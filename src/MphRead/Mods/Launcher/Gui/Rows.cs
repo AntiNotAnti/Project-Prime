@@ -67,6 +67,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly Tap _tap = new();
 
         public event EventHandler? Changed;
+        internal string Label => _label;
 
         public int Index
         {
@@ -336,6 +337,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly Tap _tap = new();
 
         public event EventHandler? Changed;
+        internal string Label => _label;
 
         public bool On
         {
