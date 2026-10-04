@@ -61,6 +61,21 @@ namespace MphRead.Mods.MapGen
             return scroll || scale || pulse || animation.UvRotationDegreesPerSecond != 0;
         }
 
+        internal static bool HasEmissiveAnimation(MapMaterial material) =>
+            material.Animation is { } animation
+            && (animation.EmissiveIntensity != 1f || animation.EmissivePulse != 0f);
+
+        internal static float EmissiveIntensity(MapMaterialAnimation animation, int nativeFrame)
+        {
+            if (animation.LoopFrames <= 0)
+                return Math.Clamp(animation.EmissiveIntensity, 0f, 1f);
+            int localFrame = ((nativeFrame + animation.PhaseFrames)
+                % animation.LoopFrames + animation.LoopFrames) % animation.LoopFrames;
+            float phase = MathF.Tau * localFrame / animation.LoopFrames;
+            return Math.Clamp(animation.EmissiveIntensity
+                + animation.EmissivePulse * MathF.Sin(phase), 0f, 1f);
+        }
+
         internal static bool NativeNameFits(string name) =>
             !String.IsNullOrEmpty(name) && name.Length <= 31 && name.All(c => c <= byte.MaxValue);
 
