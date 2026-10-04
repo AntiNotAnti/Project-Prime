@@ -245,7 +245,8 @@ namespace MphRead.Mods.Launcher.Gui
                 context.FillRectangle(lit ? GuiTheme.PanelLightBrush : GuiTheme.PanelBrush,
                     new RoundedRect(new Rect(4, 2, Math.Max(0, Bounds.Width - 8),
                         Math.Max(0, Bounds.Height - 4)), 4));
-                context.DrawRectangle(new Pen(lit ? GuiTheme.AccentBrush : GuiTheme.EdgeBrush, 1),
+                context.DrawRectangle(null,
+                    new Pen(lit ? GuiTheme.AccentBrush : GuiTheme.EdgeBrush, 1),
                     new RoundedRect(new Rect(4.5, 2.5, Math.Max(0, Bounds.Width - 9),
                         Math.Max(0, Bounds.Height - 5)), 4));
             }
