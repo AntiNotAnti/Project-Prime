@@ -17,17 +17,25 @@ namespace MphRead.Mods.Render.Characters
         public static string Generate(Hunter hunter, CharacterModelPart part, Model nativeModel,
             string relativeOutput)
         {
-            string bones = JsonSerializer.Serialize(CharacterModelAuthoring.RigidNodeNames(nativeModel));
-            string materials = JsonSerializer.Serialize(nativeModel.Materials
-                .Select(material => material.Name)
-                .Where(name => !String.IsNullOrWhiteSpace(name))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-                .ToArray());
-            string output = JsonSerializer.Serialize(relativeOutput.Replace('\\', '/'));
-            string label = JsonSerializer.Serialize($"{hunter}/{part}");
+            return Generate($"{hunter}/{part}",
+                CharacterModelAuthoring.RigidNodeNames(nativeModel),
+                nativeModel.Materials.Select(material => material.Name)
+                    .Where(name => !String.IsNullOrWhiteSpace(name))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                    .ToArray(),
+                relativeOutput);
+        }
 
-            return $$"""
+        internal static string Generate(string assetLabel, IReadOnlyList<string> expectedBones,
+            IReadOnlyList<string> expectedMaterials, string relativeOutput)
+        {
+            string bones = JsonSerializer.Serialize(expectedBones);
+            string materials = JsonSerializer.Serialize(expectedMaterials);
+            string output = JsonSerializer.Serialize(relativeOutput.Replace('\\', '/'));
+            string label = JsonSerializer.Serialize(assetLabel);
+
+            return $"""
 # Project Prime rigid character exporter
 #
 # Workflow:
