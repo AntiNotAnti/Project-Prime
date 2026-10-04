@@ -29,6 +29,9 @@ namespace MphRead.Entities
         public NodeData? NodeData => _nodeData;
         private readonly List<ModelInstance> _connectorModels = new List<ModelInstance>();
         private readonly float[] _emptyMatrixStack = Array.Empty<float>();
+        private IReadOnlyDictionary<int, Mods.MapGen.MapMaterialAnimation> _authoredMaterialAnimations
+            = new Dictionary<int, Mods.MapGen.MapMaterialAnimation>();
+        private int _authoredMaterialFrame;
 
         protected override bool UseNodeTransform => false; // default -- will use transform if setting is enabled
         public int RoomId { get; private set; }
@@ -77,6 +80,14 @@ namespace MphRead.Entities
                 _partVisInfo[i] = new RoomPartVisInfo();
                 _roomFrustumItems[i] = new RoomFrustumItem();
             }
+        }
+
+        public override bool Process()
+        {
+            bool result = base.Process();
+            if (Active && _scene.FrameCount != 0 && _scene.FrameCount % 2 == 0)
+                _authoredMaterialFrame++;
+            return result;
         }
 
         public void Setup(string name, RoomMetadata meta, CollisionInstance collision, int layerMask, int roomId)
@@ -130,6 +141,9 @@ namespace MphRead.Entities
             }
             _meta = meta;
             Model model = inst.Model;
+            _authoredMaterialAnimations =
+                Mods.Render.Materials.MapMaterialAssetRegistry.AuthoredAnimations(model);
+            _authoredMaterialFrame = 0;
             // portals are already filtered by layer mask
             _portals.AddRange(collision.Info.Portals.Select(p => p.CreateSceneCopy()));
             if (_portals.Count > 0)
@@ -2011,9 +2025,22 @@ namespace MphRead.Entities
                     matrixStack, selectionType, node.BillboardMode,
                     retainedGpuVisibilityEligible,
                     node.MinBounds + retainedVisibilityOffset,
-                    node.MaxBounds + retainedVisibilityOffset);
+                    node.MaxBounds + retainedVisibilityOffset,
+                    emissiveIntensity: AuthoredEmissiveIntensity(
+                        model, template.MaterialId));
                 _retainedRoomPacketSubmissions++;
             }
+        }
+
+        private float AuthoredEmissiveIntensity(Model model, int materialId)
+        {
+            if (!ReferenceEquals(model, _models[0].Model)
+                || !_authoredMaterialAnimations.TryGetValue(materialId, out var animation)
+                || !Mods.MapGen.MapUvAnimation.HasEmissiveAnimation(
+                    new Mods.MapGen.MapMaterial { Animation = animation }))
+                return 1f;
+            return Mods.MapGen.MapUvAnimation.EmissiveIntensity(
+                animation, _authoredMaterialFrame);
         }
 
         private float GetPortalAlpha(Vector3 portalPosition, Vector3 cameraPosition)
