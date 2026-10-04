@@ -32,8 +32,10 @@ namespace MphRead.Mods.Render.Characters
 
         public void Release()
         {
+#if !MPHREAD_SERVER
             foreach (CharacterRigidRenderSegment segment in Segments)
                 if (segment.ListId != 0) GraphicsApi.DeleteLists(segment.ListId, 1);
+#endif
         }
     }
 
@@ -141,6 +143,9 @@ namespace MphRead.Mods.Render.Characters
 
         private static CharacterRigidRenderModel Compile(CharacterModelAsset asset, Model nativeModel)
         {
+#if MPHREAD_SERVER
+            throw new InvalidOperationException("HD character geometry is unavailable in dedicated-server builds.");
+#else
             CharacterRigidModelData geometry = CharacterRigidModelLoader.Load(asset);
             var nodeIndices = nativeModel.Nodes.Select((node, index) => (Name: node.Name, Index: index))
                 .ToDictionary(value => value.Name, value => value.Index, StringComparer.Ordinal);
@@ -172,6 +177,7 @@ namespace MphRead.Mods.Render.Characters
                     if (segment.ListId != 0) GraphicsApi.DeleteLists(segment.ListId, 1);
                 throw;
             }
+#endif
         }
 
         private static int ResolveMaterial(Model nativeModel, int nodeIndex, string? materialName,
@@ -195,6 +201,9 @@ namespace MphRead.Mods.Render.Characters
 
         private static int CompileList(CharacterRigidPrimitive primitive)
         {
+#if MPHREAD_SERVER
+            throw new InvalidOperationException("HD character geometry is unavailable in dedicated-server builds.");
+#else
             int list = GraphicsApi.GenLists(1);
             if (list == 0) throw new InvalidOperationException("Renderer could not allocate HD character geometry.");
             try
@@ -222,6 +231,7 @@ namespace MphRead.Mods.Render.Characters
                 GraphicsApi.DeleteLists(list, 1);
                 throw;
             }
+#endif
         }
     }
 }
