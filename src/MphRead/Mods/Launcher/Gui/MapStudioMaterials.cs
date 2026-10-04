@@ -197,8 +197,9 @@ internal sealed partial class MapStudioScreen
         var enabled = new CheckBox { Content = "Animate UVs", IsChecked = material.Animation != null };
         var twoSided = new CheckBox { Content = "Two-sided surface", IsChecked = material.TwoSided };
         var alpha = new TextBox { Text = material.Alpha?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "", Watermark = "Alpha 0–31 · blank = inherit/default" };
-        var scrollX = new TextBox { Text = (material.Animation?.UvScroll.ElementAtOrDefault(0) ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture), Watermark = "Horizontal tiles/sec" };
-        var scrollY = new TextBox { Text = (material.Animation?.UvScroll.ElementAtOrDefault(1) ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture), Watermark = "Vertical tiles/sec" };
+        float[] authoredScroll = material.Animation?.UvScroll is { Length: 2 } values ? values : new float[2];
+        var scrollX = new TextBox { Text = authoredScroll[0].ToString(System.Globalization.CultureInfo.InvariantCulture), Watermark = "Horizontal tiles/sec" };
+        var scrollY = new TextBox { Text = authoredScroll[1].ToString(System.Globalization.CultureInfo.InvariantCulture), Watermark = "Vertical tiles/sec" };
         var loop = new TextBox { Text = (material.Animation?.LoopFrames ?? 3000).ToString(System.Globalization.CultureInfo.InvariantCulture), Watermark = "Loop frames · 30–6000" };
         var phase = new TextBox { Text = (material.Animation?.PhaseFrames ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture), Watermark = "Phase frames" };
         panel.Children.Add(enabled);
