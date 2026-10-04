@@ -231,6 +231,10 @@ namespace MphRead.Mods.Launcher.Gui
                     if (!Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested)
                     {
                         window.Context.MakeCurrent();
+                        // Program names are context-local. Any context handoff
+                        // invalidates the legacy uniform cache before GL work
+                        // resumes on this window.
+                        Mods.Render.GraphicsApi.ResetLegacyState();
                         UiSurface.Current?.ReleaseMapRenderer();
                     }
                 }
