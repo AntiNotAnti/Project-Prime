@@ -57,7 +57,12 @@ namespace MphRead.Mods.Launcher.Gui
             var heroSignal = PrimeChrome.Eyebrow("COMMUNITY UPLINK // READY");
             var headline = PrimeChrome.HeroTitle("");
             var summary = PrimeChrome.Text("", 15, PrimeTheme.TextSecondaryBrush);
-            var heroCopy = new StackPanel { Spacing = 10 };
+            var heroCopy = new StackPanel
+            {
+                Spacing = 10,
+                VerticalAlignment = VerticalAlignment.Bottom,
+                MaxWidth = 760
+            };
             PrimeMotionHandle? heroCopyMotion = null;
             PrimeDispatch? selected = null;
 
