@@ -169,7 +169,7 @@ A legacy brush uses `id`, `label`, `min`, `max`, `material`, `shade`, `solid`, `
 
 The complete local material inventory is included in [Section 19](#19-complete-locally-available-map-texture-catalog), with a matching [machine-readable catalog](texture-catalog.json).
 
-A material is `{id, name, sourceMaterial, texScale, texture?, albedo?, normal?, specularRoughness?, emissive?}`. `sourceMaterial` defaults to 0; `texScale` defaults to 16 texels per world unit. `texture` is the native FPTX fallback. The four HD fields are optional PNG/JPEG channels that travel with the project/package and are resolved at the client-selected 1K/2K/4K/8K quality tier.
+A material is `{id, name, sourceMaterial, texScale, texture?, albedo?, normal?, specularRoughness?, emissive?, alpha?, twoSided?, animation?}`. `sourceMaterial` defaults to 0; `texScale` defaults to 16 texels per world unit. `texture` is the native FPTX fallback. The four HD fields are optional PNG/JPEG channels that travel with the project/package and are resolved at the client-selected 1K/2K/4K/8K quality tier. `alpha` optionally overrides the native 0–31 opacity value, while `twoSided:true` disables face culling for that material.
 
 ### Borrowed game textures
 
@@ -207,6 +207,52 @@ This is a fragment, not a complete map. Every referenced file must exist and be 
 `assets` entries have `path`, `kind`, optional `name` and optional `sourcePath`. Runtime asset paths must be safe project-relative paths, unique without case collisions. `sourcePath` is authoring provenance, not a substitute for a missing runtime asset. Use the editor/exporter to materialize files.
 
 Supported asset kinds/extensions are texture (`.png`, `.jpg`, `.jpeg`, `.tga`, `.tex`), audio (`.wav`, `.ogg`, `.mp3`) and preview (`.png`, at most 4096×4096). Do not reference files outside the portable project using `../` or absolute runtime paths.
+
+### Animated materials
+
+`animation` is optional. Project Prime compiles supported effects into the native MPH animation formats, so playback uses the same model animation clock on legacy GL and modern Vulkan/DX12/Metal paths.
+
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `uvScroll` | `[0,0]` | U/V texture-tile velocity per second. Each component must be finite and within −4..4. |
+| `uvRotationDegreesPerSecond` | 0 | Clockwise texture rotation, limited to −1440..1440 degrees/second. |
+| `uvScale` | `[1,1]` | Base native texture-coordinate scale, positive and at most 8. |
+| `uvScalePulse` | `[0,0]` | Per-axis sinusoidal amplitude around `uvScale`; one pulse occurs per material loop. |
+| `flipbookFrames` | empty | Up to 64 additional declared single-texture `.tex` assets. The material's normal texture is frame zero. |
+| `flipbookHoldFrames` | 3 | Number of native 30 Hz frames each flipbook image remains visible. |
+| `loopFrames` | 3000 | Material cycle length in native 30 Hz frames; allowed 30–6000. |
+| `phaseFrames` | 0 | Starting offset within the material loop; must be 0 through `loopFrames - 1`. |
+
+Scrolling must land on whole texture tiles at the loop boundary. Rotation must land on a whole turn. A flipbook's complete image cycle, `(1 + flipbookFrames.count) * flipbookHoldFrames`, must divide evenly into `loopFrames`. Scale pulse is inherently periodic, but its minimum must remain above 0.01 and its maximum at or below 8. Different materials may use different loop lengths when their least-common native group cycle remains at or below 6000 frames.
+
+Flipbook frames are native baked texture assets, not HD PNG/JPEG channel swaps. Import or bake each frame as a single-texture `.tex`, declare it in `assets` with `kind:"texture"`, then add its project-relative path to `flipbookFrames`. Pure flipbook animation does not alter the material's original texgen mode. UV animation and flipbooks may be combined.
+
+Example:
+
+```json
+{
+  "id": "469dc077-a65b-40c0-8045-a7a9b6eb8c4b",
+  "name": "WaterPortal",
+  "sourceMaterial": 0,
+  "texture": "textures/portal_0.tex",
+  "alpha": 24,
+  "twoSided": true,
+  "animation": {
+    "uvScroll": [0.03, -0.06],
+    "uvRotationDegreesPerSecond": 180,
+    "uvScale": [1, 1],
+    "uvScalePulse": [0.08, 0.08],
+    "flipbookFrames": ["textures/portal_1.tex", "textures/portal_2.tex"],
+    "flipbookHoldFrames": 5,
+    "loopFrames": 3000,
+    "phaseFrames": 0
+  }
+}
+```
+
+Map Studio exposes these controls in the material inspector and provides moving previews. The compiler enforces separate native lookup-table budgets for scale, rotation, translation and flipbooks. A default/no-op `animation` object emits no runtime animation and preserves the legacy static 24-byte animation payload.
+
+HD emissive images continue to use the existing `emissive` channel. Animated emissive **intensity** is not part of this native material-animation contract because it requires a renderer/shader uniform rather than an MPH material-animation field.
 
 ### UV behavior
 
