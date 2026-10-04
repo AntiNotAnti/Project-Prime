@@ -517,7 +517,9 @@ namespace MphRead.Mods.Launcher.Gui
                         + $"LOGICAL CORES // {Environment.ProcessorCount}\nSIMULATION // 60 HZ", 11, data: true));
 
                 _draftStatus = PrimeChrome.Eyebrow("ALL CHANGES SAVED", PrimeTheme.GreenBrush);
-                _resetCategory = new PrimeButton("RESET CATEGORY", ResetCurrentCategory, compact: true);
+                _resetCategory = new PrimeButton("RESET CATEGORY",
+                    "Restore this category to the values it had when Settings opened",
+                    ResetCurrentCategory, compact: false);
                 ControllerNav.Identify(_resetCategory, "settings.category.reset");
                 footer.Children.Clear();
                 var command = PrimeChrome.Stack(
@@ -807,6 +809,261 @@ namespace MphRead.Mods.Launcher.Gui
             "Credits" => "Project attribution, community contributors and technology.",
             _ => ""
         };
+
+        private Control? SectionPage(string name) =>
+            _sections.FirstOrDefault(section =>
+                String.Equals(section.Name, name, StringComparison.OrdinalIgnoreCase)).Page;
+
+        private void SetAdvancedSettings(bool advanced)
+        {
+            if (!_shell || _categoryTabsGrid == null) return;
+            _showAdvancedSettings = advanced;
+            _basicSettingsMode.Selected = !advanced;
+            _advancedSettingsMode.Selected = advanced;
+
+            for (int i = 0; i < _sections.Count && i < _categoryTabs.Count; i++)
+            {
+                bool visible = advanced || !AdvancedSettingSections.Contains(_sections[i].Name);
+                _categoryTabs[i].IsVisible = visible;
+                if (i < _categoryTabsGrid.ColumnDefinitions.Count)
+                    _categoryTabsGrid.ColumnDefinitions[i].Width =
+                        visible ? GridLength.Star : new GridLength(0);
+            }
+
+            if (!advanced && _activeSectionIndex < _sections.Count
+                && AdvancedSettingSections.Contains(_sections[_activeSectionIndex].Name))
+            {
+                _tabs.Index = 0;
+                ShowPage(0);
+            }
+            UpdateDraftStatus();
+        }
+
+        private void SearchSettings(string query)
+        {
+            if (!_shell || _searchResultsHost == null || _searchResults == null) return;
+            query = query.Trim();
+            _searchResults.Children.Clear();
+            if (query.Length == 0)
+            {
+                _searchResultsHost.IsVisible = false;
+                return;
+            }
+
+            int found = 0;
+            var seen = new HashSet<Control>();
+            for (int sectionIndex = 0; sectionIndex < _sections.Count && found < 10; sectionIndex++)
+            {
+                string section = _sections[sectionIndex].Name;
+                foreach (Control control in _sections[sectionIndex].Page
+                    .GetLogicalDescendants().OfType<Control>())
+                {
+                    if (!seen.Add(control)) continue;
+                    string? label = SettingLabel(control);
+                    if (String.IsNullOrWhiteSpace(label) || IsGenericSettingLabel(label)) continue;
+                    string help = SettingDescription(section, label);
+                    if (!label.Contains(query, StringComparison.OrdinalIgnoreCase)
+                        && !section.Contains(query, StringComparison.OrdinalIgnoreCase)
+                        && !help.Contains(query, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    int targetSection = sectionIndex;
+                    Control target = FocusTarget(control);
+                    var result = new PrimeButton(label.ToUpperInvariant(),
+                        $"{section.ToUpperInvariant()}  //  {help}",
+                        () => OpenSearchResult(targetSection, target),
+                        compact: false);
+                    _searchResults.Children.Add(result);
+                    found++;
+                    if (found >= 10) break;
+                }
+            }
+
+            if (found == 0)
+            {
+                _searchResults.Children.Add(PrimeChrome.Text(
+                    $"No settings match “{query}”.",
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+            }
+            _searchResultsHost.IsVisible = true;
+        }
+
+        private void OpenSearchResult(int sectionIndex, Control target)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sections.Count) return;
+            if (AdvancedSettingSections.Contains(_sections[sectionIndex].Name))
+                SetAdvancedSettings(true);
+            _tabs.Index = sectionIndex;
+            ShowPage(sectionIndex);
+            _settingsSearch.Text = "";
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (target.IsEffectivelyVisible && target.IsEffectivelyEnabled)
+                    FocusNavigator.Focus(target);
+            }, DispatcherPriority.Background);
+        }
+
+        private void WireSettingsUx()
+        {
+            var wired = new HashSet<Control>();
+            for (int sectionIndex = 0; sectionIndex < _sections.Count; sectionIndex++)
+            {
+                string section = _sections[sectionIndex].Name;
+                foreach (Control control in _sections[sectionIndex].Page
+                    .GetLogicalDescendants().OfType<Control>())
+                {
+                    if (!wired.Add(control)) continue;
+                    string? label = SettingLabel(control);
+                    if (!String.IsNullOrWhiteSpace(label) && !IsGenericSettingLabel(label))
+                    {
+                        Control focus = FocusTarget(control);
+                        focus.GotFocus += (_, _) =>
+                        {
+                            if (_settingHint != null)
+                                _settingHint.Text = SettingDescription(section, label);
+                        };
+                    }
+
+                    switch (control)
+                    {
+                        case ChoiceRow row:
+                            row.Changed += (_, _) => UpdateDraftStatus();
+                            break;
+                        case SliderRow row:
+                            row.ValueChanged += (_, _) => UpdateDraftStatus();
+                            break;
+                        case ToggleRow row:
+                            row.Changed += (_, _) => UpdateDraftStatus();
+                            break;
+                        case ButtonToggleRow row:
+                            row.Changed += (_, _) => UpdateDraftStatus();
+                            break;
+                        case FieldRow row:
+                            row.Box.TextChanged += (_, _) => UpdateDraftStatus();
+                            break;
+                        case KeyRow row:
+                            row.Rebound += (_, _) => UpdateDraftStatus();
+                            break;
+                        case PadRow row:
+                            row.Rebound += (_, _) => UpdateDraftStatus();
+                            break;
+                    }
+                }
+            }
+        }
+
+        private void ResetCurrentCategory()
+        {
+            if (_draft == null || _activeSectionIndex < 0 || _activeSectionIndex >= _sections.Count)
+                return;
+
+            string section = _sections[_activeSectionIndex].Name;
+            _draft.Reset(_sections[_activeSectionIndex].Page);
+            if (String.Equals(section, "Controls", StringComparison.OrdinalIgnoreCase))
+                _gamepadSettings.Reload();
+            if (String.Equals(section, "Display", StringComparison.OrdinalIgnoreCase))
+            {
+                _hudDraft = null;
+                ShowCrosshairRows();
+                ShowRadarRows();
+                RenderOptions.FieldOfView = _fovRow.Value;
+            }
+            if (String.Equals(section, "Graphics", StringComparison.OrdinalIgnoreCase))
+            {
+                ShowTextureQualityRows();
+                ShowModernGraphicsRows();
+                ShowCelRows();
+            }
+            InvalidateVisual();
+            UpdateDraftStatus();
+        }
+
+        private void UpdateDraftStatus()
+        {
+            if (!_shell || _draftStatus == null) return;
+
+            bool dirty = IsDirty;
+            bool rendererRestart = _rendererRow != null && _rendererRow.Index != _openedRendererIndex;
+            bool archiveRestart = Settings.SettingsPersistence.RestartRequired;
+
+            if (archiveRestart)
+            {
+                _draftStatus.Text = "RESTART REQUIRED  //  SAVED SETTINGS PENDING";
+                _draftStatus.Foreground = PrimeTheme.WarningBrush;
+            }
+            else if (rendererRestart)
+            {
+                _draftStatus.Text = dirty
+                    ? "UNSAVED CHANGES  //  RENDERER REQUIRES RESTART"
+                    : "RESTART REQUIRED  //  RENDERER";
+                _draftStatus.Foreground = PrimeTheme.WarningBrush;
+            }
+            else if (dirty)
+            {
+                _draftStatus.Text = "UNSAVED CHANGES  //  DRAFT ACTIVE";
+                _draftStatus.Foreground = PrimeTheme.HighlightBrush;
+            }
+            else
+            {
+                _draftStatus.Text = "ALL CHANGES SAVED";
+                _draftStatus.Foreground = PrimeTheme.GreenBrush;
+            }
+
+            if (_resetCategory != null && _activeSectionIndex >= 0
+                && _activeSectionIndex < _sections.Count)
+            {
+                _resetCategory.IsEnabled = _draft?.IsDirtyIn(
+                    _sections[_activeSectionIndex].Page) == true;
+            }
+        }
+
+        private static Control FocusTarget(Control control) =>
+            control is FieldRow field ? field.Box : control;
+
+        private static bool IsGenericSettingLabel(string label) =>
+            label is "ON" or "OFF" or "BACK" or "SAVE" or "APPLY" or "CANCEL"
+                or "BASIC" or "ADVANCED";
+
+        private static string? SettingLabel(Control control) => control switch
+        {
+            ChoiceRow row => row.Label,
+            SliderRow row => row.Label,
+            ToggleRow row => row.Label,
+            FieldRow row => row.Label,
+            KeyRow row => row.BindingName,
+            PadRow row => Mods.Input.PadBindings.Name(row.Action),
+            HubNavButton row => row.Label,
+            _ => null
+        };
+
+        private static string SettingDescription(string section, string label)
+        {
+            return label switch
+            {
+                "Renderer" => "Select the graphics backend. A renderer change activates after restarting Project Prime.",
+                "Render scale" => "Controls internal 3D resolution. Above 100% supersamples the scene for a cleaner image at higher GPU cost.",
+                "FPS limit" => "Caps presentation rate without changing the 60 Hz gameplay simulation.",
+                "Field of view" => "Changes the first-person camera view. The preview updates while you adjust it.",
+                "Reduce menu motion" => "Disables shell transitions and cinematic launcher drift while preserving instant focus feedback.",
+                "Preset" => "Applies a coordinated graphics profile. Individual changes switch the effective setup toward Custom.",
+                "Anti-aliasing" => "Chooses the edge-smoothing method used by the modern presentation pipeline.",
+                "HD texture sampling" => "Controls how authored HD materials are sampled while leaving HUD and sprite-style art outside the policy.",
+                "HD asset resolution" => "Caps authored replacement texture resolution and residency pressure.",
+                "Directional shadows" => "Controls retained-renderer directional shadow quality and GPU cost.",
+                "Ambient occlusion" => "Adds local depth shading around geometry intersections and contact regions.",
+                "Bloom" => "Adds controlled glow around bright scene energy without changing gameplay visibility logic.",
+                "Player highlight" => "Local-only multiplayer visibility aid using player or team colors.",
+                "Player outline" => "Adds a local presentation outline around players for readability.",
+                "Game audio" => "Master game sound level before the individual player, weapon, notification and effects channels.",
+                "Music" => "Controls music volume independently from combat and interface sound.",
+                "Radar" => "Shows the local radar overlay and its configured presentation layers.",
+                "Weapon" => "Chooses static Quake-style weapon presentation or the Metroid-style dynamic presentation.",
+                "Name" => "Your network display name. Unicode names use the platform font fallback chain.",
+                "Hunter" => "Your preferred hunter. In a live match, changes are queued for the next respawn where supported.",
+                "Suit" => "Your preferred suit palette. Team modes continue to use team-authoritative colors.",
+                _ => $"{label}. {SectionDescription(section)} Changes remain in the current draft until Apply Changes."
+            };
+        }
 
         private void ApplyShellResponsive(Size size)
         {
