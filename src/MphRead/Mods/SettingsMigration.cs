@@ -127,6 +127,8 @@ namespace MphRead.Mods
                 "dynamic glow", changed);
             settings.TextureReplacements = NormalizeToggle(settings.TextureReplacements, false,
                 "HD texture replacements", changed);
+            settings.CharacterModelReplacements = NormalizeToggle(
+                settings.CharacterModelReplacements, false, "HD character models", changed);
             settings.TextureUpscale = NormalizeEnum(settings.TextureUpscale,
                 TextureUpscaleMode.Off, "texture upscaling", changed);
             settings.TextureQuality = NormalizeEnum(settings.TextureQuality,
@@ -188,6 +190,7 @@ namespace MphRead.Mods
             settings.Reflections = "off";
             settings.DynamicGlow = "off";
             settings.TextureReplacements = "off";
+            settings.CharacterModelReplacements = "off";
             settings.TextureUpscale = "off";
             settings.TextureQuality = "automatic";
             settings.SettingsSchemaVersion = CurrentSchema;
