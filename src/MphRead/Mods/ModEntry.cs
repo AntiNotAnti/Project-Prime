@@ -1464,6 +1464,18 @@ namespace MphRead.Mods
                 return true;
             }
 
+            if (ValueAfter(args, "charactermodelkit") is string characterHunter)
+            {
+                Environment.ExitCode = Render.Characters.CharacterModelAuthoring.BuildKit(
+                    characterHunter, ValueAfter(args, "output"));
+                return true;
+            }
+            if (ValueAfter(args, "charactermodelvalidate") is string characterPack)
+            {
+                Environment.ExitCode = Render.Characters.CharacterModelAuthoring.ValidatePack(characterPack);
+                return true;
+            }
+
             // What a connected pad is doing, with no match in the way. The
             // only way to tell "not connected" from "connected but not
             // mapped" from "the dead zone is eating it" apart.
