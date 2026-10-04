@@ -227,6 +227,8 @@ Scrolling must land on whole texture tiles at the loop boundary. Rotation must l
 
 Flipbook frames are native baked texture assets, not HD PNG/JPEG channel swaps. Import or bake each frame as a single-texture `.tex`, declare it in `assets` with `kind:"texture"`, then add its project-relative path to `flipbookFrames`. Pure flipbook animation does not alter the material's original texgen mode. UV animation and flipbooks may be combined.
 
+When a flipbook is active, Project Prime uses the animated native textures for the base color instead of a single HD albedo image. HD normal, specular/roughness and emissive companion maps can still be used. Validation warns when a material combines a flipbook with a static packaged `albedo`.
+
 Example:
 
 ```json
