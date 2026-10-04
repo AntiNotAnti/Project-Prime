@@ -104,6 +104,13 @@ namespace MphRead.Mods.MapGen
                     if (!validRotation)
                         r.Error("FP-MAP-001", "UV rotation speed must be finite and between -1440 and 1440 degrees per second.", m.Id);
 
+                    bool validFlipbook = animation.FlipbookFrames != null
+                        && animation.FlipbookFrames.Count <= MapUvAnimation.MaxFlipbookImages
+                        && animation.FlipbookFrames.All(path => !String.IsNullOrWhiteSpace(path))
+                        && animation.FlipbookHoldFrames is >= 1 and <= MapUvAnimation.MaxLoopFrames;
+                    if (!validFlipbook)
+                        r.Error("FP-MAP-001", "Flipbooks require at most 64 nonempty frame assets and a hold time of 1–6000 native frames.", m.Id);
+
                     bool validLoop = animation.LoopFrames is >= MapUvAnimation.MinLoopFrames and <= MapUvAnimation.MaxLoopFrames;
                     if (!validLoop)
                         r.Error("FP-MAP-001", "Animated material loop must be 30–6000 native 30 Hz frames.", m.Id);
@@ -118,6 +125,8 @@ namespace MphRead.Mods.MapGen
                     if (validRotation && validLoop
                         && !MapUvAnimation.IsRotationSeamless(animation.UvRotationDegreesPerSecond, animation.LoopFrames))
                         r.Error("FP-MAP-001", "UV rotation loop endpoint must land on a whole turn for seamless repeat.", m.Id);
+                    if (validFlipbook && validLoop && !MapUvAnimation.IsFlipbookSeamless(animation))
+                        r.Error("FP-MAP-001", "Flipbook image cycle must divide evenly into the material loop for seamless repeat.", m.Id);
                 }
             }
             MapMaterial[] animatedMaterials = d.Materials.Where(m => m?.Animation != null).Cast<MapMaterial>().ToArray();
@@ -135,6 +144,8 @@ namespace MphRead.Mods.MapGen
                         r.Error("FP-MAP-003", "Animated material rotation lookup-table budget exceeds 65535 entries.");
                     if (MapUvAnimation.TranslationEntryCount(animatedMaterials, groupFrames) > MapUvAnimation.MaxLutEntries)
                         r.Error("FP-MAP-003", "Animated material translation lookup-table budget exceeds 65535 entries.");
+                    if (MapUvAnimation.FlipbookEntryCount(animatedMaterials, groupFrames) > MapUvAnimation.MaxLutEntries)
+                        r.Error("FP-MAP-003", "Animated material flipbook lookup-table budget exceeds 65535 entries.");
                 }
             }
             if (d.Import == null && d.NativeRoom == null && d.Materials.Count == 0)
