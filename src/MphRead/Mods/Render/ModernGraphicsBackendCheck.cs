@@ -170,11 +170,13 @@ namespace MphRead.Mods.Render
         {
             internal readonly List<(ulong Frame, LowLatencyMarker Marker)> Markers = new();
             internal LowLatencyMode Configured;
+            internal int Waits;
             internal bool Disposed;
             public string Name => "test";
             public bool Supported { get; }
             internal RecordingLowLatencyProvider(bool supported) => Supported = supported;
             public void Configure(LowLatencyMode mode) => Configured = mode;
+            public void WaitForFrame(ulong frameId) => Waits++;
             public void Mark(ulong frameId, LowLatencyMarker marker) => Markers.Add((frameId, marker));
             public void Dispose() => Disposed = true;
         }
@@ -186,6 +188,7 @@ namespace MphRead.Mods.Render
             {
                 session.Configure(LowLatencyMode.Enabled);
                 ulong frame = session.BeginFrame();
+                session.WaitForFrame(frame);
                 foreach (LowLatencyMarker marker in new[]
                 {
                     LowLatencyMarker.InputSample,
@@ -200,6 +203,7 @@ namespace MphRead.Mods.Render
 
                 LowLatencyStatus status = session.Status;
                 Check(provider.Configured == LowLatencyMode.Enabled
+                    && provider.Waits == 1
                     && provider.Markers.Count == 7
                     && provider.Markers[0].Marker == LowLatencyMarker.InputSample
                     && provider.Markers[^1].Marker == LowLatencyMarker.PresentEnd
