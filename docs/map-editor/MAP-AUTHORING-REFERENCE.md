@@ -218,6 +218,8 @@ Supported asset kinds/extensions are texture (`.png`, `.jpg`, `.jpeg`, `.tga`, `
 | `uvRotationDegreesPerSecond` | 0 | Clockwise texture rotation, limited to −1440..1440 degrees/second. |
 | `uvScale` | `[1,1]` | Base native texture-coordinate scale, positive and at most 8. |
 | `uvScalePulse` | `[0,0]` | Per-axis sinusoidal amplitude around `uvScale`; one pulse occurs per material loop. |
+| `emissiveIntensity` | 1 | Base multiplier for the material's HD emissive contribution, from 0 to 1. |
+| `emissivePulse` | 0 | Sinusoidal emissive amplitude around `emissiveIntensity`; the full range must remain inside 0–1. |
 | `flipbookFrames` | empty | Up to 64 additional declared single-texture `.tex` assets. The material's normal texture is frame zero. |
 | `flipbookHoldFrames` | 3 | Number of native 30 Hz frames each flipbook image remains visible. |
 | `loopFrames` | 3000 | Material cycle length in native 30 Hz frames; allowed 30–6000. |
@@ -244,6 +246,8 @@ Example:
     "uvRotationDegreesPerSecond": 180,
     "uvScale": [1, 1],
     "uvScalePulse": [0.08, 0.08],
+    "emissiveIntensity": 0.55,
+    "emissivePulse": 0.4,
     "flipbookFrames": ["textures/portal_1.tex", "textures/portal_2.tex"],
     "flipbookHoldFrames": 5,
     "loopFrames": 3000,
@@ -254,7 +258,7 @@ Example:
 
 Map Studio exposes these controls in the material inspector and provides moving previews. The compiler enforces separate native lookup-table budgets for scale, rotation, translation and flipbooks. A default/no-op `animation` object emits no runtime animation and preserves the legacy static 24-byte animation payload.
 
-HD emissive images continue to use the existing `emissive` channel. Animated emissive **intensity** is not part of this native material-animation contract because it requires a renderer/shader uniform rather than an MPH material-animation field.
+HD emissive images continue to use the existing `emissive` channel. `emissiveIntensity` and `emissivePulse` modulate that channel in the renderer on the same deterministic 30 Hz presentation cadence as native material animation. Emissive-only animation does not add native animation tracks or enlarge the map animation payload.
 
 ### UV behavior
 
