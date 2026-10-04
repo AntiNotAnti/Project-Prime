@@ -196,6 +196,7 @@ namespace MphRead.Mods.Render
 
         private static bool RetainedWorldPacketBaseEligible(RenderItem item) =>
             item.Type == RenderItemType.Mesh
+            && !item.WeightedSkinning
             && (uint)item.BillboardMode <= (uint)BillboardMode.Cylinder
             && !item.Wireframe
             && item.MatrixStackCount >= 0
