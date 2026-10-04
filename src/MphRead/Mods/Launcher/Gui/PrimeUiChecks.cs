@@ -398,6 +398,11 @@ namespace MphRead.Mods.Launcher.Gui
                     var play = shell.Workspaces.Get(PrimeRoute.Play);
                     Check(play.GetVisualDescendants().OfType<PrimeHeroPanel>().Any(),
                         "Multiplayer exposes cinematic hero presentation");
+                    var serverBrowserHeading = play.GetVisualDescendants().OfType<TextBlock>()
+                        .FirstOrDefault(block => block.Text == "SERVER BROWSER");
+                    Check(serverBrowserHeading is { IsEffectivelyVisible: true }
+                        && serverBrowserHeading.Bounds.Height > 0,
+                        "Play keeps live Server Browser visible below cinematic hero");
                     var quick = ControllerNav.Find(play,"multiplayer.quick")!;
                     quick.Focus(); FocusNavigator.Key(quick, Key.Enter); Drain(window);
                     var join = ControllerNav.Find(play,"multiplayer.join")!;
