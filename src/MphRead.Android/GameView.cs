@@ -993,6 +993,7 @@ namespace MphRead.Droid
                 double elapsed = WaitForTick();
                 long workStart = Stopwatch.GetTimestamp();
                 ulong latencyFrame = MphRead.Mods.Render.LowLatencyController.BeginFrame();
+                MphRead.Mods.Render.LowLatencyController.WaitForFrame(latencyFrame);
                 long allocatedStart = GC.GetAllocatedBytesForCurrentThread();
                 ApplySpectatorRequest();
                 GameState.ApplyPause();
