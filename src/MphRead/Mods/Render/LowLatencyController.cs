@@ -111,7 +111,8 @@ internal sealed class LowLatencySession : IDisposable
 
     internal bool Mark(ulong frameId, LowLatencyMarker marker)
     {
-        if (!_frameOpen || frameId != _activeFrame || marker <= _lastMarker)
+        if (!_frameOpen || frameId != _activeFrame
+            || (int)marker <= (int)_lastMarker)
         {
             _droppedMarkers++;
             return false;
