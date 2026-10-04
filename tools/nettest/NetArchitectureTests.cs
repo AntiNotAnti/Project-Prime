@@ -74,6 +74,29 @@ internal static class NetArchitectureTests
                 "no reverted production protocol structures");
             Check(NetUnlagged.DefaultMaxRewindFrames == 45 && NetUnlagged.HistoryFrames == 128 && NetUnlagged.PressAgeEnabled,
                 "rewind defaults preserved");
+            Check(PlayerReplicationBridge.ShouldReconcileOwnerDeath(
+                    authority: true, hasState: true, ownerInPlay: false, ownerSpectating: false,
+                    serverSpawned: true, serverHealth: 100),
+                "owner dead state reconciles an authoritative live body");
+            Check(!PlayerReplicationBridge.ShouldReconcileOwnerDeath(
+                    authority: false, hasState: true, ownerInPlay: false, ownerSpectating: false,
+                    serverSpawned: true, serverHealth: 100)
+                && !PlayerReplicationBridge.ShouldReconcileOwnerDeath(
+                    authority: true, hasState: false, ownerInPlay: false, ownerSpectating: false,
+                    serverSpawned: true, serverHealth: 100)
+                && !PlayerReplicationBridge.ShouldReconcileOwnerDeath(
+                    authority: true, hasState: true, ownerInPlay: true, ownerSpectating: false,
+                    serverSpawned: true, serverHealth: 100)
+                && !PlayerReplicationBridge.ShouldReconcileOwnerDeath(
+                    authority: true, hasState: true, ownerInPlay: false, ownerSpectating: true,
+                    serverSpawned: true, serverHealth: 100)
+                && !PlayerReplicationBridge.ShouldReconcileOwnerDeath(
+                    authority: true, hasState: true, ownerInPlay: false, ownerSpectating: false,
+                    serverSpawned: false, serverHealth: 100)
+                && !PlayerReplicationBridge.ShouldReconcileOwnerDeath(
+                    authority: true, hasState: true, ownerInPlay: false, ownerSpectating: false,
+                    serverSpawned: true, serverHealth: 0),
+                "owner death reconciliation is authority/state/life-body fenced");
             Check(PlayerEntity.ModForceNetworkVisibility(
                     replica: false, networkActive: true, slot: 2, localSlot: 1,
                     active: true, spawned: true, health: 100),
