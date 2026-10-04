@@ -2036,8 +2036,7 @@ namespace MphRead.Entities
         {
             if (!ReferenceEquals(model, _models[0].Model)
                 || !_authoredMaterialAnimations.TryGetValue(materialId, out var animation)
-                || !Mods.MapGen.MapUvAnimation.HasEmissiveAnimation(
-                    new Mods.MapGen.MapMaterial { Animation = animation }))
+                || (animation.EmissiveIntensity == 1f && animation.EmissivePulse == 0f))
                 return 1f;
             return Mods.MapGen.MapUvAnimation.EmissiveIntensity(
                 animation, _authoredMaterialFrame);
