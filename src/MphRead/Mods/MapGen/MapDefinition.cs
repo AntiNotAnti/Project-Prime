@@ -660,6 +660,7 @@ namespace MphRead.Mods.MapGen
         /// <summary>Optional native 0-31 alpha override. Null preserves a borrowed material's alpha.</summary>
         public int? Alpha { get; set; }
         /// <summary>Render both faces instead of applying the material's normal back/front-face culling.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public bool TwoSided { get; set; }
         /// <summary>Optional texture-coordinate animation authored in texture tiles per second.</summary>
         public MapMaterialAnimation? Animation { get; set; }
