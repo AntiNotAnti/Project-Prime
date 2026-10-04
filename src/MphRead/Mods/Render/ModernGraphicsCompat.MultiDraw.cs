@@ -263,6 +263,10 @@ internal sealed unsafe partial class ModernGraphicsCompat
         && SameFloatBits(a.M43, b.M43)
         && SameFloatBits(a.M44, b.M44);
 
+    internal static bool RetainedMultiDrawDynamicStateEquivalent(
+        RenderItem a, RenderItem b) =>
+        SameRetainedMultiDrawDynamicState(a, b);
+
     private static bool SameRetainedMultiDrawDynamicState(
         RenderItem a, RenderItem b)
     {
