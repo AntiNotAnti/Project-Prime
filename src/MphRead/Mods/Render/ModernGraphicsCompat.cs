@@ -932,6 +932,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             if (_whiteTexture != null) _api.TextureRelease(_whiteTexture);
             ReleaseSurfaceDepth();
             if (_clearShader != null) _api.ShaderModuleRelease(_clearShader);
+            DisposeRetainedMultiDraw();
             DisposeGeometry();
             DisposeGeneratedShaders();
             DisposeCoreShaders();
