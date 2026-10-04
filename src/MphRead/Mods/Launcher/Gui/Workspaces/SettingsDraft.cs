@@ -88,6 +88,15 @@ namespace MphRead.Mods.Launcher.Gui
         public bool IsDirty => _values.Any(v => !Equals(v.Saved, v.Read()))
             || _pads.Any(p => !p.Value.SequenceEqual(Lines(p.Key)));
 
+        public bool IsDirtyIn(Control scope)
+        {
+            bool values = _values.Any(v => v.Owner != null && InScope(v.Owner, scope)
+                && !Equals(v.Saved, v.Read()));
+            bool pads = _controlsScope != null && ReferenceEquals(scope, _controlsScope)
+                && _pads.Any(p => !p.Value.SequenceEqual(Lines(p.Key)));
+            return values || pads;
+        }
+
         public void Accept()
         {
             for (int i = 0; i < _values.Count; i++)
