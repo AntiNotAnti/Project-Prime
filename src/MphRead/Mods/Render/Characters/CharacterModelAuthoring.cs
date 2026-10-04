@@ -35,6 +35,18 @@ namespace MphRead.Mods.Render.Characters
             Model bipedLod1 = Read.GetModelInstance(nativeNames[1]).Model;
             Model viewModel = Read.GetModelInstance(nativeNames[3]).Model;
             Model alternate = Read.GetModelInstance(nativeNames[2]).Model;
+            Model? halfturret = hunter == Hunter.Weavel
+                ? Read.GetModelInstance("WeavelAlt_Turret_lod0").Model : null;
+
+            var references = new List<(CharacterModelPart Part, int Lod, Model Model)>
+            {
+                (CharacterModelPart.Biped, 0, biped),
+                (CharacterModelPart.Biped, 1, bipedLod1),
+                (CharacterModelPart.ViewModel, 0, viewModel),
+                (CharacterModelPart.AlternateForm, 0, alternate)
+            };
+            if (halfturret != null)
+                references.Add((CharacterModelPart.Halfturret, 0, halfturret));
 
             string root = Path.GetFullPath(output ?? DefaultOutput(hunter));
             string referenceRoot = Path.Combine(root, "reference");
@@ -49,6 +61,7 @@ namespace MphRead.Mods.Render.Characters
                 Collada.ExportModel(bipedLod1);
                 Collada.ExportModel(viewModel);
                 Collada.ExportModel(alternate);
+                if (halfturret != null) Collada.ExportModel(halfturret);
             }
             finally
             {
@@ -56,14 +69,7 @@ namespace MphRead.Mods.Render.Characters
                     Paths.SetPath("Export", previousExport);
             }
 
-            WriteInventory(Path.Combine(root, "native-reference.json"), hunter,
-                new[]
-                {
-                    (CharacterModelPart.Biped, 0, biped),
-                    (CharacterModelPart.Biped, 1, bipedLod1),
-                    (CharacterModelPart.ViewModel, 0, viewModel),
-                    (CharacterModelPart.AlternateForm, 0, alternate)
-                });
+            WriteInventory(Path.Combine(root, "native-reference.json"), hunter, references);
 
             string hunterFolder = hunter.ToString().ToLowerInvariant();
             var manifest = new CharacterModelPackManifest
