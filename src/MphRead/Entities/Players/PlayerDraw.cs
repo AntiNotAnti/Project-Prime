@@ -252,12 +252,11 @@ namespace MphRead.Entities
                             alpha = Math.Clamp(alpha, 0, 1);
                         }
                         UpdateMaterials(_bipedModel2, Recolor);
-                        // Preserve the native remote-player LOD decision. The
-                        // first HD slice only replaces LOD0; distant hunters
-                        // keep the cartridge LOD1 rather than paying full
-                        // replacement geometry across the map.
-                        if (lod != 0 || !TryDrawModernCharacter(_bipedModel2,
-                            CharacterModelPart.Biped, alpha,
+                        // The replacement pack may provide the same LOD tier
+                        // the native player draw already selected. Missing HD
+                        // LOD1 falls through to the native LOD1 automatically.
+                        if (!TryDrawModernCharacter(_bipedModel2,
+                            CharacterModelPart.Biped, alpha, lod: lod,
                             overrideColor: brightSkin, outlineColor: outlineColor))
                             GetDrawItems(_bipedModel2, _bipedModel2.Model.Nodes[0], alpha,
                                 overrideColor: brightSkin, outlineColor: outlineColor);
@@ -412,12 +411,12 @@ namespace MphRead.Entities
         }
 
         private bool TryDrawModernCharacter(ModelInstance inst, CharacterModelPart part, float alpha,
-            int recolor = -1, Vector4? overrideColor = null, Vector4? outlineColor = null)
+            int lod = 0, int recolor = -1, Vector4? overrideColor = null, Vector4? outlineColor = null)
         {
             if (alpha <= 0) return true;
             Model model = inst.Model;
             if (!CharacterModelRuntime.TryGetRigid(_scene, Hunter, part, model,
-                out CharacterRigidRenderModel replacement))
+                out CharacterRigidRenderModel replacement, lod))
                 return false;
 
             int polygonId = _scene.GetNextPolygonId();
