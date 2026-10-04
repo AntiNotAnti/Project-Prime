@@ -118,6 +118,8 @@ try
             UvRotationDegreesPerSecond = 180f,
             UvScale = new[] { 1f, 1f },
             UvScalePulse = new[] { 0.08f, 0.08f },
+            EmissiveIntensity = 0.5f,
+            EmissivePulse = 0.4f,
             FlipbookFrames = new() { "lease2.tex" },
             FlipbookHoldFrames = 3,
             LoopFrames = 3000,
@@ -149,9 +151,42 @@ try
         Check(new FileInfo(CustomRooms.OutputsFor(runtimeDefinition).Animation).Length == 24,
             "static map preserves the legacy empty animation payload");
 
+        var emissiveOnlyMaterials = new[]
+        {
+            new MapMaterial
+            {
+                Name = "emissive-only",
+                Animation = new MapMaterialAnimation
+                {
+                    EmissiveIntensity = 0.5f,
+                    EmissivePulse = 0.4f,
+                    LoopFrames = 120
+                }
+            }
+        };
+        Check(MapUvAnimation.Build(emissiveOnlyMaterials).Length == 24,
+            "emissive-only animation preserves the native static animation payload");
+
         var animatedValidation = MapValidator.Validate(animatedProject.Definition, checkSources: false);
         Check(!animatedValidation.Diagnostics.Any(d => d.Severity == MapDiagnosticSeverity.Error),
             "valid animated material passes authoring validation");
+        var emissiveWave = new MapMaterialAnimation
+        {
+            EmissiveIntensity = 0.5f,
+            EmissivePulse = 0.4f,
+            LoopFrames = 120
+        };
+        Check(Math.Abs(MapUvAnimation.EmissiveIntensity(emissiveWave, 0) - 0.5f) < 0.001f
+            && Math.Abs(MapUvAnimation.EmissiveIntensity(emissiveWave, 30) - 0.9f) < 0.001f
+            && Math.Abs(MapUvAnimation.EmissiveIntensity(emissiveWave, 90) - 0.1f) < 0.001f,
+            "emissive pulse follows the deterministic native 30 Hz loop");
+        animatedMaterial.Animation.EmissivePulse = 0.6f;
+        var emissiveValidation = MapValidator.Validate(animatedProject.Definition, checkSources: false);
+        Check(emissiveValidation.Diagnostics.Any(d =>
+            d.Severity == MapDiagnosticSeverity.Error
+            && d.Message.Contains("Emissive intensity", StringComparison.OrdinalIgnoreCase)),
+            "emissive pulse cannot exceed the 0–1 intensity range");
+        animatedMaterial.Animation.EmissivePulse = 0.4f;
         animatedMaterial.Animation.UvScroll = new[] { 0.013f, 0f };
         var seamValidation = MapValidator.Validate(animatedProject.Definition, checkSources: false);
         Check(seamValidation.Diagnostics.Any(d => d.Message.Contains("whole texture tiles", StringComparison.OrdinalIgnoreCase)),

@@ -685,6 +685,17 @@ namespace MphRead.Mods.MapGen
         /// Zero keeps that axis at its base scale.
         /// </summary>
         public float[] UvScalePulse { get; set; } = new float[2];
+        /// <summary>
+        /// Base multiplier applied to the material's PBR emissive contribution.
+        /// One preserves the authored emissive map/intensity.
+        /// </summary>
+        public float EmissiveIntensity { get; set; } = 1f;
+        /// <summary>
+        /// Sinusoidal emissive multiplier amplitude around EmissiveIntensity.
+        /// One pulse is completed per material loop.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public float EmissivePulse { get; set; }
         /// <summary>Length of this material's seamless cycle in native 30 Hz frames.</summary>
         public int LoopFrames { get; set; } = 3000;
         /// <summary>

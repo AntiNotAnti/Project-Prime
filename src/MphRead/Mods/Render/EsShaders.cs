@@ -159,6 +159,7 @@ uniform bool advanced_materials;
 uniform bool use_normal_map;
 uniform bool use_specular_map;
 uniform bool use_emissive_map;
+uniform float emissive_intensity;
 uniform bool use_light;
 uniform vec3 light1vec;
 uniform vec3 light1col;
@@ -211,22 +212,25 @@ vec3 mapped_normal()
 " + MphRead.Mods.Cosmetics.CosmeticShader.Source + @"
 void apply_material_lighting(inout vec4 col)
 {
-    if (!advanced_materials || !use_light) return;
-    vec3 n = mapped_normal();
-    float d1 = max(0.0, -dot(light1vec, n)), d2 = max(0.0, -dot(light2vec, n));
-    float l1 = dot(light1col, vec3(0.2126, 0.7152, 0.0722));
-    float l2 = dot(light2col, vec3(0.2126, 0.7152, 0.0722));
-    col.rgb *= mix(0.92, 1.10, clamp((d1 * l1 + d2 * l2) * 0.65, 0.0, 1.0));
-    vec4 sm = use_specular_map ? texture(specular_tex, texcoord)
-        : vec4(max(max(specular.r, specular.g), specular.b), 0.55, 0.0, 1.0);
-    float roughness = clamp(sm.g, 0.04, 1.0);
-    vec3 viewDir = vec3(0.0, 0.0, 1.0);
-    vec3 h1 = normalize(-light1vec + viewDir), h2 = normalize(-light2vec + viewDir);
-    float exponent = mix(72.0, 4.0, roughness);
-    float highlight = pow(max(dot(n, h1), 0.0), exponent) * l1
-        + pow(max(dot(n, h2), 0.0), exponent) * l2;
-    col.rgb += vec3(highlight * clamp(sm.r, 0.0, 1.0) * 0.16);
-    if (use_emissive_map) col.rgb += texture(emissive_tex, texcoord).rgb * 0.75;
+    if (!advanced_materials) return;
+    if (use_light) {
+        vec3 n = mapped_normal();
+        float d1 = max(0.0, -dot(light1vec, n)), d2 = max(0.0, -dot(light2vec, n));
+        float l1 = dot(light1col, vec3(0.2126, 0.7152, 0.0722));
+        float l2 = dot(light2col, vec3(0.2126, 0.7152, 0.0722));
+        col.rgb *= mix(0.92, 1.10, clamp((d1 * l1 + d2 * l2) * 0.65, 0.0, 1.0));
+        vec4 sm = use_specular_map ? texture(specular_tex, texcoord)
+            : vec4(max(max(specular.r, specular.g), specular.b), 0.55, 0.0, 1.0);
+        float roughness = clamp(sm.g, 0.04, 1.0);
+        vec3 viewDir = vec3(0.0, 0.0, 1.0);
+        vec3 h1 = normalize(-light1vec + viewDir), h2 = normalize(-light2vec + viewDir);
+        float exponent = mix(72.0, 4.0, roughness);
+        float highlight = pow(max(dot(n, h1), 0.0), exponent) * l1
+            + pow(max(dot(n, h2), 0.0), exponent) * l2;
+        col.rgb += vec3(highlight * clamp(sm.r, 0.0, 1.0) * 0.16);
+    }
+    if (use_emissive_map)
+        col.rgb += texture(emissive_tex, texcoord).rgb * 0.75 * emissive_intensity;
 }
 
 vec4 toon_color(vec4 vtx_color)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using MphRead.Mods.MapGen;
@@ -25,6 +26,34 @@ internal static class MapMaterialAssetRegistry
             DebugLog.Line("render", "packaged map material ignored " + key.Value + ": " + ex.Message);
         }
         return null;
+    }
+
+    internal static IReadOnlyDictionary<int, MapMaterialAnimation> AuthoredAnimations(Model model)
+    {
+        var result = new Dictionary<int, MapMaterialAnimation>();
+        if (model.AuthoredMaterialScopes.Count == 0) return result;
+
+        IReadOnlyList<MapDefinition> definitions;
+        try { definitions = CustomRooms.Definitions; }
+        catch (Exception ex) when (ex is IOException or InvalidDataException
+            or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+        {
+            DebugLog.Line("render", "authored material animation lookup ignored: " + ex.Message);
+            return result;
+        }
+
+        foreach (var pair in model.AuthoredMaterialScopes)
+        {
+            string[] parts = pair.Value.Split('/');
+            if (parts.Length != 4 || parts[0] != "map" || parts[2] != "material"
+                || !Guid.TryParseExact(parts[1], "N", out Guid mapId)
+                || !Guid.TryParseExact(parts[3], "N", out Guid materialId))
+                continue;
+            MapDefinition? definition = definitions.FirstOrDefault(value => value.MapId == mapId);
+            MapMaterial? material = definition?.Materials.FirstOrDefault(value => value?.Id == materialId);
+            if (material?.Animation != null) result[pair.Key] = material.Animation;
+        }
+        return result;
     }
 
     internal static bool IsNativeFlipbook(MaterialAssetKey key)

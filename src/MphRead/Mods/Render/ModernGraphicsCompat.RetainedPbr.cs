@@ -28,6 +28,7 @@ namespace MphRead.Mods.Render
             internal readonly int PaletteOverrideColor;
             internal readonly int MaterialSpecular;
             internal readonly int MaterialEmission;
+            internal readonly int EmissiveIntensity;
             internal readonly int CosmeticSkin;
             internal readonly int CosmeticPreservePalette;
             internal readonly int CosmeticEffect;
@@ -52,6 +53,7 @@ namespace MphRead.Mods.Render
                 PaletteOverrideColor = Word(layout, "pal_override_color");
                 MaterialSpecular = Word(layout, "material_specular");
                 MaterialEmission = Word(layout, "material_emission");
+                EmissiveIntensity = Word(layout, "emissive_intensity");
                 CosmeticSkin = Word(layout, "cosmetic_skin");
                 CosmeticPreservePalette = Word(layout, "cosmetic_preserve_palette");
                 CosmeticEffect = Word(layout, "cosmetic_effect");
@@ -474,6 +476,7 @@ namespace MphRead.Mods.Render
 
             RetainedVec3(words, o.MaterialSpecular, item.Specular);
             RetainedVec3(words, o.MaterialEmission, item.Emission);
+            RetainedFloat(words, o.EmissiveIntensity, item.EmissiveIntensity);
 
             // Cosmetic surfaces remain on the compatibility PBR path in this
             // first direct MRT slice. Force the generated gates off.

@@ -83,6 +83,11 @@ namespace MphRead
         public Vector3 Ambient { get; set; }
         public Vector3 Specular { get; set; }
         public Vector3 Emission { get; set; }
+        /// <summary>
+        /// Presentation-only multiplier for authored emissive material output.
+        /// One preserves existing rendering; custom-map animation can vary it.
+        /// </summary>
+        public float EmissiveIntensity { get; set; } = 1f;
         public LightInfo LightInfo { get; set; }
         public TexgenMode TexgenMode { get; set; }
         public RepeatMode XRepeat { get; set; }

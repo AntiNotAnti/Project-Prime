@@ -176,14 +176,28 @@ internal sealed partial class MapStudioScreen
         for (int i = 0; i < frames.Length; i++)
             frames[i] = MapMaterialPreview.Create(definition, material, i * nativeFramesPerPreviewStep).Bitmap;
         var image = new Image { Source = frames[0], Width = 96, Height = 96, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left };
-        panel.Children.Add(Text("LIVE UV PREVIEW"));
+        panel.Children.Add(Text("LIVE MATERIAL PREVIEW"));
         panel.Children.Add(image);
+        var pulseReadout = Text("");
+        panel.Children.Add(pulseReadout);
         int frame = 0;
+        void RefreshReadout()
+        {
+            if (material.Animation is { } animation
+                && (animation.EmissiveIntensity != 1f || animation.EmissivePulse != 0f))
+            {
+                int nativeFrame = frame * nativeFramesPerPreviewStep;
+                pulseReadout.Text = $"Emissive intensity · {MapUvAnimation.EmissiveIntensity(animation, nativeFrame):0.00}";
+            }
+            else pulseReadout.Text = "";
+        }
+        RefreshReadout();
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         timer.Tick += (_, _) =>
         {
             frame = (frame + 1) % frames.Length;
             image.Source = frames[frame];
+            RefreshReadout();
         };
         timer.Start();
         _materialAnimationPreviews.Add(new MaterialAnimationPreviewHandle(timer, frames));
@@ -209,6 +223,8 @@ internal sealed partial class MapStudioScreen
         var scaleY = new TextBox { Text = authoredScale[1].ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Base scale Y" };
         var pulseX = new TextBox { Text = authoredPulse[0].ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Scale pulse X" };
         var pulseY = new TextBox { Text = authoredPulse[1].ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Scale pulse Y" };
+        var emissiveIntensity = new TextBox { Text = (material.Animation?.EmissiveIntensity ?? 1f).ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Emissive intensity 0–1" };
+        var emissivePulse = new TextBox { Text = (material.Animation?.EmissivePulse ?? 0f).ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Emissive pulse amplitude" };
         var loop = new TextBox { Text = (material.Animation?.LoopFrames ?? 3000).ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Loop frames · 30–6000" };
         var phase = new TextBox { Text = (material.Animation?.PhaseFrames ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Phase frames" };
         var hold = new TextBox { Text = (material.Animation?.FlipbookHoldFrames ?? 3).ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Flipbook hold frames" };
@@ -241,6 +257,9 @@ internal sealed partial class MapStudioScreen
         panel.Children.Add(Text("Scale pulse amplitude X / Y"));
         panel.Children.Add(pulseX);
         panel.Children.Add(pulseY);
+        panel.Children.Add(Text("Emissive intensity / pulse"));
+        panel.Children.Add(emissiveIntensity);
+        panel.Children.Add(emissivePulse);
         panel.Children.Add(Text("Loop / phase · native 30 Hz frames"));
         panel.Children.Add(loop);
         panel.Children.Add(phase);
@@ -282,7 +301,7 @@ internal sealed partial class MapStudioScreen
         panel.Children.Add(preset);
         AddButton(panel, "Load preset", () =>
         {
-            float x=0,y=0,turn=0,sx=1,sy=1,px=0,py=0;
+            float x=0,y=0,turn=0,sx=1,sy=1,px=0,py=0,emit=1,emitPulse=0;
             bool sides=false;int? opacity=31;
             switch(preset.SelectedItem as string)
             {
@@ -292,7 +311,7 @@ internal sealed partial class MapStudioScreen
                 case "Energy Flow": x=0.6f;sides=true;opacity=24;break;
                 case "Conveyor": x=1f;opacity=31;break;
                 case "Portal Spin": turn=180f;sides=true;opacity=26;break;
-                case "Hologram Pulse": px=0.08f;py=0.08f;sides=true;opacity=23;break;
+                case "Hologram Pulse": px=0.08f;py=0.08f;emit=0.55f;emitPulse=0.40f;sides=true;opacity=23;break;
                 default: sides=true;opacity=26;break;
             }
             enabled.IsChecked = true;
@@ -303,6 +322,8 @@ internal sealed partial class MapStudioScreen
             scaleY.Text = sy.ToString(System.Globalization.CultureInfo.InvariantCulture);
             pulseX.Text = px.ToString(System.Globalization.CultureInfo.InvariantCulture);
             pulseY.Text = py.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            emissiveIntensity.Text = emit.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            emissivePulse.Text = emitPulse.ToString(System.Globalization.CultureInfo.InvariantCulture);
             loop.Text = "3000";
             phase.Text = "0";
             twoSided.IsChecked = sides;
@@ -325,6 +346,8 @@ internal sealed partial class MapStudioScreen
                         UvRotationDegreesPerSecond = Number(rotation.Text ?? "0"),
                         UvScale = new[] { Number(scaleX.Text ?? "1"), Number(scaleY.Text ?? "1") },
                         UvScalePulse = new[] { Number(pulseX.Text ?? "0"), Number(pulseY.Text ?? "0") },
+                        EmissiveIntensity = Number(emissiveIntensity.Text ?? "1"),
+                        EmissivePulse = Number(emissivePulse.Text ?? "0"),
                         FlipbookFrames = flipbookFrames.ToList(),
                         FlipbookHoldFrames = int.Parse(hold.Text ?? "", System.Globalization.CultureInfo.InvariantCulture),
                         LoopFrames = int.Parse(loop.Text ?? "", System.Globalization.CultureInfo.InvariantCulture),
