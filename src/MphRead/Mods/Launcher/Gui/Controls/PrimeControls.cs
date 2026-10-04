@@ -159,6 +159,7 @@ namespace MphRead.Mods.Launcher.Gui
         public void Set(PrimeStateKind kind, string title, string detail,
             bool visible = true, bool showActions = true)
         {
+            bool reveal = visible && (!IsVisible || Kind != kind);
             Kind = kind;
             IsVisible = visible;
             _title.Text = title;
@@ -177,6 +178,14 @@ namespace MphRead.Mods.Launcher.Gui
             _eyebrow.Text = label;
             _eyebrow.Foreground = brush;
             BorderBrush = brush;
+
+            if (reveal && TopLevel.GetTopLevel(this) != null)
+            {
+                if (kind == PrimeStateKind.Error)
+                    Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Error);
+                if (!PrimeMotion.Reduced)
+                    _ = PrimeMotion.Enter(this, 4, 0.13);
+            }
         }
     }
 
