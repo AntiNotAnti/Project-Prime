@@ -109,6 +109,40 @@ try
         await Task.Run(() => CustomRooms.GenerateMissing(runtimeDefinition.Name))
             .WaitAsync(TimeSpan.FromSeconds(15));
         Check(!CustomRooms.NeedsGenerating(runtimeDefinition), "runtime repairs missing output from cache");
+        Check(new FileInfo(CustomRooms.OutputsFor(runtimeDefinition).Animation).Length == 24,
+            "static map preserves the legacy empty animation payload");
+
+        var animatedProject = MapTemplates.Create("ANIMATED MATERIAL CHECK", "basic-ffa");
+        animatedProject.Definition.Assets.Add(new() { Path = "lease.tex" });
+        foreach (var material in animatedProject.Definition.Materials) material.Texture = "lease.tex";
+        var animatedMaterial = animatedProject.Definition.Materials[0];
+        animatedMaterial.Alpha = 22;
+        animatedMaterial.TwoSided = true;
+        animatedMaterial.Animation = new()
+        {
+            UvScroll = new[] { 0f, -0.8f },
+            LoopFrames = 3000,
+            PhaseFrames = 15
+        };
+        var animatedValidation = MapValidator.Validate(animatedProject.Definition, checkSources: false);
+        Check(!animatedValidation.Diagnostics.Any(d => d.Severity == MapDiagnosticSeverity.Error),
+            "valid animated material passes authoring validation");
+        animatedMaterial.Animation.UvScroll = new[] { 0.013f, 0f };
+        var seamValidation = MapValidator.Validate(animatedProject.Definition, checkSources: false);
+        Check(seamValidation.Diagnostics.Any(d => d.Message.Contains("whole texture tiles", StringComparison.OrdinalIgnoreCase)),
+            "non-seamless animated material loop is rejected");
+        animatedMaterial.Animation.UvScroll = new[] { 0f, -0.8f };
+
+        MapProjectSerializer.Save(animatedProject, Path.Combine(runtimeMaps, "animated.json"));
+        CustomRooms.Reload();
+        var animatedDefinition = CustomRooms.Definitions.Single(d => d.Name == "ANIMATED MATERIAL CHECK");
+        CustomRooms.GenerateMissing(animatedDefinition.Name);
+        string animationPath = CustomRooms.OutputsFor(animatedDefinition).Animation;
+        byte[] animationBytes = File.ReadAllBytes(animationPath);
+        Check(animationBytes.Length > 24 && BitConverter.ToUInt16(animationBytes, 20) == 1,
+            "animated map publishes a native texcoord animation group");
+        Check(BitConverter.ToUInt32(animationBytes, 36) > 0,
+            "native animation offset table points at the texcoord group");
     }
     finally
     {
