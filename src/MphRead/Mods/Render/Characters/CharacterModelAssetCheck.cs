@@ -171,6 +171,21 @@ namespace MphRead.Mods.Render.Characters
                     && !blender.Contains("{{", StringComparison.Ordinal),
                     "Blender rigid helper receives deterministic authoring identities");
 
+                string weightedBlender = CharacterModelWeightedBlenderHelper.Generate(
+                    "Synthetic/Biped", new[] { "Body", "Arm" },
+                    new[] { "BodyMat" }, "starter/synthetic/biped_weighted4.glb");
+                Check(weightedBlender.Contains(
+                        "ASSET_LABEL = \"Synthetic/Biped\"", StringComparison.Ordinal)
+                    && weightedBlender.Contains(
+                        "EXPECTED_BONES = set([\"Body\",\"Arm\"])", StringComparison.Ordinal)
+                    && weightedBlender.Contains(
+                        "RELATIVE_OUTPUT = \"starter/synthetic/biped_weighted4.glb\"",
+                        StringComparison.Ordinal)
+                    && weightedBlender.Contains("Weighted4 allows four", StringComparison.Ordinal)
+                    && weightedBlender.Contains("export_def_bones", StringComparison.Ordinal)
+                    && !weightedBlender.Contains("{{", StringComparison.Ordinal),
+                    "Blender Weighted4 helper receives deterministic authoring identities");
+
                 Console.WriteLine(
                     "[charactermodelcheck] pack safety, rigid/Weighted4 geometry and Blender helper generation passed");
                 return 0;
