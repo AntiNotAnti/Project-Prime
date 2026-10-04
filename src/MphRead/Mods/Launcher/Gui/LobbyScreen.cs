@@ -64,6 +64,8 @@ namespace MphRead.Mods.Launcher.Gui
             VerticalContentAlignment = VerticalAlignment.Center
         };
         private readonly PrimeButton _retryMap;
+        private readonly PrimeButton _manageSelected;
+        private readonly PrimeHeroPanel _arenaHero;
         private readonly HubNavButton _leave, _mainMenu, _ready, _start, _spectatorRole;
         private readonly HubNavButton _closeLobby, _transferButton, _kickButton;
         private readonly HubNavButton[] _teamAssign = new HubNavButton[5];
@@ -155,18 +157,19 @@ namespace MphRead.Mods.Launcher.Gui
                 if (!_syncing) DraftChanged();
             };
             // Three visual regions over the existing authoritative lobby
-            // controls: roster, arena, and match/rule administration.
-            var arena = new StackPanel { Spacing = 4 };
-            arena.Children.Add(new Border
+            // controls: roster, arena/match context, and comms/session actions.
+            var arena = new StackPanel { Spacing = 8 };
+            var arenaHeroCopy = new StackPanel
             {
-                Background = HubTheme.InkBrush,
-                BorderBrush = HubTheme.EdgeBrush,
-                BorderThickness = new Thickness(1),
-                ClipToBounds = true,
-                Child = _preview,
-                MinHeight = 96
-            });
-            arena.Children.Add(_map);
+                Spacing = 8,
+                VerticalAlignment = VerticalAlignment.Bottom,
+                MaxWidth = 520
+            };
+            arenaHeroCopy.Children.Add(PrimeChrome.Eyebrow("NEXT MATCH // ARENA"));
+            arenaHeroCopy.Children.Add(PrimeChrome.HeroTitle("DEPLOYMENT ZONE"));
+            arenaHeroCopy.Children.Add(_map);
+            _arenaHero = new PrimeHeroPanel(arenaHeroCopy, minHeight: 220);
+            arena.Children.Add(_arenaHero);
             arena.Children.Add(_mode);
             arena.Children.Add(_format);
             arena.Children.Add(_customTeams);
@@ -216,8 +219,12 @@ namespace MphRead.Mods.Launcher.Gui
             // select a player, select a destination, then press MOVE. In a full
             // lobby that turns basic team setup into menu bookkeeping. The owner
             // picks a player once and then hits Auto/A/B/C/D directly.
-            var administration = new StackPanel { Spacing = 4 };
-            administration.Children.Add(LobbySubhead("MANAGE PLAYER"));
+            var administration = new StackPanel { Spacing = 8 };
+            administration.Children.Add(PrimeChrome.Eyebrow("ROSTER CONTROL"));
+            administration.Children.Add(PrimeChrome.Title("PLAYER MANAGEMENT"));
+            administration.Children.Add(PrimeChrome.Text(
+                "Select a hunter in the roster or choose one below. Lobby authority remains server-side.",
+                PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
             administration.Children.Add(_target);
             administration.Children.Add(_handicap);
             administration.Children.Add(_teamSummary);
@@ -264,6 +271,11 @@ namespace MphRead.Mods.Launcher.Gui
             }), HubTheme.Danger);
             _closeLobby.HorizontalAlignment = HorizontalAlignment.Stretch;
             administration.Children.Add(_closeLobby);
+
+            _manageSelected = new PrimeButton("MANAGE PLAYER",
+                () => ShowSheet("PLAYER MANAGEMENT", administration));
+            ControllerNav.Identify(_manageSelected, "lobby.manage-selected");
+            _manageSelected.IsVisible = false;
 
             _chatHistory = new ScrollViewer
             {
@@ -382,29 +394,40 @@ namespace MphRead.Mods.Launcher.Gui
             frame.Children.Add(header);
 
 
-            // Primary tactical layout. Advanced controls keep their existing command
-            // handlers and open as sheets over this same workspace.
+            // Primary tactical layout. Match-rule controls keep their existing command
+            // handlers and open as a sheet; player administration is contextual to
+            // the roster rather than occupying permanent match-parameter space.
             arena.Children.Remove(_mode); arena.Children.Remove(_format); arena.Children.Remove(_customTeams);
-            _preview.Height = 145;
             matchRules.Children.Add(_customTeams);
-            matchRules.Children.Add(_layoutSummary);
             var advanced = PrimeChrome.Columns("*,*,*",
                 new PrimePanel(matchRules, raised: true) { Padding = new Thickness(12) },
                 new PrimePanel(gameplayRules, raised: true) { Padding = new Thickness(12) },
                 new PrimePanel(advancedRules, raised: true) { Padding = new Thickness(12) });
-            var parameters = PrimeChrome.Stack(_mode, _format, limits,
-                new PrimeButton("ADVANCED RULES", () => ShowSheet("LOBBY RULES", advanced)),
-                new PrimeButton("TEAMS & ADMINISTRATION", () => ShowSheet("TEAM MANAGEMENT", administration)));
+            var parameters = PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("NEXT MATCH // CONFIGURATION"),
+                _mode, _format, limits, _layoutSummary,
+                new PrimeButton("ADVANCED RULES", () => ShowSheet("LOBBY RULES", advanced)));
             _ownerControls.Children.Add(parameters);
             foreach (var element in new Control[] { _players, _hunter, _suit, _team, arena, _ownerControls, administration, chatBody })
                 if (element.Parent is Panel parent) parent.Children.Remove(element);
+
+            var rosterBody = PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("CONNECTED HUNTERS"),
+                PrimeChrome.Title("ROSTER MANIFEST"),
+                _players,
+                _manageSelected);
             var nativeLeft = new Grid { RowDefinitions = new("*,Auto"), RowSpacing = 12 };
-            nativeLeft.Children.Add(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("ROSTER MANIFEST"), _players)));
-            var loadout = new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("OPERATIVE LOADOUT"), _hunter, _suit, _team));
+            nativeLeft.Children.Add(new PrimePanel(rosterBody));
+            var loadout = new PrimePanel(PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("YOUR DEPLOYMENT"),
+                PrimeChrome.Title("OPERATIVE LOADOUT"),
+                _hunter, _suit, _team));
             Grid.SetRow(loadout, 1); nativeLeft.Children.Add(loadout);
+
             var nativeMiddle = new Grid { RowDefinitions = new("Auto,*"), RowSpacing = 12 };
-            nativeMiddle.Children.Add(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("DEPLOYMENT ZONE"), arena)));
-            var matchParameters = new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("MATCH PARAMETERS"), _ownerControls));
+            nativeMiddle.Children.Add(arena);
+            var matchParameters = new PrimePanel(PrimeChrome.Stack(
+                PrimeChrome.Title("MATCH PARAMETERS"), _ownerControls));
             Grid.SetRow(matchParameters, 1); nativeMiddle.Children.Add(matchParameters);
             _chatHistory.Height = double.NaN; _chatHistory.MinHeight = 80;
             chatBody.RowDefinitions = new("*,Auto"); chatInput.Height = 44;
@@ -766,6 +789,19 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             _ownerControls.IsEnabled = NetSession.CanEditLobby && !NetSession.LobbyCommandPending;
+            _manageSelected.IsVisible = NetSession.LocalIsLobbyOwner;
+            _manageSelected.IsEnabled = NetSession.LocalIsLobbyOwner
+                && NetSession.IsInLobby && !NetSession.LobbyCommandPending && roster.Count > 0;
+            string selectedPlayerName = "";
+            for (int i = 0; i < roster.Count; i++)
+                if (roster.Slots[i] == selectedTargetSlot)
+                {
+                    selectedPlayerName = roster.Names[i];
+                    break;
+                }
+            _manageSelected.Label = selectedPlayerName.Length > 0
+                ? "MANAGE // " + selectedPlayerName.ToUpperInvariant()
+                : "MANAGE PLAYER";
             _handicap.IsEnabled = _ownerControls.IsEnabled && selectedTargetSlot != byte.MaxValue;
             foreach (var toggle in new[] { _fire, _affinity, _enhancedHunters, _freeze, _opponentHealth, _requireReady, _join, _lockTeams, _fiesta, _instaGib, _lowTier, _noImperialist, _octolithAutoReset, _disablePowerups, _spawnProtection, _vanillaDuelResources })
                 toggle.IsEnabled = _ownerControls.IsEnabled;
@@ -1387,6 +1423,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             _preview.Source = _bitmap;
             _preview.IsVisible = _bitmap != null;
+            _arenaHero.SetArt(_bitmap, 0.78);
         }
 
         private static string RoomName(string room)
