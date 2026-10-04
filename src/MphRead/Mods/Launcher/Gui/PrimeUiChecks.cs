@@ -559,6 +559,10 @@ namespace MphRead.Mods.Launcher.Gui
                     finally { Mods.Input.GamepadRuntimeConfig.Current = previousRuntime; }
                     var rows = play.GetVisualDescendants().OfType<ServerRow>().ToArray();
                     Check(rows.Length == 2 && rows[0].CanJoin && !rows[1].CanJoin, "full server cannot be joined");
+                    Check(rows.Any(row => row.Bounds.Height > 0)
+                        && rows[0].TranslatePoint(default, play) is { } serverPoint
+                        && serverPoint.Y < play.Bounds.Height,
+                        "Play keeps the live server browser inside the visible workspace");
                     Check(rows[1].CanQueue && rows[1].WaitingCount == 3, "full compatible server exposes advertised queue");
                     var queueDialog = LobbyQueueDialog.ShowAsync(shell.Overlays, "127.0.0.1", 27888);
                     Drain(window);
