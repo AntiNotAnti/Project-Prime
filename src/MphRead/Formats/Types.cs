@@ -63,6 +63,14 @@ namespace MphRead
         /// mesh templates. It is renderer metadata, not gameplay state.
         /// </summary>
         internal bool RetainedRoomOwned { get; set; }
+        /// <summary>
+        /// Bounds supplied by the authoritative room visibility walk for
+        /// conservative modern-backend GPU visibility refinement. Packets
+        /// without trustworthy world-space bounds never enter GPU culling.
+        /// </summary>
+        internal bool RetainedGpuVisibilityEligible { get; set; }
+        internal Vector3 RetainedBoundsMin { get; set; }
+        internal Vector3 RetainedBoundsMax { get; set; }
         public bool NoLines { get; set; }
         public Vector3 Diffuse { get; set; }
         public Vector3 Ambient { get; set; }
