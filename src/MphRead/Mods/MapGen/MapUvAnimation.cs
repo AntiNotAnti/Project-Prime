@@ -47,6 +47,19 @@ namespace MphRead.Mods.MapGen
 
         internal static bool IsAnimated(MapMaterial material) => material.Animation != null;
 
+        internal static bool HasUvAnimation(MapMaterial material)
+        {
+            MapMaterialAnimation? animation = material.Animation;
+            if (animation == null) return false;
+            bool scroll = animation.UvScroll is { Length: 2 }
+                && (animation.UvScroll[0] != 0 || animation.UvScroll[1] != 0);
+            bool scale = animation.UvScale is { Length: 2 }
+                && (animation.UvScale[0] != 1 || animation.UvScale[1] != 1);
+            bool pulse = animation.UvScalePulse is { Length: 2 }
+                && (animation.UvScalePulse[0] != 0 || animation.UvScalePulse[1] != 0);
+            return scroll || scale || pulse || animation.UvRotationDegreesPerSecond != 0;
+        }
+
         internal static bool NativeNameFits(string name) =>
             !String.IsNullOrEmpty(name) && name.Length <= 31 && name.All(c => c <= byte.MaxValue);
 
@@ -173,8 +186,9 @@ namespace MphRead.Mods.MapGen
             var scales = new List<int>(scaleEntries);
             var rotations = new List<ushort>(rotationEntries);
             var translations = new List<int>(translationEntries);
-            var tracks = new List<Track>(animated.Length);
-            foreach (MapMaterial material in animated)
+            MapMaterial[] uvAnimated = animated.Where(HasUvAnimation).ToArray();
+            var tracks = new List<Track>(uvAnimated.Length);
+            foreach (MapMaterial material in uvAnimated)
             {
                 MapMaterialAnimation animation = material.Animation!;
                 RequireShape(animation);
@@ -239,8 +253,10 @@ namespace MphRead.Mods.MapGen
             int materialOffsets = unusedOffsets + sizeof(uint);
             int texcoordOffsets = materialOffsets + sizeof(uint);
             int textureOffsets = texcoordOffsets + sizeof(uint);
-            int texcoordGroupOffset = headerSize + offsetTableBytes;
-            int scaleOffset = texcoordGroupOffset + texcoordGroupSize;
+            int texcoordGroupOffset = tracks.Count > 0 ? headerSize + offsetTableBytes : 0;
+            int scaleOffset = texcoordGroupOffset == 0
+                ? headerSize + offsetTableBytes
+                : texcoordGroupOffset + texcoordGroupSize;
             int rotateOffset = scaleOffset + scales.Count * sizeof(int);
             int translateOffset = Align4(rotateOffset + rotations.Count * sizeof(ushort));
             int texcoordAnimationOffset = translateOffset + translations.Count * sizeof(int);
@@ -271,41 +287,44 @@ namespace MphRead.Mods.MapGen
             writer.Write((uint)texcoordGroupOffset);
             writer.Write((uint)textureGroupOffset);
 
-            // RawTexcoordAnimationGroup
-            writer.Write((uint)frameCount);
-            writer.Write((uint)scaleOffset);
-            writer.Write((uint)rotateOffset);
-            writer.Write((uint)translateOffset);
-            writer.Write((uint)tracks.Count);
-            writer.Write((uint)texcoordAnimationOffset);
-            writer.Write((ushort)0);
-            writer.Write((ushort)0);
-
-            foreach (int value in scales) writer.Write(value);
-            foreach (ushort value in rotations) writer.Write(value);
-            while (stream.Position < translateOffset) writer.Write((byte)0);
-            foreach (int value in translations) writer.Write(value);
-
-            foreach (Track track in tracks)
+            if (tracks.Count > 0)
             {
-                WriteNativeName(writer, track.Material.Name, 32);
-                writer.Write((byte)(track.ScaleSLength > 1 ? 1 : 0));
-                writer.Write((byte)(track.ScaleTLength > 1 ? 1 : 0));
-                writer.Write(track.ScaleSLength);
-                writer.Write(track.ScaleTLength);
-                writer.Write(track.ScaleSIndex);
-                writer.Write(track.ScaleTIndex);
-                writer.Write((byte)(track.RotateLength > 1 ? 1 : 0));
-                writer.Write((byte)0xFF);
-                writer.Write(track.RotateLength);
-                writer.Write(track.RotateIndex);
-                writer.Write((byte)(track.TranslateSLength > 1 ? 1 : 0));
-                writer.Write((byte)(track.TranslateTLength > 1 ? 1 : 0));
-                writer.Write(track.TranslateSLength);
-                writer.Write(track.TranslateTLength);
-                writer.Write(track.TranslateSIndex);
-                writer.Write(track.TranslateTIndex);
+                // RawTexcoordAnimationGroup
+                writer.Write((uint)frameCount);
+                writer.Write((uint)scaleOffset);
+                writer.Write((uint)rotateOffset);
+                writer.Write((uint)translateOffset);
+                writer.Write((uint)tracks.Count);
+                writer.Write((uint)texcoordAnimationOffset);
                 writer.Write((ushort)0);
+                writer.Write((ushort)0);
+
+                foreach (int value in scales) writer.Write(value);
+                foreach (ushort value in rotations) writer.Write(value);
+                while (stream.Position < translateOffset) writer.Write((byte)0);
+                foreach (int value in translations) writer.Write(value);
+
+                foreach (Track track in tracks)
+                {
+                    WriteNativeName(writer, track.Material.Name, 32);
+                    writer.Write((byte)(track.ScaleSLength > 1 ? 1 : 0));
+                    writer.Write((byte)(track.ScaleTLength > 1 ? 1 : 0));
+                    writer.Write(track.ScaleSLength);
+                    writer.Write(track.ScaleTLength);
+                    writer.Write(track.ScaleSIndex);
+                    writer.Write(track.ScaleTIndex);
+                    writer.Write((byte)(track.RotateLength > 1 ? 1 : 0));
+                    writer.Write((byte)0xFF);
+                    writer.Write(track.RotateLength);
+                    writer.Write(track.RotateIndex);
+                    writer.Write((byte)(track.TranslateSLength > 1 ? 1 : 0));
+                    writer.Write((byte)(track.TranslateTLength > 1 ? 1 : 0));
+                    writer.Write(track.TranslateSLength);
+                    writer.Write(track.TranslateTLength);
+                    writer.Write(track.TranslateSIndex);
+                    writer.Write(track.TranslateTIndex);
+                    writer.Write((ushort)0);
+                }
             }
 
             if (textureTracks.Count > 0)
