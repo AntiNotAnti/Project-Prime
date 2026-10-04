@@ -221,7 +221,7 @@ namespace MphRead
                     if (!Services.IsReplica)
                         ModDrawPreview();
                     if (drawGameHud
-                        && this.Players.Main.LoadFlags.TestFlag(Entities.LoadFlags.Active)
+                        && this.Players.Main.LoadFlags.TestFlag(global::MphRead.Entities.LoadFlags.Active)
                         && CameraMode == CameraMode.Player)
                     {
                         SetHudLayerUniforms();
