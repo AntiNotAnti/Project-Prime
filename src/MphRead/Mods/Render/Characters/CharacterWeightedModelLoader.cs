@@ -327,16 +327,22 @@ namespace MphRead.Mods.Render.Characters
             for (int i = 0; i < result.Length; i++)
             {
                 ReadOnlySpan<byte> row = view.Row(i);
-                float Value(int n) => component switch
-                {
-                    5126 => F32(row[(n * 4)..]),
-                    5121 => row[n] / 255f,
-                    _ => BinaryPrimitives.ReadUInt16LittleEndian(row[(n * 2)..]) / 65535f
-                };
-                result[i] = new(Value(0), Value(1), Value(2), Value(3));
+                result[i] = new(
+                    WeightComponent(row, component, 0),
+                    WeightComponent(row, component, 1),
+                    WeightComponent(row, component, 2),
+                    WeightComponent(row, component, 3));
             }
             return result;
         }
+
+        private static float WeightComponent(ReadOnlySpan<byte> row, int component, int index)
+            => component switch
+            {
+                5126 => F32(row[(index * 4)..]),
+                5121 => row[index] / 255f,
+                _ => BinaryPrimitives.ReadUInt16LittleEndian(row[(index * 2)..]) / 65535f
+            };
 
         private static NVector3[] ReadVec3(JsonElement[] accessors, JsonElement[] views,
             byte[] binary, int accessorIndex, string semantic)
