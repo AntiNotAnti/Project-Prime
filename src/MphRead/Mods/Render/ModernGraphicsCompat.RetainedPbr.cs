@@ -279,16 +279,30 @@ namespace MphRead.Mods.Render
                 (ulong)geometry.Vertices.Length * sizeof(float));
             ulong indexBytes = checked(
                 (ulong)geometry.Triangles.Length * sizeof(int));
+            bool atlasVisibility = TryGpuVisibilityAtlasGeometry(
+                item, geometry, out RetainedMultiDrawEntry atlasEntry);
             RenderPassEncoder* pass =
                 CoreRenderPass(target, 3, pipeline.Pipeline);
             _api.RenderPassEncoderSetPipeline(pass, pipeline.Pipeline);
             _api.RenderPassEncoderSetBindGroup(
                 pass, 0, bindGroup, 0, null);
-            _api.RenderPassEncoderSetVertexBuffer(
-                pass, 0, native.Vertex, native.VertexOffset, vertexBytes);
-            _api.RenderPassEncoderSetIndexBuffer(
-                pass, native.Index, IndexFormat.Uint32,
-                native.IndexOffset, indexBytes);
+            if (atlasVisibility)
+            {
+                _api.RenderPassEncoderSetVertexBuffer(
+                    pass, 0, atlasEntry.Page.Vertex, 0,
+                    atlasEntry.Page.VertexCapacityBytes);
+                _api.RenderPassEncoderSetIndexBuffer(
+                    pass, atlasEntry.Page.Index, IndexFormat.Uint32, 0,
+                    atlasEntry.Page.IndexCapacityBytes);
+            }
+            else
+            {
+                _api.RenderPassEncoderSetVertexBuffer(
+                    pass, 0, native.Vertex, native.VertexOffset, vertexBytes);
+                _api.RenderPassEncoderSetIndexBuffer(
+                    pass, native.Index, IndexFormat.Uint32,
+                    native.IndexOffset, indexBytes);
+            }
             _api.RenderPassEncoderSetViewport(
                 pass, 0, 0, target.Width, target.Height, 0, 1);
             ApplyScissor(pass, target.Width, target.Height);

@@ -185,6 +185,36 @@ namespace MphRead.Mods.Render
                 && world.OpaqueReorderedPacketCount == 0,
                 "dynamic opaque packet is a hard sorting barrier");
 
+            var denseStateA = new RenderItem
+            {
+                MatrixStackCount = 0,
+                Transform = Matrix4.Identity,
+                LightInfo = new LightInfo(
+                    Vector3.UnitX, Vector3.One,
+                    Vector3.UnitY, new Vector3(.5f))
+            };
+            var denseStateB = new RenderItem
+            {
+                MatrixStackCount = 0,
+                Transform = Matrix4.Identity,
+                LightInfo = denseStateA.LightInfo
+            };
+            Check(ModernGraphicsCompat.RetainedMultiDrawDynamicStateEquivalent(
+                    denseStateA, denseStateB),
+                "dense multi-draw accepts bit-identical light/transform state");
+            denseStateB.Transform =
+                Matrix4.CreateTranslation(1, 0, 0);
+            Check(!ModernGraphicsCompat.RetainedMultiDrawDynamicStateEquivalent(
+                    denseStateA, denseStateB),
+                "dense multi-draw splits different room transforms");
+            denseStateB.Transform = Matrix4.Identity;
+            denseStateB.LightInfo = new LightInfo(
+                Vector3.UnitX, Vector3.One,
+                Vector3.UnitZ, new Vector3(.5f));
+            Check(!ModernGraphicsCompat.RetainedMultiDrawDynamicStateEquivalent(
+                    denseStateA, denseStateB),
+                "dense multi-draw splits different room lighting");
+
             var direct = new RenderItem
             {
                 Type = RenderItemType.Mesh,

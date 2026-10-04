@@ -213,43 +213,68 @@ namespace MphRead
 #endif
             IReadOnlyList<Mods.Render.RetainedDrawPacket> packets =
                 _retainedRenderWorld.Opaque;
-            for (int i = 0; i < packets.Count; i++)
+            IReadOnlyList<Mods.Render.RetainedDrawBatch> batches =
+                _retainedRenderWorld.OpaqueBatches;
+            for (int batchIndex = 0; batchIndex < batches.Count; batchIndex++)
             {
-                Mods.Render.RetainedDrawPacket packet = packets[i];
-                RenderItem item = packet.Item;
-                if (item.Type != RenderItemType.Mesh
-                    || item.ViewModel
-                    || item.Alpha < .999f
-                    || item.RenderMode == RenderMode.Translucent)
-                {
-                    continue;
-                }
-
+                Mods.Render.RetainedDrawBatch batch = batches[batchIndex];
 #if !MPHREAD_SERVER
-                if (directMrt
-                    && ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(item))
+                if (directMrt && batch.Count > 1)
                 {
-                    Mods.Render.RetainedWorldTextureSet textures =
-                        RetainedWorldTextures(item);
-                    Matrix4 viewInverse = item.BillboardMode switch
+                    RenderItem firstItem = packets[batch.Start].Item;
+                    Mods.Render.RetainedWorldTextureSet batchTextures =
+                        RetainedWorldTextures(firstItem);
+                    if (ModernGraphicsCompat.TryDrawRetainedPbrMultiDraw(
+                        packets, batch.Start, batch.Count, batchTextures,
+                        _showTextures, _faceCulling, _perspectiveMatrix))
                     {
-                        BillboardMode.Sphere => _viewInvRotMatrix,
-                        BillboardMode.Cylinder => _viewInvRotYMatrix,
-                        _ => Matrix4.Identity
-                    };
-                    if (ModernGraphicsCompat.TryDrawRetainedDeferredPbrMrt(
-                        item, packet.Mesh, textures, _showTextures,
-                        _faceCulling, _perspectiveMatrix, viewInverse))
-                    {
-                        _retainedDirectPbrMrtDraws++;
+                        _retainedDirectPbrMrtDraws += batch.Count;
                         NoteRetainedTextureSampling(
-                            textures, item.XRepeat, item.YRepeat);
+                            batchTextures,
+                            firstItem.XRepeat, firstItem.YRepeat);
                         continue;
                     }
                 }
 #endif
-                _retainedCompatibilityPbrDraws++;
-                DrawDeferredPbrItem(item);
+                for (int offset = 0; offset < batch.Count; offset++)
+                {
+                    Mods.Render.RetainedDrawPacket packet =
+                        packets[batch.Start + offset];
+                    RenderItem item = packet.Item;
+                    if (item.Type != RenderItemType.Mesh
+                        || item.ViewModel
+                        || item.Alpha < .999f
+                        || item.RenderMode == RenderMode.Translucent)
+                    {
+                        continue;
+                    }
+
+#if !MPHREAD_SERVER
+                    if (directMrt
+                        && ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(item))
+                    {
+                        Mods.Render.RetainedWorldTextureSet textures =
+                            RetainedWorldTextures(item);
+                        Matrix4 viewInverse = item.BillboardMode switch
+                        {
+                            BillboardMode.Sphere => _viewInvRotMatrix,
+                            BillboardMode.Cylinder => _viewInvRotYMatrix,
+                            _ => Matrix4.Identity
+                        };
+                        if (ModernGraphicsCompat.TryDrawRetainedDeferredPbrMrt(
+                            item, packet.Mesh, textures, _showTextures,
+                            _faceCulling, _perspectiveMatrix, viewInverse))
+                        {
+                            _retainedDirectPbrMrtDraws++;
+                            NoteRetainedTextureSampling(
+                                textures, item.XRepeat, item.YRepeat);
+                            continue;
+                        }
+                    }
+#endif
+                    _retainedCompatibilityPbrDraws++;
+                    DrawDeferredPbrItem(item);
+                }
             }
         }
 

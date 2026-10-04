@@ -580,12 +580,32 @@ after a resize/depth-target change, or whenever readable depth is unavailable.
 In those cases the GPU still produces indirect arguments from frustum visibility
 but does not make an occlusion rejection.
 
-The compact visible-ID list is real GPU compaction, but it is not yet submitted
-as one multi-draw. Project Prime's retained packets still carry different
-vertex/index buffers, bind groups and pipeline/material state. Converting those
-state buckets to shared geometry/bind tables is a separate optimization; until
-then each packet consumes its own GPU-written indirect record with no visibility
-readback.
+The next retained tier now consumes compatible state buckets with native
+multi-draw. On adapters exposing wgpu-native `MultiDrawIndirect`, immutable room
+geometry is additionally packed into persistent shared vertex/index atlas pages.
+The visibility compute record carries atlas `firstIndex` and `baseVertex`, so
+the exact same GPU-written indirect arguments are valid for either one fallback
+draw or a bucket-level multi-draw.
+
+A bucket is fused only when every packet remains in the safe reorderable opaque
+class, all visibility slots are consecutive, all geometry resides on one atlas
+page, vertices carry explicit normals, and the complete generated World/PBR
+uniform words compare equal. Different room lights, matrix stacks, transforms,
+generated flags or other draw-local shader values therefore split automatically
+back to the proven packet path rather than being approximated.
+
+The visibility pass now has two native multi-draw tiers. Adapters exposing
+`MultiDrawIndirectCount` assign exact room-state buckets before dispatch, then
+atomically compact only surviving packets into a dense 20-byte indexed-indirect
+stream per bucket and increment a GPU count buffer. World and deferred-PBR consume
+those streams with `MultiDrawIndexedIndirectCount`, so frustum/Hi-Z rejects do
+not occupy zero-instance draw records in the submitted bucket.
+
+On adapters that expose `MultiDrawIndirect` but not the count extension, the
+same atlas/state-bucket path still works by submitting the original consecutive
+visibility range, where rejected packets remain as `instanceCount = 0`. If a
+bucket cannot prove identical draw-local state, both tiers fall back to the
+existing per-packet indirect/direct path.
 
 The compute path is fail-safe and backend-gated. A pipeline/resource failure
 disables GPU visibility for the session and returns to retained CPU visibility

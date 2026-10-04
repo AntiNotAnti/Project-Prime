@@ -273,6 +273,7 @@ namespace MphRead.Mods.Render
         {
             EndActiveCorePass();
             if (!_lists.TryGetValue(list, out GeometryList? geometry)) return;
+            ReleaseRetainedMultiDrawGeometry(geometry);
             if (_wireframeIndices.Remove(geometry.Triangles, out var edges)
                 && _geometryCache.Remove((geometry.Vertices, edges), out var wireframe))
                 ReleaseGeometry(wireframe);
