@@ -32,7 +32,7 @@ namespace MphRead.Mods.MapGen
         public const long MaxArchiveBytes = 512L * 1024 * 1024;
         public const long MaxExpandedBytes = 1024L * 1024 * 1024;
         public const long MaxEntryBytes = 256L * 1024 * 1024;
-        public const long MaxProjectBytes = 8L * 1024 * 1024;
+        public const long MaxProjectBytes = 32L * 1024 * 1024;
         public const int MaxEntries = 2048;
         public static readonly JsonSerializerOptions JsonOptions = new()
         { PropertyNameCaseInsensitive = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };

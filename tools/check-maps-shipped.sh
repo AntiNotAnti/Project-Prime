@@ -38,7 +38,7 @@ while IFS= read -r file; do
   recipe=$(unzip -p "$file" project.json 2>/dev/null || true)
   if [ -z "$recipe" ]; then
     # Legacy one-recipe packages have no v2 manifest/project naming.
-    recipe=$(unzip -p "$file" '*.json' 2>/dev/null | head -c 8388608)
+    recipe=$(unzip -p "$file" '*.json' 2>/dev/null | head -c 33554432)
   fi
   if [ -z "$recipe" ]; then
     echo "MISSING: $name has no readable map project"

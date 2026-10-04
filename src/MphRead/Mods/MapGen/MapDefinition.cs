@@ -157,8 +157,8 @@ namespace MphRead.Mods.MapGen
         private static MapDefinition LoadCore(string path, bool catalogOnly)
         {
             bool bundled = MapBundle.Is(path);
-            if (!bundled && new FileInfo(path).Length > 8 * 1024 * 1024)
-                throw new InvalidDataException("Map project exceeds 8 MiB.");
+            if (!bundled && new FileInfo(path).Length > MapPackageReader.MaxProjectBytes)
+                throw new InvalidDataException("Map project exceeds 32 MiB.");
             string text = bundled
                 ? catalogOnly
                     ? MapPackageReader.ReadProjectForCatalog(path)

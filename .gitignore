@@ -387,3 +387,4 @@ tools/hitrig/bin/
 
 # Local document-preview renders are disposable output, not repository source.
 /tmp/pdfs/*.png
+/samus-hd-kit
