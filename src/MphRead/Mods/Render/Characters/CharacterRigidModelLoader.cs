@@ -43,18 +43,18 @@ namespace MphRead.Mods.Render.Characters
             using (document)
             {
                 JsonElement root = document.RootElement;
-                JsonElement[] buffers = Array(root, "buffers");
+                JsonElement[] buffers = Elements(root, "buffers");
                 if (buffers.Length != 1 || buffers[0].TryGetProperty("uri", out _))
                     throw new InvalidDataException("Character GLBs must contain exactly one embedded binary buffer.");
                 int declaredBufferLength = Int(buffers[0], "byteLength", -1);
                 if (declaredBufferLength < 0 || declaredBufferLength > binary.Length)
                     throw new InvalidDataException("Character GLB binary buffer is truncated.");
 
-                JsonElement[] views = Array(root, "bufferViews");
-                JsonElement[] accessors = Array(root, "accessors");
-                JsonElement[] meshes = Array(root, "meshes");
-                JsonElement[] nodes = Array(root, "nodes");
-                JsonElement[] materials = Array(root, "materials");
+                JsonElement[] views = Elements(root, "bufferViews");
+                JsonElement[] accessors = Elements(root, "accessors");
+                JsonElement[] meshes = Elements(root, "meshes");
+                JsonElement[] nodes = Elements(root, "nodes");
+                JsonElement[] materials = Elements(root, "materials");
 
                 var nodeByName = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
                 foreach (JsonElement node in nodes)
@@ -79,11 +79,13 @@ namespace MphRead.Mods.Render.Characters
                     int meshIndex = meshProperty.GetInt32();
                     if ((uint)meshIndex >= meshes.Length)
                         throw new InvalidDataException($"Character node '{sourceNode}' references an invalid mesh.");
-                    JsonElement[] sourcePrimitives = Array(meshes[meshIndex], "primitives");
+                    JsonElement[] sourcePrimitives = Elements(meshes[meshIndex], "primitives");
                     foreach (JsonElement primitive in sourcePrimitives)
                     {
                         if (Int(primitive, "mode", 4) != 4)
                             throw new InvalidDataException($"Character node '{sourceNode}' uses a non-triangle primitive.");
+                        if (primitive.TryGetProperty("targets", out _))
+                            throw new InvalidDataException($"Character node '{sourceNode}' uses morph targets, which are not supported by rigid replacements.");
                         JsonElement attributes = primitive.GetProperty("attributes");
                         if (attributes.TryGetProperty("JOINTS_0", out _) || attributes.TryGetProperty("WEIGHTS_0", out _))
                             throw new InvalidDataException($"Rigid node '{sourceNode}' contains skin weights; use a rigid segmented export.");
@@ -318,9 +320,9 @@ namespace MphRead.Mods.Render.Characters
             return result;
         }
 
-        private static JsonElement[] Array(JsonElement element, string name)
+        private static JsonElement[] Elements(JsonElement element, string name)
             => element.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.Array
-                ? value.EnumerateArray().ToArray() : Array.Empty<JsonElement>();
+                ? value.EnumerateArray().ToArray() : System.Array.Empty<JsonElement>();
 
         private static int Int(JsonElement element, string name, int fallback = 0)
             => element.TryGetProperty(name, out JsonElement value) && value.TryGetInt32(out int result) ? result : fallback;
