@@ -43,13 +43,24 @@ namespace MphRead.Mods.Launcher.Gui
                     details=$"{definition.TextureSource}\n{source.Name} · {width} × {height} · {texture.Format}";
                 }
             }
-            float offsetU = 0, offsetV = 0;
-            if (material.Animation is { UvScroll: { Length: 2 } scroll } animation && animation.LoopFrames > 0)
+            float offsetU = 0, offsetV = 0, rotation = 0, scaleU = 1, scaleV = 1;
+            if (material.Animation is { UvScroll: { Length: 2 } scroll, UvScale: { Length: 2 } scale,
+                UvScalePulse: { Length: 2 } pulse } animation && animation.LoopFrames > 0)
             {
                 int localFrame = ((animationFrame + animation.PhaseFrames) % animation.LoopFrames + animation.LoopFrames) % animation.LoopFrames;
-                offsetU = scroll[0] * localFrame / MapUvAnimation.NativeFramesPerSecond;
-                offsetV = scroll[1] * localFrame / MapUvAnimation.NativeFramesPerSecond;
-                details += $"\nUV scroll {scroll[0]:0.###}, {scroll[1]:0.###} tiles/s · {animation.LoopFrames / 30f:0.##} s loop";
+                float seconds = localFrame / (float)MapUvAnimation.NativeFramesPerSecond;
+                float pulsePhase = MathF.Tau * localFrame / animation.LoopFrames;
+                offsetU = scroll[0] * seconds;
+                offsetV = scroll[1] * seconds;
+                rotation = animation.UvRotationDegreesPerSecond * seconds * MathF.PI / 180f;
+                scaleU = scale[0] + pulse[0] * MathF.Sin(pulsePhase);
+                scaleV = scale[1] + pulse[1] * MathF.Sin(pulsePhase);
+                details += $"\nUV scroll {scroll[0]:0.###}, {scroll[1]:0.###} tiles/s";
+                if (animation.UvRotationDegreesPerSecond != 0)
+                    details += $" · rotate {animation.UvRotationDegreesPerSecond:0.##}°/s";
+                if (scale[0] != 1 || scale[1] != 1 || pulse[0] != 0 || pulse[1] != 0)
+                    details += $" · scale {scale[0]:0.##}, {scale[1]:0.##} ± {pulse[0]:0.##}, {pulse[1]:0.##}";
+                details += $" · {animation.LoopFrames / 30f:0.##} s loop";
             }
             if (material.Alpha is { } alpha) details += $"\nAlpha {alpha}/31";
             if (material.TwoSided) details += " · two-sided";
@@ -62,8 +73,18 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     for(int x=0;x<64;x++)
                     {
-                        int sourceX=Wrap((int)MathF.Floor((x/64f+offsetU)*width),width);
-                        int sourceY=Wrap((int)MathF.Floor((y/64f+offsetV)*height),height);
+                        float u=x/64f+offsetU;
+                        float v=y/64f+offsetV;
+                        if(rotation!=0)
+                        {
+                            u+=0.5f;v+=0.5f;
+                            float cos=MathF.Cos(rotation),sin=MathF.Sin(rotation);
+                            (u,v)=(cos*u-sin*v,sin*u+cos*v);
+                            u-=0.5f;v-=0.5f;
+                        }
+                        u*=scaleU;v*=scaleV;
+                        int sourceX=Wrap((int)MathF.Floor(u*width),width);
+                        int sourceY=Wrap((int)MathF.Floor(v*height),height);
                         var pixel=pixels[sourceY*width+sourceX];
                         row[x*4]=pixel.Blue;row[x*4+1]=pixel.Green;row[x*4+2]=pixel.Red;row[x*4+3]=pixel.Alpha;
                     }
