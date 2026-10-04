@@ -513,7 +513,8 @@ namespace MphRead.Mods.Launcher.Gui
                     + $"|rot:{motion.UvRotationDegreesPerSecond:R}"
                     + $"|scale:{String.Join(",", motion.UvScale ?? Array.Empty<float>())}"
                     + $"|pulse:{String.Join(",", motion.UvScalePulse ?? Array.Empty<float>())}"
-                    + $"|loop:{motion.LoopFrames}|phase:{motion.PhaseFrames}"
+                    + $"|flip:{String.Join(",", motion.FlipbookFrames ?? new System.Collections.Generic.List<string>())}"
+                    + $"|hold:{motion.FlipbookHoldFrames}|loop:{motion.LoopFrames}|phase:{motion.PhaseFrames}"
                 : "|uv:off";
             return $"{definition.SourcePath}|{definition.BundlePath}|{definition.TextureSource}|{material.Texture}|{material.Albedo}|{material.Normal}|{material.SpecularRoughness}|{material.Emissive}|{material.SourceMaterial}|{material.TexScale:R}|alpha:{material.Alpha}|two:{material.TwoSided}{animation}{stamp}";
         }
@@ -2282,8 +2283,11 @@ namespace MphRead.Mods.Launcher.Gui
                 var entry = asset;
                 string root = _document.Project.Definition.BaseDirectory ?? CustomRooms.MapDirectory;
                 string file = Path.GetFullPath(Path.Combine(root, entry.Path));
-                int uses = _document.Project.Definition.Materials.Sum(m => new[] { m.Texture, m.Albedo, m.Normal, m.SpecularRoughness, m.Emissive }
-                        .Count(p => String.Equals(p, entry.Path, StringComparison.OrdinalIgnoreCase)))
+                int uses = _document.Project.Definition.Materials.Sum(m =>
+                        new[] { m.Texture, m.Albedo, m.Normal, m.SpecularRoughness, m.Emissive }
+                            .Count(p => String.Equals(p, entry.Path, StringComparison.OrdinalIgnoreCase))
+                        + (m.Animation?.FlipbookFrames?.Count(p =>
+                            String.Equals(p, entry.Path, StringComparison.OrdinalIgnoreCase)) ?? 0))
                     + (_document.Project.Definition.Import?.ModernTextures.Values.Count(p => String.Equals(p, entry.Path, StringComparison.OrdinalIgnoreCase)) ?? 0)
                     + (_document.Project.Definition.Audio?.Music == entry.Path ? 1 : 0)
                     + (entry.Kind == "preview" ? 1 : 0);
@@ -2315,7 +2319,9 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     var usesText = _document.Project.Definition.Materials
                         .Where(m => new[] { m.Texture, m.Albedo, m.Normal, m.SpecularRoughness, m.Emissive }
-                            .Any(p => String.Equals(p, entry.Path, StringComparison.OrdinalIgnoreCase)))
+                                .Any(p => String.Equals(p, entry.Path, StringComparison.OrdinalIgnoreCase))
+                            || m.Animation?.FlipbookFrames?.Any(p =>
+                                String.Equals(p, entry.Path, StringComparison.OrdinalIgnoreCase)) == true)
                         .Select(m => m.Name).ToList();
                     if (_document.Project.Definition.Import?.ModernTextures.Values.Any(p => String.Equals(p, entry.Path, StringComparison.OrdinalIgnoreCase)) == true)
                         usesText.Add("Q3 imported surface");
@@ -2401,7 +2407,13 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 var asset = d.Assets.Find(a => a.Path == previous); if (asset == null) return;
                 asset.Path = replacement; asset.SourcePath = source; d.BaseDirectory = root;
-                foreach (var material in d.Materials) if (material.Texture == previous) material.Texture = replacement;
+                foreach (var material in d.Materials)
+                {
+                    if (material.Texture == previous) material.Texture = replacement;
+                    if (material.Animation?.FlipbookFrames is { } frames)
+                        for (int i = 0; i < frames.Count; i++)
+                            if (frames[i] == previous) frames[i] = replacement;
+                }
                 if (d.Audio?.Music == previous) d.Audio.Music = replacement;
             });
             AssetInspector(); _status.Text = "Asset replaced. Previous version remains available to Undo.";
