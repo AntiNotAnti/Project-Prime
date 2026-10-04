@@ -252,7 +252,23 @@ Implemented pause/results presentation slice:
 - the post-match panel never authors score, placement, match result or intermission timing;
   all of those remain game/network state.
 
-Next presentation work: Create Lobby + Offline match setup, then Hunter License/global polish.
+Create Lobby + Offline Match Setup presentation slice implemented:
+
+- both flows now use the same **Match / Arena / Deployment** information hierarchy;
+- Create Lobby separates lobby name/mode/matchup, artwork-backed map rotation, and hunter/hosting
+  controls while retaining hosted-vs-dedicated discovery and package/install behavior;
+- Create Lobby keeps a persistent live summary of game type, matchup, rotation size and hosting target
+  beside the existing **Create Lobby** action;
+- Offline promotes Bot Skirmish into the primary match-setup workspace with game type/matchup/bots,
+  artwork-backed arena selection, hunter/suit deployment and a persistent **Initiate Bot Simulation**
+  launch bar;
+- Aim Trainer and Adventure remain fully available as secondary offline modes without competing
+  visually with the primary local-match configuration;
+- existing advanced match rules, map capability validation, `OfflineLaunch`, `AdventureLaunch`,
+  trainer definitions, hosted lobby allocation and local dedicated-server authority remain unchanged;
+- compact layouts stack the same regions rather than introducing a second phone-specific flow.
+
+Next presentation work: Hunter License / player identity, then global responsive/error-state and motion/audio polish.
 
 ## P3 — renderer/performance
 
