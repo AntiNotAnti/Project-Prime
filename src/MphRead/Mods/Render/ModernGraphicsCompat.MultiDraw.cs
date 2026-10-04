@@ -359,13 +359,14 @@ internal sealed unsafe partial class ModernGraphicsCompat
         {
             RetainedDrawPacket packet = packets[packetIndex];
             RenderItem item = packet.Item;
+            RetainedMultiDrawEntry entry = default;
             bool candidate =
                 _gpuVisibilitySlots.TryGetValue(item, out int slot)
                 && _lists.TryGetValue(
                     packet.Mesh.ListId, out GeometryList? geometry)
                 && RetainedMultiDrawGeometryHasExplicitNormals(geometry)
                 && _retainedMultiDrawEntries.TryGetValue(
-                    geometry, out RetainedMultiDrawEntry entry);
+                    geometry, out entry);
 
             if (!candidate)
             {
