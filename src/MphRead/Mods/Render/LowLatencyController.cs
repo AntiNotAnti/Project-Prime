@@ -25,6 +25,7 @@ internal interface ILowLatencyProvider : IDisposable
     string Name { get; }
     bool Supported { get; }
     void Configure(LowLatencyMode mode);
+    void WaitForFrame(ulong frameId);
     void Mark(ulong frameId, LowLatencyMarker marker);
 }
 
@@ -34,6 +35,7 @@ internal sealed class NullLowLatencyProvider : ILowLatencyProvider
     public string Name => "none";
     public bool Supported => false;
     public void Configure(LowLatencyMode mode) { }
+    public void WaitForFrame(ulong frameId) { }
     public void Mark(ulong frameId, LowLatencyMarker marker) { }
     public void Dispose() { }
 }
@@ -95,6 +97,18 @@ internal sealed class LowLatencySession : IDisposable
         return _activeFrame;
     }
 
+    internal bool WaitForFrame(ulong frameId)
+    {
+        if (!_frameOpen || frameId != _activeFrame)
+        {
+            _droppedMarkers++;
+            return false;
+        }
+        if (_active != LowLatencyMode.Disabled && _provider.Supported)
+            _provider.WaitForFrame(frameId);
+        return true;
+    }
+
     internal bool Mark(ulong frameId, LowLatencyMarker marker)
     {
         if (!_frameOpen || frameId != _activeFrame || marker <= _lastMarker)
@@ -145,6 +159,7 @@ internal static class LowLatencyController
     // added. Marker plumbing is live now so provider integration is mechanical.
     internal static void Configure(LowLatencyMode mode) => _session.Configure(mode);
     internal static ulong BeginFrame() => _session.BeginFrame();
+    internal static bool WaitForFrame(ulong frameId) => _session.WaitForFrame(frameId);
     internal static bool Mark(ulong frameId, LowLatencyMarker marker) =>
         _session.Mark(frameId, marker);
     internal static void CancelFrame(ulong frameId) => _session.CancelFrame(frameId);
