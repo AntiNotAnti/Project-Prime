@@ -431,6 +431,9 @@ namespace MphRead.Entities
                     ? BrightSkins.ForMaterial(overrideColor, material.TextureId != -1,
                         material.CurrentAlpha * alpha, _scene.ShowTextures) : null;
                 int? bindingOverride = GetBindingOverride(inst, material, segment.NativeMaterialIndex);
+                Matrix4 texcoordMatrix = bindingOverride.HasValue
+                    ? GetTexcoordMatrix(inst, material, segment.NativeMaterialIndex, node, recolor)
+                    : Matrix4.Identity;
 
                 var previousCosmetic = _scene.CosmeticSubmission;
                 var previousMaterial = _scene.CosmeticMaterialSubmission;
@@ -447,7 +450,7 @@ namespace MphRead.Entities
                 // GLB UVs are already normalized authoring coordinates. Reuse
                 // the native material's binding/shading identity but not the
                 // cartridge display-list texture matrix.
-                _scene.AddRenderItem(material, polygonId, alpha, emission, GetLightInfo(), Matrix4.Identity,
+                _scene.AddRenderItem(material, polygonId, alpha, emission, GetLightInfo(), texcoordMatrix,
                     node.Animation, segment.ListId, 0, Array.Empty<float>(), color,
                     PaletteOverride, SelectionType.None, node.BillboardMode, _drawScale, bindingOverride,
                     color.HasValue && Mods.RenderOptions.BrightSkins

@@ -76,8 +76,20 @@ namespace MphRead.Mods.Render.Characters
                     "manifest mappings cannot name absent GLB nodes");
 
                 File.WriteAllText(Path.Combine(root, "characters.json"), valid);
+
+                string blender = CharacterModelBlenderHelper.Generate(
+                    "Synthetic/Biped", new[] { "Body" }, new[] { "BodyMat" },
+                    "starter/synthetic/biped.glb");
+                Check(blender.Contains("ASSET_LABEL = \"Synthetic/Biped\"", StringComparison.Ordinal)
+                    && blender.Contains("EXPECTED_BONES = set([\"Body\"])", StringComparison.Ordinal)
+                    && blender.Contains("EXPECTED_MATERIALS = set([\"BodyMat\"])", StringComparison.Ordinal)
+                    && blender.Contains("RELATIVE_OUTPUT = \"starter/synthetic/biped.glb\"", StringComparison.Ordinal)
+                    && blender.Contains("cross rigid bone boundaries", StringComparison.Ordinal)
+                    && !blender.Contains("{{", StringComparison.Ordinal),
+                    "Blender rigid helper receives deterministic authoring identities");
+
                 Console.WriteLine(
-                    "[charactermodelcheck] pack safety and rigid POSITION/NORMAL/UV/index decode passed");
+                    "[charactermodelcheck] pack safety, rigid geometry decode and Blender helper generation passed");
                 return 0;
             }
             catch (Exception ex)
