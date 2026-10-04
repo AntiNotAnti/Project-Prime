@@ -151,6 +151,22 @@ try
         Check(new FileInfo(CustomRooms.OutputsFor(runtimeDefinition).Animation).Length == 24,
             "static map preserves the legacy empty animation payload");
 
+        var emissiveOnlyMaterials = new[]
+        {
+            new MapMaterial
+            {
+                Name = "emissive-only",
+                Animation = new MapMaterialAnimation
+                {
+                    EmissiveIntensity = 0.5f,
+                    EmissivePulse = 0.4f,
+                    LoopFrames = 120
+                }
+            }
+        };
+        Check(MapUvAnimation.Build(emissiveOnlyMaterials).Length == 24,
+            "emissive-only animation preserves the native static animation payload");
+
         var animatedValidation = MapValidator.Validate(animatedProject.Definition, checkSources: false);
         Check(!animatedValidation.Diagnostics.Any(d => d.Severity == MapDiagnosticSeverity.Error),
             "valid animated material passes authoring validation");
