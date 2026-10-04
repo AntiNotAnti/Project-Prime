@@ -70,6 +70,12 @@ namespace MphRead.Mods.Render.Characters
                     && lodAsset.Lod == 1,
                     "missing lod remains backward-compatible LOD0 and explicit LOD1 resolves independently");
 
+                File.WriteAllText(Path.Combine(root, "characters.json"),
+                    lod1.Replace("\"part\": \"biped\"", "\"part\": \"viewModel\"",
+                        StringComparison.Ordinal));
+                ExpectInvalid(() => CharacterModelPack.Load(root),
+                    "non-biped replacement LOD1 is rejected");
+
                 File.WriteAllText(Path.Combine(root, "characters.json"), valid);
                 string traversal = valid.Replace("samus/biped.glb", "../outside.glb",
                     StringComparison.Ordinal);
