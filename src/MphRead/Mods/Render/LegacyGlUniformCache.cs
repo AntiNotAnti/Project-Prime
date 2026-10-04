@@ -94,7 +94,7 @@ internal sealed class LegacyGlUniformCache
         SubmitValue(_mat4, location, new MatrixValue(value, transpose));
 
     private bool SubmitValue<T>(Dictionary<long, T> values, int location, T value)
-        where T : struct, IEquatable<T>
+        where T : struct
     {
         // Preserve OpenGL error behavior if a caller somehow writes without a
         // current program or uses a missing location. The optimization applies
@@ -106,7 +106,8 @@ internal sealed class LegacyGlUniformCache
         }
 
         long key = ((long)_program << 32) | (uint)location;
-        if (values.TryGetValue(key, out T prior) && prior.Equals(value))
+        if (values.TryGetValue(key, out T prior)
+            && EqualityComparer<T>.Default.Equals(prior, value))
         {
             Count(submitted: false);
             return false;
