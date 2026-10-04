@@ -11,6 +11,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.Transformation;
 using Avalonia.Styling;
@@ -55,8 +56,20 @@ namespace MphRead.Mods.Launcher.Gui
         public bool ApplyDraft()
         {
             if (Settings.SettingsPersistence.RestartRequired) return true;
-            try { Commit(); _saveError.IsVisible = false; return true; }
-            catch (Exception ex) { _saveError.Text = "Could not save: " + ex.Message; _saveError.IsVisible = true; return false; }
+            try
+            {
+                Commit();
+                _saveError.IsVisible = false;
+                UpdateDraftStatus();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _saveError.Text = "Could not save: " + ex.Message;
+                _saveError.IsVisible = true;
+                UpdateDraftStatus();
+                return false;
+            }
         }
         public void DiscardDraft()
         {
@@ -67,6 +80,7 @@ namespace MphRead.Mods.Launcher.Gui
             RenderOptions.FieldOfView = RenderOptions.ParseFov(_settings.FieldOfView, RenderOptions.DefaultFov);
             _gamepadSettings.Reload();
             InvalidateVisual();
+            UpdateDraftStatus();
         }
         private readonly ScenePlayerRegistry? _players;
 
@@ -82,7 +96,21 @@ namespace MphRead.Mods.Launcher.Gui
         private Grid _settingsBody = null!;
         private TextBlock _sectionTitle = null!;
         private TextBlock _sectionDetail = null!;
+        private TextBlock _settingHint = null!;
+        private TextBlock _draftStatus = null!;
+        private TextBox _settingsSearch = null!;
+        private StackPanel _searchResults = null!;
+        private Border _searchResultsHost = null!;
+        private PrimeButton _resetCategory = null!;
+        private PrimeButton _basicSettingsMode = null!;
+        private PrimeButton _advancedSettingsMode = null!;
+        private Grid _categoryTabsGrid = null!;
         private bool _compactShell;
+        private bool _showAdvancedSettings;
+        private int _activeSectionIndex;
+        private int _openedRendererIndex;
+        private static readonly HashSet<string> AdvancedSettingSections =
+            new(StringComparer.OrdinalIgnoreCase) { "System", "Maintenance" };
 
         /// <summary>Raised when this view is finished with, saved or not.</summary>
         public event EventHandler? Closed;
@@ -360,14 +388,38 @@ namespace MphRead.Mods.Launcher.Gui
             };
             sectionHeader.Children.Add(_sectionTitle);
             sectionHeader.Children.Add(_sectionDetail);
+            _settingHint = PrimeChrome.Text(
+                "Focus a setting for a description, or use Search to jump directly to one.",
+                PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush);
+            sectionHeader.Children.Add(_settingHint);
             sectionHeader.Children.Add(HubChrome.Divider());
+
+            _searchResults = new StackPanel { Spacing = 4 };
+            _searchResultsHost = new Border
+            {
+                IsVisible = false,
+                Background = PrimeTheme.PanelBrush,
+                BorderBrush = PrimeTheme.BorderBrush,
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(8),
+                Margin = new Thickness(0, 0, 0, 8),
+                MaxHeight = 220,
+                Child = new ScrollViewer
+                {
+                    Content = _searchResults,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+                }
+            };
 
             var contentGrid = new Grid
             {
-                RowDefinitions = new RowDefinitions("Auto,*")
+                RowDefinitions = new RowDefinitions("Auto,Auto,*")
             };
             contentGrid.Children.Add(sectionHeader);
-            Grid.SetRow(_pages, 1);
+            Grid.SetRow(_searchResultsHost, 1);
+            contentGrid.Children.Add(_searchResultsHost);
+            Grid.SetRow(_pages, 2);
             contentGrid.Children.Add(_pages);
             _sectionContentHost = new Border
             {
@@ -410,19 +462,49 @@ namespace MphRead.Mods.Launcher.Gui
             if (shell)
             {
                 // Same settings controls and persistence, arranged inside the shell.
-                contentRoot.RowDefinitions = new("Auto,Auto,*");
-                Grid.SetRow(_settingsBody, 2);
+                contentRoot.RowDefinitions = new("Auto,Auto,Auto,*");
+                Grid.SetRow(_settingsBody, 3);
                 contentRoot.Children.Remove(footer);
-                var tabs = new Grid { ColumnSpacing = 4 };
+
+                _settingsSearch = new TextBox
+                {
+                    Watermark = "Search settings...",
+                    Height = 36,
+                    MinWidth = 260,
+                    FontFamily = PrimeTypography.Ui,
+                    FontSize = 13,
+                    Padding = new Thickness(10, 5),
+                    VerticalContentAlignment = VerticalAlignment.Center
+                };
+                ControllerNav.Identify(_settingsSearch, "settings.search");
+                _settingsSearch.TextChanged += (_, _) => SearchSettings(_settingsSearch.Text ?? "");
+
+                _basicSettingsMode = new PrimeButton("BASIC", () => SetAdvancedSettings(false), compact: true);
+                _advancedSettingsMode = new PrimeButton("ADVANCED", () => SetAdvancedSettings(true), compact: true);
+                ControllerNav.Identify(_basicSettingsMode, "settings.mode.basic");
+                ControllerNav.Identify(_advancedSettingsMode, "settings.mode.advanced");
+                var modes = PrimeChrome.Columns("Auto,Auto", _basicSettingsMode, _advancedSettingsMode);
+                var toolbar = PrimeChrome.Columns("*,Auto", _settingsSearch, modes);
+                Grid.SetRow(toolbar, 1);
+                contentRoot.Children.Add(toolbar);
+
+                _categoryTabsGrid = new Grid { ColumnSpacing = 4 };
                 for (int i = 0; i < _sections.Count; i++)
                 {
                     int index = i;
-                    tabs.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+                    _categoryTabsGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
                     var tab = new PrimeTabButton(_sections[i].Name.ToUpperInvariant(), () =>
-                    { _tabs.Index = index; ShowPage(index); });
-                    Grid.SetColumn(tab, i); tabs.Children.Add(tab); _categoryTabs.Add(tab);
+                    {
+                        _tabs.Index = index;
+                        ShowPage(index);
+                    });
+                    Grid.SetColumn(tab, i);
+                    _categoryTabsGrid.Children.Add(tab);
+                    _categoryTabs.Add(tab);
                 }
-                Grid.SetRow(tabs, 1); contentRoot.Children.Add(tabs);
+                Grid.SetRow(_categoryTabsGrid, 2);
+                contentRoot.Children.Add(_categoryTabsGrid);
+
                 _settingsBody.Children.Remove(_sectionNavHost);
                 _settingsBody.ColumnDefinitions = new("*,320");
                 Grid.SetColumn(_sectionContentHost, 0);
@@ -433,13 +515,24 @@ namespace MphRead.Mods.Launcher.Gui
                     PrimeChrome.Text($"PLATFORM // {System.Runtime.InteropServices.RuntimeInformation.OSDescription}\n"
                         + $"PROCESS // {System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture}\n"
                         + $"LOGICAL CORES // {Environment.ProcessorCount}\nSIMULATION // 60 HZ", 11, data: true));
+
+                _draftStatus = PrimeChrome.Eyebrow("ALL CHANGES SAVED", PrimeTheme.GreenBrush);
+                _resetCategory = new PrimeButton("RESET CATEGORY", ResetCurrentCategory, compact: true);
+                ControllerNav.Identify(_resetCategory, "settings.category.reset");
                 footer.Children.Clear();
-                var command = PrimeChrome.Stack(save, back, _saveError);
+                var command = PrimeChrome.Stack(
+                    _draftStatus,
+                    _resetCategory,
+                    save,
+                    back,
+                    _saveError);
                 var right = new Grid { RowDefinitions = new("*,Auto"), RowSpacing = 12 };
                 right.Children.Add(new PrimePanel(diagnostics));
                 var commandPanel = new PrimePanel(command);
-                Grid.SetRow(commandPanel, 1); right.Children.Add(commandPanel);
-                Grid.SetColumn(right, 1); _settingsBody.Children.Add(right);
+                Grid.SetRow(commandPanel, 1);
+                right.Children.Add(commandPanel);
+                Grid.SetColumn(right, 1);
+                _settingsBody.Children.Add(right);
                 Content = contentRoot;
             }
             else
@@ -447,7 +540,15 @@ namespace MphRead.Mods.Launcher.Gui
                 Panel backdrop = UiLayout.Backdrop(inGame);
                 backdrop.Children.Add(contentRoot); Content = backdrop;
             }
-            if (shell) _draft = new SettingsDraft(_pages);
+            if (shell)
+            {
+                Control? controlsScope = SectionPage("Controls");
+                _draft = new SettingsDraft(_pages, controlsScope);
+                _openedRendererIndex = _rendererRow.Index;
+                WireSettingsUx();
+                SetAdvancedSettings(false);
+                UpdateDraftStatus();
+            }
             SizeChanged += (_, e) => ApplyShellResponsive(e.NewSize);
             ShowPage(0);
             ApplyShellResponsive(new Size(960, 600));
@@ -632,6 +733,7 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             index = Math.Clamp(index, 0, _sections.Count - 1);
+            _activeSectionIndex = index;
             for (int i = 0; i < _sections.Count; i++)
             {
                 _sections[i].Page.IsVisible = i == index;
@@ -646,7 +748,10 @@ namespace MphRead.Mods.Launcher.Gui
                 string name = _sections[index].Name;
                 _sectionTitle.Text = name.ToUpperInvariant();
                 _sectionDetail.Text = SectionDescription(name);
+                if (_settingHint != null)
+                    _settingHint.Text = "Focus a setting for details. Changes remain in the draft until Apply Changes.";
             }
+            UpdateDraftStatus();
         }
 
         private StackPanel BuildSectionNavigation()
@@ -2524,11 +2629,14 @@ namespace MphRead.Mods.Launcher.Gui
             try
             {
                 Commit();
+                _saveError.IsVisible = false;
+                UpdateDraftStatus();
             }
             catch (Exception ex)
             {
                 _saveError.Text = $"Could not save: {ex.Message}";
                 _saveError.IsVisible = true;
+                UpdateDraftStatus();
             }
         }
 
