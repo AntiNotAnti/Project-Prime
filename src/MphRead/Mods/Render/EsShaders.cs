@@ -159,6 +159,7 @@ uniform bool advanced_materials;
 uniform bool use_normal_map;
 uniform bool use_specular_map;
 uniform bool use_emissive_map;
+uniform float emissive_intensity;
 uniform bool use_light;
 uniform vec3 light1vec;
 uniform vec3 light1col;
@@ -226,7 +227,8 @@ void apply_material_lighting(inout vec4 col)
     float highlight = pow(max(dot(n, h1), 0.0), exponent) * l1
         + pow(max(dot(n, h2), 0.0), exponent) * l2;
     col.rgb += vec3(highlight * clamp(sm.r, 0.0, 1.0) * 0.16);
-    if (use_emissive_map) col.rgb += texture(emissive_tex, texcoord).rgb * 0.75;
+    if (use_emissive_map)
+        col.rgb += texture(emissive_tex, texcoord).rgb * 0.75 * emissive_intensity;
 }
 
 vec4 toon_color(vec4 vtx_color)
