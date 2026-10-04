@@ -29,9 +29,10 @@ namespace MphRead.Mods.MapGen
             Directory.CreateDirectory(archiveDir);
             Directory.CreateDirectory(entityDir);
             byte[] model; int vertices;
-            lock (MapCompiler.ContentReadLock) (model, vertices) = BuildModel(map);
+            var flipbooks = new Dictionary<string, MapFlipbookBinding>(StringComparer.Ordinal);
+            lock (MapCompiler.ContentReadLock) (model, vertices) = BuildModel(map, flipbooks);
             cancellation.ThrowIfCancellationRequested();
-            byte[] animation = MapUvAnimation.Build(def.Materials);
+            byte[] animation = MapUvAnimation.Build(def.Materials, flipbooks);
             byte[] collision = BuildCollision(map);
             MapRuntimePartitionPlan runtimePlan=MapRuntimePartitioner.Create(map.Faces,def.Partitioning);
             MapRuntimePartitioner.AssignEntityNodes(map.Entities,runtimePlan);
@@ -107,13 +108,14 @@ namespace MphRead.Mods.MapGen
             }
         }
 
-        private static (byte[], int) BuildModel(BuiltMap map)
+        private static (byte[], int) BuildModel(BuiltMap map,
+            Dictionary<string, MapFlipbookBinding> flipbooks)
         {
             MapDefinition def = map.Definition;
             MapTexturePack? own = def.Import?.LoadTexturePack();
             if (own != null)
             {
-                return BuildModel(map, own);
+                return BuildModel(map, own, flipbooks);
             }
             Model? source = def.Materials.Any(m=>m.Texture==null) ? Read.GetRoomModelForExport(def.TextureSource) : null;
             Recolor? recolor = source != null && source.Recolors.Count > 0 ? source.Recolors[0] : null;
@@ -136,7 +138,9 @@ namespace MphRead.Mods.MapGen
                     palettes.Add(new Repack.PaletteInfo(entry.Palette));
                     materials.Add(RawStructs.MakeMaterial(mapMaterial.Name,ownTexture,ownPalette,RepeatMode.Repeat,RepeatMode.Repeat,lighting:false,
                         diffuse:new ColorRgb(31,31,31),ambient:new ColorRgb(0,0,0),
-                        alpha:mapMaterial.Alpha,twoSided:mapMaterial.TwoSided,animated:MapUvAnimation.IsAnimated(mapMaterial)));
+                        alpha:mapMaterial.Alpha,twoSided:mapMaterial.TwoSided,animated:MapUvAnimation.HasUvAnimation(mapMaterial)));
+                    AppendFlipbookFrames(def, mapMaterial, materials.Count - 1,
+                        textures, palettes, ownTexture, ownPalette, flipbooks);
                     continue;
                 }
                 if(source==null)throw new MapAuthoringException("FP-MAP-001","Missing source material.");
@@ -166,13 +170,56 @@ namespace MphRead.Mods.MapGen
                     }
                 }
                 materials.Add(RawStructs.MakeSourceMaterial(mapMaterial.Name, srcMaterial, textureId, paletteId,
-                    mapMaterial.Alpha, mapMaterial.TwoSided, MapUvAnimation.IsAnimated(mapMaterial)));
+                    mapMaterial.Alpha, mapMaterial.TwoSided, MapUvAnimation.HasUvAnimation(mapMaterial)));
+                AppendFlipbookFrames(def, mapMaterial, materials.Count - 1,
+                    textures, palettes, textureId, paletteId, flipbooks);
             }
             if (materials.Count == 0)
             {
                 throw new ProgramException("A map needs at least one material.");
             }
             return Assemble(map, def, materials, textures, palettes);
+        }
+
+        private static void AppendFlipbookFrames(MapDefinition definition, MapMaterial material,
+            int packedMaterialId, List<Repack.TextureInfo> textures, List<Repack.PaletteInfo> palettes,
+            int baseTextureId, int basePaletteId,
+            Dictionary<string, MapFlipbookBinding> flipbooks)
+        {
+            MapMaterialAnimation? animation = material.Animation;
+            if (animation?.FlipbookFrames?.Count is not > 0) return;
+            if (baseTextureId < 0 || basePaletteId < 0)
+                throw new MapAuthoringException("FP-MAP-001",
+                    $"Flipbook material {material.Name} needs a textured base material.");
+
+            var textureIds = new List<ushort>(animation.FlipbookFrames.Count + 1)
+                { checked((ushort)baseTextureId) };
+            var paletteIds = new List<ushort>(animation.FlipbookFrames.Count + 1)
+                { checked((ushort)basePaletteId) };
+
+            foreach (string path in animation.FlipbookFrames)
+            {
+                MapTexturePack pack = MapTexturePack.Load(MapAssets.Read(definition, path), path);
+                if (pack.Entries.Count != 1)
+                    throw new MapAuthoringException("FP-MAP-001",
+                        $"Flipbook frame {path} must contain exactly one native texture.");
+                if (textures.Count >= UInt16.MaxValue || palettes.Count >= UInt16.MaxValue)
+                    throw new MapAuthoringException("FP-MAP-003",
+                        "Flipbook textures exceed the native 16-bit texture/palette budget.");
+
+                MapTexturePack.Entry entry = pack.Entries[0];
+                int textureId = textures.Count;
+                int paletteId = palettes.Count;
+                textures.Add(new Repack.TextureInfo(TextureFormat.Palette8Bit, opaque: true,
+                    entry.Height, entry.Width, entry.Pixels));
+                palettes.Add(new Repack.PaletteInfo(entry.Palette));
+                textureIds.Add(checked((ushort)textureId));
+                paletteIds.Add(checked((ushort)paletteId));
+            }
+
+            flipbooks.Add(material.Name,
+                new MapFlipbookBinding(checked((ushort)packedMaterialId),
+                    textureIds.ToArray(), paletteIds.ToArray()));
         }
 
         /// <summary>
@@ -314,7 +361,8 @@ namespace MphRead.Mods.MapGen
         /// off the cartridge ends up in the file: one material per shader, and
         /// each one's image and palette straight out of the pack.
         /// </summary>
-        private static (byte[], int) BuildModel(BuiltMap map, MapTexturePack pack)
+        private static (byte[], int) BuildModel(BuiltMap map, MapTexturePack pack,
+            Dictionary<string, MapFlipbookBinding> flipbooks)
         {
             MapDefinition def = map.Definition;
             var textures = new List<Repack.TextureInfo>();
@@ -356,7 +404,9 @@ namespace MphRead.Mods.MapGen
                     materials.Add(RawStructs.MakeMaterial(mapMaterial.Name, textureId, paletteId,
                         RepeatMode.Repeat, RepeatMode.Repeat, lighting: false,
                         diffuse: new ColorRgb(31, 31, 31), ambient: new ColorRgb(0, 0, 0),
-                        alpha: mapMaterial.Alpha, twoSided: mapMaterial.TwoSided, animated: MapUvAnimation.IsAnimated(mapMaterial)));
+                        alpha: mapMaterial.Alpha, twoSided: mapMaterial.TwoSided, animated: MapUvAnimation.HasUvAnimation(mapMaterial)));
+                    AppendFlipbookFrames(def, mapMaterial, materials.Count - 1,
+                    textures, palettes, textureId, paletteId, flipbooks);
                     continue;
                 }
                 if (source == null)
@@ -385,7 +435,9 @@ namespace MphRead.Mods.MapGen
                     }
                 }
                 materials.Add(RawStructs.MakeSourceMaterial(mapMaterial.Name, srcMaterial, textureId2, paletteId2,
-                    mapMaterial.Alpha, mapMaterial.TwoSided, MapUvAnimation.IsAnimated(mapMaterial)));
+                    mapMaterial.Alpha, mapMaterial.TwoSided, MapUvAnimation.HasUvAnimation(mapMaterial)));
+                AppendFlipbookFrames(def, mapMaterial, materials.Count - 1,
+                    textures, palettes, textureId2, paletteId2, flipbooks);
             }
             if (materials.Count == 0)
             {

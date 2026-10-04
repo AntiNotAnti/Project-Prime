@@ -90,9 +90,16 @@ try
             texture.Write((ushort)0); texture.Write((ushort)8); texture.Write((ushort)8); texture.Write((ushort)1); texture.Write((ushort)0);
             texture.Write((ushort)32767); texture.Write(new byte[64]);
         }
+        using (var texture = new BinaryWriter(File.Create(Path.Combine(runtimeMaps, "lease2.tex"))))
+        {
+            texture.Write(System.Text.Encoding.ASCII.GetBytes("FPTX")); texture.Write((ushort)1); texture.Write((ushort)1);
+            texture.Write((ushort)0); texture.Write((ushort)8); texture.Write((ushort)8); texture.Write((ushort)1); texture.Write((ushort)0);
+            texture.Write((ushort)31); texture.Write(new byte[64]);
+        }
         var runtimeProject = MapTemplates.Create("RUNTIME LEASE CHECK", "basic-ffa");
         runtimeProject.Definition.Assets.Add(new() { Path = "lease.tex" });
         foreach (var material in runtimeProject.Definition.Materials) material.Texture = "lease.tex";
+        runtimeProject.Definition.Materials[0].Animation = new(); // no-op metadata must still compile as static
         MapProjectSerializer.Save(runtimeProject, Path.Combine(runtimeMaps, "lease.json"));
 
         // CustomRooms keeps a fixed runtime-ID snapshot once registration starts.
@@ -100,6 +107,7 @@ try
         // the same immutable snapshot behavior as the real game.
         var animatedProject = MapTemplates.Create("ANIMATED MATERIAL CHECK", "basic-ffa");
         animatedProject.Definition.Assets.Add(new() { Path = "lease.tex" });
+        animatedProject.Definition.Assets.Add(new() { Path = "lease2.tex" });
         foreach (var material in animatedProject.Definition.Materials) material.Texture = "lease.tex";
         var animatedMaterial = animatedProject.Definition.Materials[0];
         animatedMaterial.Alpha = 22;
@@ -107,8 +115,19 @@ try
         animatedMaterial.Animation = new()
         {
             UvScroll = new[] { 0f, -0.8f },
+            UvRotationDegreesPerSecond = 180f,
+            UvScale = new[] { 1f, 1f },
+            UvScalePulse = new[] { 0.08f, 0.08f },
+            FlipbookFrames = new() { "lease2.tex" },
+            FlipbookHoldFrames = 3,
             LoopFrames = 3000,
             PhaseFrames = 15
+        };
+        animatedProject.Definition.Materials[1].Animation = new()
+        {
+            FlipbookFrames = new() { "lease2.tex" },
+            FlipbookHoldFrames = 3,
+            LoopFrames = 3000
         };
         MapProjectSerializer.Save(animatedProject, Path.Combine(runtimeMaps, "animated.json"));
 
@@ -138,15 +157,54 @@ try
         Check(seamValidation.Diagnostics.Any(d => d.Message.Contains("whole texture tiles", StringComparison.OrdinalIgnoreCase)),
             "non-seamless animated material loop is rejected");
         animatedMaterial.Animation.UvScroll = new[] { 0f, -0.8f };
+        animatedMaterial.Animation.UvRotationDegreesPerSecond = 1f;
+        var rotationValidation = MapValidator.Validate(animatedProject.Definition, checkSources: false);
+        Check(rotationValidation.Diagnostics.Any(d => d.Message.Contains("whole turn", StringComparison.OrdinalIgnoreCase)),
+            "non-seamless UV rotation loop is rejected");
+        animatedMaterial.Animation.UvRotationDegreesPerSecond = 180f;
+        animatedMaterial.Albedo = "textures/static-hd.png";
+        var hdFlipbookValidation = MapValidator.Validate(animatedProject.Definition, checkSources: false);
+        Check(hdFlipbookValidation.Diagnostics.Any(d =>
+            d.Severity == MapDiagnosticSeverity.Warning
+            && d.Message.Contains("Static HD albedo is ignored", StringComparison.OrdinalIgnoreCase)),
+            "flipbook warns that static HD albedo is bypassed");
+        animatedMaterial.Albedo = null;
 
         var animatedDefinition = CustomRooms.Definitions.Single(d => d.Name == "ANIMATED MATERIAL CHECK");
         CustomRooms.GenerateMissing(animatedDefinition.Name);
         string animationPath = CustomRooms.OutputsFor(animatedDefinition).Animation;
         byte[] animationBytes = File.ReadAllBytes(animationPath);
         Check(animationBytes.Length > 24 && BitConverter.ToUInt16(animationBytes, 20) == 1,
-            "animated map publishes a native texcoord animation group");
+            "animated map publishes a native animation group");
+        uint texcoordGroupOffset = BitConverter.ToUInt32(animationBytes, 36);
+        Check(texcoordGroupOffset > 0
+            && BitConverter.ToUInt32(animationBytes, checked((int)texcoordGroupOffset) + 16) == 1,
+            "flipbook-only material does not emit a texcoord track");
         Check(BitConverter.ToUInt32(animationBytes, 36) > 0,
             "native animation offset table points at the texcoord group");
+        uint scaleOffset = BitConverter.ToUInt32(animationBytes, 48);
+        uint rotationOffset = BitConverter.ToUInt32(animationBytes, 52);
+        uint translationOffset = BitConverter.ToUInt32(animationBytes, 56);
+        Check(rotationOffset - scaleOffset > sizeof(int),
+            "pulsed UV scale publishes per-frame native scale LUT data");
+        Check(translationOffset - rotationOffset > sizeof(ushort),
+            "UV rotation publishes per-frame native rotation LUT data");
+        uint textureGroupOffset = BitConverter.ToUInt32(animationBytes, 40);
+        Check(textureGroupOffset > 0
+            && BitConverter.ToUInt16(animationBytes, checked((int)textureGroupOffset)) == 3000
+            && BitConverter.ToUInt16(animationBytes, checked((int)textureGroupOffset) + 8) == 2,
+            "UV+flipbook and flipbook-only materials publish native texture animation tracks");
+
+        string flipbookAssetPath = Path.Combine(runtimeMaps, "lease2.tex");
+        byte[] flipbookAsset = File.ReadAllBytes(flipbookAssetPath);
+        MapBuildFingerprint beforeFlipbookChange = MapBuildFingerprint.Create(animatedDefinition);
+        flipbookAsset[^1] ^= 0x01;
+        File.WriteAllBytes(flipbookAssetPath, flipbookAsset);
+        MapBuildFingerprint afterFlipbookChange = MapBuildFingerprint.Create(animatedDefinition);
+        flipbookAsset[^1] ^= 0x01;
+        File.WriteAllBytes(flipbookAssetPath, flipbookAsset);
+        Check(beforeFlipbookChange != afterFlipbookChange,
+            "flipbook asset content participates in the map build fingerprint");
     }
     finally
     {

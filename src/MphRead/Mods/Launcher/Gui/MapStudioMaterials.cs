@@ -192,44 +192,117 @@ internal sealed partial class MapStudioScreen
     private void AnimatedMaterialControls(StackPanel panel, MapDefinition definition, MapMaterial material, int materialIndex)
     {
         panel.Children.Add(Text("ANIMATED MATERIAL"));
-        panel.Children.Add(Text("UV speeds are texture tiles per second. Loop endpoints must land on whole tiles so native MPH wrapping stays seamless."));
+        panel.Children.Add(Text("Scroll is measured in texture tiles per second. Rotation uses degrees per second. Scale pulse oscillates around the base scale once per loop. Scroll and rotation endpoints must wrap seamlessly in the native MPH animation cycle."));
 
-        var enabled = new CheckBox { Content = "Animate UVs", IsChecked = material.Animation != null };
+        var enabled = new CheckBox { Content = "Enable material animation", IsChecked = material.Animation != null };
         var twoSided = new CheckBox { Content = "Two-sided surface", IsChecked = material.TwoSided };
         var alpha = new TextBox { Text = material.Alpha?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "", PlaceholderText = "Alpha 0–31 · blank = inherit/default" };
-        float[] authoredScroll = material.Animation?.UvScroll is { Length: 2 } values ? values : new float[2];
+
+        float[] authoredScroll = material.Animation?.UvScroll is { Length: 2 } scrollValues ? scrollValues : new float[2];
+        float[] authoredScale = material.Animation?.UvScale is { Length: 2 } scaleValues ? scaleValues : new[] { 1f, 1f };
+        float[] authoredPulse = material.Animation?.UvScalePulse is { Length: 2 } pulseValues ? pulseValues : new float[2];
+
         var scrollX = new TextBox { Text = authoredScroll[0].ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Horizontal tiles/sec" };
         var scrollY = new TextBox { Text = authoredScroll[1].ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Vertical tiles/sec" };
+        var rotation = new TextBox { Text = (material.Animation?.UvRotationDegreesPerSecond ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Rotation degrees/sec" };
+        var scaleX = new TextBox { Text = authoredScale[0].ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Base scale X" };
+        var scaleY = new TextBox { Text = authoredScale[1].ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Base scale Y" };
+        var pulseX = new TextBox { Text = authoredPulse[0].ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Scale pulse X" };
+        var pulseY = new TextBox { Text = authoredPulse[1].ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Scale pulse Y" };
         var loop = new TextBox { Text = (material.Animation?.LoopFrames ?? 3000).ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Loop frames · 30–6000" };
         var phase = new TextBox { Text = (material.Animation?.PhaseFrames ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Phase frames" };
+        var hold = new TextBox { Text = (material.Animation?.FlipbookHoldFrames ?? 3).ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Flipbook hold frames" };
+        var flipbookFrames = material.Animation?.FlipbookFrames?.ToList() ?? new System.Collections.Generic.List<string>();
+        var declaredAssets = definition.Assets ?? new System.Collections.Generic.List<MapAsset>();
+        string[] nativeTextureAssets = declaredAssets
+            .Where(asset => asset?.Kind == "texture" && asset.Path.EndsWith(".tex", StringComparison.OrdinalIgnoreCase))
+            .Select(asset => asset!.Path).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(path => path).ToArray();
+        var framePicker = new ComboBox { ItemsSource = nativeTextureAssets, SelectedIndex = nativeTextureAssets.Length > 0 ? 0 : -1 };
+        var frameSummary = Text(FlipbookSummary());
+
+        string FlipbookSummary()
+        {
+            if (flipbookFrames.Count == 0) return "Flipbook: off · base texture only";
+            return "Flipbook: base + " + flipbookFrames.Count + " frame(s) · "
+                + String.Join(" → ", flipbookFrames.Select(System.IO.Path.GetFileName));
+        }
+
         panel.Children.Add(enabled);
         panel.Children.Add(twoSided);
         panel.Children.Add(alpha);
         panel.Children.Add(Text("Horizontal / vertical scroll"));
         panel.Children.Add(scrollX);
         panel.Children.Add(scrollY);
+        panel.Children.Add(Text("Rotation"));
+        panel.Children.Add(rotation);
+        panel.Children.Add(Text("Base UV scale X / Y"));
+        panel.Children.Add(scaleX);
+        panel.Children.Add(scaleY);
+        panel.Children.Add(Text("Scale pulse amplitude X / Y"));
+        panel.Children.Add(pulseX);
+        panel.Children.Add(pulseY);
         panel.Children.Add(Text("Loop / phase · native 30 Hz frames"));
         panel.Children.Add(loop);
         panel.Children.Add(phase);
+        panel.Children.Add(Text("Flipbook frames · base texture is frame zero"));
+        panel.Children.Add(framePicker);
+        panel.Children.Add(hold);
+        panel.Children.Add(frameSummary);
+        AddButton(panel, "Add selected flipbook frame", () =>
+        {
+            if (framePicker.SelectedItem is not string frame) return;
+            if (flipbookFrames.Count >= MapUvAnimation.MaxFlipbookImages)
+            {
+                _status.Text = "Flipbook already has the maximum 64 additional frames.";
+                return;
+            }
+            flipbookFrames.Add(frame);
+            enabled.IsChecked = true;
+            frameSummary.Text = FlipbookSummary();
+        });
+        AddButton(panel, "Remove last flipbook frame", () =>
+        {
+            if (flipbookFrames.Count == 0) return;
+            flipbookFrames.RemoveAt(flipbookFrames.Count - 1);
+            frameSummary.Text = FlipbookSummary();
+        });
+        AddButton(panel, "Clear flipbook", () =>
+        {
+            flipbookFrames.Clear();
+            frameSummary.Text = FlipbookSummary();
+        });
 
-        string[] presets = { "Still Water", "Slow Water", "Waterfall", "Lava", "Energy Flow", "Conveyor" };
+        string[] presets =
+        {
+            "Still Water", "Slow Water", "Waterfall", "Lava", "Energy Flow",
+            "Conveyor", "Portal Spin", "Hologram Pulse"
+        };
         var preset = new ComboBox { ItemsSource = presets, SelectedIndex = 0 };
         panel.Children.Add(Text("Preset"));
         panel.Children.Add(preset);
         AddButton(panel, "Load preset", () =>
         {
-            (float x, float y, bool sides, int? opacity) = (preset.SelectedItem as string) switch
+            float x=0,y=0,turn=0,sx=1,sy=1,px=0,py=0;
+            bool sides=false;int? opacity=31;
+            switch(preset.SelectedItem as string)
             {
-                "Slow Water" => (0.03f, 0.01f, true, 26),
-                "Waterfall" => (0f, -0.8f, true, 22),
-                "Lava" => (0.05f, 0.02f, false, 31),
-                "Energy Flow" => (0.6f, 0f, true, 24),
-                "Conveyor" => (1f, 0f, false, 31),
-                _ => (0.04f, 0.02f, true, 24)
-            };
+                case "Slow Water": x=0.03f;y=0.01f;sides=true;opacity=26;break;
+                case "Waterfall": y=-0.8f;sides=true;opacity=22;break;
+                case "Lava": x=0.05f;y=0.02f;opacity=31;break;
+                case "Energy Flow": x=0.6f;sides=true;opacity=24;break;
+                case "Conveyor": x=1f;opacity=31;break;
+                case "Portal Spin": turn=180f;sides=true;opacity=26;break;
+                case "Hologram Pulse": px=0.08f;py=0.08f;sides=true;opacity=23;break;
+                default: sides=true;opacity=26;break;
+            }
             enabled.IsChecked = true;
             scrollX.Text = x.ToString(System.Globalization.CultureInfo.InvariantCulture);
             scrollY.Text = y.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            rotation.Text = turn.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            scaleX.Text = sx.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            scaleY.Text = sy.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            pulseX.Text = px.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            pulseY.Text = py.ToString(System.Globalization.CultureInfo.InvariantCulture);
             loop.Text = "3000";
             phase.Text = "0";
             twoSided.IsChecked = sides;
@@ -249,6 +322,11 @@ internal sealed partial class MapStudioScreen
                     animation = new MapMaterialAnimation
                     {
                         UvScroll = new[] { Number(scrollX.Text ?? "0"), Number(scrollY.Text ?? "0") },
+                        UvRotationDegreesPerSecond = Number(rotation.Text ?? "0"),
+                        UvScale = new[] { Number(scaleX.Text ?? "1"), Number(scaleY.Text ?? "1") },
+                        UvScalePulse = new[] { Number(pulseX.Text ?? "0"), Number(pulseY.Text ?? "0") },
+                        FlipbookFrames = flipbookFrames.ToList(),
+                        FlipbookHoldFrames = int.Parse(hold.Text ?? "", System.Globalization.CultureInfo.InvariantCulture),
                         LoopFrames = int.Parse(loop.Text ?? "", System.Globalization.CultureInfo.InvariantCulture),
                         PhaseFrames = int.Parse(phase.Text ?? "", System.Globalization.CultureInfo.InvariantCulture)
                     };
