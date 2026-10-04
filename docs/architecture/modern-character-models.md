@@ -147,19 +147,64 @@ The content-free `-charactermodelcheck` now also builds a real synthetic GLB
 with POSITION/NORMAL/TEXCOORD_0/index buffer views and verifies the decoded
 triangle exactly.
 
-## Next slice: authored Samus acceptance + LOD
+## Slice 3: native authoring kit and acceptance validator
 
-The code path is ready for a real Samus biped/arm-cannon authoring test. The next
-slice should:
+A game-data-backed authoring command now turns the exact installed hunter assets
+into a working art reference instead of asking an artist to infer node/material
+names from code.
 
-1. export a segmented Samus proof asset aligned to native MPH node-local spaces;
-2. use native material names in the GLB so existing 4K/PBR packs attach directly;
-3. add screen-space/distance LOD selection for replacement geometry;
+Generate Samus:
+
+```sh
+ProjectPrime -charactermodelkit Samus -output samus-hd-kit
+```
+
+The kit contains:
+
+- `reference/Samus_lod0/`: native biped DAE, decoded recolor textures and the
+  existing Blender helper that reconstructs the MPH armature and rigid vertex groups;
+- `reference/SamusGun/`: the same for the first-person arm cannon;
+- `reference/SamusAlt_lod0/`: alternate-form reference;
+- `native-reference.json`: exact model scale, node hierarchy, transforms,
+  matrix-palette slots, mesh ownership and native material names;
+- `starter/characters.json`: an identity retarget map generated from the
+  native matrix palette for biped and viewmodel;
+- `README.md`: the rigid export contract and install/validation steps.
+
+The starter directory deliberately does not contain fake GLBs. It becomes a
+valid pack only after authored `biped.glb` and `viewmodel.glb` files are
+placed in its hunter folder.
+
+Validate a completed pack against the currently installed native game data:
+
+```sh
+ProjectPrime -charactermodelvalidate samus-hd-kit/starter
+```
+
+Validation reuses the production GLB reader and additionally checks the mapped
+native rig and native material names. It prints primitive/vertex/triangle totals
+for every resolved replacement and exits non-zero before installation if a
+contract mismatch exists.
+
+This is intentionally built on the pre-existing Collada/Blender export path:
+that exporter already decodes MPH `MTX_RESTORE` matrix IDs, creates native
+bones, and assigns every source vertex to the corresponding native node group.
+The authoring kit therefore describes the same skeleton the game actually
+animates.
+
+## Next slice: authored Samus acceptance + replacement LODs
+
+The remaining work before calling the rigid Samus proof complete is asset and
+visual acceptance rather than another ingestion layer:
+
+1. build a segmented Samus biped and arm cannon from the generated references;
+2. preserve native node-local coordinates and material names during GLB export;
+3. add dedicated replacement LOD0/LOD1 identities instead of falling straight
+   from HD LOD0 to the native distant mesh;
 4. verify muzzle/effect attachment alignment, death/unmorph transitions, bright
    skins, outlines and team recolors;
 5. benchmark Metal, desktop Vulkan/DX12 and physical Android Vulkan;
-6. only after rigid parity is accepted, implement `weighted4`
-   JOINTS_0/WEIGHTS_0 smooth GPU skinning.
+6. then implement `weighted4` JOINTS_0/WEIGHTS_0 smooth GPU skinning.
 
 Weighted skinning remains an additive renderer tier; it does not change the
-asset identity or native fallback contract.
+asset identity, materials or native fallback contract.
