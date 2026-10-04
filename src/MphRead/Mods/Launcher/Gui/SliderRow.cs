@@ -36,6 +36,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly Tap _tap = new();
 
         public event EventHandler? ValueChanged;
+        internal string Label => _label;
 
         public SliderRow(string label, int value, Func<int, string>? format = null,
             double labelWidth = 120, int min = 0, int max = 100, int keyStep = 5)

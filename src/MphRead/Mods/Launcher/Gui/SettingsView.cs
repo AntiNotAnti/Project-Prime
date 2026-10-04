@@ -11,6 +11,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Media.Transformation;
 using Avalonia.Styling;
@@ -27,7 +28,7 @@ namespace MphRead.Mods.Launcher.Gui
     /// the same strip of names across the top, the same two marks in the
     /// bottom corners.
     ///
-    /// Eight pages: Display, Graphics, Audio, Controls, Replays, Profile, Maintenance, Credits. There is no
+    /// Nine pages: Display, Graphics, Audio, Controls, Replays, Profile, System, Maintenance and Credits. There is no
     /// "Match rules" page -- point goal, time limit, damage, team play,
     /// friendly fire, hunter radar, affinity weapons and shadow freeze are
     /// not exposed here at all any more, and stay at whatever
@@ -55,8 +56,20 @@ namespace MphRead.Mods.Launcher.Gui
         public bool ApplyDraft()
         {
             if (Settings.SettingsPersistence.RestartRequired) return true;
-            try { Commit(); _saveError.IsVisible = false; return true; }
-            catch (Exception ex) { _saveError.Text = "Could not save: " + ex.Message; _saveError.IsVisible = true; return false; }
+            try
+            {
+                Commit();
+                _saveError.IsVisible = false;
+                UpdateDraftStatus();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _saveError.Text = "Could not save: " + ex.Message;
+                _saveError.IsVisible = true;
+                UpdateDraftStatus();
+                return false;
+            }
         }
         public void DiscardDraft()
         {
@@ -67,6 +80,7 @@ namespace MphRead.Mods.Launcher.Gui
             RenderOptions.FieldOfView = RenderOptions.ParseFov(_settings.FieldOfView, RenderOptions.DefaultFov);
             _gamepadSettings.Reload();
             InvalidateVisual();
+            UpdateDraftStatus();
         }
         private readonly ScenePlayerRegistry? _players;
 
@@ -82,7 +96,21 @@ namespace MphRead.Mods.Launcher.Gui
         private Grid _settingsBody = null!;
         private TextBlock _sectionTitle = null!;
         private TextBlock _sectionDetail = null!;
+        private TextBlock _settingHint = null!;
+        private TextBlock _draftStatus = null!;
+        private TextBox _settingsSearch = null!;
+        private StackPanel _searchResults = null!;
+        private Border _searchResultsHost = null!;
+        private PrimeButton _resetCategory = null!;
+        private PrimeButton _basicSettingsMode = null!;
+        private PrimeButton _advancedSettingsMode = null!;
+        private Grid _categoryTabsGrid = null!;
         private bool _compactShell;
+        private bool _showAdvancedSettings;
+        private int _activeSectionIndex;
+        private int _openedRendererIndex;
+        private static readonly HashSet<string> AdvancedSettingSections =
+            new(StringComparer.OrdinalIgnoreCase) { "System", "Maintenance" };
 
         /// <summary>Raised when this view is finished with, saved or not.</summary>
         public event EventHandler? Closed;
@@ -360,14 +388,38 @@ namespace MphRead.Mods.Launcher.Gui
             };
             sectionHeader.Children.Add(_sectionTitle);
             sectionHeader.Children.Add(_sectionDetail);
+            _settingHint = PrimeChrome.Text(
+                "Focus a setting for a description, or use Search to jump directly to one.",
+                PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush);
+            sectionHeader.Children.Add(_settingHint);
             sectionHeader.Children.Add(HubChrome.Divider());
+
+            _searchResults = new StackPanel { Spacing = 4 };
+            _searchResultsHost = new Border
+            {
+                IsVisible = false,
+                Background = PrimeTheme.PanelBrush,
+                BorderBrush = PrimeTheme.BorderBrush,
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(8),
+                Margin = new Thickness(0, 0, 0, 8),
+                MaxHeight = 220,
+                Child = new ScrollViewer
+                {
+                    Content = _searchResults,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+                }
+            };
 
             var contentGrid = new Grid
             {
-                RowDefinitions = new RowDefinitions("Auto,*")
+                RowDefinitions = new RowDefinitions("Auto,Auto,*")
             };
             contentGrid.Children.Add(sectionHeader);
-            Grid.SetRow(_pages, 1);
+            Grid.SetRow(_searchResultsHost, 1);
+            contentGrid.Children.Add(_searchResultsHost);
+            Grid.SetRow(_pages, 2);
             contentGrid.Children.Add(_pages);
             _sectionContentHost = new Border
             {
@@ -410,19 +462,49 @@ namespace MphRead.Mods.Launcher.Gui
             if (shell)
             {
                 // Same settings controls and persistence, arranged inside the shell.
-                contentRoot.RowDefinitions = new("Auto,Auto,*");
-                Grid.SetRow(_settingsBody, 2);
+                contentRoot.RowDefinitions = new("Auto,Auto,Auto,*");
+                Grid.SetRow(_settingsBody, 3);
                 contentRoot.Children.Remove(footer);
-                var tabs = new Grid { ColumnSpacing = 4 };
+
+                _settingsSearch = new TextBox
+                {
+                    Watermark = "Search settings...",
+                    Height = 36,
+                    MinWidth = 260,
+                    FontFamily = PrimeTypography.Ui,
+                    FontSize = 13,
+                    Padding = new Thickness(10, 5),
+                    VerticalContentAlignment = VerticalAlignment.Center
+                };
+                ControllerNav.Identify(_settingsSearch, "settings.search");
+                _settingsSearch.TextChanged += (_, _) => SearchSettings(_settingsSearch.Text ?? "");
+
+                _basicSettingsMode = new PrimeButton("BASIC", () => SetAdvancedSettings(false), compact: true);
+                _advancedSettingsMode = new PrimeButton("ADVANCED", () => SetAdvancedSettings(true), compact: true);
+                ControllerNav.Identify(_basicSettingsMode, "settings.mode.basic");
+                ControllerNav.Identify(_advancedSettingsMode, "settings.mode.advanced");
+                var modes = PrimeChrome.Columns("Auto,Auto", _basicSettingsMode, _advancedSettingsMode);
+                var toolbar = PrimeChrome.Columns("*,Auto", _settingsSearch, modes);
+                Grid.SetRow(toolbar, 1);
+                contentRoot.Children.Add(toolbar);
+
+                _categoryTabsGrid = new Grid { ColumnSpacing = 4 };
                 for (int i = 0; i < _sections.Count; i++)
                 {
                     int index = i;
-                    tabs.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+                    _categoryTabsGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
                     var tab = new PrimeTabButton(_sections[i].Name.ToUpperInvariant(), () =>
-                    { _tabs.Index = index; ShowPage(index); });
-                    Grid.SetColumn(tab, i); tabs.Children.Add(tab); _categoryTabs.Add(tab);
+                    {
+                        _tabs.Index = index;
+                        ShowPage(index);
+                    });
+                    Grid.SetColumn(tab, i);
+                    _categoryTabsGrid.Children.Add(tab);
+                    _categoryTabs.Add(tab);
                 }
-                Grid.SetRow(tabs, 1); contentRoot.Children.Add(tabs);
+                Grid.SetRow(_categoryTabsGrid, 2);
+                contentRoot.Children.Add(_categoryTabsGrid);
+
                 _settingsBody.Children.Remove(_sectionNavHost);
                 _settingsBody.ColumnDefinitions = new("*,320");
                 Grid.SetColumn(_sectionContentHost, 0);
@@ -433,13 +515,26 @@ namespace MphRead.Mods.Launcher.Gui
                     PrimeChrome.Text($"PLATFORM // {System.Runtime.InteropServices.RuntimeInformation.OSDescription}\n"
                         + $"PROCESS // {System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture}\n"
                         + $"LOGICAL CORES // {Environment.ProcessorCount}\nSIMULATION // 60 HZ", 11, data: true));
+
+                _draftStatus = PrimeChrome.Eyebrow("ALL CHANGES SAVED", PrimeTheme.GreenBrush);
+                _resetCategory = new PrimeButton("RESET CATEGORY",
+                    "Restore this category to the values it had when Settings opened",
+                    ResetCurrentCategory, compact: false);
+                ControllerNav.Identify(_resetCategory, "settings.category.reset");
                 footer.Children.Clear();
-                var command = PrimeChrome.Stack(save, back, _saveError);
+                var command = PrimeChrome.Stack(
+                    _draftStatus,
+                    _resetCategory,
+                    save,
+                    back,
+                    _saveError);
                 var right = new Grid { RowDefinitions = new("*,Auto"), RowSpacing = 12 };
                 right.Children.Add(new PrimePanel(diagnostics));
                 var commandPanel = new PrimePanel(command);
-                Grid.SetRow(commandPanel, 1); right.Children.Add(commandPanel);
-                Grid.SetColumn(right, 1); _settingsBody.Children.Add(right);
+                Grid.SetRow(commandPanel, 1);
+                right.Children.Add(commandPanel);
+                Grid.SetColumn(right, 1);
+                _settingsBody.Children.Add(right);
                 Content = contentRoot;
             }
             else
@@ -447,7 +542,15 @@ namespace MphRead.Mods.Launcher.Gui
                 Panel backdrop = UiLayout.Backdrop(inGame);
                 backdrop.Children.Add(contentRoot); Content = backdrop;
             }
-            if (shell) _draft = new SettingsDraft(_pages);
+            if (shell)
+            {
+                Control? controlsScope = SectionPage("Controls");
+                _draft = new SettingsDraft(_pages, controlsScope);
+                _openedRendererIndex = _rendererRow.Index;
+                WireSettingsUx();
+                SetAdvancedSettings(false);
+                UpdateDraftStatus();
+            }
             SizeChanged += (_, e) => ApplyShellResponsive(e.NewSize);
             ShowPage(0);
             ApplyShellResponsive(new Size(960, 600));
@@ -610,6 +713,8 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 if (String.Equals(_sections[i].Name, name, StringComparison.OrdinalIgnoreCase))
                 {
+                    if (_shell && AdvancedSettingSections.Contains(name))
+                        SetAdvancedSettings(true);
                     _tabs.Index = i;
                     ShowPage(i);
                     if (String.Equals(name, "Audio", StringComparison.OrdinalIgnoreCase))
@@ -632,6 +737,7 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             index = Math.Clamp(index, 0, _sections.Count - 1);
+            _activeSectionIndex = index;
             for (int i = 0; i < _sections.Count; i++)
             {
                 _sections[i].Page.IsVisible = i == index;
@@ -646,7 +752,10 @@ namespace MphRead.Mods.Launcher.Gui
                 string name = _sections[index].Name;
                 _sectionTitle.Text = name.ToUpperInvariant();
                 _sectionDetail.Text = SectionDescription(name);
+                if (_settingHint != null)
+                    _settingHint.Text = "Focus a setting for details. Changes remain in the draft until Apply Changes.";
             }
+            UpdateDraftStatus();
         }
 
         private StackPanel BuildSectionNavigation()
@@ -702,6 +811,269 @@ namespace MphRead.Mods.Launcher.Gui
             "Credits" => "Project attribution, community contributors and technology.",
             _ => ""
         };
+
+        private Control? SectionPage(string name) =>
+            _sections.FirstOrDefault(section =>
+                String.Equals(section.Name, name, StringComparison.OrdinalIgnoreCase)).Page;
+
+        private void SetAdvancedSettings(bool advanced)
+        {
+            if (!_shell || _categoryTabsGrid == null) return;
+            _showAdvancedSettings = advanced;
+            _basicSettingsMode.Selected = !advanced;
+            _advancedSettingsMode.Selected = advanced;
+
+            for (int i = 0; i < _sections.Count && i < _categoryTabs.Count; i++)
+            {
+                bool visible = advanced || !AdvancedSettingSections.Contains(_sections[i].Name);
+                _categoryTabs[i].IsVisible = visible;
+                if (i < _categoryTabsGrid.ColumnDefinitions.Count)
+                    _categoryTabsGrid.ColumnDefinitions[i].Width =
+                        visible ? GridLength.Star : new GridLength(0);
+            }
+
+            if (!advanced && _activeSectionIndex < _sections.Count
+                && AdvancedSettingSections.Contains(_sections[_activeSectionIndex].Name))
+            {
+                _tabs.Index = 0;
+                ShowPage(0);
+            }
+            UpdateDraftStatus();
+        }
+
+        private void SearchSettings(string query)
+        {
+            if (!_shell || _searchResultsHost == null || _searchResults == null) return;
+            query = query.Trim();
+            _searchResults.Children.Clear();
+            if (query.Length == 0)
+            {
+                _searchResultsHost.IsVisible = false;
+                return;
+            }
+
+            int found = 0;
+            var seen = new HashSet<Control>();
+            for (int sectionIndex = 0; sectionIndex < _sections.Count && found < 10; sectionIndex++)
+            {
+                string section = _sections[sectionIndex].Name;
+                foreach (Control control in _sections[sectionIndex].Page
+                    .GetLogicalDescendants().OfType<Control>())
+                {
+                    if (!seen.Add(control)) continue;
+                    string? label = SettingLabel(control);
+                    if (String.IsNullOrWhiteSpace(label) || IsGenericSettingLabel(label)) continue;
+                    string help = SettingDescription(section, label);
+                    if (!label.Contains(query, StringComparison.OrdinalIgnoreCase)
+                        && !section.Contains(query, StringComparison.OrdinalIgnoreCase)
+                        && !help.Contains(query, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    int targetSection = sectionIndex;
+                    Control target = FocusTarget(control);
+                    var result = new PrimeButton(label.ToUpperInvariant(),
+                        $"{section.ToUpperInvariant()}  //  {help}",
+                        () => OpenSearchResult(targetSection, target),
+                        compact: false);
+                    _searchResults.Children.Add(result);
+                    found++;
+                    if (found >= 10) break;
+                }
+            }
+
+            if (found == 0)
+            {
+                _searchResults.Children.Add(PrimeChrome.Text(
+                    $"No settings match “{query}”.",
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+            }
+            _searchResultsHost.IsVisible = true;
+        }
+
+        private void OpenSearchResult(int sectionIndex, Control target)
+        {
+            if (sectionIndex < 0 || sectionIndex >= _sections.Count) return;
+            if (AdvancedSettingSections.Contains(_sections[sectionIndex].Name))
+                SetAdvancedSettings(true);
+            _tabs.Index = sectionIndex;
+            ShowPage(sectionIndex);
+            _settingsSearch.Text = "";
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (target.IsEffectivelyVisible && target.IsEffectivelyEnabled)
+                    FocusNavigator.Focus(target);
+            }, DispatcherPriority.Background);
+        }
+
+        private void WireSettingsUx()
+        {
+            var wired = new HashSet<Control>();
+            for (int sectionIndex = 0; sectionIndex < _sections.Count; sectionIndex++)
+            {
+                string section = _sections[sectionIndex].Name;
+                foreach (Control control in _sections[sectionIndex].Page
+                    .GetLogicalDescendants().OfType<Control>())
+                {
+                    if (!wired.Add(control)) continue;
+                    string? label = SettingLabel(control);
+                    if (!String.IsNullOrWhiteSpace(label) && !IsGenericSettingLabel(label))
+                    {
+                        Control focus = FocusTarget(control);
+                        focus.GotFocus += (_, _) =>
+                        {
+                            if (_settingHint != null)
+                                _settingHint.Text = SettingDescription(section, label);
+                        };
+                    }
+
+                    switch (control)
+                    {
+                        case ChoiceRow row:
+                            row.Changed += (_, _) => UpdateDraftStatus();
+                            break;
+                        case SliderRow row:
+                            row.ValueChanged += (_, _) => UpdateDraftStatus();
+                            break;
+                        case ToggleRow row:
+                            row.Changed += (_, _) => UpdateDraftStatus();
+                            break;
+                        case ButtonToggleRow row:
+                            row.Changed += (_, _) => UpdateDraftStatus();
+                            break;
+                        case FieldRow row:
+                            row.Box.TextChanged += (_, _) => UpdateDraftStatus();
+                            break;
+                        case KeyRow row:
+                            row.Rebound += (_, _) => UpdateDraftStatus();
+                            break;
+                        case PadRow row:
+                            row.Rebound += (_, _) => UpdateDraftStatus();
+                            break;
+                    }
+                }
+            }
+        }
+
+        private void ResetCurrentCategory()
+        {
+            if (_draft == null || _activeSectionIndex < 0 || _activeSectionIndex >= _sections.Count)
+                return;
+
+            string section = _sections[_activeSectionIndex].Name;
+            _draft.Reset(_sections[_activeSectionIndex].Page);
+            if (String.Equals(section, "Controls", StringComparison.OrdinalIgnoreCase))
+            {
+                _gamepadSettings.Reload();
+                foreach (KeyRow row in _sections[_activeSectionIndex].Page
+                    .GetLogicalDescendants().OfType<KeyRow>())
+                    row.InvalidateVisual();
+                foreach (PadRow row in _sections[_activeSectionIndex].Page
+                    .GetLogicalDescendants().OfType<PadRow>())
+                    row.InvalidateVisual();
+            }
+            if (String.Equals(section, "Display", StringComparison.OrdinalIgnoreCase))
+            {
+                _hudDraft = null;
+                ShowCrosshairRows();
+                ShowRadarRows();
+                RenderOptions.FieldOfView = _fovRow.Value;
+            }
+            if (String.Equals(section, "Graphics", StringComparison.OrdinalIgnoreCase))
+            {
+                ShowTextureQualityRows();
+                ShowModernGraphicsRows();
+                ShowCelRows();
+            }
+            InvalidateVisual();
+            UpdateDraftStatus();
+        }
+
+        private void UpdateDraftStatus()
+        {
+            if (!_shell || _draftStatus == null) return;
+
+            bool dirty = IsDirty;
+            bool rendererRestart = _rendererRow != null && _rendererRow.Index != _openedRendererIndex;
+            bool archiveRestart = Settings.SettingsPersistence.RestartRequired;
+
+            if (archiveRestart)
+            {
+                _draftStatus.Text = "RESTART REQUIRED  //  SAVED SETTINGS PENDING";
+                _draftStatus.Foreground = PrimeTheme.WarningBrush;
+            }
+            else if (rendererRestart)
+            {
+                _draftStatus.Text = dirty
+                    ? "UNSAVED CHANGES  //  RENDERER REQUIRES RESTART"
+                    : "RESTART REQUIRED  //  RENDERER";
+                _draftStatus.Foreground = PrimeTheme.WarningBrush;
+            }
+            else if (dirty)
+            {
+                _draftStatus.Text = "UNSAVED CHANGES  //  DRAFT ACTIVE";
+                _draftStatus.Foreground = PrimeTheme.HighlightBrush;
+            }
+            else
+            {
+                _draftStatus.Text = "ALL CHANGES SAVED";
+                _draftStatus.Foreground = PrimeTheme.GreenBrush;
+            }
+
+            if (_resetCategory != null && _activeSectionIndex >= 0
+                && _activeSectionIndex < _sections.Count)
+            {
+                _resetCategory.IsEnabled = _draft?.IsDirtyIn(
+                    _sections[_activeSectionIndex].Page) == true;
+            }
+        }
+
+        private static Control FocusTarget(Control control) =>
+            control is FieldRow field ? field.Box : control;
+
+        private static bool IsGenericSettingLabel(string label) =>
+            label is "ON" or "OFF" or "BACK" or "SAVE" or "APPLY" or "CANCEL"
+                or "BASIC" or "ADVANCED";
+
+        private static string? SettingLabel(Control control) => control switch
+        {
+            ChoiceRow row => row.Label,
+            SliderRow row => row.Label,
+            ToggleRow row => row.Label,
+            FieldRow row => row.Label,
+            KeyRow row => row.BindingName,
+            PadRow row => Mods.Input.PadBindings.Name(row.Action),
+            HubNavButton row => row.Label,
+            _ => null
+        };
+
+        private static string SettingDescription(string section, string label)
+        {
+            return label switch
+            {
+                "Renderer" => "Select the graphics backend. A renderer change activates after restarting Project Prime.",
+                "Render scale" => "Controls internal 3D resolution. Above 100% supersamples the scene for a cleaner image at higher GPU cost.",
+                "FPS limit" => "Caps presentation rate without changing the 60 Hz gameplay simulation.",
+                "Field of view" => "Changes the first-person camera view. The preview updates while you adjust it.",
+                "Reduce menu motion" => "Disables shell transitions and cinematic launcher drift while preserving instant focus feedback.",
+                "Preset" => "Applies a coordinated graphics profile. Individual changes switch the effective setup toward Custom.",
+                "Anti-aliasing" => "Chooses the edge-smoothing method used by the modern presentation pipeline.",
+                "HD texture sampling" => "Controls how authored HD materials are sampled while leaving HUD and sprite-style art outside the policy.",
+                "HD asset resolution" => "Caps authored replacement texture resolution and residency pressure.",
+                "Directional shadows" => "Controls retained-renderer directional shadow quality and GPU cost.",
+                "Ambient occlusion" => "Adds local depth shading around geometry intersections and contact regions.",
+                "Bloom" => "Adds controlled glow around bright scene energy without changing gameplay visibility logic.",
+                "Player highlight" => "Local-only multiplayer visibility aid using player or team colors.",
+                "Player outline" => "Adds a local presentation outline around players for readability.",
+                "Game audio" => "Master game sound level before the individual player, weapon, notification and effects channels.",
+                "Music" => "Controls music volume independently from combat and interface sound.",
+                "Radar" => "Shows the local radar overlay and its configured presentation layers.",
+                "Weapon" => "Chooses static Quake-style weapon presentation or the Metroid-style dynamic presentation.",
+                "Name" => "Your network display name. Unicode names use the platform font fallback chain.",
+                "Hunter" => "Your preferred hunter. In a live match, changes are queued for the next respawn where supported.",
+                "Suit" => "Your preferred suit palette. Team modes continue to use team-authoritative colors.",
+                _ => $"{label}. {SectionDescription(section)} Changes remain in the current draft until Apply Changes."
+            };
+        }
 
         private void ApplyShellResponsive(Size size)
         {
@@ -788,7 +1160,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         /// <summary>
-        /// Eight pages: display, graphics, audio, controls, replays, profile, maintenance and credits.
+        /// Nine pages: display, graphics, audio, controls, replays, profile, system, maintenance and credits.
         /// </summary>
         private void BuildPages()
         {
@@ -2524,11 +2896,14 @@ namespace MphRead.Mods.Launcher.Gui
             try
             {
                 Commit();
+                _saveError.IsVisible = false;
+                UpdateDraftStatus();
             }
             catch (Exception ex)
             {
                 _saveError.Text = $"Could not save: {ex.Message}";
                 _saveError.IsVisible = true;
+                UpdateDraftStatus();
             }
         }
 

@@ -167,8 +167,22 @@ Graphics now includes 25–300% internal render scale (above 100% is
 supersampling), lighting, fog, bilinear/trilinear filtering, anisotropic
 filtering up to 16x, cel shading bands and outline strength. Display keeps window/view/frame-pacing/HUD/accessibility controls.
 
-Add search, per-setting descriptions, Basic/Advanced grouping, category reset, dirty
-state and restart-required markers.
+Implemented Settings presentation slice:
+
+- global Settings search indexes the existing authoritative controls and jumps/focuses
+  the actual setting instead of creating a second settings model;
+- focus surfaces an inline per-setting description, with richer guidance for renderer,
+  resolution, frame pacing, HUD, visibility and audio controls;
+- **Basic** keeps the everyday categories visible while **Advanced** reveals System and
+  Maintenance; search can promote the view to Advanced when a result requires it;
+- the command card reports clean, unsaved-draft and restart-required states, including
+  renderer changes that only activate after restart;
+- **Reset Category** restores only the active category to the snapshot captured when
+  Settings opened, using the same `SettingsDraft` that already powers Discard;
+- Controls category reset also restores keyboard/mouse bindings and tracked controller
+  mappings without disturbing the other settings categories.
+
+Next presentation slices: Replay Studio, Map Studio, then pause/results.
 
 ### Replay Studio
 
