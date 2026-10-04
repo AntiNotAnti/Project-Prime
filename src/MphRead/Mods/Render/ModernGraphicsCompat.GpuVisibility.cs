@@ -969,7 +969,16 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             }
         }
 
-        if (previous_all_front) {
+        let fully_in_view = current_min.x >= 0.0
+            && current_min.y >= 0.0
+            && current_max.x < uniforms.viewport.x
+            && current_max.y < uniforms.viewport.y
+            && previous_min.x >= 0.0
+            && previous_min.y >= 0.0
+            && previous_max.x < uniforms.viewport.x
+            && previous_max.y < uniforms.viewport.y;
+
+        if (previous_all_front && fully_in_view) {
             let current_center = (current_min + current_max) * 0.5;
             let previous_center = (previous_min + previous_max) * 0.5;
             let current_extent = max(
