@@ -1493,19 +1493,55 @@ namespace MphRead
             {
                 Material material = model.Materials[index];
                 if (material.TextureId < 0 || material.PaletteId < 0) continue;
+
+                var pairs = new HashSet<(int Texture, int Palette)>
+                {
+                    (material.TextureId, material.PaletteId)
+                };
+                bool nativeFlipbook = false;
+                foreach (TextureAnimationGroup group in model.AnimationGroups.Texture)
+                {
+                    if (!group.Animations.TryGetValue(material.Name, out TextureAnimation animation))
+                        continue;
+                    nativeFlipbook = true;
+                    for (int frame = animation.StartIndex;
+                        frame < animation.StartIndex + animation.Count; frame++)
+                    {
+                        pairs.Add((group.TextureIds[frame], group.PaletteIds[frame]));
+                    }
+                }
+
                 for (int recolor = 0; recolor < model.Recolors.Count; recolor++)
                 {
-                    var key = new Mods.Render.Materials.MaterialAssetKey(scope + "/recolor/" + recolor);
-                    var texture = model.Recolors[recolor].Textures[material.TextureId];
-                    Mods.Render.Materials.MaterialInventory.Observe(key, texture.Width, texture.Height, model.Name, _room?.Meta.Name);
-                    var slot = (index, material.TextureId, material.PaletteId, recolor);
-                    // Default/legacy users keep the original shared texture allocation.
-                    // Explicit empty entries still need their own binding to suppress a
-                    // broader room/model override for this authored surface only.
-                    if (map.Authored.ContainsKey(slot) || !Mods.RenderOptions.TextureReplacements
-                        || Mods.Render.TextureReplacementPack.ResolveExplicit(key) == null) continue;
-                    bool opaque = BindTexture(model, material.TextureId, material.PaletteId, recolor, authoredKey: key);
-                    map.Authored[slot] = (_lastTextureId, opaque);
+                    var key = new Mods.Render.Materials.MaterialAssetKey(
+                        scope + "/recolor/" + recolor);
+                    bool explicitMaterial =
+                        Mods.Render.TextureReplacementPack.ResolveExplicit(key) != null;
+
+                    foreach (var pair in pairs)
+                    {
+                        if (pair.Texture < 0 || pair.Texture >= model.Recolors[recolor].Textures.Count
+                            || pair.Palette < 0 || pair.Palette >= model.Recolors[recolor].Palettes.Count)
+                            continue;
+
+                        var texture = model.Recolors[recolor].Textures[pair.Texture];
+                        Mods.Render.Materials.MaterialInventory.Observe(
+                            key, texture.Width, texture.Height, model.Name, _room?.Meta.Name);
+                        var slot = (index, pair.Texture, pair.Palette, recolor);
+
+                        // Flipbooks always receive an authored binding for every
+                        // frame pair. That keeps frame swaps isolated from broad
+                        // texture-pair overrides and lets companion maps follow
+                        // the material identity across the whole animation.
+                        if (map.Authored.ContainsKey(slot)
+                            || !Mods.RenderOptions.TextureReplacements
+                            || (!nativeFlipbook && !explicitMaterial))
+                            continue;
+
+                        bool opaque = BindTexture(model, pair.Texture, pair.Palette,
+                            recolor, authoredKey: key);
+                        map.Authored[slot] = (_lastTextureId, opaque);
+                    }
                 }
             }
         }
@@ -1769,13 +1805,19 @@ namespace MphRead
             foreach (var source in _textureSources.ToArray())
             {
                 int binding = source.Key;
-                // If albedo is still native/in-flight, its normal promotion path
-                // will enqueue companions after albedo succeeds.
-                if (!_modernTextureSampling.TryGetValue(binding, out var modern)
-                    || modern.Channel != Mods.Render.TextureAssetChannel.Albedo)
+                var value = source.Value;
+                bool promotedAlbedo = _modernTextureSampling.TryGetValue(
+                    binding, out var modern)
+                    && modern.Channel == Mods.Render.TextureAssetChannel.Albedo;
+                bool nativeFlipbook = value.Authored is { } authored
+                    && Mods.Render.Materials.MapMaterialAssetRegistry.IsNativeFlipbook(authored);
+                // Ordinary materials wait for their HD albedo promotion before
+                // companions are attached. Native flipbooks intentionally keep
+                // their animated native albedo, so their companions can attach
+                // directly to that stable per-frame authored binding.
+                if (!promotedAlbedo && !nativeFlipbook)
                     continue;
 
-                var value = source.Value;
                 Mods.Render.Materials.MaterialAssetKey modelKey =
                     Mods.Render.Materials.MaterialAssetKey.ForModel(
                         value.Model, value.Texture, value.Palette, value.Recolor);
@@ -1791,15 +1833,8 @@ namespace MphRead
                     && (material.Emissive?.CanDecodeOffThread ?? true);
                 if (stream && _streamingTextureVersions.TryGetValue(binding, out int version))
                 {
-                    if (material.Normal is { } normal)
-                        QueueModernTextureStreamChannel(binding, version, material, assetClass,
-                            Mods.Render.TextureAssetChannel.Normal, normal);
-                    if (material.SpecularRoughness is { } specular)
-                        QueueModernTextureStreamChannel(binding, version, material, assetClass,
-                            Mods.Render.TextureAssetChannel.Material, specular);
-                    if (material.Emissive is { } emissive)
-                        QueueModernTextureStreamChannel(binding, version, material, assetClass,
-                            Mods.Render.TextureAssetChannel.Emissive, emissive);
+                    QueueModernTextureCompanions(
+                        binding, version, material, assetClass);
                     continue;
                 }
 
@@ -1914,11 +1949,34 @@ namespace MphRead
                 QueueModernTextureStream(_lastTextureId, streamVersion,
                     replacementMaterial, replacementClass);
             }
-            else if (replaced && replacementMaterial != null && Mods.RenderOptions.AdvancedMaterials)
+            else if (replacementMaterial != null && Mods.RenderOptions.AdvancedMaterials)
             {
-                Mods.Render.MaterialMapBindings maps =
-                    UploadWorldMaterialCompanions(replacementMaterial, replacementClass);
-                if (maps.Any) _materialMaps[_lastTextureId] = maps;
+                if (replacementMaterial.Albedo == null)
+                {
+                    bool streamCompanions =
+                        (replacementMaterial.Normal?.CanDecodeOffThread ?? true)
+                        && (replacementMaterial.SpecularRoughness?.CanDecodeOffThread ?? true)
+                        && (replacementMaterial.Emissive?.CanDecodeOffThread ?? true);
+                    if (streamCompanions)
+                    {
+                        QueueModernTextureCompanions(_lastTextureId, streamVersion,
+                            replacementMaterial, replacementClass);
+                    }
+                    else
+                    {
+                        Mods.Render.MaterialMapBindings maps =
+                            UploadWorldMaterialCompanions(
+                                replacementMaterial, replacementClass);
+                        if (maps.Any) _materialMaps[_lastTextureId] = maps;
+                    }
+                }
+                else if (replaced)
+                {
+                    Mods.Render.MaterialMapBindings maps =
+                        UploadWorldMaterialCompanions(
+                            replacementMaterial, replacementClass);
+                    if (maps.Any) _materialMaps[_lastTextureId] = maps;
+                }
             }
             _flatColors[_lastTextureId] = average.Result;
             return onlyOpaque;
@@ -1941,6 +1999,21 @@ namespace MphRead
             if (albedo == null) return;
             QueueModernTextureStreamChannel(bindingId, version, material, assetClass,
                 Mods.Render.TextureAssetChannel.Albedo, albedo);
+        }
+
+        private void QueueModernTextureCompanions(int bindingId, int version,
+            Mods.Render.Materials.ResolvedMaterial material,
+            Mods.Render.TextureAssetClass assetClass)
+        {
+            if (material.Normal is { } normal)
+                QueueModernTextureStreamChannel(bindingId, version, material, assetClass,
+                    Mods.Render.TextureAssetChannel.Normal, normal);
+            if (material.SpecularRoughness is { } specular)
+                QueueModernTextureStreamChannel(bindingId, version, material, assetClass,
+                    Mods.Render.TextureAssetChannel.Material, specular);
+            if (material.Emissive is { } emissive)
+                QueueModernTextureStreamChannel(bindingId, version, material, assetClass,
+                    Mods.Render.TextureAssetChannel.Emissive, emissive);
         }
 
         private void QueueModernTextureStreamChannel(int bindingId, int version,
@@ -2070,20 +2143,9 @@ namespace MphRead
                     $"progressive HD texture {request.Material.Key} -> {width}x{height}");
 
                 if (Mods.RenderOptions.AdvancedMaterials)
-                {
-                    if (request.Material.Normal is { } normal)
-                        QueueModernTextureStreamChannel(request.Binding, request.Version,
-                            request.Material, request.AssetClass,
-                            Mods.Render.TextureAssetChannel.Normal, normal);
-                    if (request.Material.SpecularRoughness is { } material)
-                        QueueModernTextureStreamChannel(request.Binding, request.Version,
-                            request.Material, request.AssetClass,
-                            Mods.Render.TextureAssetChannel.Material, material);
-                    if (request.Material.Emissive is { } emissive)
-                        QueueModernTextureStreamChannel(request.Binding, request.Version,
-                            request.Material, request.AssetClass,
-                            Mods.Render.TextureAssetChannel.Emissive, emissive);
-                }
+                    QueueModernTextureCompanions(
+                        request.Binding, request.Version,
+                        request.Material, request.AssetClass);
                 return;
             }
 
