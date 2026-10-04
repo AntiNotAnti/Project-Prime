@@ -1,0 +1,39 @@
+name: animated materials v3 focused
+
+on:
+  push:
+    branches:
+      - feature/animated-materials-v3-emissive
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: animated-materials-v3-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compile:
+    name: animated materials compile
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: compile game and map editor regression harness
+        run: |
+          dotnet build src/MphRead/MphRead.csproj -c Release
+          dotnet build tools/map-editor-check/map-editor-check.csproj -c Release
+
+  shaders:
+    name: animated materials shader parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: regenerate and compare generated shaders
+        run: tools/modern-shaders/check.sh
