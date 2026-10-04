@@ -319,6 +319,7 @@
     <InternalsVisibleTo Include="final-composite-check" />
     <InternalsVisibleTo Include="hud-ui-check" />
     <InternalsVisibleTo Include="material-pack" />
+    <InternalsVisibleTo Include="map-editor-check" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(MphReadServer)' != 'true'">
