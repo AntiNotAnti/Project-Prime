@@ -28,7 +28,7 @@ namespace MphRead.Mods.Launcher.Gui
     /// the same strip of names across the top, the same two marks in the
     /// bottom corners.
     ///
-    /// Eight pages: Display, Graphics, Audio, Controls, Replays, Profile, Maintenance, Credits. There is no
+    /// Nine pages: Display, Graphics, Audio, Controls, Replays, Profile, System, Maintenance and Credits. There is no
     /// "Match rules" page -- point goal, time limit, damage, team play,
     /// friendly fire, hunter radar, affinity weapons and shadow freeze are
     /// not exposed here at all any more, and stay at whatever
@@ -1150,7 +1150,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         /// <summary>
-        /// Eight pages: display, graphics, audio, controls, replays, profile, maintenance and credits.
+        /// Nine pages: display, graphics, audio, controls, replays, profile, system, maintenance and credits.
         /// </summary>
         private void BuildPages()
         {
