@@ -57,6 +57,7 @@ namespace MphRead
         private int _pbrPaletteColor;
         private int _pbrMaterialSpecular;
         private int _pbrMaterialEmission;
+        private int _pbrEmissiveIntensity;
 
         internal bool DeferredPbrReady => _pbrReady;
         internal int DeferredPbrAlbedo => _pbrAlbedoTexture;
@@ -323,6 +324,7 @@ namespace MphRead
                     _pbrPaletteColor = GL.GetUniformLocation(_pbrProgram, "pal_override_color");
                     _pbrMaterialSpecular = GL.GetUniformLocation(_pbrProgram, "material_specular");
                     _pbrMaterialEmission = GL.GetUniformLocation(_pbrProgram, "material_emission");
+                    _pbrEmissiveIntensity = GL.GetUniformLocation(_pbrProgram, "emissive_intensity");
                 }
                 finally
                 {
@@ -443,6 +445,7 @@ namespace MphRead
             GL.Color3(item.Diffuse);
             GL.Uniform3(_pbrMaterialSpecular, item.Specular);
             GL.Uniform3(_pbrMaterialEmission, item.Emission);
+            GL.Uniform1(_pbrEmissiveIntensity, item.EmissiveIntensity);
             GL.Uniform1(_pbrOverrideEnabled, item.OverrideColor.HasValue ? 1 : 0);
             if (item.OverrideColor is Vector4 overrideColor)
                 GL.Uniform4(_pbrOverrideColor, ref overrideColor);
@@ -688,6 +691,7 @@ uniform bool use_pal_override;
 uniform vec4 pal_override_color;
 uniform vec3 material_specular;
 uniform vec3 material_emission;
+uniform float emissive_intensity;
 
 " + Mods.Cosmetics.CosmeticShader.Source + @"
 vec3 mapped_normal() {
@@ -733,6 +737,7 @@ void main() {
         vec3 e = SAMPLE(emissive_tex, texcoord).rgb;
         emissive = max(emissive, dot(e, vec3(0.2126, 0.7152, 0.0722)));
     }
+    emissive *= emissive_intensity;
     if (cosmetic_skin != 0 && !use_specular_map) {
         vec2 finish = cosmetic_finish();
         // Authored material maps remain authoritative when supplied.
