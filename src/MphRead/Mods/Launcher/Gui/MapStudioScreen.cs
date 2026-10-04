@@ -513,6 +513,7 @@ namespace MphRead.Mods.Launcher.Gui
                     + $"|rot:{motion.UvRotationDegreesPerSecond:R}"
                     + $"|scale:{String.Join(",", motion.UvScale ?? Array.Empty<float>())}"
                     + $"|pulse:{String.Join(",", motion.UvScalePulse ?? Array.Empty<float>())}"
+                    + $"|emit:{motion.EmissiveIntensity:R}|emitPulse:{motion.EmissivePulse:R}"
                     + $"|flip:{String.Join(",", motion.FlipbookFrames ?? new System.Collections.Generic.List<string>())}"
                     + $"|hold:{motion.FlipbookHoldFrames}|loop:{motion.LoopFrames}|phase:{motion.PhaseFrames}"
                 : "|uv:off";
