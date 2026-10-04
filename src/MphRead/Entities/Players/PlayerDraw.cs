@@ -423,6 +423,59 @@ namespace MphRead.Entities
         {
             if (alpha <= 0) return true;
             Model model = inst.Model;
+            if (CharacterModelRuntime.TryGetWeighted(_scene, Hunter, part, model,
+                out CharacterWeightedRenderModel weighted, lod))
+            {
+                weighted.UpdatePalette(model);
+                int weightedPolygonId = _scene.GetNextPolygonId();
+                Node texgenNode = model.Nodes[0];
+                foreach (CharacterWeightedRenderSegment segment in weighted.Segments)
+                {
+                    Material material = model.Materials[segment.NativeMaterialIndex];
+                    Vector3 emission = GetEmission(inst, material, segment.NativeMaterialIndex);
+                    Vector4? color = PaletteOverride == null
+                        ? BrightSkins.ForMaterial(overrideColor, material.TextureId != -1,
+                            material.CurrentAlpha * alpha, _scene.ShowTextures) : null;
+                    int? bindingOverride = GetBindingOverride(
+                        inst, material, segment.NativeMaterialIndex);
+                    Matrix4 texcoordMatrix = bindingOverride.HasValue
+                        ? GetTexcoordMatrix(inst, material, segment.NativeMaterialIndex,
+                            texgenNode, recolor)
+                        : Matrix4.Identity;
+
+                    var previousCosmetic = _scene.CosmeticSubmission;
+                    var previousMaterial = _scene.CosmeticMaterialSubmission;
+                    if (Mods.RenderOptions.ShowCustomCosmetics && !BrightSkinStatusOverride
+                        && !BrightSkinFrozenOverlay && !ModMatchSpawnProtectionActive
+                        && _timeSinceDamage >= Values.DamageFlashTime * 2
+                        && !BrightSkins.ShouldApply(this)
+                        && !Flags2.TestFlag(PlayerFlags2.Cloaking)
+                        && _curAlpha >= 1 && !_scene.GameState.Teams)
+                        _scene.CosmeticMaterialSubmission = _scene.GetCosmeticMaterial(
+                            CosmeticAppearance.Skin, model, segment.NativeMaterialIndex,
+                            part switch
+                            {
+                                CharacterModelPart.ViewModel => Mods.Cosmetics.SkinContext.ViewModel,
+                                CharacterModelPart.AlternateForm => Mods.Cosmetics.SkinContext.AltForm,
+                                _ => Mods.Cosmetics.SkinContext.Biped
+                            });
+                    _scene.CosmeticSubmission = CosmeticMaterial(
+                        part == CharacterModelPart.ViewModel);
+                    _scene.AddRenderItem(material, weightedPolygonId, alpha, emission,
+                        GetLightInfo(), texcoordMatrix, Matrix4.Identity, segment.ListId,
+                        weighted.Joints.Count, weighted.MatrixPalette, color,
+                        PaletteOverride, SelectionType.None, BillboardMode.None,
+                        _drawScale, bindingOverride,
+                        color.HasValue && Mods.RenderOptions.BrightSkins
+                            && Mods.RenderOptions.BrightSkinStyle != Mods.PlayerSkinStyle.Solid,
+                        PaletteOverride == null ? outlineColor : null,
+                        weightedSkinning: true);
+                    _scene.CosmeticSubmission = previousCosmetic;
+                    _scene.CosmeticMaterialSubmission = previousMaterial;
+                }
+                return true;
+            }
+
             if (!CharacterModelRuntime.TryGetRigid(_scene, Hunter, part, model,
                 out CharacterRigidRenderModel replacement, lod))
                 return false;
