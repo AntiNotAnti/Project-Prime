@@ -210,7 +210,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             root.SizeChanged += (_, e) =>
             {
-                bool compact = e.NewSize.Width < 980;
+                bool compact = PrimeMetrics.IsNarrow(e.NewSize);
                 body.ColumnDefinitions = compact
                     ? new ColumnDefinitions("*")
                     : new ColumnDefinitions("1.8*,0.85*");
@@ -222,7 +222,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Grid.SetColumn(secondaryPanel, compact ? 0 : 1);
                 Grid.SetRow(secondaryPanel, compact ? 1 : 0);
 
-                bool narrowSetup = e.NewSize.Width < 760;
+                bool narrowSetup = PrimeMetrics.IsPhoneLayout(e.NewSize);
                 setup.ColumnDefinitions = narrowSetup
                     ? new ColumnDefinitions("*")
                     : new ColumnDefinitions("0.95*,1.15*,0.9*");

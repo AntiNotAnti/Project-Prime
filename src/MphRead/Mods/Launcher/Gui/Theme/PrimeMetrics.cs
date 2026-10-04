@@ -9,7 +9,12 @@ namespace MphRead.Mods.Launcher.Gui
         public const double PanelGap = 12, SectionGap = 20, PanelPadding = 16;
         public const double ControlHeight = 44, CompactControlHeight = 36;
         public const double HeaderHeight = 80, FooterHeight = 40, TabHeight = 44;
+        public const double NarrowWidth = 980, PhoneWidth = 760, ShortHeight = 600;
         public static readonly Thickness PageMargin = new(24, 16);
+        public static bool IsNarrow(Size size) => size.Width < NarrowWidth;
+        public static bool IsPhoneLayout(Size size) =>
+            size.Width < PhoneWidth || size.Height < 430;
+        public static bool IsShort(Size size) => size.Height < ShortHeight;
         public static PrimeDensity Density(Size size) => size.Width >= 1600 && size.Height >= 900
             ? PrimeDensity.Spacious : size.Width >= 1280 && size.Height >= 720
                 ? PrimeDensity.Standard : PrimeDensity.Compact;

@@ -315,7 +315,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             page.SizeChanged += (_, e) =>
             {
-                bool compact = e.NewSize.Width < 980;
+                bool compact = PrimeMetrics.IsNarrow(e.NewSize);
                 layout.ColumnDefinitions = compact
                     ? new ColumnDefinitions("*")
                     : new ColumnDefinitions("0.9*,1.2*,0.95*");

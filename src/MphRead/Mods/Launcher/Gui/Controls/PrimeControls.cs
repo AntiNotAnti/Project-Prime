@@ -102,6 +102,84 @@ namespace MphRead.Mods.Launcher.Gui
         }
     }
 
+    internal enum PrimeStateKind
+    {
+        Neutral,
+        Loading,
+        Empty,
+        Warning,
+        Error,
+        Success
+    }
+
+    /// <summary>
+    /// Shared no-data / loading / warning / recovery surface.
+    ///
+    /// It is deliberately static: the desktop shell rasterizes Avalonia into
+    /// an off-screen texture, so a spinner that animates forever would turn an
+    /// otherwise idle screen into a permanent full-surface redraw.
+    /// </summary>
+    internal sealed class PrimeStatePanel : Border
+    {
+        private readonly TextBlock _eyebrow;
+        private readonly TextBlock _title;
+        private readonly TextBlock _detail;
+        private readonly StackPanel _actions;
+
+        public PrimeStateKind Kind { get; private set; }
+
+        public PrimeStatePanel(PrimeStateKind kind, string title, string detail,
+            params Control[] actions)
+        {
+            Background = PrimeTheme.PanelBrush;
+            BorderThickness = new Thickness(1);
+            CornerRadius = new CornerRadius(3);
+            Padding = new Thickness(18, 16);
+            HorizontalAlignment = HorizontalAlignment.Stretch;
+            VerticalAlignment = VerticalAlignment.Center;
+
+            _eyebrow = PrimeChrome.Eyebrow("");
+            _title = PrimeChrome.Title(title);
+            _detail = PrimeChrome.Text(detail, PrimeTypography.BodySmall,
+                PrimeTheme.TextSecondaryBrush);
+            _actions = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            foreach (Control action in actions)
+                _actions.Children.Add(action);
+            _actions.IsVisible = actions.Length > 0;
+
+            Child = PrimeChrome.Stack(_eyebrow, _title, _detail, _actions);
+            Set(kind, title, detail);
+        }
+
+        public void Set(PrimeStateKind kind, string title, string detail,
+            bool visible = true, bool showActions = true)
+        {
+            Kind = kind;
+            IsVisible = visible;
+            _title.Text = title;
+            _detail.Text = detail;
+            _actions.IsVisible = showActions && _actions.Children.Count > 0;
+
+            (string label, IBrush brush) = kind switch
+            {
+                PrimeStateKind.Loading => ("IN PROGRESS", PrimeTheme.HighlightBrush),
+                PrimeStateKind.Empty => ("NOTHING HERE YET", PrimeTheme.TextSecondaryBrush),
+                PrimeStateKind.Warning => ("ATTENTION", PrimeTheme.WarningBrush),
+                PrimeStateKind.Error => ("ACTION REQUIRED", PrimeTheme.DangerBrush),
+                PrimeStateKind.Success => ("READY", PrimeTheme.GreenBrush),
+                _ => ("STATUS", PrimeTheme.HighlightBrush)
+            };
+            _eyebrow.Text = label;
+            _eyebrow.Foreground = brush;
+            BorderBrush = brush;
+        }
+    }
+
     // Keep the tested pointer, touch and controller behavior of the shared buttons.
     internal class PrimeButton : HubNavButton
     {

@@ -624,10 +624,13 @@ namespace MphRead.Mods.Launcher.Gui
                 raised: true)
             { Padding = new Thickness(14, 12) };
 
+            bool compactOverview = Deck.Phone;
             var metrics = new Grid
             {
-                ColumnDefinitions = new("*,*,*,*"),
-                ColumnSpacing = 10
+                ColumnDefinitions = compactOverview ? new("*,*") : new("*,*,*,*"),
+                RowDefinitions = compactOverview ? new("Auto,Auto") : new("*"),
+                ColumnSpacing = 10,
+                RowSpacing = 10
             };
             Control[] cards =
             {
@@ -638,7 +641,8 @@ namespace MphRead.Mods.Launcher.Gui
             };
             for (int i = 0; i < cards.Length; i++)
             {
-                Grid.SetColumn(cards[i], i);
+                Grid.SetColumn(cards[i], compactOverview ? i % 2 : i);
+                Grid.SetRow(cards[i], compactOverview ? i / 2 : 0);
                 metrics.Children.Add(cards[i]);
             }
 
@@ -662,9 +666,10 @@ namespace MphRead.Mods.Launcher.Gui
                 PrimeChrome.Title("RECENT ACTIVITY"));
             if (_snapshot.Matches.Count == 0)
             {
-                recentMatches.Children.Add(PrimeChrome.Text(
-                    "No accepted matches yet. Complete an eligible online match to begin your career record.",
-                    13, PrimeTheme.TextSecondaryBrush));
+                recentMatches.Children.Add(new PrimeStatePanel(
+                    PrimeStateKind.Empty,
+                    "NO ACCEPTED MATCHES YET",
+                    "Complete an eligible online match to begin your authoritative career record."));
             }
             foreach (HunterLicenseMatch match in _snapshot.Matches.Take(4))
             {
@@ -680,9 +685,11 @@ namespace MphRead.Mods.Launcher.Gui
                         10.5, PrimeTheme.TextSecondaryBrush, data: true))));
             }
 
-            var lower = PrimeChrome.Columns("0.85*,1.15*",
-                new PrimePanel(telemetry),
-                new PrimePanel(recentMatches));
+            Control lower = compactOverview
+                ? PrimeChrome.Stack(new PrimePanel(telemetry), new PrimePanel(recentMatches))
+                : PrimeChrome.Columns("0.85*,1.15*",
+                    new PrimePanel(telemetry),
+                    new PrimePanel(recentMatches));
 
             var root = PrimeChrome.Stack(careerHeader, metrics, recent, lower);
             root.Spacing = 12;
@@ -698,9 +705,10 @@ namespace MphRead.Mods.Launcher.Gui
 
             if (recent.Length == 0)
             {
-                stack.Children.Add(PrimeChrome.Text(
-                    "No accepted matches are available for a recent-form sample yet.",
-                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+                stack.Children.Add(new PrimeStatePanel(
+                    PrimeStateKind.Empty,
+                    "RECENT FORM UNAVAILABLE",
+                    "Five-match form appears after accepted matches reach the Hunter License."));
                 return new PrimePanel(stack, raised: true) { Padding = new Thickness(12) };
             }
 
@@ -1074,29 +1082,8 @@ namespace MphRead.Mods.Launcher.Gui
             Content = content
         };
 
-        private static Border Empty(string title, string detail) => new()
-        {
-            Background = HubTheme.PanelBrush,
-            BorderBrush = HubTheme.EdgeBrush,
-            BorderThickness = new Thickness(1),
-            Padding = new Thickness(20),
-            Child = new StackPanel
-            {
-                Spacing = 5,
-                Children =
-                {
-                    HubChrome.Kicker(title, HubTheme.WarmBrush),
-                    new TextBlock
-                    {
-                        Text = detail,
-                        FontFamily = HubTheme.Ui,
-                        FontSize = 10,
-                        Foreground = HubTheme.TextDimBrush,
-                        TextWrapping = TextWrapping.Wrap
-                    }
-                }
-            }
-        };
+        private static PrimeStatePanel Empty(string title, string detail)
+            => new(PrimeStateKind.Empty, title, detail);
 
         private static string HunterId(string id)
         {

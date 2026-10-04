@@ -36,6 +36,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBlock _summary;
         private readonly TextBlock _insights;
         private readonly TextBlock _heroMeta;
+        private readonly PrimeStatePanel _libraryState;
         private readonly Image _preview = new() { Stretch = Stretch.UniformToFill };
         private readonly PrimeHeroPanel _hero;
         private readonly StackPanel _thumbnailStrip = new()
@@ -223,6 +224,15 @@ namespace MphRead.Mods.Launcher.Gui
             ControllerNav.Identify(_validateFiltered, "studio.batch.validate");
             var batchBar = PrimeChrome.Columns("*,*", _favoriteFiltered, _validateFiltered);
 
+            var stateImport = new PrimeButton("IMPORT REPLAY",
+                () => _ = ImportAsync(), primary: true);
+            ControllerNav.Identify(stateImport, "studio.state.import");
+            _libraryState = new PrimeStatePanel(
+                PrimeStateKind.Loading,
+                "SCANNING REPLAY LIBRARY",
+                "Reading replay metadata, clips, annotations and integrity state.",
+                stateImport);
+
             var library = new Grid
             {
                 RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"),
@@ -231,8 +241,11 @@ namespace MphRead.Mods.Launcher.Gui
             library.Children.Add(_insights);
             Grid.SetRow(_summary, 1);
             library.Children.Add(_summary);
-            Grid.SetRow(_list, 2);
-            library.Children.Add(_list);
+            var libraryStage = new Grid();
+            libraryStage.Children.Add(_list);
+            libraryStage.Children.Add(_libraryState);
+            Grid.SetRow(libraryStage, 2);
+            library.Children.Add(libraryStage);
             Grid.SetRow(batchBar, 3);
             library.Children.Add(batchBar);
 
@@ -513,6 +526,11 @@ namespace MphRead.Mods.Launcher.Gui
             long selectionGeneration = _selectionGeneration;
             string? selection = preserve ?? _selected;
             _summary.Text = "SCANNING LIBRARY...";
+            _libraryState.Set(
+                PrimeStateKind.Loading,
+                "SCANNING REPLAY LIBRARY",
+                "Reading replay metadata, clips, annotations and integrity state.",
+                showActions: false);
             try
             {
                 var snapshot = await ReplayStorageJobs.Run(ScanLibrary);
@@ -524,7 +542,17 @@ namespace MphRead.Mods.Launcher.Gui
                     ? preserve ?? _selected ?? selection : _selected);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
-            { if (generation == _libraryGeneration) Fail("Could not load replay library: " + ex.Message); }
+            {
+                if (generation == _libraryGeneration)
+                {
+                    Fail("Could not load replay library: " + ex.Message);
+                    _libraryState.Set(
+                        PrimeStateKind.Error,
+                        "REPLAY LIBRARY UNAVAILABLE",
+                        ex.Message + " Import remains available, or reopen Replay Studio to retry the scan.",
+                        showActions: true);
+                }
+            }
         }
         private sealed record LibrarySnapshot(Dictionary<string, DemoRecording> Recordings,
             Dictionary<string, ReplayVirtualClipDocument> Clips, List<ReplayLibraryEntry> Entries);
@@ -667,10 +695,18 @@ namespace MphRead.Mods.Launcher.Gui
                 _summary.Text = _entries.Count == 0
                     ? "EMPTY LIBRARY"
                     : $"0 OF {_entries.Count} ITEMS";
+                _libraryState.Set(
+                    PrimeStateKind.Empty,
+                    _entries.Count == 0 ? "NO REPLAYS YET" : "NO MATCHING REPLAYS",
+                    _entries.Count == 0
+                        ? "Record an online match or import an existing replay to begin building the archive."
+                        : "The archive has replays, but none match the current search and Smart View.",
+                    showActions: _entries.Count == 0);
                 Select(null);
                 return;
             }
 
+            _libraryState.IsVisible = false;
             string? selected = preserve != null
                 && shown.Any(entry => String.Equals(entry.Path, preserve,
                     StringComparison.OrdinalIgnoreCase))
