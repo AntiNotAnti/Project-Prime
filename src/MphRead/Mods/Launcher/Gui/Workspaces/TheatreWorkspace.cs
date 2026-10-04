@@ -214,10 +214,12 @@ namespace MphRead.Mods.Launcher.Gui
             libraryControls.Children.Add(_sort);
 
             _favoriteFiltered = new PrimeButton("FAVORITE FILTERED",
-                () => _ = FavoriteFilteredAsync(), compact: true);
+                () => _ = FavoriteFilteredAsync(), compact: true)
+            { IsEnabled = false };
             ControllerNav.Identify(_favoriteFiltered, "studio.batch.favorite");
             _validateFiltered = new PrimeButton("CHECK FILTERED",
-                () => _ = ValidateFilteredAsync(), compact: true);
+                () => _ = ValidateFilteredAsync(), compact: true)
+            { IsEnabled = false };
             ControllerNav.Identify(_validateFiltered, "studio.batch.validate");
             var batchBar = PrimeChrome.Columns("*,*", _favoriteFiltered, _validateFiltered);
 
@@ -681,6 +683,191 @@ namespace MphRead.Mods.Launcher.Gui
             Select(selected);
         }
 
+        private static string CardDetail(ReplayLibraryEntry entry)
+        {
+            string kind = entry.Recoverable ? "RECOVERY"
+                : entry.IsClip ? "CLIP" : "REPLAY";
+            string annotations = entry.HighlightCount > 0
+                ? $"  //  {entry.HighlightCount} HIGHLIGHT{(entry.HighlightCount == 1 ? "" : "S")}"
+                : entry.BookmarkCount > 0
+                    ? $"  //  {entry.BookmarkCount} BOOKMARK{(entry.BookmarkCount == 1 ? "" : "S")}"
+                    : "";
+            string organized = entry.Organized ? "  //  ORGANIZED" : "";
+            return $"{kind}  //  {entry.Detail}{annotations}{organized}";
+        }
+
+        private void UpdateLibraryInsights(IReadOnlyList<ReplayLibraryEntry> shown)
+        {
+            int clips = _entries.Count(entry => entry.IsClip);
+            int full = _entries.Count - clips;
+            int favorites = _entries.Count(entry => entry.Favorite);
+            int highlights = _entries.Sum(entry => entry.HighlightCount);
+            int bookmarks = _entries.Sum(entry => entry.BookmarkCount);
+            int recovery = _entries.Count(entry => entry.Recoverable);
+            long viewFrames = shown.Sum(entry => (long)entry.DurationFrames);
+            _insights.Text =
+                $"ARCHIVE // {full} REPLAYS  /  {clips} CLIPS  /  {favorites} FAVORITES  /  "
+                + $"{highlights} HIGHLIGHTS  /  {bookmarks} BOOKMARKS"
+                + (recovery > 0 ? $"  /  {recovery} RECOVERY" : "")
+                + $"\nCURRENT VIEW // {shown.Count} ITEMS  /  {DurationSummary(viewFrames)}";
+        }
+
+        private static string DurationSummary(long frames)
+        {
+            TimeSpan span = TimeSpan.FromSeconds(Math.Max(0, frames) / 60d);
+            if (span.TotalHours >= 1)
+                return $"{(int)span.TotalHours}H {span.Minutes:00}M";
+            if (span.TotalMinutes >= 1)
+                return $"{(int)span.TotalMinutes}M {span.Seconds:00}S";
+            return $"{span.Seconds}S";
+        }
+
+        private void UpdateBatchActions(IReadOnlyList<ReplayLibraryEntry> shown)
+        {
+            int favoriteTargets = shown.Count(entry => !entry.Favorite && !entry.Recoverable);
+            int validateTargets = shown.Count(entry => !entry.Recoverable);
+            _favoriteFiltered.Label = favoriteTargets > 0
+                ? $"FAVORITE FILTERED // {favoriteTargets}"
+                : "FILTERED FAVORITES COMPLETE";
+            _validateFiltered.Label = validateTargets > 0
+                ? $"CHECK FILTERED // {validateTargets}"
+                : "CHECK FILTERED";
+
+            _favoriteFiltered.IsEnabled = !_batchBusy
+                && favoriteTargets > 0 && favoriteTargets <= 200;
+            _validateFiltered.IsEnabled = !_batchBusy
+                && validateTargets > 0 && validateTargets <= 50;
+
+            ToolTip.SetTip(_favoriteFiltered,
+                favoriteTargets > 200
+                    ? "Narrow the current view to 200 or fewer unfavorited items for batch favorite."
+                    : "Favorite every non-recovery item in the current filtered view.");
+            ToolTip.SetTip(_validateFiltered,
+                validateTargets > 50
+                    ? "Narrow the current view to 50 or fewer items for batch integrity checking."
+                    : "Validate every playable item in the current filtered view.");
+        }
+
+        private async Task FavoriteFilteredAsync()
+        {
+            if (_batchBusy) return;
+            ReplayLibraryEntry[] targets = _shownEntries
+                .Where(entry => !entry.Favorite && !entry.Recoverable)
+                .Take(201).ToArray();
+            if (targets.Length == 0) return;
+            if (targets.Length > 200)
+            {
+                _status.Text = "NARROW FILTER TO 200 OR FEWER ITEMS FOR BATCH FAVORITE";
+                _status.Foreground = HubTheme.WarmBrush;
+                return;
+            }
+
+            _batchBusy = true;
+            UpdateBatchActions(_shownEntries);
+            _status.Text = $"FAVORITING {targets.Length} FILTERED ITEMS...";
+            try
+            {
+                int changed = await ReplayStorageJobs.Run(() =>
+                {
+                    int count = 0;
+                    foreach (ReplayLibraryEntry entry in targets)
+                    {
+                        bool favorite = entry.Path.EndsWith(
+                            ReplayVirtualClips.Extension, StringComparison.OrdinalIgnoreCase)
+                                ? ReplayVirtualClips.IsFavorite(entry.Path)
+                                : File.Exists(entry.Path + ".favorite");
+                        if (favorite) continue;
+                        if (entry.Path.EndsWith(ReplayVirtualClips.Extension,
+                            StringComparison.OrdinalIgnoreCase))
+                            ReplayVirtualClips.ToggleFavorite(entry.Path);
+                        else
+                            DemoLibrary.ToggleFavorite(entry.Path);
+                        count++;
+                    }
+                    return count;
+                });
+                _status.Text = $"FAVORITED {changed} FILTERED ITEM{(changed == 1 ? "" : "S")}";
+                _status.Foreground = HubTheme.GoodBrush;
+                Reload(_selected);
+            }
+            catch (Exception ex) when (
+                ex is IOException or UnauthorizedAccessException)
+            {
+                Fail("Batch favorite failed: " + ex.Message);
+            }
+            finally
+            {
+                _batchBusy = false;
+                UpdateBatchActions(_shownEntries);
+            }
+        }
+
+        private async Task ValidateFilteredAsync()
+        {
+            if (_batchBusy) return;
+            ReplayLibraryEntry[] targets = _shownEntries
+                .Where(entry => !entry.Recoverable)
+                .Take(51).ToArray();
+            if (targets.Length == 0) return;
+            if (targets.Length > 50)
+            {
+                _status.Text = "NARROW FILTER TO 50 OR FEWER ITEMS FOR BATCH INTEGRITY";
+                _status.Foreground = HubTheme.WarmBrush;
+                return;
+            }
+
+            _batchBusy = true;
+            UpdateBatchActions(_shownEntries);
+            _status.Text = $"CHECKING {targets.Length} FILTERED ITEMS...";
+            try
+            {
+                (int healthy, int issues) = await ReplayStorageJobs.Run(() =>
+                {
+                    int healthy = 0, issues = 0;
+                    foreach (ReplayLibraryEntry entry in targets)
+                    {
+                        string source = entry.Path;
+                        bool virtualClip = source.EndsWith(
+                            ReplayVirtualClips.Extension, StringComparison.OrdinalIgnoreCase);
+                        if (virtualClip)
+                        {
+                            source = ReplayVirtualClips.ResolveForPlayback(
+                                entry.Path, out ReplayOpenResult opened) ?? "";
+                            if (source.Length == 0 || opened != ReplayOpenResult.Success)
+                            {
+                                issues++;
+                                continue;
+                            }
+                        }
+
+                        ReplayOpenResult result = ReplayArchive.Validate(source);
+                        if (!virtualClip)
+                            DemoLibrary.NoteValidation(entry.Path, result);
+                        if (result == ReplayOpenResult.Success) healthy++;
+                        else issues++;
+                    }
+                    return (healthy, issues);
+                });
+                _status.Text = issues == 0
+                    ? $"BATCH INTEGRITY // {healthy} HEALTHY"
+                    : $"BATCH INTEGRITY // {healthy} HEALTHY  /  {issues} NEED ATTENTION";
+                _status.Foreground = issues == 0
+                    ? HubTheme.GoodBrush : HubTheme.WarmBrush;
+                Reload(_selected);
+            }
+            catch (Exception ex) when (
+                ex is IOException or UnauthorizedAccessException
+                or InvalidDataException)
+            {
+                Fail("Batch integrity failed: " + ex.Message);
+            }
+            finally
+            {
+                _batchBusy = false;
+                UpdateBatchActions(_shownEntries);
+            }
+        }
+
         private static string AnnotationSearchText(string path,
             out int bookmarkCount, out int highlightCount)
         {
@@ -892,6 +1079,80 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 // A partially written still should not take down the library.
             }
+        }
+
+        private void BuildThumbnailStrip()
+        {
+            ClearThumbnailStrip();
+            if (_previewPaths.Length == 0)
+            {
+                _thumbnailStrip.Children.Add(PrimeChrome.Text(
+                    "No timeline stills are available yet. The arena preview remains available when map art exists.",
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+                return;
+            }
+
+            for (int i = 0; i < Math.Min(3, _previewPaths.Length); i++)
+            {
+                try
+                {
+                    using var stream = new MemoryStream(File.ReadAllBytes(_previewPaths[i]));
+                    Bitmap bitmap = Bitmap.DecodeToWidth(stream, 192);
+                    _thumbnailBitmaps.Add(bitmap);
+                    int index = i;
+                    var button = new Button
+                    {
+                        Height = 64,
+                        MinWidth = 96,
+                        MaxWidth = 160,
+                        Padding = new Thickness(2),
+                        Background = PrimeTheme.PanelBrush,
+                        BorderBrush = PrimeTheme.BorderBrush,
+                        BorderThickness = new Thickness(1),
+                        Content = new Image
+                        {
+                            Source = bitmap,
+                            Stretch = Stretch.UniformToFill
+                        }
+                    };
+                    ControllerNav.Identify(button, $"studio.thumbnail.{i}");
+                    ToolTip.SetTip(button, $"Timeline still {i + 1}");
+                    button.Click += (_, _) =>
+                    {
+                        _previewIndex = index;
+                        ShowPreview();
+                    };
+                    _thumbnailButtons.Add(button);
+                    _thumbnailStrip.Children.Add(button);
+                }
+                catch (Exception ex) when (
+                    ex is IOException or UnauthorizedAccessException
+                    or ArgumentException)
+                {
+                    // A missing optional still does not make the replay unusable.
+                }
+            }
+            RefreshThumbnailSelection();
+        }
+
+        private void RefreshThumbnailSelection()
+        {
+            for (int i = 0; i < _thumbnailButtons.Count; i++)
+            {
+                bool selected = i == _previewIndex;
+                _thumbnailButtons[i].Opacity = selected ? 1 : 0.62;
+                _thumbnailButtons[i].BorderBrush =
+                    selected ? PrimeTheme.HighlightBrush : PrimeTheme.BorderBrush;
+            }
+        }
+
+        private void ClearThumbnailStrip()
+        {
+            _thumbnailStrip.Children.Clear();
+            _thumbnailButtons.Clear();
+            foreach (Bitmap bitmap in _thumbnailBitmaps)
+                bitmap.Dispose();
+            _thumbnailBitmaps.Clear();
         }
 
         private void Rename()
