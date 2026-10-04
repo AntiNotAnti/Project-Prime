@@ -80,6 +80,7 @@ namespace MphRead
         public string ShowCustomCosmetics { get; set; } = "on";
         public string CosmeticQuality { get; set; } = "medium";
         public string TextureReplacements { get; set; } = "off";
+        public string CharacterModelReplacements { get; set; } = "off";
         public string PointGoal { get; set; } = "7";
         public string TimeLimit { get; set; } = "7:00";
         public string TimeGoal { get; set; } = "1:30";
