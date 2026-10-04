@@ -397,7 +397,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
                 }
             };
             pipeline = _api.DeviceCreateComputePipeline(
-                _device.Device, descriptor);
+                _device.Device, in descriptor);
             if (pipeline == null)
                 throw new InvalidOperationException(
                     "Could not create retained GPU visibility compute pipeline.");
@@ -429,18 +429,19 @@ internal sealed unsafe partial class ModernGraphicsCompat
         _gpuHiZWidth = width;
         _gpuHiZHeight = height;
         _gpuHiZMipCount = mipCount;
+        var textureDescriptor = new TextureDescriptor
+        {
+            Size = new Extent3D(
+                checked((uint)width), checked((uint)height), 1),
+            Format = WgpuTextureFormat.R32float,
+            Usage = TextureUsage.TextureBinding
+                | TextureUsage.StorageBinding,
+            MipLevelCount = checked((uint)mipCount),
+            SampleCount = 1,
+            Dimension = TextureDimension.Dimension2D
+        };
         _gpuHiZTexture = _api.DeviceCreateTexture(
-            _device.Device, new TextureDescriptor
-            {
-                Size = new Extent3D(
-                    checked((uint)width), checked((uint)height), 1),
-                Format = WgpuTextureFormat.R32float,
-                Usage = TextureUsage.TextureBinding
-                    | TextureUsage.StorageBinding,
-                MipLevelCount = checked((uint)mipCount),
-                SampleCount = 1,
-                Dimension = TextureDimension.Dimension2D
-            });
+            _device.Device, in textureDescriptor);
         if (_gpuHiZTexture == null)
             throw new InvalidOperationException(
                 "Could not allocate retained Hi-Z texture.");
@@ -464,16 +465,17 @@ internal sealed unsafe partial class ModernGraphicsCompat
                 ArrayLayerCount = 1
             };
             TextureView* view = _api.TextureCreateView(
-                _gpuHiZTexture, descriptor);
+                _gpuHiZTexture, in descriptor);
             if (view == null)
                 throw new InvalidOperationException(
                     $"Could not create retained Hi-Z mip {mip} view.");
             _gpuHiZMipViews.Add((nint)view);
         }
 
+        var reduceEntries = stackalloc BindGroupEntry[2];
         for (int mip = 1; mip < mipCount; mip++)
         {
-            var entries = stackalloc BindGroupEntry[2];
+            BindGroupEntry* entries = reduceEntries;
             entries[0] = new BindGroupEntry
             {
                 Binding = 0,
@@ -557,9 +559,10 @@ internal sealed unsafe partial class ModernGraphicsCompat
         if (groupsX == 0 || groupsY == 0)
             return;
         CommandEncoder* encoder = BeginCommands();
+        var passDescriptor = new ComputePassDescriptor();
         ComputePassEncoder* pass =
             _api.CommandEncoderBeginComputePass(
-                encoder, new ComputePassDescriptor());
+                encoder, in passDescriptor);
         if (pass == null)
             throw new InvalidOperationException(
                 "Could not begin retained GPU visibility compute pass.");
