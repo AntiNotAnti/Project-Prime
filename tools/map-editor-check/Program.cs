@@ -187,6 +187,17 @@ try
             && BitConverter.ToUInt16(animationBytes, checked((int)textureGroupOffset)) == 3000
             && BitConverter.ToUInt16(animationBytes, checked((int)textureGroupOffset) + 8) == 2,
             "UV+flipbook and flipbook-only materials publish native texture animation tracks");
+
+        string flipbookAssetPath = Path.Combine(runtimeMaps, "lease2.tex");
+        byte[] flipbookAsset = File.ReadAllBytes(flipbookAssetPath);
+        MapBuildFingerprint beforeFlipbookChange = MapBuildFingerprint.Create(animatedDefinition);
+        flipbookAsset[^1] ^= 0x01;
+        File.WriteAllBytes(flipbookAssetPath, flipbookAsset);
+        MapBuildFingerprint afterFlipbookChange = MapBuildFingerprint.Create(animatedDefinition);
+        flipbookAsset[^1] ^= 0x01;
+        File.WriteAllBytes(flipbookAssetPath, flipbookAsset);
+        Check(beforeFlipbookChange != afterFlipbookChange,
+            "flipbook asset content participates in the map build fingerprint");
     }
     finally
     {
