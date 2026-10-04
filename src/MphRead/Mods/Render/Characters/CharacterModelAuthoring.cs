@@ -80,33 +80,71 @@ namespace MphRead.Mods.Render.Characters
             File.WriteAllText(Path.Combine(starterRoot, "biped-lod1-entry.json"),
                 JsonSerializer.Serialize(StarterEntry(hunter, CharacterModelPart.Biped,
                     hunterFolder + "/biped_lod1.glb", bipedLod1, lod: 1), Json));
+            File.WriteAllText(Path.Combine(starterRoot, "biped-weighted4-entry.json"),
+                JsonSerializer.Serialize(WeightedStarterEntry(hunter, CharacterModelPart.Biped,
+                    hunterFolder + "/biped_weighted4.glb", biped, lod: 0), Json));
+            File.WriteAllText(Path.Combine(starterRoot, "biped-lod1-weighted4-entry.json"),
+                JsonSerializer.Serialize(WeightedStarterEntry(hunter, CharacterModelPart.Biped,
+                    hunterFolder + "/biped_lod1_weighted4.glb", bipedLod1, lod: 1), Json));
+            File.WriteAllText(Path.Combine(starterRoot, "viewmodel-weighted4-entry.json"),
+                JsonSerializer.Serialize(WeightedStarterEntry(hunter, CharacterModelPart.ViewModel,
+                    hunterFolder + "/viewmodel_weighted4.glb", viewModel, lod: 0), Json));
             File.WriteAllText(Path.Combine(starterRoot, "alternate-form-entry.json"),
                 JsonSerializer.Serialize(StarterEntry(hunter, CharacterModelPart.AlternateForm,
                     hunterFolder + "/altform.glb", alternate, lod: 0), Json));
+            File.WriteAllText(Path.Combine(starterRoot, "alternate-form-weighted4-entry.json"),
+                JsonSerializer.Serialize(WeightedStarterEntry(hunter,
+                    CharacterModelPart.AlternateForm,
+                    hunterFolder + "/altform_weighted4.glb", alternate, lod: 0), Json));
             if (halfturret != null)
             {
                 File.WriteAllText(Path.Combine(starterRoot, "halfturret-entry.json"),
                     JsonSerializer.Serialize(StarterEntry(hunter, CharacterModelPart.Halfturret,
                         hunterFolder + "/halfturret.glb", halfturret, lod: 0), Json));
+                File.WriteAllText(Path.Combine(starterRoot, "halfturret-weighted4-entry.json"),
+                    JsonSerializer.Serialize(WeightedStarterEntry(hunter,
+                        CharacterModelPart.Halfturret,
+                        hunterFolder + "/halfturret_weighted4.glb",
+                        halfturret, lod: 0), Json));
             }
             Directory.CreateDirectory(Path.Combine(starterRoot, hunterFolder));
             File.WriteAllText(Path.Combine(root, "prepare-biped-rigid.py"),
                 CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.Biped, biped,
                     $"starter/{hunterFolder}/biped.glb"));
+            File.WriteAllText(Path.Combine(root, "prepare-biped-weighted4.py"),
+                CharacterModelWeightedBlenderHelper.Generate(
+                    hunter, CharacterModelPart.Biped, biped,
+                    $"starter/{hunterFolder}/biped_weighted4.glb"));
             File.WriteAllText(Path.Combine(root, "prepare-biped-lod1-rigid.py"),
                 CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.Biped, bipedLod1,
                     $"starter/{hunterFolder}/biped_lod1.glb"));
+            File.WriteAllText(Path.Combine(root, "prepare-biped-lod1-weighted4.py"),
+                CharacterModelWeightedBlenderHelper.Generate(
+                    hunter, CharacterModelPart.Biped, bipedLod1,
+                    $"starter/{hunterFolder}/biped_lod1_weighted4.glb"));
             File.WriteAllText(Path.Combine(root, "prepare-viewmodel-rigid.py"),
                 CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.ViewModel, viewModel,
                     $"starter/{hunterFolder}/viewmodel.glb"));
+            File.WriteAllText(Path.Combine(root, "prepare-viewmodel-weighted4.py"),
+                CharacterModelWeightedBlenderHelper.Generate(
+                    hunter, CharacterModelPart.ViewModel, viewModel,
+                    $"starter/{hunterFolder}/viewmodel_weighted4.glb"));
             File.WriteAllText(Path.Combine(root, "prepare-altform-rigid.py"),
                 CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.AlternateForm, alternate,
                     $"starter/{hunterFolder}/altform.glb"));
+            File.WriteAllText(Path.Combine(root, "prepare-altform-weighted4.py"),
+                CharacterModelWeightedBlenderHelper.Generate(
+                    hunter, CharacterModelPart.AlternateForm, alternate,
+                    $"starter/{hunterFolder}/altform_weighted4.glb"));
             if (halfturret != null)
             {
                 File.WriteAllText(Path.Combine(root, "prepare-halfturret-rigid.py"),
                     CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.Halfturret,
                         halfturret, $"starter/{hunterFolder}/halfturret.glb"));
+                File.WriteAllText(Path.Combine(root, "prepare-halfturret-weighted4.py"),
+                    CharacterModelWeightedBlenderHelper.Generate(
+                        hunter, CharacterModelPart.Halfturret, halfturret,
+                        $"starter/{hunterFolder}/halfturret_weighted4.glb"));
             }
             File.WriteAllText(Path.Combine(root, "README.md"),
                 Readme(hunter, biped, bipedLod1, viewModel, alternate, halfturret));
@@ -187,6 +225,41 @@ namespace MphRead.Mods.Render.Characters
             foreach (string name in RigidNodeNames(model))
                 entry.BoneMap[name] = name;
             return entry;
+        }
+
+        private static CharacterModelManifestEntry WeightedStarterEntry(Hunter hunter,
+            CharacterModelPart part, string path, Model model, int lod)
+        {
+            var entry = new CharacterModelManifestEntry
+            {
+                Hunter = hunter.ToString(),
+                Part = part,
+                Lod = lod,
+                Model = path,
+                Skinning = CharacterSkinningMode.Weighted4
+            };
+            foreach (string name in WeightedNodeNames(model))
+                entry.BoneMap[name] = name;
+            return entry;
+        }
+
+        internal static IReadOnlyList<string> WeightedNodeNames(Model model)
+        {
+            IEnumerable<int> ids = model.NodeMatrixIds.Count > 0
+                ? model.NodeMatrixIds.Distinct()
+                : model.Nodes.Select((node, index) => (node, index))
+                    .Where(value => value.node.MeshCount > 0)
+                    .Select(value => value.index);
+            string[] names = ids.Where(index => index >= 0 && index < model.Nodes.Count)
+                .Select(index => model.Nodes[index].Name)
+                .Where(name => !String.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+            if (names.Length == 0 || names.Length > CharacterWeightedModelLoader.MaximumJoints)
+                throw new InvalidDataException(
+                    $"{model.Name} exposes {names.Length} weighted joints; "
+                    + $"Weighted4 supports 1-{CharacterWeightedModelLoader.MaximumJoints}.");
+            return names;
         }
 
         internal static IReadOnlyList<string> RigidNodeNames(Model model)
