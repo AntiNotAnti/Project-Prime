@@ -8926,6 +8926,8 @@ localCenter *= _profileHudScale;
                 return;
             }
 #endif
+            ulong latencyFrame = Mods.Render.LowLatencyController.BeginFrame();
+
             // The pause menu wants the pointer back, and so does the results
             // screen: its hunter picker is something you click, and a grabbed
             // cursor has no position on screen to click with.
@@ -8997,9 +8999,18 @@ localCenter *= _profileHudScale;
             {
                 steps = Mods.Render.FrameTiming.Advance(args.Time);
             }
-            for (int i = 0; i < steps; i++)
+            if (steps > 0)
             {
-                Scene.OnSimulationFrame();
+                Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, Mods.Render.LowLatencyMarker.InputSample);
+                Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, Mods.Render.LowLatencyMarker.SimulationStart);
+                for (int i = 0; i < steps; i++)
+                {
+                    Scene.OnSimulationFrame();
+                }
+                Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, Mods.Render.LowLatencyMarker.SimulationEnd);
             }
             // Start, on a pad, is Escape. Consumed here rather than in the
             // scene because opening the menu is a window operation and the
@@ -9027,6 +9038,7 @@ localCenter *= _profileHudScale;
             }
             if (Mods.Network.ReplayController.IsSeeking)
             {
+                Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
                 return;
             }
 
@@ -9041,9 +9053,12 @@ localCenter *= _profileHudScale;
                 Mods.Input.GamepadInput.CapturePresentationSample();
             }
 
+            Mods.Render.LowLatencyController.Mark(
+                latencyFrame, Mods.Render.LowLatencyMarker.RenderSubmitStart);
             Scene.OnDrawFrame();
             if (!Scene.OnRenderFrame())
             {
+                Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
                 return;
             }
             Mods.Replay.ReplayVideoExporter.AfterSceneDraw(Scene);
@@ -9061,7 +9076,13 @@ localCenter *= _profileHudScale;
             // Before the swap, for the reason the sceneless branch gives.
             Mods.Launcher.Gui.Shell.AfterDraw(this);
 #endif
+            Mods.Render.LowLatencyController.Mark(
+                latencyFrame, Mods.Render.LowLatencyMarker.RenderSubmitEnd);
+            Mods.Render.LowLatencyController.Mark(
+                latencyFrame, Mods.Render.LowLatencyMarker.PresentStart);
             PresentFrame();
+            Mods.Render.LowLatencyController.Mark(
+                latencyFrame, Mods.Render.LowLatencyMarker.PresentEnd);
             Reveal();
             // What the pause menu asked for, done on the thread that owns the
             // window: closing it and changing its border belong here.
