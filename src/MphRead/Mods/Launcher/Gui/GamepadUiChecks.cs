@@ -125,6 +125,13 @@ namespace MphRead.Mods.Launcher.Gui
             offlineView.Launched += (_, plan) => offlinePlan = plan;
             var offlineRoot = new Grid(); offlineRoot.Children.Add(offlineView); offlineRoot.Children.Add(offlineOverlays);
             window.Content = offlineRoot; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            string[] offlineHeadings = offlineView.GetVisualDescendants().OfType<TextBlock>()
+                .Select(block => block.Text ?? "").ToArray();
+            GamepadChecks.Check(offlineHeadings.Contains("MATCH FORMAT")
+                && offlineHeadings.Contains("ARENA")
+                && offlineHeadings.Contains("HUNTER")
+                && offlineHeadings.Contains("TRAINING & ADVENTURE"),
+                "Offline exposes shared Match Arena Deployment setup hierarchy");
             Click(window, ControllerNav.Find(offlineView, "offline.start")!);
             GamepadChecks.Check(offlinePlan is { Kind: LaunchKind.Offline, RoomKey: "MP3 PROVING GROUND" },
                 "Offline launches its selected local arena");
@@ -168,6 +175,12 @@ namespace MphRead.Mods.Launcher.Gui
             GamepadChecks.Check(ControllerNav.Find(customMatch, "custom.create")
                 is { IsEffectivelyVisible: true },
                 "Custom Match exposes Create Lobby");
+            string[] customHeadings = customMatch.GetVisualDescendants().OfType<TextBlock>()
+                .Select(block => block.Text ?? "").ToArray();
+            GamepadChecks.Check(customHeadings.Contains("MATCH FORMAT")
+                && customHeadings.Contains("ARENA")
+                && customHeadings.Contains("HUNTER & HOST"),
+                "Create Lobby exposes shared Match Arena Deployment setup hierarchy");
             Click(window, ControllerNav.Find(customMatch, "custom.back")!);
             GamepadChecks.Check(customClosed == 1,
                 "Custom Match Back accepts a pointer click");
