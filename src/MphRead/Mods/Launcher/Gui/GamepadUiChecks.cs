@@ -17,6 +17,24 @@ namespace MphRead.Mods.Launcher.Gui
         {
             GamepadChecks.Check(GuiLauncher.EnsureSetup(), "headless UI initialization");
 
+            byte[][] uiCues = Enum.GetValues<Mods.Sound.UiFeedbackCue>()
+                .Select(Mods.Sound.UiFeedbackAudio.Build).ToArray();
+            foreach (byte[] cue in uiCues)
+            {
+                GamepadChecks.Check(cue.Length > 44
+                    && cue[0] == (byte)'R' && cue[1] == (byte)'I'
+                    && cue[2] == (byte)'F' && cue[3] == (byte)'F'
+                    && cue[8] == (byte)'W' && cue[9] == (byte)'A'
+                    && cue[10] == (byte)'V' && cue[11] == (byte)'E'
+                    && BitConverter.ToInt32(cue, 24) == 22050
+                    && BitConverter.ToInt16(cue, 22) == 1,
+                    "synthesized UI feedback cue is valid mono PCM WAV");
+            }
+            GamepadChecks.Check(!uiCues[0].SequenceEqual(uiCues[1])
+                && !uiCues[1].SequenceEqual(uiCues[2])
+                && !uiCues[2].SequenceEqual(uiCues[3]),
+                "navigate confirm back and error cues remain distinct");
+
             // Android's real view is short in density-independent points. The
             // readable scale must be capped far enough that the authored
             // 960x600 menu box still fits instead of switching to a stacked
