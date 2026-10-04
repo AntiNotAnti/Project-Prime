@@ -168,6 +168,15 @@ Game/replay/editor checks require local game assets. Export also requires FFmpeg
 The full renderer check and Android `RendererAcceptanceActivity` require no assets.
 Generated shaders are checked using `tools/modern-shaders/check.sh`.
 
+Surface acquisition now follows one explicit policy shared by implementation and
+content-free checks: a transient timeout skips one frame, an outdated surface gets
+one reconfiguration attempt, a lost surface gets one recreation attempt, and a
+second failure is fatal rather than an unbounded recovery loop. Zero-sized or
+unavailable surfaces suspend configuration until a drawable returns. Native
+`-renderfullcheck` coverage additionally exercises zero-size suspend/restore,
+present-mode switching, repeated resize/resource lifetime, device reconstruction,
+idempotent shutdown and renderer reinitialization on the same host window.
+
 Remaining release gates include cross-platform/hardware acceptance, broad combat
 and effect visual parity, sustained lifetime/monitor/fullscreen stress, physical
 Android match acceptance, and performance acceptance. Current Metal
