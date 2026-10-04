@@ -1202,7 +1202,7 @@ namespace MphRead.Droid
                     _requestedFrameRate = -1;
                     return;
                 }
-                float requested = cap == FrameTiming.DisplayRate
+                float requested = cap == FrameTiming.DisplayRate || cap == FrameTiming.Unlimited
                     ? AndroidPerformance.DisplayRefreshRate
                     : Math.Min(cap, AndroidPerformance.DisplayRefreshRate);
                 try
