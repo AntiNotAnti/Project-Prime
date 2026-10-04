@@ -287,7 +287,7 @@ namespace MphRead.Mods.Render.Characters
                 || jsonLength > stream.Length - stream.Position)
                 throw new InvalidDataException("Character GLB has an invalid JSON chunk.");
 
-            byte[] json = new byte[jsonLength];
+            byte[] json = new byte[(int)jsonLength];
             stream.ReadExactly(json);
             using JsonDocument document = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 64 });
             JsonElement root = document.RootElement;
