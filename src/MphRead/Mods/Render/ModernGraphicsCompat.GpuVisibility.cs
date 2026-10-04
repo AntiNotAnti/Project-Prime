@@ -118,14 +118,14 @@ internal sealed unsafe partial class ModernGraphicsCompat
             depthTexture, width, height, historyValid);
     }
 
-    internal static void CommitRetainedGpuVisibilityFrame(
+    internal static bool CaptureRetainedGpuVisibilityHistory(
         Matrix4 projection, Matrix4 view,
-        int depthTexture, int width, int height, bool depthValid)
+        int depthTexture, int width, int height)
     {
         if (_current == null)
-            return;
-        Current.CommitRetainedGpuVisibilityFrameCore(
-            projection, view, depthTexture, width, height, depthValid);
+            return false;
+        return Current.CaptureRetainedGpuVisibilityHistoryCore(
+            projection, view, depthTexture, width, height);
     }
 
     private void PrepareRetainedGpuVisibilityCore(
@@ -260,19 +260,17 @@ internal sealed unsafe partial class ModernGraphicsCompat
 
         bool useHistory = historyValid
             && _gpuVisibilityPreviousMatricesValid
+            && _gpuHiZFullView != 0
             && depthTexture != 0
             && depthTexture == _gpuVisibilityPreviousDepthTexture
             && width == _gpuVisibilityPreviousWidth
-            && height == _gpuVisibilityPreviousHeight;
+            && height == _gpuVisibilityPreviousHeight
+            && width == _gpuHiZWidth
+            && height == _gpuHiZHeight;
 
-        TextureView* hiZView = _whiteView;
-        if (useHistory)
-        {
-            EnsureGpuHiZ(width, height);
-            NativeTexture depth = EnsureTexture(depthTexture);
-            BuildGpuHiZ(depth.SampleView, width, height);
-            hiZView = (TextureView*)_gpuHiZFullView;
-        }
+        TextureView* hiZView = useHistory
+            ? (TextureView*)_gpuHiZFullView
+            : _whiteView;
 
         uint[] uniforms = _gpuVisibilityUniformWords;
         WriteGpuMatrix(uniforms, 0, projection);
@@ -302,22 +300,43 @@ internal sealed unsafe partial class ModernGraphicsCompat
         _gpuVisibilityCandidates += candidateCount;
     }
 
-    private void CommitRetainedGpuVisibilityFrameCore(
+    private bool CaptureRetainedGpuVisibilityHistoryCore(
         Matrix4 projection, Matrix4 view,
-        int depthTexture, int width, int height, bool depthValid)
+        int depthTexture, int width, int height)
     {
-        if (!UseGpuVisibility || !depthValid || depthTexture == 0)
+        if (!UseGpuVisibility || depthTexture == 0
+            || width <= 0 || height <= 0)
         {
             _gpuVisibilityPreviousMatricesValid = false;
             _gpuVisibilityPreviousDepthTexture = 0;
-            return;
+            return false;
         }
-        _gpuVisibilityPreviousProjection = projection;
-        _gpuVisibilityPreviousView = view;
-        _gpuVisibilityPreviousDepthTexture = depthTexture;
-        _gpuVisibilityPreviousWidth = width;
-        _gpuVisibilityPreviousHeight = height;
-        _gpuVisibilityPreviousMatricesValid = true;
+
+        try
+        {
+            EndActiveCorePass();
+            EnsureGpuVisibilityPipelines();
+            EnsureGpuHiZ(width, height);
+            NativeTexture depth = EnsureTexture(depthTexture);
+            BuildGpuHiZ(depth.SampleView, width, height);
+            _gpuVisibilityPreviousProjection = projection;
+            _gpuVisibilityPreviousView = view;
+            _gpuVisibilityPreviousDepthTexture = depthTexture;
+            _gpuVisibilityPreviousWidth = width;
+            _gpuVisibilityPreviousHeight = height;
+            _gpuVisibilityPreviousMatricesValid = true;
+            return true;
+        }
+        catch (Exception ex) when (
+            ex is not OutOfMemoryException and not StackOverflowException)
+        {
+            _gpuVisibilityRefused = true;
+            _gpuVisibilityPreviousMatricesValid = false;
+            _gpuVisibilityPreviousDepthTexture = 0;
+            Console.WriteLine(
+                $"[render] Hi-Z history unavailable; disabling GPU visibility: {ex.Message}");
+            return false;
+        }
     }
 
     private bool TryGpuVisibilityIndirect(
