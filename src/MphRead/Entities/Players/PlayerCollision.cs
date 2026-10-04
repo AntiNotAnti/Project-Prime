@@ -529,15 +529,15 @@ namespace MphRead.Entities
             // native collision path.
         }
 
-        internal static float ModGroundedAltFormLift(
+        internal static float ModGroundedFormLift(
             CollisionVolume currentVolume, CollisionVolume targetVolume)
         {
             // UpdateForm preserves collision-volume center as retail does.
-            // If the target sphere is larger/lower, that can place its bottom
-            // below the floor before the next collision frame (Trace/Sylux are
-            // the obvious cases). Grounded custom rooms may only add the amount
-            // needed to preserve the old bottom; never lower a form that retail
-            // already positions safely.
+            // If the target sphere is larger, that center-preserving shift can
+            // place the target bottom below the supporting floor. Native rooms
+            // let the following collision pass correct that. Custom rooms run a
+            // target-form clearance query first, so preserve the old bottom
+            // explicitly in both morph directions.
             float currentBottom = currentVolume.SpherePosition.Y - currentVolume.SphereRadius;
             float targetBottomAfterCenterShift =
                 currentVolume.SpherePosition.Y - targetVolume.SphereRadius;
@@ -713,6 +713,16 @@ namespace MphRead.Entities
             }
             CollisionVolume targetVolume = PlayerVolumes[(int)Hunter, targetAltForm ? 2 : 0];
             Vector3 targetPosition = Position + _volumeUnxf.SpherePosition - targetVolume.SpherePosition;
+            if (Flags1.TestFlag(PlayerFlags1.Standing))
+            {
+                // Test the same floor-safe target position UpdateForm will use.
+                // Weavel's alt sphere is 0.4 at Y=0.4 while his biped radius is
+                // 0.5; center preservation alone therefore places the biped
+                // bottom 0.1 below a supporting floor and falsely rejects the
+                // unmorph on custom collision.
+                targetPosition = targetPosition.AddY(
+                    ModGroundedFormLift(_volumeUnxf, targetVolume));
+            }
             bool penetrating = FindDeepestPenetration(targetPosition, targetAltForm,
                 out CollisionResult deepest, out bool saturated);
             if (saturated)
