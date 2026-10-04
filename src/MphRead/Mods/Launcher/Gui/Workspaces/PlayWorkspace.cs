@@ -160,7 +160,15 @@ namespace MphRead.Mods.Launcher.Gui
             heroCopy.Children.Add(PrimeChrome.Columns("Auto,Auto,Auto",
                 _quick, create, direct));
             _hero = new PrimeHeroPanel(
-                heroCopy, MapShot.For("MP11 BREAKTHROUGH"), minHeight: 160);
+                heroCopy, MapShot.For("MP11 BREAKTHROUGH"), minHeight: 160)
+            {
+                // The artwork Image has a large intrinsic size. In an Auto grid row
+                // that intrinsic measure can consume the whole workspace and push the
+                // live server browser below the viewport. Keep the cinematic header
+                // intentionally compact so open lobbies remain the primary Play body.
+                Height = 210,
+                MaxHeight = 210
+            };
             root.Children.Add(_hero);
 
             _refresh = new PrimeButton("REFRESH");

@@ -18,10 +18,12 @@ namespace MphRead.Mods.Launcher.Gui
     {
         public const double PressSeconds = 0.075;
         public const double ButtonSeconds = 0.12;
-        public const double PageSeconds = 0.20;
-        public const double ModalInSeconds = 0.20;
-        public const double ModalOutSeconds = 0.14;
-        public const double ScrimSeconds = 0.16;
+        public const double PageSeconds = 0.28;
+        public const double ModalInSeconds = 0.24;
+        public const double ModalOutSeconds = 0.16;
+        public const double ScrimSeconds = 0.18;
+        private const double PageInDistance = 36;
+        private const double PageOutDistance = 16;
 
         public static bool Reduced => Deck.Still || LauncherPrefs.ReduceMotion;
 
@@ -123,7 +125,7 @@ namespace MphRead.Mods.Launcher.Gui
             return handle;
         }
 
-        public static PrimeMotionHandle Enter(Control control, double lift = 6, double seconds = 0.14)
+        public static PrimeMotionHandle Enter(Control control, double lift = 10, double seconds = 0.18)
         {
             double opacity = control.Opacity;
             var original = control.RenderTransform;
@@ -154,7 +156,7 @@ namespace MphRead.Mods.Launcher.Gui
             bool oldHitTest = outgoing.IsHitTestVisible;
 
             var oldMove = new TranslateTransform();
-            var newMove = new TranslateTransform(14, 0);
+            var newMove = new TranslateTransform(PageInDistance, 0);
             outgoing.RenderTransform = oldMove;
             incoming.RenderTransform = newMove;
             incoming.Opacity = 0;
@@ -174,9 +176,9 @@ namespace MphRead.Mods.Launcher.Gui
             return Tween(incoming, PageSeconds, p =>
             {
                 incoming.Opacity = newOpacity * p;
-                newMove.X = 14 * (1 - p);
-                outgoing.Opacity = oldOpacity * (1 - 0.28 * p);
-                oldMove.X = -8 * p;
+                newMove.X = PageInDistance * (1 - p);
+                outgoing.Opacity = oldOpacity * (1 - 0.45 * p);
+                oldMove.X = -PageOutDistance * p;
             }, () =>
             {
                 Restore();
@@ -188,8 +190,8 @@ namespace MphRead.Mods.Launcher.Gui
         {
             double opacity = frame.Opacity;
             var original = frame.RenderTransform;
-            var scale = new ScaleTransform(0.965, 0.965);
-            var move = new TranslateTransform(0, 14);
+            var scale = new ScaleTransform(0.94, 0.94);
+            var move = new TranslateTransform(0, 22);
             var group = new TransformGroup();
             group.Children.Add(scale);
             group.Children.Add(move);
@@ -208,10 +210,10 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 double spring = Spring(p);
                 double settle = Settle(p);
-                double s = 0.965 + (1 - 0.965) * spring;
+                double s = 0.94 + (1 - 0.94) * spring;
                 scale.ScaleX = s;
                 scale.ScaleY = s;
-                move.Y = 14 * (1 - spring);
+                move.Y = 22 * (1 - spring);
                 frame.Opacity = opacity * settle;
             }, () =>
             {

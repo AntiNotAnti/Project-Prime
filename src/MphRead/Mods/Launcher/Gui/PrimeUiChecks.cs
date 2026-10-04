@@ -327,6 +327,59 @@ namespace MphRead.Mods.Launcher.Gui
             overlays.Close();
         }
 
+        private static void CheckWorkspaceTransitionReentry()
+        {
+            bool previousStill = Deck.Still;
+            bool previousReduce = LauncherPrefs.ReduceMotion;
+            Deck.Still = false;
+            LauncherPrefs.ReduceMotion = false;
+            var created = new Dictionary<PrimeRoute, Control>();
+            var host = new PrimeWorkspaceHost(route =>
+            {
+                var panel = new PrimePanel(PrimeChrome.Text(route.ToString()));
+                created[route] = panel;
+                return panel;
+            });
+            var window = new Window
+            {
+                Width = 900,
+                Height = 600,
+                Content = host,
+                ShowInTaskbar = false,
+                Position = new PixelPoint(-4000, -4000),
+                WindowStartupLocation = WindowStartupLocation.Manual
+            };
+            try
+            {
+                window.Show();
+                Drain(window);
+                host.Show(PrimeRoute.News);
+                host.Show(PrimeRoute.Play);
+                // Cancel the active News -> Play transition immediately by
+                // returning to News. This used to leave News parented to the
+                // abandoned transition Grid and throw when it was added again.
+                host.Show(PrimeRoute.News);
+                Check(created[PrimeRoute.News].GetVisualParent() != null,
+                    "rapid tab reentry reparents cached Home without throwing");
+
+                // Force an immediate route change to settle the active transition
+                // and prove neither cached workspace remains owned by an orphan.
+                Deck.Still = true;
+                host.Show(PrimeRoute.Play);
+                Drain(window);
+                Check(created[PrimeRoute.News].GetVisualParent() == null
+                    && ReferenceEquals(host.Content, created[PrimeRoute.Play]),
+                    "settled tab transition releases outgoing cached workspace");
+            }
+            finally
+            {
+                window.Close();
+                host.Dispose();
+                Deck.Still = previousStill;
+                LauncherPrefs.ReduceMotion = previousReduce;
+            }
+        }
+
         public static int Run(string? directory)
         {
             if (!GuiLauncher.EnsureSetup(requireDisplay: false)) return 1;
@@ -357,6 +410,7 @@ namespace MphRead.Mods.Launcher.Gui
                     CheckSavedLobbyLimits();
                     CheckAdvancedRules();
                     CheckInProgressAdmission();
+                    CheckWorkspaceTransitionReentry();
                     var shell = Create();
                     var window = new Window { Width = 1280, Height = 720, Content = shell, ShowInTaskbar = false,
                         Position = new PixelPoint(-4000,-4000), WindowStartupLocation = WindowStartupLocation.Manual };
@@ -505,6 +559,10 @@ namespace MphRead.Mods.Launcher.Gui
                     finally { Mods.Input.GamepadRuntimeConfig.Current = previousRuntime; }
                     var rows = play.GetVisualDescendants().OfType<ServerRow>().ToArray();
                     Check(rows.Length == 2 && rows[0].CanJoin && !rows[1].CanJoin, "full server cannot be joined");
+                    Check(rows.Any(row => row.Bounds.Height > 0)
+                        && rows[0].TranslatePoint(default, play) is { } serverPoint
+                        && serverPoint.Y < play.Bounds.Height,
+                        "Play keeps the live server browser inside the visible workspace");
                     Check(rows[1].CanQueue && rows[1].WaitingCount == 3, "full compatible server exposes advertised queue");
                     var queueDialog = LobbyQueueDialog.ShowAsync(shell.Overlays, "127.0.0.1", 27888);
                     Drain(window);
