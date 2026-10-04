@@ -8927,6 +8927,7 @@ localCenter *= _profileHudScale;
             }
 #endif
             ulong latencyFrame = Mods.Render.LowLatencyController.BeginFrame();
+            Mods.Render.LowLatencyController.WaitForFrame(latencyFrame);
 
             // The pause menu wants the pointer back, and so does the results
             // screen: its hunter picker is something you click, and a grabbed
