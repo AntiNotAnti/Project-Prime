@@ -57,14 +57,15 @@ namespace MphRead.Mods.MapGen
         }
 
         public static Material MakeMaterial(string name, int textureId, int paletteId, RepeatMode xRepeat,
-            RepeatMode yRepeat, bool lighting, ColorRgb diffuse, ColorRgb ambient)
+            RepeatMode yRepeat, bool lighting, ColorRgb diffuse, ColorRgb ambient,
+            int? alpha = null, bool twoSided = false, bool animated = false)
         {
             using var stream = new MemoryStream();
             using var writer = new BinaryWriter(stream);
             WriteFixedString(writer, name, 64);
             writer.Write((byte)(lighting ? 1 : 0));
-            writer.Write((byte)CullingMode.Back);
-            writer.Write((byte)31); // Alpha, fully opaque
+            writer.Write((byte)(twoSided ? CullingMode.Neither : CullingMode.Back));
+            writer.Write((byte)Math.Clamp(alpha ?? 31, 0, 31));
             writer.Write((byte)0); // Wireframe
             writer.Write((short)paletteId);
             writer.Write((short)textureId);
@@ -78,7 +79,7 @@ namespace MphRead.Mods.MapGen
             writer.Write((byte)RenderMode.Normal);
             writer.Write((byte)0); // AnimationFlags
             writer.Write((ushort)0); // Padding5A
-            writer.Write((uint)TexgenMode.None);
+            writer.Write((uint)(animated ? TexgenMode.Texcoord : TexgenMode.None));
             writer.Write((ushort)0); // TexcoordAnimationId
             writer.Write((ushort)0); // Padding62
             writer.Write(0u); // MatrixId
@@ -102,14 +103,15 @@ namespace MphRead.Mods.MapGen
         /// room models do not carry the source room's material/texture animation tables.
         /// A texture/palette pair of -1 is valid for native flat-color materials.
         /// </summary>
-        public static Material MakeSourceMaterial(string name, Material source, int textureId, int paletteId)
+        public static Material MakeSourceMaterial(string name, Material source, int textureId, int paletteId,
+            int? alpha = null, bool twoSided = false, bool animated = false)
         {
             using var stream = new MemoryStream();
             using var writer = new BinaryWriter(stream);
             WriteFixedString(writer, name, 64);
             writer.Write(source.Lighting);
-            writer.Write((byte)source.Culling);
-            writer.Write(source.Alpha);
+            writer.Write((byte)(twoSided ? CullingMode.Neither : source.Culling));
+            writer.Write((byte)(alpha.HasValue ? Math.Clamp(alpha.Value, 0, 31) : source.Alpha));
             writer.Write(source.Wireframe);
             writer.Write((short)paletteId);
             writer.Write((short)textureId);
@@ -123,7 +125,7 @@ namespace MphRead.Mods.MapGen
             writer.Write((byte)source.RenderMode);
             writer.Write((byte)0); // AnimationFlags; source animation tables are not packed.
             writer.Write((ushort)0); // Padding5A
-            writer.Write((uint)source.TexgenMode);
+            writer.Write((uint)(animated ? TexgenMode.Texcoord : source.TexgenMode));
             writer.Write((ushort)0); // TexcoordAnimationId
             writer.Write((ushort)0); // Padding62
             writer.Write(0u); // MatrixId is recomputed by Repack.PackModel.

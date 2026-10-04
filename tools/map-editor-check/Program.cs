@@ -94,6 +94,24 @@ try
         runtimeProject.Definition.Assets.Add(new() { Path = "lease.tex" });
         foreach (var material in runtimeProject.Definition.Materials) material.Texture = "lease.tex";
         MapProjectSerializer.Save(runtimeProject, Path.Combine(runtimeMaps, "lease.json"));
+
+        // CustomRooms keeps a fixed runtime-ID snapshot once registration starts.
+        // Put both fixtures on disk before the first reload so this test exercises
+        // the same immutable snapshot behavior as the real game.
+        var animatedProject = MapTemplates.Create("ANIMATED MATERIAL CHECK", "basic-ffa");
+        animatedProject.Definition.Assets.Add(new() { Path = "lease.tex" });
+        foreach (var material in animatedProject.Definition.Materials) material.Texture = "lease.tex";
+        var animatedMaterial = animatedProject.Definition.Materials[0];
+        animatedMaterial.Alpha = 22;
+        animatedMaterial.TwoSided = true;
+        animatedMaterial.Animation = new()
+        {
+            UvScroll = new[] { 0f, -0.8f },
+            LoopFrames = 3000,
+            PhaseFrames = 15
+        };
+        MapProjectSerializer.Save(animatedProject, Path.Combine(runtimeMaps, "animated.json"));
+
         CustomRooms.MapDirectory = runtimeMaps;
         CustomRooms.UserMapDirectory = Path.Combine(root, "user-maps");
         CustomRooms.Reload();
@@ -109,6 +127,26 @@ try
         await Task.Run(() => CustomRooms.GenerateMissing(runtimeDefinition.Name))
             .WaitAsync(TimeSpan.FromSeconds(15));
         Check(!CustomRooms.NeedsGenerating(runtimeDefinition), "runtime repairs missing output from cache");
+        Check(new FileInfo(CustomRooms.OutputsFor(runtimeDefinition).Animation).Length == 24,
+            "static map preserves the legacy empty animation payload");
+
+        var animatedValidation = MapValidator.Validate(animatedProject.Definition, checkSources: false);
+        Check(!animatedValidation.Diagnostics.Any(d => d.Severity == MapDiagnosticSeverity.Error),
+            "valid animated material passes authoring validation");
+        animatedMaterial.Animation.UvScroll = new[] { 0.013f, 0f };
+        var seamValidation = MapValidator.Validate(animatedProject.Definition, checkSources: false);
+        Check(seamValidation.Diagnostics.Any(d => d.Message.Contains("whole texture tiles", StringComparison.OrdinalIgnoreCase)),
+            "non-seamless animated material loop is rejected");
+        animatedMaterial.Animation.UvScroll = new[] { 0f, -0.8f };
+
+        var animatedDefinition = CustomRooms.Definitions.Single(d => d.Name == "ANIMATED MATERIAL CHECK");
+        CustomRooms.GenerateMissing(animatedDefinition.Name);
+        string animationPath = CustomRooms.OutputsFor(animatedDefinition).Animation;
+        byte[] animationBytes = File.ReadAllBytes(animationPath);
+        Check(animationBytes.Length > 24 && BitConverter.ToUInt16(animationBytes, 20) == 1,
+            "animated map publishes a native texcoord animation group");
+        Check(BitConverter.ToUInt32(animationBytes, 36) > 0,
+            "native animation offset table points at the texcoord group");
     }
     finally
     {

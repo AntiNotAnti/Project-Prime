@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 using MphRead.Mods.MapGen;
 using MphRead.Mods.MapEditor;
 using MphRead.Mods.Render;
@@ -143,6 +144,131 @@ internal sealed partial class MapStudioScreen
             _materialPreviewCache[cacheKey] = preview;
         }
         panel.Children.Add(new Image { Source = preview.Bitmap, Width = 96, Height = 96 });
+    }
+
+
+    private sealed class MaterialAnimationPreviewHandle
+    {
+        internal DispatcherTimer Timer { get; }
+        internal Bitmap[] Frames { get; }
+        internal MaterialAnimationPreviewHandle(DispatcherTimer timer, Bitmap[] frames)
+        { Timer = timer; Frames = frames; }
+    }
+
+    private readonly System.Collections.Generic.List<MaterialAnimationPreviewHandle> _materialAnimationPreviews = new();
+
+    private void ClearAnimatedMaterialPreviews()
+    {
+        foreach (MaterialAnimationPreviewHandle preview in _materialAnimationPreviews)
+        {
+            preview.Timer.Stop();
+            foreach (Bitmap frame in preview.Frames) frame.Dispose();
+        }
+        _materialAnimationPreviews.Clear();
+    }
+
+    private void AddAnimatedMaterialPreview(StackPanel panel, MapDefinition definition, MapMaterial material)
+    {
+        if (material.Animation == null) return;
+        const int frameCount = 20;
+        const int nativeFramesPerPreviewStep = 3;
+        var frames = new Bitmap[frameCount];
+        for (int i = 0; i < frames.Length; i++)
+            frames[i] = MapMaterialPreview.Create(definition, material, i * nativeFramesPerPreviewStep).Bitmap;
+        var image = new Image { Source = frames[0], Width = 96, Height = 96, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left };
+        panel.Children.Add(Text("LIVE UV PREVIEW"));
+        panel.Children.Add(image);
+        int frame = 0;
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+        timer.Tick += (_, _) =>
+        {
+            frame = (frame + 1) % frames.Length;
+            image.Source = frames[frame];
+        };
+        timer.Start();
+        _materialAnimationPreviews.Add(new MaterialAnimationPreviewHandle(timer, frames));
+    }
+
+    private void AnimatedMaterialControls(StackPanel panel, MapDefinition definition, MapMaterial material, int materialIndex)
+    {
+        panel.Children.Add(Text("ANIMATED MATERIAL"));
+        panel.Children.Add(Text("UV speeds are texture tiles per second. Loop endpoints must land on whole tiles so native MPH wrapping stays seamless."));
+
+        var enabled = new CheckBox { Content = "Animate UVs", IsChecked = material.Animation != null };
+        var twoSided = new CheckBox { Content = "Two-sided surface", IsChecked = material.TwoSided };
+        var alpha = new TextBox { Text = material.Alpha?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "", PlaceholderText = "Alpha 0–31 · blank = inherit/default" };
+        float[] authoredScroll = material.Animation?.UvScroll is { Length: 2 } values ? values : new float[2];
+        var scrollX = new TextBox { Text = authoredScroll[0].ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Horizontal tiles/sec" };
+        var scrollY = new TextBox { Text = authoredScroll[1].ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Vertical tiles/sec" };
+        var loop = new TextBox { Text = (material.Animation?.LoopFrames ?? 3000).ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Loop frames · 30–6000" };
+        var phase = new TextBox { Text = (material.Animation?.PhaseFrames ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Phase frames" };
+        panel.Children.Add(enabled);
+        panel.Children.Add(twoSided);
+        panel.Children.Add(alpha);
+        panel.Children.Add(Text("Horizontal / vertical scroll"));
+        panel.Children.Add(scrollX);
+        panel.Children.Add(scrollY);
+        panel.Children.Add(Text("Loop / phase · native 30 Hz frames"));
+        panel.Children.Add(loop);
+        panel.Children.Add(phase);
+
+        string[] presets = { "Still Water", "Slow Water", "Waterfall", "Lava", "Energy Flow", "Conveyor" };
+        var preset = new ComboBox { ItemsSource = presets, SelectedIndex = 0 };
+        panel.Children.Add(Text("Preset"));
+        panel.Children.Add(preset);
+        AddButton(panel, "Load preset", () =>
+        {
+            (float x, float y, bool sides, int? opacity) = (preset.SelectedItem as string) switch
+            {
+                "Slow Water" => (0.03f, 0.01f, true, 26),
+                "Waterfall" => (0f, -0.8f, true, 22),
+                "Lava" => (0.05f, 0.02f, false, 31),
+                "Energy Flow" => (0.6f, 0f, true, 24),
+                "Conveyor" => (1f, 0f, false, 31),
+                _ => (0.04f, 0.02f, true, 24)
+            };
+            enabled.IsChecked = true;
+            scrollX.Text = x.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            scrollY.Text = y.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            loop.Text = "3000";
+            phase.Text = "0";
+            twoSided.IsChecked = sides;
+            alpha.Text = opacity?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
+        });
+
+        AddButton(panel, "Apply animation & surface", () =>
+        {
+            if (_document == null) return;
+            try
+            {
+                int? opacity = String.IsNullOrWhiteSpace(alpha.Text) ? null
+                    : int.Parse(alpha.Text!, System.Globalization.CultureInfo.InvariantCulture);
+                MapMaterialAnimation? animation = null;
+                if (enabled.IsChecked == true)
+                {
+                    animation = new MapMaterialAnimation
+                    {
+                        UvScroll = new[] { Number(scrollX.Text ?? "0"), Number(scrollY.Text ?? "0") },
+                        LoopFrames = int.Parse(loop.Text ?? "", System.Globalization.CultureInfo.InvariantCulture),
+                        PhaseFrames = int.Parse(phase.Text ?? "", System.Globalization.CultureInfo.InvariantCulture)
+                    };
+                }
+                _document.EditMaterial(materialIndex, value =>
+                {
+                    value.Alpha = opacity;
+                    value.TwoSided = twoSided.IsChecked == true;
+                    value.Animation = animation;
+                });
+                ClearEnhancedPreviews();
+                _viewport?.RefreshMaterialPreview();
+                _status.Text = animation == null ? "Material animation disabled." : "Animated material settings applied.";
+                _ = Validate();
+                MaterialInspector();
+            }
+            catch (Exception ex) { Failure(ex); }
+        });
+
+        AddAnimatedMaterialPreview(panel, definition, material);
     }
 
     private static MaterialImage? Image(ResolvedMaterial? material, string channel) => channel switch

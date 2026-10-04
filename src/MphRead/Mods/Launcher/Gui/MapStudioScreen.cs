@@ -490,6 +490,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
         private void DisposePreviewCaches()
         {
+            ClearAnimatedMaterialPreviews();
             foreach(var bitmap in _thumbnailCache.Values)bitmap.Dispose();
             foreach(var preview in _materialPreviewCache.Values)preview.Bitmap.Dispose();
             _thumbnailCache.Clear();_materialPreviewCache.Clear();
@@ -507,7 +508,10 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 catch(Exception){ }
             }
-            return $"{definition.SourcePath}|{definition.BundlePath}|{definition.TextureSource}|{material.Texture}|{material.Albedo}|{material.Normal}|{material.SpecularRoughness}|{material.Emissive}|{material.SourceMaterial}|{material.TexScale:R}{stamp}";
+            string animation = material.Animation is { } motion
+                ? $"|uv:{String.Join(",", motion.UvScroll ?? Array.Empty<float>())}|loop:{motion.LoopFrames}|phase:{motion.PhaseFrames}"
+                : "|uv:off";
+            return $"{definition.SourcePath}|{definition.BundlePath}|{definition.TextureSource}|{material.Texture}|{material.Albedo}|{material.Normal}|{material.SpecularRoughness}|{material.Emissive}|{material.SourceMaterial}|{material.TexScale:R}|alpha:{material.Alpha}|two:{material.TwoSided}{animation}{stamp}";
         }
         internal void ShowStatus(string message)=>_status.Text=message;
         private static TextBlock Text(string text)=>new(){Text=text,Foreground=GuiTheme.TextBrush,TextWrapping=TextWrapping.Wrap};
@@ -1992,6 +1996,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void MaterialInspector()
         {
+            ClearAnimatedMaterialPreviews();
             _inspector.Children.Clear();if(_document==null)return;
             _inspector.Children.Add(Text("MATERIAL BROWSER"));
             FaceUvControls(_inspector);
@@ -2205,6 +2210,7 @@ namespace MphRead.Mods.Launcher.Gui
                     }
                     catch(Exception ex){panel.Children.Add(Text("Source materials unavailable: "+ex.Message));}
                 }
+                AnimatedMaterialControls(panel, definition, m, index);
                 EnhancedMaterialControls(panel, definition, m);
                 _inspector.Children.Add(panel);
                 panels.Add((panel,$"{index} {m.Name} {m.Texture} {m.SourceMaterial}"));

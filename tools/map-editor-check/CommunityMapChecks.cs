@@ -29,10 +29,12 @@ internal static class CommunityMapChecks
         Guid id = Guid.NewGuid();
         string? resumablePath = null, resumableHash = null;
         long resumableOffset = 0;
-        string PackageBytes(string version, string name, int? projectLength = null, string projectEntry = "project.json")
+        string PackageBytes(string version, string name, int? projectLength = null, string projectEntry = "project.json",
+            Action<MapDefinition>? configure = null)
         {
             string path = Path.Combine(root, Guid.NewGuid().ToString("N") + ".ppmap");
             var definition = new MapDefinition { FormatVersion = 2, MapId = id, Name = name, Version = version, Author = "Fixture" };
+            configure?.Invoke(definition);
             byte[] serialized = Encoding.UTF8.GetBytes(definition.Serialize());
             int length = projectLength ?? serialized.Length;
             if (length < serialized.Length) throw new ArgumentOutOfRangeException(nameof(projectLength));
@@ -76,6 +78,30 @@ internal static class CommunityMapChecks
         }
         try
         {
+            string animatedPackage = PackageBytes("animated-roundtrip", "ANIMATED_PACKAGE", configure: definition =>
+            {
+                definition.Materials.Add(new MapMaterial
+                {
+                    Name = "water",
+                    SourceMaterial = 0,
+                    Alpha = 22,
+                    TwoSided = true,
+                    Animation = new MapMaterialAnimation
+                    {
+                        UvScroll = new[] { 0f, -0.8f },
+                        LoopFrames = 3000,
+                        PhaseFrames = 15
+                    }
+                });
+            });
+            MapDefinition animatedRoundTrip = MapDefinition.Load(animatedPackage);
+            var animatedMaterial = animatedRoundTrip.Materials.Single();
+            check(animatedMaterial.Alpha == 22 && animatedMaterial.TwoSided
+                && animatedMaterial.Animation?.UvScroll.SequenceEqual(new[] { 0f, -0.8f }) == true
+                && animatedMaterial.Animation.LoopFrames == 3000
+                && animatedMaterial.Animation.PhaseFrames == 15,
+                "animated material metadata survives editable .ppmap package roundtrip");
+
             string catalogFixture = CatalogOnlyFixture();
             string catalogProject = MapPackageReader.ReadProjectForCatalog(catalogFixture);
             check(catalogProject.Contains("CATALOG_FAST_PATH", StringComparison.Ordinal),
