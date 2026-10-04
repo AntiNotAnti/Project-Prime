@@ -221,6 +221,7 @@ jobs:
         run: |
           dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -renderbackendcheck
           dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -rendergraphcheck
+          dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -charactermodelcheck
   map-editor-checks:
     name: map editor regressions (${{ matrix.os }})
     needs: assets
