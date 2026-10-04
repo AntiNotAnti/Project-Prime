@@ -1056,6 +1056,7 @@ namespace MphRead.Mods.Launcher.Gui
         private void ShowPreview()
         {
             _preview.Source = null;
+            _hero.SetArt(null);
             _bitmap?.Dispose();
             _bitmap = null;
             if (_previewPaths.Length == 0)
