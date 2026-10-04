@@ -662,9 +662,10 @@ namespace MphRead.Mods.Launcher.Gui
                 PrimeChrome.Title("RECENT ACTIVITY"));
             if (_snapshot.Matches.Count == 0)
             {
-                recentMatches.Children.Add(PrimeChrome.Text(
-                    "No accepted matches yet. Complete an eligible online match to begin your career record.",
-                    13, PrimeTheme.TextSecondaryBrush));
+                recentMatches.Children.Add(new PrimeStatePanel(
+                    PrimeStateKind.Empty,
+                    "NO ACCEPTED MATCHES YET",
+                    "Complete an eligible online match to begin your authoritative career record."));
             }
             foreach (HunterLicenseMatch match in _snapshot.Matches.Take(4))
             {
@@ -698,9 +699,10 @@ namespace MphRead.Mods.Launcher.Gui
 
             if (recent.Length == 0)
             {
-                stack.Children.Add(PrimeChrome.Text(
-                    "No accepted matches are available for a recent-form sample yet.",
-                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+                stack.Children.Add(new PrimeStatePanel(
+                    PrimeStateKind.Empty,
+                    "RECENT FORM UNAVAILABLE",
+                    "Five-match form appears after accepted matches reach the Hunter License."));
                 return new PrimePanel(stack, raised: true) { Padding = new Thickness(12) };
             }
 
@@ -1074,29 +1076,8 @@ namespace MphRead.Mods.Launcher.Gui
             Content = content
         };
 
-        private static Border Empty(string title, string detail) => new()
-        {
-            Background = HubTheme.PanelBrush,
-            BorderBrush = HubTheme.EdgeBrush,
-            BorderThickness = new Thickness(1),
-            Padding = new Thickness(20),
-            Child = new StackPanel
-            {
-                Spacing = 5,
-                Children =
-                {
-                    HubChrome.Kicker(title, HubTheme.WarmBrush),
-                    new TextBlock
-                    {
-                        Text = detail,
-                        FontFamily = HubTheme.Ui,
-                        FontSize = 10,
-                        Foreground = HubTheme.TextDimBrush,
-                        TextWrapping = TextWrapping.Wrap
-                    }
-                }
-            }
-        };
+        private static PrimeStatePanel Empty(string title, string detail)
+            => new(PrimeStateKind.Empty, title, detail);
 
         private static string HunterId(string id)
         {
