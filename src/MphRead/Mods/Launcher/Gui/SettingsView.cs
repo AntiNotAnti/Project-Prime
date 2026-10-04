@@ -713,6 +713,8 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 if (String.Equals(_sections[i].Name, name, StringComparison.OrdinalIgnoreCase))
                 {
+                    if (_shell && AdvancedSettingSections.Contains(name))
+                        SetAdvancedSettings(true);
                     _tabs.Index = i;
                     ShowPage(i);
                     if (String.Equals(name, "Audio", StringComparison.OrdinalIgnoreCase))
@@ -960,7 +962,15 @@ namespace MphRead.Mods.Launcher.Gui
             string section = _sections[_activeSectionIndex].Name;
             _draft.Reset(_sections[_activeSectionIndex].Page);
             if (String.Equals(section, "Controls", StringComparison.OrdinalIgnoreCase))
+            {
                 _gamepadSettings.Reload();
+                foreach (KeyRow row in _sections[_activeSectionIndex].Page
+                    .GetLogicalDescendants().OfType<KeyRow>())
+                    row.InvalidateVisual();
+                foreach (PadRow row in _sections[_activeSectionIndex].Page
+                    .GetLogicalDescendants().OfType<PadRow>())
+                    row.InvalidateVisual();
+            }
             if (String.Equals(section, "Display", StringComparison.OrdinalIgnoreCase))
             {
                 _hudDraft = null;
