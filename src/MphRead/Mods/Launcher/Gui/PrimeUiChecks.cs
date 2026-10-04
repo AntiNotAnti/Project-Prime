@@ -454,6 +454,21 @@ namespace MphRead.Mods.Launcher.Gui
                     Check(settings.GetVisualDescendants().OfType<TextBlock>().Any(block =>
                             block.Text?.Contains("graphics backend", StringComparison.OrdinalIgnoreCase) == true),
                         "Settings search focuses a result and surfaces per-setting help");
+                    var renderer = settings.GetVisualDescendants().OfType<ChoiceRow>()
+                        .First(row => row.IsEffectivelyVisible && row.Label == "Renderer");
+                    int rendererBefore = renderer.Index;
+                    renderer.Index = rendererBefore == 0 ? 1 : 0;
+                    Drain(window);
+                    if (renderer.Index != rendererBefore)
+                    {
+                        Check(settings.GetVisualDescendants().OfType<TextBlock>().Any(block =>
+                                block.Text?.Contains("RENDERER REQUIRES RESTART", StringComparison.Ordinal) == true),
+                            "renderer edit surfaces restart-required draft state");
+                        var graphicsReset = ControllerNav.Find(settings, "settings.category.reset")!;
+                        graphicsReset.Focus(); FocusNavigator.Key(graphicsReset, Key.Enter); Drain(window);
+                        Check(renderer.Index == rendererBefore,
+                            "Graphics category reset restores renderer selection");
+                    }
 
                     settings.ShowSection("Display"); Drain(window);
                     CheckTeamCycling();
