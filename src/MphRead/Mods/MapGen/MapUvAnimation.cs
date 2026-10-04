@@ -66,7 +66,7 @@ namespace MphRead.Mods.MapGen
 
         internal static bool IsFlipbookSeamless(MapMaterialAnimation animation)
         {
-            int imageCount = 1 + animation.FlipbookFrames.Count;
+            int imageCount = 1 + (animation.FlipbookFrames?.Count ?? 0);
             if (imageCount <= 1) return true;
             if (animation.FlipbookHoldFrames <= 0) return false;
             int cycle = imageCount * animation.FlipbookHoldFrames;
@@ -140,7 +140,7 @@ namespace MphRead.Mods.MapGen
             long total = 0;
             foreach (MapMaterial material in materials)
             {
-                if (material.Animation?.FlipbookFrames.Count > 0)
+                if (material.Animation?.FlipbookFrames?.Count > 0)
                 {
                     total += groupFrames;
                     if (total > Int32.MaxValue) return Int32.MaxValue;
@@ -205,12 +205,12 @@ namespace MphRead.Mods.MapGen
             {
                 MapMaterial material = materials[materialId];
                 MapMaterialAnimation? animation = material.Animation;
-                if (animation?.FlipbookFrames.Count is not > 0) continue;
+                if (animation?.FlipbookFrames?.Count is not > 0) continue;
                 if (flipbooks == null || !flipbooks.TryGetValue(material.Name, out MapFlipbookBinding binding))
                     throw new MapAuthoringException("FP-MAP-001",
                         $"Flipbook texture frames were not packed for material {material.Name}.");
                 if (binding.TextureIds.Length != binding.PaletteIds.Length
-                    || binding.TextureIds.Length != animation.FlipbookFrames.Count + 1)
+                    || binding.TextureIds.Length != animation.FlipbookFrames!.Count + 1)
                 {
                     throw new MapAuthoringException("FP-MAP-001",
                         $"Flipbook texture frame mapping is invalid for material {material.Name}.");
