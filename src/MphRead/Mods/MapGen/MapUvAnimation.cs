@@ -113,6 +113,7 @@ namespace MphRead.Mods.MapGen
             long total = 0;
             foreach (MapMaterial material in materials)
             {
+                if (!HasUvAnimation(material)) continue;
                 MapMaterialAnimation? animation = material.Animation;
                 if (animation?.UvScalePulse is not { Length: 2 }) continue;
                 total += animation.UvScalePulse[0] == 0 ? 1 : groupFrames;
@@ -127,6 +128,7 @@ namespace MphRead.Mods.MapGen
             long total = 0;
             foreach (MapMaterial material in materials)
             {
+                if (!HasUvAnimation(material)) continue;
                 MapMaterialAnimation? animation = material.Animation;
                 if (animation == null) continue;
                 total += animation.UvRotationDegreesPerSecond == 0 ? 1 : groupFrames;
@@ -140,6 +142,7 @@ namespace MphRead.Mods.MapGen
             long total = 0;
             foreach (MapMaterial material in materials)
             {
+                if (!HasUvAnimation(material)) continue;
                 MapMaterialAnimation? animation = material.Animation;
                 if (animation?.UvScroll is not { Length: 2 }) continue;
                 total += animation.UvScroll[0] == 0 ? 1 : groupFrames;
