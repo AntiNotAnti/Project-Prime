@@ -107,6 +107,9 @@ try
         animatedMaterial.Animation = new()
         {
             UvScroll = new[] { 0f, -0.8f },
+            UvRotationDegreesPerSecond = 180f,
+            UvScale = new[] { 1f, 1f },
+            UvScalePulse = new[] { 0.08f, 0.08f },
             LoopFrames = 3000,
             PhaseFrames = 15
         };
@@ -138,6 +141,11 @@ try
         Check(seamValidation.Diagnostics.Any(d => d.Message.Contains("whole texture tiles", StringComparison.OrdinalIgnoreCase)),
             "non-seamless animated material loop is rejected");
         animatedMaterial.Animation.UvScroll = new[] { 0f, -0.8f };
+        animatedMaterial.Animation.UvRotationDegreesPerSecond = 1f;
+        var rotationValidation = MapValidator.Validate(animatedProject.Definition, checkSources: false);
+        Check(rotationValidation.Diagnostics.Any(d => d.Message.Contains("whole turn", StringComparison.OrdinalIgnoreCase)),
+            "non-seamless UV rotation loop is rejected");
+        animatedMaterial.Animation.UvRotationDegreesPerSecond = 180f;
 
         var animatedDefinition = CustomRooms.Definitions.Single(d => d.Name == "ANIMATED MATERIAL CHECK");
         CustomRooms.GenerateMissing(animatedDefinition.Name);
@@ -147,6 +155,13 @@ try
             "animated map publishes a native texcoord animation group");
         Check(BitConverter.ToUInt32(animationBytes, 36) > 0,
             "native animation offset table points at the texcoord group");
+        uint scaleOffset = BitConverter.ToUInt32(animationBytes, 48);
+        uint rotationOffset = BitConverter.ToUInt32(animationBytes, 52);
+        uint translationOffset = BitConverter.ToUInt32(animationBytes, 56);
+        Check(rotationOffset - scaleOffset > sizeof(int),
+            "pulsed UV scale publishes per-frame native scale LUT data");
+        Check(translationOffset - rotationOffset > sizeof(ushort),
+            "UV rotation publishes per-frame native rotation LUT data");
     }
     finally
     {
