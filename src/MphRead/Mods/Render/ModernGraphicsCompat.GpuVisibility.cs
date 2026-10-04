@@ -16,7 +16,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
     // The CPU portal walk remains authoritative. This compute stage receives
     // only room packets that already survived portal/frustum traversal and may
     // conservatively reject more work with current-frustum and temporal Hi-Z.
-    private const int GpuVisibilityCandidateWords = 12; // 48 bytes
+    private const int GpuVisibilityCandidateWords = 16; // 64 bytes
     private const int GpuVisibilityUniformWords = 72;   // 288 bytes
     private const float GpuVisibilityDepthBias = 0.0025f;
     private const float GpuVisibilityMotionPixels = 2.0f;
@@ -221,8 +221,22 @@ internal sealed unsafe partial class ModernGraphicsCompat
                 checked((uint)geometry.Triangles.Length);
             _gpuVisibilityCandidateWords[at + 9] =
                 checked((uint)packet.Sequence);
-            _gpuVisibilityCandidateWords[at + 10] = 0;
-            _gpuVisibilityCandidateWords[at + 11] = 0;
+            if (TryPrepareRetainedMultiDrawCandidate(
+                geometry, out uint firstIndex, out int baseVertex))
+            {
+                _gpuVisibilityCandidateWords[at + 10] = firstIndex;
+                _gpuVisibilityCandidateWords[at + 11] =
+                    unchecked((uint)baseVertex);
+            }
+            else
+            {
+                _gpuVisibilityCandidateWords[at + 10] = 0;
+                _gpuVisibilityCandidateWords[at + 11] = 0;
+            }
+            _gpuVisibilityCandidateWords[at + 12] = 0;
+            _gpuVisibilityCandidateWords[at + 13] = 0;
+            _gpuVisibilityCandidateWords[at + 14] = 0;
+            _gpuVisibilityCandidateWords[at + 15] = 0;
             _gpuVisibilitySlots[item] = candidate;
             candidate++;
         }
@@ -834,8 +848,12 @@ struct Candidate {
     bounds_max: vec4<f32>,
     index_count: u32,
     packet_id: u32,
+    first_index: u32,
+    base_vertex: i32,
+    first_instance: u32,
     pad0: u32,
     pad1: u32,
+    pad2: u32,
 };
 
 struct DrawIndexedArgs {
@@ -906,9 +924,9 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     let c = candidates[id.x];
     draw_args[id.x].index_count = c.index_count;
     draw_args[id.x].instance_count = 0u;
-    draw_args[id.x].first_index = 0u;
-    draw_args[id.x].base_vertex = 0;
-    draw_args[id.x].first_instance = 0u;
+    draw_args[id.x].first_index = c.first_index;
+    draw_args[id.x].base_vertex = c.base_vertex;
+    draw_args[id.x].first_instance = c.first_instance;
 
     var left = 0u;
     var right = 0u;
