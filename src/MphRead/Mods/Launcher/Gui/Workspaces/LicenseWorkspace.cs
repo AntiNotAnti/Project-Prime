@@ -624,10 +624,13 @@ namespace MphRead.Mods.Launcher.Gui
                 raised: true)
             { Padding = new Thickness(14, 12) };
 
+            bool compactOverview = Deck.Phone;
             var metrics = new Grid
             {
-                ColumnDefinitions = new("*,*,*,*"),
-                ColumnSpacing = 10
+                ColumnDefinitions = compactOverview ? new("*,*") : new("*,*,*,*"),
+                RowDefinitions = compactOverview ? new("Auto,Auto") : new("*"),
+                ColumnSpacing = 10,
+                RowSpacing = 10
             };
             Control[] cards =
             {
@@ -638,7 +641,8 @@ namespace MphRead.Mods.Launcher.Gui
             };
             for (int i = 0; i < cards.Length; i++)
             {
-                Grid.SetColumn(cards[i], i);
+                Grid.SetColumn(cards[i], compactOverview ? i % 2 : i);
+                Grid.SetRow(cards[i], compactOverview ? i / 2 : 0);
                 metrics.Children.Add(cards[i]);
             }
 
@@ -681,9 +685,11 @@ namespace MphRead.Mods.Launcher.Gui
                         10.5, PrimeTheme.TextSecondaryBrush, data: true))));
             }
 
-            var lower = PrimeChrome.Columns("0.85*,1.15*",
-                new PrimePanel(telemetry),
-                new PrimePanel(recentMatches));
+            Control lower = compactOverview
+                ? PrimeChrome.Stack(new PrimePanel(telemetry), new PrimePanel(recentMatches))
+                : PrimeChrome.Columns("0.85*,1.15*",
+                    new PrimePanel(telemetry),
+                    new PrimePanel(recentMatches));
 
             var root = PrimeChrome.Stack(careerHeader, metrics, recent, lower);
             root.Spacing = 12;
