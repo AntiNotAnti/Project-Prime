@@ -24,8 +24,22 @@ namespace MphRead.Mods.Launcher.Gui
         public event EventHandler? Closed;
         public event EventHandler<MapDefinition>? PlayRequested;
         public event EventHandler<MapDefinition>? HostRequested;
-        private readonly Grid _root = new() { RowDefinitions=new("Auto,Auto,Auto,*,0,Auto"), Margin=new Thickness(16) };
+        private readonly Grid _root = new()
+        {
+            RowDefinitions = new("Auto,Auto,Auto,*,0,Auto"),
+            RowSpacing = 8,
+            Margin = new Thickness(18, 14, 18, 16)
+        };
         private readonly Panel _viewportHost = new();
+        private readonly TextBlock _projectTitle = PrimeChrome.Title("MAP STUDIO");
+        private readonly TextBlock _projectState = PrimeChrome.Eyebrow("NO PROJECT");
+        private readonly TextBlock _selectionState = PrimeChrome.Text(
+            "0 SELECTED", PrimeTypography.DataSmall, PrimeTheme.TextSecondaryBrush, data: true);
+        private readonly TextBlock _inspectorTitle = PrimeChrome.Title("INSPECTOR");
+        private readonly PrimeButton _studioSave;
+        private readonly PrimeButton _studioValidate;
+        private readonly PrimeButton _studioBuild;
+        private readonly PrimeButton _studioPlaytest;
         private readonly List<Control> _editingControls = new();
         private readonly Dictionary<string,Bitmap> _thumbnailCache=new(StringComparer.Ordinal);
         private readonly Dictionary<string,(Bitmap Bitmap,string Details)> _materialPreviewCache=new(StringComparer.Ordinal);
@@ -93,12 +107,44 @@ namespace MphRead.Mods.Launcher.Gui
         public MapStudioScreen(PrimeOverlayHost? overlays = null, bool preview = false)
         {
             _overlays = overlays;
-            Background=GuiTheme.InkBrush;Focusable=true;
+            Background = PrimeTheme.BackgroundDeepBrush;
+            Focusable = true;
             _hierarchy.Background = _problems.Background = PrimeTheme.PanelBrush;
             _hierarchy.Foreground = _problems.Foreground = PrimeTheme.TextBrush;
             _hierarchy.BorderBrush = _problems.BorderBrush = PrimeTheme.BorderBrush;
-            var toolbar=new StackPanel { Orientation=Orientation.Horizontal, Spacing=6 };
-            var menus=new Avalonia.Controls.Menu();toolbar.Children.Add(menus);
+            _studioSave = new PrimeButton("SAVE", Save, primary: true, compact: true);
+            _studioValidate = new PrimeButton("VALIDATE", () => _ = Validate(), compact: true);
+            _studioBuild = new PrimeButton("BUILD .PPMAP", () => _ = Build(true), compact: true);
+            _studioPlaytest = new PrimeButton("PLAYTEST", PlaytestInspector, compact: true);
+            ControllerNav.Identify(_studioSave, "studio.save");
+            ControllerNav.Identify(_studioValidate, "studio.validate");
+            ControllerNav.Identify(_studioBuild, "studio.build");
+            ControllerNav.Identify(_studioPlaytest, "studio.playtest");
+
+            var headerCopy = PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("MAP STUDIO // AUTHORING WORKSPACE"),
+                _projectTitle,
+                PrimeChrome.Text(
+                    "Build geometry, gameplay, materials and packages in one retained editor workspace.",
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush),
+                _projectState);
+            var headerActions = PrimeChrome.Columns("Auto,Auto,Auto,Auto",
+                _studioSave, _studioValidate, _studioBuild, _studioPlaytest);
+            var header = PrimeChrome.Columns("*,Auto", headerCopy, headerActions);
+            _root.Children.Add(header);
+            _editingControls.AddRange(new Control[]
+            {
+                _studioSave, _studioValidate, _studioBuild, _studioPlaytest
+            });
+
+            var toolbar = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var menus = new Avalonia.Controls.Menu();
+            toolbar.Children.Add(menus);
             void MenuGroup(string name, params (string Name,Action Run)[] commands)
             {
                 var group=new MenuItem { Header=name };
@@ -120,12 +166,36 @@ namespace MphRead.Mods.Launcher.Gui
             MenuGroup("Build",("Validate",()=>_=Validate()),("Fix selected problem",FixSelectedProblem),("Build runtime",()=>_=Build(false)),
                 ("Export .ppmap",()=>_=Build(true)),("Playtest",PlaytestInspector),("Run map audit",()=>_=Audit()));
             MenuGroup("Online",("Community maps…",ShowCommunity),("Host current map…",()=>_=PrepareOnline()));
-            AddButton(toolbar,"Pop out",()=>_=PopOut());AddButton(toolbar,"Save",Save);AddButton(toolbar,"Playtest",PlaytestInspector);
+            AddButton(toolbar, "LIBRARY", ShowLibrary);
+            AddButton(toolbar, "IMPORT MODEL", ImportModel);
+            AddButton(toolbar, "ASSETS", () => ShowInspectorPage("Assets & music"));
+            AddButton(toolbar, "POP OUT", () => _ = PopOut());
+            AddButton(toolbar, "CANCEL JOB", () => _work?.Cancel());
+            _cancelJob = toolbar.Children[^1];
+            _cancelJob.IsVisible = false;
             _editingControls.AddRange(toolbar.Children);
-            AddButton(toolbar,"Cancel job",()=>_work?.Cancel());
-            _cancelJob=toolbar.Children[^1];_cancelJob.IsVisible=false;
-            _root.Children.Add(toolbar);
-            Grid.SetRow(_path,1);_root.Children.Add(_path);
+
+            _path.MinWidth = 320;
+            var commandBar = new Grid
+            {
+                ColumnDefinitions = new("Auto,*,Auto"),
+                ColumnSpacing = 10
+            };
+            commandBar.Children.Add(toolbar);
+            Grid.SetColumn(_path, 1);
+            commandBar.Children.Add(_path);
+            var projectOps = PrimeChrome.Text(
+                "PROJECT FILE  //  menus retain full import / export / online operations",
+                PrimeTypography.DataSmall, PrimeTheme.TextSecondaryBrush, data: true);
+            projectOps.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(projectOps, 2);
+            commandBar.Children.Add(projectOps);
+            var commandPanel = new PrimePanel(commandBar, raised: true)
+            {
+                Padding = new Thickness(10, 7)
+            };
+            Grid.SetRow(commandPanel, 1);
+            _root.Children.Add(commandPanel);
             var body=new Grid { ColumnDefinitions=new("220,5,*,5,265"), Margin=new Thickness(0,8) };
             var tree=new DockPanel();
             var treeTools=new StackPanel{Spacing=4};
