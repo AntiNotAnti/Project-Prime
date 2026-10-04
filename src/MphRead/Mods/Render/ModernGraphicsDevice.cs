@@ -382,6 +382,11 @@ namespace MphRead.Mods.Render
             }
             if (_surface != null)
             {
+                // A configured surface owns presentation state until explicitly
+                // unconfigured. Teardown can run after minimize, device recovery
+                // or an already-ended match, so release it at the surface
+                // boundary rather than relying on implicit native cleanup.
+                _api.SurfaceUnconfigure(_surface);
                 _api.SurfaceRelease(_surface);
                 _surface = null;
             }
