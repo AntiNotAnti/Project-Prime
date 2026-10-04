@@ -432,13 +432,52 @@ namespace MphRead.Mods.Launcher.Gui
                         && !settings.GetVisualDescendants().OfType<Control>().Any(c =>
                             c.GetValue(ControllerNav.NavIdProperty)?.StartsWith("settings.detail.Display", StringComparison.OrdinalIgnoreCase) == true),
                         "shell settings has one category strip without a duplicate sidebar");
+
+                    var systemTab = settings.GetVisualDescendants().OfType<PrimeTabButton>()
+                        .Single(button => button.Label == "SYSTEM");
+                    var maintenanceTab = settings.GetVisualDescendants().OfType<PrimeTabButton>()
+                        .Single(button => button.Label == "MAINTENANCE");
+                    Check(!systemTab.IsVisible && !maintenanceTab.IsVisible,
+                        "Basic settings hides System and Maintenance categories");
+                    var advancedMode = ControllerNav.Find(settings, "settings.mode.advanced")!;
+                    advancedMode.Focus(); FocusNavigator.Key(advancedMode, Key.Enter); Drain(window);
+                    Check(systemTab.IsVisible && maintenanceTab.IsVisible,
+                        "Advanced settings exposes full category surface");
+                    var basicMode = ControllerNav.Find(settings, "settings.mode.basic")!;
+                    basicMode.Focus(); FocusNavigator.Key(basicMode, Key.Enter); Drain(window);
+
+                    var settingsSearch = (TextBox)ControllerNav.Find(settings, "settings.search")!;
+                    settingsSearch.Text = "renderer"; Drain(window);
+                    var rendererResult = settings.GetVisualDescendants().OfType<PrimeButton>()
+                        .First(button => button.Label == "RENDERER");
+                    rendererResult.Focus(); FocusNavigator.Key(rendererResult, Key.Enter); Drain(window);
+                    Check(settings.GetVisualDescendants().OfType<TextBlock>().Any(block =>
+                            block.Text?.Contains("graphics backend", StringComparison.OrdinalIgnoreCase) == true),
+                        "Settings search focuses a result and surfaces per-setting help");
+
+                    settings.ShowSection("Display"); Drain(window);
                     CheckTeamCycling();
-                    var slider = settings.GetVisualDescendants().OfType<SliderRow>().First();
-                    int value = slider.Value; slider.Value = value == 0 ? 1 : value - 1;
+                    var slider = settings.GetVisualDescendants().OfType<SliderRow>()
+                        .First(row => row.IsEffectivelyVisible);
+                    int value = slider.Value;
+                    slider.Value = value == 0 ? 1 : value - 1;
+                    Drain(window);
                     Check(settings.IsDirty, "settings edit marks draft dirty");
+                    Check(settings.GetVisualDescendants().OfType<TextBlock>().Any(block =>
+                            block.Text?.StartsWith("UNSAVED CHANGES", StringComparison.Ordinal) == true),
+                        "settings command card reports dirty draft state");
+                    var resetCategory = ControllerNav.Find(settings, "settings.category.reset")!;
+                    Check(resetCategory.IsEnabled, "dirty settings category enables category reset");
+                    resetCategory.Focus(); FocusNavigator.Key(resetCategory, Key.Enter); Drain(window);
+                    Check(slider.Value == value && !settings.IsDirty,
+                        "Reset Category restores only the active category draft");
+
+                    slider.Value = value == 0 ? 1 : value - 1;
                     settings.ShowSection("Audio"); settings.ShowSection("Display");
                     Check(settings.IsDirty, "settings category retains draft");
-                    settings.DiscardDraft(); Check(slider.Value == value && !settings.IsDirty, "Discard restores controls and clean state");
+                    settings.DiscardDraft();
+                    Check(slider.Value == value && !settings.IsDirty,
+                        "Discard restores controls and clean state");
                     var previousRuntime = Mods.Input.GamepadRuntimeConfig.Current;
                     try
                     {
