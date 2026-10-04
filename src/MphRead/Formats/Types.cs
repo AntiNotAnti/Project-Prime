@@ -107,7 +107,7 @@ namespace MphRead
         public RenderItem()
         {
             // todo: consider using ArrayPool
-            MatrixStack = new float[16 * 31];
+            MatrixStack = new float[16 * 32];
             Points = Array.Empty<Vector3>();
         }
     }
