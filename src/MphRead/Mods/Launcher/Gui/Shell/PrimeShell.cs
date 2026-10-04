@@ -66,8 +66,18 @@ namespace MphRead.Mods.Launcher.Gui
             if (e.Source is MapViewport) return;
 #endif
             if (Overlays.IsOpen || e.KeyModifiers != KeyModifiers.None) return;
-            if (e.Key == Key.Q) { Router.PreviousRoute(); e.Handled = true; }
-            if (e.Key == Key.E) { Router.NextRoute(); e.Handled = true; }
+            if (e.Key == Key.Q)
+            {
+                Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Navigate);
+                Router.PreviousRoute();
+                e.Handled = true;
+            }
+            if (e.Key == Key.E)
+            {
+                Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Navigate);
+                Router.NextRoute();
+                e.Handled = true;
+            }
         }
         private void HandleDirection(object? sender, KeyEventArgs e)
         {
@@ -83,6 +93,7 @@ namespace MphRead.Mods.Launcher.Gui
         public void SwitchTab(bool next)
         {
             if (Overlays.IsOpen) return;
+            Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Navigate);
             if (next) Router.NextRoute(); else Router.PreviousRoute();
         }
         protected override Size MeasureOverride(Size availableSize)
