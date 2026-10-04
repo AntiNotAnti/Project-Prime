@@ -36,6 +36,10 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly ChoiceRow _suit;
         private readonly HunterStand _stand;
         private readonly Image _mapPreview;
+        private readonly PrimeHeroPanel _hero;
+        private PrimeMotionHandle? _heroMotion;
+        private PrimeMotionHandle? _detailNameMotion;
+        private PrimeMotionHandle? _detailMetaMotion;
         private readonly TextBlock _detailName;
         private readonly TextBlock _detailMeta;
         private readonly TextBlock _summary;
@@ -112,7 +116,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Text = "CONTACTING DIRECTORY",
                 FontFamily = HubTheme.Data,
-                FontSize = 9,
+                FontSize = 11,
                 Foreground = HubTheme.TextDimBrush,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -127,26 +131,50 @@ namespace MphRead.Mods.Launcher.Gui
             var root = new Grid
             {
                 Margin = PrimeMetrics.PageMargin,
-                RowDefinitions = new("Auto,Auto,*"), RowSpacing = 12
+                RowDefinitions = new("Auto,*"),
+                RowSpacing = 12
             };
+
             _quick = new PrimeButton("QUICK PLAY", primary: true);
             ControllerNav.Identify(_quick, "multiplayer.quick", initial: true);
             _quick.Click += (_, _) => _ = QuickPlayAsync();
-            var create = new PrimeButton("CREATE LOBBY", () => CreateLobbyRequested?.Invoke(this, EventArgs.Empty));
-            var direct = new PrimeButton("DIRECT CONNECT", DirectConnect);
+
+            var create = new PrimeButton("CREATE LOBBY",
+                () => CreateLobbyRequested?.Invoke(this, EventArgs.Empty));
             ControllerNav.Identify(create, "multiplayer.create");
-            var browserTab = new PrimeTabButton("SERVER BROWSER", () => _servers.FocusFirst()) { Selected = true };
-            root.Children.Add(PrimeChrome.Columns("Auto,Auto,Auto,Auto,*", _quick, browserTab, create, direct, _summary));
+            var direct = new PrimeButton("DIRECT CONNECT", DirectConnect);
+
+            var heroCopy = new StackPanel
+            {
+                Spacing = 8,
+                MaxWidth = 760,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            heroCopy.Children.Add(PrimeChrome.Eyebrow("PLAY // MULTIPLAYER NETWORK"));
+            heroCopy.Children.Add(PrimeChrome.HeroTitle("FIND YOUR NEXT HUNT"));
+            heroCopy.Children.Add(PrimeChrome.Text(
+                "Quick Play finds the best compatible open session, or choose an arena from the live directory.",
+                14, PrimeTheme.TextSecondaryBrush));
+            heroCopy.Children.Add(_summary);
+            heroCopy.Children.Add(PrimeChrome.Columns("Auto,Auto,Auto",
+                _quick, create, direct));
+            _hero = new PrimeHeroPanel(
+                heroCopy, MapShot.For("MP11 BREAKTHROUGH"), minHeight: 160);
+            root.Children.Add(_hero);
+
             _refresh = new PrimeButton("REFRESH");
             ControllerNav.Identify(_refresh, "multiplayer.refresh");
             _refresh.Click += (_, _) => RefreshServers();
-            var identity = PrimeChrome.Columns("210,*,Auto", _name, _address, _refresh);
-            Grid.SetRow(identity, 1); root.Children.Add(identity);
-            _join = new PrimeButton("ENGAGE & JOIN", primary: true) { IsEnabled = false };
+
+            _join = new PrimeButton("JOIN SESSION", primary: true) { IsEnabled = false };
             ControllerNav.Identify(_join, "multiplayer.join");
-            _spectate = new PrimeButton("SPECTATE", () => _ = JoinAsync(spectate: true)) { IsEnabled = false };
-            ToolTip.SetTip(_spectate, "Join an available player slot and watch using the spectator camera.");
+            _spectate = new PrimeButton("SPECTATE",
+                () => _ = JoinAsync(spectate: true)) { IsEnabled = false };
+            ToolTip.SetTip(_spectate,
+                "Join an available player slot and watch using the spectator camera.");
             _join.Click += (_, _) => _ = JoinAsync();
+
             var copy = new PrimeButton("COPY ADDRESS", async () =>
             {
                 if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard)
@@ -155,33 +183,96 @@ namespace MphRead.Mods.Launcher.Gui
             _favorite = new PrimeButton("FAVORITE", () =>
             {
                 if (_selectedEndpoint == null) return;
-                if (!LauncherPrefs.FavoriteServers.Add(_selectedEndpoint)) LauncherPrefs.FavoriteServers.Remove(_selectedEndpoint);
-                LauncherPrefs.Save(); RefreshFavorite(); FilterServers(_searchText, _filterIndex);
+                if (!LauncherPrefs.FavoriteServers.Add(_selectedEndpoint))
+                    LauncherPrefs.FavoriteServers.Remove(_selectedEndpoint);
+                LauncherPrefs.Save();
+                RefreshFavorite();
+                FilterServers(_searchText, _filterIndex);
             }) { IsEnabled = false };
-            var filter = new ChoiceRow("Directory", new[] { "All", "Joinable", "Low ping (<80 ms)", "Favorites" });
+
+            var filter = new ChoiceRow("Directory",
+                new[] { "All", "Joinable", "Low ping (<80 ms)", "Favorites" });
             var search = new DeckField("", 0, watermark: "Search servers or maps");
             filter.Changed += (_, _) => FilterServers(search.Value, filter.Index);
             search.Box.TextChanged += (_, _) => FilterServers(search.Value, filter.Index);
-            var left = new Grid { RowDefinitions = new("Auto,*,Auto"), RowSpacing = 10 };
-            left.Children.Add(PrimeChrome.Columns("*,*", search, filter));
-            Grid.SetRow(_servers, 1); left.Children.Add(_servers);
-            var inspector = new PrimePanel(PrimeChrome.Stack(new PrimeBadge("SELECTED SESSION"), _detailName, _detailMeta,
-                PrimeChrome.Columns("Auto,Auto,Auto,*", copy, _favorite, _spectate, _join)));
-            Grid.SetRow(inspector, 2); left.Children.Add(inspector);
-            _stand.Height = 190;
-            _mapPreview.Height = 100;
-            var loadout = new PrimePanel(PrimeChrome.Stack(new PrimeBadge("DEPLOYMENT TELEMETRY"),
-                PrimeChrome.Title("HUNTER LOADOUT"), _stand, _hunter, _suit,
-                PrimeChrome.Text("ARENA PREVIEW", 11, PrimeTheme.TextSecondaryBrush, true), _mapPreview));
-            var body = PrimeChrome.Columns("1.6*,1*", left, loadout);
-            Grid.SetRow(body, 2); root.Children.Add(body); Content = root;
+
+            var browser = new Grid
+            {
+                RowDefinitions = new("Auto,Auto,Auto,*"),
+                RowSpacing = 8
+            };
+            var browserHeading = PrimeChrome.Columns("*,Auto",
+                PrimeChrome.Stack(
+                    PrimeChrome.Eyebrow("LIVE DIRECTORY"),
+                    PrimeChrome.Title("SERVER BROWSER")),
+                _refresh);
+            browser.Children.Add(browserHeading);
+
+            var identity = PrimeChrome.Columns("190,*", _name, _address);
+            Grid.SetRow(identity, 1);
+            browser.Children.Add(identity);
+
+            var searchRow = PrimeChrome.Columns("*,*", search, filter);
+            Grid.SetRow(searchRow, 2);
+            browser.Children.Add(searchRow);
+            Grid.SetRow(_servers, 3);
+            browser.Children.Add(_servers);
+
+            var browserPanel = new PrimePanel(browser, raised: true)
+            {
+                Padding = new Thickness(12)
+            };
+
+            _mapPreview.Height = 128;
+            var session = new PrimePanel(PrimeChrome.Stack(
+                new PrimeBadge("SELECTED SESSION"),
+                _mapPreview,
+                _detailName,
+                _detailMeta,
+                PrimeChrome.Columns("Auto,Auto", copy, _favorite),
+                PrimeChrome.Columns("*,*", _spectate, _join)));
+
+            _stand.Height = 150;
+            var loadout = new PrimePanel(PrimeChrome.Stack(
+                new PrimeBadge("DEPLOYMENT LOADOUT"),
+                PrimeChrome.Title("HUNTER"),
+                _stand,
+                _hunter,
+                _suit));
+
+            var side = new StackPanel { Spacing = 10 };
+            side.Children.Add(session);
+            side.Children.Add(loadout);
+            var sideScroll = new ScrollViewer
+            {
+                Content = side,
+                HorizontalScrollBarVisibility =
+                    Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
+            };
+
+            var body = PrimeChrome.Columns("1.65*,1*", browserPanel, sideScroll);
+            Grid.SetRow(body, 1);
+            root.Children.Add(body);
+            Content = root;
+
             AttachedToVisualTree += (_, _) =>
             {
                 LauncherBackdrop.Set(LauncherBackdropScene.Multiplayer,
                     _backdropRoom.Length > 0 ? _backdropRoom : null);
-                if (!_loaded) { _loaded = true; RefreshServers(); }
+                if (!_loaded)
+                {
+                    _loaded = true;
+                    RefreshServers();
+                }
             };
-            DetachedFromVisualTree += (_, _) => { _connect?.Cancel(); CancelWork(); };
+            DetachedFromVisualTree += (_, _) =>
+            {
+                _heroMotion?.Cancel();
+                _detailNameMotion?.Cancel();
+                _detailMetaMotion?.Cancel();
+                _connect?.Cancel();
+                CancelWork();
+            };
         }
 
         public PrimeOverlayHost? Overlays { get; set; }
@@ -266,7 +357,8 @@ namespace MphRead.Mods.Launcher.Gui
             _detailMeta.Text = server.IsLive
                 ? $"{server.MapName}\n{server.ModeName}  /  {server.PlayerCount} PLAYERS  /  {server.PingText} MS\n{server.Endpoint}"
                 : $"NO RESPONSE\n{server.Endpoint}";
-            _mapPreview.Source = server.IsLive ? MapShot.For(server.RoomKey) : null;
+            SetArenaArt(server.IsLive ? server.RoomKey : null);
+            AnimateSessionDetails();
             if (server.IsLive && server.RoomKey.Length > 0)
             {
                 _backdropRoom = server.RoomKey;
@@ -313,7 +405,7 @@ namespace MphRead.Mods.Launcher.Gui
             _replied = 0;
             _live = 0;
             _join.IsEnabled = _spectate.IsEnabled = false;
-            _mapPreview.Source = null;
+            SetArenaArt(null);
 
             if (_sample != null)
             {
@@ -445,7 +537,8 @@ namespace MphRead.Mods.Launcher.Gui
             _detailName.Text = entry.Name.ToUpperInvariant();
             _detailMeta.Text =
                 $"{mapName}\n{NetStatus.ModeName(entry.Status.Mode)}  /  {players} PLAYERS  /  {ping}\n{entry.Endpoint}";
-            _mapPreview.Source = MapShot.For(room);
+            SetArenaArt(room);
+            AnimateSessionDetails();
             if (room.Length > 0)
             {
                 _backdropRoom = room;
@@ -453,6 +546,38 @@ namespace MphRead.Mods.Launcher.Gui
             }
             _join.Label = "JOIN";
             _join.IsEnabled = _spectate.IsEnabled = entry.Live && !_joining;
+        }
+
+        private void SetArenaArt(string? room)
+        {
+            IImage? selected = MapShot.For(room);
+            _mapPreview.Source = selected;
+
+            IImage? heroArt = selected ?? MapShot.For("MP11 BREAKTHROUGH");
+            _heroMotion?.Cancel();
+            _heroMotion = null;
+            _hero.Art.Source = heroArt;
+
+            double target = heroArt == null ? 0 : 0.74;
+            if (PrimeMotion.Reduced || TopLevel.GetTopLevel(_hero.Art) == null)
+            {
+                _hero.Art.Opacity = target;
+                return;
+            }
+
+            double from = heroArt == null ? 0 : 0.24;
+            _hero.Art.Opacity = from;
+            _heroMotion = PrimeMotion.Fade(_hero.Art, from, target, 0.16);
+        }
+
+        private void AnimateSessionDetails()
+        {
+            if (PrimeMotion.Reduced || TopLevel.GetTopLevel(_detailName) == null)
+                return;
+            _detailNameMotion?.Cancel();
+            _detailMetaMotion?.Cancel();
+            _detailNameMotion = PrimeMotion.Enter(_detailName, 3, 0.11);
+            _detailMetaMotion = PrimeMotion.Enter(_detailMeta, 3, 0.13);
         }
 
         private async Task JoinAsync(bool spectate = false)

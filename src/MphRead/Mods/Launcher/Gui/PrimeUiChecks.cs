@@ -350,6 +350,15 @@ namespace MphRead.Mods.Launcher.Gui
                         Position = new PixelPoint(-4000,-4000), WindowStartupLocation = WindowStartupLocation.Manual };
                     window.Show(); Drain(window);
                     var header = shell.Header; var footer = shell.Footer;
+                    var shellTabs = header.GetVisualDescendants().OfType<PrimeTabButton>()
+                        .Select(button => button.Label).ToArray();
+                    Check(shellTabs.Contains("HOME") && shellTabs.Contains("REPLAY STUDIO")
+                        && shellTabs.Contains("MAP STUDIO"),
+                        "shell uses player-facing Home and studio destination labels");
+                    shell.Router.Navigate(PrimeRoute.News); Drain(window);
+                    Check(shell.Workspaces.Get(PrimeRoute.News)
+                        .GetVisualDescendants().OfType<PrimeHeroPanel>().Any(),
+                        "Home exposes cinematic hero presentation");
                     var retained = new Dictionary<PrimeRoute, Control>();
                     foreach (var route in PrimeRouter.Tabs)
                     {
@@ -365,6 +374,8 @@ namespace MphRead.Mods.Launcher.Gui
                     shell.Router.NextRoute(); Check(shell.Router.Current == PrimeRoute.News, "next tab wraps");
                     shell.Router.Navigate(PrimeRoute.Play); Drain(window);
                     var play = shell.Workspaces.Get(PrimeRoute.Play);
+                    Check(play.GetVisualDescendants().OfType<PrimeHeroPanel>().Any(),
+                        "Multiplayer exposes cinematic hero presentation");
                     var quick = ControllerNav.Find(play,"multiplayer.quick")!;
                     quick.Focus(); FocusNavigator.Key(quick, Key.Enter); Drain(window);
                     var join = ControllerNav.Find(play,"multiplayer.join")!;
