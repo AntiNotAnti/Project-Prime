@@ -98,6 +98,8 @@ namespace MphRead.Mods.Launcher.Gui
                 _transition = PrimeMotion.Page(old, next, () =>
                 {
                     if (!ReferenceEquals(_current, next)) return;
+                    if (_transitionLayer != null)
+                        _transitionLayer.Children.Remove(next);
                     Content = next;
                     _transitionLayer = null;
                     _transition = null;
@@ -124,6 +126,8 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _transition?.Cancel();
             _transition = null;
+            if (_current != null && _transitionLayer != null)
+                _transitionLayer.Children.Remove(_current);
             _transitionLayer = null;
             if (_current != null && !ReferenceEquals(Content, _current))
                 Content = _current;
