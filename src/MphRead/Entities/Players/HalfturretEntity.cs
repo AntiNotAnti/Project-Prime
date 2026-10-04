@@ -446,6 +446,44 @@ namespace MphRead.Entities
         private bool TryDrawModernHalfturret(ModelInstance inst)
         {
             Model model = inst.Model;
+            if (CharacterModelRuntime.TryGetWeighted(_scene, Hunter.Weavel,
+                CharacterModelPart.Halfturret, model,
+                out CharacterWeightedRenderModel weighted))
+            {
+                weighted.UpdatePalette(model);
+                int weightedPolygonId = _scene.GetNextPolygonId();
+                Node texgenNode = model.Nodes[0];
+                foreach (CharacterWeightedRenderSegment segment in weighted.Segments)
+                {
+                    Material material = model.Materials[segment.NativeMaterialIndex];
+                    Vector3 emission = GetEmission(inst, material, segment.NativeMaterialIndex);
+                    Vector4? color = GetRenderColor(inst, 0, material);
+                    int? bindingOverride = GetBindingOverride(
+                        inst, material, segment.NativeMaterialIndex);
+                    Matrix4 texcoordMatrix = bindingOverride.HasValue
+                        ? GetTexcoordMatrix(inst, material, segment.NativeMaterialIndex,
+                            texgenNode, Recolor)
+                        : Matrix4.Identity;
+                    var previousMaterial = _scene.CosmeticMaterialSubmission;
+                    _scene.CosmeticMaterialSubmission = GetCosmeticMaterialOverride(
+                        inst, material, segment.NativeMaterialIndex);
+                    try
+                    {
+                        _scene.AddRenderItem(material, weightedPolygonId, Alpha,
+                            emission, GetLightInfo(), texcoordMatrix, Matrix4.Identity,
+                            segment.ListId, weighted.Joints.Count, weighted.MatrixPalette,
+                            color, PaletteOverride, SelectionType.None, BillboardMode.None,
+                            _drawScale, bindingOverride, UseTexturedPlayerSkin(inst),
+                            GetPlayerOutlineColor(inst), weightedSkinning: true);
+                    }
+                    finally
+                    {
+                        _scene.CosmeticMaterialSubmission = previousMaterial;
+                    }
+                }
+                return true;
+            }
+
             if (!CharacterModelRuntime.TryGetRigid(_scene, Hunter.Weavel,
                 CharacterModelPart.Halfturret, model,
                 out CharacterRigidRenderModel replacement))
