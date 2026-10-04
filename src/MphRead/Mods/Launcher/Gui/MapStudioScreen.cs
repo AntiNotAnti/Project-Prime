@@ -130,8 +130,10 @@ namespace MphRead.Mods.Launcher.Gui
                     "Build geometry, gameplay, materials and packages in one retained editor workspace.",
                     PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush),
                 _projectState);
-            var headerActions = PrimeChrome.Columns("Auto,Auto,Auto,Auto",
-                _studioSave, _studioValidate, _studioBuild, _studioPlaytest);
+            var backStudio = new PrimeButton("BACK", Close, compact: true);
+            ControllerNav.Identify(backStudio, "studio.back");
+            var headerActions = PrimeChrome.Columns("Auto,Auto,Auto,Auto,Auto",
+                backStudio, _studioSave, _studioValidate, _studioBuild, _studioPlaytest);
             var header = PrimeChrome.Columns("*,Auto", headerCopy, headerActions);
             _root.Children.Add(header);
             _editingControls.AddRange(new Control[]
@@ -268,7 +270,14 @@ namespace MphRead.Mods.Launcher.Gui
                 var box=new ComboBox {ItemsSource=choices,SelectedIndex=0,Margin=new Thickness(2),MinWidth=85};
                 box.SelectionChanged+=(_,_)=>{if(box.SelectedItem is string text)choose(text);};tools.Children.Add(box);
             }
-            Choice(new[]{"Move","Rotate","Scale"},name=>{if(_viewport!=null)_viewport.Tool=name;});
+            Choice(new[]{"Move","Rotate","Scale"},name=>
+            {
+                if(_viewport!=null)
+                {
+                    _viewport.Tool=name;
+                    RefreshStudioChrome();
+                }
+            });
             Choice(new[]{"Object","Face","Edge","Vertex"},name=>{if(_viewport!=null){_viewport.ElementMode=name;_viewport.ClearSubSelection();ShowInspectorPage(_inspectorPage,false);}});
             foreach(string action in new[]{"Extrude region","Inset region","Bevel","Snap to surface","Merge center","Delete"})
             {
@@ -607,6 +616,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _autosave.Dispose();_autosave.Completion.GetAwaiter().GetResult();
                 _document.Save(path);_document.DiscardRecovery(CustomRooms.UserMapDirectory);
                 _path.Text=_document.FilePath;_status.Text="Saved "+_document.FilePath;
+                RefreshStudioChrome();
             }
             catch(Exception ex){Failure(ex);}
             finally{_autosave=new();}
@@ -1068,6 +1078,7 @@ namespace MphRead.Mods.Launcher.Gui
                 case "Navigation path": NavigationInspector(); break;
                 default: Inspect(); break;
             }
+            RefreshStudioChrome();
         }
 
         private void RefreshStudioChrome()
