@@ -43,6 +43,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private readonly string _title;
         private string _detail;
+        private readonly bool _spacious;
         private bool _hot;
         private bool _selected;
 
@@ -74,11 +75,12 @@ namespace MphRead.Mods.Launcher.Gui
 
         private readonly Tap _tap = new();
 
-        public UiListRow(string title, string detail = "")
+        public UiListRow(string title, string detail = "", bool spacious = false)
         {
             _title = title;
             _detail = detail;
-            Height = 30;
+            _spacious = spacious;
+            Height = spacious ? 54 : 30;
             Focusable = true;
             Cursor = new Cursor(StandardCursorType.Hand);
             // A second click on the same row means "this one, go": the
@@ -206,21 +208,25 @@ namespace MphRead.Mods.Launcher.Gui
             if (_detail.Length > 0)
             {
                 _detailText = new FormattedText(_detail, CultureInfo.InvariantCulture,
-                    FlowDirection.LeftToRight, GuiTheme.Face(bold: false), 12,
-                    GuiTheme.TextDimBrush)
+                    FlowDirection.LeftToRight, GuiTheme.Face(bold: false),
+                    _spacious ? 10.5 : 12, GuiTheme.TextDimBrush)
                 {
-                    MaxTextWidth = Math.Max(40, Bounds.Width * 0.45),
-                    MaxTextHeight = 20,
+                    MaxTextWidth = _spacious
+                        ? Math.Max(40, Bounds.Width - 28)
+                        : Math.Max(40, Bounds.Width * 0.45),
+                    MaxTextHeight = _spacious ? 18 : 20,
                     Trimming = TextTrimming.CharacterEllipsis
                 };
-                right = Bounds.Width - _detailText.Width - 14;
+                if (!_spacious)
+                    right = Bounds.Width - _detailText.Width - 14;
             }
             else
             {
                 _detailText = null;
             }
             _titleText = new FormattedText(_title, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight, GuiTheme.Face(bold: true), 14,
+                FlowDirection.LeftToRight, GuiTheme.Face(bold: true),
+                _spacious ? 15 : 14,
                 new SolidColorBrush(lit ? GuiTheme.Accent : GuiTheme.Text))
             {
                 MaxTextWidth = Math.Max(40, right - 14),
@@ -234,23 +240,38 @@ namespace MphRead.Mods.Launcher.Gui
             var full = new Rect(0, 0, Bounds.Width, Bounds.Height);
             context.FillRectangle(Brushes.Transparent, full);
             bool lit = _hot || IsFocused || _selected;
+            if (_spacious)
+            {
+                context.FillRectangle(lit ? GuiTheme.PanelLightBrush : GuiTheme.PanelBrush,
+                    new RoundedRect(new Rect(4, 2, Math.Max(0, Bounds.Width - 8),
+                        Math.Max(0, Bounds.Height - 4)), 4));
+                context.DrawRectangle(new Pen(lit ? GuiTheme.AccentBrush : GuiTheme.EdgeBrush, 1),
+                    new RoundedRect(new Rect(4.5, 2.5, Math.Max(0, Bounds.Width - 9),
+                        Math.Max(0, Bounds.Height - 5)), 4));
+            }
             if (lit)
             {
-                // A caret rather than a fill: the list sits on a photograph,
-                // and a row of panel colour over it is a box -- which is the
-                // one thing none of these screens has any more.
                 context.FillRectangle(GuiTheme.AccentBrush,
-                    new Rect(0, 6, 3, Bounds.Height - 12));
+                    new Rect(_spacious ? 5 : 0, 6, 3, Bounds.Height - 12));
             }
             LayOut(lit);
-            if (_detailText != null)
+            if (_spacious)
             {
-                context.DrawText(_detailText,
-                    new Point(Bounds.Width - _detailText.Width - 4,
-                        (Bounds.Height - _detailText.Height) / 2));
+                context.DrawText(_titleText!, new Point(16, 8));
+                if (_detailText != null)
+                    context.DrawText(_detailText, new Point(16, 30));
             }
-            context.DrawText(_titleText!,
-                new Point(14, (Bounds.Height - _titleText!.Height) / 2));
+            else
+            {
+                if (_detailText != null)
+                {
+                    context.DrawText(_detailText,
+                        new Point(Bounds.Width - _detailText.Width - 4,
+                            (Bounds.Height - _detailText.Height) / 2));
+                }
+                context.DrawText(_titleText!,
+                    new Point(14, (Bounds.Height - _titleText!.Height) / 2));
+            }
         }
     }
 
