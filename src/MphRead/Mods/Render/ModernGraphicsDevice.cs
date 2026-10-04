@@ -280,8 +280,8 @@ namespace MphRead.Mods.Render
                         (FeatureName)NativeFeature.MultiDrawIndirectCount;
                     bool multiDrawBackend =
                         platform != GraphicsPlatform.Android
-                        && backend is GraphicsBackend.DirectX12
-                            or GraphicsBackend.Vulkan;
+                        && (backend is GraphicsBackend.DirectX12
+                            or GraphicsBackend.Vulkan);
                     bool multiDrawIndirect = multiDrawBackend
                         && api.AdapterHasFeature(adapter, multiDrawFeature);
                     bool multiDrawIndirectCount = multiDrawIndirect
