@@ -99,6 +99,19 @@ namespace MphRead.Mods.Input
             _appliedAimContext = GamepadContexts.Revision;
         }
 
+        /// <summary>
+        /// Drop every render-only controller sample at an input-ownership edge.
+        /// Simulation state is untouched; the next fixed input step establishes
+        /// a fresh accepted aim before presentation can build on it again.
+        /// </summary>
+        public static void InvalidatePresentationAim()
+        {
+            _appliedCameraAim = null;
+            _presentationSample = null;
+            _appliedAimContext = -1;
+            _presentationContext = -1;
+        }
+
         // Presentation projects the accepted assisted camera turn. A newer raw
         // stick sample is exposed separately below so the player can transform it
         // through the exact scoped/FOV/inversion path used by simulation.
@@ -106,7 +119,8 @@ namespace MphRead.Mods.Input
         {
             x = y = 0;
             if (_appliedCameraAim is not { } aim || !FrameSnapshot.State.Connected
-                || !GamepadContexts.Focused || GamepadContexts.MenuVisible || WheelHeld
+                || !GamepadContexts.Focused || GamepadContexts.MenuVisible
+                || GamepadContexts.TextEntryActive || WheelHeld
                 || GamepadContexts.Current != GamepadContext.Gameplay
                 || _appliedAimContext != GamepadContexts.Revision || !double.IsFinite(alpha)) return false;
             float fraction = (float)Math.Clamp(alpha, 0, 1);
@@ -125,6 +139,7 @@ namespace MphRead.Mods.Input
         public static void CapturePresentationSample()
         {
             if (!GamepadContexts.Focused || GamepadContexts.MenuVisible
+                || GamepadContexts.TextEntryActive
                 || GamepadContexts.Current != GamepadContext.Gameplay || WheelHeld)
             {
                 _presentationSample = null;
@@ -249,6 +264,7 @@ namespace MphRead.Mods.Input
         internal static (float X, float Y) RenderAim(double alpha)
         {
             if (GamepadContexts.Current != GamepadContext.Gameplay || !GamepadContexts.Focused
+                || GamepadContexts.MenuVisible || GamepadContexts.TextEntryActive
                 || WheelHeld || alpha <= 0)
             {
                 return (0, 0);
