@@ -175,99 +175,131 @@ jobs:
           echo "android_version_code=$ANDROID_VERSION_CODE" >> "$GITHUB_OUTPUT"
           echo "### Project Prime $TAG" >> "$GITHUB_STEP_SUMMARY"
 
-  release:
+  prepare-release:
     needs: resolve
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           ref: refs/tags/${{ needs.resolve.outputs.tag }}
-
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-${{ runner.arch }}-nuget-game-${{ hashFiles('global.json', 'src/**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-nuget-game-
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
-
-      # For the Android package. The workload brings the .NET side of that
-      # toolchain and not a JDK, and the Android SDK's build tools are Java.
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: install the android workload
-        run: dotnet workload install android
-
       - name: nothing from the game is tracked
         run: tools/check-no-game-assets.sh
-
       - name: every custom map has the level it converts
         run: tools/check-maps-shipped.sh
-
       # Release can be dispatched while the normal build workflow is cancelled
       # by a newer push. Run the asset-free lobby suite here too so wire-format
       # regressions in Create Lobby cannot ship behind a green packaging smoke.
       - name: hosted lobby allocation protocol
         run: dotnet run --project tools/nettest/nettest.csproj -c Release -- --lobby
-
-      # Cook every custom map into the one file it ships as. The recipe, the
-      # level it converts and the textures baked from it go into a .ppmap,
-      # with the level trimmed to the lumps the importer actually reads: 376 KB
-      # for de_dust2 against the 2.8 MB its folder weighs. That bundle is what
-      # the packages carry, and it is what somebody can be handed on its own --
-      # the .pk3 it was cooked from is a source and is kept out of the output
-      # by CopyToPublishDirectory. It is not committed, so it is cooked here.
       - name: cook the map bundles
-        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
-
-      - name: publish every target
         env:
+          PROJECT_PRIME_USER_DATA: ${{ github.workspace }}/.release-user-data
+        run: |
+          set -euo pipefail
+          dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
+          find "$PROJECT_PRIME_USER_DATA/user-maps" -type f -name '*.ppmap' -exec cp {} maps/ \;
+      - uses: actions/upload-artifact@v7
+        with:
+          name: prepared-maps
+          path: maps/**/*.ppmap
+          if-no-files-found: error
+
+  release-linux:
+    name: publish ${{ matrix.target }}
+    needs: [resolve, prepare-release]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: win-x64
+            rid: win-x64
+            server: false
+          - target: linux-x64
+            rid: linux-x64
+            server: false
+          - target: win-x64-server
+            rid: win-x64
+            server: true
+          - target: linux-x64-server
+            rid: linux-x64
+            server: true
+          - target: linux-arm64
+            rid: linux-arm64
+            server: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-${{ runner.arch }}-nuget-game-${{ hashFiles('global.json', 'src/**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-nuget-game-
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/download-artifact@v8
+        with:
+          name: prepared-maps
+          path: maps
+      - name: publish target
+        env:
+          TARGET: ${{ matrix.target }}
+          RID: ${{ matrix.rid }}
+          SERVER: ${{ matrix.server }}
           VERSION: ${{ needs.resolve.outputs.version }}
         run: |
           set -euo pipefail
-          stamp="-p:Version=$VERSION -p:InformationalVersion=$VERSION"
-          for rid in win-x64 linux-x64; do
-            dotnet publish src/MphRead/MphRead.csproj -c Release -r "$rid" $stamp \
-              --self-contained true -p:PublishSingleFile=true -o "publish/$rid"
-          done
-          # The three server packages: Windows, plain x64 Linux (a VPS, a
-          # spare desktop -- anything that is not the Pi) and ARM64 (the Pi).
-          # Same project each time, launcher left out, no UI toolkit: none of
-          # these machines has anybody sitting at it.
-          #
-          # Only the Windows one gets a name of its own (ProjectPrimeServer,
-          # from a console-subsystem header) so that it can sit in a folder
-          # beside the game's exe. Off Windows the subsystem split does not
-          # exist and every server package holds exactly one binary, so both
-          # keep the plain name ProjectPrime.
-          dotnet publish src/MphRead/MphRead.csproj -c Release -r win-x64 \
-            -p:MphReadServer=true $stamp --self-contained true \
-            -p:PublishSingleFile=true -o publish/win-x64-server
-          dotnet publish src/MphRead/MphRead.csproj -c Release -r linux-x64 \
-            -p:MphReadServer=true $stamp --self-contained true \
-            -p:PublishSingleFile=true -o publish/linux-x64-server
-          dotnet publish src/MphRead/MphRead.csproj -c Release -r linux-arm64 \
-            -p:MphReadServer=true $stamp --self-contained true \
-            -p:PublishSingleFile=true -o publish/linux-arm64
+          args=(--self-contained true -p:PublishSingleFile=true)
+          if [ "$SERVER" = "true" ]; then
+            args+=(-p:MphReadServer=true)
+          fi
+          dotnet publish src/MphRead/MphRead.csproj -c Release -r "$RID" \
+            -p:Version="$VERSION" -p:InformationalVersion="$VERSION" \
+            "${args[@]}" -o "publish/$TARGET"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: build-linux-${{ matrix.target }}
+          path: publish/${{ matrix.target }}
+          if-no-files-found: error
 
-      # The phone, from the same tag and stamped with the same version -- the
-      # updater compares that against the tag on GitHub, and an APK that is not
-      # stamped is one that can never know it is out of date.
-      #
-      # InstallAndroidDependencies rather than named sdkmanager packages: it
-      # asks for whatever the project's TargetFramework declares, so bumping
-      # net10.0-android36.0 does not silently leave this behind.
-      # The signing key, when there is one.
-      #
-      # This is what makes the in-app updater possible and it is not a
-      # nicety: Android refuses an update whose signing certificate differs
-      # from the installed app's, and the SDK's debug key is generated on the
-      # machine doing the build -- so every release from a fresh runner used
-      # to carry a *different* certificate and none of them could replace
-      # another. See .claude/build-deploy/BUILD-WORKFLOW.md.
-      #
-      # Absent secrets fall back to the debug key rather than failing the
-      # release: a fork with no keystore still gets an installable APK, it
-      # simply cannot be updated in place.
+  release-android:
+    needs: [resolve, prepare-release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-${{ runner.arch }}-nuget-android-${{ hashFiles('global.json', 'src/**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-nuget-android-
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: install the android workload
+        run: dotnet workload install android
+      - uses: actions/download-artifact@v8
+        with:
+          name: prepared-maps
+          path: maps
       - name: unlock the android keystore
         id: keystore
         env:
@@ -279,10 +311,8 @@ jobs:
             echo "::warning::no ANDROID_KEYSTORE secret; the APK gets a throwaway debug key and cannot update an existing install"
             exit 0
           fi
-          # Outside the workspace, so no later step can archive it by accident.
           printf '%s' "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/android.jks"
           echo "have=true" >> "$GITHUB_OUTPUT"
-
       - name: publish the APK
         env:
           VERSION: ${{ needs.resolve.outputs.version }}
@@ -297,9 +327,6 @@ jobs:
           sdk=( -p:AndroidSdkDirectory="$ANDROID_HOME" -p:JavaSdkDirectory="$JAVA_HOME" )
           signing=()
           if [ "$HAVE_KEYSTORE" = "true" ]; then
-            # env: rather than the passwords themselves. .NET for Android
-            # reads that prefix as "the variable named this", which keeps
-            # both out of the process table and out of the MSBuild log.
             signing=(
               -p:AndroidKeyStore=true
               -p:AndroidSigningKeyStore="$RUNNER_TEMP/android.jks"
@@ -325,26 +352,46 @@ jobs:
             -p:ApplicationDisplayVersion="$VERSION" \
             -p:ApplicationVersion="$ANDROID_VERSION_CODE" \
             -o publish/android
-
-      # What the updater will compare against on every phone. Printed, not
-      # checked: nothing here knows what the previous release was signed with,
-      # and a fingerprint in the log is what turns "App not installed" into a
-      # two-minute diff against the last release's run.
       - name: report the APK's signer
         run: |
           set -euo pipefail
           apk=$(ls publish/android/*-Signed.apk | head -1)
-          # apksigner rather than keytool: a package signed only with the v2
-          # or v3 scheme has no jar signature for keytool to print, and .NET
-          # for Android decides which schemes to use on its own.
           signer=$(ls "$ANDROID_HOME"/build-tools/*/apksigner 2>/dev/null | tail -1 || true)
           if [ -n "$signer" ]; then
             "$signer" verify --print-certs "$apk" | grep -Ei "SHA-256 digest|Signer" || true
           else
-            "$JAVA_HOME/bin/keytool" -printcert -jarfile "$apk" \
-              | grep -E "SHA256:|Owner:" || true
+            "$JAVA_HOME/bin/keytool" -printcert -jarfile "$apk" | grep -E "SHA256:|Owner:" || true
           fi
+      - name: name the release APK
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          mkdir -p dist
+          cp publish/android/*-Signed.apk "dist/ProjectPrime-$TAG-android.apk"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-android
+          path: dist/*.apk
+          if-no-files-found: error
 
+  package-release:
+    needs: [resolve, release-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: build-linux-*
+          path: builds
+      - name: assemble target folders
+        run: |
+          set -euo pipefail
+          for target in win-x64 linux-x64 linux-arm64 win-x64-server linux-x64-server; do
+            mkdir -p "publish/$target"
+            cp -a "builds/build-linux-$target/." "publish/$target/"
+          done
       - name: nothing from the game is in the output
         run: >
           tools/check-no-game-assets.sh publish/win-x64 publish/linux-x64
@@ -537,21 +584,16 @@ jobs:
           python3 tools/write-release-manifest.py publish/win-x64-server
           ( cd publish/win-x64-server && zip -qr "../../dist/ProjectPrime-$TAG-server-win-x64.zip" . )
 
-          # The APK goes out on its own rather than in an archive: what a phone
-          # wants is a file it can be handed. Signed with the release keystore
-          # when the secrets are set, and with a throwaway debug key when they
-          # are not -- the second installs, and can never be updated in place.
-          cp publish/android/*-Signed.apk "dist/ProjectPrime-$TAG-android.apk"
           ls -la dist
 
       - uses: actions/upload-artifact@v7
         with:
-          name: release-desktop-android
+          name: release-desktop
           path: dist/*
           if-no-files-found: error
 
   macos-release:
-    needs: resolve
+    needs: [resolve, prepare-release]
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -565,15 +607,24 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: refs/tags/${{ needs.resolve.outputs.tag }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-${{ runner.arch }}-nuget-game-${{ hashFiles('global.json', 'src/**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-nuget-game-
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
-      - name: check sources and cook maps
+      - uses: actions/download-artifact@v8
+        with:
+          name: prepared-maps
+          path: maps
+      - name: check sources
         run: |
           set -euo pipefail
           tools/check-no-game-assets.sh
           tools/check-maps-shipped.sh
-          dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
       - name: publish and verify macOS release
         env:
           RID: ${{ matrix.rid }}
@@ -602,7 +653,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [resolve, release, macos-release]
+    needs: [resolve, package-release, release-android, macos-release]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
