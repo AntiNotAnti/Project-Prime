@@ -90,6 +90,11 @@ namespace MphRead.Mods.Launcher.Gui
             }
             else
             {
+                // A control can only have one Avalonia parent. Detach the current
+                // workspace from the ContentPresenter before both views are placed
+                // in the temporary transition layer.
+                if (ReferenceEquals(Content, old))
+                    Content = null;
                 var layers = new Grid();
                 layers.Children.Add(old);
                 layers.Children.Add(next);
