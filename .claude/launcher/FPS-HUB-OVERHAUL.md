@@ -285,7 +285,25 @@ Hunter License / player identity presentation slice implemented:
 - no client-authored career stat, fake accuracy metric, medal catalog or public ranking
   was introduced.
 
-Next presentation work: global responsive/error-state polish, then motion/audio polish.
+Global responsive / empty / loading / error-state polish implemented:
+
+- shared `PrimeStatePanel` gives Neutral / Loading / Empty / Warning / Error / Success
+  states one tactical hierarchy and optional recovery actions;
+- state surfaces remain static at rest: loading uses text/status rather than an infinite
+  spinner, preserving the shell's event-driven raster/upload policy;
+- Play now distinguishes contacting directory, no open lobbies, no current filter matches
+  and directory unavailable, with a visible Refresh Directory recovery action;
+- Replay Studio distinguishes library scanning, genuinely empty archives, zero-result
+  searches and library scan failures while preserving the virtualized replay list;
+- Hunter License uses the shared no-data treatment for accepted-match history and Recent Form;
+- Arena Picker distinguishes no local maps, no compatible maps, Community loading,
+  Community failure and search-empty states without hiding the existing retry controls;
+- `PrimeMetrics` now owns the shared narrow/phone/short breakpoints used by Match Setup
+  instead of individual screens repeating magic widths;
+- Hunter License Overview collapses its four headline metrics to a 2x2 grid and stacks
+  lower career panels on phone-landscape rather than crushing four columns into the rail.
+
+Next presentation work: motion/audio polish and final cross-screen consistency pass.
 
 ## P3 — renderer/performance
 
