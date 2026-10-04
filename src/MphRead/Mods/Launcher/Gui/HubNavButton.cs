@@ -284,6 +284,8 @@ namespace MphRead.Mods.Launcher.Gui
 
         private Mods.Sound.UiFeedbackCue ActivationCue()
         {
+            if (_tab)
+                return Mods.Sound.UiFeedbackCue.Navigate;
             string label = Label.Trim();
             return label.StartsWith("BACK", StringComparison.OrdinalIgnoreCase)
                 || label.StartsWith("CANCEL", StringComparison.OrdinalIgnoreCase)
