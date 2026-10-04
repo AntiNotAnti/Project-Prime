@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using MphRead.Mods;
 using OpenTK.Graphics.OpenGL;
 
 namespace MphRead.Mods.Render.Characters
@@ -66,7 +67,7 @@ namespace MphRead.Mods.Render.Characters
             Model nativeModel, out CharacterRigidRenderModel model)
         {
             model = null!;
-            if (Mods.Headless.Active || !RenderOptions.CharacterModelReplacements) return false;
+            if (Headless.Active || !RenderOptions.CharacterModelReplacements) return false;
 
             CharacterModelPack pack = GetPack();
             if (_packIssue != null && !_packIssueLogged)
