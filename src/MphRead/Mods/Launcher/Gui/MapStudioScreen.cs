@@ -509,7 +509,11 @@ namespace MphRead.Mods.Launcher.Gui
                 catch(Exception){ }
             }
             string animation = material.Animation is { } motion
-                ? $"|uv:{String.Join(",", motion.UvScroll ?? Array.Empty<float>())}|loop:{motion.LoopFrames}|phase:{motion.PhaseFrames}"
+                ? $"|uv:{String.Join(",", motion.UvScroll ?? Array.Empty<float>())}"
+                    + $"|rot:{motion.UvRotationDegreesPerSecond:R}"
+                    + $"|scale:{String.Join(",", motion.UvScale ?? Array.Empty<float>())}"
+                    + $"|pulse:{String.Join(",", motion.UvScalePulse ?? Array.Empty<float>())}"
+                    + $"|loop:{motion.LoopFrames}|phase:{motion.PhaseFrames}"
                 : "|uv:off";
             return $"{definition.SourcePath}|{definition.BundlePath}|{definition.TextureSource}|{material.Texture}|{material.Albedo}|{material.Normal}|{material.SpecularRoughness}|{material.Emissive}|{material.SourceMaterial}|{material.TexScale:R}|alpha:{material.Alpha}|two:{material.TwoSided}{animation}{stamp}";
         }
