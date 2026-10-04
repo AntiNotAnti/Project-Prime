@@ -326,6 +326,12 @@ namespace MphRead.Mods.Render.Characters
             Model viewModel, Model alternate, Model? halfturret)
         {
             string folder = hunter.ToString().ToLowerInvariant();
+            string turretReference = halfturret == null ? ""
+                : $"- `reference/{halfturret.Name}/` contains Weavel's halfturret reference.\n";
+            string turretHelper = halfturret == null ? ""
+                : " Weavel kits also include `prepare-halfturret-rigid.py`.";
+            string turretStep = halfturret == null ? ""
+                : $"9. Optional: author `starter/{folder}/halfturret.glb` and append `starter/halfturret-entry.json`.\n";
             return $"""
 # {hunter} HD character authoring kit
 
@@ -337,15 +343,16 @@ Generated from the currently configured extracted game data.
 - `reference/{bipedLod1.Name}/` contains the native distant biped reference.
 - `reference/{viewModel.Name}/` contains the first-person model reference.
 - `reference/{alternate.Name}/` contains the alternate-form reference.
-- `native-reference.json` is the exact node, parent, matrix-palette and material inventory.
+{turretReference}- `native-reference.json` is the exact node, parent, matrix-palette and material inventory.
 
 The generated Blender scripts already reconstruct the native armature and assign
 vertices to native node groups from the MPH matrix IDs. Use those exports as the
 proportion/pose reference.
 
 The kit also contains `prepare-biped-rigid.py`,
-`prepare-biped-lod1-rigid.py`, and `prepare-viewmodel-rigid.py`. After the
-corresponding native Blender import is loaded and your upgraded mesh is bound to
+`prepare-biped-lod1-rigid.py`, `prepare-viewmodel-rigid.py`, and
+`prepare-altform-rigid.py`.{turretHelper} After the corresponding native
+Blender import is loaded and your upgraded mesh is bound to
 those native rigid groups, run the helper. It evaluates the current armature
 pose, converts every segment back into native bone-local coordinates, preserves
 UV/material identity, rejects soft/missing weights and cross-bone triangles, and
@@ -367,11 +374,13 @@ The shipping GLBs must be segmented, not skinned:
    reuse the existing hunter texture/PBR replacement bindings.
 5. Export biped as `starter/{folder}/biped.glb`.
 6. Export the arm cannon as `starter/{folder}/viewmodel.glb`.
-7. Optional: author `starter/{folder}/biped_lod1.glb` and append the generated
-   `starter/biped-lod1-entry.json` object to the `models` array.
-8. Validate before installing:
+7. Optional: author `starter/{folder}/biped_lod1.glb` and append
+   `starter/biped-lod1-entry.json` to the `models` array.
+8. Optional: author `starter/{folder}/altform.glb` and append
+   `starter/alternate-form-entry.json`.
+{turretStep}10. Validate before installing:
    `ProjectPrime -charactermodelvalidate "starter"`.
-9. Copy the completed starter contents to `character-models/default` and enable
+11. Copy the completed starter contents to `character-models/default` and enable
    **HD character models** in Graphics.
 
 The biped starter maps {RigidNodeNames(biped).Count} native matrix nodes.
