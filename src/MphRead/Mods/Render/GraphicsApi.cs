@@ -20,11 +20,22 @@ namespace MphRead.Mods.Render
     internal static class GraphicsApi
     {
         private static bool Modern => ModernGraphicsCompat.Active;
+#if !ANDROID
+        private static readonly LegacyGlUniformCache _legacyUniforms = new();
+
+        internal static void ResetLegacyState() => _legacyUniforms.ResetContext();
+        internal static void BeginLegacyUniformSample() => _legacyUniforms.BeginSample();
+        internal static LegacyUniformSample EndLegacyUniformSample() => _legacyUniforms.EndSample();
+#endif
 
         public static void LoadBindings(IBindingsContext context)
         {
 #if !ANDROID
-            if (!Modern) DesktopGL.LoadBindings(context);
+            if (!Modern)
+            {
+                DesktopGL.LoadBindings(context);
+                _legacyUniforms.ResetContext();
+            }
 #endif
         }
 
@@ -104,11 +115,42 @@ namespace MphRead.Mods.Render
         public static string GetShaderInfoLog(int shader) => Modern ? ModernGraphicsCompat.GetShaderInfoLog(shader) : DesktopGL.GetShaderInfoLog(shader);
         public static void DeleteShader(int shader) { if (Modern) ModernGraphicsCompat.DeleteShader(shader); else DesktopGL.DeleteShader(shader); }
         public static int CreateProgram() => Modern ? ModernGraphicsCompat.CreateProgram() : DesktopGL.CreateProgram();
-        public static void DeleteProgram(int program) { if (Modern) ModernGraphicsCompat.DeleteProgram(program); else DesktopGL.DeleteProgram(program); }
+        public static void DeleteProgram(int program)
+        {
+            if (Modern) ModernGraphicsCompat.DeleteProgram(program);
+            else
+            {
+                DesktopGL.DeleteProgram(program);
+#if !ANDROID
+                _legacyUniforms.InvalidateAll();
+#endif
+            }
+        }
         public static void AttachShader(int program, int shader) { if (Modern) ModernGraphicsCompat.AttachShader(program, shader); else DesktopGL.AttachShader(program, shader); }
         public static void DetachShader(int program, int shader) { if (Modern) ModernGraphicsCompat.DetachShader(program, shader); else DesktopGL.DetachShader(program, shader); }
-        public static void LinkProgram(int program) { if (Modern) ModernGraphicsCompat.LinkProgram(program); else DesktopGL.LinkProgram(program); }
-        public static void UseProgram(int program) { if (Modern) ModernGraphicsCompat.UseProgram(program); else DesktopGL.UseProgram(program); }
+        public static void LinkProgram(int program)
+        {
+            if (Modern) ModernGraphicsCompat.LinkProgram(program);
+            else
+            {
+                DesktopGL.LinkProgram(program);
+#if !ANDROID
+                // Relinking can replace every uniform value/location contract.
+                _legacyUniforms.InvalidateAll();
+#endif
+            }
+        }
+        public static void UseProgram(int program)
+        {
+            if (Modern) ModernGraphicsCompat.UseProgram(program);
+            else
+            {
+                DesktopGL.UseProgram(program);
+#if !ANDROID
+                _legacyUniforms.UseProgram(program);
+#endif
+            }
+        }
         public static void GetProgram(int program, GetProgramParameterName name, out int value)
         { if (Modern) ModernGraphicsCompat.GetProgram(program, name, out value); else DesktopGL.GetProgram(program, name, out value); }
         public static string GetProgramInfoLog(int program) => Modern ? ModernGraphicsCompat.GetProgramInfoLog(program) : DesktopGL.GetProgramInfoLog(program);
@@ -116,20 +158,139 @@ namespace MphRead.Mods.Render
         public static void GetUniform(int program, int location, out int value)
         { if (Modern) ModernGraphicsCompat.GetUniform(program, location, out value); else DesktopGL.GetUniform(program, location, out value); }
 
-        public static void Uniform1(int location, int value) { if (Modern) ModernGraphicsCompat.Uniform1(location, value); else DesktopGL.Uniform1(location, value); }
-        public static void Uniform1(int location, float value) { if (Modern) ModernGraphicsCompat.Uniform1(location, value); else DesktopGL.Uniform1(location, value); }
-        public static void Uniform1(int location, int count, float[] value) { if (Modern) ModernGraphicsCompat.Uniform1(location, count, value); else DesktopGL.Uniform1(location, count, value); }
-        public static void Uniform2(int location, float x, float y) { if (Modern) ModernGraphicsCompat.Uniform2(location, x, y); else DesktopGL.Uniform2(location, x, y); }
-        public static void Uniform3(int location, Vector3 value) { if (Modern) ModernGraphicsCompat.Uniform3(location, value); else DesktopGL.Uniform3(location, value); }
-        public static void Uniform3(int location, int count, float[] value) { if (Modern) ModernGraphicsCompat.Uniform3(location, count, value); else DesktopGL.Uniform3(location, count, value); }
-        public static void Uniform4(int location, Vector4 value) { if (Modern) ModernGraphicsCompat.Uniform4(location, value); else DesktopGL.Uniform4(location, value); }
-        public static void Uniform4(int location, ref Vector4 value) { if (Modern) ModernGraphicsCompat.Uniform4(location, ref value); else DesktopGL.Uniform4(location, ref value); }
-        public static void Uniform4(int location, float x, float y, float z, float w) { if (Modern) ModernGraphicsCompat.Uniform4(location, x, y, z, w); else DesktopGL.Uniform4(location, x, y, z, w); }
-        public static void Uniform4(int location, int x, int y, int z, int w) { if (Modern) ModernGraphicsCompat.Uniform4(location, x, y, z, w); else DesktopGL.Uniform4(location, x, y, z, w); }
+        public static void Uniform1(int location, int value)
+        {
+            if (Modern) ModernGraphicsCompat.Uniform1(location, value);
+            else
+            {
+#if !ANDROID
+                if (!_legacyUniforms.Submit(location, value)) return;
+#endif
+                DesktopGL.Uniform1(location, value);
+            }
+        }
+        public static void Uniform1(int location, float value)
+        {
+            if (Modern) ModernGraphicsCompat.Uniform1(location, value);
+            else
+            {
+#if !ANDROID
+                if (!_legacyUniforms.Submit(location, value)) return;
+#endif
+                DesktopGL.Uniform1(location, value);
+            }
+        }
+        public static void Uniform1(int location, int count, float[] value)
+        {
+            if (Modern) ModernGraphicsCompat.Uniform1(location, count, value);
+            else
+            {
+#if !ANDROID
+                _legacyUniforms.NoteUncachedWrite();
+#endif
+                DesktopGL.Uniform1(location, count, value);
+            }
+        }
+        public static void Uniform2(int location, float x, float y)
+        {
+            if (Modern) ModernGraphicsCompat.Uniform2(location, x, y);
+            else
+            {
+#if !ANDROID
+                if (!_legacyUniforms.Submit2(location, x, y)) return;
+#endif
+                DesktopGL.Uniform2(location, x, y);
+            }
+        }
+        public static void Uniform3(int location, Vector3 value)
+        {
+            if (Modern) ModernGraphicsCompat.Uniform3(location, value);
+            else
+            {
+#if !ANDROID
+                if (!_legacyUniforms.Submit3(location, value)) return;
+#endif
+                DesktopGL.Uniform3(location, value);
+            }
+        }
+        public static void Uniform3(int location, int count, float[] value)
+        {
+            if (Modern) ModernGraphicsCompat.Uniform3(location, count, value);
+            else
+            {
+#if !ANDROID
+                _legacyUniforms.NoteUncachedWrite();
+#endif
+                DesktopGL.Uniform3(location, count, value);
+            }
+        }
+        public static void Uniform4(int location, Vector4 value)
+        {
+            if (Modern) ModernGraphicsCompat.Uniform4(location, value);
+            else
+            {
+#if !ANDROID
+                if (!_legacyUniforms.Submit4(location, value)) return;
+#endif
+                DesktopGL.Uniform4(location, value);
+            }
+        }
+        public static void Uniform4(int location, ref Vector4 value)
+        {
+            if (Modern) ModernGraphicsCompat.Uniform4(location, ref value);
+            else
+            {
+#if !ANDROID
+                if (!_legacyUniforms.Submit4(location, value)) return;
+#endif
+                DesktopGL.Uniform4(location, ref value);
+            }
+        }
+        public static void Uniform4(int location, float x, float y, float z, float w)
+        {
+            if (Modern) ModernGraphicsCompat.Uniform4(location, x, y, z, w);
+            else
+            {
+#if !ANDROID
+                var value = new Vector4(x, y, z, w);
+                if (!_legacyUniforms.Submit4(location, value)) return;
+#endif
+                DesktopGL.Uniform4(location, x, y, z, w);
+            }
+        }
+        public static void Uniform4(int location, int x, int y, int z, int w)
+        {
+            if (Modern) ModernGraphicsCompat.Uniform4(location, x, y, z, w);
+            else
+            {
+#if !ANDROID
+                if (!_legacyUniforms.Submit4(location, x, y, z, w)) return;
+#endif
+                DesktopGL.Uniform4(location, x, y, z, w);
+            }
+        }
         public static void UniformMatrix4(int location, bool transpose, ref Matrix4 value)
-        { if (Modern) ModernGraphicsCompat.UniformMatrix4(location, transpose, ref value); else DesktopGL.UniformMatrix4(location, transpose, ref value); }
+        {
+            if (Modern) ModernGraphicsCompat.UniformMatrix4(location, transpose, ref value);
+            else
+            {
+#if !ANDROID
+                if (!_legacyUniforms.SubmitMatrix4(location, transpose, in value)) return;
+#endif
+                DesktopGL.UniformMatrix4(location, transpose, ref value);
+            }
+        }
         public static void UniformMatrix4(int location, int count, bool transpose, float[] value)
-        { if (Modern) ModernGraphicsCompat.UniformMatrix4(location, count, transpose, value); else DesktopGL.UniformMatrix4(location, count, transpose, value); }
+        {
+            if (Modern) ModernGraphicsCompat.UniformMatrix4(location, count, transpose, value);
+            else
+            {
+#if !ANDROID
+                _legacyUniforms.NoteUncachedWrite();
+#endif
+                DesktopGL.UniformMatrix4(location, count, transpose, value);
+            }
+        }
 
         public static int GenFramebuffer() => Modern ? ModernGraphicsCompat.GenFramebuffer() : DesktopGL.GenFramebuffer();
         public static void DeleteFramebuffer(int framebuffer) { if (Modern) ModernGraphicsCompat.DeleteFramebuffer(framebuffer); else DesktopGL.DeleteFramebuffer(framebuffer); }
