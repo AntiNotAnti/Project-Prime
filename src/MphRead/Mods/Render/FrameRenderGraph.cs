@@ -27,6 +27,7 @@ namespace MphRead.Mods.Render
         GpuVisibility,
         WorldSetup,
         World,
+        GpuHiZBuild,
         Outlines,
         SceneOverlays,
         DeferredPbr,
@@ -53,18 +54,22 @@ namespace MphRead.Mods.Render
             new(FrameRenderPassKind.Shadow, "frame.shadow",
                 FrameRenderResource.None, FrameRenderResource.ShadowDepth),
             new(FrameRenderPassKind.GpuVisibility, "frame.gpu-visibility",
-                FrameRenderResource.SceneDepth,
-                FrameRenderResource.HiZ | FrameRenderResource.Visibility),
+                FrameRenderResource.HiZ,
+                FrameRenderResource.Visibility),
             new(FrameRenderPassKind.WorldSetup, "frame.world-setup",
                 FrameRenderResource.None,
                 FrameRenderResource.SceneColor
                     | FrameRenderResource.SceneDepth
                     | FrameRenderResource.SceneStencil),
             new(FrameRenderPassKind.World, "frame.world",
-                FrameRenderResource.SceneDepth | FrameRenderResource.SceneStencil,
+                FrameRenderResource.SceneDepth | FrameRenderResource.SceneStencil
+                    | FrameRenderResource.Visibility,
                 FrameRenderResource.SceneColor
                     | FrameRenderResource.SceneDepth
                     | FrameRenderResource.SceneStencil),
+            new(FrameRenderPassKind.GpuHiZBuild, "frame.gpu-hiz-build",
+                FrameRenderResource.SceneDepth,
+                FrameRenderResource.HiZ),
             new(FrameRenderPassKind.Outlines, "frame.outlines",
                 FrameRenderResource.SceneDepth,
                 FrameRenderResource.SceneColor),
@@ -99,6 +104,7 @@ namespace MphRead.Mods.Render
                 FrameRenderPassKind.GpuVisibility,
                 FrameRenderPassKind.WorldSetup,
                 FrameRenderPassKind.World,
+                FrameRenderPassKind.GpuHiZBuild,
                 FrameRenderPassKind.Outlines,
                 FrameRenderPassKind.SceneOverlays,
                 FrameRenderPassKind.DeferredPbr,
@@ -188,15 +194,17 @@ namespace MphRead
 
                 case Mods.Render.FrameRenderPassKind.World:
                     ExecuteWorldRenderGraph();
+                    break;
+
+                case Mods.Render.FrameRenderPassKind.GpuHiZBuild:
 #if !MPHREAD_SERVER
                     if (Mods.Render.ModernGraphicsCompat.Active
                         && Mods.Render.ModernGraphicsCompat.GpuVisibilityEnabled)
                     {
-                        _retainedDepthHistoryValid = _depthTexture != 0;
-                        Mods.Render.ModernGraphicsCompat.CommitRetainedGpuVisibilityFrame(
-                            _perspectiveMatrix, _viewMatrix,
-                            _depthTexture, _targetSize.X, _targetSize.Y,
-                            _retainedDepthHistoryValid);
+                        _retainedDepthHistoryValid =
+                            Mods.Render.ModernGraphicsCompat.CaptureRetainedGpuVisibilityHistory(
+                                _perspectiveMatrix, _viewMatrix,
+                                _depthTexture, _targetSize.X, _targetSize.Y);
                     }
                     else
 #endif
