@@ -109,6 +109,16 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly HubNavButton _back;
         private readonly HubNavButton _go;
         private readonly HubNavButton _fetch;
+        private readonly PrimeHeroPanel _arenaHero;
+        private readonly TextBlock _arenaTitle = PrimeChrome.HeroTitle("ARENA ROTATION");
+        private readonly TextBlock _setupSummary = PrimeChrome.Eyebrow(
+            "MATCH SETUP // WAITING FOR ARENA");
+        private readonly HunterStand _hunterStand = new()
+        {
+            Height = 142,
+            MinHeight = 120,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
 
         private readonly Control _page;
 
@@ -174,48 +184,70 @@ namespace MphRead.Mods.Launcher.Gui
             _kind = new ChoiceRow("Hosting", _kinds, 0);
             _kind.Changed += (_, _) => Refresh();
 
-            var identity = new StackPanel { Spacing = 3 };
-            identity.Children.Add(_name);
-            identity.Children.Add(_mode);
-            identity.Children.Add(_format);
-            identity.Children.Add(_hunter);
-
-            var rotation = new StackPanel { Spacing = 5 };
-            rotation.Children.Add(_maps);
-            rotation.Children.Add(new TextBlock
+            var match = PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("MATCH"),
+                PrimeChrome.Title("MATCH FORMAT"),
+                PrimeChrome.Text(
+                    "Name the lobby and choose how the match will be played.",
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush),
+                _name,
+                _mode,
+                _format);
+            var matchPanel = new PrimePanel(match, raised: true)
             {
-                Text = "Maps play in the order you choose them. The first map starts the lobby.",
-                FontFamily = HubTheme.Ui,
-                FontSize = 9.5,
-                Foreground = HubTheme.TextDimBrush,
-                TextWrapping = TextWrapping.Wrap
-            });
+                Padding = new Thickness(12)
+            };
 
-            var hosting = new StackPanel { Spacing = 3 };
+            var arenaCopy = new StackPanel
+            {
+                Spacing = 8,
+                VerticalAlignment = VerticalAlignment.Bottom
+            };
+            arenaCopy.Children.Add(PrimeChrome.Eyebrow("ARENA"));
+            arenaCopy.Children.Add(_arenaTitle);
+            arenaCopy.Children.Add(PrimeChrome.Text(
+                "Rotation order is authoritative. The first arena is loaded when the lobby starts.",
+                PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+            arenaCopy.Children.Add(_maps);
+            _arenaHero = new PrimeHeroPanel(arenaCopy, minHeight: 220)
+            {
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
+
+            _hunterStand.Name2 = _hunter.Value;
+            _hunterStand.Suit = Math.Clamp(LauncherPrefs.LastColor, 0, 3);
+            var hosting = new StackPanel { Spacing = 5 };
             hosting.Children.Add(_host);
             if (CanRunHere)
-            {
                 hosting.Children.Add(_kind);
-            }
+            hosting.Children.Add(_progress);
+            hosting.Children.Add(_note);
 
-            Border lobbyPanel = SectionPanel("LOBBY", identity, HubTheme.Accent);
-            Border rotationPanel = SectionPanel("MAP ROTATION", rotation, HubTheme.Good);
-            Border hostingPanel = SectionPanel("HOSTING", hosting, HubTheme.Warm);
-
-            var right = new StackPanel { Spacing = 10 };
-            right.Children.Add(rotationPanel);
-            right.Children.Add(hostingPanel);
-            right.Children.Add(_progress);
-            right.Children.Add(_note);
+            var deployment = PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("DEPLOYMENT"),
+                PrimeChrome.Title("HUNTER & HOST"),
+                PrimeChrome.Text(
+                    "Choose your hunter and where the authoritative lobby process runs.",
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush),
+                _hunterStand,
+                _hunter,
+                hosting);
+            var deploymentPanel = new PrimePanel(deployment, raised: true)
+            {
+                Padding = new Thickness(12)
+            };
 
             var layout = new Grid
             {
-                ColumnDefinitions = new ColumnDefinitions("0.9*,1.1*"),
-                ColumnSpacing = 12
+                ColumnDefinitions = new ColumnDefinitions("0.9*,1.2*,0.95*"),
+                ColumnSpacing = 12,
+                RowSpacing = 12
             };
-            layout.Children.Add(lobbyPanel);
-            Grid.SetColumn(right, 1);
-            layout.Children.Add(right);
+            layout.Children.Add(matchPanel);
+            Grid.SetColumn(_arenaHero, 1);
+            layout.Children.Add(_arenaHero);
+            Grid.SetColumn(deploymentPanel, 2);
+            layout.Children.Add(deploymentPanel);
 
             var body = new ScrollViewer
             {
@@ -223,6 +255,14 @@ namespace MphRead.Mods.Launcher.Gui
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto
             };
+
+            _hunter.Changed += (_, _) =>
+            {
+                _hunterStand.Name2 = _hunter.Value;
+                RefreshSetupChrome();
+            };
+            _mode.Changed += (_, _) => RefreshSetupChrome();
+            _format.Changed += (_, _) => RefreshSetupChrome();
 
             _back = new HubNavButton("BACK", compact: true);
             ControllerNav.Identify(_back, "custom.back");
@@ -248,6 +288,9 @@ namespace MphRead.Mods.Launcher.Gui
             footer.Children.Add(_back);
             Grid.SetColumn(_fetch, 1);
             footer.Children.Add(_fetch);
+            _setupSummary.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(_setupSummary, 2);
+            footer.Children.Add(_setupSummary);
             Grid.SetColumn(_go, 3);
             footer.Children.Add(_go);
 
@@ -260,8 +303,8 @@ namespace MphRead.Mods.Launcher.Gui
             page.Children.Add(HubChrome.Header(
                 "PLAY  /  MULTIPLAYER  /  CREATE LOBBY",
                 "CREATE LOBBY",
-                "Create the lobby, choose its rotation and decide where the server runs.",
-                "LOBBY SETUP",
+                "Match, arena and deployment configuration in one launch-ready workspace.",
+                "MATCH SETUP",
                 HubTheme.WarmBrush));
             Grid.SetRow(body, 1);
             page.Children.Add(body);
@@ -270,17 +313,20 @@ namespace MphRead.Mods.Launcher.Gui
 
             page.SizeChanged += (_, e) =>
             {
-                bool compact = e.NewSize.Width < 760;
+                bool compact = e.NewSize.Width < 980;
                 layout.ColumnDefinitions = compact
                     ? new ColumnDefinitions("*")
-                    : new ColumnDefinitions("0.9*,1.1*");
+                    : new ColumnDefinitions("0.9*,1.2*,0.95*");
                 layout.RowDefinitions = compact
-                    ? new RowDefinitions("Auto,Auto")
+                    ? new RowDefinitions("Auto,Auto,Auto")
                     : new RowDefinitions("*");
-                Grid.SetColumn(lobbyPanel, 0);
-                Grid.SetRow(lobbyPanel, 0);
-                Grid.SetColumn(right, compact ? 0 : 1);
-                Grid.SetRow(right, compact ? 1 : 0);
+
+                Grid.SetColumn(matchPanel, 0);
+                Grid.SetRow(matchPanel, 0);
+                Grid.SetColumn(_arenaHero, compact ? 0 : 1);
+                Grid.SetRow(_arenaHero, compact ? 1 : 0);
+                Grid.SetColumn(deploymentPanel, compact ? 0 : 2);
+                Grid.SetRow(deploymentPanel, compact ? 2 : 0);
                 layout.RowSpacing = compact ? 10 : 0;
             };
 
@@ -421,6 +467,7 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         private void Refresh()
         {
+            RefreshSetupChrome();
             _host.IsVisible = !Dedicated;
             if (!Dedicated)
             {
@@ -469,6 +516,34 @@ namespace MphRead.Mods.Launcher.Gui
                 + "PC for anyone outside to join; you join over 127.0.0.1 either way.",
                 GuiTheme.Warm);
             WireFooter();
+        }
+
+        private void RefreshSetupChrome()
+        {
+            string room = _rotation.FirstOrDefault() ?? "";
+            if (room.Length == 0)
+            {
+                _arenaTitle.Text = "SELECT AN ARENA";
+                _arenaHero.SetArt(null);
+            }
+            else
+            {
+                (RoomMetadata? meta, _) = Metadata.GetRoomByName(room);
+                _arenaTitle.Text = (meta?.InGameName ?? room).ToUpperInvariant();
+                _arenaHero.SetArt(MapShot.For(room), 0.78);
+            }
+
+            string hosting = Dedicated
+                ? "DEDICATED"
+                : _chosen is { } chosen
+                    ? chosen.Label.ToUpperInvariant()
+                    : _asking ? "FINDING HOST" : "HOSTED";
+            string maps = _rotation.Count == 1
+                ? "1 ARENA"
+                : $"{_rotation.Count} ARENAS";
+            _setupSummary.Text =
+                $"{_mode.Value.ToUpperInvariant()}  //  {_format.Value.ToUpperInvariant()}  //  "
+                + $"{maps}  //  {hosting}";
         }
 
         private void Say(string text, Color colour)
@@ -677,6 +752,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _rotation.Clear();
                 _rotation.AddRange(picked);
                 _maps.Set(Describe());
+                RefreshSetupChrome();
                 ClosePage();
             };
             picker.Cancelled += (_, _) => ClosePage();
