@@ -4752,7 +4752,8 @@ namespace MphRead
             Matrix4 transform, int listId, int matrixStackCount, IReadOnlyList<float> matrixStack, Vector4? overrideColor, Vector4? paletteOverride,
             SelectionType selectionType, BillboardMode billboardMode, float scaleFactor = 1, int? bindingOverride = null,
             bool texturedPlayerSkin = false, Vector4? playerOutlineColor = null,
-            bool weightedSkinning = false, bool authoredTexture = false)
+            bool weightedSkinning = false, bool authoredTexture = false,
+            RepeatMode authoredWrapS = RepeatMode.Repeat, RepeatMode authoredWrapT = RepeatMode.Repeat)
         {
             transform.Row0.X *= scaleFactor;
             transform.Row0.Y *= scaleFactor;
@@ -4802,8 +4803,8 @@ namespace MphRead
                 // Effect overrides use generated coordinates. Embedded model
                 // albedos use the asset's authored UVs, including in previews.
                 item.TexgenMode = authoredTexture ? TexgenMode.Texcoord : TexgenMode.Normal;
-                item.XRepeat = authoredTexture ? RepeatMode.Clamp : RepeatMode.Mirror;
-                item.YRepeat = authoredTexture ? RepeatMode.Clamp : RepeatMode.Mirror;
+                item.XRepeat = authoredTexture ? authoredWrapS : RepeatMode.Mirror;
+                item.YRepeat = authoredTexture ? authoredWrapT : RepeatMode.Mirror;
                 item.HasTexture = true;
                 item.TextureBindingId = bindingOverride.Value;
             }

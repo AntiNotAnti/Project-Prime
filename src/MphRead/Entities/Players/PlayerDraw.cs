@@ -471,7 +471,8 @@ namespace MphRead.Entities
                         color.HasValue && Mods.RenderOptions.BrightSkins
                             && Mods.RenderOptions.BrightSkinStyle != Mods.PlayerSkinStyle.Solid,
                         PaletteOverride == null ? outlineColor : null,
-                        weightedSkinning: true, authoredTexture: authoredTexture);
+                        weightedSkinning: true, authoredTexture: authoredTexture,
+                        authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT);
                     _scene.CosmeticSubmission = previousCosmetic;
                     _scene.CosmeticMaterialSubmission = previousMaterial;
                 }

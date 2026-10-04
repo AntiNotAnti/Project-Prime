@@ -5,6 +5,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using MphRead.Mods;
+using MphRead.Formats;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 
@@ -18,7 +19,9 @@ namespace MphRead.Mods.Render.Characters
     internal sealed record CharacterWeightedRenderSegment(
         int NativeMaterialIndex,
         int ListId,
-        int? AlbedoBinding = null);
+        int? AlbedoBinding = null,
+        RepeatMode WrapS = RepeatMode.Repeat,
+        RepeatMode WrapT = RepeatMode.Repeat);
 
     internal sealed record CharacterWeightedRenderJoint(
         int NativeNodeIndex,
@@ -346,7 +349,9 @@ namespace MphRead.Mods.Render.Characters
                         albedo = binding;
                     }
                     int list = CompileWeightedList(primitive);
-                    compiled.Add(new(materialIndex, list, albedo));
+                    compiled.Add(new(materialIndex, list, albedo,
+                        primitive.Albedo?.WrapS ?? RepeatMode.Repeat,
+                        primitive.Albedo?.WrapT ?? RepeatMode.Repeat));
                 }
                 return new(asset, compiled.ToArray(), joints.ToArray(),
                     geometry.VertexCount, geometry.IndexCount);

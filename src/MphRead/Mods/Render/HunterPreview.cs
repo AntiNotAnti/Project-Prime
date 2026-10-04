@@ -326,7 +326,8 @@ namespace MphRead.Mods.Render
                             color, PaletteOverride, SelectionType.None,
                             BillboardMode.None, _drawScale, bindingOverride,
                             UseTexturedPlayerSkin(_model), GetPlayerOutlineColor(_model),
-                            weightedSkinning: true, authoredTexture: authoredTexture);
+                            weightedSkinning: true, authoredTexture: authoredTexture,
+                            authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT);
                     }
                     finally
                     {

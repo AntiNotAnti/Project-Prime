@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using MphRead.Formats;
 using NVector2 = System.Numerics.Vector2;
 using NVector3 = System.Numerics.Vector3;
 using NVector4 = System.Numerics.Vector4;
@@ -18,7 +19,8 @@ namespace MphRead.Mods.Render.Characters
         NVector4 Weights,
         int PackedJoints);
 
-    internal sealed record CharacterEmbeddedAlbedo(byte[] Image, bool Opaque);
+    internal sealed record CharacterEmbeddedAlbedo(byte[] Image, bool Opaque,
+        RepeatMode WrapS = RepeatMode.Repeat, RepeatMode WrapT = RepeatMode.Repeat);
 
     internal sealed record CharacterWeightedPrimitive(
         string? MaterialName,
@@ -275,8 +277,27 @@ namespace MphRead.Mods.Render.Characters
                 throw new InvalidDataException("Weighted albedo buffer is invalid or exceeds 32 MiB.");
             bool opaque = !material.TryGetProperty("alphaMode", out JsonElement alphaMode)
                 || alphaMode.GetString() == "OPAQUE";
-            return new(binary.AsSpan(offset, length).ToArray(), opaque);
+            RepeatMode wrapS = RepeatMode.Repeat;
+            RepeatMode wrapT = RepeatMode.Repeat;
+            if (textures[textureIndex].TryGetProperty("sampler", out JsonElement samplerIndex))
+            {
+                JsonElement[] samplers = Elements(root, "samplers");
+                int index = samplerIndex.GetInt32();
+                if ((uint)index >= samplers.Length)
+                    throw new InvalidDataException("Weighted albedo sampler index is invalid.");
+                wrapS = ReadWrapMode(Int(samplers[index], "wrapS", 10497));
+                wrapT = ReadWrapMode(Int(samplers[index], "wrapT", 10497));
+            }
+            return new(binary.AsSpan(offset, length).ToArray(), opaque, wrapS, wrapT);
         }
+
+        private static RepeatMode ReadWrapMode(int value) => value switch
+        {
+            33071 => RepeatMode.Clamp,
+            33648 => RepeatMode.Mirror,
+            10497 => RepeatMode.Repeat,
+            _ => throw new InvalidDataException("Weighted albedo sampler wrap mode is invalid.")
+        };
 
         internal static (int J0, int J1, int J2, int J3) UnpackJoints(int packed)
             => (packed & 31, (packed >> 5) & 31, (packed >> 10) & 31, (packed >> 15) & 31);

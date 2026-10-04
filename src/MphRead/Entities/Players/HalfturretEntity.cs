@@ -476,7 +476,8 @@ namespace MphRead.Entities
                             segment.ListId, weighted.Joints.Count, weighted.MatrixPalette,
                             color, PaletteOverride, SelectionType.None, BillboardMode.None,
                             _drawScale, bindingOverride, UseTexturedPlayerSkin(inst),
-                            GetPlayerOutlineColor(inst), weightedSkinning: true, authoredTexture: authoredTexture);
+                            GetPlayerOutlineColor(inst), weightedSkinning: true, authoredTexture: authoredTexture,
+                            authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT);
                     }
                     finally
                     {
