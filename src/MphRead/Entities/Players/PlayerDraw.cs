@@ -252,7 +252,12 @@ namespace MphRead.Entities
                             alpha = Math.Clamp(alpha, 0, 1);
                         }
                         UpdateMaterials(_bipedModel2, Recolor);
-                        if (!TryDrawModernCharacter(_bipedModel2, CharacterModelPart.Biped, alpha,
+                        // Preserve the native remote-player LOD decision. The
+                        // first HD slice only replaces LOD0; distant hunters
+                        // keep the cartridge LOD1 rather than paying full
+                        // replacement geometry across the map.
+                        if (lod != 0 || !TryDrawModernCharacter(_bipedModel2,
+                            CharacterModelPart.Biped, alpha,
                             overrideColor: brightSkin, outlineColor: outlineColor))
                             GetDrawItems(_bipedModel2, _bipedModel2.Model.Nodes[0], alpha,
                                 overrideColor: brightSkin, outlineColor: outlineColor);
