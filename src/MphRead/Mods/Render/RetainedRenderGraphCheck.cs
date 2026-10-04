@@ -226,6 +226,10 @@ namespace MphRead.Mods.Render
             };
             Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
                 "plain opaque mesh is eligible for direct modern submission");
+            direct.WeightedSkinning = true;
+            Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "Weighted4 mesh stays on compatibility submission until direct parity is implemented");
+            direct.WeightedSkinning = false;
 
             direct.ViewModel = true;
             Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
@@ -272,9 +276,10 @@ namespace MphRead.Mods.Render
                     direct, WorldRenderPassKind.Decal),
                 "decal mesh is direct eligible in retained decal pass");
             direct.RenderMode = RenderMode.Normal;
-            direct.MatrixStackCount = 1;
-            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "valid matrix-stack geometry is eligible for direct submission");
+            direct.MatrixStackCount = direct.MatrixStack.Length / 16;
+            Check(direct.MatrixStackCount == 32
+                && ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "full 32-matrix shader palette is eligible for ordinary direct submission");
             direct.MatrixStackCount = direct.MatrixStack.Length / 16 + 1;
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
                 "out-of-range matrix stack stays on compatibility executor");
@@ -292,6 +297,10 @@ namespace MphRead.Mods.Render
             };
             Check(ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
                 "plain opaque mesh is eligible for direct retained PBR MRT");
+            pbrDirect.WeightedSkinning = true;
+            Check(!ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
+                "Weighted4 mesh stays on compatibility PBR replay");
+            pbrDirect.WeightedSkinning = false;
             pbrDirect.ViewModel = true;
             Check(!ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
                 "viewmodel stays off direct PBR MRT replay");
