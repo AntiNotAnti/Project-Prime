@@ -185,7 +185,7 @@ namespace MphRead.Mods.MapGen
             Dictionary<string, MapFlipbookBinding> flipbooks)
         {
             MapMaterialAnimation? animation = material.Animation;
-            if (animation?.FlipbookFrames.Count is not > 0) return;
+            if (animation?.FlipbookFrames?.Count is not > 0) return;
             if (baseTextureId < 0 || basePaletteId < 0)
                 throw new MapAuthoringException("FP-MAP-001",
                     $"Flipbook material {material.Name} needs a textured base material.");
