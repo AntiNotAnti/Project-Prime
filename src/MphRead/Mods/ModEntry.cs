@@ -315,6 +315,11 @@ namespace MphRead.Mods
                 Environment.ExitCode = Cosmetics.CosmeticsCheck.Run();
                 return true;
             }
+            if (HasFlag(args, "charactermodelcheck"))
+            {
+                Environment.ExitCode = Render.Characters.CharacterModelAssetCheck.Run();
+                return true;
+            }
             if (HasFlag(args, "hudmetrics")) Render.Hud.HudDrawMetrics.Enable();
             if (HasFlag(args, "graphicscheck"))
             {
