@@ -35,7 +35,7 @@ namespace MphRead.Mods.Render.Characters
             string output = JsonSerializer.Serialize(relativeOutput.Replace('\\', '/'));
             string label = JsonSerializer.Serialize(assetLabel);
 
-            return $"""
+            return $$"""
 # Project Prime rigid character exporter
 #
 # Workflow:
