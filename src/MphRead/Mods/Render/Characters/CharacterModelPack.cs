@@ -243,7 +243,7 @@ namespace MphRead.Mods.Render.Characters
         private static string ContainedPath(string root, string relative)
         {
             if (String.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative)
-                || relative.Contains('\') || relative.Contains(':')
+                || relative.Contains((char)92) || relative.Contains(':')
                 || relative.Split('/').Any(part => part.Length == 0 || part is "." or ".."))
                 throw new InvalidDataException("Unsafe character model path: " + relative);
 
