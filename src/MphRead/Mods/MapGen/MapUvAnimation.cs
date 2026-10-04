@@ -269,7 +269,8 @@ namespace MphRead.Mods.MapGen
             int frameIndexOffset = textureGroupOffset == 0 ? 0 : textureGroupOffset + textureGroupSize;
             int textureIdOffset = frameIndexOffset + frameIndices.Count * sizeof(ushort);
             int paletteIdOffset = textureIdOffset + textureIds.Count * sizeof(ushort);
-            int textureAnimationOffset = paletteIdOffset + paletteIds.Count * sizeof(ushort);
+            int textureAnimationOffset = Align4(
+                paletteIdOffset + paletteIds.Count * sizeof(ushort));
 
             using var stream = new MemoryStream(
                 textureTracks.Count == 0 ? afterTexcoord : textureAnimationOffset + textureTracks.Count * 44);
@@ -352,6 +353,7 @@ namespace MphRead.Mods.MapGen
                 foreach (ushort value in frameIndices) writer.Write(value);
                 foreach (ushort value in textureIds) writer.Write(value);
                 foreach (ushort value in paletteIds) writer.Write(value);
+                while (stream.Position < textureAnimationOffset) writer.Write((byte)0);
                 foreach (TextureTrack track in textureTracks)
                 {
                     WriteNativeName(writer, track.Material.Name, 32);
