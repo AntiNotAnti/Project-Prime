@@ -420,6 +420,43 @@ internal sealed unsafe partial class ModernGraphicsCompat
         return true;
     }
 
+    private void EncodeRetainedStateMultiDraw(
+        RenderPassEncoder* pass,
+        IReadOnlyList<RetainedDrawPacket> packets,
+        int start, int count, int firstSlot)
+    {
+        if (TryGetDenseMultiDrawBucket(
+                packets, start, count,
+                out RetainedDenseMultiDrawBucket dense)
+            && _gpuVisibilityDenseIndirectBuffer != null
+            && _gpuVisibilityBucketCountBuffer != null)
+        {
+            _device.Native.RenderPassEncoderMultiDrawIndexedIndirectCount(
+                pass,
+                _gpuVisibilityDenseIndirectBuffer,
+                checked((ulong)dense.DenseBase
+                    * RetainedIndexedIndirectBytes),
+                _gpuVisibilityBucketCountBuffer,
+                checked((ulong)dense.Id * sizeof(uint)),
+                dense.MaxCount);
+            _retainedDenseMultiDrawCalls++;
+            _retainedDenseMultiDrawCandidates += count;
+        }
+        else
+        {
+            _device.Native.RenderPassEncoderMultiDrawIndexedIndirect(
+                pass, _gpuVisibilityIndirectBuffer,
+                checked((ulong)firstSlot
+                    * RetainedIndexedIndirectBytes),
+                checked((uint)count));
+        }
+
+        _retainedMultiDrawCalls++;
+        _retainedMultiDrawLogicalDraws += count;
+        _retainedIndirectDraws += count;
+        _gpuVisibilityIndirectDraws += count;
+    }
+
     private bool TryGetConsecutiveVisibilityRange(
         IReadOnlyList<RetainedDrawPacket> packets,
         int start, int count, out int firstSlot,
@@ -597,14 +634,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
                 pass, (uint)_stencilReference);
         }
 
-        _device.Native.RenderPassEncoderMultiDrawIndexedIndirect(
-            pass, _gpuVisibilityIndirectBuffer,
-            checked((ulong)firstSlot * RetainedIndexedIndirectBytes),
-            checked((uint)count));
-        _retainedMultiDrawCalls++;
-        _retainedMultiDrawLogicalDraws += count;
-        _retainedIndirectDraws += count;
-        _gpuVisibilityIndirectDraws += count;
+        EncodeRetainedStateMultiDraw(
+            pass, packets, start, count, firstSlot);
         if (_measurePerformance) _coreDraws += count;
         RecordCommandOperation();
 
@@ -752,14 +783,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
             pass, 0, 0, target.Width, target.Height, 0, 1);
         ApplyScissor(pass, target.Width, target.Height);
 
-        _device.Native.RenderPassEncoderMultiDrawIndexedIndirect(
-            pass, _gpuVisibilityIndirectBuffer,
-            checked((ulong)firstSlot * RetainedIndexedIndirectBytes),
-            checked((uint)count));
-        _retainedMultiDrawCalls++;
-        _retainedMultiDrawLogicalDraws += count;
-        _retainedIndirectDraws += count;
-        _gpuVisibilityIndirectDraws += count;
+        EncodeRetainedStateMultiDraw(
+            pass, packets, start, count, firstSlot);
         if (_measurePerformance) _coreDraws += count;
         RecordCommandOperation();
 
