@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MphRead.Mods.Platform;
+using MphRead.Mods.Launcher;
 
 namespace MphRead.Mods.Render.Characters
 {
@@ -92,7 +93,9 @@ namespace MphRead.Mods.Render.Characters
         }
 
         public static string DefaultDirectory
-            => Path.Combine(AppPaths.UserDataDirectory, "character-models", "default");
+            => Path.Combine(OperatingSystem.IsAndroid()
+                ? LauncherPrefs.Directory : AppPaths.UserDataDirectory,
+                "character-models", "default");
 
         public int Count => _assets.Count;
 
@@ -240,7 +243,7 @@ namespace MphRead.Mods.Render.Characters
         private static string ContainedPath(string root, string relative)
         {
             if (String.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative)
-                || relative.Contains('\') || relative.Contains(':')
+                || relative.Contains((char)92) || relative.Contains(':')
                 || relative.Split('/').Any(part => part.Length == 0 || part is "." or ".."))
                 throw new InvalidDataException("Unsafe character model path: " + relative);
 

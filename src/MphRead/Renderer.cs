@@ -5426,6 +5426,7 @@ namespace MphRead
                 foreach (Model model in _modelLeases) Mods.Render.SharedModelResources.Release(model);
                 _modelLeases.Clear();
             }
+            Mods.Render.Characters.CharacterModelRuntime.Release(this);
             if (Services?.IsReplica != true) Read.ClearCache();
             DisposePlayerOutlines();
             DisposeGraphicsPipeline();

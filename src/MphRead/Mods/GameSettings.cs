@@ -153,6 +153,8 @@ namespace MphRead.Mods
                 && Enum.IsDefined(cosmeticQuality) ? cosmeticQuality : Cosmetics.CosmeticEffectQuality.Medium;
             RenderOptions.TextureReplacements = RenderOptions.ParseOnOff(settings.TextureReplacements,
                 RenderOptions.TextureReplacements);
+            RenderOptions.CharacterModelReplacements = RenderOptions.ParseOnOff(
+                settings.CharacterModelReplacements, RenderOptions.CharacterModelReplacements);
             if (Enum.TryParse(settings.TextureUpscale, true, out TextureUpscaleMode textureUpscale))
                 RenderOptions.TextureUpscale = textureUpscale;
             if (Enum.TryParse(settings.TextureQuality, true, out TextureAssetQuality textureQuality)
