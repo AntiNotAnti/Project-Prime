@@ -241,6 +241,12 @@ namespace MphRead.Mods.Input
                     "chat close advances shared input ownership");
                 Check(!GamepadInput.TryRenderCameraAim(.5, out _, out _),
                     "chat close cannot resurrect the pre-chat camera turn");
+                GamepadManager.UpdatePresentationAxes("mapped", 0, 0, .7f, 0);
+                GamepadInput.CapturePresentationSample();
+                Check(!GamepadInput.TryRenderRawAimDelta(out _, out _)
+                    && GamepadInput.RenderAim(.5) == (0, 0),
+                    "render aim waits for a fixed input step after chat closes");
+                GamepadInput.BeginFrame();
 
                 GamepadContexts.MenuVisible = true;
                 Check(!GamepadInput.TryRenderCameraAim(.5, out _, out _), "menu invalidates assisted render history");
