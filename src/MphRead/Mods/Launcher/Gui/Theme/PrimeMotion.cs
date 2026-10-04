@@ -42,10 +42,21 @@ namespace MphRead.Mods.Launcher.Gui
                 return PrimeMotionHandle.Completed();
             }
 
-            var clock = Stopwatch.StartNew();
+            var clock = new Stopwatch();
             PrimeMotionHandle? handle = null;
+            EventHandler<VisualTreeAttachmentEventArgs>? attached = null;
+            bool started = false;
+
+            void StopWaitingForAttach()
+            {
+                if (attached == null) return;
+                owner.AttachedToVisualTree -= attached;
+                attached = null;
+            }
+
             handle = new PrimeMotionHandle(finish =>
             {
+                StopWaitingForAttach();
                 if (finish)
                 {
                     apply(1);
@@ -68,9 +79,9 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 if (TopLevel.GetTopLevel(owner) == null)
                 {
-                    // A content swap can attach on the layout pass after the motion
-                    // was requested. If it is still detached when its frame arrives,
-                    // settle it instead of leaving an intermediate transform behind.
+                    // Once an animation has started, losing the visual tree means
+                    // its owner was removed. Finish cleanly rather than keeping a
+                    // hidden surface alive waiting for frames it can no longer draw.
                     handle.Cancel(finish: true);
                     return;
                 }
@@ -86,7 +97,29 @@ namespace MphRead.Mods.Launcher.Gui
                 Deck.NextFrame(owner, Step);
             }
 
-            Deck.NextFrame(owner, Step);
+            void Start()
+            {
+                if (started || handle == null || !handle.IsActive) return;
+                started = true;
+                StopWaitingForAttach();
+                clock.Restart();
+                Deck.NextFrame(owner, Step);
+            }
+
+            if (TopLevel.GetTopLevel(owner) != null)
+            {
+                Start();
+            }
+            else
+            {
+                // ContentControl/Panel parenting happens before Avalonia has put
+                // the new visual under a TopLevel. The old code scheduled a frame
+                // immediately, saw no TopLevel on that first frame, and snapped
+                // straight to the final pose. Start the clock on attachment instead.
+                attached = (_, _) => Start();
+                owner.AttachedToVisualTree += attached;
+            }
+
             return handle;
         }
 
