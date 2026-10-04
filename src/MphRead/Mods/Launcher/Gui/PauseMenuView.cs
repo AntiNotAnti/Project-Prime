@@ -66,47 +66,48 @@ namespace MphRead.Mods.Launcher.Gui
             Background = Brushes.Transparent;
             Focusable = true;
 
-            // Tighter than the column of words it replaces: each entry now
-            // carries its own edge, and fourteen points between two objects
-            // that already have a bottom lip is a gap.
-            // Let the card own the width. A fixed 282-point child is wider than
-            // WellShort's usable area at common UI em sizes, so centering it in
-            // the card clips every button label at the panel edge.
+            // Resume is intentionally separated from the long action list. The
+            // first question when Escape opens is "go back to the match?", while
+            // voting, spectating, recording and system actions are secondary.
+            var resumeStack = new StackPanel
+            {
+                Spacing = 8,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            _resume = Add(resumeStack, "RESUME",
+                () => Resumed?.Invoke(this, EventArgs.Empty),
+                HubTheme.Accent, primary: true);
+            ControllerNav.Identify(_resume, "pause.resume", initial: true);
+            _resume.MinHeight = 48;
+
             var menu = new StackPanel
             {
                 Spacing = 5,
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
             _menu = menu;
-            // Titles only. Every entry here used to say what it did twice --
-            // "Quit", "Close ProjectPrime" -- and the second saying is what
-            // made a seven-line menu tall enough to be cut off by the window
-            // it is drawn over.
-            _resume = Add(menu, "RESUME", () => Resumed?.Invoke(this, EventArgs.Empty),
-                HubTheme.Accent, primary: true);
-            ControllerNav.Identify(_resume, "pause.resume", initial: true);
+
             if (DemoPlayback.IsActive)
             {
                 Add(menu, "REPLAY STUDIO",
                     () => ReplayControlsRequested?.Invoke(this, EventArgs.Empty),
                     HubTheme.Accent);
             }
+
             _voteYes = Add(menu, "ACCEPT MAP VOTE", () => AnswerVote(true), HubTheme.Good);
             _voteNo = Add(menu, "DENY MAP VOTE", () => AnswerVote(false), HubTheme.Danger);
             RefreshVote();
+
             var voteTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
             voteTimer.Tick += (_, _) => RefreshVote();
             AttachedToVisualTree += (_, _) => voteTimer.Start();
             DetachedFromVisualTree += (_, _) => voteTimer.Stop();
+
             if (!DemoPlayback.IsActive && NetSession.Active)
             {
-                // Offered whenever there is a server to ask, rather than only
-                // when a vote could pass right now: the reasons it cannot --
-                // somebody else's vote is running, the room is still cooling
-                // down -- are things the player wants told to them, and an
-                // entry that quietly disappears tells them nothing.
                 Add(menu, "VOTE MAP", () => VoteMapRequested?.Invoke(this, EventArgs.Empty));
             }
+
             if (!DemoPlayback.IsActive)
             {
                 if (SpectatorMode.IsSpectating)
@@ -119,21 +120,32 @@ namespace MphRead.Mods.Launcher.Gui
                     Add(menu, "SPECTATE", () => SpectateRequested?.Invoke(this, EventArgs.Empty));
                 }
             }
+
             if (offerWindowMode)
             {
-                // The game thread does it on the next frame; the label is
-                // rebuilt here straight away so it is not a lie for 16
-                // milliseconds.
                 Add(menu, WindowLabel().ToUpperInvariant(),
                     () => FullscreenRequested?.Invoke(this, EventArgs.Empty));
             }
+
             if (!DemoPlayback.IsActive && NetSession.Active)
             {
                 Add(menu, DemoRecorder.IsRecording ? "STOP REPLAY RECORDING" : "RECORD REPLAY",
                     () => RecordToggleRequested?.Invoke(this, EventArgs.Empty));
             }
+
             if (!DemoPlayback.IsActive && NetSession.LocalIsLobbyOwner)
-                menu.Children.Add(new Expander { Header = "MANAGE BOTS", Content = new ScrollViewer { MaxHeight = 280, Content = new BotManagementView() } });
+            {
+                menu.Children.Add(new Expander
+                {
+                    Header = "MANAGE BOTS",
+                    Content = new ScrollViewer
+                    {
+                        MaxHeight = 220,
+                        Content = new BotManagementView()
+                    }
+                });
+            }
+
             if (!DemoPlayback.IsActive && NetSession.PersistentLobby
                 && NetSession.LocalIsLobbyOwner && !NetSession.IsInLobby)
             {
@@ -141,6 +153,7 @@ namespace MphRead.Mods.Launcher.Gui
                     () => ReturnToLobbyRequested?.Invoke(this, EventArgs.Empty),
                     HubTheme.Warm);
             }
+
             Add(menu, "SETTINGS", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
             Add(menu, "LEAVE MATCH", () => LeaveRequested?.Invoke(this, EventArgs.Empty),
                 HubTheme.Warm);
@@ -150,60 +163,76 @@ namespace MphRead.Mods.Launcher.Gui
             foreach (Control child in menu.Children)
                 child.HorizontalAlignment = HorizontalAlignment.Stretch;
 
-            var menuShell = new StackPanel
-            {
-                Spacing = 8,
-                HorizontalAlignment = HorizontalAlignment.Stretch
-            };
-            menuShell.Children.Add(new TextBlock
-            {
-                Text = "MATCH MENU",
-                FontFamily = HubTheme.Ui,
-                FontWeight = FontWeight.Bold,
-                FontSize = 22,
-                Foreground = HubTheme.TextBrush
-            });
-            menuShell.Children.Add(new TextBlock
-            {
-                Text = NetSession.Active && !DemoPlayback.IsActive
-                    ? "LIVE SESSION  /  GAMEPLAY CONTINUES"
-                    : DemoPlayback.IsActive
-                        ? "REPLAY SESSION"
-                        : "LOCAL SESSION",
-                FontFamily = HubTheme.DataBold,
-                FontSize = 8,
-                Foreground = NetSession.Active && !DemoPlayback.IsActive
-                    ? HubTheme.WarmBrush : HubTheme.AccentBrush,
-                Margin = new Thickness(0, -4, 0, 4)
-            });
-            menuShell.Children.Add(menu);
+            bool live = NetSession.Active && !DemoPlayback.IsActive;
+            string title = DemoPlayback.IsActive
+                ? "REPLAY PAUSED"
+                : live ? "LIVE MATCH" : "MATCH PAUSED";
+            string state = live
+                ? "NETWORK SESSION  //  GAMEPLAY CONTINUES"
+                : DemoPlayback.IsActive
+                    ? "REPLAY PLAYBACK  //  PAUSED"
+                    : "LOCAL SESSION  //  PAUSED";
+            string detail = live
+                ? "The match continues behind this menu. Resume immediately or manage the current session."
+                : DemoPlayback.IsActive
+                    ? "Playback is paused while Replay Studio and presentation controls remain available."
+                    : "Resume the match or adjust this local session.";
 
-            // Shrunk to fit rather than scrolled. The match remains visible
-            // through the scrim while every action stays reachable.
+            var context = PrimeChrome.Stack(
+                new PrimeBadge("MATCH MENU"),
+                PrimeChrome.HeroTitle(title),
+                PrimeChrome.Eyebrow(state,
+                    live ? HubTheme.WarmBrush : PrimeTheme.HighlightBrush),
+                PrimeChrome.Text(detail, PrimeTypography.Body,
+                    PrimeTheme.TextSecondaryBrush),
+                new Border { MinHeight = 8 },
+                resumeStack,
+                PrimeChrome.Text("ESC / START  //  RESUME",
+                    PrimeTypography.DataSmall, PrimeTheme.TextSecondaryBrush, data: true));
+
+            var actions = PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("SESSION & SYSTEM"),
+                PrimeChrome.Title("MATCH ACTIONS"),
+                PrimeChrome.Text(
+                    "Session tools stay here so Resume remains a single, obvious first action.",
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush),
+                new ScrollViewer
+                {
+                    Content = menu,
+                    MaxHeight = 520,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+                });
+
+            Control body;
+            if (Deck.Phone)
+            {
+                var phone = new Grid
+                {
+                    RowDefinitions = new RowDefinitions("Auto,*"),
+                    RowSpacing = 10
+                };
+                phone.Children.Add(new PrimePanel(context, raised: true));
+                var actionPanel = new PrimePanel(actions);
+                Grid.SetRow(actionPanel, 1);
+                phone.Children.Add(actionPanel);
+                body = phone;
+            }
+            else
+            {
+                body = PrimeChrome.Columns("0.9*,1.1*",
+                    new PrimePanel(context, raised: true),
+                    new PrimePanel(actions));
+            }
+
             _scaler = new LayoutTransformControl
             {
-                Child = menuShell,
-                // The vertical transform is only for fitting the action stack.
-                // Width must come from the DeckCard so the child can never be
-                // arranged wider than the panel and have its text clipped.
+                Child = body,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Center
             };
-            // The menu and nothing else. It carried a "paused" heading and a
-            // line saying which match you were in, and both were dropped: the
-            // first says what the player has just done, with the match frozen
-            // behind it saying the same thing, and the second names a match
-            // they are looking straight at. Neither is something anybody
-            // pressed Escape to find out. Every other screen keeps its
-            // heading, because on every other screen the heading is the only
-            // thing that says where you are.
-            //
-            // No pair of marks either, and that is deliberate. Every entry
-            // here is an action; there is no question being asked, so there
-            // is no yes and no to answer it with -- and Resume as a tick in
-            // the corner while it is also the first word of the menu is one
-            // action drawn twice.
-            Content = UiLayout.Page(overGame: true, UiLayout.WellShort, "",
+
+            Content = UiLayout.Page(overGame: true, UiLayout.WellPlay, "",
                 strip: null, body: _scaler, centreBody: true);
             SizeChanged += (_, e) => FitToHost(e.NewSize.Height);
         }
@@ -218,13 +247,16 @@ namespace MphRead.Mods.Launcher.Gui
         {
             get
             {
-                int count = 0;
+                int count = 1; // Resume lives in the context panel.
                 foreach (Control child in _menu.Children)
                 {
                     if (child.IsVisible) count++;
                 }
-                return count * 42 + Math.Max(0, count - 1) * 5
-                    + UiLayout.WellTop + UiLayout.WellBottom + 112;
+                // Desktop uses two columns, so only the denser action side drives
+                // height. Phone stacks both zones and gets more vertical budget.
+                double actions = count * 42 + Math.Max(0, count - 1) * 5;
+                return (Deck.Phone ? actions + 250 : Math.Max(actions + 120, 360))
+                    + UiLayout.WellTop + UiLayout.WellBottom;
             }
         }
 
