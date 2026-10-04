@@ -138,11 +138,32 @@ namespace MphRead.Mods.Render.Characters
 
         private static IReadOnlyList<string> RigidNodeNames(Model model)
         {
-            IEnumerable<int> ids = model.NodeMatrixIds.Count > 0
-                ? model.NodeMatrixIds.Distinct()
-                : model.Nodes.Select((node, index) => (node, index))
+            IEnumerable<int> ids;
+            if (model.NodeMatrixIds.Count > 0)
+            {
+                var usedSlots = new HashSet<int>();
+                foreach (IReadOnlyList<RenderInstruction> list in model.RenderInstructionLists)
+                {
+                    foreach (RenderInstruction instruction in list)
+                    {
+                        if (instruction.Code == InstructionCode.MTX_RESTORE
+                            && instruction.Arguments.Count > 0)
+                            usedSlots.Add((int)instruction.Arguments[0]);
+                    }
+                }
+                IEnumerable<int> slots = usedSlots.Count > 0
+                    ? usedSlots.OrderBy(slot => slot)
+                    : Enumerable.Range(0, model.NodeMatrixIds.Count);
+                ids = slots.Where(slot => slot >= 0 && slot < model.NodeMatrixIds.Count)
+                    .Select(slot => model.NodeMatrixIds[slot])
+                    .Distinct();
+            }
+            else
+            {
+                ids = model.Nodes.Select((node, index) => (node, index))
                     .Where(value => value.node.MeshCount > 0)
                     .Select(value => value.index);
+            }
             return ids.Where(index => index >= 0 && index < model.Nodes.Count)
                 .Select(index => model.Nodes[index].Name)
                 .Where(name => !String.IsNullOrWhiteSpace(name))
