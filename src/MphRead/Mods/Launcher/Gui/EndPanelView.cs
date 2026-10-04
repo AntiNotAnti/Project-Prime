@@ -30,6 +30,10 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly Note _count = new("");
         private readonly TextBlock _next = PrimeChrome.Text("CURRENT ARENA // REMATCH", PrimeTypography.DataSmall,
             PrimeTheme.HighlightBrush, data: true);
+        private readonly TextBlock _phase = PrimeChrome.Eyebrow(
+            "MATCH COMPLETE // NEXT DEPLOYMENT");
+        private readonly TextBlock _panelTitle = PrimeChrome.Title("NEXT DEPLOYMENT");
+        private readonly StackPanel _lobbyPane = new() { Spacing = 10 };
         private readonly TextBox _search = new() { PlaceholderText = "Search arenas" };
 
         /// <summary>What the ballot face says before the server has sent one.</summary>
@@ -93,10 +97,20 @@ namespace MphRead.Mods.Launcher.Gui
             _hunterPane.Children.Add(_suit);
             _hunterPane.IsVisible = false;
 
+            _lobbyPane.Children.Add(new PrimeBadge("PERSISTENT LOBBY"));
+            _lobbyPane.Children.Add(PrimeChrome.Title("RETURNING TO LOBBY"));
+            _lobbyPane.Children.Add(PrimeChrome.Text(
+                "The scoreboard remains authoritative while the session moves every connected player back to the lobby.",
+                PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+            _lobbyPane.Children.Add(PrimeChrome.Eyebrow(
+                "SESSION REMAINS CONNECTED", PrimeTheme.GreenBrush));
+            _lobbyPane.IsVisible = false;
+
             var body = new Panel();
             body.Children.Add(_ballotScroll);
             body.Children.Add(_empty);
             body.Children.Add(_hunterPane);
+            body.Children.Add(_lobbyPane);
 
             var start = new PrimeButton("START NEXT MATCH", () => OfflineRematch.Continue(), primary: true)
             { IsVisible = !NetSession.Active };
@@ -104,8 +118,13 @@ namespace MphRead.Mods.Launcher.Gui
             var foot = PrimeChrome.Stack(_next, _count, start,
                 PrimeChrome.Text("ESC / PAUSE  //  LEAVE MATCH", PrimeTypography.DataSmall, PrimeTheme.TextSecondaryBrush, data: true));
             _search.TextChanged += (_, _) => FilterMaps();
-            var heading = PrimeChrome.Stack(new PrimeBadge("POST-MATCH DEPLOYMENT"),
-                PrimeChrome.Title("NEXT ARENA"), _tabs, _search);
+            _search.IsVisible = _hasBallot;
+            var heading = PrimeChrome.Stack(
+                new PrimeBadge("POST-MATCH REPORT"),
+                _phase,
+                _panelTitle,
+                _tabs,
+                _search);
 
             var stack = new Grid
             {
@@ -125,7 +144,9 @@ namespace MphRead.Mods.Launcher.Gui
                 // Preserve the original scoreboard's deaths-column clearance.
                 Width = Deck.Phone ? 285 : 340,
                 HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Stretch,
+                VerticalAlignment = _hasBallot || Mods.EndScreen.CharacterChangeEnabled
+                    ? VerticalAlignment.Stretch
+                    : VerticalAlignment.Center,
                 Margin = new Thickness(0, 14, 14, 14)
             };
             root.Children.Add(host);
@@ -175,18 +196,28 @@ namespace MphRead.Mods.Launcher.Gui
             bool ballot = _hasBallot
                 && (!Mods.EndScreen.CharacterChangeEnabled || _tabs.Index == 0);
             bool hunter = Mods.EndScreen.CharacterChangeEnabled && !ballot;
+            bool returning = NetSession.PersistentLobby && !hunter;
+
             _ballotScroll.IsVisible = ballot;
             _hunterPane.IsVisible = hunter;
-            // The stand as well as the pane it is in. A hidden pane keeps the
-            // bounds its children were last arranged at, and the head that
-            // has the engine draw the real model into the stand's rectangle
-            // reads those bounds -- so on the ballot face the model's own
-            // dark ground was painted over the scoreboard's deaths column.
+            _lobbyPane.IsVisible = returning;
+            _search.IsVisible = ballot;
             _stand.IsVisible = hunter;
+
+            _phase.Text = returning
+                ? "MATCH COMPLETE // SESSION CONTINUES"
+                : hunter
+                    ? "MATCH COMPLETE // NEXT HUNTER"
+                    : "MATCH COMPLETE // NEXT DEPLOYMENT";
+            _panelTitle.Text = returning
+                ? "RETURNING TO LOBBY"
+                : hunter ? "CHANGE HUNTER" : "NEXT DEPLOYMENT";
+
             _empty.Text = ballot
                 ? "The rotation decides where next."
                 : "Hunter changes are available from the lobby.";
-            _empty.IsVisible = ballot ? MapPick.Order.Count == 0 : !hunter;
+            _empty.IsVisible = !returning
+                && (ballot ? MapPick.Order.Count == 0 : !hunter);
         }
 
         /// <summary>
@@ -302,11 +333,24 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             string next = MapPick.Picked;
-            _next.Text = next.Length > 0 ? "SELECTED // " + MapPick.NameOf(next).ToUpperInvariant()
-                : NetSession.Active ? "NEXT // " + Mods.EndScreen.NextRoomName.ToUpperInvariant() : "CURRENT ARENA // REMATCH";
-            _count.Text = GameState.MatchState == MatchState.Ending
-                ? $"DEPLOYING IN {Math.Max(0, Math.Ceiling(GameState.MatchTime)):0} SEC"
-                : "RESULTS // CHOOSE YOUR NEXT ARENA";
+            if (NetSession.PersistentLobby)
+            {
+                _next.Text = "NEXT // LOBBY";
+                _count.Text = GameState.MatchState == MatchState.Ending
+                    ? $"RETURNING IN {Math.Max(0, Math.Ceiling(GameState.MatchTime)):0} SEC"
+                    : "RESULTS COMPLETE // LOBBY RESUMING";
+            }
+            else
+            {
+                _next.Text = next.Length > 0
+                    ? "SELECTED // " + MapPick.NameOf(next).ToUpperInvariant()
+                    : NetSession.Active
+                        ? "NEXT // " + Mods.EndScreen.NextRoomName.ToUpperInvariant()
+                        : "CURRENT ARENA // REMATCH";
+                _count.Text = GameState.MatchState == MatchState.Ending
+                    ? $"DEPLOYING IN {Math.Max(0, Math.Ceiling(GameState.MatchTime)):0} SEC"
+                    : "RESULTS // CHOOSE YOUR NEXT ARENA";
+            }
         }
     }
 }

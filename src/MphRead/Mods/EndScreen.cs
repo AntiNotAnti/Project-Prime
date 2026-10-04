@@ -39,12 +39,11 @@ namespace MphRead.Mods
         public const bool CharacterChangeEnabled = false;
 
         /// <summary>
-        /// Whether the themed results side panel has something to show. A
-        /// persistent lobby has no results ballot, so with character changes
-        /// disabled it should leave the scoreboard unobstructed.
+        /// Whether the themed results side panel has something to show.
+        /// Persistent lobbies use the panel for a compact return-to-lobby state
+        /// even though map selection remains authoritative in the lobby itself.
         /// </summary>
-        public static bool PanelAvailable => Available
-            && (CharacterChangeEnabled || !NetSession.PersistentLobby);
+        public static bool PanelAvailable => Available;
         /// <summary>
         /// Whether the results screen is up and this machine has a player who
         /// could pick something.

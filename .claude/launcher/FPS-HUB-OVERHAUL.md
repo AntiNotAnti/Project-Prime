@@ -236,8 +236,23 @@ Next presentation slice: pause/results.
 
 ### Pause/results
 
-Use the same shell language without hiding the still-running network match. Keep
-game-owned scoreboard/results state authoritative.
+Implemented pause/results presentation slice:
+
+- Pause keeps the live match visible and separates the primary **Resume** decision from
+  secondary **Session & System** actions instead of presenting every button at equal weight;
+- live network pause explicitly states **GAMEPLAY CONTINUES**, while local and replay
+  sessions identify their true paused state;
+- vote, spectate/rejoin, replay recording, Replay Studio, bot management, return-to-lobby,
+  settings, leave, fullscreen and quit still raise the same host-owned actions as before;
+- the engine scoreboard remains the authoritative results presentation;
+- `EndPanelView` owns only the right-side **Post-Match Report / Next Deployment** surface,
+  retaining the existing map ballot and offline rematch behavior;
+- persistent lobbies now show a compact **Returning to Lobby** state and countdown instead
+  of suppressing the themed panel while the scoreboard is on screen;
+- the post-match panel never authors score, placement, match result or intermission timing;
+  all of those remain game/network state.
+
+Next presentation work: Create Lobby + Offline match setup, then Hunter License/global polish.
 
 ## P3 — renderer/performance
 
