@@ -21,7 +21,6 @@ namespace MphRead.Mods.Launcher.Gui
         private PrimeRoute? _active;
         private Control? _current;
         private PrimeMotionHandle? _transition;
-        private Grid? _transitionLayer;
 
         public Func<bool>? HasOverlay { get; set; }
 
@@ -83,39 +82,26 @@ namespace MphRead.Mods.Launcher.Gui
             _current = next;
             (next as IPrimeWorkspace)?.OnActivated();
 
+            // Swap the workspace immediately. The old cross-fade kept two full
+            // cached pages alive in one temporary Grid and made the outgoing page
+            // visibly tear/re-layout before disappearing. It also created a whole
+            // class of single-parent lifecycle hazards. Animate only the incoming
+            // page after the content swap: the transition is cleaner, cheaper and
+            // cannot expose stale pixels from the previous destination.
+            Content = next;
+
             if (old == null || ReferenceEquals(old, next) || PrimeMotion.Reduced)
             {
-                Content = next;
                 PrimeMotion.Enter(next);
             }
             else
             {
-                // A control can only have one Avalonia parent. Detach the current
-                // workspace from the ContentPresenter before both views are placed
-                // in the temporary transition layer.
-                if (ReferenceEquals(Content, old))
-                    Content = null;
-                var layers = new Grid();
-                layers.Children.Add(old);
-                layers.Children.Add(next);
-                _transitionLayer = layers;
-                Content = layers;
-                Mods.DebugLog.Line("ui-motion", $"route {_active} transition started");
-                _transition = PrimeMotion.Page(old, next, () =>
+                Mods.DebugLog.Line("ui-motion", $"route {route} incoming transition started");
+                _transition = PrimeMotion.Page(next, () =>
                 {
-                    if (!ReferenceEquals(_current, next)
-                        || !ReferenceEquals(_transitionLayer, layers))
-                        return;
-
-                    // Both cached workspaces must be released from the temporary
-                    // transition parent before it is abandoned. Leaving the outgoing
-                    // page parented to this orphaned Grid makes the next visit to that
-                    // route throw when Avalonia tries to parent it again.
-                    layers.Children.Clear();
-                    Content = next;
-                    _transitionLayer = null;
+                    if (!ReferenceEquals(_current, next)) return;
                     _transition = null;
-                    Mods.DebugLog.Line("ui-motion", $"route {_active} transition completed");
+                    Mods.DebugLog.Line("ui-motion", $"route {route} incoming transition completed");
                 });
             }
 
@@ -140,20 +126,8 @@ namespace MphRead.Mods.Launcher.Gui
             PrimeMotionHandle? transition = _transition;
             _transition = null;
             transition?.Cancel();
-
-            if (_transitionLayer is { } layers)
-            {
-                // Release every cached page, not just the current one. A cancelled
-                // transition owns both the incoming and outgoing workspace.
-                layers.Children.Clear();
-                _transitionLayer = null;
-            }
-
-            if (_current != null && !ReferenceEquals(Content, _current))
-                Content = _current;
-
             if (transition != null)
-                Mods.DebugLog.Line("ui-motion", "route transition cancelled cleanly");
+                Mods.DebugLog.Line("ui-motion", "incoming route transition cancelled cleanly");
         }
     }
 }
