@@ -440,6 +440,32 @@ namespace MphRead.Mods.Launcher.Gui
                     shell.Router.Navigate(PrimeRoute.News); shell.Router.PreviousRoute();
                     Check(shell.Router.Current == PrimeRoute.Settings, "previous tab wraps");
                     shell.Router.NextRoute(); Check(shell.Router.Current == PrimeRoute.News, "next tab wraps");
+
+                    shell.Router.Navigate(PrimeRoute.Forge); Drain(window);
+                    var mapStudio = shell.Workspaces.Get(PrimeRoute.Forge);
+                    Check(ControllerNav.Find(mapStudio, "studio.back") != null
+                        && ControllerNav.Find(mapStudio, "studio.save") != null
+                        && ControllerNav.Find(mapStudio, "studio.validate") != null
+                        && ControllerNav.Find(mapStudio, "studio.build") != null
+                        && ControllerNav.Find(mapStudio, "studio.playtest") != null,
+                        "Map Studio exposes persistent authoring and project actions");
+                    string[] studioHeadings = mapStudio.GetVisualDescendants().OfType<TextBlock>()
+                        .Select(block => block.Text ?? "").ToArray();
+                    Check(studioHeadings.Contains("SCENE HIERARCHY")
+                        && studioHeadings.Contains("VIEWPORT")
+                        && studioHeadings.Contains("INSPECTOR"),
+                        "Map Studio separates hierarchy viewport and inspector workspaces");
+                    var assetsQuick = ControllerNav.Find(mapStudio, "studio.assets")!;
+                    assetsQuick.Focus(); FocusNavigator.Key(assetsQuick, Key.Enter); Drain(window);
+                    Check(mapStudio.GetVisualDescendants().OfType<TextBlock>()
+                        .Any(block => block.Text == "ASSETS & MUSIC"),
+                        "Map Studio contextual Assets workspace is directly reachable");
+                    var healthQuick = ControllerNav.Find(mapStudio, "studio.health")!;
+                    healthQuick.Focus(); FocusNavigator.Key(healthQuick, Key.Enter); Drain(window);
+                    Check(mapStudio.GetVisualDescendants().OfType<TextBlock>()
+                        .Any(block => block.Text == "MAP HEALTH"),
+                        "Map Studio contextual health workspace is directly reachable");
+
                     shell.Router.Navigate(PrimeRoute.Lobby); Drain(window);
                     var lobbyPresentation = shell.Workspaces.Get(PrimeRoute.Lobby);
                     Check(lobbyPresentation.GetVisualDescendants().OfType<PrimeHeroPanel>().Any(),
