@@ -66,13 +66,12 @@ namespace MphRead.Mods.Render.Characters
                     "path traversal is rejected before model IO");
 
                 File.WriteAllText(Path.Combine(root, "characters.json"),
-                    valid.Replace(""rigidNodes"", ""weighted4"", StringComparison.Ordinal));
+                    valid.Replace("rigidNodes", "weighted4", StringComparison.Ordinal));
                 ExpectInvalid(() => CharacterModelPack.Load(root),
                     "weighted skinning cannot claim a GLB with no skin");
 
                 File.WriteAllText(Path.Combine(root, "characters.json"),
-                    valid.Replace(""Body": "Body"", ""Missing": "Body"",
-                        StringComparison.Ordinal));
+                    valid.Replace("Body", "Missing", StringComparison.Ordinal));
                 ExpectInvalid(() => CharacterModelPack.Load(root),
                     "manifest mappings cannot name absent GLB nodes");
 
