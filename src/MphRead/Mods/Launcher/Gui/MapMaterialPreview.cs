@@ -13,7 +13,16 @@ namespace MphRead.Mods.Launcher.Gui
         public static (Bitmap Bitmap,string Details) Create(MapDefinition definition,MapMaterial material, int animationFrame = 0)
         {
             ColorRgba[] pixels;int width,height;string details;
-            if(material.Texture is {} path)
+            string? selectedTexture = material.Texture;
+            int selectedFlipbookImage = 0;
+            if (material.Animation is { FlipbookFrames: { Count: > 0 } frames } flipbook
+                && flipbook.FlipbookHoldFrames > 0 && flipbook.LoopFrames > 0)
+            {
+                int localFrame = ((animationFrame + flipbook.PhaseFrames) % flipbook.LoopFrames + flipbook.LoopFrames) % flipbook.LoopFrames;
+                selectedFlipbookImage = (localFrame / flipbook.FlipbookHoldFrames) % (frames.Count + 1);
+                if (selectedFlipbookImage > 0) selectedTexture = frames[selectedFlipbookImage - 1];
+            }
+            if(selectedTexture is {} path)
             {
                 var texture=MapTexturePack.Load(MapAssets.Read(definition,path),path).Entries.Single();
                 width=texture.Width;height=texture.Height;
@@ -62,6 +71,8 @@ namespace MphRead.Mods.Launcher.Gui
                     details += $" · scale {scale[0]:0.##}, {scale[1]:0.##} ± {pulse[0]:0.##}, {pulse[1]:0.##}";
                 details += $" · {animation.LoopFrames / 30f:0.##} s loop";
             }
+            if (material.Animation?.FlipbookFrames.Count > 0)
+                details += $"\nFlipbook image {selectedFlipbookImage + 1}/{material.Animation.FlipbookFrames.Count + 1}";
             if (material.Alpha is { } alpha) details += $"\nAlpha {alpha}/31";
             if (material.TwoSided) details += " · two-sided";
 
