@@ -437,8 +437,10 @@ namespace MphRead.Entities
                         ? BrightSkins.ForMaterial(overrideColor, material.TextureId != -1,
                             material.CurrentAlpha * alpha, _scene.ShowTextures) : null;
                     int? bindingOverride = GetBindingOverride(
-                        inst, material, segment.NativeMaterialIndex);
-                    Matrix4 texcoordMatrix = bindingOverride.HasValue
+                        inst, material, segment.NativeMaterialIndex) ?? segment.AlbedoBinding;
+                    bool authoredTexture = segment.AlbedoBinding.HasValue
+                        && bindingOverride == segment.AlbedoBinding;
+                    Matrix4 texcoordMatrix = !authoredTexture && bindingOverride.HasValue
                         ? GetTexcoordMatrix(inst, material, segment.NativeMaterialIndex,
                             texgenNode, recolor)
                         : Matrix4.Identity;
@@ -469,7 +471,8 @@ namespace MphRead.Entities
                         color.HasValue && Mods.RenderOptions.BrightSkins
                             && Mods.RenderOptions.BrightSkinStyle != Mods.PlayerSkinStyle.Solid,
                         PaletteOverride == null ? outlineColor : null,
-                        weightedSkinning: true);
+                        weightedSkinning: true, authoredTexture: authoredTexture,
+                        authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT);
                     _scene.CosmeticSubmission = previousCosmetic;
                     _scene.CosmeticMaterialSubmission = previousMaterial;
                 }

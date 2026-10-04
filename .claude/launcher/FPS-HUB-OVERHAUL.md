@@ -252,7 +252,80 @@ Implemented pause/results presentation slice:
 - the post-match panel never authors score, placement, match result or intermission timing;
   all of those remain game/network state.
 
-Next presentation work: Create Lobby + Offline match setup, then Hunter License/global polish.
+Create Lobby + Offline Match Setup presentation slice implemented:
+
+- both flows now use the same **Match / Arena / Deployment** information hierarchy;
+- Create Lobby separates lobby name/mode/matchup, artwork-backed map rotation, and hunter/hosting
+  controls while retaining hosted-vs-dedicated discovery and package/install behavior;
+- Create Lobby keeps a persistent live summary of game type, matchup, rotation size and hosting target
+  beside the existing **Create Lobby** action;
+- Offline promotes Bot Skirmish into the primary match-setup workspace with game type/matchup/bots,
+  artwork-backed arena selection, hunter/suit deployment and a persistent **Initiate Bot Simulation**
+  launch bar;
+- Aim Trainer and Adventure remain fully available as secondary offline modes without competing
+  visually with the primary local-match configuration;
+- existing advanced match rules, map capability validation, `OfflineLaunch`, `AdventureLaunch`,
+  trainer definitions, hosted lobby allocation and local dedicated-server authority remain unchanged;
+- compact layouts stack the same regions rather than introducing a second phone-specific flow.
+
+Hunter License / player identity presentation slice implemented:
+
+- the page now anchors on a persistent **License Holder** rail with hunter presentation,
+  display name, Hunter ID, rating tier, favorite hunter, issue month and account state;
+- Overview leads with Matches / Win Rate / K-D / Play Time instead of burying the core
+  career readout below utility navigation;
+- **Recent Form** is calculated from the five newest accepted matches and shows W/L/T,
+  recent K-D, assists, damage and the latest accepted arena/mode;
+- career highlights expose headshots, streaks, damage and supported objective totals;
+- recent accepted matches remain visible directly from Overview while full History,
+  Stats, Achievements, Customization, Account, Emblems, Titles and Comparison retain
+  their existing authority paths;
+- phone-landscape uses the same identity rail with a reduced hunter viewport rather
+  than a separate mobile profile implementation;
+- no client-authored career stat, fake accuracy metric, medal catalog or public ranking
+  was introduced.
+
+Global responsive / empty / loading / error-state polish implemented:
+
+- shared `PrimeStatePanel` gives Neutral / Loading / Empty / Warning / Error / Success
+  states one tactical hierarchy and optional recovery actions;
+- state surfaces remain static at rest: loading uses text/status rather than an infinite
+  spinner, preserving the shell's event-driven raster/upload policy;
+- Play now distinguishes contacting directory, no open lobbies, no current filter matches
+  and directory unavailable, with a visible Refresh Directory recovery action;
+- Replay Studio distinguishes library scanning, genuinely empty archives, zero-result
+  searches and library scan failures while preserving the virtualized replay list;
+- Hunter License uses the shared no-data treatment for accepted-match history and Recent Form;
+- Arena Picker distinguishes no local maps, no compatible maps, Community loading,
+  Community failure and search-empty states without hiding the existing retry controls;
+- `PrimeMetrics` now owns the shared narrow/phone/short breakpoints used by Match Setup
+  instead of individual screens repeating magic widths;
+- Hunter License Overview collapses its four headline metrics to a 2x2 grid and stacks
+  lower career panels on phone-landscape rather than crushing four columns into the rail.
+
+Motion / UI audio / final consistency polish implemented:
+
+- shell route changes remain **incoming-only**; the outgoing workspace is never rendered through
+  a crossfade, preserving the fix for stale-page tearing and cached-control parenting;
+- shared buttons keep their short press/focus spring and now emit synthesized **Navigate / Confirm /
+  Back / Error** cues through the existing Notifications audio bus;
+- UI cues are generated in memory as original PCM WAV tones, require no extracted game audio and
+  obey both the SFX master and Notifications volume;
+- directional focus moves to non-button rows, Q/E or controller tab changes, tactical tab clicks,
+  map/replay card hover/activation and disabled activation now share the same feedback language;
+- state panels get a single 4 px / 130 ms reveal only when their semantic state changes; Error
+  states pair that reveal with the Error cue;
+- Hunter License tab content gets a 6 px / 140 ms one-shot settle;
+- Settings category content gets a 5 px / 130 ms one-shot settle and no-result Settings search now
+  uses the same shared Empty-state surface as the rest of the shell;
+- every motion path still honors **Reduce menu motion** and `Deck.Still`, and no idle animation
+  or continuous Avalonia redraw loop was introduced;
+- synthesized cue structure is covered by deterministic headless checks rather than requiring an
+  audio device in CI.
+
+The major UI/UX modernization sequence is now structurally complete. Future work should be driven
+by real captures/playtests and targeted usability or performance findings rather than adding new
+presentation systems by default.
 
 ## P3 — renderer/performance
 

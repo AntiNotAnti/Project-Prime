@@ -142,6 +142,17 @@ jobs:
           dotnet-version: '10.0.x'
       - run: dotnet run --project tools/desktop-pacing-check -c Release
 
+  renderer-policy-foundation:
+    name: renderer state, lifecycle and low-latency policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: content-free renderer state and lifecycle contracts
+        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -renderbackendcheck
+
   modern-renderer-android:
     name: modern renderer Android Vulkan surface and lifecycle
     runs-on: ubuntu-latest

@@ -189,10 +189,13 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         {
             var self = Current;
             if (self._vsync == enabled) return;
+            bool reconfigure = ModernSurfaceLifecyclePolicy.PresentModeChangeRequiresReconfigure(
+                self._vsync, enabled, (int)self._width, (int)self._height,
+                self._device.Surface != null);
             self._vsync = enabled;
             self.ReleaseSurfaceTexture();
             self.SelectPresentMode();
-            self.ConfigureSurface();
+            if (reconfigure) self.ConfigureSurface();
         }
 
         /// <summary>
@@ -212,7 +215,9 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private void ConfigureSurface()
         {
-            if (_width == 0 || _height == 0 || _device.Surface == null) return;
+            if (!ModernSurfaceLifecyclePolicy.CanConfigure(
+                    (int)_width, (int)_height, _device.Surface != null))
+                return;
             Mods.DebugLog.Checkpoint("render",
                 $"configuring {_device.Backend} surface: {_width}x{_height} "
                 + $"format={_surfaceFormat} alpha={_alphaMode} present={_presentMode}");
@@ -1019,7 +1024,9 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         {
             _device.ThrowIfFailed();
             if (_surfaceAcquired) return true;
-            if (_width == 0 || _height == 0) return false;
+            if (!ModernSurfaceLifecyclePolicy.CanConfigure(
+                    (int)_width, (int)_height, _device.Surface != null))
+                return false;
 
             for (int attempt = 0; attempt < 2; attempt++)
             {
@@ -1033,23 +1040,39 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                     _longestSurfaceAcquireMs = Math.Max(_longestSurfaceAcquireMs, acquireMs);
                 }
                 _surfaceTexture = acquired;
-                if (acquired.Status == SurfaceGetCurrentTextureStatus.Success && acquired.Texture != null)
+                SurfaceAcquireCondition condition = acquired.Status switch
+                {
+                    SurfaceGetCurrentTextureStatus.Success => SurfaceAcquireCondition.Success,
+                    SurfaceGetCurrentTextureStatus.Timeout => SurfaceAcquireCondition.Timeout,
+                    SurfaceGetCurrentTextureStatus.Outdated => SurfaceAcquireCondition.Outdated,
+                    SurfaceGetCurrentTextureStatus.Lost => SurfaceAcquireCondition.Lost,
+                    _ => SurfaceAcquireCondition.Fatal
+                };
+                SurfaceAcquireAction action = ModernSurfaceLifecyclePolicy.AcquireAction(
+                    condition, acquired.Texture != null, attempt);
+
+                if (action == SurfaceAcquireAction.UseTexture)
                 {
                     _surfaceView = _api.TextureCreateView(acquired.Texture, null);
                     _surfaceAcquired = _surfaceView != null;
                     if (!_surfaceAcquired) ReleaseSurfaceTexture();
                     return _surfaceAcquired;
                 }
+
                 ReleaseSurfaceTexture();
-                if (acquired.Status == SurfaceGetCurrentTextureStatus.Timeout) return false;
-                if (acquired.Status is SurfaceGetCurrentTextureStatus.Outdated or SurfaceGetCurrentTextureStatus.Lost)
+                if (action == SurfaceAcquireAction.SkipFrame)
+                    return false;
+                if (action is SurfaceAcquireAction.Reconfigure
+                    or SurfaceAcquireAction.RecreateSurface)
                 {
-                    if (attempt != 0) break;
-                    if (acquired.Status == SurfaceGetCurrentTextureStatus.Lost) _device.RecreateSurface();
+                    if (action == SurfaceAcquireAction.RecreateSurface)
+                        _device.RecreateSurface();
                     QuerySurfaceFormat();
                     ConfigureSurface();
                     continue;
                 }
+                if (condition is SurfaceAcquireCondition.Outdated or SurfaceAcquireCondition.Lost)
+                    break;
                 throw new InvalidOperationException($"WebGPU presentation failed: {acquired.Status}.");
             }
             throw new InvalidOperationException("WebGPU surface could not be recovered after reconfiguration.");

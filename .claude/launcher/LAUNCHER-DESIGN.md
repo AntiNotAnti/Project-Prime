@@ -621,3 +621,22 @@ Implementation pitfalls
   was one press away from closing it. It is a two-row `Grid` now.
 - Each window focuses its own first control when it opens. Without that a
   keyboard user tabs blindly into whatever the tree happens to offer first.
+
+
+## Interaction feedback policy
+
+Modern Prime UI interaction feedback is centralized rather than authored per-screen:
+
+- `HubNavButton` owns pointer/focus/press motion and Navigate / Confirm / Back audio.
+- `FocusNavigator` adds Navigate audio only for directional focus moves that land on non-button
+  controls, avoiding a double cue when a `HubNavButton` receives focus.
+- `DeckTile` uses the same Navigate/Confirm language for map and replay cards.
+- `PrimeStatePanel` uses one finite reveal when its semantic state changes and may emit Error
+  feedback for an attached error state.
+- Q/E and controller tab switching emit Navigate feedback even when no tab button is clicked.
+- UI sounds are synthesized locally and routed through `AudioBus.Notifications`; they require no
+  extracted game files and inherit the existing SFX master + Notifications gain.
+- Reduced motion affects motion only, not focus visibility or audio feedback.
+- No UI feedback animation may repost itself after settling. Ambient continuous motion belongs to
+  the GL backdrop, not the CPU-rasterized Avalonia surface.
+

@@ -156,6 +156,8 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal void Hover(bool over, Point at)
         {
+            if (over && !_over)
+                Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Navigate);
             _over = over;
             _popTarget = over || (IsFocused && Deck.KeyboardDriving) ? 1.03 : 1;
             if (over && Bounds.Width > 0 && Bounds.Height > 0)
@@ -173,13 +175,18 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         /// <summary>The grid decided this card was tapped.</summary>
-        internal void Fire() => Click?.Invoke(this, EventArgs.Empty);
+        internal void Fire()
+        {
+            Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Confirm);
+            Click?.Invoke(this, EventArgs.Empty);
+        }
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
             if (e.Key == Key.Enter || e.Key == Key.Space)
             {
                 e.Handled = true;
+                Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Confirm);
                 Click?.Invoke(this, EventArgs.Empty);
                 return;
             }

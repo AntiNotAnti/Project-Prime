@@ -17,6 +17,24 @@ namespace MphRead.Mods.Launcher.Gui
         {
             GamepadChecks.Check(GuiLauncher.EnsureSetup(), "headless UI initialization");
 
+            byte[][] uiCues = Enum.GetValues<Mods.Sound.UiFeedbackCue>()
+                .Select(Mods.Sound.UiFeedbackAudio.Build).ToArray();
+            foreach (byte[] cue in uiCues)
+            {
+                GamepadChecks.Check(cue.Length > 44
+                    && cue[0] == (byte)'R' && cue[1] == (byte)'I'
+                    && cue[2] == (byte)'F' && cue[3] == (byte)'F'
+                    && cue[8] == (byte)'W' && cue[9] == (byte)'A'
+                    && cue[10] == (byte)'V' && cue[11] == (byte)'E'
+                    && BitConverter.ToInt32(cue, 24) == 22050
+                    && BitConverter.ToInt16(cue, 22) == 1,
+                    "synthesized UI feedback cue is valid mono PCM WAV");
+            }
+            GamepadChecks.Check(!uiCues[0].SequenceEqual(uiCues[1])
+                && !uiCues[1].SequenceEqual(uiCues[2])
+                && !uiCues[2].SequenceEqual(uiCues[3]),
+                "navigate confirm back and error cues remain distinct");
+
             // Android's real view is short in density-independent points. The
             // readable scale must be capped far enough that the authored
             // 960x600 menu box still fits instead of switching to a stacked
@@ -109,6 +127,14 @@ namespace MphRead.Mods.Launcher.Gui
             GamepadChecks.Check(multiplayerClosed == 1,
                 "Multiplayer Back accepts a pointer click");
 
+            var emptyMultiplayer = new PlayWorkspace(Array.Empty<ServerBrowserEntry>());
+            window.Content = emptyMultiplayer; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            var emptyDirectory = emptyMultiplayer.GetVisualDescendants().OfType<PrimeStatePanel>()
+                .Single(panel => panel.IsEffectivelyVisible);
+            GamepadChecks.Check(emptyDirectory.Kind == PrimeStateKind.Empty
+                && ControllerNav.Find(emptyMultiplayer, "multiplayer.state.refresh") != null,
+                "empty multiplayer directory exposes an actionable Empty state");
+
             var placeholder = new HubPlaceholderView(
                 "MAP EDITOR", "WORKSHOP PLACEHOLDER", "Coming soon.");
             int placeholderClosed = 0;
@@ -125,6 +151,13 @@ namespace MphRead.Mods.Launcher.Gui
             offlineView.Launched += (_, plan) => offlinePlan = plan;
             var offlineRoot = new Grid(); offlineRoot.Children.Add(offlineView); offlineRoot.Children.Add(offlineOverlays);
             window.Content = offlineRoot; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            string[] offlineHeadings = offlineView.GetVisualDescendants().OfType<TextBlock>()
+                .Select(block => block.Text ?? "").ToArray();
+            GamepadChecks.Check(offlineHeadings.Contains("MATCH FORMAT")
+                && offlineHeadings.Contains("ARENA")
+                && offlineHeadings.Contains("HUNTER")
+                && offlineHeadings.Contains("TRAINING & ADVENTURE"),
+                "Offline exposes shared Match Arena Deployment setup hierarchy");
             Click(window, ControllerNav.Find(offlineView, "offline.start")!);
             GamepadChecks.Check(offlinePlan is { Kind: LaunchKind.Offline, RoomKey: "MP3 PROVING GROUND" },
                 "Offline launches its selected local arena");
@@ -168,9 +201,23 @@ namespace MphRead.Mods.Launcher.Gui
             GamepadChecks.Check(ControllerNav.Find(customMatch, "custom.create")
                 is { IsEffectivelyVisible: true },
                 "Custom Match exposes Create Lobby");
+            string[] customHeadings = customMatch.GetVisualDescendants().OfType<TextBlock>()
+                .Select(block => block.Text ?? "").ToArray();
+            GamepadChecks.Check(customHeadings.Contains("MATCH FORMAT")
+                && customHeadings.Contains("ARENA")
+                && customHeadings.Contains("HUNTER & HOST"),
+                "Create Lobby exposes shared Match Arena Deployment setup hierarchy");
             Click(window, ControllerNav.Find(customMatch, "custom.back")!);
             GamepadChecks.Check(customClosed == 1,
                 "Custom Match Back accepts a pointer click");
+
+            var emptyMapPicker = new MapCardPicker(Array.Empty<string>(), null);
+            window.Content = emptyMapPicker; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            var emptyMapState = emptyMapPicker.GetVisualDescendants().OfType<PrimeStatePanel>()
+                .Single(panel => panel.IsEffectivelyVisible);
+            GamepadChecks.Check(emptyMapState.Kind == PrimeStateKind.Warning
+                && ControllerNav.Find(emptyMapPicker, "map-picker.use") is { IsEnabled: false },
+                "arena picker explains missing local maps instead of showing a blank gallery");
 
             var rotationPicker = new MapRotationPicker(
                 Array.Empty<string>(), Array.Empty<string>());
@@ -212,6 +259,13 @@ namespace MphRead.Mods.Launcher.Gui
                 && ControllerNav.Find(replayStudio, "studio.batch.favorite") != null
                 && ControllerNav.Find(replayStudio, "studio.batch.validate") != null,
                 "Replay Studio exposes cinematic review and batch archive actions");
+            replayStudio.LoadCheckEntries(0);
+            window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            var replayEmpty = replayStudio.GetVisualDescendants().OfType<PrimeStatePanel>()
+                .Single(panel => panel.IsEffectivelyVisible);
+            GamepadChecks.Check(replayEmpty.Kind == PrimeStateKind.Empty
+                && ControllerNav.Find(replayStudio, "studio.state.import") != null,
+                "empty Replay Studio exposes an import-ready Empty state");
             GamepadChecks.Check(
                 LauncherBackdrop.Scene == LauncherBackdropScene.ReplayStudio,
                 "Replay Studio selects its cinematic backdrop");
@@ -245,6 +299,12 @@ namespace MphRead.Mods.Launcher.Gui
                 "Replay Studio can reattach and measure after playback");
             replayStudio.Dispose();
             GamepadChecks.Check(preview.Source == null, "Theatre releases its thumbnail when ownership ends");
+
+            GamepadChecks.Check(PrimeMetrics.IsNarrow(new Size(960, 660))
+                && !PrimeMetrics.IsNarrow(new Size(1280, 720))
+                && PrimeMetrics.IsPhoneLayout(new Size(830, 390))
+                && !PrimeMetrics.IsPhoneLayout(new Size(1280, 720)),
+                "Prime responsive breakpoints classify compact and desktop fixtures consistently");
 
             panel = new StackPanel();
             window.Width = 600; window.Height = 400; window.Content = panel;

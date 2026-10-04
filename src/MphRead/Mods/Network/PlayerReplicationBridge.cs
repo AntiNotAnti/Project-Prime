@@ -413,6 +413,11 @@ namespace MphRead.Mods.Network
 
         public readonly int[] ShootPressAge = new int[PlayerEntity.SlotCapacity];
 
+        internal static bool ShouldReconcileOwnerDeath(bool authority, bool hasState,
+            bool ownerInPlay, bool ownerSpectating, bool serverSpawned, int serverHealth)
+            => authority && hasState && !ownerInPlay && !ownerSpectating
+                && serverSpawned && serverHealth > 0;
+
         public void ApplyIntent(PlayerEntity player, in IntentPacket intent)
         {
             if (intent.LifeId == 0 || !_host.Matches(player.SlotIndex, intent.SlotGeneration, intent.LifeId)) return;
@@ -435,15 +440,30 @@ namespace MphRead.Mods.Network
             {
                 ShootPressAge[player.SlotIndex] = shootAge;
             }
-            _respawnRequested[player.SlotIndex] = !((intent.Buttons & IntentButtons.InPlayState) == IntentButtons.InPlayState)
+            bool ownerInPlay = (intent.Buttons & IntentButtons.InPlayState) == IntentButtons.InPlayState;
+            bool ownerSpectating = (intent.Buttons & IntentButtons.SpectatingState) == IntentButtons.SpectatingState;
+            _respawnRequested[player.SlotIndex] = !ownerInPlay
                 && ((intent.Buttons & IntentButtons.Shoot) == IntentButtons.Shoot);
-            if (!((intent.Buttons & IntentButtons.InPlayState) == IntentButtons.InPlayState))
+            if (ShouldReconcileOwnerDeath(_host.IsAuthority, intent.HasState, ownerInPlay,
+                ownerSpectating, player.LoadFlags.TestFlag(LoadFlags.Spawned), player.Health))
+            {
+                // The owner resolves its own splash/fall/self-destruct immediately. If
+                // that is the one place the two simulations disagree, it stops sending
+                // InPlayState while the authority still has a living body. Leaving that
+                // body alive deadlocks the life: clients cannot allocate respawns, and
+                // same-life alive snapshots are deliberately forbidden from resurrecting
+                // a locally dead owner. The generation/life fence at the top of this
+                // method means this transition can only apply to the current life.
+                Log($"slot {player.SlotIndex} owner reported self-death; reconciling authority life");
+                player.TakeDamage(0, DamageFlags.Death, direction: null, source: player);
+            }
+            if (!ownerInPlay)
             {
                 // Consume history, but never turn a dead player's respawn button into
                 // a weapon press (or a charged-shot release) on an ahead-of-owner puppet.
                 c.ClearAll();
                 ShootPressAge[player.SlotIndex] = 0;
-                player.ModSetSpectating(((intent.Buttons & IntentButtons.SpectatingState) == IntentButtons.SpectatingState));
+                player.ModSetSpectating(ownerSpectating);
                 return;
             }
             if (intent.HasState

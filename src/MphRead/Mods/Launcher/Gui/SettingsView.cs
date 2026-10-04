@@ -107,6 +107,7 @@ namespace MphRead.Mods.Launcher.Gui
         private Grid _categoryTabsGrid = null!;
         private bool _compactShell;
         private bool _showAdvancedSettings;
+        private PrimeMotionHandle? _sectionMotion;
         private int _activeSectionIndex;
         private int _openedRendererIndex;
         private static readonly HashSet<string> AdvancedSettingSections =
@@ -227,7 +228,7 @@ namespace MphRead.Mods.Launcher.Gui
             ("180 fps", 180),
             ("200 fps", 200),
             ("240 fps", 240),
-            ("Unlimited", FrameTiming.MaxCap)
+            ("Unlimited", FrameTiming.Unlimited)
         };
 
         private static int FpsLimitStopIndex(int cap)
@@ -241,7 +242,7 @@ namespace MphRead.Mods.Launcher.Gui
             // table: land on the nearest stop that does not exceed what was
             // asked for, rather than silently jumping to the default.
             int best = 0;
-            for (int i = 1; i < _fpsLimitStops.Length; i++)
+            for (int i = 1; i + 1 < _fpsLimitStops.Length; i++)
             {
                 if (_fpsLimitStops[i].Cap <= cap)
                 {
@@ -757,6 +758,15 @@ namespace MphRead.Mods.Launcher.Gui
                     _settingHint.Text = "Focus a setting for details. Changes remain in the draft until Apply Changes.";
             }
             UpdateDraftStatus();
+
+            Control activePage = _sections[index].Page;
+            _sectionMotion?.Cancel();
+            _sectionMotion = null;
+            if (_shell && !PrimeMotion.Reduced
+                && TopLevel.GetTopLevel(activePage) != null)
+            {
+                _sectionMotion = PrimeMotion.Enter(activePage, 5, 0.13);
+            }
         }
 
         private StackPanel BuildSectionNavigation()
@@ -884,9 +894,10 @@ namespace MphRead.Mods.Launcher.Gui
 
             if (found == 0)
             {
-                _searchResults.Children.Add(PrimeChrome.Text(
-                    $"No settings match “{query}”.",
-                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+                _searchResults.Children.Add(new PrimeStatePanel(
+                    PrimeStateKind.Empty,
+                    "NO SETTINGS MATCH",
+                    $"No setting name, category or help text matches “{query}”."));
             }
             _searchResultsHost.IsVisible = true;
         }

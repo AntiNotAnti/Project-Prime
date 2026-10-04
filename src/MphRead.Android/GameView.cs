@@ -377,6 +377,8 @@ namespace MphRead.Droid
             private bool _chatWasHeld;
             private bool _clipWasHeld;
             private bool _keyboardShown;
+            private long _presentationInputRevision =
+                MphRead.Mods.Input.GamepadContexts.Revision;
 
             private bool _modern;
             private nint _nativeWindow;
@@ -992,11 +994,20 @@ namespace MphRead.Droid
                 long limiterStart = Stopwatch.GetTimestamp();
                 double elapsed = WaitForTick();
                 long workStart = Stopwatch.GetTimestamp();
+                ulong latencyFrame = MphRead.Mods.Render.LowLatencyController.BeginFrame();
+                MphRead.Mods.Render.LowLatencyController.WaitForFrame(latencyFrame);
                 long allocatedStart = GC.GetAllocatedBytesForCurrentThread();
                 ApplySpectatorRequest();
                 GameState.ApplyPause();
                 int steps = MphRead.Mods.Network.NetSession.HoldLoadingFrame()
                     ? 0 : FrameTiming.Advance(elapsed);
+                if (steps > 0)
+                {
+                    MphRead.Mods.Render.LowLatencyController.Mark(
+                        latencyFrame, MphRead.Mods.Render.LowLatencyMarker.InputSample);
+                    MphRead.Mods.Render.LowLatencyController.Mark(
+                        latencyFrame, MphRead.Mods.Render.LowLatencyMarker.SimulationStart);
+                }
                 for (int i = 0; i < steps; i++)
                 {
                     ApplyInput();
@@ -1009,34 +1020,73 @@ namespace MphRead.Droid
                         MphRead.Mods.Network.DemoClip.SaveWithFeedback();
                     }
                 }
+                if (steps > 0)
+                {
+                    MphRead.Mods.Render.LowLatencyController.Mark(
+                        latencyFrame, MphRead.Mods.Render.LowLatencyMarker.SimulationEnd);
+                }
                 // Loading can pump a disconnect or lobby return with zero
                 // gameplay steps. Handle those transitions on every draw.
                 if (MphRead.Mods.Network.NetSession.Refused || MphRead.Mods.Network.NetSession.SessionTimedOut)
-                { End(scene); return false; }
+                {
+                    MphRead.Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
+                    End(scene);
+                    return false;
+                }
                 if (MphRead.Mods.Network.NetSession.PersistentLobby && MphRead.Mods.Network.NetSession.IsInLobby)
                 {
+                    MphRead.Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
                     End(scene, keepSession: true);
                     return false;
                 }
-                if (Mods.Network.ReplayController.IsSeeking) return true;
+                if (Mods.Network.ReplayController.IsSeeking)
+                {
+                    MphRead.Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
+                    return true;
+                }
                 long simulationEnd = Stopwatch.GetTimestamp();
+
+                long presentationRevision = MphRead.Mods.Input.GamepadContexts.Revision;
+                bool inputOwnershipChanged =
+                    presentationRevision != _presentationInputRevision;
+                _presentationInputRevision = presentationRevision;
+                if (inputOwnershipChanged)
+                {
+                    // A menu/chat can open and close between two render frames.
+                    // Release pending touch state even when the current state has
+                    // already returned to Gameplay.
+                    _controls.ReleaseEverything();
+                }
+                bool gameplayOwnsPresentationAim =
+                    !inputOwnershipChanged
+                    && !MphRead.Mods.Input.GamepadContexts.MenuVisible
+                    && !MphRead.Mods.Input.GamepadContexts.TextEntryActive
+                    && !MphRead.Mods.Chat.ChatBox.Composing
+                    && !Mods.SpectatorMode.IsSpectating
+                    && !GameState.DialogPause
+                    && !GameState.MenuPause
+                    && !_controls.IsHeld(TouchAction.WeaponMenu);
 
                 // Android pad motion events may arrive between 60 Hz simulation
                 // steps. Capture the newest aim axes for the same render-only
                 // preview used on desktop; the next simulation consumes the
-                // exact captured axes.
+                // exact captured axes. UI ownership cancels any older preview
+                // immediately, even on a zero-step high-refresh frame.
                 if (FrameTiming.HighRefreshPresentation
-                    && !MphRead.Mods.Network.DemoPlayback.IsActive)
+                    && !MphRead.Mods.Network.DemoPlayback.IsActive
+                    && gameplayOwnsPresentationAim)
                 {
                     MphRead.Mods.Input.GamepadInput.CapturePresentationSample();
                 }
+                else if (!gameplayOwnsPresentationAim)
+                {
+                    MphRead.Mods.Input.GamepadInput.InvalidatePresentationAim();
+                }
 
                 // A 90/120 Hz phone often draws a picture between two 60 Hz
-                // simulation steps. Preserve the touch delta for gameplay, but
-                // preview it in the camera now so dragging the view responds at
-                // the panel rate rather than waiting for the next game tick.
-                if (!Mods.SpectatorMode.IsSpectating && !GameState.DialogPause
-                    && !GameState.MenuPause && !_controls.IsHeld(TouchAction.WeaponMenu))
+                // simulation steps. Preserve fresh gameplay touch delta, but
+                // never preview movement accumulated while chat/menu owns glass.
+                if (gameplayOwnsPresentationAim)
                 {
                     (float X, float Y) lateAim = _controls.PeekAimDelta();
                     scene.ModSetLateAim(lateAim.X * AimScale, lateAim.Y * AimScale);
@@ -1045,9 +1095,12 @@ namespace MphRead.Droid
                 {
                     scene.ModSetLateAim(0, 0);
                 }
+                MphRead.Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, MphRead.Mods.Render.LowLatencyMarker.RenderSubmitStart);
                 scene.OnDrawFrame();
                 if (!scene.OnRenderFrame())
                 {
+                    MphRead.Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
                     End(scene);
                     return false;
                 }
@@ -1056,7 +1109,11 @@ namespace MphRead.Droid
                 long renderEnd = Stopwatch.GetTimestamp();
                 DrawUi();
                 long uiEnd = Stopwatch.GetTimestamp();
+                MphRead.Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, MphRead.Mods.Render.LowLatencyMarker.RenderSubmitEnd);
                 long swapStart = uiEnd;
+                MphRead.Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, MphRead.Mods.Render.LowLatencyMarker.PresentStart);
                 if (_modern) ModernGraphicsCompat.Present();
                 else if (_display != null && _eglSurface != null
                     && !EGL14.EglSwapBuffers(_display, _eglSurface))
@@ -1068,6 +1125,8 @@ namespace MphRead.Droid
                     ReleaseSurface();
                 }
                 long swapEnd = Stopwatch.GetTimestamp();
+                MphRead.Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, MphRead.Mods.Render.LowLatencyMarker.PresentEnd);
                 // Report CPU-side frame work only. Presentation can block on
                 // SurfaceFlinger/FIFO and is not CPU load the scheduler should
                 // try to "fix" by boosting clocks.
@@ -1202,7 +1261,7 @@ namespace MphRead.Droid
                     _requestedFrameRate = -1;
                     return;
                 }
-                float requested = cap == FrameTiming.DisplayRate
+                float requested = cap == FrameTiming.DisplayRate || cap == FrameTiming.Unlimited
                     ? AndroidPerformance.DisplayRefreshRate
                     : Math.Min(cap, AndroidPerformance.DisplayRefreshRate);
                 try
@@ -1525,6 +1584,12 @@ namespace MphRead.Droid
                 bool wanted = MphRead.Mods.Chat.ChatBox.Composing;
                 if (wanted != _keyboardShown)
                 {
+                    // Both edges are ownership changes. Drop held touch actions
+                    // and render-only aim so opening chat cannot keep walking/
+                    // turning and closing it cannot manufacture a resume edge.
+                    _controls.ReleaseEverything();
+                    MphRead.Mods.Input.GamepadInput.InvalidatePresentationAim();
+                    Scene?.ModSetLateAim(0, 0);
                     _keyboardShown = wanted;
                     _onSoftKeyboard(wanted);
                 }

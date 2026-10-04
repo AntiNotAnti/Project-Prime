@@ -102,7 +102,7 @@ namespace MphRead.Mods
             // How often the picture is drawn. It does not touch the
             // simulation, which runs at 60 Hz whatever this says -- see
             // Mods/Render/FrameTiming.cs.
-            Render.FrameTiming.FrameRateCap = Render.FrameTiming.ParseCap(settings.FrameRateCap,
+            Render.FrameTiming.FrameRateCap = Render.FrameTiming.ParseSavedCap(settings.FrameRateCap,
                 Render.FrameTiming.FrameRateCap);
             RenderOptions.CelShading = RenderOptions.ParseOnOff(settings.CelShading,
                 RenderOptions.CelShading);

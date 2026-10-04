@@ -459,8 +459,10 @@ namespace MphRead.Entities
                     Vector3 emission = GetEmission(inst, material, segment.NativeMaterialIndex);
                     Vector4? color = GetRenderColor(inst, 0, material);
                     int? bindingOverride = GetBindingOverride(
-                        inst, material, segment.NativeMaterialIndex);
-                    Matrix4 texcoordMatrix = bindingOverride.HasValue
+                        inst, material, segment.NativeMaterialIndex) ?? segment.AlbedoBinding;
+                    bool authoredTexture = segment.AlbedoBinding.HasValue
+                        && bindingOverride == segment.AlbedoBinding;
+                    Matrix4 texcoordMatrix = !authoredTexture && bindingOverride.HasValue
                         ? GetTexcoordMatrix(inst, material, segment.NativeMaterialIndex,
                             texgenNode, Recolor)
                         : Matrix4.Identity;
@@ -474,7 +476,8 @@ namespace MphRead.Entities
                             segment.ListId, weighted.Joints.Count, weighted.MatrixPalette,
                             color, PaletteOverride, SelectionType.None, BillboardMode.None,
                             _drawScale, bindingOverride, UseTexturedPlayerSkin(inst),
-                            GetPlayerOutlineColor(inst), weightedSkinning: true);
+                            GetPlayerOutlineColor(inst), weightedSkinning: true, authoredTexture: authoredTexture,
+                            authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT);
                     }
                     finally
                     {

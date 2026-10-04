@@ -17,11 +17,22 @@ internal sealed class AndroidFramePacer(int maximumRate)
 
     internal double Deadline(double now, int cap, bool presentationPaced = false)
     {
+        // A negative cap is the shared true-Unlimited sentinel. When
+        // presentation is nonblocking, there is deliberately no managed
+        // deadline at all. A blocking compositor/present mode already owns
+        // cadence and keeps the existing safety-floor bookkeeping.
+        if (cap < 0 && !presentationPaced)
+        {
+            _interval = 0;
+            _next = now;
+            return now;
+        }
+
         // Display-paced modes already wait in the presentation driver. This is
         // true for Display and for explicit caps that map to a native panel
         // refresh (for example 120 on a 120 Hz phone). Only impose the runaway
         // safety floor in that case, never a second software display clock.
-        double interval = 1.0 / (presentationPaced || cap <= 0
+        double interval = 1.0 / (presentationPaced || cap == 0
             ? maximumRate : Math.Clamp(cap, 1, maximumRate));
         if (interval != _interval)
         {

@@ -22,7 +22,8 @@ internal sealed partial class MapCardPicker
     private readonly Dictionary<DeckTile, CommunityMap> _communityCards = new();
     private readonly Note _communityStatus = new("");
     private CommunityMap? _selectedCommunity;
-    private bool _communityStarted, _communityLoading, _installing;
+    private bool _communityStarted, _communityLoading, _communityFailed, _installing;
+    private string _communityError = "";
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
@@ -39,6 +40,7 @@ internal sealed partial class MapCardPicker
                 || (_communityCards.TryGetValue(tile, out var map)
                     && (map.Author?.Contains(query, StringComparison.OrdinalIgnoreCase) == true
                         || "community".Contains(query, StringComparison.OrdinalIgnoreCase)));
+        RefreshDirectoryState();
     }
 
     private static async Task<CommunityMap[]> BrowseCommunityAsync(CancellationToken token)
@@ -51,7 +53,10 @@ internal sealed partial class MapCardPicker
     {
         if (_communityLoading || _installing || _communityLifetime.IsCancellationRequested) return;
         _communityLoading = true;
+        _communityFailed = false;
+        _communityError = "";
         _communityStatus.Text = "Loading Community maps…";
+        RefreshDirectoryState();
         try
         {
             CommunityMap[] maps = await _browseCommunity(_communityLifetime.Token);
@@ -83,16 +88,31 @@ internal sealed partial class MapCardPicker
             _communityStatus.Text = maps.Length == 0 ? "No published Community maps. Local maps are still available."
                 : "Community maps included · select one, then Use Map to download.";
             _communityStatus.Foreground = GuiTheme.TextDimBrush;
+            _communityFailed = false;
             FilterCards();
         }
         catch (OperationCanceledException) when (_communityLifetime.IsCancellationRequested) { }
         catch (Exception ex)
         {
             if (_communityLifetime.IsCancellationRequested) return;
+            _communityError = ex.Message;
+            _communityFailed = true;
             _communityStatus.Text = "Community maps unavailable: " + ex.Message + " · Refresh to retry.";
             _communityStatus.Foreground = GuiTheme.WarmBrush;
+            if (!_grid.Children.OfType<DeckTile>().Any(tile => tile.IsVisible))
+            {
+                _directoryState.Set(
+                    PrimeStateKind.Error,
+                    "COMMUNITY MAPS UNAVAILABLE",
+                    ex.Message + " Local arenas remain usable if installed; Refresh Community retries the catalog.",
+                    showActions: false);
+            }
         }
-        finally { _communityLoading = false; }
+        finally
+        {
+            _communityLoading = false;
+            if (!_communityFailed) RefreshDirectoryState();
+        }
     }
 
     private async Task ConfirmSelectionAsync()

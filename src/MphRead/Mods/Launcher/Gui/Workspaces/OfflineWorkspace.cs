@@ -21,6 +21,11 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBlock _saveDetail;
         private readonly PrimeButton[] _slots = new PrimeButton[AdventureSave.SlotCount];
         private readonly Image _preview = new() { Height = 120, Stretch = Stretch.UniformToFill };
+        private readonly PrimeHeroPanel _matchHero;
+        private readonly TextBlock _arenaTitle = PrimeChrome.HeroTitle("SELECT ARENA");
+        private readonly TextBlock _matchSummary = PrimeChrome.Eyebrow(
+            "MATCH SETUP // LOCAL SIMULATION");
+        private readonly HunterStand _stand;
         private string _room;
         private byte _slot = 1;
         public OfflineWorkspace(MenuSettings settings, IReadOnlyList<string> rooms, PrimeOverlayHost overlays)
@@ -56,51 +61,198 @@ namespace MphRead.Mods.Launcher.Gui
                 Launched?.Invoke(this, plan);
             }, true) { IsEnabled = rooms.Count > 0 };
             ControllerNav.Identify(start, "offline.start");
-            var botBody = PrimeChrome.Stack(new PrimeBadge("MODE 01 // TACTICAL SIMULATION"), PrimeChrome.Title("BOT SKIRMISH"),
-                PrimeChrome.Text("Configure a local arena match with Hunter bots.", 14, PrimeTheme.TextSecondaryBrush),
-                _bots, _skill, _map, _preview, _mode, _format, new PrimeButton("ADVANCED MATCH RULES", Rules));
-            var bot = WithAction(botBody, start);
+
+            var matchPanel = new PrimePanel(PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("MATCH"),
+                PrimeChrome.Title("MATCH FORMAT"),
+                PrimeChrome.Text(
+                    "Choose the game type, matchup and bot opposition.",
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush),
+                _mode,
+                _format,
+                _bots,
+                _skill,
+                new PrimeButton("ADVANCED MATCH RULES", Rules)),
+                raised: true)
+            { Padding = new Thickness(12) };
+
+            var arenaCopy = new StackPanel
+            {
+                Spacing = 8,
+                VerticalAlignment = VerticalAlignment.Bottom
+            };
+            arenaCopy.Children.Add(PrimeChrome.Eyebrow("ARENA"));
+            arenaCopy.Children.Add(_arenaTitle);
+            arenaCopy.Children.Add(PrimeChrome.Text(
+                "Choose a compatible arena for this local simulation.",
+                PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+            arenaCopy.Children.Add(_map);
+            _matchHero = new PrimeHeroPanel(arenaCopy, minHeight: 220)
+            {
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
+
+            _stand = new HunterStand
+            {
+                MinHeight = 160,
+                Height = 180,
+                Name2 = _hunter.Value,
+                Suit = _suit.Index,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            var deploymentPanel = new PrimePanel(PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("DEPLOYMENT"),
+                PrimeChrome.Title("HUNTER"),
+                PrimeChrome.Text(
+                    "Set the local hunter and suit used when the simulation begins.",
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush),
+                _stand,
+                _hunter,
+                _suit),
+                raised: true)
+            { Padding = new Thickness(12) };
+
+            var setup = new Grid
+            {
+                ColumnDefinitions = new("0.95*,1.15*,0.9*"),
+                ColumnSpacing = 12,
+                RowSpacing = 12
+            };
+            setup.Children.Add(matchPanel);
+            Grid.SetColumn(_matchHero, 1);
+            setup.Children.Add(_matchHero);
+            Grid.SetColumn(deploymentPanel, 2);
+            setup.Children.Add(deploymentPanel);
+
+            _matchSummary.VerticalAlignment = VerticalAlignment.Center;
+            var launchBar = new PrimePanel(
+                PrimeChrome.Columns("*,Auto", _matchSummary, start))
+            { Padding = new Thickness(10, 8) };
+
+            var primary = new Grid
+            {
+                RowDefinitions = new("*,Auto"),
+                RowSpacing = 10
+            };
+            primary.Children.Add(setup);
+            Grid.SetRow(launchBar, 1);
+            primary.Children.Add(launchBar);
+
             _saveDetail = PrimeChrome.Text("", 13, PrimeTheme.TextSecondaryBrush);
             _resume = new PrimeButton("▷ RESUME", () => Adventure(false), true);
             ControllerNav.Identify(_resume, "offline.adventure.resume");
-            var adventureBody = PrimeChrome.Stack(new PrimeBadge("MODE 03 // NARRATIVE CAMPAIGN", PrimeTheme.GreenBrush),
-                PrimeChrome.Title("ADVENTURE RUNS"), PrimeChrome.Text("Explore the Alimbic Cluster and recover the Octoliths.", 14, PrimeTheme.TextSecondaryBrush));
+            var adventureBody = PrimeChrome.Stack(
+                new PrimeBadge("MODE 03 // NARRATIVE CAMPAIGN", PrimeTheme.GreenBrush),
+                PrimeChrome.Title("ADVENTURE RUNS"),
+                PrimeChrome.Text(
+                    "Explore the Alimbic Cluster and recover the Octoliths.",
+                    14, PrimeTheme.TextSecondaryBrush));
             for (byte i = 1; i <= AdventureSave.SlotCount; i++)
             {
                 byte slot = i;
                 var button = new PrimeButton("SLOT " + i, () => SelectSlot(slot));
                 ControllerNav.Identify(button, $"offline.adventure.slot{i}");
-                _slots[i - 1] = button; adventureBody.Children.Add(button);
+                _slots[i - 1] = button;
+                adventureBody.Children.Add(button);
             }
             adventureBody.Children.Add(_saveDetail);
             _newRun = new PrimeButton("+ NEW RUN", () => Adventure(true));
             ControllerNav.Identify(_newRun, "offline.adventure.new");
-            var adventure = WithAction(adventureBody, PrimeChrome.Columns("*,*", _resume, _newRun));
-            var stand = new HunterStand { MinHeight = 220, Name2 = _hunter.Value, Suit = _suit.Index };
-            _hunter.Changed += (_, _) => stand.Name2 = _hunter.Value;
-            _suit.Changed += (_, _) => stand.Suit = _suit.Index;
-            var avatar = new PrimePanel(PrimeChrome.Stack(new PrimeBadge("SIMULACRUM SPEC"), PrimeChrome.Title("OFFLINE AVATAR"),
-                stand, _hunter, _suit, PrimeChrome.Text("LOCAL RIG // READY\nSimulation: 60 Hz", 12, PrimeTheme.GreenBrush, true)));
-            var root = new Grid { Margin = PrimeMetrics.PageMargin, RowDefinitions = new("Auto,*"), RowSpacing = 20 };
-            root.Children.Add(HubChrome.Header("OPERATIONS // OFFLINE ARCHIVE", "OFFLINE",
-                "Local combat simulations and Adventure save data.", "STANDALONE"));
-            var cards = new Control[] { bot, TrainingCard(), adventure, avatar };
-            var body = new Grid { ColumnSpacing = 16, RowSpacing = 16 };
-            foreach (var card in cards) body.Children.Add(card);
-            void LayoutCards(double width)
+            var adventure = WithAction(adventureBody,
+                PrimeChrome.Columns("*,*", _resume, _newRun));
+            var training = TrainingCard();
+
+            var secondary = new StackPanel { Spacing = 10 };
+            secondary.Children.Add(PrimeChrome.Eyebrow("OTHER OFFLINE MODES"));
+            secondary.Children.Add(PrimeChrome.Title("TRAINING & ADVENTURE"));
+            secondary.Children.Add(PrimeChrome.Text(
+                "Specialized drills and campaign saves remain available without competing with Match Setup.",
+                PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+            secondary.Children.Add(training);
+            secondary.Children.Add(adventure);
+
+            var secondaryScroll = new ScrollViewer
             {
-                int columns = width >= 1300 ? 4 : width >= 650 ? 2 : 1;
-                double height = Math.Max(130, root.Bounds.Height - root.Children[0].Bounds.Height - root.RowSpacing);
-                foreach (var card in cards) card.Height = height;
-                body.ColumnDefinitions = new(string.Join(",", Enumerable.Repeat("*", columns)));
-                body.RowDefinitions = new(string.Join(",", Enumerable.Repeat("Auto", (4 + columns - 1) / columns)));
-                for (int i = 0; i < cards.Length; i++) { Grid.SetColumn(cards[i], i % columns); Grid.SetRow(cards[i], i / columns); }
-            }
-            LayoutCards(1200);
-            root.SizeChanged += (_, _) => LayoutCards(root.Bounds.Width);
-            root.Children[0].SizeChanged += (_, _) => LayoutCards(root.Bounds.Width);
-            var scroll = new ScrollViewer { Content = body, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
-            Grid.SetRow(scroll, 1); root.Children.Add(scroll); Content = root;
+                Content = secondary,
+                HorizontalScrollBarVisibility =
+                    Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+                VerticalScrollBarVisibility =
+                    Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
+            };
+            var secondaryPanel = new PrimePanel(secondaryScroll)
+            {
+                Padding = new Thickness(10)
+            };
+
+            var body = new Grid
+            {
+                ColumnDefinitions = new("1.8*,0.85*"),
+                ColumnSpacing = 14,
+                RowSpacing = 14
+            };
+            body.Children.Add(primary);
+            Grid.SetColumn(secondaryPanel, 1);
+            body.Children.Add(secondaryPanel);
+
+            var root = new Grid
+            {
+                Margin = PrimeMetrics.PageMargin,
+                RowDefinitions = new("Auto,*"),
+                RowSpacing = 14
+            };
+            root.Children.Add(HubChrome.Header(
+                "OPERATIONS // OFFLINE",
+                "OFFLINE MATCH SETUP",
+                "Configure a local match, then deploy. Training and Adventure stay one step away.",
+                "STANDALONE"));
+            Grid.SetRow(body, 1);
+            root.Children.Add(body);
+
+            root.SizeChanged += (_, e) =>
+            {
+                bool compact = PrimeMetrics.IsNarrow(e.NewSize);
+                body.ColumnDefinitions = compact
+                    ? new ColumnDefinitions("*")
+                    : new ColumnDefinitions("1.8*,0.85*");
+                body.RowDefinitions = compact
+                    ? new RowDefinitions("Auto,*")
+                    : new RowDefinitions("*");
+                Grid.SetColumn(primary, 0);
+                Grid.SetRow(primary, 0);
+                Grid.SetColumn(secondaryPanel, compact ? 0 : 1);
+                Grid.SetRow(secondaryPanel, compact ? 1 : 0);
+
+                bool narrowSetup = PrimeMetrics.IsPhoneLayout(e.NewSize);
+                setup.ColumnDefinitions = narrowSetup
+                    ? new ColumnDefinitions("*")
+                    : new ColumnDefinitions("0.95*,1.15*,0.9*");
+                setup.RowDefinitions = narrowSetup
+                    ? new RowDefinitions("Auto,Auto,Auto")
+                    : new RowDefinitions("*");
+                Grid.SetColumn(matchPanel, 0);
+                Grid.SetRow(matchPanel, 0);
+                Grid.SetColumn(_matchHero, narrowSetup ? 0 : 1);
+                Grid.SetRow(_matchHero, narrowSetup ? 1 : 0);
+                Grid.SetColumn(deploymentPanel, narrowSetup ? 0 : 2);
+                Grid.SetRow(deploymentPanel, narrowSetup ? 2 : 0);
+            };
+
+            _hunter.Changed += (_, _) =>
+            {
+                _stand.Name2 = _hunter.Value;
+                RefreshMatchChrome();
+            };
+            _suit.Changed += (_, _) =>
+            {
+                _stand.Suit = _suit.Index;
+                RefreshMatchChrome();
+            };
+            _mode.Changed += (_, _) => RefreshMatchChrome();
+            _format.Changed += (_, _) => RefreshMatchChrome();
+            _bots.Changed += (_, _) => RefreshMatchChrome();
+            _skill.Changed += (_, _) => RefreshMatchChrome();
+
+            Content = root;
             Refresh();
         }
         private Control TrainingCard()
@@ -361,9 +513,31 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (_room.Length == 0 && _rooms.Count > 0) _room = _rooms[0];
             _start.IsEnabled = _rooms.Count > 0;
-            _map.Label = _room.Length == 0 ? "NO ARENAS // SET UP GAME FILES" : RoomName(_room).ToUpperInvariant();
+            _map.Label = _room.Length == 0
+                ? "NO ARENAS // SET UP GAME FILES"
+                : RoomName(_room).ToUpperInvariant();
             _preview.Source = _room.Length == 0 ? null : MapShot.For(_room);
+            RefreshMatchChrome();
             SelectSlot(_slot);
+        }
+
+        private void RefreshMatchChrome()
+        {
+            if (_room.Length == 0)
+            {
+                _arenaTitle.Text = "SELECT AN ARENA";
+                _matchHero.SetArt(null);
+            }
+            else
+            {
+                _arenaTitle.Text = RoomName(_room).ToUpperInvariant();
+                _matchHero.SetArt(MapShot.For(_room), 0.78);
+            }
+
+            string room = _room.Length == 0 ? "NO ARENA" : RoomName(_room).ToUpperInvariant();
+            _matchSummary.Text =
+                $"{_mode.Value.ToUpperInvariant()}  //  {_format.Value.ToUpperInvariant()}  //  "
+                + $"{_bots.Value.ToUpperInvariant()}  //  {_skill.Value.ToUpperInvariant()}  //  {room}";
         }
     }
 }

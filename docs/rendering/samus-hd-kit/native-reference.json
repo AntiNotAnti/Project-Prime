@@ -1,0 +1,2384 @@
+{
+  "format": 1,
+  "hunter": "Samus",
+  "models": [
+    {
+      "part": "biped",
+      "lod": 0,
+      "model": "Samus_lod0",
+      "modelScale": [
+        1,
+        1,
+        1
+      ],
+      "matrixPalette": [
+        {
+          "slot": 0,
+          "nodeIndex": 2,
+          "nodeName": "Pelvis"
+        },
+        {
+          "slot": 1,
+          "nodeIndex": 3,
+          "nodeName": "L_hip"
+        },
+        {
+          "slot": 2,
+          "nodeIndex": 4,
+          "nodeName": "L_knee"
+        },
+        {
+          "slot": 3,
+          "nodeIndex": 5,
+          "nodeName": "L_ankle"
+        },
+        {
+          "slot": 4,
+          "nodeIndex": 6,
+          "nodeName": "R_hip"
+        },
+        {
+          "slot": 5,
+          "nodeIndex": 7,
+          "nodeName": "R_knee"
+        },
+        {
+          "slot": 6,
+          "nodeIndex": 8,
+          "nodeName": "R_ankle"
+        },
+        {
+          "slot": 7,
+          "nodeIndex": 9,
+          "nodeName": "Spine_1"
+        },
+        {
+          "slot": 8,
+          "nodeIndex": 10,
+          "nodeName": "Spine_2"
+        },
+        {
+          "slot": 9,
+          "nodeIndex": 11,
+          "nodeName": "Head_1"
+        },
+        {
+          "slot": 10,
+          "nodeIndex": 12,
+          "nodeName": "L_shoulder"
+        },
+        {
+          "slot": 11,
+          "nodeIndex": 13,
+          "nodeName": "L_elbow"
+        },
+        {
+          "slot": 12,
+          "nodeIndex": 14,
+          "nodeName": "L_wrist"
+        },
+        {
+          "slot": 13,
+          "nodeIndex": 15,
+          "nodeName": "L_varias2_SDK"
+        },
+        {
+          "slot": 14,
+          "nodeIndex": 16,
+          "nodeName": "R_shoulder"
+        },
+        {
+          "slot": 15,
+          "nodeIndex": 17,
+          "nodeName": "R_elbow"
+        },
+        {
+          "slot": 16,
+          "nodeIndex": 18,
+          "nodeName": "R_varias2_SDK"
+        }
+      ],
+      "nodes": [
+        {
+          "index": 0,
+          "name": "Dummy_Root",
+          "parentIndex": -1,
+          "parentName": null,
+          "childIndex": 1,
+          "nextIndex": -1,
+          "meshCount": 4,
+          "meshIds": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "matrixPaletteSlot": -1,
+          "position": [
+            0,
+            0,
+            -0.03466797
+          ],
+          "rotationRadians": [
+            0,
+            -3.1415927,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 1,
+          "name": "Skeleton_Root",
+          "parentIndex": 0,
+          "parentName": "Dummy_Root",
+          "childIndex": 2,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": -1,
+          "position": [
+            0,
+            1.1831055,
+            0.0041503906
+          ],
+          "rotationRadians": [
+            1.5707964,
+            -0.2247282,
+            1.5707964
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 2,
+          "name": "Pelvis",
+          "parentIndex": 1,
+          "parentName": "Skeleton_Root",
+          "childIndex": 3,
+          "nextIndex": 9,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 0,
+          "position": [
+            0.0007324219,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            -1.7955246,
+            -1.5708922,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 3,
+          "name": "L_hip",
+          "parentIndex": 2,
+          "parentName": "Pelvis",
+          "childIndex": 4,
+          "nextIndex": 6,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 1,
+          "position": [
+            0.107421875,
+            -0.08911133,
+            -0.0126953125
+          ],
+          "rotationRadians": [
+            -1.5708922,
+            -0.08062987,
+            -1.5708922
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 4,
+          "name": "L_knee",
+          "parentIndex": 3,
+          "parentName": "L_hip",
+          "childIndex": 5,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 2,
+          "position": [
+            0.46972656,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0.20488231
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 5,
+          "name": "L_ankle",
+          "parentIndex": 4,
+          "parentName": "L_knee",
+          "childIndex": -1,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 3,
+          "position": [
+            0.51586914,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            -3.1415927,
+            0,
+            -1.0994807
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 6,
+          "name": "R_hip",
+          "parentIndex": 2,
+          "parentName": "Pelvis",
+          "childIndex": 7,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 4,
+          "position": [
+            -0.107421875,
+            -0.08911133,
+            -0.0126953125
+          ],
+          "rotationRadians": [
+            -1.5708922,
+            -0.08062987,
+            -1.5708922
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 7,
+          "name": "R_knee",
+          "parentIndex": 6,
+          "parentName": "R_hip",
+          "childIndex": 8,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 5,
+          "position": [
+            0.46972656,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0.20488231
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 8,
+          "name": "R_ankle",
+          "parentIndex": 7,
+          "parentName": "R_knee",
+          "childIndex": -1,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 6,
+          "position": [
+            0.51586914,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            -3.1415927,
+            0,
+            -1.0994807
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 9,
+          "name": "Spine_1",
+          "parentIndex": 1,
+          "parentName": "Skeleton_Root",
+          "childIndex": 10,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 7,
+          "position": [
+            -0.00048828125,
+            0.00048828125,
+            0
+          ],
+          "rotationRadians": [
+            -3.1415927,
+            0,
+            -0.021283984
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 10,
+          "name": "Spine_2",
+          "parentIndex": 9,
+          "parentName": "Spine_1",
+          "childIndex": 11,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 8,
+          "position": [
+            0.12988281,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0.26068085
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 11,
+          "name": "Head_1",
+          "parentIndex": 10,
+          "parentName": "Spine_2",
+          "childIndex": -1,
+          "nextIndex": 12,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 9,
+          "position": [
+            0.3540039,
+            -0.018554688,
+            0
+          ],
+          "rotationRadians": [
+            1.628033,
+            1.5707964,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 12,
+          "name": "L_shoulder",
+          "parentIndex": 10,
+          "parentName": "Spine_2",
+          "childIndex": 13,
+          "nextIndex": 15,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 10,
+          "position": [
+            0.20581055,
+            0.008300781,
+            -0.29467773
+          ],
+          "rotationRadians": [
+            2.0403862,
+            1.4687866,
+            -2.6864798
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 13,
+          "name": "L_elbow",
+          "parentIndex": 12,
+          "parentName": "L_shoulder",
+          "childIndex": 14,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 11,
+          "position": [
+            0.23413086,
+            -0.015136719,
+            0.022705078
+          ],
+          "rotationRadians": [
+            -1.4612126,
+            -0.00201335,
+            0.00095873803
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 14,
+          "name": "L_wrist",
+          "parentIndex": 13,
+          "parentName": "L_elbow",
+          "childIndex": -1,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 12,
+          "position": [
+            0.28125,
+            0.00024414062,
+            -0.014404297
+          ],
+          "rotationRadians": [
+            -3.1415927,
+            0,
+            -0.015435682
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 15,
+          "name": "L_varias2_SDK",
+          "parentIndex": 10,
+          "parentName": "Spine_2",
+          "childIndex": -1,
+          "nextIndex": 16,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 13,
+          "position": [
+            0.26757812,
+            -0.0034179688,
+            -0.29467773
+          ],
+          "rotationRadians": [
+            0.611579,
+            1.6235269,
+            2.263101
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 16,
+          "name": "R_shoulder",
+          "parentIndex": 10,
+          "parentName": "Spine_2",
+          "childIndex": 17,
+          "nextIndex": 18,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 14,
+          "position": [
+            0.20581055,
+            0.008300781,
+            0.29467773
+          ],
+          "rotationRadians": [
+            -3.0110126,
+            -1.5359942,
+            -1.6851739
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 17,
+          "name": "R_elbow",
+          "parentIndex": 16,
+          "parentName": "R_shoulder",
+          "childIndex": -1,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 15,
+          "position": [
+            0.23461914,
+            0.005126953,
+            -0.020263672
+          ],
+          "rotationRadians": [
+            1.4812503,
+            -0.00095873803,
+            -0.0001917476
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 18,
+          "name": "R_varias2_SDK",
+          "parentIndex": 10,
+          "parentName": "Spine_2",
+          "childIndex": -1,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 16,
+          "position": [
+            0.26757812,
+            -0.0034179688,
+            0.29467773
+          ],
+          "rotationRadians": [
+            1.5213255,
+            -1.5347478,
+            0.049279135
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        }
+      ],
+      "materials": [
+        {
+          "index": 0,
+          "name": "Gun",
+          "textureId": 2,
+          "paletteId": 2,
+          "lighting": 1,
+          "alpha": 31,
+          "texgen": "None",
+          "culling": "Back",
+          "meshIds": [
+            0
+          ]
+        },
+        {
+          "index": 1,
+          "name": "GunTip",
+          "textureId": 4,
+          "paletteId": 4,
+          "lighting": 0,
+          "alpha": 31,
+          "texgen": "None",
+          "culling": "Back",
+          "meshIds": [
+            1
+          ]
+        },
+        {
+          "index": 2,
+          "name": "body",
+          "textureId": 3,
+          "paletteId": 3,
+          "lighting": 1,
+          "alpha": 31,
+          "texgen": "None",
+          "culling": "Back",
+          "meshIds": [
+            2
+          ]
+        },
+        {
+          "index": 3,
+          "name": "body_full_bright",
+          "textureId": 3,
+          "paletteId": 3,
+          "lighting": 0,
+          "alpha": 31,
+          "texgen": "None",
+          "culling": "Back",
+          "meshIds": [
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "part": "biped",
+      "lod": 1,
+      "model": "Samus_lod1",
+      "modelScale": [
+        1,
+        1,
+        1
+      ],
+      "matrixPalette": [
+        {
+          "slot": 0,
+          "nodeIndex": 2,
+          "nodeName": "Pelvis"
+        },
+        {
+          "slot": 1,
+          "nodeIndex": 3,
+          "nodeName": "L_hip"
+        },
+        {
+          "slot": 2,
+          "nodeIndex": 4,
+          "nodeName": "L_knee"
+        },
+        {
+          "slot": 3,
+          "nodeIndex": 5,
+          "nodeName": "L_ankle"
+        },
+        {
+          "slot": 4,
+          "nodeIndex": 6,
+          "nodeName": "R_hip"
+        },
+        {
+          "slot": 5,
+          "nodeIndex": 7,
+          "nodeName": "R_knee"
+        },
+        {
+          "slot": 6,
+          "nodeIndex": 8,
+          "nodeName": "R_ankle"
+        },
+        {
+          "slot": 7,
+          "nodeIndex": 9,
+          "nodeName": "Spine_1"
+        },
+        {
+          "slot": 8,
+          "nodeIndex": 10,
+          "nodeName": "Spine_2"
+        },
+        {
+          "slot": 9,
+          "nodeIndex": 11,
+          "nodeName": "Head_1"
+        },
+        {
+          "slot": 10,
+          "nodeIndex": 12,
+          "nodeName": "L_shoulder"
+        },
+        {
+          "slot": 11,
+          "nodeIndex": 13,
+          "nodeName": "L_elbow"
+        },
+        {
+          "slot": 12,
+          "nodeIndex": 14,
+          "nodeName": "L_wrist"
+        },
+        {
+          "slot": 13,
+          "nodeIndex": 15,
+          "nodeName": "L_varias2_SDK"
+        },
+        {
+          "slot": 14,
+          "nodeIndex": 16,
+          "nodeName": "R_shoulder"
+        },
+        {
+          "slot": 15,
+          "nodeIndex": 17,
+          "nodeName": "R_elbow"
+        },
+        {
+          "slot": 16,
+          "nodeIndex": 18,
+          "nodeName": "R_varias2_SDK"
+        }
+      ],
+      "nodes": [
+        {
+          "index": 0,
+          "name": "Dummy_Root",
+          "parentIndex": -1,
+          "parentName": null,
+          "childIndex": 1,
+          "nextIndex": -1,
+          "meshCount": 4,
+          "meshIds": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "matrixPaletteSlot": -1,
+          "position": [
+            0,
+            0,
+            -0.03466797
+          ],
+          "rotationRadians": [
+            0,
+            -3.1415927,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 1,
+          "name": "Skeleton_Root",
+          "parentIndex": 0,
+          "parentName": "Dummy_Root",
+          "childIndex": 2,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": -1,
+          "position": [
+            0,
+            1.1831055,
+            0.0041503906
+          ],
+          "rotationRadians": [
+            1.5707964,
+            -0.2247282,
+            1.5707964
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 2,
+          "name": "Pelvis",
+          "parentIndex": 1,
+          "parentName": "Skeleton_Root",
+          "childIndex": 3,
+          "nextIndex": 9,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 0,
+          "position": [
+            0.0007324219,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            -1.7955246,
+            -1.5708922,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 3,
+          "name": "L_hip",
+          "parentIndex": 2,
+          "parentName": "Pelvis",
+          "childIndex": 4,
+          "nextIndex": 6,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 1,
+          "position": [
+            0.107421875,
+            -0.08911133,
+            -0.0126953125
+          ],
+          "rotationRadians": [
+            -1.5708922,
+            -0.08062987,
+            -1.5708922
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 4,
+          "name": "L_knee",
+          "parentIndex": 3,
+          "parentName": "L_hip",
+          "childIndex": 5,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 2,
+          "position": [
+            0.46972656,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0.20488231
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 5,
+          "name": "L_ankle",
+          "parentIndex": 4,
+          "parentName": "L_knee",
+          "childIndex": -1,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 3,
+          "position": [
+            0.51586914,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            -3.1415927,
+            0,
+            -1.0994807
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 6,
+          "name": "R_hip",
+          "parentIndex": 2,
+          "parentName": "Pelvis",
+          "childIndex": 7,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 4,
+          "position": [
+            -0.107421875,
+            -0.08911133,
+            -0.0126953125
+          ],
+          "rotationRadians": [
+            -1.5708922,
+            -0.08062987,
+            -1.5708922
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 7,
+          "name": "R_knee",
+          "parentIndex": 6,
+          "parentName": "R_hip",
+          "childIndex": 8,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 5,
+          "position": [
+            0.46972656,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0.20488231
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 8,
+          "name": "R_ankle",
+          "parentIndex": 7,
+          "parentName": "R_knee",
+          "childIndex": -1,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 6,
+          "position": [
+            0.51586914,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            -3.1415927,
+            0,
+            -1.0994807
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 9,
+          "name": "Spine_1",
+          "parentIndex": 1,
+          "parentName": "Skeleton_Root",
+          "childIndex": 10,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 7,
+          "position": [
+            -0.00048828125,
+            0.00048828125,
+            0
+          ],
+          "rotationRadians": [
+            -3.1415927,
+            0,
+            -0.021283984
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 10,
+          "name": "Spine_2",
+          "parentIndex": 9,
+          "parentName": "Spine_1",
+          "childIndex": 11,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 8,
+          "position": [
+            0.12988281,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0.26068085
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 11,
+          "name": "Head_1",
+          "parentIndex": 10,
+          "parentName": "Spine_2",
+          "childIndex": -1,
+          "nextIndex": 12,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 9,
+          "position": [
+            0.3540039,
+            -0.018554688,
+            0
+          ],
+          "rotationRadians": [
+            1.628033,
+            1.5707964,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 12,
+          "name": "L_shoulder",
+          "parentIndex": 10,
+          "parentName": "Spine_2",
+          "childIndex": 13,
+          "nextIndex": 15,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 10,
+          "position": [
+            0.20581055,
+            0.008300781,
+            -0.29467773
+          ],
+          "rotationRadians": [
+            2.0403862,
+            1.4687866,
+            -2.6864798
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 13,
+          "name": "L_elbow",
+          "parentIndex": 12,
+          "parentName": "L_shoulder",
+          "childIndex": 14,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 11,
+          "position": [
+            0.23413086,
+            -0.015136719,
+            0.022705078
+          ],
+          "rotationRadians": [
+            -1.4612126,
+            -0.00201335,
+            0.00095873803
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 14,
+          "name": "L_wrist",
+          "parentIndex": 13,
+          "parentName": "L_elbow",
+          "childIndex": -1,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 12,
+          "position": [
+            0.28125,
+            0.00024414062,
+            -0.014404297
+          ],
+          "rotationRadians": [
+            -3.1415927,
+            0,
+            -0.015435682
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 15,
+          "name": "L_varias2_SDK",
+          "parentIndex": 10,
+          "parentName": "Spine_2",
+          "childIndex": -1,
+          "nextIndex": 16,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 13,
+          "position": [
+            0.26757812,
+            -0.0034179688,
+            -0.29467773
+          ],
+          "rotationRadians": [
+            0.611579,
+            1.6235269,
+            2.263101
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 16,
+          "name": "R_shoulder",
+          "parentIndex": 10,
+          "parentName": "Spine_2",
+          "childIndex": 17,
+          "nextIndex": 18,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 14,
+          "position": [
+            0.20581055,
+            0.008300781,
+            0.29467773
+          ],
+          "rotationRadians": [
+            -3.0110126,
+            -1.5359942,
+            -1.6851739
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 17,
+          "name": "R_elbow",
+          "parentIndex": 16,
+          "parentName": "R_shoulder",
+          "childIndex": -1,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 15,
+          "position": [
+            0.23461914,
+            0.005126953,
+            -0.020263672
+          ],
+          "rotationRadians": [
+            1.4812503,
+            -0.00095873803,
+            -0.0001917476
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 18,
+          "name": "R_varias2_SDK",
+          "parentIndex": 10,
+          "parentName": "Spine_2",
+          "childIndex": -1,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": 16,
+          "position": [
+            0.26757812,
+            -0.0034179688,
+            0.29467773
+          ],
+          "rotationRadians": [
+            1.5230513,
+            -1.5334055,
+            0.04745753
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        }
+      ],
+      "materials": [
+        {
+          "index": 0,
+          "name": "Gun",
+          "textureId": 2,
+          "paletteId": 2,
+          "lighting": 1,
+          "alpha": 31,
+          "texgen": "None",
+          "culling": "Back",
+          "meshIds": [
+            0
+          ]
+        },
+        {
+          "index": 1,
+          "name": "GunTip",
+          "textureId": 4,
+          "paletteId": 4,
+          "lighting": 0,
+          "alpha": 31,
+          "texgen": "None",
+          "culling": "Back",
+          "meshIds": [
+            1
+          ]
+        },
+        {
+          "index": 2,
+          "name": "body",
+          "textureId": 3,
+          "paletteId": 3,
+          "lighting": 1,
+          "alpha": 31,
+          "texgen": "None",
+          "culling": "Back",
+          "meshIds": [
+            2
+          ]
+        },
+        {
+          "index": 3,
+          "name": "body_full_bright",
+          "textureId": 3,
+          "paletteId": 3,
+          "lighting": 0,
+          "alpha": 31,
+          "texgen": "None",
+          "culling": "Back",
+          "meshIds": [
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "part": "viewModel",
+      "lod": 0,
+      "model": "SamusGun",
+      "modelScale": [
+        1,
+        1,
+        1
+      ],
+      "matrixPalette": [
+        {
+          "slot": 0,
+          "nodeIndex": 2,
+          "nodeName": "Main"
+        },
+        {
+          "slot": 1,
+          "nodeIndex": 3,
+          "nodeName": "centerGlow"
+        },
+        {
+          "slot": 2,
+          "nodeIndex": 4,
+          "nodeName": "cp"
+        },
+        {
+          "slot": 3,
+          "nodeIndex": 5,
+          "nodeName": "decals"
+        },
+        {
+          "slot": 4,
+          "nodeIndex": 6,
+          "nodeName": "g1"
+        },
+        {
+          "slot": 5,
+          "nodeIndex": 7,
+          "nodeName": "g2"
+        },
+        {
+          "slot": 6,
+          "nodeIndex": 8,
+          "nodeName": "g5"
+        },
+        {
+          "slot": 7,
+          "nodeIndex": 9,
+          "nodeName": "glowBlue"
+        },
+        {
+          "slot": 8,
+          "nodeIndex": 10,
+          "nodeName": "glowGreen"
+        },
+        {
+          "slot": 9,
+          "nodeIndex": 11,
+          "nodeName": "glowOrange"
+        },
+        {
+          "slot": 10,
+          "nodeIndex": 12,
+          "nodeName": "glowRed"
+        },
+        {
+          "slot": 11,
+          "nodeIndex": 13,
+          "nodeName": "glowYellow"
+        },
+        {
+          "slot": 12,
+          "nodeIndex": 14,
+          "nodeName": "housing"
+        },
+        {
+          "slot": 13,
+          "nodeIndex": 16,
+          "nodeName": "noz1"
+        },
+        {
+          "slot": 14,
+          "nodeIndex": 17,
+          "nodeName": "noz2"
+        },
+        {
+          "slot": 15,
+          "nodeIndex": 18,
+          "nodeName": "noz3"
+        },
+        {
+          "slot": 16,
+          "nodeIndex": 19,
+          "nodeName": "noz4"
+        },
+        {
+          "slot": 17,
+          "nodeIndex": 20,
+          "nodeName": "ring1"
+        },
+        {
+          "slot": 18,
+          "nodeIndex": 21,
+          "nodeName": "ring2"
+        },
+        {
+          "slot": 19,
+          "nodeIndex": 22,
+          "nodeName": "ring3"
+        }
+      ],
+      "nodes": [
+        {
+          "index": 0,
+          "name": "MasterNode",
+          "parentIndex": -1,
+          "parentName": null,
+          "childIndex": 1,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": -1,
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 1,
+          "name": "gun",
+          "parentIndex": 0,
+          "parentName": "MasterNode",
+          "childIndex": 2,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": -1,
+          "position": [
+            0.00024414062,
+            0.0056152344,
+            0.0087890625
+          ],
+          "rotationRadians": [
+            -3.1415927,
+            0,
+            3.141497
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 2,
+          "name": "Main",
+          "parentIndex": 1,
+          "parentName": "gun",
+          "childIndex": -1,
+          "nextIndex": 3,
+          "meshCount": 1,
+          "meshIds": [
+            0
+          ],
+          "matrixPaletteSlot": 0,
+          "position": [
+            0.00048828125,
+            -0.0056152344,
+            0
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 3,
+          "name": "centerGlow",
+          "parentIndex": 1,
+          "parentName": "gun",
+          "childIndex": -1,
+          "nextIndex": 4,
+          "meshCount": 1,
+          "meshIds": [
+            1
+          ],
+          "matrixPaletteSlot": 1,
+          "position": [
+            0.0017089844,
+            -0.0021972656,
+            0.0075683594
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 4,
+          "name": "cp",
+          "parentIndex": 1,
+          "parentName": "gun",
+          "childIndex": -1,
+          "nextIndex": 5,
+          "meshCount": 2,
+          "meshIds": [
+            2,
+            3
+          ],
+          "matrixPaletteSlot": 2,
+          "position": [
+            -0.06713867,
+            0.0017089844,
+            -0.08520508
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 5,
+          "name": "decals",
+          "parentIndex": 1,
+          "parentName": "gun",
+          "childIndex": -1,
+          "nextIndex": 6,
+          "meshCount": 1,
+          "meshIds": [
+            4
+          ],
+          "matrixPaletteSlot": 3,
+          "position": [
+            0.00048828125,
+            -0.0056152344,
+            0
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 6,
+          "name": "g1",
+          "parentIndex": 1,
+          "parentName": "gun",
+          "childIndex": -1,
+          "nextIndex": 7,
+          "meshCount": 1,
+          "meshIds": [
+            5
+          ],
+          "matrixPaletteSlot": 4,
+          "position": [
+            0,
+            0.055419922,
+            -0.057617188
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 7,
+          "name": "g2",
+          "parentIndex": 1,
+          "parentName": "gun",
+          "childIndex": -1,
+          "nextIndex": 8,
+          "meshCount": 1,
+          "meshIds": [
+            6
+          ],
+          "matrixPaletteSlot": 5,
+          "position": [
+            0,
+            0.05126953,
+            -0.10986328
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 8,
+          "name": "g5",
+          "parentIndex": 1,
+          "parentName": "gun",
+          "childIndex": -1,
+          "nextIndex": 9,
+          "meshCount": 1,
+          "meshIds": [
+            7
+          ],
+          "matrixPaletteSlot": 6,
+          "position": [
+            -0.04736328,
+            -0.008544922,
+            -0.16796875
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 9,
+          "name": "glowBlue",
+          "parentIndex": 1,
+          "parentName": "gun",
+          "childIndex": -1,
+          "nextIndex": 10,
+          "meshCount": 1,
+          "meshIds": [
+            8
+          ],
+          "matrixPaletteSlot": 7,
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 10,
+          "name": "glowGreen",
+          "parentIndex": 1,
+          "parentName": "gun",
+          "childIndex": -1,
+          "nextIndex": 11,
+          "meshCount": 1,
+          "meshIds": [
+            9
+          ],
+          "matrixPaletteSlot": 8,
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 11,
+          "name": "glowOrange",
+          "parentIndex": 1,
+          "parentName": "gun",
+          "childIndex": -1,
+          "nextIndex": 12,
+          "meshCount": 1,
+          "meshIds": [
+            10
+          ],
+          "matrixPaletteSlot": 9,
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 12,
+          "name": "glowRed",
+          "parentIndex": 1,
+          "parentName": "gun",
+          "childIndex": -1,
+          "nextIndex": 13,
+          "meshCount": 1,
+          "meshIds": [
+            11
+          ],
+          "matrixPaletteSlot": 10,
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 13,
+          "name": "glowYellow",
+          "parentIndex": 1,
+          "parentName": "gun",
+          "childIndex": -1,
+          "nextIndex": 14,
+          "meshCount": 1,
+          "meshIds": [
+            12
+          ],
+          "matrixPaletteSlot": 11,
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 14,
+          "name": "housing",
+          "parentIndex": 1,
+          "parentName": "gun",
+          "childIndex": -1,
+          "nextIndex": 15,
+          "meshCount": 2,
+          "meshIds": [
+            13,
+            14
+          ],
+          "matrixPaletteSlot": 12,
+          "position": [
+            -0.051757812,
+            0.0107421875,
+            -0.08544922
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 15,
+          "name": "nozzle",
+          "parentIndex": 1,
+          "parentName": "gun",
+          "childIndex": 16,
+          "nextIndex": 20,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": -1,
+          "position": [
+            0.00048828125,
+            -0.0053710938,
+            0
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0.7853982
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 16,
+          "name": "noz1",
+          "parentIndex": 15,
+          "parentName": "nozzle",
+          "childIndex": -1,
+          "nextIndex": 17,
+          "meshCount": 1,
+          "meshIds": [
+            15
+          ],
+          "matrixPaletteSlot": 13,
+          "position": [
+            0.00024414062,
+            0.061279297,
+            -0.25830078
+          ],
+          "rotationRadians": [
+            1.0472295,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 17,
+          "name": "noz2",
+          "parentIndex": 15,
+          "parentName": "nozzle",
+          "childIndex": -1,
+          "nextIndex": 18,
+          "meshCount": 1,
+          "meshIds": [
+            16
+          ],
+          "matrixPaletteSlot": 14,
+          "position": [
+            -0.061279297,
+            -0.0041503906,
+            -0.25878906
+          ],
+          "rotationRadians": [
+            1.0472295,
+            0,
+            1.5707964
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 18,
+          "name": "noz3",
+          "parentIndex": 15,
+          "parentName": "nozzle",
+          "childIndex": -1,
+          "nextIndex": 19,
+          "meshCount": 1,
+          "meshIds": [
+            17
+          ],
+          "matrixPaletteSlot": 15,
+          "position": [
+            0.00024414062,
+            -0.061523438,
+            -0.25878906
+          ],
+          "rotationRadians": [
+            1.0472295,
+            0,
+            -3.1415927
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 19,
+          "name": "noz4",
+          "parentIndex": 15,
+          "parentName": "nozzle",
+          "childIndex": -1,
+          "nextIndex": -1,
+          "meshCount": 1,
+          "meshIds": [
+            18
+          ],
+          "matrixPaletteSlot": 16,
+          "position": [
+            0.061523438,
+            0.0036621094,
+            -0.25878906
+          ],
+          "rotationRadians": [
+            1.0472295,
+            0,
+            -1.5708922
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 20,
+          "name": "ring1",
+          "parentIndex": 1,
+          "parentName": "gun",
+          "childIndex": -1,
+          "nextIndex": 21,
+          "meshCount": 1,
+          "meshIds": [
+            19
+          ],
+          "matrixPaletteSlot": 17,
+          "position": [
+            0.0007324219,
+            -0.005126953,
+            0.014404297
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 21,
+          "name": "ring2",
+          "parentIndex": 1,
+          "parentName": "gun",
+          "childIndex": -1,
+          "nextIndex": 22,
+          "meshCount": 1,
+          "meshIds": [
+            20
+          ],
+          "matrixPaletteSlot": 18,
+          "position": [
+            0.0007324219,
+            -0.0053710938,
+            0.010253906
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 22,
+          "name": "ring3",
+          "parentIndex": 1,
+          "parentName": "gun",
+          "childIndex": -1,
+          "nextIndex": -1,
+          "meshCount": 1,
+          "meshIds": [
+            21
+          ],
+          "matrixPaletteSlot": 19,
+          "position": [
+            0.0007324219,
+            -0.005126953,
+            0.0048828125
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        }
+      ],
+      "materials": [
+        {
+          "index": 0,
+          "name": "GlowBlue",
+          "textureId": 2,
+          "paletteId": 2,
+          "lighting": 0,
+          "alpha": 0,
+          "texgen": "None",
+          "culling": "Neither",
+          "meshIds": [
+            8
+          ]
+        },
+        {
+          "index": 1,
+          "name": "GlowGreen",
+          "textureId": 2,
+          "paletteId": 2,
+          "lighting": 0,
+          "alpha": 0,
+          "texgen": "None",
+          "culling": "Neither",
+          "meshIds": [
+            9
+          ]
+        },
+        {
+          "index": 2,
+          "name": "GlowOrange",
+          "textureId": 2,
+          "paletteId": 2,
+          "lighting": 0,
+          "alpha": 0,
+          "texgen": "None",
+          "culling": "Neither",
+          "meshIds": [
+            10
+          ]
+        },
+        {
+          "index": 3,
+          "name": "GlowRed",
+          "textureId": 2,
+          "paletteId": 2,
+          "lighting": 0,
+          "alpha": 0,
+          "texgen": "None",
+          "culling": "Neither",
+          "meshIds": [
+            11
+          ]
+        },
+        {
+          "index": 4,
+          "name": "GlowYellow",
+          "textureId": 2,
+          "paletteId": 2,
+          "lighting": 0,
+          "alpha": 0,
+          "texgen": "None",
+          "culling": "Neither",
+          "meshIds": [
+            12
+          ]
+        },
+        {
+          "index": 5,
+          "name": "lambert10",
+          "textureId": 0,
+          "paletteId": 0,
+          "lighting": 0,
+          "alpha": 31,
+          "texgen": "Texcoord",
+          "culling": "Back",
+          "meshIds": [
+            1,
+            2,
+            4,
+            13
+          ]
+        },
+        {
+          "index": 6,
+          "name": "lambert11",
+          "textureId": 1,
+          "paletteId": 1,
+          "lighting": 1,
+          "alpha": 31,
+          "texgen": "None",
+          "culling": "Back",
+          "meshIds": [
+            0,
+            3,
+            5,
+            6,
+            7,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21
+          ]
+        }
+      ]
+    },
+    {
+      "part": "alternateForm",
+      "lod": 0,
+      "model": "SamusAlt_lod0",
+      "modelScale": [
+        1,
+        1,
+        1
+      ],
+      "matrixPalette": [
+        {
+          "slot": 0,
+          "nodeIndex": 1,
+          "nodeName": "MorphBall"
+        },
+        {
+          "slot": 1,
+          "nodeIndex": 2,
+          "nodeName": "pPlane1"
+        }
+      ],
+      "nodes": [
+        {
+          "index": 0,
+          "name": "world_root",
+          "parentIndex": -1,
+          "parentName": null,
+          "childIndex": 1,
+          "nextIndex": -1,
+          "meshCount": 0,
+          "meshIds": [],
+          "matrixPaletteSlot": -1,
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 1,
+          "name": "MorphBall",
+          "parentIndex": 0,
+          "parentName": "world_root",
+          "childIndex": -1,
+          "nextIndex": 2,
+          "meshCount": 2,
+          "meshIds": [
+            0,
+            1
+          ],
+          "matrixPaletteSlot": 0,
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "None"
+        },
+        {
+          "index": 2,
+          "name": "pPlane1",
+          "parentIndex": 0,
+          "parentName": "world_root",
+          "childIndex": -1,
+          "nextIndex": -1,
+          "meshCount": 1,
+          "meshIds": [
+            2
+          ],
+          "matrixPaletteSlot": 1,
+          "position": [
+            0,
+            0.008056641,
+            0.0036621094
+          ],
+          "rotationRadians": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "billboard": "Sphere"
+        }
+      ],
+      "materials": [
+        {
+          "index": 0,
+          "name": "SamusAlt_glowM",
+          "textureId": 1,
+          "paletteId": 1,
+          "lighting": 0,
+          "alpha": 31,
+          "texgen": "None",
+          "culling": "Back",
+          "meshIds": [
+            2
+          ]
+        },
+        {
+          "index": 1,
+          "name": "SamusAlt_refM",
+          "textureId": 0,
+          "paletteId": 0,
+          "lighting": 3,
+          "alpha": 31,
+          "texgen": "Normal",
+          "culling": "Neither",
+          "meshIds": [
+            0
+          ]
+        },
+        {
+          "index": 2,
+          "name": "SamusAlt_stripeM",
+          "textureId": 5,
+          "paletteId": 5,
+          "lighting": 3,
+          "alpha": 31,
+          "texgen": "None",
+          "culling": "Neither",
+          "meshIds": [
+            1
+          ]
+        }
+      ]
+    }
+  ]
+}

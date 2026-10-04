@@ -4754,7 +4754,8 @@ namespace MphRead
             Matrix4 transform, int listId, int matrixStackCount, IReadOnlyList<float> matrixStack, Vector4? overrideColor, Vector4? paletteOverride,
             SelectionType selectionType, BillboardMode billboardMode, float scaleFactor = 1, int? bindingOverride = null,
             bool texturedPlayerSkin = false, Vector4? playerOutlineColor = null,
-            bool weightedSkinning = false)
+            bool weightedSkinning = false, bool authoredTexture = false,
+            RepeatMode authoredWrapS = RepeatMode.Repeat, RepeatMode authoredWrapT = RepeatMode.Repeat)
         {
             transform.Row0.X *= scaleFactor;
             transform.Row0.Y *= scaleFactor;
@@ -4801,10 +4802,11 @@ namespace MphRead
             item.LightInfo = lightInfo;
             if (bindingOverride.HasValue)
             {
-                // double damage
-                item.TexgenMode = TexgenMode.Normal;
-                item.XRepeat = RepeatMode.Mirror;
-                item.YRepeat = RepeatMode.Mirror;
+                // Effect overrides use generated coordinates. Embedded model
+                // albedos use the asset's authored UVs, including in previews.
+                item.TexgenMode = authoredTexture ? TexgenMode.Texcoord : TexgenMode.Normal;
+                item.XRepeat = authoredTexture ? authoredWrapS : RepeatMode.Mirror;
+                item.YRepeat = authoredTexture ? authoredWrapT : RepeatMode.Mirror;
                 item.HasTexture = true;
                 item.TextureBindingId = bindingOverride.Value;
             }
@@ -8822,6 +8824,7 @@ localCenter *= _profileHudScale;
         private bool _linuxVSyncFallback;
         private bool _appliedLinuxVSyncFallback;
         private bool _reportedModernBlockingFallback;
+        private long _presentationInputRevision = Mods.Input.GamepadContexts.Revision;
 
         private static unsafe double MonitorRefreshRate(NativeWindow window)
         {
@@ -8902,7 +8905,7 @@ localCenter *= _profileHudScale;
                 {
                     _reportedModernBlockingFallback = true;
                     Mods.DebugLog.Line("frametiming",
-                        $"requested {cap} FPS but "
+                        $"requested {Mods.Render.FrameTiming.CapString(cap)} FPS but "
                         + $"{Mods.Render.ModernGraphicsCompat.ActivePresentMode} is the only "
                         + "available modern presentation cadence; using display pacing "
                         + "instead of double-pacing the frame.");
@@ -8929,7 +8932,9 @@ localCenter *= _profileHudScale;
             else
             {
                 VSync = VSyncMode.Off;
-                UpdateFrequency = cap;
+                UpdateFrequency = Mods.Render.DesktopFramePacing.SoftwareFrequency(
+                    cap, refreshRate, displayPaced: false,
+                    modernPresentationBlocks: false, linuxVSyncFallback: false);
             }
         }
 
@@ -8993,6 +8998,9 @@ localCenter *= _profileHudScale;
                 return;
             }
 #endif
+            ulong latencyFrame = Mods.Render.LowLatencyController.BeginFrame();
+            Mods.Render.LowLatencyController.WaitForFrame(latencyFrame);
+
             // The pause menu wants the pointer back, and so does the results
             // screen: its hunter picker is something you click, and a grabbed
             // cursor has no position on screen to click with.
@@ -9064,9 +9072,18 @@ localCenter *= _profileHudScale;
             {
                 steps = Mods.Render.FrameTiming.Advance(args.Time);
             }
-            for (int i = 0; i < steps; i++)
+            if (steps > 0)
             {
-                Scene.OnSimulationFrame();
+                Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, Mods.Render.LowLatencyMarker.InputSample);
+                Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, Mods.Render.LowLatencyMarker.SimulationStart);
+                for (int i = 0; i < steps; i++)
+                {
+                    Scene.OnSimulationFrame();
+                }
+                Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, Mods.Render.LowLatencyMarker.SimulationEnd);
             }
             // Start, on a pad, is Escape. Consumed here rather than in the
             // scene because opening the menu is a window operation and the
@@ -9094,7 +9111,29 @@ localCenter *= _profileHudScale;
             }
             if (Mods.Network.ReplayController.IsSeeking)
             {
+                Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
                 return;
+            }
+
+            // Menus/chat can take input entirely between two fixed 60 Hz steps.
+            // Treat the revision itself as an edge: if UI opened and closed again
+            // before this draw, current state alone says "gameplay" but stale aim
+            // still belongs to the previous owner.
+            long presentationRevision = Mods.Input.GamepadContexts.Revision;
+            bool inputOwnershipChanged = presentationRevision != _presentationInputRevision;
+            _presentationInputRevision = presentationRevision;
+            bool gameplayOwnsPresentationAim =
+                !inputOwnershipChanged
+                && !Mods.PauseMenu.Open
+                && !Mods.Chat.ChatBox.Composing
+                && !Mods.EndScreen.Available
+                && !Mods.Input.StylusZone.Placing
+                && !GameState.MenuPause
+                && !GameState.DialogPause;
+            if (!gameplayOwnsPresentationAim)
+            {
+                Scene.ModSetLateAim(0, 0);
+                Mods.Input.GamepadInput.InvalidatePresentationAim();
             }
 
             // On a high-refresh display, poll once more after the fixed 60 Hz
@@ -9102,15 +9141,19 @@ localCenter *= _profileHudScale;
             // does not advance buttons/actions/assist here, and the next
             // simulation step consumes these exact previewed axes.
             if (!Mods.Network.DemoPlayback.IsActive
-                && Mods.Render.FrameTiming.HighRefreshPresentation)
+                && Mods.Render.FrameTiming.HighRefreshPresentation
+                && gameplayOwnsPresentationAim)
             {
                 Mods.Input.GamepadDesktop.PollAimOnly();
                 Mods.Input.GamepadInput.CapturePresentationSample();
             }
 
+            Mods.Render.LowLatencyController.Mark(
+                latencyFrame, Mods.Render.LowLatencyMarker.RenderSubmitStart);
             Scene.OnDrawFrame();
             if (!Scene.OnRenderFrame())
             {
+                Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
                 return;
             }
             Mods.Replay.ReplayVideoExporter.AfterSceneDraw(Scene);
@@ -9128,7 +9171,13 @@ localCenter *= _profileHudScale;
             // Before the swap, for the reason the sceneless branch gives.
             Mods.Launcher.Gui.Shell.AfterDraw(this);
 #endif
+            Mods.Render.LowLatencyController.Mark(
+                latencyFrame, Mods.Render.LowLatencyMarker.RenderSubmitEnd);
+            Mods.Render.LowLatencyController.Mark(
+                latencyFrame, Mods.Render.LowLatencyMarker.PresentStart);
             PresentFrame();
+            Mods.Render.LowLatencyController.Mark(
+                latencyFrame, Mods.Render.LowLatencyMarker.PresentEnd);
             Reveal();
             // What the pause menu asked for, done on the thread that owns the
             // window: closing it and changing its border belong here.
@@ -9271,6 +9320,8 @@ localCenter *= _profileHudScale;
             {
                 Mods.Replay.ReplayInput.CancelScrub();
                 Mods.Input.GamepadManager.ClearAll();
+                Mods.Input.GamepadInput.InvalidatePresentationAim();
+                _scene?.ModSetLateAim(0, 0);
                 Mods.Input.GamepadHaptics.Stop();
             }
             base.OnFocusedChanged(e);
@@ -9293,6 +9344,11 @@ localCenter *= _profileHudScale;
                 return;
             }
 #endif
+            if (Mods.Chat.ChatBox.Composing)
+            {
+                base.OnMouseDown(e);
+                return;
+            }
             if (Mods.Network.DemoPlayback.IsActive && !Mods.PauseMenu.Open
                 && e.Button == MouseButton.Right)
             {
@@ -9361,6 +9417,11 @@ localCenter *= _profileHudScale;
                 return;
             }
 #endif
+            if (Mods.Chat.ChatBox.Composing)
+            {
+                base.OnMouseUp(e);
+                return;
+            }
             if (e.Button == MouseButton.Button1)
             {
                 if (Mods.Input.StylusZone.Placing)
@@ -9395,6 +9456,14 @@ localCenter *= _profileHudScale;
                 return;
             }
 #endif
+            if (Mods.PauseMenu.Open || Mods.Chat.ChatBox.Composing || Mods.EndScreen.Available
+                || GameState.MenuPause || GameState.DialogPause)
+            {
+                Scene.ModSetLateAim(0, 0);
+                Mods.Input.GamepadInput.InvalidatePresentationAim();
+                base.OnMouseMove(e);
+                return;
+            }
             if (Mods.Replay.ReplayInput.PointerMove(e.X / Math.Max(ClientSize.X, 1))) return;
             // First-person gameplay keeps a copy of unsimulated mouse
             // movement for the draw pass. The simulation still consumes the
@@ -9416,9 +9485,14 @@ localCenter *= _profileHudScale;
 
         protected override void OnMouseWheel(MouseWheelEventArgs e)
         {
-            if (Mods.Chat.ChatBox.Composing && Mods.Chat.ChatBox.HistoryOpen)
+            if (Mods.Chat.ChatBox.Composing)
             {
-                Mods.Chat.ChatBox.ScrollHistory((int)Math.Ceiling(Math.Abs(e.OffsetY)) * Math.Sign(e.OffsetY));
+                if (Mods.Chat.ChatBox.HistoryOpen)
+                {
+                    Mods.Chat.ChatBox.ScrollHistory(
+                        (int)Math.Ceiling(Math.Abs(e.OffsetY)) * Math.Sign(e.OffsetY));
+                }
+                base.OnMouseWheel(e);
                 return;
             }
             // The results screen's map list, which is longer than the panel it

@@ -15,7 +15,7 @@ internal static class DesktopFramePacing
         && Math.Abs(cap - refreshRate) <= NativeRefreshToleranceHz;
 
     internal static bool UseDisplayPacing(int cap, double refreshRate) =>
-        cap <= 0 || NativeRefreshMatches(cap, refreshRate);
+        cap == 0 || NativeRefreshMatches(cap, refreshRate);
 
     internal static bool LinuxVSyncIgnored(bool isLinux, int cap, double refreshRate,
         double measuredFrameRate, bool alreadyLatched)

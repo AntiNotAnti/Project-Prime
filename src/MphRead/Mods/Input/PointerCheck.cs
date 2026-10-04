@@ -498,6 +498,10 @@ namespace MphRead.Mods.Input
             var setScroll = typeof(MouseState).GetProperty("Scroll",
                 BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!.SetMethod!
                 .CreateDelegate<Action<MouseState, OpenTK.Mathematics.Vector2>>();
+            var setPosition = typeof(MouseState).GetProperty("Position")!.SetMethod!
+                .CreateDelegate<Action<MouseState, OpenTK.Mathematics.Vector2>>();
+            var input = (PlayerEntity.PlayerInput)typeof(PlayerEntity).GetProperty("Input",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(player)!;
             var controls = player.Controls;
             var processTouchInput = typeof(PlayerEntity).GetMethod("ProcessTouchInput",
                 BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -566,16 +570,23 @@ namespace MphRead.Mods.Input
             controls.NextWeapon.Type = ButtonType.Key;
             controls.NextWeapon.Key = Keys.H;
             setKey(keyboard, Keys.H, true);
+            setPosition(mouse, new OpenTK.Mathematics.Vector2(20, 10));
             PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
             Require(controls.NextWeapon.IsDown && controls.NextWeapon.IsPressed,
                 "keyboard weapon edge begins normally");
+            setPosition(mouse, new OpenTK.Mathematics.Vector2(500, 300));
             PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, true);
             Require(!controls.NextWeapon.IsDown && !controls.NextWeapon.IsPressed
                 && !controls.NextWeapon.IsReleased,
                 "suppressed gameplay clears stale held and pressed keybind state");
+            Require(input.MouseDeltaX == 0 && input.MouseDeltaY == 0,
+                "suppressed gameplay discards mouse movement instead of banking it");
+            setPosition(mouse, new OpenTK.Mathematics.Vector2(504, 302));
             PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
             Require(controls.NextWeapon.IsDown && !controls.NextWeapon.IsPressed,
                 "held UI key resumes as state, not a new gameplay edge");
+            Require(Math.Abs(input.MouseDeltaX) <= 8 && Math.Abs(input.MouseDeltaY) <= 8,
+                "resumed mouse delta starts from the suppressed baseline, not UI travel");
             setKey(keyboard, Keys.H, false);
             PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
 
@@ -591,6 +602,20 @@ namespace MphRead.Mods.Input
             PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
             Require(controls.NextWeapon.IsDown && !controls.NextWeapon.IsPressed,
                 "post-transition held key remains edge-neutral until release");
+            setKey(keyboard, Keys.H, false);
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+
+            // Chat owns input without setting MenuVisible. Its dedicated
+            // ownership boundary must provide the same between-step quarantine.
+            setKey(keyboard, Keys.H, true);
+            Mods.Input.GamepadContexts.TextEntryActive = true;
+            Mods.Input.GamepadContexts.TextEntryActive = false;
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(!controls.NextWeapon.IsDown && !controls.NextWeapon.IsPressed,
+                "between-step chat transition cannot leak a held key into gameplay");
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(controls.NextWeapon.IsDown && !controls.NextWeapon.IsPressed,
+                "post-chat held key remains edge-neutral until release");
             setKey(keyboard, Keys.H, false);
             PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
 

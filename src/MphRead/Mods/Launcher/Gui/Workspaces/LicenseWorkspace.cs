@@ -38,6 +38,9 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly ContentControl _page = new();
         private readonly TextBlock _player = new();
         private readonly TextBlock _hunterId = new();
+        private readonly TextBlock _rankLine = new();
+        private readonly TextBlock _favoriteLine = new();
+        private readonly TextBlock _memberSince = new();
         private readonly TextBlock _status = new();
         private readonly TextBlock _accountBadge = new();
         private readonly HunterStand _stand;
@@ -46,6 +49,7 @@ namespace MphRead.Mods.Launcher.Gui
         private HunterLicenseSnapshot _snapshot = HunterLicenseClient.LocalSnapshot();
         private Face _face;
         private readonly Dictionary<Face, Control> _tabCache = new();
+        private PrimeMotionHandle? _pageMotion;
         private bool _loaded;
         private CancellationTokenSource? _load;
         private string _pendingEmail = "";
@@ -76,29 +80,27 @@ namespace MphRead.Mods.Launcher.Gui
 
             var body = new Grid
             {
-                ColumnDefinitions = new ColumnDefinitions("230,*"),
+                ColumnDefinitions = new ColumnDefinitions(Deck.Phone ? "220,*" : "290,*"),
                 ColumnSpacing = 12,
                 MinHeight = 0
             };
             Grid.SetRow(body, 2);
             root.Children.Add(body);
 
-            var railPanel = new StackPanel { Spacing = 7 };
+            var railPanel = new StackPanel { Spacing = 8 };
+            railPanel.Children.Add(PrimeChrome.Eyebrow("LICENSE HOLDER"));
             _stand = new HunterStand
             {
-                Height = 290,
-                MinWidth = 180,
+                Height = Deck.Phone ? 190 : 330,
+                MinWidth = Deck.Phone ? 160 : 220,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 Name2 = HunterName(_snapshot.Profile.FavoriteHunter),
                 Suit = Math.Clamp(LauncherPrefs.LastColor, 0, 3)
             };
-            railPanel.Children.Add(new Border
+            railPanel.Children.Add(new PrimePanel(_stand, raised: true)
             {
-                Height = 300,
-                Background = HubTheme.PanelStrongBrush,
-                BorderBrush = HubTheme.EdgeBrush,
-                BorderThickness = new Thickness(1),
-                Child = _stand
+                Height = Deck.Phone ? 200 : 340,
+                Padding = new Thickness(6)
             });
 
             var identity = new Border
@@ -116,11 +118,28 @@ namespace MphRead.Mods.Launcher.Gui
             _hunterId.FontFamily = HubTheme.Data;
             _hunterId.FontSize = 9;
             _hunterId.Foreground = HubTheme.TextDimBrush;
+            foreach (TextBlock line in new[] { _rankLine, _favoriteLine, _memberSince })
+            {
+                line.FontFamily = HubTheme.Data;
+                line.FontSize = 8.5;
+                line.Foreground = HubTheme.TextDimBrush;
+                line.TextWrapping = TextWrapping.Wrap;
+            }
+            _rankLine.Foreground = PrimeTheme.HighlightBrush;
             _accountBadge.FontFamily = HubTheme.DataBold;
             _accountBadge.FontSize = 8;
             _accountBadge.Margin = new Thickness(0, 4, 0, 0);
             identityCopy.Children.Add(_player);
             identityCopy.Children.Add(_hunterId);
+            identityCopy.Children.Add(new Border
+            {
+                Height = 1,
+                Margin = new Thickness(0, 5),
+                Background = PrimeTheme.BorderBrush
+            });
+            identityCopy.Children.Add(_rankLine);
+            identityCopy.Children.Add(_favoriteLine);
+            identityCopy.Children.Add(_memberSince);
             identityCopy.Children.Add(_accountBadge);
             identity.Child = identityCopy;
             railPanel.Children.Add(identity);
@@ -144,27 +163,20 @@ namespace MphRead.Mods.Launcher.Gui
                 categoryTabs.Children.Add(tab);
             }
             Grid.SetRow(categoryTabs, 1); root.Children.Add(categoryTabs);
-            var rail = new Border
+            var rail = new PrimePanel(new ScrollViewer
             {
-                Background = HubTheme.InkBrush,
-                BorderBrush = HubTheme.EdgeBrush,
-                BorderThickness = new Thickness(1),
-                Padding = new Thickness(8),
-                Child = new ScrollViewer
-                {
-                    VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                    Content = railPanel
-                }
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                Content = railPanel
+            }, raised: true)
+            {
+                Padding = new Thickness(10)
             };
             body.Children.Add(rail);
 
-            var contentFrame = new Border
+            var contentFrame = new PrimePanel(_page, raised: true)
             {
-                Background = HubTheme.InkBrush,
-                BorderBrush = HubTheme.EdgeBrush,
-                BorderThickness = new Thickness(1),
-                Padding = new Thickness(16),
-                Child = _page
+                Padding = new Thickness(16)
             };
             Grid.SetColumn(contentFrame, 1);
             body.Children.Add(contentFrame);
@@ -243,6 +255,12 @@ namespace MphRead.Mods.Launcher.Gui
             HunterLicenseProfile p = snapshot.Profile;
             _player.Text = (p.DisplayName.Length == 0 ? "PLAYER" : p.DisplayName).ToUpperInvariant();
             _hunterId.Text = "HUNTER ID  " + HunterId(p.PlayerId);
+            _rankLine.Text = "RANK  //  " + RankText(p);
+            _favoriteLine.Text = "FAVORITE HUNTER  //  "
+                + HunterName(p.FavoriteHunter).ToUpperInvariant();
+            _memberSince.Text = p.CreatedAt.HasValue
+                ? "LICENSE ISSUED  //  " + p.CreatedAt.Value.ToLocalTime().ToString("MMM yyyy", CultureInfo.InvariantCulture).ToUpperInvariant()
+                : "LICENSE ISSUED  //  LOCAL PROFILE";
             _status.Text = snapshot.Status;
             _status.Foreground = snapshot.Connected ? HubTheme.GoodBrush : HubTheme.WarmBrush;
             _accountBadge.Text = snapshot.Account.IsSecure ? "SECURED LICENSE" : "GUEST LICENSE";
@@ -261,8 +279,13 @@ namespace MphRead.Mods.Launcher.Gui
             foreach ((Face key, HubNavButton button) in _nav)
                 button.Selected = key == face;
 
-            if (face != Face.Account && face != Face.Customization && _tabCache.TryGetValue(face, out var cached))
-            { _page.Content = cached; return; }
+            if (face != Face.Account && face != Face.Customization
+                && _tabCache.TryGetValue(face, out var cached))
+            {
+                _page.Content = cached;
+                AnimatePage(cached);
+                return;
+            }
             Control page = face switch
             {
                 Face.Overview => Overview(),
@@ -279,6 +302,16 @@ namespace MphRead.Mods.Launcher.Gui
             };
             if (face != Face.Account && face != Face.Customization) _tabCache[face] = page;
             _page.Content = page;
+            AnimatePage(page);
+        }
+
+        private void AnimatePage(Control page)
+        {
+            _pageMotion?.Cancel();
+            _pageMotion = null;
+            if (PrimeMotion.Reduced || TopLevel.GetTopLevel(page) == null)
+                return;
+            _pageMotion = PrimeMotion.Enter(page, 6, 0.14);
         }
 
         private Control Account()
@@ -579,48 +612,164 @@ namespace MphRead.Mods.Launcher.Gui
 
         private Control Overview()
         {
-            var s = _snapshot.Stats;
-            var p = _snapshot.Profile;
+            HunterLicenseStats s = _snapshot.Stats;
+            HunterLicenseProfile p = _snapshot.Profile;
+
             Control Metric(string label, string value, string detail, IBrush? color = null)
             {
-                var content = PrimeChrome.Stack(PrimeChrome.Text(label, 11, PrimeTheme.TextSecondaryBrush, true),
-                    PrimeChrome.Text(value, 26, color ?? PrimeTheme.PrimaryBrush, true),
-                    PrimeChrome.Text(detail, 11, PrimeTheme.TextSecondaryBrush, true));
+                var content = PrimeChrome.Stack(
+                    PrimeChrome.Text(label, 11, PrimeTheme.TextSecondaryBrush, true),
+                    PrimeChrome.Text(value, 28, color ?? PrimeTheme.PrimaryBrush, true),
+                    PrimeChrome.Text(detail, 10.5, PrimeTheme.TextSecondaryBrush, true));
                 content.Spacing = 3;
-                return new PrimePanel(content) { Padding = new Thickness(12, 8) };
+                return new PrimePanel(content) { Padding = new Thickness(12, 9) };
             }
-            var metrics = new Grid { ColumnDefinitions = new("*,*"), RowDefinitions = new("*,*"), ColumnSpacing = 10, RowSpacing = 10 };
-            Control[] cards = {
-                Metric("WIN RATE", Percent(s.Wins, s.GamesPlayed), $"{s.Wins:N0} W / {s.Losses:N0} L", PrimeTheme.GreenBrush),
-                Metric("K / D RATIO", Ratio(s.Kills, s.Deaths), $"{s.Kills:N0} K / {s.Deaths:N0} D"),
-                Metric("HEADSHOTS", s.Headshots.ToString("N0"), "CAREER TOTAL"),
-                Metric("LONGEST STREAK", s.LongestKillStreak.ToString("N0"), "CONSECUTIVE ELIMINATIONS", PrimeTheme.TextBrush)
+
+            var careerHeader = new PrimePanel(PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("CAREER // LICENSE RECORD"),
+                PrimeChrome.Title(RankText(p)),
+                PrimeChrome.Text(
+                    $"{HunterName(p.FavoriteHunter).ToUpperInvariant()}  //  {p.RatingPoints:N0} RP  //  "
+                    + (_snapshot.Account.IsSecure ? "SECURED LICENSE" : "GUEST LICENSE"),
+                    PrimeTypography.DataSmall,
+                    _snapshot.Account.IsSecure ? PrimeTheme.GreenBrush : PrimeTheme.WarningBrush,
+                    data: true),
+                PrimeChrome.Text(
+                    "Career totals come only from server-accepted match reports. Client prediction and replay playback never author this record.",
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush)),
+                raised: true)
+            { Padding = new Thickness(14, 12) };
+
+            bool compactOverview = Deck.Phone;
+            var metrics = new Grid
+            {
+                ColumnDefinitions = compactOverview ? new("*,*") : new("*,*,*,*"),
+                RowDefinitions = compactOverview ? new("Auto,Auto") : new("*"),
+                ColumnSpacing = 10,
+                RowSpacing = 10
             };
-            for (int i = 0; i < cards.Length; i++) { Grid.SetRow(cards[i], i / 2); Grid.SetColumn(cards[i], i % 2); metrics.Children.Add(cards[i]); }
-            var telemetry = PrimeChrome.Stack(PrimeChrome.Title("COMBAT TELEMETRY LOG"));
+            Control[] cards =
+            {
+                Metric("MATCHES", s.GamesPlayed.ToString("N0"), $"{s.Wins:N0} W / {s.Losses:N0} L / {s.Ties:N0} T"),
+                Metric("WIN RATE", Percent(s.Wins, s.GamesPlayed), $"{s.Wins:N0} CAREER WINS", PrimeTheme.GreenBrush),
+                Metric("K / D", Ratio(s.Kills, s.Deaths), $"{s.Kills:N0} K / {s.Deaths:N0} D"),
+                Metric("PLAY TIME", FormatTicks(s.PlayedTicks), $"{s.Assists:N0} ASSISTS")
+            };
+            for (int i = 0; i < cards.Length; i++)
+            {
+                Grid.SetColumn(cards[i], compactOverview ? i % 2 : i);
+                Grid.SetRow(cards[i], compactOverview ? i / 2 : 0);
+                metrics.Children.Add(cards[i]);
+            }
+
+            var recent = RecentForm();
+
+            var telemetry = PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("CAREER HIGHLIGHTS"),
+                PrimeChrome.Title("COMBAT RECORD"));
             telemetry.Spacing = 2;
-            AddStat(telemetry, "GAMES PLAYED", s.GamesPlayed.ToString("N0"));
+            AddStat(telemetry, "HEADSHOTS", s.Headshots.ToString("N0"));
+            AddStat(telemetry, "BEST KILL STREAK", s.LongestKillStreak.ToString("N0"));
+            AddStat(telemetry, "CURRENT WIN STREAK", s.CurrentWinStreak.ToString("N0"));
+            AddStat(telemetry, "LONGEST WIN STREAK", s.LongestWinStreak.ToString("N0"));
             AddStat(telemetry, "TOTAL DAMAGE", s.Damage.ToString("N0"));
             AddStat(telemetry, "OCTOLITH SCORES", s.OctolithScores.ToString("N0"));
             AddStat(telemetry, "NODES CAPTURED", s.NodesCaptured.ToString("N0"));
-            AddStat(telemetry, "ASSISTS", s.Assists.ToString("N0"));
-            AddStat(telemetry, "TIME PLAYED", FormatTicks(s.PlayedTicks));
-            var center = PrimeChrome.Stack(metrics, new PrimePanel(telemetry));
-            var history = PrimeChrome.Stack(new PrimePanel(PrimeChrome.Stack(new PrimeBadge("LICENSE RANK"),
-                PrimeChrome.Title(RankText(p)), PrimeChrome.Text($"{p.RatingPoints:N0} RATING POINTS", 12, PrimeTheme.GreenBrush, true))),
-                PrimeChrome.Title("MATCH HISTORY"));
+            AddStat(telemetry, "KILLS AS PRIME", s.KillsAsPrime.ToString("N0"));
+
+            var recentMatches = PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("LATEST ACCEPTED MATCHES"),
+                PrimeChrome.Title("RECENT ACTIVITY"));
             if (_snapshot.Matches.Count == 0)
-                history.Children.Add(PrimeChrome.Text("No accepted matches yet. Complete an eligible online match to start your career record.", 13, PrimeTheme.TextSecondaryBrush));
-            foreach (var match in _snapshot.Matches.Take(4))
+            {
+                recentMatches.Children.Add(new PrimeStatePanel(
+                    PrimeStateKind.Empty,
+                    "NO ACCEPTED MATCHES YET",
+                    "Complete an eligible online match to begin your authoritative career record."));
+            }
+            foreach (HunterLicenseMatch match in _snapshot.Matches.Take(4))
             {
                 string result = match.Tied ? "TIE" : match.Won ? "VICTORY" : "DEFEAT";
-                string map = Metadata.RoomMetadata.TryGetValue(match.RoomKey, out var metadata) ? metadata.InGameName ?? match.RoomKey : match.RoomKey;
-                history.Children.Add(new PrimePanel(PrimeChrome.Stack(
-                    PrimeChrome.Text(map.ToUpperInvariant(), 15),
-                    PrimeChrome.Text(result, 11, match.Won ? PrimeTheme.GreenBrush : PrimeTheme.TextSecondaryBrush, true),
-                    PrimeChrome.Text($"{match.Kills} K / {match.Deaths} D // {FormatTicks(match.PlayedTicks)}", 11, data: true))));
+                IBrush resultBrush = match.Tied ? HubTheme.WarmBrush
+                    : match.Won ? PrimeTheme.GreenBrush : PrimeTheme.DangerBrush;
+                recentMatches.Children.Add(new PrimePanel(PrimeChrome.Stack(
+                    PrimeChrome.Columns("*,Auto",
+                        PrimeChrome.Text(RoomName(match.RoomKey).ToUpperInvariant(), 14),
+                        PrimeChrome.Text(result, 10.5, resultBrush, true)),
+                    PrimeChrome.Text(
+                        $"{ModeName(match.Mode).ToUpperInvariant()}  //  {match.Kills} K / {match.Deaths} D / {match.Assists} A  //  {FormatTicks(match.PlayedTicks)}",
+                        10.5, PrimeTheme.TextSecondaryBrush, data: true))));
             }
-            return PrimeChrome.Columns("1.65*,1*", Scroll(center), Scroll(history));
+
+            Control lower = compactOverview
+                ? PrimeChrome.Stack(new PrimePanel(telemetry), new PrimePanel(recentMatches))
+                : PrimeChrome.Columns("0.85*,1.15*",
+                    new PrimePanel(telemetry),
+                    new PrimePanel(recentMatches));
+
+            var root = PrimeChrome.Stack(careerHeader, metrics, recent, lower);
+            root.Spacing = 12;
+            return Scroll(root);
+        }
+
+        private Control RecentForm()
+        {
+            HunterLicenseMatch[] recent = _snapshot.Matches.Take(5).ToArray();
+            var stack = PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("RECENT FORM"),
+                PrimeChrome.Title("LAST FIVE"));
+
+            if (recent.Length == 0)
+            {
+                stack.Children.Add(new PrimeStatePanel(
+                    PrimeStateKind.Empty,
+                    "RECENT FORM UNAVAILABLE",
+                    "Five-match form appears after accepted matches reach the Hunter License."));
+                return new PrimePanel(stack, raised: true) { Padding = new Thickness(12) };
+            }
+
+            int wins = recent.Count(match => match.Won && !match.Tied);
+            int ties = recent.Count(match => match.Tied);
+            int losses = recent.Length - wins - ties;
+            long kills = recent.Sum(match => match.Kills);
+            long deaths = recent.Sum(match => match.Deaths);
+            long assists = recent.Sum(match => match.Assists);
+            long damage = recent.Sum(match => match.Damage);
+
+            var form = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 5
+            };
+            foreach (HunterLicenseMatch match in recent)
+            {
+                string result = match.Tied ? "T" : match.Won ? "W" : "L";
+                IBrush brush = match.Tied ? HubTheme.WarmBrush
+                    : match.Won ? PrimeTheme.GreenBrush : PrimeTheme.DangerBrush;
+                form.Children.Add(new Border
+                {
+                    MinWidth = 34,
+                    Padding = new Thickness(8, 5),
+                    Background = PrimeTheme.PanelBrush,
+                    BorderBrush = brush,
+                    BorderThickness = new Thickness(1),
+                    Child = PrimeChrome.Text(result, 12, brush, true)
+                });
+            }
+            stack.Children.Add(form);
+            stack.Children.Add(PrimeChrome.Text(
+                $"{wins} W / {losses} L / {ties} T  //  {Ratio(kills, deaths)} K/D  //  "
+                + $"{assists} A  //  {damage:N0} DMG",
+                PrimeTypography.DataSmall, PrimeTheme.TextSecondaryBrush, data: true));
+
+            HunterLicenseMatch latest = recent[0];
+            string latestResult = latest.Tied ? "TIE" : latest.Won ? "WIN" : "LOSS";
+            stack.Children.Add(PrimeChrome.Text(
+                $"LATEST // {latestResult} // {RoomName(latest.RoomKey).ToUpperInvariant()} // "
+                + $"{ModeName(latest.Mode).ToUpperInvariant()}",
+                PrimeTypography.DataSmall, PrimeTheme.HighlightBrush, data: true));
+
+            return new PrimePanel(stack, raised: true) { Padding = new Thickness(12) };
         }
 
         private Control Stats()
@@ -949,29 +1098,8 @@ namespace MphRead.Mods.Launcher.Gui
             Content = content
         };
 
-        private static Border Empty(string title, string detail) => new()
-        {
-            Background = HubTheme.PanelBrush,
-            BorderBrush = HubTheme.EdgeBrush,
-            BorderThickness = new Thickness(1),
-            Padding = new Thickness(20),
-            Child = new StackPanel
-            {
-                Spacing = 5,
-                Children =
-                {
-                    HubChrome.Kicker(title, HubTheme.WarmBrush),
-                    new TextBlock
-                    {
-                        Text = detail,
-                        FontFamily = HubTheme.Ui,
-                        FontSize = 10,
-                        Foreground = HubTheme.TextDimBrush,
-                        TextWrapping = TextWrapping.Wrap
-                    }
-                }
-            }
-        };
+        private static PrimeStatePanel Empty(string title, string detail)
+            => new(PrimeStateKind.Empty, title, detail);
 
         private static string HunterId(string id)
         {

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using MphRead.Formats;
 using NVector2 = System.Numerics.Vector2;
 using NVector3 = System.Numerics.Vector3;
 using NVector4 = System.Numerics.Vector4;
@@ -18,10 +19,14 @@ namespace MphRead.Mods.Render.Characters
         NVector4 Weights,
         int PackedJoints);
 
+    internal sealed record CharacterEmbeddedAlbedo(byte[] Image, bool Opaque,
+        RepeatMode WrapS = RepeatMode.Repeat, RepeatMode WrapT = RepeatMode.Repeat);
+
     internal sealed record CharacterWeightedPrimitive(
         string? MaterialName,
         CharacterWeightedVertex[] Vertices,
-        uint[] Indices);
+        uint[] Indices,
+        CharacterEmbeddedAlbedo? Albedo = null);
 
     internal sealed record CharacterWeightedJoint(
         string SourceNode,
@@ -70,6 +75,7 @@ namespace MphRead.Mods.Render.Characters
                 JsonElement[] meshes = Elements(root, "meshes");
                 JsonElement[] nodes = Elements(root, "nodes");
                 JsonElement[] materials = Elements(root, "materials");
+                var albedos = new Dictionary<int, CharacterEmbeddedAlbedo?>();
                 JsonElement[] skins = Elements(root, "skins");
                 if (skins.Length == 0)
                     throw new InvalidDataException("Weighted character GLB contains no skin.");
@@ -209,7 +215,13 @@ namespace MphRead.Mods.Render.Characters
                             int packed = PackJoints(ji[0], ji[1], ji[2], ji[3]);
                             vertices[i] = new(positions[i], normals[i], uv, weight, packed);
                         }
-                        primitives.Add(new(materialName, vertices, indices));
+                        int materialIndex = Int(primitive, "material", -1);
+                        if (!albedos.TryGetValue(materialIndex, out CharacterEmbeddedAlbedo? albedo))
+                        {
+                            albedo = ReadAlbedo(root, materials, views, binary, materialIndex);
+                            albedos.Add(materialIndex, albedo);
+                        }
+                        primitives.Add(new(materialName, vertices, indices, albedo));
                     }
                 }
 
@@ -228,6 +240,64 @@ namespace MphRead.Mods.Render.Characters
             // carry four joint IDs through texcoord.z with no format migration.
             return j0 | (j1 << 5) | (j2 << 10) | (j3 << 15);
         }
+
+        // Character assets stay self-contained: never open a texture URI from
+        // a GLB. Native materials without an embedded albedo keep their bindings.
+        private static CharacterEmbeddedAlbedo? ReadAlbedo(JsonElement root, JsonElement[] materials,
+            JsonElement[] views, byte[] binary, int materialIndex)
+        {
+            if (materialIndex < 0) return null;
+            if ((uint)materialIndex >= materials.Length)
+                throw new InvalidDataException("Weighted material index is invalid.");
+            JsonElement material = materials[materialIndex];
+            if (!material.TryGetProperty("pbrMetallicRoughness", out JsonElement pbr)
+                || !pbr.TryGetProperty("baseColorTexture", out JsonElement texture)) return null;
+            if (Int(texture, "texCoord", 0) != 0 || texture.TryGetProperty("extensions", out _))
+                throw new InvalidDataException("Weighted albedo requires untransformed TEXCOORD_0.");
+            JsonElement[] textures = Elements(root, "textures");
+            int textureIndex = Int(texture, "index", -1);
+            if ((uint)textureIndex >= textures.Length)
+                throw new InvalidDataException("Weighted albedo texture index is invalid.");
+            JsonElement[] images = Elements(root, "images");
+            int imageIndex = Int(textures[textureIndex], "source", -1);
+            if ((uint)imageIndex >= images.Length)
+                throw new InvalidDataException("Weighted albedo image index is invalid.");
+            JsonElement image = images[imageIndex];
+            string? mime = image.TryGetProperty("mimeType", out JsonElement mimeValue)
+                ? mimeValue.GetString() : null;
+            int viewIndex = Int(image, "bufferView", -1);
+            if (image.TryGetProperty("uri", out _) || mime is not ("image/png" or "image/jpeg")
+                || (uint)viewIndex >= views.Length)
+                throw new InvalidDataException("Weighted albedo must be an embedded PNG or JPEG.");
+            JsonElement view = views[viewIndex];
+            int offset = Int(view, "byteOffset", 0);
+            int length = Int(view, "byteLength", -1);
+            if (Int(view, "buffer", 0) != 0 || offset < 0 || length <= 0
+                || length > 32 * 1024 * 1024 || (long)offset + length > binary.Length)
+                throw new InvalidDataException("Weighted albedo buffer is invalid or exceeds 32 MiB.");
+            bool opaque = !material.TryGetProperty("alphaMode", out JsonElement alphaMode)
+                || alphaMode.GetString() == "OPAQUE";
+            RepeatMode wrapS = RepeatMode.Repeat;
+            RepeatMode wrapT = RepeatMode.Repeat;
+            if (textures[textureIndex].TryGetProperty("sampler", out JsonElement samplerIndex))
+            {
+                JsonElement[] samplers = Elements(root, "samplers");
+                int index = samplerIndex.GetInt32();
+                if ((uint)index >= samplers.Length)
+                    throw new InvalidDataException("Weighted albedo sampler index is invalid.");
+                wrapS = ReadWrapMode(Int(samplers[index], "wrapS", 10497));
+                wrapT = ReadWrapMode(Int(samplers[index], "wrapT", 10497));
+            }
+            return new(binary.AsSpan(offset, length).ToArray(), opaque, wrapS, wrapT);
+        }
+
+        private static RepeatMode ReadWrapMode(int value) => value switch
+        {
+            33071 => RepeatMode.Clamp,
+            33648 => RepeatMode.Mirror,
+            10497 => RepeatMode.Repeat,
+            _ => throw new InvalidDataException("Weighted albedo sampler wrap mode is invalid.")
+        };
 
         internal static (int J0, int J1, int J2, int J3) UnpackJoints(int packed)
             => (packed & 31, (packed >> 5) & 31, (packed >> 10) & 31, (packed >> 15) & 31);
