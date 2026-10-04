@@ -215,6 +215,33 @@ namespace MphRead.Mods.Input
                     "presentation accepts the applied controller camera turn");
                 Near(cameraX, .06f, "render yaw projects assisted rather than raw stick motion");
                 Near(cameraY, -.02f, "render pitch projects actual clamped camera motion");
+
+                // Chat is not an Avalonia menu surface, so it needs its own
+                // ownership revision. Opening and closing entirely between
+                // simulation steps must invalidate both accepted and preview aim.
+                GamepadManager.UpdatePresentationAxes("mapped", 0, 0, -.6f, 0);
+                GamepadInput.CapturePresentationSample();
+                Check(GamepadInput.TryRenderRawAimDelta(out _, out _),
+                    "chat ownership regression has a render preview to invalidate");
+                long beforeTextEntry = GamepadContexts.Revision;
+                GamepadContexts.TextEntryActive = true;
+                Check(GamepadContexts.Revision > beforeTextEntry
+                    && GamepadContexts.Resolve() == GamepadContext.TextEntry,
+                    "chat open advances shared input ownership");
+                Check(!GamepadInput.TryRenderCameraAim(.5, out _, out _)
+                    && !GamepadInput.TryRenderRawAimDelta(out _, out _),
+                    "chat blocks stale accepted and preview controller aim");
+                GamepadInput.CapturePresentationSample();
+                Check(!GamepadInput.TryRenderRawAimDelta(out _, out _),
+                    "chat cannot capture a new render-only controller sample");
+                long textEntryRevision = GamepadContexts.Revision;
+                GamepadContexts.TextEntryActive = false;
+                Check(GamepadContexts.Revision > textEntryRevision
+                    && GamepadContexts.Resolve() == GamepadContext.Gameplay,
+                    "chat close advances shared input ownership");
+                Check(!GamepadInput.TryRenderCameraAim(.5, out _, out _),
+                    "chat close cannot resurrect the pre-chat camera turn");
+
                 GamepadContexts.MenuVisible = true;
                 Check(!GamepadInput.TryRenderCameraAim(.5, out _, out _), "menu invalidates assisted render history");
                 GamepadContexts.MenuVisible = false;
