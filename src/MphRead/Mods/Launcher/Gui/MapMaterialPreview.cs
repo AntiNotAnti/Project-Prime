@@ -10,7 +10,7 @@ namespace MphRead.Mods.Launcher.Gui
 {
     internal static class MapMaterialPreview
     {
-        public static (Bitmap Bitmap,string Details) Create(MapDefinition definition,MapMaterial material)
+        public static (Bitmap Bitmap,string Details) Create(MapDefinition definition,MapMaterial material, int animationFrame = 0)
         {
             ColorRgba[] pixels;int width,height;string details;
             if(material.Texture is {} path)
@@ -43,6 +43,17 @@ namespace MphRead.Mods.Launcher.Gui
                     details=$"{definition.TextureSource}\n{source.Name} · {width} × {height} · {texture.Format}";
                 }
             }
+            float offsetU = 0, offsetV = 0;
+            if (material.Animation is { UvScroll: { Length: 2 } scroll } animation && animation.LoopFrames > 0)
+            {
+                int localFrame = ((animationFrame + animation.PhaseFrames) % animation.LoopFrames + animation.LoopFrames) % animation.LoopFrames;
+                offsetU = scroll[0] * localFrame / MapUvAnimation.NativeFramesPerSecond;
+                offsetV = scroll[1] * localFrame / MapUvAnimation.NativeFramesPerSecond;
+                details += $"\nUV scroll {scroll[0]:0.###}, {scroll[1]:0.###} tiles/s · {animation.LoopFrames / 30f:0.##} s loop";
+            }
+            if (material.Alpha is { } alpha) details += $"\nAlpha {alpha}/31";
+            if (material.TwoSided) details += " · two-sided";
+
             var bitmap=new WriteableBitmap(new PixelSize(64,64),new Avalonia.Vector(96,96),PixelFormat.Bgra8888,AlphaFormat.Unpremul);
             using(var buffer=bitmap.Lock())
             {
@@ -50,11 +61,22 @@ namespace MphRead.Mods.Launcher.Gui
                 for(int y=0;y<64;y++)
                 {
                     for(int x=0;x<64;x++)
-                    {var pixel=pixels[y*height/64*width+x*width/64];row[x*4]=pixel.Blue;row[x*4+1]=pixel.Green;row[x*4+2]=pixel.Red;row[x*4+3]=pixel.Alpha;}
+                    {
+                        int sourceX=Wrap((int)MathF.Floor((x/64f+offsetU)*width),width);
+                        int sourceY=Wrap((int)MathF.Floor((y/64f+offsetV)*height),height);
+                        var pixel=pixels[sourceY*width+sourceX];
+                        row[x*4]=pixel.Blue;row[x*4+1]=pixel.Green;row[x*4+2]=pixel.Red;row[x*4+3]=pixel.Alpha;
+                    }
                     Marshal.Copy(row,0,buffer.Address+y*buffer.RowBytes,row.Length);
                 }
             }
             return(bitmap,details);
+        }
+
+        private static int Wrap(int value,int size)
+        {
+            int wrapped=value%size;
+            return wrapped<0?wrapped+size:wrapped;
         }
     }
 }
