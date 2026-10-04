@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MphRead.Entities;
+using MphRead.Mods.Render.Characters;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Render
@@ -288,6 +289,52 @@ namespace MphRead.Mods.Render
         /// and advanced in <see cref="Step"/>; nothing here touches it, so a
         /// frame drawn twice draws the same pose twice.
         /// </summary>
+        private bool TryDrawModernCharacter()
+        {
+            if (_model == null) return false;
+            CharacterModelPart? part = Mode switch
+            {
+                Mods.Cosmetics.SkinContext.Biped => CharacterModelPart.Biped,
+                Mods.Cosmetics.SkinContext.ViewModel => CharacterModelPart.ViewModel,
+                _ => null
+            };
+            if (part == null
+                || !CharacterModelRuntime.TryGetRigid(_scene, _hunter, part.Value,
+                    _model.Model, out CharacterRigidRenderModel replacement))
+                return false;
+
+            Model model = _model.Model;
+            int polygonId = _scene.GetNextPolygonId();
+            foreach (CharacterRigidRenderSegment segment in replacement.Segments)
+            {
+                Node node = model.Nodes[segment.NativeNodeIndex];
+                if (!node.Enabled || !model.NodeParentsEnabled(node)) continue;
+                Material material = model.Materials[segment.NativeMaterialIndex];
+                Vector3 emission = GetEmission(_model, material, segment.NativeMaterialIndex);
+                Vector4? color = GetRenderColor(_model, 0, material);
+                int? bindingOverride = GetBindingOverride(_model, material,
+                    segment.NativeMaterialIndex);
+
+                var previousMaterial = _scene.CosmeticMaterialSubmission;
+                _scene.CosmeticMaterialSubmission = GetCosmeticMaterialOverride(
+                    _model, material, segment.NativeMaterialIndex);
+                try
+                {
+                    _scene.AddRenderItem(material, polygonId, Alpha, emission, _light,
+                        Matrix4.Identity, node.Animation, segment.ListId,
+                        0, Array.Empty<float>(), color, PaletteOverride,
+                        SelectionType.None, node.BillboardMode, _drawScale,
+                        bindingOverride, UseTexturedPlayerSkin(_model),
+                        GetPlayerOutlineColor(_model));
+                }
+                finally
+                {
+                    _scene.CosmeticMaterialSubmission = previousMaterial;
+                }
+            }
+            return true;
+        }
+
         public override void GetDrawInfo()
         {
             if (_model == null)
@@ -331,7 +378,15 @@ namespace MphRead.Mods.Render
             UpdateTransforms(_model, pose, _recolor < 0 ? 0 : _recolor);
             var previous = _scene.CosmeticSubmission;
             _scene.CosmeticSubmission = surface;
-            try { if (!presentingDeath || (dying && _cosmetics.Death.WireId != 0 && progress < _cosmetics.Death.HideBodyAt)) GetDrawItems(_model, 0, _light); }
+            try
+            {
+                if (!presentingDeath || (dying && _cosmetics.Death.WireId != 0
+                    && progress < _cosmetics.Death.HideBodyAt))
+                {
+                    if (!TryDrawModernCharacter())
+                        GetDrawItems(_model, 0, _light);
+                }
+            }
             finally { _scene.CosmeticSubmission = previous; }
             if (dying) Mods.Cosmetics.Armor.ArmorEffectParticles.DrawDeath(_scene, Vector3.Zero, _cosmetics.Death, progress, 17, particlePose);
             else if (!presentingDeath && Mode != Mods.Cosmetics.SkinContext.ViewModel && Mods.RenderOptions.ShowCustomCosmetics)
