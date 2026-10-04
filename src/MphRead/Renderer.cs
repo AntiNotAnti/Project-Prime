@@ -2759,6 +2759,7 @@ namespace MphRead
             Vector2i target = RenderSize;
             if (target != _targetSize || _sceneColorFormat != SceneColorFormat)
             {
+                _retainedDepthHistoryValid = false;
                 OnResize();
                 target = _targetSize;
             }
@@ -3024,11 +3025,17 @@ namespace MphRead
             bool want =
                 !_depthTextureRefused
                 && ((Mods.RenderOptions.CelShading && Mods.RenderOptions.CelEdge > 0)
-                    || Mods.RenderOptions.NeedsReadableDepth);
+                    || Mods.RenderOptions.NeedsReadableDepth
+#if !MPHREAD_SERVER
+                    || (Mods.Render.ModernGraphicsCompat.Active
+                        && Mods.Render.ModernGraphicsCompat.GpuVisibilityEnabled)
+#endif
+                );
             if (want == (_depthTexture != 0))
             {
                 return;
             }
+            _retainedDepthHistoryValid = false;
             _playerOutlineDepth = -1;
             if (!want)
             {
