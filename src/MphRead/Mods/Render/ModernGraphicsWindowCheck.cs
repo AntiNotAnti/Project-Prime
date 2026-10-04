@@ -88,6 +88,7 @@ namespace MphRead.Mods.Render
                         return 1;
                     }
 
+                    RunSurfaceLifecycleCheck();
                     RunScissorBoundsCheck();
                     RunCopyFormatCheck();
                     RunDeviceRecoveryCheck();
@@ -140,6 +141,7 @@ namespace MphRead.Mods.Render
                         return 1;
                     }
 
+                    RunRendererRestartCheck(window, backend);
                     RunFailedRecoveryFallbackCheck();
                     Console.WriteLine(
                         $"[renderwindowcheck] PASS backend={GraphicsBackendPolicy.DisplayName(backend)} "
@@ -164,6 +166,65 @@ namespace MphRead.Mods.Render
                     $"[renderwindowcheck] FAIL {ex.GetType().Name}: {ex.Message}");
                 return 1;
             }
+        }
+
+        private static void RunSurfaceLifecycleCheck()
+        {
+            // A minimized/temporarily unavailable drawable is represented to
+            // the renderer as a zero-sized surface. It must suspend cleanly,
+            // preserve the requested present mode, and resume on restore.
+            ModernGraphicsCompat.SetVSync(true);
+            ModernGraphicsCompat.Resize(0, 0);
+            ModernGraphicsCompat.Present();
+            ModernGraphicsCompat.SetVSync(false);
+            string unpacedMode = ModernGraphicsCompat.ActivePresentMode;
+            ModernGraphicsCompat.Resize(96, 64);
+            GraphicsApi.Viewport(0, 0, 96, 64);
+            GraphicsApi.ClearColor(.2f, .4f, .8f, 1f);
+            GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+            byte[] restored = new byte[4];
+            GraphicsApi.ReadPixels(48, 32, 1, 1,
+                PixelFormat.Rgba, PixelType.UnsignedByte, restored);
+            ModernGraphicsCompat.Present();
+
+            bool blockingMatchesMode = ModernGraphicsCompat.ActivePresentMode is "Immediate" or "Mailbox"
+                ? !ModernGraphicsCompat.PresentationBlocks
+                : ModernGraphicsCompat.PresentationBlocks;
+            if (restored[0] < 35 || restored[0] > 70
+                || restored[1] < 85 || restored[1] > 120
+                || restored[2] < 190 || restored[2] > 220
+                || !blockingMatchesMode)
+                throw new InvalidOperationException(
+                    $"Surface restore/present-mode lifecycle failed: mode={unpacedMode} "
+                    + $"rgba({restored[0]},{restored[1]},{restored[2]},{restored[3]}).");
+
+            ModernGraphicsCompat.SetVSync(true);
+            Console.WriteLine(
+                $"[renderwindowcheck] zero-size restore and present-mode switching PASS "
+                + $"unpaced={unpacedMode} vsync={ModernGraphicsCompat.ActivePresentMode}");
+        }
+
+        private static void RunRendererRestartCheck(NativeWindow window, GraphicsBackend backend)
+        {
+            // Teardown may be reached after a context/surface has already gone.
+            // Shutdown is intentionally idempotent, then the same host window
+            // must be able to create a fresh renderer and present again.
+            ModernGraphicsCompat.Shutdown();
+            ModernGraphicsCompat.Shutdown();
+            ModernGraphicsCompat.Initialize(window, backend);
+            ModernGraphicsCompat.Resize(96, 64);
+            GraphicsApi.Viewport(0, 0, 96, 64);
+            GraphicsApi.ClearColor(0f, .75f, .25f, 1f);
+            GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+            byte[] pixel = new byte[4];
+            GraphicsApi.ReadPixels(48, 32, 1, 1,
+                PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+            ModernGraphicsCompat.Present();
+            if (pixel[0] > 16 || pixel[1] < 175 || pixel[2] < 45)
+                throw new InvalidOperationException(
+                    $"Renderer restart did not recover a presentable surface: "
+                    + $"rgba({pixel[0]},{pixel[1]},{pixel[2]},{pixel[3]}).");
+            Console.WriteLine("[renderwindowcheck] idempotent shutdown and renderer restart PASS");
         }
 
         private static void RunWireframeCheck()
