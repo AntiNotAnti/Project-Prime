@@ -21,11 +21,22 @@ namespace MphRead.Mods.Launcher.Gui
             Padding = new Thickness(24, 12);
             var identity = PrimeChrome.Stack(PrimeChrome.Title("PROJECT PRIME"), _status);
             identity.Spacing = 4;
-            var nav = new Grid { ColumnDefinitions = new("*,*,1.55*,*,*,*,*"), ColumnSpacing = 4 };
+            var nav = new Grid { ColumnDefinitions = new("0.8*,0.8*,1.45*,1.2*,1.05*,0.9*,0.95*"), ColumnSpacing = 4 };
             int index = 0;
             foreach (var route in PrimeRouter.Tabs)
             {
-                var button = new PrimeTabButton(route == PrimeRoute.HunterLicense ? "HUNTER LICENSE" : route.ToString().ToUpperInvariant(), () => navigate(route));
+                string label = route switch
+                {
+                    PrimeRoute.News => "HOME",
+                    PrimeRoute.Play => "PLAY",
+                    PrimeRoute.HunterLicense => "HUNTER LICENSE",
+                    PrimeRoute.Theatre => "REPLAY STUDIO",
+                    PrimeRoute.Forge => "MAP STUDIO",
+                    PrimeRoute.Offline => "OFFLINE",
+                    PrimeRoute.Settings => "SETTINGS",
+                    _ => route.ToString().ToUpperInvariant()
+                };
+                var button = new PrimeTabButton(label, () => navigate(route));
                 ControllerNav.Identify(button, "prime.nav." + route);
                 Grid.SetColumn(button, index++); nav.Children.Add(button); _tabs.Add(route, button);
             }
