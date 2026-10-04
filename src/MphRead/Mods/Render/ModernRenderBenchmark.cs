@@ -102,6 +102,8 @@ internal static class ModernRenderBenchmark
                     long multiDrawCallsStart = ModernGraphicsCompat.RetainedMultiDrawCalls;
                     long multiDrawLogicalStart = ModernGraphicsCompat.RetainedMultiDrawLogicalDraws;
                     long multiDrawFallbackStart = ModernGraphicsCompat.RetainedMultiDrawFallbackBatches;
+                    long denseMultiDrawCallsStart = ModernGraphicsCompat.RetainedDenseMultiDrawCalls;
+                    long denseMultiDrawCandidatesStart = ModernGraphicsCompat.RetainedDenseMultiDrawCandidates;
                     if (ModernGraphicsCompat.Active) ModernGraphicsCompat.BeginPerformanceSample();
                     for (int i = 0; i < 20 + sampleCount; i++)
                     {
@@ -151,6 +153,8 @@ internal static class ModernRenderBenchmark
                             multiDrawCallsStart = ModernGraphicsCompat.RetainedMultiDrawCalls;
                             multiDrawLogicalStart = ModernGraphicsCompat.RetainedMultiDrawLogicalDraws;
                             multiDrawFallbackStart = ModernGraphicsCompat.RetainedMultiDrawFallbackBatches;
+                            denseMultiDrawCallsStart = ModernGraphicsCompat.RetainedDenseMultiDrawCalls;
+                            denseMultiDrawCandidatesStart = ModernGraphicsCompat.RetainedDenseMultiDrawCandidates;
                         }
                         NativeWindow.ProcessWindowEvents(false);
                         DesktopGraphicsSession.Resize(window);
@@ -236,6 +240,9 @@ internal static class ModernRenderBenchmark
                         retainedMultiDrawLogicalDraws = ModernGraphicsCompat.RetainedMultiDrawLogicalDraws - multiDrawLogicalStart,
                         retainedMultiDrawFallbackBatches = ModernGraphicsCompat.RetainedMultiDrawFallbackBatches - multiDrawFallbackStart,
                         retainedMultiDrawAtlasBytes = ModernGraphicsCompat.RetainedMultiDrawAtlasBytes,
+                        retainedDenseMultiDrawEnabled = ModernGraphicsCompat.RetainedDenseMultiDrawEnabled,
+                        retainedDenseMultiDrawCalls = ModernGraphicsCompat.RetainedDenseMultiDrawCalls - denseMultiDrawCallsStart,
+                        retainedDenseMultiDrawCandidates = ModernGraphicsCompat.RetainedDenseMultiDrawCandidates - denseMultiDrawCandidatesStart,
                         commandBatchOperationLimit = ModernGraphicsCompat.ActiveCommandBatchOperationLimit,
                         stagedTextureUploadLimitBytes = ModernGraphicsCompat.ActiveStagedTextureUploadLimitBytes,
                         averageCompletedMs = frames.Average(), cpuSubmissionMs = submissions.Average(),
