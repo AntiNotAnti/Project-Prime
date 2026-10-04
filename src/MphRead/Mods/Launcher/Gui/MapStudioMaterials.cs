@@ -211,6 +211,20 @@ internal sealed partial class MapStudioScreen
         var pulseY = new TextBox { Text = authoredPulse[1].ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Scale pulse Y" };
         var loop = new TextBox { Text = (material.Animation?.LoopFrames ?? 3000).ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Loop frames · 30–6000" };
         var phase = new TextBox { Text = (material.Animation?.PhaseFrames ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Phase frames" };
+        var hold = new TextBox { Text = (material.Animation?.FlipbookHoldFrames ?? 3).ToString(System.Globalization.CultureInfo.InvariantCulture), PlaceholderText = "Flipbook hold frames" };
+        var flipbookFrames = material.Animation?.FlipbookFrames?.ToList() ?? new System.Collections.Generic.List<string>();
+        string[] nativeTextureAssets = definition.Assets
+            .Where(asset => asset?.Kind == "texture" && asset.Path.EndsWith(".tex", StringComparison.OrdinalIgnoreCase))
+            .Select(asset => asset!.Path).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(path => path).ToArray();
+        var framePicker = new ComboBox { ItemsSource = nativeTextureAssets, SelectedIndex = nativeTextureAssets.Length > 0 ? 0 : -1 };
+        var frameSummary = Text(FlipbookSummary());
+
+        string FlipbookSummary()
+        {
+            if (flipbookFrames.Count == 0) return "Flipbook: off · base texture only";
+            return "Flipbook: base + " + flipbookFrames.Count + " frame(s) · "
+                + String.Join(" → ", flipbookFrames.Select(System.IO.Path.GetFileName));
+        }
 
         panel.Children.Add(enabled);
         panel.Children.Add(twoSided);
@@ -229,6 +243,33 @@ internal sealed partial class MapStudioScreen
         panel.Children.Add(Text("Loop / phase · native 30 Hz frames"));
         panel.Children.Add(loop);
         panel.Children.Add(phase);
+        panel.Children.Add(Text("Flipbook frames · base texture is frame zero"));
+        panel.Children.Add(framePicker);
+        panel.Children.Add(hold);
+        panel.Children.Add(frameSummary);
+        AddButton(panel, "Add selected flipbook frame", () =>
+        {
+            if (framePicker.SelectedItem is not string frame) return;
+            if (flipbookFrames.Count >= MapUvAnimation.MaxFlipbookImages)
+            {
+                _status.Text = "Flipbook already has the maximum 64 additional frames.";
+                return;
+            }
+            flipbookFrames.Add(frame);
+            enabled.IsChecked = true;
+            frameSummary.Text = FlipbookSummary();
+        });
+        AddButton(panel, "Remove last flipbook frame", () =>
+        {
+            if (flipbookFrames.Count == 0) return;
+            flipbookFrames.RemoveAt(flipbookFrames.Count - 1);
+            frameSummary.Text = FlipbookSummary();
+        });
+        AddButton(panel, "Clear flipbook", () =>
+        {
+            flipbookFrames.Clear();
+            frameSummary.Text = FlipbookSummary();
+        });
 
         string[] presets =
         {
@@ -283,6 +324,8 @@ internal sealed partial class MapStudioScreen
                         UvRotationDegreesPerSecond = Number(rotation.Text ?? "0"),
                         UvScale = new[] { Number(scaleX.Text ?? "1"), Number(scaleY.Text ?? "1") },
                         UvScalePulse = new[] { Number(pulseX.Text ?? "0"), Number(pulseY.Text ?? "0") },
+                        FlipbookFrames = flipbookFrames.ToList(),
+                        FlipbookHoldFrames = int.Parse(hold.Text ?? "", System.Globalization.CultureInfo.InvariantCulture),
                         LoopFrames = int.Parse(loop.Text ?? "", System.Globalization.CultureInfo.InvariantCulture),
                         PhaseFrames = int.Parse(phase.Text ?? "", System.Globalization.CultureInfo.InvariantCulture)
                     };
