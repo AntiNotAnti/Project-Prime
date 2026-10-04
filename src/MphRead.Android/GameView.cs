@@ -992,11 +992,19 @@ namespace MphRead.Droid
                 long limiterStart = Stopwatch.GetTimestamp();
                 double elapsed = WaitForTick();
                 long workStart = Stopwatch.GetTimestamp();
+                ulong latencyFrame = MphRead.Mods.Render.LowLatencyController.BeginFrame();
                 long allocatedStart = GC.GetAllocatedBytesForCurrentThread();
                 ApplySpectatorRequest();
                 GameState.ApplyPause();
                 int steps = MphRead.Mods.Network.NetSession.HoldLoadingFrame()
                     ? 0 : FrameTiming.Advance(elapsed);
+                if (steps > 0)
+                {
+                    MphRead.Mods.Render.LowLatencyController.Mark(
+                        latencyFrame, MphRead.Mods.Render.LowLatencyMarker.InputSample);
+                    MphRead.Mods.Render.LowLatencyController.Mark(
+                        latencyFrame, MphRead.Mods.Render.LowLatencyMarker.SimulationStart);
+                }
                 for (int i = 0; i < steps; i++)
                 {
                     ApplyInput();
@@ -1009,16 +1017,30 @@ namespace MphRead.Droid
                         MphRead.Mods.Network.DemoClip.SaveWithFeedback();
                     }
                 }
+                if (steps > 0)
+                {
+                    MphRead.Mods.Render.LowLatencyController.Mark(
+                        latencyFrame, MphRead.Mods.Render.LowLatencyMarker.SimulationEnd);
+                }
                 // Loading can pump a disconnect or lobby return with zero
                 // gameplay steps. Handle those transitions on every draw.
                 if (MphRead.Mods.Network.NetSession.Refused || MphRead.Mods.Network.NetSession.SessionTimedOut)
-                { End(scene); return false; }
+                {
+                    MphRead.Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
+                    End(scene);
+                    return false;
+                }
                 if (MphRead.Mods.Network.NetSession.PersistentLobby && MphRead.Mods.Network.NetSession.IsInLobby)
                 {
+                    MphRead.Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
                     End(scene, keepSession: true);
                     return false;
                 }
-                if (Mods.Network.ReplayController.IsSeeking) return true;
+                if (Mods.Network.ReplayController.IsSeeking)
+                {
+                    MphRead.Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
+                    return true;
+                }
                 long simulationEnd = Stopwatch.GetTimestamp();
 
                 // Android pad motion events may arrive between 60 Hz simulation
@@ -1045,9 +1067,12 @@ namespace MphRead.Droid
                 {
                     scene.ModSetLateAim(0, 0);
                 }
+                MphRead.Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, MphRead.Mods.Render.LowLatencyMarker.RenderSubmitStart);
                 scene.OnDrawFrame();
                 if (!scene.OnRenderFrame())
                 {
+                    MphRead.Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
                     End(scene);
                     return false;
                 }
@@ -1056,7 +1081,11 @@ namespace MphRead.Droid
                 long renderEnd = Stopwatch.GetTimestamp();
                 DrawUi();
                 long uiEnd = Stopwatch.GetTimestamp();
+                MphRead.Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, MphRead.Mods.Render.LowLatencyMarker.RenderSubmitEnd);
                 long swapStart = uiEnd;
+                MphRead.Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, MphRead.Mods.Render.LowLatencyMarker.PresentStart);
                 if (_modern) ModernGraphicsCompat.Present();
                 else if (_display != null && _eglSurface != null
                     && !EGL14.EglSwapBuffers(_display, _eglSurface))
@@ -1068,6 +1097,8 @@ namespace MphRead.Droid
                     ReleaseSurface();
                 }
                 long swapEnd = Stopwatch.GetTimestamp();
+                MphRead.Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, MphRead.Mods.Render.LowLatencyMarker.PresentEnd);
                 // Report CPU-side frame work only. Presentation can block on
                 // SurfaceFlinger/FIFO and is not CPU load the scheduler should
                 // try to "fix" by boosting clocks.
