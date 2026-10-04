@@ -61,6 +61,11 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 if (handle == null || !handle.IsActive)
                     return;
+                if (Reduced)
+                {
+                    handle.Cancel(finish: true);
+                    return;
+                }
                 if (TopLevel.GetTopLevel(owner) == null)
                 {
                     // A content swap can attach on the layout pass after the motion
