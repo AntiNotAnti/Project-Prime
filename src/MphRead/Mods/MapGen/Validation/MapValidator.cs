@@ -129,7 +129,9 @@ namespace MphRead.Mods.MapGen
                         r.Error("FP-MAP-001", "Flipbook image cycle must divide evenly into the material loop for seamless repeat.", m.Id);
                 }
             }
-            MapMaterial[] animatedMaterials = d.Materials.Where(m => m?.Animation != null).Cast<MapMaterial>().ToArray();
+            MapMaterial[] animatedMaterials = d.Materials
+                .Where(m => m != null && MapUvAnimation.IsAnimated(m))
+                .Cast<MapMaterial>().ToArray();
             bool loopsValid = animatedMaterials.All(m => m.Animation!.LoopFrames is >= MapUvAnimation.MinLoopFrames
                 and <= MapUvAnimation.MaxLoopFrames);
             if (animatedMaterials.Length > 0 && loopsValid)
