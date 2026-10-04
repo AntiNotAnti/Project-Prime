@@ -313,6 +313,18 @@ namespace MphRead.Mods.Launcher.Gui
             Check(!Toggle("_spawnProtection").On && !Toggle("_freeze").On, "lobby protection and freeze defaults off");
             Check(!OfflineLaunch.Modes.Any(mode => mode.Mode == GameMode.InstaGib), "legacy mode is absent from offline selector");
             overlays.Close();
+
+            var target = (ChoiceRow)typeof(LobbyScreen).GetField("_target", flags)!.GetValue(lobby)!;
+            var administration = (Control)target.Parent!;
+            typeof(LobbyScreen).GetMethod("ShowSheet", flags)!.Invoke(lobby,
+                new object[] { "PLAYER MANAGEMENT", administration });
+            Check(overlays.GetLogicalDescendants().Contains(target)
+                && overlays.GetVisualDescendants().OfType<HubNavButton>()
+                    .Any(button => button.Label == "TRANSFER OWNER")
+                && overlays.GetVisualDescendants().OfType<HubNavButton>()
+                    .Any(button => button.Label == "KICK"),
+                "player management is contextual and retains owner actions");
+            overlays.Close();
         }
 
         public static int Run(string? directory)
@@ -372,6 +384,16 @@ namespace MphRead.Mods.Launcher.Gui
                     shell.Router.Navigate(PrimeRoute.News); shell.Router.PreviousRoute();
                     Check(shell.Router.Current == PrimeRoute.Settings, "previous tab wraps");
                     shell.Router.NextRoute(); Check(shell.Router.Current == PrimeRoute.News, "next tab wraps");
+                    shell.Router.Navigate(PrimeRoute.Lobby); Drain(window);
+                    var lobbyPresentation = shell.Workspaces.Get(PrimeRoute.Lobby);
+                    Check(lobbyPresentation.GetVisualDescendants().OfType<PrimeHeroPanel>().Any(),
+                        "Lobby exposes cinematic arena presentation");
+                    Check(lobbyPresentation.GetVisualDescendants().OfType<PrimeButton>()
+                        .All(button => button.Label != "TEAMS & ADMINISTRATION"),
+                        "Lobby removes permanent teams and administration entry");
+                    Check(ControllerNav.Find(lobbyPresentation, "lobby.manage-selected") != null,
+                        "Lobby exposes contextual player-management action");
+
                     shell.Router.Navigate(PrimeRoute.Play); Drain(window);
                     var play = shell.Workspaces.Get(PrimeRoute.Play);
                     Check(play.GetVisualDescendants().OfType<PrimeHeroPanel>().Any(),
@@ -494,6 +516,18 @@ namespace MphRead.Mods.Launcher.Gui
                             Check(button.Bounds.Width >= 50 && button.Bounds.Height >= 38, "rule toggle has a readable hit target");
                         Check(!shell.Overlays.GetVisualDescendants().OfType<ScrollViewer>().Any(), "all lobby rules fit without a scroll container");
                         Check(UiCapture.Capture(shell, Path.Combine(directory, "prime-lobby-rules-960x540.png"), new Size(960,540)), "compact lobby rules capture");
+                        shell.Overlays.Close();
+
+                        var target = (ChoiceRow)typeof(LobbyScreen)
+                            .GetField("_target", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                            .GetValue(lobby)!;
+                        var administration = (Control)target.Parent!;
+                        typeof(LobbyScreen).GetMethod("ShowSheet",
+                            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                            .Invoke(lobby, new object[] { "PLAYER MANAGEMENT", administration });
+                        Check(UiCapture.Capture(shell,
+                            Path.Combine(directory, "prime-lobby-player-management-1280x720.png"),
+                            new Size(1280,720)), "lobby player management capture");
                         shell.Overlays.Close();
                         shell.Router.Navigate(PrimeRoute.Offline);
                         var offlineRules = ((Control)shell.Workspaces.Content!).GetVisualDescendants().OfType<PrimeButton>().Single(b => b.Label == "ADVANCED MATCH RULES");
