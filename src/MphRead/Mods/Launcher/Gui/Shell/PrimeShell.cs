@@ -68,14 +68,18 @@ namespace MphRead.Mods.Launcher.Gui
             if (Overlays.IsOpen || e.KeyModifiers != KeyModifiers.None) return;
             if (e.Key == Key.Q)
             {
-                Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Navigate);
+                PrimeRoute before = Router.Current;
                 Router.PreviousRoute();
+                if (Router.Current != before)
+                    Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Navigate);
                 e.Handled = true;
             }
             if (e.Key == Key.E)
             {
-                Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Navigate);
+                PrimeRoute before = Router.Current;
                 Router.NextRoute();
+                if (Router.Current != before)
+                    Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Navigate);
                 e.Handled = true;
             }
         }
@@ -93,8 +97,10 @@ namespace MphRead.Mods.Launcher.Gui
         public void SwitchTab(bool next)
         {
             if (Overlays.IsOpen) return;
-            Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Navigate);
+            PrimeRoute before = Router.Current;
             if (next) Router.NextRoute(); else Router.PreviousRoute();
+            if (Router.Current != before)
+                Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Navigate);
         }
         protected override Size MeasureOverride(Size availableSize)
         {
