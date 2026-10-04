@@ -71,8 +71,8 @@ namespace MphRead.Mods.Launcher.Gui
                     details += $" · scale {scale[0]:0.##}, {scale[1]:0.##} ± {pulse[0]:0.##}, {pulse[1]:0.##}";
                 details += $" · {animation.LoopFrames / 30f:0.##} s loop";
             }
-            if (material.Animation?.FlipbookFrames.Count > 0)
-                details += $"\nFlipbook image {selectedFlipbookImage + 1}/{material.Animation.FlipbookFrames.Count + 1}";
+            if (material.Animation?.FlipbookFrames is { Count: > 0 } previewFrames)
+                details += $"\nFlipbook image {selectedFlipbookImage + 1}/{previewFrames.Count + 1}";
             if (material.Alpha is { } alpha) details += $"\nAlpha {alpha}/31";
             if (material.TwoSided) details += " · two-sided";
 
