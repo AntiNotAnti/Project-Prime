@@ -94,6 +94,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Render/presentation rate is independent of simulation rate and may run at the display rate or another configured cap.
 - Do not make gameplay/network behavior depend on render frequency.
 - Resolution scaling affects the 3D render target; HUD/UI remain presentation-space.
+- Low-latency providers are presentation optimizations only. Their wait/marker hooks may not alter simulation cadence, input values, networking, hit resolution or replay semantics. A provider must coordinate with the active presentation clock so vendor sleep, software FPS limiting and blocking present modes do not become stacked frame limiters.
 
 ## Replay and clips
 
