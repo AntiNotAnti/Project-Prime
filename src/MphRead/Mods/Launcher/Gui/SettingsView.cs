@@ -107,6 +107,7 @@ namespace MphRead.Mods.Launcher.Gui
         private Grid _categoryTabsGrid = null!;
         private bool _compactShell;
         private bool _showAdvancedSettings;
+        private PrimeMotionHandle? _sectionMotion;
         private int _activeSectionIndex;
         private int _openedRendererIndex;
         private static readonly HashSet<string> AdvancedSettingSections =
@@ -757,6 +758,15 @@ namespace MphRead.Mods.Launcher.Gui
                     _settingHint.Text = "Focus a setting for details. Changes remain in the draft until Apply Changes.";
             }
             UpdateDraftStatus();
+
+            Control activePage = _sections[index].Page;
+            _sectionMotion?.Cancel();
+            _sectionMotion = null;
+            if (_shell && !PrimeMotion.Reduced
+                && TopLevel.GetTopLevel(activePage) != null)
+            {
+                _sectionMotion = PrimeMotion.Enter(activePage, 5, 0.13);
+            }
         }
 
         private StackPanel BuildSectionNavigation()
