@@ -167,6 +167,7 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _reflectionsRow = null!;
         private ToggleRow _dynamicGlowRow = null!;
         private ToggleRow _textureReplacementsRow = null!;
+        private ToggleRow _characterModelReplacementsRow = null!;
         private ToggleRow _celRow = null!;
         private SliderRow _celBandsRow = null!;
         private SliderRow _celEdgeRow = null!;
@@ -1618,6 +1619,9 @@ namespace MphRead.Mods.Launcher.Gui
                 (int)RenderOptions.TextureUpscale));
             _textureReplacementsRow = Add(page, new ToggleRow("HD texture replacements",
                 RenderOptions.TextureReplacements));
+            _characterModelReplacementsRow = Add(page, new ToggleRow("HD character models",
+                RenderOptions.CharacterModelReplacements));
+            Explain(page, "HD character models use validated local GLB replacements from character-models/default. They are presentation-only: native animation, hitboxes, collision, networking and replays remain authoritative, with automatic native fallback.");
             _textureQualityRow = Add(page, new ChoiceRow("HD asset resolution",
                 new[] { "Automatic", "Low (1K)", "Medium (2K)", "High (4K)", "Ultra (8K)" },
                 (int)RenderOptions.TextureQuality));
@@ -1733,7 +1737,11 @@ namespace MphRead.Mods.Launcher.Gui
             _mipmapRow.On = profile.TextureMipmaps;
             _textureUpscaleRow.Index = (int)profile.TextureUpscale;
             _anisotropyRow.Index = AnisotropyIndex(profile.TextureAnisotropy);
-            if (preset == GraphicsPreset.Original) _textureReplacementsRow.On = false;
+            if (preset == GraphicsPreset.Original)
+            {
+                _textureReplacementsRow.On = false;
+                _characterModelReplacementsRow.On = false;
+            }
             ShowTextureQualityRows();
             ShowModernGraphicsRows();
         }
@@ -2983,6 +2991,7 @@ namespace MphRead.Mods.Launcher.Gui
             _settings.ShowCustomCosmetics = RenderOptions.OnOff(_showCosmeticsRow.On);
             _settings.CosmeticQuality = ((Cosmetics.CosmeticEffectQuality)Math.Clamp(_cosmeticQualityRow.Index, 0, 3)).ToString().ToLowerInvariant();
             _settings.TextureReplacements = RenderOptions.OnOff(_textureReplacementsRow.On);
+            _settings.CharacterModelReplacements = RenderOptions.OnOff(_characterModelReplacementsRow.On);
             _settings.TextureUpscale = ((TextureUpscaleMode)Math.Clamp(_textureUpscaleRow.Index, 0, 2))
                 .ToString().ToLowerInvariant();
             RenderOptions.TextureQuality = (TextureAssetQuality)Math.Clamp(_textureQualityRow.Index, 0, 4);
