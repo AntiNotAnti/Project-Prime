@@ -109,8 +109,11 @@ internal sealed class AndroidPerformanceHints : IDisposable
             ? AndroidPerformance.ActiveDisplayRefreshRate
             : AndroidPerformance.DisplayRefreshRate;
         double rate;
-        if (cap == FrameTiming.DisplayRate)
+        if (cap == FrameTiming.DisplayRate || cap == FrameTiming.Unlimited)
         {
+            // Unlimited removes the app-side presentation ceiling. ADPF still
+            // needs a useful workload target, so use the active panel cadence
+            // rather than interpreting the -1 sentinel as a low frame rate.
             rate = activeDisplay;
         }
         else
