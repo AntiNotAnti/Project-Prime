@@ -5,6 +5,7 @@ using MphRead.Effects;
 using MphRead.Formats;
 using MphRead.Formats.Culling;
 using MphRead.Mods.Render;
+using MphRead.Mods.Render.Characters;
 using OpenTK.Mathematics;
 
 namespace MphRead.Entities
@@ -419,8 +420,13 @@ namespace MphRead.Entities
             _brightSkin = _health > 0 && PaletteOverride == null ? BrightSkins.GetColor(Owner) : null;
             _outlineColor = _health > 0 && _freezeTimer == 0 && PaletteOverride == null ? BrightSkins.GetOutlineColor(Owner) : null;
             var previousCosmetic = _scene.CosmeticSubmission;
-            _scene.CosmeticSubmission = _freezeTimer == 0 && PaletteOverride == null ? Owner.CosmeticMaterial(false) : default;
-            try { GetDrawItems(inst, 0); }
+            _scene.CosmeticSubmission = _freezeTimer == 0 && PaletteOverride == null
+                ? Owner.CosmeticMaterial(false) : default;
+            try
+            {
+                if (!TryDrawModernHalfturret(inst))
+                    GetDrawItems(inst, 0);
+            }
             finally { _scene.CosmeticSubmission = previousCosmetic; }
             _brightSkin = null;
             _outlineColor = null;
@@ -435,6 +441,49 @@ namespace MphRead.Entities
                 GetDrawItems(_altIceModel, 1);
                 _useRoomLights = false;
             }
+        }
+
+        private bool TryDrawModernHalfturret(ModelInstance inst)
+        {
+            Model model = inst.Model;
+            if (!CharacterModelRuntime.TryGetRigid(_scene, Hunter.Weavel,
+                CharacterModelPart.Halfturret, model,
+                out CharacterRigidRenderModel replacement))
+                return false;
+
+            int polygonId = _scene.GetNextPolygonId();
+            foreach (CharacterRigidRenderSegment segment in replacement.Segments)
+            {
+                Node node = model.Nodes[segment.NativeNodeIndex];
+                if (!node.Enabled || !model.NodeParentsEnabled(node)) continue;
+                Material material = model.Materials[segment.NativeMaterialIndex];
+                Vector3 emission = GetEmission(inst, material, segment.NativeMaterialIndex);
+                Vector4? color = GetRenderColor(inst, 0, material);
+                int? bindingOverride = GetBindingOverride(inst, material,
+                    segment.NativeMaterialIndex);
+                Matrix4 texcoordMatrix = bindingOverride.HasValue
+                    ? GetTexcoordMatrix(inst, material, segment.NativeMaterialIndex,
+                        node, Recolor)
+                    : Matrix4.Identity;
+
+                var previousMaterial = _scene.CosmeticMaterialSubmission;
+                _scene.CosmeticMaterialSubmission = GetCosmeticMaterialOverride(
+                    inst, material, segment.NativeMaterialIndex);
+                try
+                {
+                    _scene.AddRenderItem(material, polygonId, Alpha, emission,
+                        GetLightInfo(), texcoordMatrix, node.Animation,
+                        segment.ListId, 0, Array.Empty<float>(), color,
+                        PaletteOverride, SelectionType.None, node.BillboardMode,
+                        _drawScale, bindingOverride, UseTexturedPlayerSkin(inst),
+                        GetPlayerOutlineColor(inst));
+                }
+                finally
+                {
+                    _scene.CosmeticMaterialSubmission = previousMaterial;
+                }
+            }
+            return true;
         }
 
         protected override Vector4? GetRenderColor(ModelInstance inst, int index, Material material)
