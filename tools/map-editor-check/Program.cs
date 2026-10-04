@@ -122,6 +122,12 @@ try
             LoopFrames = 3000,
             PhaseFrames = 15
         };
+        animatedProject.Definition.Materials[1].Animation = new()
+        {
+            FlipbookFrames = new() { "lease2.tex" },
+            FlipbookHoldFrames = 3,
+            LoopFrames = 3000
+        };
         MapProjectSerializer.Save(animatedProject, Path.Combine(runtimeMaps, "animated.json"));
 
         CustomRooms.MapDirectory = runtimeMaps;
@@ -161,7 +167,11 @@ try
         string animationPath = CustomRooms.OutputsFor(animatedDefinition).Animation;
         byte[] animationBytes = File.ReadAllBytes(animationPath);
         Check(animationBytes.Length > 24 && BitConverter.ToUInt16(animationBytes, 20) == 1,
-            "animated map publishes a native texcoord animation group");
+            "animated map publishes a native animation group");
+        uint texcoordGroupOffset = BitConverter.ToUInt32(animationBytes, 36);
+        Check(texcoordGroupOffset > 0
+            && BitConverter.ToUInt32(animationBytes, checked((int)texcoordGroupOffset) + 16) == 1,
+            "flipbook-only material does not emit a texcoord track");
         Check(BitConverter.ToUInt32(animationBytes, 36) > 0,
             "native animation offset table points at the texcoord group");
         uint scaleOffset = BitConverter.ToUInt32(animationBytes, 48);
@@ -174,8 +184,8 @@ try
         uint textureGroupOffset = BitConverter.ToUInt32(animationBytes, 40);
         Check(textureGroupOffset > 0
             && BitConverter.ToUInt16(animationBytes, checked((int)textureGroupOffset)) == 3000
-            && BitConverter.ToUInt16(animationBytes, checked((int)textureGroupOffset) + 8) == 1,
-            "flipbook publishes a native texture animation group");
+            && BitConverter.ToUInt16(animationBytes, checked((int)textureGroupOffset) + 8) == 2,
+            "UV+flipbook and flipbook-only materials publish native texture animation tracks");
     }
     finally
     {
