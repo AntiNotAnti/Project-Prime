@@ -9031,12 +9031,30 @@ localCenter *= _profileHudScale;
                 return;
             }
 
+            // Menus/chat can take input entirely between two fixed 60 Hz steps.
+            // Render-only mouse/controller aim must obey that ownership edge too,
+            // otherwise the picture can keep turning behind chat/pause even though
+            // simulation correctly stopped consuming gameplay controls.
+            bool gameplayOwnsPresentationAim =
+                !Mods.PauseMenu.Open
+                && !Mods.Chat.ChatBox.Composing
+                && !Mods.EndScreen.Available
+                && !Mods.Input.StylusZone.Placing
+                && !GameState.MenuPause
+                && !GameState.DialogPause;
+            if (!gameplayOwnsPresentationAim)
+            {
+                Scene.ModSetLateAim(0, 0);
+                Mods.Input.GamepadInput.InvalidatePresentationAim();
+            }
+
             // On a high-refresh display, poll once more after the fixed 60 Hz
             // input step. Only the aim-stick axes are previewed; GamepadInput
             // does not advance buttons/actions/assist here, and the next
             // simulation step consumes these exact previewed axes.
             if (!Mods.Network.DemoPlayback.IsActive
-                && Mods.Render.FrameTiming.HighRefreshPresentation)
+                && Mods.Render.FrameTiming.HighRefreshPresentation
+                && gameplayOwnsPresentationAim)
             {
                 Mods.Input.GamepadDesktop.PollAimOnly();
                 Mods.Input.GamepadInput.CapturePresentationSample();
@@ -9205,6 +9223,8 @@ localCenter *= _profileHudScale;
             {
                 Mods.Replay.ReplayInput.CancelScrub();
                 Mods.Input.GamepadManager.ClearAll();
+                Mods.Input.GamepadInput.InvalidatePresentationAim();
+                _scene?.ModSetLateAim(0, 0);
                 Mods.Input.GamepadHaptics.Stop();
             }
             base.OnFocusedChanged(e);
@@ -9227,6 +9247,11 @@ localCenter *= _profileHudScale;
                 return;
             }
 #endif
+            if (Mods.Chat.ChatBox.Composing)
+            {
+                base.OnMouseDown(e);
+                return;
+            }
             if (Mods.Network.DemoPlayback.IsActive && !Mods.PauseMenu.Open
                 && e.Button == MouseButton.Right)
             {
@@ -9295,6 +9320,11 @@ localCenter *= _profileHudScale;
                 return;
             }
 #endif
+            if (Mods.Chat.ChatBox.Composing)
+            {
+                base.OnMouseUp(e);
+                return;
+            }
             if (e.Button == MouseButton.Button1)
             {
                 if (Mods.Input.StylusZone.Placing)
@@ -9329,6 +9359,14 @@ localCenter *= _profileHudScale;
                 return;
             }
 #endif
+            if (Mods.PauseMenu.Open || Mods.Chat.ChatBox.Composing || Mods.EndScreen.Available
+                || GameState.MenuPause || GameState.DialogPause)
+            {
+                Scene.ModSetLateAim(0, 0);
+                Mods.Input.GamepadInput.InvalidatePresentationAim();
+                base.OnMouseMove(e);
+                return;
+            }
             if (Mods.Replay.ReplayInput.PointerMove(e.X / Math.Max(ClientSize.X, 1))) return;
             // First-person gameplay keeps a copy of unsimulated mouse
             // movement for the draw pass. The simulation still consumes the
@@ -9350,9 +9388,14 @@ localCenter *= _profileHudScale;
 
         protected override void OnMouseWheel(MouseWheelEventArgs e)
         {
-            if (Mods.Chat.ChatBox.Composing && Mods.Chat.ChatBox.HistoryOpen)
+            if (Mods.Chat.ChatBox.Composing)
             {
-                Mods.Chat.ChatBox.ScrollHistory((int)Math.Ceiling(Math.Abs(e.OffsetY)) * Math.Sign(e.OffsetY));
+                if (Mods.Chat.ChatBox.HistoryOpen)
+                {
+                    Mods.Chat.ChatBox.ScrollHistory(
+                        (int)Math.Ceiling(Math.Abs(e.OffsetY)) * Math.Sign(e.OffsetY));
+                }
+                base.OnMouseWheel(e);
                 return;
             }
             // The results screen's map list, which is longer than the panel it
