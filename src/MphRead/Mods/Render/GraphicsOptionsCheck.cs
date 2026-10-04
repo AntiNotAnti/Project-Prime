@@ -13,11 +13,15 @@ namespace MphRead.Mods.Render
                     if (!ok) throw new InvalidOperationException(name);
                 }
 
+                RenderOptions.TextureReplacements = true;
+                RenderOptions.CharacterModelReplacements = true;
                 RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Original);
                 Check(RenderOptions.Preset == GraphicsPreset.Original
                     && RenderOptions.ResolutionScale == 100
                     && RenderOptions.AntiAliasing == AntiAliasingMode.Off
                     && RenderOptions.Shadows == ShadowQuality.Off
+                    && !RenderOptions.TextureReplacements
+                    && !RenderOptions.CharacterModelReplacements
                     && !RenderOptions.PostProcessingEnabled,
                     "original preset remains the unprocessed compatibility path");
 
@@ -147,7 +151,8 @@ namespace MphRead.Mods.Render
                     TextureQuality = "impossible",
                     Gamma = "999",
                     AdvancedMaterials = "yes",
-                    InternalHdr = "true"
+                    InternalHdr = "true",
+                    CharacterModelReplacements = "yes"
                 };
                 Check(SettingsMigration.Apply(settings, out string summary)
                     && settings.SettingsSchemaVersion == SettingsMigration.CurrentSchema
@@ -160,6 +165,7 @@ namespace MphRead.Mods.Render
                     && settings.Gamma == "150"
                     && settings.AdvancedMaterials == "on"
                     && settings.InternalHdr == "on"
+                    && settings.CharacterModelReplacements == "on"
                     && summary.Length > 0,
                     "graphics settings migration clamps and normalizes new options");
 
