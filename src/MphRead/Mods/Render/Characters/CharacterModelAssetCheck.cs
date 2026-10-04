@@ -117,6 +117,49 @@ namespace MphRead.Mods.Render.Characters
 
                 File.WriteAllText(Path.Combine(root, "characters.json"), valid);
 
+                WriteWeightedTriangleGlb(Path.Combine(root, "samus", "weighted.glb"));
+                File.WriteAllText(Path.Combine(root, "characters.json"),
+                    """
+                    {
+                      "format": 1,
+                      "id": "synthetic-weighted-check",
+                      "models": [
+                        {
+                          "hunter": "Samus",
+                          "part": "biped",
+                          "model": "samus/weighted.glb",
+                          "skinning": "weighted4",
+                          "boneMap": { "Body": "Body", "Arm": "Arm" }
+                        }
+                      ]
+                    }
+                    """);
+                CharacterModelPack weightedPack = CharacterModelPack.Load(root);
+                Check(weightedPack.TryResolve(Hunter.Samus, CharacterModelPart.Biped,
+                    out CharacterModelAsset weightedAsset)
+                    && weightedAsset.Skinning == CharacterSkinningMode.Weighted4
+                    && weightedAsset.HasSkin,
+                    "weighted pack discovers a real glTF skin");
+                CharacterWeightedModelData weightedGeometry =
+                    CharacterWeightedModelLoader.Load(weightedAsset);
+                Check(weightedGeometry.Joints.Count == 2
+                    && weightedGeometry.Primitives.Count == 1
+                    && weightedGeometry.VertexCount == 3
+                    && weightedGeometry.IndexCount == 3,
+                    "Weighted4 loader preserves synthetic skin geometry");
+                CharacterWeightedVertex weightedVertex =
+                    weightedGeometry.Primitives[0].Vertices[1];
+                var unpacked = CharacterWeightedModelLoader.UnpackJoints(
+                    weightedVertex.PackedJoints);
+                Check(unpacked.J0 == 0 && unpacked.J1 == 1
+                    && MathF.Abs(weightedVertex.Weights.X - 128f / 255f) < 0.00001f
+                    && MathF.Abs(weightedVertex.Weights.Y - 127f / 255f) < 0.00001f
+                    && weightedGeometry.Joints[0].SourceNode == "Body"
+                    && weightedGeometry.Joints[1].SourceNode == "Arm",
+                    "Weighted4 joint packing, normalized weights and retarget identity decode exactly");
+
+                File.WriteAllText(Path.Combine(root, "characters.json"), valid);
+
                 string blender = CharacterModelBlenderHelper.Generate(
                     "Synthetic/Biped", new[] { "Body" }, new[] { "BodyMat" },
                     "starter/synthetic/biped.glb");
@@ -129,7 +172,7 @@ namespace MphRead.Mods.Render.Characters
                     "Blender rigid helper receives deterministic authoring identities");
 
                 Console.WriteLine(
-                    "[charactermodelcheck] pack safety, rigid geometry/LOD and Blender helper generation passed");
+                    "[charactermodelcheck] pack safety, rigid/Weighted4 geometry and Blender helper generation passed");
                 return 0;
             }
             catch (Exception ex)
@@ -164,6 +207,115 @@ namespace MphRead.Mods.Render.Characters
             catch (InvalidDataException)
             {
             }
+        }
+
+        private static void WriteWeightedTriangleGlb(string path)
+        {
+            using var binary = new MemoryStream();
+            using (var data = new BinaryWriter(binary, Encoding.UTF8, leaveOpen: true))
+            {
+                foreach (float value in new float[]
+                {
+                    0,0,0, 1,0,0, 0,1,0
+                }) data.Write(value);
+                foreach (float value in new float[]
+                {
+                    0,0,1, 0,0,1, 0,0,1
+                }) data.Write(value);
+                foreach (float value in new float[]
+                {
+                    0,0, 1,0, 0,1
+                }) data.Write(value);
+
+                // JOINTS_0: Body, Body/Arm blend, Arm.
+                foreach (byte value in new byte[]
+                {
+                    0,0,0,0, 0,1,0,0, 1,0,0,0
+                }) data.Write(value);
+                // WEIGHTS_0 normalized UBYTE.
+                foreach (byte value in new byte[]
+                {
+                    255,0,0,0, 128,127,0,0, 255,0,0,0
+                }) data.Write(value);
+
+                data.Write((ushort)0);
+                data.Write((ushort)1);
+                data.Write((ushort)2);
+                data.Write((ushort)0); // alignment padding before MAT4 data
+
+                for (int matrix = 0; matrix < 2; matrix++)
+                {
+                    foreach (float value in new float[]
+                    {
+                        1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1
+                    }) data.Write(value);
+                }
+            }
+            byte[] binaryBytes = binary.ToArray();
+            if (binaryBytes.Length != 256)
+                throw new InvalidOperationException("Synthetic Weighted4 GLB layout changed.");
+
+            string json = """
+                {
+                  "asset":{"version":"2.0"},
+                  "buffers":[{"byteLength":256}],
+                  "bufferViews":[
+                    {"buffer":0,"byteOffset":0,"byteLength":36},
+                    {"buffer":0,"byteOffset":36,"byteLength":36},
+                    {"buffer":0,"byteOffset":72,"byteLength":24},
+                    {"buffer":0,"byteOffset":96,"byteLength":12},
+                    {"buffer":0,"byteOffset":108,"byteLength":12},
+                    {"buffer":0,"byteOffset":120,"byteLength":6},
+                    {"buffer":0,"byteOffset":128,"byteLength":128}
+                  ],
+                  "accessors":[
+                    {"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},
+                    {"bufferView":1,"componentType":5126,"count":3,"type":"VEC3"},
+                    {"bufferView":2,"componentType":5126,"count":3,"type":"VEC2"},
+                    {"bufferView":3,"componentType":5121,"count":3,"type":"VEC4"},
+                    {"bufferView":4,"componentType":5121,"normalized":true,"count":3,"type":"VEC4"},
+                    {"bufferView":5,"componentType":5123,"count":3,"type":"SCALAR"},
+                    {"bufferView":6,"componentType":5126,"count":2,"type":"MAT4"}
+                  ],
+                  "materials":[{"name":"BodyMat"}],
+                  "meshes":[{"primitives":[{
+                    "attributes":{
+                      "POSITION":0,"NORMAL":1,"TEXCOORD_0":2,
+                      "JOINTS_0":3,"WEIGHTS_0":4
+                    },
+                    "indices":5,
+                    "material":0
+                  }]}],
+                  "skins":[{"joints":[0,1],"inverseBindMatrices":6}],
+                  "nodes":[
+                    {"name":"Body"},
+                    {"name":"Arm"},
+                    {"name":"WeightedMesh","mesh":0,"skin":0}
+                  ]
+                }
+                """;
+            WriteGlb(path, json, binaryBytes);
+        }
+
+        private static void WriteGlb(string path, string json, byte[] binaryBytes)
+        {
+            byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
+            int jsonLength = (jsonBytes.Length + 3) & ~3;
+            int binLength = (binaryBytes.Length + 3) & ~3;
+            int totalLength = checked(12 + 8 + jsonLength + 8 + binLength);
+            using var stream = File.Create(path);
+            using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: false);
+            writer.Write(0x46546C67u);
+            writer.Write(2u);
+            writer.Write((uint)totalLength);
+            writer.Write((uint)jsonLength);
+            writer.Write(0x4E4F534Au);
+            writer.Write(jsonBytes);
+            for (int i = jsonBytes.Length; i < jsonLength; i++) writer.Write((byte)' ');
+            writer.Write((uint)binLength);
+            writer.Write(0x004E4942u);
+            writer.Write(binaryBytes);
+            for (int i = binaryBytes.Length; i < binLength; i++) writer.Write((byte)0);
         }
 
         private static void WriteTriangleGlb(string path)
@@ -221,26 +373,7 @@ namespace MphRead.Mods.Render.Characters
                   "nodes":[{"name":"Body","mesh":0}]
                 }
                 """;
-            byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
-            int jsonLength = (jsonBytes.Length + 3) & ~3;
-            int binLength = (binaryBytes.Length + 3) & ~3;
-            int totalLength = checked(12 + 8 + jsonLength + 8 + binLength);
-
-            using var stream = File.Create(path);
-            using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: false);
-            writer.Write(0x46546C67u);
-            writer.Write(2u);
-            writer.Write((uint)totalLength);
-
-            writer.Write((uint)jsonLength);
-            writer.Write(0x4E4F534Au);
-            writer.Write(jsonBytes);
-            for (int i = jsonBytes.Length; i < jsonLength; i++) writer.Write((byte)' ');
-
-            writer.Write((uint)binLength);
-            writer.Write(0x004E4942u);
-            writer.Write(binaryBytes);
-            for (int i = binaryBytes.Length; i < binLength; i++) writer.Write((byte)0);
+            WriteGlb(path, json, binaryBytes);
         }
     }
 }
