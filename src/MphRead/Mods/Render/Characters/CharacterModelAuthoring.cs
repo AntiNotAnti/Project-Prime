@@ -84,6 +84,15 @@ namespace MphRead.Mods.Render.Characters
                 JsonSerializer.Serialize(StarterEntry(hunter, CharacterModelPart.Biped,
                     hunterFolder + "/biped_lod1.glb", bipedLod1, lod: 1), Json));
             Directory.CreateDirectory(Path.Combine(starterRoot, hunterFolder));
+            File.WriteAllText(Path.Combine(root, "prepare-biped-rigid.py"),
+                CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.Biped, biped,
+                    $"starter/{hunterFolder}/biped.glb"));
+            File.WriteAllText(Path.Combine(root, "prepare-biped-lod1-rigid.py"),
+                CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.Biped, bipedLod1,
+                    $"starter/{hunterFolder}/biped_lod1.glb"));
+            File.WriteAllText(Path.Combine(root, "prepare-viewmodel-rigid.py"),
+                CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.ViewModel, viewModel,
+                    $"starter/{hunterFolder}/viewmodel.glb"));
             File.WriteAllText(Path.Combine(root, "README.md"),
                 Readme(hunter, biped, bipedLod1, viewModel, alternate));
 
@@ -147,7 +156,7 @@ namespace MphRead.Mods.Render.Characters
             return entry;
         }
 
-        private static IReadOnlyList<string> RigidNodeNames(Model model)
+        internal static IReadOnlyList<string> RigidNodeNames(Model model)
         {
             IEnumerable<int> ids;
             if (model.NodeMatrixIds.Count > 0)
@@ -309,6 +318,18 @@ Generated from the currently configured extracted game data.
 The generated Blender scripts already reconstruct the native armature and assign
 vertices to native node groups from the MPH matrix IDs. Use those exports as the
 proportion/pose reference.
+
+The kit also contains `prepare-biped-rigid.py`,
+`prepare-biped-lod1-rigid.py`, and `prepare-viewmodel-rigid.py`. After the
+corresponding native Blender import is loaded and your upgraded mesh is bound to
+those native rigid groups, run the helper. It evaluates the current armature
+pose, converts every segment back into native bone-local coordinates, preserves
+UV/material identity, rejects soft/missing weights and cross-bone triangles, and
+exports directly to the expected starter GLB path.
+
+Apply subdivision/remesh/topology-changing modifiers before running the helper.
+A live topology-changing modifier is rejected so vertex-group identity cannot
+silently drift.
 
 ## Rigid replacement contract
 
