@@ -23,7 +23,7 @@ namespace MphRead.Mods.Launcher.Gui
                 "Lobby rule controls have larger OFF/ON buttons. Settings uses a single category strip. Hunter previews stay behind dialogs, and team-mode rosters offer team arrows that respect team locks and available slots. These changes are included in this build."),
             new("ANNOUNCEMENTS", "JOIN THE PROJECT PRIME DISCORD",
                 "Stay connected with the Project Prime community.",
-                "Join the Discord using the button at the top of News. Follow project announcements, keep up with patch notes, and connect with other hunters."),
+                "Join the Discord using the button at the top of Home. Follow project announcements, keep up with patch notes, and connect with other hunters."),
             new("NEWS", "PERSISTENT MULTIPLAYER LOBBIES",
                 "Stay connected between matches.",
                 "Project Prime lobbies support up to eight players, owner controls, team layouts, optional ready checks and rematches. The active lobby indicator in the header brings you back to your session.")
@@ -58,6 +58,7 @@ namespace MphRead.Mods.Launcher.Gui
             var headline = PrimeChrome.HeroTitle("");
             var summary = PrimeChrome.Text("", 15, PrimeTheme.TextSecondaryBrush);
             var heroCopy = new StackPanel { Spacing = 10 };
+            PrimeMotionHandle? heroCopyMotion = null;
             PrimeDispatch? selected = null;
 
             var read = new PrimeButton("OPEN TRANSMISSION →",
@@ -83,7 +84,10 @@ namespace MphRead.Mods.Launcher.Gui
                 foreach (var (item, button) in articleButtons)
                     button.Selected = ReferenceEquals(item, article) || item == article;
                 if (animate && TopLevel.GetTopLevel(heroCopy) != null)
-                    PrimeMotion.Enter(heroCopy, 5, 0.14);
+                {
+                    heroCopyMotion?.Cancel();
+                    heroCopyMotion = PrimeMotion.Enter(heroCopy, 5, 0.14);
+                }
             }
 
             void Show(string category)
