@@ -383,6 +383,14 @@ namespace MphRead.Mods
         public static bool TextureReplacements { get; set; }
 
         /// <summary>
+        /// Use validated local GLB geometry replacements for hunters and their
+        /// first-person/alternate presentation. Native MPH animation, collision,
+        /// networking and replays remain authoritative, and any missing/invalid
+        /// replacement falls back to the cartridge model.
+        /// </summary>
+        public static bool CharacterModelReplacements { get; set; }
+
+        /// <summary>
         /// Resolution/residency tier for authored HD assets. Automatic is conservative
         /// on Android and uses the 4K tier on desktop; the GPU's own maximum dimension
         /// is always a hard ceiling.
@@ -437,7 +445,11 @@ namespace MphRead.Mods
             InternalHdr = profile.InternalHdr;
             Reflections = profile.Reflections;
             DynamicGlow = profile.DynamicGlow;
-            if (preset == GraphicsPreset.Original) TextureReplacements = false;
+            if (preset == GraphicsPreset.Original)
+            {
+                TextureReplacements = false;
+                CharacterModelReplacements = false;
+            }
         }
 
         /// <summary>Apply a scale to one dimension, never below one pixel.</summary>
