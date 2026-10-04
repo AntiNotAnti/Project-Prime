@@ -99,7 +99,7 @@ namespace MphRead.Mods.Render
         private ModernGraphicsDevice(WebGPU api, Wgpu native, Instance* instance, Adapter* adapter, Device* device,
             Surface* surface, GraphicsBackend backend, uint nativeVersion, string adapterName,
             string driverDescription, DeviceErrors errors, bool compressionBc,
-            bool compressionEtc2, bool compressionAstc)
+            bool compressionEtc2, bool compressionAstc, bool multiDrawIndirect)
         {
             _errors = errors;
             _api = api;
@@ -115,6 +115,7 @@ namespace MphRead.Mods.Render
             SupportsTextureCompressionBc = compressionBc;
             SupportsTextureCompressionEtc2 = compressionEtc2;
             SupportsTextureCompressionAstc = compressionAstc;
+            SupportsMultiDrawIndirect = multiDrawIndirect;
         }
 
         public GraphicsBackend Backend { get; }
@@ -124,6 +125,7 @@ namespace MphRead.Mods.Render
         internal bool SupportsTextureCompressionBc { get; }
         internal bool SupportsTextureCompressionEtc2 { get; }
         internal bool SupportsTextureCompressionAstc { get; }
+        internal bool SupportsMultiDrawIndirect { get; }
 
         internal WebGPU Api => _api;
         internal Wgpu Native => _native;
@@ -269,11 +271,17 @@ namespace MphRead.Mods.Render
                     bool compressionBc = api.AdapterHasFeature(adapter, FeatureName.TextureCompressionBC);
                     bool compressionEtc2 = api.AdapterHasFeature(adapter, FeatureName.TextureCompressionEtc2);
                     bool compressionAstc = api.AdapterHasFeature(adapter, FeatureName.TextureCompressionAstc);
-                    FeatureName* requiredFeatures = stackalloc FeatureName[3];
+                    FeatureName multiDrawFeature =
+                        (FeatureName)NativeFeature.MultiDrawIndirect;
+                    bool multiDrawIndirect =
+                        api.AdapterHasFeature(adapter, multiDrawFeature);
+                    FeatureName* requiredFeatures = stackalloc FeatureName[4];
                     int requiredFeatureCount = 0;
                     if (compressionBc) requiredFeatures[requiredFeatureCount++] = FeatureName.TextureCompressionBC;
                     if (compressionEtc2) requiredFeatures[requiredFeatureCount++] = FeatureName.TextureCompressionEtc2;
                     if (compressionAstc) requiredFeatures[requiredFeatureCount++] = FeatureName.TextureCompressionAstc;
+                    if (multiDrawIndirect)
+                        requiredFeatures[requiredFeatureCount++] = multiDrawFeature;
                     var errors = new DeviceErrors();
                     var deviceDescriptor = new DeviceDescriptor
                     {
@@ -308,7 +316,8 @@ namespace MphRead.Mods.Render
                     string driver = PtrString(properties.DriverDescription, "Unknown driver");
                     return new ModernGraphicsDevice(api, native, instance, adapter, device, surface, backend,
                         native.GetVersion(), name, driver, errors, compressionBc,
-                        compressionEtc2, compressionAstc) { _surfaceFactory = surfaceFactory };
+                        compressionEtc2, compressionAstc, multiDrawIndirect)
+                        { _surfaceFactory = surfaceFactory };
                 }
                 catch
                 {
