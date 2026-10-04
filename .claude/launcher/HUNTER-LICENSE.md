@@ -23,18 +23,24 @@ Supabase Auth must allow anonymous sign-ins. If it is disabled, the UI stays usa
 
 ## UI
 
-`HubHunterLicenseView` follows the reference license-card layout:
+`LicenseWorkspace` is the hub-native player identity surface:
 
-- hunter portrait/preview + identity rail
-- Overview
-- Stats
-- Match History
-- Achievements
-- Emblems
-- Titles
-- Comparison
+- a persistent **License Holder** rail anchors the page with the live hunter model,
+  display name, Hunter ID, rating tier, favorite hunter, issue month and secured/guest state;
+- Overview leads with authoritative career record, Matches / Win Rate / K-D / Play Time,
+  deterministic **Recent Form** from the five newest accepted matches, career highlights
+  and the four latest accepted-match cards;
+- Stats keeps the full career/combat/objective breakdown;
+- Match History shows the 25 most recent accepted matches and their career eligibility;
+- Achievements are deterministic milestones derived from authoritative career totals;
+- Customization continues to use the existing authenticated cosmetic loadout flow;
+- Account / Secure License continues to upgrade or recover the same Supabase identity;
+- Emblems and Titles remain catalog foundations until a real identity catalog exists;
+- Comparison remains a privacy-safe per-match benchmark until profile visibility rules exist.
 
-Overview, stats and history are live. Achievements are deterministic milestones derived from authoritative career totals. Emblems/titles are intentionally presented as catalog foundations until the corresponding schema/catalog exists, rather than inventing a second source of truth.
+The UI never invents accuracy, medals, public rankings or per-hunter career breakdowns that
+are not present in the Hunter License snapshot. Recent Form is presentation-only arithmetic
+over the accepted match list and cannot write career state.
 
 ## Identity note
 
