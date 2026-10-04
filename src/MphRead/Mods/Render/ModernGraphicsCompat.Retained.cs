@@ -364,7 +364,7 @@ namespace MphRead.Mods.Render
                 _api.RenderPassEncoderSetStencilReference(pass, (uint)_stencilReference);
             uint retainedIndexCount = (uint)geometry.Triangles.Length;
             if (!TryDrawRetainedIndexedIndirect(
-                pass, retainedIndexCount, item.RetainedRoomOwned))
+                pass, retainedIndexCount, item))
             {
                 _api.RenderPassEncoderDrawIndexed(
                     pass, retainedIndexCount, 1, 0, 0, 0);
