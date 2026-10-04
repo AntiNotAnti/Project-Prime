@@ -45,7 +45,8 @@ namespace MphRead.Mods.MapGen
             ushort MaterialId,
             ushort MinimumTextureId);
 
-        internal static bool IsAnimated(MapMaterial material) => material.Animation != null;
+        internal static bool IsAnimated(MapMaterial material) =>
+            HasUvAnimation(material) || material.Animation?.FlipbookFrames?.Count > 0;
 
         internal static bool HasUvAnimation(MapMaterial material)
         {
