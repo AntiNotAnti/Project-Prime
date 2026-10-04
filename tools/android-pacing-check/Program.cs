@@ -76,10 +76,14 @@ foreach (int cap in new[] { 30, 60, 90, 120, 144, 500 })
 {
     var pacer = new AndroidFramePacer(500);
     pacer.Reset(0);
+    Check(pacer.Deadline(0, -1) == 0, "Unlimited starts without a software deadline");
+    pacer.BeginFrame(0);
+    Check(pacer.Deadline(0.0001, -1) <= 0.0001,
+        "Unlimited does not inherit the old 500Hz safety ceiling");
     pacer.Deadline(0, 0);
     pacer.BeginFrame(0);
     Check(Math.Abs(pacer.Deadline(0.0001, 0) - .002) < 1e-9,
-        "nonblocking presentation retains 500Hz safety ceiling");
+        "nonblocking Display retains the 500Hz runaway safety ceiling");
     pacer.Deadline(0.01, 30);
     pacer.BeginFrame(0.01);
     Check(pacer.Deadline(0.015, 120) == 0.015, "cap changes discard the old render deadline");

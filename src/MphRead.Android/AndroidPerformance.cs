@@ -73,7 +73,7 @@ namespace MphRead.Droid
                 && String.Equals(settings.TextureUpscale, "off", StringComparison.OrdinalIgnoreCase)
                 && String.Equals(settings.TextureQuality, "automatic", StringComparison.OrdinalIgnoreCase);
 
-            int savedCap = FrameTiming.ParseCap(settings.FrameRateCap, FrameTiming.DisplayRate);
+            int savedCap = FrameTiming.ParseSavedCap(settings.FrameRateCap, FrameTiming.DisplayRate);
             int savedScale = RenderOptions.ParseScale(settings.ResolutionScale, 100);
             bool legacyBalanced = String.Equals(settings.AndroidPerformanceProfile,
                     LegacyBalancedProfile, StringComparison.OrdinalIgnoreCase)
@@ -185,6 +185,10 @@ namespace MphRead.Droid
             if (cap == FrameTiming.DisplayRate)
             {
                 return true;
+            }
+            if (cap == FrameTiming.Unlimited)
+            {
+                return false;
             }
 
             int requested = Math.Clamp(cap, FrameTiming.MinCap, FrameTiming.MaxCap);
@@ -392,7 +396,7 @@ namespace MphRead.Droid
                 + $">20/33/50 {over20}/{over33}/{over50} of {count}; "
                 + $"alloc {_allocatedBytes / 1024.0:0.0} KiB; "
                 + $"{width}x{height} world {RenderOptions.ResolutionScale}% cap "
-                + $"{(FrameTiming.FrameRateCap == FrameTiming.DisplayRate ? "display" : FrameTiming.FrameRateCap.ToString())} "
+                + $"{FrameTiming.CapString(FrameTiming.FrameRateCap)} "
                 + $"display active/max {ActiveDisplayRefreshRate:0.#}/{DisplayRefreshRate:0.#} Hz "
                 + $"thermal {_thermalStatus} app-governor off");
             _lastGcCounts[0] = gc0; _lastGcCounts[1] = gc1; _lastGcCounts[2] = gc2;

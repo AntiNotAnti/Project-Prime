@@ -227,7 +227,7 @@ namespace MphRead.Mods.Launcher.Gui
             ("180 fps", 180),
             ("200 fps", 200),
             ("240 fps", 240),
-            ("Unlimited", FrameTiming.MaxCap)
+            ("Unlimited", FrameTiming.Unlimited)
         };
 
         private static int FpsLimitStopIndex(int cap)
@@ -241,7 +241,7 @@ namespace MphRead.Mods.Launcher.Gui
             // table: land on the nearest stop that does not exceed what was
             // asked for, rather than silently jumping to the default.
             int best = 0;
-            for (int i = 1; i < _fpsLimitStops.Length; i++)
+            for (int i = 1; i + 1 < _fpsLimitStops.Length; i++)
             {
                 if (_fpsLimitStops[i].Cap <= cap)
                 {

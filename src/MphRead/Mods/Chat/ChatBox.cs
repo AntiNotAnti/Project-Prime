@@ -267,6 +267,7 @@ namespace MphRead.Mods.Chat
                 ResetHistory();
             }
             Composing = false;
+            Input.GamepadContexts.TextEntryActive = false;
             _swallowNextChar = false;
         }
 
@@ -341,6 +342,7 @@ namespace MphRead.Mods.Chat
                 ResetHistory();
             }
             Composing = true;
+            Input.GamepadContexts.TextEntryActive = true;
             _swallowNextChar = swallowOpeningChar;
         }
 
@@ -352,6 +354,7 @@ namespace MphRead.Mods.Chat
                 ResetHistory();
             }
             Composing = false;
+            Input.GamepadContexts.TextEntryActive = false;
             _swallowNextChar = false;
             _justClosed = true;
         }
@@ -375,6 +378,7 @@ namespace MphRead.Mods.Chat
                 ResetHistory();
             }
             Composing = false;
+            Input.GamepadContexts.TextEntryActive = false;
             _swallowNextChar = false;
             _justClosed = true;
             if (text.Length == 0)

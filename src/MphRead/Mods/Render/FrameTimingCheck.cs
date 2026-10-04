@@ -96,10 +96,20 @@ namespace MphRead.Mods.Render
                     Seconds = 300,
                     FrameTime = i => (i % 7 == 0 ? 2 : 1) / 144.0,
                     MaxStepsInOneFrame = 2
+                },
+                new Case
+                {
+                    // Unlimited has no presentation deadline. Exercise the
+                    // fixed-step arithmetic far beyond the old 500 FPS ceiling.
+                    Name = "1500 Hz unlimited drawing",
+                    Seconds = 120,
+                    FrameTime = _ => 1 / 1500.0,
+                    MaxStepsInOneFrame = 1
                 }
             };
 
             int failures = 0;
+            failures += RunCapPolicyCase() ? 0 : 1;
             foreach (Case test in cases)
             {
                 failures += RunCase(test) ? 0 : 1;
@@ -117,6 +127,43 @@ namespace MphRead.Mods.Render
                 ? "FRAMETIMING all cases pass"
                 : $"FRAMETIMING {failures} case(s) FAILED");
             return failures;
+        }
+
+        private static bool RunCapPolicyCase()
+        {
+            int priorCap = FrameTiming.FrameRateCap;
+            try
+            {
+                FrameTiming.FrameRateCap = FrameTiming.Unlimited;
+                bool ok = FrameTiming.FrameRateCap == FrameTiming.Unlimited
+                    && FrameTiming.HighRefreshPresentation
+                    && FrameTiming.ParseCap("unlimited", 144) == FrameTiming.Unlimited
+                    && FrameTiming.ParseCap("UNCAPPED", 144) == FrameTiming.Unlimited
+                    && FrameTiming.ParseCap(" -1 ", 144) == FrameTiming.Unlimited
+                    && FrameTiming.ParseCap(FrameTiming.CapString(FrameTiming.Unlimited), 144)
+                        == FrameTiming.Unlimited
+                    && FrameTiming.ParseCap(FrameTiming.CapString(FrameTiming.DisplayRate), 144)
+                        == FrameTiming.DisplayRate
+                    && FrameTiming.ParseCap(FrameTiming.CapString(144), 60) == 144
+                    && FrameTiming.ParseCap("500", 144) == 500
+                    && FrameTiming.ParseSavedCap("500", 144) == FrameTiming.Unlimited
+                    && FrameTiming.ParseSavedCap("240", 144) == 240
+                    && FrameTiming.ParseSavedCap("invalid", 144) == 144
+                    && FrameTiming.CapString(FrameTiming.Unlimited) == "unlimited";
+
+                FrameTiming.FrameRateCap = -2;
+                ok &= FrameTiming.FrameRateCap == FrameTiming.DisplayRate;
+
+                Console.WriteLine($"FRAMETIMING {(ok ? "ok  " : "FAIL")} "
+                    + "unlimited cap round-trip and legacy Settings migration");
+                return ok;
+            }
+            finally
+            {
+                FrameTiming.FrameRateCap = priorCap;
+                FrameTiming.Reset();
+                FrameTiming.ResetDiagnostics();
+            }
         }
 
         private static bool RunCase(Case test)

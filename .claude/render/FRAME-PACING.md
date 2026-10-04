@@ -223,15 +223,19 @@ before the simulation ever saw it.
 | Where | What |
 |---|---|
 | Launcher → Settings → Performance | **FPS limit**, a slider directly under Render scale over the stops Display (VSync) / 30 / 60 / 75 / 90 / 100 / 120 / 144 / 165 / 180 / 200 / 240 / Unlimited |
-| `settings.json` | `FrameRateCap` (`display` or a number) |
-| `-fpscap N` / `-fpscap display` | for the paths that never open a launcher |
+| `settings.json` | `FrameRateCap` (`display`, `unlimited`, or a number) |
+| `-fpscap N` / `-fpscap display` / `-fpscap unlimited` | for the paths that never open a launcher |
 
 **Display (VSync) is the default**, and is the only tear-free setting: an
 explicit number turns VSync off, because asking for 120 on a 144 Hz screen with
-VSync on gets you 72. OpenTK 4.9 no longer separates its update and render
-ticks -- `RenderFrequency` is deprecated and the two callbacks fire together --
-so `UpdateFrequency` on the window is the *frame* rate, and 0 means "as fast as
-it will go".
+VSync on gets you 72. **Unlimited is genuinely uncapped**: it also requests
+nonblocking presentation where the backend exposes it and installs no software
+frame deadline. The old Settings UI stored its Unlimited choice as numeric 500;
+saved `500` values migrate to `unlimited`, while an explicit CLI
+`-fpscap 500` remains a real 500 FPS cap. OpenTK 4.9 no longer separates its
+update and render ticks -- `RenderFrequency` is deprecated and the two callbacks
+fire together -- so `UpdateFrequency` on the window is the *frame* rate, and 0
+means "as fast as it will go".
 
 The on-screen FPS counter reports the **picture**, since `CountFrame` runs in
 `Scene.OnRenderFrame`. The simulation rate is not visible to a player at all,
