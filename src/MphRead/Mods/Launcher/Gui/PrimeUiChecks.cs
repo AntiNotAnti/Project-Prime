@@ -109,6 +109,118 @@ namespace MphRead.Mods.Launcher.Gui
             finally { window.Close(); }
         }
 
+        private static void CheckHunterLicenseIdentitySurface()
+        {
+            var license = new LicenseWorkspace(loadProfile: false);
+            var window = new Window
+            {
+                Width = 1280,
+                Height = 720,
+                Content = license,
+                ShowInTaskbar = false,
+                Position = new PixelPoint(-4000, -4000),
+                WindowStartupLocation = WindowStartupLocation.Manual
+            };
+            var flags = System.Reflection.BindingFlags.Instance
+                | System.Reflection.BindingFlags.NonPublic;
+            var face = typeof(LicenseWorkspace).GetNestedType(
+                "Face", System.Reflection.BindingFlags.NonPublic)!;
+            var snapshot = new HunterLicenseSnapshot
+            {
+                Connected = true,
+                Status = "SYNCED",
+                Account = new HunterLicenseAccount
+                {
+                    IsAnonymous = false,
+                    Email = "hunter@example.com",
+                    Providers = new List<string> { "email" }
+                },
+                Profile = new HunterLicenseProfile
+                {
+                    PlayerId = "12345678-1111-2222-3333-444444444444",
+                    DisplayName = "Fixture Hunter",
+                    FavoriteHunter = (int)Hunter.Trace,
+                    CreatedAt = new DateTimeOffset(2026, 1, 15, 0, 0, 0, TimeSpan.Zero),
+                    RatingPoints = 1234,
+                    RatingTier = 4
+                },
+                Stats = new HunterLicenseStats
+                {
+                    GamesPlayed = 12,
+                    Wins = 7,
+                    Losses = 4,
+                    Ties = 1,
+                    Kills = 96,
+                    Deaths = 48,
+                    Assists = 31,
+                    Damage = 15420,
+                    PlayedTicks = 60 * 60 * 3,
+                    Headshots = 22,
+                    LongestKillStreak = 8,
+                    CurrentWinStreak = 2,
+                    LongestWinStreak = 4,
+                    OctolithScores = 6,
+                    NodesCaptured = 11,
+                    KillsAsPrime = 9
+                }
+            };
+            bool[] results = { true, true, false, true, false };
+            bool[] ties = { false, false, false, false, true };
+            for (int i = 0; i < 5; i++)
+            {
+                snapshot.Matches.Add(new HunterLicenseMatch
+                {
+                    MatchId = "fixture-" + i,
+                    PlayedAt = DateTimeOffset.UtcNow.AddMinutes(-i * 10),
+                    RoomKey = i == 0 ? "MP1 SANCTORUS" : "MP3 PROVING GROUND",
+                    Mode = (int)GameMode.Battle,
+                    CareerEligible = true,
+                    Eligible = true,
+                    Won = results[i],
+                    Tied = ties[i],
+                    PlayedTicks = 60 * 300,
+                    Kills = 10 - i,
+                    Deaths = 4 + i,
+                    Assists = 2,
+                    Damage = 1200 - i * 50
+                });
+            }
+
+            try
+            {
+                window.Show();
+                typeof(LicenseWorkspace).GetField("_snapshot", flags)!
+                    .SetValue(license, snapshot);
+                typeof(LicenseWorkspace).GetMethod("ApplySnapshot", flags)!
+                    .Invoke(license, new object[] { snapshot });
+                typeof(LicenseWorkspace).GetMethod("Show", flags)!
+                    .Invoke(license, new[] { Enum.Parse(face, "Overview") });
+                Drain(window);
+
+                string[] texts = license.GetVisualDescendants().OfType<TextBlock>()
+                    .Select(block => block.Text ?? "").ToArray();
+                Check(texts.Any(text => text.Contains("FIXTURE HUNTER", StringComparison.Ordinal)),
+                    "Hunter License renders the license holder identity");
+                Check(texts.Any(text => text.Contains("FAVORITE HUNTER", StringComparison.Ordinal)
+                    && text.Contains("TRACE", StringComparison.Ordinal)),
+                    "Hunter License renders authoritative favorite hunter");
+                Check(texts.Any(text => text.Contains("TIER 4", StringComparison.Ordinal)),
+                    "Hunter License surfaces the rating tier");
+                Check(texts.Any(text => text.Contains("3 W / 1 L / 1 T", StringComparison.Ordinal)),
+                    "Hunter License recent form is computed from accepted matches");
+                Check(texts.Any(text => text.Contains("LATEST // WIN", StringComparison.Ordinal)
+                    && text.Contains("SANCTORUS", StringComparison.OrdinalIgnoreCase)),
+                    "Hunter License identifies the latest accepted match");
+                Check(license.GetVisualDescendants().OfType<HunterStand>().Single().Name2
+                    == Hunter.Trace.ToString(),
+                    "Hunter License presentation follows favorite hunter");
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+
         private static void CheckLicenseAccountFeedback()
         {
             var license = new LicenseWorkspace(loadProfile: false);
@@ -407,6 +519,7 @@ namespace MphRead.Mods.Launcher.Gui
                         "legacy borderless preferences remain valid");
                     CheckCosmeticThumbnailReentry();
                     CheckCosmeticPreviewModes();
+                    CheckHunterLicenseIdentitySurface();
                     CheckLicenseAccountFeedback();
                     CheckCommunityMapPicker();
                     CheckSavedLobbyLimits();

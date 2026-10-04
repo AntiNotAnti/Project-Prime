@@ -268,7 +268,24 @@ Create Lobby + Offline Match Setup presentation slice implemented:
   trainer definitions, hosted lobby allocation and local dedicated-server authority remain unchanged;
 - compact layouts stack the same regions rather than introducing a second phone-specific flow.
 
-Next presentation work: Hunter License / player identity, then global responsive/error-state and motion/audio polish.
+Hunter License / player identity presentation slice implemented:
+
+- the page now anchors on a persistent **License Holder** rail with hunter presentation,
+  display name, Hunter ID, rating tier, favorite hunter, issue month and account state;
+- Overview leads with Matches / Win Rate / K-D / Play Time instead of burying the core
+  career readout below utility navigation;
+- **Recent Form** is calculated from the five newest accepted matches and shows W/L/T,
+  recent K-D, assists, damage and the latest accepted arena/mode;
+- career highlights expose headshots, streaks, damage and supported objective totals;
+- recent accepted matches remain visible directly from Overview while full History,
+  Stats, Achievements, Customization, Account, Emblems, Titles and Comparison retain
+  their existing authority paths;
+- phone-landscape uses the same identity rail with a reduced hunter viewport rather
+  than a separate mobile profile implementation;
+- no client-authored career stat, fake accuracy metric, medal catalog or public ranking
+  was introduced.
+
+Next presentation work: global responsive/error-state polish, then motion/audio polish.
 
 ## P3 — renderer/performance
 
