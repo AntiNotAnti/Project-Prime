@@ -116,14 +116,14 @@ namespace MphRead.Mods
         public static string PerformanceSummary(MenuSettings settings)
         {
             int scale = RenderOptions.ParseScale(settings.ResolutionScale, 100);
-            int cap = Render.FrameTiming.ParseCap(settings.FrameRateCap, Render.FrameTiming.DisplayRate);
+            int cap = Render.FrameTiming.ParseSavedCap(settings.FrameRateCap, Render.FrameTiming.DisplayRate);
             int width = LauncherPrefs.WindowWidth;
             int height = LauncherPrefs.WindowHeight;
             string target = width > 0 && height > 0
                 ? $"{Math.Max(1, width * scale / 100)}x{Math.Max(1, height * scale / 100)}"
                 : $"{scale}% of the current framebuffer";
             return $"render scale={scale}% (target {target}), "
-                + $"fps limit={(cap == Render.FrameTiming.DisplayRate ? "display/vsync" : cap.ToString(CultureInfo.InvariantCulture))}, "
+                + $"fps limit={(cap == Render.FrameTiming.DisplayRate ? "display/vsync" : Render.FrameTiming.CapString(cap))}, "
                 + $"sampling={settings.TextureSampling}, filtering={settings.TextureFiltering}, "
                 + $"mipmaps={settings.TextureMipmaps}, anisotropy={settings.TextureAnisotropy}x, "
                 + $"cel={settings.CelShading}, "
