@@ -894,9 +894,10 @@ namespace MphRead.Mods.Launcher.Gui
 
             if (found == 0)
             {
-                _searchResults.Children.Add(PrimeChrome.Text(
-                    $"No settings match “{query}”.",
-                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+                _searchResults.Children.Add(new PrimeStatePanel(
+                    PrimeStateKind.Empty,
+                    "NO SETTINGS MATCH",
+                    $"No setting name, category or help text matches “{query}”."));
             }
             _searchResultsHost.IsVisible = true;
         }
