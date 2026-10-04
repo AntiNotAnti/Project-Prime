@@ -196,8 +196,26 @@ Implemented as a first-class Home destination in `HubReplayStudioView`:
 - responsive desktop/phone layout
 - direct playback into the existing Replay Studio in-match controls
 
-Still to add: richer filtering/search, thumbnail timeline cards, batch operations,
-and library-level highlight/analytics summaries.
+Implemented Replay Studio presentation slice:
+
+- archive rows use a richer two-line card presentation while remaining backed by the
+  existing virtualizing `ListBox`; the 5,000-item library check still bounds realized
+  controls instead of eagerly constructing the archive;
+- Smart View adds dedicated highlight, bookmark, long-session and short-clip filters
+  on top of the existing replay/clip/favorite/recent/map/player/annotation views;
+- the selected replay is presented as a cinematic artwork-backed review hero with
+  replay type, duration, arena and recording-time context;
+- up to three deterministic replay thumbnails form a selectable timeline-still strip
+  without adding an idle slideshow or perpetual Avalonia redraw;
+- archive insights summarize full replays, clips, favorites, named highlights,
+  bookmarks, recovery items and current-view duration;
+- batch **Favorite Filtered** and **Check Filtered** actions operate on the current
+  in-memory result set with explicit 200/50-item safety bounds;
+- rename, tags/collections, integrity, recovery, export, delete, folder reveal and
+  launch into the existing deterministic cinematic editor remain the same authority
+  paths as before.
+
+Next presentation slices: Map Studio, then pause/results.
 
 ### Pause/results
 

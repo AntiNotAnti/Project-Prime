@@ -208,6 +208,10 @@ namespace MphRead.Mods.Launcher.Gui
             GamepadChecks.Check(ControllerNav.Find(replayStudio, "studio.import")
                 is { IsEffectivelyVisible: true },
                 "Replay Studio exposes Import");
+            GamepadChecks.Check(replayStudio.GetVisualDescendants().OfType<PrimeHeroPanel>().Any()
+                && ControllerNav.Find(replayStudio, "studio.batch.favorite") != null
+                && ControllerNav.Find(replayStudio, "studio.batch.validate") != null,
+                "Replay Studio exposes cinematic review and batch archive actions");
             GamepadChecks.Check(
                 LauncherBackdrop.Scene == LauncherBackdropScene.ReplayStudio,
                 "Replay Studio selects its cinematic backdrop");

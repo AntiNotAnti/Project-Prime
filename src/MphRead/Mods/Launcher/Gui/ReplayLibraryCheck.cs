@@ -27,6 +27,8 @@ internal static class ReplayLibraryCheck
                         throw new InvalidOperationException("Library capture failed.");
                     if (view.ShownCount != count || view.MaximumRealizedRows is <= 0 or >= 100)
                         throw new InvalidOperationException($"Library failed virtualization: {count} entries, {view.MaximumRealizedRows} controls.");
+                    if (!view.InsightText.Contains($"{count} REPLAYS", StringComparison.Ordinal))
+                        throw new InvalidOperationException("Library insights did not summarize the loaded archive.");
                     started = Stopwatch.GetTimestamp(); view.SearchCheck($"Replay {count-1:D5}");
                     double search = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
                     if (view.ShownCount != 1) throw new InvalidOperationException("Library memory search returned the wrong rows.");

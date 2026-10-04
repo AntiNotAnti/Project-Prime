@@ -34,7 +34,17 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBlock _metadata;
         private readonly TextBlock _status;
         private readonly TextBlock _summary;
+        private readonly TextBlock _insights;
+        private readonly TextBlock _heroMeta;
         private readonly Image _preview = new() { Stretch = Stretch.UniformToFill };
+        private readonly PrimeHeroPanel _hero;
+        private readonly StackPanel _thumbnailStrip = new()
+        {
+            Orientation = Orientation.Horizontal,
+            Spacing = 6
+        };
+        private readonly List<Bitmap> _thumbnailBitmaps = new();
+        private readonly List<Button> _thumbnailButtons = new();
         private readonly DeckField _search;
         private readonly ChoiceRow _filter;
         private readonly ChoiceRow _sort;
@@ -47,6 +57,8 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly HubNavButton _recover;
         private readonly HubNavButton _export;
         private readonly HubNavButton _delete;
+        private readonly PrimeButton _favoriteFiltered;
+        private readonly PrimeButton _validateFiltered;
 #if !ANDROID
         private readonly HubNavButton _reveal;
 #endif
@@ -60,6 +72,8 @@ namespace MphRead.Mods.Launcher.Gui
         private long _selectionGeneration;
         private bool _launching;
         private bool _populating;
+        private bool _batchBusy;
+        private ReplayLibraryEntry[] _shownEntries = Array.Empty<ReplayLibraryEntry>();
 
         private Bitmap? _bitmap;
         private string[] _previewPaths = Array.Empty<string>();
@@ -79,6 +93,8 @@ namespace MphRead.Mods.Launcher.Gui
             bool Recoverable,
             bool Annotated,
             bool Organized,
+            int BookmarkCount,
+            int HighlightCount,
             string Room,
             string Players,
             string SearchText);
@@ -131,15 +147,16 @@ namespace MphRead.Mods.Launcher.Gui
             root.Children.Add(HubChrome.Header(
                 "HOME  /  REPLAY STUDIO",
                 "REPLAY STUDIO",
-                "Find the moment you want, inspect it, then open the cinematic editor.",
+                "Search the archive, inspect timeline stills and highlights, then open the cinematic editor.",
                 "LOCAL LIBRARY"));
 
             _search = new DeckField("", widthEms: 0,
                 watermark: "Search name, map, mode, player, annotation...");
             _filter = new ChoiceRow("Smart view",
                 new[] { "All", "Full replays", "Clips", "Favorites", "Recent 7 days",
-                    "Same map", "Same players", "Annotated", "Tagged / collected",
-                    "Needs recovery" }, 0);
+                    "Same map", "Same players", "Annotated", "Has highlights",
+                    "Has bookmarks", "Tagged / collected", "Long sessions (10m+)",
+                    "Short clips (<60s)", "Needs recovery" }, 0);
             _sort = new ChoiceRow("Sort",
                 new[] { "Newest", "Oldest", "Name", "Longest" }, 0);
             _summary = new TextBlock
@@ -148,6 +165,14 @@ namespace MphRead.Mods.Launcher.Gui
                 FontSize = 8.5,
                 Foreground = HubTheme.TextDimBrush,
                 VerticalAlignment = VerticalAlignment.Center
+            };
+            _insights = new TextBlock
+            {
+                Text = "ARCHIVE // SCANNING",
+                FontFamily = HubTheme.Data,
+                FontSize = 9.5,
+                Foreground = PrimeTheme.HighlightBrush,
+                TextWrapping = TextWrapping.Wrap
             };
 
             _searchTimer.Tick += (_, _) => { _searchTimer.Stop(); Populate(_selected); };
@@ -158,7 +183,10 @@ namespace MphRead.Mods.Launcher.Gui
 
             _list.ItemTemplate = new FuncDataTemplate<ReplayLibraryEntry>((entry, scope) =>
             {
-                var row = new UiListRow((entry.Favorite ? "★ " : "") + entry.Title, entry.Detail)
+                var row = new UiListRow(
+                    (entry.Favorite ? "★ " : "") + entry.Title,
+                    CardDetail(entry),
+                    spacious: true)
                     { Choice = entry.Path, Focusable = false };
                 row.Clicked += (_, _) => _list.SelectedItem = entry;
                 row.Activated += (_, _) => { _list.SelectedItem = entry; _ = WatchAsync(); };
@@ -185,16 +213,28 @@ namespace MphRead.Mods.Launcher.Gui
             Grid.SetColumn(_sort, 2);
             libraryControls.Children.Add(_sort);
 
+            _favoriteFiltered = new PrimeButton("FAVORITE FILTERED",
+                () => _ = FavoriteFilteredAsync(), compact: true)
+            { IsEnabled = false };
+            ControllerNav.Identify(_favoriteFiltered, "studio.batch.favorite");
+            _validateFiltered = new PrimeButton("CHECK FILTERED",
+                () => _ = ValidateFilteredAsync(), compact: true)
+            { IsEnabled = false };
+            ControllerNav.Identify(_validateFiltered, "studio.batch.validate");
+            var batchBar = PrimeChrome.Columns("*,*", _favoriteFiltered, _validateFiltered);
+
             var library = new Grid
             {
-                RowDefinitions = new RowDefinitions("Auto,Auto,*"),
+                RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"),
                 RowSpacing = 8
             };
-            library.Children.Add(libraryControls);
+            library.Children.Add(_insights);
             Grid.SetRow(_summary, 1);
             library.Children.Add(_summary);
             Grid.SetRow(_list, 2);
             library.Children.Add(_list);
+            Grid.SetRow(batchBar, 3);
+            library.Children.Add(batchBar);
 
             var listPanel = new Border
             {
@@ -226,6 +266,9 @@ namespace MphRead.Mods.Launcher.Gui
                 Foreground = HubTheme.TextBrush,
                 TextWrapping = TextWrapping.Wrap
             };
+            _heroMeta = PrimeChrome.Text(
+                "ARCHIVE STANDBY",
+                12, PrimeTheme.TextSecondaryBrush, data: true);
             _metadata = new TextBlock
             {
                 Text = "Record a match or import a replay to begin.",
@@ -234,18 +277,8 @@ namespace MphRead.Mods.Launcher.Gui
                 Foreground = HubTheme.TextDimBrush,
                 TextWrapping = TextWrapping.Wrap
             };
-            detailStack.Children.Add(_title);
+            detailStack.Children.Add(new PrimeBadge("REPLAY METADATA"));
             detailStack.Children.Add(_metadata);
-
-            detailStack.Children.Add(new Border
-            {
-                Height = 150,
-                Background = HubTheme.InkBrush,
-                BorderBrush = HubTheme.EdgeBrush,
-                BorderThickness = new Thickness(1),
-                ClipToBounds = true,
-                Child = _preview
-            });
 
             _rename = new DeckField("", widthEms: 0, watermark: "Display name");
             detailStack.Children.Add(_rename);
@@ -301,19 +334,42 @@ namespace MphRead.Mods.Launcher.Gui
                 Child = detailStack
             };
 
-            detailStack.Children.Remove(_title); detailStack.Children.Remove(_metadata);
-            if (_preview.Parent is Border previewFrame) { previewFrame.Child = null; detailStack.Children.Remove(previewFrame); }
-            // Thumbnail is a preview; live transport becomes available in the editor.
-            var viewer = new Grid { RowDefinitions = new("Auto,*,Auto"), RowSpacing = 12 };
-            viewer.Children.Add(_title);
-            Grid.SetRow(_preview, 1); viewer.Children.Add(_preview);
-            Grid.SetRow(_metadata, 2); viewer.Children.Add(_metadata);
-            library.Children.Remove(libraryControls);
+            detailStack.Children.Remove(_title);
+            // Thumbnail is a static preview; live transport becomes available in the editor.
+            // Keep the historical _preview Image alive for lifecycle tests while the hero
+            // uses the same selected bitmap as its background.
+            _preview.IsVisible = false;
+            _preview.Height = 0;
+            detailStack.Children.Add(_preview);
+
+            var heroCopy = new StackPanel
+            {
+                Spacing = 8,
+                VerticalAlignment = VerticalAlignment.Bottom,
+                MaxWidth = 720
+            };
+            heroCopy.Children.Add(PrimeChrome.Eyebrow("SELECTED REPLAY // REVIEW"));
+            heroCopy.Children.Add(_title);
+            heroCopy.Children.Add(_heroMeta);
+            _hero = new PrimeHeroPanel(heroCopy, minHeight: 260);
+
+            var timeline = new StackPanel { Spacing = 6 };
+            timeline.Children.Add(PrimeChrome.Eyebrow("TIMELINE STILLS"));
+            timeline.Children.Add(_thumbnailStrip);
+            var viewer = PrimeChrome.Stack(_hero, new PrimePanel(timeline) { Padding = new Thickness(10) });
+
             libraryControls.ColumnDefinitions = new("1.6*,1*,1*");
-            var body = PrimeChrome.Columns("1*,1.25*,1*", listPanel, new PrimePanel(viewer),
-                new ScrollViewer { Content = detailPanel, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled });
+            var body = PrimeChrome.Columns("1.05*,1.5*,1*", listPanel, viewer,
+                new ScrollViewer
+                {
+                    Content = detailPanel,
+                    HorizontalScrollBarVisibility =
+                        Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
+                });
             var archive = new Grid { RowDefinitions = new("Auto,*"), RowSpacing = 12 };
-            archive.Children.Add(libraryControls); Grid.SetRow(body, 1); archive.Children.Add(body);
+            archive.Children.Add(libraryControls);
+            Grid.SetRow(body, 1);
+            archive.Children.Add(body);
             Grid.SetRow(archive, 1); root.Children.Add(archive);
 
             var footer = new Grid
@@ -378,8 +434,10 @@ namespace MphRead.Mods.Launcher.Gui
             // A retained launcher view can be measured again on return from
             // playback. Detach the image before releasing its native bitmap.
             _preview.Source = null;
+            _hero.SetArt(null);
             _bitmap?.Dispose();
             _bitmap = null;
+            ClearThumbnailStrip();
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
@@ -432,6 +490,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         internal int MaximumRealizedRows { get; private set; }
         internal int ShownCount => (_list.ItemsSource as ReplayLibraryEntry[])?.Length ?? 0;
+        internal string InsightText => _insights.Text ?? "";
         internal void LoadCheckEntries(int count)
         {
             _libraryGeneration++; _entries.Clear();
@@ -439,7 +498,8 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 string name = $"Replay {i:D5}", path = Path.Combine(Path.GetTempPath(), "prime-library-check-model", name + ".ppdemo");
                 _entries.Add(new(path, name, "Battle · 05:00", DateTime.UnixEpoch.AddMinutes(i), 18000,
-                    false, i % 10 == 0, false, false, false, "Test arena", "Players", name));
+                    false, i % 10 == 0, false, false, false, 0, 0,
+                    "Test arena", "Players", name));
             }
             _list.LayoutUpdated += (_, _) => MaximumRealizedRows = Math.Max(MaximumRealizedRows,
                 _list.GetVisualDescendants().OfType<UiListRow>().Count());
@@ -488,7 +548,8 @@ namespace MphRead.Mods.Launcher.Gui
                 string people = demo.Metadata == null ? ""
                     : String.Join(" ", demo.Metadata.Players.Select(player => player.Name));
                 string mode = demo.Metadata?.Mode.ToString() ?? "";
-                string annotations = AnnotationSearchText(demo.Path);
+                string annotations = AnnotationSearchText(demo.Path,
+                    out int bookmarks, out int highlights);
                 string organization = OrganizationSearchText(demo.Path);
                 bool annotated = annotations.Length > 0;
                 bool organized = organization.Length > 0;
@@ -503,6 +564,8 @@ namespace MphRead.Mods.Launcher.Gui
                     recoverable,
                     annotated,
                     organized,
+                    bookmarks,
+                    highlights,
                     demo.Room,
                     people,
                     $"{demo.DisplayName} {demo.Room} {mode} {people} "
@@ -521,7 +584,8 @@ namespace MphRead.Mods.Launcher.Gui
                     : String.Join(" ", source.Metadata.Players.Select(player => player.Name));
                 string mode = source.Metadata?.Mode.ToString() ?? "";
                 uint duration = clip.EndFrame - clip.StartFrame;
-                string annotations = AnnotationSearchText(path);
+                string annotations = AnnotationSearchText(path,
+                    out int bookmarks, out int highlights);
                 string organization = OrganizationSearchText(path);
                 entries.Add(new ReplayLibraryEntry(
                     path,
@@ -530,13 +594,15 @@ namespace MphRead.Mods.Launcher.Gui
                     clip.CreatedUtc.ToLocalTime(),
                     duration,
                     IsClip: true,
-                    ReplayVirtualClips.IsFavorite(path),
+                    Favorite: ReplayVirtualClips.IsFavorite(path),
                     Recoverable: false,
                     Annotated: annotations.Length > 0,
                     Organized: organization.Length > 0,
-                    room,
-                    people,
-                    $"{clip.Name} {room} {mode} {people} "
+                    BookmarkCount: bookmarks,
+                    HighlightCount: highlights,
+                    Room: room,
+                    Players: people,
+                    SearchText: $"{clip.Name} {room} {mode} {people} "
                         + $"{annotations} {organization} {Path.GetFileName(clip.SourceReplay)}"));
             }
 
@@ -571,8 +637,12 @@ namespace MphRead.Mods.Launcher.Gui
                 6 => anchorPlayers.Length == 0 ? filtered
                     : filtered.Where(entry => SharesPlayer(entry.Players, anchorPlayers)),
                 7 => filtered.Where(entry => entry.Annotated),
-                8 => filtered.Where(entry => entry.Organized),
-                9 => filtered.Where(entry => entry.Recoverable),
+                8 => filtered.Where(entry => entry.HighlightCount > 0),
+                9 => filtered.Where(entry => entry.BookmarkCount > 0),
+                10 => filtered.Where(entry => entry.Organized),
+                11 => filtered.Where(entry => entry.DurationFrames >= 10 * 60 * 60),
+                12 => filtered.Where(entry => entry.IsClip && entry.DurationFrames < 60 * 60),
+                13 => filtered.Where(entry => entry.Recoverable),
                 _ => filtered
             };
             filtered = _sort.Index switch
@@ -584,6 +654,9 @@ namespace MphRead.Mods.Launcher.Gui
                 _ => filtered.OrderByDescending(entry => entry.Recorded)
             };
             ReplayLibraryEntry[] shown = filtered.ToArray();
+            _shownEntries = shown;
+            UpdateLibraryInsights(shown);
+            UpdateBatchActions(shown);
 
             _populating = true;
             _list.ItemsSource = shown;
@@ -611,11 +684,201 @@ namespace MphRead.Mods.Launcher.Gui
             Select(selected);
         }
 
-        private static string AnnotationSearchText(string path)
-            => String.Join(" ", ReplayAnnotations.Bookmarks(path)
-                .Select(bookmark => bookmark.Name)
-                .Concat(ReplayAnnotations.Highlights(path)
-                    .Select(highlight => highlight.Name)));
+        private static string CardDetail(ReplayLibraryEntry entry)
+        {
+            string kind = entry.Recoverable ? "RECOVERY"
+                : entry.IsClip ? "CLIP" : "REPLAY";
+            string annotations = entry.HighlightCount > 0
+                ? $"  //  {entry.HighlightCount} HIGHLIGHT{(entry.HighlightCount == 1 ? "" : "S")}"
+                : entry.BookmarkCount > 0
+                    ? $"  //  {entry.BookmarkCount} BOOKMARK{(entry.BookmarkCount == 1 ? "" : "S")}"
+                    : "";
+            string organized = entry.Organized ? "  //  ORGANIZED" : "";
+            return $"{kind}  //  {entry.Detail}{annotations}{organized}";
+        }
+
+        private void UpdateLibraryInsights(IReadOnlyList<ReplayLibraryEntry> shown)
+        {
+            int clips = _entries.Count(entry => entry.IsClip);
+            int full = _entries.Count - clips;
+            int favorites = _entries.Count(entry => entry.Favorite);
+            int highlights = _entries.Sum(entry => entry.HighlightCount);
+            int bookmarks = _entries.Sum(entry => entry.BookmarkCount);
+            int recovery = _entries.Count(entry => entry.Recoverable);
+            long viewFrames = shown.Sum(entry => (long)entry.DurationFrames);
+            _insights.Text =
+                $"ARCHIVE // {full} REPLAYS  /  {clips} CLIPS  /  {favorites} FAVORITES  /  "
+                + $"{highlights} HIGHLIGHTS  /  {bookmarks} BOOKMARKS"
+                + (recovery > 0 ? $"  /  {recovery} RECOVERY" : "")
+                + $"\nCURRENT VIEW // {shown.Count} ITEMS  /  {DurationSummary(viewFrames)}";
+        }
+
+        private static string DurationSummary(long frames)
+        {
+            TimeSpan span = TimeSpan.FromSeconds(Math.Max(0, frames) / 60d);
+            if (span.TotalHours >= 1)
+                return $"{(int)span.TotalHours}H {span.Minutes:00}M";
+            if (span.TotalMinutes >= 1)
+                return $"{(int)span.TotalMinutes}M {span.Seconds:00}S";
+            return $"{span.Seconds}S";
+        }
+
+        private void UpdateBatchActions(IReadOnlyList<ReplayLibraryEntry> shown)
+        {
+            int favoriteTargets = shown.Count(entry => !entry.Favorite && !entry.Recoverable);
+            int validateTargets = shown.Count(entry => !entry.Recoverable);
+            _favoriteFiltered.Label = favoriteTargets > 0
+                ? $"FAVORITE FILTERED // {favoriteTargets}"
+                : "FILTERED FAVORITES COMPLETE";
+            _validateFiltered.Label = validateTargets > 0
+                ? $"CHECK FILTERED // {validateTargets}"
+                : "CHECK FILTERED";
+
+            _favoriteFiltered.IsEnabled = !_batchBusy
+                && favoriteTargets > 0 && favoriteTargets <= 200;
+            _validateFiltered.IsEnabled = !_batchBusy
+                && validateTargets > 0 && validateTargets <= 50;
+
+            ToolTip.SetTip(_favoriteFiltered,
+                favoriteTargets > 200
+                    ? "Narrow the current view to 200 or fewer unfavorited items for batch favorite."
+                    : "Favorite every non-recovery item in the current filtered view.");
+            ToolTip.SetTip(_validateFiltered,
+                validateTargets > 50
+                    ? "Narrow the current view to 50 or fewer items for batch integrity checking."
+                    : "Validate every playable item in the current filtered view.");
+        }
+
+        private async Task FavoriteFilteredAsync()
+        {
+            if (_batchBusy) return;
+            ReplayLibraryEntry[] targets = _shownEntries
+                .Where(entry => !entry.Favorite && !entry.Recoverable)
+                .Take(201).ToArray();
+            if (targets.Length == 0) return;
+            if (targets.Length > 200)
+            {
+                _status.Text = "NARROW FILTER TO 200 OR FEWER ITEMS FOR BATCH FAVORITE";
+                _status.Foreground = HubTheme.WarmBrush;
+                return;
+            }
+
+            _batchBusy = true;
+            UpdateBatchActions(_shownEntries);
+            _status.Text = $"FAVORITING {targets.Length} FILTERED ITEMS...";
+            try
+            {
+                int changed = await ReplayStorageJobs.Run(() =>
+                {
+                    int count = 0;
+                    foreach (ReplayLibraryEntry entry in targets)
+                    {
+                        bool favorite = entry.Path.EndsWith(
+                            ReplayVirtualClips.Extension, StringComparison.OrdinalIgnoreCase)
+                                ? ReplayVirtualClips.IsFavorite(entry.Path)
+                                : File.Exists(entry.Path + ".favorite");
+                        if (favorite) continue;
+                        if (entry.Path.EndsWith(ReplayVirtualClips.Extension,
+                            StringComparison.OrdinalIgnoreCase))
+                            ReplayVirtualClips.ToggleFavorite(entry.Path);
+                        else
+                            DemoLibrary.ToggleFavorite(entry.Path);
+                        count++;
+                    }
+                    return count;
+                });
+                _status.Text = $"FAVORITED {changed} FILTERED ITEM{(changed == 1 ? "" : "S")}";
+                _status.Foreground = HubTheme.GoodBrush;
+                Reload(_selected);
+            }
+            catch (Exception ex) when (
+                ex is IOException or UnauthorizedAccessException)
+            {
+                Fail("Batch favorite failed: " + ex.Message);
+            }
+            finally
+            {
+                _batchBusy = false;
+                UpdateBatchActions(_shownEntries);
+            }
+        }
+
+        private async Task ValidateFilteredAsync()
+        {
+            if (_batchBusy) return;
+            ReplayLibraryEntry[] targets = _shownEntries
+                .Where(entry => !entry.Recoverable)
+                .Take(51).ToArray();
+            if (targets.Length == 0) return;
+            if (targets.Length > 50)
+            {
+                _status.Text = "NARROW FILTER TO 50 OR FEWER ITEMS FOR BATCH INTEGRITY";
+                _status.Foreground = HubTheme.WarmBrush;
+                return;
+            }
+
+            _batchBusy = true;
+            UpdateBatchActions(_shownEntries);
+            _status.Text = $"CHECKING {targets.Length} FILTERED ITEMS...";
+            try
+            {
+                (int healthy, int issues) = await ReplayStorageJobs.Run(() =>
+                {
+                    int healthy = 0, issues = 0;
+                    foreach (ReplayLibraryEntry entry in targets)
+                    {
+                        string source = entry.Path;
+                        bool virtualClip = source.EndsWith(
+                            ReplayVirtualClips.Extension, StringComparison.OrdinalIgnoreCase);
+                        if (virtualClip)
+                        {
+                            source = ReplayVirtualClips.ResolveForPlayback(
+                                entry.Path, out ReplayOpenResult opened) ?? "";
+                            if (source.Length == 0 || opened != ReplayOpenResult.Success)
+                            {
+                                issues++;
+                                continue;
+                            }
+                        }
+
+                        ReplayOpenResult result = ReplayArchive.Validate(source);
+                        if (!virtualClip)
+                            DemoLibrary.NoteValidation(entry.Path, result);
+                        if (result == ReplayOpenResult.Success) healthy++;
+                        else issues++;
+                    }
+                    return (healthy, issues);
+                });
+                _status.Text = issues == 0
+                    ? $"BATCH INTEGRITY // {healthy} HEALTHY"
+                    : $"BATCH INTEGRITY // {healthy} HEALTHY  /  {issues} NEED ATTENTION";
+                _status.Foreground = issues == 0
+                    ? HubTheme.GoodBrush : HubTheme.WarmBrush;
+                Reload(_selected);
+            }
+            catch (Exception ex) when (
+                ex is IOException or UnauthorizedAccessException
+                or InvalidDataException)
+            {
+                Fail("Batch integrity failed: " + ex.Message);
+            }
+            finally
+            {
+                _batchBusy = false;
+                UpdateBatchActions(_shownEntries);
+            }
+        }
+
+        private static string AnnotationSearchText(string path,
+            out int bookmarkCount, out int highlightCount)
+        {
+            var bookmarks = ReplayAnnotations.Bookmarks(path);
+            var highlights = ReplayAnnotations.Highlights(path);
+            bookmarkCount = bookmarks.Count;
+            highlightCount = highlights.Count;
+            return String.Join(" ", bookmarks.Select(bookmark => bookmark.Name)
+                .Concat(highlights.Select(highlight => highlight.Name)));
+        }
 
         private static bool SharesPlayer(string left, string right)
         {
@@ -664,6 +927,7 @@ namespace MphRead.Mods.Launcher.Gui
             if (path == null)
             {
                 _title.Text = "NO REPLAY SELECTED";
+                _heroMeta.Text = "ARCHIVE STANDBY";
                 _metadata.Text = "Record a match or import a replay to begin.";
                 _rename.Value = "";
                 _tags.Value = "";
@@ -687,6 +951,10 @@ namespace MphRead.Mods.Launcher.Gui
                 _rename.Value = clip.Name;
                 _tags.Value = String.Join(", ", ReplayAnnotations.Tags(path));
                 _collections.Value = String.Join(", ", ReplayAnnotations.Collections(path));
+                string clipRoom = RoomForSource(clip.SourceReplay) ?? "";
+                _heroMeta.Text =
+                    $"VIRTUAL CLIP  //  {ReplayHud.Time(clip.EndFrame - clip.StartFrame)}"
+                    + (clipRoom.Length > 0 ? $"  //  {clipRoom}" : "");
                 _metadata.Text =
                     $"VIRTUAL CLIP  /  {ReplayHud.Time(clip.EndFrame - clip.StartFrame)}\n"
                     + $"{ReplayHud.Time(clip.StartFrame)} – {ReplayHud.Time(clip.EndFrame)}\n"
@@ -695,7 +963,7 @@ namespace MphRead.Mods.Launcher.Gui
                     + OrganizationSummary(path);
                 _favorite.Label = ReplayVirtualClips.IsFavorite(path)
                     ? "UNFAVORITE" : "FAVORITE";
-                SetPreview(RoomForSource(clip.SourceReplay), clip.SourceReplay);
+                SetPreview(clipRoom, clip.SourceReplay);
                 return;
             }
 
@@ -705,6 +973,11 @@ namespace MphRead.Mods.Launcher.Gui
                 _rename.Value = demo.DisplayName;
                 _tags.Value = String.Join(", ", ReplayAnnotations.Tags(path));
                 _collections.Value = String.Join(", ", ReplayAnnotations.Collections(path));
+                _heroMeta.Text =
+                    $"{(demo.Metadata?.Type == ReplayType.Clip ? "CLIP" : "FULL REPLAY")}"
+                    + $"  //  {ReplayHud.Time(demo.DurationFrames)}"
+                    + (demo.Room.Length > 0 ? $"  //  {demo.Room}" : "")
+                    + $"  //  {demo.Recorded:g}";
                 _metadata.Text = $"{DemoLibrary.Describe(demo)}\n"
                     + DemoLibrary.Details(demo)
                     + AnnotationSummary(path)
@@ -715,6 +988,9 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             _title.Text = Path.GetFileName(path).ToUpperInvariant();
+            _heroMeta.Text = interrupted
+                ? "INTERRUPTED RECORDING  //  RECOVERY REQUIRED"
+                : "IMPORTED REPLAY";
             _rename.Value = Path.GetFileNameWithoutExtension(path);
             _tags.Value = "";
             _collections.Value = "";
@@ -747,8 +1023,10 @@ namespace MphRead.Mods.Launcher.Gui
         private void SetPreview(string? room, string? replay = null)
         {
             _preview.Source = null;
+            _hero.SetArt(null);
             _bitmap?.Dispose();
             _bitmap = null;
+            ClearThumbnailStrip();
             _previewIndex = 0;
             _previewPaths = Array.Empty<string>();
             _backdropRoom = room?.Trim() ?? "";
@@ -771,16 +1049,21 @@ namespace MphRead.Mods.Launcher.Gui
                     // Replay metadata remains useful even without a thumbnail.
                 }
             }
+            BuildThumbnailStrip();
             ShowPreview();
         }
 
         private void ShowPreview()
         {
             _preview.Source = null;
+            _hero.SetArt(null);
             _bitmap?.Dispose();
             _bitmap = null;
             if (_previewPaths.Length == 0)
+            {
+                _hero.SetArt(null);
                 return;
+            }
 
             try
             {
@@ -789,6 +1072,8 @@ namespace MphRead.Mods.Launcher.Gui
                 using var stream = new MemoryStream(File.ReadAllBytes(path));
                 _bitmap = new Bitmap(stream);
                 _preview.Source = _bitmap;
+                _hero.SetArt(_bitmap, 0.78);
+                RefreshThumbnailSelection();
             }
             catch (Exception ex) when (
                 ex is IOException or UnauthorizedAccessException
@@ -796,6 +1081,80 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 // A partially written still should not take down the library.
             }
+        }
+
+        private void BuildThumbnailStrip()
+        {
+            ClearThumbnailStrip();
+            if (_previewPaths.Length == 0)
+            {
+                _thumbnailStrip.Children.Add(PrimeChrome.Text(
+                    "No timeline stills are available yet. The arena preview remains available when map art exists.",
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+                return;
+            }
+
+            for (int i = 0; i < Math.Min(3, _previewPaths.Length); i++)
+            {
+                try
+                {
+                    using var stream = new MemoryStream(File.ReadAllBytes(_previewPaths[i]));
+                    Bitmap bitmap = Bitmap.DecodeToWidth(stream, 192);
+                    _thumbnailBitmaps.Add(bitmap);
+                    int index = i;
+                    var button = new Button
+                    {
+                        Height = 64,
+                        MinWidth = 96,
+                        MaxWidth = 160,
+                        Padding = new Thickness(2),
+                        Background = PrimeTheme.PanelBrush,
+                        BorderBrush = PrimeTheme.BorderBrush,
+                        BorderThickness = new Thickness(1),
+                        Content = new Image
+                        {
+                            Source = bitmap,
+                            Stretch = Stretch.UniformToFill
+                        }
+                    };
+                    ControllerNav.Identify(button, $"studio.thumbnail.{i}");
+                    ToolTip.SetTip(button, $"Timeline still {i + 1}");
+                    button.Click += (_, _) =>
+                    {
+                        _previewIndex = index;
+                        ShowPreview();
+                    };
+                    _thumbnailButtons.Add(button);
+                    _thumbnailStrip.Children.Add(button);
+                }
+                catch (Exception ex) when (
+                    ex is IOException or UnauthorizedAccessException
+                    or ArgumentException)
+                {
+                    // A missing optional still does not make the replay unusable.
+                }
+            }
+            RefreshThumbnailSelection();
+        }
+
+        private void RefreshThumbnailSelection()
+        {
+            for (int i = 0; i < _thumbnailButtons.Count; i++)
+            {
+                bool selected = i == _previewIndex;
+                _thumbnailButtons[i].Opacity = selected ? 1 : 0.62;
+                _thumbnailButtons[i].BorderBrush =
+                    selected ? PrimeTheme.HighlightBrush : PrimeTheme.BorderBrush;
+            }
+        }
+
+        private void ClearThumbnailStrip()
+        {
+            _thumbnailStrip.Children.Clear();
+            _thumbnailButtons.Clear();
+            foreach (Bitmap bitmap in _thumbnailBitmaps)
+                bitmap.Dispose();
+            _thumbnailBitmaps.Clear();
         }
 
         private void Rename()
