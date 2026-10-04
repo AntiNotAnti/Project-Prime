@@ -189,6 +189,16 @@ namespace MphRead.Mods.Launcher.Gui
                     showActions: false);
                 return;
             }
+            if (_communityFailed)
+            {
+                _directoryState.Set(
+                    PrimeStateKind.Error,
+                    "COMMUNITY MAPS UNAVAILABLE",
+                    (_communityError.Length > 0 ? _communityError + " " : "")
+                        + "Refresh Community retries the catalog.",
+                    showActions: false);
+                return;
+            }
             _directoryState.Set(
                 PrimeStateKind.Empty,
                 _grid.Children.OfType<DeckTile>().Any()
