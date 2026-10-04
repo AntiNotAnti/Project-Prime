@@ -31,6 +31,7 @@ namespace MphRead.Mods.Render
             internal readonly int UseNormalMap;
             internal readonly int UseSpecularMap;
             internal readonly int UseEmissiveMap;
+            internal readonly int EmissiveIntensity;
             internal readonly int UseOverride;
             internal readonly int OverrideColor;
             internal readonly int TexturedPlayerSkin;
@@ -70,6 +71,7 @@ namespace MphRead.Mods.Render
                 UseNormalMap = Word(layout, "use_normal_map");
                 UseSpecularMap = Word(layout, "use_specular_map");
                 UseEmissiveMap = Word(layout, "use_emissive_map");
+                EmissiveIntensity = Word(layout, "emissive_intensity");
                 UseOverride = Word(layout, "use_override");
                 OverrideColor = Word(layout, "override_color");
                 TexturedPlayerSkin = Word(layout, "textured_player_skin");
@@ -500,6 +502,7 @@ namespace MphRead.Mods.Render
             RetainedInt(words, o.UseNormalMap, textures.Normal.IsBound ? 1 : 0);
             RetainedInt(words, o.UseSpecularMap, textures.Specular.IsBound ? 1 : 0);
             RetainedInt(words, o.UseEmissiveMap, textures.Emissive.IsBound ? 1 : 0);
+            RetainedFloat(words, o.EmissiveIntensity, item.EmissiveIntensity);
 
             // Direct eligibility still excludes the remaining special material
             // features. Force their gates off so stale compatibility state
