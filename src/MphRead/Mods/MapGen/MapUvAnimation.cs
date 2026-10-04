@@ -5,8 +5,10 @@ using System.Linq;
 
 namespace MphRead.Mods.MapGen
 {
+    internal readonly record struct MapFlipbookBinding(ushort[] TextureIds, ushort[] PaletteIds);
+
     /// <summary>
-    /// Compiles authored UV motion into the native MPH texture-coordinate animation format.
+    /// Compiles authored UV motion and texture flipbooks into the native MPH animation format.
     /// Static maps intentionally keep the historical 24-byte empty payload.
     /// </summary>
     internal static class MapUvAnimation
@@ -18,6 +20,7 @@ namespace MphRead.Mods.MapGen
         internal const float MaxRotationSpeed = 1440f;
         internal const float MaxScale = 8f;
         internal const int MaxLutEntries = ushort.MaxValue;
+        internal const int MaxFlipbookImages = 64;
 
         private sealed record Track(
             MapMaterial Material,
@@ -32,6 +35,14 @@ namespace MphRead.Mods.MapGen
             ushort TranslateTIndex,
             ushort TranslateSLength,
             ushort TranslateTLength);
+
+        private sealed record TextureTrack(
+            MapMaterial Material,
+            ushort StartIndex,
+            ushort Count,
+            ushort MinimumPaletteId,
+            ushort MaterialId,
+            ushort MinimumTextureId);
 
         internal static bool IsAnimated(MapMaterial material) => material.Animation != null;
 
@@ -51,6 +62,15 @@ namespace MphRead.Mods.MapGen
             float turns = degreesPerSecond * loopFrames
                 / (NativeFramesPerSecond * 360f);
             return MathF.Abs(turns - MathF.Round(turns)) <= 0.001f;
+        }
+
+        internal static bool IsFlipbookSeamless(MapMaterialAnimation animation)
+        {
+            int imageCount = 1 + animation.FlipbookFrames.Count;
+            if (imageCount <= 1) return true;
+            if (animation.FlipbookHoldFrames <= 0) return false;
+            int cycle = imageCount * animation.FlipbookHoldFrames;
+            return animation.LoopFrames % cycle == 0;
         }
 
         internal static bool TryGetGroupFrameCount(IReadOnlyList<MapMaterial> materials, out int frameCount)
@@ -115,7 +135,22 @@ namespace MphRead.Mods.MapGen
             return (int)total;
         }
 
-        public static byte[] Build(IReadOnlyList<MapMaterial> materials)
+        internal static int FlipbookEntryCount(IReadOnlyList<MapMaterial> materials, int groupFrames)
+        {
+            long total = 0;
+            foreach (MapMaterial material in materials)
+            {
+                if (material.Animation?.FlipbookFrames.Count > 0)
+                {
+                    total += groupFrames;
+                    if (total > Int32.MaxValue) return Int32.MaxValue;
+                }
+            }
+            return (int)total;
+        }
+
+        public static byte[] Build(IReadOnlyList<MapMaterial> materials,
+            IReadOnlyDictionary<string, MapFlipbookBinding>? flipbooks = null)
         {
             MapMaterial[] animated = materials.Where(IsAnimated).ToArray();
             if (animated.Length == 0) return new byte[24];
@@ -126,8 +161,9 @@ namespace MphRead.Mods.MapGen
             int scaleEntries = ScaleEntryCount(animated, frameCount);
             int rotationEntries = RotationEntryCount(animated, frameCount);
             int translationEntries = TranslationEntryCount(animated, frameCount);
+            int flipbookEntries = FlipbookEntryCount(animated, frameCount);
             if (scaleEntries > MaxLutEntries || rotationEntries > MaxLutEntries
-                || translationEntries > MaxLutEntries)
+                || translationEntries > MaxLutEntries || flipbookEntries > MaxLutEntries)
             {
                 throw new MapAuthoringException("FP-MAP-003",
                     "Animated material lookup-table budget exceeded.");
@@ -161,21 +197,62 @@ namespace MphRead.Mods.MapGen
                     translateSIndex, translateTIndex, translateSLength, translateTLength));
             }
 
+            var frameIndices = new List<ushort>(flipbookEntries);
+            var textureIds = new List<ushort>(flipbookEntries);
+            var paletteIds = new List<ushort>(flipbookEntries);
+            var textureTracks = new List<TextureTrack>();
+            for (int materialId = 0; materialId < materials.Count; materialId++)
+            {
+                MapMaterial material = materials[materialId];
+                MapMaterialAnimation? animation = material.Animation;
+                if (animation?.FlipbookFrames.Count is not > 0) continue;
+                if (flipbooks == null || !flipbooks.TryGetValue(material.Name, out MapFlipbookBinding binding))
+                    throw new MapAuthoringException("FP-MAP-001",
+                        $"Flipbook texture frames were not packed for material {material.Name}.");
+                if (binding.TextureIds.Length != binding.PaletteIds.Length
+                    || binding.TextureIds.Length != animation.FlipbookFrames.Count + 1)
+                {
+                    throw new MapAuthoringException("FP-MAP-001",
+                        $"Flipbook texture frame mapping is invalid for material {material.Name}.");
+                }
+
+                ushort start = checked((ushort)frameIndices.Count);
+                for (int frame = 0; frame < frameCount; frame++)
+                {
+                    int localFrame = LocalFrame(animation, frame);
+                    int image = (localFrame / animation.FlipbookHoldFrames) % binding.TextureIds.Length;
+                    frameIndices.Add((ushort)frame);
+                    textureIds.Add(binding.TextureIds[image]);
+                    paletteIds.Add(binding.PaletteIds[image]);
+                }
+
+                textureTracks.Add(new TextureTrack(material, start, checked((ushort)frameCount),
+                    binding.PaletteIds.Min(), checked((ushort)materialId), binding.TextureIds.Min()));
+            }
+
             const int headerSize = 24;
             const int offsetTableBytes = 5 * sizeof(uint);
             const int texcoordGroupSize = 28;
+            const int textureGroupSize = 32;
             int nodeOffsets = headerSize;
             int unusedOffsets = nodeOffsets + sizeof(uint);
             int materialOffsets = unusedOffsets + sizeof(uint);
             int texcoordOffsets = materialOffsets + sizeof(uint);
             int textureOffsets = texcoordOffsets + sizeof(uint);
-            int groupOffset = headerSize + offsetTableBytes;
-            int scaleOffset = groupOffset + texcoordGroupSize;
+            int texcoordGroupOffset = headerSize + offsetTableBytes;
+            int scaleOffset = texcoordGroupOffset + texcoordGroupSize;
             int rotateOffset = scaleOffset + scales.Count * sizeof(int);
             int translateOffset = Align4(rotateOffset + rotations.Count * sizeof(ushort));
-            int animationOffset = translateOffset + translations.Count * sizeof(int);
+            int texcoordAnimationOffset = translateOffset + translations.Count * sizeof(int);
+            int afterTexcoord = texcoordAnimationOffset + tracks.Count * 60;
+            int textureGroupOffset = textureTracks.Count > 0 ? Align4(afterTexcoord) : 0;
+            int frameIndexOffset = textureGroupOffset == 0 ? 0 : textureGroupOffset + textureGroupSize;
+            int textureIdOffset = frameIndexOffset + frameIndices.Count * sizeof(ushort);
+            int paletteIdOffset = textureIdOffset + textureIds.Count * sizeof(ushort);
+            int textureAnimationOffset = paletteIdOffset + paletteIds.Count * sizeof(ushort);
 
-            using var stream = new MemoryStream(animationOffset + tracks.Count * 60);
+            using var stream = new MemoryStream(
+                textureTracks.Count == 0 ? afterTexcoord : textureAnimationOffset + textureTracks.Count * 44);
             using var writer = new BinaryWriter(stream);
 
             // AnimationHeader
@@ -187,12 +264,12 @@ namespace MphRead.Mods.MapGen
             writer.Write((ushort)1);
             writer.Write((ushort)0);
 
-            // One entry in each group-offset table. Only texcoord has a group.
+            // One entry in each group-offset table.
             writer.Write(0u);
             writer.Write(0u);
             writer.Write(0u);
-            writer.Write((uint)groupOffset);
-            writer.Write(0u);
+            writer.Write((uint)texcoordGroupOffset);
+            writer.Write((uint)textureGroupOffset);
 
             // RawTexcoordAnimationGroup
             writer.Write((uint)frameCount);
@@ -200,7 +277,7 @@ namespace MphRead.Mods.MapGen
             writer.Write((uint)rotateOffset);
             writer.Write((uint)translateOffset);
             writer.Write((uint)tracks.Count);
-            writer.Write((uint)animationOffset);
+            writer.Write((uint)texcoordAnimationOffset);
             writer.Write((ushort)0);
             writer.Write((ushort)0);
 
@@ -219,7 +296,7 @@ namespace MphRead.Mods.MapGen
                 writer.Write(track.ScaleSIndex);
                 writer.Write(track.ScaleTIndex);
                 writer.Write((byte)(track.RotateLength > 1 ? 1 : 0));
-                writer.Write((byte)0xFF); // Unused2B in MPH
+                writer.Write((byte)0xFF);
                 writer.Write(track.RotateLength);
                 writer.Write(track.RotateIndex);
                 writer.Write((byte)(track.TranslateSLength > 1 ? 1 : 0));
@@ -229,6 +306,39 @@ namespace MphRead.Mods.MapGen
                 writer.Write(track.TranslateSIndex);
                 writer.Write(track.TranslateTIndex);
                 writer.Write((ushort)0);
+            }
+
+            if (textureTracks.Count > 0)
+            {
+                while (stream.Position < textureGroupOffset) writer.Write((byte)0);
+
+                // RawTextureAnimationGroup
+                writer.Write(checked((ushort)frameCount));
+                writer.Write(checked((ushort)frameIndices.Count));
+                writer.Write(checked((ushort)textureIds.Count));
+                writer.Write(checked((ushort)paletteIds.Count));
+                writer.Write(checked((ushort)textureTracks.Count));
+                writer.Write((ushort)0);
+                writer.Write((uint)frameIndexOffset);
+                writer.Write((uint)textureIdOffset);
+                writer.Write((uint)paletteIdOffset);
+                writer.Write((uint)textureAnimationOffset);
+                writer.Write((ushort)0);
+                writer.Write((ushort)0);
+
+                foreach (ushort value in frameIndices) writer.Write(value);
+                foreach (ushort value in textureIds) writer.Write(value);
+                foreach (ushort value in paletteIds) writer.Write(value);
+                foreach (TextureTrack track in textureTracks)
+                {
+                    WriteNativeName(writer, track.Material.Name, 32);
+                    writer.Write(track.Count);
+                    writer.Write(track.StartIndex);
+                    writer.Write(track.MinimumPaletteId);
+                    writer.Write(track.MaterialId);
+                    writer.Write(track.MinimumTextureId);
+                    writer.Write((ushort)0);
+                }
             }
 
             return stream.ToArray();
