@@ -24,6 +24,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
 
     private readonly Dictionary<RenderItem, int> _gpuVisibilitySlots = new();
     private uint[] _gpuVisibilityCandidateWords = Array.Empty<uint>();
+    private readonly uint[] _gpuVisibilityUniformWords =
+        new uint[GpuVisibilityUniformWords];
     private WgpuBuffer* _gpuVisibilityCandidateBuffer;
     private ulong _gpuVisibilityCandidateCapacity;
     private WgpuBuffer* _gpuVisibilityIndirectBuffer;
@@ -98,8 +100,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
             // stays on direct draws until its indirect path clears the benchmark.
             return !_gpuVisibilityRefused
                 && UseRetainedIndirectDraws
-                && _device.Backend is GraphicsBackend.DirectX12
-                    or GraphicsBackend.Vulkan;
+                && (_device.Backend is GraphicsBackend.DirectX12
+                    or GraphicsBackend.Vulkan);
 #endif
         }
     }
@@ -272,7 +274,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
             hiZView = (TextureView*)_gpuHiZFullView;
         }
 
-        uint[] uniforms = new uint[GpuVisibilityUniformWords];
+        uint[] uniforms = _gpuVisibilityUniformWords;
         WriteGpuMatrix(uniforms, 0, projection);
         WriteGpuMatrix(uniforms, 16, view);
         WriteGpuMatrix(uniforms, 32, _gpuVisibilityPreviousProjection);
