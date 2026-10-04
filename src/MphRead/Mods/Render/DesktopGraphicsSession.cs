@@ -19,10 +19,12 @@ internal sealed class DesktopGraphicsSession : IDisposable
         {
             window.Context.MakeCurrent();
             OpenTK.Graphics.OpenGL.GL.LoadBindings(new GLFWBindingsContext());
+#if !MPHREAD_SERVER
             // This context was established through raw OpenTK rather than
             // GraphicsApi.LoadBindings, so explicitly discard any values
             // remembered from a previous compatibility context.
             GraphicsApi.ResetLegacyState();
+#endif
         }
     }
     internal static void Resize(NativeWindow window)
