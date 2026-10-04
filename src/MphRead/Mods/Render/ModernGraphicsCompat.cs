@@ -957,7 +957,8 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 + $"textureCompression=BC:{_device.SupportsTextureCompressionBc},"
                 + $"ETC2:{_device.SupportsTextureCompressionEtc2},"
                 + $"ASTC:{_device.SupportsTextureCompressionAstc} "
-                + $"multiDrawIndirect={_device.SupportsMultiDrawIndirect}";
+                + $"multiDrawIndirect={_device.SupportsMultiDrawIndirect} "
+                + $"multiDrawIndirectCount={_device.SupportsMultiDrawIndirectCount}";
             Console.WriteLine("[render] " + capabilities);
             Mods.DebugLog.Line("render", capabilities);
         }
