@@ -65,6 +65,14 @@ namespace MphRead.Mods.Launcher.Gui
         };
         private readonly PrimeButton _retryMap;
         private readonly PrimeButton _manageSelected;
+        private readonly TextBlock _selectedPlayerName = new()
+        {
+            Text = "SELECT A PLAYER TO MANAGE",
+            FontFamily = FontFamily.Default,
+            FontSize = 11,
+            Foreground = HubTheme.TextDimBrush,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
         private readonly PrimeHeroPanel _arenaHero;
         private readonly HubNavButton _leave, _mainMenu, _ready, _start, _spectatorRole;
         private readonly HubNavButton _closeLobby, _transferButton, _kickButton;
@@ -272,7 +280,7 @@ namespace MphRead.Mods.Launcher.Gui
             _closeLobby.HorizontalAlignment = HorizontalAlignment.Stretch;
             administration.Children.Add(_closeLobby);
 
-            _manageSelected = new PrimeButton("MANAGE PLAYER",
+            _manageSelected = new PrimeButton("MANAGE SELECTED PLAYER",
                 () => ShowSheet("PLAYER MANAGEMENT", administration));
             ControllerNav.Identify(_manageSelected, "lobby.manage-selected");
             _manageSelected.IsVisible = false;
@@ -415,6 +423,7 @@ namespace MphRead.Mods.Launcher.Gui
                 PrimeChrome.Eyebrow("CONNECTED HUNTERS"),
                 PrimeChrome.Title("ROSTER MANIFEST"),
                 _players,
+                _selectedPlayerName,
                 _manageSelected);
             var nativeLeft = new Grid { RowDefinitions = new("*,Auto"), RowSpacing = 12 };
             nativeLeft.Children.Add(new PrimePanel(rosterBody));
@@ -799,9 +808,10 @@ namespace MphRead.Mods.Launcher.Gui
                     selectedPlayerName = roster.Names[i];
                     break;
                 }
-            _manageSelected.Label = selectedPlayerName.Length > 0
-                ? "MANAGE // " + selectedPlayerName.ToUpperInvariant()
-                : "MANAGE PLAYER";
+            _selectedPlayerName.Text = selectedPlayerName.Length > 0
+                ? "SELECTED // " + selectedPlayerName
+                : "SELECT A PLAYER TO MANAGE";
+            _selectedPlayerName.IsVisible = NetSession.LocalIsLobbyOwner;
             _handicap.IsEnabled = _ownerControls.IsEnabled && selectedTargetSlot != byte.MaxValue;
             foreach (var toggle in new[] { _fire, _affinity, _enhancedHunters, _freeze, _opponentHealth, _requireReady, _join, _lockTeams, _fiesta, _instaGib, _lowTier, _noImperialist, _octolithAutoReset, _disablePowerups, _spawnProtection, _vanillaDuelResources })
                 toggle.IsEnabled = _ownerControls.IsEnabled;
@@ -1409,6 +1419,7 @@ namespace MphRead.Mods.Launcher.Gui
             if (!String.IsNullOrWhiteSpace(room))
                 LauncherBackdrop.Set(LauncherBackdropScene.Lobby, room);
             _preview.Source = null;
+            _arenaHero.SetArt(null);
             _bitmap?.Dispose();
             _bitmap = null;
             try
