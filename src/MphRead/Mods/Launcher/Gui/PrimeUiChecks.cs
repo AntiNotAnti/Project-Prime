@@ -355,21 +355,23 @@ namespace MphRead.Mods.Launcher.Gui
                 Drain(window);
                 host.Show(PrimeRoute.News);
                 host.Show(PrimeRoute.Play);
-                // Cancel the active News -> Play transition immediately by
-                // returning to News. This used to leave News parented to the
-                // abandoned transition Grid and throw when it was added again.
-                host.Show(PrimeRoute.News);
-                Check(created[PrimeRoute.News].GetVisualParent() != null,
-                    "rapid tab reentry reparents cached Home without throwing");
+                Check(created[PrimeRoute.News].GetVisualParent() == null
+                    && ReferenceEquals(host.Content, created[PrimeRoute.Play]),
+                    "route transition removes outgoing Home before incoming motion");
 
-                // Force an immediate route change to settle the active transition
-                // and prove neither cached workspace remains owned by an orphan.
+                // Re-enter immediately while Play is still animating. The incoming-only
+                // transition must cancel cleanly without showing or reparenting Play.
+                host.Show(PrimeRoute.News);
+                Check(created[PrimeRoute.Play].GetVisualParent() == null
+                    && ReferenceEquals(host.Content, created[PrimeRoute.News]),
+                    "rapid Home reentry swaps directly to the cached incoming page");
+
                 Deck.Still = true;
                 host.Show(PrimeRoute.Play);
                 Drain(window);
                 Check(created[PrimeRoute.News].GetVisualParent() == null
                     && ReferenceEquals(host.Content, created[PrimeRoute.Play]),
-                    "settled tab transition releases outgoing cached workspace");
+                    "settled incoming transition owns only the active workspace");
             }
             finally
             {
@@ -563,6 +565,12 @@ namespace MphRead.Mods.Launcher.Gui
                         && rows[0].TranslatePoint(default, play) is { } serverPoint
                         && serverPoint.Y < play.Bounds.Height,
                         "Play keeps the live server browser inside the visible workspace");
+                    Check(play.GetVisualDescendants().OfType<PrimePanel>().Any(panel =>
+                        panel.GetVisualDescendants().OfType<TextBlock>()
+                            .Any(block => block.Text == "SELECTED SESSION")
+                        && panel.GetVisualDescendants().OfType<TextBlock>()
+                            .Any(block => block.Text == "DEPLOYMENT LOADOUT")),
+                        "Play combines selected session and deployment loadout in one right panel");
                     Check(rows[1].CanQueue && rows[1].WaitingCount == 3, "full compatible server exposes advertised queue");
                     var queueDialog = LobbyQueueDialog.ShowAsync(shell.Overlays, "127.0.0.1", 27888);
                     Drain(window);

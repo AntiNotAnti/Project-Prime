@@ -18,12 +18,12 @@ namespace MphRead.Mods.Launcher.Gui
     {
         public const double PressSeconds = 0.075;
         public const double ButtonSeconds = 0.12;
-        public const double PageSeconds = 0.28;
+        public const double PageSeconds = 0.22;
         public const double ModalInSeconds = 0.24;
         public const double ModalOutSeconds = 0.16;
         public const double ScrimSeconds = 0.18;
-        private const double PageInDistance = 36;
-        private const double PageOutDistance = 16;
+        private const double PageInDistance = 28;
+        private const double PageStartOpacity = 0.48;
 
         public static bool Reduced => Deck.Still || LauncherPrefs.ReduceMotion;
 
@@ -147,38 +147,26 @@ namespace MphRead.Mods.Launcher.Gui
             }, Restore, Restore);
         }
 
-        public static PrimeMotionHandle Page(Control outgoing, Control incoming, Action? completed = null)
+        public static PrimeMotionHandle Page(Control incoming, Action? completed = null)
         {
-            double oldOpacity = outgoing.Opacity;
-            double newOpacity = incoming.Opacity;
-            var oldTransform = outgoing.RenderTransform;
-            var newTransform = incoming.RenderTransform;
-            bool oldHitTest = outgoing.IsHitTestVisible;
-
-            var oldMove = new TranslateTransform();
-            var newMove = new TranslateTransform(PageInDistance, 0);
-            outgoing.RenderTransform = oldMove;
-            incoming.RenderTransform = newMove;
-            incoming.Opacity = 0;
-            outgoing.IsHitTestVisible = false;
+            double opacity = incoming.Opacity;
+            var original = incoming.RenderTransform;
+            var move = new TranslateTransform(PageInDistance, 0);
+            incoming.RenderTransform = move;
+            incoming.Opacity = opacity * PageStartOpacity;
 
             void Restore()
             {
-                outgoing.Opacity = oldOpacity;
-                incoming.Opacity = newOpacity;
-                outgoing.IsHitTestVisible = oldHitTest;
-                if (ReferenceEquals(outgoing.RenderTransform, oldMove))
-                    outgoing.RenderTransform = oldTransform;
-                if (ReferenceEquals(incoming.RenderTransform, newMove))
-                    incoming.RenderTransform = newTransform;
+                incoming.Opacity = opacity;
+                if (ReferenceEquals(incoming.RenderTransform, move))
+                    incoming.RenderTransform = original;
             }
 
             return Tween(incoming, PageSeconds, p =>
             {
-                incoming.Opacity = newOpacity * p;
-                newMove.X = PageInDistance * (1 - p);
-                outgoing.Opacity = oldOpacity * (1 - 0.45 * p);
-                oldMove.X = -PageOutDistance * p;
+                incoming.Opacity = opacity
+                    * (PageStartOpacity + (1 - PageStartOpacity) * p);
+                move.X = PageInDistance * (1 - p);
             }, () =>
             {
                 Restore();
