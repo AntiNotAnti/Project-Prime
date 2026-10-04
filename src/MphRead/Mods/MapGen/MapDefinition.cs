@@ -687,6 +687,13 @@ namespace MphRead.Mods.MapGen
         public float[] UvScalePulse { get; set; } = new float[2];
         /// <summary>Length of this material's seamless cycle in native 30 Hz frames.</summary>
         public int LoopFrames { get; set; } = 3000;
+        /// <summary>
+        /// Optional extra native texture-pack frames. The material's normal texture is frame zero;
+        /// these one-texture FPTX assets are frames one and onward.
+        /// </summary>
+        public List<string> FlipbookFrames { get; set; } = new();
+        /// <summary>How many native 30 Hz frames each flipbook image remains visible.</summary>
+        public int FlipbookHoldFrames { get; set; } = 3;
         /// <summary>Optional phase offset inside this material's loop, in native 30 Hz frames.</summary>
         public int PhaseFrames { get; set; }
     }
