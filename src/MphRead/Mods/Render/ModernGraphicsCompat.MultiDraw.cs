@@ -414,6 +414,161 @@ internal sealed unsafe partial class ModernGraphicsCompat
         return true;
     }
 
+
+    internal static bool TryDrawRetainedPbrMultiDraw(
+        IReadOnlyList<RetainedDrawPacket> packets,
+        int start, int count,
+        RetainedWorldTextureSet textures,
+        bool showTextures, bool faceCulling,
+        Matrix4 projection)
+    {
+        if (_current == null || count < 2)
+            return false;
+        return Current.TryDrawRetainedPbrMultiDrawCore(
+            packets, start, count, textures,
+            showTextures, faceCulling, projection);
+    }
+
+    private bool TryDrawRetainedPbrMultiDrawCore(
+        IReadOnlyList<RetainedDrawPacket> packets,
+        int start, int count,
+        RetainedWorldTextureSet textures,
+        bool showTextures, bool faceCulling,
+        Matrix4 projection)
+    {
+        if (!UseRetainedStateMultiDraw
+            || !_retainedPbrFrameReady
+            || _retainedPbrFrameTemplate == null
+            || _retainedPbrOffsets == null
+            || _gpuVisibilityIndirectBuffer == null
+            || !TryGetConsecutiveVisibilityRange(
+                packets, start, count,
+                out int firstSlot, out RetainedMultiDrawPage? page))
+        {
+            _retainedMultiDrawFallbackBatches++;
+            return false;
+        }
+
+        CoreTarget target = ResolveDrawTarget();
+        if (target.ColorTargetCount < 3
+            || _retainedPbrFrameFramebuffer != _resources.DrawFramebuffer
+            || _retainedPbrFrameWidth != target.Width
+            || _retainedPbrFrameHeight != target.Height)
+        {
+            _retainedMultiDrawFallbackBatches++;
+            return false;
+        }
+
+        GeneratedProgram generated =
+            GeneratedShader(ModernProgramKind.DeferredPbrMrt);
+        if (_retainedMultiDrawUniformScratch.Length
+            != generated.Words.Length)
+        {
+            _retainedMultiDrawUniformScratch =
+                new uint[generated.Words.Length];
+        }
+
+        RenderItem first = packets[start].Item;
+        if (!packets[start].ReorderableOpaque
+            || !RetainedDeferredPbrPacketEligible(first))
+        {
+            _retainedMultiDrawFallbackBatches++;
+            return false;
+        }
+
+        _currentColor = new Vector4(first.Diffuse, 1f);
+        if (faceCulling && first.CullingMode != CullingMode.Neither)
+        {
+            _enabled.Add(EnableCap.CullFace);
+            _cullFace = first.CullingMode == CullingMode.Back
+                ? TriangleFace.Back : TriangleFace.Front;
+        }
+        else
+        {
+            _enabled.Remove(EnableCap.CullFace);
+        }
+        BindRetainedWorldTextures(
+            textures, first.XRepeat, first.YRepeat);
+
+        Array.Copy(_retainedPbrFrameTemplate,
+            generated.Words, generated.Words.Length);
+        PatchRetainedDeferredPbrWords(
+            generated, target, first, textures,
+            showTextures, projection, Matrix4.Identity);
+        Array.Copy(generated.Words,
+            _retainedMultiDrawUniformScratch,
+            generated.Words.Length);
+
+        for (int i = 1; i < count; i++)
+        {
+            RetainedDrawPacket packet = packets[start + i];
+            RenderItem item = packet.Item;
+            if (!packet.ReorderableOpaque
+                || !RetainedDeferredPbrPacketEligible(item))
+            {
+                _retainedMultiDrawFallbackBatches++;
+                return false;
+            }
+            Array.Copy(_retainedPbrFrameTemplate,
+                generated.Words, generated.Words.Length);
+            PatchRetainedDeferredPbrWords(
+                generated, target, item, textures,
+                showTextures, projection, Matrix4.Identity);
+            if (!generated.Words.AsSpan().SequenceEqual(
+                _retainedMultiDrawUniformScratch))
+            {
+                _retainedMultiDrawFallbackBatches++;
+                return false;
+            }
+        }
+
+        Array.Copy(_retainedMultiDrawUniformScratch,
+            generated.Words, generated.Words.Length);
+        int retainedSlot =
+            UploadRetainedPbrUniformWords(generated);
+        CorePipelineRecord pipeline = CorePipeline(
+            ModernProgramKind.DeferredPbrMrt,
+            PrimitiveTopology.TriangleList, target);
+        BindGroup* bindGroup = RetainedPbrBindGroup(
+            generated, pipeline.Layout, retainedSlot);
+
+        RenderPassEncoder* pass =
+            CoreRenderPass(target, 3, pipeline.Pipeline);
+        _api.RenderPassEncoderSetPipeline(pass, pipeline.Pipeline);
+        _api.RenderPassEncoderSetBindGroup(
+            pass, 0, bindGroup, 0, null);
+        _api.RenderPassEncoderSetVertexBuffer(
+            pass, 0, page!.Vertex, 0, page.VertexCapacityBytes);
+        _api.RenderPassEncoderSetIndexBuffer(
+            pass, page.Index, IndexFormat.Uint32,
+            0, page.IndexCapacityBytes);
+        _api.RenderPassEncoderSetViewport(
+            pass, 0, 0, target.Width, target.Height, 0, 1);
+        ApplyScissor(pass, target.Width, target.Height);
+
+        _device.Native.RenderPassEncoderMultiDrawIndexedIndirect(
+            pass, _gpuVisibilityIndirectBuffer,
+            checked((ulong)firstSlot * RetainedIndexedIndirectBytes),
+            checked((uint)count));
+        _retainedMultiDrawCalls++;
+        _retainedMultiDrawLogicalDraws += count;
+        _retainedIndirectDraws += count;
+        _gpuVisibilityIndirectDraws += count;
+        if (_measurePerformance) _coreDraws += count;
+        RecordCommandOperation();
+
+        RetainedDrawPacket last = packets[start + count - 1];
+        if (_lists.TryGetValue(
+                last.Mesh.ListId, out GeometryList? lastGeometry))
+        {
+            if (lastGeometry.EndNormal is Vector3 normal)
+                _currentNormal = normal;
+            if (lastGeometry.EndColor is Vector4 color)
+                _currentColor = color;
+        }
+        return true;
+    }
+
     private void ReleaseRetainedMultiDrawGeometry(
         GeometryList geometry)
     {
