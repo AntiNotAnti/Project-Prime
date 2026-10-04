@@ -82,6 +82,28 @@ namespace MphRead.Mods.MapGen
                         && animation.UvScroll.All(value => Math.Abs(value) <= MapUvAnimation.MaxScrollSpeed);
                     if (!validScroll)
                         r.Error("FP-MAP-001", "UV scroll requires two finite tile-per-second values from -4 to 4.", m.Id);
+
+                    bool validScale = animation.UvScale is { Length: 2 }
+                        && animation.UvScale.All(float.IsFinite)
+                        && animation.UvScale.All(value => value > 0 && value <= MapUvAnimation.MaxScale);
+                    bool validPulse = animation.UvScalePulse is { Length: 2 }
+                        && animation.UvScalePulse.All(float.IsFinite);
+                    if (!validScale || !validPulse)
+                    {
+                        r.Error("FP-MAP-001", "UV scale requires two finite positive base values and two finite pulse amplitudes.", m.Id);
+                    }
+                    else if (Enumerable.Range(0, 2).Any(axis =>
+                        animation.UvScale[axis] - Math.Abs(animation.UvScalePulse[axis]) <= 0.01f
+                        || animation.UvScale[axis] + Math.Abs(animation.UvScalePulse[axis]) > MapUvAnimation.MaxScale))
+                    {
+                        r.Error("FP-MAP-001", "UV scale pulse must stay above 0.01 and at or below 8 on both axes.", m.Id);
+                    }
+
+                    bool validRotation = float.IsFinite(animation.UvRotationDegreesPerSecond)
+                        && Math.Abs(animation.UvRotationDegreesPerSecond) <= MapUvAnimation.MaxRotationSpeed;
+                    if (!validRotation)
+                        r.Error("FP-MAP-001", "UV rotation speed must be finite and between -1440 and 1440 degrees per second.", m.Id);
+
                     bool validLoop = animation.LoopFrames is >= MapUvAnimation.MinLoopFrames and <= MapUvAnimation.MaxLoopFrames;
                     if (!validLoop)
                         r.Error("FP-MAP-001", "Animated material loop must be 30–6000 native 30 Hz frames.", m.Id);
@@ -93,6 +115,9 @@ namespace MphRead.Mods.MapGen
                         r.Error("FP-MAP-001", "Animated material names must be unique.", m.Id);
                     if (validScroll && validLoop && animation.UvScroll.Any(speed => !MapUvAnimation.IsSeamless(speed, animation.LoopFrames)))
                         r.Error("FP-MAP-001", "UV scroll loop endpoints must land on whole texture tiles for seamless repeat.", m.Id);
+                    if (validRotation && validLoop
+                        && !MapUvAnimation.IsRotationSeamless(animation.UvRotationDegreesPerSecond, animation.LoopFrames))
+                        r.Error("FP-MAP-001", "UV rotation loop endpoint must land on a whole turn for seamless repeat.", m.Id);
                 }
             }
             MapMaterial[] animatedMaterials = d.Materials.Where(m => m?.Animation != null).Cast<MapMaterial>().ToArray();
@@ -102,8 +127,15 @@ namespace MphRead.Mods.MapGen
             {
                 if (!MapUvAnimation.TryGetGroupFrameCount(animatedMaterials, out int groupFrames))
                     r.Error("FP-MAP-001", "Animated material loop periods need a shared native cycle of 6000 frames or less.");
-                else if (MapUvAnimation.TranslationEntryCount(animatedMaterials, groupFrames) > MapUvAnimation.MaxTranslationEntries)
-                    r.Error("FP-MAP-003", "Animated material translation lookup-table budget exceeds 65535 entries.");
+                else
+                {
+                    if (MapUvAnimation.ScaleEntryCount(animatedMaterials, groupFrames) > MapUvAnimation.MaxLutEntries)
+                        r.Error("FP-MAP-003", "Animated material scale lookup-table budget exceeds 65535 entries.");
+                    if (MapUvAnimation.RotationEntryCount(animatedMaterials, groupFrames) > MapUvAnimation.MaxLutEntries)
+                        r.Error("FP-MAP-003", "Animated material rotation lookup-table budget exceeds 65535 entries.");
+                    if (MapUvAnimation.TranslationEntryCount(animatedMaterials, groupFrames) > MapUvAnimation.MaxLutEntries)
+                        r.Error("FP-MAP-003", "Animated material translation lookup-table budget exceeds 65535 entries.");
+                }
             }
             if (d.Import == null && d.NativeRoom == null && d.Materials.Count == 0)
                 r.Error("FP-MAP-001", "At least one material is required.");
