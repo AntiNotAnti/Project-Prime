@@ -594,11 +594,18 @@ uniform words compare equal. Different room lights, matrix stacks, transforms,
 generated flags or other draw-local shader values therefore split automatically
 back to the proven packet path rather than being approximated.
 
-The current multi-draw call still spans GPU-visible candidates with rejected
-packets represented by `instanceCount = 0`. The dense compact visible-ID buffer
-from the visibility pass remains available for a later indirect-count/prefix-scan
-variant if hardware measurements show that removing those zero-instance records
-is worth the extra compute synchronization.
+The visibility pass now has two native multi-draw tiers. Adapters exposing
+`MultiDrawIndirectCount` assign exact room-state buckets before dispatch, then
+atomically compact only surviving packets into a dense 20-byte indexed-indirect
+stream per bucket and increment a GPU count buffer. World and deferred-PBR consume
+those streams with `MultiDrawIndexedIndirectCount`, so frustum/Hi-Z rejects do
+not occupy zero-instance draw records in the submitted bucket.
+
+On adapters that expose `MultiDrawIndirect` but not the count extension, the
+same atlas/state-bucket path still works by submitting the original consecutive
+visibility range, where rejected packets remain as `instanceCount = 0`. If a
+bucket cannot prove identical draw-local state, both tiers fall back to the
+existing per-packet indirect/direct path.
 
 The compute path is fail-safe and backend-gated. A pipeline/resource failure
 disables GPU visibility for the session and returns to retained CPU visibility
