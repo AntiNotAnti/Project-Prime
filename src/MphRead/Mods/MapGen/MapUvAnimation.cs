@@ -6,7 +6,7 @@ using System.Linq;
 namespace MphRead.Mods.MapGen
 {
     /// <summary>
-    /// Compiles authored UV scrolling into the native MPH texture-coordinate animation format.
+    /// Compiles authored UV motion into the native MPH texture-coordinate animation format.
     /// Static maps intentionally keep the historical 24-byte empty payload.
     /// </summary>
     internal static class MapUvAnimation
@@ -15,10 +15,23 @@ namespace MphRead.Mods.MapGen
         internal const int MinLoopFrames = 30;
         internal const int MaxLoopFrames = 6000;
         internal const float MaxScrollSpeed = 4f;
-        internal const int MaxTranslationEntries = ushort.MaxValue;
+        internal const float MaxRotationSpeed = 1440f;
+        internal const float MaxScale = 8f;
+        internal const int MaxLutEntries = ushort.MaxValue;
 
-        private sealed record Track(MapMaterial Material, MapMaterialAnimation Animation,
-            ushort TranslateSIndex, ushort TranslateTIndex, ushort TranslateSLength, ushort TranslateTLength);
+        private sealed record Track(
+            MapMaterial Material,
+            MapMaterialAnimation Animation,
+            ushort ScaleSIndex,
+            ushort ScaleTIndex,
+            ushort ScaleSLength,
+            ushort ScaleTLength,
+            ushort RotateIndex,
+            ushort RotateLength,
+            ushort TranslateSIndex,
+            ushort TranslateTIndex,
+            ushort TranslateSLength,
+            ushort TranslateTLength);
 
         internal static bool IsAnimated(MapMaterial material) => material.Animation != null;
 
@@ -30,6 +43,14 @@ namespace MphRead.Mods.MapGen
             if (speed == 0) return true;
             float tiles = speed * loopFrames / NativeFramesPerSecond;
             return MathF.Abs(tiles - MathF.Round(tiles)) <= 0.001f;
+        }
+
+        internal static bool IsRotationSeamless(float degreesPerSecond, int loopFrames)
+        {
+            if (degreesPerSecond == 0) return true;
+            float turns = degreesPerSecond * loopFrames
+                / (NativeFramesPerSecond * 360f);
+            return MathF.Abs(turns - MathF.Round(turns)) <= 0.001f;
         }
 
         internal static bool TryGetGroupFrameCount(IReadOnlyList<MapMaterial> materials, out int frameCount)
@@ -51,6 +72,33 @@ namespace MphRead.Mods.MapGen
                 frameCount = (int)lcm;
             }
             return frameCount > 0;
+        }
+
+        internal static int ScaleEntryCount(IReadOnlyList<MapMaterial> materials, int groupFrames)
+        {
+            long total = 0;
+            foreach (MapMaterial material in materials)
+            {
+                MapMaterialAnimation? animation = material.Animation;
+                if (animation?.UvScalePulse is not { Length: 2 }) continue;
+                total += animation.UvScalePulse[0] == 0 ? 1 : groupFrames;
+                total += animation.UvScalePulse[1] == 0 ? 1 : groupFrames;
+                if (total > Int32.MaxValue) return Int32.MaxValue;
+            }
+            return (int)total;
+        }
+
+        internal static int RotationEntryCount(IReadOnlyList<MapMaterial> materials, int groupFrames)
+        {
+            long total = 0;
+            foreach (MapMaterial material in materials)
+            {
+                MapMaterialAnimation? animation = material.Animation;
+                if (animation == null) continue;
+                total += animation.UvRotationDegreesPerSecond == 0 ? 1 : groupFrames;
+                if (total > Int32.MaxValue) return Int32.MaxValue;
+            }
+            return (int)total;
         }
 
         internal static int TranslationEntryCount(IReadOnlyList<MapMaterial> materials, int groupFrames)
@@ -75,28 +123,47 @@ namespace MphRead.Mods.MapGen
                 throw new MapAuthoringException("FP-MAP-001",
                     "Animated material loop periods cannot share a native cycle of 6000 frames or less.");
 
+            int scaleEntries = ScaleEntryCount(animated, frameCount);
+            int rotationEntries = RotationEntryCount(animated, frameCount);
             int translationEntries = TranslationEntryCount(animated, frameCount);
-            if (translationEntries > MaxTranslationEntries)
+            if (scaleEntries > MaxLutEntries || rotationEntries > MaxLutEntries
+                || translationEntries > MaxLutEntries)
+            {
                 throw new MapAuthoringException("FP-MAP-003",
-                    "Animated material translation lookup-table budget exceeded.");
+                    "Animated material lookup-table budget exceeded.");
+            }
 
+            var scales = new List<int>(scaleEntries);
+            var rotations = new List<ushort>(rotationEntries);
             var translations = new List<int>(translationEntries);
             var tracks = new List<Track>(animated.Length);
             foreach (MapMaterial material in animated)
             {
                 MapMaterialAnimation animation = material.Animation!;
-                ushort sIndex = checked((ushort)translations.Count);
-                ushort sLength = AppendAxis(translations, animation, axis: 0, frameCount);
-                ushort tIndex = checked((ushort)translations.Count);
-                ushort tLength = AppendAxis(translations, animation, axis: 1, frameCount);
-                tracks.Add(new Track(material, animation, sIndex, tIndex, sLength, tLength));
+                RequireShape(animation);
+
+                ushort scaleSIndex = checked((ushort)scales.Count);
+                ushort scaleSLength = AppendScale(scales, animation, axis: 0, frameCount);
+                ushort scaleTIndex = checked((ushort)scales.Count);
+                ushort scaleTLength = AppendScale(scales, animation, axis: 1, frameCount);
+
+                ushort rotateIndex = checked((ushort)rotations.Count);
+                ushort rotateLength = AppendRotation(rotations, animation, frameCount);
+
+                ushort translateSIndex = checked((ushort)translations.Count);
+                ushort translateSLength = AppendTranslation(translations, animation, axis: 0, frameCount);
+                ushort translateTIndex = checked((ushort)translations.Count);
+                ushort translateTLength = AppendTranslation(translations, animation, axis: 1, frameCount);
+
+                tracks.Add(new Track(material, animation,
+                    scaleSIndex, scaleTIndex, scaleSLength, scaleTLength,
+                    rotateIndex, rotateLength,
+                    translateSIndex, translateTIndex, translateSLength, translateTLength));
             }
 
             const int headerSize = 24;
             const int offsetTableBytes = 5 * sizeof(uint);
             const int texcoordGroupSize = 28;
-            const int scaleLutBytes = sizeof(int);
-            const int rotateLutBytes = sizeof(ushort);
             int nodeOffsets = headerSize;
             int unusedOffsets = nodeOffsets + sizeof(uint);
             int materialOffsets = unusedOffsets + sizeof(uint);
@@ -104,8 +171,8 @@ namespace MphRead.Mods.MapGen
             int textureOffsets = texcoordOffsets + sizeof(uint);
             int groupOffset = headerSize + offsetTableBytes;
             int scaleOffset = groupOffset + texcoordGroupSize;
-            int rotateOffset = scaleOffset + scaleLutBytes;
-            int translateOffset = Align4(rotateOffset + rotateLutBytes);
+            int rotateOffset = scaleOffset + scales.Count * sizeof(int);
+            int translateOffset = Align4(rotateOffset + rotations.Count * sizeof(ushort));
             int animationOffset = translateOffset + translations.Count * sizeof(int);
 
             using var stream = new MemoryStream(animationOffset + tracks.Count * 60);
@@ -137,26 +204,24 @@ namespace MphRead.Mods.MapGen
             writer.Write((ushort)0);
             writer.Write((ushort)0);
 
-            // Shared constant scale and rotation LUTs.
-            writer.Write(Fixed.ToInt(1f));
-            writer.Write((ushort)0);
+            foreach (int value in scales) writer.Write(value);
+            foreach (ushort value in rotations) writer.Write(value);
             while (stream.Position < translateOffset) writer.Write((byte)0);
-
             foreach (int value in translations) writer.Write(value);
 
             foreach (Track track in tracks)
             {
                 WriteNativeName(writer, track.Material.Name, 32);
-                writer.Write((byte)0); // ScaleBlendS
-                writer.Write((byte)0); // ScaleBlendT
-                writer.Write((ushort)1); // ScaleLutLengthS
-                writer.Write((ushort)1); // ScaleLutLengthT
-                writer.Write((ushort)0); // ScaleLutIndexS
-                writer.Write((ushort)0); // ScaleLutIndexT
-                writer.Write((byte)0); // RotateBlendZ
+                writer.Write((byte)(track.ScaleSLength > 1 ? 1 : 0));
+                writer.Write((byte)(track.ScaleTLength > 1 ? 1 : 0));
+                writer.Write(track.ScaleSLength);
+                writer.Write(track.ScaleTLength);
+                writer.Write(track.ScaleSIndex);
+                writer.Write(track.ScaleTIndex);
+                writer.Write((byte)(track.RotateLength > 1 ? 1 : 0));
                 writer.Write((byte)0xFF); // Unused2B in MPH
-                writer.Write((ushort)1); // RotateLutLengthZ
-                writer.Write((ushort)0); // RotateLutIndexZ
+                writer.Write(track.RotateLength);
+                writer.Write(track.RotateIndex);
                 writer.Write((byte)(track.TranslateSLength > 1 ? 1 : 0));
                 writer.Write((byte)(track.TranslateTLength > 1 ? 1 : 0));
                 writer.Write(track.TranslateSLength);
@@ -169,7 +234,50 @@ namespace MphRead.Mods.MapGen
             return stream.ToArray();
         }
 
-        private static ushort AppendAxis(List<int> values, MapMaterialAnimation animation, int axis, int groupFrames)
+        private static ushort AppendScale(List<int> values, MapMaterialAnimation animation,
+            int axis, int groupFrames)
+        {
+            float baseline = animation.UvScale[axis];
+            float pulse = animation.UvScalePulse[axis];
+            if (pulse == 0)
+            {
+                values.Add(Fixed.ToInt(baseline));
+                return 1;
+            }
+
+            for (int frame = 0; frame < groupFrames; frame++)
+            {
+                int localFrame = LocalFrame(animation, frame);
+                float phase = MathF.Tau * localFrame / animation.LoopFrames;
+                values.Add(Fixed.ToInt(baseline + pulse * MathF.Sin(phase)));
+            }
+            return checked((ushort)groupFrames);
+        }
+
+        private static ushort AppendRotation(List<ushort> values,
+            MapMaterialAnimation animation, int groupFrames)
+        {
+            float speed = animation.UvRotationDegreesPerSecond;
+            if (speed == 0)
+            {
+                values.Add(0);
+                return 1;
+            }
+
+            for (int frame = 0; frame < groupFrames; frame++)
+            {
+                int localFrame = LocalFrame(animation, frame);
+                float degrees = speed * localFrame / NativeFramesPerSecond;
+                float turns = degrees / 360f;
+                turns -= MathF.Floor(turns);
+                int native = (int)MathF.Round(turns * 65536f) & 0xFFFF;
+                values.Add((ushort)native);
+            }
+            return checked((ushort)groupFrames);
+        }
+
+        private static ushort AppendTranslation(List<int> values,
+            MapMaterialAnimation animation, int axis, int groupFrames)
         {
             float speed = animation.UvScroll[axis];
             if (speed == 0)
@@ -180,10 +288,24 @@ namespace MphRead.Mods.MapGen
 
             for (int frame = 0; frame < groupFrames; frame++)
             {
-                int localFrame = (frame + animation.PhaseFrames) % animation.LoopFrames;
+                int localFrame = LocalFrame(animation, frame);
                 values.Add(Fixed.ToInt(speed * localFrame / NativeFramesPerSecond));
             }
             return checked((ushort)groupFrames);
+        }
+
+        private static int LocalFrame(MapMaterialAnimation animation, int groupFrame) =>
+            (groupFrame + animation.PhaseFrames) % animation.LoopFrames;
+
+        private static void RequireShape(MapMaterialAnimation animation)
+        {
+            if (animation.UvScroll is not { Length: 2 }
+                || animation.UvScale is not { Length: 2 }
+                || animation.UvScalePulse is not { Length: 2 })
+            {
+                throw new MapAuthoringException("FP-MAP-001",
+                    "Animated material UV vectors must contain exactly two values.");
+            }
         }
 
         private static int GreatestCommonDivisor(int left, int right)
