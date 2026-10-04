@@ -35,6 +35,8 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBlock _projectState = PrimeChrome.Eyebrow("NO PROJECT");
         private readonly TextBlock _selectionState = PrimeChrome.Text(
             "0 SELECTED", PrimeTypography.DataSmall, PrimeTheme.TextSecondaryBrush, data: true);
+        private readonly TextBlock _toolSelectionState = PrimeChrome.Text(
+            "OBJECT MODE", PrimeTypography.DataSmall, PrimeTheme.TextSecondaryBrush, data: true);
         private readonly TextBlock _inspectorTitle = PrimeChrome.Title("INSPECTOR");
         private readonly PrimeButton _studioSave;
         private readonly PrimeButton _studioValidate;
@@ -307,11 +309,20 @@ namespace MphRead.Mods.Launcher.Gui
                 VerticalScrollBarVisibility =
                     Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
             };
+            var inspectQuick = new PrimeButton("INSPECT",
+                () => ShowInspectorPage("Inspector"), compact: true);
+            var materialsQuick = new PrimeButton("MATERIALS",
+                () => ShowInspectorPage("Materials"), compact: true);
+            var assetsQuick = new PrimeButton("ASSETS",
+                () => ShowInspectorPage("Assets & music"), compact: true);
+            var healthQuick = new PrimeButton("HEALTH",
+                () => ShowInspectorPage("Map health"), compact: true);
+            ControllerNav.Identify(inspectQuick, "studio.inspector");
+            ControllerNav.Identify(materialsQuick, "studio.materials");
+            ControllerNav.Identify(assetsQuick, "studio.assets");
+            ControllerNav.Identify(healthQuick, "studio.health");
             var inspectorQuick = PrimeChrome.Columns("*,*,*,*",
-                new PrimeButton("INSPECT", () => ShowInspectorPage("Inspector"), compact: true),
-                new PrimeButton("MATERIALS", () => ShowInspectorPage("Materials"), compact: true),
-                new PrimeButton("ASSETS", () => ShowInspectorPage("Assets & music"), compact: true),
-                new PrimeButton("HEALTH", () => ShowInspectorPage("Map health"), compact: true));
+                inspectQuick, materialsQuick, assetsQuick, healthQuick);
             var inspectorHeader = PrimeChrome.Stack(
                 PrimeChrome.Eyebrow("PROPERTIES // CONTEXT"),
                 _inspectorTitle,
@@ -365,7 +376,7 @@ namespace MphRead.Mods.Launcher.Gui
                 RowSpacing = 4
             };
             toolsShell.Children.Add(PrimeChrome.Columns("*,Auto",
-                PrimeChrome.Eyebrow("AUTHORING TOOLS"), _selectionState));
+                PrimeChrome.Eyebrow("AUTHORING TOOLS"), _toolSelectionState));
             Grid.SetRow(toolsScroll, 1);
             toolsShell.Children.Add(toolsScroll);
             var toolsPanel = new PrimePanel(toolsShell)
@@ -458,6 +469,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Shell.FilesDropped-=OnFilesDropped;
 #endif
                 _detached=true;_editorGeneration++;_idle.Stop();_work?.Cancel();_autosave.Dispose();_sourceWatch?.Dispose();_sourceWatch=null;DisposePreviewCaches();};
+            RefreshStudioChrome();
             if (preview) Load(MapTemplates.Create("Studio example", true)); else ShowLibrary();
         }
         public void Dispose()
@@ -609,6 +621,7 @@ namespace MphRead.Mods.Launcher.Gui
             try { RefreshSourceWatch(); } catch (IOException ex) { _status.Text="Source watch: "+ex.Message; }
             RefreshHierarchy();
             ShowInspectorPage(_inspectorPage, remember:false);
+            RefreshStudioChrome();
             _status.Text=(_document?.IsDirty==true?"Unsaved changes · ":"")
                 +"RMB orbit · MMB pan · WASD/QE fly · 1–4 modes · G/R/S transforms · E/I/B model · M merge · F fill (object mode: F focus, M measure) · Ctrl+Shift+P commands";
         }
@@ -1036,6 +1049,9 @@ namespace MphRead.Mods.Launcher.Gui
         private void ShowInspectorPage(string name, bool remember=true)
         {
             if (remember) _inspectorPage=name;
+            _inspectorTitle.Text = name.ToUpperInvariant();
+            _toolSelectionState.Text = (_viewport?.ElementMode ?? "Object").ToUpperInvariant()
+                + " MODE  //  " + (_viewport?.Tool ?? "Move").ToUpperInvariant();
             switch(name)
             {
                 case "Modeling": ModelingInspector(); break;
@@ -1052,6 +1068,42 @@ namespace MphRead.Mods.Launcher.Gui
                 case "Navigation path": NavigationInspector(); break;
                 default: Inspect(); break;
             }
+        }
+
+        private void RefreshStudioChrome()
+        {
+            bool loaded = _document != null;
+            _studioSave.IsEnabled = loaded;
+            _studioValidate.IsEnabled = loaded;
+            _studioBuild.IsEnabled = loaded;
+            _studioPlaytest.IsEnabled = loaded;
+
+            if (!loaded)
+            {
+                _projectTitle.Text = "MAP STUDIO";
+                _projectState.Text = "NO PROJECT LOADED";
+                _projectState.Foreground = PrimeTheme.TextSecondaryBrush;
+                _selectionState.Text = "0 SELECTED";
+                _toolSelectionState.Text = "OBJECT MODE";
+                return;
+            }
+
+            MapDefinition definition = _document!.Project.Definition;
+            int objects = MapObjects.All(definition).Count();
+            int selected = _document.Selection.Count;
+            string displayName = String.IsNullOrWhiteSpace(definition.InGameName)
+                ? definition.Name : definition.InGameName!;
+            _projectTitle.Text = displayName.ToUpperInvariant();
+            _projectState.Text = _document.IsDirty
+                ? $"UNSAVED CHANGES  //  {objects} OBJECTS"
+                : $"PROJECT SAVED  //  {objects} OBJECTS";
+            _projectState.Foreground = _document.IsDirty
+                ? PrimeTheme.WarningBrush : PrimeTheme.GreenBrush;
+            _selectionState.Text = selected == 0
+                ? $"{objects} OBJECTS  //  NOTHING SELECTED"
+                : $"{selected} SELECTED  //  {objects} OBJECTS";
+            _toolSelectionState.Text = (_viewport?.ElementMode ?? "Object").ToUpperInvariant()
+                + " MODE  //  " + (_viewport?.Tool ?? "Move").ToUpperInvariant();
         }
 
         private sealed record RepairReviewRow(string Key,MapViewportRepair Repair,bool Reviewed)
