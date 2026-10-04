@@ -49,6 +49,7 @@ namespace MphRead.Mods.Launcher.Gui
         private HunterLicenseSnapshot _snapshot = HunterLicenseClient.LocalSnapshot();
         private Face _face;
         private readonly Dictionary<Face, Control> _tabCache = new();
+        private PrimeMotionHandle? _pageMotion;
         private bool _loaded;
         private CancellationTokenSource? _load;
         private string _pendingEmail = "";
@@ -278,8 +279,13 @@ namespace MphRead.Mods.Launcher.Gui
             foreach ((Face key, HubNavButton button) in _nav)
                 button.Selected = key == face;
 
-            if (face != Face.Account && face != Face.Customization && _tabCache.TryGetValue(face, out var cached))
-            { _page.Content = cached; return; }
+            if (face != Face.Account && face != Face.Customization
+                && _tabCache.TryGetValue(face, out var cached))
+            {
+                _page.Content = cached;
+                AnimatePage(cached);
+                return;
+            }
             Control page = face switch
             {
                 Face.Overview => Overview(),
@@ -296,6 +302,16 @@ namespace MphRead.Mods.Launcher.Gui
             };
             if (face != Face.Account && face != Face.Customization) _tabCache[face] = page;
             _page.Content = page;
+            AnimatePage(page);
+        }
+
+        private void AnimatePage(Control page)
+        {
+            _pageMotion?.Cancel();
+            _pageMotion = null;
+            if (PrimeMotion.Reduced || TopLevel.GetTopLevel(page) == null)
+                return;
+            _pageMotion = PrimeMotion.Enter(page, 6, 0.14);
         }
 
         private Control Account()
