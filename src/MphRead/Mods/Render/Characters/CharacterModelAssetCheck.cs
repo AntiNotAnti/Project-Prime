@@ -59,6 +59,28 @@ namespace MphRead.Mods.Render.Characters
                     "POSITION/NORMAL/TEXCOORD_0 decode exactly");
 
                 string valid = File.ReadAllText(Path.Combine(root, "characters.json"));
+
+                File.WriteAllText(Path.Combine(root, "characters.json"),
+                    valid.Replace("\"part\": \"biped\"",
+                        "\"part\": \"alternateForm\"", StringComparison.Ordinal));
+                CharacterModelPack altPack = CharacterModelPack.Load(root);
+                Check(altPack.TryResolve(Hunter.Samus, CharacterModelPart.AlternateForm,
+                        out CharacterModelAsset altAsset)
+                    && altAsset.Lod == 0,
+                    "alternate-form LOD0 uses the shared character replacement contract");
+
+                File.WriteAllText(Path.Combine(root, "characters.json"),
+                    valid.Replace("\"hunter\": \"Samus\"",
+                            "\"hunter\": \"Weavel\"", StringComparison.Ordinal)
+                        .Replace("\"part\": \"biped\"",
+                            "\"part\": \"halfturret\"", StringComparison.Ordinal));
+                CharacterModelPack turretPack = CharacterModelPack.Load(root);
+                Check(turretPack.TryResolve(Hunter.Weavel, CharacterModelPart.Halfturret,
+                        out CharacterModelAsset turretAsset)
+                    && turretAsset.Lod == 0,
+                    "Weavel halfturret LOD0 uses the shared character replacement contract");
+
+                File.WriteAllText(Path.Combine(root, "characters.json"), valid);
                 string lod1 = valid.Replace("\"part\": \"biped\",",
                     "\"part\": \"biped\",\n                          \"lod\": 1,",
                     StringComparison.Ordinal);
