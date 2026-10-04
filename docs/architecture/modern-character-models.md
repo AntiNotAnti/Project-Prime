@@ -93,22 +93,73 @@ The check creates a synthetic GLB/manifest in a temporary directory and verifies
 successful rigid-node discovery plus rejection of path traversal, missing source
 nodes and false weighted-skin declarations. It needs no extracted game data.
 
-## Next slice: Samus proof of concept
+## Slice 2: rigid-node retained rendering bridge
 
-The next implementation slice should use one authored Samus biped and one
-first-person arm cannon to prove the rendering bridge:
+The first replacement renderer is now implemented for biped and first-person
+viewmodel geometry.
 
-1. parse POSITION/NORMAL/TEXCOORD_0 and triangle indices from the resolved GLB;
-2. group `rigidNodes` primitives by their mapped source node;
-3. upload immutable geometry through the retained renderer/display-list bridge;
-4. after the native model has animated, submit each replacement segment using
-   the mapped native node's current animation transform;
-5. resolve albedo/normal/specular-roughness/emissive channels through the
-   existing `ModernTextureAsset` / `TextureAssetManager` policy;
-6. keep native biped/viewmodel draw active whenever any replacement resource
-   fails validation or GPU upload;
-7. benchmark desktop Metal/DX12/Vulkan and Android Vulkan before increasing
-   default model detail.
+The GLB reader accepts core triangle primitives with:
 
-After rigid-node parity is proven, `weighted4` can add JOINTS_0/WEIGHTS_0 and
-smooth GPU skinning without changing the asset identity or fallback contract.
+- FLOAT `POSITION` VEC3;
+- optional FLOAT `NORMAL` VEC3 (missing normals are generated);
+- optional FLOAT `TEXCOORD_0` VEC2;
+- unsigned byte/ushort/uint indices, or a non-indexed triangle stream;
+- interleaved buffer-view strides.
+
+Rigid replacements reject skins, JOINTS/WEIGHTS, morph targets, sparse accessors,
+external buffers and non-triangle primitives. The current total budget is
+500,000 vertices and 1,500,000 indices per replacement model.
+
+Each mapped source node may own a mesh. Its vertex positions are interpreted in
+that source node's local space; the source node's authored transform is replaced
+at draw time by the mapped native MPH node's already-animated transform. That is
+the key compatibility boundary: Project Prime continues to run the original
+hunter animation system and the HD geometry follows the resulting pose.
+
+GLB primitive material names map to the existing native `Material.Name`.
+An unnamed primitive inherits the first native material attached to its mapped
+node. This reuses native material bindings and therefore automatically reuses
+the existing HD material-pack path for albedo, normal, specular/roughness and
+emissive companions. No second character-only texture system is introduced.
+
+Compiled replacement primitives use the existing display-list bridge.
+`EndList` therefore promotes immutable geometry into persistent native buffers
+on the modern retained renderer, while OpenGL keeps its compatibility display
+list. Handles are scene-owned and released from `Scene.UnloadGl`.
+
+Player drawing is atomic per presentation part:
+
+1. native animation/material state is updated exactly as before;
+2. Project Prime asks for a validated compiled biped or viewmodel replacement;
+3. every replacement segment submits with its mapped native node transform and
+   native material identity;
+4. if discovery, rig validation, parsing, material mapping or GPU compilation
+   fails, the original `GetDrawItems` call runs unchanged.
+
+Bright skins, palette overrides, player outlines, cosmetic material overrides,
+double-damage binding overrides and first-person viewmodel projection all pass
+through the same `Scene.AddRenderItem` path.
+
+The feature is opt-in through **HD character models** and defaults off.
+Installing files alone cannot alter the rendered hunter.
+
+The content-free `-charactermodelcheck` now also builds a real synthetic GLB
+with POSITION/NORMAL/TEXCOORD_0/index buffer views and verifies the decoded
+triangle exactly.
+
+## Next slice: authored Samus acceptance + LOD
+
+The code path is ready for a real Samus biped/arm-cannon authoring test. The next
+slice should:
+
+1. export a segmented Samus proof asset aligned to native MPH node-local spaces;
+2. use native material names in the GLB so existing 4K/PBR packs attach directly;
+3. add screen-space/distance LOD selection for replacement geometry;
+4. verify muzzle/effect attachment alignment, death/unmorph transitions, bright
+   skins, outlines and team recolors;
+5. benchmark Metal, desktop Vulkan/DX12 and physical Android Vulkan;
+6. only after rigid parity is accepted, implement `weighted4`
+   JOINTS_0/WEIGHTS_0 smooth GPU skinning.
+
+Weighted skinning remains an additive renderer tier; it does not change the
+asset identity or native fallback contract.
