@@ -1,4 +1,5 @@
 #if MPHREAD_AVALONIA
+using System;
 using Avalonia.Controls;
 
 namespace MphRead.Mods.Launcher.Gui
