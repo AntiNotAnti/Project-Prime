@@ -24,9 +24,5 @@ namespace MphRead.Mods.Launcher.Gui
         public const double HeadingLarge = 26, HeadingMedium = 20, HeadingSmall = 17;
         public const double Body = 14, BodySmall = 12, DataSize = 12, DataSmall = 11, Micro = 10;
     }
-    internal static class PrimeMotion
-    {
-        public static void Enter(Avalonia.Controls.Control view) => HubMotion.Enter(view, 5, 7);
-    }
 }
 #endif
