@@ -31,6 +31,7 @@ namespace MphRead.Mods.MapGen
             byte[] model; int vertices;
             lock (MapCompiler.ContentReadLock) (model, vertices) = BuildModel(map);
             cancellation.ThrowIfCancellationRequested();
+            byte[] animation = MapUvAnimation.Build(def.Materials);
             byte[] collision = BuildCollision(map);
             MapRuntimePartitionPlan runtimePlan=MapRuntimePartitioner.Create(map.Faces,def.Partitioning);
             MapRuntimePartitioner.AssignEntityNodes(map.Entities,runtimePlan);
@@ -41,7 +42,7 @@ namespace MphRead.Mods.MapGen
             cancellation.ThrowIfCancellationRequested();
             if (File.Exists(outputs.Manifest)) File.Delete(outputs.Manifest);
             AtomicFile.Write(outputs.Model, model);
-            AtomicFile.Write(outputs.Animation, new byte[24]);
+            AtomicFile.Write(outputs.Animation, animation);
             AtomicFile.Write(outputs.Collision, collision);
             AtomicFile.Write(outputs.Entities, entities);
             AtomicFile.Write(outputs.Nodes, nodes);
@@ -51,8 +52,8 @@ namespace MphRead.Mods.MapGen
                 Console.WriteLine($"{def.Name}: {map.Faces.Count} polygons ({vertices} vertices), "
                     + $"{map.Solid.Count} collision faces, {map.Entities.Count} entities");
                 Console.WriteLine($"  {nodeCount} bot waypoints, {edges} routes between them");
-                Console.WriteLine($"  model {model.Length:N0} B, collision {collision.Length:N0} B, "
-                    + $"entities {entities.Length:N0} B, nodes {nodes.Length:N0} B");
+                Console.WriteLine($"  model {model.Length:N0} B, animation {animation.Length:N0} B, "
+                    + $"collision {collision.Length:N0} B, entities {entities.Length:N0} B, nodes {nodes.Length:N0} B");
             }
         }
 
@@ -134,7 +135,8 @@ namespace MphRead.Mods.MapGen
                     textures.Add(new Repack.TextureInfo(TextureFormat.Palette8Bit,opaque:true,entry.Height,entry.Width,entry.Pixels));
                     palettes.Add(new Repack.PaletteInfo(entry.Palette));
                     materials.Add(RawStructs.MakeMaterial(mapMaterial.Name,ownTexture,ownPalette,RepeatMode.Repeat,RepeatMode.Repeat,lighting:false,
-                        diffuse:new ColorRgb(31,31,31),ambient:new ColorRgb(0,0,0)));
+                        diffuse:new ColorRgb(31,31,31),ambient:new ColorRgb(0,0,0),
+                        alpha:mapMaterial.Alpha,twoSided:mapMaterial.TwoSided,animated:MapUvAnimation.IsAnimated(mapMaterial)));
                     continue;
                 }
                 if(source==null)throw new MapAuthoringException("FP-MAP-001","Missing source material.");
@@ -163,7 +165,8 @@ namespace MphRead.Mods.MapGen
                         paletteMap.Add(srcMaterial.PaletteId, paletteId);
                     }
                 }
-                materials.Add(RawStructs.MakeSourceMaterial(mapMaterial.Name, srcMaterial, textureId, paletteId));
+                materials.Add(RawStructs.MakeSourceMaterial(mapMaterial.Name, srcMaterial, textureId, paletteId,
+                    mapMaterial.Alpha, mapMaterial.TwoSided, MapUvAnimation.IsAnimated(mapMaterial)));
             }
             if (materials.Count == 0)
             {
@@ -352,7 +355,8 @@ namespace MphRead.Mods.MapGen
                     palettes.Add(new Repack.PaletteInfo(entry.Palette));
                     materials.Add(RawStructs.MakeMaterial(mapMaterial.Name, textureId, paletteId,
                         RepeatMode.Repeat, RepeatMode.Repeat, lighting: false,
-                        diffuse: new ColorRgb(31, 31, 31), ambient: new ColorRgb(0, 0, 0)));
+                        diffuse: new ColorRgb(31, 31, 31), ambient: new ColorRgb(0, 0, 0),
+                        alpha: mapMaterial.Alpha, twoSided: mapMaterial.TwoSided, animated: MapUvAnimation.IsAnimated(mapMaterial)));
                     continue;
                 }
                 if (source == null)
@@ -380,7 +384,8 @@ namespace MphRead.Mods.MapGen
                         sourcePalettes.Add(srcMaterial.PaletteId, paletteId2);
                     }
                 }
-                materials.Add(RawStructs.MakeSourceMaterial(mapMaterial.Name, srcMaterial, textureId2, paletteId2));
+                materials.Add(RawStructs.MakeSourceMaterial(mapMaterial.Name, srcMaterial, textureId2, paletteId2,
+                    mapMaterial.Alpha, mapMaterial.TwoSided, MapUvAnimation.IsAnimated(mapMaterial)));
             }
             if (materials.Count == 0)
             {
