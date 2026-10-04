@@ -303,7 +303,29 @@ Global responsive / empty / loading / error-state polish implemented:
 - Hunter License Overview collapses its four headline metrics to a 2x2 grid and stacks
   lower career panels on phone-landscape rather than crushing four columns into the rail.
 
-Next presentation work: motion/audio polish and final cross-screen consistency pass.
+Motion / UI audio / final consistency polish implemented:
+
+- shell route changes remain **incoming-only**; the outgoing workspace is never rendered through
+  a crossfade, preserving the fix for stale-page tearing and cached-control parenting;
+- shared buttons keep their short press/focus spring and now emit synthesized **Navigate / Confirm /
+  Back / Error** cues through the existing Notifications audio bus;
+- UI cues are generated in memory as original PCM WAV tones, require no extracted game audio and
+  obey both the SFX master and Notifications volume;
+- directional focus moves to non-button rows, Q/E or controller tab changes, tactical tab clicks,
+  map/replay card hover/activation and disabled activation now share the same feedback language;
+- state panels get a single 4 px / 130 ms reveal only when their semantic state changes; Error
+  states pair that reveal with the Error cue;
+- Hunter License tab content gets a 6 px / 140 ms one-shot settle;
+- Settings category content gets a 5 px / 130 ms one-shot settle and no-result Settings search now
+  uses the same shared Empty-state surface as the rest of the shell;
+- every motion path still honors **Reduce menu motion** and `Deck.Still`, and no idle animation
+  or continuous Avalonia redraw loop was introduced;
+- synthesized cue structure is covered by deterministic headless checks rather than requiring an
+  audio device in CI.
+
+The major UI/UX modernization sequence is now structurally complete. Future work should be driven
+by real captures/playtests and targeted usability or performance findings rather than adding new
+presentation systems by default.
 
 ## P3 — renderer/performance
 

@@ -389,6 +389,7 @@ namespace MphRead.Sound
 
         public static void ShutDown()
         {
+            Mods.Sound.UiFeedbackAudio.Shutdown();
             Mods.Sound.CombatFeedbackAudio.Shutdown();
             if (Instance != null)
             {

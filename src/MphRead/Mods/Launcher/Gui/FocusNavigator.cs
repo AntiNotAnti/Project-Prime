@@ -61,7 +61,13 @@ namespace MphRead.Mods.Launcher.Gui
             Control scope = ControllerNav.Scope(current, root);
             if (scope != root && !root.IsVisualAncestorOf(scope)) scope = root;
             var explicitTarget = ControllerNav.Find(scope, ControllerNav.Neighbor(current, direction));
-            if (explicitTarget != null && Eligible(explicitTarget, scope)) { Focus(explicitTarget); return; }
+            if (explicitTarget != null && Eligible(explicitTarget, scope))
+            {
+                Focus(explicitTarget);
+                if (explicitTarget is not HubNavButton)
+                    Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Navigate);
+                return;
+            }
             root = scope;
             var origin = current.TranslatePoint(new Point(current.Bounds.Width / 2, current.Bounds.Height / 2), root);
             if (!origin.HasValue) return;
@@ -90,6 +96,8 @@ namespace MphRead.Mods.Launcher.Gui
             if (best == null && root.GetValue(ControllerNav.NavWrapProperty))
                 best = wrapped;
             Focus(best);
+            if (best != null && best is not HubNavButton)
+                Mods.Sound.UiFeedbackAudio.Play(Mods.Sound.UiFeedbackCue.Navigate);
         }
     }
 }
