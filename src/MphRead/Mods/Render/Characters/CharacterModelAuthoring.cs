@@ -484,8 +484,23 @@ The shipping GLBs must be segmented, not skinned:
 The biped starter maps {RigidNodeNames(biped).Count} native matrix nodes.
 The viewmodel starter maps {RigidNodeNames(viewModel).Count} native matrix nodes.
 
-For smooth joints, keep the high-detail source project. The later Weighted4 slice
-will accept JOINTS_0/WEIGHTS_0 without changing the material or pack identity.
+## Weighted4 smooth-skin alternative
+
+For smooth shoulders, elbows and other joints, use the matching
+`prepare-*-weighted4.py` helper instead of the rigid helper. Weighted exporters
+keep the Armature modifier and standard glTF skin, enforce at most four non-zero
+native-bone influences per vertex, temporarily mark only the native 32-joint
+palette as deform bones, and preserve native material names.
+
+The starter folder contains matching `*-weighted4-entry.json` snippets. A rigid
+and Weighted4 entry for the same hunter/part/LOD are alternatives: include
+**one**, never both, because that presentation identity may resolve to only one
+replacement asset.
+
+Weighted4 GLBs use the same local-only pack, material/PBR bindings, fallback,
+LOD identity and validation command as rigid replacements. Run
+`ProjectPrime -charactermodelvalidate "starter"` after substituting the desired
+weighted entry into `characters.json`.
 """;
         }
     }
