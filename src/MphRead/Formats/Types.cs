@@ -59,6 +59,13 @@ namespace MphRead
         /// </summary>
         public bool ViewModel { get; set; }
         /// <summary>
+        /// Reinterpret the legacy vertex color as four normalized skin weights
+        /// and texcoord Z as four packed 5-bit joint palette indices. Only
+        /// modern character GLBs set this; cartridge display lists remain on
+        /// the original single-matrix path.
+        /// </summary>
+        public bool WeightedSkinning { get; set; }
+        /// <summary>
         /// True only for the persistent packets owned by RoomEntity's retained
         /// mesh templates. It is renderer metadata, not gameplay state.
         /// </summary>
@@ -100,7 +107,7 @@ namespace MphRead
         public RenderItem()
         {
             // todo: consider using ArrayPool
-            MatrixStack = new float[16 * 31];
+            MatrixStack = new float[16 * 32];
             Points = Array.Empty<Vector3>();
         }
     }

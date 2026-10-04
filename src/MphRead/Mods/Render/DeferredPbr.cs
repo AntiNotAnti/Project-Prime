@@ -41,6 +41,7 @@ namespace MphRead
         private int _pbrViewInv;
         private int _pbrTextureMatrix;
         private int _pbrMatrixStack;
+        private int _pbrWeightedSkinning;
         private int _pbrTexgen;
         private int _pbrUseTexture;
         private int _pbrBaseSampler;
@@ -305,6 +306,7 @@ namespace MphRead
                     _pbrViewInv = GL.GetUniformLocation(_pbrProgram, "view_inv_mtx");
                     _pbrTextureMatrix = GL.GetUniformLocation(_pbrProgram, "tex_mtx");
                     _pbrMatrixStack = GL.GetUniformLocation(_pbrProgram, "mtx_stack");
+                    _pbrWeightedSkinning = GL.GetUniformLocation(_pbrProgram, "weighted_skinning");
                     _pbrTexgen = GL.GetUniformLocation(_pbrProgram, "texgen_mode");
                     _pbrUseTexture = GL.GetUniformLocation(_pbrProgram, "use_texture");
                     _pbrBaseSampler = GL.GetUniformLocation(_pbrProgram, "tex");
@@ -435,6 +437,7 @@ namespace MphRead
             if (item.BillboardMode == BillboardMode.Sphere) viewInv = _viewInvRotMatrix;
             else if (item.BillboardMode == BillboardMode.Cylinder) viewInv = _viewInvRotYMatrix;
             GL.UniformMatrix4(_pbrViewInv, false, ref viewInv);
+            GL.Uniform1(_pbrWeightedSkinning, item.WeightedSkinning ? 1 : 0);
 
             _pbrCosmetics?.Apply(item.Cosmetics);
             GL.Color3(item.Diffuse);
@@ -565,14 +568,30 @@ uniform mat4 view_mtx;
 uniform mat4 view_inv_mtx;
 uniform mat4 tex_mtx;
 uniform int texgen_mode;
+uniform bool weighted_skinning;
 uniform mat4 mtx_stack[32];
 out vec2 texcoord;
 out vec4 vertex_color;
 out vec3 surface_normal;
 out vec3 surface_position;
 void main() {
-    vec4 source_color = a_color_set > 0.5 ? a_color : imm_color;
-    mat4 stack_mtx = mtx_stack[int(clamp(a_texcoord.z, 0.0, 31.0))];
+    vec4 source_color = weighted_skinning ? vec4(1.0) : (a_color_set > 0.5 ? a_color : imm_color);
+    mat4 stack_mtx;
+    if (weighted_skinning) {
+        float packed = floor(a_texcoord.z + 0.5);
+        int j0 = int(mod(packed, 32.0)); packed = floor(packed / 32.0);
+        int j1 = int(mod(packed, 32.0)); packed = floor(packed / 32.0);
+        int j2 = int(mod(packed, 32.0)); packed = floor(packed / 32.0);
+        int j3 = int(mod(packed, 32.0));
+        vec4 weights = max(a_color, vec4(0.0));
+        float total = weights.x + weights.y + weights.z + weights.w;
+        weights = total > 0.000001 ? weights / total : vec4(1.0, 0.0, 0.0, 0.0);
+        stack_mtx = mtx_stack[j0] * weights.x + mtx_stack[j1] * weights.y
+            + mtx_stack[j2] * weights.z + mtx_stack[j3] * weights.w;
+    }
+    else {
+        stack_mtx = mtx_stack[int(clamp(a_texcoord.z, 0.0, 31.0))];
+    }
     mat4 model_mtx = stack_mtx * view_inv_mtx;
     gl_Position = proj_mtx * view_mtx * model_mtx * a_position;
     vertex_color = vec4(source_color.rgb, 1.0);
@@ -604,16 +623,32 @@ uniform mat4 view_mtx;
 uniform mat4 view_inv_mtx;
 uniform mat4 tex_mtx;
 uniform int texgen_mode;
+uniform bool weighted_skinning;
 uniform mat4 mtx_stack[32];
 varying vec2 texcoord;
 varying vec4 vertex_color;
 varying vec3 surface_normal;
 varying vec3 surface_position;
 void main() {
-    mat4 stack_mtx = mtx_stack[int(clamp(gl_MultiTexCoord0.z, 0.0, 31.0))];
+    mat4 stack_mtx;
+    if (weighted_skinning) {
+        float packed = floor(gl_MultiTexCoord0.z + 0.5);
+        int j0 = int(mod(packed, 32.0)); packed = floor(packed / 32.0);
+        int j1 = int(mod(packed, 32.0)); packed = floor(packed / 32.0);
+        int j2 = int(mod(packed, 32.0)); packed = floor(packed / 32.0);
+        int j3 = int(mod(packed, 32.0));
+        vec4 weights = max(gl_Color, vec4(0.0));
+        float total = weights.x + weights.y + weights.z + weights.w;
+        weights = total > 0.000001 ? weights / total : vec4(1.0, 0.0, 0.0, 0.0);
+        stack_mtx = mtx_stack[j0] * weights.x + mtx_stack[j1] * weights.y
+            + mtx_stack[j2] * weights.z + mtx_stack[j3] * weights.w;
+    }
+    else {
+        stack_mtx = mtx_stack[int(clamp(gl_MultiTexCoord0.z, 0.0, 31.0))];
+    }
     mat4 model_mtx = stack_mtx * view_inv_mtx;
     gl_Position = proj_mtx * view_mtx * model_mtx * gl_Vertex;
-    vertex_color = vec4(gl_Color.rgb, 1.0);
+    vertex_color = weighted_skinning ? vec4(1.0) : vec4(gl_Color.rgb, 1.0);
     surface_normal = normalize(mat3(model_mtx) * gl_Normal);
     surface_position = (model_mtx * gl_Vertex).xyz;
     texcoord = vec2(0.0);

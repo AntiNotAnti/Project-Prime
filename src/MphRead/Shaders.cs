@@ -23,6 +23,7 @@ uniform mat4 view_mtx;
 uniform mat4 view_inv_mtx;
 uniform mat4 tex_mtx;
 uniform int texgen_mode;
+uniform bool weighted_skinning;
 uniform mat4[32] mtx_stack;
 
 varying vec2 texcoord;
@@ -45,18 +46,33 @@ vec3 light_calc(vec3 light_vec, vec3 light_col, vec3 normal_vec, vec3 dif_col, v
 
 void main()
 {
-    mat4 stack_mtx = mtx_stack[int(clamp(gl_MultiTexCoord0.z, 0.0, 31.0))];
+    mat4 stack_mtx;
+    if (weighted_skinning) {
+        float packed = floor(gl_MultiTexCoord0.z + 0.5);
+        int j0 = int(mod(packed, 32.0)); packed = floor(packed / 32.0);
+        int j1 = int(mod(packed, 32.0)); packed = floor(packed / 32.0);
+        int j2 = int(mod(packed, 32.0)); packed = floor(packed / 32.0);
+        int j3 = int(mod(packed, 32.0));
+        vec4 weights = max(gl_Color, vec4(0.0));
+        float total = weights.x + weights.y + weights.z + weights.w;
+        weights = total > 0.000001 ? weights / total : vec4(1.0, 0.0, 0.0, 0.0);
+        stack_mtx = mtx_stack[j0] * weights.x + mtx_stack[j1] * weights.y
+            + mtx_stack[j2] * weights.z + mtx_stack[j3] * weights.w;
+    }
+    else {
+        stack_mtx = mtx_stack[int(clamp(gl_MultiTexCoord0.z, 0.0, 31.0))];
+    }
     // view_inv_mtx is set for billboard transforms
     mat4 model_mtx = stack_mtx * view_inv_mtx;
     gl_Position = proj_mtx * view_mtx * model_mtx * gl_Vertex;
-    vec4 vtx_color = show_colors ? gl_Color : vec4(1.0);
+    vec4 vtx_color = weighted_skinning ? vec4(1.0) : (show_colors ? gl_Color : vec4(1.0));
     vec3 normal = normalize(mat3(model_mtx) * gl_Normal);
     surface_normal = normal;
     surface_position = (model_mtx * gl_Vertex).xyz;
     if (use_light) {
         vec3 dif_current = diffuse;
         vec3 amb_current = ambient;
-        if (gl_Color.a == 0.0) {
+        if (!weighted_skinning && gl_Color.a == 0.0) {
             // see comment on DIF_AMB
             dif_current = vtx_color.rgb;
             amb_current = vec3(0.0, 0.0, 0.0);
@@ -663,6 +679,7 @@ void main()
         public int ProjectionMatrix { get; set; }
         public int TextureMatrix { get; set; }
         public int TexgenMode { get; set; }
+        public int WeightedSkinning { get; set; }
         public int MatrixStack { get; set; }
         public int ToonTable { get; set; }
         public int FadeColor { get; set; }

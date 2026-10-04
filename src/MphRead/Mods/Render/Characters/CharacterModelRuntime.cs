@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Text.Json;
 using MphRead.Mods;
 using OpenTK.Graphics.OpenGL;
+using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Render.Characters
 {
@@ -13,6 +14,14 @@ namespace MphRead.Mods.Render.Characters
         int NativeNodeIndex,
         int NativeMaterialIndex,
         int ListId);
+
+    internal sealed record CharacterWeightedRenderSegment(
+        int NativeMaterialIndex,
+        int ListId);
+
+    internal sealed record CharacterWeightedRenderJoint(
+        int NativeNodeIndex,
+        Matrix4 InverseBind);
 
     internal sealed class CharacterRigidRenderModel
     {
@@ -39,6 +48,59 @@ namespace MphRead.Mods.Render.Characters
         }
     }
 
+    internal sealed class CharacterWeightedRenderModel
+    {
+        public CharacterModelAsset Asset { get; }
+        public IReadOnlyList<CharacterWeightedRenderSegment> Segments { get; }
+        public IReadOnlyList<CharacterWeightedRenderJoint> Joints { get; }
+        public float[] MatrixPalette { get; }
+        public int VertexCount { get; }
+        public int IndexCount { get; }
+
+        public CharacterWeightedRenderModel(CharacterModelAsset asset,
+            IReadOnlyList<CharacterWeightedRenderSegment> segments,
+            IReadOnlyList<CharacterWeightedRenderJoint> joints,
+            int vertexCount, int indexCount)
+        {
+            Asset = asset;
+            Segments = segments;
+            Joints = joints;
+            MatrixPalette = new float[16 * joints.Count];
+            VertexCount = vertexCount;
+            IndexCount = indexCount;
+        }
+
+        public void UpdatePalette(Model nativeModel)
+        {
+            for (int i = 0; i < Joints.Count; i++)
+            {
+                CharacterWeightedRenderJoint joint = Joints[i];
+                Matrix4 matrix = joint.InverseBind * nativeModel.Nodes[joint.NativeNodeIndex].Animation;
+                WriteMatrix(MatrixPalette, i * 16, matrix);
+            }
+        }
+
+        public void Release()
+        {
+#if !MPHREAD_SERVER
+            foreach (CharacterWeightedRenderSegment segment in Segments)
+                if (segment.ListId != 0) GraphicsApi.DeleteLists(segment.ListId, 1);
+#endif
+        }
+
+        private static void WriteMatrix(float[] target, int offset, Matrix4 matrix)
+        {
+            target[offset + 0] = matrix.M11; target[offset + 1] = matrix.M12;
+            target[offset + 2] = matrix.M13; target[offset + 3] = matrix.M14;
+            target[offset + 4] = matrix.M21; target[offset + 5] = matrix.M22;
+            target[offset + 6] = matrix.M23; target[offset + 7] = matrix.M24;
+            target[offset + 8] = matrix.M31; target[offset + 9] = matrix.M32;
+            target[offset + 10] = matrix.M33; target[offset + 11] = matrix.M34;
+            target[offset + 12] = matrix.M41; target[offset + 13] = matrix.M42;
+            target[offset + 14] = matrix.M43; target[offset + 15] = matrix.M44;
+        }
+    }
+
     /// <summary>
     /// Scene-owned GPU bridge for local HD character geometry. The pack and CPU
     /// file contract are process-local, while display-list/native-buffer handles
@@ -48,13 +110,16 @@ namespace MphRead.Mods.Render.Characters
     {
         private sealed class SceneResources
         {
-            public readonly Dictionary<(string Path, int NativeModelId), CharacterRigidRenderModel> Models = new();
+            public readonly Dictionary<(string Path, int NativeModelId), CharacterRigidRenderModel> RigidModels = new();
+            public readonly Dictionary<(string Path, int NativeModelId), CharacterWeightedRenderModel> WeightedModels = new();
             public readonly HashSet<(string Path, int NativeModelId)> Failed = new();
 
             public void Release()
             {
-                foreach (CharacterRigidRenderModel model in Models.Values) model.Release();
-                Models.Clear();
+                foreach (CharacterRigidRenderModel model in RigidModels.Values) model.Release();
+                foreach (CharacterWeightedRenderModel model in WeightedModels.Values) model.Release();
+                RigidModels.Clear();
+                WeightedModels.Clear();
                 Failed.Clear();
             }
         }
@@ -84,7 +149,7 @@ namespace MphRead.Mods.Render.Characters
 
             var key = (asset.ModelPath, nativeModel.Id);
             SceneResources resources = _scenes.GetValue(scene, _ => new SceneResources());
-            if (resources.Models.TryGetValue(key, out model!)) return true;
+            if (resources.RigidModels.TryGetValue(key, out model!)) return true;
             if (resources.Failed.Contains(key)) return false;
 
             try
@@ -92,7 +157,7 @@ namespace MphRead.Mods.Render.Characters
                 if (!CharacterModelPack.ValidateNativeRig(asset, nativeModel, out string? rigIssue))
                     throw new InvalidDataException(rigIssue);
                 model = Compile(asset, nativeModel);
-                resources.Models.Add(key, model);
+                resources.RigidModels.Add(key, model);
                 DebugLog.Line("render",
                     $"HD character ready: {hunter}/{part}/lod{asset.Lod}, {model.Segments.Count} segments, "
                     + $"{model.VertexCount} vertices, {model.IndexCount / 3} triangles");
@@ -105,6 +170,45 @@ namespace MphRead.Mods.Render.Characters
                 resources.Failed.Add(key);
                 DebugLog.Line("render",
                     $"HD character fallback for {hunter}/{part}/lod{asset.Lod}: {ex.Message}");
+                return false;
+            }
+        }
+
+        public static bool TryGetWeighted(Scene scene, Hunter hunter, CharacterModelPart part,
+            Model nativeModel, out CharacterWeightedRenderModel model, int lod = 0)
+        {
+            model = null!;
+            if (Headless.Active || !RenderOptions.CharacterModelReplacements) return false;
+
+            CharacterModelPack pack = GetPack();
+            if (!pack.TryResolve(hunter, part, lod, out CharacterModelAsset asset)
+                || asset.Skinning != CharacterSkinningMode.Weighted4)
+                return false;
+
+            var key = (asset.ModelPath, nativeModel.Id);
+            SceneResources resources = _scenes.GetValue(scene, _ => new SceneResources());
+            if (resources.WeightedModels.TryGetValue(key, out model!)) return true;
+            if (resources.Failed.Contains(key)) return false;
+
+            try
+            {
+                if (!CharacterModelPack.ValidateNativeRig(asset, nativeModel, out string? rigIssue))
+                    throw new InvalidDataException(rigIssue);
+                model = CompileWeighted(asset, nativeModel);
+                resources.WeightedModels.Add(key, model);
+                DebugLog.Line("render",
+                    $"HD weighted character ready: {hunter}/{part}/lod{asset.Lod}, "
+                    + $"{model.Joints.Count} joints, {model.Segments.Count} segments, "
+                    + $"{model.VertexCount} vertices, {model.IndexCount / 3} triangles");
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                or InvalidDataException or ArgumentException or InvalidOperationException
+                or JsonException or FormatException or OverflowException or KeyNotFoundException)
+            {
+                resources.Failed.Add(key);
+                DebugLog.Line("render",
+                    $"HD weighted character fallback for {hunter}/{part}/lod{asset.Lod}: {ex.Message}");
                 return false;
             }
         }
@@ -176,6 +280,96 @@ namespace MphRead.Mods.Render.Characters
             {
                 foreach (CharacterRigidRenderSegment segment in compiled)
                     if (segment.ListId != 0) GraphicsApi.DeleteLists(segment.ListId, 1);
+                throw;
+            }
+#endif
+        }
+
+        private static CharacterWeightedRenderModel CompileWeighted(
+            CharacterModelAsset asset, Model nativeModel)
+        {
+#if MPHREAD_SERVER
+            throw new InvalidOperationException("HD character geometry is unavailable in dedicated-server builds.");
+#else
+            CharacterWeightedModelData geometry = CharacterWeightedModelLoader.Load(asset);
+            var nodeIndices = nativeModel.Nodes.Select((node, index) => (Name: node.Name, Index: index))
+                .ToDictionary(value => value.Name, value => value.Index, StringComparer.Ordinal);
+            var materialIndices = nativeModel.Materials.Select((material, index) => (Name: material.Name, Index: index))
+                .GroupBy(value => value.Name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First().Index, StringComparer.OrdinalIgnoreCase);
+
+            var joints = new List<CharacterWeightedRenderJoint>(geometry.Joints.Count);
+            foreach (CharacterWeightedJoint joint in geometry.Joints)
+            {
+                if (!nodeIndices.TryGetValue(joint.TargetNode, out int nativeNodeIndex))
+                    throw new InvalidDataException(
+                        $"Native model no longer contains weighted target node '{joint.TargetNode}'.");
+                joints.Add(new(nativeNodeIndex, joint.InverseBind));
+            }
+
+            var compiled = new List<CharacterWeightedRenderSegment>(geometry.Primitives.Count);
+            try
+            {
+                foreach (CharacterWeightedPrimitive primitive in geometry.Primitives)
+                {
+                    if (String.IsNullOrWhiteSpace(primitive.MaterialName)
+                        || !materialIndices.TryGetValue(primitive.MaterialName, out int materialIndex))
+                        throw new InvalidDataException(
+                            $"Weighted HD material '{primitive.MaterialName ?? "(unnamed)"}' "
+                            + $"does not match a native material in {nativeModel.Name}.");
+                    Material material = nativeModel.Materials[materialIndex];
+                    if (material.TexgenMode is TexgenMode.Normal or TexgenMode.Vertex)
+                        throw new InvalidDataException(
+                            $"Weighted HD material '{material.Name}' uses generated native coordinates; "
+                            + "weighted GLB UVs require None/Texcoord.");
+
+                    int list = CompileWeightedList(primitive);
+                    compiled.Add(new(materialIndex, list));
+                }
+                return new(asset, compiled.ToArray(), joints.ToArray(),
+                    geometry.VertexCount, geometry.IndexCount);
+            }
+            catch
+            {
+                foreach (CharacterWeightedRenderSegment segment in compiled)
+                    if (segment.ListId != 0) GraphicsApi.DeleteLists(segment.ListId, 1);
+                throw;
+            }
+#endif
+        }
+
+        private static int CompileWeightedList(CharacterWeightedPrimitive primitive)
+        {
+#if MPHREAD_SERVER
+            throw new InvalidOperationException("HD character geometry is unavailable in dedicated-server builds.");
+#else
+            int list = GraphicsApi.GenLists(1);
+            if (list == 0)
+                throw new InvalidOperationException("Renderer could not allocate weighted HD character geometry.");
+            try
+            {
+                GraphicsApi.NewList(list, ListMode.Compile);
+                GraphicsApi.TexCoord3(0, 0, 0);
+                GraphicsApi.Normal3(0, 1, 0);
+                GraphicsApi.Begin(PrimitiveType.Triangles);
+                foreach (uint rawIndex in primitive.Indices)
+                {
+                    CharacterWeightedVertex vertex = primitive.Vertices[(int)rawIndex];
+                    GraphicsApi.Color4(vertex.Weights.X, vertex.Weights.Y,
+                        vertex.Weights.Z, vertex.Weights.W);
+                    GraphicsApi.Normal3(vertex.Normal.X, vertex.Normal.Y, vertex.Normal.Z);
+                    GraphicsApi.TexCoord3(vertex.Texcoord.X, vertex.Texcoord.Y, vertex.PackedJoints);
+                    GraphicsApi.Vertex3(vertex.Position.X, vertex.Position.Y, vertex.Position.Z);
+                }
+                GraphicsApi.End();
+                GraphicsApi.EndList();
+                return list;
+            }
+            catch
+            {
+                try { GraphicsApi.End(); } catch { }
+                try { GraphicsApi.EndList(); } catch { }
+                GraphicsApi.DeleteLists(list, 1);
                 throw;
             }
 #endif

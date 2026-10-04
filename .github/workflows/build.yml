@@ -50,6 +50,17 @@ jobs:
       - name: compile server-only surface
         run: dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadServer=true
 
+  character-model-check:
+    name: HD character model contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: rigid and Weighted4 asset contract
+        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -charactermodelcheck
+
   fidelity-oracle:
     name: content-free fidelity oracle (F0/F1)
     runs-on: ubuntu-latest

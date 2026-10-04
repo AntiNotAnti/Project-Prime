@@ -299,12 +299,45 @@ namespace MphRead.Mods.Render
                 Mods.Cosmetics.SkinContext.AltForm => CharacterModelPart.AlternateForm,
                 _ => null
             };
-            if (part == null
-                || !CharacterModelRuntime.TryGetRigid(_scene, _hunter, part.Value,
-                    _model.Model, out CharacterRigidRenderModel replacement))
+            if (part == null) return false;
+            Model model = _model.Model;
+            if (CharacterModelRuntime.TryGetWeighted(_scene, _hunter, part.Value,
+                model, out CharacterWeightedRenderModel weighted))
+            {
+                weighted.UpdatePalette(model);
+                int weightedPolygonId = _scene.GetNextPolygonId();
+                foreach (CharacterWeightedRenderSegment segment in weighted.Segments)
+                {
+                    Material material = model.Materials[segment.NativeMaterialIndex];
+                    Vector3 emission = GetEmission(_model, material, segment.NativeMaterialIndex);
+                    Vector4? color = GetRenderColor(_model, 0, material);
+                    int? bindingOverride = GetBindingOverride(
+                        _model, material, segment.NativeMaterialIndex);
+                    var previousMaterial = _scene.CosmeticMaterialSubmission;
+                    _scene.CosmeticMaterialSubmission = GetCosmeticMaterialOverride(
+                        _model, material, segment.NativeMaterialIndex);
+                    try
+                    {
+                        _scene.AddRenderItem(material, weightedPolygonId, Alpha,
+                            emission, _light, Matrix4.Identity, Matrix4.Identity,
+                            segment.ListId, weighted.Joints.Count, weighted.MatrixPalette,
+                            color, PaletteOverride, SelectionType.None,
+                            BillboardMode.None, _drawScale, bindingOverride,
+                            UseTexturedPlayerSkin(_model), GetPlayerOutlineColor(_model),
+                            weightedSkinning: true);
+                    }
+                    finally
+                    {
+                        _scene.CosmeticMaterialSubmission = previousMaterial;
+                    }
+                }
+                return true;
+            }
+
+            if (!CharacterModelRuntime.TryGetRigid(_scene, _hunter, part.Value,
+                model, out CharacterRigidRenderModel replacement))
                 return false;
 
-            Model model = _model.Model;
             int polygonId = _scene.GetNextPolygonId();
             foreach (CharacterRigidRenderSegment segment in replacement.Segments)
             {
