@@ -17,7 +17,8 @@ namespace MphRead.Mods.Render.Characters
 
     internal sealed record CharacterWeightedRenderSegment(
         int NativeMaterialIndex,
-        int ListId);
+        int ListId,
+        int? AlbedoBinding = null);
 
     internal sealed record CharacterWeightedRenderJoint(
         int NativeNodeIndex,
@@ -110,6 +111,8 @@ namespace MphRead.Mods.Render.Characters
     {
         private sealed class SceneResources
         {
+            public readonly TextureAssetQuality TextureQuality = RenderOptions.TextureQuality;
+            public readonly string SamplingKey = TextureSamplingPolicy.RuntimeKey;
             public readonly Dictionary<(string Path, int NativeModelId), CharacterRigidRenderModel> RigidModels = new();
             public readonly Dictionary<(string Path, int NativeModelId), CharacterWeightedRenderModel> WeightedModels = new();
             public readonly HashSet<(string Path, int NativeModelId)> Failed = new();
@@ -187,6 +190,12 @@ namespace MphRead.Mods.Render.Characters
 
             var key = (asset.ModelPath, nativeModel.Id);
             SceneResources resources = _scenes.GetValue(scene, _ => new SceneResources());
+            if (resources.TextureQuality != RenderOptions.TextureQuality
+                || resources.SamplingKey != TextureSamplingPolicy.RuntimeKey)
+            {
+                Release(scene);
+                resources = _scenes.GetValue(scene, _ => new SceneResources());
+            }
             if (resources.WeightedModels.TryGetValue(key, out model!)) return true;
             if (resources.Failed.Contains(key)) return false;
 
@@ -194,7 +203,7 @@ namespace MphRead.Mods.Render.Characters
             {
                 if (!CharacterModelPack.ValidateNativeRig(asset, nativeModel, out string? rigIssue))
                     throw new InvalidDataException(rigIssue);
-                model = CompileWeighted(asset, nativeModel);
+                model = CompileWeighted(scene, asset, nativeModel);
                 resources.WeightedModels.Add(key, model);
                 DebugLog.Line("render",
                     $"HD weighted character ready: {hunter}/{part}/lod{asset.Lod}, "
@@ -220,6 +229,7 @@ namespace MphRead.Mods.Render.Characters
                 resources.Release();
                 _scenes.Remove(scene);
             }
+            scene.ClearCharacterModelTextures();
         }
 
         internal static void ResetPackForCheck()
@@ -286,7 +296,7 @@ namespace MphRead.Mods.Render.Characters
         }
 
         private static CharacterWeightedRenderModel CompileWeighted(
-            CharacterModelAsset asset, Model nativeModel)
+            Scene scene, CharacterModelAsset asset, Model nativeModel)
         {
 #if MPHREAD_SERVER
             throw new InvalidOperationException("HD character geometry is unavailable in dedicated-server builds.");
@@ -323,8 +333,20 @@ namespace MphRead.Mods.Render.Characters
                             $"Weighted HD material '{material.Name}' uses generated native coordinates; "
                             + "weighted GLB UVs require None/Texcoord.");
 
+                    int? albedo = null;
+                    if (primitive.Albedo != null)
+                    {
+                        int binding = scene.GetCharacterModelTexture(
+                            asset.ModelPath + "/" + compiled.Count, primitive.Albedo.Image,
+                            asset.Part == CharacterModelPart.ViewModel
+                                ? TextureAssetClass.Weapon : TextureAssetClass.Hunter,
+                            primitive.Albedo.Opaque);
+                        if (binding == 0)
+                            throw new InvalidDataException("Embedded character albedo could not be uploaded.");
+                        albedo = binding;
+                    }
                     int list = CompileWeightedList(primitive);
-                    compiled.Add(new(materialIndex, list));
+                    compiled.Add(new(materialIndex, list, albedo));
                 }
                 return new(asset, compiled.ToArray(), joints.ToArray(),
                     geometry.VertexCount, geometry.IndexCount);

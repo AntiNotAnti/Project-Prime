@@ -243,7 +243,7 @@ namespace MphRead.Mods.Render
                 return cached.Group;
             }
 
-            if (cached?.Group != null)
+            if (cached != null && cached.Group != null)
                 ReleaseTrackedBindGroup(cached.Group);
 
             BindGroup* group = CreateTrackedBindGroup(new BindGroupDescriptor
