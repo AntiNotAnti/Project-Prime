@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 
@@ -16,18 +17,27 @@ namespace MphRead.Mods.Render.Characters
         public static string Generate(Hunter hunter, CharacterModelPart part,
             Model nativeModel, string relativeOutput)
         {
-            string bones = JsonSerializer.Serialize(
-                CharacterModelAuthoring.WeightedNodeNames(nativeModel));
-            string materials = JsonSerializer.Serialize(nativeModel.Materials
-                .Select(material => material.Name)
-                .Where(name => !String.IsNullOrWhiteSpace(name))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
-                .ToArray());
-            string output = JsonSerializer.Serialize(relativeOutput.Replace('\\', '/'));
-            string label = JsonSerializer.Serialize($"{hunter}/{part}");
+            return Generate($"{hunter}/{part}",
+                CharacterModelAuthoring.WeightedNodeNames(nativeModel),
+                nativeModel.Materials.Select(material => material.Name)
+                    .Where(name => !String.IsNullOrWhiteSpace(name))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+                    .ToArray(),
+                relativeOutput);
+        }
 
-            return $$"""
+        internal static string Generate(string assetLabel,
+            IReadOnlyList<string> expectedBones,
+            IReadOnlyList<string> expectedMaterials,
+            string relativeOutput)
+        {
+            string bones = JsonSerializer.Serialize(expectedBones);
+            string materials = JsonSerializer.Serialize(expectedMaterials);
+            string output = JsonSerializer.Serialize(relativeOutput.Replace('\\', '/'));
+            string label = JsonSerializer.Serialize(assetLabel);
+
+            return $"""
 # Project Prime Weighted4 character exporter
 #
 # Load/refine the generated native Blender reference first. The mesh may use
