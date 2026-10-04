@@ -657,6 +657,27 @@ namespace MphRead.Mods.MapGen
         public int SourceMaterial { get; set; }
         /// <summary>Texels per world unit. 32 means a 32x32 texture tiles once per unit.</summary>
         public float TexScale { get; set; } = 16f;
+        /// <summary>Optional native 0-31 alpha override. Null preserves a borrowed material's alpha.</summary>
+        public int? Alpha { get; set; }
+        /// <summary>Render both faces instead of applying the material's normal back/front-face culling.</summary>
+        public bool TwoSided { get; set; }
+        /// <summary>Optional texture-coordinate animation authored in texture tiles per second.</summary>
+        public MapMaterialAnimation? Animation { get; set; }
+    }
+
+    /// <summary>
+    /// Portable material animation metadata. V1 deliberately stores author-facing rates rather than
+    /// native lookup-table indices, so the compiler can target the MPH animation format today and a
+    /// direct modern-renderer path later without changing map projects.
+    /// </summary>
+    public sealed class MapMaterialAnimation
+    {
+        /// <summary>Horizontal and vertical texture-tile velocity per second.</summary>
+        public float[] UvScroll { get; set; } = new float[2];
+        /// <summary>Length of this material's seamless cycle in native 30 Hz frames.</summary>
+        public int LoopFrames { get; set; } = 3000;
+        /// <summary>Optional phase offset inside this material's loop, in native 30 Hz frames.</summary>
+        public int PhaseFrames { get; set; }
     }
 
     /// <summary>An axis-aligned box. Six quads of geometry, six faces of collision.</summary>
