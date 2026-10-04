@@ -130,15 +130,15 @@ list. Handles are scene-owned and released from `Scene.UnloadGl`.
 Player drawing is atomic per presentation part:
 
 1. native animation/material state is updated exactly as before;
-2. Project Prime asks for a validated compiled biped or viewmodel replacement;
+2. Project Prime asks for the validated replacement for that presentation part;
 3. every replacement segment submits with its mapped native node transform and
    native material identity;
 4. if discovery, rig validation, parsing, material mapping or GPU compilation
    fails, the original `GetDrawItems` call runs unchanged.
 
 Bright skins, palette overrides, player outlines, cosmetic material overrides,
-double-damage binding overrides and first-person viewmodel projection all pass
-through the same `Scene.AddRenderItem` path.
+double-damage binding/texgen overrides and first-person viewmodel projection all
+pass through the same `Scene.AddRenderItem` path.
 
 The feature is opt-in through **HD character models** and defaults off.
 Installing files alone cannot alter the rendered hunter.
@@ -185,6 +185,28 @@ The authoring kit exports the native distant biped too and writes
 `starter/biped-lod1-entry.json`, an exact optional LOD1 mapping that can be
 appended to the starter manifest after `biped_lod1.glb` is authored.
 
+It also writes optional `alternate-form-entry.json` plus
+`prepare-altform-rigid.py`. Weavel kits additionally include the native
+`WeavelAlt_Turret_lod0` reference, `halfturret-entry.json`, and
+`prepare-halfturret-rigid.py`. These optional entries are not added to the
+starter's live `models` array until the corresponding GLB actually exists.
+
+## Slice 4: complete rigid presentation targets
+
+The runtime replacement path now covers:
+
+- biped LOD0 and optional LOD1;
+- first-person viewmodel;
+- alternate forms, including Kanden's segmented pose and Spire's attack pose;
+- Weavel's halfturret.
+
+Alternate-form submission preserves its dedicated cosmetic skin context.
+Halfturret submission preserves owner bright skins, outline color, freeze/damage
+suppression, cosmetic turret material context, and double-damage emission,
+binding and generated-coordinate matrix. The launcher hunter preview uses HD
+geometry for biped, viewmodel and alternate-form modes when the feature is
+enabled, so authored assets can be visually inspected without entering a match.
+
 Validate a completed pack against the currently installed native game data:
 
 ```sh
@@ -202,7 +224,7 @@ bones, and assigns every source vertex to the corresponding native node group.
 The authoring kit therefore describes the same skeleton the game actually
 animates.
 
-## Next slice: authored Samus acceptance + replacement LODs
+## Next slice: authored Samus acceptance
 
 The remaining work before calling the rigid Samus proof complete is asset and
 visual acceptance rather than another ingestion layer:
@@ -210,8 +232,8 @@ visual acceptance rather than another ingestion layer:
 1. build a segmented Samus biped and arm cannon from the generated references;
 2. preserve native node-local coordinates and material names during GLB export;
 3. tune authored LOD0/LOD1 triangle budgets and transition acceptance;
-4. verify muzzle/effect attachment alignment, death/unmorph transitions, bright
-   skins, outlines and team recolors;
+4. verify muzzle/effect attachment alignment, death/unmorph/alt transitions,
+   bright skins, outlines, team recolors and Weavel turret presentation;
 5. benchmark Metal, desktop Vulkan/DX12 and physical Android Vulkan;
 6. then implement `weighted4` JOINTS_0/WEIGHTS_0 smooth GPU skinning.
 
