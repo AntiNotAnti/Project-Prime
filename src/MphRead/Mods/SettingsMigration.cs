@@ -68,7 +68,7 @@ namespace MphRead.Mods
                 RenderOptions.OnOff(RenderOptions.ParseOnOff(settings.SmoothNativeHud, true)),
                 "native HUD sampling", changed);
 
-            int cap = FrameTiming.ParseCap(settings.FrameRateCap, FrameTiming.DisplayRate);
+            int cap = FrameTiming.ParseSavedCap(settings.FrameRateCap, FrameTiming.DisplayRate);
             settings.FrameRateCap = Normalize(settings.FrameRateCap, FrameTiming.CapString(cap), "fps limit", changed);
 
             settings.CelShading = Normalize(settings.CelShading,
