@@ -274,7 +274,10 @@ namespace MphRead.Mods.Render
                     FeatureName multiDrawFeature =
                         (FeatureName)NativeFeature.MultiDrawIndirect;
                     bool multiDrawIndirect =
-                        api.AdapterHasFeature(adapter, multiDrawFeature);
+                        platform != GraphicsPlatform.Android
+                        && backend is GraphicsBackend.DirectX12
+                            or GraphicsBackend.Vulkan
+                        && api.AdapterHasFeature(adapter, multiDrawFeature);
                     FeatureName* requiredFeatures = stackalloc FeatureName[4];
                     int requiredFeatureCount = 0;
                     if (compressionBc) requiredFeatures[requiredFeatureCount++] = FeatureName.TextureCompressionBC;
