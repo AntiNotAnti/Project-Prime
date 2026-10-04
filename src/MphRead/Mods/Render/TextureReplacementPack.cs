@@ -28,9 +28,12 @@ namespace MphRead.Mods.Render
             MaterialAssetKey? key = null, MaterialAssetKey? fallbackKey = null)
         {
             EnsureLoaded();
-            ResolvedMaterial? local = _resolver?.Resolve(model, texture, palette, recolor, key, fallbackKey);
-            if (local != null && HasChannels(local)) return local;
             MaterialAssetKey portableKey = key ?? MaterialAssetKey.Model(model, texture, palette, recolor);
+            bool nativeFlipbook = MapMaterialAssetRegistry.IsNativeFlipbook(portableKey);
+            ResolvedMaterial? local = _resolver?.Resolve(model, texture, palette, recolor, key, fallbackKey);
+            if (nativeFlipbook && local != null)
+                local = local with { Albedo = null };
+            if (local != null && HasChannels(local)) return local;
             return MapMaterialAssetRegistry.Resolve(portableKey,
                 includeCompanions: RenderOptions.AdvancedMaterials) ?? local;
         }
