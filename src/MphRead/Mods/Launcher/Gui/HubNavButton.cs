@@ -251,6 +251,17 @@ namespace MphRead.Mods.Launcher.Gui
                 RefreshVisual();
         }
 
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            _tap.Cancel();
+            _pointer = false;
+            _pressed = false;
+            _poseMotion?.Cancel();
+            _poseMotion = null;
+            base.OnDetachedFromVisualTree(e);
+            RefreshVisual();
+        }
+
         private void RefreshVisual()
         {
             if (_frame == null) return;
@@ -293,11 +304,22 @@ namespace MphRead.Mods.Launcher.Gui
         private void AnimatePose(double scale, double shift, double opacity, double railOpacity)
         {
             _poseMotion?.Cancel();
+            _poseMotion = null;
             double fromScale = _scale.ScaleX;
             double fromShift = _shift.X;
             double fromOpacity = _frame.Opacity;
             double fromRail = _rail.Opacity;
             double seconds = _pressed ? PrimeMotion.PressSeconds : PrimeMotion.ButtonSeconds;
+
+            if (PrimeMotion.Reduced || TopLevel.GetTopLevel(this) == null)
+            {
+                _scale.ScaleX = scale;
+                _scale.ScaleY = scale;
+                _shift.X = shift;
+                _frame.Opacity = opacity;
+                _rail.Opacity = railOpacity;
+                return;
+            }
 
             _poseMotion = PrimeMotion.Tween(this, seconds, progress =>
             {
