@@ -117,6 +117,28 @@ namespace MphRead.Mods.MapGen
                         catch(Exception ex)when(ex is IOException or InvalidDataException or ProgramException){result.Error("FP-MAP-001",ex.Message,material.Id);}
                     }
                 }
+                foreach (string frame in material?.Animation?.FlipbookFrames ?? Enumerable.Empty<string>())
+                {
+                    if (!paths.Contains(frame)
+                        || !definition.Assets.Any(a => a?.Path == frame && a.Kind == "texture")
+                        || !frame.EndsWith(".tex", StringComparison.OrdinalIgnoreCase))
+                    {
+                        result.Error("FP-MAP-001",
+                            "Flipbook frames must reference declared baked .tex texture assets.", material?.Id);
+                    }
+                    else if (checkFiles)
+                    {
+                        try
+                        {
+                            var pack = MapTexturePack.Load(Read(definition, frame), frame);
+                            if (pack.Entries.Count != 1)
+                                result.Error("FP-MAP-001",
+                                    "Flipbook frames require a single native texture.", material?.Id);
+                        }
+                        catch (Exception ex) when (ex is IOException or InvalidDataException or ProgramException)
+                        { result.Error("FP-MAP-001", ex.Message, material?.Id); }
+                    }
+                }
                 foreach(string modern in new[]{material?.Albedo,material?.Normal,material?.SpecularRoughness,material?.Emissive}.Where(path=>!String.IsNullOrEmpty(path)).Select(path=>path!))
                 {
                     string ext=Path.GetExtension(modern).ToLowerInvariant();
