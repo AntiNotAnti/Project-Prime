@@ -190,7 +190,7 @@ static class CustomCollisionChecks
         // switch, but a larger alt sphere must not be born below the supporting
         // floor. Samus has equal radii and needs no correction; Sylux/Trace do.
         MethodInfo groundedAltLift = typeof(PlayerEntity).GetMethod(
-            "ModGroundedAltFormLift", BindingFlags.Static | BindingFlags.NonPublic)!;
+            "ModGroundedFormLift", BindingFlags.Static | BindingFlags.NonPublic)!;
         float samusLift = (float)groundedAltLift.Invoke(null, new object[]
         {
             PlayerEntity.PlayerVolumes[(int)Hunter.Samus, 0],
@@ -206,12 +206,26 @@ static class CustomCollisionChecks
             PlayerEntity.PlayerVolumes[(int)Hunter.Trace, 0],
             PlayerEntity.PlayerVolumes[(int)Hunter.Trace, 2]
         })!;
+        float weavelUnmorphLift = (float)groundedAltLift.Invoke(null, new object[]
+        {
+            PlayerEntity.PlayerVolumes[(int)Hunter.Weavel, 2],
+            PlayerEntity.PlayerVolumes[(int)Hunter.Weavel, 0]
+        })!;
+        float noxusUnmorphLift = (float)groundedAltLift.Invoke(null, new object[]
+        {
+            PlayerEntity.PlayerVolumes[(int)Hunter.Noxus, 2],
+            PlayerEntity.PlayerVolumes[(int)Hunter.Noxus, 0]
+        })!;
         check(MathF.Abs(samusLift) < .0001f,
             "grounded Samus morph keeps the retail collision height");
         check(syluxLift > .12f && syluxLift < .14f,
             "grounded Sylux morph preserves the old collision bottom");
         check(traceLift > .12f && traceLift < .14f,
             "grounded Trace morph preserves the old collision bottom");
+        check(weavelUnmorphLift > .09f && weavelUnmorphLift < .11f,
+            "grounded Weavel unmorph preserves the old collision bottom");
+        check(MathF.Abs(noxusUnmorphLift) < .0001f,
+            "grounded Noxus unmorph needs no floor correction");
 
         var wideFaces = new List<CollisionDataEditor>(22000);
         for (int i = 0; i < 22000; i++)
