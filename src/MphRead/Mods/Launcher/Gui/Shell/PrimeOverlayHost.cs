@@ -94,7 +94,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _scrim.IsVisible = true;
                 _scrimMotion?.Cancel();
-                _scrimMotion = PrimeMotion.Fade(_scrim, 0, 1);
+                _scrimMotion = PrimeMotion.Fade(_scrim, _scrim.Opacity, 1);
             }
             else
             {
