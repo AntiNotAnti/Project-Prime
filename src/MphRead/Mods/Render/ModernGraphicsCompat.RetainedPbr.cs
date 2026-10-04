@@ -294,7 +294,7 @@ namespace MphRead.Mods.Render
             ApplyScissor(pass, target.Width, target.Height);
             uint retainedIndexCount = (uint)geometry.Triangles.Length;
             if (!TryDrawRetainedIndexedIndirect(
-                pass, retainedIndexCount, item.RetainedRoomOwned))
+                pass, retainedIndexCount, item))
             {
                 _api.RenderPassEncoderDrawIndexed(
                     pass, retainedIndexCount, 1, 0, 0, 0);
