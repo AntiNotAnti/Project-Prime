@@ -32,6 +32,7 @@ namespace MphRead.Mods.Render.Characters
 
             IReadOnlyList<string> nativeNames = Metadata.HunterModels[hunter];
             Model biped = Read.GetModelInstance(nativeNames[0]).Model;
+            Model bipedLod1 = Read.GetModelInstance(nativeNames[1]).Model;
             Model viewModel = Read.GetModelInstance(nativeNames[3]).Model;
             Model alternate = Read.GetModelInstance(nativeNames[2]).Model;
 
@@ -45,6 +46,7 @@ namespace MphRead.Mods.Render.Characters
             {
                 Paths.SetPath("Export", referenceRoot);
                 Collada.ExportModel(biped);
+                Collada.ExportModel(bipedLod1);
                 Collada.ExportModel(viewModel);
                 Collada.ExportModel(alternate);
             }
@@ -57,9 +59,10 @@ namespace MphRead.Mods.Render.Characters
             WriteInventory(Path.Combine(root, "native-reference.json"), hunter,
                 new[]
                 {
-                    (CharacterModelPart.Biped, biped),
-                    (CharacterModelPart.ViewModel, viewModel),
-                    (CharacterModelPart.AlternateForm, alternate)
+                    (CharacterModelPart.Biped, 0, biped),
+                    (CharacterModelPart.Biped, 1, bipedLod1),
+                    (CharacterModelPart.ViewModel, 0, viewModel),
+                    (CharacterModelPart.AlternateForm, 0, alternate)
                 });
 
             string hunterFolder = hunter.ToString().ToLowerInvariant();
@@ -70,15 +73,19 @@ namespace MphRead.Mods.Render.Characters
                 Models =
                 {
                     StarterEntry(hunter, CharacterModelPart.Biped,
-                        hunterFolder + "/biped.glb", biped),
+                        hunterFolder + "/biped.glb", biped, lod: 0),
                     StarterEntry(hunter, CharacterModelPart.ViewModel,
-                        hunterFolder + "/viewmodel.glb", viewModel)
+                        hunterFolder + "/viewmodel.glb", viewModel, lod: 0)
                 }
             };
             File.WriteAllText(Path.Combine(starterRoot, "characters.json"),
                 JsonSerializer.Serialize(manifest, Json));
+            File.WriteAllText(Path.Combine(starterRoot, "biped-lod1-entry.json"),
+                JsonSerializer.Serialize(StarterEntry(hunter, CharacterModelPart.Biped,
+                    hunterFolder + "/biped_lod1.glb", bipedLod1, lod: 1), Json));
             Directory.CreateDirectory(Path.Combine(starterRoot, hunterFolder));
-            File.WriteAllText(Path.Combine(root, "README.md"), Readme(hunter, biped, viewModel, alternate));
+            File.WriteAllText(Path.Combine(root, "README.md"),
+                Readme(hunter, biped, bipedLod1, viewModel, alternate));
 
             Console.WriteLine($"[charactermodelkit] {hunter} authoring kit: {root}");
             Console.WriteLine($"[charactermodelkit] biped nodes={biped.Nodes.Count}, materials={biped.Materials.Count}, matrix palette={biped.NodeMatrixIds.Count}");
@@ -96,16 +103,19 @@ namespace MphRead.Mods.Render.Characters
                 {
                     foreach (CharacterModelPart part in Enum.GetValues<CharacterModelPart>())
                     {
-                        if (!pack.TryResolve(hunter, part, out CharacterModelAsset asset)) continue;
-                        found++;
-                        Model native = Read.GetModelInstance(NativeModelName(hunter, part)).Model;
+                        for (int lod = 0; lod <= CharacterModelPack.MaximumLod; lod++)
+                        {
+                            if (!pack.TryResolve(hunter, part, lod, out CharacterModelAsset asset)) continue;
+                            found++;
+                            Model native = Read.GetModelInstance(NativeModelName(hunter, part, lod)).Model;
                         if (!CharacterModelPack.ValidateNativeRig(asset, native, out string? rigIssue))
                             throw new InvalidDataException(rigIssue);
                         CharacterRigidModelData geometry = CharacterRigidModelLoader.Load(asset);
                         ValidateMaterials(native, geometry);
-                        Console.WriteLine($"[charactermodelvalidate] {hunter}/{part}: "
-                            + $"{geometry.Primitives.Count} primitives, {geometry.VertexCount} vertices, "
-                            + $"{geometry.IndexCount / 3} triangles");
+                            Console.WriteLine($"[charactermodelvalidate] {hunter}/{part}/lod{lod}: "
+                                + $"{geometry.Primitives.Count} primitives, {geometry.VertexCount} vertices, "
+                                + $"{geometry.IndexCount / 3} triangles");
+                        }
                     }
                 }
                 if (found == 0) throw new InvalidDataException("Character model pack contains no resolvable models.");
@@ -122,12 +132,13 @@ namespace MphRead.Mods.Render.Characters
         }
 
         private static CharacterModelManifestEntry StarterEntry(Hunter hunter,
-            CharacterModelPart part, string path, Model model)
+            CharacterModelPart part, string path, Model model, int lod)
         {
             var entry = new CharacterModelManifestEntry
             {
                 Hunter = hunter.ToString(),
                 Part = part,
+                Lod = lod,
                 Model = path,
                 Skinning = CharacterSkinningMode.RigidNodes
             };
@@ -184,37 +195,37 @@ namespace MphRead.Mods.Render.Characters
             }
         }
 
-        private static string NativeModelName(Hunter hunter, CharacterModelPart part)
+        private static string NativeModelName(Hunter hunter, CharacterModelPart part, int lod)
         {
             if (part == CharacterModelPart.Halfturret)
             {
-                if (hunter != Hunter.Weavel)
-                    throw new InvalidDataException("Only Weavel has a native halfturret model.");
+                if (hunter != Hunter.Weavel || lod != 0)
+                    throw new InvalidDataException("Only Weavel halfturret LOD0 has a native model.");
                 return "WeavelAlt_Turret_lod0";
             }
             IReadOnlyList<string> models = Metadata.HunterModels[hunter];
             return part switch
             {
-                CharacterModelPart.Biped => models[0],
-                CharacterModelPart.AlternateForm => models[2],
-                CharacterModelPart.ViewModel => models[3],
+                CharacterModelPart.Biped when lod is 0 or 1 => models[lod],
+                CharacterModelPart.AlternateForm when lod == 0 => models[2],
+                CharacterModelPart.ViewModel when lod == 0 => models[3],
                 _ => throw new InvalidDataException($"Unsupported native character part {part}.")
             };
         }
 
         private static void WriteInventory(string path, Hunter hunter,
-            IEnumerable<(CharacterModelPart Part, Model Model)> models)
+            IEnumerable<(CharacterModelPart Part, int Lod, Model Model)> models)
         {
             var payload = new
             {
                 format = 1,
                 hunter = hunter.ToString(),
-                models = models.Select(value => Describe(value.Part, value.Model)).ToArray()
+                models = models.Select(value => Describe(value.Part, value.Lod, value.Model)).ToArray()
             };
             File.WriteAllText(path, JsonSerializer.Serialize(payload, Json));
         }
 
-        private static object Describe(CharacterModelPart part, Model model)
+        private static object Describe(CharacterModelPart part, int lod, Model model)
         {
             int[] paletteSlots = Enumerable.Repeat(-1, model.Nodes.Count).ToArray();
             for (int i = 0; i < model.NodeMatrixIds.Count; i++)
@@ -226,6 +237,7 @@ namespace MphRead.Mods.Render.Characters
             return new
             {
                 part,
+                lod,
                 model = model.Name,
                 modelScale = Vec(model.Scale),
                 matrixPalette = model.NodeMatrixIds.Select((nodeIndex, slot) => new
@@ -277,7 +289,8 @@ namespace MphRead.Mods.Render.Characters
             return Path.Combine(basePath, "character-model-kit", hunter.ToString().ToLowerInvariant());
         }
 
-        private static string Readme(Hunter hunter, Model biped, Model viewModel, Model alternate)
+        private static string Readme(Hunter hunter, Model biped, Model bipedLod1,
+            Model viewModel, Model alternate)
         {
             string folder = hunter.ToString().ToLowerInvariant();
             return $"""
@@ -287,7 +300,8 @@ Generated from the currently configured extracted game data.
 
 ## Reference exports
 
-- `reference/{biped.Name}/` contains the native biped DAE, textures and Blender import script.
+- `reference/{biped.Name}/` contains the native near biped DAE, textures and Blender import script.
+- `reference/{bipedLod1.Name}/` contains the native distant biped reference.
 - `reference/{viewModel.Name}/` contains the first-person model reference.
 - `reference/{alternate.Name}/` contains the alternate-form reference.
 - `native-reference.json` is the exact node, parent, matrix-palette and material inventory.
@@ -308,9 +322,11 @@ The shipping GLBs must be segmented, not skinned:
    reuse the existing hunter texture/PBR replacement bindings.
 5. Export biped as `starter/{folder}/biped.glb`.
 6. Export the arm cannon as `starter/{folder}/viewmodel.glb`.
-7. Validate before installing:
+7. Optional: author `starter/{folder}/biped_lod1.glb` and append the generated
+   `starter/biped-lod1-entry.json` object to the `models` array.
+8. Validate before installing:
    `ProjectPrime -charactermodelvalidate "starter"`.
-8. Copy the completed starter contents to `character-models/default` and enable
+9. Copy the completed starter contents to `character-models/default` and enable
    **HD character models** in Graphics.
 
 The biped starter maps {RigidNodeNames(biped).Count} native matrix nodes.
