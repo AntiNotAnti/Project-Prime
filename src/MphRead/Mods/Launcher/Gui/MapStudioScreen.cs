@@ -196,11 +196,39 @@ namespace MphRead.Mods.Launcher.Gui
             };
             Grid.SetRow(commandPanel, 1);
             _root.Children.Add(commandPanel);
-            var body=new Grid { ColumnDefinitions=new("220,5,*,5,265"), Margin=new Thickness(0,8) };
-            var tree=new DockPanel();
-            var treeTools=new StackPanel{Spacing=4};
-            treeTools.Children.Add(_search);treeTools.Children.Add(_hierarchyFilter);
-            DockPanel.SetDock(treeTools,Dock.Top);tree.Children.Add(treeTools);tree.Children.Add(_hierarchy);body.Children.Add(tree);
+            var body = new Grid
+            {
+                ColumnDefinitions = new("260,6,*,6,340")
+            };
+            _search.MinHeight = 34;
+            _hierarchyFilter.MinHeight = 34;
+            var tree = new DockPanel();
+            var treeTools = new StackPanel { Spacing = 6 };
+            treeTools.Children.Add(_search);
+            treeTools.Children.Add(_hierarchyFilter);
+            DockPanel.SetDock(treeTools, Dock.Top);
+            tree.Children.Add(treeTools);
+            tree.Children.Add(_hierarchy);
+
+            var hierarchyHeader = PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("SCENE GRAPH"),
+                PrimeChrome.Title("SCENE HIERARCHY"),
+                PrimeChrome.Text(
+                    "Search and select authored geometry, spawns, pickups and navigation objects.",
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+            var hierarchyShell = new Grid
+            {
+                RowDefinitions = new("Auto,*"),
+                RowSpacing = 8
+            };
+            hierarchyShell.Children.Add(hierarchyHeader);
+            Grid.SetRow(tree, 1);
+            hierarchyShell.Children.Add(tree);
+            var treePanel = new PrimePanel(hierarchyShell, raised: true)
+            {
+                Padding = new Thickness(10)
+            };
+            body.Children.Add(treePanel);
             _hierarchy.ItemTemplate=new FuncDataTemplate<HierarchyRow>((row,_)=>
             {
                 if(row==null)return new TextBlock();
@@ -212,8 +240,27 @@ namespace MphRead.Mods.Launcher.Gui
                     Margin=row.Header?new Thickness(2,6,2,2):new Thickness(12,2,2,2)
                 };
             });
-            var center=new Grid();
-            var tools=new WrapPanel();
+            var center = new Grid
+            {
+                RowDefinitions = new("Auto,*"),
+                RowSpacing = 6
+            };
+            var viewportHeader = PrimeChrome.Columns("*,Auto",
+                PrimeChrome.Stack(
+                    PrimeChrome.Eyebrow("WORLD AUTHORING"),
+                    PrimeChrome.Title("VIEWPORT")),
+                _selectionState);
+            center.Children.Add(viewportHeader);
+            Grid.SetRow(_viewportHost, 1);
+            center.Children.Add(_viewportHost);
+            var viewportPanel = new PrimePanel(center, raised: true)
+            {
+                Padding = new Thickness(8)
+            };
+            Grid.SetColumn(viewportPanel, 2);
+            body.Children.Add(viewportPanel);
+
+            var tools = new WrapPanel();
             void Choice(string[] choices,Action<string> choose)
             {
                 var box=new ComboBox {ItemsSource=choices,SelectedIndex=0,Margin=new Thickness(2),MinWidth=85};
@@ -251,15 +298,99 @@ namespace MphRead.Mods.Launcher.Gui
             });
             Choice(new[]{"Inspector","Modeling","Partitioning","Collision repairs","Environment","Materials","Assets & music","Snapping","Arrange","Layers","Map health","Navigation path","Statistics"},name=>ShowInspectorPage(name));
             AddButton(tools,"Four views",ToggleFourViews);
-            Grid.SetRow(tools,2);_root.Children.Add(tools);_editingControls.Add(tools);
-            center.Children.Add(_viewportHost);Grid.SetColumn(center,2);body.Children.Add(center);
-            var inspectorScroll=new ScrollViewer { Content=_inspector };Grid.SetColumn(inspectorScroll,4);body.Children.Add(inspectorScroll);
-            foreach(int column in new[]{1,3}) { var splitter=new GridSplitter { Width=5, HorizontalAlignment=HorizontalAlignment.Stretch, Background=PrimeTheme.BorderBrush }; Grid.SetColumn(splitter,column);body.Children.Add(splitter); }
-            AddButton(tools,"Maximize view",()=>{bool show=tree.IsVisible;tree.IsVisible=inspectorScroll.IsVisible=!show;body.ColumnDefinitions[0].Width=show?new GridLength(0):new GridLength(220);body.ColumnDefinitions[4].Width=show?new GridLength(0):new GridLength(265);});
+
+            var inspectorScroll = new ScrollViewer
+            {
+                Content = _inspector,
+                HorizontalScrollBarVisibility =
+                    Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+                VerticalScrollBarVisibility =
+                    Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
+            };
+            var inspectorQuick = PrimeChrome.Columns("*,*,*,*",
+                new PrimeButton("INSPECT", () => ShowInspectorPage("Inspector"), compact: true),
+                new PrimeButton("MATERIALS", () => ShowInspectorPage("Materials"), compact: true),
+                new PrimeButton("ASSETS", () => ShowInspectorPage("Assets & music"), compact: true),
+                new PrimeButton("HEALTH", () => ShowInspectorPage("Map health"), compact: true));
+            var inspectorHeader = PrimeChrome.Stack(
+                PrimeChrome.Eyebrow("PROPERTIES // CONTEXT"),
+                _inspectorTitle,
+                inspectorQuick);
+            var inspectorShell = new Grid
+            {
+                RowDefinitions = new("Auto,*"),
+                RowSpacing = 8
+            };
+            inspectorShell.Children.Add(inspectorHeader);
+            Grid.SetRow(inspectorScroll, 1);
+            inspectorShell.Children.Add(inspectorScroll);
+            var inspectorPanel = new PrimePanel(inspectorShell, raised: true)
+            {
+                Padding = new Thickness(8)
+            };
+            Grid.SetColumn(inspectorPanel, 4);
+            body.Children.Add(inspectorPanel);
+
+            foreach(int column in new[]{1,3})
+            {
+                var splitter=new GridSplitter
+                {
+                    Width=6,
+                    HorizontalAlignment=HorizontalAlignment.Stretch,
+                    Background=PrimeTheme.BorderBrush
+                };
+                Grid.SetColumn(splitter,column);
+                body.Children.Add(splitter);
+            }
+
+            AddButton(tools,"Maximize view",()=>{
+                bool show=treePanel.IsVisible;
+                treePanel.IsVisible=inspectorPanel.IsVisible=!show;
+                body.ColumnDefinitions[0].Width=show?new GridLength(0):new GridLength(260);
+                body.ColumnDefinitions[4].Width=show?new GridLength(0):new GridLength(340);
+            });
             Choice(new[]{"Grid: 0.25","Grid: 0.5","Grid: 1","Grid: 2","Grid: 4","Grid: 8","Grid: Off"},name=>{if(_viewport!=null){_viewport.Snap=name=="Grid: Off"?0:float.Parse(name[6..],CultureInfo.InvariantCulture);_viewport.InvalidateVisual();}});
-            Grid.SetRow(body,3);_root.Children.Add(body);
-            _editingControls.Add(body);_editingControls.Add(_path);
-            Grid.SetRow(_problems,4);_root.Children.Add(_problems);Grid.SetRow(_status,5);_root.Children.Add(_status);
+
+            var toolsScroll = new ScrollViewer
+            {
+                Content = tools,
+                HorizontalScrollBarVisibility =
+                    Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility =
+                    Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
+            };
+            var toolsShell = new Grid
+            {
+                RowDefinitions = new("Auto,Auto"),
+                RowSpacing = 4
+            };
+            toolsShell.Children.Add(PrimeChrome.Columns("*,Auto",
+                PrimeChrome.Eyebrow("AUTHORING TOOLS"), _selectionState));
+            Grid.SetRow(toolsScroll, 1);
+            toolsShell.Children.Add(toolsScroll);
+            var toolsPanel = new PrimePanel(toolsShell)
+            {
+                Padding = new Thickness(8, 6)
+            };
+            Grid.SetRow(toolsPanel,2);
+            _root.Children.Add(toolsPanel);
+            _editingControls.Add(tools);
+
+            Grid.SetRow(body,3);
+            _root.Children.Add(body);
+            _editingControls.Add(body);
+            _editingControls.Add(_path);
+            Grid.SetRow(_problems,4);
+            _root.Children.Add(_problems);
+
+            var statusBar = PrimeChrome.Columns("Auto,*",
+                new PrimeBadge("EDITOR STATUS"), _status);
+            var statusPanel = new PrimePanel(statusBar)
+            {
+                Padding = new Thickness(8, 5)
+            };
+            Grid.SetRow(statusPanel,5);
+            _root.Children.Add(statusPanel);
             var layer=new Panel();layer.Children.Add(_root);layer.Children.Add(_modal);Content=layer;
             _search.TextChanged+=(_,_)=>RefreshHierarchy(true);
             _hierarchyFilter.SelectionChanged+=(_,_)=>{if(!_refreshing)RefreshHierarchy(true);};
