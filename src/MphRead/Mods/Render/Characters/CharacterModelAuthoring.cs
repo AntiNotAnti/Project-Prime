@@ -141,10 +141,10 @@ namespace MphRead.Mods.Render.Characters
                             if (!pack.TryResolve(hunter, part, lod, out CharacterModelAsset asset)) continue;
                             found++;
                             Model native = Read.GetModelInstance(NativeModelName(hunter, part, lod)).Model;
-                        if (!CharacterModelPack.ValidateNativeRig(asset, native, out string? rigIssue))
-                            throw new InvalidDataException(rigIssue);
-                        CharacterRigidModelData geometry = CharacterRigidModelLoader.Load(asset);
-                        ValidateMaterials(native, geometry);
+                            if (!CharacterModelPack.ValidateNativeRig(asset, native, out string? rigIssue))
+                                throw new InvalidDataException(rigIssue);
+                            CharacterRigidModelData geometry = CharacterRigidModelLoader.Load(asset);
+                            ValidateMaterials(native, geometry);
                             Console.WriteLine($"[charactermodelvalidate] {hunter}/{part}/lod{lod}: "
                                 + $"{geometry.Primitives.Count} primitives, {geometry.VertexCount} vertices, "
                                 + $"{geometry.IndexCount / 3} triangles");
@@ -332,6 +332,8 @@ namespace MphRead.Mods.Render.Characters
                 : " Weavel kits also include `prepare-halfturret-rigid.py`.";
             string turretStep = halfturret == null ? ""
                 : $"9. Optional: author `starter/{folder}/halfturret.glb` and append `starter/halfturret-entry.json`.\n";
+            int validateStep = halfturret == null ? 9 : 10;
+            int installStep = validateStep + 1;
             return $"""
 # {hunter} HD character authoring kit
 
@@ -378,9 +380,9 @@ The shipping GLBs must be segmented, not skinned:
    `starter/biped-lod1-entry.json` to the `models` array.
 8. Optional: author `starter/{folder}/altform.glb` and append
    `starter/alternate-form-entry.json`.
-{turretStep}10. Validate before installing:
+{turretStep}{validateStep}. Validate before installing:
    `ProjectPrime -charactermodelvalidate "starter"`.
-11. Copy the completed starter contents to `character-models/default` and enable
+{installStep}. Copy the completed starter contents to `character-models/default` and enable
    **HD character models** in Graphics.
 
 The biped starter maps {RigidNodeNames(biped).Count} native matrix nodes.
