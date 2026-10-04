@@ -37,6 +37,9 @@ namespace MphRead.Mods.Input
         private static readonly GamepadActions Actions = new();
         private static long _bindingsRevision = -1;
         public static bool WheelHeld => _context == GamepadContext.Gameplay && Actions.WheelOpen;
+        private static bool PresentationContextReady =>
+            _context == GamepadContext.Gameplay
+            && _contextRevision == GamepadContexts.Revision;
         public static (float X, float Y) AimStick => GamepadOptions.Southpaw
             ? GamepadAnalog.ApplyRadialDeadZone(_frame.LeftX, _frame.LeftY, GamepadOptions.LeftInner, GamepadOptions.LeftOuter)
             : GamepadAnalog.ApplyRadialDeadZone(_frame.RightX, _frame.RightY, GamepadOptions.RightInner, GamepadOptions.RightOuter);
@@ -139,7 +142,7 @@ namespace MphRead.Mods.Input
         public static void CapturePresentationSample()
         {
             if (!GamepadContexts.Focused || GamepadContexts.MenuVisible
-                || GamepadContexts.TextEntryActive
+                || GamepadContexts.TextEntryActive || !PresentationContextReady
                 || GamepadContexts.Current != GamepadContext.Gameplay || WheelHeld)
             {
                 _presentationSample = null;
@@ -265,7 +268,7 @@ namespace MphRead.Mods.Input
         {
             if (GamepadContexts.Current != GamepadContext.Gameplay || !GamepadContexts.Focused
                 || GamepadContexts.MenuVisible || GamepadContexts.TextEntryActive
-                || WheelHeld || alpha <= 0)
+                || !PresentationContextReady || WheelHeld || alpha <= 0)
             {
                 return (0, 0);
             }
