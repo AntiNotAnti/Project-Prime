@@ -105,6 +105,25 @@ python3 tools/compare-perf.py baseline.json current.json
 The comparator fails on material regressions: 10% average, 12% p95, 15% p99 and
 simulation p99, 20% p99.9, 25% allocations, or equivalent low-FPS drops.
 
+For renderer-level measurements, `-renderbenchmark` also works with explicit
+backend selection. On legacy desktop OpenGL it now reports a `legacyUniforms`
+sample containing requested, submitted and skipped uniform writes plus the skip
+percentage. The compatibility wrapper suppresses only exact duplicate scalar,
+vector and single-matrix values within the same linked program. Large mutable
+array uploads, including bone/matrix stacks and lookup tables, are measured but
+always submitted because hashing/comparing them can cost more than the driver
+call being avoided.
+
+Example:
+
+```bash
+ProjectPrime -renderbenchmark "MP3 PROVING GROUND" -renderer opengl -samples 1200 -output render-gl.json
+```
+
+Use the counters to decide whether the cache is paying for itself on the target
+driver. A zero or tiny skip rate is evidence to remove or narrow an optimization,
+not a reason to grow the cache.
+
 A public CI runner cannot execute the real client benchmark from this repository
 because Project Prime intentionally ships no cartridge data. The benchmark and
 comparator are therefore release/local gates run against a legally prepared test
