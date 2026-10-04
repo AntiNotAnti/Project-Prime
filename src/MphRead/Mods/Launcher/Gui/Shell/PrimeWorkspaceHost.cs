@@ -100,14 +100,22 @@ namespace MphRead.Mods.Launcher.Gui
                 layers.Children.Add(next);
                 _transitionLayer = layers;
                 Content = layers;
+                Mods.DebugLog.Line("ui-motion", $"route {_active} transition started");
                 _transition = PrimeMotion.Page(old, next, () =>
                 {
-                    if (!ReferenceEquals(_current, next)) return;
-                    if (_transitionLayer != null)
-                        _transitionLayer.Children.Remove(next);
+                    if (!ReferenceEquals(_current, next)
+                        || !ReferenceEquals(_transitionLayer, layers))
+                        return;
+
+                    // Both cached workspaces must be released from the temporary
+                    // transition parent before it is abandoned. Leaving the outgoing
+                    // page parented to this orphaned Grid makes the next visit to that
+                    // route throw when Avalonia tries to parent it again.
+                    layers.Children.Clear();
                     Content = next;
                     _transitionLayer = null;
                     _transition = null;
+                    Mods.DebugLog.Line("ui-motion", $"route {_active} transition completed");
                 });
             }
 
@@ -129,13 +137,23 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void CancelTransition()
         {
-            _transition?.Cancel();
+            PrimeMotionHandle? transition = _transition;
             _transition = null;
-            if (_current != null && _transitionLayer != null)
-                _transitionLayer.Children.Remove(_current);
-            _transitionLayer = null;
+            transition?.Cancel();
+
+            if (_transitionLayer is { } layers)
+            {
+                // Release every cached page, not just the current one. A cancelled
+                // transition owns both the incoming and outgoing workspace.
+                layers.Children.Clear();
+                _transitionLayer = null;
+            }
+
             if (_current != null && !ReferenceEquals(Content, _current))
                 Content = _current;
+
+            if (transition != null)
+                Mods.DebugLog.Line("ui-motion", "route transition cancelled cleanly");
         }
     }
 }
