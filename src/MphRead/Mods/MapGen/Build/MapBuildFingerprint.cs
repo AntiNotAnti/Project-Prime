@@ -10,7 +10,7 @@ namespace MphRead.Mods.MapGen
         string RecipeHash, string SourceHash, string TextureHash, string ConfigurationHash)
     {
         // Bump when compiler output or build-relevant defaults change.
-        public const int CurrentCompilerVersion = 8;
+        public const int CurrentCompilerVersion = 9;
 
         public static MapBuildFingerprint Create(MapDefinition definition)
         {
