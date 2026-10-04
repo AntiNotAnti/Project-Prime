@@ -1,0 +1,61 @@
+{
+  "format": 1,
+  "id": "samus-hd",
+  "models": [
+    {
+      "hunter": "Samus",
+      "part": "biped",
+      "lod": 0,
+      "model": "samus/biped.glb",
+      "skinning": "rigidNodes",
+      "boneMap": {
+        "Pelvis": "Pelvis",
+        "L_hip": "L_hip",
+        "L_knee": "L_knee",
+        "L_ankle": "L_ankle",
+        "R_hip": "R_hip",
+        "R_knee": "R_knee",
+        "R_ankle": "R_ankle",
+        "Spine_1": "Spine_1",
+        "Spine_2": "Spine_2",
+        "Head_1": "Head_1",
+        "L_shoulder": "L_shoulder",
+        "L_elbow": "L_elbow",
+        "L_wrist": "L_wrist",
+        "L_varias2_SDK": "L_varias2_SDK",
+        "R_shoulder": "R_shoulder",
+        "R_elbow": "R_elbow",
+        "R_varias2_SDK": "R_varias2_SDK"
+      }
+    },
+    {
+      "hunter": "Samus",
+      "part": "viewModel",
+      "lod": 0,
+      "model": "samus/viewmodel.glb",
+      "skinning": "rigidNodes",
+      "boneMap": {
+        "Main": "Main",
+        "centerGlow": "centerGlow",
+        "cp": "cp",
+        "decals": "decals",
+        "g1": "g1",
+        "g2": "g2",
+        "g5": "g5",
+        "glowBlue": "glowBlue",
+        "glowGreen": "glowGreen",
+        "glowOrange": "glowOrange",
+        "glowRed": "glowRed",
+        "glowYellow": "glowYellow",
+        "housing": "housing",
+        "noz1": "noz1",
+        "noz2": "noz2",
+        "noz3": "noz3",
+        "noz4": "noz4",
+        "ring1": "ring1",
+        "ring2": "ring2",
+        "ring3": "ring3"
+      }
+    }
+  ]
+}

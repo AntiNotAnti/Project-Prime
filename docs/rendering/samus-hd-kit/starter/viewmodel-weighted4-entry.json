@@ -1,0 +1,29 @@
+{
+  "hunter": "Samus",
+  "part": "viewModel",
+  "lod": 0,
+  "model": "samus/viewmodel_weighted4.glb",
+  "skinning": "weighted4",
+  "boneMap": {
+    "Main": "Main",
+    "centerGlow": "centerGlow",
+    "cp": "cp",
+    "decals": "decals",
+    "g1": "g1",
+    "g2": "g2",
+    "g5": "g5",
+    "glowBlue": "glowBlue",
+    "glowGreen": "glowGreen",
+    "glowOrange": "glowOrange",
+    "glowRed": "glowRed",
+    "glowYellow": "glowYellow",
+    "housing": "housing",
+    "noz1": "noz1",
+    "noz2": "noz2",
+    "noz3": "noz3",
+    "noz4": "noz4",
+    "ring1": "ring1",
+    "ring2": "ring2",
+    "ring3": "ring3"
+  }
+}

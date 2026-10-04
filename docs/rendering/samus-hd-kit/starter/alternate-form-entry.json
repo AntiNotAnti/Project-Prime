@@ -1,0 +1,11 @@
+{
+  "hunter": "Samus",
+  "part": "alternateForm",
+  "lod": 0,
+  "model": "samus/altform.glb",
+  "skinning": "rigidNodes",
+  "boneMap": {
+    "MorphBall": "MorphBall",
+    "pPlane1": "pPlane1"
+  }
+}
