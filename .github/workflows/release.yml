@@ -203,6 +203,12 @@ jobs:
       - name: every custom map has the level it converts
         run: tools/check-maps-shipped.sh
 
+      # Release can be dispatched while the normal build workflow is cancelled
+      # by a newer push. Run the asset-free lobby suite here too so wire-format
+      # regressions in Create Lobby cannot ship behind a green packaging smoke.
+      - name: hosted lobby allocation protocol
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release -- --lobby
+
       # Cook every custom map into the one file it ships as. The recipe, the
       # level it converts and the textures baked from it go into a .ppmap,
       # with the level trimmed to the lumps the importer actually reads: 376 KB
