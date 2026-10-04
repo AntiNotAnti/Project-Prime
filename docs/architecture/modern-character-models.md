@@ -175,6 +175,16 @@ The starter directory deliberately does not contain fake GLBs. It becomes a
 valid pack only after authored `biped.glb` and `viewmodel.glb` files are
 placed in its hunter folder.
 
+Biped entries may optionally add `"lod": 1`. Missing `lod` is LOD0 for
+backward compatibility. Project Prime follows the same near/distant LOD choice
+already made by `PlayerDraw`: it asks for matching HD LOD0 or LOD1 and falls
+back to the matching native biped tier if that replacement is absent. Other
+presentation parts currently accept LOD0 only.
+
+The authoring kit exports the native distant biped too and writes
+`starter/biped-lod1-entry.json`, an exact optional LOD1 mapping that can be
+appended to the starter manifest after `biped_lod1.glb` is authored.
+
 Validate a completed pack against the currently installed native game data:
 
 ```sh
@@ -199,8 +209,7 @@ visual acceptance rather than another ingestion layer:
 
 1. build a segmented Samus biped and arm cannon from the generated references;
 2. preserve native node-local coordinates and material names during GLB export;
-3. add dedicated replacement LOD0/LOD1 identities instead of falling straight
-   from HD LOD0 to the native distant mesh;
+3. tune authored LOD0/LOD1 triangle budgets and transition acceptance;
 4. verify muzzle/effect attachment alignment, death/unmorph transitions, bright
    skins, outlines and team recolors;
 5. benchmark Metal, desktop Vulkan/DX12 and physical Android Vulkan;
