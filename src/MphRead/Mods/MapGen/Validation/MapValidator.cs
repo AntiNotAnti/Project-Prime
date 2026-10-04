@@ -104,6 +104,15 @@ namespace MphRead.Mods.MapGen
                     if (!validRotation)
                         r.Error("FP-MAP-001", "UV rotation speed must be finite and between -1440 and 1440 degrees per second.", m.Id);
 
+                    bool validEmissive = float.IsFinite(animation.EmissiveIntensity)
+                        && float.IsFinite(animation.EmissivePulse)
+                        && animation.EmissiveIntensity is >= 0 and <= 1
+                        && animation.EmissiveIntensity - Math.Abs(animation.EmissivePulse) >= 0
+                        && animation.EmissiveIntensity + Math.Abs(animation.EmissivePulse) <= 1;
+                    if (!validEmissive)
+                        r.Error("FP-MAP-001",
+                            "Emissive intensity and pulse must stay within 0–1 for the entire loop.", m.Id);
+
                     bool validFlipbook = animation.FlipbookFrames != null
                         && animation.FlipbookFrames.Count <= MapUvAnimation.MaxFlipbookImages
                         && animation.FlipbookFrames.All(path => !String.IsNullOrWhiteSpace(path))
@@ -116,17 +125,26 @@ namespace MphRead.Mods.MapGen
                         r.Error("FP-MAP-001", "Animated material loop must be 30–6000 native 30 Hz frames.", m.Id);
                     if (validLoop && (animation.PhaseFrames < 0 || animation.PhaseFrames >= animation.LoopFrames))
                         r.Error("FP-MAP-001", "Animated material phase must be inside its loop.", m.Id);
-                    if (!MapUvAnimation.NativeNameFits(m.Name))
-                        r.Error("FP-MAP-001", "Animated material names must be 1–31 native single-byte characters.", m.Id);
-                    else if (!animatedNames.Add(m.Name))
-                        r.Error("FP-MAP-001", "Animated material names must be unique.", m.Id);
-                    if (validScroll && validLoop && animation.UvScroll.Any(speed => !MapUvAnimation.IsSeamless(speed, animation.LoopFrames)))
-                        r.Error("FP-MAP-001", "UV scroll loop endpoints must land on whole texture tiles for seamless repeat.", m.Id);
-                    if (validRotation && validLoop
-                        && !MapUvAnimation.IsRotationSeamless(animation.UvRotationDegreesPerSecond, animation.LoopFrames))
-                        r.Error("FP-MAP-001", "UV rotation loop endpoint must land on a whole turn for seamless repeat.", m.Id);
-                    if (validFlipbook && validLoop && !MapUvAnimation.IsFlipbookSeamless(animation))
-                        r.Error("FP-MAP-001", "Flipbook image cycle must divide evenly into the material loop for seamless repeat.", m.Id);
+                    bool nativeAnimation = MapUvAnimation.IsAnimated(m);
+                    if (nativeAnimation)
+                    {
+                        if (!MapUvAnimation.NativeNameFits(m.Name))
+                            r.Error("FP-MAP-001", "Native animated material names must be 1–31 single-byte characters.", m.Id);
+                        else if (!animatedNames.Add(m.Name))
+                            r.Error("FP-MAP-001", "Native animated material names must be unique.", m.Id);
+                        if (validScroll && validLoop
+                            && animation.UvScroll.Any(speed => !MapUvAnimation.IsSeamless(speed, animation.LoopFrames)))
+                            r.Error("FP-MAP-001", "UV scroll loop endpoints must land on whole texture tiles for seamless repeat.", m.Id);
+                        if (validRotation && validLoop
+                            && !MapUvAnimation.IsRotationSeamless(animation.UvRotationDegreesPerSecond, animation.LoopFrames))
+                            r.Error("FP-MAP-001", "UV rotation loop endpoint must land on a whole turn for seamless repeat.", m.Id);
+                        if (validFlipbook && validLoop && !MapUvAnimation.IsFlipbookSeamless(animation))
+                            r.Error("FP-MAP-001", "Flipbook image cycle must divide evenly into the material loop for seamless repeat.", m.Id);
+                    }
+                    if (MapUvAnimation.HasEmissiveAnimation(m)
+                        && String.IsNullOrWhiteSpace(m.Emissive))
+                        r.Warning("FP-MAP-001",
+                            "Emissive intensity animation has no HD emissive map to modulate.", m.Id);
                     if (animation.FlipbookFrames?.Count > 0 && !String.IsNullOrWhiteSpace(m.Albedo))
                         r.Warning("FP-MAP-001",
                             "Static HD albedo is ignored while a native flipbook is active; normal, specular/roughness and emissive companion maps still apply.", m.Id);
