@@ -89,6 +89,15 @@ namespace MphRead.Mods.Render.Characters
             File.WriteAllText(Path.Combine(starterRoot, "biped-lod1-entry.json"),
                 JsonSerializer.Serialize(StarterEntry(hunter, CharacterModelPart.Biped,
                     hunterFolder + "/biped_lod1.glb", bipedLod1, lod: 1), Json));
+            File.WriteAllText(Path.Combine(starterRoot, "alternate-form-entry.json"),
+                JsonSerializer.Serialize(StarterEntry(hunter, CharacterModelPart.AlternateForm,
+                    hunterFolder + "/altform.glb", alternate, lod: 0), Json));
+            if (halfturret != null)
+            {
+                File.WriteAllText(Path.Combine(starterRoot, "halfturret-entry.json"),
+                    JsonSerializer.Serialize(StarterEntry(hunter, CharacterModelPart.Halfturret,
+                        hunterFolder + "/halfturret.glb", halfturret, lod: 0), Json));
+            }
             Directory.CreateDirectory(Path.Combine(starterRoot, hunterFolder));
             File.WriteAllText(Path.Combine(root, "prepare-biped-rigid.py"),
                 CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.Biped, biped,
@@ -99,8 +108,17 @@ namespace MphRead.Mods.Render.Characters
             File.WriteAllText(Path.Combine(root, "prepare-viewmodel-rigid.py"),
                 CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.ViewModel, viewModel,
                     $"starter/{hunterFolder}/viewmodel.glb"));
+            File.WriteAllText(Path.Combine(root, "prepare-altform-rigid.py"),
+                CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.AlternateForm, alternate,
+                    $"starter/{hunterFolder}/altform.glb"));
+            if (halfturret != null)
+            {
+                File.WriteAllText(Path.Combine(root, "prepare-halfturret-rigid.py"),
+                    CharacterModelBlenderHelper.Generate(hunter, CharacterModelPart.Halfturret,
+                        halfturret, $"starter/{hunterFolder}/halfturret.glb"));
+            }
             File.WriteAllText(Path.Combine(root, "README.md"),
-                Readme(hunter, biped, bipedLod1, viewModel, alternate));
+                Readme(hunter, biped, bipedLod1, viewModel, alternate, halfturret));
 
             Console.WriteLine($"[charactermodelkit] {hunter} authoring kit: {root}");
             Console.WriteLine($"[charactermodelkit] biped nodes={biped.Nodes.Count}, materials={biped.Materials.Count}, matrix palette={biped.NodeMatrixIds.Count}");
@@ -305,7 +323,7 @@ namespace MphRead.Mods.Render.Characters
         }
 
         private static string Readme(Hunter hunter, Model biped, Model bipedLod1,
-            Model viewModel, Model alternate)
+            Model viewModel, Model alternate, Model? halfturret)
         {
             string folder = hunter.ToString().ToLowerInvariant();
             return $"""
