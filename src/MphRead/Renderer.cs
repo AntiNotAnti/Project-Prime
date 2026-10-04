@@ -996,6 +996,7 @@ namespace MphRead
             _shaderLocations.UseNormalMap = GL.GetUniformLocation(_shaderProgramId, "use_normal_map");
             _shaderLocations.UseSpecularMap = GL.GetUniformLocation(_shaderProgramId, "use_specular_map");
             _shaderLocations.UseEmissiveMap = GL.GetUniformLocation(_shaderProgramId, "use_emissive_map");
+            _shaderLocations.EmissiveIntensity = GL.GetUniformLocation(_shaderProgramId, "emissive_intensity");
             _shaderLocations.Light1Color = GL.GetUniformLocation(_shaderProgramId, "light1col");
             _shaderLocations.Light1Vector = GL.GetUniformLocation(_shaderProgramId, "light1vec");
             _shaderLocations.Light2Color = GL.GetUniformLocation(_shaderProgramId, "light2col");
@@ -4742,6 +4743,7 @@ namespace MphRead
             item.RetainedGpuVisibilityEligible = false;
             item.RetainedBoundsMin = Vector3.Zero;
             item.RetainedBoundsMax = Vector3.Zero;
+            item.EmissiveIntensity = 1f;
             return item;
         }
 
@@ -4862,7 +4864,8 @@ namespace MphRead
             Matrix4 transform, int listId, int matrixStackCount,
             IReadOnlyList<float> matrixStack, SelectionType selectionType,
             BillboardMode billboardMode, bool retainedGpuVisibilityEligible,
-            Vector3 retainedBoundsMin, Vector3 retainedBoundsMax)
+            Vector3 retainedBoundsMin, Vector3 retainedBoundsMax,
+            float emissiveIntensity = 1f)
         {
             Debug.Assert(!_collectingPreview && !_collectingViewModelItems);
             item.Type = RenderItemType.Mesh;
@@ -4886,6 +4889,7 @@ namespace MphRead
             item.Ambient = material.CurrentAmbient;
             item.Specular = material.CurrentSpecular;
             item.Emission = emission;
+            item.EmissiveIntensity = emissiveIntensity;
             item.LightInfo = lightInfo;
             item.TexgenMode = material.TexgenMode;
             item.XRepeat = material.XRepeat;
@@ -6040,6 +6044,7 @@ namespace MphRead
             GL.Uniform3(_shaderLocations.Ambient, Vector3.One);
             GL.Uniform3(_shaderLocations.Specular, Vector3.One);
             GL.Uniform3(_shaderLocations.Emission, Vector3.One);
+            GL.Uniform1(_shaderLocations.EmissiveIntensity, 1f);
             GL.Uniform1(_shaderLocations.MaterialMode, (int)PolygonMode.Modulate);
             GL.Uniform1(_shaderLocations.TexgenMode, (int)TexgenMode.None);
             GL.Uniform1(_shaderLocations.WeightedSkinning, 0);
@@ -6814,6 +6819,7 @@ localCenter *= _profileHudScale;
             GL.Uniform3(_shaderLocations.Ambient, item.Ambient);
             GL.Uniform3(_shaderLocations.Specular, item.Specular);
             GL.Uniform3(_shaderLocations.Emission, item.Emission);
+            GL.Uniform1(_shaderLocations.EmissiveIntensity, item.EmissiveIntensity);
             GL.Uniform1(_shaderLocations.MaterialAlpha, item.Alpha);
             GL.Uniform1(_shaderLocations.MaterialMode, (int)item.PolygonMode);
         }
