@@ -92,7 +92,9 @@ namespace MphRead.Mods.Render.Characters
         }
 
         public static string DefaultDirectory
-            => Path.Combine(AppPaths.UserDataDirectory, "character-models", "default");
+            => Path.Combine(OperatingSystem.IsAndroid()
+                ? Launcher.LauncherPrefs.Directory : AppPaths.UserDataDirectory,
+                "character-models", "default");
 
         public int Count => _assets.Count;
 
