@@ -8,7 +8,7 @@ namespace MphRead.Mods.Input
 
     public static class GamepadContexts
     {
-        private static bool _menu, _capture, _focused = true;
+        private static bool _menu, _capture, _textEntry, _focused = true;
         private static long _revision;
         public static long Revision => Interlocked.Read(ref _revision);
         public static bool MenuVisible
@@ -20,6 +20,22 @@ namespace MphRead.Mods.Input
         {
             get => Volatile.Read(ref _capture);
             set { if (_capture != value) { Volatile.Write(ref _capture, value); Interlocked.Increment(ref _revision); } }
+        }
+        /// <summary>
+        /// In-game chat owns text input without opening the Avalonia menu surface.
+        /// Treat both edges as ownership boundaries so a chat opened and closed
+        /// between two 60 Hz steps still quarantines held buttons and stale deltas.
+        /// </summary>
+        public static bool TextEntryActive
+        {
+            get => Volatile.Read(ref _textEntry);
+            set
+            {
+                if (_textEntry == value) return;
+                Volatile.Write(ref _textEntry, value);
+                Interlocked.Increment(ref _revision);
+                if (value) GamepadHaptics.Stop();
+            }
         }
         public static bool Focused
         {
@@ -37,7 +53,8 @@ namespace MphRead.Mods.Input
         public static GamepadContext Current { get; set; }
         public static GamepadContext Resolve(bool textEntry = false, bool results = false)
             => Capturing ? GamepadContext.BindingCapture : MenuVisible ? GamepadContext.Menu
-                : textEntry ? GamepadContext.TextEntry : results ? GamepadContext.Results : GamepadContext.Gameplay;
+                : TextEntryActive || textEntry ? GamepadContext.TextEntry
+                : results ? GamepadContext.Results : GamepadContext.Gameplay;
     }
 
     public sealed class GamepadEdges
