@@ -352,7 +352,8 @@ namespace MphRead.Mods.Launcher.Gui
             _detailMeta.Text = server.IsLive
                 ? $"{server.MapName}\n{server.ModeName}  /  {server.PlayerCount} PLAYERS  /  {server.PingText} MS\n{server.Endpoint}"
                 : $"NO RESPONSE\n{server.Endpoint}";
-            _mapPreview.Source = server.IsLive ? MapShot.For(server.RoomKey) : null;
+            SetArenaArt(server.IsLive ? server.RoomKey : null);
+            AnimateSessionDetails();
             if (server.IsLive && server.RoomKey.Length > 0)
             {
                 _backdropRoom = server.RoomKey;
@@ -399,7 +400,7 @@ namespace MphRead.Mods.Launcher.Gui
             _replied = 0;
             _live = 0;
             _join.IsEnabled = _spectate.IsEnabled = false;
-            _mapPreview.Source = null;
+            SetArenaArt(null);
 
             if (_sample != null)
             {
@@ -531,7 +532,8 @@ namespace MphRead.Mods.Launcher.Gui
             _detailName.Text = entry.Name.ToUpperInvariant();
             _detailMeta.Text =
                 $"{mapName}\n{NetStatus.ModeName(entry.Status.Mode)}  /  {players} PLAYERS  /  {ping}\n{entry.Endpoint}";
-            _mapPreview.Source = MapShot.For(room);
+            SetArenaArt(room);
+            AnimateSessionDetails();
             if (room.Length > 0)
             {
                 _backdropRoom = room;
@@ -539,6 +541,36 @@ namespace MphRead.Mods.Launcher.Gui
             }
             _join.Label = "JOIN";
             _join.IsEnabled = _spectate.IsEnabled = entry.Live && !_joining;
+        }
+
+        private void SetArenaArt(string? room)
+        {
+            IImage? selected = MapShot.For(room);
+            _mapPreview.Source = selected;
+
+            IImage? heroArt = selected ?? MapShot.For("MP11 BREAKTHROUGH");
+            _heroMotion?.Cancel();
+            _heroMotion = null;
+            _hero.Art.Source = heroArt;
+
+            double target = heroArt == null ? 0 : 0.74;
+            if (PrimeMotion.Reduced || TopLevel.GetTopLevel(_hero.Art) == null)
+            {
+                _hero.Art.Opacity = target;
+                return;
+            }
+
+            double from = heroArt == null ? 0 : 0.24;
+            _hero.Art.Opacity = from;
+            _heroMotion = PrimeMotion.Fade(_hero.Art, from, target, 0.16);
+        }
+
+        private void AnimateSessionDetails()
+        {
+            if (PrimeMotion.Reduced || TopLevel.GetTopLevel(_detailName) == null)
+                return;
+            PrimeMotion.Enter(_detailName, 3, 0.11);
+            PrimeMotion.Enter(_detailMeta, 3, 0.13);
         }
 
         private async Task JoinAsync(bool spectate = false)
