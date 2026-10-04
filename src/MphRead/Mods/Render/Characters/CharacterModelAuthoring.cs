@@ -134,11 +134,29 @@ namespace MphRead.Mods.Render.Characters
                             Model native = Read.GetModelInstance(NativeModelName(hunter, part, lod)).Model;
                             if (!CharacterModelPack.ValidateNativeRig(asset, native, out string? rigIssue))
                                 throw new InvalidDataException(rigIssue);
-                            CharacterRigidModelData geometry = CharacterRigidModelLoader.Load(asset);
-                            ValidateMaterials(native, geometry);
-                            Console.WriteLine($"[charactermodelvalidate] {hunter}/{part}/lod{lod}: "
-                                + $"{geometry.Primitives.Count} primitives, {geometry.VertexCount} vertices, "
-                                + $"{geometry.IndexCount / 3} triangles");
+                            if (asset.Skinning == CharacterSkinningMode.Weighted4)
+                            {
+                                CharacterWeightedModelData geometry =
+                                    CharacterWeightedModelLoader.Load(asset);
+                                ValidateMaterials(native, geometry);
+                                Console.WriteLine(
+                                    $"[charactermodelvalidate] {hunter}/{part}/lod{lod}: "
+                                    + $"weighted4, {geometry.Joints.Count} joints, "
+                                    + $"{geometry.Primitives.Count} primitives, "
+                                    + $"{geometry.VertexCount} vertices, "
+                                    + $"{geometry.IndexCount / 3} triangles");
+                            }
+                            else
+                            {
+                                CharacterRigidModelData geometry =
+                                    CharacterRigidModelLoader.Load(asset);
+                                ValidateMaterials(native, geometry);
+                                Console.WriteLine(
+                                    $"[charactermodelvalidate] {hunter}/{part}/lod{lod}: "
+                                    + $"rigid, {geometry.Primitives.Count} primitives, "
+                                    + $"{geometry.VertexCount} vertices, "
+                                    + $"{geometry.IndexCount / 3} triangles");
+                            }
                         }
                     }
                 }
@@ -204,6 +222,20 @@ namespace MphRead.Mods.Render.Characters
                 .Where(name => !String.IsNullOrWhiteSpace(name))
                 .Distinct(StringComparer.Ordinal)
                 .ToArray();
+        }
+
+        private static void ValidateMaterials(Model native, CharacterWeightedModelData geometry)
+        {
+            var materialNames = native.Materials.Select(material => material.Name)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (CharacterWeightedPrimitive primitive in geometry.Primitives)
+            {
+                if (String.IsNullOrWhiteSpace(primitive.MaterialName)
+                    || !materialNames.Contains(primitive.MaterialName))
+                    throw new InvalidDataException(
+                        $"Weighted HD material '{primitive.MaterialName ?? "(unnamed)"}' "
+                        + $"does not exist in native model {native.Name}.");
+            }
         }
 
         private static void ValidateMaterials(Model native, CharacterRigidModelData geometry)
