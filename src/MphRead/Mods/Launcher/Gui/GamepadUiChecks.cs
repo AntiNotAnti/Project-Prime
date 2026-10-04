@@ -309,6 +309,11 @@ namespace MphRead.Mods.Launcher.Gui
             var pause = new PauseMenuView(false);
             window.Content = pause; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
             GamepadChecks.Check(FocusNavigator.Ensure(pause) != null, "pause menu is controller focusable");
+            GamepadChecks.Check(pause.GetVisualDescendants().OfType<PrimePanel>().Count() >= 2
+                && pause.GetVisualDescendants().OfType<TextBlock>()
+                    .Any(block => block.Text == "SESSION & SYSTEM")
+                && ControllerNav.Find(pause, "pause.resume") is { IsEffectivelyVisible: true },
+                "pause separates primary resume context from session and system actions");
             // Android hosts PauseMenuView in StartScreen rather than InGameMenu,
             // so Back must reach the view's resume callback without a desktop host.
             int resumed = 0;
@@ -325,6 +330,16 @@ namespace MphRead.Mods.Launcher.Gui
             }
             GamepadChecks.Check(resumed == 2, "B and Start resume the Android-hosted pause menu");
             GamepadManager.RemoveDevice("pause-test");
+
+            var results = new EndPanelView();
+            window.Content = results; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            GamepadChecks.Check(results.GetVisualDescendants().OfType<TextBlock>()
+                    .Any(block => block.Text == "POST-MATCH REPORT")
+                && results.GetVisualDescendants().OfType<TextBlock>()
+                    .Any(block => block.Text is "NEXT DEPLOYMENT" or "RETURNING TO LOBBY"),
+                "results panel exposes post-match deployment hierarchy");
+
+            window.Content = pause; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
             Network.MapVote.Apply(new Network.VoteStatePacket
             {
                 State = Network.VoteStatePacket.StateRunning, RoomKey = "test", Proposer = "Player", Seconds = 30
