@@ -231,10 +231,12 @@ namespace MphRead.Mods.Launcher.Gui
                     if (!Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested)
                     {
                         window.Context.MakeCurrent();
-                        // Program names are context-local. Any context handoff
-                        // invalidates the legacy uniform cache before GL work
-                        // resumes on this window.
+                        // Program names are context-local. Any desktop
+                        // compatibility-context handoff invalidates the legacy
+                        // uniform cache before GL work resumes on this window.
+#if !ANDROID && !MPHREAD_SERVER
                         Mods.Render.GraphicsApi.ResetLegacyState();
+#endif
                         UiSurface.Current?.ReleaseMapRenderer();
                     }
                 }
