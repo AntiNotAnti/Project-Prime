@@ -35,6 +35,7 @@ namespace MphRead.Mods.Render.Characters
     {
         public string Hunter { get; set; } = "";
         public CharacterModelPart Part { get; set; }
+        public int Lod { get; set; }
         public string Model { get; set; } = "";
         public CharacterSkinningMode Skinning { get; set; } = CharacterSkinningMode.RigidNodes;
 
@@ -45,6 +46,7 @@ namespace MphRead.Mods.Render.Characters
     internal sealed record CharacterModelAsset(
         Hunter Hunter,
         CharacterModelPart Part,
+        int Lod,
         CharacterSkinningMode Skinning,
         string ModelPath,
         IReadOnlyDictionary<string, string> BoneMap,
@@ -72,6 +74,7 @@ namespace MphRead.Mods.Render.Characters
         public const int MaximumManifestBytes = 1024 * 1024;
         public const long MaximumModelBytes = 128L * 1024 * 1024;
         public const int MaximumModels = 64;
+        public const int MaximumLod = 1;
         public const int MaximumBoneMappings = 128;
         public const int MaximumGlbJsonBytes = 4 * 1024 * 1024;
         public const int MaximumSourceNodes = 4096;
@@ -85,9 +88,9 @@ namespace MphRead.Mods.Render.Characters
             Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
         };
 
-        private readonly Dictionary<(Hunter Hunter, CharacterModelPart Part), CharacterModelAsset> _assets;
+        private readonly Dictionary<(Hunter Hunter, CharacterModelPart Part, int Lod), CharacterModelAsset> _assets;
 
-        private CharacterModelPack(Dictionary<(Hunter, CharacterModelPart), CharacterModelAsset> assets)
+        private CharacterModelPack(Dictionary<(Hunter, CharacterModelPart, int), CharacterModelAsset> assets)
         {
             _assets = assets;
         }
@@ -100,7 +103,10 @@ namespace MphRead.Mods.Render.Characters
         public int Count => _assets.Count;
 
         public bool TryResolve(Hunter hunter, CharacterModelPart part, out CharacterModelAsset asset)
-            => _assets.TryGetValue((hunter, part), out asset!);
+            => TryResolve(hunter, part, 0, out asset);
+
+        public bool TryResolve(Hunter hunter, CharacterModelPart part, int lod, out CharacterModelAsset asset)
+            => _assets.TryGetValue((hunter, part, lod), out asset!);
 
         public static CharacterModelPack Empty { get; } = new(new());
 
@@ -148,7 +154,7 @@ namespace MphRead.Mods.Render.Characters
             if (manifest.Models == null || manifest.Models.Count > MaximumModels)
                 throw new InvalidDataException("Character model pack contains too many model entries.");
 
-            var assets = new Dictionary<(Hunter, CharacterModelPart), CharacterModelAsset>();
+            var assets = new Dictionary<(Hunter, CharacterModelPart, int), CharacterModelAsset>();
             foreach (CharacterModelManifestEntry entry in manifest.Models)
             {
                 if (entry == null) throw new InvalidDataException("Character model entry is missing.");
@@ -157,6 +163,10 @@ namespace MphRead.Mods.Render.Characters
                     throw new InvalidDataException($"Unknown hunter '{entry.Hunter}'.");
                 if (!Enum.IsDefined(typeof(CharacterModelPart), entry.Part))
                     throw new InvalidDataException($"Unknown character model part '{entry.Part}'.");
+                if (entry.Lod < 0 || entry.Lod > MaximumLod)
+                    throw new InvalidDataException($"{hunter}/{entry.Part} has invalid LOD {entry.Lod}.");
+                if (entry.Part != CharacterModelPart.Biped && entry.Lod != 0)
+                    throw new InvalidDataException($"{hunter}/{entry.Part} does not support replacement LOD {entry.Lod}.");
                 if (!Enum.IsDefined(typeof(CharacterSkinningMode), entry.Skinning))
                     throw new InvalidDataException($"Unknown character skinning mode '{entry.Skinning}'.");
                 if (entry.BoneMap == null || entry.BoneMap.Count == 0
@@ -190,11 +200,12 @@ namespace MphRead.Mods.Render.Characters
                 if (entry.Skinning == CharacterSkinningMode.Weighted4 && !inspection.HasSkin)
                     throw new InvalidDataException($"{hunter}/{entry.Part} requests Weighted4 skinning but the GLB has no skin.");
 
-                var key = (hunter, entry.Part);
+                var key = (hunter, entry.Part, entry.Lod);
                 if (!assets.TryAdd(key, new CharacterModelAsset(
-                    hunter, entry.Part, entry.Skinning, modelPath, boneMap,
+                    hunter, entry.Part, entry.Lod, entry.Skinning, modelPath, boneMap,
                     inspection.NodeNames, inspection.HasSkin, inspection.PrimitiveCount)))
-                    throw new InvalidDataException($"Duplicate character model entry for {hunter}/{entry.Part}.");
+                    throw new InvalidDataException(
+                        $"Duplicate character model entry for {hunter}/{entry.Part}/lod{entry.Lod}.");
             }
             return new CharacterModelPack(assets);
         }
@@ -211,7 +222,7 @@ namespace MphRead.Mods.Render.Characters
             {
                 if (!nativeNodes.ContainsKey(target))
                 {
-                    issue = $"HD {asset.Hunter}/{asset.Part} expects native node '{target}', but {nativeModel.Name} does not contain it.";
+                    issue = $"HD {asset.Hunter}/{asset.Part}/lod{asset.Lod} expects native node '{target}', but {nativeModel.Name} does not contain it.";
                     return false;
                 }
                 mappedTargets.Add(target);
@@ -224,7 +235,7 @@ namespace MphRead.Mods.Render.Characters
             // here rather than silently truncating influences.
             if (asset.Skinning == CharacterSkinningMode.Weighted4 && mappedTargets.Count > 32)
             {
-                issue = $"HD {asset.Hunter}/{asset.Part} maps {mappedTargets.Count} weighted bones; the current renderer contract supports 32.";
+                issue = $"HD {asset.Hunter}/{asset.Part}/lod{asset.Lod} maps {mappedTargets.Count} weighted bones; the current renderer contract supports 32.";
                 return false;
             }
 

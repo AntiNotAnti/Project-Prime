@@ -39,7 +39,7 @@ namespace MphRead.Mods.Render.Characters
                     out CharacterModelAsset asset),
                     "Samus biped resolves by stable hunter/part identity");
                 Check(asset.Skinning == CharacterSkinningMode.RigidNodes
-                    && asset.SourceNodes.Contains("Body")
+                    && asset.Lod == 0 && asset.SourceNodes.Contains("Body")
                     && asset.PrimitiveCount == 1 && !asset.HasSkin,
                     "GLB metadata and rigid-node contract survive validation");
 
@@ -59,6 +59,24 @@ namespace MphRead.Mods.Render.Characters
                     "POSITION/NORMAL/TEXCOORD_0 decode exactly");
 
                 string valid = File.ReadAllText(Path.Combine(root, "characters.json"));
+                string lod1 = valid.Replace("\"part\": \"biped\",",
+                    "\"part\": \"biped\",\n                          \"lod\": 1,",
+                    StringComparison.Ordinal);
+                File.WriteAllText(Path.Combine(root, "characters.json"), lod1);
+                CharacterModelPack lodPack = CharacterModelPack.Load(root);
+                Check(!lodPack.TryResolve(Hunter.Samus, CharacterModelPart.Biped, out _)
+                    && lodPack.TryResolve(Hunter.Samus, CharacterModelPart.Biped, 1,
+                        out CharacterModelAsset lodAsset)
+                    && lodAsset.Lod == 1,
+                    "missing lod remains backward-compatible LOD0 and explicit LOD1 resolves independently");
+
+                File.WriteAllText(Path.Combine(root, "characters.json"),
+                    lod1.Replace("\"part\": \"biped\"", "\"part\": \"viewModel\"",
+                        StringComparison.Ordinal));
+                ExpectInvalid(() => CharacterModelPack.Load(root),
+                    "non-biped replacement LOD1 is rejected");
+
+                File.WriteAllText(Path.Combine(root, "characters.json"), valid);
                 string traversal = valid.Replace("samus/biped.glb", "../outside.glb",
                     StringComparison.Ordinal);
                 File.WriteAllText(Path.Combine(root, "characters.json"), traversal);
@@ -89,7 +107,7 @@ namespace MphRead.Mods.Render.Characters
                     "Blender rigid helper receives deterministic authoring identities");
 
                 Console.WriteLine(
-                    "[charactermodelcheck] pack safety, rigid geometry decode and Blender helper generation passed");
+                    "[charactermodelcheck] pack safety, rigid geometry/LOD and Blender helper generation passed");
                 return 0;
             }
             catch (Exception ex)
