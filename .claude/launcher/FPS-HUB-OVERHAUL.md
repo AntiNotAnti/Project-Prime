@@ -124,12 +124,19 @@ Rebuild `LobbyScreen` around three regions:
 - selected map + match preview
 - rules / owner controls
 
-Implemented in-place over the existing authoritative `LobbyScreen`: roster, Arena,
-Match Rules/owner actions, full-width lobby chat and a hub-native Leave/Ready/Start
-footer. Narrow layouts stack the regions inside a scroller instead of crushing them.
+Implemented in-place over the existing authoritative `LobbyScreen`:
 
-Still to add: make owner actions a selected-player contextual surface rather than a
-permanent owner section, and add deterministic rendered-lobby coverage.
+- roster, arena/match context and comms/session actions remain three clear regions;
+- the arena is now an artwork-backed cinematic hero driven by the selected map;
+- match configuration owns mode/format/limits and the Advanced Rules sheet;
+- owner player administration moved out of match parameters and into a contextual
+  **Manage Selected Player** action in the roster;
+- the player-management sheet retains controller-accessible player selection, handicap,
+  team assignment, bot management, transfer-owner, kick and close-lobby commands;
+- arbitrary player names stay on platform-fallback text rather than the tactical font;
+- deterministic captures cover the lobby, rule sheet and player-management sheet.
+
+The server remains authoritative for every roster, team, rule and owner command.
 
 ## P2 — Settings, clips and pause
 
