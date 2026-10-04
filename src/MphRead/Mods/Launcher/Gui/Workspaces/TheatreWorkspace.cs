@@ -490,6 +490,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         internal int MaximumRealizedRows { get; private set; }
         internal int ShownCount => (_list.ItemsSource as ReplayLibraryEntry[])?.Length ?? 0;
+        internal string InsightText => _insights.Text ?? "";
         internal void LoadCheckEntries(int count)
         {
             _libraryGeneration++; _entries.Clear();
@@ -593,15 +594,15 @@ namespace MphRead.Mods.Launcher.Gui
                     clip.CreatedUtc.ToLocalTime(),
                     duration,
                     IsClip: true,
-                    ReplayVirtualClips.IsFavorite(path),
+                    Favorite: ReplayVirtualClips.IsFavorite(path),
                     Recoverable: false,
                     Annotated: annotations.Length > 0,
                     Organized: organization.Length > 0,
                     BookmarkCount: bookmarks,
                     HighlightCount: highlights,
-                    room,
-                    people,
-                    $"{clip.Name} {room} {mode} {people} "
+                    Room: room,
+                    Players: people,
+                    SearchText: $"{clip.Name} {room} {mode} {people} "
                         + $"{annotations} {organization} {Path.GetFileName(clip.SourceReplay)}"));
             }
 
