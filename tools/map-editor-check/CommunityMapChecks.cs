@@ -89,6 +89,9 @@ internal static class CommunityMapChecks
                     Animation = new MapMaterialAnimation
                     {
                         UvScroll = new[] { 0f, -0.8f },
+                        UvRotationDegreesPerSecond = 180f,
+                        UvScale = new[] { 1f, 0.9f },
+                        UvScalePulse = new[] { 0.05f, 0.1f },
                         LoopFrames = 3000,
                         PhaseFrames = 15
                     }
@@ -98,6 +101,9 @@ internal static class CommunityMapChecks
             var animatedMaterial = animatedRoundTrip.Materials.Single();
             check(animatedMaterial.Alpha == 22 && animatedMaterial.TwoSided
                 && animatedMaterial.Animation?.UvScroll.SequenceEqual(new[] { 0f, -0.8f }) == true
+                && animatedMaterial.Animation.UvRotationDegreesPerSecond == 180f
+                && animatedMaterial.Animation.UvScale.SequenceEqual(new[] { 1f, 0.9f })
+                && animatedMaterial.Animation.UvScalePulse.SequenceEqual(new[] { 0.05f, 0.1f })
                 && animatedMaterial.Animation.LoopFrames == 3000
                 && animatedMaterial.Animation.PhaseFrames == 15,
                 "animated material metadata survives editable .ppmap package roundtrip");
