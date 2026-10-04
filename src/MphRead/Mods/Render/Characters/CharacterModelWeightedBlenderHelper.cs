@@ -37,7 +37,7 @@ namespace MphRead.Mods.Render.Characters
             string output = JsonSerializer.Serialize(relativeOutput.Replace('\\', '/'));
             string label = JsonSerializer.Serialize(assetLabel);
 
-            return $"""
+            return $$"""
 # Project Prime Weighted4 character exporter
 #
 # Load/refine the generated native Blender reference first. The mesh may use
