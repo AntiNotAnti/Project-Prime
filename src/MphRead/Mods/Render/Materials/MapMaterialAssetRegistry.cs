@@ -26,6 +26,33 @@ internal static class MapMaterialAssetRegistry
         return null;
     }
 
+    internal static bool IsNativeFlipbook(MaterialAssetKey key)
+    {
+        string[] parts = key.Value.Split('/');
+        if (parts.Length != 6 || parts[0] != "map" || parts[2] != "material"
+            || parts[4] != "recolor"
+            || !Guid.TryParseExact(parts[1], "N", out Guid mapId)
+            || !Guid.TryParseExact(parts[3], "N", out Guid materialId))
+        {
+            return false;
+        }
+        try
+        {
+            foreach (MapDefinition definition in CustomRooms.Definitions)
+            {
+                if (definition.MapId != mapId) continue;
+                MapMaterial? material = definition.Materials.FirstOrDefault(value => value?.Id == materialId);
+                return material?.Animation?.FlipbookFrames?.Count > 0;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException
+            or ArgumentException or InvalidOperationException)
+        {
+            DebugLog.Line("render", "flipbook material lookup ignored " + key.Value + ": " + ex.Message);
+        }
+        return false;
+    }
+
     internal static ResolvedMaterial? Resolve(MapDefinition definition, MaterialAssetKey key,
         bool includeCompanions = true)
     {
@@ -53,7 +80,9 @@ internal static class MapMaterialAssetRegistry
             if (!key.Value.StartsWith(prefix, StringComparison.Ordinal)) continue;
             string recolorText = key.Value[prefix.Length..];
             if (!Int32.TryParse(recolorText, out int recolor) || recolor < 0) return null;
-            var resolved = new ResolvedMaterial(key, Image(material.Albedo),
+            bool nativeFlipbook = material.Animation?.FlipbookFrames?.Count > 0;
+            var resolved = new ResolvedMaterial(key,
+                nativeFlipbook ? null : Image(material.Albedo),
                 includeCompanions ? Image(material.Normal) : null,
                 includeCompanions ? Image(material.SpecularRoughness) : null,
                 includeCompanions ? Image(material.Emissive) : null);
