@@ -79,7 +79,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             var body = new Grid
             {
-                ColumnDefinitions = new ColumnDefinitions("290,*"),
+                ColumnDefinitions = new ColumnDefinitions(Deck.Phone ? "220,*" : "290,*"),
                 ColumnSpacing = 12,
                 MinHeight = 0
             };
@@ -90,15 +90,15 @@ namespace MphRead.Mods.Launcher.Gui
             railPanel.Children.Add(PrimeChrome.Eyebrow("LICENSE HOLDER"));
             _stand = new HunterStand
             {
-                Height = 330,
-                MinWidth = 220,
+                Height = Deck.Phone ? 190 : 330,
+                MinWidth = Deck.Phone ? 160 : 220,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 Name2 = HunterName(_snapshot.Profile.FavoriteHunter),
                 Suit = Math.Clamp(LauncherPrefs.LastColor, 0, 3)
             };
             railPanel.Children.Add(new PrimePanel(_stand, raised: true)
             {
-                Height = 340,
+                Height = Deck.Phone ? 200 : 340,
                 Padding = new Thickness(6)
             });
 
