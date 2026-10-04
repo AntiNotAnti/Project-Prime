@@ -8754,6 +8754,7 @@ localCenter *= _profileHudScale;
         private bool _linuxVSyncFallback;
         private bool _appliedLinuxVSyncFallback;
         private bool _reportedModernBlockingFallback;
+        private long _presentationInputRevision = Mods.Input.GamepadContexts.Revision;
 
         private static unsafe double MonitorRefreshRate(NativeWindow window)
         {
@@ -9032,11 +9033,15 @@ localCenter *= _profileHudScale;
             }
 
             // Menus/chat can take input entirely between two fixed 60 Hz steps.
-            // Render-only mouse/controller aim must obey that ownership edge too,
-            // otherwise the picture can keep turning behind chat/pause even though
-            // simulation correctly stopped consuming gameplay controls.
+            // Treat the revision itself as an edge: if UI opened and closed again
+            // before this draw, current state alone says "gameplay" but stale aim
+            // still belongs to the previous owner.
+            long presentationRevision = Mods.Input.GamepadContexts.Revision;
+            bool inputOwnershipChanged = presentationRevision != _presentationInputRevision;
+            _presentationInputRevision = presentationRevision;
             bool gameplayOwnsPresentationAim =
-                !Mods.PauseMenu.Open
+                !inputOwnershipChanged
+                && !Mods.PauseMenu.Open
                 && !Mods.Chat.ChatBox.Composing
                 && !Mods.EndScreen.Available
                 && !Mods.Input.StylusZone.Placing
