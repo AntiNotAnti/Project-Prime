@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MphRead.Mods.Platform;
+using MphRead.Mods.Launcher;
 
 namespace MphRead.Mods.Render.Characters
 {
@@ -93,7 +94,7 @@ namespace MphRead.Mods.Render.Characters
 
         public static string DefaultDirectory
             => Path.Combine(OperatingSystem.IsAndroid()
-                ? Launcher.LauncherPrefs.Directory : AppPaths.UserDataDirectory,
+                ? LauncherPrefs.Directory : AppPaths.UserDataDirectory,
                 "character-models", "default");
 
         public int Count => _assets.Count;
