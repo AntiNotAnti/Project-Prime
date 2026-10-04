@@ -2444,7 +2444,11 @@ namespace MphRead.Entities
             {
                 count = 210 * 2 - _timeSinceDead;
             }
-            return count;
+            // Network clients may remain dead while waiting for the authority to
+            // advance the life. The gameplay check already treats zero as ready;
+            // clamp the presentation value too so a stalled authority can never
+            // expose a negative respawn countdown.
+            return Math.Max(0, count);
         }
 
         public override void HandleMessage(MessageInfo info)
