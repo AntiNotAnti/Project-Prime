@@ -41,6 +41,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBlock _name = PrimeChrome.Title("SELECT AN ARENA");
         private readonly TextBox _search = new() { PlaceholderText = "Search arena name or code" };
         private readonly Note _note = new("");
+        private readonly PrimeStatePanel _directoryState;
         private readonly PrimeButton _use;
         private string? _selected;
         private readonly Dictionary<string, string?> _incompatibilities = new();
@@ -70,6 +71,11 @@ namespace MphRead.Mods.Launcher.Gui
             _search.SetValue(ControllerNav.NavIdProperty, "map-picker.search");
             _search.TextChanged += (_, _) => FilterCards();
 
+            _directoryState = new PrimeStatePanel(
+                PrimeStateKind.Loading,
+                "LOADING ARENA DIRECTORY",
+                "Gathering compatible local and Community arenas.");
+
             var scroll = new ScrollViewer
             {
                 Content = _grid,
@@ -88,7 +94,12 @@ namespace MphRead.Mods.Launcher.Gui
                 searchPanel.Children.Add(_communityStatus);
                 searchPanel.Children.Add(refresh);
             }
-            gallery.Children.Add(searchPanel); Grid.SetRow(scroll, 1); gallery.Children.Add(scroll);
+            gallery.Children.Add(searchPanel);
+            var galleryStage = new Grid();
+            galleryStage.Children.Add(scroll);
+            galleryStage.Children.Add(_directoryState);
+            Grid.SetRow(galleryStage, 1);
+            gallery.Children.Add(galleryStage);
             var inspector = new PrimePanel(PrimeChrome.Stack(new PrimeBadge("DEPLOYMENT PREVIEW"),
                 _preview, _name, _note, PrimeChrome.Text("Select an arena, then confirm to update the match.",
                     PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush)));
@@ -103,12 +114,23 @@ namespace MphRead.Mods.Launcher.Gui
 
             if (compatibleRooms.Length == 0)
             {
-                _note.Text = rooms.Count == 0
-                    ? "No multiplayer rooms were found. Set the game files up from Settings."
-                    : "No maps support the selected game type and matchup.";
+                _directoryState.Set(
+                    _includeCommunity ? PrimeStateKind.Loading : PrimeStateKind.Warning,
+                    _includeCommunity
+                        ? "LOADING COMMUNITY ARENAS"
+                        : rooms.Count == 0 ? "NO LOCAL ARENAS" : "NO COMPATIBLE ARENAS",
+                    _includeCommunity
+                        ? "No compatible local arena is available yet. Community results may add one."
+                        : rooms.Count == 0
+                            ? "Set up the game files from Settings, then reopen the arena picker."
+                            : "No installed arena supports the selected game type and matchup.",
+                    showActions: false);
+                _note.Text = _includeCommunity
+                    ? "Waiting for Community arena results."
+                    : "Change the match configuration or install another arena.";
                 _note.Foreground = GuiTheme.WarmBrush;
                 _use.IsEnabled = false;
-                return;
+                if (!_includeCommunity) return;
             }
 
             foreach (string room in compatibleRooms)
@@ -118,6 +140,8 @@ namespace MphRead.Mods.Launcher.Gui
                 tile.Click += (_, _) => Select(tile);
                 _grid.Children.Add(tile);
             }
+            if (_grid.Children.Count > 0)
+                _directoryState.IsVisible = false;
             RefreshSelection();
         }
 
@@ -146,6 +170,33 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             base.OnKeyDown(e);
+        }
+
+        private void RefreshDirectoryState()
+        {
+            int visible = _grid.Children.OfType<DeckTile>().Count(tile => tile.IsVisible);
+            if (visible > 0)
+            {
+                _directoryState.IsVisible = false;
+                return;
+            }
+            if (_communityLoading)
+            {
+                _directoryState.Set(
+                    PrimeStateKind.Loading,
+                    "LOADING COMMUNITY ARENAS",
+                    "Checking the Community catalog for published maps.",
+                    showActions: false);
+                return;
+            }
+            _directoryState.Set(
+                PrimeStateKind.Empty,
+                _grid.Children.OfType<DeckTile>().Any()
+                    ? "NO MATCHING ARENAS" : "NO ARENAS AVAILABLE",
+                _grid.Children.OfType<DeckTile>().Any()
+                    ? "No arena matches the current search."
+                    : "No compatible local or published Community arena is available.",
+                showActions: false);
         }
 
         private void Select(DeckTile selected)
