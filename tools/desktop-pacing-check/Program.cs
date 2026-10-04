@@ -14,6 +14,8 @@ foreach (double hz in new[] { 59.94, 60.0, 90.0, 120.0, 144.0, 165.0, 240.0 })
         $"native {cap} cap uses the {hz:0.##} Hz display clock");
 }
 Check(DesktopFramePacing.UseDisplayPacing(0, 144), "Display always uses display pacing");
+Check(!DesktopFramePacing.UseDisplayPacing(FrameTiming.Unlimited, 144),
+    "Unlimited never aliases Display/VSync");
 Check(!DesktopFramePacing.UseDisplayPacing(120, 144),
     "120 cap on 144 Hz remains an explicit software-paced request");
 Check(!DesktopFramePacing.UseDisplayPacing(144, 120),
@@ -29,6 +31,8 @@ Check(!DesktopFramePacing.LinuxVSyncIgnored(false, 0, 144, 300, false),
     "ignored-VSync fallback is Linux-only");
 Check(!DesktopFramePacing.LinuxVSyncIgnored(true, 120, 144, 300, false),
     "non-native numeric caps never trigger the Linux display fallback");
+Check(!DesktopFramePacing.LinuxVSyncIgnored(true, FrameTiming.Unlimited, 144, 300, false),
+    "Unlimited never triggers the Linux VSync fallback");
 Check(DesktopFramePacing.LinuxVSyncIgnored(true, 144, 144, 180, false),
     "native explicit caps inherit the Linux ignored-VSync fallback");
 
@@ -36,6 +40,10 @@ Check(DesktopFramePacing.SoftwareFrequency(120, 144,
         displayPaced: false, modernPresentationBlocks: false,
         linuxVSyncFallback: false) == 120,
     "non-native cap uses software pacing when modern present is nonblocking");
+Check(DesktopFramePacing.SoftwareFrequency(FrameTiming.Unlimited, 144,
+        displayPaced: false, modernPresentationBlocks: false,
+        linuxVSyncFallback: false) == 0,
+    "Unlimited leaves the OpenTK frame loop genuinely uncapped");
 Check(DesktopFramePacing.SoftwareFrequency(120, 144,
         displayPaced: false, modernPresentationBlocks: true,
         linuxVSyncFallback: false) == 0,
