@@ -38,6 +38,8 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly Image _mapPreview;
         private readonly PrimeHeroPanel _hero;
         private PrimeMotionHandle? _heroMotion;
+        private PrimeMotionHandle? _detailNameMotion;
+        private PrimeMotionHandle? _detailMetaMotion;
         private readonly TextBlock _detailName;
         private readonly TextBlock _detailMeta;
         private readonly TextBlock _summary;
@@ -265,6 +267,8 @@ namespace MphRead.Mods.Launcher.Gui
             DetachedFromVisualTree += (_, _) =>
             {
                 _heroMotion?.Cancel();
+                _detailNameMotion?.Cancel();
+                _detailMetaMotion?.Cancel();
                 _connect?.Cancel();
                 CancelWork();
             };
@@ -569,8 +573,10 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (PrimeMotion.Reduced || TopLevel.GetTopLevel(_detailName) == null)
                 return;
-            PrimeMotion.Enter(_detailName, 3, 0.11);
-            PrimeMotion.Enter(_detailMeta, 3, 0.13);
+            _detailNameMotion?.Cancel();
+            _detailMetaMotion?.Cancel();
+            _detailNameMotion = PrimeMotion.Enter(_detailName, 3, 0.11);
+            _detailMetaMotion = PrimeMotion.Enter(_detailMeta, 3, 0.13);
         }
 
         private async Task JoinAsync(bool spectate = false)
