@@ -139,7 +139,8 @@ namespace MphRead.Mods.MapGen
                     materials.Add(RawStructs.MakeMaterial(mapMaterial.Name,ownTexture,ownPalette,RepeatMode.Repeat,RepeatMode.Repeat,lighting:false,
                         diffuse:new ColorRgb(31,31,31),ambient:new ColorRgb(0,0,0),
                         alpha:mapMaterial.Alpha,twoSided:mapMaterial.TwoSided,animated:MapUvAnimation.IsAnimated(mapMaterial)));
-                    AppendFlipbookFrames(def, mapMaterial, textures, palettes, ownTexture, ownPalette, flipbooks);
+                    AppendFlipbookFrames(def, mapMaterial, materials.Count - 1,
+                        textures, palettes, ownTexture, ownPalette, flipbooks);
                     continue;
                 }
                 if(source==null)throw new MapAuthoringException("FP-MAP-001","Missing source material.");
@@ -170,7 +171,8 @@ namespace MphRead.Mods.MapGen
                 }
                 materials.Add(RawStructs.MakeSourceMaterial(mapMaterial.Name, srcMaterial, textureId, paletteId,
                     mapMaterial.Alpha, mapMaterial.TwoSided, MapUvAnimation.IsAnimated(mapMaterial)));
-                AppendFlipbookFrames(def, mapMaterial, textures, palettes, textureId, paletteId, flipbooks);
+                AppendFlipbookFrames(def, mapMaterial, materials.Count - 1,
+                    textures, palettes, textureId, paletteId, flipbooks);
             }
             if (materials.Count == 0)
             {
@@ -180,7 +182,7 @@ namespace MphRead.Mods.MapGen
         }
 
         private static void AppendFlipbookFrames(MapDefinition definition, MapMaterial material,
-            List<Repack.TextureInfo> textures, List<Repack.PaletteInfo> palettes,
+            int packedMaterialId, List<Repack.TextureInfo> textures, List<Repack.PaletteInfo> palettes,
             int baseTextureId, int basePaletteId,
             Dictionary<string, MapFlipbookBinding> flipbooks)
         {
@@ -216,7 +218,8 @@ namespace MphRead.Mods.MapGen
             }
 
             flipbooks.Add(material.Name,
-                new MapFlipbookBinding(textureIds.ToArray(), paletteIds.ToArray()));
+                new MapFlipbookBinding(checked((ushort)packedMaterialId),
+                    textureIds.ToArray(), paletteIds.ToArray()));
         }
 
         /// <summary>
@@ -402,7 +405,8 @@ namespace MphRead.Mods.MapGen
                         RepeatMode.Repeat, RepeatMode.Repeat, lighting: false,
                         diffuse: new ColorRgb(31, 31, 31), ambient: new ColorRgb(0, 0, 0),
                         alpha: mapMaterial.Alpha, twoSided: mapMaterial.TwoSided, animated: MapUvAnimation.IsAnimated(mapMaterial)));
-                    AppendFlipbookFrames(def, mapMaterial, textures, palettes, textureId, paletteId, flipbooks);
+                    AppendFlipbookFrames(def, mapMaterial, materials.Count - 1,
+                    textures, palettes, textureId, paletteId, flipbooks);
                     continue;
                 }
                 if (source == null)
@@ -432,7 +436,8 @@ namespace MphRead.Mods.MapGen
                 }
                 materials.Add(RawStructs.MakeSourceMaterial(mapMaterial.Name, srcMaterial, textureId2, paletteId2,
                     mapMaterial.Alpha, mapMaterial.TwoSided, MapUvAnimation.IsAnimated(mapMaterial)));
-                AppendFlipbookFrames(def, mapMaterial, textures, palettes, textureId2, paletteId2, flipbooks);
+                AppendFlipbookFrames(def, mapMaterial, materials.Count - 1,
+                    textures, palettes, textureId2, paletteId2, flipbooks);
             }
             if (materials.Count == 0)
             {
