@@ -30,6 +30,11 @@ internal sealed unsafe partial class ModernGraphicsCompat
     private ulong _gpuVisibilityCandidateCapacity;
     private WgpuBuffer* _gpuVisibilityIndirectBuffer;
     private ulong _gpuVisibilityIndirectCapacity;
+    private WgpuBuffer* _gpuVisibilityDenseIndirectBuffer;
+    private ulong _gpuVisibilityDenseIndirectCapacity;
+    private WgpuBuffer* _gpuVisibilityBucketCountBuffer;
+    private ulong _gpuVisibilityBucketCountCapacity;
+    private uint[] _gpuVisibilityBucketCountZeros = Array.Empty<uint>();
     private WgpuBuffer* _gpuVisibilityCompactBuffer;
     private ulong _gpuVisibilityCompactCapacity;
     private WgpuBuffer* _gpuVisibilityCountersBuffer;
@@ -234,24 +239,39 @@ internal sealed unsafe partial class ModernGraphicsCompat
                 _gpuVisibilityCandidateWords[at + 11] = 0;
             }
             _gpuVisibilityCandidateWords[at + 12] = 0;
-            _gpuVisibilityCandidateWords[at + 13] = 0;
+            _gpuVisibilityCandidateWords[at + 13] = uint.MaxValue;
             _gpuVisibilityCandidateWords[at + 14] = 0;
             _gpuVisibilityCandidateWords[at + 15] = 0;
             _gpuVisibilitySlots[item] = candidate;
             candidate++;
         }
 
+        PrepareRetainedDenseMultiDrawBuckets(packets);
+
         ulong candidateBytes = checked(
             (ulong)candidateCount * GpuVisibilityCandidateWords * sizeof(uint));
         ulong indirectBytes = checked(
             (ulong)candidateCount * RetainedIndexedIndirectBytes);
         ulong compactBytes = checked((ulong)candidateCount * sizeof(uint));
+        ulong denseIndirectBytes = Math.Max(
+            RetainedIndexedIndirectBytes,
+            checked((ulong)_retainedDenseRecordCount
+                * RetainedIndexedIndirectBytes));
+        ulong bucketCountBytes = Math.Max(
+            (ulong)sizeof(uint),
+            checked((ulong)_retainedDenseBucketCount * sizeof(uint)));
         GrowBuffer(ref _gpuVisibilityCandidateBuffer,
             ref _gpuVisibilityCandidateCapacity,
             candidateBytes, BufferUsage.Storage);
         GrowBuffer(ref _gpuVisibilityIndirectBuffer,
             ref _gpuVisibilityIndirectCapacity,
             indirectBytes, BufferUsage.Storage | BufferUsage.Indirect);
+        GrowBuffer(ref _gpuVisibilityDenseIndirectBuffer,
+            ref _gpuVisibilityDenseIndirectCapacity,
+            denseIndirectBytes, BufferUsage.Storage | BufferUsage.Indirect);
+        GrowBuffer(ref _gpuVisibilityBucketCountBuffer,
+            ref _gpuVisibilityBucketCountCapacity,
+            bucketCountBytes, BufferUsage.Storage | BufferUsage.Indirect);
         GrowBuffer(ref _gpuVisibilityCompactBuffer,
             ref _gpuVisibilityCompactCapacity,
             compactBytes, BufferUsage.Storage | BufferUsage.CopySrc);
@@ -271,6 +291,22 @@ internal sealed unsafe partial class ModernGraphicsCompat
         counters[0] = counters[1] = counters[2] = counters[3] = 0;
         WriteProfiledBuffer(_gpuVisibilityCountersBuffer, 0,
             counters, checked((nuint)(4 * sizeof(uint))));
+
+        int bucketWords = Math.Max(1, _retainedDenseBucketCount);
+        if (_gpuVisibilityBucketCountZeros.Length < bucketWords)
+        {
+            _gpuVisibilityBucketCountZeros =
+                new uint[Math.Max(bucketWords,
+                    Math.Max(16,
+                        _gpuVisibilityBucketCountZeros.Length * 2))];
+        }
+        Array.Clear(_gpuVisibilityBucketCountZeros, 0, bucketWords);
+        fixed (uint* bucketCountPtr = _gpuVisibilityBucketCountZeros)
+        {
+            WriteProfiledBuffer(_gpuVisibilityBucketCountBuffer, 0,
+                bucketCountPtr,
+                checked((nuint)(bucketWords * sizeof(uint))));
+        }
 
         bool useHistory = historyValid
             && _gpuVisibilityPreviousMatricesValid
@@ -598,7 +634,9 @@ internal sealed unsafe partial class ModernGraphicsCompat
             (nint)_gpuVisibilityCompactBuffer,
             (nint)_gpuVisibilityCountersBuffer,
             (nint)_gpuVisibilityUniformBuffer,
-            (nint)hiZView
+            (nint)hiZView,
+            (nint)_gpuVisibilityDenseIndirectBuffer,
+            (nint)_gpuVisibilityBucketCountBuffer
         };
         if (_gpuVisibilityBindGroup != 0
             && _gpuVisibilityBindResources.AsSpan()
@@ -608,7 +646,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
         }
 
         ReleaseGpuVisibilityBindGroup();
-        var entries = stackalloc BindGroupEntry[6];
+        var entries = stackalloc BindGroupEntry[8];
         entries[0] = new BindGroupEntry
         {
             Binding = 0,
@@ -649,12 +687,26 @@ internal sealed unsafe partial class ModernGraphicsCompat
             Binding = 5,
             TextureView = hiZView
         };
+        entries[6] = new BindGroupEntry
+        {
+            Binding = 6,
+            Buffer = _gpuVisibilityDenseIndirectBuffer,
+            Offset = 0,
+            Size = _gpuVisibilityDenseIndirectCapacity
+        };
+        entries[7] = new BindGroupEntry
+        {
+            Binding = 7,
+            Buffer = _gpuVisibilityBucketCountBuffer,
+            Offset = 0,
+            Size = _gpuVisibilityBucketCountCapacity
+        };
         _gpuVisibilityBindGroup = (nint)CreateTrackedBindGroup(
             new BindGroupDescriptor
             {
                 Layout = _gpuVisibilityLayout,
                 Entries = entries,
-                EntryCount = 6
+                EntryCount = 8
             });
         _gpuVisibilityBindResources = resources;
         return (BindGroup*)_gpuVisibilityBindGroup;
@@ -728,6 +780,10 @@ internal sealed unsafe partial class ModernGraphicsCompat
             _api.BufferRelease(_gpuVisibilityCandidateBuffer);
         if (_gpuVisibilityIndirectBuffer != null)
             _api.BufferRelease(_gpuVisibilityIndirectBuffer);
+        if (_gpuVisibilityDenseIndirectBuffer != null)
+            _api.BufferRelease(_gpuVisibilityDenseIndirectBuffer);
+        if (_gpuVisibilityBucketCountBuffer != null)
+            _api.BufferRelease(_gpuVisibilityBucketCountBuffer);
         if (_gpuVisibilityCompactBuffer != null)
             _api.BufferRelease(_gpuVisibilityCompactBuffer);
         if (_gpuVisibilityCountersBuffer != null)
@@ -736,11 +792,16 @@ internal sealed unsafe partial class ModernGraphicsCompat
             _api.BufferRelease(_gpuVisibilityUniformBuffer);
         _gpuVisibilityCandidateBuffer = null;
         _gpuVisibilityIndirectBuffer = null;
+        _gpuVisibilityDenseIndirectBuffer = null;
+        _gpuVisibilityBucketCountBuffer = null;
         _gpuVisibilityCompactBuffer = null;
         _gpuVisibilityCountersBuffer = null;
         _gpuVisibilityUniformBuffer = null;
         _gpuVisibilityCandidateCapacity = 0;
         _gpuVisibilityIndirectCapacity = 0;
+        _gpuVisibilityDenseIndirectCapacity = 0;
+        _gpuVisibilityBucketCountCapacity = 0;
+        _gpuVisibilityBucketCountZeros = Array.Empty<uint>();
         _gpuVisibilityCompactCapacity = 0;
         _gpuVisibilityCountersCapacity = 0;
         _gpuVisibilityUniformCapacity = 0;
@@ -851,9 +912,9 @@ struct Candidate {
     first_index: u32,
     base_vertex: i32,
     first_instance: u32,
+    bucket_id: u32,
+    bucket_base: u32,
     pad0: u32,
-    pad1: u32,
-    pad2: u32,
 };
 
 struct DrawIndexedArgs {
@@ -886,6 +947,8 @@ struct VisibilityUniforms {
 @group(0) @binding(3) var<storage, read_write> counters: Counters;
 @group(0) @binding(4) var<uniform> uniforms: VisibilityUniforms;
 @group(0) @binding(5) var hiz: texture_2d<f32>;
+@group(0) @binding(6) var<storage, read_write> dense_draw_args: array<DrawIndexedArgs>;
+@group(0) @binding(7) var<storage, read_write> bucket_counts: array<atomic<u32>>;
 
 fn corner(c: Candidate, index: u32) -> vec3<f32> {
     return vec3<f32>(
@@ -1041,6 +1104,18 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     draw_args[id.x].instance_count = 1u;
     let compact_index = atomicAdd(&counters.visible, 1u);
     compact_ids[compact_index] = c.packet_id;
+
+    if (c.bucket_id != 0xffffffffu) {
+        let bucket_index = atomicAdd(
+            &bucket_counts[c.bucket_id], 1u);
+        let dense_index = c.bucket_base + bucket_index;
+        dense_draw_args[dense_index].index_count = c.index_count;
+        dense_draw_args[dense_index].instance_count = 1u;
+        dense_draw_args[dense_index].first_index = c.first_index;
+        dense_draw_args[dense_index].base_vertex = c.base_vertex;
+        dense_draw_args[dense_index].first_instance =
+            c.first_instance;
+    }
 }
 ";
 }
