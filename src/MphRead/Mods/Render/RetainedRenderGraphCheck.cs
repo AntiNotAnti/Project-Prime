@@ -25,6 +25,14 @@ namespace MphRead.Mods.Render
             Check(FrameRenderGraph.Validate(out string frameError),
                 "top-level frame render graph validates"
                     + (frameError.Length == 0 ? "" : ": " + frameError));
+            var frameGraph = new FrameRenderGraph();
+            Check(frameGraph.Passes.Count > 2
+                && frameGraph.Passes[1].Kind == FrameRenderPassKind.GpuVisibility
+                && (frameGraph.Passes[1].Reads & FrameRenderResource.SceneDepth) != 0
+                && (frameGraph.Passes[1].Writes
+                    & (FrameRenderResource.HiZ | FrameRenderResource.Visibility))
+                    == (FrameRenderResource.HiZ | FrameRenderResource.Visibility),
+                "GPU visibility runs before world clear and owns Hi-Z/visibility resources");
             Check(ModernGraphicsCompat.ValidateRetainedWorldUniformLayout(
                     out string layoutError),
                 "retained World generated uniform layout validates"
