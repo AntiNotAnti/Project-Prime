@@ -675,6 +675,16 @@ namespace MphRead.Mods.MapGen
     {
         /// <summary>Horizontal and vertical texture-tile velocity per second.</summary>
         public float[] UvScroll { get; set; } = new float[2];
+        /// <summary>Clockwise texture rotation in degrees per second.</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public float UvRotationDegreesPerSecond { get; set; }
+        /// <summary>Base texture-coordinate scale. One keeps the authored UV size unchanged.</summary>
+        public float[] UvScale { get; set; } = new[] { 1f, 1f };
+        /// <summary>
+        /// Per-axis sinusoidal scale amplitude around UvScale. One full pulse is completed per loop.
+        /// Zero keeps that axis at its base scale.
+        /// </summary>
+        public float[] UvScalePulse { get; set; } = new float[2];
         /// <summary>Length of this material's seamless cycle in native 30 Hz frames.</summary>
         public int LoopFrames { get; set; } = 3000;
         /// <summary>Optional phase offset inside this material's loop, in native 30 Hz frames.</summary>
