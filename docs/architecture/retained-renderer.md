@@ -564,11 +564,14 @@ For each eligible opaque room packet, the pre-world compute stage:
 - atomically compacts visible packet IDs into a dense GPU buffer and records a
   visible count for future multi-draw/state-bucket consumption.
 
-Occlusion uses the previous completed scene depth. Before WorldSetup clears that
-depth, compute builds an R32F hierarchical-Z pyramid. Each level stores the
-**maximum** standard depth of its 2x2 source region, making a rejection
-conservative. Packet bounds are projected with the previous camera and compared
-against an appropriately coarse Hi-Z level.
+Occlusion uses a persistent R32F hierarchical-Z history. The visibility pass
+consumes the pyramid from the previous rendered frame **before** WorldSetup clears
+the scene target. Immediately after the six-pass World graph finishes, a second
+compute node rebuilds the pyramid from the current world depth for the next frame,
+before outlines, HUD models, deferred lighting and post effects can contaminate
+that history. Each level stores the **maximum** standard depth of its 2x2 source
+region, making a rejection conservative. Packet bounds are projected with the
+previous camera and compared against an appropriately coarse Hi-Z level.
 
 Temporal Hi-Z is deliberately guarded. Occlusion is skipped when the projected
 packet moved more than a small pixel threshold between the previous and current
