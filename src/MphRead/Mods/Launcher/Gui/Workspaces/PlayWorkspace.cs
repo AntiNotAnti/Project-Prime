@@ -131,8 +131,8 @@ namespace MphRead.Mods.Launcher.Gui
             var root = new Grid
             {
                 Margin = PrimeMetrics.PageMargin,
-                RowDefinitions = new("Auto,*"),
-                RowSpacing = 12
+                ColumnDefinitions = new("1.65*,1*"),
+                ColumnSpacing = 12
             };
 
             _quick = new PrimeButton("QUICK PLAY", primary: true);
@@ -169,7 +169,12 @@ namespace MphRead.Mods.Launcher.Gui
                 Height = 210,
                 MaxHeight = 210
             };
-            root.Children.Add(_hero);
+            var left = new Grid
+            {
+                RowDefinitions = new("210,*"),
+                RowSpacing = 12
+            };
+            left.Children.Add(_hero);
 
             _refresh = new PrimeButton("REFRESH");
             ControllerNav.Identify(_refresh, "multiplayer.refresh");
@@ -231,36 +236,40 @@ namespace MphRead.Mods.Launcher.Gui
                 Padding = new Thickness(12)
             };
 
-            _mapPreview.Height = 128;
-            var session = new PrimePanel(PrimeChrome.Stack(
-                new PrimeBadge("SELECTED SESSION"),
-                _mapPreview,
-                _detailName,
-                _detailMeta,
-                PrimeChrome.Columns("Auto,Auto", copy, _favorite),
-                PrimeChrome.Columns("*,*", _spectate, _join)));
+            Grid.SetRow(browserPanel, 1);
+            left.Children.Add(browserPanel);
+            root.Children.Add(left);
 
-            _stand.Height = 150;
-            var loadout = new PrimePanel(PrimeChrome.Stack(
-                new PrimeBadge("DEPLOYMENT LOADOUT"),
-                PrimeChrome.Title("HUNTER"),
-                _stand,
-                _hunter,
-                _suit));
+            _mapPreview.Height = 100;
+            _stand.Height = 108;
+            _stand.MinHeight = 96;
 
-            var side = new StackPanel { Spacing = 10 };
-            side.Children.Add(session);
-            side.Children.Add(loadout);
-            var sideScroll = new ScrollViewer
+            var combined = new StackPanel { Spacing = 8 };
+            combined.Children.Add(new PrimeBadge("SELECTED SESSION"));
+            combined.Children.Add(_mapPreview);
+            combined.Children.Add(_detailName);
+            combined.Children.Add(_detailMeta);
+            combined.Children.Add(PrimeChrome.Columns("Auto,Auto", copy, _favorite));
+            combined.Children.Add(PrimeChrome.Columns("*,*", _spectate, _join));
+            combined.Children.Add(new Border
             {
-                Content = side,
-                HorizontalScrollBarVisibility =
-                    Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
-            };
+                Height = 1,
+                Margin = new Thickness(0, 5),
+                Background = PrimeTheme.BorderBrush
+            });
+            combined.Children.Add(PrimeChrome.Eyebrow("DEPLOYMENT LOADOUT"));
+            combined.Children.Add(PrimeChrome.Title("HUNTER"));
+            combined.Children.Add(_stand);
+            combined.Children.Add(_hunter);
+            combined.Children.Add(_suit);
 
-            var body = PrimeChrome.Columns("1.65*,1*", browserPanel, sideScroll);
-            Grid.SetRow(body, 1);
-            root.Children.Add(body);
+            var sessionLoadout = new PrimePanel(combined, raised: true)
+            {
+                Padding = new Thickness(14),
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
+            Grid.SetColumn(sessionLoadout, 1);
+            root.Children.Add(sessionLoadout);
             Content = root;
 
             AttachedToVisualTree += (_, _) =>
