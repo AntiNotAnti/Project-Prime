@@ -798,6 +798,7 @@ namespace MphRead.Entities
                 _health = _scene.GameState.BalancedMode
                     ? BalancedModeRules.SpawnHealth(Hunter, baseHealth, _healthMax)
                     : baseHealth;
+                BalancedModeTelemetry.NoteHunterSpawn(this);
             }
             else if (IsMainPlayer) // todo: MP1P
             {
@@ -2096,6 +2097,10 @@ namespace MphRead.Entities
                     : Mods.Input.GamepadFeedback.Damage);
             if (dead)
             {
+                if (_scene.GameState.BalancedMode && ModBalancedImperialistShots > 0)
+                {
+                    BalancedModeTelemetry.NoteImperialistDeath(this, ModBalancedImperialistShots);
+                }
                 // todo?: the game encodes the beam in the damage flags for wifi stuff
                 BeamType beamType = BeamType.Platform;
                 if (beam != null)
@@ -2737,6 +2742,10 @@ namespace MphRead.Entities
                         bool allowFreeze = !balancedNoxusFreeze
                             || beam.EnhancedDirectHit && beam.Flags.TestFlag(BeamFlags.Charged)
                                 && _timeSinceFrozen >= BalancedModeRules.AffinityControlImmunityFrames;
+                        if (balancedNoxusFreeze)
+                        {
+                            BalancedModeTelemetry.NoteNoxusFreeze(this, allowFreeze);
+                        }
                         if (allowFreeze)
                         {
                             if (beam.Beam == BeamType.Judicator && _scene.GameState.ShadowFreeze)
@@ -2784,6 +2793,10 @@ namespace MphRead.Entities
                             ? beam.EnhancedDirectHit && beam.Flags.TestFlag(BeamFlags.Charged)
                                 && ModTryBalancedDisrupt()
                             : true;
+                        if (balancedKandenDisrupt)
+                        {
+                            BalancedModeTelemetry.NoteKandenDisrupt(this, applied);
+                        }
                         if (applied)
                         {
                             if (!balancedKandenDisrupt)
@@ -2804,6 +2817,10 @@ namespace MphRead.Entities
                             || beam.EnhancedDirectHit && beam.Flags.TestFlag(BeamFlags.Charged);
                         if (allowBurn)
                         {
+                            if (balancedSpireBurn)
+                            {
+                                BalancedModeTelemetry.NoteSpireBurn(this);
+                            }
                             if (flags.TestFlag(DamageFlags.Halfturret))
                             {
                                 _halfturret.OnSetOnFire();
