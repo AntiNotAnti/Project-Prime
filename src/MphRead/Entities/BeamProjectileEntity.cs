@@ -98,6 +98,17 @@ namespace MphRead.Entities
         }
         public EquipInfo? Equip { get; set; }
 
+        private float ApplyBalancedRangeDamage(float damage, Vector3 impactPosition)
+        {
+            if (!_scene.GameState.Multiplayer || !_scene.GameState.BalancedMode
+                || Owner is not PlayerEntity || !BalancedModeRules.HasRangeDamageCurve(Beam))
+            {
+                return damage;
+            }
+            float distance = Vector3.Distance(impactPosition, SpawnPosition);
+            return BalancedModeRules.ScaleRangeDamage(Beam, damage, distance);
+        }
+
         public int DamageInterpolation { get; set; }
         public int SpeedInterpolation { get; set; }
         public float SpeedDecayTime { get; set; }
@@ -617,6 +628,7 @@ namespace MphRead.Entities
                                     damage = Damage;
                                 }
                             }
+                            damage = ApplyBalancedRangeDamage(damage, anyRes.Position);
                             wholeDamage = (uint)Math.Clamp(damage, 0, Int32.MaxValue);
                             NetContinuousTargetDiagnostics.CollisionResult(this, player, true, wholeDamage);
                             if (wholeDamage != 0)
@@ -680,6 +692,7 @@ namespace MphRead.Entities
                                 float pct = Vector3.Distance(Position, SpawnPosition) / MaxDistance;
                                 damage = GetInterpolatedValue(DamageInterpolation, Damage, 0, pct);
                             }
+                            damage = ApplyBalancedRangeDamage(damage, anyRes.Position);
                             if (damage > 0 && (Beam != BeamType.ShockCoil
                                 || (ModHasSharedContinuousPhase ? ModContinuousPhase : _scene.FrameCount) % 2 == 0)) // todo: FPS stuff
                             {
@@ -1106,7 +1119,8 @@ namespace MphRead.Entities
                         {
                             Vector3 damageDir = GetDamageDirection(Position, player.Position);
                             float ratio = dist / SplashRadius;
-                            int damage = (int)GetInterpolatedValue(SplashDamageType, SplashDamage, 0, ratio);
+                            int damage = (int)ApplyBalancedRangeDamage(
+                                GetInterpolatedValue(SplashDamageType, SplashDamage, 0, ratio), Position);
                             player.TakeDamage(damage, DamageFlags.NoDmgInvuln, damageDir, this);
                             if (Owner != null)
                             {
@@ -1132,8 +1146,9 @@ namespace MphRead.Entities
                 if (dist < SplashRadius
                     && !CollisionDetection.CheckBetweenPoints(Position, enemy.Position, TestFlags.Beams, _scene, ref res))
                 {
-                    float damage = GetInterpolatedValue(SplashDamageType, SplashDamage, 0, dist / SplashRadius);
-                    enemy.TakeDamage((uint)damage, this);
+                    float damage = ApplyBalancedRangeDamage(
+                        GetInterpolatedValue(SplashDamageType, SplashDamage, 0, dist / SplashRadius), Position);
+                    enemy.TakeDamage((uint)Math.Clamp(damage, 0, UInt32.MaxValue), this);
                     if (Owner != null)
                     {
                         _scene.SendMessage(Message.Impact, this, Owner, enemy, 0);
@@ -1852,7 +1867,14 @@ namespace MphRead.Entities
                 beam.DamageDirType = dmgDirType;
                 beam.SplashDamageType = splashDmgType;
                 beam.DamageDirMag = dmgDirMag;
-                beam.SpawnPosition = beam.BackPosition = beam.Position = position;
+                // Balanced range damage is measured from the original firing
+                // point. Magmaul can ricochet, so carrying its parent's origin
+                // prevents a wall bounce from resetting a long-range shot into
+                // the close-range damage bonus.
+                beam.SpawnPosition = scene.GameState.BalancedMode && parent != null
+                    && parent.Beam == weapon.Beam && BalancedModeRules.HasRangeDamageCurve(weapon.Beam)
+                    ? parent.SpawnPosition : position;
+                beam.BackPosition = beam.Position = position;
                 for (int j = 0; j < 10; j++)
                 {
                     beam.PastPositions[j] = position;
