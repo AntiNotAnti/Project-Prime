@@ -34,6 +34,11 @@ namespace MphRead.Entities
 
         public void Draw()
         {
+            // Player entities bypass GetDrawInfo() in Renderer; emit replay-only
+            // transient impact particles from the guaranteed player draw path.
+            if (_scene.Services.IsReplica && IsMainPlayer)
+                _scene.ReplayPoses?.DrawResolvedImpactPresentation(_scene);
+
             Vector3 presentedPosition = default;
             bool presentedAlt = false;
             bool networkPresented = !_scene.Services.IsReplica && Mods.Network.NetSession.Active
@@ -857,8 +862,6 @@ namespace MphRead.Entities
 
         public override void GetDrawInfo()
         {
-            if (_scene.Services.IsReplica && IsMainPlayer)
-                _scene.ReplayPoses?.DrawResolvedImpactPresentation(_scene);
         }
     }
 }
