@@ -63,13 +63,13 @@ internal static class NetArchitectureTests
             Check(output.SequenceEqual(fixture), "protocol 38 legacy intent fixture remains readable");
             Check(intent.AckFrame == 0x87654321 && intent.AckSubFrame == 128 && IntentPacket.PressHistory == 8,
                 "displayed world ACK and eight-frame edge retention");
-            Check(NetConfig.ProtocolVersion == 40
+            Check(NetConfig.ProtocolVersion == 41
                 && IntentPacket.Protocol38FullSize == 423
                 && IntentPacket.FullSize == 1175 && intent.HasAnalogMove
                 && intent.MoveX == 64 && intent.MoveY == -96
                 && intent.HasContinuousFireTick && intent.ContinuousFireTick == 0xCAFEBABE
                 && Math.Abs(IntentPacket.UnpackMoveAxis(intent.MoveX) - 64 / 127f) < .00001f,
-                "protocol 40 retains the protocol-39 exact FireEvent pose layout");
+                "protocol 41 preserves protocol-40 Balanced ability semantics and exact FireEvent pose");
             var posed = new FireEvent(7, 99, 80, 64, FireEventKind.PressFire,
                 (byte)BeamType.Imperialist, 0, 0,
                 (byte)(FireEvent.FlagPose | FireEvent.FlagReticle),
@@ -83,7 +83,7 @@ internal static class NetArchitectureTests
                 && posedRoundtrip.Direction == posed.Direction && posedRoundtrip.Aim == posed.Aim
                 && Vector3.Dot(posedRoundtrip.View, posed.View.Normalized()) > 0.9999f
                 && Vector2.Distance(posedRoundtrip.Reticle, posed.Reticle) < 0.00003f,
-                "protocol 40 retains FireEvent shot/view/reticle roundtrip");
+                "protocol 41 retains FireEvent shot/view/reticle roundtrip");
             var resolvedFact = new ReplayShotFact(
                 MatchId: 51, AuthorityEpoch: 9, ResolveTick: 120, LaunchFrame: 111,
                 ShotId: 77, DamageEventId: 5,
@@ -98,7 +98,7 @@ internal static class NetArchitectureTests
             ReplayShotFactPacket.Write(resolvedFact, resolvedBytes);
             Check(ReplayShotFactPacket.TryRead(resolvedBytes, out var resolvedRoundtrip)
                 && resolvedRoundtrip == resolvedFact,
-                "protocol 40 authoritative replay shot fact roundtrip");
+                "protocol 41 authoritative replay shot fact roundtrip");
             var turretFact = resolvedFact with
             {
                 ShotId = 78, DamageEventId = 6, Damage = 0, HealthAfter = 99,
@@ -108,7 +108,7 @@ internal static class NetArchitectureTests
             ReplayShotFactPacket.Write(turretFact, resolvedBytes);
             Check(ReplayShotFactPacket.TryRead(resolvedBytes, out var turretRoundtrip)
                 && turretRoundtrip == turretFact,
-                "protocol 40 replay shot fact preserves halfturret-only damage");
+                "protocol 41 replay shot fact preserves halfturret-only damage");
             string[] forbidden = { "MovementCommand", "MovementAck", "ProcessedMovementFrame", "MovementReconciliation",
                 "PredictedMovementState", "IntentBundle", "SnapshotDelta", "SnapshotKeyframe" };
             Check(!typeof(IntentPacket).Assembly.GetTypes().Any(t => forbidden.Any(n => t.Name.Contains(n))),

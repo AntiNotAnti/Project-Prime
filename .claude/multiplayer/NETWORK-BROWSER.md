@@ -75,9 +75,9 @@ protocol 34 is refused against older launchers/directories/servers rather than
 allowing them to misread the following policy and identity fields. Protocol 37
 appends the host challenge nonce/cookie proof. Protocol 38 adds Balanced Mode
 semantics without changing browser/control packet widths. Protocol 39 changes the
-gameplay intent FireEvent stride to carry exact shot pose. Protocol 40 adds the
-authority-only reliable ReplayShotFact stream; browser/directory packet layouts
-remain unchanged.
+gameplay intent FireEvent stride to carry exact shot pose. Protocol 40 keeps those packet widths and
+fences the native Balanced Hunter movement/ability semantics from protocol-39 peers. Protocol 41 adds the
+authority-only reliable ReplayShotFact stream; browser/directory packet layouts remain unchanged.
 
 | Field | Where | Contract |
 |---|---|---|

@@ -861,10 +861,23 @@ namespace MphRead.Entities
             {
                 UpdateAnimFrames(_bipedModel1);
                 UpdateAnimFrames(_bipedModel2);
+                if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                    && Hunter == Hunter.Weavel && (IsMorphing || IsUnmorphing)
+                    && BalancedHunterAbilityRules.ExtraWeavelTransitionAnimationFrame(_scene.FrameCount))
+                {
+                    _bipedModel1.UpdateAnimFrames();
+                    _bipedModel2.UpdateAnimFrames();
+                }
             }
             if ((IsAltForm || IsMorphing) && _frozenTimer == 0)
             {
                 UpdateAnimFrames(_altModel);
+                if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                    && Hunter == Hunter.Spire && Flags2.TestFlag(PlayerFlags2.AltAttack)
+                    && BalancedHunterAbilityRules.ExtraSpireAttackAnimationFrame(_scene.FrameCount))
+                {
+                    _altModel.UpdateAnimFrames();
+                }
             }
             if (Hunter == Hunter.Spire && Flags2.TestFlag(PlayerFlags2.AltAttack))
             {
@@ -1283,6 +1296,11 @@ namespace MphRead.Entities
                     ? BalancedModeRules.SpireBurnTickFrames : 8 * 2;
                 if (_burnTimer % burnTickFrames == 0) // todo:FPS stuff
                 {
+                    bool lethalBurn = balancedSpireBurn && Health <= 1;
+                    if (balancedSpireBurn)
+                    {
+                        BalancedModeTelemetry.NoteSpireBurnDamage(this, lethalBurn);
+                    }
                     TakeDamage(1, DamageFlags.NoSfx | DamageFlags.Burn | DamageFlags.NoDmgInvuln, direction: null, _burnedBy);
                 }
                 if (_burnEffect != null)
@@ -1870,8 +1888,13 @@ namespace MphRead.Entities
                 _altTiltZ += -(_altTiltZ + Fixed.ToFloat(25) * (Speed.Z - PrevSpeed.Z)) / 32 / 2; // todo: FPS stuff
                 float minSpinAccel = Fixed.ToFloat(Values.AltMinSpinAccel);
                 float maxSpinAccel = Fixed.ToFloat(Values.AltMaxSpinAccel);
+                int startupFrames = Values.AltAttackStartup * 2;
+                if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                {
+                    startupFrames = BalancedHunterAbilityRules.NoxusStartupFrames(startupFrames);
+                }
                 _altSpinSpeed += (minSpinAccel
-                    + (_altAttackTime * (maxSpinAccel - minSpinAccel) / (Values.AltAttackStartup * 2))
+                    + (_altAttackTime * (maxSpinAccel - minSpinAccel) / startupFrames)
                     - _altSpinSpeed) / 32 / 2; // todo: FPS stuff
                 _altSpinSpeed = Math.Clamp(_altSpinSpeed, Fixed.ToFloat(Values.AltMinSpinSpeed), Fixed.ToFloat(Values.AltMaxSpinSpeed));
                 _altSpinRot += _altSpinSpeed / 2; // todo: FPS stuff

@@ -667,6 +667,10 @@ namespace MphRead.Mods.Network
                                 Log($"sim: {claimLine}");
                             }
                             Log($"sim: {_sim.DescribeShots()}");
+                            if (CurrentDefinition.BalancedMode)
+                            {
+                                Log($"sim: {_sim.DescribeBalancedMode()}");
+                            }
                             foreach (string line in _sim.DescribeAgreement().Split('\n'))
                             {
                                 Log($"sim: {line}");

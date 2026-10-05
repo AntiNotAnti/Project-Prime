@@ -2470,11 +2470,14 @@ namespace MphRead.Mods.Network
         // Replay reconstruction can therefore reproduce the firing picture
         // without trusting this owner-authored presentation pose for live damage.
         // Mixed v38/v39 peers are refused because the intent FireEvent stride changed.
-        // Protocol 40 adds reliable authority-only ReplayShotFact packets. They do
-        // not affect gameplay simulation, but protocol-39 transports would reject
-        // the unknown reliable type without acknowledging it, so mixed v39/v40
+        // Protocol 40 keeps protocol-39 packet widths but changes Balanced Mode
+        // native Hunter movement/ability semantics. Mixed v39/v40 peers are
+        // refused so prediction/contact timing cannot disagree.
+        // Protocol 41 adds reliable authority-only ReplayShotFact packets. They do
+        // not affect gameplay simulation, but protocol-40 transports would reject
+        // the unknown reliable type without acknowledging it, so mixed v40/v41
         // peers must be refused rather than retrying replay evidence forever.
-        public const int ProtocolVersion = 40;
+        public const int ProtocolVersion = 41;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

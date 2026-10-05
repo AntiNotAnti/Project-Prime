@@ -1,4 +1,5 @@
 using System;
+using MphRead.Mods.Multiplayer;
 
 namespace MphRead.Entities
 {
@@ -70,7 +71,11 @@ namespace MphRead.Entities
                 // Picking up the Imperialist is the sole refill source in
                 // Balanced Mode. A re-pick always tops the private reserve up
                 // to five shots and can never overflow it.
+                int beforeShots = _balancedImperialistAmmo
+                    / Math.Max(1, (int)BalancedImperialistWeaponInfo().AmmoCost);
                 _balancedImperialistAmmo = BalancedImperialistAmmoCap;
+                BalancedModeTelemetry.NoteImperialistAcquired(this,
+                    Math.Max(0, BalancedImperialistShotCap - beforeShots));
                 return;
             }
 

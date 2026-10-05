@@ -1062,6 +1062,7 @@ namespace MphRead.Entities
             Vector3 spawnPosition = colRes.Position + normal * 0.08f;
 
             ReadOnlySpan<float> spread = stackalloc float[] { -0.45f, 0f, 0.45f };
+            BalancedModeTelemetry.NoteBattlehammerTerrainImpact(owner, spread.Length);
             for (int i = 0; i < spread.Length; i++)
             {
                 Vector3 childDirection = (baseHop + right * spread[i]).Normalized();

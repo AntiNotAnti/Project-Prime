@@ -328,6 +328,14 @@ namespace MphRead.Mods.Network
                     && BalancedModeRules.HunterProfile(Hunter.Sylux) == BalancedHunterProfile.Baseline,
                     "Samus Trace and Sylux remain baseline in Balanced Mode");
 
+                scene.GameState.EnhancedHunters = true;
+                Check(!Mods.EnhancedHunters.EnhancedHunters.Enabled(kanden)
+                    && !Mods.EnhancedHunters.EnhancedHunters.Enabled(spire)
+                    && !Mods.EnhancedHunters.EnhancedHunters.Enabled(noxus)
+                    && !Mods.EnhancedHunters.EnhancedHunters.Enabled(weavel),
+                    "Balanced Mode suppresses Enhanced Hunters so native ability tuning is independent");
+                scene.GameState.EnhancedHunters = false;
+
                 DamageFlags combat = DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln;
                 spire.Health = noxus.Health = kanden.Health = 150;
                 spire.TakeDamage(100, combat, null, samus);
@@ -340,6 +348,18 @@ namespace MphRead.Mods.Network
                 spire.Speed = Vector3.Zero;
                 spire.TakeDamage(1, combat, Vector3.UnitX, samus);
                 Check(Near(spire.Speed.X, 0.80f), "Spire receives 20 percent less combat knockback");
+
+                var flagsProperty = typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags1))!;
+                flagsProperty.SetValue(weavel, weavel.Flags1 | PlayerFlags1.Morphing);
+                weavel.Health = 150;
+                weavel.TakeDamage(100, combat, null, samus);
+                Check(weavel.Health == 75,
+                    "Balanced Weavel takes 25 percent less non-headshot damage while transforming");
+                weavel.Health = 150;
+                weavel.TakeDamage(100, combat | DamageFlags.Headshot, null, samus);
+                Check(weavel.Health == 50,
+                    "Weavel transition armor never reduces headshots");
+                flagsProperty.SetValue(weavel, weavel.Flags1 & ~PlayerFlags1.Morphing);
 
                 scene.GameState.BalancedMode = false;
                 spire.Health = 150;
@@ -525,6 +545,16 @@ namespace MphRead.Mods.Network
                     && MathF.Abs(b.DamageDirMag - 0.216f) < 0.01f),
                     "Weavel affinity widens cluster coverage and adds 20 percent knockback without extra damage");
 
+                var balance = BalancedModeTelemetry.Capture();
+                Check(balance.Revision == BalancedModeRules.BalanceRevision
+                    && balance.HunterPicks.Sum() == 7
+                    && balance.Battlehammer[1] >= 1 && balance.Battlehammer[2] >= 3,
+                    "Balanced telemetry captures revision, hunter picks and impact-cluster activity");
+                Check(balance.Affinity[0] >= 1 && balance.Affinity[1] >= 1
+                    && balance.Affinity[2] >= 1 && balance.Affinity[3] >= 1
+                    && balance.Affinity[4] >= 1,
+                    "Balanced telemetry captures affinity applications and rejected chains");
+
                 scene.GameState.BalancedMode = false;
                 weavel.ModSetWeapon(BeamType.PowerBeam);
                 weavel.ModSetWeapon(BeamType.Battlehammer);
@@ -554,6 +584,44 @@ namespace MphRead.Mods.Network
 
         private static void AdvancedRulesChecks()
         {
+            var balanceAggregate = new Telemetry.NetTelemetryAggregator();
+            balanceAggregate.Add(new Telemetry.NetTelemetryEvent(Telemetry.TelemetryEventType.BalancedMode, 1,
+                Player: (byte)Hunter.Kanden, Result: (int)BalancedModeMetric.HunterPick,
+                A: 2, Id: (uint)BalancedModeRules.BalanceRevision));
+            balanceAggregate.Add(new Telemetry.NetTelemetryEvent(Telemetry.TelemetryEventType.BalancedMode, 2,
+                Weapon: (byte)BeamType.VoltDriver, Result: (int)BalancedModeMetric.WeaponDamage,
+                A: 123, Id: (uint)BalancedModeRules.BalanceRevision));
+            var balanceSummary = balanceAggregate.Capture(
+                new Telemetry.TelemetryHeader(6, NetConfig.ProtocolVersion, "balanced-test",
+                    "test", "test", "test", "Battle", "MP1 SANCTORUS", 2), 1, default);
+            Check(balanceSummary.BalancedMode.Revision == BalancedModeRules.BalanceRevision
+                && balanceSummary.BalancedMode.HunterPicks[(int)Hunter.Kanden] == 2
+                && balanceSummary.BalancedMode.WeaponDamage[(int)BeamType.VoltDriver] == 123
+                && balanceSummary.BalancedMode.WeaponDamage.Sum() == 123,
+                "telemetry schema v6 routes bounded Balanced Mode counters by revision");
+
+            Check(BalancedModeRules.BalanceRevision == 2,
+                "Hunter ability refinement advances Balanced telemetry revision");
+            Check(BalancedHunterAbilityRules.KandenAcquireRange == 6.5f
+                && MathF.Abs(BalancedHunterAbilityRules.KandenLaunchSpeed - 0.36f) < 0.001f
+                && MathF.Abs(BalancedHunterAbilityRules.KandenSteeringFactor - 0.0625f) < 0.001f
+                && BalancedHunterAbilityRules.KandenCooldownFrames(120) == 102,
+                "Kanden native ability profile is 6.5u pursuit with 20/25/15 percent responsiveness tuning");
+            Check(BalancedHunterAbilityRules.SpireLedgeGraceFrames == 9
+                && MathF.Abs(BalancedHunterAbilityRules.SpireClimbSpeedMultiplier - 1.20f) < 0.001f
+                && MathF.Abs(BalancedHunterAbilityRules.RollTraction(Hunter.Spire, true, false, 1f) - 1.15f) < 0.001f,
+                "Spire native ability profile has 150ms grace and 20/15 percent climb/control tuning");
+            Check(BalancedHunterAbilityRules.NoxusStartupFrames(120) == 90
+                && MathF.Abs(BalancedHunterAbilityRules.RollTraction(Hunter.Noxus, false, true, 1f) - 1.20f) < 0.001f,
+                "Noxus native ability profile starts 25 percent faster with 20 percent attack steering");
+            Check(MathF.Abs(BalancedHunterAbilityRules.StrafeTraction(Hunter.Weavel, 1f) - 1.15f) < 0.001f
+                && BalancedHunterAbilityRules.WeavelTransitionDamage(100, headshot: false, transitioning: true) == 75
+                && BalancedHunterAbilityRules.WeavelTransitionDamage(100, headshot: true, transitioning: true) == 100,
+                "Weavel native ability profile improves movement and preserves headshot damage through transition armor");
+            Check(Enumerable.Range(0, 40).Count(i => BalancedHunterAbilityRules.ExtraSpireAttackAnimationFrame((ulong)i)) == 4
+                && Enumerable.Range(0, 40).Count(i => BalancedHunterAbilityRules.ExtraWeavelTransitionAnimationFrame((ulong)i)) == 5,
+                "Spire attack and Weavel transform animation pacing is exactly 20 and 25 percent faster");
+
             var defaults = new MatchDefinition();
             Check(!defaults.ShadowFreeze && !defaults.SpawnProtection && !defaults.InstaGib
                 && !defaults.LowTier && !defaults.NoImperialist && !defaults.BalancedMode, "advanced rules default off");
@@ -573,9 +641,10 @@ namespace MphRead.Mods.Network
                 && read.Match.BalancedMode, "No Imp and Balanced Mode survive session round trip");
             Check(!MatchModifierRules.Validate(new MatchDefinition { Mode = GameMode.Battle, BalancedMode = true, InstaGib = true }, out _)
                 && !MatchModifierRules.Validate(new MatchDefinition { Mode = GameMode.Battle, BalancedMode = true, Fiesta = true }, out _)
+                && !MatchModifierRules.Validate(new MatchDefinition { Mode = GameMode.Battle, BalancedMode = true, EnhancedHunters = true }, out _)
                 && !MatchModifierRules.Validate(new MatchDefinition { Mode = GameMode.OneInTheChamber, BalancedMode = true }, out _)
                 && !MatchModifierRules.Validate(new MatchDefinition { Mode = GameMode.GunGame, BalancedMode = true }, out _),
-                "Balanced Mode rejects loadout modes with incompatible ammo ownership");
+                "Balanced Mode rejects Enhanced Hunters and loadout modes with incompatible simulation ownership");
             state.Match = state.Match with { BalancedMode = false };
             foreach (bool insta in new[] { false, true })
             {
