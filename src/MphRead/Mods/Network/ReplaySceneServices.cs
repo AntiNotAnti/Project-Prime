@@ -158,6 +158,12 @@ namespace MphRead.Mods.Network
                     }
                     _presentationKnown[slot] = true; _presentationLives[slot] = life;
                 }
+
+            // A lethal ReplayShotFact owns the visible death frame. If the next
+            // accepted snapshot is a frame or two late, hold only the replica
+            // presentation dead until that snapshot catches up.
+            scene.ReplayPoses?.PresentResolvedDeaths(scene, Session.Transport.IsSeeking);
+
             if (State.AuthorityWorld is { } world && State.AuthorityAppliedTick != world.Tick)
             { world.Apply(scene, State); State.AuthorityAppliedTick = world.Tick; }
             ReadOnlySpan<byte> tail = State.WorldTail;
