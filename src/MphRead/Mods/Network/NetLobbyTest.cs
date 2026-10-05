@@ -71,7 +71,7 @@ namespace MphRead.Mods.Network
             Check(!RosterPacket.TryRead(data, out _), "human cannot carry a bot level");
             roster.Flags[0] = 1; roster.Count = 2; roster.Slots[1] = 3; roster.Teams[1] = -1; roster.Write(data);
             Check(!RosterPacket.TryRead(data, out _), "duplicate bot slot rejected");
-            Check(NetConfig.ProtocolVersion == 38, "queue protocol preserves the bot wire contract");
+            Check(NetConfig.ProtocolVersion == 39, "protocol 39 preserves the queue/bot wire contract");
             var metadata = new ReplayMetadata { Players = new[] { new ReplayPlayerInfo(3, (byte)Hunter.Trace, -1, "BOT TRACE", true, 3) } };
             var decoded = ReplayFormatV3.DecodeMetadata(NetConfig.ProtocolVersion, ReplayFormatV3.EncodeMetadata(metadata));
             Check(decoded.Players[0].IsBot && decoded.Players[0].BotLevel == 3, "replay binary metadata retains bot identity");
@@ -529,7 +529,7 @@ namespace MphRead.Mods.Network
                 { Flags = MatchStatePacket.FlagSpawnProtection };
             Check(!defaultMatchState.SpawnProtection && disabledMatchState.SpawnProtection,
                 "match state carries default-off spawn protection without ambiguity");
-            Check(NetConfig.ProtocolVersion == 38 && (byte)PacketType.SessionState == 36
+            Check(NetConfig.ProtocolVersion == 39 && (byte)PacketType.SessionState == 36
                 && (byte)PacketType.MapOffer == 32 && (byte)PacketType.MapDone == 35
                 && (byte)PacketType.MatchStartCommit == 44 && (byte)PacketType.MatchLoadProgress == 45
                 && (byte)PacketType.HostChallenge == 65 && (byte)PacketType.HostChallengeReply == 66,
