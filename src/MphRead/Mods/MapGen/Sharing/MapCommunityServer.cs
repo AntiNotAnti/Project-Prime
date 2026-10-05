@@ -133,19 +133,33 @@ public static class MapCommunityServer
                 {
                     if (File.Exists(packagePath)) File.Delete(packagePath);
                     if (File.Exists(packagePath)) continue;
-                    string metadataPath = Path.Combine(storage, hash + ".catalog.json");
-                    if (File.Exists(metadataPath)) File.Delete(metadataPath);
-                    maps.TryRemove(hash, out _);
-                    removed.Add(hash);
                 }
                 catch (IOException ex)
                 {
                     Console.Error.WriteLine("[maphub] Deferred lifecycle purge for "
                         + hash[..8] + ": " + ex.Message);
+                    continue;
                 }
                 catch (UnauthorizedAccessException ex)
                 {
                     Console.Error.WriteLine("[maphub] Deferred lifecycle purge for "
+                        + hash[..8] + ": " + ex.Message);
+                    continue;
+                }
+
+                // The archive is the authoritative retained object. Once it is
+                // gone, remove the live catalog entry even if cleaning the tiny
+                // sidecar has to be retried later.
+                maps.TryRemove(hash, out _);
+                removed.Add(hash);
+                string metadataPath = Path.Combine(storage, hash + ".catalog.json");
+                try
+                {
+                    if (File.Exists(metadataPath)) File.Delete(metadataPath);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Console.Error.WriteLine("[maphub] Orphaned catalog sidecar for "
                         + hash[..8] + ": " + ex.Message);
                 }
             }
