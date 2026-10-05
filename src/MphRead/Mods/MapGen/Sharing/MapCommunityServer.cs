@@ -489,15 +489,7 @@ public static class MapCommunityServer
                     await publication.WaitAsync(deadline.Token);
                     try
                     {
-                        var updated=promoteMap with
-                        {
-                            Listed=true,
-                            Draft=false,
-                            // Legacy flat clients choose the newest listed package by
-                            // PublishedAt, so promotion refreshes catalog presentation
-                            // time without touching immutable package bytes.
-                            PublishedAt=DateTimeOffset.UtcNow
-                        };
+                        var updated=promoteMap with{Listed=true,Draft=false};
                         AtomicFile.Write(Path.Combine(storage,updated.Hash+".catalog.json"),
                             JsonSerializer.SerializeToUtf8Bytes(updated,MapPackageReader.JsonOptions));
                         maps[updated.Hash]=updated;
@@ -599,7 +591,12 @@ public static class MapCommunityServer
                     {
                     var query = context.Request.QueryString;
                     if((query["mine"]=="true"||query["favorites"]=="true")&&creator==null){context.Response.StatusCode=401;return;}
-                    IEnumerable<CommunityMap> found = maps.Values.Where(m => query["mine"]=="true" ? creator!=null&&catalog.CanPublish(creator.CreatorId,m) : m.Listed&&!m.Draft).Select(m=>catalog.Decorate(m,creator?.CreatorId));
+                    IEnumerable<CommunityMap> found = maps.Values
+                        .Where(m => query["mine"]=="true"
+                            ? creator!=null&&catalog.CanPublish(creator.CreatorId,m)
+                            : m.Listed&&!m.Draft)
+                        .Select(m=>catalog.Decorate(m,creator?.CreatorId))
+                        .Select(revisionCatalog.LegacyPresentation);
                     if(query["favorites"]=="true")found=found.Where(m=>m.Favorited);
                     if (query["query"] is { } search) found = found.Where(m => (m.Name + " " + m.DisplayName + " " + m.Author).Contains(search, StringComparison.OrdinalIgnoreCase));
                     if (query["mode"] is { } mode) found = found.Where(m => m.SupportedModes.Length == 0 || m.SupportedModes.Contains(mode, StringComparer.OrdinalIgnoreCase));
@@ -620,7 +617,12 @@ public static class MapCommunityServer
                     string idText = hash.Split('/')[0];
                     if (tail.StartsWith("maps/", StringComparison.Ordinal) && Guid.TryParse(idText, out Guid id))
                     {
-                        var versions = maps.Values.Where(m => m.MapId == id && (m.Listed&&!m.Draft || creator!=null&&catalog.CanPublish(creator.CreatorId,m))).OrderByDescending(m => m.PublishedAt).ToArray();
+                        var versions = maps.Values
+                            .Where(m => m.MapId == id
+                                && (m.Listed&&!m.Draft
+                                    || creator!=null&&catalog.CanPublish(creator.CreatorId,m)))
+                            .Select(revisionCatalog.LegacyPresentation)
+                            .OrderByDescending(m => m.PublishedAt).ToArray();
                         if (versions.Length == 0 || hash != idText && hash != idText + "/versions") { context.Response.StatusCode = 404; return; }
                         await Json(context.Response, hash.EndsWith("/versions", StringComparison.Ordinal) ? (object)versions : versions[0], deadline.Token);
                         return;
