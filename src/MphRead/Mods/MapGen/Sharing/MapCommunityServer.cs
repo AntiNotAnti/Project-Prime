@@ -341,7 +341,7 @@ public static class MapCommunityServer
                             .ToArray();
                         IEnumerable<CommunityMapProject> projects=visible
                             .GroupBy(m=>m.MapId)
-                            .Select(g=>revisionCatalog.BuildProject(g.Key,g))
+                            .Select(g=>revisionCatalog.BuildProject(g.Key,g,revealCreatorIdentity:mine))
                             .OfType<CommunityMapProject>();
                         CommunityMap Presentation(CommunityMapProject project)
                             => project.CurrentRevision?.Package ?? project.LatestRevision.Package;
@@ -381,14 +381,14 @@ public static class MapCommunityServer
                         if(visible.Length==0){context.Response.StatusCode=404;return;}
                         if(parts.Length==3)
                         {
-                            var project=revisionCatalog.BuildProject(projectId,visible);
+                            var project=revisionCatalog.BuildProject(projectId,visible,revealCreatorIdentity:canManage);
                             if(project==null){context.Response.StatusCode=404;return;}
                             await Json(context.Response,project,deadline.Token);
                             return;
                         }
                         if(parts[3]=="revisions")
                         {
-                            await Json(context.Response,revisionCatalog.BuildRevisions(projectId,visible),deadline.Token);
+                            await Json(context.Response,revisionCatalog.BuildRevisions(projectId,visible,revealCreatorIdentity:canManage),deadline.Token);
                             return;
                         }
                     }
