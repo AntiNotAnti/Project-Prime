@@ -1156,6 +1156,17 @@ internal sealed partial class MapStudioScreen
 
             CommunityMapProject? target =
                 projects.FirstOrDefault(p => p.MapId == mapId);
+            if (target?.DeletedAt != null)
+            {
+                detail.Children.Add(new PrimeStatePanel(
+                    PrimeStateKind.Warning,
+                    "MAP IS DELETED",
+                    "Restore this map from Deleted Maps before publishing another revision."));
+                detail.Children.Add(new PrimeButton(
+                    "RESTORE MAP", () => RestoreProject(target),
+                    primary: true, compact: true));
+                return;
+            }
             bool existingMap = target != null;
             string? expectedParentHash = target?.LatestHash;
             int nextRevision = (target?.LatestRevision.RevisionNumber ?? 0) + 1;
