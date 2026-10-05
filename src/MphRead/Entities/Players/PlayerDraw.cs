@@ -468,6 +468,10 @@ namespace MphRead.Entities
                             });
                     _scene.CosmeticSubmission = CosmeticMaterial(
                         part == CharacterModelPart.ViewModel);
+                    if (authoredTexture && _scene.CosmeticMaterialSubmission == default
+                        && Mods.RenderOptions.AdvancedMaterials && segment.MaterialMaps.Any)
+                        _scene.CosmeticMaterialSubmission = new(0, segment.MaterialMaps.Normal,
+                            segment.MaterialMaps.Specular, segment.MaterialMaps.Emissive);
                     _scene.AddRenderItem(material, weightedPolygonId, alpha, emission,
                         GetLightInfo(), texcoordMatrix, Matrix4.Identity, segment.ListId,
                         weighted.Joints.Count, weighted.MatrixPalette, color,

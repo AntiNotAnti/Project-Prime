@@ -469,6 +469,10 @@ namespace MphRead.Entities
                     var previousMaterial = _scene.CosmeticMaterialSubmission;
                     _scene.CosmeticMaterialSubmission = GetCosmeticMaterialOverride(
                         inst, material, segment.NativeMaterialIndex);
+                    if (authoredTexture && _scene.CosmeticMaterialSubmission == default
+                        && Mods.RenderOptions.AdvancedMaterials && segment.MaterialMaps.Any)
+                        _scene.CosmeticMaterialSubmission = new(0, segment.MaterialMaps.Normal,
+                            segment.MaterialMaps.Specular, segment.MaterialMaps.Emissive);
                     try
                     {
                         _scene.AddRenderItem(material, weightedPolygonId, Alpha,

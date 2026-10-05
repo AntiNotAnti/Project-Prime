@@ -97,7 +97,11 @@ internal static partial class Shell
             }
             RequireReturn(UiVisible, "Launcher did not return after Leave Match.");
             Shot(w, "samus-return-home");
-            Click(c => FrontAction(c, "OFFLINE"));
+            // Leave Match may already restore Offline. Avoid reporting a
+            // missed Home action when the requested preview is already open.
+            bool offlineOpen = _front?.GetVisualDescendants()
+                .Any(c => c.GetValue(ControllerNav.NavIdProperty) == "offline.start") == true;
+            if (!offlineOpen) Click(c => FrontAction(c, "OFFLINE"));
             ResetReturnCounts();
             _returnPhase = "after";
             Wait(1);

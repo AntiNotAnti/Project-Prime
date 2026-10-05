@@ -35,6 +35,7 @@ internal static class CharacterAcceptanceCheck
         Directory.CreateDirectory(directory);
         bool oldBright = RenderOptions.BrightSkins, oldForce = MapAudit.ForceEveryone;
         bool oldDetail = Features.MaxPlayerDetail;
+        bool oldAdvanced = RenderOptions.AdvancedMaterials;
         var oldStyle = RenderOptions.BrightSkinStyle;
         Scene? scene = null, preview = null;
         var frames = new List<object>();
@@ -89,7 +90,8 @@ internal static class CharacterAcceptanceCheck
 
             var stages = new (string Name, int Count)[]
             {
-                ("idle",60), ("run",120), ("strafe",120), ("jump-fall-land",180),
+                ("idle",60), ("materials-on",60), ("materials-off",60), ("materials-restored",60),
+                ("run",120), ("strafe",120), ("jump-fall-land",180),
                 ("aim-turn",120), ("fire",90), ("damage",60), ("freeze",90), ("thaw",60),
                 ("morph-move",120), ("unmorph",120), ("bright-skin",90),
                 ("team-orange",60), ("team-green",60), ("double-damage",90), ("death-respawn",300)
@@ -100,7 +102,9 @@ internal static class CharacterAcceptanceCheck
             float runTravel = 0, strafeTravel = 0, altTravel = 0;
             int submittedFrames = 0;
             CharacterWeightedRenderModel? weighted = null;
+            CharacterWeightedModelData? authored = null;
             int shoulder = -1;
+            string[] checkedJoints = Array.Empty<string>();
             foreach (var stage in stages)
             {
                 int submitted = 0, missing = 0;
@@ -177,15 +181,56 @@ internal static class CharacterAcceptanceCheck
                                     target.BipedModel2.Model, out weighted), "Installed Samus weighted model did not resolve.");
                                 shoulder = weighted.Joints.ToList().FindIndex(j => target.BipedModel2.Model.Nodes[j.NativeNodeIndex].Name == "L_varias2_SDK");
                                 Require(shoulder >= 0, "Shoulder joint missing.");
+                                checkedJoints = weighted.Joints.Select(j => target.BipedModel2.Model.Nodes[j.NativeNodeIndex].Name).ToArray();
+                                authored = CharacterWeightedModelLoader.Load(weighted.Asset);
+                                Require(authored.Primitives.Count == weighted.Segments.Count,
+                                    "Authored material primitive count differs from rendered segments.");
                             }
-                            Matrix4 expected = weighted.Joints[shoulder].InverseBind
-                                * target.BipedModel2.Model.Nodes[weighted.Joints[shoulder].NativeNodeIndex].Animation;
-                            var actual = new Matrix4(packets[0].MatrixStack[shoulder*16],packets[0].MatrixStack[shoulder*16+1],packets[0].MatrixStack[shoulder*16+2],packets[0].MatrixStack[shoulder*16+3],
-                                packets[0].MatrixStack[shoulder*16+4],packets[0].MatrixStack[shoulder*16+5],packets[0].MatrixStack[shoulder*16+6],packets[0].MatrixStack[shoulder*16+7],
-                                packets[0].MatrixStack[shoulder*16+8],packets[0].MatrixStack[shoulder*16+9],packets[0].MatrixStack[shoulder*16+10],packets[0].MatrixStack[shoulder*16+11],
-                                packets[0].MatrixStack[shoulder*16+12],packets[0].MatrixStack[shoulder*16+13],packets[0].MatrixStack[shoulder*16+14],packets[0].MatrixStack[shoulder*16+15]);
-                            if (actual != expected || packets.Any(p => p.MatrixStack.Take(p.MatrixStackCount*16).Any(v => !float.IsFinite(v))))
-                                failures.Add($"{stage.Name}/{age}: stale or invalid shoulder palette");
+                            // Inspect every primitive and native joint, including the new
+                            // hips, knees and ankles, rather than only the shoulder proof.
+                            foreach (var packet in packets)
+                            {
+                                Require(packet.MatrixStackCount == weighted.Joints.Count,
+                                    "Weighted4 packet does not contain the complete native joint palette.");
+                                for (int joint = 0; joint < weighted.Joints.Count; joint++)
+                                {
+                                    Matrix4 expected = weighted.Joints[joint].InverseBind
+                                        * target.BipedModel2.Model.Nodes[weighted.Joints[joint].NativeNodeIndex].Animation;
+                                    int offset = joint * 16;
+                                    var actual = new Matrix4(packet.MatrixStack[offset],packet.MatrixStack[offset+1],packet.MatrixStack[offset+2],packet.MatrixStack[offset+3],
+                                        packet.MatrixStack[offset+4],packet.MatrixStack[offset+5],packet.MatrixStack[offset+6],packet.MatrixStack[offset+7],
+                                        packet.MatrixStack[offset+8],packet.MatrixStack[offset+9],packet.MatrixStack[offset+10],packet.MatrixStack[offset+11],
+                                        packet.MatrixStack[offset+12],packet.MatrixStack[offset+13],packet.MatrixStack[offset+14],packet.MatrixStack[offset+15]);
+                                    if (actual != expected)
+                                        failures.Add($"{stage.Name}/{age}: stale palette for {checkedJoints[joint]}");
+                                }
+                                if (packet.MatrixStack.Take(packet.MatrixStackCount*16).Any(v => !float.IsFinite(v)))
+                                    failures.Add($"{stage.Name}/{age}: non-finite native joint palette");
+                            }
+                            if (stage.Name.StartsWith("materials-", StringComparison.Ordinal))
+                            {
+                                for (int segmentIndex = 0; segmentIndex < weighted.Segments.Count; segmentIndex++)
+                                {
+                                    var segment = weighted.Segments[segmentIndex];
+                                    var maps = authored!.Primitives[segmentIndex].MaterialMaps;
+                                    var packet = packets.Single(p => p.ListId == segment.ListId);
+                                    if (RenderOptions.AdvancedMaterials)
+                                    {
+                                        // Companions are optional in glTF. Check precisely
+                                        // the authored channels, including partial map sets.
+                                        Require((segment.MaterialMaps.Normal != 0) == (maps?.Normal != null)
+                                            && (segment.MaterialMaps.Specular != 0) == (maps?.MetallicRoughness != null)
+                                            && (segment.MaterialMaps.Emissive != 0) == (maps?.Emissive != null),
+                                            "Authored material companion upload incomplete or unexpected.");
+                                        Require(packet.CosmeticMaterial.NormalBinding == segment.MaterialMaps.Normal
+                                            && packet.CosmeticMaterial.SpecularBinding == segment.MaterialMaps.Specular
+                                            && packet.CosmeticMaterial.EmissiveBinding == segment.MaterialMaps.Emissive,
+                                            "Embedded material companions were not submitted after enabling them.");
+                                    }
+                                    else Require(packet.CosmeticMaterial == default,
+                                        "Embedded material companions remained active with advanced materials off.");
+                                }
+                            }
                         }
                     }
                     Require(scene.OnRenderFrame(), "Render stopped.");
@@ -213,7 +258,9 @@ internal static class CharacterAcceptanceCheck
             {
                 backend = GraphicsBackendPolicy.Resolved.ToString(), room, submittedFrames, runTravel, strafeTravel,
                 airborne, falling, landed, fired, frozen, doubled, morphing, alt, altTravel, unmorphing, died, respawned,
-                cases, failures, scope = "Real scene simulation/render with one AI bot and scripted Samus controls. Damage, freeze and double damage are injected. LOD0 forced. Visual capture review is separate from packet assertions."
+                cases, failures, checkedJoints,
+                embeddedMaterialSegments = weighted?.Segments.Count(s => s.MaterialMaps.Any) ?? 0,
+                scope = "Real scene simulation/render with one AI bot and scripted Samus controls. Damage, freeze and double damage are injected. LOD0 forced. Every primitive's complete native joint palette is checked. Embedded material submission is checked through on/off/on toggles. Visual capture review is separate from packet assertions."
             }, Json));
             File.WriteAllText(Path.Combine(directory, "frames.json"), JsonSerializer.Serialize(frames, Json));
             Console.WriteLine($"CHARACTER ACCEPTANCE {(failures.Count == 0 ? "PASS" : "FAIL")} {directory}");
@@ -236,6 +283,7 @@ internal static class CharacterAcceptanceCheck
             // Scene cleanup must happen while the graphics context is alive; normal path above does so.
             RenderOptions.BrightSkins = oldBright; RenderOptions.BrightSkinStyle = oldStyle;
             Features.MaxPlayerDetail = oldDetail; MapAudit.ForceEveryone = oldForce;
+            RenderOptions.AdvancedMaterials = oldAdvanced;
         }
     }
 
@@ -244,6 +292,8 @@ internal static class CharacterAcceptanceCheck
     {
         switch (name)
         {
+            case "materials-on": case "materials-restored": RenderOptions.AdvancedMaterials = true; break;
+            case "materials-off": RenderOptions.AdvancedMaterials = false; break;
             case "damage": target.TakeDamage(10, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, scene.Players.Items[0]); break;
             case "freeze": target.ModSetFrozen(true); break;
             case "thaw": target.ModSetFrozen(false); break;

@@ -21,7 +21,8 @@ namespace MphRead.Mods.Render.Characters
         int ListId,
         int? AlbedoBinding = null,
         RepeatMode WrapS = RepeatMode.Repeat,
-        RepeatMode WrapT = RepeatMode.Repeat);
+        RepeatMode WrapT = RepeatMode.Repeat,
+        MaterialMapBindings MaterialMaps = default);
 
     internal sealed record CharacterWeightedRenderJoint(
         int NativeNodeIndex,
@@ -348,10 +349,14 @@ namespace MphRead.Mods.Render.Characters
                             throw new InvalidDataException("Embedded character albedo could not be uploaded.");
                         albedo = binding;
                     }
+                    MaterialMapBindings maps = primitive.MaterialMaps == null ? default
+                        : scene.GetCharacterModelMaterialMaps(asset.ModelPath + "/" + compiled.Count,
+                            primitive.MaterialMaps, asset.Part == CharacterModelPart.ViewModel
+                                ? TextureAssetClass.Weapon : TextureAssetClass.Hunter);
                     int list = CompileWeightedList(primitive);
                     compiled.Add(new(materialIndex, list, albedo,
                         primitive.Albedo?.WrapS ?? RepeatMode.Repeat,
-                        primitive.Albedo?.WrapT ?? RepeatMode.Repeat));
+                        primitive.Albedo?.WrapT ?? RepeatMode.Repeat, maps));
                 }
                 return new(asset, compiled.ToArray(), joints.ToArray(),
                     geometry.VertexCount, geometry.IndexCount);
