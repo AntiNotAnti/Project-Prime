@@ -140,6 +140,17 @@ namespace MphRead.Mods.Network
                     && !ReplayPoseStream.SameImpactVisual(impactA,
                         impactNear with { ShotId = impactA.ShotId + 1 }),
                     "authoritative replay impacts did not dedupe nearby direct/splash facts by ShotId");
+                var impactKey = new ShotKey(impactA.AuthorityEpoch, impactA.MatchId,
+                    impactA.ShooterSlot, impactA.ShooterGeneration,
+                    impactA.ShooterLifeId, impactA.ShotId);
+                Require(BeamProjectileEntity.ModReplayIdentityMatches(
+                        impactKey, impactA.ShotId, (BeamType)impactA.Weapon, impactA)
+                    && !BeamProjectileEntity.ModReplayIdentityMatches(
+                        impactKey with { LifeId = (ushort)(impactKey.LifeId + 1) },
+                        impactA.ShotId, (BeamType)impactA.Weapon, impactA)
+                    && !BeamProjectileEntity.ModReplayIdentityMatches(
+                        impactKey, impactA.ShotId + 1, (BeamType)impactA.Weapon, impactA),
+                    "authoritative replay impact matched the wrong shot or shooter life");
                 var fractional = new Replay.ReplayCameraTrack();
                 fractional.Put(new(0, OpenTK.Mathematics.Vector3.Zero, OpenTK.Mathematics.Quaternion.Identity, 1,
                     Interpolation: Replay.ReplayCameraInterpolation.Linear, Ease: Replay.ReplayCameraEase.None));
