@@ -222,14 +222,22 @@ internal sealed class ReplayPoseStream : IDisposable
         foreach (var scheduled in fires)
         {
             int slot = scheduled.Slot;
-            if ((uint)slot >= 8 || _activeFire[slot].HasValue
+            if ((uint)slot >= 8
                 || !_world.State.TryGetPlayer(slot, out var state)
                 || state.SlotGeneration != scheduled.Generation
                 || state.LifeId != scheduled.Life)
             {
                 continue;
             }
-            _activeFire[slot] = scheduled;
+            // Player weapon fire is consumed by PlayerInput. Turret events use
+            // the same owner/sequence family but are reconstructed by the turret
+            // world path; never let one hide a same-frame player shot.
+            if (!_activeFire[slot].HasValue
+                || _activeFire[slot]!.Value.Event.Kind == FireEventKind.TurretFire
+                    && scheduled.Event.Kind != FireEventKind.TurretFire)
+            {
+                _activeFire[slot] = scheduled;
+            }
         }
     }
 
