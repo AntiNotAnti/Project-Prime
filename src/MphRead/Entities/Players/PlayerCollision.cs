@@ -381,7 +381,9 @@ namespace MphRead.Entities
                     return true;
                 }
             }
-            else if (Hunter == Hunter.Noxus && _altAttackTime >= Values.AltAttackStartup * 2) // todo: FPS stuff
+            else if (Hunter == Hunter.Noxus && _altAttackTime >= (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                    ? BalancedHunterAbilityRules.NoxusStartupFrames(Values.AltAttackStartup * 2)
+                    : Values.AltAttackStartup * 2)) // todo: FPS stuff
             {
                 Vector3 between = target.HurtVolume.SpherePosition - Volume.SpherePosition;
                 float radius = target.HurtVolume.SphereRadius;
