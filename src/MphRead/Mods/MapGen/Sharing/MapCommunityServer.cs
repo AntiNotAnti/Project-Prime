@@ -236,6 +236,10 @@ public static class MapCommunityServer
                 => new(code, mapId.Value, expectedParentHash, latest, currentHash,
                     latestRevision, resumeAvailable, message);
 
+            if (exists && revisionCatalog.IsProjectDeleted(mapId.Value))
+                return (409, Conflict("map_deleted",
+                    "This map is in Deleted Maps. Restore it before publishing another revision."));
+
             if (existingMap == false)
             {
                 if (exists)
