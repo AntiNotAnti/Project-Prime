@@ -109,6 +109,17 @@ namespace MphRead.Entities
             return BalancedModeRules.ScaleRangeDamage(Beam, damage, distance);
         }
 
+        internal static float ModBalancedProjectileSpeed(Scene scene, EntityBase owner,
+            BeamType beam, bool charged, float speed)
+        {
+            if (!scene.GameState.Multiplayer || !scene.GameState.BalancedMode
+                || owner is not PlayerEntity || !BalancedModeRules.HasProjectileSpeedTuning(beam))
+            {
+                return speed;
+            }
+            return BalancedModeRules.ScaleProjectileSpeed(beam, charged, speed);
+        }
+
         public int DamageInterpolation { get; set; }
         public int SpeedInterpolation { get; set; }
         public float SpeedDecayTime { get; set; }
@@ -1644,6 +1655,8 @@ namespace MphRead.Entities
             // todo: FPS stuff
             float speed = GetAmount(weapon.UnchargedSpeed, weapon.MinChargeSpeed, weapon.ChargedSpeed) / 4096f / 2;
             float finalSpeed = GetAmount(weapon.UnchargedFinalSpeed, weapon.MinChargeFinalSpeed, weapon.ChargedFinalSpeed) / 4096f / 2;
+            speed = ModBalancedProjectileSpeed(scene, owner, weapon.Beam, charged, speed);
+            finalSpeed = ModBalancedProjectileSpeed(scene, owner, weapon.Beam, charged, finalSpeed);
             float speedDecayTime = weapon.SpeedDecayTimes[charged ? 1 : 0] * (1 / 30f);
             ushort speedInterpolation = weapon.SpeedInterpolations[charged ? 1 : 0];
             float gravity = GetAmount(weapon.UnchargedGravity, weapon.MinChargeGravity, weapon.ChargedGravity) / 4096f;
