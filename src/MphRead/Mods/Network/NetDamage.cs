@@ -203,7 +203,7 @@ namespace MphRead.Mods.Network
             int slot = shooter.SlotIndex;
             if (slot < 0 || slot >= Slots)
             {
-                return;
+                return 0;
             }
             Fired[slot]++;
             if (slot == NetHooks.LocalSlot)
@@ -535,7 +535,7 @@ namespace MphRead.Mods.Network
         }
 
         /// <summary>Called by the authority for every hit it resolves.</summary>
-        public static void Note(PlayerEntity victim, PlayerEntity? attacker, BeamType beam,
+        public static ushort Note(PlayerEntity victim, PlayerEntity? attacker, BeamType beam,
             DamageFlags flags, Vector3? direction, uint amount = 0, bool fromBomb = false,
             uint launchFrame = 0, ShotKey? launchKey = null, uint continuousPhase = 0, bool enhancedChild = false)
         {
@@ -551,7 +551,7 @@ namespace MphRead.Mods.Network
                 // machine that decides nothing -- and the whole damage
                 // pipeline measurement is the comparison between the one
                 // machine that resolves and the ones that replay.
-                return;
+                return 0;
             }
             // Before the slot check: what hurt somebody is worth knowing even
             // for a victim this table cannot index.
@@ -648,6 +648,7 @@ namespace MphRead.Mods.Network
                 Damage = (ushort)Math.Min(amount, ushort.MaxValue), Beam = _beam[slot],
                 Flags = _flags[slot], Direction = _direction[slot]
             };
+            return _sequence[slot];
         }
 
         /// <summary>
