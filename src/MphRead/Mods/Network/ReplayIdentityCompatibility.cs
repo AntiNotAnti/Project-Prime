@@ -72,6 +72,25 @@ internal static class ReplayIdentityCompatibility
                 Require(converted.Length == prefix + IntentPacket.FullSize);
             }
         }
+        else if (protocol < 38 && type is PacketType.Intent or PacketType.SlotIntent)
+        {
+            int prefix = type == PacketType.SlotIntent ? 2 : 1;
+            Require(converted.Length == prefix + IntentPacket.Protocol37FullSize);
+            byte[] expanded = new byte[prefix + IntentPacket.FullSize];
+            converted[..(prefix + IntentPacket.LegacyFullSize)].CopyTo(expanded);
+            byte count = converted[prefix + IntentPacket.LegacyFullSize];
+            expanded[prefix + IntentPacket.LegacyFullSize] = count;
+            int copyCount = Math.Min((int)count, NetFireEvents.Capacity);
+            for (int i = 0; i < copyCount; i++)
+            {
+                int oldAt = prefix + IntentPacket.LegacyFullSize + 1 + i * FireEvent.LegacySize;
+                int newAt = prefix + IntentPacket.LegacyFullSize + 1 + i * FireEvent.Size;
+                converted.Slice(oldAt, FireEvent.LegacySize).CopyTo(expanded.AsSpan(newAt));
+                // PoseFlags/origin/direction remain zero: old recordings keep
+                // slice-2 timing but cannot claim an exact source shot pose.
+            }
+            converted = expanded;
+        }
 
         if (protocol < 29 && type == PacketType.MatchState
             && converted.Length != 1 + MatchStatePacket.Size)
