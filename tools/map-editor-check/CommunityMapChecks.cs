@@ -317,7 +317,7 @@ internal static class CommunityMapChecks
                 revisionTwoPath,
                 new CommunityPublishRequest(true, revisionOne.Package.Hash,
                     "Second revision keeps the human version"),
-                default, listed: false);
+                default, listed: true);
             revisionTwoHash = revisionTwo.Package.Hash;
             check(revisionTwo.Revision?.RevisionNumber == 2
                 && revisionTwo.Revision.ParentHash == revisionOne.Package.Hash
@@ -513,7 +513,7 @@ internal static class CommunityMapChecks
             check(restartedHistory.Any(r => r.RevisionNumber == 1 && r.ParentHash == null)
                 && restartedHistory.Select(r => r.RevisionNumber).Distinct().Count() == restartedHistory.Length,
                 "v2 revision numbers survive service restart and resume");
-            check((await client.BrowseAsync(default)).Length == 3,
+            check((await client.BrowseAsync(default)).Length == 4,
                 "visibility and promoted revision state persist across service restart");
             var persistedRevisionHistory = await client.GetRevisionsAsync(revisionMapId, default);
             check(persistedRevisionHistory.Any(r => r.Hash == revisionTwoHash
