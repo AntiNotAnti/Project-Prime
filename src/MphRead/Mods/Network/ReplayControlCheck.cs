@@ -170,6 +170,44 @@ namespace MphRead.Mods.Network
                     && Replay.ReplayKillMessagePresenter.MessageId(friendly: false, headshot: true) == 239
                     && Replay.ReplayKillMessagePresenter.MessageId(friendly: true, headshot: true) == 240,
                     "replay kill notification IDs no longer match native kill/headshot/teamkill HUD strings");
+                Require(ReplayPoseStream.DiagnosticFrameMatches(
+                        anchorFrame: 90, weapon: (int)BeamType.Missile, direction: 0,
+                        hasFire: true, fireFrame: 90, resolveFrame: 102)
+                    && !ReplayPoseStream.DiagnosticFrameMatches(
+                        anchorFrame: 90, weapon: (int)BeamType.Missile, direction: 0,
+                        hasFire: true, fireFrame: 91, resolveFrame: 102)
+                    && ReplayPoseStream.DiagnosticFrameMatches(
+                        anchorFrame: 100, weapon: -1, direction: 0,
+                        hasFire: true, fireFrame: 90, resolveFrame: 100)
+                    && ReplayPoseStream.DiagnosticFrameMatches(
+                        anchorFrame: 100, weapon: -1, direction: -1,
+                        hasFire: true, fireFrame: 90, resolveFrame: 110)
+                    && ReplayPoseStream.DiagnosticFrameMatches(
+                        anchorFrame: 100, weapon: -1, direction: 1,
+                        hasFire: true, fireFrame: 110, resolveFrame: 120),
+                    "combat inspector did not require exact fire/resolve association");
+                var diagnostic = new ReplayCombatDiagnostic(
+                    RecordingFrame: 102, FireRecordingFrame: 90,
+                    Fact: lethalHeadshot, HasFire: true,
+                    Fire: new FireEvent(lethalHeadshot.ShotId, 900, 850, 128,
+                        FireEventKind.PressFire, lethalHeadshot.Weapon, 0, 0,
+                        FireEvent.FlagPose,
+                        new OpenTK.Mathematics.Vector3(0, 1, 2),
+                        OpenTK.Mathematics.Vector3.UnitZ,
+                        OpenTK.Mathematics.Vector3.UnitZ,
+                        OpenTK.Mathematics.Vector3.UnitZ),
+                    AckServerFrame: 850.5, HasAckTarget: true,
+                    AckTargetPosition: new OpenTK.Mathematics.Vector3(1, 2, 3),
+                    AckImpactDistance: .25f);
+                Replay.ReplayCombatDiagnostics.Select(diagnostic);
+                Require(Replay.ReplayCombatDiagnostics.Selected is { } selectedDiagnostic
+                    && selectedDiagnostic.Matches(lethalHeadshot)
+                    && Replay.ReplayCombatDiagnostics.Describe(diagnostic).Contains(
+                        $"SHOT #{lethalHeadshot.ShotId}", StringComparison.Ordinal)
+                    && Replay.ReplayCombatDiagnostics.Explain(lethalHeadshot).Contains(
+                        "headshot", StringComparison.OrdinalIgnoreCase),
+                    "combat diagnostic identity/why-hit description lost authority evidence");
+                Replay.ReplayCombatDiagnostics.ClearSelection();
                 var fractional = new Replay.ReplayCameraTrack();
                 fractional.Put(new(0, OpenTK.Mathematics.Vector3.Zero, OpenTK.Mathematics.Quaternion.Identity, 1,
                     Interpolation: Replay.ReplayCameraInterpolation.Linear, Ease: Replay.ReplayCameraEase.None));

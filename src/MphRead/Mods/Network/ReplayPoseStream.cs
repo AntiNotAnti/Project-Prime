@@ -17,6 +17,20 @@ internal enum ReplayHitMarkerFlags : byte
     Halfturret = 1 << 2
 }
 
+internal readonly record struct ReplayCombatDiagnostic(
+    uint RecordingFrame,
+    uint FireRecordingFrame,
+    ReplayShotFact Fact,
+    bool HasFire,
+    FireEvent Fire,
+    double AckServerFrame,
+    bool HasAckTarget,
+    Vector3 AckTargetPosition,
+    float AckImpactDistance)
+{
+    internal bool HasPose => HasFire && Fire.HasPose;
+}
+
 /// <summary>A bounded presentation cursor over accepted snapshots and intents. It keeps
 /// a short ordinary pose lookahead plus enough future intent history to recover repeated
 /// FireEvents onto their authored frame, without advancing simulation, sockets or RNG.
@@ -190,24 +204,172 @@ internal sealed class ReplayPoseStream : IDisposable
     }
 
     internal bool TryAuthoredFire(in ReplayShotFact fact, out FireEvent fire)
+        => TryAuthoredFire(fact, out fire, out _);
+
+    private bool TryAuthoredFire(in ReplayShotFact fact, out FireEvent fire,
+        out uint recordingFrame)
     {
-        foreach (var list in _fires.Values)
-            foreach (var scheduled in list)
+        foreach (var pair in _fires)
+            foreach (var scheduled in pair.Value)
                 if (scheduled.Slot == fact.ShooterSlot
                     && scheduled.Generation == fact.ShooterGeneration
                     && scheduled.Life == fact.ShooterLifeId
                     && scheduled.Event.ShotId == fact.ShotId)
                 {
                     fire = scheduled.Event;
+                    recordingFrame = scheduled.RecordingFrame;
                     return true;
                 }
         fire = default;
+        recordingFrame = 0;
         return false;
     }
 
     internal bool SupportsResolvedShotFacts
     {
         get { Prepare(); return _supportsShotFacts; }
+    }
+
+    internal bool TryCombatDiagnostic(uint anchorFrame, int shooterSlot,
+        int victimSlot, int weapon, int expectedDamage, bool requireLethal,
+        bool requireHeadshot, int direction,
+        out ReplayCombatDiagnostic diagnostic)
+    {
+        diagnostic = default;
+        if (!Prepare() || !_supportsShotFacts) return false;
+
+        long bestDistance = long.MaxValue;
+        bool found = false;
+        foreach (var pair in _resolvedShotFacts)
+        {
+            foreach (var fact in pair.Value)
+            {
+                if (shooterSlot >= 0 && fact.ShooterSlot != shooterSlot
+                    || victimSlot >= 0 && fact.VictimSlot != victimSlot
+                    || weapon >= 0 && fact.Weapon != weapon
+                    || expectedDamage >= 0 && fact.Damage != (uint)expectedDamage
+                    || requireLethal && !fact.Lethal
+                    || requireHeadshot && !fact.Headshot
+                    || !TryBuildCombatDiagnostic(pair.Key, fact, out var candidate))
+                {
+                    continue;
+                }
+
+                uint shotFrame = candidate.FireRecordingFrame != 0
+                    ? candidate.FireRecordingFrame : candidate.RecordingFrame;
+
+                if (!DiagnosticFrameMatches(anchorFrame, weapon, direction,
+                    candidate.HasFire, candidate.FireRecordingFrame,
+                    candidate.RecordingFrame))
+                {
+                    continue;
+                }
+
+                long distance = Math.Abs((long)shotFrame - anchorFrame);
+                if (direction != 0 && distance > ShotFactLookaheadFrames) continue;
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    diagnostic = candidate;
+                    found = true;
+                }
+            }
+        }
+        return found;
+    }
+
+    internal static bool DiagnosticFrameMatches(uint anchorFrame, int weapon,
+        int direction, bool hasFire, uint fireFrame, uint resolveFrame)
+    {
+        uint shotFrame = hasFire && fireFrame != 0 ? fireFrame : resolveFrame;
+        if (direction == 0)
+        {
+            // Timeline weapon markers do not carry ShotId, so an exact fire-frame
+            // match is required before attributing a later ReplayShotFact.
+            return weapon >= 0
+                ? hasFire && fireFrame == anchorFrame
+                : resolveFrame == anchorFrame;
+        }
+        return direction < 0 ? shotFrame < anchorFrame : shotFrame > anchorFrame;
+    }
+
+    internal bool TryCombatDiagnostic(in ReplayCombatDiagnostics.Selection selection,
+        out ReplayCombatDiagnostic diagnostic)
+    {
+        diagnostic = default;
+        if (!Prepare() || !_supportsShotFacts) return false;
+        foreach (var pair in _resolvedShotFacts)
+            foreach (var fact in pair.Value)
+                if (selection.Matches(fact)
+                    && TryBuildCombatDiagnostic(pair.Key, fact, out diagnostic))
+                {
+                    return true;
+                }
+        return false;
+    }
+
+    internal IReadOnlyList<ReplayCombatDiagnostic> CombatDiagnosticsAt(uint frame)
+    {
+        if (!Prepare() || !_supportsShotFacts
+            || !_resolvedShotFacts.TryGetValue(frame, out var facts)
+            || facts.Count == 0)
+        {
+            return Array.Empty<ReplayCombatDiagnostic>();
+        }
+        var result = new List<ReplayCombatDiagnostic>(facts.Count);
+        foreach (var fact in facts)
+            if (TryBuildCombatDiagnostic(frame, fact, out var diagnostic))
+                result.Add(diagnostic);
+        return result;
+    }
+
+    private bool TryBuildCombatDiagnostic(uint recordingFrame,
+        in ReplayShotFact fact, out ReplayCombatDiagnostic diagnostic)
+    {
+        bool hasFire = TryAuthoredFire(fact, out FireEvent fire, out uint fireFrame);
+        double ack = hasFire && fire.AckFrame != 0
+            ? fire.AckFrame + fire.AckSubFrame / 256d : double.NaN;
+        bool hasAckTarget = double.IsFinite(ack)
+            && TrySampleServerLifeAt(fact.VictimSlot, ack,
+                fact.VictimGeneration, fact.VictimLifeId, out Vector3 ackPosition);
+        if (!hasAckTarget) ackPosition = default;
+        float delta = hasAckTarget
+            ? Vector3.Distance(ackPosition, fact.ImpactPoint) : float.NaN;
+        diagnostic = new(recordingFrame, fireFrame, fact, hasFire, fire,
+            ack, hasAckTarget, ackPosition, delta);
+        return true;
+    }
+
+    private bool TrySampleServerLifeAt(int slot, double serverFrame,
+        ushort generation, ushort life, out Vector3 position)
+    {
+        position = default;
+        if ((uint)slot >= PlayerEntity.SlotCapacity || !double.IsFinite(serverFrame))
+            return false;
+        var samples = _poses[slot];
+        int left = -1;
+        for (int i = 0; i < samples.Count; i++)
+        {
+            if (samples[i].ServerTick > serverFrame) break;
+            PlayerState state = samples[i].State;
+            if (state.SlotGeneration == generation && state.LifeId == life)
+                left = i;
+        }
+        if (left < 0) return false;
+        PoseSample a = samples[left];
+        position = a.State.Position;
+        if (left + 1 < samples.Count)
+        {
+            PoseSample b = samples[left + 1];
+            if (b.State.SlotGeneration == generation && b.State.LifeId == life
+                && b.ServerTick > a.ServerTick && b.ServerTick - a.ServerTick <= 12)
+            {
+                float t = (float)Math.Clamp(
+                    (serverFrame - a.ServerTick) / (b.ServerTick - a.ServerTick), 0, 1);
+                position = Vector3.Lerp(a.State.Position, b.State.Position, t);
+            }
+        }
+        return true;
     }
 
     internal IReadOnlyList<ReplayShotFact> ResolvedShotFactsAt(uint frame)
@@ -422,6 +584,96 @@ internal sealed class ReplayPoseStream : IDisposable
             scene.AddSingleParticle(SingleType.Fuzzball,
                 fact.ImpactPoint, color, alpha: 1f,
                 scale: fact.Headshot ? 0.46f : 0.32f);
+        }
+
+        DrawCombatDiagnosticPresentation(scene);
+    }
+
+    private void DrawCombatDiagnosticPresentation(Scene scene)
+    {
+        if (!ReplayCombatDiagnostics.ShowRays
+            || ReplayVideoExporter.Rendering && !ReplayVideoExporter.IncludeReplayOverlay)
+        {
+            return;
+        }
+
+        if (ReplayCombatDiagnostics.Selected is { } selection
+            && TryCombatDiagnostic(selection, out var selected))
+        {
+            DrawCombatDiagnostic(scene, selected, selected: true);
+            return;
+        }
+
+        uint frame = _world.Session.RecordingFrame;
+        if (!_resolvedShotFacts.TryGetValue(frame, out var facts)) return;
+        int shown = 0;
+        foreach (var fact in facts)
+        {
+            if (!TryBuildCombatDiagnostic(frame, fact, out var diagnostic)) continue;
+            DrawCombatDiagnostic(scene, diagnostic, selected: false);
+            if (++shown == 3) break;
+        }
+    }
+
+    private static void DrawCombatDiagnostic(Scene scene,
+        in ReplayCombatDiagnostic diagnostic, bool selected)
+    {
+        ReplayShotFact fact = diagnostic.Fact;
+        Vector3 impactColor = fact.Headshot
+            ? new Vector3(1f, 0.72f, 0.28f)
+            : fact.Lethal ? new Vector3(1f, 0.30f, 0.24f)
+            : new Vector3(0.95f, 0.95f, 0.95f);
+
+        if (diagnostic.HasPose)
+        {
+            DrawDiagnosticSegment(scene, diagnostic.Fire.Origin, fact.ImpactPoint,
+                selected ? new Vector3(1f, 0.65f, 0.22f)
+                    : new Vector3(0.78f, 0.58f, 0.22f),
+                selected ? 0.12f : 0.09f,
+                selected ? 18 : 10);
+
+            Vector3 aim = diagnostic.Fire.Aim;
+            if (selected && aim.LengthSquared >= 0.000001f)
+            {
+                aim = aim.Normalized();
+                float impactDistance = Vector3.Distance(
+                    diagnostic.Fire.Origin, fact.ImpactPoint);
+                float length = Math.Clamp(impactDistance, 3f, 18f);
+                DrawDiagnosticSegment(scene, diagnostic.Fire.Origin,
+                    diagnostic.Fire.Origin + aim * length,
+                    new Vector3(0.30f, 0.88f, 1f),
+                    0.10f, 18);
+            }
+
+            scene.AddSingleParticle(SingleType.Fuzzball,
+                diagnostic.Fire.Origin, new Vector3(0.42f, 1f, 0.48f),
+                alpha: 0.92f, scale: selected ? 0.24f : 0.18f);
+        }
+
+        if (diagnostic.HasAckTarget)
+        {
+            scene.AddSingleParticle(SingleType.Fuzzball,
+                diagnostic.AckTargetPosition, new Vector3(0.36f, 0.82f, 1f),
+                alpha: 0.92f, scale: selected ? 0.30f : 0.22f);
+        }
+
+        scene.AddSingleParticle(SingleType.Fuzzball,
+            fact.ImpactPoint, impactColor, alpha: 1f,
+            scale: selected ? 0.38f : 0.28f);
+    }
+
+    private static void DrawDiagnosticSegment(Scene scene, Vector3 start,
+        Vector3 end, Vector3 color, float scale, int maxDots)
+    {
+        float distance = Vector3.Distance(start, end);
+        if (!float.IsFinite(distance) || distance <= 0.0001f) return;
+        int dots = Math.Clamp((int)MathF.Ceiling(distance * 1.6f), 4, maxDots);
+        for (int i = 0; i <= dots; i++)
+        {
+            float t = i / (float)dots;
+            scene.AddSingleParticle(SingleType.Fuzzball,
+                Vector3.Lerp(start, end, t), color,
+                alpha: 0.72f, scale: scale);
         }
     }
 

@@ -19,6 +19,8 @@ namespace MphRead.Mods.Replay
         private static string _status = "", _watching = "";
         private static string[] _analyticsLines = Array.Empty<string>();
         private static string[] _networkLines = Array.Empty<string>();
+        private static string[] _combatLines = Array.Empty<string>();
+        private static uint _combatFrame = uint.MaxValue;
         private static ReplayState _state;
 
         public static bool ShowAnalytics { get; set; }
@@ -31,6 +33,9 @@ namespace MphRead.Mods.Replay
             _diagnosticsAt = 0;
             _analyticsLines = Array.Empty<string>();
             _networkLines = Array.Empty<string>();
+            _combatLines = Array.Empty<string>();
+            _combatFrame = uint.MaxValue;
+            ReplayCombatDiagnostics.ClearSelection();
         }
 
         private static readonly ColorRgba[] Palette =
@@ -175,6 +180,8 @@ namespace MphRead.Mods.Replay
 
             if (ShowAnalytics || ShowNetworkDebug)
                 RefreshDiagnostics();
+            if (ReplayCombatDiagnostics.ShowHud)
+                RefreshCombatDiagnostics(scene);
 
             if (ReplayCamera.Mode == ReplayCameraMode.Free)
             {
@@ -207,6 +214,19 @@ namespace MphRead.Mods.Replay
                     Text(scene, 7, nextY, line, 0.95f, 202);
                     nextY += 7;
                 }
+                nextY += 5;
+            }
+
+            if (ReplayCombatDiagnostics.ShowHud && _combatLines.Length > 0)
+            {
+                float height = 7 + _combatLines.Length * 7;
+                scene.DrawHudFlatBox(4, nextY - 2, 252, nextY + height,
+                    new Vector4(0, 0, 0, 0.78f));
+                foreach (string line in _combatLines)
+                {
+                    Text(scene, 7, nextY, line, 0.98f, 249);
+                    nextY += 7;
+                }
             }
 
             if (ReplayVideoExporter.Rendering)
@@ -229,6 +249,40 @@ namespace MphRead.Mods.Replay
                     return PadBindings.DescribeSlot(action, slot).ToUpperInvariant();
             }
             return "UNBOUND";
+        }
+
+        private static void RefreshCombatDiagnostics(Scene scene)
+        {
+            uint frame = DemoPlayback.CurrentFrame;
+            if (_combatFrame == frame && ReplayCombatDiagnostics.Selected == null)
+                return;
+            _combatFrame = frame;
+            _combatLines = Array.Empty<string>();
+
+            ReplayPoseStream? poses = scene.ReplayPoses;
+            if (poses == null) return;
+
+            if (ReplayCombatDiagnostics.Selected is { } selected
+                && poses.TryCombatDiagnostic(selected, out var selectedDiagnostic))
+            {
+                _combatLines = ReplayCombatDiagnostics.HudLines(selectedDiagnostic);
+                return;
+            }
+
+            var diagnostics = poses.CombatDiagnosticsAt(frame);
+            if (diagnostics.Count == 0) return;
+
+            int watched = scene.Players.MainPlayerIndex;
+            ReplayCombatDiagnostic diagnostic = diagnostics[0];
+            for (int i = 0; i < diagnostics.Count; i++)
+            {
+                if (diagnostics[i].Fact.ShooterSlot == watched)
+                {
+                    diagnostic = diagnostics[i];
+                    break;
+                }
+            }
+            _combatLines = ReplayCombatDiagnostics.HudLines(diagnostic);
         }
 
         private static void RefreshDiagnostics()
