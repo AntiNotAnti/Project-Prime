@@ -260,6 +260,23 @@ namespace MphRead.Mods.Diagnostics
                 Near(currentGravity.Position - nativeGravity.Position, -gravity / 4, 0.0000001f,
                     "current gravity pair exposes the known quarter-gravity position error");
 
+                var referenceStart = new NativeMovementReferenceState(
+                    Vector3.Zero, new Vector3(0.2f, 0, 0), Vector3.UnitZ);
+                var referenceInput = new NativeMovementReferenceInput(
+                    new Vector3(0.2f, 0, 0), 0.3f, 0.9f,
+                    true, -0.1f, 0.3f, Vector3.UnitX);
+                NativeMovementReferenceState referenceStep =
+                    NativeMovementReference.Step(referenceStart, referenceInput);
+                Near(referenceStep.Velocity.X, 0.27f, 0.000002f,
+                    "native reference applies speed cap before horizontal damping");
+                Near(referenceStep.Velocity.Y, -0.1f, 0.000002f,
+                    "native reference applies one native gravity increment");
+                Near(referenceStep.Position.X, 0.27f, 0.000002f,
+                    "native reference uses semi-implicit boundary position");
+                Check(MathF.Abs(referenceStep.Facing.Length - 1) <= 0.000002f
+                    && referenceStep.Facing.X > 0 && referenceStep.Facing.Z > 0,
+                    "native reference normalizes facing convergence");
+
                 var baseline = new MovementBoundarySnapshot(
                     120, 1, 0, false, true, true, false, -1,
                     new Vector3(1, 2, 3), new Vector3(0.1f, 0.2f, 0.3f), Vector3.UnitZ,

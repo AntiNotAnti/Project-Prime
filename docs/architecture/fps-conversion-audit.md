@@ -34,6 +34,18 @@ The audit now runs the content-free movement shadow contract checks before scann
 
 This foundation intentionally changes no production movement. The next slice supplies Samus/Spire reference states and live 30 Hz-boundary observations to this contract.
 
+
+The live sampler is now opt-in with:
+
+```sh
+ProjectPrime -movementshadow
+ProjectPrime -movementshadow -movementshadowout artifacts/movement-shadow.tsv
+```
+
+It observes only Samus and Spire in this first stage, after the production movement/collision step, and records only even 60 Hz simulation frames (the equivalent native 30 Hz boundaries). With no output path it prints a low-rate summary; with `-movementshadowout` it writes buffered TSV evidence. The sampler does not alter movement state. Contact normal/pushout columns are reserved until the collision-shadow slice populates them.
+
+`NativeMovementReference` now provides the first collision-free 30 Hz reference step for horizontal impulse/cap/damping, gravity, semi-implicit position integration and facing convergence. It is not yet authoritative and is not wired into production movement.
+
 ## P0 inventory
 
 The five player files currently contain **179** marked sites:

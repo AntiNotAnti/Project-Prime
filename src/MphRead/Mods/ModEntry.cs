@@ -213,6 +213,11 @@ namespace MphRead.Mods
                 Environment.ExitCode = Diagnostics.FpsConversionAudit.Run(ValueAfter(args, "fpsconvertauditout"));
                 return true;
             }
+            if (HasFlag(args, "movementshadow"))
+            {
+                Diagnostics.MovementShadowRuntime.Configure(ValueAfter(args, "movementshadowout"));
+                DebugLog.Force();
+            }
             // Interactive input/presentation state is irrelevant to both the
             // directory and dedicated server. Hosted children are intentionally
             // short-lived, so avoiding these loads materially reduces lobby
