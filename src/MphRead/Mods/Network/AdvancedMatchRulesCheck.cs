@@ -235,6 +235,14 @@ namespace MphRead.Mods.Network
                 Check(direct == 18 && headshot == 18 && splash == 5 && splashType == 0,
                     "Balanced Battlehammer shell is 18 direct and 5 max splash");
 
+                Vector3 projectileOrigin = new(1, 2, 3);
+                Vector3 impactOrigin = new(4, 5, 6);
+                Check(BeamProjectileEntity.ModSplashOrigin(scene, BeamType.Battlehammer,
+                        projectileOrigin, impactOrigin) == impactOrigin
+                    && BeamProjectileEntity.ModSplashOrigin(scene, BeamType.Magmaul,
+                        projectileOrigin, impactOrigin) == projectileOrigin,
+                    "Balanced Battlehammer splash uses the collision point without changing other weapons");
+
                 direct = headshot = 3; splash = 4; splashType = 0;
                 BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Battlehammer,
                     true, ref direct, ref headshot, ref splash, ref splashType);
@@ -266,8 +274,10 @@ namespace MphRead.Mods.Network
                 Check(Near(beam.ModBalancedRangeDamage(100, Vector3.UnitZ * BalancedModeRules.FarRange), 100)
                     && Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
                         BeamType.VoltDriver, charged: false, voltBase), voltBase)
+                    && BeamProjectileEntity.ModSplashOrigin(scene, BeamType.Battlehammer,
+                        projectileOrigin, impactOrigin) == projectileOrigin
                     && direct == 14 && headshot == 14 && splash == 6 && splashType == 3,
-                    "range, projectile speed and hit tuning are inert outside Balanced Mode");
+                    "range, projectile speed, splash origin and hit tuning are inert outside Balanced Mode");
             }
             finally { sim.Stop(); NetSession.Stop(); }
         }
@@ -602,11 +612,14 @@ namespace MphRead.Mods.Network
 
             Check(BalancedModeRules.BalanceRevision == 2,
                 "Hunter ability refinement advances Balanced telemetry revision");
+            int kandenStockCooldown = unchecked((ushort)(
+                Metadata.PlayerValues[(int)Hunter.Kanden].BombCooldown * 2));
             Check(BalancedHunterAbilityRules.KandenAcquireRange == 6.5f
                 && MathF.Abs(BalancedHunterAbilityRules.KandenLaunchSpeed - 0.36f) < 0.001f
                 && MathF.Abs(BalancedHunterAbilityRules.KandenSteeringFactor - 0.0625f) < 0.001f
-                && BalancedHunterAbilityRules.KandenCooldownFrames(120) == 102,
-                "Kanden native ability profile is 6.5u pursuit with 20/25/15 percent responsiveness tuning");
+                && kandenStockCooldown == 60
+                && BalancedHunterAbilityRules.KandenCooldownFrames(kandenStockCooldown) == 51,
+                "Kanden native ability profile preserves the stock 60-tick Stinglarva recharge before applying the 15 percent reduction");
             Check(BalancedHunterAbilityRules.SpireLedgeGraceFrames == 9
                 && MathF.Abs(BalancedHunterAbilityRules.SpireClimbSpeedMultiplier - 1.20f) < 0.001f
                 && MathF.Abs(BalancedHunterAbilityRules.RollTraction(Hunter.Spire, true, false, 1f) - 1.15f) < 0.001f,
