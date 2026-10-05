@@ -8,6 +8,15 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network;
 
+[Flags]
+internal enum ReplayHitMarkerFlags : byte
+{
+    None = 0,
+    Headshot = 1 << 0,
+    Lethal = 1 << 1,
+    Halfturret = 1 << 2
+}
+
 /// <summary>A bounded presentation cursor over accepted snapshots and intents. It keeps
 /// a short ordinary pose lookahead plus enough future intent history to recover repeated
 /// FireEvents onto their authored frame, without advancing simulation, sockets or RNG.
@@ -67,7 +76,7 @@ internal sealed class ReplayPoseStream : IDisposable
     private readonly uint[] _lastResolvedHitFrame = new uint[8];
     private readonly ushort[] _lastResolvedHitGeneration = new ushort[8];
     private readonly ushort[] _lastResolvedHitLife = new ushort[8];
-    private readonly bool[] _lastResolvedHitHeadshot = new bool[8];
+    private readonly ReplayHitMarkerFlags[] _lastResolvedHitFlags = new ReplayHitMarkerFlags[8];
     private readonly List<FallbackImpact> _fallbackImpacts = new();
     private DemoReader? _reader, _shotReader;
     private DemoRecord? _pending, _shotPending;
@@ -141,9 +150,9 @@ internal sealed class ReplayPoseStream : IDisposable
     internal static double AcknowledgedServerFrame(in IntentPacket intent)
         => intent.AckFrame == 0 ? double.NaN : intent.AckFrame + intent.AckSubFrame / 256d;
 
-    internal float ResolvedHitMarkerAlpha(int shooterSlot, out bool headshot)
+    internal float ResolvedHitMarkerAlpha(int shooterSlot, out ReplayHitMarkerFlags flags)
     {
-        headshot = false;
+        flags = ReplayHitMarkerFlags.None;
         if ((uint)shooterSlot >= 8) return 0;
         uint at = _lastResolvedHitFrame[shooterSlot];
         uint frame = _world.Session.RecordingFrame;
@@ -154,7 +163,7 @@ internal sealed class ReplayPoseStream : IDisposable
         {
             return 0;
         }
-        headshot = _lastResolvedHitHeadshot[shooterSlot];
+        flags = _lastResolvedHitFlags[shooterSlot];
         uint age = frame - at;
         return age < 6 ? 1f : (12 - age) / 6f;
     }
@@ -176,7 +185,7 @@ internal sealed class ReplayPoseStream : IDisposable
         return fire.ShotId != 0;
     }
 
-    private bool TryAuthoredFire(in ReplayShotFact fact, out FireEvent fire)
+    internal bool TryAuthoredFire(in ReplayShotFact fact, out FireEvent fire)
     {
         foreach (var list in _fires.Values)
             foreach (var scheduled in list)
@@ -192,6 +201,71 @@ internal sealed class ReplayPoseStream : IDisposable
         return false;
     }
 
+    internal bool SupportsResolvedShotFacts
+    {
+        get { Prepare(); return _supportsShotFacts; }
+    }
+
+    internal IReadOnlyList<ReplayShotFact> ResolvedShotFactsAt(uint frame)
+    {
+        if (!Prepare() || !_supportsShotFacts
+            || !_resolvedShotFacts.TryGetValue(frame, out var facts))
+        {
+            return Array.Empty<ReplayShotFact>();
+        }
+        return facts;
+    }
+
+    internal bool HasResolvedLethalShotNear(uint frame, int shooterSlot,
+        int victimSlot, uint tolerance = 2)
+    {
+        if (!Prepare() || !_supportsShotFacts) return false;
+        uint first = frame > tolerance ? frame - tolerance : 0;
+        ulong last = (ulong)frame + tolerance;
+        for (uint at = first; (ulong)at <= last; at++)
+        {
+            if (_resolvedShotFacts.TryGetValue(at, out var facts))
+                foreach (var fact in facts)
+                    if (fact.Lethal && fact.ShooterSlot == shooterSlot
+                        && fact.VictimSlot == victimSlot)
+                    {
+                        return true;
+                    }
+            if (at == uint.MaxValue) break;
+        }
+        return false;
+    }
+
+    internal bool TryResolvedShotDirection(in ReplayShotFact fact,
+        out Vector3 direction)
+    {
+        if (TryAuthoredFire(fact, out var fire) && fire.HasPose)
+        {
+            direction = fact.ImpactPoint - fire.Origin;
+            if (direction.LengthSquared > 0.000001f) return true;
+        }
+        if ((uint)fact.ShooterSlot < PlayerEntity.SlotCapacity
+            && (uint)fact.VictimSlot < PlayerEntity.SlotCapacity)
+        {
+            PlayerEntity shooter = _world.Scene.Players.Items[fact.ShooterSlot];
+            PlayerEntity victim = _world.Scene.Players.Items[fact.VictimSlot];
+            direction = victim.Position - shooter.Position;
+            return direction.LengthSquared > 0.000001f;
+        }
+        direction = default;
+        return false;
+    }
+
+    internal static ReplayHitMarkerFlags MarkerFlags(in ReplayShotFact fact)
+    {
+        ReplayHitMarkerFlags flags = ReplayHitMarkerFlags.None;
+        if (fact.Headshot) flags |= ReplayHitMarkerFlags.Headshot;
+        if (fact.Lethal) flags |= ReplayHitMarkerFlags.Lethal;
+        if ((fact.Flags & ReplayShotFactFlags.HalfturretTarget) != 0)
+            flags |= ReplayHitMarkerFlags.Halfturret;
+        return flags;
+    }
+
     internal void PresentResolvedImpacts(Scene scene)
     {
         uint frame = _world.Session.RecordingFrame;
@@ -200,6 +274,9 @@ internal sealed class ReplayPoseStream : IDisposable
         _fallbackImpacts.Clear();
         if (!_resolvedShotFacts.TryGetValue(frame, out var facts) || facts.Count == 0) return;
 
+        bool allowImpactAudio = !_world.Session.Transport.IsSeeking
+            && ReplayAudioOwner.MayPlay(scene)
+            && !ReplayVideoExporter.Rendering;
         var visualized = new List<ReplayShotFact>();
         foreach (var fact in facts)
         {
@@ -212,12 +289,12 @@ internal sealed class ReplayPoseStream : IDisposable
                     || _lastResolvedHitGeneration[fact.ShooterSlot] != fact.ShooterGeneration
                     || _lastResolvedHitLife[fact.ShooterSlot] != fact.ShooterLifeId)
                 {
-                    _lastResolvedHitHeadshot[fact.ShooterSlot] = false;
+                    _lastResolvedHitFlags[fact.ShooterSlot] = ReplayHitMarkerFlags.None;
                 }
                 _lastResolvedHitFrame[fact.ShooterSlot] = frame;
                 _lastResolvedHitGeneration[fact.ShooterSlot] = fact.ShooterGeneration;
                 _lastResolvedHitLife[fact.ShooterSlot] = fact.ShooterLifeId;
-                _lastResolvedHitHeadshot[fact.ShooterSlot] |= fact.Headshot;
+                _lastResolvedHitFlags[fact.ShooterSlot] |= MarkerFlags(fact);
             }
 
             BeamProjectileEntity? best = null;
@@ -266,7 +343,7 @@ internal sealed class ReplayPoseStream : IDisposable
                 // Splash facts can share the same ShotId across several victims.
                 best.ModPresentReplayImpact(fact,
                     terminateProjectile: fact.Direct,
-                    spawnEffect: spawnEffect && !alreadyCorrect);
+                    spawnEffect: spawnEffect && !alreadyCorrect && allowImpactAudio);
             }
             if (spawnEffect)
             {
@@ -897,7 +974,7 @@ internal sealed class ReplayPoseStream : IDisposable
         Array.Fill(_lastResolvedHitFrame, uint.MaxValue);
         Array.Clear(_lastResolvedHitGeneration);
         Array.Clear(_lastResolvedHitLife);
-        Array.Clear(_lastResolvedHitHeadshot);
+        Array.Clear(_lastResolvedHitFlags);
         for (int i = 0; i < 8; i++)
         {
             _poses[i].Clear();
