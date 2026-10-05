@@ -159,9 +159,9 @@ namespace MphRead.Mods.Network
                     HealthAfter = 0
                 };
                 ReplayHitMarkerFlags markerFlags = ReplayPoseStream.MarkerFlags(lethalHeadshot);
-                Require(markerFlags.TestFlag(ReplayHitMarkerFlags.Headshot)
-                    && markerFlags.TestFlag(ReplayHitMarkerFlags.Lethal)
-                    && markerFlags.TestFlag(ReplayHitMarkerFlags.Halfturret),
+                Require((markerFlags & ReplayHitMarkerFlags.Headshot) != 0
+                    && (markerFlags & ReplayHitMarkerFlags.Lethal) != 0
+                    && (markerFlags & ReplayHitMarkerFlags.Halfturret) != 0,
                     "authoritative replay marker lost headshot/lethal/halfturret classification");
                 markerFlags = ReplayPoseStream.MarkerFlags(impactA);
                 Require(markerFlags == ReplayHitMarkerFlags.None,
