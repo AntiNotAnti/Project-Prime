@@ -22,6 +22,30 @@ public static class BalancedModeRules
     public const float MidRange = 12f;
     public const float FarRange = 24f;
 
+    public const ushort AffinityControlDurationFrames = 75; // 1.25 s at 60 Hz
+    public const ushort AffinityControlImmunityFrames = 120; // 2.0 s after control
+    public const ushort SpireBurnDurationFrames = 180; // 3.0 s
+    public const ushort SpireBurnTickFrames = 30; // 0.5 s, six total damage
+    public const float SyluxLifeDrainFraction = 0.40f;
+    public const int SyluxLifeDrainPerSecondCap = 8;
+    public const float TraceScopeVisualSpeedMultiplier = 1.20f;
+    public const float WeavelClusterRadiusMultiplier = 1.20f;
+    public const float WeavelClusterKnockbackMultiplier = 1.20f;
+
+    public static bool IsAffinity(Hunter hunter, BeamType beam)
+        => (int)hunter >= 0 && (int)hunter < Weapons.AffinityWeapons.Count
+            && Weapons.GetAffinityBeam(hunter) == beam;
+
+    public static bool IsBalancedAffinity(bool balancedMode, Hunter hunter, BeamType beam)
+        => balancedMode && IsAffinity(hunter, beam);
+
+    public static int LifeDrainHealForActualDamage(int actualDamage)
+        => actualDamage <= 0 ? 0 : (int)MathF.Floor(actualDamage * SyluxLifeDrainFraction);
+
+    public static float ScopeVisualSpeed(Hunter hunter, BeamType beam)
+        => hunter == Hunter.Trace && beam == BeamType.Imperialist
+            ? TraceScopeVisualSpeedMultiplier : 1f;
+
     public static BalancedHunterProfile HunterProfile(Hunter hunter)
         => hunter switch
         {
