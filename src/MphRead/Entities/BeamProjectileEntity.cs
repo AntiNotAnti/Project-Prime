@@ -1566,16 +1566,31 @@ namespace MphRead.Entities
             bool freshContinuousTick = true;
             if (weapon.Flags.TestFlag(WeaponFlags.Continuous) && owner is PlayerEntity firingPlayer)
             {
-                int slot = firingPlayer.SlotIndex;
-                var replication = scene.Services.PlayerReplication;
-                bool hasIntent = replication.TryGetIntent(slot, out var intent);
-                phase = scene.WeaponPhase.Resolve(slot, scene.FrameCount,
-                    replication.Active && !firingPlayer.IsBot,
-                    replication.LocalSlot >= 0 && slot == replication.LocalSlot,
-                    replication.Frame, hasIntent, intent.Frame, replication.IntentAge(slot),
-                    intent.HasContinuousFireTick ? intent.ContinuousFireTick : 0,
-                    out sharedPhase, out freshContinuousTick,
-                    receivedBeforeStep: !scene.Services.IsReplica && NetSession.Role == NetRole.Server);
+                if (scene.Services.IsReplica
+                    && NetFireEvents.TryTiming(firingPlayer, out FireEvent replayFire)
+                    && replayFire.Kind == FireEventKind.ContinuousTick)
+                {
+                    // The repeated FireEvent owns the phase of this exact pulse.
+                    // A recovered carrier may contain a newer continuous tick, so
+                    // replay must not re-read that newer packet after scheduling
+                    // the older shot back onto its source frame.
+                    phase = replayFire.ContinuousPhase;
+                    sharedPhase = true;
+                    freshContinuousTick = true;
+                }
+                else
+                {
+                    int slot = firingPlayer.SlotIndex;
+                    var replication = scene.Services.PlayerReplication;
+                    bool hasIntent = replication.TryGetIntent(slot, out var intent);
+                    phase = scene.WeaponPhase.Resolve(slot, scene.FrameCount,
+                        replication.Active && !firingPlayer.IsBot,
+                        replication.LocalSlot >= 0 && slot == replication.LocalSlot,
+                        replication.Frame, hasIntent, intent.Frame, replication.IntentAge(slot),
+                        intent.HasContinuousFireTick ? intent.ContinuousFireTick : 0,
+                        out sharedPhase, out freshContinuousTick,
+                        receivedBeforeStep: !scene.Services.IsReplica && NetSession.Role == NetRole.Server);
+                }
             }
             if (weapon.Flags.TestFlag(WeaponFlags.Continuous))
             {
