@@ -237,6 +237,22 @@ indicators. High-refresh drawing does not own audio, so 120/240 Hz rendering can
 duplicate a 60 Hz combat cue. Video export keeps Game HUD and Replay Overlay separate:
 combat feedback/crosshair follow Game HUD, while Studio controls follow Replay Overlay.
 
+Replay Studio combat diagnostics consume the same immutable evidence without creating a
+second combat model. The inspector joins `ReplayShotFact` back to the repeated
+`FireEvent` by shooter lifecycle + `ShotId`, exposes authored fire/resolve frames,
+muzzle/aim/projectile vectors, ACK/subframe, the victim's sampled ACK-world position,
+authoritative impact point, settled damage/health and the acceptance path
+(direct/splash/continuous/claim rescue, headshot/lethal/turret/enhanced-child flags).
+A timeline `WeaponFired` marker has no `ShotId`, so the editor only calls an
+association exact when the recovered FireEvent independently lands on the same
+recording frame; it never grabs a nearby same-weapon hit and gives it a fancy hat.
+
+Optional viewport diagnostics are presentation-only dotted particles: muzzle→impact,
+authored aim ray, muzzle anchor, ACK-world target anchor and impact anchor. They are
+bounded to one selected fact (or at most three current-frame facts), never enter
+checkpoint/gameplay hashes, and follow Replay Overlay export ownership rather than
+Game HUD ownership.
+
 Fire scheduling is scene-local rather than using live `NetFireEvents` static state,
 so interleaved replays, killcams and the foreground match cannot contaminate one
 another. Seek/rebuild creates the same bounded index again from recorded facts.
