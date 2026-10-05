@@ -48,6 +48,7 @@ namespace MphRead.Mods.Network
             FriendlyFire = FriendlyFire, AffinityWeapons = AffinityWeapons, EnhancedHunters = EnhancedHunters, ShadowFreeze = ShadowFreeze,
             HideOpponentHealth = true, DisablePowerups = true, SpawnProtection = SpawnProtection,
             Fiesta = Fiesta, OneInTheChamber = OneInTheChamber, InstaGib = InstaGib, LowTier = LowTier, NoImperialist = NoImperialist,
+            BalancedMode = BalancedMode,
             OctolithAutoReset = Mods.Multiplayer.MatchModifierRules.UsesOctolith(entry.Mode) && OctolithAutoReset
         }.NormalizeLegacy();
 
