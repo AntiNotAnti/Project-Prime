@@ -34,12 +34,26 @@ namespace MphRead.Entities
         }
         /// <summary>Enter the recorded death presentation without resolving damage,
         /// emitting a kill, changing scores or granting a new live life.</summary>
-        internal void ModAcceptReplicaDeath()
+        internal void ModAcceptReplicaDeath() => ModSetReplicaDead(presentTransition: true);
+
+        /// <summary>
+        /// Keep a replay victim visually dead after an authoritative lethal shot
+        /// even when the next accepted snapshot has not carried the death yet.
+        /// The hold is deliberately silent so a seek/rebuild cannot replay death
+        /// audio or effects.
+        /// </summary>
+        internal void ModHoldReplicaDeath() => ModSetReplicaDead(presentTransition: false);
+
+        private void ModSetReplicaDead(bool presentTransition)
         {
             if (!_scene.Services.IsReplica || _health == 0) return;
-            _soundSource.StopAllSfx(force: true);
-            PlayHunterSfx(HunterSfx.Death);
-            if (IsAltForm || IsMorphing) _scene.SpawnEffect(216, Vector3.UnitX, Vector3.UnitY, Position);
+            if (presentTransition)
+            {
+                _soundSource.StopAllSfx(force: true);
+                PlayHunterSfx(HunterSfx.Death);
+                if (IsAltForm || IsMorphing)
+                    _scene.SpawnEffect(216, Vector3.UnitX, Vector3.UnitY, Position);
+            }
             ClearReplicaEffect(ref _furlEffect); ClearReplicaEffect(ref _boostEffect);
             ClearReplicaEffect(ref _burnEffect); ClearReplicaEffect(ref _chargeEffect);
             ClearReplicaEffect(ref _muzzleEffect); ClearReplicaEffect(ref _doubleDmgEffect);
