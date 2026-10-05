@@ -640,9 +640,10 @@ namespace MphRead.Mods.Network
                 && read.Match.BalancedMode, "No Imp and Balanced Mode survive session round trip");
             Check(!MatchModifierRules.Validate(new MatchDefinition { Mode = GameMode.Battle, BalancedMode = true, InstaGib = true }, out _)
                 && !MatchModifierRules.Validate(new MatchDefinition { Mode = GameMode.Battle, BalancedMode = true, Fiesta = true }, out _)
+                && !MatchModifierRules.Validate(new MatchDefinition { Mode = GameMode.Battle, BalancedMode = true, EnhancedHunters = true }, out _)
                 && !MatchModifierRules.Validate(new MatchDefinition { Mode = GameMode.OneInTheChamber, BalancedMode = true }, out _)
                 && !MatchModifierRules.Validate(new MatchDefinition { Mode = GameMode.GunGame, BalancedMode = true }, out _),
-                "Balanced Mode rejects loadout modes with incompatible ammo ownership");
+                "Balanced Mode rejects Enhanced Hunters and loadout modes with incompatible simulation ownership");
             state.Match = state.Match with { BalancedMode = false };
             foreach (bool insta in new[] { false, true })
             {
