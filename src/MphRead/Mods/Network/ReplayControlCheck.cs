@@ -107,6 +107,12 @@ namespace MphRead.Mods.Network
                 ackIntent.AckFrame = 0;
                 Require(double.IsNaN(ReplayPoseStream.AcknowledgedServerFrame(ackIntent)),
                     "POV ACK clock treated an unavailable acknowledgement as server frame zero");
+                Require(ReplayPoseStream.FireSourceRecordingFrame(500, 1000, 1000) == 500,
+                    "same-frame FireEvent moved away from its carrier frame");
+                Require(ReplayPoseStream.FireSourceRecordingFrame(500, 1004, 1000) == 496,
+                    "recovered FireEvent did not regain its four-frame source age");
+                Require(ReplayPoseStream.FireSourceRecordingFrame(500, 1100, 1000) == 500,
+                    "out-of-retention FireEvent was allowed to invent an old replay frame");
                 var fractional = new Replay.ReplayCameraTrack();
                 fractional.Put(new(0, OpenTK.Mathematics.Vector3.Zero, OpenTK.Mathematics.Quaternion.Identity, 1,
                     Interpolation: Replay.ReplayCameraInterpolation.Linear, Ease: Replay.ReplayCameraEase.None));
