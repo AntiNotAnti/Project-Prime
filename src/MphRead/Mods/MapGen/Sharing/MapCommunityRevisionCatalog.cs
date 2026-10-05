@@ -132,7 +132,9 @@ internal sealed class MapCommunityRevisionCatalog
                 CurrentHash = current,
                 LatestHash = package.Hash,
                 NextRevisionNumber = revisionNumber + 1,
-                UpdatedAt = created > project.UpdatedAt ? created : DateTimeOffset.UtcNow
+                UpdatedAt = package.Listed && !package.Draft
+                    ? (created > project.UpdatedAt ? created : DateTimeOffset.UtcNow)
+                    : project.UpdatedAt
             };
             Save();
             return Attach(revision, package);
@@ -167,10 +169,12 @@ internal sealed class MapCommunityRevisionCatalog
                     .FirstOrDefault();
             }
 
+            bool publicPointerChanged = current != project.CurrentHash;
             _projects[package.MapId] = project with
             {
                 CurrentHash = current,
-                UpdatedAt = DateTimeOffset.UtcNow
+                UpdatedAt = publicPointerChanged || package.Listed && !package.Draft
+                    ? DateTimeOffset.UtcNow : project.UpdatedAt
             };
             Save();
         }
@@ -351,7 +355,15 @@ internal sealed class MapCommunityRevisionCatalog
             }
 
             DateTimeOffset createdAt = existing.Min(r => r.CreatedAt);
-            DateTimeOffset updatedAt = existing.Max(r => r.CreatedAt);
+            var publicRevisions = existing
+                .Where(r => availableByHash[r.Hash].Listed && !availableByHash[r.Hash].Draft)
+                .ToArray();
+            DateTimeOffset derivedUpdatedAt = publicRevisions.Length > 0
+                ? publicRevisions.Max(r => r.CreatedAt)
+                : existing.Max(r => r.CreatedAt);
+            DateTimeOffset updatedAt = previous is not null
+                && previous.UpdatedAt > derivedUpdatedAt
+                    ? previous.UpdatedAt : derivedUpdatedAt;
             string owner = previous?.OwnerId
                 ?? group.OrderBy(m => m.PublishedAt == default ? DateTimeOffset.UnixEpoch : m.PublishedAt)
                     .ThenBy(m => m.Hash, StringComparer.Ordinal)
@@ -364,8 +376,7 @@ internal sealed class MapCommunityRevisionCatalog
                 latestHash,
                 existing.Max(r => r.RevisionNumber) + 1,
                 previous?.CreatedAt ?? createdAt,
-                previous is not null && previous.UpdatedAt > updatedAt
-                    ? previous.UpdatedAt : updatedAt);
+                updatedAt);
         }
 
         _projects.Clear();
