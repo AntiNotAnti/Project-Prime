@@ -231,7 +231,8 @@ internal sealed class ReplayPoseStream : IDisposable
     }
 
     internal bool TryCombatDiagnostic(uint anchorFrame, int shooterSlot,
-        int weapon, int direction, out ReplayCombatDiagnostic diagnostic)
+        int victimSlot, int weapon, int direction,
+        out ReplayCombatDiagnostic diagnostic)
     {
         diagnostic = default;
         if (!Prepare() || !_supportsShotFacts) return false;
@@ -243,6 +244,7 @@ internal sealed class ReplayPoseStream : IDisposable
             foreach (var fact in pair.Value)
             {
                 if (shooterSlot >= 0 && fact.ShooterSlot != shooterSlot
+                    || victimSlot >= 0 && fact.VictimSlot != victimSlot
                     || weapon >= 0 && fact.Weapon != weapon
                     || !TryBuildCombatDiagnostic(pair.Key, fact, out var candidate))
                 {
