@@ -225,6 +225,7 @@ namespace MphRead.Mods
             state.InstaGib = settings.InstaGib == "on";
             state.LowTier = settings.LowTier == "on";
             state.NoImperialist = settings.NoImperialist == "on" && !state.InstaGib;
+            state.BalancedMode = settings.BalancedMode == "on";
             state.SpawnProtection = settings.SpawnProtection == "on";
             // Shadow Freeze also requires an explicit opt-in.
             state.ShadowFreeze = settings.ShadowFreeze == "on";

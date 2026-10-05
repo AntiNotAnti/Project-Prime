@@ -21,7 +21,7 @@ Depth for a given area lives in `.claude/` (indexed in
 
 ## Network modernization
 
-The current wire version is protocol 37. Its transport retains endpoint-bound connection IDs, sequence/ACK
+The current wire version is protocol 38. Its transport retains endpoint-bound connection IDs, sequence/ACK
 windows, selective reliable control, bounded priority queues and a generation-fenced
 load barrier. The entire migration is one unreleased train. Movement remains
 owner-reported; full snapshots never reconcile the local owner's same-life body.
@@ -935,7 +935,7 @@ MPH_MAP_DOMAIN=maps.rebooty.xyz ./deploy-map-service.sh
 
 The exe is often locked by a running game: write `MphRead.new.exe`, then `mv`.
 
-**The current protocol is `NetConfig.ProtocolVersion = 34`.** Never duplicate
+**The current protocol is `NetConfig.ProtocolVersion = 38`.** Never duplicate
 that number as a design constant elsewhere: read it from `NetProtocol.cs` when
 validating a deployment. Server and clients must match; incompatible builds are
 refused during Hello. Versions 7/8 in the measurement sections below are dated
@@ -1345,6 +1345,6 @@ remaining rendered/high-refresh validation.
 Advanced Match Rules: Insta-Gib is a modifier of the selected base mode; Low Tier
 allows Kanden/Spire/Noxus/Weavel; No Imp uses deterministic map/spawn replacements
 and cannot combine with Insta-Gib. Shadow Freeze and Spawn Protection default off.
-Current wire protocol: 32. Shared helpers live in `Mods/Multiplayer/HunterRules.cs`
+Current wire protocol: 38. Shared helpers live in `Mods/Multiplayer/HunterRules.cs`
 and `WeaponResourceRules.cs`. `tools/nettest --advanced-rules` covers rules and
 real UDP enforcement; `--advanced-rules-scene <data directory>` covers loadouts.

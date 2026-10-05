@@ -409,6 +409,7 @@ namespace MphRead.Mods.Launcher.Gui
             var instaGib = new ToggleRow("Insta-Gib", _settings.InstaGib == "on");
             var lowTier = new ToggleRow("Low Tier", _settings.LowTier == "on");
             var noImperialist = new ToggleRow("No Imp", _settings.NoImperialist == "on");
+            var balancedMode = new ToggleRow("Balanced Mode", _settings.BalancedMode == "on");
             instaGib.Changed += (_, _) => { if (instaGib.On) noImperialist.On = false; };
             noImperialist.Changed += (_, _) => { if (noImperialist.On) instaGib.On = false; };
             var radar = new ToggleRow("Hunter radar", _settings.HunterRadar == "on");
@@ -425,7 +426,7 @@ namespace MphRead.Mods.Launcher.Gui
                 PrimeChrome.Columns("*,*,*",
                     Section("MATCH", PrimeChrome.Text(selectedMode == GameMode.OneInTheChamber ? "3 lives • Last player standing\nOne lethal shot • Kills earn ammo" : "", 12, PrimeTheme.TextSecondaryBrush), score, time, objective, damage),
                     Section("GAMEPLAY", fire, affinity, enhancedHunters, freeze, spawnProtection, radar),
-                    Section("ADVANCED", fiesta, instaGib, lowTier, noImperialist, autoReset)), error,
+                    Section("ADVANCED", balancedMode, fiesta, instaGib, lowTier, noImperialist, autoReset)), error,
                 PrimeChrome.Columns("*,*", new PrimeButton("CANCEL", _overlays.Close), new PrimeButton("APPLY RULES", () =>
                 {
                     bool Duration(string value) => TimeSpan.TryParseExact(value, @"m\:ss", null, out _)
@@ -438,13 +439,15 @@ namespace MphRead.Mods.Launcher.Gui
                     // Treat APPLY RULES like the main settings screen: persist first, then
                     // keep the runtime settings facade in sync with the committed values.
                     var rules = new Network.MatchDefinition { Mode = SelectedMode(),
-                        InstaGib = instaGib.On, NoImperialist = noImperialist.On, Fiesta = fiesta.On };
+                        InstaGib = instaGib.On, NoImperialist = noImperialist.On, Fiesta = fiesta.On,
+                        BalancedMode = balancedMode.On };
                     if (!Multiplayer.MatchModifierRules.Validate(rules, out string reason)) { error.Text = reason; return; }
                     string oldAutoReset = _settings.AutoReset;
                     string oldFiesta = _settings.Fiesta, oldChamber = _settings.OneInTheChamber;
                     string oldInstaGib = _settings.InstaGib;
                     string oldLowTier = _settings.LowTier;
                     string oldNoImperialist = _settings.NoImperialist;
+                    string oldBalancedMode = _settings.BalancedMode;
                     string oldPointGoal = _settings.PointGoal;
                     string oldTimeLimit = _settings.TimeLimit;
                     string oldTimeGoal = _settings.TimeGoal;
@@ -461,6 +464,7 @@ namespace MphRead.Mods.Launcher.Gui
                     _settings.InstaGib = instaGib.On ? "on" : "off";
                     _settings.LowTier = lowTier.On ? "on" : "off";
                     _settings.NoImperialist = noImperialist.On ? "on" : "off";
+                    _settings.BalancedMode = balancedMode.On ? "on" : "off";
                     _settings.PointGoal = score.Value;
                     _settings.TimeLimit = time.Value;
                     _settings.TimeGoal = objective.Value;
@@ -485,6 +489,7 @@ namespace MphRead.Mods.Launcher.Gui
                         _settings.InstaGib = oldInstaGib;
                         _settings.LowTier = oldLowTier;
                         _settings.NoImperialist = oldNoImperialist;
+                        _settings.BalancedMode = oldBalancedMode;
                         _settings.PointGoal = oldPointGoal;
                         _settings.TimeLimit = oldTimeLimit;
                         _settings.TimeGoal = oldTimeGoal;

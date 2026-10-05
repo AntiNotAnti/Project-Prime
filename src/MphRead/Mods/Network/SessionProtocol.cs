@@ -70,7 +70,7 @@ namespace MphRead.Mods.Network
                 || !Enum.IsDefined(typeof(GameMode), src[9])) return false;
             var flags = (LobbyRuleFlags)BinaryPrimitives.ReadUInt16LittleEndian(src[14..]);
             var modifiers = (MatchModifierFlags)BinaryPrimitives.ReadUInt32LittleEndian(src[Protocol28Size..]);
-            if (((uint)modifiers & ~8191u) != 0 || ((ushort)flags & ~15) != 0 || !NetworkMapIdentity.TryRead(src.Slice(LegacySize + 6, NetworkMapIdentity.Size), out var mapIdentity)) return false;
+            if (((uint)modifiers & ~16383u) != 0 || ((ushort)flags & ~15) != 0 || !NetworkMapIdentity.TryRead(src.Slice(LegacySize + 6, NetworkMapIdentity.Size), out var mapIdentity)) return false;
             var availability = new MapAvailabilityState[8];
             for (int i = 0; i < 8; i++)
             {
@@ -113,7 +113,8 @@ namespace MphRead.Mods.Network
                     InstaGib = modifiers.HasFlag(MatchModifierFlags.InstaGib),
                     LowTier = modifiers.HasFlag(MatchModifierFlags.LowTier),
                     OctolithAutoReset = modifiers.HasFlag(MatchModifierFlags.OctolithAutoReset),
-                    NoImperialist = modifiers.HasFlag(MatchModifierFlags.NoImperialist)
+                    NoImperialist = modifiers.HasFlag(MatchModifierFlags.NoImperialist),
+                    BalancedMode = modifiers.HasFlag(MatchModifierFlags.BalancedMode)
                 }.NormalizeLegacy()
             };
             return (!validateDefinition || LobbyRules.ValidateDefinition(state.Match, out _) == LobbyResultCode.Ok)

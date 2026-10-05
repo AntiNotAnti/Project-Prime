@@ -794,7 +794,10 @@ namespace MphRead.Entities
             }
             if (_scene.GameState.Multiplayer)
             {
-                _health = Values.EnergyTank - 1;
+                int baseHealth = Values.EnergyTank - 1;
+                _health = _scene.GameState.BalancedMode
+                    ? BalancedModeRules.SpawnHealth(Hunter, baseHealth, _healthMax)
+                    : baseHealth;
             }
             else if (IsMainPlayer) // todo: MP1P
             {
@@ -846,6 +849,7 @@ namespace MphRead.Entities
             _disruptedTimer = 0;
             _burnedBy = null;
             _burnTimer = 0;
+            ModResetBalancedAffinityState();
             _modPendingHomingTarget = default;
             ModContinuousNetworkTarget = Mods.Network.NetTargetIdentity.None;
             ModContinuousTargetState = default;
@@ -1398,6 +1402,7 @@ namespace MphRead.Entities
 
         private void InitializeWeapon()
         {
+            _balancedImperialistAmmo = 0;
             _availableWeapons.ClearAll();
             _availableCharges.ClearAll();
             if (_scene.GameState.SinglePlayer && IsMainPlayer) // todo: MP1P
@@ -1467,9 +1472,18 @@ namespace MphRead.Entities
             {
                 _availableWeapons[beam] = true;
                 _availableCharges[beam] = true;
-                _ammo[info.AmmoType] = _ammoMax[info.AmmoType];
+                if (UsesBalancedImperialistAmmo(beam))
+                {
+                    _balancedImperialistAmmo = BalancedImperialistAmmoCap;
+                }
+                else
+                {
+                    _ammo[info.AmmoType] = _ammoMax[info.AmmoType];
+                }
             }
-            bool hasAmmo = beam == BeamType.PowerBeam || _ammo[ammoType] >= info.AmmoCost || _ammo[ammoType] == -1;
+            int weaponAmmo = ModAmmoForWeapon(beam, info);
+            int weaponAmmoCost = ModAmmoCostForWeapon(beam, info);
+            bool hasAmmo = beam == BeamType.PowerBeam || weaponAmmo >= weaponAmmoCost || weaponAmmo == -1;
             if (!silent && (!hasAmmo || !_availableWeapons[beam] || GunAnimation == GunAnimation.UpDown))
             {
                 if (IsMainPlayer)
@@ -1489,7 +1503,10 @@ namespace MphRead.Entities
             UpdateZoom(false);
             PreviousWeapon = CurrentWeapon;
             CurrentWeapon = WeaponSelection = beam;
-            if (beam == Weapons.GetAffinityBeam(Hunter)
+            bool normalizeBalancedBattlehammer = _scene.GameState.Multiplayer
+                && _scene.GameState.BalancedMode && Hunter == Hunter.Weavel
+                && beam == BeamType.Battlehammer;
+            if (beam == Weapons.GetAffinityBeam(Hunter) && !normalizeBalancedBattlehammer
                 || _scene.GameState.SinglePlayer && (Hunter == Hunter.Samus && (beam == BeamType.PowerBeam || beam == BeamType.OmegaCannon)
                 || Hunter == Hunter.Guardian && beam == BeamType.VoltDriver))
             {
@@ -1501,8 +1518,7 @@ namespace MphRead.Entities
             }
             EquipInfo.ChargeLevel = 0;
             EquipInfo.SmokeLevel = 0;
-            EquipInfo.GetAmmo = () => _ammo[ammoType];
-            EquipInfo.SetAmmo = (newAmmo) => _ammo[ammoType] = newAmmo;
+            ModBindWeaponAmmo(beam, ammoType);
             _timeSinceInput = 0;
             if (!silent)
             {
@@ -1938,6 +1954,23 @@ namespace MphRead.Entities
                 byte reduction = Mods.Network.NetSession.SlotDamageReduction[SlotIndex];
                 if (reduction > 0)
                     damage = Mods.Network.PlayerHandicap.ScaleDamage(damage, reduction);
+            }
+            // Balanced hunter durability is a final victim-side combat modifier.
+            // A rescued claim/replay already carries the finalized amount, so it
+            // must not be scaled twice. Headshots deliberately bypass this layer:
+            // the Imperialist's 200-damage precision breakpoint stays lethal.
+            bool balancedEnemyCombat = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                && !ignoreDamage && attacker != null && attacker != this
+                && !flags.TestFlag(DamageFlags.Death)
+                && !Mods.Network.NetDamage.ApplyingClaim && !Mods.Network.NetDamage.Replaying;
+            if (damage > 0 && balancedEnemyCombat)
+            {
+                damage = BalancedModeRules.ScaleIncomingDamage(
+                    Hunter, damage, flags.TestFlag(DamageFlags.Headshot));
+                if (direction.HasValue)
+                {
+                    direction *= BalancedModeRules.ScaleKnockback(Hunter, 1f);
+                }
             }
             if (Flags2.TestFlag(PlayerFlags2.Halfturret) && attacker != null && !ignoreDamage)
             {
@@ -2689,76 +2722,112 @@ namespace MphRead.Entities
                     // with the hit claim, so rescued hits retain it.
                     bool applyBeamAfflictions = !Mods.Network.NetHitPrediction.Predicting
                         || attacker == this;
+                    bool balancedKandenDisrupt = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                        && attacker is { Hunter: Hunter.Kanden }
+                        && BalancedModeRules.IsAffinity(attacker.Hunter, beam.Beam);
+                    bool balancedNoxusFreeze = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                        && attacker is { Hunter: Hunter.Noxus }
+                        && BalancedModeRules.IsAffinity(attacker.Hunter, beam.Beam);
+                    bool balancedSpireBurn = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                        && attacker is { Hunter: Hunter.Spire }
+                        && BalancedModeRules.IsAffinity(attacker.Hunter, beam.Beam);
+
                     if (applyBeamAfflictions && beam.Afflictions.TestFlag(Affliction.Freeze))
                     {
-                        if (beam.Beam == BeamType.Judicator && _scene.GameState.ShadowFreeze)
+                        bool allowFreeze = !balancedNoxusFreeze
+                            || beam.EnhancedDirectHit && beam.Flags.TestFlag(BeamFlags.Charged)
+                                && _timeSinceFrozen >= BalancedModeRules.AffinityControlImmunityFrames;
+                        if (allowFreeze)
                         {
-                            Mods.Input.AimAssist.AimAssistTelemetry.ShadowFreezeConfirmed(attacker);
-                        }
-                        if (flags.TestFlag(DamageFlags.Halfturret))
-                        {
-                            _soundSource.PlaySfx(SfxId.SHOTGUN_FREEZE);
-                            _halfturret.OnFrozen();
-                        }
-                        else // todo?: if wifi, only do this if main player
-                        {
-                            _soundSource.PlaySfx(SfxId.SHOTGUN_FREEZE);
-                            if (IsMainPlayer)
+                            if (beam.Beam == BeamType.Judicator && _scene.GameState.ShadowFreeze)
                             {
-                                ResetCombatVisor();
-                                _drawIceLayer = true;
+                                Mods.Input.AimAssist.AimAssistTelemetry.ShadowFreezeConfirmed(attacker);
                             }
-                            if (_frozenTimer == 0)
+                            if (flags.TestFlag(DamageFlags.Halfturret))
                             {
-                                if (_timeSinceFrozen > 60 * 2) // todo: FPS stuff
-                                {
-                                    int time = (_scene.GameState.Multiplayer || attacker != null ? 75 : 30) * 2; // todo: FPS stuff
-                                    _frozenTimer = (ushort)time;
-                                }
-                                else if (_frozenTimer < 15 * 2) // todo: FPS stuff
-                                {
-                                    _frozenTimer = 15 * 2; // todo: FPS stuff
-                                }
-                                _frozenGfxTimer = (ushort)(_frozenTimer + 5 * 2); // todo: FPS stuff
+                                _soundSource.PlaySfx(SfxId.SHOTGUN_FREEZE);
+                                _halfturret.OnFrozen();
                             }
-                            EndAltAttack();
+                            else
+                            {
+                                _soundSource.PlaySfx(SfxId.SHOTGUN_FREEZE);
+                                if (IsMainPlayer)
+                                {
+                                    ResetCombatVisor();
+                                    _drawIceLayer = true;
+                                }
+                                if (_frozenTimer == 0)
+                                {
+                                    if (balancedNoxusFreeze)
+                                    {
+                                        _frozenTimer = BalancedModeRules.AffinityControlDurationFrames;
+                                    }
+                                    else if (_timeSinceFrozen > 60 * 2)
+                                    {
+                                        int time = (_scene.GameState.Multiplayer || attacker != null ? 75 : 30) * 2;
+                                        _frozenTimer = (ushort)time;
+                                    }
+                                    else if (_frozenTimer < 15 * 2)
+                                    {
+                                        _frozenTimer = 15 * 2;
+                                    }
+                                    _frozenGfxTimer = (ushort)(_frozenTimer + 5 * 2);
+                                }
+                                EndAltAttack();
+                            }
                         }
                     }
                     if (applyBeamAfflictions && beam.Afflictions.TestFlag(Affliction.Disrupt)
                         && !flags.TestFlag(DamageFlags.Halfturret))
                     {
-                        _disruptedTimer = 60 * 2; // todo: FPS stuff
-                        if (IsMainPlayer)
+                        bool applied = balancedKandenDisrupt
+                            ? beam.EnhancedDirectHit && beam.Flags.TestFlag(BeamFlags.Charged)
+                                && ModTryBalancedDisrupt()
+                            : true;
+                        if (applied)
                         {
-                            skipSfx = true;
-                            HudOnDisrupted();
-                            _soundSource.PlaySfx(SfxId.LOB_DISRUPT);
+                            if (!balancedKandenDisrupt)
+                            {
+                                _disruptedTimer = 60 * 2;
+                            }
+                            if (IsMainPlayer)
+                            {
+                                skipSfx = true;
+                                HudOnDisrupted();
+                                _soundSource.PlaySfx(SfxId.LOB_DISRUPT);
+                            }
                         }
                     }
                     if (applyBeamAfflictions && beam.Afflictions.TestFlag(Affliction.Burn))
                     {
-                        if (flags.TestFlag(DamageFlags.Halfturret))
+                        bool allowBurn = !balancedSpireBurn
+                            || beam.EnhancedDirectHit && beam.Flags.TestFlag(BeamFlags.Charged);
+                        if (allowBurn)
                         {
-                            _halfturret.OnSetOnFire();
-                        }
-                        else // todo?: if wifi, only do this if main player
-                        {
-                            ushort time = 150 * 2; // todo: FPS stuff
-                            if (attacker != null)
+                            if (flags.TestFlag(DamageFlags.Halfturret))
                             {
-                                int encounter = _scene.GameState.EncounterState[attacker.SlotIndex];
-                                if (attacker.IsBot && _scene.GameState.SinglePlayer
-                                    && (encounter == 1 || encounter == 3 || encounter == 4))
-                                {
-                                    time = 75 * 2; // todo: FPS stuff
-                                }
+                                _halfturret.OnSetOnFire();
                             }
-                            _burnedBy = beam.Owner;
-                            _burnTimer = time;
-                            CreateBurnEffect();
+                            else
+                            {
+                                ushort time = balancedSpireBurn
+                                    ? BalancedModeRules.SpireBurnDurationFrames
+                                    : (ushort)(150 * 2);
+                                if (!balancedSpireBurn && attacker != null)
+                                {
+                                    int encounter = _scene.GameState.EncounterState[attacker.SlotIndex];
+                                    if (attacker.IsBot && _scene.GameState.SinglePlayer
+                                        && (encounter == 1 || encounter == 3 || encounter == 4))
+                                    {
+                                        time = 75 * 2;
+                                    }
+                                }
+                                _burnedBy = beam.Owner;
+                                _burnTimer = time;
+                                CreateBurnEffect();
+                            }
                         }
                     }
-                }
                 if (!skipSfx && !flags.TestFlag(DamageFlags.NoSfx))
                 {
                     PlayHunterSfx(HunterSfx.Damage);

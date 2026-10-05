@@ -4,6 +4,7 @@ using System.Diagnostics;
 using MphRead.Entities.Enemies;
 using MphRead.Formats;
 using MphRead.Formats.Culling;
+using MphRead.Mods.Multiplayer;
 using MphRead.Sound;
 using MphRead.Text;
 using OpenTK.Mathematics;
@@ -345,6 +346,7 @@ namespace MphRead.Entities
             {
                 _disruptedTimer--;
             }
+            ModTickBalancedAffinityState();
             if (_scene.GameState.Mode == GameMode.Survival || _scene.GameState.Mode == GameMode.SurvivalTeams || _scene.GameState.Mode == GameMode.OneInTheChamber)
             {
                 if (Flags2.TestFlag(PlayerFlags2.RadarReveal))
@@ -1273,7 +1275,13 @@ namespace MphRead.Entities
             if (_burnTimer > 0)
             {
                 _burnTimer--;
-                if (_burnTimer % (8 * 2) == 0) // todo:FPS stuff
+                bool balancedSpireBurn = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                    && _burnedBy is PlayerEntity burnOwner
+                    && burnOwner.Hunter == Hunter.Spire
+                    && BalancedModeRules.IsAffinity(burnOwner.Hunter, BeamType.Magmaul);
+                int burnTickFrames = balancedSpireBurn
+                    ? BalancedModeRules.SpireBurnTickFrames : 8 * 2;
+                if (_burnTimer % burnTickFrames == 0) // todo:FPS stuff
                 {
                     TakeDamage(1, DamageFlags.NoSfx | DamageFlags.Burn | DamageFlags.NoDmgInvuln, direction: null, _burnedBy);
                 }
@@ -1628,10 +1636,7 @@ namespace MphRead.Entities
                 ShowDialog(DialogType.Event, messageId: 5, param1: weaponId, value1: value1, value2: value2);
             }
             WeaponInfo info = _scene.WeaponRules[(int)weapon];
-            if (_ammo[info.AmmoType] < 60)
-            {
-                _ammo[info.AmmoType] = Math.Min(_ammo[info.AmmoType] + 60, 60);
-            }
+            ModRefillWeaponPickupAmmo(weapon, info);
             if (!_availableWeapons[weapon])
             {
                 _availableWeapons[weapon] = true;

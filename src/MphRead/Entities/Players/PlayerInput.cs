@@ -1,6 +1,7 @@
 using System;
 using MphRead.Formats;
 using MphRead.Mods.Network;
+using MphRead.Mods.Multiplayer;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
@@ -1088,11 +1089,7 @@ namespace MphRead.Entities
                             EquipInfo.ChargeLevel = 0;
                         }
                     }
-                    if (CurrentWeapon == BeamType.Battlehammer && Controls.Zoom.IsPressed)
-                    {
-                        TryBattlehammerAirburst();
-                    }
-                    else if (EquipWeapon.Flags.TestFlag(WeaponFlags.CanZoom))
+                    if (EquipWeapon.Flags.TestFlag(WeaponFlags.CanZoom))
                     {
                         if (Controls.Zoom.IsPressed)
                         {
@@ -1142,9 +1139,15 @@ namespace MphRead.Entities
                                 zoomFov = Mods.InputSettings.ScaleImperialistZoomFov(normalFov, zoomFov);
                             }
                             float currentFov = CameraInfo.Fov;
+                            float zoomStep = 2 * 2;
+                            if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                                && BalancedModeRules.IsAffinity(Hunter, CurrentWeapon))
+                            {
+                                zoomStep *= BalancedModeRules.ScopeVisualSpeed(Hunter, CurrentWeapon);
+                            }
                             if (zoomFov > currentFov)
                             {
-                                currentFov += 2 * 2;
+                                currentFov += zoomStep;
                                 if (currentFov > zoomFov)
                                 {
                                     currentFov = zoomFov;
@@ -1152,7 +1155,7 @@ namespace MphRead.Entities
                             }
                             else if (zoomFov < currentFov)
                             {
-                                currentFov -= 2 * 2;
+                                currentFov -= zoomStep;
                                 if (currentFov < zoomFov)
                                 {
                                     currentFov = zoomFov;
@@ -1250,40 +1253,6 @@ namespace MphRead.Entities
                     SetBiped2Animation(anim2, animFlags2);
                 }
             }
-        }
-
-        private bool TryBattlehammerAirburst()
-        {
-            // Detonate only the newest live shell. If it is still inside the
-            // short arming window, do not fall back to an older projectile;
-            // that keeps secondary fire from becoming an instant point-blank
-            // shotgun while making the selected shell deterministic on every
-            // machine simulating the same player.
-            BeamProjectileEntity? newest = null;
-            float newestAge = Single.MaxValue;
-            foreach (BeamProjectileEntity beam in EquipInfo.Beams)
-            {
-                if (beam.Beam != BeamType.Battlehammer || beam.BattlehammerClusterChild
-                    || beam.Owner != this || beam.Lifespan <= 0
-                    || beam.Flags.TestFlag(BeamFlags.Collided))
-                {
-                    continue;
-                }
-                if (beam.Age < newestAge)
-                {
-                    newest = beam;
-                    newestAge = beam.Age;
-                }
-            }
-            if (newest?.TryBattlehammerAirburst(this) != true)
-            {
-                return false;
-            }
-            if (IsMainPlayer)
-            {
-                ModControllerFeedback(Mods.Input.GamepadFeedback.Explosion);
-            }
-            return true;
         }
 
         private bool TryFireWeapon()
@@ -1810,6 +1779,10 @@ namespace MphRead.Entities
                             }
                             float traction = Fixed.ToFloat(Values.StrafeBipedTraction)
                             * Controls.AnalogScaleX(sign);
+                            if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                            {
+                                traction = BalancedModeRules.ScaleAltTraction(Hunter, traction);
+                            }
                             if (_jumpPadControlLockMin > 0)
                             {
                                 traction *= Fixed.ToFloat(Values.JumpPadSlideFactor);
@@ -1840,6 +1813,10 @@ namespace MphRead.Entities
                             }
                             float traction = Fixed.ToFloat(Values.WalkBipedTraction)
                             * Controls.AnalogScaleY(sign);
+                            if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                            {
+                                traction = BalancedModeRules.ScaleAltTraction(Hunter, traction);
+                            }
                             if (_jumpPadControlLockMin > 0)
                             {
                                 traction *= Fixed.ToFloat(Values.JumpPadSlideFactor);
@@ -1886,6 +1863,10 @@ namespace MphRead.Entities
                 {
                     // Samus, Kanden, Spire, Noxus
                     float traction = Fixed.ToFloat(Values.RollAltTraction);
+                    if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                    {
+                        traction = BalancedModeRules.ScaleAltTraction(Hunter, traction);
+                    }
                     if (_jumpPadControlLockMin > 0)
                     {
                         traction *= Fixed.ToFloat(Values.JumpPadSlideFactor);
@@ -1933,6 +1914,10 @@ namespace MphRead.Entities
                         else
                         {
                             float normalSpeed = Fixed.ToFloat(Values.AltMinHSpeed);
+                            if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                            {
+                                normalSpeed = BalancedModeRules.ScaleAltSpeedCap(Hunter, normalSpeed);
+                            }
                             if (Mods.Input.AltFormGesture.TryPrecisionVelocity(
                                 Speed.X, Speed.Z, driveX, driveZ, normalSpeed,
                                 out float preciseX, out float preciseZ))
@@ -1967,6 +1952,10 @@ namespace MphRead.Entities
                             // tick is ~0.045; use 1.25x that and allow at most
                             // ~10% above normal rolling speed.
                             float normalCap = Fixed.ToFloat(Values.AltMinHSpeed);
+                            if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                            {
+                                normalCap = BalancedModeRules.ScaleAltSpeedCap(Hunter, normalCap);
+                            }
                             float slightCap = normalCap * 1.10f;
                             if (_hSpeedCap < slightCap)
                             {
@@ -2586,6 +2575,10 @@ namespace MphRead.Entities
                 if (IsAltForm)
                 {
                     float altMin = Fixed.ToFloat(Values.AltMinHSpeed); // todo: FPS stuff?
+                    if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                    {
+                        altMin = BalancedModeRules.ScaleAltSpeedCap(Hunter, altMin);
+                    }
                     if (Hunter == Hunter.Spire && Mods.EnhancedHunters.EnhancedHunters.Enabled(this))
                         foreach (var zone in _scene.EnhancedWorld.Zones)
                             if (zone.Type == Mods.EnhancedHunters.EnhancedZoneType.MagmaPool

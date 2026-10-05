@@ -96,6 +96,7 @@ namespace MphRead
         public string InstaGib { get; set; } = "off";
         public string LowTier { get; set; } = "off";
         public string NoImperialist { get; set; } = "off";
+        public string BalancedMode { get; set; } = "off";
         public string ShadowFreeze { get; set; } = "off";
         public string SpawnProtection { get; set; } = "off";
         public string SaveSlot { get; set; } = "none";
