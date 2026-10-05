@@ -104,6 +104,7 @@ internal static class ReplayWorldSchemas
             "_tickedHealthRecovery",
             "_ammoMax",
             "_ammo",
+            "_balancedImperialistAmmo",
             "_ammoRecovery",
             "_tickedAmmoRecovery",
             "_weaponSlots",
