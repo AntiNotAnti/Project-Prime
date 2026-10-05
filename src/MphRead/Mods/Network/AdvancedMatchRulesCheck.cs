@@ -511,8 +511,7 @@ namespace MphRead.Mods.Network
                 var impact = new CollisionResult
                 {
                     Position = parent!.Position + Vector3.UnitZ,
-                    Plane = new Vector4(Vector3.UnitY, 0),
-                    Terrain = Terrain.Metal
+                    Plane = new Vector4(Vector3.UnitY, 0)
                 };
                 Check(parent.TryBattlehammerImpactCluster(impact), "Battlehammer terrain hit creates an impact cluster");
                 var children = weavel.EquipInfo.Beams.Where(b => b.Owner == weavel
