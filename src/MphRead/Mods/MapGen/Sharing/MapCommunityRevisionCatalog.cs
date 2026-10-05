@@ -26,7 +26,7 @@ public sealed record CommunityMapRevision(
 /// </summary>
 public sealed record CommunityMapProject(
     Guid MapId,
-    string? OwnerId,
+    string OwnerId,
     string Name,
     string? DisplayName,
     string? Author,
@@ -209,7 +209,7 @@ internal sealed class MapCommunityRevisionCatalog
 
             return new CommunityMapProject(
                 mapId,
-                revealCreatorIdentity ? project.OwnerId : null,
+                project.OwnerId,
                 presentation.Name,
                 presentation.DisplayName,
                 presentation.Author,
