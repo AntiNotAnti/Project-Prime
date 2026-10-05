@@ -128,7 +128,7 @@ namespace MphRead.Mods.Network
                 var impactNear = impactA with
                 {
                     DamageEventId = 11, VictimSlot = 2,
-                    ImpactPoint = impactA.ImpactPoint + new OpenTK.Mathematics.Vector3(.1f, 0, 0)
+                    ImpactPoint = impactA.ImpactPoint + new OpenTK.Mathematics.Vector3(.05f, 0, 0)
                 };
                 var impactFar = impactNear with
                 {
