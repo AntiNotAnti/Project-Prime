@@ -252,19 +252,9 @@ internal sealed class ReplayPoseStream : IDisposable
                 uint shotFrame = candidate.FireRecordingFrame != 0
                     ? candidate.FireRecordingFrame : candidate.RecordingFrame;
 
-                if (direction == 0)
-                {
-                    // A timeline WeaponFired marker has no ShotId. Only call the
-                    // association exact when the repeated FireEvent independently
-                    // proves the same authored recording frame. For kill/damage
-                    // markers, the mapped resolve frame is the exact key.
-                    bool exact = weapon >= 0
-                        ? candidate.HasFire && shotFrame == anchorFrame
-                        : candidate.RecordingFrame == anchorFrame;
-                    if (!exact) continue;
-                }
-                else if (direction < 0 && shotFrame >= anchorFrame
-                    || direction > 0 && shotFrame <= anchorFrame)
+                if (!DiagnosticFrameMatches(anchorFrame, weapon, direction,
+                    candidate.HasFire, candidate.FireRecordingFrame,
+                    candidate.RecordingFrame))
                 {
                     continue;
                 }
@@ -280,6 +270,21 @@ internal sealed class ReplayPoseStream : IDisposable
             }
         }
         return found;
+    }
+
+    internal static bool DiagnosticFrameMatches(uint anchorFrame, int weapon,
+        int direction, bool hasFire, uint fireFrame, uint resolveFrame)
+    {
+        uint shotFrame = hasFire && fireFrame != 0 ? fireFrame : resolveFrame;
+        if (direction == 0)
+        {
+            // Timeline weapon markers do not carry ShotId, so an exact fire-frame
+            // match is required before attributing a later ReplayShotFact.
+            return weapon >= 0
+                ? hasFire && fireFrame == anchorFrame
+                : resolveFrame == anchorFrame;
+        }
+        return direction < 0 ? shotFrame < anchorFrame : shotFrame > anchorFrame;
     }
 
     internal bool TryCombatDiagnostic(in ReplayCombatDiagnostics.Selection selection,
