@@ -1561,7 +1561,9 @@ namespace MphRead.Entities
         /// Universal ammo and missiles, as the owner's own machine counts
         /// them.
         /// </summary>
-        internal (int Ua, int Missiles) ModAmmo => (_ammo[UA], _ammo[Missiles]);
+        internal (int Ua, int Missiles) ModAmmo
+            => (UsesBalancedImperialistAmmo(CurrentWeapon) ? _balancedImperialistAmmo : _ammo[UA],
+                _ammo[Missiles]);
 
         /// <summary>
         /// Put a remote player's ammo where its owner says it is.
@@ -1777,7 +1779,14 @@ namespace MphRead.Entities
             if (_scene.GameState.OneInTheChamber) return; // Only spawn, confirmed kills and authority ammo facts own this pool.
             // -1 is the engine's "infinite" marker; a puppet must not be
             // handed one by a malformed packet.
-            _ammo[UA] = Math.Clamp(ua, 0, _ammoMax[UA]);
+            if (UsesBalancedImperialistAmmo(CurrentWeapon))
+            {
+                _balancedImperialistAmmo = Math.Clamp(ua, 0, BalancedImperialistAmmoCap);
+            }
+            else
+            {
+                _ammo[UA] = Math.Clamp(ua, 0, _ammoMax[UA]);
+            }
             _ammo[Missiles] = Math.Clamp(missiles, 0, _ammoMax[Missiles]);
         }
 
