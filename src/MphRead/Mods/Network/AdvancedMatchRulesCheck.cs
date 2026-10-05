@@ -70,6 +70,7 @@ namespace MphRead.Mods.Network
                 CheckBalancedImpScene();
                 CheckBalancedRangeScene();
                 CheckBalancedHunterScene();
+                CheckBalancedAffinityScene();
                 Console.WriteLine($"[advanced-rules-scene] PASS {_checks} checks"); return 0;
             }
             catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
@@ -235,8 +236,8 @@ namespace MphRead.Mods.Network
                 direct = headshot = splash = 4; splashType = 0;
                 BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Battlehammer,
                     true, ref direct, ref headshot, ref splash, ref splashType);
-                Check(direct == 6 && headshot == 6 && splash == 3,
-                    "Balanced Battlehammer bomblet rewards direct contact over splash");
+                Check(direct == 5 && headshot == 5 && splash == 3,
+                    "Balanced Battlehammer impact child rewards direct contact over splash");
 
                 direct = headshot = 32; splash = 16; splashType = 3;
                 BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Magmaul,
@@ -255,12 +256,6 @@ namespace MphRead.Mods.Network
                     false, ref direct, ref headshot, ref splash, ref splashType);
                 Check(direct == 24 && headshot == 32 && splash == 9 && splashType == 0,
                     "Balanced Judicator keeps precision damage and reduces splash to 9");
-
-                direct = 18; headshot = 18; splash = 10; splashType = 0;
-                BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Battlehammer,
-                    false, ref direct, ref headshot, ref splash, ref splashType);
-                Check(direct == 23 && splash == 8,
-                    "Battlehammer affinity delta is retained for the later affinity-normalization slice");
 
                 scene.GameState.BalancedMode = false;
                 direct = 14; headshot = 14; splash = 6; splashType = 3;
@@ -354,6 +349,205 @@ namespace MphRead.Mods.Network
                 spire.Health = spire.HealthMax;
                 spire.TakeDamage(200, combat | DamageFlags.Headshot, null, samus);
                 Check(spire.Health == 0, "headshots bypass Balanced durability and preserve the 200-damage lethal breakpoint");
+            }
+            finally { sim.Stop(); NetSession.Stop(); }
+        }
+
+        private static void CheckBalancedAffinityScene()
+        {
+            const string room = "MP1 SANCTORUS";
+            var match = new MatchDefinition { RoomKey = room, Mode = GameMode.Battle,
+                BalancedMode = true, TimeLimitSeconds = 600, PointGoal = 100 };
+            var session = new SessionStatePacket { MatchId = 1, AuthorityEpoch = 1, MaxPlayers = 8,
+                Phase = SessionPhase.InMatch, Match = match, WorldProfile = MatchWorldProfile.Resolve(8) };
+            Hunter[] hunters = { Hunter.Samus, Hunter.Kanden, Hunter.Trace, Hunter.Sylux,
+                Hunter.Noxus, Hunter.Spire, Hunter.Weavel };
+            var roster = RosterPacket.Create(); roster.Count = (byte)hunters.Length;
+            roster.MatchId = 1; roster.AuthorityEpoch = 1; roster.Revision = 1;
+            for (byte slot = 0; slot < hunters.Length; slot++)
+            {
+                roster.Slots[slot] = slot; roster.Generations[slot] = 1;
+                roster.Names[slot] = hunters[slot].ToString();
+                roster.Hunters[slot] = (byte)hunters[slot]; roster.Teams[slot] = -1;
+            }
+
+            var sim = new ServerSim();
+            try
+            {
+                Check(sim.Start(room, GameMode.Battle, 8, _ => { }, () => { }, roster, session),
+                    "Balanced affinity world loads");
+                NetSlotManager.Sync();
+                var samus = PlayerEntity.Players[0];
+                var kanden = PlayerEntity.Players[1];
+                var trace = PlayerEntity.Players[2];
+                var sylux = PlayerEntity.Players[3];
+                var noxus = PlayerEntity.Players[4];
+                var spire = PlayerEntity.Players[5];
+                var weavel = PlayerEntity.Players[6];
+                var scene = samus.OwningScene;
+                foreach (var player in new[] { samus, kanden, trace, sylux, noxus, spire, weavel })
+                    player.Spawn(player.Position, Vector3.UnitZ, Vector3.UnitY, player.NodeRef, respawn: false);
+
+                WeaponInfo missile = scene.WeaponRules[(int)BeamType.Missile];
+                WeaponInfo samusMissile = scene.WeaponRules[(int)BeamType.Missile + 9];
+                Check(missile.UnchargedDamage == samusMissile.UnchargedDamage
+                    && missile.ChargedDamage == samusMissile.ChargedDamage
+                    && samusMissile.ChargedHoming > missile.ChargedHoming,
+                    "Samus affinity keeps missile damage stock and reserves its bonus for charged homing");
+
+                Check(MathF.Abs(BalancedModeRules.ScopeVisualSpeed(Hunter.Trace, BeamType.Imperialist) - 1.20f) < 0.001f,
+                    "Trace affinity only accelerates the Imperialist visual scope transition");
+                WeaponInfo imp = scene.WeaponRules[(int)BeamType.Imperialist];
+                WeaponInfo traceImp = scene.WeaponRules[(int)BeamType.Imperialist + 9];
+                Check(imp.UnchargedDamage == traceImp.UnchargedDamage
+                    && imp.HeadshotDamage == traceImp.HeadshotDamage
+                    && imp.ShotCooldown == traceImp.ShotCooldown,
+                    "Trace affinity has no raw Imperialist damage or fire-rate bonus");
+
+                var disrupt = new BeamProjectileEntity(scene)
+                {
+                    Owner = kanden, Beam = BeamType.VoltDriver, BeamKind = BeamType.VoltDriver,
+                    Flags = BeamFlags.Charged, Afflictions = Affliction.Disrupt, EnhancedDirectHit = true
+                };
+                trace.Health = 199;
+                trace.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, disrupt);
+                ushort disrupted = (ushort)typeof(PlayerEntity).GetField("_disruptedTimer",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(trace)!;
+                Check(disrupted == BalancedModeRules.AffinityControlDurationFrames,
+                    "Kanden charged direct hit disrupts for 1.25 seconds");
+                typeof(PlayerEntity).GetField("_disruptedTimer", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(trace, (ushort)0);
+                trace.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, disrupt);
+                disrupted = (ushort)typeof(PlayerEntity).GetField("_disruptedTimer",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(trace)!;
+                Check(disrupted == 0 && trace.ModBalancedDisruptImmunityTimer > 0,
+                    "Kanden disrupt cannot immediately chain through its immunity window");
+                trace.ModResetBalancedAffinityState();
+                disrupt.EnhancedDirectHit = false;
+                trace.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, disrupt);
+                disrupted = (ushort)typeof(PlayerEntity).GetField("_disruptedTimer",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(trace)!;
+                Check(disrupted == 0, "Kanden disrupt does not apply from charged splash");
+
+                Check(sylux.ModBalancedLifeDrainHeal(10) == 4
+                    && sylux.ModBalancedLifeDrainHeal(10) == 4
+                    && sylux.ModBalancedLifeDrainHeal(10) == 0,
+                    "Sylux affinity heals 40 percent of actual damage with an 8 HP per-second cap");
+
+                var freeze = new BeamProjectileEntity(scene)
+                {
+                    Owner = noxus, Beam = BeamType.Judicator, BeamKind = BeamType.Judicator,
+                    Flags = BeamFlags.Charged, Afflictions = Affliction.Freeze, EnhancedDirectHit = true
+                };
+                samus.Health = 199;
+                typeof(PlayerEntity).GetField("_timeSinceFrozen", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(samus, (ushort)255);
+                samus.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, freeze);
+                ushort frozen = (ushort)typeof(PlayerEntity).GetField("_frozenTimer",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(samus)!;
+                Check(frozen == BalancedModeRules.AffinityControlDurationFrames,
+                    "Noxus affinity freeze lasts 1.25 seconds");
+                typeof(PlayerEntity).GetField("_frozenTimer", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(samus, (ushort)0);
+                typeof(PlayerEntity).GetField("_timeSinceFrozen", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(samus, (ushort)0);
+                samus.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, freeze);
+                frozen = (ushort)typeof(PlayerEntity).GetField("_frozenTimer",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(samus)!;
+                Check(frozen == 0, "Noxus freeze honors the post-thaw immunity window");
+
+                WeaponInfo noxAffinity = scene.WeaponRules[(int)BeamType.Judicator + 9];
+                var noxEquip = new EquipInfo(noxAffinity, noxus.EquipInfo.Beams)
+                {
+                    InfiniteAmmo = true,
+                    ChargeLevel = (ushort)(noxAffinity.FullCharge * 2)
+                };
+                BeamProjectileEntity.Spawn(noxus, noxEquip, noxus.Position.AddY(1), Vector3.UnitZ,
+                    BeamSpawnFlags.NoMuzzle, noxus.NodeRef, scene);
+                BeamProjectileEntity? freezeBolt = noxEquip.Beams.FirstOrDefault(b =>
+                    b.Owner == noxus && b.Beam == BeamType.Judicator && b.Flags.TestFlag(BeamFlags.Charged)
+                    && b.Lifespan > 0);
+                Check(freezeBolt != null && MathF.Abs(freezeBolt.Speed - 1.25f) < 0.001f
+                    && MathF.Abs(freezeBolt.MaxDistance - 12f) < 0.001f
+                    && freezeBolt.SplashDamage == 0 && freezeBolt.Afflictions.TestFlag(Affliction.Freeze),
+                    "Noxus charged affinity is a direct freeze bolt instead of the instant ice-wave cone");
+
+                var burn = new BeamProjectileEntity(scene)
+                {
+                    Owner = spire, Beam = BeamType.Magmaul, BeamKind = BeamType.Magmaul,
+                    Flags = BeamFlags.Charged, Afflictions = Affliction.Burn, EnhancedDirectHit = true
+                };
+                samus.Health = 199;
+                typeof(PlayerEntity).GetField("_burnTimer", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(samus, (ushort)0);
+                samus.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, burn);
+                ushort burnTimer = (ushort)typeof(PlayerEntity).GetField("_burnTimer",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(samus)!;
+                Check(burnTimer == BalancedModeRules.SpireBurnDurationFrames
+                    && BalancedModeRules.SpireBurnDurationFrames / BalancedModeRules.SpireBurnTickFrames == 6,
+                    "Spire charged direct hit applies a three-second six-damage burn");
+                typeof(PlayerEntity).GetField("_burnTimer", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .SetValue(samus, (ushort)0);
+                burn.EnhancedDirectHit = false;
+                samus.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, burn);
+                burnTimer = (ushort)typeof(PlayerEntity).GetField("_burnTimer",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(samus)!;
+                Check(burnTimer == 0, "Spire burn does not apply from splash");
+
+                var pickup = typeof(PlayerEntity).GetMethod("PickUpWeapon",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!;
+                pickup.Invoke(weavel, new object[] { ItemType.Battlehammer });
+                weavel.ModSetWeapon(BeamType.Battlehammer);
+                Check(ReferenceEquals(weavel.EquipInfo.Weapon, scene.WeaponRules[(int)BeamType.Battlehammer]),
+                    "Balanced Weavel uses stock Battlehammer ammo and cadence metadata");
+
+                BeamProjectileEntity.Spawn(weavel, weavel.EquipInfo, weavel.Position.AddY(1), Vector3.UnitZ,
+                    BeamSpawnFlags.NoMuzzle, weavel.NodeRef, scene);
+                BeamProjectileEntity? parent = weavel.EquipInfo.Beams.FirstOrDefault(b =>
+                    b.Owner == weavel && b.Beam == BeamType.Battlehammer
+                    && !b.BattlehammerClusterChild && b.Lifespan > 0);
+                Check(parent != null && parent.Damage == 18 && parent.SplashDamage == 5,
+                    "Balanced Weavel Battlehammer shares the normal 18/5 damage budget");
+                var impact = new CollisionResult
+                {
+                    Position = parent!.Position + Vector3.UnitZ,
+                    Plane = new Vector4(Vector3.UnitY, 0),
+                    Terrain = Terrain.Metal
+                };
+                Check(parent.TryBattlehammerImpactCluster(impact), "Battlehammer terrain hit creates an impact cluster");
+                var children = weavel.EquipInfo.Beams.Where(b => b.Owner == weavel
+                    && b.BattlehammerClusterChild && b.Lifespan > 0).ToArray();
+                Check(children.Length == 3 && children.All(b => b.Damage == 5 && b.SplashDamage == 3
+                    && MathF.Abs(b.Lifespan - 0.40f) < 0.001f),
+                    "impact cluster creates three short-hop 5-direct/3-splash children");
+                Check(children.All(b => MathF.Abs(b.SplashRadius - 1.38f) < 0.01f
+                    && MathF.Abs(b.DamageDirMag - 0.216f) < 0.01f),
+                    "Weavel affinity widens cluster coverage and adds 20 percent knockback without extra damage");
+
+                scene.GameState.BalancedMode = false;
+                weavel.ModSetWeapon(BeamType.PowerBeam);
+                weavel.ModSetWeapon(BeamType.Battlehammer);
+                Check(ReferenceEquals(weavel.EquipInfo.Weapon,
+                        scene.WeaponRules[(int)BeamType.Battlehammer + 9]),
+                    "non-Balanced Weavel restores the stock affinity Battlehammer metadata");
+
+                pickup.Invoke(samus, new object[] { ItemType.Battlehammer });
+                samus.ModSetWeapon(BeamType.Battlehammer);
+                BeamProjectileEntity.Spawn(samus, samus.EquipInfo, samus.Position.AddY(1), Vector3.UnitZ,
+                    BeamSpawnFlags.NoMuzzle, samus.NodeRef, scene);
+                BeamProjectileEntity? stock = samus.EquipInfo.Beams.FirstOrDefault(b =>
+                    b.Owner == samus && b.Beam == BeamType.Battlehammer && b.Lifespan > 0);
+                Check(stock != null && stock.Damage == 12 && stock.SplashDamage == 8
+                    && MathF.Abs(stock.SplashRadius - 1.5f) < 0.001f,
+                    "Battlehammer is fully stock outside Balanced Mode");
+                var stockImpact = new CollisionResult
+                {
+                    Position = stock!.Position + Vector3.UnitZ,
+                    Plane = new Vector4(Vector3.UnitY, 0),
+                    Terrain = Terrain.Metal
+                };
+                Check(!stock.TryBattlehammerImpactCluster(stockImpact),
+                    "stock Battlehammer never creates impact-cluster children");
             }
             finally { sim.Stop(); NetSession.Stop(); }
         }
