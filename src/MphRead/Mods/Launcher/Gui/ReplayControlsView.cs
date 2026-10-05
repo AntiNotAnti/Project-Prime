@@ -937,7 +937,9 @@ namespace MphRead.Mods.Launcher.Gui
                 ? selected.ActorSlot : -1;
             int weapon = selected.Type == ReplayEventType.WeaponFired
                 ? selected.Value : -1;
-            if (poses.TryCombatDiagnostic(selected.Frame, shooter, weapon,
+            int victim = selected.TargetSlot < PlayerEntity.SlotCapacity
+                ? selected.TargetSlot : -1;
+            if (poses.TryCombatDiagnostic(selected.Frame, shooter, victim, weapon,
                 direction: 0, out var diagnostic))
             {
                 ReplayCombatDiagnostics.Select(diagnostic);
