@@ -171,9 +171,13 @@ the shooter's frame counter and the recorder's frame counter share an epoch. A l
 shot maps exactly; a remotely recovered shot regains the frames lost to the missing
 carrier while preserving the recorder's observed clock offset. On that scheduled
 frame the replica uses the event's weapon, charge, kind, continuous phase and scoped
-Imperialist state, while the carrier supplies bounded ammo/target state. Event-capable
-lives gate inferred shooting, so held input or redundant press history cannot create
-extra projectiles. Legacy protocols remain on input reconstruction.
+Imperialist state. Because the event proves a live projectile successfully spawned,
+replay presentation may bypass a stale reconstructed ammo/cooldown refusal without
+importing a later carrier's ammo count. Carrier target state is reused only when that
+carrier was authored on the same source frame; a recovered event never borrows a
+future Volt/Shock target. Event-capable lives gate inferred shooting, so held input or
+redundant press history cannot create extra projectiles. Legacy protocols remain on
+input reconstruction.
 
 Fire scheduling is scene-local rather than using live `NetFireEvents` static state,
 so interleaved replays, killcams and the foreground match cannot contaminate one
