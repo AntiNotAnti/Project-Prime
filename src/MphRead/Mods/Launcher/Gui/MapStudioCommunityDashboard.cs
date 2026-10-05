@@ -751,7 +751,8 @@ internal sealed partial class MapStudioScreen
                                 allowStaleParent: true);
                         else
                             PublishCurrent(selectedVisibility, releaseNotes,
-                                mapId, existingMap: true, expectedParentHash,
+                                mapId, existingMap: true,
+                                expectedParentHash: expectedParentHash,
                                 allowStaleParent: true);
                     },
                     compact: true));
@@ -776,7 +777,8 @@ internal sealed partial class MapStudioScreen
                 conflictActions.Children.Add(new PrimeButton(
                     "UPLOAD AS REVISION",
                     () => PublishCurrent(selectedVisibility, releaseNotes,
-                        mapId, existingMap: true, conflict.LatestHash,
+                        mapId, existingMap: true,
+                        expectedParentHash: conflict.LatestHash,
                         allowStaleParent: false),
                     compact: true));
             }
