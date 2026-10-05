@@ -397,6 +397,28 @@ namespace MphRead.Mods.Network
                     && !ReplayIdentityCompatibility.Supports(NetConfig.ProtocolVersion + 1),
                     "replay protocol compatibility range");
 
+                // Protocol 30-37 FireEvents carried timing/weapon state but no
+                // source shot pose. Upgrade the stride without fabricating aim.
+                byte[] p37Intent = new byte[2 + IntentPacket.Protocol37FullSize];
+                p37Intent[0] = (byte)PacketType.SlotIntent;
+                p37Intent[1] = 0;
+                int p37Fire = 2 + IntentPacket.LegacyFullSize;
+                p37Intent[p37Fire] = 1;
+                int p37Event = p37Fire + 1;
+                BinaryPrimitives.WriteUInt32LittleEndian(p37Intent.AsSpan(p37Event), 77);
+                BinaryPrimitives.WriteUInt32LittleEndian(p37Intent.AsSpan(p37Event + 4), 100);
+                BinaryPrimitives.WriteUInt32LittleEndian(p37Intent.AsSpan(p37Event + 8), 90);
+                p37Intent[p37Event + 12] = 128;
+                p37Intent[p37Event + 13] = (byte)FireEventKind.PressFire;
+                p37Intent[p37Event + 14] = (byte)BeamType.Imperialist;
+                ReadOnlySpan<byte> p37Converted = ReplayIdentityCompatibility.Convert(p37Intent, 37);
+                IntentPacket p37Read = IntentPacket.Read(p37Converted[2..]);
+                Require(p37Converted.Length == 2 + IntentPacket.FullSize
+                    && p37Read.HasFireEvents && p37Read.FireEventCount == 1
+                    && p37Read.FireEvents[0].ShotId == 77
+                    && !p37Read.FireEvents[0].HasPose,
+                    "protocol 37 FireEvent upgrades without invented shot pose");
+
                 // Original Fruity Prime v1 was FPDM + elapsed milliseconds +
                 // uncompressed length-prefixed packets. Preserve it forever by
                 // rounding its wall clock onto the 60 Hz replay timeline.
