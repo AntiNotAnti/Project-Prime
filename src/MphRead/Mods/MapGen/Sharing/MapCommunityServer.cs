@@ -292,6 +292,15 @@ public static class MapCommunityServer
             }
 
             var owner = maps.Values.FirstOrDefault(m => m.MapId == entry.MapId);
+            if (owner != null && revisionCatalog.IsProjectDeleted(entry.MapId))
+                return new PublishResult(409,
+                    Conflict: revisionUpload == null ? null : new CommunityRevisionConflict(
+                        "map_deleted", entry.MapId, revisionUpload.ExpectedParentHash,
+                        revisionCatalog.LatestHash(entry.MapId),
+                        revisionCatalog.CurrentHash(entry.MapId),
+                        revisionCatalog.LatestRevisionNumber(entry.MapId),
+                        false,
+                        "This map is in Deleted Maps. Restore it before publishing."));
             if (owner != null && !catalog.CanPublish(creator.CreatorId, owner))
                 return new PublishResult(403);
             if (owner != null) entry = entry with { OwnerId = owner.OwnerId };
@@ -775,12 +784,18 @@ public static class MapCommunityServer
                     if(parts.Length==2)
                     {
                         CommunityMap[] visible=maps.Values
-                            .Where(m=>mine ? creator!=null&&catalog.CanPublish(creator.CreatorId,m) : m.Listed&&!m.Draft)
+                            .Where(m=>mine
+                                ? creator!=null&&catalog.CanPublish(creator.CreatorId,m)
+                                : m.Listed&&!m.Draft
+                                    &&revisionCatalog.IsProjectDiscoverable(m.MapId)
+                                    &&!revisionCatalog.IsRevisionDeleted(m.Hash))
                             .Select(m=>catalog.Decorate(m,creator?.CreatorId))
                             .ToArray();
                         IEnumerable<CommunityMapProject> projects=visible
                             .GroupBy(m=>m.MapId)
-                            .Select(g=>revisionCatalog.BuildProject(g.Key,g,revealCreatorIdentity:mine))
+                            .Select(g=>revisionCatalog.BuildProject(
+                                g.Key,g,revealCreatorIdentity:mine,
+                                includeDeleted:mine))
                             .OfType<CommunityMapProject>();
                         CommunityMap Presentation(CommunityMapProject project)
                             => project.CurrentRevision?.Package ?? project.LatestRevision.Package;
@@ -813,21 +828,29 @@ public static class MapCommunityServer
                         CommunityMap[] all=maps.Values.Where(m=>m.MapId==projectId).ToArray();
                         if(all.Length==0){context.Response.StatusCode=404;return;}
                         bool canManage=creator!=null&&all.Any(m=>catalog.CanPublish(creator.CreatorId,m));
+                        if(!canManage&&!revisionCatalog.IsProjectDiscoverable(projectId))
+                        {context.Response.StatusCode=404;return;}
                         CommunityMap[] visible=all
-                            .Where(m=>canManage||m.Listed&&!m.Draft)
+                            .Where(m=>canManage
+                                ||m.Listed&&!m.Draft
+                                    &&!revisionCatalog.IsRevisionDeleted(m.Hash))
                             .Select(m=>catalog.Decorate(m,creator?.CreatorId))
                             .ToArray();
                         if(visible.Length==0){context.Response.StatusCode=404;return;}
                         if(parts.Length==3)
                         {
-                            var project=revisionCatalog.BuildProject(projectId,visible,revealCreatorIdentity:canManage);
+                            var project=revisionCatalog.BuildProject(
+                                projectId,visible,revealCreatorIdentity:canManage,
+                                includeDeleted:canManage);
                             if(project==null){context.Response.StatusCode=404;return;}
                             await Json(context.Response,project,deadline.Token);
                             return;
                         }
                         if(parts[3]=="revisions")
                         {
-                            await Json(context.Response,revisionCatalog.BuildRevisions(projectId,visible,revealCreatorIdentity:canManage),deadline.Token);
+                            await Json(context.Response,revisionCatalog.BuildRevisions(
+                                projectId,visible,revealCreatorIdentity:canManage,
+                                includeDeleted:canManage),deadline.Token);
                             return;
                         }
                     }
@@ -854,9 +877,11 @@ public static class MapCommunityServer
                     var query = context.Request.QueryString;
                     if((query["mine"]=="true"||query["favorites"]=="true")&&creator==null){context.Response.StatusCode=401;return;}
                     IEnumerable<CommunityMap> found = maps.Values
-                        .Where(m => query["mine"]=="true"
-                            ? creator!=null&&catalog.CanPublish(creator.CreatorId,m)
-                            : m.Listed&&!m.Draft)
+                        .Where(m => revisionCatalog.IsProjectDiscoverable(m.MapId)
+                            && !revisionCatalog.IsRevisionDeleted(m.Hash)
+                            && (query["mine"]=="true"
+                                ? creator!=null&&catalog.CanPublish(creator.CreatorId,m)
+                                : m.Listed&&!m.Draft))
                         .Select(m=>catalog.Decorate(m,creator?.CreatorId))
                         .Select(revisionCatalog.LegacyPresentation);
                     if(query["favorites"]=="true")found=found.Where(m=>m.Favorited);
@@ -881,6 +906,8 @@ public static class MapCommunityServer
                     {
                         var versions = maps.Values
                             .Where(m => m.MapId == id
+                                && revisionCatalog.IsProjectDiscoverable(id)
+                                && !revisionCatalog.IsRevisionDeleted(m.Hash)
                                 && (m.Listed&&!m.Draft
                                     || creator!=null&&catalog.CanPublish(creator.CreatorId,m)))
                             .Select(revisionCatalog.LegacyPresentation)
