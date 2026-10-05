@@ -17,6 +17,20 @@ internal enum ReplayHitMarkerFlags : byte
     Halfturret = 1 << 2
 }
 
+internal readonly record struct ReplayCombatDiagnostic(
+    uint RecordingFrame,
+    uint FireRecordingFrame,
+    ReplayShotFact Fact,
+    bool HasFire,
+    FireEvent Fire,
+    double AckServerFrame,
+    bool HasAckTarget,
+    Vector3 AckTargetPosition,
+    float AckImpactDistance)
+{
+    internal bool HasPose => HasFire && Fire.HasPose;
+}
+
 /// <summary>A bounded presentation cursor over accepted snapshots and intents. It keeps
 /// a short ordinary pose lookahead plus enough future intent history to recover repeated
 /// FireEvents onto their authored frame, without advancing simulation, sockets or RNG.
@@ -190,24 +204,148 @@ internal sealed class ReplayPoseStream : IDisposable
     }
 
     internal bool TryAuthoredFire(in ReplayShotFact fact, out FireEvent fire)
+        => TryAuthoredFire(fact, out fire, out _);
+
+    private bool TryAuthoredFire(in ReplayShotFact fact, out FireEvent fire,
+        out uint recordingFrame)
     {
-        foreach (var list in _fires.Values)
-            foreach (var scheduled in list)
+        foreach (var pair in _fires)
+            foreach (var scheduled in pair.Value)
                 if (scheduled.Slot == fact.ShooterSlot
                     && scheduled.Generation == fact.ShooterGeneration
                     && scheduled.Life == fact.ShooterLifeId
                     && scheduled.Event.ShotId == fact.ShotId)
                 {
                     fire = scheduled.Event;
+                    recordingFrame = scheduled.RecordingFrame;
                     return true;
                 }
         fire = default;
+        recordingFrame = 0;
         return false;
     }
 
     internal bool SupportsResolvedShotFacts
     {
         get { Prepare(); return _supportsShotFacts; }
+    }
+
+    internal bool TryCombatDiagnostic(uint anchorFrame, int shooterSlot,
+        int weapon, int direction, out ReplayCombatDiagnostic diagnostic)
+    {
+        diagnostic = default;
+        if (!Prepare() || !_supportsShotFacts) return false;
+
+        long bestDistance = long.MaxValue;
+        bool found = false;
+        foreach (var pair in _resolvedShotFacts)
+        {
+            foreach (var fact in pair.Value)
+            {
+                if (shooterSlot >= 0 && fact.ShooterSlot != shooterSlot
+                    || weapon >= 0 && fact.Weapon != weapon
+                    || !TryBuildCombatDiagnostic(pair.Key, fact, out var candidate))
+                {
+                    continue;
+                }
+
+                uint shotFrame = candidate.FireRecordingFrame != 0
+                    ? candidate.FireRecordingFrame : candidate.RecordingFrame;
+                if (direction < 0 && shotFrame >= anchorFrame
+                    || direction > 0 && shotFrame <= anchorFrame)
+                {
+                    continue;
+                }
+
+                long distance = Math.Abs((long)shotFrame - anchorFrame);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    diagnostic = candidate;
+                    found = true;
+                }
+            }
+        }
+        return found;
+    }
+
+    internal bool TryCombatDiagnostic(in ReplayCombatDiagnostics.Selection selection,
+        out ReplayCombatDiagnostic diagnostic)
+    {
+        diagnostic = default;
+        if (!Prepare() || !_supportsShotFacts) return false;
+        foreach (var pair in _resolvedShotFacts)
+            foreach (var fact in pair.Value)
+                if (selection.Matches(fact)
+                    && TryBuildCombatDiagnostic(pair.Key, fact, out diagnostic))
+                {
+                    return true;
+                }
+        return false;
+    }
+
+    internal IReadOnlyList<ReplayCombatDiagnostic> CombatDiagnosticsAt(uint frame)
+    {
+        if (!Prepare() || !_supportsShotFacts
+            || !_resolvedShotFacts.TryGetValue(frame, out var facts)
+            || facts.Count == 0)
+        {
+            return Array.Empty<ReplayCombatDiagnostic>();
+        }
+        var result = new List<ReplayCombatDiagnostic>(facts.Count);
+        foreach (var fact in facts)
+            if (TryBuildCombatDiagnostic(frame, fact, out var diagnostic))
+                result.Add(diagnostic);
+        return result;
+    }
+
+    private bool TryBuildCombatDiagnostic(uint recordingFrame,
+        in ReplayShotFact fact, out ReplayCombatDiagnostic diagnostic)
+    {
+        bool hasFire = TryAuthoredFire(fact, out FireEvent fire, out uint fireFrame);
+        double ack = hasFire && fire.AckFrame != 0
+            ? fire.AckFrame + fire.AckSubFrame / 256d : double.NaN;
+        bool hasAckTarget = double.IsFinite(ack)
+            && TrySampleServerLifeAt(fact.VictimSlot, ack,
+                fact.VictimGeneration, fact.VictimLifeId, out Vector3 ackPosition);
+        if (!hasAckTarget) ackPosition = default;
+        float delta = hasAckTarget
+            ? Vector3.Distance(ackPosition, fact.ImpactPoint) : float.NaN;
+        diagnostic = new(recordingFrame, fireFrame, fact, hasFire, fire,
+            ack, hasAckTarget, ackPosition, delta);
+        return true;
+    }
+
+    private bool TrySampleServerLifeAt(int slot, double serverFrame,
+        ushort generation, ushort life, out Vector3 position)
+    {
+        position = default;
+        if ((uint)slot >= PlayerEntity.SlotCapacity || !double.IsFinite(serverFrame))
+            return false;
+        var samples = _poses[slot];
+        int left = -1;
+        for (int i = 0; i < samples.Count; i++)
+        {
+            if (samples[i].ServerTick > serverFrame) break;
+            PlayerState state = samples[i].State;
+            if (state.SlotGeneration == generation && state.LifeId == life)
+                left = i;
+        }
+        if (left < 0) return false;
+        PoseSample a = samples[left];
+        position = a.State.Position;
+        if (left + 1 < samples.Count)
+        {
+            PoseSample b = samples[left + 1];
+            if (b.State.SlotGeneration == generation && b.State.LifeId == life
+                && b.ServerTick > a.ServerTick && b.ServerTick - a.ServerTick <= 12)
+            {
+                float t = (float)Math.Clamp(
+                    (serverFrame - a.ServerTick) / (b.ServerTick - a.ServerTick), 0, 1);
+                position = Vector3.Lerp(a.State.Position, b.State.Position, t);
+            }
+        }
+        return true;
     }
 
     internal IReadOnlyList<ReplayShotFact> ResolvedShotFactsAt(uint frame)
