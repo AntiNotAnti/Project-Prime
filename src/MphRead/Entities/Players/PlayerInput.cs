@@ -1161,7 +1161,8 @@ namespace MphRead.Entities
                             CameraInfo.Fov = currentFov;
                         }
                     }
-                    if (NetFireEvents.HasPending(this) && !Controls.Shoot.IsReleased
+                    if (NetFireEvents.HasPending(this)
+                            && (!Controls.Shoot.IsReleased || _scene.Services.IsReplica)
                         || Controls.Shoot.IsPressed && EquipInfo.ChargeLevel <= 1 * 2 // todo: FPS stuff
                         || EquipWeapon.Flags.TestFlag(WeaponFlags.RepeatFire) && Flags2.TestFlag(PlayerFlags2.Shooting)
                         && (!EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge) || EquipInfo.ChargeLevel < EquipWeapon.MinCharge * 2)) // todo: FPS stuff
@@ -1289,6 +1290,7 @@ namespace MphRead.Entities
         private bool TryFireWeapon()
         {
             if (!NetFireEvents.CanFire(this)) return false;
+            bool exactReplayFire = _scene.Services.IsReplica && NetFireEvents.HasPending(this);
             if (_scene.AimTrainer is { } trainer)
             {
                 if (trainer.OwnsTarget(this) || trainer.Completed) return false;
@@ -1321,14 +1323,15 @@ namespace MphRead.Entities
                 pbAuto = (int)(pbAuto * 15 / 90f);
                 _autofireCooldown = (ushort)((pbAuto + EquipWeapon.AutofireCooldown) * 2); // todo: FPS stuff
             }
-            if (_scene.AimTrainer?.SkipImperialistReload(this) != true
+            if (!exactReplayFire
+                && _scene.AimTrainer?.SkipImperialistReload(this) != true
                 && (_timeSinceShot < EquipWeapon.ShotCooldown * 2 // todo: FPS stuff
                 || !pressed && _timeSinceShot < _autofireCooldown)
                 && (!IsBot || !AiData.Flags2.TestFlag(AiFlags2.Bit20)))
             {
                 return false;
             }
-            if (GunAnimation == GunAnimation.UpDown)
+            if (!exactReplayFire && GunAnimation == GunAnimation.UpDown)
             {
                 return false;
             }
