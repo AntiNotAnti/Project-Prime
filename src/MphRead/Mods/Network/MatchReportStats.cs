@@ -141,6 +141,7 @@ namespace MphRead.Mods.Network
             if (key.ShotId == 0 || _hitShots[attackerSlot].Add(key))
             {
                 Increment(state.ShotsHit, attackerSlot);
+                BalancedModeTelemetry.NoteWeaponHit(victim.OwningScene, beam.Beam);
             }
         }
 
