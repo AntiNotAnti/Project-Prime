@@ -557,7 +557,7 @@ public sealed class MapCommunityClient : IDisposable
         return clone;
     }
 
-    private static bool IsTlsFrameFailure(Exception exception)
+    internal static bool IsTlsFrameFailure(Exception exception)
     {
         for (Exception? current = exception; current != null; current = current.InnerException)
             if (current.Message.Contains("Cannot determine the frame size or a corrupted frame was received",
