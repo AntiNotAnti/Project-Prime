@@ -667,12 +667,14 @@ namespace MphRead.Entities
                             damage = ModBalancedRangeDamage(damage, anyRes.Position);
                             wholeDamage = (uint)Math.Clamp(damage, 0, Int32.MaxValue);
                             NetContinuousTargetDiagnostics.CollisionResult(this, player, true, wholeDamage);
+                            int targetHealthBefore = player.Health;
                             if (wholeDamage != 0)
                             {
                                 EnhancedDirectHit = true;
                                 try { player.TakeDamage(wholeDamage, damageFlags, damageDir, this); }
                                 finally { EnhancedDirectHit = false; }
                             }
+                            int actualDamageDealt = Math.Max(0, targetHealthBefore - player.Health);
                             if (Flags.TestFlag(BeamFlags.LifeDrain) && Owner.Type == EntityType.Player)
                             {
                                 var ownerPlayer = (PlayerEntity)Owner;
@@ -680,8 +682,15 @@ namespace MphRead.Entities
                                     && !TeamRules.AreAllies(ownerPlayer.TeamIndex, player.TeamIndex))
                                 {
                                     int before = ownerPlayer.Health;
+                                    uint drainHeal = wholeDamage;
+                                    if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                                        && ownerPlayer.Hunter == Hunter.Sylux
+                                        && BalancedModeRules.IsAffinity(ownerPlayer.Hunter, BeamType.ShockCoil))
+                                    {
+                                        drainHeal = (uint)ownerPlayer.ModBalancedLifeDrainHeal(actualDamageDealt);
+                                    }
                                     // GainHealth checks if the player is alive
-                                    ownerPlayer.GainHealth(wholeDamage);
+                                    ownerPlayer.GainHealth(drainHeal);
                                     // What it actually gained, not what it was
                                     // offered: the halfturret splits a heal in
                                     // two and a full tank takes none of it, and
