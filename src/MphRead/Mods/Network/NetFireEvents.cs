@@ -102,8 +102,11 @@ public static class NetFireEvents
     internal static bool CanFireTurret(PlayerEntity player)
     {
         if (player.SceneServices.IsReplica)
-            return player.OwningScene.ReplayPoses?.TryActiveFire(player, out var fire) == true
+        {
+            FireEvent fire = default;
+            return player.OwningScene.ReplayPoses?.TryActiveFire(player, out fire) == true
                 && fire.Kind == FireEventKind.TurretFire;
+        }
         return !UsesEvents(player)
             || For(player.SlotIndex).Selected && For(player.SlotIndex).Active.Kind == FireEventKind.TurretFire;
     }
@@ -207,7 +210,11 @@ public static class NetFireEvents
     internal static bool TryTiming(PlayerEntity player, out FireEvent e)
     {
         if (player.SceneServices.IsReplica)
-            return player.OwningScene.ReplayPoses?.TryActiveFire(player, out e) == true && e.ShotId != 0;
+        {
+            e = default;
+            return player.OwningScene.ReplayPoses?.TryActiveFire(player, out e) == true
+                && e.ShotId != 0;
+        }
         e = (uint)player.SlotIndex < 8 ? For(player.SlotIndex).Active : default;
         return UsesEvents(player) && e.ShotId != 0;
     }
