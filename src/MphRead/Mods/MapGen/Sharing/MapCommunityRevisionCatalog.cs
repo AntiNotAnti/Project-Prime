@@ -266,6 +266,10 @@ internal sealed class MapCommunityRevisionCatalog
                     throw new InvalidDataException("Invalid Community revision catalog.");
             }
 
+            if (_revisions.Values.GroupBy(r => r.MapId).Any(group =>
+                group.Select(r => r.RevisionNumber).Distinct().Count() != group.Count()))
+                throw new InvalidDataException("Community revision numbers are not unique.");
+
             foreach (CommunityMapProjectState project in state.Projects)
             {
                 if (project.MapId == Guid.Empty
