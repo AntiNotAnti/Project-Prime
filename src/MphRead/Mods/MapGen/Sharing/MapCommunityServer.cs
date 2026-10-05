@@ -267,6 +267,19 @@ public static class MapCommunityServer
                             var start = await Body<MapUploadStartRequest>();
                             if (start.Bytes <= 0 || start.Bytes > MapPackageReader.MaxArchiveBytes)
                             { context.Response.StatusCode = 413; return; }
+                            if (start.ReleaseNotes?.Length > 4000)
+                            { context.Response.StatusCode = 400; return; }
+
+                            var intent = ValidateRevisionIntent(
+                                start.MapId, start.ExistingMap, start.ExpectedParentHash,
+                                start.AllowStaleParent, creator, resumeAvailable: false);
+                            if (intent.Status != 0)
+                            {
+                                context.Response.StatusCode = intent.Status;
+                                if (intent.Conflict != null)
+                                    await Json(context.Response, intent.Conflict, deadline.Token);
+                                return;
+                            }
 
                             var upload = LoadUpload(key);
                             if (upload == null || upload.CreatorId != creator.CreatorId || upload.PackageHash != hash || upload.Bytes != start.Bytes)
@@ -277,12 +290,33 @@ public static class MapCommunityServer
                                     .Select(p => { try { return new FileInfo(p).Length; } catch { return 0L; } }).Sum();
                                 if (sessions >= MaxPartialUploads) { context.Response.StatusCode = 429; return; }
                                 if (partialBytes + start.Bytes > MaxPartialUploadBytes) { context.Response.StatusCode = 507; return; }
-                                upload = new(creator.CreatorId, hash, start.Bytes, start.Listed, start.Draft);
+                                upload = new(creator.CreatorId, hash, start.Bytes, start.Listed, start.Draft)
+                                {
+                                    MapId = start.MapId,
+                                    ExistingMap = start.ExistingMap,
+                                    ExpectedParentHash = start.ExpectedParentHash,
+                                    ReleaseNotes = start.ReleaseNotes?.Trim(),
+                                    AllowStaleParent = start.AllowStaleParent
+                                };
                                 SaveUpload(key, upload);
                             }
-                            else if (upload.Listed != start.Listed || upload.Draft != start.Draft)
+                            else if (upload.Listed != start.Listed || upload.Draft != start.Draft
+                                || upload.MapId != start.MapId
+                                || upload.ExistingMap != start.ExistingMap
+                                || upload.ExpectedParentHash != start.ExpectedParentHash
+                                || upload.ReleaseNotes != start.ReleaseNotes?.Trim()
+                                || upload.AllowStaleParent != start.AllowStaleParent)
                             {
-                                upload = upload with { Listed = start.Listed, Draft = start.Draft };
+                                upload = upload with
+                                {
+                                    Listed = start.Listed,
+                                    Draft = start.Draft,
+                                    MapId = start.MapId,
+                                    ExistingMap = start.ExistingMap,
+                                    ExpectedParentHash = start.ExpectedParentHash,
+                                    ReleaseNotes = start.ReleaseNotes?.Trim(),
+                                    AllowStaleParent = start.AllowStaleParent
+                                };
                                 SaveUpload(key, upload);
                             }
 
@@ -372,19 +406,26 @@ public static class MapCommunityServer
                             await publication.WaitAsync(deadline.Token);
                             try
                             {
-                                var result = PublishTemporary(partial, creator, current.Listed, current.Draft);
+                                var result = PublishTemporary(
+                                    partial, creator, current.Listed, current.Draft,
+                                    revisionUpload: current);
                                 context.Response.StatusCode = result.Status;
                                 if (result.Entry != null)
                                 {
                                     DeleteUpload(key);
                                     await Json(context.Response, result.Entry, deadline.Token);
                                 }
+                                else if (result.Conflict != null)
+                                {
+                                    // Keep the completed resumable session so an explicit
+                                    // "publish anyway" retry can update only the metadata
+                                    // and complete without uploading hundreds of MiB again.
+                                    await Json(context.Response, result.Conflict, deadline.Token);
+                                }
                                 else if (result.Status == 409)
                                 {
-                                    // The completed bytes cannot be published under this
-                                    // human version. Keeping a full rejected session only
-                                    // consumes partial-upload storage and makes later cleanup
-                                    // dependent on the 24-hour stale-session sweep.
+                                    // Legacy human-version conflict cannot be repaired by
+                                    // changing revision metadata, so release its partial pool.
                                     DeleteUpload(key);
                                 }
                             }
@@ -425,6 +466,39 @@ public static class MapCommunityServer
                         context.Response.StatusCode=204;
                     }
                     finally{publication.Release();}return;
+                }
+                if(parts.Length==6&&parts[0]=="v2"&&parts[1]=="maps"
+                    &&Guid.TryParse(parts[2],out Guid promoteMapId)
+                    &&parts[3]=="revisions"
+                    &&int.TryParse(parts[4],out int promoteRevision)
+                    &&parts[5]=="promote"
+                    &&context.Request.HttpMethod=="POST")
+                {
+                    if(creator==null){context.Response.StatusCode=401;return;}
+                    CommunityMap? owned=maps.Values.FirstOrDefault(m=>m.MapId==promoteMapId);
+                    if(owned==null){context.Response.StatusCode=404;return;}
+                    if(!catalog.CanPublish(creator.CreatorId,owned)){context.Response.StatusCode=403;return;}
+                    string? promoteHash=revisionCatalog.RevisionHash(promoteMapId,promoteRevision);
+                    if(promoteHash==null||!maps.TryGetValue(promoteHash,out var promoteMap))
+                    {context.Response.StatusCode=404;return;}
+
+                    await publication.WaitAsync(deadline.Token);
+                    try
+                    {
+                        var updated=promoteMap with{Listed=true,Draft=false};
+                        AtomicFile.Write(Path.Combine(storage,updated.Hash+".catalog.json"),
+                            JsonSerializer.SerializeToUtf8Bytes(updated,MapPackageReader.JsonOptions));
+                        maps[updated.Hash]=updated;
+                        revisionCatalog.Promote(promoteMapId,updated.Hash);
+                        CommunityMap[] visible=maps.Values.Where(m=>m.MapId==promoteMapId)
+                            .Select(m=>catalog.Decorate(m,creator.CreatorId)).ToArray();
+                        var project=revisionCatalog.BuildProject(
+                            promoteMapId,visible,revealCreatorIdentity:true);
+                        if(project==null){context.Response.StatusCode=404;return;}
+                        await Json(context.Response,project,deadline.Token);
+                    }
+                    finally{publication.Release();}
+                    return;
                 }
                 if(parts.Length>=2&&parts[0]=="v2"&&parts[1]=="maps"&&context.Request.HttpMethod=="GET")
                 {
