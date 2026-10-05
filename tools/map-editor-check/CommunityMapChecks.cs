@@ -228,6 +228,7 @@ internal static class CommunityMapChecks
                 && publicRevisions[0].RevisionNumber == 2
                 && publicRevisions[0].Hash == v2.Hash
                 && publicRevisions[0].ParentHash == v1.Hash
+                && publicRevisions[0].CreatedBy == null
                 && publicRevisions[1].RevisionNumber == 1
                 && publicRevisions[1].ParentHash == null,
                 "v2 public revision history has stable server numbers and parent links");
@@ -240,7 +241,8 @@ internal static class CommunityMapChecks
                 && ownerProject.LatestHash == hidden.Hash
                 && ownerProject.LatestRevision.RevisionNumber == 3
                 && ownerRevisions.Length == 3
-                && ownerRevisions[0].Hash == hidden.Hash,
+                && ownerRevisions[0].Hash == hidden.Hash
+                && ownerRevisions[0].CreatedBy == MapCreatorCatalog.ServiceOwner,
                 "owners see draft/unlisted lineage without changing the public current revision");
 
             await client.SetVisibilityAsync(hidden.Hash, "Published", default);
