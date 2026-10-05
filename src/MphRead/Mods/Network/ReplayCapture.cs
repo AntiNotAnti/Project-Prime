@@ -168,6 +168,26 @@ namespace MphRead.Mods.Network
             Recorder.AcceptChat(bytes, NetSession.NetFrame);
         }
 
+        internal static void AcceptedShotFact(in ReplayShotFact fact)
+        {
+            if (DemoPlayback.IsActive || !NetSession.IsAuthority
+                || fact.MatchId != NetSession.CurrentMatchId
+                || fact.AuthorityEpoch != NetSession.AuthorityEpoch)
+            {
+                return;
+            }
+            Span<byte> payload = stackalloc byte[ReplayShotFactPacket.Size];
+            ReplayShotFactPacket.Write(fact, payload);
+            if (!Recorder.AcceptShotFact(payload, NetSession.NetFrame)) return;
+            NetSession.SendReplayShotFact(payload);
+        }
+
+        internal static void AcceptedShotFact(ReadOnlySpan<byte> payload, uint frame)
+        {
+            if (DemoPlayback.IsActive) return;
+            Recorder.AcceptShotFact(payload, frame);
+        }
+
         internal static void AcceptedCosmetics()
         {
             if (DemoPlayback.IsActive || NetSession.ServerMatch is not { } match) return;
