@@ -69,6 +69,26 @@ public sealed class MapCreatorCatalog
             Save("map_reports.json",_reports.Append(report).ToArray());_reports.Add(report);return report;
         }
     }
+    public void PurgeMapData(Guid map)
+    {
+        lock (_gate)
+        {
+            var favorites = _favorites.Where(f => f.MapId != map).ToList();
+            var reports = _reports.Where(r => r.MapId != map).ToList();
+            var collaborators = new Dictionary<Guid, string[]>(_collaborators);
+            collaborators.Remove(map);
+            Save("map_favorites.json", favorites);
+            Save("map_reports.json", reports);
+            Save("map_collaborators.json", collaborators);
+            _favorites.Clear();
+            _favorites.AddRange(favorites);
+            _reports.Clear();
+            _reports.AddRange(reports);
+            _collaborators.Clear();
+            foreach (var pair in collaborators) _collaborators[pair.Key] = pair.Value;
+        }
+    }
+
     public CommunityMapReport[] Reports(){lock(_gate)return _reports.OrderByDescending(r=>r.CreatedAt).ToArray();}
     public void SetReportStatus(Guid id,string status)
     {
