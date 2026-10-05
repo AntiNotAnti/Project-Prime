@@ -30,6 +30,13 @@ namespace MphRead.Mods.Diagnostics
 
         public static int Run(string? outputPath)
         {
+            // Keep the math/comparison contract executable. The source inventory is
+            // useful only if the transforms that motivate it still compose exactly.
+            if (MovementShadowCheck.Run() != 0)
+            {
+                return 1;
+            }
+
             string? root = FindRepositoryRoot();
             if (root == null)
             {
@@ -198,12 +205,14 @@ namespace MphRead.Mods.Diagnostics
         private static void PrintMathHazards()
         {
             const float nativeLerp = 0.3f;
-            float exactLerp = 1 - MathF.Sqrt(1 - nativeLerp);
+            float exactLerp = NativeStepMath.HalfStepLerp(nativeLerp);
             float naiveHalf = 1 - nativeLerp / 2;
             float naiveEffectiveLerp = 1 - naiveHalf * naiveHalf;
             const float altAirGravity = -245 / 4096f;
-            float currentPairDisplacement = altAirGravity * 0.75f;
-            float nativePairDisplacement = altAirGravity;
+            var currentGravity = NativeStepMath.CurrentGravityPair(0, 0, altAirGravity);
+            var nativeGravity = NativeStepMath.NativeSemiImplicit(0, 0, altAirGravity);
+            float currentPairDisplacement = currentGravity.Position;
+            float nativePairDisplacement = nativeGravity.Position;
 
             Console.WriteLine("[fpsconvertaudit] math exact-multiplier: F60=sqrt(F30)");
             Console.WriteLine("[fpsconvertaudit] math exact-lerp: A60=1-sqrt(1-A30)");

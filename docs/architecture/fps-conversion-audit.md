@@ -20,6 +20,20 @@ dotnet run --project src/MphRead/MphRead.csproj -c Release -- -fpsconvertaudit -
 
 The command scans every C# `todo: FPS stuff` / `sktodo: FPS stuff` marker, assigns a category, risk, and priority, and never rewrites source.
 
+
+### Movement shadow foundation
+
+The audit now runs the content-free movement shadow contract checks before scanning source. These checks keep the conversion math executable instead of leaving it only in this document:
+
+- `F60 = sqrt(F30)` composes to the native 30 Hz multiplier after two 60 Hz substeps.
+- `A60 = 1 - sqrt(1 - A30)` composes to the native interpolation coefficient.
+- Coupled impulse+damping reference math composes exactly for the simplified `(v + T) * F` recurrence; production traction still requires the live shadow harness before adoption.
+- The current gravity pair is checked to preserve boundary velocity while exposing the known quarter-gravity position error.
+- `MovementBoundarySnapshot` and `MovementShadowComparer` define the stable 30 Hz comparison contract for position, velocity, facing, gravity, standing/contact state and `SpireClimbing`.
+- `MovementShadowAccumulator` retains only the first meaningful divergence and maxima so long runs stay bounded.
+
+This foundation intentionally changes no production movement. The next slice supplies Samus/Spire reference states and live 30 Hz-boundary observations to this contract.
+
 ## P0 inventory
 
 The five player files currently contain **179** marked sites:
