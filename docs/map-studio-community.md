@@ -75,6 +75,9 @@ show that the revision was intentionally based on an older branch.
 Clients prefer the grouped `/v2/maps` API. If a trusted older Community service has not
 been upgraded yet, the dashboard falls back to the legacy flat map/version endpoints and
 groups those package rows locally so browsing remains usable during deployment rollout.
+Revision promotion/rollback is intentionally not emulated on a legacy service because it
+has no authoritative current-revision pointer; upgrade the service before using those
+creator actions.
 
 The existing lobby's **Choose deployment zone** card picker also loads public
 Community maps alongside local arenas. Community cards have a COMMUNITY badge;
