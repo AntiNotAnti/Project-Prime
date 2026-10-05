@@ -7,10 +7,68 @@ namespace MphRead.Mods.Multiplayer;
 /// Keep balance data here rather than scattering weapon-specific constants
 /// through projectile collision code so later tuning remains inspectable.
 /// </summary>
+public readonly record struct BalancedHunterProfile(
+    int SpawnHealthBonus,
+    float IncomingDamageMultiplier,
+    float AltTractionMultiplier,
+    float AltSpeedCapMultiplier,
+    float KnockbackMultiplier)
+{
+    public static BalancedHunterProfile Baseline => new(0, 1f, 1f, 1f, 1f);
+}
+
 public static class BalancedModeRules
 {
     public const float MidRange = 12f;
     public const float FarRange = 24f;
+
+    public static BalancedHunterProfile HunterProfile(Hunter hunter)
+        => hunter switch
+        {
+            // Endurance + mobility. The health is spawn health only so the
+            // global 199-HP ceiling and 200-damage Imperialist breakpoint stay intact.
+            Hunter.Kanden => new(10, 1f, 1.12f, 1.08f, 1f),
+
+            // Tank. Spire trades speed for the strongest body/splash durability
+            // and substantially less displacement from explosive pressure.
+            Hunter.Spire => new(0, 0.90f, 1.05f, 1.05f, 0.80f),
+
+            // Duel/control. A smaller durability edge plus better alt mobility
+            // without making Vhoscythe's freeze or raw attack damage stronger.
+            Hunter.Noxus => new(0, 0.95f, 1.10f, 1.08f, 1f),
+
+            // Bruiser. More health at the start of each life and a more useful
+            // Halfturret movement state, while raw damage stays untouched.
+            Hunter.Weavel => new(10, 1f, 1.10f, 1.08f, 1f),
+
+            _ => BalancedHunterProfile.Baseline
+        };
+
+    public static int SpawnHealth(Hunter hunter, int baseHealth, int maxHealth)
+        => Math.Min(maxHealth, baseHealth + HunterProfile(hunter).SpawnHealthBonus);
+
+    public static uint ScaleIncomingDamage(Hunter hunter, uint damage, bool headshot)
+    {
+        if (damage == 0 || headshot)
+        {
+            return damage;
+        }
+        float multiplier = HunterProfile(hunter).IncomingDamageMultiplier;
+        if (multiplier == 1f)
+        {
+            return damage;
+        }
+        return (uint)Math.Max(1, (int)MathF.Round(damage * multiplier));
+    }
+
+    public static float ScaleAltTraction(Hunter hunter, float traction)
+        => traction * HunterProfile(hunter).AltTractionMultiplier;
+
+    public static float ScaleAltSpeedCap(Hunter hunter, float speed)
+        => speed * HunterProfile(hunter).AltSpeedCapMultiplier;
+
+    public static float ScaleKnockback(Hunter hunter, float amount)
+        => amount * HunterProfile(hunter).KnockbackMultiplier;
 
     public static bool HasRangeDamageCurve(BeamType beam)
         => beam is BeamType.VoltDriver or BeamType.Magmaul;
