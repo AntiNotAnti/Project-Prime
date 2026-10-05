@@ -544,8 +544,7 @@ namespace MphRead.Mods.Network
                 var stockImpact = new global::MphRead.Formats.CollisionResult
                 {
                     Position = stock!.Position + Vector3.UnitZ,
-                    Plane = new Vector4(Vector3.UnitY, 0),
-                    Terrain = Terrain.Metal
+                    Plane = new Vector4(Vector3.UnitY, 0)
                 };
                 Check(!stock.TryBattlehammerImpactCluster(stockImpact),
                     "stock Battlehammer never creates impact-cluster children");
