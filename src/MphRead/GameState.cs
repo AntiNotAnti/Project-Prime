@@ -53,7 +53,7 @@ namespace MphRead
                 FriendlyFire = FriendlyFire, PointGoal = PointGoal, TimeGoal = TimeGoal,
                 OctolithReset = OctolithReset, RadarPlayers = RadarPlayers,
                 EnhancedHunters = EnhancedHunters, AffinityWeapons = AffinityWeapons, ShadowFreeze = ShadowFreeze,
-                SpawnProtection = SpawnProtection, Fiesta = Fiesta, OneInTheChamber = OneInTheChamber, InstaGib = InstaGib, LowTier = LowTier, NoImperialist = NoImperialist
+                SpawnProtection = SpawnProtection, Fiesta = Fiesta, OneInTheChamber = OneInTheChamber, InstaGib = InstaGib, LowTier = LowTier, NoImperialist = NoImperialist, BalancedMode = BalancedMode
             };
             Nicknames.CopyTo(state.Nicknames, 0);
             return state;
@@ -169,6 +169,7 @@ namespace MphRead
         public bool InstaGib { get; set; }
         public bool LowTier { get; set; }
         public bool NoImperialist { get; set; }
+        public bool BalancedMode { get; set; }
 
         /// <summary>
         /// Whether the Judicator's ice wave keeps the cartridge's own reach.
