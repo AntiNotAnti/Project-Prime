@@ -77,6 +77,9 @@ internal sealed class ReplayPoseStream : IDisposable
     private readonly ushort[] _lastResolvedHitGeneration = new ushort[8];
     private readonly ushort[] _lastResolvedHitLife = new ushort[8];
     private readonly ReplayHitMarkerFlags[] _lastResolvedHitFlags = new ReplayHitMarkerFlags[8];
+    private readonly uint[] _lastResolvedLethalFrame = new uint[8];
+    private readonly ushort[] _lastResolvedLethalGeneration = new ushort[8];
+    private readonly ushort[] _lastResolvedLethalLife = new ushort[8];
     private readonly List<FallbackImpact> _fallbackImpacts = new();
     private DemoReader? _reader, _shotReader;
     private DemoRecord? _pending, _shotPending;
@@ -91,6 +94,7 @@ internal sealed class ReplayPoseStream : IDisposable
     {
         _world = world;
         Array.Fill(_lastResolvedHitFrame, uint.MaxValue);
+        Array.Fill(_lastResolvedLethalFrame, uint.MaxValue);
         for (int i = 0; i < 8; i++)
         {
             _poses[i] = new(MaximumPoseSamples);
@@ -283,6 +287,13 @@ internal sealed class ReplayPoseStream : IDisposable
             bool currentShooter = _world.State.TryGetPlayer(fact.ShooterSlot, out var shooter)
                 && shooter.SlotGeneration == fact.ShooterGeneration
                 && shooter.LifeId == fact.ShooterLifeId;
+            if (fact.Lethal && fact.Damage > 0)
+            {
+                _lastResolvedLethalFrame[fact.VictimSlot] = frame;
+                _lastResolvedLethalGeneration[fact.VictimSlot] = fact.VictimGeneration;
+                _lastResolvedLethalLife[fact.VictimSlot] = fact.VictimLifeId;
+            }
+
             if (currentShooter)
             {
                 if (_lastResolvedHitFrame[fact.ShooterSlot] != frame
@@ -352,6 +363,36 @@ internal sealed class ReplayPoseStream : IDisposable
                 // culling set. Only a genuinely missing projectile gets the
                 // short synthesized tracer tail.
                 _fallbackImpacts.Add(new(visualFact, authored, best == null));
+            }
+        }
+    }
+
+    internal void PresentResolvedDeaths(Scene scene, bool seeking)
+    {
+        uint frame = _world.Session.RecordingFrame;
+        for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
+        {
+            uint at = _lastResolvedLethalFrame[slot];
+            if (at == uint.MaxValue || at > frame
+                || !_world.State.TryGetPlayer(slot, out var recorded)
+                || recorded.SlotGeneration != _lastResolvedLethalGeneration[slot]
+                || recorded.LifeId != _lastResolvedLethalLife[slot]
+                || recorded.Health == 0)
+            {
+                continue;
+            }
+
+            PlayerEntity victim = scene.Players.Items[slot];
+            bool transitionFrame = at == frame && !seeking;
+            if (transitionFrame)
+            {
+                bool playAudio = ReplayAudioOwner.MayPlay(scene)
+                    && !ReplayVideoExporter.Rendering;
+                victim.ModPresentAuthoritativeReplayDeath(playAudio);
+            }
+            else
+            {
+                victim.ModHoldReplicaDeath();
             }
         }
     }
@@ -975,6 +1016,9 @@ internal sealed class ReplayPoseStream : IDisposable
         Array.Clear(_lastResolvedHitGeneration);
         Array.Clear(_lastResolvedHitLife);
         Array.Clear(_lastResolvedHitFlags);
+        Array.Fill(_lastResolvedLethalFrame, uint.MaxValue);
+        Array.Clear(_lastResolvedLethalGeneration);
+        Array.Clear(_lastResolvedLethalLife);
         for (int i = 0; i < 8; i++)
         {
             _poses[i].Clear();
