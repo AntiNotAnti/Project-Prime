@@ -195,6 +195,13 @@ interpolated camera resumes immediately around that discrete shot anchor. Protoc
 30-38 recordings keep FireEvent timing but have no invented pose, so they use the
 existing interpolated aim fallback.
 
+Protocol 40 adds a second half to that identity: a reliable authority-only
+`ReplayShotFact` for each accepted player-weapon hit. It names the shot and
+authoritative damage event, shooter/victim lifecycle, resolve tick, weapon,
+accepted damage, resulting health, headshot/lethal/direct classification and
+impact point. These facts are replay evidence only: gameplay still comes from
+the existing authoritative damage/snapshot pipeline.
+
 Fire scheduling is scene-local rather than using live `NetFireEvents` static state,
 so interleaved replays, killcams and the foreground match cannot contaminate one
 another. Seek/rebuild creates the same bounded index again from recorded facts.
