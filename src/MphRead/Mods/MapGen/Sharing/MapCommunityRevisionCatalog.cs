@@ -412,6 +412,9 @@ internal sealed class MapCommunityRevisionCatalog
         {
             if (!_projects.TryGetValue(mapId, out var project))
                 return false;
+            if (project.DeleteAfter is DateTimeOffset deadline
+                && deadline <= DateTimeOffset.UtcNow)
+                return false;
             _projects[mapId] = project with
             {
                 ArchivedAt = null,
@@ -460,6 +463,9 @@ internal sealed class MapCommunityRevisionCatalog
             CommunityMapRevisionState? target = _revisions.Values.FirstOrDefault(r =>
                 r.MapId == mapId && r.RevisionNumber == revisionNumber);
             if (target == null) return false;
+            if (target.DeleteAfter is DateTimeOffset deadline
+                && deadline <= DateTimeOffset.UtcNow)
+                return false;
             _revisions[target.Hash] = target with
             {
                 DeletedAt = null,
@@ -495,6 +501,13 @@ internal sealed class MapCommunityRevisionCatalog
         lock (_gate)
             return _revisions.Values.Where(r => r.MapId == mapId)
                 .Select(r => r.Hash).ToArray();
+    }
+
+    public CommunityMapRevisionState? RevisionState(Guid mapId, int revisionNumber)
+    {
+        lock (_gate)
+            return _revisions.Values.FirstOrDefault(r =>
+                r.MapId == mapId && r.RevisionNumber == revisionNumber);
     }
 
     public string? RevisionHashForLifecycle(Guid mapId, int revisionNumber)
