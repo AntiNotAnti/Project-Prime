@@ -1503,7 +1503,10 @@ namespace MphRead.Entities
             UpdateZoom(false);
             PreviousWeapon = CurrentWeapon;
             CurrentWeapon = WeaponSelection = beam;
-            if (beam == Weapons.GetAffinityBeam(Hunter)
+            bool normalizeBalancedBattlehammer = _scene.GameState.Multiplayer
+                && _scene.GameState.BalancedMode && Hunter == Hunter.Weavel
+                && beam == BeamType.Battlehammer;
+            if (beam == Weapons.GetAffinityBeam(Hunter) && !normalizeBalancedBattlehammer
                 || _scene.GameState.SinglePlayer && (Hunter == Hunter.Samus && (beam == BeamType.PowerBeam || beam == BeamType.OmegaCannon)
                 || Hunter == Hunter.Guardian && beam == BeamType.VoltDriver))
             {
@@ -2720,13 +2723,13 @@ namespace MphRead.Entities
                     bool applyBeamAfflictions = !Mods.Network.NetHitPrediction.Predicting
                         || attacker == this;
                     bool balancedKandenDisrupt = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
-                        && attacker?.Hunter == Hunter.Kanden
+                        && attacker is { Hunter: Hunter.Kanden }
                         && BalancedModeRules.IsAffinity(attacker.Hunter, beam.Beam);
                     bool balancedNoxusFreeze = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
-                        && attacker?.Hunter == Hunter.Noxus
+                        && attacker is { Hunter: Hunter.Noxus }
                         && BalancedModeRules.IsAffinity(attacker.Hunter, beam.Beam);
                     bool balancedSpireBurn = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
-                        && attacker?.Hunter == Hunter.Spire
+                        && attacker is { Hunter: Hunter.Spire }
                         && BalancedModeRules.IsAffinity(attacker.Hunter, beam.Beam);
 
                     if (applyBeamAfflictions && beam.Afflictions.TestFlag(Affliction.Freeze))
