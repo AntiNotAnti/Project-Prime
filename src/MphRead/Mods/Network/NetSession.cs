@@ -176,6 +176,7 @@ namespace MphRead.Mods.Network
 
         private static SnapshotSink? _snapshotSink;
         internal static SnapshotSink? ReplayWorldSink { get; set; }
+        internal static SnapshotSink? ReplayShotSink { get; set; }
         internal static SemanticSink? MatchSemanticSink { get; set; }
         internal static bool SemanticLegacyPlayback => _playback;
         internal static Mods.MatchEvents.MatchSemanticReceiver SemanticReceived { get; } = new();
@@ -409,7 +410,8 @@ namespace MphRead.Mods.Network
             NetPlayerBridge.Reset();
             Chat.ChatBox.Clear();
             IsAuthority = false;
-            _snapshotSink = null; ReplayWorldSink = null; MatchSemanticSink = null; SemanticReceived.Begin(0, 0);
+            _snapshotSink = null; ReplayWorldSink = null; ReplayShotSink = null;
+            MatchSemanticSink = null; SemanticReceived.Begin(0, 0);
             _serverMatchEnded = null;
             if (_transport != null)
             {
@@ -900,6 +902,9 @@ namespace MphRead.Mods.Network
                     break;
                 case PacketType.ReplayWorld when Role == NetRole.Client && !IsAuthority && !_playback:
                     ReplayCapture.AcceptWorldPacket(packet.Payload);
+                    break;
+                case PacketType.ReplayShotFact when Role == NetRole.Client && !IsAuthority && !_playback:
+                    ReplayCapture.AcceptedShotFact(packet.Payload, NetFrame);
                     break;
                 case PacketType.Snapshot when Role == NetRole.Client:
                     HandleSnapshot(packet);
@@ -1921,6 +1926,11 @@ namespace MphRead.Mods.Network
         internal static void SendReplayWorldPacket(ReadOnlySpan<byte> payload)
         {
             if (Role == NetRole.Server) ReplayWorldSink?.Invoke(payload);
+        }
+
+        internal static void SendReplayShotFact(ReadOnlySpan<byte> payload)
+        {
+            if (Role == NetRole.Server) ReplayShotSink?.Invoke(payload);
         }
 
         /// <summary>Server simulation -> clients: authoritative state for every active player.</summary>
