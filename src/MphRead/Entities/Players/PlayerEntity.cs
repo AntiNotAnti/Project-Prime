@@ -2883,6 +2883,7 @@ namespace MphRead.Entities
                             }
                         }
                     }
+                }
                 if (!skipSfx && !flags.TestFlag(DamageFlags.NoSfx))
                 {
                     PlayHunterSfx(HunterSfx.Damage);
