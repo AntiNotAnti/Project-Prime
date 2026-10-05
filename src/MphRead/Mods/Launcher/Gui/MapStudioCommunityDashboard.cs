@@ -661,7 +661,8 @@ internal sealed partial class MapStudioScreen
 
         void ShowPublishConflict(CommunityRevisionConflict conflict,
             string selectedVisibility, string releaseNotes,
-            Guid mapId, bool existingMap, string? expectedParentHash)
+            Guid mapId, bool existingMap, string? expectedParentHash,
+            string? pendingPath = null, string? pendingHash = null)
         {
             detail.Children.Clear();
             detail.Children.Add(PrimeChrome.Eyebrow("COMMUNITY // REVISION CONFLICT",
@@ -689,7 +690,28 @@ internal sealed partial class MapStudioScreen
                     data: true));
             }
 
-            void ReviewLatest()
+            void FinishPending(Action after)
+            {
+                if (pendingPath == null || pendingHash == null)
+                {
+                    after();
+                    return;
+                }
+                _ = Job("Discarding pending revision", async token =>
+                {
+                    await WithCommunityAuthentication(
+                        Endpoint(), token, async client =>
+                        {
+                            await client.DiscardPendingUploadAsync(
+                                pendingHash, token);
+                            return true;
+                        });
+                    if (File.Exists(pendingPath)) File.Delete(pendingPath);
+                    after();
+                });
+            }
+
+            void ReviewLatest() => FinishPending(() =>
             {
                 _ = Job("Refreshing revision history", async token =>
                 {
@@ -700,7 +722,7 @@ internal sealed partial class MapStudioScreen
                     else ShowUploadForm();
                     status.Text = "Community history refreshed.";
                 });
-            }
+            });
 
             var conflictActions = new WrapPanel();
             conflictActions.Children.Add(new PrimeButton(
@@ -710,15 +732,31 @@ internal sealed partial class MapStudioScreen
             {
                 conflictActions.Children.Add(new PrimeButton(
                     "PUBLISH ANYWAY",
-                    () => PublishCurrent(selectedVisibility, releaseNotes,
-                        mapId, existingMap: true, expectedParentHash,
-                        allowStaleParent: true),
+                    () =>
+                    {
+                        if (pendingPath != null)
+                            PublishPrepared(pendingPath, selectedVisibility,
+                                releaseNotes, mapId, expectedParentHash,
+                                allowStaleParent: true);
+                        else
+                            PublishCurrent(selectedVisibility, releaseNotes,
+                                mapId, existingMap: true, expectedParentHash,
+                                allowStaleParent: true);
+                    },
                     compact: true));
                 conflictActions.Children.Add(new PrimeButton(
                     "SAVE BRANCH AS DRAFT",
-                    () => PublishCurrent("Draft", releaseNotes,
-                        mapId, existingMap: true, expectedParentHash,
-                        allowStaleParent: true),
+                    () =>
+                    {
+                        if (pendingPath != null)
+                            PublishPrepared(pendingPath, "Draft",
+                                releaseNotes, mapId, expectedParentHash,
+                                allowStaleParent: true);
+                        else
+                            PublishCurrent("Draft", releaseNotes,
+                                mapId, existingMap: true, expectedParentHash,
+                                allowStaleParent: true);
+                    },
                     compact: true));
             }
             else if (conflict.Code == "map_already_exists"
@@ -733,9 +771,54 @@ internal sealed partial class MapStudioScreen
             }
 
             conflictActions.Children.Add(new PrimeButton(
-                "CANCEL", ShowUploadForm, compact: true));
+                "CANCEL", () => FinishPending(ShowUploadForm), compact: true));
             detail.Children.Add(conflictActions);
             status.Text = "Revision conflict needs your decision.";
+        }
+
+        void PublishPrepared(string path, string selectedVisibility,
+            string releaseNotes, Guid mapId, string? expectedParentHash,
+            bool allowStaleParent)
+        {
+            _ = Job("Completing map revision", async token =>
+            {
+                try
+                {
+                    bool draft = selectedVisibility == "Draft";
+                    bool listed = selectedVisibility == "Published";
+                    CommunityPublishResult result =
+                        await WithCommunityAuthentication(
+                            Endpoint(), token,
+                            client => client.PublishAsync(
+                                path,
+                                new CommunityPublishRequest(
+                                    ExistingMap: true,
+                                    ExpectedParentHash: expectedParentHash,
+                                    ReleaseNotes: releaseNotes,
+                                    AllowStaleParent: allowStaleParent),
+                                token,
+                                listed: listed,
+                                draft: draft,
+                                progress: (sent, total) =>
+                                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                                        status.Text =
+                                            $"Completing stored upload… {sent / 1048576d:0.0}/{total / 1048576d:0.0} MiB")));
+                    GuardJob(token);
+                    projects = await WithCommunityAuthentication(
+                        Endpoint(), token,
+                        client => client.BrowseProjectsAsync(
+                            token, mine: true, sort: "name"));
+                    GuardJob(token);
+                    RenderList(result.Package.MapId);
+                    status.Text = result.Revision is { } revision
+                        ? $"Revision {revision.RevisionNumber} published from the stored upload."
+                        : "Stored revision published.";
+                }
+                finally
+                {
+                    if (File.Exists(path)) File.Delete(path);
+                }
+            });
         }
 
         void PublishCurrent(string selectedVisibility, string releaseNotes,
@@ -750,6 +833,7 @@ internal sealed partial class MapStudioScreen
 
                 string temporary = Path.Combine(Path.GetTempPath(),
                     Guid.NewGuid().ToString("N") + ".ppmap");
+                bool keepTemporary = false;
                 try
                 {
                     status.Text = existingMap
@@ -784,20 +868,13 @@ internal sealed partial class MapStudioScreen
                     }
                     catch (CommunityRevisionConflictException ex)
                     {
-                        if (ex.Conflict.ResumeAvailable)
-                        {
-                            await WithCommunityAuthentication(
-                                Endpoint(), token, async client =>
-                                {
-                                    await client.DiscardPendingUploadAsync(
-                                        packageHash, token);
-                                    return true;
-                                });
-                        }
                         GuardJob(token);
+                        keepTemporary = ex.Conflict.ResumeAvailable;
                         ShowPublishConflict(ex.Conflict,
                             selectedVisibility, releaseNotes,
-                            mapId, existingMap, expectedParentHash);
+                            mapId, existingMap, expectedParentHash,
+                            keepTemporary ? temporary : null,
+                            keepTemporary ? packageHash : null);
                         return;
                     }
 
@@ -822,7 +899,8 @@ internal sealed partial class MapStudioScreen
                 }
                 finally
                 {
-                    if (File.Exists(temporary)) File.Delete(temporary);
+                    if (!keepTemporary && File.Exists(temporary))
+                        File.Delete(temporary);
                 }
             });
         }
