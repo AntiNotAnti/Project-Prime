@@ -1628,10 +1628,7 @@ namespace MphRead.Entities
                 ShowDialog(DialogType.Event, messageId: 5, param1: weaponId, value1: value1, value2: value2);
             }
             WeaponInfo info = _scene.WeaponRules[(int)weapon];
-            if (_ammo[info.AmmoType] < 60)
-            {
-                _ammo[info.AmmoType] = Math.Min(_ammo[info.AmmoType] + 60, 60);
-            }
+            ModRefillWeaponPickupAmmo(weapon, info);
             if (!_availableWeapons[weapon])
             {
                 _availableWeapons[weapon] = true;
