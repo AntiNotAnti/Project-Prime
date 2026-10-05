@@ -31,6 +31,10 @@ namespace MphRead.Entities
         private float _movementShadowFrameSpeedFactor;
         private bool _movementShadowFrameGravityApplied;
         private float _movementShadowFrameGravity;
+        // Maximum contact correction observed across the current two-substep
+        // native window. The normal belongs to that strongest correction.
+        private Vector3 _movementShadowContactNormal;
+        private float _movementShadowContactPushout;
 
         /// <summary>
         /// Start a two-substep observation window at the 60 Hz frame immediately
@@ -56,6 +60,8 @@ namespace MphRead.Entities
             ulong frame = _scene.FrameCount;
             if ((frame & 1UL) == 1UL)
             {
+                _movementShadowContactNormal = Vector3.Zero;
+                _movementShadowContactPushout = 0;
                 _movementShadowWindowActive = true;
                 _movementShadowReferenceStart =
                     new NativeMovementReferenceState(Position, Speed, _facingVector);
@@ -97,6 +103,23 @@ namespace MphRead.Entities
             }
             _movementShadowFrameGravityApplied = true;
             _movementShadowFrameGravity = gravity;
+        }
+
+        private void ModMovementShadowNoteContact(Vector3 normal, float pushout)
+        {
+            if (!MovementShadowRuntime.Enabled
+                || Hunter != Hunter.Samus && Hunter != Hunter.Spire
+                || !float.IsFinite(pushout) || pushout <= _movementShadowContactPushout)
+            {
+                return;
+            }
+            float lengthSquared = normal.LengthSquared;
+            if (!float.IsFinite(lengthSquared) || lengthSquared <= 1e-10f)
+            {
+                return;
+            }
+            _movementShadowContactNormal = normal / MathF.Sqrt(lengthSquared);
+            _movementShadowContactPushout = pushout;
         }
 
         /// <summary>
@@ -205,11 +228,22 @@ namespace MphRead.Entities
             }
             else
             {
-                // Airborne windows with no lateral/contact transition can exercise
-                // gravity and semi-implicit position integration as well.
+                // Airborne collision response is not modeled yet. Keep ceiling/
+                // edge contact out of the kinematic gravity comparison while still
+                // retaining the contact evidence in the raw boundary stream.
+                if (current.ContactPushout > 1f / 4096f)
+                {
+                    MovementShadowRuntime.Skip("air-contact-not-modeled");
+                    return;
+                }
                 domain = "air-kinematic";
                 referenceState = referenceState with { Facing = current.Facing };
             }
+
+            Vector3 referenceContactNormal = domain == "ground-horizontal"
+                ? current.ContactNormal : Vector3.Zero;
+            float referenceContactPushout = domain == "ground-horizontal"
+                ? current.ContactPushout : 0;
 
             var reference = new MovementBoundarySnapshot(
                 frame,
@@ -227,8 +261,8 @@ namespace MphRead.Entities
                     ? _movementShadowFirstParameters.Gravity
                     : current.Gravity,
                 _movementShadowStartSnapshot.Slipperiness,
-                Vector3.Zero,
-                0);
+                referenceContactNormal,
+                referenceContactPushout);
             MovementShadowRuntime.ObserveReference(current, reference, domain);
         }
 
@@ -265,8 +299,8 @@ namespace MphRead.Entities
                 _facingVector,
                 _gravity,
                 _slipperiness,
-                Vector3.Zero,
-                0);
+                _movementShadowContactNormal,
+                _movementShadowContactPushout);
         }
 
         private static bool ModMovementShadowStableParameters(

@@ -296,6 +296,18 @@ namespace MphRead.Mods.Diagnostics
                 Check(!MovementShadowComparer.Compare(discrete, baseline).DiscreteMatch,
                     "discrete climbing mismatch cannot hide behind float tolerance");
 
+                var contact = baseline with
+                {
+                    ContactNormal = Vector3.UnitX,
+                    ContactPushout = 1f / 128f
+                };
+                MovementBoundaryDifference contactDifference =
+                    MovementShadowComparer.Compare(contact, baseline);
+                Check(contactDifference.ContactNormalError > 0
+                    && contactDifference.ContactPushoutError > 0
+                    && !contactDifference.WithinTolerance(),
+                    "collision contact evidence participates in boundary comparison");
+
                 var accumulator = new MovementShadowAccumulator();
                 accumulator.Observe(baseline, baseline);
                 accumulator.Observe(outside, baseline);
