@@ -220,9 +220,13 @@ internal sealed class MapCommunityRevisionCatalog
                 .ToArray();
             if (revisions.Length == 0) return null;
 
-            CommunityMapRevision latest = revisions[^1];
+            CommunityMapRevision latest =
+                revisions.FirstOrDefault(r => r.Hash == project.LatestHash)
+                ?? revisions.LastOrDefault(r => r.DeletedAt == null)
+                ?? revisions[^1];
             CommunityMapRevision? current = project.CurrentHash != null
-                ? revisions.FirstOrDefault(r => r.Hash == project.CurrentHash)
+                ? revisions.FirstOrDefault(r => r.Hash == project.CurrentHash
+                    && r.DeletedAt == null)
                 : null;
             CommunityMap presentation = current?.Package ?? latest.Package;
             DateTimeOffset updated = latest.CreatedAt > project.UpdatedAt
