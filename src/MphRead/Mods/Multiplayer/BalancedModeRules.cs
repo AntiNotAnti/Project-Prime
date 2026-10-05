@@ -19,6 +19,7 @@ public readonly record struct BalancedHunterProfile(
 
 public static class BalancedModeRules
 {
+    public const int BalanceRevision = 1;
     public const float MidRange = 12f;
     public const float FarRange = 24f;
 
