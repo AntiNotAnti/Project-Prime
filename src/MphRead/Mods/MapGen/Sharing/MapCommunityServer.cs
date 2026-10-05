@@ -33,6 +33,7 @@ public static class MapCommunityServer
     private const long MaxPartialUploadBytes = 2L * 1024 * 1024 * 1024;
     private const long DefaultPublishedStorageBytes = 50L * 1024 * 1024 * 1024;
     private static readonly TimeSpan PartialUploadRetention = TimeSpan.FromHours(24);
+    internal static readonly TimeSpan CommunityDeleteRetention = TimeSpan.FromDays(30);
 
     public static void Run(string prefix, string storage)
     {
@@ -66,6 +67,9 @@ public static class MapCommunityServer
             catch (Exception ex) { Console.Error.WriteLine("[maphub] Skipped package: " + ex.Message); }
         }
         var revisionCatalog = new MapCommunityRevisionCatalog(storage, maps.Values);
+        PurgeExpiredLifecycle();
+        DateTimeOffset nextLifecycleSweep = DateTimeOffset.UtcNow.AddHours(1);
+        object lifecycleSweepGate = new();
         using var listener = new HttpListener();
         listener.Prefixes.Add(prefix.TrimEnd('/') + "/"); listener.Start();
         using var registration = token.Register(listener.Close);
@@ -113,6 +117,96 @@ public static class MapCommunityServer
             if (offset < 0 || offset > upload.Bytes) throw new InvalidDataException("Partial upload has an invalid size.");
             return new(upload.PackageHash, upload.Bytes, offset, MapCommunityClient.UploadChunkBytes, false);
         }
+        int PurgeLifecycleHashes(IEnumerable<string> requested)
+        {
+            string[] hashes = requested.Where(MapCommunityClient.ValidHash)
+                .Distinct(StringComparer.Ordinal).ToArray();
+            if (hashes.Length == 0) return 0;
+
+            var removed = new List<string>();
+            var mapIds = new HashSet<Guid>();
+            foreach (string hash in hashes)
+            {
+                if (maps.TryGetValue(hash, out var entry)) mapIds.Add(entry.MapId);
+                string packagePath = Path.Combine(storage, hash + ".ppmap");
+                try
+                {
+                    if (File.Exists(packagePath)) File.Delete(packagePath);
+                    if (File.Exists(packagePath)) continue;
+                    string metadataPath = Path.Combine(storage, hash + ".catalog.json");
+                    if (File.Exists(metadataPath)) File.Delete(metadataPath);
+                    maps.TryRemove(hash, out _);
+                    removed.Add(hash);
+                }
+                catch (IOException ex)
+                {
+                    Console.Error.WriteLine("[maphub] Deferred lifecycle purge for "
+                        + hash[..8] + ": " + ex.Message);
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    Console.Error.WriteLine("[maphub] Deferred lifecycle purge for "
+                        + hash[..8] + ": " + ex.Message);
+                }
+            }
+
+            if (removed.Count == 0) return 0;
+
+            var removedSet = removed.ToHashSet(StringComparer.Ordinal);
+            foreach (string metadata in Directory.EnumerateFiles(storage, "upload-*.json"))
+            {
+                try
+                {
+                    if (new FileInfo(metadata).Length > 65536) continue;
+                    var upload = JsonSerializer.Deserialize<MapUploadMetadata>(
+                        File.ReadAllBytes(metadata), MapPackageReader.JsonOptions);
+                    if (upload == null || !removedSet.Contains(upload.PackageHash)) continue;
+                    string key = Path.GetFileNameWithoutExtension(metadata)["upload-".Length..];
+                    DeleteUpload(key);
+                }
+                catch (Exception ex) when (ex is IOException or JsonException)
+                {
+                    Console.Error.WriteLine("[maphub] Skipped pending-upload cleanup: "
+                        + ex.Message);
+                }
+            }
+
+            revisionCatalog.RemovePurgedHashes(removed, maps.Values);
+            foreach (Guid mapId in mapIds)
+            {
+                if (!maps.Values.Any(m => m.MapId == mapId))
+                    catalog.PurgeMapData(mapId);
+            }
+            return removed.Count;
+        }
+
+        int PurgeExpiredLifecycle()
+            => PurgeLifecycleHashes(
+                revisionCatalog.PurgeCandidates(DateTimeOffset.UtcNow));
+
+        async Task SweepLifecycleIfDue(CancellationToken sweepToken)
+        {
+            bool due;
+            lock (lifecycleSweepGate)
+            {
+                due = DateTimeOffset.UtcNow >= nextLifecycleSweep;
+                if (due) nextLifecycleSweep = DateTimeOffset.UtcNow.AddHours(1);
+            }
+            if (!due) return;
+            await publication.WaitAsync(sweepToken);
+            try { PurgeExpiredLifecycle(); }
+            finally { publication.Release(); }
+        }
+
+        CommunityMapProject? ManagedProject(Guid mapId, MapCreatorCredential viewer,
+            bool includeDeleted = true)
+        {
+            CommunityMap[] visible = maps.Values.Where(m => m.MapId == mapId)
+                .Select(m => catalog.Decorate(m, viewer.CreatorId)).ToArray();
+            return revisionCatalog.BuildProject(mapId, visible,
+                revealCreatorIdentity: true, includeDeleted: includeDeleted);
+        }
+
         (int Status, CommunityRevisionConflict? Conflict) ValidateRevisionIntent(
             Guid? mapId, bool? existingMap, string? expectedParentHash,
             bool allowStaleParent, MapCreatorCredential creator, bool resumeAvailable)
@@ -228,6 +322,7 @@ public static class MapCommunityServer
             deadline.CancelAfter(TimeSpan.FromMinutes(2));
             try
             {
+                await SweepLifecycleIfDue(deadline.Token);
                 string route = context.Request.Url!.AbsolutePath.TrimEnd('/');
                 string root = new Uri(prefix).AbsolutePath.TrimEnd('/');
                 string? authorization=context.Request.Headers["Authorization"];
