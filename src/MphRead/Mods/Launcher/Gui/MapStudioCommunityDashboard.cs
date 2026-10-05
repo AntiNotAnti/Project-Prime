@@ -735,9 +735,11 @@ internal sealed partial class MapStudioScreen
                     bool current = project.CurrentHash == revision.Hash;
                     var copy = PrimeChrome.Stack(
                         PrimeChrome.Eyebrow(
-                            current
-                                ? $"REVISION {revision.RevisionNumber} // CURRENT"
-                                : $"REVISION {revision.RevisionNumber}"),
+                            revision.DeletedAt != null
+                                ? $"REVISION {revision.RevisionNumber} // DELETED"
+                                : current
+                                    ? $"REVISION {revision.RevisionNumber} // CURRENT"
+                                    : $"REVISION {revision.RevisionNumber}"),
                         PrimeChrome.Text(
                             $"{Visibility(package)} · v{package.Version ?? "1"} · {package.Bytes / 1048576d:0.0} MiB",
                             PrimeTypography.BodySmall),
@@ -754,6 +756,16 @@ internal sealed partial class MapStudioScreen
                             PrimeTypography.BodySmall,
                             PrimeTheme.TextSecondaryBrush));
                     }
+                    if (revision.DeletedAt is DateTimeOffset revisionDeleted)
+                    {
+                        copy.Children.Add(PrimeChrome.Text(
+                            "Deleted " + revisionDeleted.LocalDateTime.ToString("g")
+                            + (revision.DeleteAfter is DateTimeOffset purgeAt
+                                ? " · permanent purge after " + purgeAt.LocalDateTime.ToString("g")
+                                : ""),
+                            PrimeTypography.BodySmall,
+                            PrimeTheme.WarningBrush));
+                    }
 
                     var revisionActions = new WrapPanel();
                     revisionActions.Children.Add(new PrimeButton("INSTALL",
@@ -762,16 +774,35 @@ internal sealed partial class MapStudioScreen
                         () => _ = CopyLink(package), compact: true));
                     if (authenticated)
                     {
-                        revisionActions.Children.Add(new PrimeButton(
-                            current ? "CURRENT" : "MAKE CURRENT",
-                            () => PromoteRevision(project, revision), compact: true)
+                        if (revision.DeletedAt != null)
                         {
-                            IsEnabled = !current
-                        });
-                        revisionActions.Children.Add(new PrimeButton("UNLIST",
-                            () => ChangeVisibility(package, "Unlisted"), compact: true));
-                        revisionActions.Children.Add(new PrimeButton("DRAFT",
-                            () => ChangeVisibility(package, "Draft"), compact: true));
+                            if (project.CanManageLifecycle)
+                                revisionActions.Children.Add(new PrimeButton(
+                                    "RESTORE REVISION",
+                                    () => RestoreRevision(project, revision),
+                                    primary: true, compact: true));
+                        }
+                        else if (project.DeletedAt == null)
+                        {
+                            revisionActions.Children.Add(new PrimeButton(
+                                current ? "CURRENT" : "MAKE CURRENT",
+                                () => PromoteRevision(project, revision), compact: true)
+                            {
+                                IsEnabled = !current
+                            });
+                            revisionActions.Children.Add(new PrimeButton("UNLIST",
+                                () => ChangeVisibility(package, "Unlisted"), compact: true));
+                            revisionActions.Children.Add(new PrimeButton("DRAFT",
+                                () => ChangeVisibility(package, "Draft"), compact: true));
+                            if (project.CanManageLifecycle
+                                && revisions.Count(r => r.DeletedAt == null) > 1)
+                            {
+                                revisionActions.Children.Add(new PrimeButton(
+                                    "DELETE REVISION",
+                                    () => ConfirmDeleteRevision(project, revision),
+                                    danger: true, compact: true));
+                            }
+                        }
                     }
                     copy.Children.Add(revisionActions);
                     detail.Children.Add(new PrimePanel(copy)
