@@ -250,6 +250,18 @@ internal sealed class MapCommunityRevisionCatalog
         }
     }
 
+    public CommunityMap LegacyPresentation(CommunityMap package)
+    {
+        lock (_gate)
+        {
+            if (_projects.TryGetValue(package.MapId, out var project)
+                && project.CurrentHash == package.Hash
+                && project.UpdatedAt > package.PublishedAt)
+                return package with { PublishedAt = project.UpdatedAt };
+            return package;
+        }
+    }
+
     public string? LatestHash(Guid mapId)
     {
         lock (_gate)
