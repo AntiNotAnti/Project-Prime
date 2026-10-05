@@ -1009,7 +1009,6 @@ namespace MphRead.Entities
         private void PlayBeamHitSfx()
         {
             if (_scene.Services.IsReplica && _replayImpactHidden) return;
-            if (_scene.Services.IsReplica && _replayImpactHidden) return;
             StopHomingSfx();
             BeamSfx type = Flags.TestFlag(BeamFlags.Charged) ? BeamSfx.ChargeHit : BeamSfx.Hit;
             int sfx = Metadata.BeamSfx[(int)Beam, (int)type];
