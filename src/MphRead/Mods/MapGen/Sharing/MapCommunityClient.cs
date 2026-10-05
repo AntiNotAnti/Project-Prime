@@ -34,6 +34,9 @@ public sealed class MapCommunityClient : IDisposable
 {
     public const string DefaultAddress = "https://maps.rebooty.xyz/";
     private readonly HttpClient _http;
+    private readonly Lazy<HttpClient> _directHttp;
+    private volatile bool _preferDirectReads;
+
     public MapCommunityClient(string address, string? uploadToken = null)
     {
         var uri = new Uri(address.TrimEnd('/') + "/", UriKind.Absolute);
@@ -41,13 +44,28 @@ public sealed class MapCommunityClient : IDisposable
             throw new ArgumentException("Use an HTTPS community address (HTTP is allowed only on localhost).");
         if (!string.IsNullOrEmpty(uri.UserInfo) || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
             throw new ArgumentException("Use a community base address without credentials, query, or fragment.");
-        _http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
-        { BaseAddress = uri, Timeout = TimeSpan.FromMinutes(10) };
-        if (!string.IsNullOrWhiteSpace(uploadToken)) _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", uploadToken.Trim());
+        _http = CreateHttpClient(uri, uploadToken, useProxy: true);
+        _directHttp = new Lazy<HttpClient>(() => CreateHttpClient(uri, uploadToken, useProxy: false));
+    }
+
+    private static HttpClient CreateHttpClient(Uri uri, string? uploadToken, bool useProxy)
+    {
+        var client = new HttpClient(new HttpClientHandler
+        {
+            AllowAutoRedirect = false,
+            UseProxy = useProxy
+        })
+        {
+            BaseAddress = uri,
+            Timeout = TimeSpan.FromMinutes(10)
+        };
+        if (!string.IsNullOrWhiteSpace(uploadToken))
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", uploadToken.Trim());
+        return client;
     }
     public async Task<CommunityMap[]> BrowseAsync(CancellationToken token, bool mine = false, bool favorites = false, string? sort = null)
     {
-        using var response = await _http.GetAsync("maps?mine="+mine.ToString().ToLowerInvariant()+"&favorites="+favorites.ToString().ToLowerInvariant()+"&sort="+Uri.EscapeDataString(sort??"name"), HttpCompletionOption.ResponseHeadersRead, token);
+        using var response = await GetReadAsync("maps?mine="+mine.ToString().ToLowerInvariant()+"&favorites="+favorites.ToString().ToLowerInvariant()+"&sort="+Uri.EscapeDataString(sort??"name"), HttpCompletionOption.ResponseHeadersRead, token);
         EnsureSuccess(response);
         using var data = new MemoryStream();
         await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token), data, 2 * 1024 * 1024, token);
@@ -72,7 +90,7 @@ public sealed class MapCommunityClient : IDisposable
     public async Task<CommunityMap?> GetPackageAsync(string packageHash, CancellationToken token)
     {
         if (!ValidHash(packageHash)) throw new InvalidDataException("Invalid package hash.");
-        using var response = await _http.GetAsync("packages/"+packageHash+"/metadata", HttpCompletionOption.ResponseHeadersRead, token);
+        using var response = await GetReadAsync("packages/"+packageHash+"/metadata", HttpCompletionOption.ResponseHeadersRead, token);
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
         EnsureSuccess(response);
         using var data = new MemoryStream();
@@ -96,7 +114,7 @@ public sealed class MapCommunityClient : IDisposable
         // Resolve expired credentials before any upload body is streamed. An early
         // 401 can otherwise close the socket mid-write and hide the status needed
         // by the launcher's credential-refresh retry.
-        using (var authorization = await _http.GetAsync("maps?mine=true&pageSize=1",
+        using (var authorization = await GetReadAsync("maps?mine=true&pageSize=1",
             HttpCompletionOption.ResponseHeadersRead, token)) EnsureSuccess(authorization);
 
         MapUploadState? state = await BeginChunkedUploadAsync(hash, bytes, listed, draft, token).ConfigureAwait(false);
@@ -209,7 +227,7 @@ public sealed class MapCommunityClient : IDisposable
 
     private async Task<MapUploadState> GetUploadStateAsync(string hash, CancellationToken token)
     {
-        using var response = await _http.GetAsync("uploads/" + hash, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+        using var response = await GetReadAsync("uploads/" + hash, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
         EnsureSuccess(response);
         return await ReadUploadStateAsync(response, token).ConfigureAwait(false);
     }
@@ -325,7 +343,7 @@ public sealed class MapCommunityClient : IDisposable
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, resource);
                 if (offset > 0) request.Headers.Range = new RangeHeaderValue(offset, null);
-                using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+                using var response = await SendReadAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
 
                 if (offset > 0 && response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable)
                 {
@@ -483,6 +501,80 @@ public sealed class MapCommunityClient : IDisposable
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 
+    private async Task<HttpResponseMessage> GetReadAsync(string resource, HttpCompletionOption completionOption,
+        CancellationToken token)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, resource);
+        return await SendReadAsync(request, completionOption, token).ConfigureAwait(false);
+    }
+
+    private async Task<HttpResponseMessage> SendReadAsync(HttpRequestMessage request,
+        HttpCompletionOption completionOption, CancellationToken token)
+    {
+        if (_preferDirectReads)
+        {
+            using var directRequest = CloneReadRequest(request);
+            return await _directHttp.Value.SendAsync(directRequest, completionOption, token).ConfigureAwait(false);
+        }
+
+        try
+        {
+            return await _http.SendAsync(request, completionOption, token).ConfigureAwait(false);
+        }
+        catch (HttpRequestException ex) when (!token.IsCancellationRequested && IsTlsFrameFailure(ex))
+        {
+            try
+            {
+                using var directRequest = CloneReadRequest(request);
+                HttpResponseMessage response = await _directHttp.Value.SendAsync(
+                    directRequest, completionOption, token).ConfigureAwait(false);
+                _preferDirectReads = true;
+                return response;
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception direct) when (direct is HttpRequestException
+                || direct is IOException || direct is TaskCanceledException)
+            {
+                throw CommunityTlsException(ex, direct);
+            }
+        }
+    }
+
+    private static HttpRequestMessage CloneReadRequest(HttpRequestMessage request)
+    {
+        if (request.Method != HttpMethod.Get && request.Method != HttpMethod.Head)
+            throw new InvalidOperationException("Only idempotent Community reads may use the direct-network fallback.");
+        var clone = new HttpRequestMessage(request.Method, request.RequestUri)
+        {
+            Version = request.Version,
+            VersionPolicy = request.VersionPolicy
+        };
+        foreach (var header in request.Headers)
+            clone.Headers.TryAddWithoutValidation(header.Key, header.Value);
+        return clone;
+    }
+
+    private static bool IsTlsFrameFailure(Exception exception)
+    {
+        for (Exception? current = exception; current != null; current = current.InnerException)
+            if (current.Message.Contains("Cannot determine the frame size or a corrupted frame was received",
+                StringComparison.OrdinalIgnoreCase))
+                return true;
+        return false;
+    }
+
+    private static HttpRequestException CommunityTlsException(HttpRequestException routedFailure, Exception directFailure)
+    {
+        return new HttpRequestException(
+            "Community HTTPS handshake failed. Project Prime retried without the system proxy, but the direct HTTPS connection also failed. "
+            + "Check VPN/proxy settings, antivirus HTTPS inspection, captive-portal login, or network filtering, then retry. "
+            + "TLS certificate validation remains enabled. Direct error: " + directFailure.GetBaseException().Message,
+            new AggregateException(routedFailure, directFailure));
+    }
+
     private static void EnsureSuccess(HttpResponseMessage response)
     {
         if (response.IsSuccessStatusCode) return;
@@ -511,5 +603,9 @@ public sealed class MapCommunityClient : IDisposable
             progress?.Invoke(total);
         }
     }
-    public void Dispose() => _http.Dispose();
+    public void Dispose()
+    {
+        _http.Dispose();
+        if (_directHttp.IsValueCreated) _directHttp.Value.Dispose();
+    }
 }
