@@ -1089,11 +1089,7 @@ namespace MphRead.Entities
                             EquipInfo.ChargeLevel = 0;
                         }
                     }
-                    if (CurrentWeapon == BeamType.Battlehammer && Controls.Zoom.IsPressed)
-                    {
-                        TryBattlehammerAirburst();
-                    }
-                    else if (EquipWeapon.Flags.TestFlag(WeaponFlags.CanZoom))
+                    if (EquipWeapon.Flags.TestFlag(WeaponFlags.CanZoom))
                     {
                         if (Controls.Zoom.IsPressed)
                         {
@@ -1143,9 +1139,15 @@ namespace MphRead.Entities
                                 zoomFov = Mods.InputSettings.ScaleImperialistZoomFov(normalFov, zoomFov);
                             }
                             float currentFov = CameraInfo.Fov;
+                            float zoomStep = 2 * 2;
+                            if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                                && BalancedModeRules.IsAffinity(Hunter, CurrentWeapon))
+                            {
+                                zoomStep *= BalancedModeRules.ScopeVisualSpeed(Hunter, CurrentWeapon);
+                            }
                             if (zoomFov > currentFov)
                             {
-                                currentFov += 2 * 2;
+                                currentFov += zoomStep;
                                 if (currentFov > zoomFov)
                                 {
                                     currentFov = zoomFov;
@@ -1153,7 +1155,7 @@ namespace MphRead.Entities
                             }
                             else if (zoomFov < currentFov)
                             {
-                                currentFov -= 2 * 2;
+                                currentFov -= zoomStep;
                                 if (currentFov < zoomFov)
                                 {
                                     currentFov = zoomFov;
@@ -1251,40 +1253,6 @@ namespace MphRead.Entities
                     SetBiped2Animation(anim2, animFlags2);
                 }
             }
-        }
-
-        private bool TryBattlehammerAirburst()
-        {
-            // Detonate only the newest live shell. If it is still inside the
-            // short arming window, do not fall back to an older projectile;
-            // that keeps secondary fire from becoming an instant point-blank
-            // shotgun while making the selected shell deterministic on every
-            // machine simulating the same player.
-            BeamProjectileEntity? newest = null;
-            float newestAge = Single.MaxValue;
-            foreach (BeamProjectileEntity beam in EquipInfo.Beams)
-            {
-                if (beam.Beam != BeamType.Battlehammer || beam.BattlehammerClusterChild
-                    || beam.Owner != this || beam.Lifespan <= 0
-                    || beam.Flags.TestFlag(BeamFlags.Collided))
-                {
-                    continue;
-                }
-                if (beam.Age < newestAge)
-                {
-                    newest = beam;
-                    newestAge = beam.Age;
-                }
-            }
-            if (newest?.TryBattlehammerAirburst(this) != true)
-            {
-                return false;
-            }
-            if (IsMainPlayer)
-            {
-                ModControllerFeedback(Mods.Input.GamepadFeedback.Explosion);
-            }
-            return true;
         }
 
         private bool TryFireWeapon()
