@@ -1,0 +1,22 @@
+name: community-v2-check
+
+on:
+  push:
+    branches:
+      - feature/community-catalog-slice1
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  community:
+    name: Community v2 regression check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: Community-only map checks
+        run: dotnet run --project tools/map-editor-check -c Release -- --community-only
