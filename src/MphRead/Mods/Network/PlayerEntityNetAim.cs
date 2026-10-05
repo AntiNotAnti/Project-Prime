@@ -1474,6 +1474,51 @@ namespace MphRead.Entities
         }
 
         /// <summary>
+        /// Replay-only directional damage feedback. This deliberately does not
+        /// call TakeDamage, change health, apply knockback, shake the camera, or
+        /// touch animation state. ReplayShotFact already owns whether the hit
+        /// happened; this only lights the native HUD sector for the watched
+        /// victim.
+        /// </summary>
+        internal void ModPresentReplayDamageIndicator(Vector3 hitDirection)
+        {
+            if (!_scene.Services.IsReplica || !IsMainPlayer || IsAltForm
+                || hitDirection.LengthSquared < 0.000001f)
+            {
+                return;
+            }
+            int sector = ModReplayDamageIndicatorSector(
+                hitDirection, _gunVec2, _field70, _field74);
+            if ((uint)sector < (uint)_damageIndicatorTimers.Length)
+            {
+                _damageIndicatorTimers[sector] = 63 * 2; // stock HUD lifetime
+            }
+        }
+
+        internal void ModResetReplayDamageIndicators()
+        {
+            if (_scene.Services.IsReplica) Array.Clear(_damageIndicatorTimers);
+        }
+
+        internal static int ModReplayDamageIndicatorSector(Vector3 hitDirection,
+            Vector3 gunVector, float field70, float field74)
+        {
+            float hitZ = hitDirection.Z;
+            float hitX = -hitDirection.X;
+            float v126 = -hitZ * field74;
+            float dirHorizontal = -hitZ * gunVector.Z;
+            float dirLeftRight = hitX * gunVector.X + dirHorizontal;
+            dirHorizontal = MathF.Abs(dirLeftRight);
+            float dirUpDown = hitX * field70 + v126;
+            float dirVertical = MathF.Abs(dirUpDown);
+            if (dirVertical <= dirHorizontal)
+            {
+                return dirLeftRight <= 0 ? 2 : 6; // east / west
+            }
+            return dirUpDown <= 0 ? 4 : 0; // south / north
+        }
+
+        /// <summary>
         /// Put a remote player into or out of alt form to match the authority.
         ///
         /// Morphing is an input the owner performs, and only the authority
