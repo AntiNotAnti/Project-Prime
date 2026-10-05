@@ -15,6 +15,14 @@ internal static class CommunityMapChecks
 {
     public static async Task Run(Action<bool, string> check, string root)
     {
+        var tlsFrameFailure = new HttpRequestException("The SSL connection could not be established.",
+            new System.Security.Authentication.AuthenticationException(
+                "Cannot determine the frame size or a corrupted frame was received."));
+        check(MapCommunityClient.IsTlsFrameFailure(tlsFrameFailure),
+            "community transport recognizes TLS framing failures that may come from a proxy or HTTPS interceptor");
+        check(!MapCommunityClient.IsTlsFrameFailure(new HttpRequestException("Connection refused.")),
+            "ordinary Community network failures are not mistaken for TLS framing failures");
+
         string storage = Path.Combine(root, "catalog");Directory.CreateDirectory(storage);
         const string creatorToken="creator-one-local-fixture-token", collaboratorToken="creator-two-local-fixture-token";
         string TokenHash(string token)=>Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
