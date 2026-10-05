@@ -510,7 +510,7 @@ namespace MphRead.Mods.Network
                     && !b.BattlehammerClusterChild && b.Lifespan > 0);
                 Check(parent != null && parent.Damage == 18 && parent.SplashDamage == 5,
                     "Balanced Weavel Battlehammer shares the normal 18/5 damage budget");
-                var impact = new CollisionResult
+                var impact = new global::MphRead.Formats.CollisionResult
                 {
                     Position = parent!.Position + Vector3.UnitZ,
                     Plane = new Vector4(Vector3.UnitY, 0)
@@ -541,7 +541,7 @@ namespace MphRead.Mods.Network
                 Check(stock != null && stock.Damage == 12 && stock.SplashDamage == 8
                     && MathF.Abs(stock.SplashRadius - 1.5f) < 0.001f,
                     "Battlehammer is fully stock outside Balanced Mode");
-                var stockImpact = new CollisionResult
+                var stockImpact = new global::MphRead.Formats.CollisionResult
                 {
                     Position = stock!.Position + Vector3.UnitZ,
                     Plane = new Vector4(Vector3.UnitY, 0),
