@@ -1,4 +1,5 @@
 using System;
+using MphRead.Mods.Multiplayer;
 
 namespace MphRead.Entities
 {
@@ -33,7 +34,7 @@ namespace MphRead.Entities
         }
 
         private int BalancedImperialistAmmoCap
-            => Math.Max(1, BalancedImperialistWeaponInfo().AmmoCost) * BalancedImperialistShotCap;
+            => Math.Max(1, (int)BalancedImperialistWeaponInfo().AmmoCost) * BalancedImperialistShotCap;
 
         private int ModAmmoForWeapon(BeamType beam, WeaponInfo info)
             => UsesBalancedImperialistAmmo(beam) ? _balancedImperialistAmmo : _ammo[info.AmmoType];
