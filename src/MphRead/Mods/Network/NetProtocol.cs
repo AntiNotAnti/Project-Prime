@@ -27,6 +27,7 @@ namespace MphRead.Mods.Network
         QueueHello = 57, QueueWelcome = 58, QueueJoin = 59, QueueLeave = 60,
         QueueState = 61, QueueSeatOffer = 62, QueueAccept = 63, QueueDecline = 64,
         HostChallenge = 65, HostChallengeReply = 66,
+        ReplayShotFact = 67, // authority -> recorders, optional accepted shot result
         Hello = 1,          // client -> host, join request
         Welcome = 2,        // host -> client, assigns a slot
         Intent = 3,         // client -> host, one frame of input
