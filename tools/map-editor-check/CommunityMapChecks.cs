@@ -242,6 +242,13 @@ internal static class CommunityMapChecks
                 && ownerRevisions.Length == 3
                 && ownerRevisions[0].Hash == hidden.Hash,
                 "owners see draft/unlisted lineage without changing the public current revision");
+
+            await client.SetVisibilityAsync(hidden.Hash, "Published", default);
+            check((await client.GetProjectAsync(id, default))?.CurrentHash == hidden.Hash,
+                "publishing an existing revision promotes the project current pointer");
+            await client.SetVisibilityAsync(hidden.Hash, "Unlisted", default);
+            check((await client.GetProjectAsync(id, default))?.CurrentHash == v2.Hash,
+                "unlisting the current revision falls back to the newest published revision");
             var search = JsonSerializer.Deserialize<CommunityMap[]>(await http.GetStringAsync("maps?query=community&author=Fixture&page=2&pageSize=1"), MapPackageReader.JsonOptions)!;
             check(search.Length == 1, "catalog search and pagination");
             bool conflict = false;
