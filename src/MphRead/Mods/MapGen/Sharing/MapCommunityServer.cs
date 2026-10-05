@@ -561,6 +561,9 @@ public static class MapCommunityServer
                     {
                         if(!maps.TryGetValue(parts[1],out var map)){context.Response.StatusCode=404;return;}
                         if(!catalog.CanPublish(creator.CreatorId,map)){context.Response.StatusCode=403;return;}
+                        if(revisionCatalog.IsProjectDeleted(map.MapId)
+                            ||revisionCatalog.IsRevisionDeleted(map.Hash))
+                        {context.Response.StatusCode=410;return;}
                         string visibility=await Body<string>();if(visibility is not ("Published" or "Unlisted" or "Draft"))throw new InvalidDataException("Invalid visibility.");
                         var updated=map with{Listed=visibility=="Published",Draft=visibility=="Draft"};
                         AtomicFile.Write(Path.Combine(storage,map.Hash+".catalog.json"),JsonSerializer.SerializeToUtf8Bytes(updated,MapPackageReader.JsonOptions));
@@ -569,6 +572,162 @@ public static class MapCommunityServer
                         context.Response.StatusCode=204;
                     }
                     finally{publication.Release();}return;
+                }
+                if(parts.Length==3&&parts[0]=="v2"&&parts[1]=="maps"
+                    &&Guid.TryParse(parts[2],out Guid deleteMapId)
+                    &&context.Request.HttpMethod=="DELETE")
+                {
+                    if(creator==null){context.Response.StatusCode=401;return;}
+                    CommunityMap? owned=maps.Values.FirstOrDefault(m=>m.MapId==deleteMapId);
+                    if(owned==null){context.Response.StatusCode=404;return;}
+                    if(owned.OwnerId!=creator.CreatorId){context.Response.StatusCode=403;return;}
+                    await publication.WaitAsync(deadline.Token);
+                    try
+                    {
+                        if(!revisionCatalog.DeleteMap(
+                            deleteMapId,CommunityDeleteRetention))
+                        {context.Response.StatusCode=404;return;}
+                        var project=ManagedProject(deleteMapId,creator,includeDeleted:true);
+                        if(project==null){context.Response.StatusCode=404;return;}
+                        await Json(context.Response,project,deadline.Token);
+                    }
+                    finally{publication.Release();}
+                    return;
+                }
+                if(parts.Length==4&&parts[0]=="v2"&&parts[1]=="maps"
+                    &&Guid.TryParse(parts[2],out Guid lifecycleMapId)
+                    &&parts[3] is "archive" or "restore" or "purge")
+                {
+                    if(creator==null){context.Response.StatusCode=401;return;}
+                    CommunityMap? owned=maps.Values.FirstOrDefault(m=>m.MapId==lifecycleMapId);
+                    if(owned==null){context.Response.StatusCode=404;return;}
+
+                    if(parts[3]=="purge")
+                    {
+                        if(context.Request.HttpMethod!="DELETE")
+                        {context.Response.StatusCode=405;return;}
+                        if(!creator.Moderator){context.Response.StatusCode=403;return;}
+                        await publication.WaitAsync(deadline.Token);
+                        try
+                        {
+                            string[] hashes=revisionCatalog.MapHashes(lifecycleMapId);
+                            if(hashes.Length==0){context.Response.StatusCode=404;return;}
+                            PurgeLifecycleHashes(hashes);
+                            context.Response.StatusCode=204;
+                        }
+                        finally{publication.Release();}
+                        return;
+                    }
+
+                    if(context.Request.HttpMethod!="POST")
+                    {context.Response.StatusCode=405;return;}
+                    if(owned.OwnerId!=creator.CreatorId){context.Response.StatusCode=403;return;}
+                    await publication.WaitAsync(deadline.Token);
+                    try
+                    {
+                        if(parts[3]=="archive")
+                        {
+                            if(!revisionCatalog.Archive(lifecycleMapId))
+                            {context.Response.StatusCode=409;return;}
+                        }
+                        else
+                        {
+                            var state=revisionCatalog.ProjectState(lifecycleMapId);
+                            if(state?.DeleteAfter is DateTimeOffset deadlineAt
+                                &&deadlineAt<=DateTimeOffset.UtcNow)
+                            {context.Response.StatusCode=410;return;}
+                            if(!revisionCatalog.RestoreMap(lifecycleMapId))
+                            {context.Response.StatusCode=404;return;}
+                        }
+                        var project=ManagedProject(
+                            lifecycleMapId,creator,includeDeleted:true);
+                        if(project==null){context.Response.StatusCode=404;return;}
+                        await Json(context.Response,project,deadline.Token);
+                    }
+                    finally{publication.Release();}
+                    return;
+                }
+                if(parts.Length==5&&parts[0]=="v2"&&parts[1]=="maps"
+                    &&Guid.TryParse(parts[2],out Guid revisionLifecycleMapId)
+                    &&parts[3]=="revisions"
+                    &&int.TryParse(parts[4],out int lifecycleRevision)
+                    &&context.Request.HttpMethod=="DELETE")
+                {
+                    if(creator==null){context.Response.StatusCode=401;return;}
+                    CommunityMap? owned=maps.Values.FirstOrDefault(
+                        m=>m.MapId==revisionLifecycleMapId);
+                    if(owned==null){context.Response.StatusCode=404;return;}
+                    if(owned.OwnerId!=creator.CreatorId){context.Response.StatusCode=403;return;}
+                    await publication.WaitAsync(deadline.Token);
+                    try
+                    {
+                        try
+                        {
+                            if(!revisionCatalog.DeleteRevision(
+                                revisionLifecycleMapId,lifecycleRevision,
+                                CommunityDeleteRetention,maps.Values))
+                            {context.Response.StatusCode=404;return;}
+                        }
+                        catch(InvalidOperationException)
+                        {context.Response.StatusCode=409;return;}
+                        var project=ManagedProject(
+                            revisionLifecycleMapId,creator,includeDeleted:true);
+                        if(project==null){context.Response.StatusCode=404;return;}
+                        await Json(context.Response,project,deadline.Token);
+                    }
+                    finally{publication.Release();}
+                    return;
+                }
+                if(parts.Length==6&&parts[0]=="v2"&&parts[1]=="maps"
+                    &&Guid.TryParse(parts[2],out Guid revisionActionMapId)
+                    &&parts[3]=="revisions"
+                    &&int.TryParse(parts[4],out int revisionActionNumber)
+                    &&parts[5] is "restore" or "purge")
+                {
+                    if(creator==null){context.Response.StatusCode=401;return;}
+                    CommunityMap? owned=maps.Values.FirstOrDefault(
+                        m=>m.MapId==revisionActionMapId);
+                    if(owned==null){context.Response.StatusCode=404;return;}
+
+                    if(parts[5]=="purge")
+                    {
+                        if(context.Request.HttpMethod!="DELETE")
+                        {context.Response.StatusCode=405;return;}
+                        if(!creator.Moderator){context.Response.StatusCode=403;return;}
+                        string? hash=revisionCatalog.RevisionHashForLifecycle(
+                            revisionActionMapId,revisionActionNumber);
+                        if(hash==null){context.Response.StatusCode=404;return;}
+                        await publication.WaitAsync(deadline.Token);
+                        try
+                        {
+                            PurgeLifecycleHashes(new[]{hash});
+                            context.Response.StatusCode=204;
+                        }
+                        finally{publication.Release();}
+                        return;
+                    }
+
+                    if(context.Request.HttpMethod!="POST")
+                    {context.Response.StatusCode=405;return;}
+                    if(owned.OwnerId!=creator.CreatorId){context.Response.StatusCode=403;return;}
+                    await publication.WaitAsync(deadline.Token);
+                    try
+                    {
+                        var state=revisionCatalog.RevisionState(
+                            revisionActionMapId,revisionActionNumber);
+                        if(state?.DeleteAfter is DateTimeOffset deadlineAt
+                            &&deadlineAt<=DateTimeOffset.UtcNow)
+                        {context.Response.StatusCode=410;return;}
+                        if(!revisionCatalog.RestoreRevision(
+                            revisionActionMapId,revisionActionNumber,maps.Values))
+                        {context.Response.StatusCode=404;return;}
+                        var project=ManagedProject(
+                            revisionActionMapId,creator,includeDeleted:true);
+                        if(project==null){context.Response.StatusCode=404;return;}
+                        await Json(context.Response,project,deadline.Token);
+                    }
+                    finally{publication.Release();}
+                    return;
                 }
                 if(parts.Length==6&&parts[0]=="v2"&&parts[1]=="maps"
                     &&Guid.TryParse(parts[2],out Guid promoteMapId)
@@ -581,9 +740,13 @@ public static class MapCommunityServer
                     CommunityMap? owned=maps.Values.FirstOrDefault(m=>m.MapId==promoteMapId);
                     if(owned==null){context.Response.StatusCode=404;return;}
                     if(!catalog.CanPublish(creator.CreatorId,owned)){context.Response.StatusCode=403;return;}
+                    if(revisionCatalog.IsProjectDeleted(promoteMapId))
+                    {context.Response.StatusCode=410;return;}
                     string? promoteHash=revisionCatalog.RevisionHash(promoteMapId,promoteRevision);
                     if(promoteHash==null||!maps.TryGetValue(promoteHash,out var promoteMap))
                     {context.Response.StatusCode=404;return;}
+                    if(revisionCatalog.IsRevisionDeleted(promoteHash))
+                    {context.Response.StatusCode=410;return;}
 
                     await publication.WaitAsync(deadline.Token);
                     try
