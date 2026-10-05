@@ -48,11 +48,11 @@ void main()
 {
     mat4 stack_mtx;
     if (weighted_skinning) {
-        float packed = floor(gl_MultiTexCoord0.z + 0.5);
-        int j0 = int(mod(packed, 32.0)); packed = floor(packed / 32.0);
-        int j1 = int(mod(packed, 32.0)); packed = floor(packed / 32.0);
-        int j2 = int(mod(packed, 32.0)); packed = floor(packed / 32.0);
-        int j3 = int(mod(packed, 32.0));
+        float packedJoints = floor(gl_MultiTexCoord0.z + 0.5);
+        int j0 = int(mod(packedJoints, 32.0)); packedJoints = floor(packedJoints / 32.0);
+        int j1 = int(mod(packedJoints, 32.0)); packedJoints = floor(packedJoints / 32.0);
+        int j2 = int(mod(packedJoints, 32.0)); packedJoints = floor(packedJoints / 32.0);
+        int j3 = int(mod(packedJoints, 32.0));
         vec4 weights = max(gl_Color, vec4(0.0));
         float total = weights.x + weights.y + weights.z + weights.w;
         weights = total > 0.000001 ? weights / total : vec4(1.0, 0.0, 0.0, 0.0);

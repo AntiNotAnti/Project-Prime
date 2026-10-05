@@ -329,9 +329,10 @@ internal sealed class ReplayPoseStream : IDisposable
         bool hasFire = TryAuthoredFire(fact, out FireEvent fire, out uint fireFrame);
         double ack = hasFire && fire.AckFrame != 0
             ? fire.AckFrame + fire.AckSubFrame / 256d : double.NaN;
+        Vector3 ackPosition = default;
         bool hasAckTarget = double.IsFinite(ack)
             && TrySampleServerLifeAt(fact.VictimSlot, ack,
-                fact.VictimGeneration, fact.VictimLifeId, out Vector3 ackPosition);
+                fact.VictimGeneration, fact.VictimLifeId, out ackPosition);
         if (!hasAckTarget) ackPosition = default;
         float delta = hasAckTarget
             ? Vector3.Distance(ackPosition, fact.ImpactPoint) : float.NaN;
