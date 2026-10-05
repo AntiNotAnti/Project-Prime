@@ -19,10 +19,19 @@ available through the inspector and command palette.
 
 ## Sharing and playing
 
-1. Open **Online → Community maps** and refresh. The default library address is
-   `https://maps.rebooty.xyz/`; a different address can be entered and is remembered.
-   Publishing works with the automatically created guest identity; no registered account or creator secret is required. Link an account if you want to recover map ownership on another device.
-2. Authors choose **Upload current**. Project Prime obtains a short-lived Community
+1. Open **Online → Community maps**. The Community dashboard loads automatically
+   and has three faces: **Discover** for the public catalog, **My Maps** for creator
+   management, and **Favorites** for the signed-in user's saved maps. Maps are grouped by
+   stable map identity rather than showing every package revision as a separate catalog
+   entry. Search and sorting operate on the grouped project list, while selecting a map
+   shows install, host, favorite/report, publishing, and revision controls in the detail
+   pane. The default library address is `https://maps.rebooty.xyz/`; the self-hosted
+   service address remains available under **Community Service** and is remembered.
+   Publishing works with the automatically created guest identity; no registered account
+   or creator secret is required. Link an account if you want to recover map ownership on
+   another device.
+2. Authors open **My Maps → Upload current**. The lightweight publishing form chooses
+   Published, Unlisted, or Draft visibility, then Project Prime obtains a short-lived Community
    publishing ticket from the author's guest or registered identity automatically; no creator
    token is copied or stored in Map Studio. Map Studio builds a portable `.ppmap`
    including referenced assets before upload. Current clients upload in resumable chunks of
@@ -40,6 +49,18 @@ available through the inspector and command palette.
 5. Joining players do not need to pre-install a published map. The lobby advertises
    the exact package identity and Community source; clients download, verify, build,
    prewarm and report Ready before the server's normal start barrier releases.
+
+The **My Maps** detail pane distinguishes the current public release from the newest
+creator revision. Creators can publish, unlist, or return any visible revision to Draft,
+inspect immutable revision history, install an exact revision for testing, and copy its
+exact package link. The **Discover** and **Favorites** faces expose only public revisions
+and keep creator-only revision identity metadata private. A creator can still upload a
+first map when **My Maps** is empty; upload is a dashboard action rather than an action
+attached to an existing listing.
+
+Clients prefer the grouped `/v2/maps` API. If a trusted older Community service has not
+been upgraded yet, the dashboard falls back to the legacy flat map/version endpoints and
+groups those package rows locally so browsing remains usable during deployment rollout.
 
 The existing lobby's **Choose deployment zone** card picker also loads public
 Community maps alongside local arenas. Community cards have a COMMUNITY badge;
