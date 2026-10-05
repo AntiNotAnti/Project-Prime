@@ -260,6 +260,7 @@ namespace MphRead.Mods.Network
                     "Balanced hunter profile world loads");
                 NetSlotManager.Sync();
                 var kanden = PlayerEntity.Players[0];
+                var scene = kanden.OwningScene;
                 var spire = PlayerEntity.Players[1];
                 var noxus = PlayerEntity.Players[2];
                 var weavel = PlayerEntity.Players[3];
