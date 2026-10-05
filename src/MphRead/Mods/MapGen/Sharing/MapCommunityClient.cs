@@ -11,8 +11,49 @@ using System.Threading.Tasks;
 
 namespace MphRead.Mods.MapGen;
 
-public sealed record MapUploadStartRequest(long Bytes, bool Listed, bool Draft);
+public sealed record MapUploadStartRequest(long Bytes, bool Listed, bool Draft)
+{
+    // Null means a legacy upload with no optimistic revision contract.
+    public Guid? MapId { get; init; }
+    public bool? ExistingMap { get; init; }
+    public string? ExpectedParentHash { get; init; }
+    public string? ReleaseNotes { get; init; }
+    public bool AllowStaleParent { get; init; }
+}
+
 public sealed record MapUploadState(string PackageHash, long Bytes, long Offset, int ChunkBytes, bool Complete);
+
+public sealed record CommunityPublishRequest(
+    bool ExistingMap,
+    string? ExpectedParentHash,
+    string? ReleaseNotes = null,
+    bool AllowStaleParent = false);
+
+public sealed record CommunityRevisionConflict(
+    string Code,
+    Guid MapId,
+    string? ExpectedParentHash,
+    string? LatestHash,
+    string? CurrentHash,
+    int? LatestRevisionNumber,
+    bool ResumeAvailable,
+    string Message);
+
+public sealed class CommunityRevisionConflictException : HttpRequestException
+{
+    public CommunityRevisionConflict Conflict { get; }
+
+    public CommunityRevisionConflictException(CommunityRevisionConflict conflict)
+        : base(conflict.Message, null, HttpStatusCode.Conflict)
+    {
+        Conflict = conflict;
+    }
+}
+
+public sealed record CommunityPublishResult(
+    CommunityMap Package,
+    CommunityMapProject? Project,
+    CommunityMapRevision? Revision);
 
 public sealed record CommunityMap(string Hash, Guid MapId, string ContentHash, string Name,
     string? DisplayName, string? Author, string? Version, long Bytes)
@@ -199,6 +240,63 @@ public sealed class MapCommunityClient : IDisposable
             .ToArray();
     }
 
+    public async Task<CommunityPublishResult> PublishAsync(
+        string path, CommunityPublishRequest request, CancellationToken token,
+        bool listed = true, bool draft = false, Action<long, long>? progress = null)
+    {
+        CommunityMap package = await UploadAsync(path, token, listed, draft,
+            progress, request).ConfigureAwait(false);
+        CommunityMapProject? project = await GetProjectAsync(package.MapId, token)
+            .ConfigureAwait(false);
+        CommunityMapRevision? revision = project == null
+            ? null
+            : (await GetRevisionsAsync(package.MapId, token).ConfigureAwait(false))
+                .FirstOrDefault(r => r.Hash == package.Hash);
+        return new CommunityPublishResult(package, project, revision);
+    }
+
+    public async Task<CommunityMapProject?> PromoteRevisionAsync(
+        Guid mapId, int revisionNumber, CancellationToken token)
+    {
+        if (revisionNumber < 1)
+            throw new ArgumentOutOfRangeException(nameof(revisionNumber));
+        using var response = await _http.PostAsync(
+            $"v2/maps/{mapId}/revisions/{revisionNumber}/promote",
+            new ByteArrayContent(Array.Empty<byte>()), token).ConfigureAwait(false);
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed)
+        {
+            CommunityMapRevision? legacy = (await GetRevisionsAsync(mapId, token)
+                .ConfigureAwait(false)).FirstOrDefault(r => r.RevisionNumber == revisionNumber);
+            if (legacy == null) return null;
+            await SetVisibilityAsync(legacy.Hash, "Published", token).ConfigureAwait(false);
+            return await GetProjectAsync(mapId, token).ConfigureAwait(false);
+        }
+        EnsureSuccess(response);
+        using var data = new MemoryStream();
+        await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token),
+            data, 512 * 1024, token).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<CommunityMapProject>(
+            data.ToArray(), MapPackageReader.JsonOptions);
+    }
+
+    private static async Task<CommunityRevisionConflict?> ReadRevisionConflictAsync(
+        HttpResponseMessage response, CancellationToken token)
+    {
+        try
+        {
+            using var data = new MemoryStream();
+            await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token),
+                data, 64 * 1024, token).ConfigureAwait(false);
+            if (data.Length == 0) return null;
+            return JsonSerializer.Deserialize<CommunityRevisionConflict>(
+                data.ToArray(), MapPackageReader.JsonOptions);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     public async Task SetFavoriteAsync(Guid map,bool favorite,CancellationToken token)
     {
         using var request=new HttpRequestMessage(favorite?HttpMethod.Put:HttpMethod.Delete,"maps/"+map+"/favorite");
@@ -230,7 +328,7 @@ public sealed class MapCommunityClient : IDisposable
     private const int MinimumAdaptiveChunkBytes = 1024 * 1024;
 
     public async Task<CommunityMap> UploadAsync(string path, CancellationToken token, bool listed = true, bool draft = false,
-        Action<long, long>? progress = null)
+        Action<long, long>? progress = null, CommunityPublishRequest? publish = null)
     {
         using var package = new MapPackageReader(path);
         if (package.Manifest == null) throw new InvalidDataException("Build a current .ppmap package before sharing.");
@@ -244,7 +342,14 @@ public sealed class MapCommunityClient : IDisposable
         using (var authorization = await GetReadAsync("maps?mine=true&pageSize=1",
             HttpCompletionOption.ResponseHeadersRead, token)) EnsureSuccess(authorization);
 
-        MapUploadState? state = await BeginChunkedUploadAsync(hash, bytes, listed, draft, token).ConfigureAwait(false);
+        if (publish?.ReleaseNotes?.Length > 4000)
+            throw new InvalidDataException("Release notes exceed 4,000 characters.");
+        if (publish?.ExpectedParentHash is { } expected
+            && !ValidHash(expected))
+            throw new InvalidDataException("Invalid expected parent package hash.");
+
+        MapUploadState? state = await BeginChunkedUploadAsync(
+            hash, bytes, listed, draft, package.Manifest.MapId, publish, token).ConfigureAwait(false);
         if (state == null)
             return await UploadLegacyAsync(path, listed, draft, token, progress).ConfigureAwait(false);
 
@@ -326,7 +431,14 @@ public sealed class MapCommunityClient : IDisposable
             using var complete = await _http.PostAsync("uploads/" + hash + "/complete",
                 new ByteArrayContent(Array.Empty<byte>()), token).ConfigureAwait(false);
             if (complete.StatusCode == HttpStatusCode.Conflict)
-                throw new HttpRequestException("This map version already has different published contents. Increase the project's Version before publishing.", null, complete.StatusCode);
+            {
+                CommunityRevisionConflict? conflict =
+                    await ReadRevisionConflictAsync(complete, token).ConfigureAwait(false);
+                if (conflict != null) throw new CommunityRevisionConflictException(conflict);
+                throw new HttpRequestException(
+                    "This map version already has different published contents. Increase the project's Version before publishing.",
+                    null, complete.StatusCode);
+            }
             EnsureSuccess(complete);
             using var data = new MemoryStream();
             await CopyBoundedAsync(await complete.Content.ReadAsStreamAsync(token), data, 64 * 1024, token).ConfigureAwait(false);
@@ -342,12 +454,32 @@ public sealed class MapCommunityClient : IDisposable
         return ConfirmUpload(path, existing);
     }
 
-    private async Task<MapUploadState?> BeginChunkedUploadAsync(string hash, long bytes, bool listed, bool draft, CancellationToken token)
+    private async Task<MapUploadState?> BeginChunkedUploadAsync(
+        string hash, long bytes, bool listed, bool draft, Guid mapId,
+        CommunityPublishRequest? publish, CancellationToken token)
     {
-        using var content = new StringContent(JsonSerializer.Serialize(new MapUploadStartRequest(bytes, listed, draft), MapPackageReader.JsonOptions),
+        var start = new MapUploadStartRequest(bytes, listed, draft);
+        if (publish != null)
+        {
+            start = start with
+            {
+                MapId = mapId,
+                ExistingMap = publish.ExistingMap,
+                ExpectedParentHash = publish.ExpectedParentHash,
+                ReleaseNotes = publish.ReleaseNotes?.Trim(),
+                AllowStaleParent = publish.AllowStaleParent
+            };
+        }
+        using var content = new StringContent(JsonSerializer.Serialize(start, MapPackageReader.JsonOptions),
             System.Text.Encoding.UTF8, "application/json");
         using var response = await _http.PostAsync("uploads/" + hash, content, token).ConfigureAwait(false);
         if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed) return null;
+        if (response.StatusCode == HttpStatusCode.Conflict)
+        {
+            CommunityRevisionConflict? conflict =
+                await ReadRevisionConflictAsync(response, token).ConfigureAwait(false);
+            if (conflict != null) throw new CommunityRevisionConflictException(conflict);
+        }
         EnsureSuccess(response);
         return await ReadUploadStateAsync(response, token).ConfigureAwait(false);
     }
