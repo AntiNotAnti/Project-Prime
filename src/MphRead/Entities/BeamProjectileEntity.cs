@@ -987,7 +987,7 @@ namespace MphRead.Entities
         /// Player/direct hits deliberately skip the cluster and keep the full
         /// direct-hit reward.
         /// </summary>
-        private bool TryBattlehammerImpactCluster(CollisionResult colRes)
+        internal bool TryBattlehammerImpactCluster(CollisionResult colRes)
         {
             if (!_scene.GameState.Multiplayer || !_scene.GameState.BalancedMode
                 || Beam != BeamType.Battlehammer || BattlehammerClusterChild
