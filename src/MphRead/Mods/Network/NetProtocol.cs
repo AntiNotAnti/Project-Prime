@@ -2454,7 +2454,10 @@ namespace MphRead.Mods.Network
         // Protocol 37 protects remote lobby allocation with an endpoint-bound
         // challenge cookie carried on HostRequest. Gameplay/replay packets are
         // byte-identical to protocol 36.
-        public const int ProtocolVersion = 37;
+        // Protocol 38 adds the authoritative Balanced Mode match modifier.
+        // Packet widths stay unchanged, but the new rule changes Imperialist
+        // ammo semantics, so mixed v37/v38 peers must not share a match.
+        public const int ProtocolVersion = 38;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///
