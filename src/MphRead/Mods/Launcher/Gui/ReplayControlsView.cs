@@ -933,13 +933,20 @@ namespace MphRead.Mods.Launcher.Gui
             ReplayPoseStream? poses = scene?.ReplayPoses;
             if (poses == null) return;
 
-            int shooter = selected.ActorSlot < PlayerEntity.SlotCapacity
-                ? selected.ActorSlot : -1;
+            bool deathMarker = selected.Type == ReplayEventType.PlayerDeath;
+            int shooterSlot = deathMarker ? selected.TargetSlot : selected.ActorSlot;
+            int victimSlot = deathMarker ? selected.ActorSlot : selected.TargetSlot;
+            int shooter = shooterSlot < PlayerEntity.SlotCapacity ? shooterSlot : -1;
+            int victim = victimSlot < PlayerEntity.SlotCapacity ? victimSlot : -1;
             int weapon = selected.Type == ReplayEventType.WeaponFired
                 ? selected.Value : -1;
-            int victim = selected.TargetSlot < PlayerEntity.SlotCapacity
-                ? selected.TargetSlot : -1;
+            int expectedDamage = selected.Type == ReplayEventType.Damage
+                ? selected.Value : -1;
+            bool requireLethal = selected.Type is ReplayEventType.Kill
+                or ReplayEventType.PlayerDeath;
+            bool requireHeadshot = selected.Type == ReplayEventType.Headshot;
             if (poses.TryCombatDiagnostic(selected.Frame, shooter, victim, weapon,
+                expectedDamage, requireLethal, requireHeadshot,
                 direction: 0, out var diagnostic))
             {
                 ReplayCombatDiagnostics.Select(diagnostic);
