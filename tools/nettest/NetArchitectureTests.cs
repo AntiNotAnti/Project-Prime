@@ -103,7 +103,7 @@ internal static class NetArchitectureTests
             {
                 ShotId = 78, DamageEventId = 6, Damage = 0, HealthAfter = 99,
                 HalfturretDamage = 25, HalfturretHealthAfter = 35,
-                Flags = ReplayShotFactFlags.Direct | ReplayShotFactFlags.Turret
+                Flags = ReplayShotFactFlags.Direct | ReplayShotFactFlags.HalfturretTarget
             };
             ReplayShotFactPacket.Write(turretFact, resolvedBytes);
             Check(ReplayShotFactPacket.TryRead(resolvedBytes, out var turretRoundtrip)
