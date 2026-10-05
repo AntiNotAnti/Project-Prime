@@ -2181,9 +2181,9 @@ namespace MphRead.Entities
             {
                 return;
             }
-            _ammoBarMeter.TankAmount = _ammoMax[info.AmmoType] + 1;
+            _ammoBarMeter.TankAmount = ModAmmoCapForWeapon(CurrentWeapon, info) + 1;
             _ammoBarMeter.TankCount = 0;
-            int amount = _ammo[info.AmmoType];
+            int amount = ModAmmoForWeapon(CurrentWeapon, info);
             DrawMeter(_hudObjects.AmmoBarPosX + _objShiftX, _hudObjects.AmmoBarPosY + _objShiftY, amount, amount,
                 _ammoBarPalette, _ammoBarMeter, drawText: false, drawTanks: false, Features.HudOpacity);
             amount /= info.AmmoCost;
@@ -2355,7 +2355,7 @@ namespace MphRead.Entities
                 }
                 ammoRightX = panelX + panelWidth - 1.5f * scale * aspectFix;
                 bool equipped = beam == CurrentWeapon;
-                WeaponInfo info = _scene.WeaponRules[i];
+                WeaponInfo info = ModDisplayWeaponInfo(beam, _scene.WeaponRules[i]);
                 // The colour this weapon is known by. See _weaponListColors:
                 // deliberately not the game's own beam colour, which is the
                 // colour of the *shot* and is nothing like it for several.
@@ -2437,7 +2437,7 @@ namespace MphRead.Entities
                 // marker single-player bots carry; a blank where every other
                 // row has a number reads as "unknown" rather than as
                 // "unlimited", so both say so.
-                int ammoAmount = _ammo[info.AmmoType];
+                int ammoAmount = ModAmmoForWeapon(beam, info);
                 scoped ReadOnlySpan<char> ammo = "--";
                 if (info.AmmoCost > 0 && ammoAmount >= 0)
                 {
