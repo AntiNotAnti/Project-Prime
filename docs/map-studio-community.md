@@ -30,8 +30,11 @@ available through the inspector and command palette.
    Publishing works with the automatically created guest identity; no registered account
    or creator secret is required. Link an account if you want to recover map ownership on
    another device.
-2. Authors open **My Maps → Upload current**. The lightweight publishing form chooses
-   Published, Unlisted, or Draft visibility, then Project Prime obtains a short-lived Community
+2. Authors open **My Maps → Upload current**. Map Studio compares the open project's
+   stable `MapId` with the creator catalog and labels the action as either a **new map** or
+   the next **server-numbered revision** automatically. Creators choose Published, Unlisted,
+   or Draft visibility and can add release notes; the human-facing project `Version` no
+   longer has to change for each Community revision. Project Prime obtains a short-lived
    publishing ticket from the author's guest or registered identity automatically; no creator
    token is copied or stored in Map Studio. Map Studio builds a portable `.ppmap`
    including referenced assets before upload. Current clients upload in resumable chunks of
@@ -51,16 +54,30 @@ available through the inspector and command palette.
    prewarm and report Ready before the server's normal start barrier releases.
 
 The **My Maps** detail pane distinguishes the current public release from the newest
-creator revision. Creators can publish, unlist, or return any visible revision to Draft,
-inspect immutable revision history, install an exact revision for testing, and copy its
-exact package link. The **Discover** and **Favorites** faces expose only public revisions
-and keep creator-only revision identity metadata private. A creator can still upload a
-first map when **My Maps** is empty; upload is a dashboard action rather than an action
-attached to an existing listing.
+creator revision. Each revision records its immutable package hash, server revision number,
+parent hash, creator identity and optional release notes. **Make Current** explicitly
+promotes any historical revision without rewriting its package, so rollback is instant and
+newer immutable revisions remain in history. Unlist and Draft change visibility without
+changing revision identity. The **Discover** and **Favorites** faces expose only public
+revisions and keep creator-only revision identity metadata private. A creator can still
+upload a first map when **My Maps** is empty; upload is a dashboard action rather than an
+action attached to an existing listing.
+
+Revision uploads use optimistic parent validation. The upload declares the exact revision
+the creator edited from; the service checks that parent before accepting bytes and checks it
+again under the publication lock. If another collaborator publishes first, Map Studio shows
+the new server head and offers **Review Latest**, **Publish Anyway**, or **Save Branch as
+Draft** where safe. A conflict detected after the archive finished uploading keeps the
+resumable bytes, so an explicit publish-anyway action can complete without retransmitting
+the archive. Publishing anyway preserves the authored parent link, allowing the history to
+show that the revision was intentionally based on an older branch.
 
 Clients prefer the grouped `/v2/maps` API. If a trusted older Community service has not
 been upgraded yet, the dashboard falls back to the legacy flat map/version endpoints and
 groups those package rows locally so browsing remains usable during deployment rollout.
+Revision promotion/rollback is intentionally not emulated on a legacy service because it
+has no authoritative current-revision pointer; upgrade the service before using those
+creator actions.
 
 The existing lobby's **Choose deployment zone** card picker also loads public
 Community maps alongside local arenas. Community cards have a COMMUNITY badge;
@@ -126,6 +143,10 @@ Routes beneath the configured prefix:
   latest revision pointers. Owners/collaborators can see private revisions.
 - `GET v2/maps/<map-id>/revisions`: server-numbered immutable revision history.
   Public callers see published revisions; owners/collaborators see the full lineage.
+- `POST v2/maps/<map-id>/revisions/<revision>/promote`: owner/collaborator-only
+  promotion of an immutable historical revision to the current public release. Legacy flat
+  API responses synthesize a current-release timestamp so older clients select the rollback
+  target without mutating the package's persisted publication chronology or bytes.
 - `POST uploads/<sha256>`: create or resume a package upload session.
 - `GET uploads/<sha256>`: read the persisted byte offset for the authenticated creator.
 - `PUT uploads/<sha256>?offset=<bytes>`: append one bounded package chunk.
@@ -139,8 +160,11 @@ Routes beneath the configured prefix:
 
 Upload session metadata and partial bytes survive service restarts and expire after
 24 hours if abandoned. At most 16 partial sessions and 2 GiB of partial upload data
-are retained at once. Completion still passes through the existing ownership,
-version-conflict, archive-size, entry-size, content-hash and package validation.
+are retained at once. V2 upload sessions also persist expected parent, new-vs-revision
+intent, release notes, and explicit stale-parent override state. Completion rechecks that
+contract under the publication lock. Legacy uploads retain the historical human-version
+conflict rule; v2 revisions use server revision numbers instead. All uploads still pass
+through ownership, archive-size, entry-size, content-hash and package validation.
 
 The library uses SHA-256 filenames, validates package manifests/assets, rejects
 traversal and unsupported package entries, bounds archive/expanded sizes, limits
@@ -210,8 +234,11 @@ dotnet run --project src/MphRead -- -mapstudioshot /tmp/map-studio-shots
 The community harness exercises authenticated upload, exact-byte downloads,
 idempotency, malformed archives, invalid identifiers/sizes, bounded streams,
 installed-map discovery, package byte-range responses, grouped v2 project discovery,
-stable server revision numbering and parent links, private revision visibility,
-partial-upload persistence, exact-offset upload resume after a service restart,
-and cleanup after successful assembly. Map Studio capture emits
+stable server revision numbering and parent links, release-note persistence,
+optimistic collaborator conflicts before upload and again at completion, resumable
+publish-anyway after a completed conflicting upload, explicit historical revision
+promotion/rollback, private revision visibility, partial-upload persistence,
+exact-offset upload resume after a service restart, and cleanup after successful
+assembly. Map Studio capture emits
 large, small and four-view layouts. Full TrenchBroom compatibility (including its
 brush CSG kernel, Quake `.map`/FGD support and UV editor) is outside this change.

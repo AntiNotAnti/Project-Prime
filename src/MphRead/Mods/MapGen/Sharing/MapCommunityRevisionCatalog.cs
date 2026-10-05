@@ -17,7 +17,8 @@ public sealed record CommunityMapRevision(
     string? ParentHash,
     string? CreatedBy,
     DateTimeOffset CreatedAt,
-    CommunityMap Package);
+    CommunityMap Package,
+    string? ReleaseNotes = null);
 
 /// <summary>
 /// Map-level catalog view. CurrentRevision is the package selected for public
@@ -44,7 +45,8 @@ internal sealed record CommunityMapRevisionState(
     int RevisionNumber,
     string? ParentHash,
     string CreatedBy,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    string? ReleaseNotes = null);
 
 internal sealed record CommunityMapProjectState(
     Guid MapId,
@@ -89,7 +91,9 @@ internal sealed class MapCommunityRevisionCatalog
         get { lock (_gate) return _projects.Count; }
     }
 
-    public CommunityMapRevision Register(CommunityMap package, string creatorId)
+    public CommunityMapRevision Register(CommunityMap package, string creatorId,
+        string? parentHash = null, string? releaseNotes = null,
+        bool useProvidedParent = false)
     {
         lock (_gate)
         {
@@ -112,17 +116,23 @@ internal sealed class MapCommunityRevisionCatalog
                 _projects[package.MapId] = project;
 
                 var first = new CommunityMapRevisionState(
-                    package.Hash, package.MapId, 1, null, creatorId, created);
+                    package.Hash, package.MapId, 1, null, creatorId, created,
+                    NormalizeReleaseNotes(releaseNotes));
                 _revisions[package.Hash] = first;
                 Save();
                 return Attach(first, package, revealCreatorIdentity: true);
             }
 
             int revisionNumber = Math.Max(1, project.NextRevisionNumber);
-            string? parent = _revisions.ContainsKey(project.LatestHash)
-                ? project.LatestHash : null;
+            string? parent = useProvidedParent
+                ? parentHash
+                : _revisions.ContainsKey(project.LatestHash) ? project.LatestHash : null;
+            if (parent != null && (!_revisions.TryGetValue(parent, out var parentRevision)
+                || parentRevision.MapId != package.MapId))
+                throw new InvalidDataException("Community revision parent does not belong to this map.");
             var revision = new CommunityMapRevisionState(
-                package.Hash, package.MapId, revisionNumber, parent, creatorId, created);
+                package.Hash, package.MapId, revisionNumber, parent, creatorId, created,
+                NormalizeReleaseNotes(releaseNotes));
             _revisions[package.Hash] = revision;
 
             string? current = package.Listed && !package.Draft
@@ -240,11 +250,89 @@ internal sealed class MapCommunityRevisionCatalog
         }
     }
 
+    public CommunityMap LegacyPresentation(CommunityMap package)
+    {
+        lock (_gate)
+        {
+            if (_projects.TryGetValue(package.MapId, out var project)
+                && project.CurrentHash == package.Hash
+                && project.UpdatedAt > package.PublishedAt)
+                return package with { PublishedAt = project.UpdatedAt };
+            return package;
+        }
+    }
+
+    public string? LatestHash(Guid mapId)
+    {
+        lock (_gate)
+            return _projects.TryGetValue(mapId, out var project)
+                ? project.LatestHash : null;
+    }
+
+    public string? CurrentHash(Guid mapId)
+    {
+        lock (_gate)
+            return _projects.TryGetValue(mapId, out var project)
+                ? project.CurrentHash : null;
+    }
+
+    public int? LatestRevisionNumber(Guid mapId)
+    {
+        lock (_gate)
+        {
+            if (!_projects.TryGetValue(mapId, out var project)
+                || !_revisions.TryGetValue(project.LatestHash, out var revision))
+                return null;
+            return revision.RevisionNumber;
+        }
+    }
+
+    public bool ContainsRevision(Guid mapId, string hash)
+    {
+        lock (_gate)
+            return _revisions.TryGetValue(hash, out var revision)
+                && revision.MapId == mapId;
+    }
+
+    public string? RevisionHash(Guid mapId, int revisionNumber)
+    {
+        lock (_gate)
+            return _revisions.Values.FirstOrDefault(r =>
+                r.MapId == mapId && r.RevisionNumber == revisionNumber)?.Hash;
+    }
+
+    public void Promote(Guid mapId, string hash)
+    {
+        lock (_gate)
+        {
+            if (!_projects.TryGetValue(mapId, out var project)
+                || !_revisions.TryGetValue(hash, out var revision)
+                || revision.MapId != mapId)
+                throw new InvalidDataException("Unknown Community map revision.");
+            _projects[mapId] = project with
+            {
+                CurrentHash = hash,
+                UpdatedAt = DateTimeOffset.UtcNow
+            };
+            Save();
+        }
+    }
+
+    private static string? NormalizeReleaseNotes(string? value)
+    {
+        value = value?.Trim();
+        if (string.IsNullOrEmpty(value)) return null;
+        if (value.Length > 4000)
+            throw new InvalidDataException("Release notes exceed 4,000 characters.");
+        return value;
+    }
+
     private static CommunityMapRevision Attach(
         CommunityMapRevisionState state, CommunityMap package,
         bool revealCreatorIdentity)
         => new(state.RevisionNumber, state.Hash, state.ParentHash,
-            revealCreatorIdentity ? state.CreatedBy : null, state.CreatedAt, package);
+            revealCreatorIdentity ? state.CreatedBy : null, state.CreatedAt, package,
+            state.ReleaseNotes);
 
     private void Load()
     {
@@ -338,7 +426,7 @@ internal sealed class MapCommunityRevisionCatalog
                     ? DateTimeOffset.UnixEpoch : package.PublishedAt;
                 var revision = new CommunityMapRevisionState(
                     package.Hash, package.MapId, next++, parent,
-                    package.OwnerId, created);
+                    package.OwnerId, created, null);
                 _revisions[package.Hash] = revision;
                 existing.Add(revision);
                 parent = package.Hash;

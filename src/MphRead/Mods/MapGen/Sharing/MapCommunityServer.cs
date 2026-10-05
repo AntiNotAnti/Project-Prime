@@ -15,7 +15,20 @@ namespace MphRead.Mods.MapGen;
 /// Upload credentials come from the environment, never from command-line arguments.</summary>
 public static class MapCommunityServer
 {
-    private sealed record MapUploadMetadata(string CreatorId, string PackageHash, long Bytes, bool Listed, bool Draft);
+    private sealed record MapUploadMetadata(
+        string CreatorId, string PackageHash, long Bytes, bool Listed, bool Draft)
+    {
+        public Guid? MapId { get; init; }
+        public bool? ExistingMap { get; init; }
+        public string? ExpectedParentHash { get; init; }
+        public string? ReleaseNotes { get; init; }
+        public bool AllowStaleParent { get; init; }
+    }
+
+    private sealed record PublishResult(
+        int Status,
+        CommunityMap? Entry = null,
+        CommunityRevisionConflict? Conflict = null);
     private const int MaxPartialUploads = 16;
     private const long MaxPartialUploadBytes = 2L * 1024 * 1024 * 1024;
     private const long DefaultPublishedStorageBytes = 50L * 1024 * 1024 * 1024;
@@ -100,8 +113,63 @@ public static class MapCommunityServer
             if (offset < 0 || offset > upload.Bytes) throw new InvalidDataException("Partial upload has an invalid size.");
             return new(upload.PackageHash, upload.Bytes, offset, MapCommunityClient.UploadChunkBytes, false);
         }
-        (int Status, CommunityMap? Entry) PublishTemporary(string temporary, MapCreatorCredential creator,
-            bool listed, bool draft, Guid? expectedMapId = null)
+        (int Status, CommunityRevisionConflict? Conflict) ValidateRevisionIntent(
+            Guid? mapId, bool? existingMap, string? expectedParentHash,
+            bool allowStaleParent, MapCreatorCredential creator, bool resumeAvailable)
+        {
+            // No MapId means an older client. Preserve its historical behavior.
+            if (mapId == null)
+            {
+                if (existingMap != null || expectedParentHash != null || allowStaleParent)
+                    return (400, null);
+                return (0, null);
+            }
+            if (mapId == Guid.Empty || existingMap == null)
+                return (400, null);
+            if (expectedParentHash != null && !MapCommunityClient.ValidHash(expectedParentHash))
+                return (400, null);
+
+            CommunityMap? owned = maps.Values.FirstOrDefault(m => m.MapId == mapId.Value);
+            bool exists = owned != null;
+            if (exists && !catalog.CanPublish(creator.CreatorId, owned!))
+                return (403, null);
+
+            string? latest = revisionCatalog.LatestHash(mapId.Value);
+            string? currentHash = revisionCatalog.CurrentHash(mapId.Value);
+            int? latestRevision = revisionCatalog.LatestRevisionNumber(mapId.Value);
+
+            CommunityRevisionConflict Conflict(string code, string message)
+                => new(code, mapId.Value, expectedParentHash, latest, currentHash,
+                    latestRevision, resumeAvailable, message);
+
+            if (existingMap == false)
+            {
+                if (exists)
+                    return (409, Conflict("map_already_exists",
+                        "This project is already published. Refresh My Maps and upload it as a revision."));
+                if (expectedParentHash != null)
+                    return (400, null);
+                return (0, null);
+            }
+
+            if (!exists || latest == null)
+                return (409, Conflict("map_not_found",
+                    "This revision target no longer exists. Refresh My Maps before publishing."));
+            if (expectedParentHash == null)
+                return (400, null);
+            if (!revisionCatalog.ContainsRevision(mapId.Value, expectedParentHash))
+                return (409, Conflict("unknown_parent",
+                    "The revision you edited from is no longer part of this map's history."));
+            if (!allowStaleParent
+                && !latest.Equals(expectedParentHash, StringComparison.Ordinal))
+                return (409, Conflict("stale_parent",
+                    "A newer revision was published while you were working. Review it before publishing, or explicitly publish your revision anyway."));
+            return (0, null);
+        }
+
+        PublishResult PublishTemporary(string temporary, MapCreatorCredential creator,
+            bool listed, bool draft, Guid? expectedMapId = null,
+            MapUploadMetadata? revisionUpload = null)
         {
             var entry = Inspect(temporary) with
             {
@@ -110,24 +178,48 @@ public static class MapCommunityServer
                 OwnerId = creator.CreatorId,
                 PublishedAt = DateTimeOffset.UtcNow
             };
-            if (expectedMapId is Guid required && required != entry.MapId) return (400, null);
+            if (expectedMapId is Guid required && required != entry.MapId)
+                return new PublishResult(400);
+            if (revisionUpload?.MapId is Guid uploadMapId && uploadMapId != entry.MapId)
+                return new PublishResult(400);
+
+            if (revisionUpload != null)
+            {
+                var intent = ValidateRevisionIntent(
+                    revisionUpload.MapId, revisionUpload.ExistingMap,
+                    revisionUpload.ExpectedParentHash, revisionUpload.AllowStaleParent,
+                    creator, resumeAvailable: true);
+                if (intent.Status != 0)
+                    return new PublishResult(intent.Status, Conflict: intent.Conflict);
+            }
+
             var owner = maps.Values.FirstOrDefault(m => m.MapId == entry.MapId);
-            if (owner != null && !catalog.CanPublish(creator.CreatorId, owner)) return (403, null);
+            if (owner != null && !catalog.CanPublish(creator.CreatorId, owner))
+                return new PublishResult(403);
             if (owner != null) entry = entry with { OwnerId = owner.OwnerId };
             if (maps.TryGetValue(entry.Hash, out var existing)) entry = existing;
-            if (maps.Values.Any(m => m.MapId == entry.MapId && m.Version == entry.Version && m.Hash != entry.Hash))
-                return (409, null);
+
+            // Keep the old human-version uniqueness rule for legacy clients.
+            // v2 revisions have a server-assigned revision number, so creators
+            // no longer need to mutate the project's display Version to publish.
+            if (revisionUpload?.ExistingMap == null
+                && maps.Values.Any(m => m.MapId == entry.MapId
+                    && m.Version == entry.Version && m.Hash != entry.Hash))
+                return new PublishResult(409);
+
             if (!maps.ContainsKey(entry.Hash) && (maps.Count >= 2000
                 || maps.Values.Sum(m => m.Bytes) + entry.Bytes > publishedStorageLimit))
-                return (507, null);
+                return new PublishResult(507);
             string destination = Path.Combine(storage, entry.Hash + ".ppmap");
-            // Persist visibility before exposing the archive, so a crash cannot publish an unlisted upload.
             AtomicFile.Write(Path.Combine(storage, entry.Hash + ".catalog.json"),
                 JsonSerializer.SerializeToUtf8Bytes(entry, MapPackageReader.JsonOptions));
             if (!File.Exists(destination)) File.Move(temporary, destination);
             maps[entry.Hash] = entry;
-            revisionCatalog.Register(entry, creator.CreatorId);
-            return (201, entry);
+            revisionCatalog.Register(entry, creator.CreatorId,
+                revisionUpload?.ExpectedParentHash,
+                revisionUpload?.ReleaseNotes,
+                useProvidedParent: revisionUpload?.ExistingMap != null);
+            return new PublishResult(201, entry);
         }
 
         async Task Handle(HttpListenerContext context)
@@ -175,8 +267,25 @@ public static class MapCommunityServer
                             var start = await Body<MapUploadStartRequest>();
                             if (start.Bytes <= 0 || start.Bytes > MapPackageReader.MaxArchiveBytes)
                             { context.Response.StatusCode = 413; return; }
+                            if (start.ReleaseNotes?.Length > 4000)
+                            { context.Response.StatusCode = 400; return; }
 
                             var upload = LoadUpload(key);
+                            bool resumableBytes = upload != null
+                                && File.Exists(UploadPartPath(key))
+                                && new FileInfo(UploadPartPath(key)).Length > 0;
+                            var intent = ValidateRevisionIntent(
+                                start.MapId, start.ExistingMap, start.ExpectedParentHash,
+                                start.AllowStaleParent, creator,
+                                resumeAvailable: resumableBytes);
+                            if (intent.Status != 0)
+                            {
+                                context.Response.StatusCode = intent.Status;
+                                if (intent.Conflict != null)
+                                    await Json(context.Response, intent.Conflict, deadline.Token);
+                                return;
+                            }
+
                             if (upload == null || upload.CreatorId != creator.CreatorId || upload.PackageHash != hash || upload.Bytes != start.Bytes)
                             {
                                 DeleteUpload(key);
@@ -185,12 +294,33 @@ public static class MapCommunityServer
                                     .Select(p => { try { return new FileInfo(p).Length; } catch { return 0L; } }).Sum();
                                 if (sessions >= MaxPartialUploads) { context.Response.StatusCode = 429; return; }
                                 if (partialBytes + start.Bytes > MaxPartialUploadBytes) { context.Response.StatusCode = 507; return; }
-                                upload = new(creator.CreatorId, hash, start.Bytes, start.Listed, start.Draft);
+                                upload = new(creator.CreatorId, hash, start.Bytes, start.Listed, start.Draft)
+                                {
+                                    MapId = start.MapId,
+                                    ExistingMap = start.ExistingMap,
+                                    ExpectedParentHash = start.ExpectedParentHash,
+                                    ReleaseNotes = start.ReleaseNotes?.Trim(),
+                                    AllowStaleParent = start.AllowStaleParent
+                                };
                                 SaveUpload(key, upload);
                             }
-                            else if (upload.Listed != start.Listed || upload.Draft != start.Draft)
+                            else if (upload.Listed != start.Listed || upload.Draft != start.Draft
+                                || upload.MapId != start.MapId
+                                || upload.ExistingMap != start.ExistingMap
+                                || upload.ExpectedParentHash != start.ExpectedParentHash
+                                || upload.ReleaseNotes != start.ReleaseNotes?.Trim()
+                                || upload.AllowStaleParent != start.AllowStaleParent)
                             {
-                                upload = upload with { Listed = start.Listed, Draft = start.Draft };
+                                upload = upload with
+                                {
+                                    Listed = start.Listed,
+                                    Draft = start.Draft,
+                                    MapId = start.MapId,
+                                    ExistingMap = start.ExistingMap,
+                                    ExpectedParentHash = start.ExpectedParentHash,
+                                    ReleaseNotes = start.ReleaseNotes?.Trim(),
+                                    AllowStaleParent = start.AllowStaleParent
+                                };
                                 SaveUpload(key, upload);
                             }
 
@@ -280,19 +410,26 @@ public static class MapCommunityServer
                             await publication.WaitAsync(deadline.Token);
                             try
                             {
-                                var result = PublishTemporary(partial, creator, current.Listed, current.Draft);
+                                var result = PublishTemporary(
+                                    partial, creator, current.Listed, current.Draft,
+                                    revisionUpload: current);
                                 context.Response.StatusCode = result.Status;
                                 if (result.Entry != null)
                                 {
                                     DeleteUpload(key);
                                     await Json(context.Response, result.Entry, deadline.Token);
                                 }
+                                else if (result.Conflict != null)
+                                {
+                                    // Keep the completed resumable session so an explicit
+                                    // "publish anyway" retry can update only the metadata
+                                    // and complete without uploading hundreds of MiB again.
+                                    await Json(context.Response, result.Conflict, deadline.Token);
+                                }
                                 else if (result.Status == 409)
                                 {
-                                    // The completed bytes cannot be published under this
-                                    // human version. Keeping a full rejected session only
-                                    // consumes partial-upload storage and makes later cleanup
-                                    // dependent on the 24-hour stale-session sweep.
+                                    // Legacy human-version conflict cannot be repaired by
+                                    // changing revision metadata, so release its partial pool.
                                     DeleteUpload(key);
                                 }
                             }
@@ -333,6 +470,39 @@ public static class MapCommunityServer
                         context.Response.StatusCode=204;
                     }
                     finally{publication.Release();}return;
+                }
+                if(parts.Length==6&&parts[0]=="v2"&&parts[1]=="maps"
+                    &&Guid.TryParse(parts[2],out Guid promoteMapId)
+                    &&parts[3]=="revisions"
+                    &&int.TryParse(parts[4],out int promoteRevision)
+                    &&parts[5]=="promote"
+                    &&context.Request.HttpMethod=="POST")
+                {
+                    if(creator==null){context.Response.StatusCode=401;return;}
+                    CommunityMap? owned=maps.Values.FirstOrDefault(m=>m.MapId==promoteMapId);
+                    if(owned==null){context.Response.StatusCode=404;return;}
+                    if(!catalog.CanPublish(creator.CreatorId,owned)){context.Response.StatusCode=403;return;}
+                    string? promoteHash=revisionCatalog.RevisionHash(promoteMapId,promoteRevision);
+                    if(promoteHash==null||!maps.TryGetValue(promoteHash,out var promoteMap))
+                    {context.Response.StatusCode=404;return;}
+
+                    await publication.WaitAsync(deadline.Token);
+                    try
+                    {
+                        var updated=promoteMap with{Listed=true,Draft=false};
+                        AtomicFile.Write(Path.Combine(storage,updated.Hash+".catalog.json"),
+                            JsonSerializer.SerializeToUtf8Bytes(updated,MapPackageReader.JsonOptions));
+                        maps[updated.Hash]=updated;
+                        revisionCatalog.Promote(promoteMapId,updated.Hash);
+                        CommunityMap[] visible=maps.Values.Where(m=>m.MapId==promoteMapId)
+                            .Select(m=>catalog.Decorate(m,creator.CreatorId)).ToArray();
+                        var project=revisionCatalog.BuildProject(
+                            promoteMapId,visible,revealCreatorIdentity:true);
+                        if(project==null){context.Response.StatusCode=404;return;}
+                        await Json(context.Response,project,deadline.Token);
+                    }
+                    finally{publication.Release();}
+                    return;
                 }
                 if(parts.Length>=2&&parts[0]=="v2"&&parts[1]=="maps"&&context.Request.HttpMethod=="GET")
                 {
@@ -421,7 +591,12 @@ public static class MapCommunityServer
                     {
                     var query = context.Request.QueryString;
                     if((query["mine"]=="true"||query["favorites"]=="true")&&creator==null){context.Response.StatusCode=401;return;}
-                    IEnumerable<CommunityMap> found = maps.Values.Where(m => query["mine"]=="true" ? creator!=null&&catalog.CanPublish(creator.CreatorId,m) : m.Listed&&!m.Draft).Select(m=>catalog.Decorate(m,creator?.CreatorId));
+                    IEnumerable<CommunityMap> found = maps.Values
+                        .Where(m => query["mine"]=="true"
+                            ? creator!=null&&catalog.CanPublish(creator.CreatorId,m)
+                            : m.Listed&&!m.Draft)
+                        .Select(m=>catalog.Decorate(m,creator?.CreatorId))
+                        .Select(revisionCatalog.LegacyPresentation);
                     if(query["favorites"]=="true")found=found.Where(m=>m.Favorited);
                     if (query["query"] is { } search) found = found.Where(m => (m.Name + " " + m.DisplayName + " " + m.Author).Contains(search, StringComparison.OrdinalIgnoreCase));
                     if (query["mode"] is { } mode) found = found.Where(m => m.SupportedModes.Length == 0 || m.SupportedModes.Contains(mode, StringComparer.OrdinalIgnoreCase));
@@ -442,7 +617,12 @@ public static class MapCommunityServer
                     string idText = hash.Split('/')[0];
                     if (tail.StartsWith("maps/", StringComparison.Ordinal) && Guid.TryParse(idText, out Guid id))
                     {
-                        var versions = maps.Values.Where(m => m.MapId == id && (m.Listed&&!m.Draft || creator!=null&&catalog.CanPublish(creator.CreatorId,m))).OrderByDescending(m => m.PublishedAt).ToArray();
+                        var versions = maps.Values
+                            .Where(m => m.MapId == id
+                                && (m.Listed&&!m.Draft
+                                    || creator!=null&&catalog.CanPublish(creator.CreatorId,m)))
+                            .Select(revisionCatalog.LegacyPresentation)
+                            .OrderByDescending(m => m.PublishedAt).ToArray();
                         if (versions.Length == 0 || hash != idText && hash != idText + "/versions") { context.Response.StatusCode = 404; return; }
                         await Json(context.Response, hash.EndsWith("/versions", StringComparison.Ordinal) ? (object)versions : versions[0], deadline.Token);
                         return;

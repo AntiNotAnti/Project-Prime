@@ -455,9 +455,13 @@ internal sealed partial class MapStudioScreen
             {
                 actions.Children.Add(new PrimeButton("UPLOAD CURRENT",
                     ShowUploadForm, primary: true, compact: true));
-                actions.Children.Add(new PrimeButton("PUBLISH LATEST",
-                    () => ChangeVisibility(project.LatestRevision.Package, "Published"),
-                    compact: true));
+                actions.Children.Add(new PrimeButton(
+                    project.CurrentHash == project.LatestHash ? "LATEST IS CURRENT" : "MAKE LATEST CURRENT",
+                    () => PromoteRevision(project, project.LatestRevision),
+                    compact: true)
+                {
+                    IsEnabled = project.CurrentHash != project.LatestHash
+                });
                 actions.Children.Add(new PrimeButton("SET UNLISTED",
                     () => ChangeVisibility(project.LatestRevision.Package, "Unlisted"),
                     compact: true));
@@ -499,12 +503,32 @@ internal sealed partial class MapStudioScreen
                     return true;
                 });
                 await ReloadProjects(token, package.MapId);
-                status.Text = visibility switch
-                {
-                    "Published" => "Revision published and set as the current Community release.",
-                    "Unlisted" => "Revision is now unlisted.",
-                    _ => "Revision saved as a private draft."
-                };
+                status.Text = visibility == "Unlisted"
+                    ? "Revision is now unlisted."
+                    : "Revision saved as a private draft.";
+            });
+        }
+
+        void PromoteRevision(CommunityMapProject project,
+            CommunityMapRevision revision)
+        {
+            _ = Job("Promoting map revision", async token =>
+            {
+                CommunityMapProject? promoted = await WithClient(true, token,
+                    client => client.PromoteRevisionAsync(
+                        project.MapId, revision.RevisionNumber, token));
+                if (promoted == null)
+                    throw new IOException("Community could not find that revision.");
+                GuardJob(token);
+                projects = await WithCommunityAuthentication(
+                    Endpoint(), token,
+                    client => client.BrowseProjectsAsync(token,
+                        mine: true, sort: "name"));
+                GuardJob(token);
+                RenderList(project.MapId);
+                status.Text = revision.RevisionNumber == project.LatestRevision.RevisionNumber
+                    ? $"Revision {revision.RevisionNumber} is now the current release."
+                    : $"Rolled back to revision {revision.RevisionNumber}. Immutable newer revisions were kept.";
             });
         }
 
@@ -555,6 +579,13 @@ internal sealed partial class MapStudioScreen
                             PrimeTypography.DataSmall,
                             PrimeTheme.TextSecondaryBrush,
                             data: true));
+                    if (!string.IsNullOrWhiteSpace(revision.ReleaseNotes))
+                    {
+                        copy.Children.Add(PrimeChrome.Text(
+                            revision.ReleaseNotes,
+                            PrimeTypography.BodySmall,
+                            PrimeTheme.TextSecondaryBrush));
+                    }
 
                     var revisionActions = new WrapPanel();
                     revisionActions.Children.Add(new PrimeButton("INSTALL",
@@ -563,8 +594,12 @@ internal sealed partial class MapStudioScreen
                         () => _ = CopyLink(package), compact: true));
                     if (authenticated)
                     {
-                        revisionActions.Children.Add(new PrimeButton("PUBLISH",
-                            () => ChangeVisibility(package, "Published"), compact: true));
+                        revisionActions.Children.Add(new PrimeButton(
+                            current ? "CURRENT" : "MAKE CURRENT",
+                            () => PromoteRevision(project, revision), compact: true)
+                        {
+                            IsEnabled = !current
+                        });
                         revisionActions.Children.Add(new PrimeButton("UNLIST",
                             () => ChangeVisibility(package, "Unlisted"), compact: true));
                         revisionActions.Children.Add(new PrimeButton("DRAFT",
@@ -624,23 +659,344 @@ internal sealed partial class MapStudioScreen
                 }, primary: true, compact: true)));
         }
 
+        void ShowPublishConflict(CommunityRevisionConflict conflict,
+            string selectedVisibility, string releaseNotes,
+            Guid mapId, bool existingMap, string? expectedParentHash,
+            string? pendingPath = null, string? pendingHash = null)
+        {
+            detail.Children.Clear();
+            detail.Children.Add(PrimeChrome.Eyebrow("COMMUNITY // REVISION CONFLICT",
+                PrimeTheme.WarningBrush));
+            detail.Children.Add(PrimeChrome.Title("A NEWER REVISION EXISTS"));
+            detail.Children.Add(PrimeChrome.Text(
+                conflict.Message,
+                PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+            if (conflict.LatestRevisionNumber is int latestRevision)
+            {
+                detail.Children.Add(PrimeChrome.Text(
+                    $"Server latest · revision {latestRevision}"
+                    + (conflict.LatestHash is { Length: >= 8 }
+                        ? " · " + conflict.LatestHash[..8] : ""),
+                    PrimeTypography.DataSmall,
+                    PrimeTheme.HighlightBrush,
+                    data: true));
+            }
+            if (expectedParentHash is { Length: >= 8 })
+            {
+                detail.Children.Add(PrimeChrome.Text(
+                    "Your edit base · " + expectedParentHash[..8],
+                    PrimeTypography.DataSmall,
+                    PrimeTheme.TextSecondaryBrush,
+                    data: true));
+            }
+
+            void FinishPending(Action after)
+            {
+                if (pendingPath == null || pendingHash == null)
+                {
+                    after();
+                    return;
+                }
+                _ = Job("Discarding pending revision", async token =>
+                {
+                    await WithCommunityAuthentication(
+                        Endpoint(), token, async client =>
+                        {
+                            await client.DiscardPendingUploadAsync(
+                                pendingHash, token);
+                            return true;
+                        });
+                    if (File.Exists(pendingPath)) File.Delete(pendingPath);
+                    after();
+                });
+            }
+
+            void ReviewLatest()
+            {
+                _ = Job("Refreshing revision history", async token =>
+                {
+                    if (pendingPath != null && pendingHash != null)
+                    {
+                        await WithCommunityAuthentication(
+                            Endpoint(), token, async client =>
+                            {
+                                await client.DiscardPendingUploadAsync(
+                                    pendingHash, token);
+                                return true;
+                            });
+                        if (File.Exists(pendingPath)) File.Delete(pendingPath);
+                    }
+                    await ReloadProjects(token, mapId);
+                    CommunityMapProject? refreshed =
+                        projects.FirstOrDefault(p => p.MapId == mapId);
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        if (refreshed != null) ShowRevisionHistory(refreshed);
+                        else ShowUploadForm();
+                    });
+                    status.Text = "Community history refreshed.";
+                });
+            }
+
+            var conflictActions = new WrapPanel();
+            conflictActions.Children.Add(new PrimeButton(
+                "REVIEW LATEST", ReviewLatest, primary: true, compact: true));
+
+            if (conflict.Code == "stale_parent")
+            {
+                conflictActions.Children.Add(new PrimeButton(
+                    "PUBLISH ANYWAY",
+                    () =>
+                    {
+                        if (pendingPath != null)
+                            PublishPrepared(pendingPath, selectedVisibility,
+                                releaseNotes, mapId, expectedParentHash,
+                                allowStaleParent: true);
+                        else
+                            PublishCurrent(selectedVisibility, releaseNotes,
+                                mapId, existingMap: true,
+                                expectedParentHash: expectedParentHash,
+                                allowStaleParent: true);
+                    },
+                    compact: true));
+                conflictActions.Children.Add(new PrimeButton(
+                    "SAVE BRANCH AS DRAFT",
+                    () =>
+                    {
+                        if (pendingPath != null)
+                            PublishPrepared(pendingPath, "Draft",
+                                releaseNotes, mapId, expectedParentHash,
+                                allowStaleParent: true);
+                        else
+                            PublishCurrent("Draft", releaseNotes,
+                                mapId, existingMap: true, expectedParentHash,
+                                allowStaleParent: true);
+                    },
+                    compact: true));
+            }
+            else if (conflict.Code == "map_already_exists"
+                && conflict.LatestHash != null)
+            {
+                conflictActions.Children.Add(new PrimeButton(
+                    "UPLOAD AS REVISION",
+                    () =>
+                    {
+                        if (pendingPath != null)
+                            PublishPrepared(pendingPath, selectedVisibility,
+                                releaseNotes, mapId, conflict.LatestHash,
+                                allowStaleParent: false);
+                        else
+                            PublishCurrent(selectedVisibility, releaseNotes,
+                                mapId, existingMap: true,
+                                expectedParentHash: conflict.LatestHash,
+                                allowStaleParent: false);
+                    },
+                    compact: true));
+            }
+
+            conflictActions.Children.Add(new PrimeButton(
+                "CANCEL", () => FinishPending(ShowUploadForm), compact: true));
+            detail.Children.Add(conflictActions);
+            status.Text = "Revision conflict needs your decision.";
+        }
+
+        void PublishPrepared(string path, string selectedVisibility,
+            string releaseNotes, Guid mapId, string? expectedParentHash,
+            bool allowStaleParent)
+        {
+            _ = Job("Completing map revision", async token =>
+            {
+                try
+                {
+                    bool draft = selectedVisibility == "Draft";
+                    bool listed = selectedVisibility == "Published";
+                    CommunityPublishResult result =
+                        await WithCommunityAuthentication(
+                            Endpoint(), token,
+                            client => client.PublishAsync(
+                                path,
+                                new CommunityPublishRequest(
+                                    ExistingMap: true,
+                                    ExpectedParentHash: expectedParentHash,
+                                    ReleaseNotes: releaseNotes,
+                                    AllowStaleParent: allowStaleParent),
+                                token,
+                                listed: listed,
+                                draft: draft,
+                                progress: (sent, total) =>
+                                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                                        status.Text =
+                                            $"Completing stored upload… {sent / 1048576d:0.0}/{total / 1048576d:0.0} MiB")));
+                    GuardJob(token);
+                    projects = await WithCommunityAuthentication(
+                        Endpoint(), token,
+                        client => client.BrowseProjectsAsync(
+                            token, mine: true, sort: "name"));
+                    GuardJob(token);
+                    RenderList(result.Package.MapId);
+                    string number = result.Revision is { } revision
+                        ? $"Revision {revision.RevisionNumber}"
+                        : "Revision";
+                    status.Text = selectedVisibility switch
+                    {
+                        "Draft" => number + " saved as a private draft from the stored upload.",
+                        "Unlisted" => number + " saved unlisted from the stored upload.",
+                        _ => number + " published from the stored upload."
+                    };
+                }
+                finally
+                {
+                    if (File.Exists(path)) File.Delete(path);
+                }
+            });
+        }
+
+        void PublishCurrent(string selectedVisibility, string releaseNotes,
+            Guid mapId, bool existingMap, string? expectedParentHash,
+            bool allowStaleParent = false)
+        {
+            _ = Work("Publishing map", async (project, token) =>
+            {
+                if (project.Definition.MapId != mapId)
+                    throw new InvalidOperationException(
+                        "The open Map Studio project changed before publishing. Reopen the publish form.");
+
+                string temporary = Path.Combine(Path.GetTempPath(),
+                    Guid.NewGuid().ToString("N") + ".ppmap");
+                bool keepTemporary = false;
+                try
+                {
+                    status.Text = existingMap
+                        ? "Building immutable map revision…"
+                        : "Building new Community map…";
+                    await MapBuildScheduler.Shared.PackageAsync(
+                        MapBuildSnapshot.Capture(project), temporary, token);
+                    GuardJob(token);
+
+                    bool draft = selectedVisibility == "Draft";
+                    bool listed = selectedVisibility == "Published";
+                    string packageHash = MapBuildFingerprint.HashFile(temporary);
+                    CommunityPublishResult result;
+                    try
+                    {
+                        result = await WithCommunityAuthentication(
+                            Endpoint(), token,
+                            client => client.PublishAsync(
+                                temporary,
+                                new CommunityPublishRequest(
+                                    existingMap,
+                                    expectedParentHash,
+                                    releaseNotes,
+                                    allowStaleParent),
+                                token,
+                                listed: listed,
+                                draft: draft,
+                                progress: (sent, total) =>
+                                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                                        status.Text =
+                                            $"Uploading… {sent / 1048576d:0.0}/{total / 1048576d:0.0} MiB · {(total > 0 ? sent * 100d / total : 0):0}%")));
+                    }
+                    catch (CommunityRevisionConflictException ex)
+                    {
+                        GuardJob(token);
+                        keepTemporary = ex.Conflict.ResumeAvailable;
+                        ShowPublishConflict(ex.Conflict,
+                            selectedVisibility, releaseNotes,
+                            mapId, existingMap, expectedParentHash,
+                            keepTemporary ? temporary : null,
+                            keepTemporary ? packageHash : null);
+                        return;
+                    }
+
+                    GuardJob(token);
+                    projects = await WithCommunityAuthentication(
+                        Endpoint(), token,
+                        client => client.BrowseProjectsAsync(
+                            token, mine: true, sort: "name"));
+                    GuardJob(token);
+                    upload.IsVisible = true;
+                    RenderList(result.Package.MapId);
+
+                    string revisionText = result.Revision == null
+                        ? ""
+                        : $" Revision {result.Revision.RevisionNumber}.";
+                    status.Text = selectedVisibility == "Published"
+                        ? (existingMap ? "Revision published as the current release."
+                            : "Map published to Community.") + revisionText
+                        : selectedVisibility == "Unlisted"
+                            ? "Uploaded as an unlisted revision." + revisionText
+                            : "Uploaded as a private draft." + revisionText;
+                }
+                finally
+                {
+                    if (!keepTemporary && File.Exists(temporary))
+                        File.Delete(temporary);
+                }
+            });
+        }
+
         void ShowUploadForm()
         {
             detail.Children.Clear();
-            detail.Children.Add(PrimeChrome.Eyebrow("COMMUNITY // PUBLISH"));
-            detail.Children.Add(PrimeChrome.Title("UPLOAD CURRENT PROJECT"));
+            Guid mapId = _document?.Project.Definition.MapId ?? Guid.Empty;
+            if (mapId == Guid.Empty)
+            {
+                detail.Children.Add(new PrimeStatePanel(
+                    PrimeStateKind.Error,
+                    "PROJECT NEEDS AN IDENTITY",
+                    "Save or upgrade this Map Studio project before publishing it."));
+                detail.Children.Add(new PrimeButton(
+                    "BACK", () =>
+                    {
+                        if (selectedProject != null) RenderProject(selectedProject);
+                        else ShowEmptyDetail("MY MAPS",
+                            "Upload the project currently open in Map Studio to create your first Community map.");
+                    }, compact: true));
+                return;
+            }
+
+            CommunityMapProject? target =
+                projects.FirstOrDefault(p => p.MapId == mapId);
+            bool existingMap = target != null;
+            string? expectedParentHash = target?.LatestHash;
+            int nextRevision = (target?.LatestRevision.RevisionNumber ?? 0) + 1;
+
+            detail.Children.Add(PrimeChrome.Eyebrow(
+                existingMap
+                    ? "COMMUNITY // REVISION PUBLISHING"
+                    : "COMMUNITY // NEW MAP"));
+            detail.Children.Add(PrimeChrome.Title(
+                existingMap
+                    ? $"UPLOAD REVISION {nextRevision}"
+                    : "PUBLISH NEW MAP"));
             detail.Children.Add(PrimeChrome.Text(
-                "Map Studio will build a portable .ppmap and resume automatically if the upload is interrupted.",
+                existingMap
+                    ? $"Detected published MapId. This revision will be based on revision {target!.LatestRevision.RevisionNumber}; the server verifies that parent again when publication completes."
+                    : "This MapId is not in My Maps, so Community will create a new map project if it is still available when the upload begins.",
                 PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+            detail.Children.Add(PrimeChrome.Text(
+                "The human-facing Version field no longer has to change for each Community revision. Immutable server revision numbers track history independently.",
+                PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+
+            var releaseNotes = new TextBox
+            {
+                AcceptsReturn = true,
+                Height = 100,
+                MaxLength = 4000,
+                PlaceholderText = existingMap
+                    ? "What changed in this revision?"
+                    : "Initial release notes (optional)"
+            };
             var visibility = new ComboBox
             {
                 ItemsSource = new[] { "Published", "Unlisted", "Draft" },
                 SelectedIndex = 0
             };
-            detail.Children.Add(PrimeChrome.Text(
-                "Visibility", PrimeTypography.DataSmall,
-                PrimeTheme.HighlightBrush, data: true));
+            detail.Children.Add(PrimeChrome.Eyebrow("RELEASE NOTES"));
+            detail.Children.Add(releaseNotes);
+            detail.Children.Add(PrimeChrome.Eyebrow("VISIBILITY"));
             detail.Children.Add(visibility);
+
             detail.Children.Add(PrimeChrome.Columns("*,*",
                 new PrimeButton("CANCEL", () =>
                 {
@@ -648,51 +1004,15 @@ internal sealed partial class MapStudioScreen
                     else ShowEmptyDetail("MY MAPS",
                         "Upload the project currently open in Map Studio to create your first Community map.");
                 }, compact: true),
-                new PrimeButton("BUILD & UPLOAD", () =>
-                {
-                    string selectedVisibility = (string?)visibility.SelectedItem ?? "Published";
-                    _ = Work("Publishing map", async (project, token) =>
-                    {
-                        string temporary = Path.Combine(Path.GetTempPath(),
-                            Guid.NewGuid().ToString("N") + ".ppmap");
-                        try
-                        {
-                            status.Text = "Building portable Community package…";
-                            await MapBuildScheduler.Shared.PackageAsync(
-                                MapBuildSnapshot.Capture(project), temporary, token);
-                            GuardJob(token);
-                            bool draft = selectedVisibility == "Draft";
-                            bool listed = selectedVisibility == "Published";
-                            CommunityMap published = await WithCommunityAuthentication(
-                                Endpoint(), token,
-                                client => client.UploadAsync(temporary, token,
-                                    listed: listed,
-                                    draft: draft,
-                                    progress: (sent, total) =>
-                                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                                            status.Text = $"Uploading… {sent / 1048576d:0.0}/{total / 1048576d:0.0} MiB · {(total > 0 ? sent * 100d / total : 0):0}%")));
-                            GuardJob(token);
-                            projects = await WithCommunityAuthentication(
-                                Endpoint(), token,
-                                client => client.BrowseProjectsAsync(token,
-                                    mine: true, sort: "name"));
-                            GuardJob(token);
-                            if (tabs.Index != (int)CommunityDashboardTab.MyMaps)
-                                tabs.Index = (int)CommunityDashboardTab.MyMaps;
-                            upload.IsVisible = true;
-                            RenderList(published.MapId);
-                            status.Text = selectedVisibility == "Published"
-                                ? "Published as the current Community release."
-                                : selectedVisibility == "Unlisted"
-                                    ? "Uploaded as an unlisted revision."
-                                    : "Uploaded as a private draft.";
-                        }
-                        finally
-                        {
-                            if (File.Exists(temporary)) File.Delete(temporary);
-                        }
-                    });
-                }, primary: true, compact: true)));
+                new PrimeButton(
+                    existingMap ? "BUILD & UPLOAD REVISION" : "BUILD & PUBLISH",
+                    () => PublishCurrent(
+                        (string?)visibility.SelectedItem ?? "Published",
+                        releaseNotes.Text ?? "",
+                        mapId,
+                        existingMap,
+                        expectedParentHash),
+                    primary: true, compact: true)));
         }
 
         refresh.Click += (_, _) => Refresh(selectedProject?.MapId);
