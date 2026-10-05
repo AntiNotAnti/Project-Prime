@@ -2,20 +2,29 @@ using System;
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using MphRead.Entities;
+using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network;
 
 public enum FireEventKind : byte { PressFire, ReleaseFire, AutomaticFire, ContinuousTick, TurretFire }
 public readonly record struct FireEvent(uint ShotId, uint SourceFrame, uint AckFrame, byte AckSubFrame,
-    FireEventKind Kind, byte Weapon, byte Charge, uint ContinuousPhase)
+    FireEventKind Kind, byte Weapon, byte Charge, uint ContinuousPhase,
+    byte PoseFlags = 0, Vector3 Origin = default, Vector3 Direction = default,
+    Vector3 Aim = default, Vector3 View = default, Vector2 Reticle = default)
 {
-    public const int Size = 20;
+    public const int LegacySize = 20;
+    public const int Size = 67;
+    public const byte FlagPose = 1 << 0;
+    public const byte FlagReticle = 1 << 1;
     // Non-continuous Imperialist events do not use ContinuousPhase. Preserve
     // shot-time scope in its high bit so a repeated/recovered fire event cannot
     // inherit the scope state of a later carrier packet.
     internal const uint ScopedStateBit = 1u << 31;
     internal bool ScopedAtFire => Weapon == (byte)BeamType.Imperialist
         && (ContinuousPhase & ScopedStateBit) != 0;
+    internal bool HasPose => (PoseFlags & FlagPose) != 0;
+    internal bool HasReticle => (PoseFlags & FlagReticle) != 0;
+
     public void Write(Span<byte> bytes)
     {
         BinaryPrimitives.WriteUInt32LittleEndian(bytes, ShotId);
@@ -23,10 +32,66 @@ public readonly record struct FireEvent(uint ShotId, uint SourceFrame, uint AckF
         BinaryPrimitives.WriteUInt32LittleEndian(bytes[8..], AckFrame);
         bytes[12] = AckSubFrame; bytes[13] = (byte)Kind; bytes[14] = Weapon; bytes[15] = Charge;
         BinaryPrimitives.WriteUInt32LittleEndian(bytes[16..], ContinuousPhase);
+        bytes[20] = PoseFlags;
+        BinaryPrimitives.WriteSingleLittleEndian(bytes[21..], Origin.X);
+        BinaryPrimitives.WriteSingleLittleEndian(bytes[25..], Origin.Y);
+        BinaryPrimitives.WriteSingleLittleEndian(bytes[29..], Origin.Z);
+        BinaryPrimitives.WriteSingleLittleEndian(bytes[33..], Direction.X);
+        BinaryPrimitives.WriteSingleLittleEndian(bytes[37..], Direction.Y);
+        BinaryPrimitives.WriteSingleLittleEndian(bytes[41..], Direction.Z);
+        BinaryPrimitives.WriteSingleLittleEndian(bytes[45..], Aim.X);
+        BinaryPrimitives.WriteSingleLittleEndian(bytes[49..], Aim.Y);
+        BinaryPrimitives.WriteSingleLittleEndian(bytes[53..], Aim.Z);
+        BinaryPrimitives.WriteInt16LittleEndian(bytes[57..], PackUnit(View.X));
+        BinaryPrimitives.WriteInt16LittleEndian(bytes[59..], PackUnit(View.Y));
+        BinaryPrimitives.WriteInt16LittleEndian(bytes[61..], PackUnit(View.Z));
+        BinaryPrimitives.WriteUInt16LittleEndian(bytes[63..], PackReticle(Reticle.X));
+        BinaryPrimitives.WriteUInt16LittleEndian(bytes[65..], PackReticle(Reticle.Y));
     }
-    public static FireEvent Read(ReadOnlySpan<byte> bytes) => new(BinaryPrimitives.ReadUInt32LittleEndian(bytes),
-        BinaryPrimitives.ReadUInt32LittleEndian(bytes[4..]), BinaryPrimitives.ReadUInt32LittleEndian(bytes[8..]), bytes[12],
-        (FireEventKind)bytes[13], bytes[14], bytes[15], BinaryPrimitives.ReadUInt32LittleEndian(bytes[16..]));
+
+    public static FireEvent Read(ReadOnlySpan<byte> bytes)
+    {
+        byte poseFlags = bytes.Length >= Size ? bytes[20] : (byte)0;
+        bool pose = (poseFlags & FlagPose) != 0;
+        Vector3 view = default;
+        if (pose)
+        {
+            view = new Vector3(UnpackUnit(BinaryPrimitives.ReadInt16LittleEndian(bytes[57..])),
+                UnpackUnit(BinaryPrimitives.ReadInt16LittleEndian(bytes[59..])),
+                UnpackUnit(BinaryPrimitives.ReadInt16LittleEndian(bytes[61..])));
+            if (view.LengthSquared >= 0.000001f) view = view.Normalized();
+        }
+        return new(BinaryPrimitives.ReadUInt32LittleEndian(bytes),
+            BinaryPrimitives.ReadUInt32LittleEndian(bytes[4..]),
+            BinaryPrimitives.ReadUInt32LittleEndian(bytes[8..]), bytes[12],
+            (FireEventKind)bytes[13], bytes[14], bytes[15],
+            BinaryPrimitives.ReadUInt32LittleEndian(bytes[16..]),
+            poseFlags,
+            pose ? new Vector3(BinaryPrimitives.ReadSingleLittleEndian(bytes[21..]),
+                BinaryPrimitives.ReadSingleLittleEndian(bytes[25..]),
+                BinaryPrimitives.ReadSingleLittleEndian(bytes[29..])) : default,
+            pose ? new Vector3(BinaryPrimitives.ReadSingleLittleEndian(bytes[33..]),
+                BinaryPrimitives.ReadSingleLittleEndian(bytes[37..]),
+                BinaryPrimitives.ReadSingleLittleEndian(bytes[41..])) : default,
+            pose ? new Vector3(BinaryPrimitives.ReadSingleLittleEndian(bytes[45..]),
+                BinaryPrimitives.ReadSingleLittleEndian(bytes[49..]),
+                BinaryPrimitives.ReadSingleLittleEndian(bytes[53..])) : default,
+            pose ? view : default,
+            pose && (poseFlags & FlagReticle) != 0
+                ? new Vector2(UnpackReticle(BinaryPrimitives.ReadUInt16LittleEndian(bytes[63..])),
+                    UnpackReticle(BinaryPrimitives.ReadUInt16LittleEndian(bytes[65..]))) : default);
+    }
+
+    private static short PackUnit(float value)
+        => !float.IsFinite(value) ? (short)0
+            : (short)Math.Clamp((int)MathF.Round(Math.Clamp(value, -1f, 1f) * short.MaxValue),
+                short.MinValue, short.MaxValue);
+    private static float UnpackUnit(short value) => Math.Clamp(value / (float)short.MaxValue, -1f, 1f);
+    private static ushort PackReticle(float value)
+        => !float.IsFinite(value) ? (ushort)0
+            : (ushort)Math.Clamp((int)MathF.Round(Math.Clamp(value, 0f, 1f) * ushort.MaxValue),
+                ushort.MinValue, ushort.MaxValue);
+    private static float UnpackReticle(ushort value) => value / (float)ushort.MaxValue;
 }
 public struct FireEventHistory
 {
@@ -43,7 +108,9 @@ public struct FireEventHistory
 /// Source frames and ACKs are timing metadata, never pairing keys.</summary>
 public static class NetFireEvents
 {
-    public const int Capacity = 16, RetentionFrames = 32, WireSize = 1 + Capacity * FireEvent.Size;
+    public const int Capacity = 16, RetentionFrames = 32;
+    public const int LegacyWireSize = 1 + Capacity * FireEvent.LegacySize;
+    public const int WireSize = 1 + Capacity * FireEvent.Size;
     private sealed class Slot
     {
         public ShotKey Fence;
@@ -64,6 +131,8 @@ public static class NetFireEvents
     }
     public static void Reset()
     { foreach (var slot in _slots) { slot.Fence = default; slot.Count = 0; slot.Selected = slot.Seen = false; slot.Active = default; slot.NextId = slot.LastConsumed = 0; } }
+    private static bool Finite(Vector3 value)
+        => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
     public static bool Validate(in IntentPacket intent)
     {
         if (intent.FireEventCount > Capacity) return false;
@@ -73,7 +142,14 @@ public static class NetFireEvents
             var e = intent.FireEvents[i];
             if (e.ShotId == 0 || (byte)e.Kind > (byte)FireEventKind.TurretFire || e.Weapon > (byte)BeamType.OmegaCannon
                 || unchecked(intent.Frame - e.SourceFrame) > RetentionFrames
-                || i > 0 && !NetLifecycleTracker.Newer(e.ShotId, previous)) return false;
+                || i > 0 && !NetLifecycleTracker.Newer(e.ShotId, previous)
+                || (e.PoseFlags & ~(FireEvent.FlagPose | FireEvent.FlagReticle)) != 0
+                || e.HasReticle && !e.HasPose
+                || e.HasPose && (!Finite(e.Origin) || !Finite(e.Direction) || !Finite(e.Aim)
+                    || !Finite(e.View) || e.Direction.LengthSquared < 0.000001f
+                    || e.Aim.LengthSquared < 0.000001f || e.View.LengthSquared < 0.000001f
+                    || e.HasReticle && (!float.IsFinite(e.Reticle.X) || !float.IsFinite(e.Reticle.Y)
+                        || e.Reticle.X is < 0 or > 1 || e.Reticle.Y is < 0 or > 1))) return false;
             previous = e.ShotId;
         }
         return true;
@@ -162,7 +238,9 @@ public static class NetFireEvents
             return;
         }
     }
-    internal static void Begin(PlayerEntity player, bool turret = false)
+    internal static void Begin(PlayerEntity player, Vector3 origin = default,
+        Vector3 direction = default, Vector3 aim = default, Vector3 view = default,
+        Vector2 reticle = default, bool hasReticle = false, bool turret = false)
     {
         if (player.SceneServices.IsReplica)
         {
@@ -186,8 +264,23 @@ public static class NetFireEvents
         if (NetSmoothing.AckPoint(out uint read, out byte fraction)) { ack = read; sub = fraction; }
         uint shotState = player.CurrentWeapon == BeamType.Imperialist && player.EquipInfo.Zoomed
             ? FireEvent.ScopedStateBit : 0;
+        if (!Finite(aim) || aim.LengthSquared < 0.000001f) aim = direction;
+        if (!Finite(view) || view.LengthSquared < 0.000001f) view = aim;
+        bool reticleValid = hasReticle && float.IsFinite(reticle.X) && float.IsFinite(reticle.Y)
+            && reticle.X is >= 0 and <= 1 && reticle.Y is >= 0 and <= 1;
+        bool poseValid = Finite(origin) && Finite(direction) && Finite(aim) && Finite(view)
+            && direction.LengthSquared >= 0.000001f && aim.LengthSquared >= 0.000001f
+            && view.LengthSquared >= 0.000001f;
+        byte poseFlags = poseValid ? FireEvent.FlagPose : (byte)0;
+        if (poseValid && reticleValid) poseFlags |= FireEvent.FlagReticle;
         state.Active = new(id, NetSession.NetFrame, ack, sub, kind, (byte)player.CurrentWeapon,
-            (byte)Math.Clamp((int)player.EquipInfo.ChargeLevel, 0, 255), shotState);
+            (byte)Math.Clamp((int)player.EquipInfo.ChargeLevel, 0, 255), shotState,
+            poseFlags,
+            poseValid ? origin : default,
+            poseValid ? direction.Normalized() : default,
+            poseValid ? aim.Normalized() : default,
+            poseValid ? view.Normalized() : default,
+            poseValid && reticleValid ? reticle : default);
     }
     internal static void Commit(PlayerEntity player)
     {
@@ -217,5 +310,18 @@ public static class NetFireEvents
         }
         e = (uint)player.SlotIndex < 8 ? For(player.SlotIndex).Active : default;
         return UsesEvents(player) && e.ShotId != 0;
+    }
+
+    internal static bool TryAuthoredPose(PlayerEntity player, out Vector3 origin,
+        out Vector3 direction, out Vector3 aim)
+    {
+        origin = direction = aim = default;
+        if (!UsesEvents(player) || !TryTiming(player, out FireEvent fire) || !fire.HasPose)
+            return false;
+        origin = fire.Origin;
+        direction = fire.Direction;
+        aim = fire.Aim;
+        return Finite(origin) && Finite(direction) && Finite(aim)
+            && direction.LengthSquared >= 0.000001f && aim.LengthSquared >= 0.000001f;
     }
 }
