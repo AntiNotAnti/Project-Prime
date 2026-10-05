@@ -203,7 +203,7 @@ namespace MphRead.Mods.Network
             int slot = shooter.SlotIndex;
             if (slot < 0 || slot >= Slots)
             {
-                return 0;
+                return;
             }
             Fired[slot]++;
             if (slot == NetHooks.LocalSlot)
@@ -568,7 +568,7 @@ namespace MphRead.Mods.Network
             int slot = victim.SlotIndex;
             if (slot < 0 || slot >= Slots)
             {
-                return;
+                return 0;
             }
             int weapon = NetShotDiagnostics.Bucket(beam);
             NetShotDiagnostics.AuthorityHits[weapon]++;
