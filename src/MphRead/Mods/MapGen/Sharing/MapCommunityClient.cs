@@ -72,6 +72,53 @@ public sealed class MapCommunityClient : IDisposable
         return JsonSerializer.Deserialize<CommunityMap[]>(data.ToArray(), MapPackageReader.JsonOptions)
             ?? Array.Empty<CommunityMap>();
     }
+    public async Task<CommunityMapProject[]> BrowseProjectsAsync(CancellationToken token,
+        bool mine = false, bool favorites = false, string? sort = null)
+    {
+        string resource = "v2/maps?mine=" + mine.ToString().ToLowerInvariant()
+            + "&favorites=" + favorites.ToString().ToLowerInvariant()
+            + "&sort=" + Uri.EscapeDataString(sort ?? "name");
+        using var response = await GetReadAsync(resource,
+            HttpCompletionOption.ResponseHeadersRead, token);
+        EnsureSuccess(response);
+        using var data = new MemoryStream();
+        await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token),
+            data, 4 * 1024 * 1024, token);
+        return JsonSerializer.Deserialize<CommunityMapProject[]>(
+            data.ToArray(), MapPackageReader.JsonOptions)
+            ?? Array.Empty<CommunityMapProject>();
+    }
+
+    public async Task<CommunityMapProject?> GetProjectAsync(Guid mapId,
+        CancellationToken token)
+    {
+        using var response = await GetReadAsync("v2/maps/" + mapId,
+            HttpCompletionOption.ResponseHeadersRead, token);
+        if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        EnsureSuccess(response);
+        using var data = new MemoryStream();
+        await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token),
+            data, 512 * 1024, token);
+        return JsonSerializer.Deserialize<CommunityMapProject>(
+            data.ToArray(), MapPackageReader.JsonOptions);
+    }
+
+    public async Task<CommunityMapRevision[]> GetRevisionsAsync(Guid mapId,
+        CancellationToken token)
+    {
+        using var response = await GetReadAsync("v2/maps/" + mapId + "/revisions",
+            HttpCompletionOption.ResponseHeadersRead, token);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return Array.Empty<CommunityMapRevision>();
+        EnsureSuccess(response);
+        using var data = new MemoryStream();
+        await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token),
+            data, 4 * 1024 * 1024, token);
+        return JsonSerializer.Deserialize<CommunityMapRevision[]>(
+            data.ToArray(), MapPackageReader.JsonOptions)
+            ?? Array.Empty<CommunityMapRevision>();
+    }
+
     public async Task SetFavoriteAsync(Guid map,bool favorite,CancellationToken token)
     {
         using var request=new HttpRequestMessage(favorite?HttpMethod.Put:HttpMethod.Delete,"maps/"+map+"/favorite");
