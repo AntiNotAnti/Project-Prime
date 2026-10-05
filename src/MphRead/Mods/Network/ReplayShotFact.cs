@@ -42,6 +42,8 @@ internal readonly record struct ReplayShotFact(
     ReplayShotFactFlags Flags,
     uint Damage,
     ushort HealthAfter,
+    uint HalfturretDamage,
+    ushort HalfturretHealthAfter,
     Vector3 ImpactPoint)
 {
     internal bool Headshot => (Flags & ReplayShotFactFlags.Headshot) != 0;
@@ -52,7 +54,7 @@ internal readonly record struct ReplayShotFact(
 internal static class ReplayShotFactPacket
 {
     internal const byte Version = 1;
-    internal const int Size = 55;
+    internal const int Size = 61;
 
     internal static void Write(in ReplayShotFact fact, Span<byte> dest)
     {
@@ -74,9 +76,11 @@ internal static class ReplayShotFactPacket
         dest[36] = (byte)fact.Flags;
         BinaryPrimitives.WriteUInt32LittleEndian(dest[37..], fact.Damage);
         BinaryPrimitives.WriteUInt16LittleEndian(dest[41..], fact.HealthAfter);
-        BinaryPrimitives.WriteSingleLittleEndian(dest[43..], fact.ImpactPoint.X);
-        BinaryPrimitives.WriteSingleLittleEndian(dest[47..], fact.ImpactPoint.Y);
-        BinaryPrimitives.WriteSingleLittleEndian(dest[51..], fact.ImpactPoint.Z);
+        BinaryPrimitives.WriteUInt32LittleEndian(dest[43..], fact.HalfturretDamage);
+        BinaryPrimitives.WriteUInt16LittleEndian(dest[47..], fact.HalfturretHealthAfter);
+        BinaryPrimitives.WriteSingleLittleEndian(dest[49..], fact.ImpactPoint.X);
+        BinaryPrimitives.WriteSingleLittleEndian(dest[53..], fact.ImpactPoint.Y);
+        BinaryPrimitives.WriteSingleLittleEndian(dest[57..], fact.ImpactPoint.Z);
     }
 
     internal static bool TryRead(ReadOnlySpan<byte> src, out ReplayShotFact fact)
@@ -91,9 +95,9 @@ internal static class ReplayShotFactPacket
         if ((flags & ~known) != 0) return false;
 
         Vector3 point = new(
-            BinaryPrimitives.ReadSingleLittleEndian(src[43..]),
-            BinaryPrimitives.ReadSingleLittleEndian(src[47..]),
-            BinaryPrimitives.ReadSingleLittleEndian(src[51..]));
+            BinaryPrimitives.ReadSingleLittleEndian(src[49..]),
+            BinaryPrimitives.ReadSingleLittleEndian(src[53..]),
+            BinaryPrimitives.ReadSingleLittleEndian(src[57..]));
         if (!float.IsFinite(point.X) || !float.IsFinite(point.Y) || !float.IsFinite(point.Z)) return false;
 
         ushort match = BinaryPrimitives.ReadUInt16LittleEndian(src[1..]);
@@ -109,18 +113,21 @@ internal static class ReplayShotFactPacket
         ushort victimLife = BinaryPrimitives.ReadUInt16LittleEndian(src[33..]);
         uint damage = BinaryPrimitives.ReadUInt32LittleEndian(src[37..]);
         ushort healthAfter = BinaryPrimitives.ReadUInt16LittleEndian(src[41..]);
+        uint turretDamage = BinaryPrimitives.ReadUInt32LittleEndian(src[43..]);
+        ushort turretHealthAfter = BinaryPrimitives.ReadUInt16LittleEndian(src[47..]);
 
         if (match == 0 || epoch == 0 || shot == 0 || damageEvent == 0
             || shooter >= 8 || victim >= 8 || shooterGeneration == 0 || shooterLife == 0
             || victimGeneration == 0 || victimLife == 0 || weapon > (byte)BeamType.OmegaCannon
-            || damage == 0 || (flags & ReplayShotFactFlags.Lethal) != 0 && healthAfter != 0)
+            || damage == 0 && turretDamage == 0
+            || (flags & ReplayShotFactFlags.Lethal) != 0 && healthAfter != 0)
         {
             return false;
         }
 
         fact = new(match, epoch, tick, launch, shot, damageEvent, shooter,
             shooterGeneration, shooterLife, victim, victimGeneration, victimLife,
-            weapon, flags, damage, healthAfter, point);
+            weapon, flags, damage, healthAfter, turretDamage, turretHealthAfter, point);
         return true;
     }
 }
