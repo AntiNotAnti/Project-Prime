@@ -76,9 +76,13 @@ namespace MphRead.Mods.Network
                 || NetSession.Active && !NetSession.IsAuthority || !fact.Actor.IsPlayer) return;
             if (fact.Type == MatchEvents.MatchSemanticEventType.WeaponFired
                 && (fact.Flags & (MatchEvents.MatchSemanticEventFlags.AltForm | MatchEvents.MatchSemanticEventFlags.Turret)) == 0)
+            {
                 Increment(scene.GameState.ShotsFired, fact.Actor.Slot);
+                BalancedModeTelemetry.NoteShot(scene, fact);
+            }
             if (fact.Type == MatchEvents.MatchSemanticEventType.PlayerKilled)
             {
+                BalancedModeTelemetry.NoteKill(scene, fact);
                 scene.GameState.LongestKillStreak[fact.Actor.Slot] = Math.Max(
                     scene.GameState.LongestKillStreak[fact.Actor.Slot], awards.Spree(fact.Actor));
                 if ((fact.Flags & (MatchEvents.MatchSemanticEventFlags.Headshot | MatchEvents.MatchSemanticEventFlags.FriendlyFire))
@@ -118,6 +122,10 @@ namespace MphRead.Mods.Network
 
             Add(state.MatchDamageDealt, attackerSlot, applied);
             Add(state.MatchDamageTaken, victimSlot, applied);
+
+            BeamType balanceWeapon = beam?.Beam ?? (NetDamage.ApplyingClaim
+                ? NetDamage.ClaimedBeam : BeamType.None);
+            BalancedModeTelemetry.NoteDamage(victim, attacker!, beam, balanceWeapon, applied);
 
             if (beam == null)
             {
