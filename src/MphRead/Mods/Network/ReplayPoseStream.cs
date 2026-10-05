@@ -251,13 +251,26 @@ internal sealed class ReplayPoseStream : IDisposable
 
                 uint shotFrame = candidate.FireRecordingFrame != 0
                     ? candidate.FireRecordingFrame : candidate.RecordingFrame;
-                if (direction < 0 && shotFrame >= anchorFrame
+
+                if (direction == 0)
+                {
+                    // A timeline WeaponFired marker has no ShotId. Only call the
+                    // association exact when the repeated FireEvent independently
+                    // proves the same authored recording frame. For kill/damage
+                    // markers, the mapped resolve frame is the exact key.
+                    bool exact = weapon >= 0
+                        ? candidate.HasFire && shotFrame == anchorFrame
+                        : candidate.RecordingFrame == anchorFrame;
+                    if (!exact) continue;
+                }
+                else if (direction < 0 && shotFrame >= anchorFrame
                     || direction > 0 && shotFrame <= anchorFrame)
                 {
                     continue;
                 }
 
                 long distance = Math.Abs((long)shotFrame - anchorFrame);
+                if (direction != 0 && distance > ShotFactLookaheadFrames) continue;
                 if (distance < bestDistance)
                 {
                     bestDistance = distance;
