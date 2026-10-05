@@ -1398,6 +1398,7 @@ namespace MphRead.Entities
 
         private void InitializeWeapon()
         {
+            _balancedImperialistAmmo = 0;
             _availableWeapons.ClearAll();
             _availableCharges.ClearAll();
             if (_scene.GameState.SinglePlayer && IsMainPlayer) // todo: MP1P
