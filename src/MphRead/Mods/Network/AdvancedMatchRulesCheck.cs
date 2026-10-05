@@ -226,11 +226,51 @@ namespace MphRead.Mods.Network
                         BeamType.Magmaul, charged: false, magmaBase), 7680f / 4096f / 2),
                     "Balanced prediction weapons receive their configured runtime speed increases");
 
+                int direct = 14, headshot = 14, splash = 6; byte splashType = 0;
+                BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Battlehammer,
+                    battlehammerCluster: false, ref direct, ref headshot, ref splash, ref splashType);
+                Check(direct == 18 && headshot == 18 && splash == 5 && splashType == 0,
+                    "Balanced Battlehammer shell is 18 direct and 5 max splash");
+
+                direct = headshot = splash = 4; splashType = 0;
+                BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Battlehammer,
+                    battlehammerCluster: true, ref direct, ref headshot, ref splash, ref splashType);
+                Check(direct == 6 && headshot == 6 && splash == 3,
+                    "Balanced Battlehammer bomblet rewards direct contact over splash");
+
+                direct = headshot = 32; splash = 16; splashType = 3;
+                BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Magmaul,
+                    battlehammerCluster: false, ref direct, ref headshot, ref splash, ref splashType);
+                Check(direct == 32 && headshot == 32 && splash == 12 && splashType == 0,
+                    "Balanced Magmaul keeps direct damage but reduces splash and adds linear falloff");
+
+                direct = 56; headshot = 56; splash = 28; splashType = 3;
+                BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Magmaul,
+                    battlehammerCluster: false, ref direct, ref headshot, ref splash, ref splashType);
+                Check(direct == 56 && headshot == 56 && splash == 21 && splashType == 0,
+                    "Balanced charged Magmaul splash is 21 max before range falloff");
+
+                direct = 24; headshot = 32; splash = 12; splashType = 0;
+                BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Judicator,
+                    battlehammerCluster: false, ref direct, ref headshot, ref splash, ref splashType);
+                Check(direct == 24 && headshot == 32 && splash == 9 && splashType == 0,
+                    "Balanced Judicator keeps precision damage and reduces splash to 9");
+
+                direct = 18; headshot = 18; splash = 10; splashType = 0;
+                BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Battlehammer,
+                    battlehammerCluster: false, ref direct, ref headshot, ref splash, ref splashType);
+                Check(direct == 23 && splash == 8,
+                    "Battlehammer affinity delta is retained for the later affinity-normalization slice");
+
                 scene.GameState.BalancedMode = false;
+                direct = 14; headshot = 14; splash = 6; splashType = 3;
+                BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Battlehammer,
+                    battlehammerCluster: false, ref direct, ref headshot, ref splash, ref splashType);
                 Check(Near(beam.ModBalancedRangeDamage(100, Vector3.UnitZ * BalancedModeRules.FarRange), 100)
                     && Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
-                        BeamType.VoltDriver, charged: false, voltBase), voltBase),
-                    "range damage and projectile speed are inert outside Balanced Mode");
+                        BeamType.VoltDriver, charged: false, voltBase), voltBase)
+                    && direct == 14 && headshot == 14 && splash == 6 && splashType == 3,
+                    "range, projectile speed and hit tuning are inert outside Balanced Mode");
             }
             finally { sim.Stop(); NetSession.Stop(); }
         }
