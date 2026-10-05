@@ -94,13 +94,30 @@ are cancelled. This requires the updated game server and client (the client wait
 up to three minutes for preparation). New directory-hosted lobbies still prepare
 their initial rotation before the server process starts.
 
-To remove an old version from public discovery, open **Online → Community maps**,
-choose **My Maps**, press **Refresh**, select the version, and press **Set Unlisted**.
-Refresh/reopen the lobby picker afterward. Unlisted packages remain available by
-exact package link for existing lobbies. Already installed local maps still have
-local cards: remove their local package through the map library, then restart the
-app to rebuild its runtime map list. Service-owned legacy listings must be
-unlisted by the server operator.
+Creators manage lifecycle from **Online → Community maps → My Maps**:
+
+- **Archive Map** hides the project from public discovery and new lobby selection without
+  deleting any revision. Exact package links remain valid, and **Restore Map** makes the
+  project active again immediately.
+- **Delete Map** moves the project to Deleted Maps and starts a 30-day restore window.
+  Public v2 and legacy catalogs stop returning it immediately, but exact immutable package
+  hashes remain downloadable during retention so existing lobby/replay references do not
+  break. **Restore Map** clears the tombstone before its deadline.
+- **Delete Revision** does the same for one historical revision. The current/latest
+  pointers fall back only to another active published revision; Draft or Unlisted packages
+  are never silently promoted. The last active revision cannot be deleted independently,
+  because deleting the whole map is the explicit operation for that case.
+- Deleted maps and revisions show their permanent-purge date in My Maps. The creator view
+  can filter Active, Archived, and Deleted projects.
+- Moderators can permanently purge a map or revision immediately for malicious packages,
+  legal/moderation removal, or other urgent cases. Permanent purge removes the `.ppmap`,
+  its per-package catalog metadata, map favorites/reports/collaborators when the whole map
+  disappears, and any pending upload state for the purged package.
+
+Unlisted remains a publishing state rather than deletion: it removes a revision from
+discovery while keeping it as an ordinary active revision. Already installed local maps
+still have local cards: remove their local package through the map library, then restart
+the app to rebuild its runtime map list.
 
 Map installation is unavailable while a conflicting map runtime is active. Remote
 hosts only trust their operator-configured Community service rather than arbitrary
@@ -147,6 +164,16 @@ Routes beneath the configured prefix:
   promotion of an immutable historical revision to the current public release. Legacy flat
   API responses synthesize a current-release timestamp so older clients select the rollback
   target without mutating the package's persisted publication chronology or bytes.
+- `POST v2/maps/<map-id>/archive`: owner-only archive from discovery.
+- `POST v2/maps/<map-id>/restore`: owner-only restore of an archived/deleted project while
+  its retention deadline is still open.
+- `DELETE v2/maps/<map-id>`: owner-only soft deletion with a 30-day tombstone.
+- `DELETE v2/maps/<map-id>/revisions/<revision>`: owner-only soft deletion of one
+  revision; at least one active revision must remain.
+- `POST v2/maps/<map-id>/revisions/<revision>/restore`: restore a deleted revision before
+  its retention deadline.
+- `DELETE v2/maps/<map-id>/purge` and
+  `DELETE v2/maps/<map-id>/revisions/<revision>/purge`: moderator-only permanent purge.
 - `POST uploads/<sha256>`: create or resume a package upload session.
 - `GET uploads/<sha256>`: read the persisted byte offset for the authenticated creator.
 - `PUT uploads/<sha256>?offset=<bytes>`: append one bounded package chunk.
@@ -157,6 +184,11 @@ Routes beneath the configured prefix:
   Package downloads advertise `Accept-Ranges: bytes`; interrupted client and
   dedicated-server downloads retry with `Range` and continue from the verified
   temporary-file offset instead of restarting the archive.
+
+Lifecycle tombstones are persisted in `map_catalog_v2.json`. Expired deletion
+candidates are collected at service startup and by an hourly request-driven sweep. File
+deletion failures, such as a package temporarily held open by another process, are logged
+and deferred to a later sweep rather than removing the catalog entry first.
 
 Upload session metadata and partial bytes survive service restarts and expire after
 24 hours if abandoned. At most 16 partial sessions and 2 GiB of partial upload data
