@@ -203,8 +203,10 @@ public static class MapCommunityServer
         {
             CommunityMap[] visible = maps.Values.Where(m => m.MapId == mapId)
                 .Select(m => catalog.Decorate(m, viewer.CreatorId)).ToArray();
+            bool owner = visible.Any(m => m.OwnerId == viewer.CreatorId);
             return revisionCatalog.BuildProject(mapId, visible,
-                revealCreatorIdentity: true, includeDeleted: includeDeleted);
+                revealCreatorIdentity: true, includeDeleted: includeDeleted,
+                canManageLifecycle: owner);
         }
 
         (int Status, CommunityRevisionConflict? Conflict) ValidateRevisionIntent(
@@ -768,7 +770,9 @@ public static class MapCommunityServer
                         CommunityMap[] visible=maps.Values.Where(m=>m.MapId==promoteMapId)
                             .Select(m=>catalog.Decorate(m,creator.CreatorId)).ToArray();
                         var project=revisionCatalog.BuildProject(
-                            promoteMapId,visible,revealCreatorIdentity:true);
+                            promoteMapId,visible,revealCreatorIdentity:true,
+                            canManageLifecycle:visible.Any(
+                                m=>m.OwnerId==creator.CreatorId));
                         if(project==null){context.Response.StatusCode=404;return;}
                         await Json(context.Response,project,deadline.Token);
                     }
@@ -795,7 +799,9 @@ public static class MapCommunityServer
                             .GroupBy(m=>m.MapId)
                             .Select(g=>revisionCatalog.BuildProject(
                                 g.Key,g,revealCreatorIdentity:mine,
-                                includeDeleted:mine))
+                                includeDeleted:mine,
+                                canManageLifecycle:mine&&creator!=null
+                                    &&g.Any(m=>m.OwnerId==creator.CreatorId)))
                             .OfType<CommunityMapProject>();
                         CommunityMap Presentation(CommunityMapProject project)
                             => project.CurrentRevision?.Package ?? project.LatestRevision.Package;
@@ -841,7 +847,9 @@ public static class MapCommunityServer
                         {
                             var project=revisionCatalog.BuildProject(
                                 projectId,visible,revealCreatorIdentity:canManage,
-                                includeDeleted:canManage);
+                                includeDeleted:canManage,
+                                canManageLifecycle:creator!=null
+                                    &&all.Any(m=>m.OwnerId==creator.CreatorId));
                             if(project==null){context.Response.StatusCode=404;return;}
                             await Json(context.Response,project,deadline.Token);
                             return;
