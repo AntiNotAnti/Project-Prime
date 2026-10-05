@@ -113,7 +113,8 @@ namespace MphRead.Mods.Network
                     InstaGib = modifiers.HasFlag(MatchModifierFlags.InstaGib),
                     LowTier = modifiers.HasFlag(MatchModifierFlags.LowTier),
                     OctolithAutoReset = modifiers.HasFlag(MatchModifierFlags.OctolithAutoReset),
-                    NoImperialist = modifiers.HasFlag(MatchModifierFlags.NoImperialist)
+                    NoImperialist = modifiers.HasFlag(MatchModifierFlags.NoImperialist),
+                    BalancedMode = modifiers.HasFlag(MatchModifierFlags.BalancedMode)
                 }.NormalizeLegacy()
             };
             return (!validateDefinition || LobbyRules.ValidateDefinition(state.Match, out _) == LobbyResultCode.Ok)
