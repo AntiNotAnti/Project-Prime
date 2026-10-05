@@ -42,7 +42,8 @@ public sealed record CommunityMapProject(
     CommunityMapRevision LatestRevision,
     DateTimeOffset? ArchivedAt = null,
     DateTimeOffset? DeletedAt = null,
-    DateTimeOffset? DeleteAfter = null);
+    DateTimeOffset? DeleteAfter = null,
+    bool CanManageLifecycle = false);
 
 internal sealed record CommunityMapRevisionState(
     string Hash,
@@ -202,7 +203,8 @@ internal sealed class MapCommunityRevisionCatalog
 
     public CommunityMapProject? BuildProject(
         Guid mapId, IEnumerable<CommunityMap> visiblePackages,
-        bool revealCreatorIdentity = false, bool includeDeleted = false)
+        bool revealCreatorIdentity = false, bool includeDeleted = false,
+        bool canManageLifecycle = false)
     {
         lock (_gate)
         {
@@ -247,7 +249,8 @@ internal sealed class MapCommunityRevisionCatalog
                 latest,
                 project.ArchivedAt,
                 project.DeletedAt,
-                project.DeleteAfter);
+                project.DeleteAfter,
+                canManageLifecycle);
         }
     }
 
