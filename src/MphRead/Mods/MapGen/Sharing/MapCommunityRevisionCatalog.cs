@@ -306,7 +306,8 @@ internal sealed class MapCommunityRevisionCatalog
     {
         lock (_gate)
             return _revisions.TryGetValue(hash, out var revision)
-                && revision.MapId == mapId;
+                && revision.MapId == mapId
+                && revision.DeletedAt == null;
     }
 
     public string? RevisionHash(Guid mapId, int revisionNumber)
