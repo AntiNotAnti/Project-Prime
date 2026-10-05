@@ -455,9 +455,13 @@ internal sealed partial class MapStudioScreen
             {
                 actions.Children.Add(new PrimeButton("UPLOAD CURRENT",
                     ShowUploadForm, primary: true, compact: true));
-                actions.Children.Add(new PrimeButton("PUBLISH LATEST",
-                    () => ChangeVisibility(project.LatestRevision.Package, "Published"),
-                    compact: true));
+                actions.Children.Add(new PrimeButton(
+                    project.CurrentHash == project.LatestHash ? "LATEST IS CURRENT" : "MAKE LATEST CURRENT",
+                    () => PromoteRevision(project, project.LatestRevision),
+                    compact: true)
+                {
+                    IsEnabled = project.CurrentHash != project.LatestHash
+                });
                 actions.Children.Add(new PrimeButton("SET UNLISTED",
                     () => ChangeVisibility(project.LatestRevision.Package, "Unlisted"),
                     compact: true));
@@ -499,12 +503,32 @@ internal sealed partial class MapStudioScreen
                     return true;
                 });
                 await ReloadProjects(token, package.MapId);
-                status.Text = visibility switch
-                {
-                    "Published" => "Revision published and set as the current Community release.",
-                    "Unlisted" => "Revision is now unlisted.",
-                    _ => "Revision saved as a private draft."
-                };
+                status.Text = visibility == "Unlisted"
+                    ? "Revision is now unlisted."
+                    : "Revision saved as a private draft.";
+            });
+        }
+
+        void PromoteRevision(CommunityMapProject project,
+            CommunityMapRevision revision)
+        {
+            _ = Job("Promoting map revision", async token =>
+            {
+                CommunityMapProject? promoted = await WithClient(true, token,
+                    client => client.PromoteRevisionAsync(
+                        project.MapId, revision.RevisionNumber, token));
+                if (promoted == null)
+                    throw new IOException("Community could not find that revision.");
+                GuardJob(token);
+                projects = await WithCommunityAuthentication(
+                    Endpoint(), token,
+                    client => client.BrowseProjectsAsync(token,
+                        mine: true, sort: "name"));
+                GuardJob(token);
+                RenderList(project.MapId);
+                status.Text = revision.RevisionNumber == project.LatestRevision.RevisionNumber
+                    ? $"Revision {revision.RevisionNumber} is now the current release."
+                    : $"Rolled back to revision {revision.RevisionNumber}. Immutable newer revisions were kept.";
             });
         }
 
@@ -555,6 +579,13 @@ internal sealed partial class MapStudioScreen
                             PrimeTypography.DataSmall,
                             PrimeTheme.TextSecondaryBrush,
                             data: true));
+                    if (!string.IsNullOrWhiteSpace(revision.ReleaseNotes))
+                    {
+                        copy.Children.Add(PrimeChrome.Text(
+                            revision.ReleaseNotes,
+                            PrimeTypography.BodySmall,
+                            PrimeTheme.TextSecondaryBrush));
+                    }
 
                     var revisionActions = new WrapPanel();
                     revisionActions.Children.Add(new PrimeButton("INSTALL",
@@ -563,8 +594,12 @@ internal sealed partial class MapStudioScreen
                         () => _ = CopyLink(package), compact: true));
                     if (authenticated)
                     {
-                        revisionActions.Children.Add(new PrimeButton("PUBLISH",
-                            () => ChangeVisibility(package, "Published"), compact: true));
+                        revisionActions.Children.Add(new PrimeButton(
+                            current ? "CURRENT" : "MAKE CURRENT",
+                            () => PromoteRevision(project, revision), compact: true)
+                        {
+                            IsEnabled = !current
+                        });
                         revisionActions.Children.Add(new PrimeButton("UNLIST",
                             () => ChangeVisibility(package, "Unlisted"), compact: true));
                         revisionActions.Children.Add(new PrimeButton("DRAFT",
