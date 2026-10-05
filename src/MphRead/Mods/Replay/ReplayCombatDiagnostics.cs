@@ -55,8 +55,8 @@ internal static class ReplayCombatDiagnostics
     internal static string Describe(in ReplayCombatDiagnostic diagnostic)
     {
         ReplayShotFact fact = diagnostic.Fact;
-        string weapon = Enum.IsDefined(typeof(BeamType), (int)fact.Weapon)
-            ? ((BeamType)fact.Weapon).ToString() : $"Weapon {fact.Weapon}";
+        string weapon = ReplayStudio.TryBeamType(fact.Weapon, out BeamType beam)
+            ? beam.ToString() : $"Weapon {fact.Weapon}";
         string shooter = Name(fact.ShooterSlot);
         string victim = Name(fact.VictimSlot);
         string fireFrame = diagnostic.FireRecordingFrame == 0
@@ -88,9 +88,8 @@ internal static class ReplayCombatDiagnostics
     internal static string[] HudLines(in ReplayCombatDiagnostic diagnostic)
     {
         ReplayShotFact fact = diagnostic.Fact;
-        string weapon = Enum.IsDefined(typeof(BeamType), (int)fact.Weapon)
-            ? ((BeamType)fact.Weapon).ToString().ToUpperInvariant()
-            : $"W{fact.Weapon}";
+        string weapon = ReplayStudio.TryBeamType(fact.Weapon, out BeamType beam)
+            ? beam.ToString().ToUpperInvariant() : $"W{fact.Weapon}";
         string result = (fact.Flags & ReplayShotFactFlags.HalfturretTarget) != 0
             ? $"{fact.HalfturretDamage} turret dmg"
             : $"{fact.Damage} dmg → {fact.HealthAfter} HP";
