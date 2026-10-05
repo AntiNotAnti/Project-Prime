@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using MphRead.Effects;
 using MphRead.Entities;
 using MphRead.Mods.Replay;
 using OpenTK.Mathematics;
@@ -18,8 +19,14 @@ internal sealed class ReplayPoseStream : IDisposable
     // for ordinary high-refresh interpolation.
     private const uint PresentationHistoryFrames = NetUnlagged.HistoryFrames + 12;
     private const uint FireLookaheadFrames = NetFireEvents.RetentionFrames + 6;
+    // ReplayShotFact uses ordinary reliable delivery. A slow client recorder can
+    // therefore receive the fact well after ResolveTick; playback scans one
+    // reliable lifetime ahead without feeding those future packets into the
+    // simulation decoder.
+    private const uint ShotFactLookaheadFrames = 960;
     private const int MaximumPoseSamples = NetUnlagged.HistoryFrames + 32;
     private const int MaximumIntentSamples = 96;
+    private const int MaximumClockSamples = 512;
     private const uint MaximumIntentAge = 30;
 
     private readonly record struct PoseSample(uint RecordingFrame, uint ServerTick, PlayerState State);
@@ -27,6 +34,13 @@ internal sealed class ReplayPoseStream : IDisposable
     private readonly record struct FireLife(int Slot, ushort Generation, ushort Life);
     private readonly record struct ScheduledFire(uint RecordingFrame, int Slot,
         ushort Generation, ushort Life, FireEvent Event, IntentPacket Carrier);
+    private readonly record struct ServerClockSample(uint RecordingFrame, uint ServerTick);
+    private readonly record struct PendingShotFact(uint CarrierRecordingFrame, ReplayShotFact Fact);
+    private readonly record struct ShotFactIdentity(ushort MatchId, ulong Epoch,
+        byte Shooter, ushort ShooterGeneration, ushort ShooterLife,
+        byte Victim, ushort VictimGeneration, ushort VictimLife, ushort DamageEventId);
+    private readonly record struct FallbackImpact(ReplayShotFact Fact, FireEvent? Fire,
+        bool MissingProjectile);
     private sealed class FireIndex
     {
         internal ushort Generation, Life;
@@ -46,18 +60,28 @@ internal sealed class ReplayPoseStream : IDisposable
     private readonly List<uint> _firePrune = new();
     private readonly ScheduledFire?[] _activeFire = new ScheduledFire?[8];
     private readonly bool[] _fireConsumed = new bool[8];
-    private DemoReader? _reader;
-    private DemoRecord? _pending;
-    private int _index;
-    private uint? _advanced, _firePrepared;
-    private bool _initialized, _failed, _supportsFireEvents;
+    private readonly List<ServerClockSample> _serverClock = new(MaximumClockSamples);
+    private readonly List<PendingShotFact> _pendingShotFacts = new();
+    private readonly Dictionary<uint, List<ReplayShotFact>> _resolvedShotFacts = new();
+    private readonly HashSet<ShotFactIdentity> _seenShotFacts = new();
+    private readonly uint[] _lastResolvedHitFrame = new uint[8];
+    private readonly ushort[] _lastResolvedHitGeneration = new ushort[8];
+    private readonly ushort[] _lastResolvedHitLife = new ushort[8];
+    private readonly bool[] _lastResolvedHitHeadshot = new bool[8];
+    private readonly List<FallbackImpact> _fallbackImpacts = new();
+    private DemoReader? _reader, _shotReader;
+    private DemoRecord? _pending, _shotPending;
+    private int _index, _shotIndex;
+    private uint? _advanced, _firePrepared, _impactPrepared;
+    private bool _initialized, _failed, _supportsFireEvents, _supportsShotFacts;
     internal string? LastError { get; private set; }
     internal ReplayPoseStream(PassiveReplayScene world, string path) : this(world) { _path = path; }
     internal ReplayPoseStream(PassiveReplayScene world, ReplayTimelineClip clip) : this(world)
-    { _clip = clip; _supportsFireEvents = true; }
+    { _clip = clip; _supportsFireEvents = true; _supportsShotFacts = true; }
     private ReplayPoseStream(PassiveReplayScene world)
     {
         _world = world;
+        Array.Fill(_lastResolvedHitFrame, uint.MaxValue);
         for (int i = 0; i < 8; i++)
         {
             _poses[i] = new(MaximumPoseSamples);
@@ -118,7 +142,177 @@ internal sealed class ReplayPoseStream : IDisposable
         => intent.AckFrame == 0 ? double.NaN : intent.AckFrame + intent.AckSubFrame / 256d;
 
     internal float ResolvedHitMarkerAlpha(int shooterSlot, out bool headshot)
-        => _world.State.ShotHitMarkerAlpha(shooterSlot, out headshot);
+    {
+        headshot = false;
+        if ((uint)shooterSlot >= 8) return 0;
+        uint at = _lastResolvedHitFrame[shooterSlot];
+        uint frame = _world.Session.RecordingFrame;
+        if (at == uint.MaxValue || frame < at || frame - at >= 12
+            || !_world.State.TryGetPlayer(shooterSlot, out var state)
+            || state.SlotGeneration != _lastResolvedHitGeneration[shooterSlot]
+            || state.LifeId != _lastResolvedHitLife[shooterSlot])
+        {
+            return 0;
+        }
+        headshot = _lastResolvedHitHeadshot[shooterSlot];
+        uint age = frame - at;
+        return age < 6 ? 1f : (12 - age) / 6f;
+    }
+
+    internal bool TryActiveShotIdentity(PlayerEntity player, bool turret,
+        out ShotKey key, out uint sourceFrame)
+    {
+        key = default; sourceFrame = 0;
+        if (!TryActiveFire(player, out FireEvent fire)
+            || (fire.Kind == FireEventKind.TurretFire) != turret
+            || !_world.State.TryGetPlayer(player.SlotIndex, out var state)
+            || _world.State.Match is not MatchStatePacket match)
+        {
+            return false;
+        }
+        key = new(match.AuthorityEpoch, match.MatchId, player.SlotIndex,
+            state.SlotGeneration, state.LifeId, fire.ShotId);
+        sourceFrame = fire.SourceFrame;
+        return fire.ShotId != 0;
+    }
+
+    private bool TryAuthoredFire(in ReplayShotFact fact, out FireEvent fire)
+    {
+        foreach (var list in _fires.Values)
+            foreach (var scheduled in list)
+                if (scheduled.Slot == fact.ShooterSlot
+                    && scheduled.Generation == fact.ShooterGeneration
+                    && scheduled.Life == fact.ShooterLifeId
+                    && scheduled.Event.ShotId == fact.ShotId)
+                {
+                    fire = scheduled.Event;
+                    return true;
+                }
+        fire = default;
+        return false;
+    }
+
+    internal void PresentResolvedImpacts(Scene scene)
+    {
+        uint frame = _world.Session.RecordingFrame;
+        if (_impactPrepared == frame || !Prepare()) return;
+        _impactPrepared = frame;
+        _fallbackImpacts.Clear();
+        if (!_resolvedShotFacts.TryGetValue(frame, out var facts) || facts.Count == 0) return;
+
+        var visualized = new List<ReplayShotFact>();
+        foreach (var fact in facts)
+        {
+            bool currentShooter = _world.State.TryGetPlayer(fact.ShooterSlot, out var shooter)
+                && shooter.SlotGeneration == fact.ShooterGeneration
+                && shooter.LifeId == fact.ShooterLifeId;
+            if (currentShooter)
+            {
+                if (_lastResolvedHitFrame[fact.ShooterSlot] != frame
+                    || _lastResolvedHitGeneration[fact.ShooterSlot] != fact.ShooterGeneration
+                    || _lastResolvedHitLife[fact.ShooterSlot] != fact.ShooterLifeId)
+                {
+                    _lastResolvedHitHeadshot[fact.ShooterSlot] = false;
+                }
+                _lastResolvedHitFrame[fact.ShooterSlot] = frame;
+                _lastResolvedHitGeneration[fact.ShooterSlot] = fact.ShooterGeneration;
+                _lastResolvedHitLife[fact.ShooterSlot] = fact.ShooterLifeId;
+                _lastResolvedHitHeadshot[fact.ShooterSlot] |= fact.Headshot;
+            }
+
+            BeamProjectileEntity? best = null;
+            float bestDistance = float.MaxValue;
+            foreach (var beam in scene.GetBeamProjectileEntities())
+            {
+                if (!beam.ModReplayMatches(fact)) continue;
+                float distance = beam.ModReplayImpactDistanceSquared(fact.ImpactPoint);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = beam;
+                }
+            }
+
+            bool spawnEffect = true;
+            foreach (var prior in visualized)
+                if (SameImpactVisual(prior, fact))
+                {
+                    spawnEffect = false;
+                    break;
+                }
+            ReplayShotFact visualFact = fact;
+            if (spawnEffect)
+            {
+                visualized.Add(fact);
+                if (!fact.Headshot)
+                {
+                    foreach (var sibling in facts)
+                        if (sibling.Headshot && SameImpactVisual(fact, sibling))
+                        {
+                            visualFact = fact with
+                            {
+                                Flags = fact.Flags | ReplayShotFactFlags.Headshot
+                            };
+                            break;
+                        }
+                }
+            }
+            bool alreadyCorrect = best != null && best.Flags.TestFlag(BeamFlags.Collided)
+                && best.ModReplayImpactDistanceSquared(fact.ImpactPoint) <= 0.0625f;
+            FireEvent? authored = TryAuthoredFire(fact, out FireEvent fire) ? fire : null;
+            if (best != null)
+            {
+                // Only a direct impact owns the projectile's terminal position.
+                // Splash facts can share the same ShotId across several victims.
+                best.ModPresentReplayImpact(fact,
+                    terminateProjectile: fact.Direct,
+                    spawnEffect: spawnEffect && !alreadyCorrect);
+            }
+            if (spawnEffect)
+            {
+                // Impact particles are emitted centrally so they still render
+                // when the matched projectile is outside the current camera's
+                // culling set. Only a genuinely missing projectile gets the
+                // short synthesized tracer tail.
+                _fallbackImpacts.Add(new(visualFact, authored, best == null));
+            }
+        }
+    }
+
+    internal void DrawResolvedImpactPresentation(Scene scene)
+    {
+        foreach (var fallback in _fallbackImpacts)
+        {
+            ReplayShotFact fact = fallback.Fact;
+            Vector3 color = BeamProjectileEntity.ModReplayImpactColor(scene, fact);
+            if (fallback.MissingProjectile
+                && fallback.Fire is FireEvent fire && fire.HasPose
+                && fire.Direction.LengthSquared >= 0.000001f)
+            {
+                Vector3 direction = fire.Direction.Normalized();
+                float length = Math.Min(1.5f,
+                    Vector3.Distance(fire.Origin, fact.ImpactPoint));
+                Vector3 start = fact.ImpactPoint - direction * length;
+                for (int i = 0; i < 4; i++)
+                {
+                    float t = (i + 1) / 4f;
+                    scene.AddSingleParticle(SingleType.Fuzzball,
+                        Vector3.Lerp(start, fact.ImpactPoint, t),
+                        color, alpha: 0.65f, scale: 0.13f);
+                }
+            }
+            scene.AddSingleParticle(SingleType.Fuzzball,
+                fact.ImpactPoint, color, alpha: 1f,
+                scale: fact.Headshot ? 0.46f : 0.32f);
+        }
+    }
+
+    internal static bool SameImpactVisual(in ReplayShotFact a, in ReplayShotFact b)
+        => a.ShotId == b.ShotId
+            && a.ShooterSlot == b.ShooterSlot
+            && a.ShooterGeneration == b.ShooterGeneration
+            && a.ShooterLifeId == b.ShooterLifeId
+            && (a.ImpactPoint - b.ImpactPoint).LengthSquared <= 0.01f;
 
     internal static uint FireSourceRecordingFrame(uint carrierRecordingFrame,
         uint carrierSourceFrame, uint fireSourceFrame)
@@ -377,6 +571,8 @@ internal sealed class ReplayPoseStream : IDisposable
     private void Advance()
     {
         uint frame = _world.Session.RecordingFrame;
+        if (_advanced is uint prior && frame < prior)
+            ResetPresentationCursor();
         if (_advanced == frame) return;
         _advanced = frame;
         uint origin = _world.Session.Metadata?.OriginRecordingFrame ?? 0;
@@ -390,7 +586,15 @@ internal sealed class ReplayPoseStream : IDisposable
                 _reader = DemoReader.Open(_path, out var result)
                     ?? throw new InvalidDataException(result.ToString());
                 _supportsFireEvents = _reader.ProtocolVersion >= 30;
+                _supportsShotFacts = _reader.ProtocolVersion >= 40;
                 _pending = from > origin ? _reader.SeekAfter(from - origin - 1) : _reader.ReadNext();
+                if (_supportsShotFacts)
+                {
+                    _shotReader = DemoReader.Open(_path, out var shotResult)
+                        ?? throw new InvalidDataException(shotResult.ToString());
+                    _shotPending = from > origin
+                        ? _shotReader.SeekAfter(from - origin - 1) : _shotReader.ReadNext();
+                }
             }
             else if (_clip != null)
             {
@@ -398,6 +602,7 @@ internal sealed class ReplayPoseStream : IDisposable
                     if (baseline.Kind is ReplayFactKind.Snapshot or ReplayFactKind.Intent)
                         Accept(baseline.RecordingFrame, baseline.Payload);
                 while (_index < _clip.Records.Count && _clip.Records[_index].RecordingFrame < from) _index++;
+                while (_shotIndex < _clip.Records.Count && _clip.Records[_shotIndex].RecordingFrame < from) _shotIndex++;
             }
         }
 
@@ -426,6 +631,11 @@ internal sealed class ReplayPoseStream : IDisposable
             if (++read > 8192)
                 throw new InvalidDataException("Replay presentation lookahead exceeds its record bound.");
         }
+
+        if (_serverClock.Count == 0)
+            AddServerClock(frame, _world.State.ServerTick);
+        AdvanceShotFactLookahead(frame, origin);
+        ScheduleShotFacts(frame);
 
         for (int slot = 0; slot < 8; slot++)
         {
@@ -505,6 +715,7 @@ internal sealed class ReplayPoseStream : IDisposable
 
         if (type != PacketType.Snapshot) return;
         uint serverTick = SnapshotHeader.Read(packet[1..]).Frame;
+        AddServerClock(frame, serverTick);
         for (int i = 0; i < 8; i++)
         {
             if (!_decoder.TryGetPlayer(i, out var state)) continue;
@@ -548,5 +759,159 @@ internal sealed class ReplayPoseStream : IDisposable
         }
     }
 
-    public void Dispose() { _reader?.Dispose(); _reader = null; }
+    private void AddServerClock(uint recordingFrame, uint serverTick)
+    {
+        if (_serverClock.Count > 0 && _serverClock[^1].RecordingFrame == recordingFrame)
+            _serverClock[^1] = new(recordingFrame, serverTick);
+        else
+            _serverClock.Add(new(recordingFrame, serverTick));
+        while (_serverClock.Count > MaximumClockSamples) _serverClock.RemoveAt(0);
+    }
+
+    private void AdvanceShotFactLookahead(uint frame, uint origin)
+    {
+        if (!_supportsShotFacts) return;
+        ulong horizon = (ulong)frame + ShotFactLookaheadFrames;
+        int read = 0;
+        while (true)
+        {
+            uint at;
+            ReadOnlySpan<byte> packet;
+            if (_shotReader != null && _shotPending is { } record)
+            {
+                at = checked(origin + record.Frame);
+                if ((ulong)at > horizon) break;
+                packet = record.Data;
+                _shotPending = _shotReader.ReadNext();
+            }
+            else if (_clip != null && _shotIndex < _clip.Records.Count)
+            {
+                var clipRecord = _clip.Records[_shotIndex];
+                at = clipRecord.RecordingFrame;
+                if ((ulong)at > horizon) break;
+                packet = clipRecord.Payload;
+                _shotIndex++;
+            }
+            else break;
+
+            if (!packet.IsEmpty && packet[0] == (byte)PacketType.ReplayShotFact
+                && ReplayShotFactPacket.TryRead(packet[1..], out var fact))
+            {
+                var identity = new ShotFactIdentity(fact.MatchId, fact.AuthorityEpoch,
+                    fact.ShooterSlot, fact.ShooterGeneration, fact.ShooterLifeId,
+                    fact.VictimSlot, fact.VictimGeneration, fact.VictimLifeId,
+                    fact.DamageEventId);
+                if (_seenShotFacts.Add(identity))
+                    _pendingShotFacts.Add(new(at, fact));
+            }
+            if (++read > 65536)
+                throw new InvalidDataException("Replay shot-fact lookahead exceeds its record bound.");
+        }
+    }
+
+    private void ScheduleShotFacts(uint frame)
+    {
+        for (int i = _pendingShotFacts.Count - 1; i >= 0; i--)
+        {
+            var pending = _pendingShotFacts[i];
+            bool mapped = TryMapServerTick(pending.Fact.ResolveTick, out uint scheduled);
+            if (!mapped && pending.CarrierRecordingFrame <= frame)
+            {
+                // Old or sparse client recordings can lack a nearby snapshot.
+                // Fall back to delivery time rather than dropping authority truth.
+                scheduled = pending.CarrierRecordingFrame;
+                mapped = true;
+            }
+            if (!mapped) continue;
+            _pendingShotFacts.RemoveAt(i);
+            if ((ulong)scheduled + PresentationHistoryFrames < frame) continue;
+            if (!_resolvedShotFacts.TryGetValue(scheduled, out var list))
+            {
+                list = new();
+                _resolvedShotFacts.Add(scheduled, list);
+            }
+            list.Add(pending.Fact);
+        }
+
+        if (frame % 120 == 0 && _resolvedShotFacts.Count > 0)
+        {
+            _firePrune.Clear();
+            foreach (uint scheduled in _resolvedShotFacts.Keys)
+                if ((ulong)scheduled + PresentationHistoryFrames < frame)
+                    _firePrune.Add(scheduled);
+            foreach (uint scheduled in _firePrune) _resolvedShotFacts.Remove(scheduled);
+        }
+    }
+
+    internal bool TryMapServerTick(uint serverTick, out uint recordingFrame)
+    {
+        recordingFrame = 0;
+        if (_serverClock.Count == 0) return false;
+        ServerClockSample best = _serverClock[0];
+        long bestGap = Math.Abs((long)serverTick - best.ServerTick);
+        foreach (var sample in _serverClock)
+        {
+            long gap = Math.Abs((long)serverTick - sample.ServerTick);
+            if (gap < bestGap) { best = sample; bestGap = gap; }
+        }
+        if (bestGap > 120) return false;
+        return TryMapServerTick(best.RecordingFrame, best.ServerTick,
+            serverTick, out recordingFrame);
+    }
+
+    internal static bool TryMapServerTick(uint sampleRecordingFrame,
+        uint sampleServerTick, uint targetServerTick, out uint recordingFrame)
+    {
+        long mapped = (long)sampleRecordingFrame
+            + (long)targetServerTick - sampleServerTick;
+        if (mapped < 0 || mapped > uint.MaxValue)
+        {
+            recordingFrame = 0;
+            return false;
+        }
+        recordingFrame = (uint)mapped;
+        return true;
+    }
+
+    private void ResetPresentationCursor()
+    {
+        _reader?.Dispose(); _reader = null;
+        _shotReader?.Dispose(); _shotReader = null;
+        _pending = _shotPending = null;
+        _index = _shotIndex = 0;
+        _advanced = _firePrepared = _impactPrepared = null;
+        _initialized = _failed = false;
+        _supportsFireEvents = _clip != null;
+        _supportsShotFacts = _clip != null;
+        LastError = null;
+        _serverClock.Clear();
+        _pendingShotFacts.Clear();
+        _resolvedShotFacts.Clear();
+        _seenShotFacts.Clear();
+        _fallbackImpacts.Clear();
+        _fires.Clear();
+        _fireCapable.Clear();
+        _firePrune.Clear();
+        Array.Clear(_activeFire);
+        Array.Clear(_fireConsumed);
+        Array.Fill(_lastResolvedHitFrame, uint.MaxValue);
+        Array.Clear(_lastResolvedHitGeneration);
+        Array.Clear(_lastResolvedHitLife);
+        Array.Clear(_lastResolvedHitHeadshot);
+        for (int i = 0; i < 8; i++)
+        {
+            _poses[i].Clear();
+            _intents[i].Clear();
+            _fireIndex[i].Generation = 0;
+            _fireIndex[i].Life = 0;
+            _fireIndex[i].LastShotId = 0;
+            _fireIndex[i].Seen = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        _reader?.Dispose(); _reader = null;
+        _shotReader?.Dispose(); _shotReader = null;
+    }
 }

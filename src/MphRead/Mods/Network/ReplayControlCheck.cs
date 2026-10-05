@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using MphRead.Mods.Input;
+using MphRead.Entities;
 
 namespace MphRead.Mods.Network
 {
@@ -113,6 +114,44 @@ namespace MphRead.Mods.Network
                     "recovered FireEvent did not regain its four-frame source age");
                 Require(ReplayPoseStream.FireSourceRecordingFrame(500, 1100, 1000) == 500,
                     "out-of-retention FireEvent was allowed to invent an old replay frame");
+                Require(ReplayPoseStream.TryMapServerTick(500, 1000, 1004, out uint impactAfter)
+                    && impactAfter == 504,
+                    "resolved-shot server tick did not map forward on the recording clock");
+                Require(ReplayPoseStream.TryMapServerTick(500, 1000, 996, out uint impactBefore)
+                    && impactBefore == 496,
+                    "resolved-shot server tick did not map backward on the recording clock");
+                Require(!ReplayPoseStream.TryMapServerTick(2, 1000, 990, out _),
+                    "resolved-shot clock mapping underflowed before replay frame zero");
+                var impactA = new ReplayShotFact(1, 1, 100, 90, 7, 10,
+                    0, 1, 1, 1, 1, 1, (byte)BeamType.Missile,
+                    ReplayShotFactFlags.Direct, 20, 79, 0, 0,
+                    new OpenTK.Mathematics.Vector3(1, 2, 3));
+                var impactNear = impactA with
+                {
+                    DamageEventId = 11, VictimSlot = 2,
+                    ImpactPoint = impactA.ImpactPoint + new OpenTK.Mathematics.Vector3(.05f, 0, 0)
+                };
+                var impactFar = impactNear with
+                {
+                    DamageEventId = 12,
+                    ImpactPoint = impactA.ImpactPoint + OpenTK.Mathematics.Vector3.UnitX
+                };
+                Require(ReplayPoseStream.SameImpactVisual(impactA, impactNear)
+                    && !ReplayPoseStream.SameImpactVisual(impactA, impactFar)
+                    && !ReplayPoseStream.SameImpactVisual(impactA,
+                        impactNear with { ShotId = impactA.ShotId + 1 }),
+                    "authoritative replay impacts did not dedupe nearby direct/splash facts by ShotId");
+                var impactKey = new ShotKey(impactA.AuthorityEpoch, impactA.MatchId,
+                    impactA.ShooterSlot, impactA.ShooterGeneration,
+                    impactA.ShooterLifeId, impactA.ShotId);
+                Require(BeamProjectileEntity.ModReplayIdentityMatches(
+                        impactKey, impactA.ShotId, (BeamType)impactA.Weapon, impactA)
+                    && !BeamProjectileEntity.ModReplayIdentityMatches(
+                        impactKey with { LifeId = (ushort)(impactKey.LifeId + 1) },
+                        impactA.ShotId, (BeamType)impactA.Weapon, impactA)
+                    && !BeamProjectileEntity.ModReplayIdentityMatches(
+                        impactKey, impactA.ShotId + 1, (BeamType)impactA.Weapon, impactA),
+                    "authoritative replay impact matched the wrong shot or shooter life");
                 var fractional = new Replay.ReplayCameraTrack();
                 fractional.Put(new(0, OpenTK.Mathematics.Vector3.Zero, OpenTK.Mathematics.Quaternion.Identity, 1,
                     Interpolation: Replay.ReplayCameraInterpolation.Linear, Ease: Replay.ReplayCameraEase.None));

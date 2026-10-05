@@ -208,6 +208,19 @@ shooter, with headshots visually distinguished. These facts are replay evidence
 only: gameplay still comes from the existing authoritative damage/snapshot
 pipeline.
 
+Impact presentation consumes the same facts on their authoritative `ResolveTick`,
+not on reliable-packet arrival. A separate read-ahead cursor scans the bounded
+reliable-delivery horizon without advancing the replica decoder, maps server ticks
+onto the replay recording clock, and rebuilds itself on backward seeks. Matching
+projectiles are identified by match/epoch/shooter generation/life/ShotId/weapon.
+A direct-hit fact overrides only the projectile's draw endpoint for the one visible
+impact frame, then hides that visual flight; it does not mutate projectile collision,
+lifespan, damage, RNG or checkpoint state. Splash facts share the explosion centre
+but do not pull the projectile toward every damaged victim. If the matching
+projectile is already gone, playback draws a short render-only tracer tail and
+impact particle. Impact particles are emitted through the per-frame render list,
+never as persistent replay entities.
+
 Fire scheduling is scene-local rather than using live `NetFireEvents` static state,
 so interleaved replays, killcams and the foreground match cannot contaminate one
 another. Seek/rebuild creates the same bounded index again from recorded facts.
