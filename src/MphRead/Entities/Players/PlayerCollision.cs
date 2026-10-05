@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using MphRead.Formats;
 using MphRead.Mods.Network;
+using MphRead.Mods.Multiplayer;
 using MphRead.Formats.Collision;
 using OpenTK.Mathematics;
 
