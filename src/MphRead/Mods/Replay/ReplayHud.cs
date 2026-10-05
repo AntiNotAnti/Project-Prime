@@ -269,8 +269,7 @@ namespace MphRead.Mods.Replay
                 return;
             }
 
-            IReadOnlyList<ReplayCombatDiagnostic> diagnostics =
-                poses.CombatDiagnosticsAt(frame);
+            var diagnostics = poses.CombatDiagnosticsAt(frame);
             if (diagnostics.Count == 0) return;
 
             int watched = scene.Players.MainPlayerIndex;
