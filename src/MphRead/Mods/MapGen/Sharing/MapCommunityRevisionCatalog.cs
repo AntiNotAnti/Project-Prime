@@ -257,6 +257,24 @@ internal sealed class MapCommunityRevisionCatalog
                 ? project.LatestHash : null;
     }
 
+    public string? CurrentHash(Guid mapId)
+    {
+        lock (_gate)
+            return _projects.TryGetValue(mapId, out var project)
+                ? project.CurrentHash : null;
+    }
+
+    public int? LatestRevisionNumber(Guid mapId)
+    {
+        lock (_gate)
+        {
+            if (!_projects.TryGetValue(mapId, out var project)
+                || !_revisions.TryGetValue(project.LatestHash, out var revision))
+                return null;
+            return revision.RevisionNumber;
+        }
+    }
+
     public bool ContainsRevision(Guid mapId, string hash)
     {
         lock (_gate)
