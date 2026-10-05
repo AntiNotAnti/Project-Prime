@@ -232,8 +232,8 @@ internal sealed class ReplayPoseStream : IDisposable
             // Player weapon fire is consumed by PlayerInput. Turret events use
             // the same owner/sequence family but are reconstructed by the turret
             // world path; never let one hide a same-frame player shot.
-            if (!_activeFire[slot].HasValue
-                || _activeFire[slot]!.Value.Event.Kind == FireEventKind.TurretFire
+            if (_activeFire[slot] is not { } selected
+                || selected.Event.Kind == FireEventKind.TurretFire
                     && scheduled.Event.Kind != FireEventKind.TurretFire)
             {
                 _activeFire[slot] = scheduled;
