@@ -73,7 +73,8 @@ the process starts.
 This layout is not backward compatible with the older 41-byte rotation stride, so
 protocol 34 is refused against older launchers/directories/servers rather than
 allowing them to misread the following policy and identity fields. Protocol 37
-appends the host challenge nonce/cookie proof; gameplay/replay packets remain
+appends the host challenge nonce/cookie proof. Protocol 38 changes the gameplay
+intent FireEvent stride to carry exact shot pose; browser/control packets remain
 byte-identical to protocol 36.
 
 | Field | Where | Contract |
