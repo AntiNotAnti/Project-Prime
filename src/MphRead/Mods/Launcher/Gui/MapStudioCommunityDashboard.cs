@@ -711,10 +711,21 @@ internal sealed partial class MapStudioScreen
                 });
             }
 
-            void ReviewLatest() => FinishPending(() =>
+            void ReviewLatest()
             {
                 _ = Job("Refreshing revision history", async token =>
                 {
+                    if (pendingPath != null && pendingHash != null)
+                    {
+                        await WithCommunityAuthentication(
+                            Endpoint(), token, async client =>
+                            {
+                                await client.DiscardPendingUploadAsync(
+                                    pendingHash, token);
+                                return true;
+                            });
+                        if (File.Exists(pendingPath)) File.Delete(pendingPath);
+                    }
                     await ReloadProjects(token, mapId);
                     CommunityMapProject? refreshed =
                         projects.FirstOrDefault(p => p.MapId == mapId);
@@ -722,7 +733,7 @@ internal sealed partial class MapStudioScreen
                     else ShowUploadForm();
                     status.Text = "Community history refreshed.";
                 });
-            });
+            }
 
             var conflictActions = new WrapPanel();
             conflictActions.Children.Add(new PrimeButton(
