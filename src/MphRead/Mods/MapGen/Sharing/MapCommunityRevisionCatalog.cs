@@ -15,7 +15,7 @@ public sealed record CommunityMapRevision(
     int RevisionNumber,
     string Hash,
     string? ParentHash,
-    string CreatedBy,
+    string? CreatedBy,
     DateTimeOffset CreatedAt,
     CommunityMap Package);
 
@@ -26,7 +26,7 @@ public sealed record CommunityMapRevision(
 /// </summary>
 public sealed record CommunityMapProject(
     Guid MapId,
-    string OwnerId,
+    string? OwnerId,
     string Name,
     string? DisplayName,
     string? Author,
@@ -94,7 +94,7 @@ internal sealed class MapCommunityRevisionCatalog
         lock (_gate)
         {
             if (_revisions.TryGetValue(package.Hash, out CommunityMapRevisionState? existing))
-                return Attach(existing, package);
+                return Attach(existing, package, revealCreatorIdentity: true);
 
             DateTimeOffset created = package.PublishedAt == default
                 ? DateTimeOffset.UtcNow : package.PublishedAt;
@@ -115,7 +115,7 @@ internal sealed class MapCommunityRevisionCatalog
                     package.Hash, package.MapId, 1, null, creatorId, created);
                 _revisions[package.Hash] = first;
                 Save();
-                return Attach(first, package);
+                return Attach(first, package, revealCreatorIdentity: true);
             }
 
             int revisionNumber = Math.Max(1, project.NextRevisionNumber);
@@ -137,7 +137,7 @@ internal sealed class MapCommunityRevisionCatalog
                     : project.UpdatedAt
             };
             Save();
-            return Attach(revision, package);
+            return Attach(revision, package, revealCreatorIdentity: true);
         }
     }
 
@@ -181,7 +181,8 @@ internal sealed class MapCommunityRevisionCatalog
     }
 
     public CommunityMapProject? BuildProject(
-        Guid mapId, IEnumerable<CommunityMap> visiblePackages)
+        Guid mapId, IEnumerable<CommunityMap> visiblePackages,
+        bool revealCreatorIdentity = false)
     {
         lock (_gate)
         {
@@ -194,7 +195,7 @@ internal sealed class MapCommunityRevisionCatalog
             var revisions = _revisions.Values
                 .Where(r => r.MapId == mapId && available.ContainsKey(r.Hash))
                 .OrderBy(r => r.RevisionNumber)
-                .Select(r => Attach(r, available[r.Hash]))
+                .Select(r => Attach(r, available[r.Hash], revealCreatorIdentity))
                 .ToArray();
             if (revisions.Length == 0) return null;
 
@@ -208,7 +209,7 @@ internal sealed class MapCommunityRevisionCatalog
 
             return new CommunityMapProject(
                 mapId,
-                project.OwnerId,
+                revealCreatorIdentity ? project.OwnerId : null,
                 presentation.Name,
                 presentation.DisplayName,
                 presentation.Author,
@@ -223,7 +224,8 @@ internal sealed class MapCommunityRevisionCatalog
     }
 
     public CommunityMapRevision[] BuildRevisions(
-        Guid mapId, IEnumerable<CommunityMap> visiblePackages)
+        Guid mapId, IEnumerable<CommunityMap> visiblePackages,
+        bool revealCreatorIdentity = false)
     {
         lock (_gate)
         {
@@ -233,15 +235,16 @@ internal sealed class MapCommunityRevisionCatalog
             return _revisions.Values
                 .Where(r => r.MapId == mapId && available.ContainsKey(r.Hash))
                 .OrderByDescending(r => r.RevisionNumber)
-                .Select(r => Attach(r, available[r.Hash]))
+                .Select(r => Attach(r, available[r.Hash], revealCreatorIdentity))
                 .ToArray();
         }
     }
 
     private static CommunityMapRevision Attach(
-        CommunityMapRevisionState state, CommunityMap package)
+        CommunityMapRevisionState state, CommunityMap package,
+        bool revealCreatorIdentity)
         => new(state.RevisionNumber, state.Hash, state.ParentHash,
-            state.CreatedBy, state.CreatedAt, package);
+            revealCreatorIdentity ? state.CreatedBy : null, state.CreatedAt, package);
 
     private void Load()
     {
