@@ -1192,6 +1192,7 @@ namespace MphRead.Entities
                     }
                 }
                 float magBefore = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
+                ModMovementShadowNoteHorizontalImpulse(speedDelta, _hSpeedCap);
                 Speed += speedDelta; // todo: FPS stuff?
                 float magAfter = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
                 if (magAfter > magBefore && magAfter > _hSpeedCap)
@@ -2346,6 +2347,7 @@ namespace MphRead.Entities
                     }
                 }
                 float magBefore = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
+                ModMovementShadowNoteHorizontalImpulse(speedDelta, _hSpeedCap);
                 Speed += speedDelta; // todo: FPS stuff?
                 float magAfter = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
                 if (magAfter > magBefore && magAfter > _hSpeedCap)
@@ -2718,6 +2720,7 @@ namespace MphRead.Entities
                 }
             }
             UpdateSlidingSfx(slideSfxAmount);
+            ModMovementShadowNoteSpeedFactor(speedFactor);
             Vector3 speedMul = Speed.WithX(Speed.X * speedFactor).WithZ(Speed.Z * speedFactor);
             Speed += (speedMul - Speed) / 2; // todo: FPS stuff
             if (Flags1.TestFlag(PlayerFlags1.UsedJumpPad))
@@ -2774,6 +2777,7 @@ namespace MphRead.Entities
                             _gravity = Fixed.ToFloat(Values.BipedGravity);
                         }
                     }
+                    ModMovementShadowNoteGravity(_gravity);
                     Speed = Speed.AddY(_gravity / 2); // todo: FPS stuff
                 }
                 Vector3 position = Position + Speed / 2; // todo: FPS stuff
