@@ -106,6 +106,8 @@ if [[ "$PROXY_KIND" == caddy ]]; then
   fi
   sudo -n caddy validate --config /etc/caddy/Caddyfile
   sudo -n systemctl reload caddy
+  curl --fail --silent --show-error --max-time 15 --resolve "$MAP_DOMAIN:443:127.0.0.1" "https://$MAP_DOMAIN/health" > "$STAGE/https-health.json"
+  grep -q '"service"[[:space:]]*:[[:space:]]*"prime-maps"' "$STAGE/https-health.json"
 elif [[ "$PROXY_KIND" == nginx ]]; then
   PROXY_CHANGED=1
   sudo -n install -m 644 "$STAGE/prime-maps.conf" "$PROXY"
