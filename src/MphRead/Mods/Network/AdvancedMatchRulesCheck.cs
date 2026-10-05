@@ -233,7 +233,7 @@ namespace MphRead.Mods.Network
                 Check(direct == 18 && headshot == 18 && splash == 5 && splashType == 0,
                     "Balanced Battlehammer shell is 18 direct and 5 max splash");
 
-                direct = headshot = splash = 4; splashType = 0;
+                direct = headshot = 3; splash = 4; splashType = 0;
                 BeamProjectileEntity.ModBalancedHitTuning(scene, owner, BeamType.Battlehammer,
                     true, ref direct, ref headshot, ref splash, ref splashType);
                 Check(direct == 5 && headshot == 5 && splash == 3,
