@@ -182,7 +182,8 @@ input reconstruction.
 Protocol 39 extends each repeated FireEvent with the successful shot's exact
 source-frame muzzle origin, pre-spread aim ray and final projectile direction,
 plus a compact signed-normalized camera view and 16-bit normalized reticle
-coordinates. Weapon aim and camera view are intentionally distinct: the replay
+coordinates. Protocol 40 keeps that wire layout unchanged; it is a simulation
+compatibility fence for the native Balanced Hunter ability refinements. Weapon aim and camera view are intentionally distinct: the replay
 camera follows what the player actually saw, the reticle stays where it actually
 was on that view, the arm cannon follows the aim ray, and the replay projectile
 follows the post-disruption ray that actually spawned. Recovered recorded events therefore stop
