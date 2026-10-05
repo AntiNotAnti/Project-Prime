@@ -21,7 +21,7 @@ Depth for a given area lives in `.claude/` (indexed in
 
 ## Network modernization
 
-The current wire version is protocol 40. Its transport retains endpoint-bound connection IDs, sequence/ACK
+The current wire version is protocol 41. Its transport retains endpoint-bound connection IDs, sequence/ACK
 windows, selective reliable control, bounded priority queues and a generation-fenced
 load barrier. The entire migration is one unreleased train. Movement remains
 owner-reported; full snapshots never reconcile the local owner's same-life body.
@@ -935,7 +935,7 @@ MPH_MAP_DOMAIN=maps.rebooty.xyz ./deploy-map-service.sh
 
 The exe is often locked by a running game: write `MphRead.new.exe`, then `mv`.
 
-**The current protocol is `NetConfig.ProtocolVersion = 40`.** Never duplicate
+**The current protocol is `NetConfig.ProtocolVersion = 41`.** Never duplicate
 that number as a design constant elsewhere: read it from `NetProtocol.cs` when
 validating a deployment. Server and clients must match; incompatible builds are
 refused during Hello. Versions 7/8 in the measurement sections below are dated

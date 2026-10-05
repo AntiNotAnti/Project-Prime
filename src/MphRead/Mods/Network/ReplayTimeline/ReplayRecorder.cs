@@ -64,6 +64,20 @@ internal sealed class ReplayRecorder
     public void AcceptChat(ReadOnlySpan<byte> packet, uint frame)
         => PublishTransient(new(frame, Timeline.LastServerTick ?? frame, ReplayFactKind.Presentation, packet));
 
+    internal bool AcceptShotFact(ReadOnlySpan<byte> payload, uint frame)
+    {
+        if (!ReplayShotFactPacket.TryRead(payload, out var fact)
+            || fact.MatchId != _matchId || fact.AuthorityEpoch != _epoch || !HasMatch)
+        {
+            return false;
+        }
+        Span<byte> packet = stackalloc byte[1 + ReplayShotFactPacket.Size];
+        packet[0] = (byte)PacketType.ReplayShotFact;
+        payload.CopyTo(packet[1..]);
+        PublishTransient(new(frame, fact.ResolveTick, ReplayFactKind.Presentation, packet));
+        return true;
+    }
+
     public void AcceptCosmetics(ReadOnlySpan<byte> packet, uint frame)
     {
         _cosmetics?.Release();

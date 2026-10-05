@@ -16,6 +16,33 @@ namespace MphRead.Mods.Network
     internal sealed partial class ReplayReplicaState
     {
         internal List<(uint Frame, ChatPacket Packet)> ChatLines { get; } = new();
+        private readonly List<ReplayShotFact> _shotFacts = new(16);
+        private readonly uint[] _lastShotHitFrame = new uint[PlayerEntity.SlotCapacity];
+        private readonly ushort[] _lastShotHitGeneration = new ushort[PlayerEntity.SlotCapacity];
+        private readonly ushort[] _lastShotHitLife = new ushort[PlayerEntity.SlotCapacity];
+        private readonly bool[] _lastShotHitHeadshot = new bool[PlayerEntity.SlotCapacity];
+        private uint _shotFactsFrame = uint.MaxValue;
+        internal IReadOnlyList<ReplayShotFact> ShotFacts => _shotFacts;
+        private const uint ShotHitMarkerFrames = 12;
+        internal float ShotHitMarkerAlpha(int shooterSlot, out bool headshot)
+        {
+            headshot = false;
+            if ((uint)shooterSlot >= (uint)_lastShotHitFrame.Length) return 0;
+            uint at = _lastShotHitFrame[shooterSlot];
+            if (at == uint.MaxValue || RecordingFrame < at
+                || RecordingFrame - at >= ShotHitMarkerFrames
+                || _roster[shooterSlot].Generation != _lastShotHitGeneration[shooterSlot]
+                || !MatchesLife(shooterSlot,
+                    _lastShotHitGeneration[shooterSlot], _lastShotHitLife[shooterSlot]))
+            {
+                return 0;
+            }
+            headshot = _lastShotHitHeadshot[shooterSlot];
+            uint age = RecordingFrame - at;
+            const uint fade = 6;
+            return age + fade <= ShotHitMarkerFrames
+                ? 1f : (ShotHitMarkerFrames - age) / (float)fade;
+        }
         internal Mods.MatchEvents.MatchSemanticReceiver SemanticEvents { get; private set; } = new();
         public NetCosmetics Cosmetics { get; private set; } = new();
         private readonly ReplayOccupant[] _roster = new ReplayOccupant[PlayerEntity.SlotCapacity];
@@ -56,7 +83,15 @@ namespace MphRead.Mods.Network
         public bool TryGetIntent(int slot, out IntentPacket intent)
         { intent = _intents[slot]; return _hasIntent[slot]; }
         public uint IntentAge(int slot) => _hasIntent[slot] ? RecordingFrame - _intentReceivedFrame[slot] : uint.MaxValue;
-        internal void Advance(uint frame) => RecordingFrame = frame;
+        internal void Advance(uint frame)
+        {
+            RecordingFrame = frame;
+            if (_shotFactsFrame != frame)
+            {
+                _shotFacts.Clear();
+                _shotFactsFrame = frame;
+            }
+        }
         public void Reset()
         {
             ContainsBots = false;
@@ -69,6 +104,12 @@ namespace MphRead.Mods.Network
         public void Rewind()
         {
             ChatLines.Clear();
+            _shotFacts.Clear();
+            Array.Fill(_lastShotHitFrame, uint.MaxValue);
+            Array.Clear(_lastShotHitGeneration);
+            Array.Clear(_lastShotHitLife);
+            Array.Clear(_lastShotHitHeadshot);
+            _shotFactsFrame = uint.MaxValue;
             SemanticEvents = new();
             SemanticEvents.Begin(Match?.MatchId ?? 0, Match?.AuthorityEpoch ?? 0);
             Cosmetics.Reset();
@@ -164,6 +205,36 @@ namespace MphRead.Mods.Network
                     if (Match is { } currentWorld && _authorityWire.Accept(payload, currentWorld.MatchId, currentWorld.AuthorityEpoch, strict: true) is { } world)
                     { if (AuthorityWorld == null || NetLifecycleTracker.Newer(world.Tick, AuthorityWorld.Tick))
                         { AuthorityWorld = world; accepted = true; } }
+                    break;
+                case PacketType.ReplayShotFact:
+                    if (!ReplayShotFactPacket.TryRead(payload, out var shotFact)) throw Malformed();
+                    if (!Matches(shotFact.MatchId, shotFact.AuthorityEpoch)) break;
+                    if (_shotFactsFrame != frame)
+                    {
+                        _shotFacts.Clear();
+                        _shotFactsFrame = frame;
+                    }
+                    bool duplicateShotFact = false;
+                    foreach (var existing in _shotFacts)
+                    {
+                        if (existing.DamageEventId == shotFact.DamageEventId
+                            && existing.VictimSlot == shotFact.VictimSlot
+                            && existing.ShooterSlot == shotFact.ShooterSlot)
+                        {
+                            duplicateShotFact = true;
+                            break;
+                        }
+                    }
+                    if (!duplicateShotFact)
+                    {
+                        _shotFacts.Add(shotFact);
+                        int shooter = shotFact.ShooterSlot;
+                        _lastShotHitFrame[shooter] = frame;
+                        _lastShotHitGeneration[shooter] = shotFact.ShooterGeneration;
+                        _lastShotHitLife[shooter] = shotFact.ShooterLifeId;
+                        _lastShotHitHeadshot[shooter] = shotFact.Headshot;
+                        accepted = true;
+                    }
                     break;
                 case PacketType.Snapshot:
                     accepted = AcceptSnapshot(payload);

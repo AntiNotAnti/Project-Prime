@@ -96,6 +96,26 @@ namespace MphRead.Entities
                 && (!NetPlayerLifecycle.Matches(player.SlotIndex, _targetGeneration, _targetLife)
                     || Beam == BeamType.ShockCoil && (!player.ModIsInPlay || player.Flags2.TestFlag(PlayerFlags2.Spectating)))) Target = null;
         }
+
+        internal Vector3 ModResolvedHitPoint { get; private set; }
+        internal bool ModResolvedHitPointValid { get; private set; }
+
+        private void TakePlayerDamageAt(PlayerEntity player, uint damage, DamageFlags flags,
+            Vector3? direction, Vector3 impactPoint)
+        {
+            Vector3 priorPoint = ModResolvedHitPoint;
+            bool priorValid = ModResolvedHitPointValid;
+            ModResolvedHitPoint = impactPoint;
+            ModResolvedHitPointValid = Single.IsFinite(impactPoint.X)
+                && Single.IsFinite(impactPoint.Y) && Single.IsFinite(impactPoint.Z);
+            try { player.TakeDamage(damage, flags, direction, this); }
+            finally { ModResolvedHitPoint = priorPoint; ModResolvedHitPointValid = priorValid; }
+        }
+
+        private void TakePlayerDamageAt(PlayerEntity player, int damage, DamageFlags flags,
+            Vector3? direction, Vector3 impactPoint)
+            => TakePlayerDamageAt(player, (uint)Math.Max(0, damage), flags, direction, impactPoint);
+
         public EquipInfo? Equip { get; set; }
 
         internal float ModBalancedRangeDamage(float damage, Vector3 impactPosition)
@@ -671,7 +691,7 @@ namespace MphRead.Entities
                             if (wholeDamage != 0)
                             {
                                 EnhancedDirectHit = true;
-                                try { player.TakeDamage(wholeDamage, damageFlags, damageDir, this); }
+                                try { TakePlayerDamageAt(player, wholeDamage, damageFlags, damageDir, anyRes.Position); }
                                 finally { EnhancedDirectHit = false; }
                             }
                             int actualDamageDealt = Math.Max(0, targetHealthBefore - player.Health);
@@ -1162,7 +1182,7 @@ namespace MphRead.Entities
                             float ratio = dist / SplashRadius;
                             int damage = (int)ModBalancedRangeDamage(
                                 GetInterpolatedValue(SplashDamageType, SplashDamage, 0, ratio), Position);
-                            player.TakeDamage(damage, DamageFlags.NoDmgInvuln, damageDir, this);
+                            TakePlayerDamageAt(player, damage, DamageFlags.NoDmgInvuln, damageDir, player.Position);
                             if (Owner != null)
                             {
                                 _scene.SendMessage(Message.Impact, this, Owner, player, 0);
@@ -2466,7 +2486,7 @@ namespace MphRead.Entities
                     flags |= DamageFlags.Halfturret;
                 }
                 EnhancedDirectHit = true;
-                try { player.TakeDamage((int)Damage, flags, dir, this); }
+                try { TakePlayerDamageAt(player, (int)Damage, flags, dir, player.Position); }
                 finally { EnhancedDirectHit = false; }
             }
         }

@@ -36,7 +36,8 @@ public sealed class NetPacketQueue
     }
     public static NetPacketPriority Priority(PacketType type) => type switch
     {
-        PacketType.MatchSemanticEvent or PacketType.MatchAward => NetPacketPriority.Background,
+        PacketType.MatchSemanticEvent or PacketType.MatchAward or PacketType.ReplayShotFact
+            => NetPacketPriority.Background,
         PacketType.Intent or PacketType.SlotIntent or PacketType.Snapshot or PacketType.SnapshotFast or PacketType.PlayerSlowState or PacketType.WorldState or PacketType.HitClaim or PacketType.HitVerdict
             or PacketType.ReplayWorld or PacketType.MatchStartCommit => NetPacketPriority.Realtime,
         PacketType.QueueHello or PacketType.QueueWelcome or PacketType.QueueJoin or PacketType.QueueLeave

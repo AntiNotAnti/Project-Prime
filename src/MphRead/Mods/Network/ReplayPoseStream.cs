@@ -117,6 +117,9 @@ internal sealed class ReplayPoseStream : IDisposable
     internal static double AcknowledgedServerFrame(in IntentPacket intent)
         => intent.AckFrame == 0 ? double.NaN : intent.AckFrame + intent.AckSubFrame / 256d;
 
+    internal float ResolvedHitMarkerAlpha(int shooterSlot, out bool headshot)
+        => _world.State.ShotHitMarkerAlpha(shooterSlot, out headshot);
+
     internal static uint FireSourceRecordingFrame(uint carrierRecordingFrame,
         uint carrierSourceFrame, uint fireSourceFrame)
     {

@@ -188,13 +188,25 @@ camera follows what the player actually saw, the reticle stays where it actually
 was on that view, the arm cannon follows the aim ray, and the replay projectile
 follows the post-disruption ray that actually spawned. Recovered recorded events therefore stop
 pairing an old trigger with a newer carrier's aim during playback. Live authority
-does not trust this owner-authored presentation pose for gameplay resolution. On the exact replay shot
-frame, first-person presentation pins the watched camera to the recorded aim, centres
-the reticle on that ray, and backs the arm-cannon pivot out from the recorded muzzle
-point so gun, muzzle flash and projectile share the same source origin. The normal
+does not trust this owner-authored presentation pose for gameplay resolution. On the
+exact replay shot frame, first-person presentation uses the recorded camera view,
+restores the recorded reticle position, and backs the arm-cannon pivot out from the
+recorded muzzle point along the recorded weapon aim, so camera, crosshair, cannon,
+muzzle flash and projectile retain their distinct authored relationships. The normal
 interpolated camera resumes immediately around that discrete shot anchor. Protocol
 30-38 recordings keep FireEvent timing but have no invented pose, so they use the
 existing interpolated aim fallback.
+
+Protocol 41 adds a second half to that identity: a reliable authority-only
+`ReplayShotFact` for each accepted player-weapon hit. It names the shot and
+authoritative damage event, shooter/victim lifecycle, resolve tick, weapon,
+settled player-health damage, settled halfturret damage, both resulting health
+values, headshot/lethal/direct classification and the authority's exact impact
+point. The fact is published only after damage routing/clamping finishes. Replay
+POV hit markers are driven from this fact, lifecycle-fenced to the recorded
+shooter, with headshots visually distinguished. These facts are replay evidence
+only: gameplay still comes from the existing authoritative damage/snapshot
+pipeline.
 
 Fire scheduling is scene-local rather than using live `NetFireEvents` static state,
 so interleaved replays, killcams and the foreground match cannot contaminate one

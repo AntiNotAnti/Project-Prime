@@ -33,6 +33,7 @@ namespace MphRead.Mods.Network
         private sealed class Peer
         {
             internal NetRetainedDelivery.Cursor? SemanticCursor;
+            internal NetRetainedDelivery.Cursor? ReplayShotCursor;
             internal byte[]? SemanticBaseline;
             public readonly NetPeerTelemetry Telemetry = new();
             public IPEndPoint EndPoint = null!;
@@ -493,6 +494,7 @@ namespace MphRead.Mods.Network
                     PumpLobbyMapPreparation(now);
                     CheckLoadBarrier(now);
                     PumpSemanticDelivery();
+                    PumpReplayShotDelivery();
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
                     EnsureCareerMatchStarted(now);
                     foreach (ReceivedPacket packet in _transport.Drain(NetPumpBudget.AfterSimulation)) Handle(packet, now);
@@ -500,6 +502,7 @@ namespace MphRead.Mods.Network
                     // After a long synchronous room build they may already be in
                     // the inbox; consume them before deciding a peer was silent.
                     PumpSemanticDelivery();
+                    PumpReplayShotDelivery();
                     DropTimedOut(now);
 
                     // The server owns the match clock, not the authority client:
@@ -1049,6 +1052,7 @@ namespace MphRead.Mods.Network
             {
                 foreach (var peer in _peers) _transport?.Send(peer.EndPoint, PacketType.ReplayWorld, payload);
             };
+            NetSession.ReplayShotSink = AppendReplayShotDelivery;
             NetSession.MatchSemanticSink = AppendSemanticDelivery;
             // Keep the bounded one-room prewarm cache for same-map rematches.
             // It is replaced automatically if the lobby selects another room.

@@ -47,8 +47,11 @@ public sealed class NetReliableChannel
         or PacketType.Welcome or PacketType.SessionState
         or PacketType.Roster or PacketType.MapChange or PacketType.Authority or PacketType.LobbyCommand
         or PacketType.LobbyCommandResult or PacketType.WorldReady or PacketType.WorldBootstrap or PacketType.MatchLoaded or PacketType.MatchLoadFailed or PacketType.Refused
-        or PacketType.Bye or PacketType.MatchEnd or PacketType.MatchSemanticEvent or PacketType.MatchAward;
-    public static bool IsCritical(PacketType type) => type is not (PacketType.Roster or PacketType.LobbyCommand or PacketType.LobbyCommandResult or PacketType.MatchSemanticEvent or PacketType.MatchAward);
+        or PacketType.Bye or PacketType.MatchEnd or PacketType.MatchSemanticEvent or PacketType.MatchAward
+        or PacketType.ReplayShotFact;
+    public static bool IsCritical(PacketType type) => type is not (PacketType.Roster or PacketType.LobbyCommand
+        or PacketType.LobbyCommandResult or PacketType.MatchSemanticEvent or PacketType.MatchAward
+        or PacketType.ReplayShotFact);
 
     public bool TryQueue(PacketType type, ReadOnlySpan<byte> payload, double nowMs, out uint eventId,
         bool expedite = false, bool supersedeState = false)

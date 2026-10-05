@@ -27,6 +27,7 @@ namespace MphRead.Mods.Network
         QueueHello = 57, QueueWelcome = 58, QueueJoin = 59, QueueLeave = 60,
         QueueState = 61, QueueSeatOffer = 62, QueueAccept = 63, QueueDecline = 64,
         HostChallenge = 65, HostChallengeReply = 66,
+        ReplayShotFact = 67, // authority -> recorders, optional accepted shot result
         Hello = 1,          // client -> host, join request
         Welcome = 2,        // host -> client, assigns a slot
         Intent = 3,         // client -> host, one frame of input
@@ -2472,7 +2473,11 @@ namespace MphRead.Mods.Network
         // Protocol 40 keeps protocol-39 packet widths but changes Balanced Mode
         // native Hunter movement/ability semantics. Mixed v39/v40 peers are
         // refused so prediction/contact timing cannot disagree.
-        public const int ProtocolVersion = 40;
+        // Protocol 41 adds reliable authority-only ReplayShotFact packets. They do
+        // not affect gameplay simulation, but protocol-40 transports would reject
+        // the unknown reliable type without acknowledging it, so mixed v40/v41
+        // peers must be refused rather than retrying replay evidence forever.
+        public const int ProtocolVersion = 41;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

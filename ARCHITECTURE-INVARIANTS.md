@@ -6,7 +6,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **40** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **41** (`NetConfig.ProtocolVersion`).
 - Protocol mismatches are refused during the Hello handshake. Do not make incompatible wire or simulation changes without a protocol bump.
 - Dated protocol 6/7/8 measurements in `.claude/` are historical A/B evidence, not the current architecture.
 
@@ -23,6 +23,8 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Protocol 40 keeps protocol-39 packet widths and adds the Balanced Mode native
   Hunter ability refinements. Mixed 39/40 peers are refused because local movement
   prediction and alt-contact activation must use the same tuning.
+- Protocol 41 adds reliable authority-only resolved-shot facts keyed by ShotId and
+  DamageEventId. They are replay evidence only and never drive gameplay outcomes.
 
 ## Authority and simulation
 
