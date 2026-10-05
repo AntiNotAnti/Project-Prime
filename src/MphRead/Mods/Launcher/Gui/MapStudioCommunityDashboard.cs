@@ -563,6 +563,7 @@ internal sealed partial class MapStudioScreen
             {
                 await WithClient(true, token,
                     client => client.ArchiveMapAsync(project.MapId, token));
+                lifecycleFilter.SelectedIndex = 2;
                 await ReloadProjects(token, project.MapId);
                 status.Text = "Map archived. Exact package links remain valid.";
             });
@@ -574,6 +575,7 @@ internal sealed partial class MapStudioScreen
             {
                 await WithClient(true, token,
                     client => client.RestoreMapAsync(project.MapId, token));
+                lifecycleFilter.SelectedIndex = 1;
                 await ReloadProjects(token, project.MapId);
                 status.Text = "Map restored to active Community management.";
             });
