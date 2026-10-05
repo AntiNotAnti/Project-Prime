@@ -183,6 +183,7 @@ internal sealed class MapCommunityRevisionCatalog
                 var available = packages.ToDictionary(m => m.Hash, StringComparer.Ordinal);
                 current = _revisions.Values
                     .Where(r => r.MapId == package.MapId
+                        && r.DeletedAt == null
                         && available.TryGetValue(r.Hash, out CommunityMap? item)
                         && item.Listed && !item.Draft)
                     .OrderByDescending(r => r.RevisionNumber)
