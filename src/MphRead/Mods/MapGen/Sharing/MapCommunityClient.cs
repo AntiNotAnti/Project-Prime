@@ -113,11 +113,10 @@ public sealed class MapCommunityClient : IDisposable
             HttpCompletionOption.ResponseHeadersRead, token);
         if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed)
         {
-            CommunityMapProject? legacy = GroupLegacyProjects(
-                await GetLegacyVersionsAsync(mapId, token)).SingleOrDefault();
-            if (legacy == null) return Array.Empty<CommunityMapRevision>();
             CommunityMap[] packages = await GetLegacyVersionsAsync(mapId, token);
-            return LegacyRevisions(packages);
+            return packages.Length == 0
+                ? Array.Empty<CommunityMapRevision>()
+                : LegacyRevisions(packages);
         }
         EnsureSuccess(response);
         using var data = new MemoryStream();
