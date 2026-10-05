@@ -3,6 +3,7 @@ using System.Buffers.Binary;
 using System.Linq;
 using System.Reflection;
 using MphRead.Entities;
+using MphRead.Formats.Collision;
 using OpenTK.Mathematics;
 using MphRead.Mods.Multiplayer;
 
@@ -523,6 +524,16 @@ namespace MphRead.Mods.Network
                     && MathF.Abs(b.DamageDirMag - 0.216f) < 0.01f),
                     "Weavel affinity widens cluster coverage and adds 20 percent knockback without extra damage");
 
+                var balance = BalancedModeTelemetry.Capture();
+                Check(balance.Revision == BalancedModeRules.BalanceRevision
+                    && balance.HunterPicks.Sum() == 7
+                    && balance.Battlehammer[1] >= 1 && balance.Battlehammer[2] >= 3,
+                    "Balanced telemetry captures revision, hunter picks and impact-cluster activity");
+                Check(balance.Affinity[0] >= 1 && balance.Affinity[1] >= 1
+                    && balance.Affinity[2] >= 1 && balance.Affinity[3] >= 1
+                    && balance.Affinity[4] >= 1,
+                    "Balanced telemetry captures affinity applications and rejected chains");
+
                 scene.GameState.BalancedMode = false;
                 weavel.ModSetWeapon(BeamType.PowerBeam);
                 weavel.ModSetWeapon(BeamType.Battlehammer);
@@ -542,8 +553,7 @@ namespace MphRead.Mods.Network
                 var stockImpact = new CollisionResult
                 {
                     Position = stock!.Position + Vector3.UnitZ,
-                    Plane = new Vector4(Vector3.UnitY, 0),
-                    Terrain = Terrain.Metal
+                    Plane = new Vector4(Vector3.UnitY, 0)
                 };
                 Check(!stock.TryBattlehammerImpactCluster(stockImpact),
                     "stock Battlehammer never creates impact-cluster children");
@@ -553,6 +563,22 @@ namespace MphRead.Mods.Network
 
         private static void AdvancedRulesChecks()
         {
+            var balanceAggregate = new Telemetry.NetTelemetryAggregator();
+            balanceAggregate.Add(new Telemetry.NetTelemetryEvent(Telemetry.TelemetryEventType.BalancedMode, 1,
+                Player: (byte)Hunter.Kanden, Result: (int)BalancedModeMetric.HunterPick,
+                A: 2, Id: (uint)BalancedModeRules.BalanceRevision));
+            balanceAggregate.Add(new Telemetry.NetTelemetryEvent(Telemetry.TelemetryEventType.BalancedMode, 2,
+                Weapon: (byte)BeamType.VoltDriver, Result: (int)BalancedModeMetric.WeaponDamage,
+                A: 123, Id: (uint)BalancedModeRules.BalanceRevision));
+            var balanceSummary = balanceAggregate.Capture(
+                new Telemetry.TelemetryHeader(6, NetConfig.ProtocolVersion, "balanced-test",
+                    "test", "test", "test", "Battle", "MP1 SANCTORUS", 2), 1, default);
+            Check(balanceSummary.BalancedMode.Revision == BalancedModeRules.BalanceRevision
+                && balanceSummary.BalancedMode.HunterPicks[(int)Hunter.Kanden] == 2
+                && balanceSummary.BalancedMode.WeaponDamage[(int)BeamType.VoltDriver] == 123
+                && balanceSummary.BalancedMode.WeaponDamage.Sum() == 123,
+                "telemetry schema v6 routes bounded Balanced Mode counters by revision");
+
             var defaults = new MatchDefinition();
             Check(!defaults.ShadowFreeze && !defaults.SpawnProtection && !defaults.InstaGib
                 && !defaults.LowTier && !defaults.NoImperialist && !defaults.BalancedMode, "advanced rules default off");
