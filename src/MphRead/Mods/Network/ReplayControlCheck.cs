@@ -101,6 +101,12 @@ namespace MphRead.Mods.Network
                 poseB = poseA; poseB.Flags |= PlayerState.FlagAltForm; Require(!ReplayPoseStream.CanBlend(poseA, poseB), "interpolated across form change");
                 poseB = poseA; poseB.Position = OpenTK.Mathematics.Vector3.UnitX * 20;
                 Require(!ReplayPoseStream.CanBlend(poseA, poseB), "interpolated across teleport");
+                var ackIntent = new IntentPacket { AckFrame = 240, AckSubFrame = 128 };
+                Require(Math.Abs(ReplayPoseStream.AcknowledgedServerFrame(ackIntent) - 240.5) < 1e-9,
+                    "POV ACK clock lost its fractional server frame");
+                ackIntent.AckFrame = 0;
+                Require(double.IsNaN(ReplayPoseStream.AcknowledgedServerFrame(ackIntent)),
+                    "POV ACK clock treated an unavailable acknowledgement as server frame zero");
                 var fractional = new Replay.ReplayCameraTrack();
                 fractional.Put(new(0, OpenTK.Mathematics.Vector3.Zero, OpenTK.Mathematics.Quaternion.Identity, 1,
                     Interpolation: Replay.ReplayCameraInterpolation.Linear, Ease: Replay.ReplayCameraEase.None));

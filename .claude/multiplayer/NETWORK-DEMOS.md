@@ -151,12 +151,20 @@ and audio is muted/stopped during fast-forward seek batches.
 
 ## Presentation and export
 
-`ReplayPoseStream` has its own accepted-snapshot cursor with six-frame lookahead,
-12-frame history and at most 24 poses per slot. It never reads live arrival jitter
+`ReplayPoseStream` has its own accepted-snapshot/intent cursor with six-frame
+lookahead and a bounded history deep enough to cover the live unlagged ring. It
+keeps both recording-arrival frame and authoritative snapshot server tick; those
+clocks are deliberately not interchangeable. It never reads live arrival jitter
 or advances simulation/RNG. Body/camera interpolation fences occupant/life,
-spawn/death, form changes and teleports. Watching another actor changes only the
-view; replica stepping fixes its simulation perspective to keep RNG deterministic.
-Camera tracks sample fractional recorded frames.
+spawn/death, form changes and teleports. In first-person playback, opponents are
+drawn at the watched player's latest accepted `AckFrame + AckSubFrame / 256`
+server-time world, matching the historical world their live shot was resolved
+against. The watched shooter remains on the ordinary replay presentation clock,
+and missing/stale ACK history falls back to normal replay poses. This is render-only:
+replica simulation, projectiles, damage, RNG, seeks and checkpoints are unchanged.
+Watching another actor therefore changes only the view; replica stepping fixes its
+simulation perspective to keep RNG deterministic. Camera tracks sample fractional
+recorded frames.
 
 Export walks 60 Hz simulation and produces genuine 30/60/120 FPS images; 120 FPS
 uses half-frame presentation samples. Native world/HUD targets support 720p, 1080p,
