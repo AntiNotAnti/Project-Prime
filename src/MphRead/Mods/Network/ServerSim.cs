@@ -349,6 +349,7 @@ namespace MphRead.Mods.Network
 
         public void Stop(bool preserveRoomPrewarm = false)
         {
+            Mods.Multiplayer.BalancedModeTelemetry.FlushToProductionTelemetry();
             Telemetry.ProductionTelemetry.FlushServerSteps();
             Telemetry.ProductionTelemetry.End();
             if (_scene == null)
@@ -430,6 +431,9 @@ namespace MphRead.Mods.Network
         /// happens on says which. NetHitClaims.DescribeAgreement.
         /// </summary>
         public string DescribeAgreement() => NetHitClaims.DescribeAgreement();
+
+        public string DescribeBalancedMode()
+            => Mods.Multiplayer.BalancedModeTelemetry.Describe();
 
         /// <summary>
         /// How many beams each slot's gun spawned *here*.
