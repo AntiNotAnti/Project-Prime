@@ -2040,6 +2040,7 @@ namespace MphRead.Entities
             // same shot can be paired however long the projectile was in the
             // air. Mods.Network.NetHitClaims.
             int combatHealthBefore = _health;
+            int combatTurretBefore = Halfturret?.Health ?? 0;
             ushort combatSequenceBefore = Mods.Network.NetDamage.Sequence(SlotIndex);
             if (beam?.EnhancedSiegeRound == true && direction.HasValue) direction *= 1.2f;
             ushort replayDamageEventId = Mods.Network.NetDamage.Note(this, attacker,
@@ -2076,20 +2077,26 @@ namespace MphRead.Entities
                 dead = true;
             }
 
+            bool replayShotFactEligible = false;
+            uint replayShotId = 0;
+            BeamType replayWeapon = BeamType.None;
+            ShotKey replayKey = default;
+            Vector3 replayImpact = default;
+            var replayFactFlags = Mods.Network.ReplayShotFactFlags.None;
             if (Mods.Network.NetSession.IsAuthority && attacker != null
                 && replayDamageEventId != 0 && damage > 0)
             {
-                uint replayShotId = beam?.ModShotId ?? Mods.Network.NetHitClaims.CurrentClaimShotId;
-                BeamType replayWeapon = beam?.Beam ?? Mods.Network.NetDamage.ClaimedBeam;
+                replayShotId = beam?.ModShotId ?? Mods.Network.NetHitClaims.CurrentClaimShotId;
+                replayWeapon = beam?.Beam ?? Mods.Network.NetDamage.ClaimedBeam;
                 if (replayShotId != 0 && replayWeapon is >= BeamType.PowerBeam and <= BeamType.OmegaCannon)
                 {
-                    ShotKey replayKey = beam?.ModLaunchKey
+                    replayKey = beam?.ModLaunchKey
                         ?? Mods.Network.ShotKey.For(attacker.SlotIndex, replayShotId);
                     if (replayKey.MatchId == Mods.Network.NetSession.CurrentMatchId
                         && replayKey.AuthorityEpoch == Mods.Network.NetSession.AuthorityEpoch
                         && replayKey.Generation != 0 && replayKey.LifeId != 0)
                     {
-                        Vector3 replayImpact = Mods.Network.NetDamage.ApplyingClaim
+                        replayImpact = Mods.Network.NetDamage.ApplyingClaim
                             ? Mods.Network.NetHitClaims.CurrentClaimHitPoint
                             : beam?.ModResolvedHitPointValid == true
                                 ? beam.ModResolvedHitPoint : Position;
@@ -2098,46 +2105,21 @@ namespace MphRead.Entities
                         {
                             replayImpact = Position;
                         }
-                        var replayFlags = Mods.Network.ReplayShotFactFlags.None;
                         if (flags.TestFlag(DamageFlags.Headshot))
-                            replayFlags |= Mods.Network.ReplayShotFactFlags.Headshot;
-                        if (dead) replayFlags |= Mods.Network.ReplayShotFactFlags.Lethal;
+                            replayFactFlags |= Mods.Network.ReplayShotFactFlags.Headshot;
+                        if (dead) replayFactFlags |= Mods.Network.ReplayShotFactFlags.Lethal;
                         if (beam?.EnhancedDirectHit == true || Mods.Network.NetHitClaims.CurrentClaimDirect)
-                            replayFlags |= Mods.Network.ReplayShotFactFlags.Direct;
+                            replayFactFlags |= Mods.Network.ReplayShotFactFlags.Direct;
                         if (Mods.Network.NetDamage.ApplyingClaim)
-                            replayFlags |= Mods.Network.ReplayShotFactFlags.Claimed;
+                            replayFactFlags |= Mods.Network.ReplayShotFactFlags.Claimed;
                         if (fromHalfturret || Mods.Network.NetHitClaims.CurrentClaimTurret)
-                            replayFlags |= Mods.Network.ReplayShotFactFlags.Turret;
+                            replayFactFlags |= Mods.Network.ReplayShotFactFlags.Turret;
                         if (beam is { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true }
                             || Mods.Network.NetHitClaims.CurrentClaimContinuous)
-                            replayFlags |= Mods.Network.ReplayShotFactFlags.Continuous;
+                            replayFactFlags |= Mods.Network.ReplayShotFactFlags.Continuous;
                         if (beam?.EnhancedMicroSeeker == true)
-                            replayFlags |= Mods.Network.ReplayShotFactFlags.EnhancedChild;
-
-                        uint appliedDamage = Math.Min(damage, (uint)Math.Max(_health, 0));
-                        ushort healthAfter = dead ? (ushort)0
-                            : (ushort)Math.Clamp((long)_health - appliedDamage, 0, ushort.MaxValue);
-                        if (appliedDamage > 0)
-                        {
-                            Mods.Network.ReplayCapture.AcceptedShotFact(new Mods.Network.ReplayShotFact(
-                                Mods.Network.NetSession.CurrentMatchId,
-                                Mods.Network.NetSession.AuthorityEpoch,
-                                Mods.Network.NetSession.NetFrame,
-                                beam?.ModLaunchFrame ?? Mods.Network.NetHitClaims.CurrentClaimLaunch,
-                                replayShotId,
-                                replayDamageEventId,
-                                (byte)attacker.SlotIndex,
-                                replayKey.Generation,
-                                replayKey.LifeId,
-                                (byte)SlotIndex,
-                                Mods.Network.NetPlayerLifecycle.Generation(SlotIndex),
-                                Mods.Network.NetPlayerLifecycle.Get(SlotIndex),
-                                (byte)replayWeapon,
-                                replayFlags,
-                                appliedDamage,
-                                healthAfter,
-                                replayImpact));
-                        }
+                            replayFactFlags |= Mods.Network.ReplayShotFactFlags.EnhancedChild;
+                        replayShotFactEligible = true;
                     }
                 }
             }
@@ -3035,6 +3017,41 @@ namespace MphRead.Entities
                 // todo: rumble
             }
             ushort combatSequence = Mods.Network.NetDamage.Sequence(SlotIndex);
+            if (replayShotFactEligible && attacker != null && combatSequence == replayDamageEventId)
+            {
+                uint healthDamage = (uint)Math.Max(0, combatHealthBefore - _health);
+                int turretAfterValue = Halfturret?.Health ?? 0;
+                uint turretDamage = (uint)Math.Max(0, combatTurretBefore - turretAfterValue);
+                if (healthDamage != 0 || turretDamage != 0)
+                {
+                    ushort healthAfter = (ushort)Math.Clamp(_health, 0, ushort.MaxValue);
+                    ushort turretHealthAfter = (ushort)Math.Clamp(turretAfterValue, 0, ushort.MaxValue);
+                    if (healthAfter == 0)
+                        replayFactFlags |= Mods.Network.ReplayShotFactFlags.Lethal;
+                    else
+                        replayFactFlags &= ~Mods.Network.ReplayShotFactFlags.Lethal;
+                    Mods.Network.ReplayCapture.AcceptedShotFact(new Mods.Network.ReplayShotFact(
+                        Mods.Network.NetSession.CurrentMatchId,
+                        Mods.Network.NetSession.AuthorityEpoch,
+                        Mods.Network.NetSession.NetFrame,
+                        beam?.ModLaunchFrame ?? Mods.Network.NetHitClaims.CurrentClaimLaunch,
+                        replayShotId,
+                        replayDamageEventId,
+                        (byte)attacker.SlotIndex,
+                        replayKey.Generation,
+                        replayKey.LifeId,
+                        (byte)SlotIndex,
+                        Mods.Network.NetPlayerLifecycle.Generation(SlotIndex),
+                        Mods.Network.NetPlayerLifecycle.Get(SlotIndex),
+                        (byte)replayWeapon,
+                        replayFactFlags,
+                        healthDamage,
+                        healthAfter,
+                        turretDamage,
+                        turretHealthAfter,
+                        replayImpact));
+                }
+            }
             if (combatSequence != combatSequenceBefore && beam?.EnhancedMicroSeeker != true)
                 Mods.Network.NetHitClaims.CompleteAuthorityHit(this, attacker, combatHealthBefore, flags, combatSequence, beam?.ModLaunchFrame ?? 0, beam?.Beam ?? BeamType.None);
             if (attacker != null && _health < combatHealthBefore && !Mods.Network.NetDamage.ApplyingClaim)
