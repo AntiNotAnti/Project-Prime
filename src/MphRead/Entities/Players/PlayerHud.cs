@@ -1156,6 +1156,16 @@ namespace MphRead.Entities
 
         private Vector2 GetReticlePresentationPosition()
         {
+            // On an exact replay shot frame the camera uses the recorded view
+            // and the crosshair uses the separately recorded reticle position.
+            // Do not blend either toward a neighbouring 60 Hz sample.
+            if (_scene.Services.IsReplica
+                && NetFireEvents.TryTiming(this, out FireEvent replayFire)
+                && replayFire.HasPose && replayFire.Kind != FireEventKind.TurretFire)
+            {
+                return replayFire.HasReticle
+                    ? replayFire.Reticle : new Vector2(0.5f, 0.5f);
+            }
             if (!_reticlePresentationValid || _reticleHistoryFixedWeapon
                 || !Mods.Render.FrameTiming.HighRefreshPresentation)
             {
