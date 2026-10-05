@@ -233,6 +233,15 @@ internal static class CommunityMapChecks
                 && publicRevisions[1].ParentHash == null,
                 "v2 public revision history has stable server numbers and parent links");
 
+            var legacyGrouped = MapCommunityClient.GroupLegacyProjects(
+                new[] { v1, v2, hidden });
+            check(legacyGrouped.Length == 1
+                && legacyGrouped[0].RevisionCount == 3
+                && legacyGrouped[0].CurrentHash == v2.Hash
+                && legacyGrouped[0].LatestHash == hidden.Hash
+                && legacyGrouped[0].LatestRevision.RevisionNumber == 3,
+                "legacy flat catalog fallback groups revisions without losing current/latest state");
+
             var ownerProject = await client.GetProjectAsync(id, default);
             var ownerRevisions = await client.GetRevisionsAsync(id, default);
             check(ownerProject != null
