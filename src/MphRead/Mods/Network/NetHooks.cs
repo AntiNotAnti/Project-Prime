@@ -256,7 +256,12 @@ namespace MphRead.Mods.Network
 
         public static Vector3 RemoteShotOrigin(PlayerEntity player, Vector3 current)
         {
-            if (player.SceneServices.IsReplica) return current;
+            if (player.SceneServices.IsReplica)
+            {
+                if (NetFireEvents.TryAuthoredPose(player, out Vector3 authoredOrigin, out _, out _))
+                    return authoredOrigin;
+                return current;
+            }
             if (!NetSession.IsAuthority || player.IsBot || player.SlotIndex == NetSession.LocalSlot
                 || player.SlotIndex < 0 || player.SlotIndex >= NetSession.RemoteIntents.Length)
             {
@@ -269,6 +274,8 @@ namespace MphRead.Mods.Network
         {
             if (player.SceneServices.IsReplica)
             {
+                if (NetFireEvents.TryAuthoredPose(player, out _, out Vector3 authoredDirection, out _))
+                    return authoredDirection.Normalized();
                 if (player.SceneServices.PlayerReplication.TryGetIntent(player.SlotIndex, out var recorded)
                     && player.OwningScene.PlayerReplication.AimTrusted(player.SlotIndex)
                     && recorded.Aim.LengthSquared > 0.0001f) return recorded.Aim.Normalized();
