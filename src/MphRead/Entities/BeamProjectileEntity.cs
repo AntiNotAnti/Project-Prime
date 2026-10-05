@@ -1794,6 +1794,27 @@ namespace MphRead.Entities
                     dmgDirMag = affinity ? 0.24f : 0.18f;
                 }
             }
+
+            if (scene.GameState.Multiplayer && scene.GameState.BalancedMode
+                && owner is PlayerEntity)
+            {
+                // Accuracy should beat floor spam. Apply this after charge,
+                // affinity and powerup damage have already been authored so
+                // those multipliers keep their existing semantics.
+                damage = (int)MathF.Round(
+                    BalancedModeRules.ScaleDirectHitDamage(weapon.Beam, damage),
+                    MidpointRounding.AwayFromZero);
+                hsDamage = (int)MathF.Round(
+                    BalancedModeRules.ScaleDirectHitDamage(weapon.Beam, hsDamage),
+                    MidpointRounding.AwayFromZero);
+                splashDmg = (int)MathF.Round(
+                    BalancedModeRules.ScaleSplashDamage(weapon.Beam, splashDmg),
+                    MidpointRounding.AwayFromZero);
+                if (BalancedModeRules.ForcesLinearSplashFalloff(weapon.Beam))
+                {
+                    splashDmgType = 0;
+                }
+            }
             ushort damageInterpolation = weapon.DamageInterpolations[charged ? 1 : 0];
             float maxDist = GetAmount(weapon.UnchargedDistance, weapon.MinChargeDistance, weapon.ChargedDistance) / 4096f;
             Affliction afflictions = weapon.Afflictions[charged ? 1 : 0];
