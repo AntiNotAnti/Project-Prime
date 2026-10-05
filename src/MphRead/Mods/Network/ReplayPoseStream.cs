@@ -625,10 +625,11 @@ internal sealed class ReplayPoseStream : IDisposable
             DrawDiagnosticSegment(scene, diagnostic.Fire.Origin, fact.ImpactPoint,
                 selected ? new Vector3(1f, 0.65f, 0.22f)
                     : new Vector3(0.78f, 0.58f, 0.22f),
-                selected ? 0.12f : 0.09f);
+                selected ? 0.12f : 0.09f,
+                selected ? 18 : 10);
 
             Vector3 aim = diagnostic.Fire.Aim;
-            if (aim.LengthSquared >= 0.000001f)
+            if (selected && aim.LengthSquared >= 0.000001f)
             {
                 aim = aim.Normalized();
                 float impactDistance = Vector3.Distance(
@@ -637,7 +638,7 @@ internal sealed class ReplayPoseStream : IDisposable
                 DrawDiagnosticSegment(scene, diagnostic.Fire.Origin,
                     diagnostic.Fire.Origin + aim * length,
                     new Vector3(0.30f, 0.88f, 1f),
-                    selected ? 0.10f : 0.075f);
+                    0.10f, 18);
             }
 
             scene.AddSingleParticle(SingleType.Fuzzball,
@@ -658,11 +659,11 @@ internal sealed class ReplayPoseStream : IDisposable
     }
 
     private static void DrawDiagnosticSegment(Scene scene, Vector3 start,
-        Vector3 end, Vector3 color, float scale)
+        Vector3 end, Vector3 color, float scale, int maxDots)
     {
         float distance = Vector3.Distance(start, end);
         if (!float.IsFinite(distance) || distance <= 0.0001f) return;
-        int dots = Math.Clamp((int)MathF.Ceiling(distance * 1.6f), 4, 24);
+        int dots = Math.Clamp((int)MathF.Ceiling(distance * 1.6f), 4, maxDots);
         for (int i = 0; i <= dots; i++)
         {
             float t = i / (float)dots;
