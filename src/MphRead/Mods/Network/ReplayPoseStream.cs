@@ -296,7 +296,7 @@ internal sealed class ReplayPoseStream : IDisposable
             && a.ShooterSlot == b.ShooterSlot
             && a.ShooterGeneration == b.ShooterGeneration
             && a.ShooterLifeId == b.ShooterLifeId
-            && (a.ImpactPoint - b.ImpactPoint).LengthSquared <= 0.0625f;
+            && (a.ImpactPoint - b.ImpactPoint).LengthSquared <= 0.01f;
 
     internal static uint FireSourceRecordingFrame(uint carrierRecordingFrame,
         uint carrierSourceFrame, uint fireSourceFrame)
