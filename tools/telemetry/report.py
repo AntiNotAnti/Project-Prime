@@ -144,7 +144,7 @@ $('semantic').innerHTML=table(['Fact','Count','Award','Count'],awardNames.map((n
 const hunters=''' + json.dumps(HUNTERS) + ''';
 const b=s.balancedMode;
 if(!b){$('balance').textContent='No Balanced Mode telemetry in this cohort.'}else{
-const hunterRows=hunters.map((name,i)=>[name,n(b.hunterPicks[i]),n(b.hunterSeconds[i]),n(b.hunterKills[i]),n(b.hunterDeaths[i]),rate(b.hunterKills[i],b.hunterDeaths[i]||0),n(b.hunterDamageDealt[i]),n(b.hunterDamageTaken[i])]);
+const hunterRows=hunters.map((name,i)=>[name,n(b.hunterPicks[i]),n(b.hunterSeconds[i]),n(b.hunterKills[i]),n(b.hunterDeaths[i]),b.hunterDeaths[i]>0?(b.hunterKills[i]/b.hunterDeaths[i]).toFixed(2):(b.hunterKills[i]>0?'∞':'0.00'),n(b.hunterDamageDealt[i]),n(b.hunterDamageTaken[i])]);
 const weaponRows=weapons.slice(0,9).map((name,i)=>{const r=i*3;return[name,n(b.weaponShots[i]),n(b.weaponHits[i]),rate(b.weaponHits[i],b.weaponShots[i]),n(b.weaponKills[i]),n(b.weaponDamage[i]),n(b.directDamage[i]),n(b.splashDamage[i]),n(b.rangeDamage[r]),n(b.rangeDamage[r+1]),n(b.rangeDamage[r+2])]});
 const bh=b.battlehammer,af=b.affinity,imp=b.imperialist;
 $('balance').innerHTML='<p>Balance revision <strong>'+esc(b.revision)+'</strong>. Cohorts are separated by revision so later tuning never mixes incompatible rulesets.</p>'+
