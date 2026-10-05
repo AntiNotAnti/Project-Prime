@@ -5,6 +5,14 @@ namespace MphRead.Mods.Render
 {
     internal static class PreparedTextureCodec
     {
+        internal static bool IsKtx2Payload(ReadOnlySpan<byte> bytes)
+        {
+#if !MPHREAD_SERVER
+            return Ktx2TextureAsset.IsKtx2(bytes);
+#else
+            return false;
+#endif
+        }
         internal static PreparedTextureAsset Decode(Stream source, string key,
             TextureAssetClass assetClass, TextureAssetChannel channel, int maximumDimension)
         {

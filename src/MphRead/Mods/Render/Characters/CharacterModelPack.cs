@@ -37,6 +37,8 @@ namespace MphRead.Mods.Render.Characters
         public CharacterModelPart Part { get; set; }
         public int Lod { get; set; }
         public string Model { get; set; } = "";
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? MobileModel { get; set; }
         public CharacterSkinningMode Skinning { get; set; } = CharacterSkinningMode.RigidNodes;
 
         // Source glTF node/joint name -> native MPH node name.
@@ -70,6 +72,7 @@ namespace MphRead.Mods.Render.Characters
     /// </summary>
     internal sealed class CharacterModelPack
     {
+        internal static bool ForceMobileTierForCheck { get; set; }
         public const int CurrentFormat = 1;
         public const int MaximumManifestBytes = 1024 * 1024;
         public const long MaximumModelBytes = 128L * 1024 * 1024;
@@ -131,7 +134,7 @@ namespace MphRead.Mods.Render.Characters
             }
         }
 
-        internal static CharacterModelPack Load(string root)
+        internal static CharacterModelPack Load(string root, bool? mobile = null)
         {
             root = Path.GetFullPath(root);
             RejectLink(root, directory: true);
@@ -185,20 +188,29 @@ namespace MphRead.Mods.Render.Characters
                         throw new InvalidDataException($"{hunter}/{entry.Part} maps more than one glTF joint to native node '{targetName}'.");
                 }
 
-                string modelPath = ContainedPath(root, entry.Model);
-                var info = new FileInfo(modelPath);
-                if (!info.Exists) throw new FileNotFoundException($"{hunter}/{entry.Part} model is missing.", modelPath);
-                if (!Path.GetExtension(modelPath).Equals(".glb", StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidDataException($"{hunter}/{entry.Part} must use a binary glTF (.glb) model.");
-                if (info.Length <= 0 || info.Length > MaximumModelBytes)
-                    throw new InvalidDataException($"{hunter}/{entry.Part} GLB exceeds the {MaximumModelBytes / (1024 * 1024)} MiB model limit.");
+                string modelPath = "";
+                GlbInspection inspection = default;
+                bool selectMobile = mobile ?? (OperatingSystem.IsAndroid() || ForceMobileTierForCheck);
+                // Validate both contained references even when one tier is inactive.
+                foreach (string relative in entry.MobileModel == null ? new[] {entry.Model} : new[] {entry.Model,entry.MobileModel})
+                {
+                    string candidatePath = ContainedPath(root, relative);
+                    var info = new FileInfo(candidatePath);
+                    if (!info.Exists) throw new FileNotFoundException($"{hunter}/{entry.Part} model is missing.", candidatePath);
+                    if (!Path.GetExtension(candidatePath).Equals(".glb", StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidDataException($"{hunter}/{entry.Part} must use a binary glTF (.glb) model.");
+                    if (info.Length <= 0 || info.Length > MaximumModelBytes)
+                        throw new InvalidDataException($"{hunter}/{entry.Part} GLB exceeds the {MaximumModelBytes / (1024 * 1024)} MiB model limit.");
 
-                GlbInspection inspection = InspectGlb(modelPath);
-                foreach (string source in boneMap.Keys)
-                    if (!inspection.NodeNames.Contains(source))
-                        throw new InvalidDataException($"{hunter}/{entry.Part} maps missing glTF node '{source}'.");
-                if (entry.Skinning == CharacterSkinningMode.Weighted4 && !inspection.HasSkin)
-                    throw new InvalidDataException($"{hunter}/{entry.Part} requests Weighted4 skinning but the GLB has no skin.");
+                    GlbInspection candidate = InspectGlb(candidatePath);
+                    foreach (string source in boneMap.Keys)
+                        if (!candidate.NodeNames.Contains(source))
+                            throw new InvalidDataException($"{hunter}/{entry.Part} maps missing glTF node '{source}'.");
+                    if (entry.Skinning == CharacterSkinningMode.Weighted4 && !candidate.HasSkin)
+                        throw new InvalidDataException($"{hunter}/{entry.Part} requests Weighted4 skinning but the GLB has no skin.");
+                    if (relative == (selectMobile && entry.MobileModel != null ? entry.MobileModel : entry.Model))
+                    { modelPath=candidatePath; inspection=candidate; }
+                }
 
                 var key = (hunter, entry.Part, entry.Lod);
                 if (!assets.TryAdd(key, new CharacterModelAsset(

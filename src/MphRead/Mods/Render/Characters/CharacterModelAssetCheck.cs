@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Numerics;
 using System.Text;
+using System.Text.Json.Nodes;
 
 namespace MphRead.Mods.Render.Characters
 {
@@ -13,6 +14,14 @@ namespace MphRead.Mods.Render.Characters
                 "project-prime-character-model-check-" + Guid.NewGuid().ToString("N"));
             try
             {
+#if !MPHREAD_SERVER
+                Check(ModernGraphicsCompat.ResolveCharacterTextureCompression(GpuTextureCompressionFormat.Etc2Rgba8)
+                    == GpuTextureCompressionFormat.None, "ETC2-only character adapters use bounded RGBA quality fallback");
+                Check(ModernGraphicsCompat.ResolveCharacterTextureCompression(GpuTextureCompressionFormat.Astc4x4Rgba)
+                    == GpuTextureCompressionFormat.Astc4x4Rgba, "ASTC character compression remains selected");
+                Check(ModernGraphicsCompat.ResolveCharacterTextureCompression(GpuTextureCompressionFormat.Etc2Rgba8, true)
+                    == GpuTextureCompressionFormat.Etc2Rgba8, "explicit diagnostics can inspect rejected ETC2 quality");
+#endif
                 Directory.CreateDirectory(Path.Combine(root, "samus"));
                 WriteTriangleGlb(Path.Combine(root, "samus", "biped.glb"));
 
@@ -58,7 +67,29 @@ namespace MphRead.Mods.Render.Characters
                     && Near(primitive.Vertices[0].Normal, Vector3.UnitZ),
                     "POSITION/NORMAL/TEXCOORD_0 decode exactly");
 
+                Check(primitive.Albedo == null && primitive.MaterialMaps == null,
+                    "legacy rigid packs retain native textures");
+                CheckEmbeddedMaterials(asset);
+                foreach (TexgenMode mode in Enum.GetValues<TexgenMode>())
+                {
+                    Check(CharacterModelRuntime.CanUseAuthoredTexcoords(mode, embeddedAlbedo: true),
+                        "embedded character albedo selects authored UVs for " + mode);
+                    Check(CharacterModelRuntime.CanUseAuthoredTexcoords(mode, embeddedAlbedo: false)
+                        == (mode is TexgenMode.None or TexgenMode.Texcoord),
+                        "native-bound character generated coordinates remain guarded for " + mode);
+                }
+                WriteTriangleGlb(asset.ModelPath);
+
                 string valid = File.ReadAllText(Path.Combine(root, "characters.json"));
+                File.Copy(asset.ModelPath,Path.Combine(root,"samus","mobile.glb"));
+                File.WriteAllText(Path.Combine(root,"characters.json"),valid.Replace("\"model\": \"samus/biped.glb\",","\"model\": \"samus/biped.glb\", \"mobileModel\": \"samus/mobile.glb\","));
+                Check(CharacterModelPack.Load(root,mobile:true).TryResolve(Hunter.Samus,CharacterModelPart.Biped,out var mobileAsset)
+                    && Path.GetFileName(mobileAsset.ModelPath)=="mobile.glb","mobile tier resolves explicitly");
+                Check(CharacterModelPack.Load(root,mobile:false).TryResolve(Hunter.Samus,CharacterModelPart.Biped,out var desktopAsset)
+                    && Path.GetFileName(desktopAsset.ModelPath)=="biped.glb","desktop tier retains its original model");
+                File.WriteAllText(Path.Combine(root,"characters.json"),valid.Replace("\"model\": \"samus/biped.glb\",","\"model\": \"samus/biped.glb\", \"mobileModel\": \"../escape.glb\","));
+                ExpectInvalid(()=>CharacterModelPack.Load(root,mobile:false),"inactive mobile tier path traversal is rejected");
+                File.WriteAllText(Path.Combine(root,"characters.json"),valid);
 
                 File.WriteAllText(Path.Combine(root, "characters.json"),
                     valid.Replace("\"part\": \"biped\"",
@@ -200,6 +231,56 @@ namespace MphRead.Mods.Render.Characters
                 try { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
                 catch { }
             }
+        }
+
+        private static void CheckEmbeddedMaterials(CharacterModelAsset asset)
+        {
+            byte[] original = File.ReadAllBytes(asset.ModelPath);
+            int jsonLength = BitConverter.ToInt32(original, 12);
+            var root = JsonNode.Parse(Encoding.UTF8.GetString(original, 20, jsonLength))!.AsObject();
+            int binaryStart = 20 + jsonLength + 8;
+            byte[] png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aN1sAAAAASUVORK5CYII=");
+            byte[] binary = new byte[104 + png.Length];
+            Array.Copy(original, binaryStart, binary, 0, 102);
+            Array.Copy(png, 0, binary, 104, png.Length);
+            root["buffers"]![0]!["byteLength"] = binary.Length;
+            root["bufferViews"]!.AsArray().Add(new JsonObject { ["buffer"] = 0, ["byteOffset"] = 104, ["byteLength"] = png.Length });
+            root["images"] = JsonNode.Parse("[{\"bufferView\":4,\"mimeType\":\"image/png\"}]");
+            root["textures"] = JsonNode.Parse("[{\"source\":0,\"sampler\":0},{\"source\":0,\"sampler\":1}]");
+            root["samplers"] = JsonNode.Parse("[{\"wrapS\":10497,\"wrapT\":10497},{\"wrapS\":33071,\"wrapT\":10497}]");
+            root["materials"]![0]!["pbrMetallicRoughness"] = JsonNode.Parse("{\"baseColorTexture\":{\"index\":0}}");
+            root["materials"]![0]!["normalTexture"] = JsonNode.Parse("{\"index\":0,\"scale\":0.5}");
+            void Write() => WriteGlb(asset.ModelPath, root.ToJsonString(), binary);
+            Write();
+            var material = CharacterRigidModelLoader.Load(asset).Primitives[0];
+            Check(material.Albedo != null && material.Albedo.Image.AsSpan().SequenceEqual(png)
+                && material.MaterialMaps?.Normal != null && material.MaterialMaps.NormalScale == .5f,
+                "rigid embedded albedo and normal maps survive decoding");
+            Check(ReferenceEquals(material.Albedo!.Image,material.MaterialMaps!.Normal!.Image),"encoded image aliases share one weakly interned payload");
+            root["materials"]![0]!["extras"] = JsonNode.Parse("{\"projectPrimeRecolors\":{\"5\":{\"index\":0}}}"); Write();
+            Check(CharacterRigidModelLoader.Load(asset).Primitives[0].Albedo!.Recolors!.ContainsKey(5),
+                "bounded embedded native team albedo is decoded");
+            root["materials"]![0]!["extras"] = JsonNode.Parse("{\"projectPrimeRecolors\":{\"6\":{\"index\":0}}}"); Write();
+            ExpectInvalid(() => CharacterRigidModelLoader.Load(asset), "recolor outside native palette is rejected");
+            root["materials"]![0]!["extras"] = JsonNode.Parse("{\"projectPrimeRecolors\":{\"5\":{\"index\":1}}}"); Write();
+            ExpectInvalid(() => CharacterRigidModelLoader.Load(asset), "recolor sampler mismatch is rejected");
+            root["materials"]![0]!.AsObject().Remove("extras"); Write();
+            root["materials"]![0]!["extras"] = JsonNode.Parse("{\"projectPrimeRuntimeMaps\":true}"); Write();
+            ExpectInvalid(()=>CharacterRigidModelLoader.Load(asset),"runtime-preconverted maps reject a second normal scale");
+            root["materials"]![0]!["normalTexture"]!["scale"]=1; Write();
+            Check(CharacterRigidModelLoader.Load(asset).Primitives[0].MaterialMaps!.RuntimeEncoded,"runtime map encoding survives load");
+            root["materials"]![0]!.AsObject().Remove("extras");
+            root["textures"]![0]!["extensions"]=JsonNode.Parse("{\"KHR_texture_basisu\":{\"source\":0}}");Write();
+            ExpectInvalid(()=>CharacterRigidModelLoader.Load(asset),"Basis extension cannot refer to PNG");
+            root["textures"]![0]!.AsObject().Remove("extensions");
+            root["materials"]![0]!["normalTexture"]!["texCoord"] = 1; Write();
+            ExpectInvalid(() => CharacterRigidModelLoader.Load(asset), "rigid secondary UV maps are rejected");
+            root["materials"]![0]!["normalTexture"]!.AsObject().Remove("texCoord");
+            root["materials"]![0]!["normalTexture"]!["index"] = 1; Write();
+            ExpectInvalid(() => CharacterRigidModelLoader.Load(asset), "rigid companion sampler mismatch is rejected");
+            root["materials"]![0]!["normalTexture"]!["index"] = 0;
+            root["images"]![0]!["uri"] = "external.png"; Write();
+            ExpectInvalid(() => CharacterRigidModelLoader.Load(asset), "rigid external images are rejected");
         }
 
         private static bool Near(Vector3 a, Vector3 b)

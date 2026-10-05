@@ -20,6 +20,7 @@ namespace MphRead.Mods.Render
         {
             internal BindGroup* Group;
             internal nint[] Resources = Array.Empty<nint>();
+            internal long TextureRevision;
         }
 
         private sealed class GeneratedProgram
@@ -238,6 +239,7 @@ namespace MphRead.Mods.Render
             GeneratedBindGroupCacheEntry? cached = slot < generated.BindGroups.Count
                 ? generated.BindGroups[slot] : null;
             if (cached != null && cached.Group != null
+                && cached.TextureRevision == _textureBindingRevision
                 && cached.Resources.AsSpan().SequenceEqual(resources))
             {
                 return cached.Group;
@@ -257,6 +259,7 @@ namespace MphRead.Mods.Render
             }
             cached.Group = group;
             cached.Resources = resources.ToArray();
+            cached.TextureRevision = _textureBindingRevision;
             return group;
         }
 

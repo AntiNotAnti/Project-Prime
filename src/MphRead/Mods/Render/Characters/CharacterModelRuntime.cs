@@ -11,10 +11,37 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Render.Characters
 {
+    /// <summary>Scene-owned lazy native-suit albedos. Companions are shared across suits.</summary>
+    internal sealed class CharacterAlbedoPalette
+    {
+        private readonly CharacterEmbeddedAlbedo _albedo;
+        private readonly TextureAssetClass _assetClass;
+        private readonly int _baseBinding;
+
+        internal CharacterAlbedoPalette(CharacterEmbeddedAlbedo albedo, TextureAssetClass assetClass, int baseBinding)
+        { _albedo = albedo; _assetClass = assetClass; _baseBinding = baseBinding; }
+
+        internal int GetBinding(Scene scene, int recolor)
+        {
+            if (_albedo.Recolors == null || !_albedo.Recolors.TryGetValue(recolor, out var image)) return _baseBinding;
+            int binding = scene.GetCharacterModelVariantTexture(image.Image, _assetClass, image.Opaque);
+            // Scene leases resolve again after eviction; stale texture IDs cannot survive in a palette.
+            return binding == 0 ? _baseBinding : binding;
+        }
+    }
+
     internal sealed record CharacterRigidRenderSegment(
         int NativeNodeIndex,
         int NativeMaterialIndex,
-        int ListId);
+        int ListId,
+        int? AlbedoBinding = null,
+        RepeatMode WrapS = RepeatMode.Repeat,
+        RepeatMode WrapT = RepeatMode.Repeat,
+        MaterialMapBindings MaterialMaps = default,
+        CharacterAlbedoPalette? AlbedoPalette = null, bool DoubleSided = false, bool Transparent = false)
+    {
+        internal int? GetAlbedo(Scene scene, int recolor) => AlbedoPalette?.GetBinding(scene, recolor) ?? AlbedoBinding;
+    }
 
     internal sealed record CharacterWeightedRenderSegment(
         int NativeMaterialIndex,
@@ -22,7 +49,11 @@ namespace MphRead.Mods.Render.Characters
         int? AlbedoBinding = null,
         RepeatMode WrapS = RepeatMode.Repeat,
         RepeatMode WrapT = RepeatMode.Repeat,
-        MaterialMapBindings MaterialMaps = default);
+        MaterialMapBindings MaterialMaps = default,
+        CharacterAlbedoPalette? AlbedoPalette = null, bool DoubleSided = false, bool Transparent = false)
+    {
+        internal int? GetAlbedo(Scene scene, int recolor) => AlbedoPalette?.GetBinding(scene, recolor) ?? AlbedoBinding;
+    }
 
     internal sealed record CharacterWeightedRenderJoint(
         int NativeNodeIndex,
@@ -156,6 +187,12 @@ namespace MphRead.Mods.Render.Characters
 
             var key = (asset.ModelPath, nativeModel.Id);
             SceneResources resources = _scenes.GetValue(scene, _ => new SceneResources());
+            if (resources.TextureQuality != RenderOptions.TextureQuality
+                || resources.SamplingKey != TextureSamplingPolicy.RuntimeKey)
+            {
+                Release(scene);
+                resources = _scenes.GetValue(scene, _ => new SceneResources());
+            }
             if (resources.RigidModels.TryGetValue(key, out model!)) return true;
             if (resources.Failed.Contains(key)) return false;
 
@@ -163,7 +200,7 @@ namespace MphRead.Mods.Render.Characters
             {
                 if (!CharacterModelPack.ValidateNativeRig(asset, nativeModel, out string? rigIssue))
                     throw new InvalidDataException(rigIssue);
-                model = Compile(asset, nativeModel);
+                model = Compile(scene, asset, nativeModel);
                 resources.RigidModels.Add(key, model);
                 DebugLog.Line("render",
                     $"HD character ready: {hunter}/{part}/lod{asset.Lod}, {model.Segments.Count} segments, "
@@ -260,7 +297,7 @@ namespace MphRead.Mods.Render.Characters
             }
         }
 
-        private static CharacterRigidRenderModel Compile(CharacterModelAsset asset, Model nativeModel)
+        private static CharacterRigidRenderModel Compile(Scene scene, CharacterModelAsset asset, Model nativeModel)
         {
 #if MPHREAD_SERVER
             throw new InvalidOperationException("HD character geometry is unavailable in dedicated-server builds.");
@@ -273,20 +310,46 @@ namespace MphRead.Mods.Render.Characters
                 .ToDictionary(group => group.Key, group => group.First().Index, StringComparer.OrdinalIgnoreCase);
 
             var compiled = new List<CharacterRigidRenderSegment>(geometry.Primitives.Count);
+            var albedos = new Dictionary<CharacterEmbeddedAlbedo, int>();
+            var materialMaps = new Dictionary<CharacterEmbeddedMaterialMaps, MaterialMapBindings>();
+            TextureAssetClass assetClass = asset.Part == CharacterModelPart.ViewModel
+                ? TextureAssetClass.Weapon : TextureAssetClass.Hunter;
             try
             {
+                // Reserve all base images before optional maps. Shared material
+                // instances across rigid segments upload only once per scene.
+                foreach (var primitive in geometry.Primitives)
+                {
+                    if (primitive.Albedo == null || albedos.ContainsKey(primitive.Albedo)) continue;
+                    int binding = scene.GetCharacterModelTexture(asset.ModelPath + "/rigid-albedo/" + albedos.Count,
+                        primitive.Albedo.Image, assetClass, primitive.Albedo.Opaque);
+                    if (binding == 0) throw new InvalidDataException("Embedded rigid character albedo could not be uploaded.");
+                    albedos.Add(primitive.Albedo, binding);
+                }
                 foreach (CharacterRigidPrimitive primitive in geometry.Primitives)
                 {
                     if (!nodeIndices.TryGetValue(primitive.TargetNode, out int nodeIndex))
                         throw new InvalidDataException($"Native model no longer contains mapped node '{primitive.TargetNode}'.");
                     int materialIndex = ResolveMaterial(nativeModel, nodeIndex, primitive.MaterialName, materialIndices);
                     Material material = nativeModel.Materials[materialIndex];
-                    if (material.TexgenMode is TexgenMode.Normal or TexgenMode.Vertex)
+                    if (!CanUseAuthoredTexcoords(material.TexgenMode, primitive.Albedo != null))
                         throw new InvalidDataException(
                             $"HD primitive material '{material.Name}' uses native generated coordinates; rigid GLB UVs require None/Texcoord.");
 
+                    MaterialMapBindings maps = default;
+                    if (primitive.MaterialMaps != null && !materialMaps.TryGetValue(primitive.MaterialMaps, out maps))
+                    {
+                        maps = scene.GetCharacterModelMaterialMaps(asset.ModelPath + "/rigid-maps/" + materialMaps.Count,
+                            primitive.MaterialMaps, assetClass);
+                        materialMaps.Add(primitive.MaterialMaps, maps);
+                    }
                     int list = CompileList(primitive);
-                    compiled.Add(new(nodeIndex, materialIndex, list));
+                    compiled.Add(new(nodeIndex, materialIndex, list,
+                        primitive.Albedo == null ? null : albedos[primitive.Albedo],
+                        primitive.Albedo?.WrapS ?? RepeatMode.Repeat,
+                        primitive.Albedo?.WrapT ?? RepeatMode.Repeat, maps,
+                        primitive.Albedo?.Recolors?.Count > 0
+                            ? new CharacterAlbedoPalette(primitive.Albedo, assetClass, albedos[primitive.Albedo]) : null, primitive.DoubleSided, primitive.Albedo?.Opaque == false));
                 }
                 return new(asset, compiled.ToArray(), geometry.VertexCount, geometry.IndexCount);
             }
@@ -298,6 +361,11 @@ namespace MphRead.Mods.Render.Characters
             }
 #endif
         }
+
+        // Embedded albedo submission explicitly selects authored Texcoord UVs.
+        // Native-bound rigid assets still cannot replace generated-coordinate meshes.
+        internal static bool CanUseAuthoredTexcoords(TexgenMode mode, bool embeddedAlbedo)
+            => embeddedAlbedo || mode is TexgenMode.None or TexgenMode.Texcoord;
 
         private static CharacterWeightedRenderModel CompileWeighted(
             Scene scene, CharacterModelAsset asset, Model nativeModel)
@@ -332,7 +400,7 @@ namespace MphRead.Mods.Render.Characters
                             $"Weighted HD material '{primitive.MaterialName ?? "(unnamed)"}' "
                             + $"does not match a native material in {nativeModel.Name}.");
                     Material material = nativeModel.Materials[materialIndex];
-                    if (material.TexgenMode is TexgenMode.Normal or TexgenMode.Vertex)
+                    if (!CanUseAuthoredTexcoords(material.TexgenMode, primitive.Albedo != null))
                         throw new InvalidDataException(
                             $"Weighted HD material '{material.Name}' uses generated native coordinates; "
                             + "weighted GLB UVs require None/Texcoord.");
@@ -356,7 +424,10 @@ namespace MphRead.Mods.Render.Characters
                     int list = CompileWeightedList(primitive);
                     compiled.Add(new(materialIndex, list, albedo,
                         primitive.Albedo?.WrapS ?? RepeatMode.Repeat,
-                        primitive.Albedo?.WrapT ?? RepeatMode.Repeat, maps));
+                        primitive.Albedo?.WrapT ?? RepeatMode.Repeat, maps,
+                        primitive.Albedo?.Recolors?.Count > 0 && albedo.HasValue
+                            ? new CharacterAlbedoPalette(primitive.Albedo, asset.Part == CharacterModelPart.ViewModel
+                                ? TextureAssetClass.Weapon : TextureAssetClass.Hunter, albedo.Value) : null, primitive.DoubleSided, primitive.Albedo?.Opaque == false));
                 }
                 return new(asset, compiled.ToArray(), joints.ToArray(),
                     geometry.VertexCount, geometry.IndexCount);
@@ -443,6 +514,7 @@ namespace MphRead.Mods.Render.Characters
                 foreach (uint rawIndex in primitive.Indices)
                 {
                     CharacterRigidVertex vertex = primitive.Vertices[(int)rawIndex];
+                    GraphicsApi.Color4(vertex.Color.X, vertex.Color.Y, vertex.Color.Z, 1);
                     GraphicsApi.Normal3(vertex.Normal.X, vertex.Normal.Y, vertex.Normal.Z);
                     GraphicsApi.TexCoord2(vertex.Texcoord.X, vertex.Texcoord.Y);
                     GraphicsApi.Vertex3(vertex.Position.X, vertex.Position.Y, vertex.Position.Z);

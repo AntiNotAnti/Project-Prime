@@ -1,0 +1,111 @@
+{
+  "format": 1,
+  "hunter": "Spire",
+  "sourceRelative": "models/spire/spire_a.glb",
+  "sourceMeshes": [
+    "MPH/Spire_A.mdl_Body_Spire_Body.smd_MESH"
+  ],
+  "bodygroups": [
+    "Spire_Body.smd"
+  ],
+  "expectedSourceBones": 15,
+  "expectedTriangles": 12895,
+  "rootSource": "ValveBiped.Bip01_Pelvis",
+  "rootNative": "Pelvis",
+  "yawDegrees": 180,
+  "fit": {
+    "Pelvis": {
+      "anchor": "ValveBiped.Bip01_Pelvis",
+      "preserveSourceShape": true
+    },
+    "Spine_1": {
+      "anchor": "ValveBiped.Bip01_Spine",
+      "endSource": "ValveBiped.Bip01_Spine1",
+      "endNative": "Spine_2",
+      "preserveSourceShape": true
+    },
+    "Spine_2": {
+      "anchor": "ValveBiped.Bip01_Spine1",
+      "endSource": "ValveBiped.Bip01_Head1",
+      "endNative": "Head_1",
+      "preserveSourceShape": true
+    },
+    "L_hip": {
+      "anchor": "ValveBiped.Bip01_L_Thigh",
+      "endSource": "ValveBiped.Bip01_L_Calf",
+      "endNative": "L_knee"
+    },
+    "L_knee": {
+      "anchor": "ValveBiped.Bip01_L_Calf",
+      "endSource": "ValveBiped.Bip01_L_Foot",
+      "endNative": "L_ankle"
+    },
+    "L_ankle": {
+      "anchor": "ValveBiped.Bip01_L_Foot",
+      "groundShape": true
+    },
+    "L_shoulder": {
+      "anchor": "ValveBiped.Bip01_L_UpperArm",
+      "endSource": "ValveBiped.Bip01_L_Forearm",
+      "endNative": "L_elbow"
+    },
+    "L_elbow": {
+      "anchor": "ValveBiped.Bip01_L_Forearm",
+      "endSource": "ValveBiped.Bip01_L_Hand",
+      "endNative": "L_wrist"
+    },
+    "R_hip": {
+      "anchor": "ValveBiped.Bip01_R_Thigh",
+      "endSource": "ValveBiped.Bip01_R_Calf",
+      "endNative": "R_knee"
+    },
+    "R_knee": {
+      "anchor": "ValveBiped.Bip01_R_Calf",
+      "endSource": "ValveBiped.Bip01_R_Foot",
+      "endNative": "R_ankle"
+    },
+    "R_ankle": {
+      "anchor": "ValveBiped.Bip01_R_Foot",
+      "groundShape": true
+    },
+    "R_shoulder": {
+      "anchor": "ValveBiped.Bip01_R_UpperArm",
+      "endSource": "ValveBiped.Bip01_R_Forearm",
+      "endNative": "R_elbow"
+    },
+    "R_elbow": {
+      "anchor": "ValveBiped.Bip01_R_Forearm",
+      "muzzle": true
+    }
+  },
+  "muzzle": {
+    "object": "Spire_Body.smd",
+    "sourceBone": "ValveBiped.Bip01_R_Forearm",
+    "nativeBone": "R_elbow",
+    "axis": [
+      -0.573500931,
+      -0.332165301,
+      -0.748840988
+    ],
+    "frontBand": 0.03,
+    "nativeLocalPoint": [
+      0.71,
+      0,
+      0
+    ],
+    "method": "Distal right-forearm weapon crystal tip -> native Metadata.MuzzleOffests[Spire] through R_elbow reference frame"
+  },
+  "emissiveMaterials": [
+    "BIPED_leg_tile3"
+  ],
+  "reuseSingleMaterialTextures": true,
+  "sourceSha256": "bb69dd16dd60092ab8aaa45c1c73a819d615efefcfa889bfce26ee057b572eba",
+  "preserveSourceNormals": true,
+  "globalAnchor": "floor",
+  "teamRecolorMaterials": [
+    "BIPED_leg_tile1",
+    "BIPED_leg_tile5"
+  ],
+  "sourceShapeChains": true,
+  "preserveSourceMaterialAlpha": true
+}

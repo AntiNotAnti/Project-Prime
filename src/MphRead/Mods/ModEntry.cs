@@ -94,6 +94,12 @@ namespace MphRead.Mods
                 Environment.ExitCode = Render.TextureUpdateCheck.Run(ValueAfter(args, "renderer"));
                 return true;
             }
+            if (ValueAfter(args,"charactertextureprobe") is string texturePack)
+            {
+                Environment.ExitCode=Render.Characters.CharacterTextureProbeDesktop.Run(texturePack,
+                    ValueAfter(args,"output")??"character-texture-probe.json",ValueAfter(args,"compression"));
+                return true;
+            }
             if (HasFlag(args, "renderfullcheck"))
             {
                 int result = Render.ModernGraphicsBackendCheck.Run();
@@ -254,8 +260,14 @@ namespace MphRead.Mods
 
             // This diagnostic needs assets, but must not apply/clean updates
             // or enter any of the launcher/network command paths.
-            if (HasFlag(args, "respawnrendercheck") || HasFlag(args, "characteracceptancecheck"))
+            if (HasFlag(args, "respawnrendercheck") || HasFlag(args, "characteracceptancecheck") || HasFlag(args, "lod1acceptancecheck") || HasFlag(args, "charactermaterialpalette") || HasFlag(args, "charactermaterialacceptancecheck") || HasFlag(args, "morphballacceptancecheck") || HasFlag(args, "viewmodelacceptancecheck"))
             {
+                if (ValueAfter(args, "compression") is string compression)
+                {
+                    if (!Enum.TryParse<Render.GpuTextureCompressionFormat>(compression, true, out var format))
+                        throw new ArgumentException("Unknown diagnostic texture compression: " + compression);
+                    Render.ModernGraphicsCompat.TextureCompressionForCheck = format;
+                }
                 Update.Updater.Disabled = true;
                 return false;
             }
@@ -1416,10 +1428,57 @@ namespace MphRead.Mods
             }
 
 #if !ANDROID && !MPHREAD_SERVER
+            if (ValueAfter(args, "viewmodelacceptancecheck") is string viewModelRoom)
+            {
+                Render.Characters.CharacterModelPack.ForceMobileTierForCheck=HasFlag(args,"mobiletextures");
+                Render.Characters.CharacterModelRuntime.ResetPackForCheck();
+                Environment.ExitCode = Render.Characters.ViewModelAcceptanceCheck.Run(viewModelRoom,
+                    ValueAfter(args, "output") ?? "viewmodel-acceptance",
+                    Enum.TryParse(ValueAfter(args, "hunter"), true, out Hunter viewModelHunter) ? viewModelHunter : Hunter.Samus,
+                    HasFlag(args, "poseonly"));
+                return true;
+            }
+            if (HasFlag(args, "charactermaterialpalette"))
+            {
+                var colors = HunterSuits.Colors(Hunter.Samus);
+                string path = System.IO.Path.GetFullPath(ValueAfter(args, "output") ?? "samus-native-colors.json");
+                System.IO.File.WriteAllText(path, System.Text.Json.JsonSerializer.Serialize(
+                    colors.Select((c, i) => new { recolor = i, rgb = new[] { (int)c.Red, (int)c.Green, (int)c.Blue } }),
+                    new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+                Console.WriteLine("[charactermaterialpalette] wrote " + path);
+                return true;
+            }
+
+            if (ValueAfter(args, "charactermaterialacceptancecheck") is string materialRoom)
+            {
+                Render.Characters.CharacterModelPack.ForceMobileTierForCheck=HasFlag(args,"mobiletextures");
+                Render.Characters.CharacterModelRuntime.ResetPackForCheck();
+                Environment.ExitCode = Render.Characters.CharacterAcceptanceCheck.Run(materialRoom,
+                    ValueAfter(args,"output") ?? "samus-material-acceptance", morphSweep: true, materialSweep: true);
+                return true;
+            }
+
+            if (ValueAfter(args, "morphballacceptancecheck") is string morphRoom)
+            {
+                Environment.ExitCode = Render.Characters.CharacterAcceptanceCheck.Run(morphRoom,
+                    ValueAfter(args, "output") ?? "morphball-acceptance", morphSweep: true);
+                return true;
+            }
+            if (ValueAfter(args, "lod1acceptancecheck") is string lodRoom)
+            {
+                Render.Characters.CharacterModelPack.ForceMobileTierForCheck=HasFlag(args,"mobiletextures");
+                Render.Characters.CharacterModelRuntime.ResetPackForCheck();
+                Environment.ExitCode = Render.Characters.CharacterAcceptanceCheck.Run(lodRoom,
+                    ValueAfter(args, "output") ?? "lod1-acceptance", lodSweep: true);
+                return true;
+            }
             if (ValueAfter(args, "characteracceptancecheck") is string acceptanceRoom)
             {
                 Environment.ExitCode = Render.Characters.CharacterAcceptanceCheck.Run(acceptanceRoom,
-                    ValueAfter(args, "output") ?? "character-acceptance");
+                    ValueAfter(args, "output") ?? "character-acceptance",
+                    hunter: ValueAfter(args, "hunter") is string acceptanceHunter
+                        ? Enum.Parse<Hunter>(acceptanceHunter, ignoreCase: true) : Hunter.Samus,
+                    muzzleAudit: ValueAfter(args, "muzzleaudit"), fidelitySweep: HasFlag(args, "characterfidelity"));
                 return true;
             }
 #endif
@@ -1486,6 +1545,7 @@ namespace MphRead.Mods
             }
             if (ValueAfter(args, "charactermodelvalidate") is string characterPack)
             {
+                Render.Characters.CharacterModelPack.ForceMobileTierForCheck=HasFlag(args,"mobiletextures");
                 Environment.ExitCode = Render.Characters.CharacterModelAuthoring.ValidatePack(characterPack);
                 return true;
             }

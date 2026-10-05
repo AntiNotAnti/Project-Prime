@@ -1,0 +1,37 @@
+{
+  "format": 1,
+  "hunter": "Noxus",
+  "sourceRelative": "models/noxus/noxus_a.glb",
+  "sourceSha256": "62cd1f2b01f95f5d031ed5fd53095aeaa64ca39350cf093cf26eb94d6e857685",
+  "bodygroups": [
+    "Noxus.smd"
+  ],
+  "collapsedJoint": "R_elbow",
+  "minimumAverageWeight": 0.5,
+  "mainMaterial": "NoxGunMaterial",
+  "nativeEffectMaterials": [
+    "Lights",
+    "lambert3"
+  ],
+  "sourceAxis": [
+    -0.4834616170712375,
+    0.013487972791917146,
+    -0.8752616405446022
+  ],
+  "sourceMuzzle": [
+    -0.8021096587181091,
+    0.09906107932329178,
+    0.8156290054321289
+  ],
+  "idleAnimation": 3,
+  "partition": "native-surface-centroid Voronoi cuts",
+  "expectedSourceFeaturePass": "all selected Source weapon triangles retained; no automatic remesh or decimation",
+  "fitRadialEnvelope": "contain both native width and height; preserve Source cross-section aspect",
+  "teamRecolorMaterials": [
+    "NoxGunMaterial",
+    "lambert3"
+  ],
+  "internalMaterialSources": {
+    "lambert3": "NoxGunMaterial"
+  }
+}

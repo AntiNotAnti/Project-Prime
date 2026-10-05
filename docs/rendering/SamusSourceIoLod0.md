@@ -37,7 +37,19 @@ restores that panel.
 Rollback to the pre-conversion live pack:
 `python3 samus-hd-kit/sourceio-lod0/install-pack.py --rollback`.
 
-This is the third-person LOD0 milestone. First-person cannon, LOD1, Morph Ball,
-final material remaster and Android device acceptance remain later work. The
-native freeze shell is accepted for now. Desktop texture residency estimate is
+LOD0 v1 is now frozen in a read-only local release snapshot. Its separate
+polish duplicate was inspected in 18 native motion views; no body geometry
+change was warranted. The Source first-person RigidNodes cannon is now
+implemented; see [SamusSourceIoViewModel.md](SamusSourceIoViewModel.md).
+Source LOD1 is now implemented; see [SamusSourceIoLod1.md](SamusSourceIoLod1.md).
+Source Morph Ball is now implemented; see [SamusSourceIoMorphBall.md](SamusSourceIoMorphBall.md).
+Final material remaster and Android device acceptance remain later work.
+The native freeze shell is accepted for now. Desktop texture residency estimate is
 94.7 MiB per scene; mobile atlas/memory optimization is still required.
+
+## Current material milestone
+
+The final material pack preserves this geometry milestone. See
+[SamusSourceIoMaterials.md](SamusSourceIoMaterials.md) and
+`samus-hd-kit/sourceio-materials/MATERIALS-RESULT.md` for compact UV domains,
+all six native suit colors, companion maps, acceptance and current rollback.

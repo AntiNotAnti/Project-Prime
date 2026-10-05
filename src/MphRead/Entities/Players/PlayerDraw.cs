@@ -441,10 +441,11 @@ namespace MphRead.Entities
                     Vector4? color = PaletteOverride == null
                         ? BrightSkins.ForMaterial(overrideColor, material.TextureId != -1,
                             material.CurrentAlpha * alpha, _scene.ShowTextures) : null;
+                    int? authoredAlbedo = segment.GetAlbedo(_scene, Recolor);
                     int? bindingOverride = GetBindingOverride(
-                        inst, material, segment.NativeMaterialIndex) ?? segment.AlbedoBinding;
+                        inst, material, segment.NativeMaterialIndex) ?? authoredAlbedo;
                     bool authoredTexture = segment.AlbedoBinding.HasValue
-                        && bindingOverride == segment.AlbedoBinding;
+                        && bindingOverride == authoredAlbedo;
                     Matrix4 texcoordMatrix = !authoredTexture && bindingOverride.HasValue
                         ? GetTexcoordMatrix(inst, material, segment.NativeMaterialIndex,
                             texgenNode, recolor)
@@ -481,7 +482,9 @@ namespace MphRead.Entities
                             && Mods.RenderOptions.BrightSkinStyle != Mods.PlayerSkinStyle.Solid,
                         PaletteOverride == null ? outlineColor : null,
                         weightedSkinning: true, authoredTexture: authoredTexture,
-                        authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT);
+                        authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT,
+                            authoredDoubleSided: segment.DoubleSided,
+                            authoredTransparent: authoredTexture && segment.Transparent);
                     _scene.CosmeticSubmission = previousCosmetic;
                     _scene.CosmeticMaterialSubmission = previousMaterial;
                 }
@@ -502,8 +505,10 @@ namespace MphRead.Entities
                 Vector4? color = PaletteOverride == null
                     ? BrightSkins.ForMaterial(overrideColor, material.TextureId != -1,
                         material.CurrentAlpha * alpha, _scene.ShowTextures) : null;
-                int? bindingOverride = GetBindingOverride(inst, material, segment.NativeMaterialIndex);
-                Matrix4 texcoordMatrix = bindingOverride.HasValue
+                int? authoredAlbedo = segment.GetAlbedo(_scene, Recolor);
+                int? bindingOverride = GetBindingOverride(inst, material, segment.NativeMaterialIndex) ?? authoredAlbedo;
+                bool authoredTexture = segment.AlbedoBinding.HasValue && bindingOverride == authoredAlbedo;
+                Matrix4 texcoordMatrix = !authoredTexture && bindingOverride.HasValue
                     ? GetTexcoordMatrix(inst, material, segment.NativeMaterialIndex, node, recolor)
                     : Matrix4.Identity;
 
@@ -522,6 +527,10 @@ namespace MphRead.Entities
                             _ => Mods.Cosmetics.SkinContext.Biped
                         });
                 _scene.CosmeticSubmission = CosmeticMaterial(part == CharacterModelPart.ViewModel);
+                if (authoredTexture && _scene.CosmeticMaterialSubmission == default
+                    && Mods.RenderOptions.AdvancedMaterials && segment.MaterialMaps.Any)
+                    _scene.CosmeticMaterialSubmission = new(0, segment.MaterialMaps.Normal,
+                        segment.MaterialMaps.Specular, segment.MaterialMaps.Emissive);
 
                 // GLB UVs are already normalized authoring coordinates. Reuse
                 // the native material's binding/shading identity but not the
@@ -531,7 +540,10 @@ namespace MphRead.Entities
                     PaletteOverride, SelectionType.None, node.BillboardMode, _drawScale, bindingOverride,
                     color.HasValue && Mods.RenderOptions.BrightSkins
                         && Mods.RenderOptions.BrightSkinStyle != Mods.PlayerSkinStyle.Solid,
-                    PaletteOverride == null ? outlineColor : null);
+                    PaletteOverride == null ? outlineColor : null,
+                    authoredTexture: authoredTexture, authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT,
+                            authoredDoubleSided: segment.DoubleSided,
+                            authoredTransparent: authoredTexture && segment.Transparent);
 
                 _scene.CosmeticSubmission = previousCosmetic;
                 _scene.CosmeticMaterialSubmission = previousMaterial;

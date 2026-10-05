@@ -1,3 +1,4 @@
+#if !ANDROID && !MPHREAD_SERVER
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -172,3 +173,5 @@ internal static partial class Shell
             weightedPackets = weighted, samus, hd = RenderOptions.CharacterModelReplacements, match = window.HasScene });
     }
 }
+
+#endif

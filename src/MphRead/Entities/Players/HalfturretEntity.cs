@@ -458,10 +458,11 @@ namespace MphRead.Entities
                     Material material = model.Materials[segment.NativeMaterialIndex];
                     Vector3 emission = GetEmission(inst, material, segment.NativeMaterialIndex);
                     Vector4? color = GetRenderColor(inst, 0, material);
+                    int? authoredAlbedo = segment.GetAlbedo(_scene, Recolor);
                     int? bindingOverride = GetBindingOverride(
-                        inst, material, segment.NativeMaterialIndex) ?? segment.AlbedoBinding;
+                        inst, material, segment.NativeMaterialIndex) ?? authoredAlbedo;
                     bool authoredTexture = segment.AlbedoBinding.HasValue
-                        && bindingOverride == segment.AlbedoBinding;
+                        && bindingOverride == authoredAlbedo;
                     Matrix4 texcoordMatrix = !authoredTexture && bindingOverride.HasValue
                         ? GetTexcoordMatrix(inst, material, segment.NativeMaterialIndex,
                             texgenNode, Recolor)
@@ -481,7 +482,9 @@ namespace MphRead.Entities
                             color, PaletteOverride, SelectionType.None, BillboardMode.None,
                             _drawScale, bindingOverride, UseTexturedPlayerSkin(inst),
                             GetPlayerOutlineColor(inst), weightedSkinning: true, authoredTexture: authoredTexture,
-                            authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT);
+                            authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT,
+                            authoredDoubleSided: segment.DoubleSided,
+                            authoredTransparent: authoredTexture && segment.Transparent);
                     }
                     finally
                     {
@@ -504,9 +507,11 @@ namespace MphRead.Entities
                 Material material = model.Materials[segment.NativeMaterialIndex];
                 Vector3 emission = GetEmission(inst, material, segment.NativeMaterialIndex);
                 Vector4? color = GetRenderColor(inst, 0, material);
+                int? authoredAlbedo = segment.GetAlbedo(_scene, Recolor);
                 int? bindingOverride = GetBindingOverride(inst, material,
-                    segment.NativeMaterialIndex);
-                Matrix4 texcoordMatrix = bindingOverride.HasValue
+                    segment.NativeMaterialIndex) ?? authoredAlbedo;
+                bool authoredTexture = segment.AlbedoBinding.HasValue && bindingOverride == authoredAlbedo;
+                Matrix4 texcoordMatrix = !authoredTexture && bindingOverride.HasValue
                     ? GetTexcoordMatrix(inst, material, segment.NativeMaterialIndex,
                         node, Recolor)
                     : Matrix4.Identity;
@@ -514,6 +519,10 @@ namespace MphRead.Entities
                 var previousMaterial = _scene.CosmeticMaterialSubmission;
                 _scene.CosmeticMaterialSubmission = GetCosmeticMaterialOverride(
                     inst, material, segment.NativeMaterialIndex);
+                if (authoredTexture && _scene.CosmeticMaterialSubmission == default
+                    && Mods.RenderOptions.AdvancedMaterials && segment.MaterialMaps.Any)
+                    _scene.CosmeticMaterialSubmission = new(0, segment.MaterialMaps.Normal,
+                        segment.MaterialMaps.Specular, segment.MaterialMaps.Emissive);
                 try
                 {
                     _scene.AddRenderItem(material, polygonId, Alpha, emission,
@@ -521,7 +530,10 @@ namespace MphRead.Entities
                         segment.ListId, 0, Array.Empty<float>(), color,
                         PaletteOverride, SelectionType.None, node.BillboardMode,
                         _drawScale, bindingOverride, UseTexturedPlayerSkin(inst),
-                        GetPlayerOutlineColor(inst));
+                        GetPlayerOutlineColor(inst), authoredTexture: authoredTexture,
+                        authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT,
+                            authoredDoubleSided: segment.DoubleSided,
+                            authoredTransparent: authoredTexture && segment.Transparent);
                 }
                 finally
                 {

@@ -1,0 +1,50 @@
+{
+  "format": 1,
+  "hunter": "Sylux",
+  "sourceRelative": "models/sylux/sylux_a.glb",
+  "sourceSha256": "0a537d4470039e8a146570bbe9d3f5b294c82d694f7afed9dbf203019005f784",
+  "bodygroups": [
+    "Sylux.smd",
+    "ShockCoil.smd"
+  ],
+  "collapsedJoint": "R_elbow",
+  "minimumAverageWeight": 0.5,
+  "mainMaterial": "Metal1_Material",
+  "nativeEffectMaterials": [
+    "Glow_Material",
+    "Lines_Material",
+    "VLight_Material",
+    "Display_Material",
+    "Text_Material"
+  ],
+  "sourceAxis": [
+    -0.41699127659917434,
+    -0.2548662459676791,
+    -0.8724456842156613
+  ],
+  "sourceMuzzle": [
+    -0.859001874923706,
+    -0.10596613585948944,
+    0.43664926290512085
+  ],
+  "idleAnimation": 3,
+  "partition": "native-surface-centroid Voronoi cuts",
+  "expectedSourceFeaturePass": "all selected Source weapon triangles retained; no automatic remesh or decimation",
+  "fitRadialEnvelope": "contain both native width and height; preserve Source cross-section aspect",
+  "teamRecolorMaterials": [
+    "Metal1_Material"
+  ],
+  "handOnlyBodygroups": [
+    "Sylux.smd"
+  ],
+  "nativeEffectAllowedNodes": [
+    "Mag"
+  ],
+  "nativeEffectNodes": [
+    "Mag"
+  ],
+  "nativeEffectPreservation": "Keep native ammo magazine. Source weapon artwork supplies the exterior lights and panels; omit the detached native Tube glow under the Source hand.",
+  "partitionExcludedNodes": [
+    "Mag"
+  ]
+}

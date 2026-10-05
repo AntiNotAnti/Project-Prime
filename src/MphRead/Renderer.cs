@@ -3058,6 +3058,7 @@ namespace MphRead
 
         public void AfterRenderFrame()
         {
+            FinishCharacterTextureFrame();
             if (_recording)
             {
                 Images.Record(Size.X, Size.Y, $"frame{_framesRecorded:0000}");
@@ -4755,7 +4756,8 @@ namespace MphRead
             SelectionType selectionType, BillboardMode billboardMode, float scaleFactor = 1, int? bindingOverride = null,
             bool texturedPlayerSkin = false, Vector4? playerOutlineColor = null,
             bool weightedSkinning = false, bool authoredTexture = false,
-            RepeatMode authoredWrapS = RepeatMode.Repeat, RepeatMode authoredWrapT = RepeatMode.Repeat)
+            RepeatMode authoredWrapS = RepeatMode.Repeat, RepeatMode authoredWrapT = RepeatMode.Repeat,
+            bool authoredDoubleSided = false, bool authoredTransparent = false)
         {
             transform.Row0.X *= scaleFactor;
             transform.Row0.Y *= scaleFactor;
@@ -4789,8 +4791,8 @@ namespace MphRead
             item.PolygonId = polygonId;
             item.Alpha = material.CurrentAlpha * alphaScale;
             item.PolygonMode = material.PolygonMode;
-            item.RenderMode = material.RenderMode;
-            item.CullingMode = material.Culling;
+            item.RenderMode = authoredTransparent ? RenderMode.Translucent : material.RenderMode;
+            item.CullingMode = authoredDoubleSided ? CullingMode.Neither : material.Culling;
             item.BillboardMode = billboardMode;
             item.Wireframe = material.Wireframe != 0;
             item.Lighting = material.Lighting != 0;
@@ -5252,7 +5254,22 @@ namespace MphRead
                         particle.InvokeDrawFunc(1);
                         if (particle.ShouldDraw)
                         {
-                            particle.AddRenderItem(this);
+                            // First-person linked charge/muzzle effects share the
+                            // cannon's camera-authored projection as well as its
+                            // late-latched transform. World effects keep world FOV.
+                            bool viewModelEffect = particle.Owner.EffectEntry?.DrawTransformOverride.HasValue == true;
+                            if (viewModelEffect)
+                            {
+                                BeginViewModelItems();
+                            }
+                            try
+                            {
+                                particle.AddRenderItem(this);
+                            }
+                            finally
+                            {
+                                if (viewModelEffect) EndViewModelItems();
+                            }
                         }
                     }
                 }

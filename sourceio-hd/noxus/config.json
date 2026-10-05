@@ -1,0 +1,116 @@
+{
+  "format": 1,
+  "hunter": "Noxus",
+  "sourceRelative": "models/noxus/noxus_a.glb",
+  "sourceMeshes": [
+    "MPH/Noxus_A.mdl_Body_Noxus.smd_MESH"
+  ],
+  "bodygroups": [
+    "Noxus.smd"
+  ],
+  "expectedSourceBones": 18,
+  "expectedTriangles": 33204,
+  "rootSource": "ValveBiped.Bip01_Pelvis",
+  "rootNative": "Skeleton_Root",
+  "yawDegrees": 180,
+  "fit": {
+    "Skeleton_Root": {
+      "anchor": "ValveBiped.Bip01_Pelvis",
+      "preserveSourceShape": true
+    },
+    "L_hip": {
+      "anchor": "ValveBiped.Bip01_L_Thigh",
+      "endSource": "ValveBiped.Bip01_L_Calf",
+      "endNative": "L_knee"
+    },
+    "L_knee": {
+      "anchor": "ValveBiped.Bip01_L_Calf",
+      "endSource": "ValveBiped.Bip01_L_Foot",
+      "endNative": "L_ankle"
+    },
+    "L_ankle": {
+      "anchor": "ValveBiped.Bip01_L_Foot",
+      "groundShape": true
+    },
+    "R_hip": {
+      "anchor": "ValveBiped.Bip01_R_Thigh",
+      "endSource": "ValveBiped.Bip01_R_Calf",
+      "endNative": "R_knee"
+    },
+    "R_knee": {
+      "anchor": "ValveBiped.Bip01_R_Calf",
+      "endSource": "ValveBiped.Bip01_R_Foot",
+      "endNative": "R_ankle"
+    },
+    "R_ankle": {
+      "anchor": "ValveBiped.Bip01_R_Foot",
+      "groundShape": true
+    },
+    "Spine_1": {
+      "anchor": "ValveBiped.Bip01_Spine",
+      "endSource": "ValveBiped.Bip01_Spine1",
+      "endNative": "Spine_2",
+      "preserveSourceShape": true
+    },
+    "Spine_2": {
+      "anchor": "ValveBiped.Bip01_Spine1",
+      "endSource": "ValveBiped.Bip01_Head1",
+      "endNative": "Head_1",
+      "preserveSourceShape": true
+    },
+    "L_shoulder": {
+      "anchor": "ValveBiped.Bip01_L_UpperArm",
+      "endSource": "ValveBiped.Bip01_L_Forearm",
+      "endNative": "L_elbow"
+    },
+    "L_elbow": {
+      "anchor": "ValveBiped.Bip01_L_Forearm",
+      "orientFrom": "ValveBiped.Bip01_L_UpperArm",
+      "orientNative": "L_shoulder"
+    },
+    "Head_1": {
+      "anchor": "ValveBiped.Bip01_Head1",
+      "preserveSourceShape": true
+    },
+    "R_shoulder": {
+      "anchor": "ValveBiped.Bip01_R_UpperArm",
+      "endSource": "ValveBiped.Bip01_R_Forearm",
+      "endNative": "R_elbow"
+    },
+    "R_elbow": {
+      "anchor": "ValveBiped.Bip01_R_Forearm",
+      "muzzle": true
+    }
+  },
+  "muzzle": {
+    "object": "Noxus.smd",
+    "sourceBone": "ValveBiped.Bip01_R_Forearm",
+    "nativeBone": "R_elbow",
+    "axis": [
+      -0.4834616170712375,
+      0.013487972791917146,
+      -0.8752616405446022
+    ],
+    "frontBand": 0.015,
+    "nativeLocalPoint": [
+      1.11,
+      0.15,
+      0
+    ],
+    "method": "Noxus.smd distal rigid weapon cap -> native Metadata.MuzzleOffests[Noxus] through R_elbow"
+  },
+  "reuseSingleMaterialTextures": true,
+  "sourceSha256": "62cd1f2b01f95f5d031ed5fd53095aeaa64ca39350cf093cf26eb94d6e857685",
+  "emissiveMaterials": [
+    "Nox_01_EyeDecal_tga"
+  ],
+  "compactPeriodicUVs": true,
+  "powerOfTwoAtlases": false,
+  "teamRecolorMaterials": [
+    "Nox_Hi01:body"
+  ],
+  "globalAnchor": "floor",
+  "preserveSourceNormals": true,
+  "sourceShapeChains": true,
+  "preserveSourceMaterialAlpha": true
+}

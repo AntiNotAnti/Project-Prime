@@ -225,8 +225,12 @@
           CopyToPublishDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(MphReadServer)' != 'true' and $(RuntimeIdentifier.StartsWith('osx')) and Exists('$(MSBuildProjectDirectory)\..\..\artifacts\ktx-native-macos\$(RuntimeIdentifier)\libktx.dylib')">
-    <None Include="$(MSBuildProjectDirectory)\..\..\artifacts\ktx-native-macos\$(RuntimeIdentifier)\libktx.dylib"
+  <PropertyGroup>
+    <MphReadKtxRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</MphReadKtxRid>
+    <MphReadKtxRid Condition="'$(RuntimeIdentifier)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">$(NETCoreSdkRuntimeIdentifier)</MphReadKtxRid>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MphReadServer)' != 'true' and $(MphReadKtxRid.StartsWith('osx')) and Exists('$(MSBuildProjectDirectory)\..\..\artifacts\ktx-native-macos\$(MphReadKtxRid)\libktx.dylib')">
+    <None Include="$(MSBuildProjectDirectory)\..\..\artifacts\ktx-native-macos\$(MphReadKtxRid)\libktx.dylib"
           Link="libktx.dylib" CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>

@@ -1,0 +1,16 @@
+{
+  "ValveBiped.Bip01_Pelvis": "Skeleton_Root",
+  "ValveBiped.Bip01_L_Thigh": "L_hip",
+  "ValveBiped.Bip01_L_Calf": "L_knee",
+  "ValveBiped.Bip01_L_Foot": "L_ankle",
+  "ValveBiped.Bip01_R_Thigh": "R_hip",
+  "ValveBiped.Bip01_R_Calf": "R_knee",
+  "ValveBiped.Bip01_R_Foot": "R_ankle",
+  "ValveBiped.Bip01_Spine1": "Spine_2",
+  "ValveBiped.Bip01_Head1": "Head_1",
+  "ValveBiped.Bip01_L_UpperArm": "L_shoulder",
+  "ValveBiped.Bip01_L_Forearm": "L_elbow",
+  "ValveBiped.Bip01_R_UpperArm": "R_shoulder",
+  "ValveBiped.Bip01_R_Forearm": "R_elbow",
+  "ValveBiped.Bip01_R_Hand": "R_elbow"
+}

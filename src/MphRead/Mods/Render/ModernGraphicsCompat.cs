@@ -1309,6 +1309,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private void UpdateSampler(NativeTexture native, ModernGraphicsResourceState.TextureRecord record)
         {
+            _textureBindingRevision++;
             EndActiveCorePass();
             if (native.Sampler != null) _api.SamplerRelease(native.Sampler);
             bool linearMip = record.MinFilter == (int)TextureMinFilter.NearestMipmapLinear
@@ -2153,6 +2154,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private void ReleaseNativeTexture(NativeTexture texture)
         {
+            _textureBindingRevision++;
             EndActiveCorePass();
             if (texture.Sampler != null) _api.SamplerRelease(texture.Sampler);
             if (texture.SampleView != null && texture.SampleView != texture.View)

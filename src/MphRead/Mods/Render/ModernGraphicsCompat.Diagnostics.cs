@@ -14,8 +14,12 @@ internal sealed unsafe partial class ModernGraphicsCompat
     {
         internal BindGroup* Group;
         internal nint[] Resources = Array.Empty<nint>();
+        internal long TextureRevision;
     }
 
+    // Native handle addresses can be reused after sampler/view release.
+    // A revision prevents a cached bind group from retaining an older resource.
+    private long _textureBindingRevision;
     private int _liveBindGroups;
     private readonly List<FrameBindGroupCacheEntry> _frameBindGroups = new();
     private int _frameBindGroupCursor;
@@ -51,6 +55,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
         FrameBindGroupCacheEntry? cached = slot < _frameBindGroups.Count
             ? _frameBindGroups[slot] : null;
         if (cached != null && cached.Group != null
+            && cached.TextureRevision == _textureBindingRevision
             && cached.Resources.AsSpan().SequenceEqual(resources))
         {
             return cached.Group;
@@ -67,6 +72,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
         }
         cached.Group = group;
         cached.Resources = resources.ToArray();
+        cached.TextureRevision = _textureBindingRevision;
         return group;
     }
 

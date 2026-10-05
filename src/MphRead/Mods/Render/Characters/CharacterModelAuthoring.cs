@@ -61,6 +61,24 @@ namespace MphRead.Mods.Render.Characters
                 Collada.ExportModel(halfturret, exportRoot: referenceRoot);
 
             WriteInventory(Path.Combine(root, "native-reference.json"), hunter, references);
+            // Export the actual engine pose as well as the Blender animation
+            // reference. Native nodes can ignore parents or remain unanimated;
+            // reconstructing their pose as a generic armature loses that behavior.
+            var idleGun = new ModelInstance(viewModel);
+            int idleId = Metadata.GunAnimationIds[(int)hunter, (int)Entities.GunAnimation.Idle, 0];
+            idleGun.SetAnimation(idleId, AnimFlags.NoLoop);
+            viewModel.ComputeNodeMatrices(0);
+            viewModel.AnimateNodes(0, true, Matrix4.Identity, viewModel.Scale, idleGun.AnimInfo);
+            File.WriteAllText(Path.Combine(root, "viewmodel-native-idle.json"), JsonSerializer.Serialize(new {
+                hunter = hunter.ToString(), nativeAnimationId = idleId,
+                gameplayEmitter = new[] {0f, 0f, Fixed.ToFloat(Metadata.PlayerValues[(int)hunter].MuzzleOffset)},
+                nodes = viewModel.Nodes.Select(n => {
+                    var m = n.Animation;
+                    return new { n.Name, matrix = new[] {
+                        new[] {m.M11,m.M21,m.M31,m.M41}, new[] {m.M12,m.M22,m.M32,m.M42},
+                        new[] {m.M13,m.M23,m.M33,m.M43}, new[] {m.M14,m.M24,m.M34,m.M44} } };
+                })
+            }, Json));
 
             string hunterFolder = hunter.ToString().ToLowerInvariant();
             var manifest = new CharacterModelPackManifest
@@ -308,6 +326,9 @@ namespace MphRead.Mods.Render.Characters
                     throw new InvalidDataException(
                         $"Weighted HD material '{primitive.MaterialName ?? "(unnamed)"}' "
                         + $"does not exist in native model {native.Name}.");
+                var material = native.Materials.First(m => m.Name.Equals(primitive.MaterialName, StringComparison.OrdinalIgnoreCase));
+                if (!CharacterModelRuntime.CanUseAuthoredTexcoords(material.TexgenMode, primitive.Albedo != null))
+                    throw new InvalidDataException($"Weighted HD material '{material.Name}' requires generated coordinates without an authored albedo.");
             }
         }
 

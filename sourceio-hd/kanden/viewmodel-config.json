@@ -1,0 +1,41 @@
+{
+  "format": 1,
+  "hunter": "Kanden",
+  "sourceRelative": "models/kanden/kanden_a.glb",
+  "sourceSha256": "493888519d4736b8a3731cfb0e19a051ecf1cd20440b6f4830ee8bea164753cf",
+  "bodygroups": [
+    "Kanden.smd",
+    "Volt Driver.smd"
+  ],
+  "collapsedJoint": "R_elbow",
+  "minimumAverageWeight": 0.5,
+  "mainMaterial": "ShellOut",
+  "nativeEffectMaterials": [
+    "ShellIn",
+    "lambert1"
+  ],
+  "sourceAxis": [
+    -0.31971568018848334,
+    -0.36890226616816113,
+    -0.8727502517087066
+  ],
+  "sourceMuzzle": [
+    -0.6541043519973755,
+    -0.12689147889614105,
+    0.6527777910232544
+  ],
+  "idleAnimation": 3,
+  "partition": "native-surface-centroid Voronoi cuts",
+  "expectedSourceFeaturePass": "all selected Source weapon triangles retained; no automatic remesh or decimation",
+  "fitRadialEnvelope": "contain both native width and height; preserve Source cross-section aspect",
+  "teamRecolorMaterials": [
+    "ShellOut",
+    "ShellIn"
+  ],
+  "handOnlyBodygroups": [
+    "Kanden.smd"
+  ],
+  "internalMaterialSources": {
+    "ShellIn": "ShellOut"
+  }
+}

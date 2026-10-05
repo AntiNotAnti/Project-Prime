@@ -8,14 +8,16 @@ using System.Text.Json;
 
 namespace MphRead.Mods.Render.Characters
 {
-    internal readonly record struct CharacterRigidVertex(Vector3 Position, Vector3 Normal, Vector2 Texcoord);
+    internal readonly record struct CharacterRigidVertex(Vector3 Position, Vector3 Normal, Vector2 Texcoord, Vector3 Color);
 
     internal sealed record CharacterRigidPrimitive(
         string SourceNode,
         string TargetNode,
         string? MaterialName,
         CharacterRigidVertex[] Vertices,
-        uint[] Indices);
+        uint[] Indices,
+        CharacterEmbeddedAlbedo? Albedo = null,
+        CharacterEmbeddedMaterialMaps? MaterialMaps = null, bool DoubleSided = false);
 
     internal sealed record CharacterRigidModelData(IReadOnlyList<CharacterRigidPrimitive> Primitives)
     {
@@ -65,6 +67,8 @@ namespace MphRead.Mods.Render.Characters
                 }
 
                 var primitives = new List<CharacterRigidPrimitive>();
+                var albedos = new Dictionary<int, CharacterEmbeddedAlbedo?>();
+                var materialMaps = new Dictionary<int, CharacterEmbeddedMaterialMaps?>();
                 int totalVertices = 0;
                 int totalIndices = 0;
                 foreach ((string sourceNode, string targetNode) in asset.BoneMap)
@@ -101,6 +105,11 @@ namespace MphRead.Mods.Render.Characters
                         Vector2[] texcoords = attributes.TryGetProperty("TEXCOORD_0", out JsonElement uvProperty)
                             ? ReadVec2(accessors, views, binary, uvProperty.GetInt32(), "TEXCOORD_0")
                             : Array.Empty<Vector2>();
+                        Vector3[] colors = attributes.TryGetProperty("COLOR_0", out JsonElement colorProperty)
+                            ? ReadVec3(accessors, views, binary, colorProperty.GetInt32(), "COLOR_0")
+                            : Array.Empty<Vector3>();
+                        if (colors.Length != 0 && colors.Length != positions.Length)
+                            throw new InvalidDataException($"Character node '{sourceNode}' COLOR_0 count differs from POSITION.");
                         if (normals.Length != 0 && normals.Length != positions.Length)
                             throw new InvalidDataException($"Character node '{sourceNode}' NORMAL count differs from POSITION.");
                         if (texcoords.Length != 0 && texcoords.Length != positions.Length)
@@ -132,16 +141,29 @@ namespace MphRead.Mods.Render.Characters
                             }
                         }
 
+                        int materialIndex = -1;
                         string? materialName = null;
+                        CharacterEmbeddedAlbedo? albedo = null;
+                        CharacterEmbeddedMaterialMaps? maps = null;
                         if (primitive.TryGetProperty("material", out JsonElement materialProperty))
                         {
-                            int materialIndex = materialProperty.GetInt32();
+                            materialIndex = materialProperty.GetInt32();
                             if ((uint)materialIndex >= materials.Length)
                                 throw new InvalidDataException($"Character node '{sourceNode}' references an invalid material.");
                             if (materials[materialIndex].TryGetProperty("name", out JsonElement materialNameProperty))
                                 materialName = materialNameProperty.GetString();
                             if (String.IsNullOrWhiteSpace(materialName))
                                 throw new InvalidDataException($"Character node '{sourceNode}' material {materialIndex} must be named to map to a native material.");
+                            if (!albedos.TryGetValue(materialIndex, out albedo))
+                            {
+                                albedo = CharacterEmbeddedMaterialLoader.ReadAlbedo(root, materials, views, binary, materialIndex);
+                                albedos.Add(materialIndex, albedo);
+                            }
+                            if (!materialMaps.TryGetValue(materialIndex, out maps))
+                            {
+                                maps = CharacterEmbeddedMaterialLoader.ReadMaterialMaps(root, materials, views, binary, materialIndex, albedo);
+                                materialMaps.Add(materialIndex, maps);
+                            }
                         }
 
                         var vertices = new CharacterRigidVertex[positions.Length];
@@ -150,9 +172,14 @@ namespace MphRead.Mods.Render.Characters
                             Vector2 uv = texcoords.Length == 0 ? Vector2.Zero : texcoords[i];
                             if (!Finite(positions[i]) || !Finite(uv))
                                 throw new InvalidDataException($"Character node '{sourceNode}' contains non-finite vertex data.");
-                            vertices[i] = new(positions[i], normals[i], uv);
+                            Vector3 color = colors.Length == 0 ? Vector3.One : colors[i];
+                            if (!Finite(color) || color.X < 0 || color.Y < 0 || color.Z < 0
+                                || color.X > 1 || color.Y > 1 || color.Z > 1)
+                                throw new InvalidDataException($"Character node '{sourceNode}' has invalid COLOR_0 values.");
+                            vertices[i] = new(positions[i], normals[i], uv, color);
                         }
-                        primitives.Add(new(sourceNode, targetNode, materialName, vertices, indices));
+                        primitives.Add(new(sourceNode, targetNode, materialName, vertices, indices, albedo, maps,
+                            CharacterEmbeddedMaterialLoader.ReadDoubleSided(materials, materialIndex)));
                     }
                 }
 

@@ -68,7 +68,9 @@ namespace MphRead.Mods.Render
                     {
                         GpuTextureCompressionFormat preferred = needsFit
                             ? GpuTextureCompressionFormat.None
-                            : ModernGraphicsCompat.PreferredTextureCompression;
+                            : assetClass is TextureAssetClass.Hunter or TextureAssetClass.Weapon
+                                ? ModernGraphicsCompat.PreferredCharacterTextureCompression
+                                : ModernGraphicsCompat.PreferredTextureCompression;
                         if (preferred != GpuTextureCompressionFormat.None)
                         {
                             Transcode(texture, preferred);
@@ -108,7 +110,8 @@ namespace MphRead.Mods.Render
         }
 
         internal static ModernTextureAsset DecodeRgba(Stream source, string key,
-            TextureAssetClass assetClass, TextureAssetChannel channel, int maximumDimension)
+            TextureAssetClass assetClass, TextureAssetChannel channel, int maximumDimension,
+            int mipLevel = 0)
         {
             byte[] encoded = ReadEncoded(source);
             fixed (byte* bytes = encoded)
@@ -128,9 +131,12 @@ namespace MphRead.Mods.Render
                         throw new InvalidDataException(
                             "Fixed compressed KTX2 cannot be converted to RGBA by the Basis transcoder.");
                     }
+                    if (mipLevel < 0 || mipLevel >= texture->NumLevels)
+                        throw new InvalidDataException("KTX2 diagnostic mip level is invalid.");
                     return CopyRgba(texture, key, assetClass, channel,
-                        checked((int)texture->BaseWidth), checked((int)texture->BaseHeight),
-                        maximumDimension);
+                        Math.Max(1, checked((int)texture->BaseWidth) >> mipLevel),
+                        Math.Max(1, checked((int)texture->BaseHeight) >> mipLevel),
+                        maximumDimension, mipLevel);
                 }
                 finally
                 {
@@ -223,13 +229,13 @@ namespace MphRead.Mods.Render
 
         private static ModernTextureAsset CopyRgba(Ktx2.Texture* texture, string key,
             TextureAssetClass assetClass, TextureAssetChannel channel,
-            int width, int height, int maximumDimension)
+            int width, int height, int maximumDimension, int mipLevel = 0)
         {
-            Ktx2.ErrorCode error = Ktx2.GetImageOffset(texture, 0, 0, 0, out nuint offset);
+            Ktx2.ErrorCode error = Ktx2.GetImageOffset(texture, (uint)mipLevel, 0, 0, out nuint offset);
             if (error != Ktx2.ErrorCode.Success)
                 throw new InvalidDataException($"KTX2 base image offset is invalid: {error}.");
             int expected = checked(width * height * 4);
-            nuint nativeSize = Ktx2.GetImageSize(texture, 0);
+            nuint nativeSize = Ktx2.GetImageSize(texture, (uint)mipLevel);
             if (nativeSize < (nuint)expected || offset > texture->DataSize
                 || (nuint)expected > texture->DataSize - offset)
                 throw new InvalidDataException("KTX2 RGBA base image is truncated.");

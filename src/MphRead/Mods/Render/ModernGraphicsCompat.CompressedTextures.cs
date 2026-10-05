@@ -10,12 +10,34 @@ namespace MphRead.Mods.Render
 {
     internal sealed unsafe partial class ModernGraphicsCompat
     {
+        internal static GpuTextureCompressionFormat? TextureCompressionForCheck { get; set; }
+        internal static GpuTextureCompressionFormat PreferredCharacterTextureCompression
+        {
+            get
+            {
+                GpuTextureCompressionFormat preferred = PreferredTextureCompression;
+                // Samus's high-contrast armor failed the ETC2 image-quality budget.
+                // Keep the bounded RGBA fallback until a better ETC2 tier is authored.
+                // Explicit diagnostics can still inspect the rejected format.
+                return ResolveCharacterTextureCompression(preferred, TextureCompressionForCheck != null);
+            }
+        }
+        internal static GpuTextureCompressionFormat ResolveCharacterTextureCompression(
+            GpuTextureCompressionFormat preferred, bool explicitDiagnostic = false)
+            => !explicitDiagnostic && preferred == GpuTextureCompressionFormat.Etc2Rgba8
+                ? GpuTextureCompressionFormat.None : preferred;
         internal static GpuTextureCompressionFormat PreferredTextureCompression
         {
             get
             {
                 ModernGraphicsCompat? current = _current;
                 if (current == null) return GpuTextureCompressionFormat.None;
+                if (TextureCompressionForCheck is GpuTextureCompressionFormat forced)
+                {
+                    if (forced != GpuTextureCompressionFormat.None && !TextureCompressionSupported(forced))
+                        throw new InvalidOperationException("Requested diagnostic texture compression is unsupported.");
+                    return forced;
+                }
 #if ANDROID
                 if (current._device.SupportsTextureCompressionAstc)
                     return GpuTextureCompressionFormat.Astc4x4Rgba;
@@ -24,6 +46,11 @@ namespace MphRead.Mods.Render
                 if (current._device.SupportsTextureCompressionBc)
                     return GpuTextureCompressionFormat.Bc7Rgba;
 #else
+                // The full character shader showed BC7 corruption on Metal even
+                // when isolated texel probes passed. Use the verified ASTC path
+                // on adapters exposing it; keep BC7 for other desktop backends.
+                if (current._device.Backend == GraphicsBackend.Metal && current._device.SupportsTextureCompressionAstc)
+                    return GpuTextureCompressionFormat.Astc4x4Rgba;
                 if (current._device.SupportsTextureCompressionBc)
                     return GpuTextureCompressionFormat.Bc7Rgba;
                 if (current._device.SupportsTextureCompressionAstc)

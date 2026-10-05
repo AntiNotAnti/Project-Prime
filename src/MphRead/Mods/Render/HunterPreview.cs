@@ -311,10 +311,11 @@ namespace MphRead.Mods.Render
                     Material material = model.Materials[segment.NativeMaterialIndex];
                     Vector3 emission = GetEmission(_model, material, segment.NativeMaterialIndex);
                     Vector4? color = GetRenderColor(_model, 0, material);
+                    int? authoredAlbedo = segment.GetAlbedo(_scene, _recolor);
                     int? bindingOverride = GetBindingOverride(
-                        _model, material, segment.NativeMaterialIndex) ?? segment.AlbedoBinding;
+                        _model, material, segment.NativeMaterialIndex) ?? authoredAlbedo;
                     bool authoredTexture = segment.AlbedoBinding.HasValue
-                        && bindingOverride == segment.AlbedoBinding;
+                        && bindingOverride == authoredAlbedo;
                     var previousMaterial = _scene.CosmeticMaterialSubmission;
                     _scene.CosmeticMaterialSubmission = GetCosmeticMaterialOverride(
                         _model, material, segment.NativeMaterialIndex);
@@ -331,7 +332,9 @@ namespace MphRead.Mods.Render
                             BillboardMode.None, _drawScale, bindingOverride,
                             UseTexturedPlayerSkin(_model), GetPlayerOutlineColor(_model),
                             weightedSkinning: true, authoredTexture: authoredTexture,
-                            authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT);
+                            authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT,
+                            authoredDoubleSided: segment.DoubleSided,
+                            authoredTransparent: authoredTexture && segment.Transparent);
                     }
                     finally
                     {
@@ -353,12 +356,18 @@ namespace MphRead.Mods.Render
                 Material material = model.Materials[segment.NativeMaterialIndex];
                 Vector3 emission = GetEmission(_model, material, segment.NativeMaterialIndex);
                 Vector4? color = GetRenderColor(_model, 0, material);
+                int? authoredAlbedo = segment.GetAlbedo(_scene, _recolor);
                 int? bindingOverride = GetBindingOverride(_model, material,
-                    segment.NativeMaterialIndex);
+                    segment.NativeMaterialIndex) ?? authoredAlbedo;
+                bool authoredTexture = segment.AlbedoBinding.HasValue && bindingOverride == authoredAlbedo;
 
                 var previousMaterial = _scene.CosmeticMaterialSubmission;
                 _scene.CosmeticMaterialSubmission = GetCosmeticMaterialOverride(
                     _model, material, segment.NativeMaterialIndex);
+                if (authoredTexture && _scene.CosmeticMaterialSubmission == default
+                    && RenderOptions.AdvancedMaterials && segment.MaterialMaps.Any)
+                    _scene.CosmeticMaterialSubmission = new(0, segment.MaterialMaps.Normal,
+                        segment.MaterialMaps.Specular, segment.MaterialMaps.Emissive);
                 try
                 {
                     _scene.AddRenderItem(material, polygonId, Alpha, emission, _light,
@@ -366,7 +375,10 @@ namespace MphRead.Mods.Render
                         0, Array.Empty<float>(), color, PaletteOverride,
                         SelectionType.None, node.BillboardMode, _drawScale,
                         bindingOverride, UseTexturedPlayerSkin(_model),
-                        GetPlayerOutlineColor(_model));
+                        GetPlayerOutlineColor(_model), authoredTexture: authoredTexture,
+                        authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT,
+                            authoredDoubleSided: segment.DoubleSided,
+                            authoredTransparent: authoredTexture && segment.Transparent);
                 }
                 finally
                 {

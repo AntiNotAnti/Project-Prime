@@ -389,6 +389,7 @@ namespace MphRead.Mods.Render
             GeneratedBindGroupCacheEntry cached =
                 _retainedPbrBindGroups[slot];
             if (cached.Group != null
+                && cached.TextureRevision == _textureBindingRevision
                 && cached.Resources.AsSpan().SequenceEqual(resources))
             {
                 _retainedPbrBindGroupHits++;
@@ -404,6 +405,7 @@ namespace MphRead.Mods.Render
                 EntryCount = count
             });
             cached.Resources = resources.ToArray();
+            cached.TextureRevision = _textureBindingRevision;
             _retainedPbrBindGroupMisses++;
             return cached.Group;
         }

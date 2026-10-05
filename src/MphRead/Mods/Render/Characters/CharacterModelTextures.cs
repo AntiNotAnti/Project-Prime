@@ -1,5 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using MphRead.Mods.Render;
 using MphRead.Mods.Render.Characters;
 
@@ -8,23 +12,38 @@ namespace MphRead
     public partial class Scene
     {
         private TextureAssetManager? _characterTextureAssets;
+        private readonly Dictionary<string, int> _characterImageBindings = new();
+        private readonly ConditionalWeakTable<byte[],Dictionary<(TextureAssetClass,TextureAssetChannel),string>> _characterImageKeys = new();
+        private readonly Dictionary<int,long> _characterVariantLastUsed = new();
+        private readonly HashSet<int> _characterPinnedBindings = new();
+        private long _characterTexturePicture;
+        internal long CharacterVariantEvictions { get; private set; }
+        internal int CharacterVariantResidentCount => _characterVariantLastUsed.Count;
         private TextureAssetManager CharacterTextureAssets => _characterTextureAssets
             ??= new TextureAssetManager(AllocateTexture, ReleaseTexture);
 
         internal int GetCharacterModelTexture(string key, byte[] image, TextureAssetClass assetClass,
-            bool opaque)
+            bool opaque, bool variant = false)
         {
             // Share the scene's bounded texture residency and cleanup. The GLB
             // loader has already resolved the image from its embedded buffer.
+            // Different LOD GLBs can embed the same atlas. Identity includes all
+            // upload semantics; draw-time UV/wrap state stays on each segment.
+            key = ImageKey(image, assetClass, TextureAssetChannel.Albedo) + "|opaque=" + opaque;
+            if (_characterImageBindings.TryGetValue(key, out int cached))
+            {
+                if (!variant) _characterPinnedBindings.Add(cached);
+                return cached;
+            }
             int binding;
-            if (opaque)
+            if (opaque && !PreparedTextureCodec.IsKtx2Payload(image))
             {
                 // Source materials often store a gloss mask in albedo alpha.
                 // glTF OPAQUE explicitly ignores that channel. Clear it before
                 // resizing so transparent texels cannot darken the RGB filter.
                 using var stream = new MemoryStream(image, writable: false);
                 ModernTextureAsset decoded = ModernTextureAsset.Decode(stream, key,
-                    assetClass, TextureAssetChannel.Albedo);
+                    assetClass, TextureAssetChannel.Albedo, TextureAssetManager.DimensionLimit(assetClass,TextureAssetChannel.Albedo));
                 for (int i = 3; i < decoded.Pixels.Length; i += 4) decoded.Pixels[i] = 255;
                 binding = CharacterTextureAssets.UploadRgba("character-model/" + key,
                     assetClass, TextureAssetChannel.Albedo, decoded.Width, decoded.Height,
@@ -35,13 +54,44 @@ namespace MphRead
                     () => new MemoryStream(image, writable: false), assetClass,
                     TextureAssetChannel.Albedo, repeat: false, out _, out _);
             RegisterModernTexture(binding, assetClass, TextureAssetChannel.Albedo);
+            if (binding != 0)
+            {
+                _characterImageBindings.Add(key, binding);
+                if (!variant) _characterPinnedBindings.Add(binding);
+            }
             return binding;
+        }
+
+        internal int GetCharacterModelVariantTexture(byte[] image, TextureAssetClass assetClass, bool opaque)
+        {
+            int binding=GetCharacterModelTexture("character-recolor",image,assetClass,opaque,variant:true);
+            if (binding != 0 && !_characterPinnedBindings.Contains(binding))
+                _characterVariantLastUsed[binding]=_characterTexturePicture;
+            return binding;
+        }
+
+        private void FinishCharacterTextureFrame()
+        {
+            _characterTexturePicture++;
+            // At the end of rendering only: never evict a texture referenced by this picture.
+            foreach (int binding in _characterVariantLastUsed.Where(p=>_characterTexturePicture-p.Value>=120).Select(p=>p.Key).ToArray())
+            {
+                _characterVariantLastUsed.Remove(binding);
+                if (_characterPinnedBindings.Contains(binding)) continue;
+                if (_characterTextureAssets?.ReleaseBinding(binding) != true) continue;
+                foreach (string key in _characterImageBindings.Where(p=>p.Value==binding).Select(p=>p.Key).ToArray())
+                    _characterImageBindings.Remove(key);
+                CharacterVariantEvictions++;
+            }
         }
 
         internal void ClearCharacterModelTextures()
         {
             _characterTextureAssets?.Dispose();
             _characterTextureAssets = null;
+            _characterImageBindings.Clear();
+            _characterImageKeys.Clear(); _characterVariantLastUsed.Clear(); _characterPinnedBindings.Clear();
+            _characterTexturePicture=0;
         }
 
         internal MaterialMapBindings GetCharacterModelMaterialMaps(string key,
@@ -58,6 +108,25 @@ namespace MphRead
             int UploadMap(CharacterEmbeddedAlbedo? image, TextureAssetChannel channel)
             {
                 if (image == null) return 0;
+                string mapKey = ImageKey(image.Image, assetClass, channel) + "|runtime=" + maps.RuntimeEncoded + (channel switch
+                {
+                    TextureAssetChannel.Normal => "|scale=" + Bits(maps.NormalScale),
+                    TextureAssetChannel.Material => "|factors=" + Bits(maps.MetallicFactor) + "," + Bits(maps.RoughnessFactor),
+                    TextureAssetChannel.Emissive => "|factors=" + Bits(maps.EmissiveFactor.X) + "," + Bits(maps.EmissiveFactor.Y) + "," + Bits(maps.EmissiveFactor.Z),
+                    _ => ""
+                });
+                if (_characterImageBindings.TryGetValue(mapKey, out int cached)) return cached;
+                if (maps.RuntimeEncoded)
+                {
+                    int prepared = CharacterTextureAssets.Upload("character-model/"+mapKey,
+                        ()=>new MemoryStream(image.Image,writable:false),assetClass,channel,repeat:false,out _,out _);
+                    if (prepared != 0)
+                    {
+                        RegisterModernTexture(prepared,assetClass,channel);
+                        _characterImageBindings.Add(mapKey,prepared);
+                    }
+                    return prepared;
+                }
                 using var stream = new MemoryStream(image.Image, writable: false);
                 // Fit before conversion to bound the temporary RGBA allocation.
                 ModernTextureAsset decoded = ModernTextureAsset.Decode(stream, key,
@@ -88,14 +157,29 @@ namespace MphRead
                     }
                     pixels[i+3] = 255;
                 }
-                int binding = CharacterTextureAssets.UploadRgba("character-model/"+key+"/"+channel,
+                int binding = CharacterTextureAssets.UploadRgba("character-model/"+mapKey,
                     assetClass, channel, decoded.Width, decoded.Height, pixels, repeat:false, out _, out _);
                 // Optional companion residency can fail under a mobile budget.
                 // Albedo/geometry must remain usable in that case.
-                if (binding != 0) RegisterModernTexture(binding, assetClass, channel);
+                if (binding != 0)
+                {
+                    RegisterModernTexture(binding, assetClass, channel);
+                    _characterImageBindings.Add(mapKey, binding);
+                }
                 return binding;
             }
         }
+
+        private string ImageKey(byte[] image, TextureAssetClass assetClass, TextureAssetChannel channel)
+        {
+            var keys=_characterImageKeys.GetValue(image,_=>new());
+            var identity=(assetClass,channel);
+            if (keys.TryGetValue(identity,out string? key)) return key;
+            key="embedded/"+Convert.ToHexString(SHA256.HashData(image))+"|"+assetClass+"|"+channel
+                +"|quality="+Mods.RenderOptions.TextureQuality+"|sample="+TextureSamplingPolicy.RuntimeKey;
+            keys.Add(identity,key);return key;
+        }
+        private static int Bits(float value) => BitConverter.SingleToInt32Bits(value);
 
         private static byte Quantize(float value) => (byte)Math.Clamp((int)MathF.Round(value*255),0,255);
         private static byte ScaleSrgb(byte value, float factor)

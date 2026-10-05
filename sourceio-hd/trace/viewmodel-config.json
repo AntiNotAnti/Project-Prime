@@ -1,0 +1,41 @@
+{
+  "format": 1,
+  "hunter": "Trace",
+  "sourceRelative": "models/trace/trace_a.glb",
+  "sourceSha256": "91ae65858b2b3f3159e41902fbd48d3a812f0337be9a0a25c94041981373edb3",
+  "bodygroups": [
+    "Trace_Body.smd"
+  ],
+  "collapsedJoint": "R_elbow",
+  "minimumAverageWeight": 0.5,
+  "mainMaterial": "Casing_Material",
+  "nativeEffectMaterials": [
+    "Glow_Material",
+    "FullBright_Material"
+  ],
+  "sourceAxis": [
+    -0.20489334645544519,
+    -0.31216071530339695,
+    -0.9276714959507815
+  ],
+  "sourceMuzzle": [
+    -0.8930976336652582,
+    -0.2622600475495512,
+    0.5432962450114164
+  ],
+  "idleAnimation": 3,
+  "partition": "native-surface-centroid Voronoi cuts",
+  "expectedSourceFeaturePass": "all selected Source weapon triangles retained; no automatic remesh or decimation",
+  "fitRadialEnvelope": "contain both native width and height; preserve Source cross-section aspect",
+  "teamRecolorMaterials": [
+    "Casing_Material"
+  ],
+  "sourceRollDegrees": 270,
+  "nativeEffectExcludedNodes": [
+    "Body"
+  ],
+  "firstPersonOrientation": "Source forearm principal axis with 270-degree baked wrist roll; broad blade silhouette extends from the lower-right and the physical tip meets native emitter.",
+  "nativeEffectAllowedNodes": [],
+  "nativeEffectPreservation": "Use Source forearm surfaces; charge and beam particles remain engine driven. Omit overlapping native decorative glow shells.",
+  "sourceAxisDefinition": "Principal axis of all selected Source forearm corner positions, oriented toward the original Source muzzle; emitter fitted to the mean of the frontmost 0.005-unit tip band."
+}

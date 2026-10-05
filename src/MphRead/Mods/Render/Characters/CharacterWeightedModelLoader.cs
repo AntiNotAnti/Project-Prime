@@ -20,19 +20,21 @@ namespace MphRead.Mods.Render.Characters
         int PackedJoints);
 
     internal sealed record CharacterEmbeddedAlbedo(byte[] Image, bool Opaque,
-        RepeatMode WrapS = RepeatMode.Repeat, RepeatMode WrapT = RepeatMode.Repeat);
+        RepeatMode WrapS = RepeatMode.Repeat, RepeatMode WrapT = RepeatMode.Repeat,
+        IReadOnlyDictionary<int, CharacterEmbeddedAlbedo>? Recolors = null);
 
     internal sealed record CharacterEmbeddedMaterialMaps(
         CharacterEmbeddedAlbedo? Normal, CharacterEmbeddedAlbedo? MetallicRoughness,
         CharacterEmbeddedAlbedo? Emissive, float NormalScale,
-        float MetallicFactor, float RoughnessFactor, NVector3 EmissiveFactor);
+        float MetallicFactor, float RoughnessFactor, NVector3 EmissiveFactor,
+        bool RuntimeEncoded = false);
 
     internal sealed record CharacterWeightedPrimitive(
         string? MaterialName,
         CharacterWeightedVertex[] Vertices,
         uint[] Indices,
         CharacterEmbeddedAlbedo? Albedo = null,
-        CharacterEmbeddedMaterialMaps? MaterialMaps = null);
+        CharacterEmbeddedMaterialMaps? MaterialMaps = null, bool DoubleSided = false);
 
     internal sealed record CharacterWeightedJoint(
         string SourceNode,
@@ -225,15 +227,16 @@ namespace MphRead.Mods.Render.Characters
                         int materialIndex = Int(primitive, "material", -1);
                         if (!albedos.TryGetValue(materialIndex, out CharacterEmbeddedAlbedo? albedo))
                         {
-                            albedo = ReadAlbedo(root, materials, views, binary, materialIndex);
+                            albedo = CharacterEmbeddedMaterialLoader.ReadAlbedo(root, materials, views, binary, materialIndex);
                             albedos.Add(materialIndex, albedo);
                         }
                         if (!materialMaps.TryGetValue(materialIndex, out CharacterEmbeddedMaterialMaps? maps))
                         {
-                            maps = ReadMaterialMaps(root, materials, views, binary, materialIndex, albedo);
+                            maps = CharacterEmbeddedMaterialLoader.ReadMaterialMaps(root, materials, views, binary, materialIndex, albedo);
                             materialMaps.Add(materialIndex, maps);
                         }
-                        primitives.Add(new(materialName, vertices, indices, albedo, maps));
+                        primitives.Add(new(materialName, vertices, indices, albedo, maps,
+                            CharacterEmbeddedMaterialLoader.ReadDoubleSided(materials, materialIndex)));
                     }
                 }
 
@@ -255,112 +258,6 @@ namespace MphRead.Mods.Render.Characters
 
         // Character assets stay self-contained: never open a texture URI from
         // a GLB. Native materials without an embedded albedo keep their bindings.
-        private static CharacterEmbeddedAlbedo? ReadAlbedo(JsonElement root, JsonElement[] materials,
-            JsonElement[] views, byte[] binary, int materialIndex)
-        {
-            if (materialIndex < 0) return null;
-            if ((uint)materialIndex >= materials.Length)
-                throw new InvalidDataException("Weighted material index is invalid.");
-            JsonElement material = materials[materialIndex];
-            if (!material.TryGetProperty("pbrMetallicRoughness", out JsonElement pbr)
-                || !pbr.TryGetProperty("baseColorTexture", out JsonElement texture)) return null;
-            bool opaque = !material.TryGetProperty("alphaMode", out JsonElement alphaMode)
-                || alphaMode.GetString() == "OPAQUE";
-            return ReadEmbeddedTexture(root, views, binary, texture, opaque);
-        }
-
-        private static CharacterEmbeddedMaterialMaps? ReadMaterialMaps(JsonElement root,
-            JsonElement[] materials, JsonElement[] views, byte[] binary, int index, CharacterEmbeddedAlbedo? albedo)
-        {
-            if (index < 0) return null;
-            JsonElement material = materials[index];
-            CharacterEmbeddedAlbedo? normal = material.TryGetProperty("normalTexture", out var nt)
-                ? ReadEmbeddedTexture(root, views, binary, nt, true) : null;
-            CharacterEmbeddedAlbedo? emissive = material.TryGetProperty("emissiveTexture", out var et)
-                ? ReadEmbeddedTexture(root, views, binary, et, true) : null;
-            material.TryGetProperty("pbrMetallicRoughness", out var pbr);
-            CharacterEmbeddedAlbedo? mr = pbr.ValueKind == JsonValueKind.Object
-                && pbr.TryGetProperty("metallicRoughnessTexture", out var mt)
-                ? ReadEmbeddedTexture(root, views, binary, mt, true) : null;
-            if (normal == null && emissive == null && mr == null) return null;
-            // The retained material path has one UV set and sampler per draw.
-            // Reject a mismatch instead of silently sampling a map incorrectly.
-            if (albedo == null) throw new InvalidDataException("Weighted material maps require an embedded albedo.");
-            foreach (var map in new[] {normal, mr, emissive})
-                if (map != null && (map.WrapS != albedo.WrapS || map.WrapT != albedo.WrapT))
-                    throw new InvalidDataException("Weighted material maps must share the albedo sampler wrapping.");
-            float normalScale = Factor(nt, "scale", 1, 100);
-            float metallic = Factor(pbr, "metallicFactor", 1, 1);
-            float roughness = Factor(pbr, "roughnessFactor", 1, 1);
-            NVector3 ef = NVector3.Zero;
-            if (material.TryGetProperty("emissiveFactor", out var e))
-            {
-                if (e.ValueKind != JsonValueKind.Array || e.GetArrayLength() != 3)
-                    throw new InvalidDataException("Weighted emissiveFactor must contain three values.");
-                ef = new(e[0].GetSingle(), e[1].GetSingle(), e[2].GetSingle());
-                if (!Finite(ef) || ef.X < 0 || ef.Y < 0 || ef.Z < 0 || ef.X > 1 || ef.Y > 1 || ef.Z > 1)
-                    throw new InvalidDataException("Weighted emissiveFactor is outside [0,1].");
-            }
-            return new(normal, mr, emissive, normalScale, metallic, roughness, ef);
-        }
-
-        private static float Factor(JsonElement element, string name, float fallback, float max)
-        {
-            if (element.ValueKind != JsonValueKind.Object || !element.TryGetProperty(name, out var value)) return fallback;
-            float result = value.GetSingle();
-            if (!float.IsFinite(result) || result < 0 || result > max)
-                throw new InvalidDataException($"Weighted material {name} is outside [0,{max}].");
-            return result;
-        }
-
-        private static CharacterEmbeddedAlbedo ReadEmbeddedTexture(JsonElement root,
-            JsonElement[] views, byte[] binary, JsonElement texture, bool opaque)
-        {
-            if (Int(texture, "texCoord", 0) != 0 || texture.TryGetProperty("extensions", out _))
-                throw new InvalidDataException("Weighted texture requires untransformed TEXCOORD_0.");
-            JsonElement[] textures = Elements(root, "textures");
-            int textureIndex = Int(texture, "index", -1);
-            if ((uint)textureIndex >= textures.Length)
-                throw new InvalidDataException("Weighted texture texture index is invalid.");
-            JsonElement[] images = Elements(root, "images");
-            int imageIndex = Int(textures[textureIndex], "source", -1);
-            if ((uint)imageIndex >= images.Length)
-                throw new InvalidDataException("Weighted texture image index is invalid.");
-            JsonElement image = images[imageIndex];
-            string? mime = image.TryGetProperty("mimeType", out JsonElement mimeValue)
-                ? mimeValue.GetString() : null;
-            int viewIndex = Int(image, "bufferView", -1);
-            if (image.TryGetProperty("uri", out _) || mime is not ("image/png" or "image/jpeg")
-                || (uint)viewIndex >= views.Length)
-                throw new InvalidDataException("Weighted texture must be an embedded PNG or JPEG.");
-            JsonElement view = views[viewIndex];
-            int offset = Int(view, "byteOffset", 0);
-            int length = Int(view, "byteLength", -1);
-            if (Int(view, "buffer", 0) != 0 || offset < 0 || length <= 0
-                || length > 32 * 1024 * 1024 || (long)offset + length > binary.Length)
-                throw new InvalidDataException("Weighted texture buffer is invalid or exceeds 32 MiB.");
-            RepeatMode wrapS = RepeatMode.Repeat;
-            RepeatMode wrapT = RepeatMode.Repeat;
-            if (textures[textureIndex].TryGetProperty("sampler", out JsonElement samplerIndex))
-            {
-                JsonElement[] samplers = Elements(root, "samplers");
-                int index = samplerIndex.GetInt32();
-                if ((uint)index >= samplers.Length)
-                    throw new InvalidDataException("Weighted texture sampler index is invalid.");
-                wrapS = ReadWrapMode(Int(samplers[index], "wrapS", 10497));
-                wrapT = ReadWrapMode(Int(samplers[index], "wrapT", 10497));
-            }
-            return new(binary.AsSpan(offset, length).ToArray(), opaque, wrapS, wrapT);
-        }
-
-        private static RepeatMode ReadWrapMode(int value) => value switch
-        {
-            33071 => RepeatMode.Clamp,
-            33648 => RepeatMode.Mirror,
-            10497 => RepeatMode.Repeat,
-            _ => throw new InvalidDataException("Weighted texture sampler wrap mode is invalid.")
-        };
-
         internal static (int J0, int J1, int J2, int J3) UnpackJoints(int packed)
             => (packed & 31, (packed >> 5) & 31, (packed >> 10) & 31, (packed >> 15) & 31);
 

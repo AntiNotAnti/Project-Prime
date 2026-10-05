@@ -29,6 +29,18 @@ namespace MphRead.Mods.Render
         public long ResidentBytes => _residentBytes;
         public int ResidentCount => _resident.Count;
 
+        // Only scene-owned optional variant leases use this. Stable base/maps remain pinned.
+        internal bool ReleaseBinding(int binding)
+        {
+            string? key = null;
+            foreach (var pair in _resident)
+                if (pair.Value.Binding == binding) { key = pair.Key; break; }
+            if (key == null) return false;
+            Resident resident = _resident[key];
+            _resident.Remove(key); _residentBytes -= resident.Bytes;
+            _releaseTexture(binding); return true;
+        }
+
         public int Upload(string key, Func<Stream?> open, TextureAssetClass assetClass,
             TextureAssetChannel channel, bool repeat, out int width, out int height)
         {
