@@ -240,7 +240,23 @@ internal sealed class ReplayPoseStream : IDisposable
                     spawnEffect = false;
                     break;
                 }
-            if (spawnEffect) visualized.Add(fact);
+            ReplayShotFact visualFact = fact;
+            if (spawnEffect)
+            {
+                visualized.Add(fact);
+                if (!fact.Headshot)
+                {
+                    foreach (var sibling in facts)
+                        if (sibling.Headshot && SameImpactVisual(fact, sibling))
+                        {
+                            visualFact = fact with
+                            {
+                                Flags = fact.Flags | ReplayShotFactFlags.Headshot
+                            };
+                            break;
+                        }
+                }
+            }
             bool alreadyCorrect = best != null && best.Flags.TestFlag(BeamFlags.Collided)
                 && best.ModReplayImpactDistanceSquared(fact.ImpactPoint) <= 0.0625f;
             FireEvent? authored = TryAuthoredFire(fact, out FireEvent fire) ? fire : null;
@@ -258,7 +274,7 @@ internal sealed class ReplayPoseStream : IDisposable
                 // when the matched projectile is outside the current camera's
                 // culling set. Only a genuinely missing projectile gets the
                 // short synthesized tracer tail.
-                _fallbackImpacts.Add(new(fact, authored, best == null));
+                _fallbackImpacts.Add(new(visualFact, authored, best == null));
             }
         }
     }
