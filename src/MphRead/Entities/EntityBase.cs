@@ -322,9 +322,27 @@ namespace MphRead.Entities
         protected Matrix4 ModDrawTransform()
         {
             Matrix4 transform = SimulationDrawTransform();
-            if (this is PlayerEntity player && _scene.ReplayPoses?.SamplePresented(player.SlotIndex,
-                _scene.ReplayRenderAlpha, out Vector3 position, out _) == true)
-                transform.Row3.Xyz = position;
+            if (this is PlayerEntity player && _scene.ReplayPoses != null)
+            {
+                // A first-person replay should show the world the watched player
+                // actually aimed at. Their intent ACK names that server-time world;
+                // everybody else is sampled there while the watched shooter remains
+                // on the replay's ordinary presentation clock. This changes drawing
+                // only: the replica simulation and authoritative recorded outcomes
+                // keep their existing timeline.
+                bool shooterView = _scene.Services.IsReplica
+                    && Mods.Network.DemoPlayback.IsActive
+                    && Mods.SpectatorMode.IsSpectating
+                    && !Mods.SpectatorMode.FreeCamera
+                    && Mods.Replay.ReplayCamera.Mode == Mods.Replay.ReplayCameraMode.FirstPerson;
+                int viewerSlot = _scene.Players.Main.SlotIndex;
+                if (_scene.ReplayPoses.SamplePresentedForViewer(player.SlotIndex,
+                    viewerSlot, shooterView, _scene.ReplayRenderAlpha,
+                    out Vector3 position, out _))
+                {
+                    transform.Row3.Xyz = position;
+                }
+            }
             return transform;
         }
         private Matrix4 SimulationDrawTransform()
