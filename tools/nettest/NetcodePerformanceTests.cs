@@ -78,13 +78,28 @@ internal static class NetcodePerformanceTests
     private static void FireWire()
     {
         var intent = new IntentPacket { Frame = 103, AckFrame = 107, FireEventCount = 2 };
-        intent.FireEvents[0] = new(5, 100, 100, 128, FireEventKind.PressFire, 0, 0, 0);
+        intent.FireEvents[0] = new(5, 100, 100, 128, FireEventKind.PressFire, 0, 0, 0,
+            (byte)(FireEvent.FlagPose | FireEvent.FlagReticle),
+            new OpenTK.Mathematics.Vector3(1, 2, 3),
+            OpenTK.Mathematics.Vector3.UnitZ,
+            new OpenTK.Mathematics.Vector3(.1f, .2f, .97f).Normalized(),
+            new OpenTK.Mathematics.Vector3(.05f, .1f, .99f).Normalized(),
+            new OpenTK.Mathematics.Vector2(.4f, .6f));
         intent.FireEvents[1] = new(6, 101, 100, 240, FireEventKind.ReleaseFire, 2, 90, 0);
         byte[] wire = new byte[IntentPacket.FullSize]; intent.Write(wire);
         var read = IntentPacket.Read(wire);
         Check(read.HasFireEvents && NetFireEvents.Validate(read) && read.FireEvents[0] == intent.FireEvents[0]
             && read.FireEvents[1] == intent.FireEvents[1], "lost press/release fire history round trip independently of carrier ACK");
         Check(!IntentPacket.Read(wire.AsSpan(0, IntentPacket.LegacyFullSize)).HasFireEvents, "legacy offline intent is explicit");
+        Check(read.FireEvents[0].HasPose && read.FireEvents[0].HasReticle
+            && read.FireEvents[0].Origin == intent.FireEvents[0].Origin
+            && read.FireEvents[0].Direction == intent.FireEvents[0].Direction
+            && read.FireEvents[0].Aim == intent.FireEvents[0].Aim
+            && OpenTK.Mathematics.Vector3.Dot(read.FireEvents[0].View,
+                intent.FireEvents[0].View) > .9999f
+            && OpenTK.Mathematics.Vector2.Distance(read.FireEvents[0].Reticle,
+                intent.FireEvents[0].Reticle) < .00003f,
+            "exact FireEvent shot/view/reticle round trip");
         read.FireEvents[1] = read.FireEvents[1] with { ShotId = 5 };
         Check(!NetFireEvents.Validate(read), "duplicate shot IDs rejected");
         read = IntentPacket.Read(wire); read.FireEventCount = 17;
