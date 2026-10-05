@@ -304,6 +304,21 @@ internal sealed partial class MapStudioScreen
                         ? "1 map available."
                         : $"{projects.Length} maps available.";
                 }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    directoryState.Set(
+                        PrimeStateKind.Error,
+                        "COMMUNITY UNAVAILABLE",
+                        ex.Message + " Check the Community service address or retry.",
+                        visible: true,
+                        showActions: false);
+                    status.Text = "Community unavailable: " + ex.Message;
+                    throw;
+                }
                 finally
                 {
                     refresh.IsEnabled = true;
