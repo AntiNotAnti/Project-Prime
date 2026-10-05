@@ -3,6 +3,7 @@ using System.Buffers.Binary;
 using System.Linq;
 using System.Reflection;
 using MphRead.Entities;
+using MphRead.Formats;
 using MphRead.Formats.Collision;
 using OpenTK.Mathematics;
 using MphRead.Mods.Multiplayer;
