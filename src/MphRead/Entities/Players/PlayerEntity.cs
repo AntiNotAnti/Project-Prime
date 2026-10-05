@@ -1965,7 +1965,7 @@ namespace MphRead.Entities
                     Hunter, damage, flags.TestFlag(DamageFlags.Headshot));
                 if (direction.HasValue)
                 {
-                    direction *= BalancedModeRules.HunterProfile(Hunter).KnockbackMultiplier;
+                    direction *= BalancedModeRules.ScaleKnockback(Hunter, 1f);
                 }
             }
             if (Flags2.TestFlag(PlayerFlags2.Halfturret) && attacker != null && !ignoreDamage)
