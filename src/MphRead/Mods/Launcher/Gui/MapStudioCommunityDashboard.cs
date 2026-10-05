@@ -729,8 +729,11 @@ internal sealed partial class MapStudioScreen
                     await ReloadProjects(token, mapId);
                     CommunityMapProject? refreshed =
                         projects.FirstOrDefault(p => p.MapId == mapId);
-                    if (refreshed != null) ShowRevisionHistory(refreshed);
-                    else ShowUploadForm();
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        if (refreshed != null) ShowRevisionHistory(refreshed);
+                        else ShowUploadForm();
+                    });
                     status.Text = "Community history refreshed.";
                 });
             }
