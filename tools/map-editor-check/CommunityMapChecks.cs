@@ -460,6 +460,12 @@ internal static class CommunityMapChecks
                 && promotedRevisionOne.CurrentRevision?.RevisionNumber == 1,
                 "explicit revision promotion rolls the public current pointer back without rewriting packages");
 
+            var legacyRollback = JsonSerializer.Deserialize<CommunityMap>(
+                await http.GetStringAsync("maps/" + revisionMapId),
+                MapPackageReader.JsonOptions);
+            check(legacyRollback?.Hash == revisionOne.Package.Hash,
+                "revision promotion also makes the rollback target current for legacy flat clients");
+
             // Leave a valid archive half-uploaded, stop the service, and let the
             // normal client continue it after restart. This exercises persistence
             // rather than merely retrying another request in the same process.
