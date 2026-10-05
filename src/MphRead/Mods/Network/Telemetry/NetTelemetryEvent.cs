@@ -1,6 +1,6 @@
 namespace MphRead.Mods.Network.Telemetry;
 
-public enum TelemetryEventType { Connection, Shot, AuthorityResult, Claim, CombatAck, ContinuousTarget, Form, Lifecycle, ServerStep, LagStudy, ConnectionDetail, TransportContention, EnhancedHunter, ServerStepAggregate, ServerStepHistogram, MatchSemantic, MatchAward }
+public enum TelemetryEventType { Connection, Shot, AuthorityResult, Claim, CombatAck, ContinuousTarget, Form, Lifecycle, ServerStep, LagStudy, ConnectionDetail, TransportContention, EnhancedHunter, ServerStepAggregate, ServerStepHistogram, MatchSemantic, MatchAward, BalancedMode }
 
 [System.Flags]
 public enum CombatCorrectionReason : byte
