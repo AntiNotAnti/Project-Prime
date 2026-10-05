@@ -38,6 +38,7 @@ internal static class ReplayKillMessagePresenter
         // becomes visible.
         if (timelineReset || DemoPlayback.Session.Transport.IsSeeking)
         {
+            scene.Players.Main?.ModResetReplayDamageIndicators();
             _scene = scene;
             _frame = frame;
             _seekGeneration = generation;
@@ -104,6 +105,7 @@ internal static class ReplayKillMessagePresenter
                 fact.VictimGeneration, fact.VictimLifeId);
 
         if (victimPov && fact.Damage > 0
+            && !ReplayVideoExporter.SuppressGameHud
             && poses.TryResolvedShotDirection(fact, out var direction))
         {
             scene.Players.Main.ModPresentReplayDamageIndicator(direction);
