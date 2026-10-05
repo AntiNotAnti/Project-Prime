@@ -687,7 +687,8 @@ namespace MphRead.Entities
                                         && ownerPlayer.Hunter == Hunter.Sylux
                                         && BalancedModeRules.IsAffinity(ownerPlayer.Hunter, BeamType.ShockCoil))
                                     {
-                                        drainHeal = (uint)ownerPlayer.ModBalancedLifeDrainHeal(actualDamageDealt);
+                                        drainHeal = (uint)ownerPlayer.ModBalancedLifeDrainHeal(
+                                            actualDamageDealt, ownerPlayer.HealthMax - ownerPlayer.Health);
                                     }
                                     // GainHealth checks if the player is alive
                                     ownerPlayer.GainHealth(drainHeal);
