@@ -37,11 +37,14 @@ internal static class CommunityMapChecks
         Guid id = Guid.NewGuid();
         string? resumablePath = null, resumableHash = null;
         long resumableOffset = 0;
+        Guid revisionMapId = Guid.NewGuid();
+        string? revisionOneHash = null, revisionTwoHash = null;
         string PackageBytes(string version, string name, int? projectLength = null, string projectEntry = "project.json",
-            Action<MapDefinition>? configure = null)
+            Action<MapDefinition>? configure = null, Guid? mapId = null)
         {
             string path = Path.Combine(root, Guid.NewGuid().ToString("N") + ".ppmap");
-            var definition = new MapDefinition { FormatVersion = 2, MapId = id, Name = name, Version = version, Author = "Fixture" };
+            Guid effectiveMapId = mapId ?? id;
+            var definition = new MapDefinition { FormatVersion = 2, MapId = effectiveMapId, Name = name, Version = version, Author = "Fixture" };
             configure?.Invoke(definition);
             byte[] serialized = Encoding.UTF8.GetBytes(definition.Serialize());
             int length = projectLength ?? serialized.Length;
@@ -49,7 +52,7 @@ internal static class CommunityMapChecks
             byte[] project = new byte[length];
             Buffer.BlockCopy(serialized, 0, project, 0, serialized.Length);
             if (length > serialized.Length) Array.Fill(project, (byte)' ', serialized.Length, length - serialized.Length);
-            var manifest = new MapPackageManifest { MapId = id, Name = name, MapVersion = version, Author = definition.Author,
+            var manifest = new MapPackageManifest { MapId = effectiveMapId, Name = definition.Name, MapVersion = definition.Version, Author = definition.Author,
                 ContentHash = MapPackageReader.ContentHash(new[] { projectEntry }, _ => project) };
             using var zip = ZipFile.Open(path, ZipArchiveMode.Create);
             using (var stream = zip.CreateEntry(projectEntry).Open()) stream.Write(project);
@@ -294,6 +297,89 @@ internal static class CommunityMapChecks
             catch (InvalidDataException) { mismatch = true; }
             check(mismatch, "invalid exact identity rejected before installation");
 
+            string revisionOnePath = PackageBytes("1", "REVISION_TEST",
+                configure: definition => definition.Description = "revision one",
+                mapId: revisionMapId);
+            var revisionOne = await client.PublishAsync(
+                revisionOnePath,
+                new CommunityPublishRequest(false, null, "Initial release"),
+                default, listed: false);
+            revisionOneHash = revisionOne.Package.Hash;
+            check(revisionOne.Revision?.RevisionNumber == 1
+                && revisionOne.Revision.ReleaseNotes == "Initial release"
+                && revisionOne.Revision.ParentHash == null,
+                "v2 publishing creates a server-numbered first revision with release notes");
+
+            string revisionTwoPath = PackageBytes("1", "REVISION_TEST",
+                configure: definition => definition.Description = "revision two",
+                mapId: revisionMapId);
+            var revisionTwo = await client.PublishAsync(
+                revisionTwoPath,
+                new CommunityPublishRequest(true, revisionOne.Package.Hash,
+                    "Second revision keeps the human version"),
+                default, listed: false);
+            revisionTwoHash = revisionTwo.Package.Hash;
+            check(revisionTwo.Revision?.RevisionNumber == 2
+                && revisionTwo.Revision.ParentHash == revisionOne.Package.Hash
+                && revisionTwo.Revision.ReleaseNotes == "Second revision keeps the human version"
+                && revisionTwo.Package.Version == revisionOne.Package.Version,
+                "v2 revisions do not require changing the human-facing map version");
+
+            string stalePath = PackageBytes("1", "REVISION_TEST",
+                configure: definition => definition.Description = "stale branch",
+                mapId: revisionMapId);
+            CommunityRevisionConflictException? staleConflict = null;
+            try
+            {
+                await client.PublishAsync(
+                    stalePath,
+                    new CommunityPublishRequest(true, revisionOne.Package.Hash,
+                        "Stale branch"),
+                    default, listed: false);
+            }
+            catch (CommunityRevisionConflictException ex)
+            {
+                staleConflict = ex;
+            }
+            check(staleConflict?.Conflict.Code == "stale_parent"
+                && staleConflict.Conflict.LatestHash == revisionTwo.Package.Hash
+                && staleConflict.Conflict.ExpectedParentHash == revisionOne.Package.Hash
+                && !staleConflict.Conflict.ResumeAvailable,
+                "stale collaborator parent is rejected before package bytes are uploaded");
+
+            var forced = await client.PublishAsync(
+                stalePath,
+                new CommunityPublishRequest(true, revisionOne.Package.Hash,
+                    "Intentional branch publish", AllowStaleParent: true),
+                default, listed: false);
+            check(forced.Revision?.RevisionNumber == 3
+                && forced.Revision.ParentHash == revisionOne.Package.Hash
+                && forced.Revision.ReleaseNotes == "Intentional branch publish",
+                "explicit publish-anyway preserves the authored parent link");
+
+            CommunityRevisionConflictException? newMapConflict = null;
+            try
+            {
+                await client.PublishAsync(
+                    PackageBytes("2", "REVISION_TEST",
+                        configure: definition => definition.Description = "wrong new-map intent",
+                        mapId: revisionMapId),
+                    new CommunityPublishRequest(false, null, "Should conflict"),
+                    default, listed: false);
+            }
+            catch (CommunityRevisionConflictException ex)
+            {
+                newMapConflict = ex;
+            }
+            check(newMapConflict?.Conflict.Code == "map_already_exists",
+                "new-map intent cannot silently append to an existing project");
+
+            var promotedRevisionOne = await client.PromoteRevisionAsync(
+                revisionMapId, 1, default);
+            check(promotedRevisionOne?.CurrentHash == revisionOne.Package.Hash
+                && promotedRevisionOne.CurrentRevision?.RevisionNumber == 1,
+                "explicit revision promotion rolls the public current pointer back without rewriting packages");
+
             // Leave a valid archive half-uploaded, stop the service, and let the
             // normal client continue it after restart. This exercises persistence
             // rather than merely retrying another request in the same process.
@@ -341,7 +427,14 @@ internal static class CommunityMapChecks
             check(restartedHistory.Any(r => r.RevisionNumber == 1 && r.ParentHash == null)
                 && restartedHistory.Select(r => r.RevisionNumber).Distinct().Count() == restartedHistory.Length,
                 "v2 revision numbers survive service restart and resume");
-            check((await client.BrowseAsync(default)).Length == 2, "unlisted visibility persists across service restart");
+            check((await client.BrowseAsync(default)).Length == 3,
+                "visibility and promoted revision state persist across service restart");
+            var persistedRevisionHistory = await client.GetRevisionsAsync(revisionMapId, default);
+            check(persistedRevisionHistory.Any(r => r.Hash == revisionTwoHash
+                    && r.ReleaseNotes == "Second revision keeps the human version")
+                && persistedRevisionHistory.Any(r => r.Hash == revisionOneHash
+                    && r.ReleaseNotes == "Initial release"),
+                "revision release notes and lineage persist across service restart");
         }
         finally { restarted.Cancel(); try { await service; } catch (OperationCanceledException) { } }
     }
