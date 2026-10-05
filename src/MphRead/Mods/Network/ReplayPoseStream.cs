@@ -127,8 +127,7 @@ internal sealed class ReplayPoseStream : IDisposable
 
     internal bool UsesFireEvents(PlayerEntity player)
     {
-        if (!_supportsFireEvents || (uint)player.SlotIndex >= 8) return false;
-        Prepare();
+        if ((uint)player.SlotIndex >= 8 || !Prepare() || !_supportsFireEvents) return false;
         if (!_world.State.TryGetPlayer(player.SlotIndex, out var state)) return false;
         return _fireCapable.Contains(new(player.SlotIndex, state.SlotGeneration, state.LifeId));
     }
