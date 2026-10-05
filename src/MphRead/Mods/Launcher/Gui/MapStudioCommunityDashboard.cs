@@ -821,9 +821,15 @@ internal sealed partial class MapStudioScreen
                             token, mine: true, sort: "name"));
                     GuardJob(token);
                     RenderList(result.Package.MapId);
-                    status.Text = result.Revision is { } revision
-                        ? $"Revision {revision.RevisionNumber} published from the stored upload."
-                        : "Stored revision published.";
+                    string number = result.Revision is { } revision
+                        ? $"Revision {revision.RevisionNumber}"
+                        : "Revision";
+                    status.Text = selectedVisibility switch
+                    {
+                        "Draft" => number + " saved as a private draft from the stored upload.",
+                        "Unlisted" => number + " saved unlisted from the stored upload.",
+                        _ => number + " published from the stored upload."
+                    };
                 }
                 finally
                 {
