@@ -97,7 +97,14 @@ map authors.
 Routes beneath the configured prefix:
 
 - `GET health`: service status and map count, no credentials required.
-- `GET maps`: JSON listing, no credentials required.
+- `GET maps`: legacy flat package/version listing, no credentials required.
+- `GET v2/maps`: grouped map-project listing. Public callers see one project per
+  discoverable map; `mine=true` includes the authenticated creator's drafts and
+  unlisted revisions.
+- `GET v2/maps/<map-id>`: grouped project metadata with separate current and
+  latest revision pointers. Owners/collaborators can see private revisions.
+- `GET v2/maps/<map-id>/revisions`: server-numbered immutable revision history.
+  Public callers see published revisions; owners/collaborators see the full lineage.
 - `POST uploads/<sha256>`: create or resume a package upload session.
 - `GET uploads/<sha256>`: read the persisted byte offset for the authenticated creator.
 - `PUT uploads/<sha256>?offset=<bytes>`: append one bounded package chunk.
@@ -122,8 +129,13 @@ Operators can set `PROJECT_PRIME_MAP_STORAGE_GIB` to an integer from 1 through
 1024 to choose a different published-map budget. The separate 2 GiB partial-upload
 pool remains bounded independently.
 Operators can remove packages from storage while stopped, then restart to rebuild
-the listing. Identical uploads are idempotent. Names/authors are user-supplied
-metadata, not verified identities. Do not distribute extracted base-game assets.
+the listing. `map_catalog_v2.json` is a derived, atomically-written map-level index
+that assigns stable per-map revision numbers, parent links, and a current revision
+pointer. Existing installations are migrated from their immutable packages on first
+start; a missing or damaged derived catalog is rebuilt without changing package
+hashes or the legacy API. Identical uploads are idempotent. Names/authors are
+user-supplied metadata, not verified identities. Do not distribute extracted
+base-game assets.
 
 ## VPS deployment
 
@@ -176,7 +188,9 @@ dotnet run --project src/MphRead -- -mapstudioshot /tmp/map-studio-shots
 
 The community harness exercises authenticated upload, exact-byte downloads,
 idempotency, malformed archives, invalid identifiers/sizes, bounded streams,
-installed-map discovery, package byte-range responses, partial-upload persistence,
-exact-offset upload resume after a service restart, and cleanup after successful assembly. Map Studio capture emits
+installed-map discovery, package byte-range responses, grouped v2 project discovery,
+stable server revision numbering and parent links, private revision visibility,
+partial-upload persistence, exact-offset upload resume after a service restart,
+and cleanup after successful assembly. Map Studio capture emits
 large, small and four-view layouts. Full TrenchBroom compatibility (including its
 brush CSG kernel, Quake `.map`/FGD support and UV editor) is outside this change.
