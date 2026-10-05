@@ -76,15 +76,43 @@ internal sealed class MatchSemanticPresentation
     {
         if (!_replicaInitialized || seeking)
         {
-            receiver.SuppressHistory(); scene.KillFeed.Clear(); _replicaInitialized = true;
+            receiver.SuppressHistory();
+            scene.KillFeed.Clear();
+            _medals.Clear();
+            _lastAwardSource = 0;
+            _replicaInitialized = true;
             return;
         }
-        // Replay presentation is visual-only. Audio and live HUD callbacks remain isolated.
+
+        // Replica semantics remain presentation-only. Forward playback may emit
+        // local award audio/notifications exactly once; seeks advance the
+        // receiver frontier above and therefore reconstruct silently.
+        _medals.Clear();
         receiver.DrainPresentation(fact =>
         {
             if (fact.Type is MatchSemanticEventType.PlayerKilled or MatchSemanticEventType.PlayerSuicide)
                 scene.KillFeed.RecordCanonical(scene, fact.ToFact());
-        }, _ => { });
+        }, award =>
+        {
+            var player = Resolve(scene, new(award.ActorSlot,
+                award.ActorGeneration, award.ActorLife));
+            if (player == null || player != scene.Players.Main) return;
+
+            string label = Sound.CombatFeedbackAudio.OnReplayCanonicalAward(
+                scene, award.Kind, _lastAwardSource != award.SourceEventId);
+            _lastAwardSource = award.SourceEventId;
+            if (!_medals.TryGetValue(award.SourceEventId, out var labels))
+                _medals[award.SourceEventId] = labels = new();
+            labels.Add(label.ToUpperInvariant());
+        });
+
+        if (!Replay.ReplayVideoExporter.SuppressGameHud
+            && Launcher.LauncherPrefs.CombatNotificationsVisible
+            && !Headless.Active && !ThumbnailMode.Active)
+        {
+            foreach (var labels in _medals.Values)
+                scene.Players.Main?.QueueCombatNotifications(labels);
+        }
     }
 
 }
