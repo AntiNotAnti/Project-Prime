@@ -120,6 +120,30 @@ namespace MphRead.Entities
             return BalancedModeRules.ScaleProjectileSpeed(beam, charged, speed);
         }
 
+        internal static void ModBalancedHitTuning(Scene scene, EntityBase owner, BeamType beam,
+            ref int damage, ref int headshotDamage, ref int splashDamage, ref byte splashDamageType)
+        {
+            if (!scene.GameState.Multiplayer || !scene.GameState.BalancedMode
+                || owner is not PlayerEntity)
+            {
+                return;
+            }
+
+            damage = (int)MathF.Round(
+                BalancedModeRules.ScaleDirectHitDamage(beam, damage),
+                MidpointRounding.AwayFromZero);
+            headshotDamage = (int)MathF.Round(
+                BalancedModeRules.ScaleDirectHitDamage(beam, headshotDamage),
+                MidpointRounding.AwayFromZero);
+            splashDamage = (int)MathF.Round(
+                BalancedModeRules.ScaleSplashDamage(beam, splashDamage),
+                MidpointRounding.AwayFromZero);
+            if (BalancedModeRules.ForcesLinearSplashFalloff(beam))
+            {
+                splashDamageType = 0;
+            }
+        }
+
         public int DamageInterpolation { get; set; }
         public int SpeedInterpolation { get; set; }
         public float SpeedDecayTime { get; set; }
@@ -1795,26 +1819,11 @@ namespace MphRead.Entities
                 }
             }
 
-            if (scene.GameState.Multiplayer && scene.GameState.BalancedMode
-                && owner is PlayerEntity)
-            {
-                // Accuracy should beat floor spam. Apply this after charge,
-                // affinity and powerup damage have already been authored so
-                // those multipliers keep their existing semantics.
-                damage = (int)MathF.Round(
-                    BalancedModeRules.ScaleDirectHitDamage(weapon.Beam, damage),
-                    MidpointRounding.AwayFromZero);
-                hsDamage = (int)MathF.Round(
-                    BalancedModeRules.ScaleDirectHitDamage(weapon.Beam, hsDamage),
-                    MidpointRounding.AwayFromZero);
-                splashDmg = (int)MathF.Round(
-                    BalancedModeRules.ScaleSplashDamage(weapon.Beam, splashDmg),
-                    MidpointRounding.AwayFromZero);
-                if (BalancedModeRules.ForcesLinearSplashFalloff(weapon.Beam))
-                {
-                    splashDmgType = 0;
-                }
-            }
+            // Accuracy should beat floor spam. Apply this after charge,
+            // affinity and powerup damage have already been authored so those
+            // multipliers keep their existing semantics.
+            ModBalancedHitTuning(scene, owner, weapon.Beam,
+                ref damage, ref hsDamage, ref splashDmg, ref splashDmgType);
             ushort damageInterpolation = weapon.DamageInterpolations[charged ? 1 : 0];
             float maxDist = GetAmount(weapon.UnchargedDistance, weapon.MinChargeDistance, weapon.ChargedDistance) / 4096f;
             Affliction afflictions = weapon.Afflictions[charged ? 1 : 0];
