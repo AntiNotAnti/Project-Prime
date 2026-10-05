@@ -1059,8 +1059,17 @@ namespace MphRead.Mods.Network
         private static bool ApplyingClaim;
         private static uint ApplyingClaimAck;
         private static uint ApplyingClaimLaunch, ApplyingClaimShotId;
+        private static Vector3 ApplyingClaimHitPoint;
+        private static byte ApplyingClaimFlags;
         internal static uint CurrentClaimShotId => ApplyingClaim ? ApplyingClaimShotId : 0;
         internal static uint CurrentClaimLaunch => ApplyingClaim ? ApplyingClaimLaunch : 0;
+        internal static Vector3 CurrentClaimHitPoint => ApplyingClaim ? ApplyingClaimHitPoint : default;
+        internal static bool CurrentClaimDirect => ApplyingClaim
+            && (ApplyingClaimFlags & HitClaimPacket.FlagDirect) != 0;
+        internal static bool CurrentClaimTurret => ApplyingClaim
+            && (ApplyingClaimFlags & HitClaimPacket.FlagHalfturret) != 0;
+        internal static bool CurrentClaimContinuous => ApplyingClaim
+            && (ApplyingClaimFlags & HitClaimPacket.FlagContinuousTick) != 0;
 
         /// <summary>What the authority did with the claims it was sent.</summary>
         public static long Received { get; private set; }
@@ -1578,6 +1587,8 @@ namespace MphRead.Mods.Network
             ApplyingClaimAck = entry.AckFrame;
             ApplyingClaimLaunch = entry.LaunchFrame;
             ApplyingClaimShotId = entry.ShotId;
+            ApplyingClaimHitPoint = entry.HitPoint;
+            ApplyingClaimFlags = entry.Flags;
             _applyingContinuousPhase = entry.ContinuousPhase;
             try
             {
@@ -1994,6 +2005,8 @@ namespace MphRead.Mods.Network
             ApplyingClaimAck = entry.AckFrame;
             ApplyingClaimLaunch = entry.LaunchFrame;
             ApplyingClaimShotId = entry.ShotId;
+            ApplyingClaimHitPoint = entry.HitPoint;
+            ApplyingClaimFlags = entry.Flags;
             _applyingContinuousPhase = entry.ContinuousPhase;
             bool lethal = victim.Health <= entry.Damage;
             uint before = (uint)victim.Health;
