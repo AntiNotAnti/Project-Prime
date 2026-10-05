@@ -2526,7 +2526,14 @@ namespace MphRead.Entities
                     _bombRefillTimer = (ushort)(Values.BombRefillTime * 2); // todo: FPS stuff
                 }
                 _bombAmmo--;
-                int bombCooldown = Values.BombCooldown * 2;
+                // BombCooldown is copied from the native player table as a packed/raw
+                // integer. Stock behavior has always narrowed the doubled value to
+                // ushort when it reaches _bombCooldown. Kanden's table entry is
+                // 0x0023001E, so that narrowing is what turns it into 60 simulation
+                // ticks. Apply Balanced Mode's 15% reduction to those stock ticks,
+                // not to the packed 32-bit value, or the later ushort cast wraps
+                // into a multi-minute cooldown.
+                int bombCooldown = unchecked((ushort)(Values.BombCooldown * 2));
                 if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
                     && Hunter == Hunter.Kanden)
                 {
