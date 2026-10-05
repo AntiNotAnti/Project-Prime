@@ -283,12 +283,30 @@ namespace MphRead.Mods.Sound
             Play(CombatFeedbackCue.ImperialistHeadshot);
         }
 
+        internal static void OnReplayConfirmedHeadshot(Scene scene, BeamType beam)
+        {
+            if (beam != BeamType.Imperialist || !CanPresentReplay(scene)) return;
+            Play(CombatFeedbackCue.ImperialistHeadshot);
+        }
+
         internal static string OnCanonicalAward(Scene scene, MatchEvents.MatchAwardKind kind, bool replaceExisting)
         {
             if (kind <= MatchEvents.MatchAwardKind.Invincible)
             {
                 var cue = (CombatFeedbackCue)((int)kind + 1);
                 if (CanPresent(scene)) Play(cue, replaceExisting: replaceExisting);
+                return Label(cue);
+            }
+            return kind == MatchEvents.MatchAwardKind.PrimeSlayer ? "Prime Slayer" : kind.ToString();
+        }
+
+        internal static string OnReplayCanonicalAward(Scene scene,
+            MatchEvents.MatchAwardKind kind, bool replaceExisting)
+        {
+            if (kind <= MatchEvents.MatchAwardKind.Invincible)
+            {
+                var cue = (CombatFeedbackCue)((int)kind + 1);
+                if (CanPresentReplay(scene)) Play(cue, replaceExisting: replaceExisting);
                 return Label(cue);
             }
             return kind == MatchEvents.MatchAwardKind.PrimeSlayer ? "Prime Slayer" : kind.ToString();
@@ -388,6 +406,15 @@ namespace MphRead.Mods.Sound
                 && !MphRead.Mods.ThumbnailMode.Active
                 && !scene.Services.IsReplica
                 && scene.Services.AllowsPresentationSideEffects;
+        }
+
+        private static bool CanPresentReplay(Scene scene)
+        {
+            return !MphRead.Mods.Headless.Active
+                && !MphRead.Mods.ThumbnailMode.Active
+                && scene.Services.IsReplica
+                && MphRead.Mods.Replay.ReplayAudioOwner.MayPlay(scene)
+                && !MphRead.Mods.Replay.ReplayVideoExporter.Rendering;
         }
 
         private static void Play(CombatFeedbackCue cue, bool replaceExisting = true)
