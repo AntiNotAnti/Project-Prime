@@ -63,13 +63,13 @@ internal static class NetArchitectureTests
             Check(output.SequenceEqual(fixture), "protocol 38 legacy intent fixture remains readable");
             Check(intent.AckFrame == 0x87654321 && intent.AckSubFrame == 128 && IntentPacket.PressHistory == 8,
                 "displayed world ACK and eight-frame edge retention");
-            Check(NetConfig.ProtocolVersion == 39
+            Check(NetConfig.ProtocolVersion == 40
                 && IntentPacket.Protocol38FullSize == 423
                 && IntentPacket.FullSize == 1175 && intent.HasAnalogMove
                 && intent.MoveX == 64 && intent.MoveY == -96
                 && intent.HasContinuousFireTick && intent.ContinuousFireTick == 0xCAFEBABE
                 && Math.Abs(IntentPacket.UnpackMoveAxis(intent.MoveX) - 64 / 127f) < .00001f,
-                "protocol 39 preserves protocol-38 intent state and adds exact FireEvent pose");
+                "protocol 40 retains the protocol-39 exact FireEvent pose layout");
             var posed = new FireEvent(7, 99, 80, 64, FireEventKind.PressFire,
                 (byte)BeamType.Imperialist, 0, 0,
                 (byte)(FireEvent.FlagPose | FireEvent.FlagReticle),
@@ -83,7 +83,7 @@ internal static class NetArchitectureTests
                 && posedRoundtrip.Direction == posed.Direction && posedRoundtrip.Aim == posed.Aim
                 && Vector3.Dot(posedRoundtrip.View, posed.View.Normalized()) > 0.9999f
                 && Vector2.Distance(posedRoundtrip.Reticle, posed.Reticle) < 0.00003f,
-                "protocol 39 FireEvent shot/view/reticle roundtrip");
+                "protocol 40 retains FireEvent shot/view/reticle roundtrip");
             string[] forbidden = { "MovementCommand", "MovementAck", "ProcessedMovementFrame", "MovementReconciliation",
                 "PredictedMovementState", "IntentBundle", "SnapshotDelta", "SnapshotKeyframe" };
             Check(!typeof(IntentPacket).Assembly.GetTypes().Any(t => forbidden.Any(n => t.Name.Contains(n))),
