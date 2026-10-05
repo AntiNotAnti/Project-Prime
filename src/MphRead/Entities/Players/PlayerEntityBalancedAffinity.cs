@@ -40,9 +40,11 @@ namespace MphRead.Entities
             return true;
         }
 
-        internal int ModBalancedLifeDrainHeal(int actualDamage)
+        internal int ModBalancedLifeDrainHeal(int actualDamage, int missingHealth = Int32.MaxValue)
         {
-            int requested = BalancedModeRules.LifeDrainHealForActualDamage(actualDamage);
+            int requested = Math.Min(
+                BalancedModeRules.LifeDrainHealForActualDamage(actualDamage),
+                Math.Max(0, missingHealth));
             if (requested <= 0)
             {
                 return 0;
