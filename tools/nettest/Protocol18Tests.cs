@@ -10,9 +10,10 @@ internal static class Protocol18Tests
         {
             NetArchitectureTests.Check(SnapshotFast.MaximumEncodedSize <= 1200, "worst-case fast datagram MTU");
             NetArchitectureTests.Check(NetHeader.Size + IntentPacket.FullSize <= 1200
+                && NetHeader.Size + 1 + IntentPacket.FullSize <= 1200
                 && NetHeader.Size + 1 + HitClaimPacket.MaxPerPacket * HitClaimPacket.Size <= 1200
                 && NetHeader.Size + HitVerdictPacket.HeaderSize + HitVerdictPacket.MaxPerPacket * HitVerdictPacket.EntrySize <= 1200,
-                "intent, full claim batch and full verdict batch MTU");
+                "intent/slot-intent, full claim batch and full verdict batch MTU");
             int time = SnapshotHeader.Size + 8 * PlayerState.Size, world = time + 64;
             byte[] canonical = new byte[world + NetHealthSync.HeaderSize + NetHealthSync.MaxSpawns * NetHealthSync.EntrySize];
             new SnapshotHeader { MatchId = 65535, AuthorityEpoch = ulong.MaxValue, Frame = uint.MaxValue, PlayerCount = 8, Rng1 = 3, Rng2 = 4 }.Write(canonical);
