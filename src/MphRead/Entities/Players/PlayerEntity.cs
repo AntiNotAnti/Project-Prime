@@ -1966,8 +1966,13 @@ namespace MphRead.Entities
                 && !Mods.Network.NetDamage.ApplyingClaim && !Mods.Network.NetDamage.Replaying;
             if (damage > 0 && balancedEnemyCombat)
             {
-                damage = BalancedModeRules.ScaleIncomingDamage(
-                    Hunter, damage, flags.TestFlag(DamageFlags.Headshot));
+                bool headshot = flags.TestFlag(DamageFlags.Headshot);
+                damage = BalancedModeRules.ScaleIncomingDamage(Hunter, damage, headshot);
+                if (Hunter == Hunter.Weavel)
+                {
+                    damage = BalancedHunterAbilityRules.WeavelTransitionDamage(
+                        damage, headshot, IsMorphing || IsUnmorphing);
+                }
                 if (direction.HasValue)
                 {
                     direction *= BalancedModeRules.ScaleKnockback(Hunter, 1f);

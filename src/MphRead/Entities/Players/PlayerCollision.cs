@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using MphRead.Formats;
 using MphRead.Mods.Network;
+using MphRead.Mods.Multiplayer;
 using MphRead.Formats.Collision;
 using OpenTK.Mathematics;
 
@@ -157,7 +158,9 @@ namespace MphRead.Entities
             if (active && IsAltForm)
             {
                 if (Hunter == Hunter.Samus && Flags1.TestFlag(PlayerFlags1.Boosting)) kind = ContactAttackKind.Boost;
-                else if (Hunter == Hunter.Noxus && _altAttackTime >= Values.AltAttackStartup * 2) kind = ContactAttackKind.Noxus;
+                else if (Hunter == Hunter.Noxus && _altAttackTime >= (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                    ? BalancedHunterAbilityRules.NoxusStartupFrames(Values.AltAttackStartup * 2)
+                    : Values.AltAttackStartup * 2)) kind = ContactAttackKind.Noxus;
                 else if (Flags2.TestFlag(PlayerFlags2.AltAttack))
                     kind = Hunter switch { Hunter.Spire => ContactAttackKind.Spire, Hunter.Trace => ContactAttackKind.Trace,
                         Hunter.Weavel => ContactAttackKind.Weavel, _ => ContactAttackKind.None };
@@ -243,7 +246,10 @@ namespace MphRead.Entities
                     attacker._soundSource.PlaySfx(SfxId.SPIRE_ALT_ATTACK_HIT);
                 }
             }
-            else if (attacker.Hunter == Hunter.Noxus && attacker._altAttackTime >= attacker.Values.AltAttackStartup * 2) // todo: FPS stuff
+            else if (attacker.Hunter == Hunter.Noxus && attacker._altAttackTime >= (attacker.OwningScene.GameState.Multiplayer
+                && attacker.OwningScene.GameState.BalancedMode
+                    ? BalancedHunterAbilityRules.NoxusStartupFrames(attacker.Values.AltAttackStartup * 2)
+                    : attacker.Values.AltAttackStartup * 2)) // todo: FPS stuff
             {
                 Vector3 between;
                 if (halfturret)
@@ -376,7 +382,9 @@ namespace MphRead.Entities
                     return true;
                 }
             }
-            else if (Hunter == Hunter.Noxus && _altAttackTime >= Values.AltAttackStartup * 2) // todo: FPS stuff
+            else if (Hunter == Hunter.Noxus && _altAttackTime >= (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                    ? BalancedHunterAbilityRules.NoxusStartupFrames(Values.AltAttackStartup * 2)
+                    : Values.AltAttackStartup * 2)) // todo: FPS stuff
             {
                 Vector3 between = target.HurtVolume.SpherePosition - Volume.SpherePosition;
                 float radius = target.HurtVolume.SphereRadius;
@@ -1331,12 +1339,19 @@ namespace MphRead.Entities
                                 }
                                 _spireLedgeCrestTimer = 0;
                                 float yFactor = _hSpeedMag / 2;
+                                float climbMaxY = 0.15f;
+                                if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                                {
+                                    yFactor *= BalancedHunterAbilityRules.SpireClimbSpeedMultiplier;
+                                    climbMaxY *= BalancedHunterAbilityRules.SpireClimbSpeedMultiplier;
+                                }
                                 if (Speed.Y < 0.01f)
                                 {
-                                    yFactor += 0.3f;
+                                    yFactor += 0.3f * (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                                        ? BalancedHunterAbilityRules.SpireClimbSpeedMultiplier : 1f);
                                 }
                                 Speed = Speed.AddY(4 * dot * yFactor / 2);
-                                Speed = Speed.WithY(Math.Min(Speed.Y, 0.15f));
+                                Speed = Speed.WithY(Math.Min(Speed.Y, climbMaxY));
                             }
                         }
                     }

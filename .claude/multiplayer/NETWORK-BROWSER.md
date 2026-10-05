@@ -76,7 +76,8 @@ allowing them to misread the following policy and identity fields. Protocol 37
 appends the host challenge nonce/cookie proof. Protocol 38 adds Balanced Mode
 semantics without changing browser/control packet widths. Protocol 39 changes the
 gameplay intent FireEvent stride to carry exact shot pose; browser/control packets
-remain byte-identical to protocol 36.
+remain byte-identical to protocol 36. Protocol 40 keeps those packet widths and
+fences the native Balanced Hunter movement/ability semantics from protocol-39 peers.
 
 | Field | Where | Contract |
 |---|---|---|

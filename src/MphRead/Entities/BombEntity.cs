@@ -178,10 +178,16 @@ namespace MphRead.Entities
                     else if (BombType == BombType.Stinglarva)
                     {
                         Vector3 between = player.Position - Position;
-                        if (between.LengthSquared < 5 * 5)
+                        float acquire = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                            && Owner.Hunter == Hunter.Kanden
+                            ? BalancedHunterAbilityRules.KandenAcquireRange : 5f;
+                        if (between.LengthSquared < acquire * acquire)
                         {
                             _target = player;
-                            _speed = FacingVector * 0.3f;
+                            float launchSpeed = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                                && Owner.Hunter == Hunter.Kanden
+                                ? BalancedHunterAbilityRules.KandenLaunchSpeed : 0.3f;
+                            _speed = FacingVector * launchSpeed;
                         }
                     }
                 }
@@ -190,10 +196,16 @@ namespace MphRead.Entities
                     foreach (HalfturretEntity halfturret in _scene.GetHalfturretEntities())
                     {
                         Vector3 between = halfturret.Position - Position;
-                        if (between.LengthSquared < 5 * 5)
+                        float acquire = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                            && Owner.Hunter == Hunter.Kanden
+                            ? BalancedHunterAbilityRules.KandenAcquireRange : 5f;
+                        if (between.LengthSquared < acquire * acquire)
                         {
                             _target = halfturret;
-                            _speed = FacingVector * 0.3f;
+                            float launchSpeed = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                                && Owner.Hunter == Hunter.Kanden
+                                ? BalancedHunterAbilityRules.KandenLaunchSpeed : 0.3f;
+                            _speed = FacingVector * launchSpeed;
                         }
                     }
                 }
@@ -547,8 +559,11 @@ namespace MphRead.Entities
                 {
                     between /= MathF.Sqrt(hMagSqr);
                 }
-                float deltaX = (between.X - _speed.X) * 0.05f;
-                float deltaZ = (between.Z - _speed.Z) * 0.05f;
+                float steering = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                    && Owner.Hunter == Hunter.Kanden
+                    ? BalancedHunterAbilityRules.KandenSteeringFactor : 0.05f;
+                float deltaX = (between.X - _speed.X) * steering;
+                float deltaZ = (between.Z - _speed.Z) * steering;
                 newSpeed = new Vector3(_speed.X + deltaX, _speed.Y - 0.05f, _speed.Z + deltaZ);
             }
             _speed += (newSpeed - _speed) / 2; // todo: FPS stuff

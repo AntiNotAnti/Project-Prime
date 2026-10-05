@@ -1631,15 +1631,18 @@ namespace MphRead.Entities
             // back down by gravity. This changes velocity only, never position.
             if (wasClimbing && _spireLedgeCrestTimer == 0 && Speed.Y > -0.08f)
             {
-                _spireLedgeCrestTimer = 8; // ~133 ms at the 60 Hz simulation
+                _spireLedgeCrestTimer = (byte)(_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                    ? BalancedHunterAbilityRules.SpireLedgeGraceFrames : 8);
             }
             if (_spireLedgeCrestTimer == 0)
             {
                 return;
             }
 
-            const float crestInwardSpeed = 0.10f;
-            const float crestUpSpeed = 0.11f;
+            float crestInwardSpeed = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                ? BalancedHunterAbilityRules.SpireCrestInwardSpeed : 0.10f;
+            float crestUpSpeed = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                ? BalancedHunterAbilityRules.SpireCrestUpSpeed : 0.11f;
             float inwardSpeed = Speed.X * inwardX + Speed.Z * inwardZ;
             if (inwardSpeed < crestInwardSpeed)
             {
@@ -1817,7 +1820,7 @@ namespace MphRead.Entities
                             * Controls.AnalogScaleX(sign);
                             if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
                             {
-                                traction = BalancedModeRules.ScaleAltTraction(Hunter, traction);
+                                traction = BalancedHunterAbilityRules.StrafeTraction(Hunter, traction);
                             }
                             if (_jumpPadControlLockMin > 0)
                             {
@@ -1851,7 +1854,7 @@ namespace MphRead.Entities
                             * Controls.AnalogScaleY(sign);
                             if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
                             {
-                                traction = BalancedModeRules.ScaleAltTraction(Hunter, traction);
+                                traction = BalancedHunterAbilityRules.StrafeTraction(Hunter, traction);
                             }
                             if (_jumpPadControlLockMin > 0)
                             {
@@ -1901,7 +1904,9 @@ namespace MphRead.Entities
                     float traction = Fixed.ToFloat(Values.RollAltTraction);
                     if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
                     {
-                        traction = BalancedModeRules.ScaleAltTraction(Hunter, traction);
+                        traction = BalancedHunterAbilityRules.RollTraction(Hunter,
+                            Flags2.TestFlag(PlayerFlags2.SpireClimbing),
+                            Hunter == Hunter.Noxus && _altAttackTime > 0, traction);
                     }
                     if (_jumpPadControlLockMin > 0)
                     {
@@ -2045,6 +2050,11 @@ namespace MphRead.Entities
                     }
                     if (_abilities.TestFlag(AbilityFlags.NoxusAltAttack))
                     {
+                        int startupTime = Values.AltAttackStartup * 2; // todo: FPS stuff
+                        if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                        {
+                            startupTime = BalancedHunterAbilityRules.NoxusStartupFrames(startupTime);
+                        }
                         if (Controls.AltAttack.IsDown)
                         {
                             if (Controls.AltAttack.IsPressed)
@@ -2061,7 +2071,6 @@ namespace MphRead.Entities
                                 }
                                 else
                                 {
-                                    int startupTime = Values.AltAttackStartup * 2; // todo: FPS stuff
                                     if (_altAttackTime == startupTime / 2)
                                     {
                                         _soundSource.PlaySfx(SfxId.NOX_TOP_ATTACK2, loop: true);
@@ -2073,8 +2082,9 @@ namespace MphRead.Entities
                                     }
                                 }
                             }
+                            int startupAnimTicks = Math.Max(1, startupTime / 2);
                             _altModel.AnimInfo.Frame[0] = (_altAttackTime / 2 * _altModel.AnimInfo.FrameCount[0] - 1)
-                                / Values.AltAttackStartup; // todo: FPS stuff ^
+                                / startupAnimTicks; // todo: FPS stuff ^
                         }
                         else
                         {
@@ -2516,7 +2526,13 @@ namespace MphRead.Entities
                     _bombRefillTimer = (ushort)(Values.BombRefillTime * 2); // todo: FPS stuff
                 }
                 _bombAmmo--;
-                _bombCooldown = (ushort)(Values.BombCooldown * 2); // todo: FPS stuff
+                int bombCooldown = Values.BombCooldown * 2;
+                if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                    && Hunter == Hunter.Kanden)
+                {
+                    bombCooldown = BalancedHunterAbilityRules.KandenCooldownFrames(bombCooldown);
+                }
+                _bombCooldown = (ushort)bombCooldown; // todo: FPS stuff
                 if (Hunter == Hunter.Kanden)
                 {
                     _altModel.SetAnimation((int)KandenAltAnim.TailOut, AnimFlags.NoLoop);
@@ -2615,7 +2631,8 @@ namespace MphRead.Entities
                     {
                         altMin = BalancedModeRules.ScaleAltSpeedCap(Hunter, altMin);
                     }
-                    if (Hunter == Hunter.Spire && Mods.EnhancedHunters.EnhancedHunters.Enabled(this))
+                    if (!_scene.GameState.BalancedMode && Hunter == Hunter.Spire
+                        && Mods.EnhancedHunters.EnhancedHunters.Enabled(this))
                         foreach (var zone in _scene.EnhancedWorld.Zones)
                             if (zone.Type == Mods.EnhancedHunters.EnhancedZoneType.MagmaPool
                                 && Mods.EnhancedHunters.EnhancedHunterWorld.Owned(this, zone)

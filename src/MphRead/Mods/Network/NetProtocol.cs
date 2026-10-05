@@ -2469,7 +2469,10 @@ namespace MphRead.Mods.Network
         // Replay reconstruction can therefore reproduce the firing picture
         // without trusting this owner-authored presentation pose for live damage.
         // Mixed v38/v39 peers are refused because the intent FireEvent stride changed.
-        public const int ProtocolVersion = 39;
+        // Protocol 40 keeps protocol-39 packet widths but changes Balanced Mode
+        // native Hunter movement/ability semantics. Mixed v39/v40 peers are
+        // refused so prediction/contact timing cannot disagree.
+        public const int ProtocolVersion = 40;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

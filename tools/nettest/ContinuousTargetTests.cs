@@ -10,7 +10,7 @@ internal static class ContinuousTargetTests
     {
         try
         {
-            Check(NetConfig.ProtocolVersion == 39 && IntentPacket.FullSize == 1175, "protocol 39 carries exact fire-event pose");
+            Check(NetConfig.ProtocolVersion == 40 && IntentPacket.FullSize == 1175, "protocol 40 preserves exact fire-event pose with Balanced ability semantics");
             Span<byte> bytes = stackalloc byte[102];
             foreach (byte slot in new byte[] { 0x80, 0x81, 0x88 })
             {
