@@ -197,9 +197,39 @@ namespace MphRead.Mods.Network
                     && magClose > magMid && magMid > magFar,
                     "Magmaul loses damage smoothly with travel distance");
 
+                Check(Near(BalancedModeRules.ProjectileSpeedMultiplier(BeamType.VoltDriver, charged: false), 1.20f)
+                    && Near(BalancedModeRules.ProjectileSpeedMultiplier(BeamType.VoltDriver, charged: true), 10f / 7f)
+                    && Near(BalancedModeRules.ProjectileSpeedMultiplier(BeamType.Battlehammer, charged: false), 1.25f)
+                    && Near(BalancedModeRules.ProjectileSpeedMultiplier(BeamType.Judicator, charged: false), 1.25f)
+                    && Near(BalancedModeRules.ScaleProjectileSpeed(BeamType.Magmaul, charged: false, 6963), 7680),
+                    "Balanced projectile speed table matches the first tuning pass");
+                Check(Near(BalancedModeRules.ProjectileSpeedMultiplier(BeamType.ShockCoil, charged: false), 1)
+                    && Near(BalancedModeRules.ProjectileSpeedMultiplier(BeamType.Imperialist, charged: false), 1),
+                    "Shock Coil and Imperialist retain their original projectile speed");
+
+                float voltBase = scene.WeaponRules[(int)BeamType.VoltDriver].UnchargedSpeed / 4096f / 2;
+                float voltChargedBase = scene.WeaponRules[(int)BeamType.VoltDriver].ChargedSpeed / 4096f / 2;
+                Check(Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
+                        BeamType.VoltDriver, charged: false, voltBase), 24576f / 4096f / 2)
+                    && Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
+                        BeamType.VoltDriver, charged: true, voltChargedBase), 10240f / 4096f / 2),
+                    "Balanced Volt runtime speed reaches 24576 uncharged and 10240 charged");
+                float battleBase = scene.WeaponRules[(int)BeamType.Battlehammer].UnchargedSpeed / 4096f / 2;
+                float judgeBase = scene.WeaponRules[(int)BeamType.Judicator].UnchargedSpeed / 4096f / 2;
+                float magmaBase = scene.WeaponRules[(int)BeamType.Magmaul].UnchargedSpeed / 4096f / 2;
+                Check(Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
+                        BeamType.Battlehammer, charged: false, battleBase), battleBase * 1.25f)
+                    && Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
+                        BeamType.Judicator, charged: false, judgeBase), judgeBase * 1.25f)
+                    && Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
+                        BeamType.Magmaul, charged: false, magmaBase), 7680f / 4096f / 2),
+                    "Balanced prediction weapons receive their configured runtime speed increases");
+
                 scene.GameState.BalancedMode = false;
-                Check(Near(beam.ModBalancedRangeDamage(100, Vector3.UnitZ * BalancedModeRules.FarRange), 100),
-                    "range damage is inert outside Balanced Mode");
+                Check(Near(beam.ModBalancedRangeDamage(100, Vector3.UnitZ * BalancedModeRules.FarRange), 100)
+                    && Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
+                        BeamType.VoltDriver, charged: false, voltBase), voltBase),
+                    "range damage and projectile speed are inert outside Balanced Mode");
             }
             finally { sim.Stop(); NetSession.Stop(); }
         }
