@@ -65,6 +65,19 @@ Two initial comparison domains are reported:
 
 When `-movementshadowout` is used, raw production boundaries remain in the requested TSV and comparison deltas are written to `<path>.compare.tsv`. Shutdown prints bounded per-slot/domain maxima, first-divergence counts, and skip totals.
 
+
+### Collision evidence capture
+
+The shadow now records the strongest collision correction observed across each two-substep native window:
+
+- normalized winning contact plane;
+- requested pushout depth;
+- bounded initial-overlap recovery corrections;
+- ordinary biped/alt contact corrections;
+- Spire wall-climb pushout corrections.
+
+This is still evidence, not a reconstructed native collision solver. `ground-horizontal` masks the recorded contact fields when evaluating traction/damping so known collision behavior cannot create a false movement failure. `air-kinematic` skips a window when a meaningful contact correction occurred. Raw production TSV output retains the contact normal and pushout for the upcoming slope/corner/Spire collision-reference slice.
+
 ## P0 inventory
 
 The five player files currently contain **179** marked sites:
