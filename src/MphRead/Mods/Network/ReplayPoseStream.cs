@@ -137,7 +137,8 @@ internal sealed class ReplayPoseStream : IDisposable
         PrepareFireFrame();
         int slot = player.SlotIndex;
         return UsesFireEvents(player) && (uint)slot < 8
-            && _activeFire[slot] is { Event.Kind: not FireEventKind.TurretFire }
+            && _activeFire[slot] is { } active
+            && active.Event.Kind != FireEventKind.TurretFire
             && !_fireConsumed[slot];
     }
 
