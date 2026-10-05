@@ -63,7 +63,7 @@ internal static class NetArchitectureTests
             Check(output.SequenceEqual(fixture), "v24 keeps the v22 intent byte fixture");
             Check(intent.AckFrame == 0x87654321 && intent.AckSubFrame == 128 && IntentPacket.PressHistory == 8,
                 "displayed world ACK and eight-frame edge retention");
-            Check(NetConfig.ProtocolVersion == 37 && IntentPacket.FullSize == 423 && intent.HasAnalogMove
+            Check(NetConfig.ProtocolVersion == 38 && IntentPacket.FullSize == 423 && intent.HasAnalogMove
                 && intent.MoveX == 64 && intent.MoveY == -96
                 && intent.HasContinuousFireTick && intent.ContinuousFireTick == 0xCAFEBABE
                 && Math.Abs(IntentPacket.UnpackMoveAxis(intent.MoveX) - 64 / 127f) < .00001f,
