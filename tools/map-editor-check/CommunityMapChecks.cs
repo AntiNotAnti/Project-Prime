@@ -211,6 +211,46 @@ internal static class CommunityMapChecks
             check((await http.GetByteArrayAsync("packages/" + hidden.Hash)).Length == hidden.Bytes, "unlisted package remains available by exact hash");
             var versions = JsonSerializer.Deserialize<CommunityMap[]>(await http.GetStringAsync("maps/" + id + "/versions"), MapPackageReader.JsonOptions)!;
             check(versions.Length == 2 && versions[0].Hash == v2.Hash, "version history resolves newest listed package");
+
+            var publicProjects = JsonSerializer.Deserialize<CommunityMapProject[]>(
+                await http.GetStringAsync("v2/maps"), MapPackageReader.JsonOptions)!;
+            check(publicProjects.Length == 1
+                && publicProjects[0].MapId == id
+                && publicProjects[0].RevisionCount == 2
+                && publicProjects[0].CurrentHash == v2.Hash
+                && publicProjects[0].LatestHash == v2.Hash,
+                "v2 catalog groups public package versions into one map project");
+
+            var publicRevisions = JsonSerializer.Deserialize<CommunityMapRevision[]>(
+                await http.GetStringAsync("v2/maps/" + id + "/revisions"),
+                MapPackageReader.JsonOptions)!;
+            check(publicRevisions.Length == 2
+                && publicRevisions[0].RevisionNumber == 2
+                && publicRevisions[0].Hash == v2.Hash
+                && publicRevisions[0].ParentHash == v1.Hash
+                && publicRevisions[0].CreatedBy == null
+                && publicRevisions[1].RevisionNumber == 1
+                && publicRevisions[1].ParentHash == null,
+                "v2 public revision history has stable server numbers and parent links");
+
+            var ownerProject = await client.GetProjectAsync(id, default);
+            var ownerRevisions = await client.GetRevisionsAsync(id, default);
+            check(ownerProject != null
+                && ownerProject.RevisionCount == 3
+                && ownerProject.CurrentHash == v2.Hash
+                && ownerProject.LatestHash == hidden.Hash
+                && ownerProject.LatestRevision.RevisionNumber == 3
+                && ownerRevisions.Length == 3
+                && ownerRevisions[0].Hash == hidden.Hash
+                && ownerRevisions[0].CreatedBy == MapCreatorCatalog.ServiceOwner,
+                "owners see draft/unlisted lineage without changing the public current revision");
+
+            await client.SetVisibilityAsync(hidden.Hash, "Published", default);
+            check((await client.GetProjectAsync(id, default))?.CurrentHash == hidden.Hash,
+                "publishing an existing revision promotes the project current pointer");
+            await client.SetVisibilityAsync(hidden.Hash, "Unlisted", default);
+            check((await client.GetProjectAsync(id, default))?.CurrentHash == v2.Hash,
+                "unlisting the current revision falls back to the newest published revision");
             var search = JsonSerializer.Deserialize<CommunityMap[]>(await http.GetStringAsync("maps?query=community&author=Fixture&page=2&pageSize=1"), MapPackageReader.JsonOptions)!;
             check(search.Length == 1, "catalog search and pagination");
             bool conflict = false;
@@ -288,6 +328,10 @@ internal static class CommunityMapChecks
             check(!Directory.EnumerateFiles(storage, "upload-*.json").Any()
                 && !Directory.EnumerateFiles(storage, "upload-*.part").Any(),
                 "completed resumable upload removes partial session files");
+            var restartedHistory = await client.GetRevisionsAsync(id, default);
+            check(restartedHistory.Any(r => r.RevisionNumber == 1 && r.ParentHash == null)
+                && restartedHistory.Select(r => r.RevisionNumber).Distinct().Count() == restartedHistory.Length,
+                "v2 revision numbers survive service restart and resume");
             check((await client.BrowseAsync(default)).Length == 2, "unlisted visibility persists across service restart");
         }
         finally { restarted.Cancel(); try { await service; } catch (OperationCanceledException) { } }
