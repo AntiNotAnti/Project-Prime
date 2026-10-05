@@ -80,6 +80,8 @@ public sealed class MapCommunityClient : IDisposable
             + "&sort=" + Uri.EscapeDataString(sort ?? "name");
         using var response = await GetReadAsync(resource,
             HttpCompletionOption.ResponseHeadersRead, token);
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed)
+            return GroupLegacyProjects(await BrowseAsync(token, mine, favorites, sort));
         EnsureSuccess(response);
         using var data = new MemoryStream();
         await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token),
@@ -94,7 +96,8 @@ public sealed class MapCommunityClient : IDisposable
     {
         using var response = await GetReadAsync("v2/maps/" + mapId,
             HttpCompletionOption.ResponseHeadersRead, token);
-        if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed)
+            return GroupLegacyProjects(await GetLegacyVersionsAsync(mapId, token)).SingleOrDefault();
         EnsureSuccess(response);
         using var data = new MemoryStream();
         await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token),
@@ -108,8 +111,14 @@ public sealed class MapCommunityClient : IDisposable
     {
         using var response = await GetReadAsync("v2/maps/" + mapId + "/revisions",
             HttpCompletionOption.ResponseHeadersRead, token);
-        if (response.StatusCode == HttpStatusCode.NotFound)
-            return Array.Empty<CommunityMapRevision>();
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed)
+        {
+            CommunityMapProject? legacy = GroupLegacyProjects(
+                await GetLegacyVersionsAsync(mapId, token)).SingleOrDefault();
+            if (legacy == null) return Array.Empty<CommunityMapRevision>();
+            CommunityMap[] packages = await GetLegacyVersionsAsync(mapId, token);
+            return LegacyRevisions(packages);
+        }
         EnsureSuccess(response);
         using var data = new MemoryStream();
         await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token),
@@ -117,6 +126,77 @@ public sealed class MapCommunityClient : IDisposable
         return JsonSerializer.Deserialize<CommunityMapRevision[]>(
             data.ToArray(), MapPackageReader.JsonOptions)
             ?? Array.Empty<CommunityMapRevision>();
+    }
+
+    private async Task<CommunityMap[]> GetLegacyVersionsAsync(Guid mapId,
+        CancellationToken token)
+    {
+        using var response = await GetReadAsync("maps/" + mapId + "/versions",
+            HttpCompletionOption.ResponseHeadersRead, token);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return Array.Empty<CommunityMap>();
+        EnsureSuccess(response);
+        using var data = new MemoryStream();
+        await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token),
+            data, 4 * 1024 * 1024, token);
+        return JsonSerializer.Deserialize<CommunityMap[]>(
+            data.ToArray(), MapPackageReader.JsonOptions)
+            ?? Array.Empty<CommunityMap>();
+    }
+
+    private static CommunityMapRevision[] LegacyRevisions(IEnumerable<CommunityMap> source)
+    {
+        CommunityMap[] packages = source
+            .OrderBy(m => m.PublishedAt == default ? DateTimeOffset.UnixEpoch : m.PublishedAt)
+            .ThenBy(m => m.Hash, StringComparer.Ordinal)
+            .ToArray();
+        var result = new CommunityMapRevision[packages.Length];
+        for (int i = 0; i < packages.Length; i++)
+        {
+            result[i] = new CommunityMapRevision(
+                i + 1,
+                packages[i].Hash,
+                i == 0 ? null : packages[i - 1].Hash,
+                null,
+                packages[i].PublishedAt,
+                packages[i]);
+        }
+        return result.OrderByDescending(r => r.RevisionNumber).ToArray();
+    }
+
+    private static CommunityMapProject[] GroupLegacyProjects(
+        IEnumerable<CommunityMap> source)
+    {
+        return source.GroupBy(m => m.MapId)
+            .Select(group =>
+            {
+                CommunityMapRevision[] descending = LegacyRevisions(group);
+                CommunityMapRevision[] ascending = descending
+                    .OrderBy(r => r.RevisionNumber).ToArray();
+                CommunityMapRevision latest = ascending[^1];
+                CommunityMapRevision? current = ascending
+                    .Where(r => r.Package.Listed && !r.Package.Draft)
+                    .OrderByDescending(r => r.RevisionNumber)
+                    .FirstOrDefault();
+                CommunityMap presentation = current?.Package ?? latest.Package;
+                DateTimeOffset created = ascending[0].CreatedAt;
+                DateTimeOffset updated = latest.CreatedAt;
+                return new CommunityMapProject(
+                    group.Key,
+                    presentation.OwnerId,
+                    presentation.Name,
+                    presentation.DisplayName,
+                    presentation.Author,
+                    current?.Hash,
+                    latest.Hash,
+                    ascending.Length,
+                    created,
+                    updated,
+                    current,
+                    latest);
+            })
+            .OrderBy(p => p.DisplayName ?? p.Name, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
     }
 
     public async Task SetFavoriteAsync(Guid map,bool favorite,CancellationToken token)
