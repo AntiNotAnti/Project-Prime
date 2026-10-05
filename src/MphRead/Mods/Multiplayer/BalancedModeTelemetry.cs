@@ -169,6 +169,12 @@ internal static class BalancedModeTelemetry
         if ((BeamType)fact.Weapon == BeamType.Imperialist) Add(_imperialist, 1);
     }
 
+    internal static void NoteWeaponHit(Scene scene, BeamType weapon)
+    {
+        if (!CanRecord(scene) || !WeaponIndex(weapon, out int weaponIndex)) return;
+        Add(_weaponHits, weaponIndex);
+    }
+
     internal static void NoteDamage(PlayerEntity victim, PlayerEntity attacker,
         BeamProjectileEntity? beam, BeamType weapon, uint applied)
     {
@@ -181,7 +187,6 @@ internal static class BalancedModeTelemetry
             Add(_hunterDamageTaken, victimHunter, applied);
         if (!WeaponIndex(weapon, out int weaponIndex)) return;
 
-        Add(_weaponHits, weaponIndex);
         Add(_weaponDamage, weaponIndex, applied);
 
         if (beam != null)
