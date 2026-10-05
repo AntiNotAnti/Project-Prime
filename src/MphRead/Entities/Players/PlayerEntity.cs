@@ -1467,9 +1467,18 @@ namespace MphRead.Entities
             {
                 _availableWeapons[beam] = true;
                 _availableCharges[beam] = true;
-                _ammo[info.AmmoType] = _ammoMax[info.AmmoType];
+                if (UsesBalancedImperialistAmmo(beam))
+                {
+                    _balancedImperialistAmmo = BalancedImperialistAmmoCap;
+                }
+                else
+                {
+                    _ammo[info.AmmoType] = _ammoMax[info.AmmoType];
+                }
             }
-            bool hasAmmo = beam == BeamType.PowerBeam || _ammo[ammoType] >= info.AmmoCost || _ammo[ammoType] == -1;
+            int weaponAmmo = ModAmmoForWeapon(beam, info);
+            int weaponAmmoCost = ModAmmoCostForWeapon(beam, info);
+            bool hasAmmo = beam == BeamType.PowerBeam || weaponAmmo >= weaponAmmoCost || weaponAmmo == -1;
             if (!silent && (!hasAmmo || !_availableWeapons[beam] || GunAnimation == GunAnimation.UpDown))
             {
                 if (IsMainPlayer)
@@ -1501,8 +1510,7 @@ namespace MphRead.Entities
             }
             EquipInfo.ChargeLevel = 0;
             EquipInfo.SmokeLevel = 0;
-            EquipInfo.GetAmmo = () => _ammo[ammoType];
-            EquipInfo.SetAmmo = (newAmmo) => _ammo[ammoType] = newAmmo;
+            ModBindWeaponAmmo(beam, ammoType);
             _timeSinceInput = 0;
             if (!silent)
             {
