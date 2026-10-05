@@ -561,6 +561,95 @@ internal sealed class ReplayPoseStream : IDisposable
                 fact.ImpactPoint, color, alpha: 1f,
                 scale: fact.Headshot ? 0.46f : 0.32f);
         }
+
+        DrawCombatDiagnosticPresentation(scene);
+    }
+
+    private void DrawCombatDiagnosticPresentation(Scene scene)
+    {
+        if (!ReplayCombatDiagnostics.ShowRays
+            || ReplayVideoExporter.Rendering && !ReplayVideoExporter.IncludeReplayOverlay)
+        {
+            return;
+        }
+
+        if (ReplayCombatDiagnostics.Selected is { } selection
+            && TryCombatDiagnostic(selection, out var selected))
+        {
+            DrawCombatDiagnostic(scene, selected, selected: true);
+            return;
+        }
+
+        uint frame = _world.Session.RecordingFrame;
+        if (!_resolvedShotFacts.TryGetValue(frame, out var facts)) return;
+        int shown = 0;
+        foreach (var fact in facts)
+        {
+            if (!TryBuildCombatDiagnostic(frame, fact, out var diagnostic)) continue;
+            DrawCombatDiagnostic(scene, diagnostic, selected: false);
+            if (++shown == 3) break;
+        }
+    }
+
+    private static void DrawCombatDiagnostic(Scene scene,
+        in ReplayCombatDiagnostic diagnostic, bool selected)
+    {
+        ReplayShotFact fact = diagnostic.Fact;
+        Vector3 impactColor = fact.Headshot
+            ? new Vector3(1f, 0.72f, 0.28f)
+            : fact.Lethal ? new Vector3(1f, 0.30f, 0.24f)
+            : new Vector3(0.95f, 0.95f, 0.95f);
+
+        if (diagnostic.HasPose)
+        {
+            DrawDiagnosticSegment(scene, diagnostic.Fire.Origin, fact.ImpactPoint,
+                selected ? new Vector3(1f, 0.65f, 0.22f)
+                    : new Vector3(0.78f, 0.58f, 0.22f),
+                selected ? 0.12f : 0.09f);
+
+            Vector3 aim = diagnostic.Fire.Aim;
+            if (aim.LengthSquared >= 0.000001f)
+            {
+                aim = aim.Normalized();
+                float impactDistance = Vector3.Distance(
+                    diagnostic.Fire.Origin, fact.ImpactPoint);
+                float length = Math.Clamp(impactDistance, 3f, 18f);
+                DrawDiagnosticSegment(scene, diagnostic.Fire.Origin,
+                    diagnostic.Fire.Origin + aim * length,
+                    new Vector3(0.30f, 0.88f, 1f),
+                    selected ? 0.10f : 0.075f);
+            }
+
+            scene.AddSingleParticle(SingleType.Fuzzball,
+                diagnostic.Fire.Origin, new Vector3(0.42f, 1f, 0.48f),
+                alpha: 0.92f, scale: selected ? 0.24f : 0.18f);
+        }
+
+        if (diagnostic.HasAckTarget)
+        {
+            scene.AddSingleParticle(SingleType.Fuzzball,
+                diagnostic.AckTargetPosition, new Vector3(0.36f, 0.82f, 1f),
+                alpha: 0.92f, scale: selected ? 0.30f : 0.22f);
+        }
+
+        scene.AddSingleParticle(SingleType.Fuzzball,
+            fact.ImpactPoint, impactColor, alpha: 1f,
+            scale: selected ? 0.38f : 0.28f);
+    }
+
+    private static void DrawDiagnosticSegment(Scene scene, Vector3 start,
+        Vector3 end, Vector3 color, float scale)
+    {
+        float distance = Vector3.Distance(start, end);
+        if (!float.IsFinite(distance) || distance <= 0.0001f) return;
+        int dots = Math.Clamp((int)MathF.Ceiling(distance * 1.6f), 4, 24);
+        for (int i = 0; i <= dots; i++)
+        {
+            float t = i / (float)dots;
+            scene.AddSingleParticle(SingleType.Fuzzball,
+                Vector3.Lerp(start, end, t), color,
+                alpha: 0.72f, scale: scale);
+        }
     }
 
     internal static bool SameImpactVisual(in ReplayShotFact a, in ReplayShotFact b)
