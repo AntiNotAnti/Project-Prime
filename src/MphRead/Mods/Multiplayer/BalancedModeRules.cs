@@ -128,15 +128,18 @@ public static class BalancedModeRules
     public static float ScaleProjectileSpeed(BeamType beam, bool charged, float speed)
         => speed * ProjectileSpeedMultiplier(beam, charged);
 
-    public static float DirectHitMultiplier(BeamType beam)
-        => beam == BeamType.Battlehammer ? 1.25f : 1f;
+    public static float DirectHitMultiplier(BeamType beam, bool battlehammerCluster = false)
+        => beam == BeamType.Battlehammer
+            ? battlehammerCluster ? 1.50f : 1.25f
+            : 1f;
 
     public static float SplashDamageMultiplier(BeamType beam)
         => beam is BeamType.Battlehammer or BeamType.Magmaul or BeamType.Judicator
             ? 0.75f : 1f;
 
-    public static float ScaleDirectHitDamage(BeamType beam, float damage)
-        => damage * DirectHitMultiplier(beam);
+    public static float ScaleDirectHitDamage(BeamType beam, float damage,
+        bool battlehammerCluster = false)
+        => damage * DirectHitMultiplier(beam, battlehammerCluster);
 
     public static float ScaleSplashDamage(BeamType beam, float damage)
         => damage * SplashDamageMultiplier(beam);
