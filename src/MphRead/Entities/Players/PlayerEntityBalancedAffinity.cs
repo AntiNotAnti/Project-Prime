@@ -67,6 +67,7 @@ namespace MphRead.Entities
 
             int heal = Math.Min(requested, remaining);
             _balancedLifeDrainWindowHeal += (byte)heal;
+            BalancedModeTelemetry.NoteSyluxDrain(this, requested, heal);
             return heal;
         }
     }
