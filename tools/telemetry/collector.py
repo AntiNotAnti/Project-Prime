@@ -15,6 +15,11 @@ V2_KEYS = {"networkDetails", "lifecycleDetails", "combatDetails", "shadowOutcome
 V3_KEYS = {"combatAcks", "transportContention"}
 V4_KEYS = {"enhancedHunters", "serverAllocationBytes", "serverMaximumStepAllocation", "serverOverruns", "serverStalls", "continuousSamples"}
 V5_KEYS = {"semanticEvents", "matchAwards"}
+V6_KEYS = {"balancedMode"}
+BALANCE_KEYS = {"revision", "hunterPicks", "hunterSeconds", "hunterKills", "hunterDeaths",
+                "hunterDamageDealt", "hunterDamageTaken", "weaponShots", "weaponHits",
+                "weaponKills", "weaponDamage", "directHits", "directDamage", "splashHits",
+                "splashDamage", "rangeHits", "rangeDamage", "battlehammer", "affinity", "imperialist"}
 HEADER_KEYS = {"schema", "protocol", "matchSessionId", "buildCommit", "serverVersion", "serverPlatform", "matchMode", "map", "playerCount"}
 DISTRIBUTION_KEYS = {"count", "mean", "p50", "p95", "p99", "maximum"}
 COUNTER_KEYS = {"eventsQueued", "eventsWritten", "eventsDropped", "queueHighWater", "writerFailures", "uploadFailures"}
@@ -29,9 +34,9 @@ def valid(summary):
     if not isinstance(summary, dict):
         return False
     header = summary.get("header")
-    if not isinstance(header, dict) or set(header) != HEADER_KEYS or header["schema"] not in (1, 2, 3, 4, 5) or header["protocol"] not in range(19, 36):
+    if not isinstance(header, dict) or set(header) != HEADER_KEYS or header["schema"] not in (1, 2, 3, 4, 5, 6) or header["protocol"] not in range(19, 65):
         return False
-    expected = SUMMARY_KEYS | (V2_KEYS if header["schema"] >= 2 else set()) | (V3_KEYS if header["schema"] >= 3 else set()) | (V4_KEYS if header["schema"] >= 4 else set()) | (V5_KEYS if header["schema"] >= 5 else set())
+    expected = SUMMARY_KEYS | (V2_KEYS if header["schema"] >= 2 else set()) | (V3_KEYS if header["schema"] >= 3 else set()) | (V4_KEYS if header["schema"] >= 4 else set()) | (V5_KEYS if header["schema"] >= 5 else set()) | (V6_KEYS if header["schema"] >= 6 else set())
     if set(summary) != expected:
         return False
     if type(header["playerCount"]) is not int or not 0 <= header["playerCount"] <= 8:
@@ -115,6 +120,21 @@ def valid(summary):
     if header["schema"] >= 5:
         for key, length in (("semanticEvents", 18), ("matchAwards", 21)):
             if not isinstance(summary[key], list) or len(summary[key]) != length or any(type(v) is not int or v < 0 for v in summary[key]): return False
+    if header["schema"] >= 6:
+        balance = summary["balancedMode"]
+        if not isinstance(balance, dict) or set(balance) != BALANCE_KEYS: return False
+        if type(balance["revision"]) is not int or balance["revision"] < 0: return False
+        lengths = {
+            "hunterPicks": 7, "hunterSeconds": 7, "hunterKills": 7, "hunterDeaths": 7,
+            "hunterDamageDealt": 7, "hunterDamageTaken": 7,
+            "weaponShots": 9, "weaponHits": 9, "weaponKills": 9, "weaponDamage": 9,
+            "directHits": 9, "directDamage": 9, "splashHits": 9, "splashDamage": 9,
+            "rangeHits": 27, "rangeDamage": 27, "battlehammer": 6, "affinity": 11,
+            "imperialist": 5}
+        for key, length in lengths.items():
+            value = balance[key]
+            if not isinstance(value, list) or len(value) != length or any(type(v) is not int or v < 0 for v in value):
+                return False
     return all(type(summary[k]) in (int, float) and math.isfinite(summary[k]) and summary[k] >= 0 for k in ("durationSeconds", "forcedForms", "droppedTicks"))
 
 
