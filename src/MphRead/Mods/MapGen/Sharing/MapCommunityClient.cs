@@ -144,7 +144,7 @@ public sealed class MapCommunityClient : IDisposable
             ?? Array.Empty<CommunityMap>();
     }
 
-    private static CommunityMapRevision[] LegacyRevisions(IEnumerable<CommunityMap> source)
+    internal static CommunityMapRevision[] LegacyRevisions(IEnumerable<CommunityMap> source)
     {
         CommunityMap[] packages = source
             .OrderBy(m => m.PublishedAt == default ? DateTimeOffset.UnixEpoch : m.PublishedAt)
@@ -164,7 +164,7 @@ public sealed class MapCommunityClient : IDisposable
         return result.OrderByDescending(r => r.RevisionNumber).ToArray();
     }
 
-    private static CommunityMapProject[] GroupLegacyProjects(
+    internal static CommunityMapProject[] GroupLegacyProjects(
         IEnumerable<CommunityMap> source)
     {
         return source.GroupBy(m => m.MapId)
