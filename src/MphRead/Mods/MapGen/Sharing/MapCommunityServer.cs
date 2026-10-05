@@ -52,6 +52,7 @@ public static class MapCommunityServer
                 maps.TryAdd(entry.Hash, entry); }
             catch (Exception ex) { Console.Error.WriteLine("[maphub] Skipped package: " + ex.Message); }
         }
+        var revisionCatalog = new MapCommunityRevisionCatalog(storage, maps.Values);
         using var listener = new HttpListener();
         listener.Prefixes.Add(prefix.TrimEnd('/') + "/"); listener.Start();
         using var registration = token.Register(listener.Close);
@@ -125,6 +126,7 @@ public static class MapCommunityServer
                 JsonSerializer.SerializeToUtf8Bytes(entry, MapPackageReader.JsonOptions));
             if (!File.Exists(destination)) File.Move(temporary, destination);
             maps[entry.Hash] = entry;
+            revisionCatalog.Register(entry, creator.CreatorId);
             return (201, entry);
         }
 
@@ -318,9 +320,80 @@ public static class MapCommunityServer
                         if(!catalog.CanPublish(creator.CreatorId,map)){context.Response.StatusCode=403;return;}
                         string visibility=await Body<string>();if(visibility is not ("Published" or "Unlisted" or "Draft"))throw new InvalidDataException("Invalid visibility.");
                         var updated=map with{Listed=visibility=="Published",Draft=visibility=="Draft"};
-                        AtomicFile.Write(Path.Combine(storage,map.Hash+".catalog.json"),JsonSerializer.SerializeToUtf8Bytes(updated,MapPackageReader.JsonOptions));maps[map.Hash]=updated;context.Response.StatusCode=204;
+                        AtomicFile.Write(Path.Combine(storage,map.Hash+".catalog.json"),JsonSerializer.SerializeToUtf8Bytes(updated,MapPackageReader.JsonOptions));
+                        maps[map.Hash]=updated;
+                        revisionCatalog.ApplyVisibility(updated,maps.Values);
+                        context.Response.StatusCode=204;
                     }
                     finally{publication.Release();}return;
+                }
+                if(parts.Length>=2&&parts[0]=="v2"&&parts[1]=="maps"&&context.Request.HttpMethod=="GET")
+                {
+                    var query=context.Request.QueryString;
+                    bool mine=query["mine"]=="true",favorites=query["favorites"]=="true";
+                    if((mine||favorites)&&creator==null){context.Response.StatusCode=401;return;}
+
+                    if(parts.Length==2)
+                    {
+                        CommunityMap[] visible=maps.Values
+                            .Where(m=>mine ? creator!=null&&catalog.CanPublish(creator.CreatorId,m) : m.Listed&&!m.Draft)
+                            .Select(m=>catalog.Decorate(m,creator?.CreatorId))
+                            .ToArray();
+                        IEnumerable<CommunityMapProject> projects=visible
+                            .GroupBy(m=>m.MapId)
+                            .Select(g=>revisionCatalog.BuildProject(g.Key,g))
+                            .OfType<CommunityMapProject>();
+                        CommunityMap Presentation(CommunityMapProject project)
+                            => project.CurrentRevision?.Package ?? project.LatestRevision.Package;
+                        if(favorites)projects=projects.Where(p=>Presentation(p).Favorited);
+                        if(query["query"] is { } search)projects=projects.Where(p=>
+                            (p.Name+" "+p.DisplayName+" "+p.Author+" "+Presentation(p).Version)
+                                .Contains(search,StringComparison.OrdinalIgnoreCase));
+                        if(query["mode"] is { } mode)projects=projects.Where(p=>
+                            Presentation(p).SupportedModes.Length==0
+                            ||Presentation(p).SupportedModes.Contains(mode,StringComparer.OrdinalIgnoreCase));
+                        if(query["author"] is { } author)projects=projects.Where(p=>
+                            string.Equals(p.Author,author,StringComparison.OrdinalIgnoreCase));
+                        projects=query["sort"]=="favorites"
+                            ? projects.OrderByDescending(p=>Presentation(p).FavoriteCount).ThenBy(p=>p.Name)
+                            : query["sort"] is "new" or "updated"
+                                ? projects.OrderByDescending(p=>p.UpdatedAt)
+                                : projects.OrderBy(p=>p.DisplayName??p.Name);
+                        if(query["page"]!=null||query["pageSize"]!=null)
+                        {
+                            int page=int.TryParse(query["page"],out int p)?Math.Clamp(p,1,2000):1;
+                            int size=int.TryParse(query["pageSize"],out int n)?Math.Clamp(n,1,100):24;
+                            projects=projects.Skip((page-1)*size).Take(size);
+                        }
+                        await Json(context.Response,projects.ToArray(),deadline.Token);
+                        return;
+                    }
+
+                    if(parts.Length is 3 or 4&&Guid.TryParse(parts[2],out Guid projectId))
+                    {
+                        CommunityMap[] all=maps.Values.Where(m=>m.MapId==projectId).ToArray();
+                        if(all.Length==0){context.Response.StatusCode=404;return;}
+                        bool canManage=creator!=null&&all.Any(m=>catalog.CanPublish(creator.CreatorId,m));
+                        CommunityMap[] visible=all
+                            .Where(m=>canManage||m.Listed&&!m.Draft)
+                            .Select(m=>catalog.Decorate(m,creator?.CreatorId))
+                            .ToArray();
+                        if(visible.Length==0){context.Response.StatusCode=404;return;}
+                        if(parts.Length==3)
+                        {
+                            var project=revisionCatalog.BuildProject(projectId,visible);
+                            if(project==null){context.Response.StatusCode=404;return;}
+                            await Json(context.Response,project,deadline.Token);
+                            return;
+                        }
+                        if(parts[3]=="revisions")
+                        {
+                            await Json(context.Response,revisionCatalog.BuildRevisions(projectId,visible),deadline.Token);
+                            return;
+                        }
+                    }
+                    context.Response.StatusCode=404;
+                    return;
                 }
                 if(parts[0]=="reports")
                 {
@@ -333,6 +406,7 @@ public static class MapCommunityServer
                     await Json(context.Response, new
                     {
                         Status="ok", Service="prime-maps", Maps=maps.Count,
+                        Projects=revisionCatalog.ProjectCount,
                         PublishedBytes=maps.Values.Sum(m => m.Bytes),
                         StorageLimitBytes=publishedStorageLimit
                     }, deadline.Token);
