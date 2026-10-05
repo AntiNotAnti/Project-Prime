@@ -1283,6 +1283,11 @@ namespace MphRead.Entities
                     ? BalancedModeRules.SpireBurnTickFrames : 8 * 2;
                 if (_burnTimer % burnTickFrames == 0) // todo:FPS stuff
                 {
+                    bool lethalBurn = balancedSpireBurn && Health <= 1;
+                    if (balancedSpireBurn)
+                    {
+                        BalancedModeTelemetry.NoteSpireBurnDamage(this, lethalBurn);
+                    }
                     TakeDamage(1, DamageFlags.NoSfx | DamageFlags.Burn | DamageFlags.NoDmgInvuln, direction: null, _burnedBy);
                 }
                 if (_burnEffect != null)
