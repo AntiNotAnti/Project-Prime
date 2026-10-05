@@ -270,9 +270,14 @@ public static class MapCommunityServer
                             if (start.ReleaseNotes?.Length > 4000)
                             { context.Response.StatusCode = 400; return; }
 
+                            var upload = LoadUpload(key);
+                            bool resumableBytes = upload != null
+                                && File.Exists(UploadPartPath(key))
+                                && new FileInfo(UploadPartPath(key)).Length > 0;
                             var intent = ValidateRevisionIntent(
                                 start.MapId, start.ExistingMap, start.ExpectedParentHash,
-                                start.AllowStaleParent, creator, resumeAvailable: false);
+                                start.AllowStaleParent, creator,
+                                resumeAvailable: resumableBytes);
                             if (intent.Status != 0)
                             {
                                 context.Response.StatusCode = intent.Status;
@@ -281,7 +286,6 @@ public static class MapCommunityServer
                                 return;
                             }
 
-                            var upload = LoadUpload(key);
                             if (upload == null || upload.CreatorId != creator.CreatorId || upload.PackageHash != hash || upload.Bytes != start.Bytes)
                             {
                                 DeleteUpload(key);
