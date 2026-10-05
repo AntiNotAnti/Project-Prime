@@ -33,7 +33,7 @@ namespace MphRead.Entities
         }
 
         private int BalancedImperialistAmmoCap
-            => Math.Max(1, BalancedImperialistWeaponInfo().AmmoCost) * BalancedImperialistShotCap;
+            => Math.Max(1, (int)BalancedImperialistWeaponInfo().AmmoCost) * BalancedImperialistShotCap;
 
         private int ModAmmoForWeapon(BeamType beam, WeaponInfo info)
             => UsesBalancedImperialistAmmo(beam) ? _balancedImperialistAmmo : _ammo[info.AmmoType];
@@ -42,7 +42,7 @@ namespace MphRead.Entities
             => UsesBalancedImperialistAmmo(beam) ? BalancedImperialistAmmoCap : _ammoMax[info.AmmoType];
 
         private int ModAmmoCostForWeapon(BeamType beam, WeaponInfo info)
-            => UsesBalancedImperialistAmmo(beam) ? Math.Max(1, BalancedImperialistWeaponInfo().AmmoCost) : info.AmmoCost;
+            => UsesBalancedImperialistAmmo(beam) ? Math.Max(1, (int)BalancedImperialistWeaponInfo().AmmoCost) : info.AmmoCost;
 
         private WeaponInfo ModDisplayWeaponInfo(BeamType beam, WeaponInfo info)
             => UsesBalancedImperialistAmmo(beam) && Weapons.GetAffinityBeam(Hunter) == beam
@@ -82,7 +82,7 @@ namespace MphRead.Entities
 
         internal int ModBalancedImperialistShots
             => UsesBalancedImperialistAmmo(BeamType.Imperialist)
-                ? _balancedImperialistAmmo / Math.Max(1, BalancedImperialistWeaponInfo().AmmoCost)
+                ? _balancedImperialistAmmo / Math.Max(1, (int)BalancedImperialistWeaponInfo().AmmoCost)
                 : -1;
     }
 }
