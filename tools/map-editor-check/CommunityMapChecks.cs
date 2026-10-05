@@ -357,6 +357,86 @@ internal static class CommunityMapChecks
                 && forced.Revision.ReleaseNotes == "Intentional branch publish",
                 "explicit publish-anyway preserves the authored parent link");
 
+            // Exercise the harder race: the upload begins against the latest
+            // revision, another collaborator publishes while the archive is
+            // already on disk, then completion detects the stale parent.
+            string racePendingPath = PackageBytes("1", "REVISION_TEST",
+                configure: definition => definition.Description = "race pending",
+                mapId: revisionMapId);
+            byte[] racePendingBytes = File.ReadAllBytes(racePendingPath);
+            string racePendingHash = MapBuildFingerprint.HashFile(racePendingPath);
+            var raceStart = new MapUploadStartRequest(
+                racePendingBytes.LongLength, Listed: false, Draft: false)
+            {
+                MapId = revisionMapId,
+                ExistingMap = true,
+                ExpectedParentHash = forced.Package.Hash,
+                ReleaseNotes = "Race pending"
+            };
+            using (var begin = new HttpRequestMessage(
+                HttpMethod.Post, "uploads/" + racePendingHash)
+            {
+                Content = new StringContent(
+                    JsonSerializer.Serialize(raceStart, MapPackageReader.JsonOptions),
+                    Encoding.UTF8, "application/json")
+            })
+            {
+                begin.Headers.Authorization = new("Bearer", secret);
+                using var response = await http.SendAsync(begin);
+                check(response.IsSuccessStatusCode,
+                    "optimistic revision upload begins against the current parent");
+            }
+            using (var chunk = new HttpRequestMessage(
+                HttpMethod.Put, "uploads/" + racePendingHash + "?offset=0")
+            {
+                Content = new ByteArrayContent(racePendingBytes)
+            })
+            {
+                chunk.Headers.Authorization = new("Bearer", secret);
+                using var response = await http.SendAsync(chunk);
+                check(response.IsSuccessStatusCode,
+                    "optimistic revision archive reaches the resumable store");
+            }
+
+            string raceWinnerPath = PackageBytes("1", "REVISION_TEST",
+                configure: definition => definition.Description = "race winner",
+                mapId: revisionMapId);
+            var raceWinner = await client.PublishAsync(
+                raceWinnerPath,
+                new CommunityPublishRequest(true, forced.Package.Hash,
+                    "Concurrent winner"),
+                default, listed: false);
+
+            CommunityRevisionConflict? completionConflict;
+            using (var complete = new HttpRequestMessage(
+                HttpMethod.Post, "uploads/" + racePendingHash + "/complete")
+            {
+                Content = new ByteArrayContent(Array.Empty<byte>())
+            })
+            {
+                complete.Headers.Authorization = new("Bearer", secret);
+                using var response = await http.SendAsync(complete);
+                completionConflict = JsonSerializer.Deserialize<CommunityRevisionConflict>(
+                    await response.Content.ReadAsByteArrayAsync(),
+                    MapPackageReader.JsonOptions);
+                check(response.StatusCode == HttpStatusCode.Conflict
+                    && completionConflict?.Code == "stale_parent"
+                    && completionConflict.LatestHash == raceWinner.Package.Hash
+                    && completionConflict.ResumeAvailable,
+                    "completion rechecks the parent and preserves fully uploaded bytes on a collaborator race");
+            }
+
+            var resumedBranch = await client.PublishAsync(
+                racePendingPath,
+                new CommunityPublishRequest(true, forced.Package.Hash,
+                    "Race pending", AllowStaleParent: true),
+                default, listed: false);
+            check(resumedBranch.Revision?.ParentHash == forced.Package.Hash
+                && resumedBranch.Revision.ReleaseNotes == "Race pending"
+                && resumedBranch.Revision.RevisionNumber
+                    == raceWinner.Revision!.RevisionNumber + 1,
+                "publish-anyway resumes the completed session without changing the authored parent");
+
             CommunityRevisionConflictException? newMapConflict = null;
             try
             {
