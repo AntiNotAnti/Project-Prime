@@ -113,7 +113,7 @@ namespace MphRead.Entities
             }
 
             ulong frame = _scene.FrameCount;
-            MovementShadowFrameParameters parameters = ModMovementShadowFrameParameters();
+            MovementShadowFrameParameters parameters = CaptureMovementShadowFrameParameters();
             if ((frame & 1UL) == 1UL)
             {
                 if (_movementShadowWindowActive)
@@ -232,7 +232,7 @@ namespace MphRead.Entities
             MovementShadowRuntime.ObserveReference(current, reference, domain);
         }
 
-        private MovementShadowFrameParameters ModMovementShadowFrameParameters()
+        private MovementShadowFrameParameters CaptureMovementShadowFrameParameters()
         {
             return new MovementShadowFrameParameters(
                 _movementShadowFrameImpulseSet,
