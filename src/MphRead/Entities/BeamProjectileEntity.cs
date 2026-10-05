@@ -98,7 +98,7 @@ namespace MphRead.Entities
         }
         public EquipInfo? Equip { get; set; }
 
-        private float ApplyBalancedRangeDamage(float damage, Vector3 impactPosition)
+        internal float ModBalancedRangeDamage(float damage, Vector3 impactPosition)
         {
             if (!_scene.GameState.Multiplayer || !_scene.GameState.BalancedMode
                 || Owner is not PlayerEntity || !BalancedModeRules.HasRangeDamageCurve(Beam))
@@ -628,7 +628,7 @@ namespace MphRead.Entities
                                     damage = Damage;
                                 }
                             }
-                            damage = ApplyBalancedRangeDamage(damage, anyRes.Position);
+                            damage = ModBalancedRangeDamage(damage, anyRes.Position);
                             wholeDamage = (uint)Math.Clamp(damage, 0, Int32.MaxValue);
                             NetContinuousTargetDiagnostics.CollisionResult(this, player, true, wholeDamage);
                             if (wholeDamage != 0)
@@ -692,7 +692,7 @@ namespace MphRead.Entities
                                 float pct = Vector3.Distance(Position, SpawnPosition) / MaxDistance;
                                 damage = GetInterpolatedValue(DamageInterpolation, Damage, 0, pct);
                             }
-                            damage = ApplyBalancedRangeDamage(damage, anyRes.Position);
+                            damage = ModBalancedRangeDamage(damage, anyRes.Position);
                             if (damage > 0 && (Beam != BeamType.ShockCoil
                                 || (ModHasSharedContinuousPhase ? ModContinuousPhase : _scene.FrameCount) % 2 == 0)) // todo: FPS stuff
                             {
@@ -1119,7 +1119,7 @@ namespace MphRead.Entities
                         {
                             Vector3 damageDir = GetDamageDirection(Position, player.Position);
                             float ratio = dist / SplashRadius;
-                            int damage = (int)ApplyBalancedRangeDamage(
+                            int damage = (int)ModBalancedRangeDamage(
                                 GetInterpolatedValue(SplashDamageType, SplashDamage, 0, ratio), Position);
                             player.TakeDamage(damage, DamageFlags.NoDmgInvuln, damageDir, this);
                             if (Owner != null)
@@ -1146,9 +1146,9 @@ namespace MphRead.Entities
                 if (dist < SplashRadius
                     && !CollisionDetection.CheckBetweenPoints(Position, enemy.Position, TestFlags.Beams, _scene, ref res))
                 {
-                    float damage = ApplyBalancedRangeDamage(
+                    float damage = ModBalancedRangeDamage(
                         GetInterpolatedValue(SplashDamageType, SplashDamage, 0, dist / SplashRadius), Position);
-                    enemy.TakeDamage((uint)Math.Clamp(damage, 0, UInt32.MaxValue), this);
+                    enemy.TakeDamage((uint)Math.Clamp(damage, 0, Int32.MaxValue), this);
                     if (Owner != null)
                     {
                         _scene.SendMessage(Message.Impact, this, Owner, enemy, 0);
