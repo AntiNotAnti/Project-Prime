@@ -83,6 +83,13 @@ internal sealed partial class MapStudioScreen
             SelectedIndex = 1,
             MinWidth = 150
         };
+        var lifecycleFilter = new ComboBox
+        {
+            ItemsSource = new[] { "All", "Active", "Archived", "Deleted" },
+            SelectedIndex = 0,
+            MinWidth = 120,
+            IsVisible = false
+        };
         var upload = new PrimeButton("UPLOAD CURRENT", compact: true)
         {
             IsVisible = false
@@ -90,7 +97,7 @@ internal sealed partial class MapStudioScreen
         ControllerNav.Identify(upload, "studio.community.upload");
         var tools = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto"),
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto,Auto"),
             ColumnSpacing = 8
         };
         tools.Children.Add(tabs);
@@ -98,7 +105,9 @@ internal sealed partial class MapStudioScreen
         tools.Children.Add(search);
         Grid.SetColumn(sort, 2);
         tools.Children.Add(sort);
-        Grid.SetColumn(upload, 3);
+        Grid.SetColumn(lifecycleFilter, 3);
+        tools.Children.Add(lifecycleFilter);
+        Grid.SetColumn(upload, 4);
         tools.Children.Add(upload);
         Grid.SetRow(tools, 2);
         root.Children.Add(tools);
@@ -181,6 +190,22 @@ internal sealed partial class MapStudioScreen
 
         string Visibility(CommunityMap package)
             => package.Draft ? "DRAFT" : package.Listed ? "PUBLISHED" : "UNLISTED";
+
+        string Lifecycle(CommunityMapProject project)
+            => project.DeletedAt != null ? "DELETED"
+                : project.ArchivedAt != null ? "ARCHIVED" : "ACTIVE";
+
+        bool MatchesLifecycle(CommunityMapProject project)
+        {
+            if (CurrentTab() != CommunityDashboardTab.MyMaps) return true;
+            return lifecycleFilter.SelectedIndex switch
+            {
+                1 => project.ArchivedAt == null && project.DeletedAt == null,
+                2 => project.ArchivedAt != null && project.DeletedAt == null,
+                3 => project.DeletedAt != null,
+                _ => true
+            };
+        }
 
         string InstalledState(CommunityMap package)
         {
@@ -333,7 +358,8 @@ internal sealed partial class MapStudioScreen
         {
             Guid? wanted = preserve ?? selectedProject?.MapId;
             list.Clear();
-            CommunityMapProject[] filtered = Sorted(projects.Where(Matches)).ToArray();
+            CommunityMapProject[] filtered = Sorted(
+                projects.Where(Matches).Where(MatchesLifecycle)).ToArray();
             if (filtered.Length == 0)
             {
                 string title = CurrentTab() switch
@@ -362,7 +388,7 @@ internal sealed partial class MapStudioScreen
             {
                 CommunityMap package = Presentation(project);
                 string detailText = CurrentTab() == CommunityDashboardTab.MyMaps
-                    ? $"{Visibility(package)} · {RevisionLabel(project)} · {project.UpdatedAt.LocalDateTime:g}"
+                    ? $"{Lifecycle(project)} · {Visibility(package)} · {RevisionLabel(project)} · {project.UpdatedAt.LocalDateTime:g}"
                     : $"{project.Author ?? "Unknown author"} · {package.MinPlayers}–{package.MaxPlayers} players · ★ {package.FavoriteCount}";
                 var row = new UiListRow(project.DisplayName ?? project.Name,
                     detailText, spacious: true)
@@ -1018,12 +1044,16 @@ internal sealed partial class MapStudioScreen
         refresh.Click += (_, _) => Refresh(selectedProject?.MapId);
         tabs.Changed += (_, _) =>
         {
-            upload.IsVisible = CurrentTab() == CommunityDashboardTab.MyMaps;
+            bool creatorTab = CurrentTab() == CommunityDashboardTab.MyMaps;
+            upload.IsVisible = creatorTab;
+            lifecycleFilter.IsVisible = creatorTab;
             selectedProject = null;
             Refresh();
         };
         search.TextChanged += (_, _) => RenderList(selectedProject?.MapId);
         sort.SelectionChanged += (_, _) => RenderList(selectedProject?.MapId);
+        lifecycleFilter.SelectionChanged += (_, _) =>
+            RenderList(selectedProject?.MapId);
         upload.Click += (_, _) => ShowUploadForm();
 
         import.Click += (_, _) => Browse("Install map package", false,
