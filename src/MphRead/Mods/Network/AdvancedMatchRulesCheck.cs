@@ -68,6 +68,7 @@ namespace MphRead.Mods.Network
                 }
                 CheckNoImpScene();
                 CheckBalancedImpScene();
+                CheckBalancedRangeScene();
                 Console.WriteLine($"[advanced-rules-scene] PASS {_checks} checks"); return 0;
             }
             catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
@@ -142,6 +143,63 @@ namespace MphRead.Mods.Network
                 player.EquipInfo.Ammo = Int32.MaxValue;
                 Check(player.ModBalancedImperialistShots == PlayerEntity.BalancedImperialistShotCap,
                     "Balanced Imperialist reserve is hard capped at five shots");
+            }
+            finally { sim.Stop(); NetSession.Stop(); }
+        }
+
+        private static void CheckBalancedRangeScene()
+        {
+            const string room = "MP1 SANCTORUS";
+            var match = new MatchDefinition { RoomKey = room, Mode = GameMode.Battle,
+                BalancedMode = true, TimeLimitSeconds = 600, PointGoal = 100 };
+            var session = new SessionStatePacket { MatchId = 1, AuthorityEpoch = 1, MaxPlayers = 8,
+                Phase = SessionPhase.InMatch, Match = match, WorldProfile = MatchWorldProfile.Resolve(8) };
+            var roster = RosterPacket.Create(); roster.Count = 1; roster.MatchId = 1; roster.AuthorityEpoch = 1; roster.Revision = 1;
+            roster.Slots[0] = 0; roster.Generations[0] = 1; roster.Names[0] = "RANGE"; roster.Hunters[0] = (byte)Hunter.Samus;
+            var sim = new ServerSim();
+            try
+            {
+                Check(sim.Start(room, GameMode.Battle, 8, _ => { }, () => { }, roster, session),
+                    "Balanced range world loads");
+                NetSlotManager.Sync();
+                var owner = PlayerEntity.Players[0];
+                var scene = owner.OwningScene;
+                var beam = new BeamProjectileEntity(scene)
+                {
+                    Owner = owner,
+                    Beam = BeamType.VoltDriver,
+                    SpawnPosition = Vector3.Zero
+                };
+
+                static bool Near(float actual, float expected) => MathF.Abs(actual - expected) < 0.001f;
+
+                Check(Near(BalancedModeRules.RangeDamageMultiplier(BeamType.VoltDriver, 0), 0.80f)
+                    && Near(BalancedModeRules.RangeDamageMultiplier(BeamType.VoltDriver, BalancedModeRules.MidRange), 1.00f)
+                    && Near(BalancedModeRules.RangeDamageMultiplier(BeamType.VoltDriver, BalancedModeRules.FarRange), 1.20f),
+                    "Volt range curve is 80/100/120 percent");
+                Check(Near(BalancedModeRules.RangeDamageMultiplier(BeamType.Magmaul, 0), 1.20f)
+                    && Near(BalancedModeRules.RangeDamageMultiplier(BeamType.Magmaul, BalancedModeRules.MidRange), 1.00f)
+                    && Near(BalancedModeRules.RangeDamageMultiplier(BeamType.Magmaul, BalancedModeRules.FarRange), 0.75f),
+                    "Magmaul range curve is 120/100/75 percent");
+
+                float voltClose = beam.ModBalancedRangeDamage(100, Vector3.Zero);
+                float voltMid = beam.ModBalancedRangeDamage(100, Vector3.UnitZ * BalancedModeRules.MidRange);
+                float voltFar = beam.ModBalancedRangeDamage(100, Vector3.UnitZ * BalancedModeRules.FarRange);
+                Check(Near(voltClose, 80) && Near(voltMid, 100) && Near(voltFar, 120)
+                    && voltClose < voltMid && voltMid < voltFar,
+                    "Volt gains damage smoothly with travel distance");
+
+                beam.Beam = BeamType.Magmaul;
+                float magClose = beam.ModBalancedRangeDamage(100, Vector3.Zero);
+                float magMid = beam.ModBalancedRangeDamage(100, Vector3.UnitZ * BalancedModeRules.MidRange);
+                float magFar = beam.ModBalancedRangeDamage(100, Vector3.UnitZ * BalancedModeRules.FarRange);
+                Check(Near(magClose, 120) && Near(magMid, 100) && Near(magFar, 75)
+                    && magClose > magMid && magMid > magFar,
+                    "Magmaul loses damage smoothly with travel distance");
+
+                scene.GameState.BalancedMode = false;
+                Check(Near(beam.ModBalancedRangeDamage(100, Vector3.UnitZ * BalancedModeRules.FarRange), 100),
+                    "range damage is inert outside Balanced Mode");
             }
             finally { sim.Stop(); NetSession.Stop(); }
         }
