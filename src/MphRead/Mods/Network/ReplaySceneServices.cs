@@ -79,6 +79,12 @@ namespace MphRead.Mods.Network
                 player.LoadFlags |= LoadFlags.Active | LoadFlags.SlotActive;
                 if (State.TryGetPlayer(slot, out var recorded)) scene.PlayerReplication.ApplyState(player, recorded, isLocal: false);
                 NetHooks.TryApplyRemoteInput(player, slot);
+                // Modern replays pre-index repeated FireEvents far enough ahead
+                // to recover a lost carrier and put the visual shot back on its
+                // authored frame. Movement/aim still come from the ordinary
+                // accepted intent; only the firing edge/weapon/charge are
+                // replaced here, immediately before ProcessInput consumes them.
+                scene.ReplayPoses?.ApplyFireEvent(player);
             }
             scene.Players.PlayerCount = scene.GameState.ActivePlayers = active;
         }

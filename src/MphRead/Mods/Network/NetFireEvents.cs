@@ -78,14 +78,38 @@ public static class NetFireEvents
         }
         return true;
     }
-    internal static bool UsesEvents(PlayerEntity player) => NetSession.Active && !player.SceneServices.IsReplica
-        && !player.IsBot && player.SlotIndex != NetSession.LocalSlot && (uint)player.SlotIndex < 8
-        && NetSession.RemoteIntentValid[player.SlotIndex] && NetSession.RemoteIntents[player.SlotIndex].HasFireEvents;
-    internal static uint ActiveShotId(PlayerEntity player) => (uint)player.SlotIndex < 8 ? For(player.SlotIndex).Active.ShotId : 0;
+    internal static bool UsesEvents(PlayerEntity player)
+    {
+        if (player.SceneServices.IsReplica)
+            return player.OwningScene.ReplayPoses?.UsesFireEvents(player) == true;
+        return NetSession.Active && !player.IsBot && player.SlotIndex != NetSession.LocalSlot
+            && (uint)player.SlotIndex < 8 && NetSession.RemoteIntentValid[player.SlotIndex]
+            && NetSession.RemoteIntents[player.SlotIndex].HasFireEvents;
+    }
+    internal static uint ActiveShotId(PlayerEntity player)
+    {
+        if (player.SceneServices.IsReplica)
+            return player.OwningScene.ReplayPoses?.ActiveFireShotId(player) ?? 0;
+        return (uint)player.SlotIndex < 8 ? For(player.SlotIndex).Active.ShotId : 0;
+    }
     internal static bool HasPending(PlayerEntity player)
-        => UsesEvents(player) && For(player.SlotIndex).Selected && For(player.SlotIndex).Active.Kind != FireEventKind.TurretFire;
-    internal static bool CanFireTurret(PlayerEntity player) => !UsesEvents(player)
-        || For(player.SlotIndex).Selected && For(player.SlotIndex).Active.Kind == FireEventKind.TurretFire;
+    {
+        if (player.SceneServices.IsReplica)
+            return player.OwningScene.ReplayPoses?.HasPendingFire(player) == true;
+        return UsesEvents(player) && For(player.SlotIndex).Selected
+            && For(player.SlotIndex).Active.Kind != FireEventKind.TurretFire;
+    }
+    internal static bool CanFireTurret(PlayerEntity player)
+    {
+        if (player.SceneServices.IsReplica)
+        {
+            FireEvent fire = default;
+            return player.OwningScene.ReplayPoses?.TryActiveFire(player, out fire) == true
+                && fire.Kind == FireEventKind.TurretFire;
+        }
+        return !UsesEvents(player)
+            || For(player.SlotIndex).Selected && For(player.SlotIndex).Active.Kind == FireEventKind.TurretFire;
+    }
     internal static bool CanFire(PlayerEntity player) => !UsesEvents(player) || HasPending(player);
     /// <summary>
     /// Scope belongs to the authored Imperialist shot, not necessarily to the
@@ -97,7 +121,15 @@ public static class NetFireEvents
     {
         scoped = false;
         if (!UsesEvents(player)) return false;
-        FireEvent fire = For(player.SlotIndex).Active;
+        FireEvent fire;
+        if (player.SceneServices.IsReplica)
+        {
+            if (player.OwningScene.ReplayPoses?.TryActiveFire(player, out fire) != true) return false;
+        }
+        else
+        {
+            fire = For(player.SlotIndex).Active;
+        }
         if (fire.ShotId == 0 || fire.Weapon != (byte)BeamType.Imperialist) return false;
         scoped = fire.ScopedAtFire;
         return true;
@@ -132,7 +164,12 @@ public static class NetFireEvents
     }
     internal static void Begin(PlayerEntity player, bool turret = false)
     {
-        if (!NetSession.Active || player.SceneServices.IsReplica || (uint)player.SlotIndex >= 8) return;
+        if (player.SceneServices.IsReplica)
+        {
+            player.OwningScene.ReplayPoses?.BeginFire(player, turret);
+            return;
+        }
+        if (!NetSession.Active || (uint)player.SlotIndex >= 8) return;
         var state = For(player.SlotIndex);
         if (UsesEvents(player))
         {
@@ -171,5 +208,14 @@ public static class NetFireEvents
         for (int i = 0; i < count; i++) intent.FireEvents[i] = state.Events[i];
     }
     internal static bool TryTiming(PlayerEntity player, out FireEvent e)
-    { e = (uint)player.SlotIndex < 8 ? For(player.SlotIndex).Active : default; return UsesEvents(player) && e.ShotId != 0; }
+    {
+        if (player.SceneServices.IsReplica)
+        {
+            e = default;
+            return player.OwningScene.ReplayPoses?.TryActiveFire(player, out e) == true
+                && e.ShotId != 0;
+        }
+        e = (uint)player.SlotIndex < 8 ? For(player.SlotIndex).Active : default;
+        return UsesEvents(player) && e.ShotId != 0;
+    }
 }

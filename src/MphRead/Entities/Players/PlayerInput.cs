@@ -1164,7 +1164,8 @@ namespace MphRead.Entities
                             CameraInfo.Fov = currentFov;
                         }
                     }
-                    if (NetFireEvents.HasPending(this) && !Controls.Shoot.IsReleased
+                    if (NetFireEvents.HasPending(this)
+                            && (!Controls.Shoot.IsReleased || _scene.Services.IsReplica)
                         || Controls.Shoot.IsPressed && EquipInfo.ChargeLevel <= 1 * 2 // todo: FPS stuff
                         || EquipWeapon.Flags.TestFlag(WeaponFlags.RepeatFire) && Flags2.TestFlag(PlayerFlags2.Shooting)
                         && (!EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge) || EquipInfo.ChargeLevel < EquipWeapon.MinCharge * 2)) // todo: FPS stuff
@@ -1258,6 +1259,7 @@ namespace MphRead.Entities
         private bool TryFireWeapon()
         {
             if (!NetFireEvents.CanFire(this)) return false;
+            bool exactReplayFire = _scene.Services.IsReplica && NetFireEvents.HasPending(this);
             if (_scene.AimTrainer is { } trainer)
             {
                 if (trainer.OwnsTarget(this) || trainer.Completed) return false;
@@ -1290,14 +1292,15 @@ namespace MphRead.Entities
                 pbAuto = (int)(pbAuto * 15 / 90f);
                 _autofireCooldown = (ushort)((pbAuto + EquipWeapon.AutofireCooldown) * 2); // todo: FPS stuff
             }
-            if (_scene.AimTrainer?.SkipImperialistReload(this) != true
+            if (!exactReplayFire
+                && _scene.AimTrainer?.SkipImperialistReload(this) != true
                 && (_timeSinceShot < EquipWeapon.ShotCooldown * 2 // todo: FPS stuff
                 || !pressed && _timeSinceShot < _autofireCooldown)
                 && (!IsBot || !AiData.Flags2.TestFlag(AiFlags2.Bit20)))
             {
                 return false;
             }
-            if (GunAnimation == GunAnimation.UpDown)
+            if (!exactReplayFire && GunAnimation == GunAnimation.UpDown)
             {
                 return false;
             }
@@ -1347,6 +1350,8 @@ namespace MphRead.Entities
             // and there only for players who are not on it. Mods.Network.NetUnlagged.
             BeamResultFlags result;
             _scene.AimTrainer?.BeginShot(this);
+            bool replayAmmoBypass = exactReplayFire && !EquipInfo.InfiniteAmmo;
+            if (replayAmmoBypass) EquipInfo.InfiniteAmmo = true;
             try
             {
                 NetFireEvents.Begin(this);
@@ -1355,7 +1360,11 @@ namespace MphRead.Entities
                 if (result != BeamResultFlags.NoSpawn) NetFireEvents.Commit(this);
                 Mods.Network.NetUnlagged.EndShot(this);
             }
-            finally { Mods.Network.NetUnlagged.AbortShot(); }
+            finally
+            {
+                if (replayAmmoBypass) EquipInfo.InfiniteAmmo = false;
+                Mods.Network.NetUnlagged.AbortShot();
+            }
             _scene.AimTrainer?.EndShot(result != BeamResultFlags.NoSpawn);
             if (result == BeamResultFlags.NoSpawn)
             {
