@@ -96,7 +96,9 @@ internal static class BalancedModeTelemetry
     // acquired, fired, wasted-on-death, body-kill, headshot-kill
     private static readonly long[] _imperialist = new long[ImperialistMetrics];
 
-    private static readonly bool[,] _picked = new bool[PlayerEntity.SlotCapacity, Hunters];
+    // 0 means unseen. Network generations are offset by one so generation 0
+    // remains usable for offline authority matches.
+    private static readonly uint[,] _pickIdentity = new uint[PlayerEntity.SlotCapacity, Hunters];
     private static ulong _lastSecondFrame = UInt64.MaxValue;
     private static bool _flushed;
 
@@ -109,7 +111,7 @@ internal static class BalancedModeTelemetry
         {
             Array.Clear(values);
         }
-        Array.Clear(_picked);
+        Array.Clear(_pickIdentity);
         _lastSecondFrame = UInt64.MaxValue;
         _flushed = false;
     }
@@ -141,9 +143,11 @@ internal static class BalancedModeTelemetry
         Scene scene = player.OwningScene;
         if (!CanRecord(scene) || !HunterIndex(player.Hunter, out int hunter)
             || (uint)player.SlotIndex >= PlayerEntity.SlotCapacity) return;
-        if (!_picked[player.SlotIndex, hunter])
+        uint identity = NetSession.Active
+            ? (uint)NetPlayerLifecycle.Generation(player.SlotIndex) + 1u : 1u;
+        if (_pickIdentity[player.SlotIndex, hunter] != identity)
         {
-            _picked[player.SlotIndex, hunter] = true;
+            _pickIdentity[player.SlotIndex, hunter] = identity;
             Add(_hunterPicks, hunter);
         }
     }
