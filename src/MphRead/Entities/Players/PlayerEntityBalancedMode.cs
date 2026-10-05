@@ -43,7 +43,7 @@ namespace MphRead.Entities
             => UsesBalancedImperialistAmmo(beam) ? BalancedImperialistAmmoCap : _ammoMax[info.AmmoType];
 
         private int ModAmmoCostForWeapon(BeamType beam, WeaponInfo info)
-            => UsesBalancedImperialistAmmo(beam) ? Math.Max(1, BalancedImperialistWeaponInfo().AmmoCost) : info.AmmoCost;
+            => UsesBalancedImperialistAmmo(beam) ? Math.Max(1, (int)BalancedImperialistWeaponInfo().AmmoCost) : info.AmmoCost;
 
         private WeaponInfo ModDisplayWeaponInfo(BeamType beam, WeaponInfo info)
             => UsesBalancedImperialistAmmo(beam) && Weapons.GetAffinityBeam(Hunter) == beam
@@ -72,7 +72,7 @@ namespace MphRead.Entities
                 // Balanced Mode. A re-pick always tops the private reserve up
                 // to five shots and can never overflow it.
                 int beforeShots = _balancedImperialistAmmo
-                    / Math.Max(1, BalancedImperialistWeaponInfo().AmmoCost);
+                    / Math.Max(1, (int)BalancedImperialistWeaponInfo().AmmoCost);
                 _balancedImperialistAmmo = BalancedImperialistAmmoCap;
                 BalancedModeTelemetry.NoteImperialistAcquired(this,
                     Math.Max(0, BalancedImperialistShotCap - beforeShots));
@@ -87,7 +87,7 @@ namespace MphRead.Entities
 
         internal int ModBalancedImperialistShots
             => UsesBalancedImperialistAmmo(BeamType.Imperialist)
-                ? _balancedImperialistAmmo / Math.Max(1, BalancedImperialistWeaponInfo().AmmoCost)
+                ? _balancedImperialistAmmo / Math.Max(1, (int)BalancedImperialistWeaponInfo().AmmoCost)
                 : -1;
     }
 }
