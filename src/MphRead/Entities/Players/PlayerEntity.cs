@@ -2112,8 +2112,11 @@ namespace MphRead.Entities
                             replayFactFlags |= Mods.Network.ReplayShotFactFlags.Direct;
                         if (Mods.Network.NetDamage.ApplyingClaim)
                             replayFactFlags |= Mods.Network.ReplayShotFactFlags.Claimed;
-                        if (fromHalfturret || Mods.Network.NetHitClaims.CurrentClaimTurret)
-                            replayFactFlags |= Mods.Network.ReplayShotFactFlags.Turret;
+                        if (flags.TestFlag(DamageFlags.Halfturret)
+                            || Mods.Network.NetHitClaims.CurrentClaimTurret)
+                            replayFactFlags |= Mods.Network.ReplayShotFactFlags.HalfturretTarget;
+                        if (fromHalfturret)
+                            replayFactFlags |= Mods.Network.ReplayShotFactFlags.HalfturretSource;
                         if (beam is { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true }
                             || Mods.Network.NetHitClaims.CurrentClaimContinuous)
                             replayFactFlags |= Mods.Network.ReplayShotFactFlags.Continuous;
