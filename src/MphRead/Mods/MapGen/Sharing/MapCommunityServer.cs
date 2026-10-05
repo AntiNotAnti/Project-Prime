@@ -485,7 +485,15 @@ public static class MapCommunityServer
                     await publication.WaitAsync(deadline.Token);
                     try
                     {
-                        var updated=promoteMap with{Listed=true,Draft=false};
+                        var updated=promoteMap with
+                        {
+                            Listed=true,
+                            Draft=false,
+                            // Legacy flat clients choose the newest listed package by
+                            // PublishedAt, so promotion refreshes catalog presentation
+                            // time without touching immutable package bytes.
+                            PublishedAt=DateTimeOffset.UtcNow
+                        };
                         AtomicFile.Write(Path.Combine(storage,updated.Hash+".catalog.json"),
                             JsonSerializer.SerializeToUtf8Bytes(updated,MapPackageReader.JsonOptions));
                         maps[updated.Hash]=updated;
