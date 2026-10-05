@@ -547,7 +547,7 @@ namespace MphRead.Mods.Network
                 Match = new MatchDefinition { RoomKey = new string('X', 40), Mode = GameMode.BattleTeams,
                     Format = MatchFormat.FourVsFour, TimeLimitSeconds = 600, PointGoal = 20,
                     FriendlyFire = true, AffinityWeapons = true, ShadowFreeze = true, HideOpponentHealth = true,
-                    DisablePowerups = true, SpawnProtection = true } };
+                    DisablePowerups = true, SpawnProtection = true, BalancedMode = true } };
             byte[] data = new byte[SessionStatePacket.Size]; state.Write(data);
             Check(SessionStatePacket.TryRead(data, out var read) && read.Match == state.Match
                 && read.Revision == state.Revision && read.LoadedParticipants == 3
