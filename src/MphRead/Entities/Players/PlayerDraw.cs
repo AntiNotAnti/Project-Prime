@@ -857,6 +857,8 @@ namespace MphRead.Entities
 
         public override void GetDrawInfo()
         {
+            if (_scene.Services.IsReplica && IsMainPlayer)
+                _scene.ReplayPoses?.DrawResolvedImpactPresentation(_scene);
         }
     }
 }
