@@ -115,7 +115,32 @@ internal sealed class ReplayPoseStream : IDisposable
         }
 
         serverFrame = AcknowledgedServerFrame(intent);
-        return double.IsFinite(serverFrame);
+        if (!double.IsFinite(serverFrame)) return false;
+
+        // Intents are not guaranteed one per simulation frame. Use the existing
+        // replay lookahead to advance the perceived-world clock smoothly between
+        // two accepted ACKs, but never interpolate across a lifecycle change,
+        // a long delivery gap or a discontinuous server clock.
+        if (left + 1 < samples.Count)
+        {
+            IntentSample next = samples[left + 1];
+            IntentPacket future = next.Intent;
+            uint recordingGap = next.RecordingFrame - sample.RecordingFrame;
+            double futureServerFrame = AcknowledgedServerFrame(future);
+            double serverGap = futureServerFrame - serverFrame;
+            if (recordingGap is > 0 and <= 12
+                && future.SlotGeneration == intent.SlotGeneration
+                && future.LifeId == intent.LifeId
+                && (future.Buttons & IntentButtons.InPlayState) == IntentButtons.InPlayState
+                && double.IsFinite(futureServerFrame)
+                && serverGap >= 0 && serverGap <= 12)
+            {
+                double t = Math.Clamp(
+                    (recordingFrame - sample.RecordingFrame) / recordingGap, 0, 1);
+                serverFrame += serverGap * t;
+            }
+        }
+        return true;
     }
 
     internal bool SampleAt(int slot, double frame, out Vector3 position, out Vector3 facing)
