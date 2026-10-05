@@ -59,8 +59,8 @@ internal static class ReplayCombatDiagnostics
             ? beam.ToString() : $"Weapon {fact.Weapon}";
         string shooter = Name(fact.ShooterSlot);
         string victim = Name(fact.VictimSlot);
-        string fireFrame = diagnostic.FireRecordingFrame == 0
-            ? "unknown" : diagnostic.FireRecordingFrame.ToString();
+        string fireFrame = diagnostic.HasFire
+            ? diagnostic.FireRecordingFrame.ToString() : "unknown";
         string ack = double.IsFinite(diagnostic.AckServerFrame)
             ? diagnostic.AckServerFrame.ToString("0.000") : "unavailable";
         string ackWorld = diagnostic.HasAckTarget
@@ -78,7 +78,7 @@ internal static class ReplayCombatDiagnostics
 
         return $"SHOT #{fact.ShotId}  DAMAGE EVENT #{fact.DamageEventId}  {weapon}\n"
             + $"{shooter} → {victim}  fire frame {fireFrame}  resolve frame {diagnostic.RecordingFrame}\n"
-            + $"source tick {fact.LaunchFrame}  resolve tick {fact.ResolveTick}  ACK world {ack}\n"
+            + $"source frame {fact.LaunchFrame}  resolve tick {fact.ResolveTick}  ACK server {ack}\n"
             + pose
             + $"ACK target {ackWorld}\n"
             + $"Impact {Vec(fact.ImpactPoint)}  {damage}\n"
@@ -100,7 +100,7 @@ internal static class ReplayCombatDiagnostics
         {
             $"COMBAT  SHOT #{fact.ShotId}  EVENT #{fact.DamageEventId}  {weapon}",
             $"{Name(fact.ShooterSlot)} → {Name(fact.VictimSlot)}  {result}",
-            $"fire {diagnostic.FireRecordingFrame}  resolve {diagnostic.RecordingFrame}  {ack}",
+            $"fire {(diagnostic.HasFire ? diagnostic.FireRecordingFrame.ToString() : "?")}  resolve {diagnostic.RecordingFrame}  {ack}",
             $"WHY: {Explain(fact)}"
         };
     }
