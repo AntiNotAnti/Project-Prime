@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
@@ -6,19 +7,24 @@ using System.Text;
 namespace MphRead.Mods.Diagnostics
 {
     /// <summary>
-    /// Opt-in live production sampler for the native-movement shadow project.
-    /// It is dormant unless -movementshadow is supplied. The first runtime slice
-    /// records Samus/Spire production state at equivalent 30 Hz boundaries; a
-    /// later slice feeds the native reference state into the same contract.
+    /// Opt-in live sampler/comparer for the native-movement shadow project.
+    /// It is dormant unless -movementshadow is supplied. Production samples and
+    /// reference comparisons are buffered only for developer diagnostics.
     /// </summary>
     internal static class MovementShadowRuntime
     {
         private static readonly object _gate = new();
+        private static readonly Dictionary<(int Slot, int Hunter, string Domain), MovementShadowAccumulator> _comparisons = new();
+        private static readonly Dictionary<string, int> _skips = new(StringComparer.Ordinal);
+
         private static StreamWriter? _writer;
+        private static StreamWriter? _comparisonWriter;
         private static string? _outputPath;
         private static bool _configured;
         private static bool _wroteHeader;
+        private static bool _wroteComparisonHeader;
         private static int _samples;
+        private static int _comparisonSamples;
 
         internal static bool Enabled { get; private set; }
 
@@ -40,8 +46,8 @@ namespace MphRead.Mods.Diagnostics
                 AppDomain.CurrentDomain.ProcessExit += (_, _) => Close();
             }
             Console.WriteLine(_outputPath == null
-                ? "[movementshadow] enabled; production boundary samples will be summarized to stdout"
-                : $"[movementshadow] enabled; production boundary samples -> {_outputPath}");
+                ? "[movementshadow] enabled; production/reference boundary summaries -> stdout"
+                : $"[movementshadow] enabled; production samples -> {_outputPath}; comparisons -> {_outputPath}.compare.tsv");
         }
 
         internal static void ObserveProduction(in MovementBoundarySnapshot snapshot)
@@ -71,16 +77,8 @@ namespace MphRead.Mods.Diagnostics
                     return;
                 }
 
-                _writer ??= new StreamWriter(_outputPath, append: false, new UTF8Encoding(false));
-                if (!_wroteHeader)
-                {
-                    _writer.WriteLine("frame\tslot\thunter\talt\tgrounded\tstanding\tspireClimbing\tstandingEntity\t"
-                        + "posX\tposY\tposZ\tvelX\tvelY\tvelZ\tfacingX\tfacingY\tfacingZ\tgravity\tslipperiness\t"
-                        + "contactNX\tcontactNY\tcontactNZ\tcontactPushout");
-                    _wroteHeader = true;
-                }
-
-                _writer.Write(snapshot.SimulationFrame.ToString(CultureInfo.InvariantCulture));
+                EnsureProductionWriter();
+                _writer!.Write(snapshot.SimulationFrame.ToString(CultureInfo.InvariantCulture));
                 _writer.Write('\t'); _writer.Write(snapshot.Slot.ToString(CultureInfo.InvariantCulture));
                 _writer.Write('\t'); _writer.Write(snapshot.Hunter.ToString(CultureInfo.InvariantCulture));
                 _writer.Write('\t'); _writer.Write(snapshot.AltForm ? "1" : "0");
@@ -88,12 +86,12 @@ namespace MphRead.Mods.Diagnostics
                 _writer.Write('\t'); _writer.Write(snapshot.Standing ? "1" : "0");
                 _writer.Write('\t'); _writer.Write(snapshot.SpireClimbing ? "1" : "0");
                 _writer.Write('\t'); _writer.Write(snapshot.StandingEntityId.ToString(CultureInfo.InvariantCulture));
-                WriteVector(snapshot.Position);
-                WriteVector(snapshot.Velocity);
-                WriteVector(snapshot.Facing);
+                WriteVector(_writer, snapshot.Position);
+                WriteVector(_writer, snapshot.Velocity);
+                WriteVector(_writer, snapshot.Facing);
                 _writer.Write('\t'); _writer.Write(snapshot.Gravity.ToString("R", CultureInfo.InvariantCulture));
                 _writer.Write('\t'); _writer.Write(snapshot.Slipperiness.ToString(CultureInfo.InvariantCulture));
-                WriteVector(snapshot.ContactNormal);
+                WriteVector(_writer, snapshot.ContactNormal);
                 _writer.Write('\t'); _writer.Write(snapshot.ContactPushout.ToString("R", CultureInfo.InvariantCulture));
                 _writer.WriteLine();
 
@@ -104,25 +102,132 @@ namespace MphRead.Mods.Diagnostics
             }
         }
 
-        private static void WriteVector(OpenTK.Mathematics.Vector3 value)
+        internal static MovementBoundaryDifference ObserveReference(
+            in MovementBoundarySnapshot current,
+            in MovementBoundarySnapshot reference,
+            string domain)
         {
-            _writer!.Write('\t'); _writer.Write(value.X.ToString("R", CultureInfo.InvariantCulture));
-            _writer.Write('\t'); _writer.Write(value.Y.ToString("R", CultureInfo.InvariantCulture));
-            _writer.Write('\t'); _writer.Write(value.Z.ToString("R", CultureInfo.InvariantCulture));
+            if (!Enabled)
+            {
+                return default;
+            }
+            if (string.IsNullOrWhiteSpace(domain))
+            {
+                throw new ArgumentException("Movement shadow comparison domain is required.", nameof(domain));
+            }
+
+            lock (_gate)
+            {
+                var key = (current.Slot, current.Hunter, domain);
+                if (!_comparisons.TryGetValue(key, out MovementShadowAccumulator? accumulator))
+                {
+                    accumulator = new MovementShadowAccumulator();
+                    _comparisons.Add(key, accumulator);
+                }
+
+                MovementBoundaryDifference difference = accumulator.Observe(current, reference);
+                _comparisonSamples++;
+                bool within = difference.WithinTolerance();
+
+                if (_outputPath != null)
+                {
+                    EnsureComparisonWriter();
+                    _comparisonWriter!.Write(current.SimulationFrame.ToString(CultureInfo.InvariantCulture));
+                    _comparisonWriter.Write('\t'); _comparisonWriter.Write(current.Slot.ToString(CultureInfo.InvariantCulture));
+                    _comparisonWriter.Write('\t'); _comparisonWriter.Write(current.Hunter.ToString(CultureInfo.InvariantCulture));
+                    _comparisonWriter.Write('\t'); _comparisonWriter.Write(domain);
+                    _comparisonWriter.Write('\t'); _comparisonWriter.Write(difference.PositionError.ToString("R", CultureInfo.InvariantCulture));
+                    _comparisonWriter.Write('\t'); _comparisonWriter.Write(difference.VelocityError.ToString("R", CultureInfo.InvariantCulture));
+                    _comparisonWriter.Write('\t'); _comparisonWriter.Write(difference.FacingError.ToString("R", CultureInfo.InvariantCulture));
+                    _comparisonWriter.Write('\t'); _comparisonWriter.Write(difference.GravityError.ToString("R", CultureInfo.InvariantCulture));
+                    _comparisonWriter.Write('\t'); _comparisonWriter.Write(difference.ContactNormalError.ToString("R", CultureInfo.InvariantCulture));
+                    _comparisonWriter.Write('\t'); _comparisonWriter.Write(difference.ContactPushoutError.ToString("R", CultureInfo.InvariantCulture));
+                    _comparisonWriter.Write('\t'); _comparisonWriter.Write(difference.DiscreteMatch ? "1" : "0");
+                    _comparisonWriter.Write('\t'); _comparisonWriter.Write(within ? "1" : "0");
+                    _comparisonWriter.WriteLine();
+                    if ((_comparisonSamples % 120) == 0)
+                    {
+                        _comparisonWriter.Flush();
+                    }
+                }
+
+                if (!within && accumulator.OutsideTolerance <= 3
+                    || current.SimulationFrame % 120UL == 0)
+                {
+                    Console.WriteLine($"[movementshadow] compare slot={current.Slot} hunter={current.Hunter} "
+                        + $"domain={domain} {MovementShadowComparer.Format(difference)} "
+                        + $"within={(within ? 1 : 0)}");
+                }
+                return difference;
+            }
+        }
+
+        internal static void Skip(string reason)
+        {
+            if (!Enabled || string.IsNullOrWhiteSpace(reason))
+            {
+                return;
+            }
+            lock (_gate)
+            {
+                _skips.TryGetValue(reason, out int count);
+                _skips[reason] = count + 1;
+            }
+        }
+
+        private static void EnsureProductionWriter()
+        {
+            _writer ??= new StreamWriter(_outputPath!, false, new UTF8Encoding(false));
+            if (_wroteHeader)
+            {
+                return;
+            }
+            _writer.WriteLine("frame\tslot\thunter\talt\tgrounded\tstanding\tspireClimbing\tstandingEntity\t"
+                + "posX\tposY\tposZ\tvelX\tvelY\tvelZ\tfacingX\tfacingY\tfacingZ\tgravity\tslipperiness\t"
+                + "contactNX\tcontactNY\tcontactNZ\tcontactPushout");
+            _wroteHeader = true;
+        }
+
+        private static void EnsureComparisonWriter()
+        {
+            _comparisonWriter ??= new StreamWriter(_outputPath! + ".compare.tsv", false, new UTF8Encoding(false));
+            if (_wroteComparisonHeader)
+            {
+                return;
+            }
+            _comparisonWriter.WriteLine("frame\tslot\thunter\tdomain\tpositionError\tvelocityError\tfacingError\t"
+                + "gravityError\tcontactNormalError\tcontactPushoutError\tdiscreteMatch\twithinTolerance");
+            _wroteComparisonHeader = true;
+        }
+
+        private static void WriteVector(StreamWriter writer, OpenTK.Mathematics.Vector3 value)
+        {
+            writer.Write('\t'); writer.Write(value.X.ToString("R", CultureInfo.InvariantCulture));
+            writer.Write('\t'); writer.Write(value.Y.ToString("R", CultureInfo.InvariantCulture));
+            writer.Write('\t'); writer.Write(value.Z.ToString("R", CultureInfo.InvariantCulture));
         }
 
         private static void Close()
         {
             lock (_gate)
             {
-                if (_writer == null)
-                {
-                    return;
-                }
-                _writer.Flush();
-                _writer.Dispose();
+                _writer?.Flush();
+                _writer?.Dispose();
                 _writer = null;
-                Console.WriteLine($"[movementshadow] wrote {_samples} production boundary samples");
+                _comparisonWriter?.Flush();
+                _comparisonWriter?.Dispose();
+                _comparisonWriter = null;
+
+                Console.WriteLine($"[movementshadow] productionSamples={_samples} comparisonSamples={_comparisonSamples}");
+                foreach (var pair in _comparisons)
+                {
+                    Console.WriteLine($"[movementshadow] summary slot={pair.Key.Slot} hunter={pair.Key.Hunter} "
+                        + $"domain={pair.Key.Domain} {pair.Value.Summary()}");
+                }
+                foreach (var pair in _skips)
+                {
+                    Console.WriteLine($"[movementshadow] skipped {pair.Key}={pair.Value}");
+                }
             }
         }
     }
