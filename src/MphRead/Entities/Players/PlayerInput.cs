@@ -1310,13 +1310,6 @@ namespace MphRead.Entities
             {
                 shotVec = Mods.Network.NetHooks.RemoteShotDirection(this, shotVec);
             }
-            if (_disruptedTimer > 0)
-            {
-                // random values between -3 and 3
-                shotVec.X += Fixed.ToFloat((int)_scene.Random.GetRandomInt2(24576) - 12288);
-                shotVec.Y += Fixed.ToFloat((int)_scene.Random.GetRandomInt2(24576) - 12288);
-                shotVec.Z += Fixed.ToFloat((int)_scene.Random.GetRandomInt2(24576) - 12288);
-            }
             if (!SpatialFinite(shotOrigin) || !SpatialDirection(shotVec))
             {
                 // Invalid geometry must fail closed. A NaN beam can make
@@ -1324,7 +1317,40 @@ namespace MphRead.Entities
                 // their rejection branches and appear to hit the whole map.
                 return NetShotDiagnostics.Finish(this, ShotAttemptResult.InvalidSpatialState);
             }
-            shotVec = NormalizeSpatialOr(shotVec, _gunVec1);
+            // Preserve what the shooter actually aimed at before disruption
+            // adds weapon spread. Replay POV anchors to this ray, while the
+            // projectile itself follows the final post-spread shotVec below.
+            Vector3 shotAim = NormalizeSpatialOr(shotVec, _gunVec1);
+            shotVec = shotAim;
+            if (_disruptedTimer > 0)
+            {
+                // random values between -3 and 3
+                shotVec.X += Fixed.ToFloat((int)_scene.Random.GetRandomInt2(24576) - 12288);
+                shotVec.Y += Fixed.ToFloat((int)_scene.Random.GetRandomInt2(24576) - 12288);
+                shotVec.Z += Fixed.ToFloat((int)_scene.Random.GetRandomInt2(24576) - 12288);
+            }
+            if (!SpatialDirection(shotVec))
+                return NetShotDiagnostics.Finish(this, ShotAttemptResult.InvalidSpatialState);
+            shotVec = NormalizeSpatialOr(shotVec, shotAim);
+
+            Vector3 shotView = CameraInfo.Facing;
+            Vector2 shotReticle = new(0.5f, 0.5f);
+            bool shotReticleValid = true;
+            bool dynamicProReticle = ModDynamicReticlePresentation(
+                Features.ProHud, Features.FixedWeapon);
+            if (!Features.FixedWeapon
+                && (!Features.ResponsiveAimCamera || dynamicProReticle))
+            {
+                Matrix.ProjectPosition(_aimPosition, CameraInfo.ViewMatrix,
+                    _scene.PerspectiveMatrix, out shotReticle);
+                shotReticle = new Vector2(MathF.Round(shotReticle.X, 5),
+                    MathF.Round(shotReticle.Y, 5));
+                shotReticleValid = float.IsFinite(shotReticle.X)
+                    && float.IsFinite(shotReticle.Y)
+                    && shotReticle.X is >= 0 and <= 1
+                    && shotReticle.Y is >= 0 and <= 1;
+            }
+
             WeaponInfo curWeapon = EquipInfo.Weapon;
             if (IsPrimeHunter)
             {
@@ -1354,7 +1380,8 @@ namespace MphRead.Entities
             if (replayAmmoBypass) EquipInfo.InfiniteAmmo = true;
             try
             {
-                NetFireEvents.Begin(this);
+                NetFireEvents.Begin(this, shotOrigin, shotVec, shotAim,
+                    shotView, shotReticle, shotReticleValid);
                 Mods.Network.NetUnlagged.BeginShot(this, shotOrigin, shotVec);
                 result = BeamProjectileEntity.Spawn(this, EquipInfo, shotOrigin, shotVec, flags, NodeRef, _scene);
                 if (result != BeamResultFlags.NoSpawn) NetFireEvents.Commit(this);
