@@ -284,9 +284,16 @@ public static class MapCommunityServer
                                 context.Response.StatusCode = result.Status;
                                 if (result.Entry != null)
                                 {
-                                    if (File.Exists(UploadMetadataPath(key))) File.Delete(UploadMetadataPath(key));
-                                    if (File.Exists(partial)) File.Delete(partial);
+                                    DeleteUpload(key);
                                     await Json(context.Response, result.Entry, deadline.Token);
+                                }
+                                else if (result.Status == 409)
+                                {
+                                    // The completed bytes cannot be published under this
+                                    // human version. Keeping a full rejected session only
+                                    // consumes partial-upload storage and makes later cleanup
+                                    // dependent on the 24-hour stale-session sweep.
+                                    DeleteUpload(key);
                                 }
                             }
                             finally { publication.Release(); }
