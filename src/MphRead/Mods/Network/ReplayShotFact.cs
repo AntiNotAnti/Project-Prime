@@ -12,9 +12,10 @@ internal enum ReplayShotFactFlags : byte
     Lethal = 1 << 1,
     Direct = 1 << 2,
     Claimed = 1 << 3,
-    Turret = 1 << 4,
+    HalfturretTarget = 1 << 4,
     Continuous = 1 << 5,
-    EnhancedChild = 1 << 6
+    EnhancedChild = 1 << 6,
+    HalfturretSource = 1 << 7
 }
 
 /// <summary>
@@ -90,8 +91,9 @@ internal static class ReplayShotFactPacket
 
         var flags = (ReplayShotFactFlags)src[36];
         const ReplayShotFactFlags known = ReplayShotFactFlags.Headshot | ReplayShotFactFlags.Lethal
-            | ReplayShotFactFlags.Direct | ReplayShotFactFlags.Claimed | ReplayShotFactFlags.Turret
-            | ReplayShotFactFlags.Continuous | ReplayShotFactFlags.EnhancedChild;
+            | ReplayShotFactFlags.Direct | ReplayShotFactFlags.Claimed | ReplayShotFactFlags.HalfturretTarget
+            | ReplayShotFactFlags.Continuous | ReplayShotFactFlags.EnhancedChild
+            | ReplayShotFactFlags.HalfturretSource;
         if ((flags & ~known) != 0) return false;
 
         Vector3 point = new(
