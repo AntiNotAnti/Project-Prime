@@ -786,10 +786,10 @@ internal sealed class ReplayPoseStream : IDisposable
             }
             else if (_clip != null && _shotIndex < _clip.Records.Count)
             {
-                var record = _clip.Records[_shotIndex];
-                at = record.RecordingFrame;
+                var clipRecord = _clip.Records[_shotIndex];
+                at = clipRecord.RecordingFrame;
                 if ((ulong)at > horizon) break;
-                packet = record.Payload;
+                packet = clipRecord.Payload;
                 _shotIndex++;
             }
             else break;
