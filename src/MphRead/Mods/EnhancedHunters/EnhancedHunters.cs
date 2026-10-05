@@ -13,7 +13,9 @@ internal static class EnhancedHunters
     [ThreadStatic] private static int _bonusDepth;
     internal static bool ApplyingBonus => _bonusDepth != 0;
     internal static bool Enabled(PlayerEntity player) => player.Hunter != Hunter.Guardian
-        && player.OwningScene.GameState.EnhancedHunters && player.OwningScene.GameState.Multiplayer;
+        && player.OwningScene.GameState.EnhancedHunters
+        && !player.OwningScene.GameState.BalancedMode
+        && player.OwningScene.GameState.Multiplayer;
     internal static bool Authority(PlayerEntity player) => Enabled(player)
         && !player.SceneServices.IsReplica
         && (!player.SceneServices.PlayerReplication.Active || player.SceneServices.PlayerReplication.IsAuthority);
