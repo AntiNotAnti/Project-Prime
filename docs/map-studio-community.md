@@ -144,9 +144,9 @@ Routes beneath the configured prefix:
 - `GET v2/maps/<map-id>/revisions`: server-numbered immutable revision history.
   Public callers see published revisions; owners/collaborators see the full lineage.
 - `POST v2/maps/<map-id>/revisions/<revision>/promote`: owner/collaborator-only
-  promotion of an immutable historical revision to the current public release. Promotion
-  also refreshes legacy catalog presentation metadata so older clients select the rollback
-  target while the package bytes remain unchanged.
+  promotion of an immutable historical revision to the current public release. Legacy flat
+  API responses synthesize a current-release timestamp so older clients select the rollback
+  target without mutating the package's persisted publication chronology or bytes.
 - `POST uploads/<sha256>`: create or resume a package upload session.
 - `GET uploads/<sha256>`: read the persisted byte offset for the authenticated creator.
 - `PUT uploads/<sha256>?offset=<bytes>`: append one bounded package chunk.
