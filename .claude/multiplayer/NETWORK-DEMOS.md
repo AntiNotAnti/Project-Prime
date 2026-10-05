@@ -221,6 +221,22 @@ projectile is already gone, playback draws a short render-only tracer tail and
 impact particle. Impact particles are emitted through the per-frame render list,
 never as persistent replay entities.
 
+Combat feedback consumes the same resolved-shot clock. Replay POV hit markers carry
+normal/headshot/lethal/halfturret classification from `ReplayShotFact`; live hit
+prediction is never sampled by a replica HUD. The watched victim's directional
+indicator is presentation-only and is derived from the recorded shot origin/impact
+(or the recorded shooter position fallback), never from replay-simulated collision.
+Lethal facts can hold the replica victim visually dead from the authoritative impact
+frame until the next accepted snapshot catches up, without changing replay gameplay
+state or scoring.
+
+Forward playback may emit native kill/headshot/teamkill HUD messages, weapon impact
+audio, Imperialist headshot confirmation and canonical award audio exactly once.
+Seek/rebuild advances presentation frontiers silently and clears transient victim
+indicators. High-refresh drawing does not own audio, so 120/240 Hz rendering cannot
+duplicate a 60 Hz combat cue. Video export keeps Game HUD and Replay Overlay separate:
+combat feedback/crosshair follow Game HUD, while Studio controls follow Replay Overlay.
+
 Fire scheduling is scene-local rather than using live `NetFireEvents` static state,
 so interleaved replays, killcams and the foreground match cannot contaminate one
 another. Seek/rebuild creates the same bounded index again from recorded facts.
