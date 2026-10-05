@@ -149,6 +149,26 @@ namespace MphRead.Entities
             return BalancedModeRules.ScaleProjectileSpeed(beam, charged, speed);
         }
 
+        internal static Vector3 ModSplashOrigin(Scene scene, BeamType beam,
+            Vector3 projectilePosition, Vector3 impactPosition)
+        {
+            // Stock projectile splash historically samples the projectile's current
+            // position. Balanced Battlehammer is different: terrain-impact clusters
+            // are defined by the authoritative collision point. Sampling from the
+            // pre-collision projectile position can put the explosion behind the
+            // surface that was just hit, causing the LOS test to reject every nearby
+            // target. Parent shells and cluster children therefore use the actual
+            // impact point, while every stock/non-Battlehammer path is unchanged.
+            if (scene.GameState.Multiplayer && scene.GameState.BalancedMode
+                && beam == BeamType.Battlehammer
+                && Single.IsFinite(impactPosition.X) && Single.IsFinite(impactPosition.Y)
+                && Single.IsFinite(impactPosition.Z))
+            {
+                return impactPosition;
+            }
+            return projectilePosition;
+        }
+
         internal static void ModBalancedHitTuning(Scene scene, EntityBase owner, BeamType beam,
             bool battlehammerCluster, ref int damage, ref int headshotDamage,
             ref int splashDamage, ref byte splashDamageType)
@@ -1106,7 +1126,8 @@ namespace MphRead.Entities
                 Debug.Assert(Equip != null);
                 Debug.Assert(Owner != null);
                 // note: when hitting halfturret, colWith has been replaced with the turret's owning player by this point
-                CheckSplashDamage(colWith);
+                Vector3 splashOrigin = ModSplashOrigin(_scene, Beam, Position, colRes.Position);
+                CheckSplashDamage(colWith, splashOrigin);
                 if (RicochetWeapon != null && (colWith == null || colWith.Type != EntityType.Player))
                 {
                     Vector3 factor = Velocity * 7;
@@ -1163,7 +1184,7 @@ namespace MphRead.Entities
             }
         }
 
-        private void CheckSplashDamage(EntityBase? colWith)
+        private void CheckSplashDamage(EntityBase? colWith, Vector3 splashOrigin)
         {
             foreach (PlayerEntity player in _scene.GetPlayerEntities())
             {
@@ -1185,24 +1206,24 @@ namespace MphRead.Entities
                     if (!player.Flags2.TestFlag(PlayerFlags2.Halfturret) || Owner != player.Halfturret)
                     {
                         CollisionResult discard = default;
-                        float dist = Vector3.Distance(player.Position, Position);
+                        float dist = Vector3.Distance(player.Position, splashOrigin);
                         // todo?: wifi conditions
                         if (dist >= SplashRadius
-                            || CollisionDetection.CheckBetweenPoints(Position, player.Position, TestFlags.Beams, _scene, ref discard))
+                            || CollisionDetection.CheckBetweenPoints(splashOrigin, player.Position, TestFlags.Beams, _scene, ref discard))
                         {
                             OmegaCannonFlash();
                         }
                         else
                         {
-                            Vector3 damageDir = GetDamageDirection(Position, player.Position);
+                            Vector3 damageDir = GetDamageDirection(splashOrigin, player.Position);
                             float ratio = dist / SplashRadius;
                             int damage = (int)ModBalancedRangeDamage(
-                                GetInterpolatedValue(SplashDamageType, SplashDamage, 0, ratio), Position);
+                                GetInterpolatedValue(SplashDamageType, SplashDamage, 0, ratio), splashOrigin);
                             // ReplayShotFact owns the explosion centre, not the
                             // victim position. Several victims may share this one
                             // splash fact origin without dragging the projectile
                             // toward each body independently.
-                            TakePlayerDamageAt(player, damage, DamageFlags.NoDmgInvuln, damageDir, Position);
+                            TakePlayerDamageAt(player, damage, DamageFlags.NoDmgInvuln, damageDir, splashOrigin);
                             if (Owner != null)
                             {
                                 _scene.SendMessage(Message.Impact, this, Owner, player, 0);
@@ -1223,12 +1244,12 @@ namespace MphRead.Entities
                     continue;
                 }
                 CollisionResult res = default;
-                float dist = Vector3.Distance(enemy.Position, Position);
+                float dist = Vector3.Distance(enemy.Position, splashOrigin);
                 if (dist < SplashRadius
-                    && !CollisionDetection.CheckBetweenPoints(Position, enemy.Position, TestFlags.Beams, _scene, ref res))
+                    && !CollisionDetection.CheckBetweenPoints(splashOrigin, enemy.Position, TestFlags.Beams, _scene, ref res))
                 {
                     float damage = ModBalancedRangeDamage(
-                        GetInterpolatedValue(SplashDamageType, SplashDamage, 0, dist / SplashRadius), Position);
+                        GetInterpolatedValue(SplashDamageType, SplashDamage, 0, dist / SplashRadius), splashOrigin);
                     enemy.TakeDamage((uint)Math.Clamp(damage, 0, Int32.MaxValue), this);
                     if (Owner != null)
                     {
