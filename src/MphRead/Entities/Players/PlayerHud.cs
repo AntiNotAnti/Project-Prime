@@ -1697,12 +1697,21 @@ namespace MphRead.Entities
                                         _scene.DrawHudObject(_targetCircleInst, scale: nativeScale);
                                     }
                                     float hitMarker = Mods.Network.NetHitPrediction.MarkerAlpha;
+                                    bool replayHeadshot = false;
+                                    if (_scene.Services.IsReplica && Mods.Network.NetHitPrediction.MarkerEnabled
+                                        && _scene.ReplayPoses is { } replayPoses)
+                                    {
+                                        hitMarker = Math.Max(hitMarker,
+                                            replayPoses.ResolvedHitMarkerAlpha(SlotIndex, out replayHeadshot));
+                                    }
                                     if (Mods.Network.NetHitPrediction.MarkerEnabled && _scene.AimTrainer is { } training)
                                         hitMarker = Math.Max(hitMarker, training.HitMarkerAlpha);
                                     if (hitMarker > 0)
                                     {
-                                        _scene.DrawHitMarker(new Vector4(1f, 1f, 1f, hitMarker),
-                                            reticleX, reticleY);
+                                        Vector4 markerColor = replayHeadshot
+                                            ? new Vector4(1f, 0.72f, 0.28f, hitMarker)
+                                            : new Vector4(1f, 1f, 1f, hitMarker);
+                                        _scene.DrawHitMarker(markerColor, reticleX, reticleY);
                                     }
                                 }
                                 finally
