@@ -152,6 +152,24 @@ namespace MphRead.Mods.Network
                     && !BeamProjectileEntity.ModReplayIdentityMatches(
                         impactKey, impactA.ShotId + 1, (BeamType)impactA.Weapon, impactA),
                     "authoritative replay impact matched the wrong shot or shooter life");
+                var lethalHeadshot = impactA with
+                {
+                    Flags = ReplayShotFactFlags.Direct | ReplayShotFactFlags.Headshot
+                        | ReplayShotFactFlags.Lethal | ReplayShotFactFlags.HalfturretTarget,
+                    HealthAfter = 0
+                };
+                ReplayHitMarkerFlags markerFlags = ReplayPoseStream.MarkerFlags(lethalHeadshot);
+                Require(markerFlags.TestFlag(ReplayHitMarkerFlags.Headshot)
+                    && markerFlags.TestFlag(ReplayHitMarkerFlags.Lethal)
+                    && markerFlags.TestFlag(ReplayHitMarkerFlags.Halfturret),
+                    "authoritative replay marker lost headshot/lethal/halfturret classification");
+                markerFlags = ReplayPoseStream.MarkerFlags(impactA);
+                Require(markerFlags == ReplayHitMarkerFlags.None,
+                    "ordinary authoritative hit gained a special marker classification");
+                Require(Replay.ReplayKillMessagePresenter.MessageId(friendly: false, headshot: false) == 238
+                    && Replay.ReplayKillMessagePresenter.MessageId(friendly: false, headshot: true) == 239
+                    && Replay.ReplayKillMessagePresenter.MessageId(friendly: true, headshot: true) == 240,
+                    "replay kill notification IDs no longer match native kill/headshot/teamkill HUD strings");
                 var fractional = new Replay.ReplayCameraTrack();
                 fractional.Put(new(0, OpenTK.Mathematics.Vector3.Zero, OpenTK.Mathematics.Quaternion.Identity, 1,
                     Interpolation: Replay.ReplayCameraInterpolation.Linear, Ease: Replay.ReplayCameraEase.None));
