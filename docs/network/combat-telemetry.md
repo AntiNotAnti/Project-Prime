@@ -54,11 +54,13 @@ queue capacity, retention, timeout and disk/upload caps.
 Verbose currently records the same production events as Study; the independent
 `PRIME_CONTINUOUS_TRACE` developer ring can supply additional target geometry.
 
-Public servers may collect anonymous network, combat, and performance
-measurements to improve multiplayer quality. Stored identifiers are random per
-match and slot-local player numbers. Telemetry contains no IP addresses, player
-names, account identifiers, chat, tokens, or persistent device identifiers.
-Existing opt-in debug logs are separate from this telemetry subsystem.
+Public servers may collect anonymous network, combat, performance, and Balanced
+Mode aggregate measurements to improve multiplayer quality. Stored identifiers are
+random per match and slot-local player numbers. Balance telemetry records only
+bounded Hunter/weapon/mechanic counters and the public balance revision. Telemetry
+contains no IP addresses, player names, account identifiers, chat, tokens, or
+persistent device identifiers. Existing opt-in debug logs are separate from this
+telemetry subsystem.
 
 ## Bounded pipeline
 
@@ -88,16 +90,22 @@ failures. They are diagnostics only. Histograms use fixed memory; timing and
 rewind quantiles are quantized. Samples outside a histogram's finite range fall
 in its last bin; the exact maximum is retained separately.
 
-## Schema 3 records
+## Schema 6 records
 
 All raw events have frame, player/victim sample IDs, weapon, generation/life,
 record ID, result/flags and numeric fields A–H. Absent timing/displacement uses
--1, not an invented zero. Schema 2 added a monotonic timestamp in milliseconds,
-connection distributions, lifecycle durations, correction counts, explicit
-inside/outside counts and unknown shadow outcomes. Schema 3 adds per-weapon,
-per-result CombatAck latency/correction breakdowns and transport-lock contention
-measurements. Readers continue to accept schema 1 and 2 and show fields those
-versions did not record as unknown.
+-1, not an invented zero. Schema 2 added monotonic timestamps and richer network
+distributions; schema 3 added per-weapon CombatAck and transport contention;
+schema 4 added server/allocation and Enhanced Hunter aggregates; schema 5 added
+canonical semantic-event and award counters.
+
+Schema 6 adds a bounded `balancedMode` aggregate. It is present in every schema-6
+summary but has revision 0 and zero arrays for ordinary matches. Balanced matches
+write `BalanceRevision` plus fixed-size Hunter, weapon, range, direct/splash,
+Battlehammer, affinity, and Imperialist counters. No names or new persistent
+identifiers are added. The offline report includes the balance revision in its
+cohort key so two tuning revisions are never pooled together. Readers continue to
+accept schemas 1–5 and show fields those versions did not record as unknown.
 
 | Event | Numeric payload |
 |---|---|
@@ -113,6 +121,7 @@ versions did not record as unknown.
 | ServerStep | engine step milliseconds, cumulative dropped ticks, allocated bytes, GC generation counts |
 | LagStudy | requested/served/plausible rewind, displacement, RTT/jitter, horizontal/vertical displacement |
 | TransportContention | cumulative connection-lock acquisitions/contentions, total/max wait and total/max hold milliseconds |
+| BalancedMode | aggregate balance counter; result selects a bounded metric, A is its count/value, Id is the balance revision |
 
 A CombatStudy packet (type 51) reports bounded, lossy client correction samples
 once per second: at most 32 samples/431 bytes. It uses background packet priority,
