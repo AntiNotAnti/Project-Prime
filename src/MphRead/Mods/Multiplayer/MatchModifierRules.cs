@@ -11,8 +11,9 @@ public static class MatchModifierRules
         match = match.NormalizeLegacy();
         reason = "";
         if (match.BalancedMode && (match.Fiesta || match.InstaGib || match.OneInTheChamber
-            || match.Mode == GameMode.OneInTheChamber || match.Mode == GameMode.GunGame))
-            reason = "Balanced Mode cannot be combined with Fiesta, Insta-Gib, One in the Chamber or Gun Game.";
+            || match.Mode == GameMode.OneInTheChamber || match.Mode == GameMode.GunGame
+            || match.EnhancedHunters))
+            reason = "Balanced Mode cannot be combined with Enhanced Hunters, Fiesta, Insta-Gib, One in the Chamber or Gun Game.";
         else if ((match.OneInTheChamber || match.Mode == GameMode.OneInTheChamber) && (match.InstaGib || match.NoImperialist || match.Fiesta))
             reason = "One in the Chamber cannot be combined with Insta-Gib, No Imp or Fiesta.";
         else if (match.Fiesta && match.InstaGib)
