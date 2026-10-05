@@ -54,6 +54,7 @@ namespace MphRead.Mods.Launcher
                     LowTier = settings.LowTier == "on",
                     OctolithAutoReset = Multiplayer.MatchModifierRules.UsesOctolith(mode) && settings.AutoReset == "on",
                     NoImperialist = settings.NoImperialist == "on" && settings.InstaGib != "on" && mode != GameMode.InstaGib,
+                    BalancedMode = settings.BalancedMode == "on",
                     ShadowFreeze = settings.ShadowFreeze == "on", SpawnProtection = settings.SpawnProtection == "on" },
                 PlayerName = LauncherPrefs.PlayerName,
                 RoomKey = roomKey,
