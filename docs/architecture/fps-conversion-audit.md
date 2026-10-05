@@ -46,6 +46,25 @@ It observes only Samus and Spire in this first stage, after the production movem
 
 `NativeMovementReference` now provides the first collision-free 30 Hz reference step for horizontal impulse/cap/damping, gravity, semi-implicit position integration and facing convergence. It is not yet authoritative and is not wired into production movement.
 
+
+### Samus/Spire live reference comparison
+
+The next shadow layer now feeds the actual native-scale parameters observed during each production 60 Hz substep into the 30 Hz reference:
+
+- horizontal `speedDelta` before production applies it;
+- the current horizontal speed cap;
+- the selected native damping multiplier before Project Prime's current half-step approximation;
+- gravity before the current `g / 2` update.
+
+A comparison is emitted only when both 60 Hz substeps used the same movement parameters. Windows are skipped when form state changes, alt form/Spire climbing is active, jump-pad/biped-lock behavior is involved, lateral collision occurs, or standing/contact identity changes. Those skips are counted by reason rather than being treated as parity failures.
+
+Two initial comparison domains are reported:
+
+- `ground-horizontal`: compares native-vs-production X/Z traction, speed-cap and damping while retaining production vertical/facing state until collision shadowing exists.
+- `air-kinematic`: compares full position/velocity including gravity and semi-implicit integration when no contact transition is observed.
+
+When `-movementshadowout` is used, raw production boundaries remain in the requested TSV and comparison deltas are written to `<path>.compare.tsv`. Shutdown prints bounded per-slot/domain maxima, first-divergence counts, and skip totals.
+
 ## P0 inventory
 
 The five player files currently contain **179** marked sites:

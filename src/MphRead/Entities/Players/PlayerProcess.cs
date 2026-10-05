@@ -620,6 +620,7 @@ namespace MphRead.Entities
                 }
                 TryEquipWeapon(_weaponSlots[slot]);
             }
+            ModMovementShadowBeginFrame();
             ProcessInput();
             ModMovementShadowObserve();
             if (Flags1.TestFlag(PlayerFlags1.Boosting) && _hSpeedMag <= Fixed.ToFloat(Values.AltMinHSpeed))
