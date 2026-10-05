@@ -69,6 +69,7 @@ namespace MphRead.Mods.Network
                 CheckNoImpScene();
                 CheckBalancedImpScene();
                 CheckBalancedRangeScene();
+                CheckBalancedHunterScene();
                 Console.WriteLine($"[advanced-rules-scene] PASS {_checks} checks"); return 0;
             }
             catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
@@ -230,6 +231,88 @@ namespace MphRead.Mods.Network
                     && Near(BeamProjectileEntity.ModBalancedProjectileSpeed(scene, owner,
                         BeamType.VoltDriver, charged: false, voltBase), voltBase),
                     "range damage and projectile speed are inert outside Balanced Mode");
+            }
+            finally { sim.Stop(); NetSession.Stop(); }
+        }
+
+        private static void CheckBalancedHunterScene()
+        {
+            const string room = "MP1 SANCTORUS";
+            var match = new MatchDefinition { RoomKey = room, Mode = GameMode.Battle,
+                BalancedMode = true, TimeLimitSeconds = 600, PointGoal = 100 };
+            var session = new SessionStatePacket { MatchId = 1, AuthorityEpoch = 1, MaxPlayers = 8,
+                Phase = SessionPhase.InMatch, Match = match, WorldProfile = MatchWorldProfile.Resolve(8) };
+            var roster = RosterPacket.Create(); roster.Count = 5; roster.MatchId = 1; roster.AuthorityEpoch = 1; roster.Revision = 1;
+            Hunter[] hunters = { Hunter.Kanden, Hunter.Spire, Hunter.Noxus, Hunter.Weavel, Hunter.Samus };
+            for (byte slot = 0; slot < hunters.Length; slot++)
+            {
+                roster.Slots[slot] = slot;
+                roster.Generations[slot] = 1;
+                roster.Names[slot] = hunters[slot].ToString();
+                roster.Hunters[slot] = (byte)hunters[slot];
+                roster.Teams[slot] = -1;
+            }
+
+            var sim = new ServerSim();
+            try
+            {
+                Check(sim.Start(room, GameMode.Battle, 8, _ => { }, () => { }, roster, session),
+                    "Balanced hunter profile world loads");
+                NetSlotManager.Sync();
+                var kanden = PlayerEntity.Players[0];
+                var spire = PlayerEntity.Players[1];
+                var noxus = PlayerEntity.Players[2];
+                var weavel = PlayerEntity.Players[3];
+                var samus = PlayerEntity.Players[4];
+
+                foreach (var player in new[] { kanden, spire, noxus, weavel, samus })
+                    player.Spawn(player.Position, Vector3.UnitZ, Vector3.UnitY, player.NodeRef, respawn: false);
+
+                Check(kanden.Health == 109 && weavel.Health == 109
+                    && spire.Health == 99 && noxus.Health == 99 && samus.Health == 99,
+                    "Balanced low-tier spawn health bonuses preserve high-tier baseline");
+                Check(new[] { kanden, spire, noxus, weavel, samus }.All(p => p.HealthMax == 199),
+                    "Balanced profiles preserve the 199 multiplayer health ceiling");
+
+                static bool Near(float actual, float expected) => MathF.Abs(actual - expected) < 0.001f;
+                Check(Near(BalancedModeRules.HunterProfile(Hunter.Kanden).AltTractionMultiplier, 1.12f)
+                    && Near(BalancedModeRules.HunterProfile(Hunter.Kanden).AltSpeedCapMultiplier, 1.08f)
+                    && Near(BalancedModeRules.HunterProfile(Hunter.Weavel).AltTractionMultiplier, 1.10f)
+                    && Near(BalancedModeRules.HunterProfile(Hunter.Weavel).AltSpeedCapMultiplier, 1.08f),
+                    "Kanden and Weavel receive their mobility profiles");
+                Check(Near(BalancedModeRules.HunterProfile(Hunter.Spire).IncomingDamageMultiplier, 0.90f)
+                    && Near(BalancedModeRules.HunterProfile(Hunter.Spire).KnockbackMultiplier, 0.80f)
+                    && Near(BalancedModeRules.HunterProfile(Hunter.Noxus).IncomingDamageMultiplier, 0.95f)
+                    && Near(BalancedModeRules.HunterProfile(Hunter.Noxus).AltTractionMultiplier, 1.10f),
+                    "Spire and Noxus receive tank/control profiles");
+                Check(BalancedModeRules.HunterProfile(Hunter.Samus) == BalancedHunterProfile.Baseline
+                    && BalancedModeRules.HunterProfile(Hunter.Trace) == BalancedHunterProfile.Baseline
+                    && BalancedModeRules.HunterProfile(Hunter.Sylux) == BalancedHunterProfile.Baseline,
+                    "Samus Trace and Sylux remain baseline in Balanced Mode");
+
+                DamageFlags combat = DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln;
+                spire.Health = noxus.Health = kanden.Health = 150;
+                spire.TakeDamage(100, combat, null, samus);
+                noxus.TakeDamage(100, combat, null, samus);
+                kanden.TakeDamage(100, combat, null, samus);
+                Check(spire.Health == 60 && noxus.Health == 55 && kanden.Health == 50,
+                    "Balanced non-headshot mitigation is 10 percent Spire, 5 percent Noxus, baseline Kanden");
+
+                spire.Health = 199;
+                spire.Speed = Vector3.Zero;
+                spire.TakeDamage(1, combat, Vector3.UnitX, samus);
+                Check(Near(spire.Speed.X, 0.80f), "Spire receives 20 percent less combat knockback");
+
+                scene.GameState.BalancedMode = false;
+                spire.Health = 150;
+                spire.TakeDamage(100, combat, null, samus);
+                Check(spire.Health == 50, "hunter durability is inert outside Balanced Mode");
+                scene.GameState.BalancedMode = true;
+
+                spire.Spawn(spire.Position, Vector3.UnitZ, Vector3.UnitY, spire.NodeRef, respawn: true);
+                spire.Health = spire.HealthMax;
+                spire.TakeDamage(200, combat | DamageFlags.Headshot, null, samus);
+                Check(spire.Health == 0, "headshots bypass Balanced durability and preserve the 200-damage lethal breakpoint");
             }
             finally { sim.Stop(); NetSession.Stop(); }
         }
