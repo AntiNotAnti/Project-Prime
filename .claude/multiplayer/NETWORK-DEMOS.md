@@ -151,20 +151,36 @@ and audio is muted/stopped during fast-forward seek batches.
 
 ## Presentation and export
 
-`ReplayPoseStream` has its own accepted-snapshot/intent cursor with six-frame
-lookahead and a bounded history deep enough to cover the live unlagged ring. It
-keeps both recording-arrival frame and authoritative snapshot server tick; those
-clocks are deliberately not interchangeable. It never reads live arrival jitter
-or advances simulation/RNG. Body/camera interpolation fences occupant/life,
-spawn/death, form changes and teleports. In first-person playback, opponents are
-drawn at the watched player's latest accepted `AckFrame + AckSubFrame / 256`
-server-time world, matching the historical world their live shot was resolved
-against. The watched shooter remains on the ordinary replay presentation clock,
-and missing/stale ACK history falls back to normal replay poses. This is render-only:
-replica simulation, projectiles, damage, RNG, seeks and checkpoints are unchanged.
-Watching another actor therefore changes only the view; replica stepping fixes its
-simulation perspective to keep RNG deterministic. Camera tracks sample fractional
-recorded frames.
+`ReplayPoseStream` has its own accepted-snapshot/intent cursor with a bounded
+history deep enough to cover the live unlagged ring. It keeps both recording-arrival
+frame and authoritative snapshot server tick; those clocks are deliberately not
+interchangeable. It never reads live arrival jitter or advances sockets/RNG.
+Body/camera interpolation fences occupant/life, spawn/death, form changes and
+teleports. In first-person playback, opponents are drawn at the watched player's
+latest accepted `AckFrame + AckSubFrame / 256` server-time world, matching the
+historical world their live shot was resolved against. The watched shooter remains
+on the ordinary replay presentation clock, and missing/stale ACK history falls back
+to normal replay poses.
+
+Modern replay intents also carry repeated `FireEvent` history. The cursor reads far
+enough ahead to see a recovered event before its authored presentation frame, dedupes
+by slot/generation/life/shot sequence, and maps the sender's `SourceFrame` into the
+recording clock by its bounded age inside the carrier:
+`carrierRecordingFrame - (intent.Frame - fire.SourceFrame)`. This avoids pretending
+the shooter's frame counter and the recorder's frame counter share an epoch. A local
+shot maps exactly; a remotely recovered shot regains the frames lost to the missing
+carrier while preserving the recorder's observed clock offset. On that scheduled
+frame the replica uses the event's weapon, charge, kind, continuous phase and scoped
+Imperialist state, while the carrier supplies bounded ammo/target state. Event-capable
+lives gate inferred shooting, so held input or redundant press history cannot create
+extra projectiles. Legacy protocols remain on input reconstruction.
+
+Fire scheduling is scene-local rather than using live `NetFireEvents` static state,
+so interleaved replays, killcams and the foreground match cannot contaminate one
+another. Seek/rebuild creates the same bounded index again from recorded facts.
+Watching another actor still changes only presentation ownership; damage remains
+suppressed and accepted snapshots/semantic facts remain authoritative for outcomes.
+Camera tracks sample fractional recorded frames.
 
 Export walks 60 Hz simulation and produces genuine 30/60/120 FPS images; 120 FPS
 uses half-frame presentation samples. Native world/HUD targets support 720p, 1080p,
