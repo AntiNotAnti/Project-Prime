@@ -16,6 +16,9 @@ namespace MphRead.Mods.Network
     internal sealed partial class ReplayReplicaState
     {
         internal List<(uint Frame, ChatPacket Packet)> ChatLines { get; } = new();
+        private readonly List<ReplayShotFact> _shotFacts = new(16);
+        private uint _shotFactsFrame = uint.MaxValue;
+        internal IReadOnlyList<ReplayShotFact> ShotFacts => _shotFacts;
         internal Mods.MatchEvents.MatchSemanticReceiver SemanticEvents { get; private set; } = new();
         public NetCosmetics Cosmetics { get; private set; } = new();
         private readonly ReplayOccupant[] _roster = new ReplayOccupant[PlayerEntity.SlotCapacity];
@@ -56,7 +59,15 @@ namespace MphRead.Mods.Network
         public bool TryGetIntent(int slot, out IntentPacket intent)
         { intent = _intents[slot]; return _hasIntent[slot]; }
         public uint IntentAge(int slot) => _hasIntent[slot] ? RecordingFrame - _intentReceivedFrame[slot] : uint.MaxValue;
-        internal void Advance(uint frame) => RecordingFrame = frame;
+        internal void Advance(uint frame)
+        {
+            RecordingFrame = frame;
+            if (_shotFactsFrame != frame)
+            {
+                _shotFacts.Clear();
+                _shotFactsFrame = frame;
+            }
+        }
         public void Reset()
         {
             ContainsBots = false;
@@ -69,6 +80,8 @@ namespace MphRead.Mods.Network
         public void Rewind()
         {
             ChatLines.Clear();
+            _shotFacts.Clear();
+            _shotFactsFrame = uint.MaxValue;
             SemanticEvents = new();
             SemanticEvents.Begin(Match?.MatchId ?? 0, Match?.AuthorityEpoch ?? 0);
             Cosmetics.Reset();
@@ -164,6 +177,31 @@ namespace MphRead.Mods.Network
                     if (Match is { } currentWorld && _authorityWire.Accept(payload, currentWorld.MatchId, currentWorld.AuthorityEpoch, strict: true) is { } world)
                     { if (AuthorityWorld == null || NetLifecycleTracker.Newer(world.Tick, AuthorityWorld.Tick))
                         { AuthorityWorld = world; accepted = true; } }
+                    break;
+                case PacketType.ReplayShotFact:
+                    if (!ReplayShotFactPacket.TryRead(payload, out var shotFact)) throw Malformed();
+                    if (!Matches(shotFact.MatchId, shotFact.AuthorityEpoch)) break;
+                    if (_shotFactsFrame != frame)
+                    {
+                        _shotFacts.Clear();
+                        _shotFactsFrame = frame;
+                    }
+                    bool duplicateShotFact = false;
+                    foreach (var existing in _shotFacts)
+                    {
+                        if (existing.DamageEventId == shotFact.DamageEventId
+                            && existing.VictimSlot == shotFact.VictimSlot
+                            && existing.ShooterSlot == shotFact.ShooterSlot)
+                        {
+                            duplicateShotFact = true;
+                            break;
+                        }
+                    }
+                    if (!duplicateShotFact)
+                    {
+                        _shotFacts.Add(shotFact);
+                        accepted = true;
+                    }
                     break;
                 case PacketType.Snapshot:
                     accepted = AcceptSnapshot(payload);
