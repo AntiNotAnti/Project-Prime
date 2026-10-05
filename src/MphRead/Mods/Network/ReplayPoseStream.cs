@@ -184,14 +184,17 @@ internal sealed class ReplayPoseStream : IDisposable
 
         FireEvent fire = active.Event;
         IntentPacket carrier = active.Carrier;
+        bool sameSourceCarrier = carrier.Frame == fire.SourceFrame;
         player.ModSetWeapon((BeamType)fire.Weapon);
         player.EquipInfo.ChargeLevel = fire.Charge;
         if (fire.Kind == FireEventKind.ContinuousTick)
         {
             player.ModContinuousFireTick = fire.ContinuousPhase;
-            if (carrier.Target.IsSupplied) player.ModContinuousNetworkTarget = carrier.Target;
+            if (sameSourceCarrier && carrier.Target.IsSupplied)
+                player.ModContinuousNetworkTarget = carrier.Target;
         }
-        else if (fire.Weapon == (byte)BeamType.VoltDriver && carrier.Target.IsSupplied)
+        else if (sameSourceCarrier && fire.Weapon == (byte)BeamType.VoltDriver
+            && carrier.Target.IsSupplied)
         {
             player.ModSetPendingHomingTarget(carrier.Target);
         }
