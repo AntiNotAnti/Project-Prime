@@ -185,7 +185,6 @@ internal sealed class ReplayPoseStream : IDisposable
         FireEvent fire = active.Event;
         IntentPacket carrier = active.Carrier;
         player.ModSetWeapon((BeamType)fire.Weapon);
-        player.ModSetAmmo(carrier.AmmoUa, carrier.AmmoMissiles);
         player.EquipInfo.ChargeLevel = fire.Charge;
         if (fire.Kind == FireEventKind.ContinuousTick)
         {
