@@ -67,6 +67,7 @@ namespace MphRead.Mods.Network
                     finally { sim.Stop(); NetSession.Stop(); }
                 }
                 CheckNoImpScene();
+                CheckBalancedImpScene();
                 Console.WriteLine($"[advanced-rules-scene] PASS {_checks} checks"); return 0;
             }
             catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
@@ -106,23 +107,70 @@ namespace MphRead.Mods.Network
             finally { sim.Stop(); NetSession.Stop(); }
         }
 
+        private static void CheckBalancedImpScene()
+        {
+            const string room = "MP1 SANCTORUS";
+            var match = new MatchDefinition { RoomKey = room, Mode = GameMode.Battle,
+                BalancedMode = true, TimeLimitSeconds = 600, PointGoal = 100 };
+            var session = new SessionStatePacket { MatchId = 1, AuthorityEpoch = 1, MaxPlayers = 8,
+                Phase = SessionPhase.InMatch, Match = match, WorldProfile = MatchWorldProfile.Resolve(8) };
+            var roster = RosterPacket.Create(); roster.Count = 1; roster.MatchId = 1; roster.AuthorityEpoch = 1; roster.Revision = 1;
+            roster.Slots[0] = 0; roster.Generations[0] = 1; roster.Names[0] = "TRACE"; roster.Hunters[0] = (byte)Hunter.Trace;
+            var sim = new ServerSim();
+            try
+            {
+                Check(sim.Start(room, GameMode.Battle, 8, _ => { }, () => { }, roster, session), "Balanced Mode world loads");
+                NetSlotManager.Sync();
+                var player = PlayerEntity.Players[0];
+                player.Spawn(player.Position, Vector3.UnitZ, Vector3.UnitY, player.NodeRef, respawn: false);
+                var pickup = typeof(PlayerEntity).GetMethod("PickUpWeapon", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                pickup.Invoke(player, new object[] { ItemType.Imperialist });
+                player.ModSetWeapon(BeamType.Imperialist);
+                Check(player.ModBalancedImperialistShots == PlayerEntity.BalancedImperialistShotCap,
+                    "Balanced Imperialist pickup grants exactly five shots");
+                int cost = player.EquipInfo.Weapon.AmmoCost;
+                player.EquipInfo.Ammo -= cost;
+                Check(player.ModBalancedImperialistShots == 4, "Balanced Imperialist spends its private reserve");
+                var shared = (int[])typeof(PlayerEntity).GetField("_ammo", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(player)!;
+                int sharedBefore = shared[0];
+                shared[0] = Math.Min(player.ModAmmoCap, shared[0] + 100);
+                Check(shared[0] >= sharedBefore && player.ModBalancedImperialistShots == 4,
+                    "Universal Ammo refill does not refill Balanced Imperialist");
+                pickup.Invoke(player, new object[] { ItemType.Imperialist });
+                Check(player.ModBalancedImperialistShots == PlayerEntity.BalancedImperialistShotCap,
+                    "another Imperialist pickup refills the private reserve");
+                player.EquipInfo.Ammo = Int32.MaxValue;
+                Check(player.ModBalancedImperialistShots == PlayerEntity.BalancedImperialistShotCap,
+                    "Balanced Imperialist reserve is hard capped at five shots");
+            }
+            finally { sim.Stop(); NetSession.Stop(); }
+        }
+
         private static void AdvancedRulesChecks()
         {
             var defaults = new MatchDefinition();
             Check(!defaults.ShadowFreeze && !defaults.SpawnProtection && !defaults.InstaGib
-                && !defaults.LowTier && !defaults.NoImperialist, "advanced rules default off");
+                && !defaults.LowTier && !defaults.NoImperialist && !defaults.BalancedMode, "advanced rules default off");
             Check(!new MatchStatePacket().ShadowFreeze && !new MatchStatePacket().SpawnProtection, "zero match flags mean off");
             var settings = new MenuSettings();
-            Check(settings.ShadowFreeze == "off" && settings.SpawnProtection == "off", "new settings opt in to protection and shadow freeze");
+            Check(settings.ShadowFreeze == "off" && settings.SpawnProtection == "off"
+                && settings.BalancedMode == "off", "new settings opt in to protection, shadow freeze and Balanced Mode");
             var state = new SessionStatePacket { MaxPlayers = 8, MatchId = 1, AuthorityEpoch = 1,
                 Match = new MatchDefinition { RoomKey = Rooms()[0], Mode = GameMode.Capture,
                     InstaGib = true, LowTier = true, ShadowFreeze = true, SpawnProtection = true } };
             byte[] bytes = new byte[SessionStatePacket.Size];
             state.Write(bytes);
             Check(SessionStatePacket.TryRead(bytes, out var read) && read.Match == state.Match, "all combat rules survive session round trip");
-            state.Match = state.Match with { InstaGib = false, NoImperialist = true };
+            state.Match = state.Match with { InstaGib = false, NoImperialist = true, BalancedMode = true };
             state.Write(bytes);
-            Check(SessionStatePacket.TryRead(bytes, out read) && read.Match.NoImperialist && read.Match.LowTier, "No Imp survives session round trip");
+            Check(SessionStatePacket.TryRead(bytes, out read) && read.Match.NoImperialist && read.Match.LowTier
+                && read.Match.BalancedMode, "No Imp and Balanced Mode survive session round trip");
+            Check(!MatchModifierRules.Validate(new MatchDefinition { Mode = GameMode.Battle, BalancedMode = true, InstaGib = true }, out _)
+                && !MatchModifierRules.Validate(new MatchDefinition { Mode = GameMode.Battle, BalancedMode = true, Fiesta = true }, out _)
+                && !MatchModifierRules.Validate(new MatchDefinition { Mode = GameMode.OneInTheChamber, BalancedMode = true }, out _)
+                && !MatchModifierRules.Validate(new MatchDefinition { Mode = GameMode.GunGame, BalancedMode = true }, out _),
+                "Balanced Mode rejects loadout modes with incompatible ammo ownership");
+            state.Match = state.Match with { BalancedMode = false };
             foreach (bool insta in new[] { false, true })
             {
                 state.Match = state.Match with { InstaGib = insta, NoImperialist = !insta };
