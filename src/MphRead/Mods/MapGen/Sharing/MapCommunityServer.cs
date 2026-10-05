@@ -369,7 +369,7 @@ public static class MapCommunityServer
                         return;
                     }
 
-                    if(parts.Length is 3 or 4&&Guid.TryParse(parts[2],out Guid projectId))
+                    if((parts.Length is 3 or 4)&&Guid.TryParse(parts[2],out Guid projectId))
                     {
                         CommunityMap[] all=maps.Values.Where(m=>m.MapId==projectId).ToArray();
                         if(all.Length==0){context.Response.StatusCode=404;return;}
@@ -405,7 +405,7 @@ public static class MapCommunityServer
                 if (route == root + "/health" && context.Request.HttpMethod == "GET")
                     await Json(context.Response, new
                     {
-                        Status="ok", Service="prime-maps", Maps=maps.Count,
+                        Status="ok", Service="prime-maps", ApiVersion=2, Maps=maps.Count,
                         Projects=revisionCatalog.ProjectCount,
                         PublishedBytes=maps.Values.Sum(m => m.Bytes),
                         StorageLimitBytes=publishedStorageLimit
