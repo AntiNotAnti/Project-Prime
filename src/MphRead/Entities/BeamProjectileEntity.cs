@@ -31,6 +31,15 @@ namespace MphRead.Entities
         public uint ModLaunchFrame { get; set; }
         public uint ModShotId { get; set; }
         public ShotKey ModLaunchKey { get; internal set; }
+
+        // Replay impact reconciliation is presentation-only. It never changes
+        // projectile collision/lifespan, so checkpoint/RNG/gameplay state stays
+        // exactly where the replica simulation put it.
+        private bool _replayImpactPending;
+        private bool _replayImpactHidden;
+        private ulong _replayImpactDrawFrame;
+        private Vector3 _replayImpactPosition;
+
         // Spawn's firing phase must survive until a Shock Coil beam tests an enemy.
         public ulong ModContinuousPhase { get; set; }
         public bool ModHasSharedContinuousPhase { get; set; }
@@ -228,6 +237,12 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            if (_scene.Services.IsReplica && _replayImpactPending
+                && _scene.FrameCount >= _replayImpactDrawFrame)
+            {
+                _replayImpactPending = false;
+                _replayImpactHidden = true;
+            }
             ValidateHomingTarget();
             if (Lifespan <= 0)
             {
@@ -993,6 +1008,7 @@ namespace MphRead.Entities
 
         private void PlayBeamHitSfx()
         {
+            if (_scene.Services.IsReplica && _replayImpactHidden) return;
             StopHomingSfx();
             BeamSfx type = Flags.TestFlag(BeamFlags.Charged) ? BeamSfx.ChargeHit : BeamSfx.Hit;
             int sfx = Metadata.BeamSfx[(int)Beam, (int)type];
@@ -1181,7 +1197,11 @@ namespace MphRead.Entities
                             float ratio = dist / SplashRadius;
                             int damage = (int)ModBalancedRangeDamage(
                                 GetInterpolatedValue(SplashDamageType, SplashDamage, 0, ratio), Position);
-                            TakePlayerDamageAt(player, damage, DamageFlags.NoDmgInvuln, damageDir, player.Position);
+                            // ReplayShotFact owns the explosion centre, not the
+                            // victim position. Several victims may share this one
+                            // splash fact origin without dragging the projectile
+                            // toward each body independently.
+                            TakePlayerDamageAt(player, damage, DamageFlags.NoDmgInvuln, damageDir, Position);
                             if (Owner != null)
                             {
                                 _scene.SendMessage(Message.Impact, this, Owner, player, 0);
@@ -1246,41 +1266,39 @@ namespace MphRead.Entities
 
         public override void GetDrawInfo()
         {
-            if (DrawFuncId == 0)
+            if (_scene.Services.IsReplica && _replayImpactHidden) return;
+
+            bool anchored = _scene.Services.IsReplica && _replayImpactPending
+                && _replayImpactDrawFrame == _scene.FrameCount;
+            Vector3 position = Position, back = BackPosition, past0 = PastPositions[0];
+            if (anchored)
             {
-                Draw00();
+                // Let the visible projectile/tracer terminate exactly where the
+                // authority says it did for this one draw. The simulation copy
+                // underneath keeps flying untouched and is hidden afterwards.
+                Position = _replayImpactPosition;
+                PastPositions[0] = _replayImpactPosition;
             }
-            else if (DrawFuncId == 1)
+            try
             {
-                Draw01();
+                if (DrawFuncId == 0) Draw00();
+                else if (DrawFuncId == 1) Draw01();
+                else if (DrawFuncId == 2) Draw02();
+                else if (DrawFuncId == 3) Draw03();
+                else if (DrawFuncId == 6 || DrawFuncId == 12) Draw06();
+                else if (DrawFuncId == 7) Draw07();
+                else if (DrawFuncId == 9) Draw09();
+                else if (DrawFuncId == 10) Draw10();
+                else if (DrawFuncId == 17) Draw17();
             }
-            else if (DrawFuncId == 2)
+            finally
             {
-                Draw02();
-            }
-            else if (DrawFuncId == 3)
-            {
-                Draw03();
-            }
-            else if (DrawFuncId == 6 || DrawFuncId == 12)
-            {
-                Draw06();
-            }
-            else if (DrawFuncId == 7)
-            {
-                Draw07();
-            }
-            else if (DrawFuncId == 9)
-            {
-                Draw09();
-            }
-            else if (DrawFuncId == 10)
-            {
-                Draw10();
-            }
-            else if (DrawFuncId == 17)
-            {
-                Draw17();
+                if (anchored)
+                {
+                    Position = position;
+                    BackPosition = back;
+                    PastPositions[0] = past0;
+                }
             }
         }
 
@@ -1523,6 +1541,9 @@ namespace MphRead.Entities
         public override void Destroy()
         {
             _soundSource.StopAllSfx();
+            _replayImpactPending = _replayImpactHidden = false;
+            _replayImpactDrawFrame = 0;
+            _replayImpactPosition = default;
             Lifespan = 0;
             if (Effect != null)
             {
@@ -1963,7 +1984,42 @@ namespace MphRead.Entities
                 beam.BattlehammerClusterChild = battlehammerCluster;
                 beam.ModContinuousPhase = phase;
                 beam.ModHasSharedContinuousPhase = sharedPhase;
-                if (!scene.Services.IsReplica) NetPlayerLifecycle.StampProjectile(beam, parent);
+                beam.ModLaunchFrame = beam.ModShotId = 0;
+                beam.ModLaunchMatch = 0;
+                beam.ModLaunchAuthority = 0;
+                beam.ModLaunchGeneration = beam.ModLaunchLife = 0;
+                beam.ModLaunchKey = default;
+                if (!scene.Services.IsReplica)
+                {
+                    NetPlayerLifecycle.StampProjectile(beam, parent);
+                }
+                else if (parent != null && parent.ModShotId != 0)
+                {
+                    beam.ModLaunchFrame = parent.ModLaunchFrame;
+                    beam.ModShotId = parent.ModShotId;
+                    beam.ModLaunchMatch = parent.ModLaunchMatch;
+                    beam.ModLaunchAuthority = parent.ModLaunchAuthority;
+                    beam.ModLaunchGeneration = parent.ModLaunchGeneration;
+                    beam.ModLaunchLife = parent.ModLaunchLife;
+                    beam.ModLaunchKey = parent.ModLaunchKey;
+                }
+                else
+                {
+                    PlayerEntity? replayShooter = owner as PlayerEntity
+                        ?? (owner as HalfturretEntity)?.Owner;
+                    if (replayShooter != null && scene.ReplayPoses?.TryActiveShotIdentity(
+                        replayShooter, owner is HalfturretEntity,
+                        out ShotKey replayKey, out uint replaySourceFrame) == true)
+                    {
+                        beam.ModLaunchFrame = replaySourceFrame;
+                        beam.ModShotId = replayKey.ShotId;
+                        beam.ModLaunchMatch = replayKey.MatchId;
+                        beam.ModLaunchAuthority = replayKey.AuthorityEpoch;
+                        beam.ModLaunchGeneration = replayKey.Generation;
+                        beam.ModLaunchLife = replayKey.LifeId;
+                        beam.ModLaunchKey = replayKey;
+                    }
+                }
                 beam.Beam = weapon.Beam;
                 beam.BeamKind = weapon.BeamKind;
                 if (!scene.Services.IsReplica && NetLog.Enabled) NetShotDiagnostics.Trace("spawn", beam.ModLaunchKey, beam.Beam);
@@ -2595,8 +2651,59 @@ namespace MphRead.Entities
             return Vector3.Zero;
         }
 
+        internal bool ModReplayMatches(in ReplayShotFact fact)
+        {
+            if (!_scene.Services.IsReplica || ModShotId == 0 || ModShotId != fact.ShotId
+                || Beam != (BeamType)fact.Weapon)
+            {
+                return false;
+            }
+            return ModLaunchKey.AuthorityEpoch == fact.AuthorityEpoch
+                && ModLaunchKey.MatchId == fact.MatchId
+                && ModLaunchKey.ShooterSlot == fact.ShooterSlot
+                && ModLaunchKey.Generation == fact.ShooterGeneration
+                && ModLaunchKey.LifeId == fact.ShooterLifeId;
+        }
+
+        internal float ModReplayImpactDistanceSquared(Vector3 point)
+        {
+            float a = (Position - point).LengthSquared;
+            float b = (BackPosition - point).LengthSquared;
+            return Math.Min(a, b);
+        }
+
+        internal void ModPresentReplayImpact(in ReplayShotFact fact,
+            bool terminateProjectile, bool spawnEffect)
+        {
+            if (!_scene.Services.IsReplica) return;
+            _replayImpactPosition = fact.ImpactPoint;
+            // ReplaySceneServices calls this in AfterSimulation. StepReplica
+            // increments FrameCount after that hook and drawing sees the
+            // incremented value, so the corrected endpoint belongs to +1.
+            _replayImpactDrawFrame = _scene.FrameCount + 1;
+            if (terminateProjectile)
+            {
+                _replayImpactPending = true;
+                _replayImpactHidden = false;
+            }
+            if (spawnEffect) PlayBeamHitSfx();
+        }
+
+        internal static Vector3 ModReplayImpactColor(Scene scene,
+            in ReplayShotFact fact)
+        {
+            WeaponInfo weapon = scene.WeaponRules[fact.Weapon];
+            ushort packed = weapon.Colors[0];
+            float red = ((packed >> 0) & 0x1F) / 31f;
+            float green = ((packed >> 5) & 0x1F) / 31f;
+            float blue = ((packed >> 10) & 0x1F) / 31f;
+            return fact.Headshot ? new Vector3(1f, 0.72f, 0.28f)
+                : new Vector3(red, green, blue);
+        }
+
         private void SpawnCollisionEffect(CollisionResult colRes, bool noSplat)
         {
+            if (_scene.Services.IsReplica && _replayImpactHidden) return;
             if (CollisionEffect != 255)
             {
                 if (_scene.Players.PlayerCount > 2 && CollisionEffect == 4)
