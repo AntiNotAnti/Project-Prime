@@ -776,10 +776,18 @@ internal sealed partial class MapStudioScreen
             {
                 conflictActions.Children.Add(new PrimeButton(
                     "UPLOAD AS REVISION",
-                    () => PublishCurrent(selectedVisibility, releaseNotes,
-                        mapId, existingMap: true,
-                        expectedParentHash: conflict.LatestHash,
-                        allowStaleParent: false),
+                    () =>
+                    {
+                        if (pendingPath != null)
+                            PublishPrepared(pendingPath, selectedVisibility,
+                                releaseNotes, mapId, conflict.LatestHash,
+                                allowStaleParent: false);
+                        else
+                            PublishCurrent(selectedVisibility, releaseNotes,
+                                mapId, existingMap: true,
+                                expectedParentHash: conflict.LatestHash,
+                                allowStaleParent: false);
+                    },
                     compact: true));
             }
 
