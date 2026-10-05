@@ -573,7 +573,9 @@ namespace MphRead.Entities
                     return false;
                 }
                 normal.Normalize();
-                Position += normal * MathF.Min(deepest.Field14 + CollisionRecoverySkin, CollisionRecoveryLimit);
+                float recoveryPushout = MathF.Min(deepest.Field14 + CollisionRecoverySkin, CollisionRecoveryLimit);
+                ModMovementShadowNoteContact(normal, recoveryPushout);
+                Position += normal * recoveryPushout;
             }
 
             if (FindDeepestPenetration(Position, IsAltForm, out CollisionResult remaining, out bool overflow)
@@ -1195,6 +1197,7 @@ namespace MphRead.Entities
             }
             if (v2 > 0)
             {
+                ModMovementShadowNoteContact(result.Plane.Xyz, v2);
                 if (result.Plane.Y < 0.1f && result.Plane.Y > -0.1f)
                 {
                     if (Cheats.WalkThroughWalls && !IsAltForm)
@@ -1303,6 +1306,7 @@ namespace MphRead.Entities
                             v164 = true;
                             // todo: revisit these calculations and improve the wall climbing "stickiness" issue
                             // --> related to the need for a hack to get pushed out more by horizontal collision (without jittering)
+                            ModMovementShadowNoteContact(result.Plane.Xyz, dot);
                             Position += result.Plane.Xyz * dot;
                             vec = new Vector3(Position.X - vec.X, 0, Position.Z - vec.Z).Normalized();
                             vec.X *= dot / 4;
