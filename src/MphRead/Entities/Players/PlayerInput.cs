@@ -1381,6 +1381,8 @@ namespace MphRead.Entities
             // and there only for players who are not on it. Mods.Network.NetUnlagged.
             BeamResultFlags result;
             _scene.AimTrainer?.BeginShot(this);
+            bool replayAmmoBypass = exactReplayFire && !EquipInfo.InfiniteAmmo;
+            if (replayAmmoBypass) EquipInfo.InfiniteAmmo = true;
             try
             {
                 NetFireEvents.Begin(this);
@@ -1389,7 +1391,11 @@ namespace MphRead.Entities
                 if (result != BeamResultFlags.NoSpawn) NetFireEvents.Commit(this);
                 Mods.Network.NetUnlagged.EndShot(this);
             }
-            finally { Mods.Network.NetUnlagged.AbortShot(); }
+            finally
+            {
+                if (replayAmmoBypass) EquipInfo.InfiniteAmmo = false;
+                Mods.Network.NetUnlagged.AbortShot();
+            }
             _scene.AimTrainer?.EndShot(result != BeamResultFlags.NoSpawn);
             if (result == BeamResultFlags.NoSpawn)
             {
