@@ -208,10 +208,16 @@ internal sealed class ReplayPoseStream : IDisposable
                 && shooter.LifeId == fact.ShooterLifeId;
             if (currentShooter)
             {
+                if (_lastResolvedHitFrame[fact.ShooterSlot] != frame
+                    || _lastResolvedHitGeneration[fact.ShooterSlot] != fact.ShooterGeneration
+                    || _lastResolvedHitLife[fact.ShooterSlot] != fact.ShooterLifeId)
+                {
+                    _lastResolvedHitHeadshot[fact.ShooterSlot] = false;
+                }
                 _lastResolvedHitFrame[fact.ShooterSlot] = frame;
                 _lastResolvedHitGeneration[fact.ShooterSlot] = fact.ShooterGeneration;
                 _lastResolvedHitLife[fact.ShooterSlot] = fact.ShooterLifeId;
-                _lastResolvedHitHeadshot[fact.ShooterSlot] = fact.Headshot;
+                _lastResolvedHitHeadshot[fact.ShooterSlot] |= fact.Headshot;
             }
 
             BeamProjectileEntity? best = null;
@@ -264,7 +270,7 @@ internal sealed class ReplayPoseStream : IDisposable
             ReplayShotFact fact = fallback.Fact;
             Vector3 color = BeamProjectileEntity.ModReplayImpactColor(scene, fact);
             if (fallback.MissingProjectile
-                && fallback.Fire is { HasPose: true } fire
+                && fallback.Fire is FireEvent fire && fire.HasPose
                 && fire.Direction.LengthSquared >= 0.000001f)
             {
                 Vector3 direction = fire.Direction.Normalized();
