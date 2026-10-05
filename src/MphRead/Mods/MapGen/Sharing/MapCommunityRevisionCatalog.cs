@@ -364,7 +364,8 @@ internal sealed class MapCommunityRevisionCatalog
                 latestHash,
                 existing.Max(r => r.RevisionNumber) + 1,
                 previous?.CreatedAt ?? createdAt,
-                previous?.UpdatedAt > updatedAt ? previous.UpdatedAt : updatedAt);
+                previous is not null && previous.UpdatedAt > updatedAt
+                    ? previous.UpdatedAt : updatedAt);
         }
 
         _projects.Clear();
