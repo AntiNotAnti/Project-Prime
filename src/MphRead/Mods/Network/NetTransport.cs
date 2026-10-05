@@ -601,7 +601,8 @@ namespace MphRead.Mods.Network
         /// and are reserved for latency-sensitive startup publication.</param>
         internal bool TrySendSemantic(IPEndPoint target, PacketType type, ReadOnlySpan<byte> payload)
         {
-            if (type is not (PacketType.MatchSemanticEvent or PacketType.MatchAward)) return false;
+            if (type is not (PacketType.MatchSemanticEvent or PacketType.MatchAward
+                or PacketType.ReplayShotFact)) return false;
             uint eventId;
             double now = NowMilliseconds;
             long stamp = EnterConnectionLock();
