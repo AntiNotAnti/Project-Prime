@@ -1009,6 +1009,7 @@ namespace MphRead.Entities
         private void PlayBeamHitSfx()
         {
             if (_scene.Services.IsReplica && _replayImpactHidden) return;
+            if (_scene.Services.IsReplica && _replayImpactHidden) return;
             StopHomingSfx();
             BeamSfx type = Flags.TestFlag(BeamFlags.Charged) ? BeamSfx.ChargeHit : BeamSfx.Hit;
             int sfx = Metadata.BeamSfx[(int)Beam, (int)type];
@@ -2652,17 +2653,19 @@ namespace MphRead.Entities
         }
 
         internal bool ModReplayMatches(in ReplayShotFact fact)
+            => _scene.Services.IsReplica
+                && ModReplayIdentityMatches(ModLaunchKey, ModShotId, Beam, fact);
+
+        internal static bool ModReplayIdentityMatches(in ShotKey key, uint shotId,
+            BeamType beam, in ReplayShotFact fact)
         {
-            if (!_scene.Services.IsReplica || ModShotId == 0 || ModShotId != fact.ShotId
-                || Beam != (BeamType)fact.Weapon)
-            {
+            if (shotId == 0 || shotId != fact.ShotId || beam != (BeamType)fact.Weapon)
                 return false;
-            }
-            return ModLaunchKey.AuthorityEpoch == fact.AuthorityEpoch
-                && ModLaunchKey.MatchId == fact.MatchId
-                && ModLaunchKey.ShooterSlot == fact.ShooterSlot
-                && ModLaunchKey.Generation == fact.ShooterGeneration
-                && ModLaunchKey.LifeId == fact.ShooterLifeId;
+            return key.AuthorityEpoch == fact.AuthorityEpoch
+                && key.MatchId == fact.MatchId
+                && key.ShooterSlot == fact.ShooterSlot
+                && key.Generation == fact.ShooterGeneration
+                && key.LifeId == fact.ShooterLifeId;
         }
 
         internal float ModReplayImpactDistanceSquared(Vector3 point)
