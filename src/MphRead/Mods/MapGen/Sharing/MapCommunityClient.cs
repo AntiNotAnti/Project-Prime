@@ -275,13 +275,8 @@ public sealed class MapCommunityClient : IDisposable
             $"v2/maps/{mapId}/revisions/{revisionNumber}/promote",
             new ByteArrayContent(Array.Empty<byte>()), token).ConfigureAwait(false);
         if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.MethodNotAllowed)
-        {
-            CommunityMapRevision? legacy = (await GetRevisionsAsync(mapId, token)
-                .ConfigureAwait(false)).FirstOrDefault(r => r.RevisionNumber == revisionNumber);
-            if (legacy == null) return null;
-            await SetVisibilityAsync(legacy.Hash, "Published", token).ConfigureAwait(false);
-            return await GetProjectAsync(mapId, token).ConfigureAwait(false);
-        }
+            throw new NotSupportedException(
+                "This Community service must be upgraded before it can promote or roll back revisions.");
         EnsureSuccess(response);
         using var data = new MemoryStream();
         await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token),
