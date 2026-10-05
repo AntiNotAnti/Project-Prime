@@ -455,6 +455,18 @@ namespace MphRead.Mods.Launcher.Gui
             AddOutput("TAKE CONTROL", TakeControl, Deck.Face.Rust);
             AddOutput("ANALYTICS HUD", () => ReplayHud.ShowAnalytics = !ReplayHud.ShowAnalytics);
             AddOutput("NETWORK HUD", () => ReplayHud.ShowNetworkDebug = !ReplayHud.ShowNetworkDebug);
+            AddOutput("COMBAT INSPECTOR HUD", () =>
+            {
+                ReplayCombatDiagnostics.ShowHud = !ReplayCombatDiagnostics.ShowHud;
+                _message = "Combat inspector HUD "
+                    + (ReplayCombatDiagnostics.ShowHud ? "enabled." : "disabled.");
+            });
+            AddOutput("SHOT RAYS", () =>
+            {
+                ReplayCombatDiagnostics.ShowRays = !ReplayCombatDiagnostics.ShowRays;
+                _message = "Authoritative shot rays "
+                    + (ReplayCombatDiagnostics.ShowRays ? "enabled." : "disabled.");
+            });
 
             _exportQueueStatus = new TextBlock
             {
@@ -869,8 +881,10 @@ namespace MphRead.Mods.Launcher.Gui
 
             _analyticsPanel.Children.Add(new Caption("Combat Inspector"));
             _analyticsPanel.Children.Add(new Note(
-                "Shot geometry, rewind timing and CombatAck details were not recorded. "
-                + "Nearby events below are a timeline reference; they are not attributed to the selected shot."));
+                "Protocol-41 recordings expose authoritative ReplayShotFact + FireEvent evidence here: "
+                + "ShotId, fire/resolve timing, muzzle/aim/projectile vectors, ACK-world target, "
+                + "impact point, damage/headshot/lethal result and why the authority accepted the hit. "
+                + "SHOT RAYS visualizes the same evidence in the replay viewport."));
             _analyticsPanel.Children.Add(_combatInspection);
             var navigation = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
             foreach (var option in new[] { ("PREVIOUS SHOT", -1), ("SHOT AT PLAYHEAD", 0), ("NEXT SHOT", 1) })
@@ -901,28 +915,48 @@ namespace MphRead.Mods.Launcher.Gui
         private void InspectCombatEvent(ReplayEvent selected)
         {
             _inspectedEvent = selected;
-            string Name(byte slot) => slot == byte.MaxValue ? "world"
-                : DemoPlayback.Metadata?.Players.FirstOrDefault(p => p.Slot == slot).Name ?? $"P{slot + 1}";
-            string Stamp(uint frame) => $"{Time(frame)}.{(frame % 60) * 1000 / 60:000} (frame {frame})";
-            string weapon = selected.Type == ReplayEventType.WeaponFired
-                ? " · " + (ReplayStudio.TryBeamType(selected.Value, out BeamType beam) ? beam.ToString() : $"Weapon {selected.Value}")
-                : selected.Type == ReplayEventType.Damage ? $" · {selected.Value} damage" : "";
-            var nearby = DemoPlayback.Events.Where(e => e != selected
-                    && e.ActorSlot == selected.ActorSlot && e.Frame >= selected.Frame
-                    && e.Frame - selected.Frame <= 120
-                    && e.Type is ReplayEventType.Damage or ReplayEventType.Kill or ReplayEventType.Headshot)
-                .OrderBy(e => e.Frame).Take(8).Select(e =>
-                    $"{Stamp(e.Frame)} · {e.Type} · {Name(e.ActorSlot)} → {Name(e.TargetSlot)}"
-                    + (e.Type == ReplayEventType.Damage ? $" · {e.Value} damage" : "")).ToArray();
-            _combatInspection.Text = $"{selected.Type} · {Stamp(selected.Frame)}\n"
-                + $"Actor: {Name(selected.ActorSlot)} (slot {selected.ActorSlot}){weapon}\n"
-                + (selected.TargetSlot < 8 ? $"Target: {Name(selected.TargetSlot)} (slot {selected.TargetSlot})\n" : "")
-                + "Nearby events, association unknown:\n"
-                + (nearby.Length == 0 ? "None in the next two seconds." : string.Join("\n", nearby));
+            ReplayCombatDiagnostics.ClearSelection();
             ReplayController.Seek(selected.Frame, resume: false);
-            if (selected.ActorSlot < PlayerEntity.SlotCapacity) SpectatorMode.Watch(selected.ActorSlot);
+            if (selected.ActorSlot < PlayerEntity.SlotCapacity)
+                SpectatorMode.Watch(selected.ActorSlot);
+            _combatInspection.Text =
+                $"Seeking {selected.Type} at {Time(selected.Frame)} (frame {selected.Frame})…\n"
+                + "Authoritative shot evidence will populate when the replay scene reaches this frame.";
             _message = "Combat Inspector selected " + selected.Type + ".";
             Refresh();
+        }
+
+        private void RefreshCombatInspection()
+        {
+            if (_inspectedEvent is not ReplayEvent selected) return;
+            Scene? scene = DemoPlayback.PresentationScene;
+            ReplayPoseStream? poses = scene?.ReplayPoses;
+            if (poses == null) return;
+
+            int shooter = selected.ActorSlot < PlayerEntity.SlotCapacity
+                ? selected.ActorSlot : -1;
+            int weapon = selected.Type == ReplayEventType.WeaponFired
+                ? selected.Value : -1;
+            if (poses.TryCombatDiagnostic(selected.Frame, shooter, weapon,
+                direction: 0, out var diagnostic))
+            {
+                ReplayCombatDiagnostics.Select(diagnostic);
+                _combatInspection.Text = ReplayCombatDiagnostics.Describe(diagnostic);
+                return;
+            }
+
+            if (!DemoPlayback.Session.Transport.IsSeeking
+                && Math.Abs((long)DemoPlayback.CurrentFrame - selected.Frame) <= 2)
+            {
+                string weaponLabel = selected.Type == ReplayEventType.WeaponFired
+                    && ReplayStudio.TryBeamType(selected.Value, out BeamType beam)
+                        ? beam.ToString() : selected.Type.ToString();
+                _combatInspection.Text =
+                    $"{weaponLabel} · {Time(selected.Frame)} (frame {selected.Frame})\n"
+                    + "No authoritative ReplayShotFact is associated in the retained diagnostic window.\n"
+                    + "For a weapon-fired event this usually means no accepted player/turret damage fact "
+                    + "was recorded for that shot, or this is an older recording without protocol-41 evidence.";
+            }
         }
 
         private static string ShortcutKey(OpenTK.Windowing.GraphicsLibraryFramework.Keys key)
@@ -1317,6 +1351,7 @@ namespace MphRead.Mods.Launcher.Gui
                 + $"{analytics.TotalDamage} damage · {analytics.ObjectiveEvents} objectives"
                 + (playerText.Length == 0 ? "" : "\n" + playerText)
                 + weaponText;
+            RefreshCombatInspection();
         }
 
         private static string Mark(uint? frame) => frame.HasValue ? Time(frame.Value) : "--:--";
