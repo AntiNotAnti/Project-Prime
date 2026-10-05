@@ -424,7 +424,8 @@ internal sealed class MapCommunityRevisionCatalog
         }
     }
 
-    public bool DeleteRevision(Guid mapId, int revisionNumber, TimeSpan retention)
+    public bool DeleteRevision(Guid mapId, int revisionNumber, TimeSpan retention,
+        IEnumerable<CommunityMap> packages)
     {
         lock (_gate)
         {
@@ -445,13 +446,14 @@ internal sealed class MapCommunityRevisionCatalog
                 DeletedAt = now,
                 DeleteAfter = now.Add(retention)
             };
-            RecomputePointersLocked(mapId);
+            RecomputePointersLocked(mapId, packages);
             Save();
             return true;
         }
     }
 
-    public bool RestoreRevision(Guid mapId, int revisionNumber)
+    public bool RestoreRevision(Guid mapId, int revisionNumber,
+        IEnumerable<CommunityMap> packages)
     {
         lock (_gate)
         {
@@ -463,7 +465,7 @@ internal sealed class MapCommunityRevisionCatalog
                 DeletedAt = null,
                 DeleteAfter = null
             };
-            RecomputePointersLocked(mapId);
+            RecomputePointersLocked(mapId, packages);
             Save();
             return true;
         }
@@ -502,7 +504,8 @@ internal sealed class MapCommunityRevisionCatalog
                 r.MapId == mapId && r.RevisionNumber == revisionNumber)?.Hash;
     }
 
-    public void RemovePurgedHashes(IEnumerable<string> hashes)
+    public void RemovePurgedHashes(IEnumerable<string> hashes,
+        IEnumerable<CommunityMap> packages)
     {
         lock (_gate)
         {
@@ -519,26 +522,39 @@ internal sealed class MapCommunityRevisionCatalog
                 if (!_revisions.Values.Any(r => r.MapId == mapId))
                     _projects.Remove(mapId);
                 else
-                    RecomputePointersLocked(mapId);
+                    RecomputePointersLocked(mapId, packages);
             }
             Save();
         }
     }
 
-    private void RecomputePointersLocked(Guid mapId)
+    private void RecomputePointersLocked(Guid mapId,
+        IEnumerable<CommunityMap> packages)
     {
         if (!_projects.TryGetValue(mapId, out var project)) return;
+        var packageByHash = packages.Where(m => m.MapId == mapId)
+            .ToDictionary(m => m.Hash, StringComparer.Ordinal);
         CommunityMapRevisionState[] active = _revisions.Values
-            .Where(r => r.MapId == mapId && r.DeletedAt == null)
+            .Where(r => r.MapId == mapId && r.DeletedAt == null
+                && packageByHash.ContainsKey(r.Hash))
             .OrderBy(r => r.RevisionNumber)
             .ToArray();
         if (active.Length == 0) return;
 
         string latest = active[^1].Hash;
         string? current = project.CurrentHash;
-        if (current == null || !active.Any(r => r.Hash == current))
-            current = active.OrderByDescending(r => r.RevisionNumber)
-                .Select(r => r.Hash).FirstOrDefault();
+        if (current == null
+            || !active.Any(r => r.Hash == current)
+            || !packageByHash[current].Listed
+            || packageByHash[current].Draft)
+        {
+            current = active
+                .Where(r => packageByHash[r.Hash].Listed
+                    && !packageByHash[r.Hash].Draft)
+                .OrderByDescending(r => r.RevisionNumber)
+                .Select(r => r.Hash)
+                .FirstOrDefault();
+        }
 
         _projects[mapId] = project with
         {
@@ -661,15 +677,18 @@ internal sealed class MapCommunityRevisionCatalog
 
             existing = existing.OrderBy(r => r.RevisionNumber).ToList();
             if (existing.Count == 0) continue;
+            var activeExisting = existing.Where(r => r.DeletedAt == null).ToArray();
+            if (activeExisting.Length == 0) activeExisting = existing.ToArray();
 
-            string latestHash = existing[^1].Hash;
+            string latestHash = activeExisting[^1].Hash;
             string? current = previous?.CurrentHash;
             if (current == null
+                || !activeExisting.Any(r => r.Hash == current)
                 || !availableByHash.TryGetValue(current, out CommunityMap? currentPackage)
                 || currentPackage.MapId != group.Key
                 || !currentPackage.Listed || currentPackage.Draft)
             {
-                current = existing
+                current = activeExisting
                     .Where(r => availableByHash[r.Hash].Listed && !availableByHash[r.Hash].Draft)
                     .OrderByDescending(r => r.RevisionNumber)
                     .Select(r => r.Hash)
@@ -677,7 +696,7 @@ internal sealed class MapCommunityRevisionCatalog
             }
 
             DateTimeOffset createdAt = existing.Min(r => r.CreatedAt);
-            var publicRevisions = existing
+            var publicRevisions = activeExisting
                 .Where(r => availableByHash[r.Hash].Listed && !availableByHash[r.Hash].Draft)
                 .ToArray();
             DateTimeOffset derivedUpdatedAt = publicRevisions.Length > 0
