@@ -1514,7 +1514,8 @@ namespace MphRead.Entities
         }
         private void DrawHudObjectsCore()
         {
-            if (Mods.ThumbnailMode.Active)
+            if (Mods.ThumbnailMode.Active
+                || _scene.Services.IsReplica && Mods.Replay.ReplayVideoExporter.SuppressGameHud)
             {
                 return;
             }
@@ -1696,20 +1697,37 @@ namespace MphRead.Entities
                                         _targetCircleInst.Alpha = reticleAlpha;
                                         _scene.DrawHudObject(_targetCircleInst, scale: nativeScale);
                                     }
-                                    float hitMarker = Mods.Network.NetHitPrediction.MarkerAlpha;
-                                    bool replayHeadshot = false;
+                                    // Replica combat confirmation is authority-only. Never
+                                    // borrow the foreground client's prediction marker into a
+                                    // replay POV.
+                                    float hitMarker = _scene.Services.IsReplica
+                                        ? 0 : Mods.Network.NetHitPrediction.MarkerAlpha;
+                                    Mods.Network.ReplayHitMarkerFlags replayMarker =
+                                        Mods.Network.ReplayHitMarkerFlags.None;
                                     if (_scene.Services.IsReplica && Mods.Network.NetHitPrediction.MarkerEnabled
                                         && _scene.ReplayPoses is { } replayPoses)
                                     {
-                                        hitMarker = Math.Max(hitMarker,
-                                            replayPoses.ResolvedHitMarkerAlpha(SlotIndex, out replayHeadshot));
+                                        hitMarker = replayPoses.ResolvedHitMarkerAlpha(
+                                            SlotIndex, out replayMarker);
                                     }
-                                    if (Mods.Network.NetHitPrediction.MarkerEnabled && _scene.AimTrainer is { } training)
+                                    if (!_scene.Services.IsReplica && Mods.Network.NetHitPrediction.MarkerEnabled
+                                        && _scene.AimTrainer is { } training)
+                                    {
                                         hitMarker = Math.Max(hitMarker, training.HitMarkerAlpha);
+                                    }
                                     if (hitMarker > 0)
                                     {
-                                        Vector4 markerColor = replayHeadshot
-                                            ? new Vector4(1f, 0.72f, 0.28f, hitMarker)
+                                        bool lethal = replayMarker.TestFlag(
+                                            Mods.Network.ReplayHitMarkerFlags.Lethal);
+                                        bool headshot = replayMarker.TestFlag(
+                                            Mods.Network.ReplayHitMarkerFlags.Headshot);
+                                        bool turret = replayMarker.TestFlag(
+                                            Mods.Network.ReplayHitMarkerFlags.Halfturret);
+                                        Vector4 markerColor = lethal && headshot
+                                            ? new Vector4(1f, 0.58f, 0.14f, hitMarker)
+                                            : lethal ? new Vector4(1f, 0.30f, 0.24f, hitMarker)
+                                            : headshot ? new Vector4(1f, 0.72f, 0.28f, hitMarker)
+                                            : turret ? new Vector4(0.40f, 0.88f, 1f, hitMarker)
                                             : new Vector4(1f, 1f, 1f, hitMarker);
                                         _scene.DrawHitMarker(markerColor, reticleX, reticleY);
                                     }
@@ -1756,7 +1774,8 @@ namespace MphRead.Entities
 
         public void DrawHudModels()
         {
-            if (Mods.ThumbnailMode.Active)
+            if (Mods.ThumbnailMode.Active
+                || _scene.Services.IsReplica && Mods.Replay.ReplayVideoExporter.SuppressGameHud)
             {
                 return;
             }
