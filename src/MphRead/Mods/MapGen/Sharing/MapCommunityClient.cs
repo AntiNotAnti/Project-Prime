@@ -255,6 +255,17 @@ public sealed class MapCommunityClient : IDisposable
         return new CommunityPublishResult(package, project, revision);
     }
 
+    public async Task DiscardPendingUploadAsync(
+        string packageHash, CancellationToken token)
+    {
+        if (!ValidHash(packageHash))
+            throw new InvalidDataException("Invalid package hash.");
+        using var response = await _http.DeleteAsync(
+            "uploads/" + packageHash, token).ConfigureAwait(false);
+        if (response.StatusCode == HttpStatusCode.NotFound) return;
+        EnsureSuccess(response);
+    }
+
     public async Task<CommunityMapProject?> PromoteRevisionAsync(
         Guid mapId, int revisionNumber, CancellationToken token)
     {
