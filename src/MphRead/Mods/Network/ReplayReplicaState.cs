@@ -32,7 +32,7 @@ namespace MphRead.Mods.Network
             if (at == uint.MaxValue || RecordingFrame < at
                 || RecordingFrame - at >= ShotHitMarkerFrames
                 || _roster[shooterSlot].Generation != _lastShotHitGeneration[shooterSlot]
-                || !_lives[shooterSlot].Matches(
+                || !MatchesLife(shooterSlot,
                     _lastShotHitGeneration[shooterSlot], _lastShotHitLife[shooterSlot]))
             {
                 return 0;
