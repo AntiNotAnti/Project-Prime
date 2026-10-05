@@ -91,6 +91,25 @@ namespace MphRead.Entities
                 replicaTarget += translation;
             }
 
+            FireEvent shotAnchor = default;
+            bool exactShotPose = _scene.Services.IsReplica && CameraType == CameraType.First
+                && NetFireEvents.TryTiming(this, out shotAnchor) && shotAnchor.HasPose
+                && shotAnchor.Kind != FireEventKind.TurretFire;
+            if (exactShotPose)
+            {
+                Vector3 viewFacing = shotAnchor.View.Normalized();
+                float distance = Math.Max((replicaTarget - replicaPosition).Length, 1f);
+                replicaTarget = replicaPosition + viewFacing * distance;
+                replicaUp -= viewFacing * Vector3.Dot(replicaUp, viewFacing);
+                if (!ModFinite(replicaUp) || replicaUp.LengthSquared < 0.000001f)
+                {
+                    Vector3 reference = MathF.Abs(viewFacing.Y) < 0.999f
+                        ? Vector3.UnitY : Vector3.UnitZ;
+                    replicaUp = reference - viewFacing * Vector3.Dot(reference, viewFacing);
+                }
+                replicaUp = replicaUp.Normalized();
+            }
+
             position = replicaPosition;
             fov = replicaFov;
             view = Matrix4.LookAt(replicaPosition, replicaTarget, replicaUp);
@@ -103,7 +122,43 @@ namespace MphRead.Entities
             {
                 ModPrepareObservedFirstPersonViewmodel(alpha,
                     replicaPosition, replicaTarget, replicaUp, replicaFov, view);
+                if (exactShotPose)
+                {
+                    ModAnchorObservedShotViewmodel(shotAnchor,
+                        replicaPosition, replicaUp, replicaFov, view);
+                }
             }
+            return true;
+        }
+
+        private bool ModAnchorObservedShotViewmodel(in FireEvent fire,
+            Vector3 cameraPosition, Vector3 cameraUp, float fov, Matrix4 view)
+        {
+            if (!fire.HasPose || !ModFinite(fire.Origin) || !ModFinite(fire.Aim)
+                || fire.Aim.LengthSquared < 0.000001f)
+            {
+                return false;
+            }
+
+            Vector3 gunFacing = fire.Aim.Normalized();
+            Vector3 gunUp = _fpRenderPoseValid ? _fpRenderPose.GunUp : cameraUp;
+            gunUp -= gunFacing * Vector3.Dot(gunUp, gunFacing);
+            if (!ModFinite(gunUp) || gunUp.LengthSquared < 0.000001f)
+            {
+                Vector3 reference = MathF.Abs(gunFacing.Y) < 0.999f
+                    ? Vector3.UnitY : Vector3.UnitZ;
+                gunUp = reference - gunFacing * Vector3.Dot(reference, gunFacing);
+            }
+            if (!ModFinite(gunUp) || gunUp.LengthSquared < 0.000001f) return false;
+            gunUp = gunUp.Normalized();
+
+            Vector3 gunPosition = fire.Origin
+                - gunFacing * Fixed.ToFloat(Values.MuzzleOffset);
+            if (!ModFinite(gunPosition)) return false;
+
+            _fpRenderPose = new FirstPersonRenderPose(
+                view, cameraPosition, gunPosition, gunFacing, gunUp, fov);
+            _fpRenderPoseValid = true;
             return true;
         }
 

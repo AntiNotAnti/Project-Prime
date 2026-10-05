@@ -59,15 +59,31 @@ internal static class NetArchitectureTests
             var fixture = IntentFixture();
             var intent = IntentPacket.Read(fixture);
             Check(intent.Position == new Vector3(123.25f, -42.5f, 17.75f), "owner position survives wire");
-            byte[] output = new byte[IntentPacket.FullSize]; intent.Write(output);
-            Check(output.SequenceEqual(fixture), "v24 keeps the v22 intent byte fixture");
+            byte[] output = new byte[IntentPacket.Protocol38FullSize]; intent.Write(output);
+            Check(output.SequenceEqual(fixture), "protocol 38 legacy intent fixture remains readable");
             Check(intent.AckFrame == 0x87654321 && intent.AckSubFrame == 128 && IntentPacket.PressHistory == 8,
                 "displayed world ACK and eight-frame edge retention");
-            Check(NetConfig.ProtocolVersion == 38 && IntentPacket.FullSize == 423 && intent.HasAnalogMove
+            Check(NetConfig.ProtocolVersion == 39
+                && IntentPacket.Protocol38FullSize == 423
+                && IntentPacket.FullSize == 1175 && intent.HasAnalogMove
                 && intent.MoveX == 64 && intent.MoveY == -96
                 && intent.HasContinuousFireTick && intent.ContinuousFireTick == 0xCAFEBABE
                 && Math.Abs(IntentPacket.UnpackMoveAxis(intent.MoveX) - 64 / 127f) < .00001f,
-                "protocol 35 preserves analog movement, continuous firing tick, boost and spawn-release state");
+                "protocol 39 preserves protocol-38 intent state and adds exact FireEvent pose");
+            var posed = new FireEvent(7, 99, 80, 64, FireEventKind.PressFire,
+                (byte)BeamType.Imperialist, 0, 0,
+                (byte)(FireEvent.FlagPose | FireEvent.FlagReticle),
+                new Vector3(1, 2, 3), new Vector3(0, 0, 1), new Vector3(0.1f, 0.2f, 0.97f),
+                new Vector3(0.05f, 0.1f, 0.99f), new Vector2(0.42f, 0.61f));
+            Span<byte> posedBytes = stackalloc byte[FireEvent.Size];
+            posed.Write(posedBytes);
+            FireEvent posedRoundtrip = FireEvent.Read(posedBytes);
+            Check(posedRoundtrip.HasPose && posedRoundtrip.HasReticle
+                && posedRoundtrip.Origin == posed.Origin
+                && posedRoundtrip.Direction == posed.Direction && posedRoundtrip.Aim == posed.Aim
+                && Vector3.Dot(posedRoundtrip.View, posed.View.Normalized()) > 0.9999f
+                && Vector2.Distance(posedRoundtrip.Reticle, posed.Reticle) < 0.00003f,
+                "protocol 39 FireEvent shot/view/reticle roundtrip");
             string[] forbidden = { "MovementCommand", "MovementAck", "ProcessedMovementFrame", "MovementReconciliation",
                 "PredictedMovementState", "IntentBundle", "SnapshotDelta", "SnapshotKeyframe" };
             Check(!typeof(IntentPacket).Assembly.GetTypes().Any(t => forbidden.Any(n => t.Name.Contains(n))),

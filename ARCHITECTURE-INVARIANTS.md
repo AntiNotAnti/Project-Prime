@@ -6,7 +6,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **38** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **39** (`NetConfig.ProtocolVersion`).
 - Protocol mismatches are refused during the Hello handshake. Do not make incompatible wire or simulation changes without a protocol bump.
 - Dated protocol 6/7/8 measurements in `.claude/` are historical A/B evidence, not the current architecture.
 
@@ -16,6 +16,10 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Protocol 36 adds explicit spectator admission. Protocol 37 adds an endpoint-bound
   challenge cookie to remote HostRequest allocation; gameplay/replay packet layouts
   remain byte-identical to protocol 36.
+- Protocol 38 adds the authoritative Balanced Mode modifier without changing packet
+  widths. Protocol 39 extends repeated FireEvents with exact source-frame
+  muzzle/aim/projectile direction plus a compact shot-frame camera view and reticle
+  position for replay fidelity.
 
 ## Authority and simulation
 

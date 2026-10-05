@@ -1400,6 +1400,7 @@ namespace MphRead.Mods.Network
         public const int ContinuousTickSize = 4;
         public const int StateSize = ShotStateSize + AnalogStateSize + ContinuousTickSize;
         public const int LegacyFullSize = Size + StateSize;
+        public const int Protocol38FullSize = LegacyFullSize + NetFireEvents.LegacyWireSize;
         public const int FullSize = LegacyFullSize + NetFireEvents.WireSize;
         public bool HasFireEvents;
         public byte FireEventCount;
@@ -1651,12 +1652,17 @@ namespace MphRead.Mods.Network
                 presses[i] = BinaryPrimitives.ReadUInt16LittleEndian(src[(21 + i * 2)..]);
             }
             FireEventHistory fireEvents = default;
-            byte fireCount = src.Length >= FullSize ? src[LegacyFullSize] : (byte)0;
+            bool currentFireEvents = src.Length >= FullSize;
+            bool legacyFireEvents = !currentFireEvents && src.Length >= Protocol38FullSize;
+            int fireEventSize = currentFireEvents ? FireEvent.Size : FireEvent.LegacySize;
+            byte fireCount = currentFireEvents || legacyFireEvents ? src[LegacyFullSize] : (byte)0;
             for (int i = 0; i < Math.Min((int)fireCount, NetFireEvents.Capacity); i++)
-                fireEvents[i] = FireEvent.Read(src[(LegacyFullSize + 1 + i * FireEvent.Size)..]);
+                fireEvents[i] = FireEvent.Read(src.Slice(
+                    LegacyFullSize + 1 + i * fireEventSize, fireEventSize));
             return new IntentPacket
             {
-                HasFireEvents = src.Length >= FullSize, FireEventCount = fireCount, FireEvents = fireEvents,
+                HasFireEvents = currentFireEvents || legacyFireEvents,
+                FireEventCount = fireCount, FireEvents = fireEvents,
                 MatchId = BinaryPrimitives.ReadUInt16LittleEndian(src[74..]),
                 AuthorityEpoch = BinaryPrimitives.ReadUInt64LittleEndian(src[76..]),
                 SlotGeneration = BinaryPrimitives.ReadUInt16LittleEndian(src[84..]),
@@ -2457,7 +2463,13 @@ namespace MphRead.Mods.Network
         // Protocol 38 adds the authoritative Balanced Mode match modifier.
         // Packet widths stay unchanged, but the new rule changes Imperialist
         // ammo semantics, so mixed v37/v38 peers must not share a match.
-        public const int ProtocolVersion = 38;
+        // Protocol 39 extends repeated FireEvents with the successful shot's
+        // exact source-frame muzzle origin, pre-spread aim, final normalized
+        // projectile ray, compact camera view, and shot-frame reticle position.
+        // Replay reconstruction can therefore reproduce the firing picture
+        // without trusting this owner-authored presentation pose for live damage.
+        // Mixed v38/v39 peers are refused because the intent FireEvent stride changed.
+        public const int ProtocolVersion = 39;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

@@ -179,6 +179,22 @@ future Volt/Shock target. Event-capable lives gate inferred shooting, so held in
 redundant press history cannot create extra projectiles. Legacy protocols remain on
 input reconstruction.
 
+Protocol 39 extends each repeated FireEvent with the successful shot's exact
+source-frame muzzle origin, pre-spread aim ray and final projectile direction,
+plus a compact signed-normalized camera view and 16-bit normalized reticle
+coordinates. Weapon aim and camera view are intentionally distinct: the replay
+camera follows what the player actually saw, the reticle stays where it actually
+was on that view, the arm cannon follows the aim ray, and the replay projectile
+follows the post-disruption ray that actually spawned. Recovered recorded events therefore stop
+pairing an old trigger with a newer carrier's aim during playback. Live authority
+does not trust this owner-authored presentation pose for gameplay resolution. On the exact replay shot
+frame, first-person presentation pins the watched camera to the recorded aim, centres
+the reticle on that ray, and backs the arm-cannon pivot out from the recorded muzzle
+point so gun, muzzle flash and projectile share the same source origin. The normal
+interpolated camera resumes immediately around that discrete shot anchor. Protocol
+30-38 recordings keep FireEvent timing but have no invented pose, so they use the
+existing interpolated aim fallback.
+
 Fire scheduling is scene-local rather than using live `NetFireEvents` static state,
 so interleaved replays, killcams and the foreground match cannot contaminate one
 another. Seek/rebuild creates the same bounded index again from recorded facts.

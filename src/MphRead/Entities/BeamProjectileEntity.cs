@@ -1579,7 +1579,7 @@ namespace MphRead.Entities
             if (turretOwner != null)
             {
                 if (!NetFireEvents.CanFireTurret(turretOwner)) return BeamResultFlags.NoSpawn;
-                NetFireEvents.Begin(turretOwner, turret: true);
+                NetFireEvents.Begin(turretOwner, position, direction, turret: true);
             }
             BeamResultFlags result = BeamResultFlags.Spawned;
             WeaponInfo weapon = equip.Weapon;
