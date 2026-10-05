@@ -73,7 +73,7 @@ namespace MphRead.Mods.Diagnostics
     /// populate them without changing the comparer/report format later.
     /// </summary>
     internal readonly record struct MovementBoundarySnapshot(
-        long SimulationFrame,
+        ulong SimulationFrame,
         int Slot,
         int Hunter,
         bool AltForm,
@@ -89,11 +89,11 @@ namespace MphRead.Mods.Diagnostics
         Vector3 ContactNormal,
         float ContactPushout)
     {
-        internal bool IsNativeBoundary => (SimulationFrame & 1) == 0;
+        internal bool IsNativeBoundary => (SimulationFrame & 1UL) == 0;
     }
 
     internal readonly record struct MovementBoundaryDifference(
-        long SimulationFrame,
+        ulong SimulationFrame,
         float PositionError,
         float VelocityError,
         float FacingError,
