@@ -14,6 +14,12 @@ public sealed record TelemetryCombatAckBucket(int Weapon, int Result,
 public sealed record TelemetryTransportContentionDetails(long Acquisitions, long Contended,
     TelemetryDistribution WaitPerAcquisitionMilliseconds, TelemetryDistribution HoldPerAcquisitionMilliseconds,
     double MaximumWaitMilliseconds, double MaximumHoldMilliseconds);
+public sealed record BalancedModeTelemetrySummary(int Revision,
+    long[] HunterPicks, long[] HunterSeconds, long[] HunterKills, long[] HunterDeaths,
+    long[] HunterDamageDealt, long[] HunterDamageTaken,
+    long[] WeaponShots, long[] WeaponHits, long[] WeaponKills, long[] WeaponDamage,
+    long[] DirectHits, long[] DirectDamage, long[] SplashHits, long[] SplashDamage,
+    long[] RangeHits, long[] RangeDamage, long[] Battlehammer, long[] Affinity, long[] Imperialist);
 public sealed record TelemetrySummary(TelemetryHeader Header, double DurationSeconds, TelemetryCounters Counters,
     long[] Network, long[] Combat, long[] Claims, long[] Lifecycle,
     TelemetryDistribution CombatAckLatency, TelemetryDistribution FormDuration, long ForcedForms,
@@ -30,6 +36,11 @@ public sealed record TelemetrySummary(TelemetryHeader Header, double DurationSec
     public long ContinuousSamples { get; init; }
     public long[] SemanticEvents { get; init; } = new long[18];
     public long[] MatchAwards { get; init; } = new long[21];
+    public BalancedModeTelemetrySummary BalancedMode { get; init; } = new(0,
+        new long[7], new long[7], new long[7], new long[7], new long[7], new long[7],
+        new long[9], new long[9], new long[9], new long[9],
+        new long[9], new long[9], new long[9], new long[9],
+        new long[27], new long[27], new long[6], new long[11], new long[5]);
 }
 public sealed record TelemetryNetworkDetails(TelemetryDistribution RttMilliseconds, TelemetryDistribution JitterMilliseconds,
     TelemetryDistribution RecentMinimumRttMilliseconds, TelemetryDistribution RttVariationMilliseconds,
@@ -93,6 +104,16 @@ public sealed class NetTelemetryAggregator
     private readonly Distribution _lockWait = new(1000), _lockHold = new(1000);
     private readonly long[] _semanticEvents = new long[18], _matchAwards = new long[21];
     private readonly Dictionary<string, long> _enhanced = new();
+    private int _balanceRevision;
+    private readonly long[] _balanceHunterPicks = new long[7], _balanceHunterSeconds = new long[7],
+        _balanceHunterKills = new long[7], _balanceHunterDeaths = new long[7],
+        _balanceHunterDamageDealt = new long[7], _balanceHunterDamageTaken = new long[7];
+    private readonly long[] _balanceWeaponShots = new long[9], _balanceWeaponHits = new long[9],
+        _balanceWeaponKills = new long[9], _balanceWeaponDamage = new long[9],
+        _balanceDirectHits = new long[9], _balanceDirectDamage = new long[9],
+        _balanceSplashHits = new long[9], _balanceSplashDamage = new long[9];
+    private readonly long[] _balanceRangeHits = new long[27], _balanceRangeDamage = new long[27],
+        _balanceBattlehammer = new long[6], _balanceAffinity = new long[11], _balanceImperialist = new long[5];
     private long _stepAllocations, _stepMaxAllocation, _stepOverruns, _stepStalls, _continuousSamples;
     public void Add(in NetTelemetryEvent e)
     {
@@ -103,6 +124,9 @@ public sealed class NetTelemetryAggregator
                 break;
             case TelemetryEventType.MatchAward:
                 if ((uint)e.Result < _matchAwards.Length) _matchAwards[e.Result]++;
+                break;
+            case TelemetryEventType.BalancedMode:
+                AddBalancedMode(e);
                 break;
             case TelemetryEventType.ContinuousTarget: _continuousSamples += e.Samples; break;
             case TelemetryEventType.EnhancedHunter:
@@ -203,6 +227,65 @@ public sealed class NetTelemetryAggregator
                 break;
         }
     }
+    private static void Add(long[] values, int index, long amount)
+    {
+        if ((uint)index >= values.Length || amount <= 0) return;
+        values[index] = Math.Min(Int64.MaxValue, values[index] + amount);
+    }
+
+    private void AddBalancedMode(in NetTelemetryEvent e)
+    {
+        long amount = e.A > Int64.MaxValue ? Int64.MaxValue : Math.Max(0, (long)e.A);
+        if (amount <= 0) return;
+        _balanceRevision = Math.Max(_balanceRevision, (int)e.Id);
+        int hunter = e.Player;
+        int weapon = e.Weapon;
+        switch ((Multiplayer.BalancedModeMetric)e.Result)
+        {
+            case Multiplayer.BalancedModeMetric.HunterPick: Add(_balanceHunterPicks, hunter, amount); break;
+            case Multiplayer.BalancedModeMetric.HunterSecond: Add(_balanceHunterSeconds, hunter, amount); break;
+            case Multiplayer.BalancedModeMetric.HunterKill: Add(_balanceHunterKills, hunter, amount); break;
+            case Multiplayer.BalancedModeMetric.HunterDeath: Add(_balanceHunterDeaths, hunter, amount); break;
+            case Multiplayer.BalancedModeMetric.HunterDamageDealt: Add(_balanceHunterDamageDealt, hunter, amount); break;
+            case Multiplayer.BalancedModeMetric.HunterDamageTaken: Add(_balanceHunterDamageTaken, hunter, amount); break;
+            case Multiplayer.BalancedModeMetric.WeaponShot: Add(_balanceWeaponShots, weapon, amount); break;
+            case Multiplayer.BalancedModeMetric.WeaponHit: Add(_balanceWeaponHits, weapon, amount); break;
+            case Multiplayer.BalancedModeMetric.WeaponKill: Add(_balanceWeaponKills, weapon, amount); break;
+            case Multiplayer.BalancedModeMetric.WeaponDamage: Add(_balanceWeaponDamage, weapon, amount); break;
+            case Multiplayer.BalancedModeMetric.DirectHit: Add(_balanceDirectHits, weapon, amount); break;
+            case Multiplayer.BalancedModeMetric.DirectDamage: Add(_balanceDirectDamage, weapon, amount); break;
+            case Multiplayer.BalancedModeMetric.SplashHit: Add(_balanceSplashHits, weapon, amount); break;
+            case Multiplayer.BalancedModeMetric.SplashDamage: Add(_balanceSplashDamage, weapon, amount); break;
+            case Multiplayer.BalancedModeMetric.RangeCloseHit: Add(_balanceRangeHits, weapon * 3, amount); break;
+            case Multiplayer.BalancedModeMetric.RangeMidHit: Add(_balanceRangeHits, weapon * 3 + 1, amount); break;
+            case Multiplayer.BalancedModeMetric.RangeFarHit: Add(_balanceRangeHits, weapon * 3 + 2, amount); break;
+            case Multiplayer.BalancedModeMetric.RangeCloseDamage: Add(_balanceRangeDamage, weapon * 3, amount); break;
+            case Multiplayer.BalancedModeMetric.RangeMidDamage: Add(_balanceRangeDamage, weapon * 3 + 1, amount); break;
+            case Multiplayer.BalancedModeMetric.RangeFarDamage: Add(_balanceRangeDamage, weapon * 3 + 2, amount); break;
+            case Multiplayer.BalancedModeMetric.BattlehammerParentDirectHit: Add(_balanceBattlehammer, 0, amount); break;
+            case Multiplayer.BalancedModeMetric.BattlehammerTerrainImpact: Add(_balanceBattlehammer, 1, amount); break;
+            case Multiplayer.BalancedModeMetric.BattlehammerChildrenSpawned: Add(_balanceBattlehammer, 2, amount); break;
+            case Multiplayer.BalancedModeMetric.BattlehammerChildHit: Add(_balanceBattlehammer, 3, amount); break;
+            case Multiplayer.BalancedModeMetric.BattlehammerChildDamage: Add(_balanceBattlehammer, 4, amount); break;
+            case Multiplayer.BalancedModeMetric.BattlehammerChildKill: Add(_balanceBattlehammer, 5, amount); break;
+            case Multiplayer.BalancedModeMetric.KandenDisruptApplied: Add(_balanceAffinity, 0, amount); break;
+            case Multiplayer.BalancedModeMetric.KandenDisruptRejected: Add(_balanceAffinity, 1, amount); break;
+            case Multiplayer.BalancedModeMetric.NoxusFreezeApplied: Add(_balanceAffinity, 2, amount); break;
+            case Multiplayer.BalancedModeMetric.NoxusFreezeRejected: Add(_balanceAffinity, 3, amount); break;
+            case Multiplayer.BalancedModeMetric.SpireBurnApplied: Add(_balanceAffinity, 4, amount); break;
+            case Multiplayer.BalancedModeMetric.SpireBurnDamage: Add(_balanceAffinity, 5, amount); break;
+            case Multiplayer.BalancedModeMetric.SpireBurnKill: Add(_balanceAffinity, 6, amount); break;
+            case Multiplayer.BalancedModeMetric.SyluxDrainRequested: Add(_balanceAffinity, 7, amount); break;
+            case Multiplayer.BalancedModeMetric.SyluxDrainActual: Add(_balanceAffinity, 8, amount); break;
+            case Multiplayer.BalancedModeMetric.SyluxDrainCapped: Add(_balanceAffinity, 9, amount); break;
+            case Multiplayer.BalancedModeMetric.ImperialistShotsAcquired: Add(_balanceImperialist, 0, amount); break;
+            case Multiplayer.BalancedModeMetric.ImperialistShotsFired: Add(_balanceImperialist, 1, amount); break;
+            case Multiplayer.BalancedModeMetric.ImperialistShotsWasted: Add(_balanceImperialist, 2, amount); break;
+            case Multiplayer.BalancedModeMetric.ImperialistBodyKill: Add(_balanceImperialist, 3, amount); break;
+            case Multiplayer.BalancedModeMetric.ImperialistHeadshotKill: Add(_balanceImperialist, 4, amount); break;
+        }
+    }
+
     public TelemetrySummary Capture(TelemetryHeader header, double seconds, TelemetryCounters counters)
     {
         var buckets = new List<TelemetryLagBucket>();
@@ -221,6 +304,17 @@ public sealed class NetTelemetryAggregator
                 _maxLockWait, _maxLockHold)) { EnhancedHunters = new(_enhanced), ServerAllocationBytes = _stepAllocations,
                 ServerMaximumStepAllocation = _stepMaxAllocation, ServerOverruns = _stepOverruns,
                 ServerStalls = _stepStalls, ContinuousSamples = _continuousSamples,
-                SemanticEvents = (long[])_semanticEvents.Clone(), MatchAwards = (long[])_matchAwards.Clone() };
+                SemanticEvents = (long[])_semanticEvents.Clone(), MatchAwards = (long[])_matchAwards.Clone(),
+                BalancedMode = new(_balanceRevision,
+                    (long[])_balanceHunterPicks.Clone(), (long[])_balanceHunterSeconds.Clone(),
+                    (long[])_balanceHunterKills.Clone(), (long[])_balanceHunterDeaths.Clone(),
+                    (long[])_balanceHunterDamageDealt.Clone(), (long[])_balanceHunterDamageTaken.Clone(),
+                    (long[])_balanceWeaponShots.Clone(), (long[])_balanceWeaponHits.Clone(),
+                    (long[])_balanceWeaponKills.Clone(), (long[])_balanceWeaponDamage.Clone(),
+                    (long[])_balanceDirectHits.Clone(), (long[])_balanceDirectDamage.Clone(),
+                    (long[])_balanceSplashHits.Clone(), (long[])_balanceSplashDamage.Clone(),
+                    (long[])_balanceRangeHits.Clone(), (long[])_balanceRangeDamage.Clone(),
+                    (long[])_balanceBattlehammer.Clone(), (long[])_balanceAffinity.Clone(),
+                    (long[])_balanceImperialist.Clone()) };
     }
 }
