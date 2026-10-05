@@ -794,7 +794,10 @@ namespace MphRead.Entities
             }
             if (_scene.GameState.Multiplayer)
             {
-                _health = Values.EnergyTank - 1;
+                int baseHealth = Values.EnergyTank - 1;
+                _health = _scene.GameState.BalancedMode
+                    ? BalancedModeRules.SpawnHealth(Hunter, baseHealth, _healthMax)
+                    : baseHealth;
             }
             else if (IsMainPlayer) // todo: MP1P
             {
@@ -1947,6 +1950,23 @@ namespace MphRead.Entities
                 byte reduction = Mods.Network.NetSession.SlotDamageReduction[SlotIndex];
                 if (reduction > 0)
                     damage = Mods.Network.PlayerHandicap.ScaleDamage(damage, reduction);
+            }
+            // Balanced hunter durability is a final victim-side combat modifier.
+            // A rescued claim/replay already carries the finalized amount, so it
+            // must not be scaled twice. Headshots deliberately bypass this layer:
+            // the Imperialist's 200-damage precision breakpoint stays lethal.
+            bool balancedEnemyCombat = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                && !ignoreDamage && attacker != null && attacker != this
+                && !flags.TestFlag(DamageFlags.Death)
+                && !Mods.Network.NetDamage.ApplyingClaim && !Mods.Network.NetDamage.Replaying;
+            if (damage > 0 && balancedEnemyCombat)
+            {
+                damage = BalancedModeRules.ScaleIncomingDamage(
+                    Hunter, damage, flags.TestFlag(DamageFlags.Headshot));
+                if (direction.HasValue)
+                {
+                    direction *= BalancedModeRules.HunterProfile(Hunter).KnockbackMultiplier;
+                }
             }
             if (Flags2.TestFlag(PlayerFlags2.Halfturret) && attacker != null && !ignoreDamage)
             {
