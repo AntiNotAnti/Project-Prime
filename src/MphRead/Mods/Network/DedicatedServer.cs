@@ -346,6 +346,7 @@ namespace MphRead.Mods.Network
         public bool OctolithAutoReset { get; set; }
         public bool LowTier { get; set; }
         public bool NoImperialist { get; set; }
+        public bool BalancedMode { get; set; }
 
         /// <summary>
         /// Whether this server keeps itself on the newest release.
