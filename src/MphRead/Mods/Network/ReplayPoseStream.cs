@@ -231,7 +231,8 @@ internal sealed class ReplayPoseStream : IDisposable
     }
 
     internal bool TryCombatDiagnostic(uint anchorFrame, int shooterSlot,
-        int victimSlot, int weapon, int direction,
+        int victimSlot, int weapon, int expectedDamage, bool requireLethal,
+        bool requireHeadshot, int direction,
         out ReplayCombatDiagnostic diagnostic)
     {
         diagnostic = default;
@@ -246,6 +247,9 @@ internal sealed class ReplayPoseStream : IDisposable
                 if (shooterSlot >= 0 && fact.ShooterSlot != shooterSlot
                     || victimSlot >= 0 && fact.VictimSlot != victimSlot
                     || weapon >= 0 && fact.Weapon != weapon
+                    || expectedDamage >= 0 && fact.Damage != (uint)expectedDamage
+                    || requireLethal && !fact.Lethal
+                    || requireHeadshot && !fact.Headshot
                     || !TryBuildCombatDiagnostic(pair.Key, fact, out var candidate))
                 {
                     continue;
