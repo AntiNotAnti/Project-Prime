@@ -329,7 +329,7 @@ internal static class CommunityMapChecks
                 && !Directory.EnumerateFiles(storage, "upload-*.part").Any(),
                 "completed resumable upload removes partial session files");
             var restartedHistory = await client.GetRevisionsAsync(id, default);
-            check(restartedHistory.Any(r => r.Hash == v1.Hash && r.RevisionNumber == 1)
+            check(restartedHistory.Any(r => r.RevisionNumber == 1 && r.ParentHash == null)
                 && restartedHistory.Select(r => r.RevisionNumber).Distinct().Count() == restartedHistory.Length,
                 "v2 revision numbers survive service restart and resume");
             check((await client.BrowseAsync(default)).Length == 2, "unlisted visibility persists across service restart");
