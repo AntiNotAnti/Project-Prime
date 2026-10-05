@@ -12,6 +12,7 @@ from pathlib import Path
 from collector import valid
 
 WEAPONS = ['Power Beam', 'Volt Driver', 'Missile', 'Battlehammer', 'Imperialist', 'Judicator', 'Magmaul', 'Shock Coil', 'Omega', 'Platform', 'Enemy', 'Alt contact / bomb']
+HUNTERS = ['Samus', 'Kanden', 'Trace', 'Sylux', 'Noxus', 'Spire', 'Weavel']
 RTT = ['0–50', '50–100', '100–150', '150–200', '200–250', '250–300', '300–400', '400+', 'Unknown']
 JITTER = ['0–10', '10–25', '25–50', '50–80', '80+', 'Unknown']
 
@@ -78,6 +79,19 @@ def summarize(matches):
         'maximumHoldMilliseconds': max((v['maximumHoldMilliseconds'] for v in contention), default=None)
     }
     sums = lambda source, field, size: [sum(m[field][i] for m in source) for i in range(size)] if source else None
+    balance = [m['balancedMode'] for m in matches if m.get('balancedMode', {}).get('revision', 0) > 0]
+    balanced = None
+    if balance:
+        fields = {
+            'hunterPicks': 7, 'hunterSeconds': 7, 'hunterKills': 7, 'hunterDeaths': 7,
+            'hunterDamageDealt': 7, 'hunterDamageTaken': 7,
+            'weaponShots': 9, 'weaponHits': 9, 'weaponKills': 9, 'weaponDamage': 9,
+            'directHits': 9, 'directDamage': 9, 'splashHits': 9, 'splashDamage': 9,
+            'rangeHits': 27, 'rangeDamage': 27, 'battlehammer': 6, 'affinity': 11,
+            'imperialist': 5}
+        balanced = {'revision': max(v['revision'] for v in balance)}
+        for field, size in fields.items():
+            balanced[field] = [sum(v[field][i] for v in balance) for i in range(size)]
     return {'matches': len(matches), 'maps': sorted({m['header']['map'] for m in matches}),
             'durationSeconds': sum(m['durationSeconds'] for m in matches), 'lagComp': lag,
             'networkSamples': len(net), 'rttBuckets': sums(net, 'rttBuckets', 9), 'jitterBuckets': sums(net, 'jitterBuckets', 6),
@@ -97,6 +111,7 @@ def summarize(matches):
             'shadowOutcomes': sums([m for m in matches if 'shadowOutcomes' in m], 'shadowOutcomes', 7),
             'semanticEvents': sums([m for m in matches if 'semanticEvents' in m], 'semanticEvents', 18),
             'matchAwards': sums([m for m in matches if 'matchAwards' in m], 'matchAwards', 21),
+            'balancedMode': balanced,
             'combatAcks': combat_acks, 'transportContention': transport}
 
 
@@ -105,7 +120,7 @@ def render(data, title):
     return '''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>''' + html.escape(title) + '''</title><style>
 body{font:16px system-ui;margin:0;background:#101820;color:#e7edf3}main{max-width:1180px;margin:auto;padding:32px}h1{font-size:30px}h2{font-size:21px;margin-top:32px}p{line-height:1.6;color:#b8c7d5}select{padding:9px;background:#1e303e;color:white;border:1px solid #7fa4b7;max-width:100%}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}.card{padding:18px;background:#1e303e;border-radius:8px}.card strong{display:block;font-size:25px;color:#6ce0c1}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;padding:9px;border-bottom:1px solid #334552} .scroll{overflow:auto}.bar{display:inline-block;background:#6ce0c1;height:12px}code{overflow-wrap:anywhere}.notice{padding:15px;border-left:4px solid #f3bb64;background:#2b2c26}
-</style><main><h1>''' + html.escape(title) + '''</h1><p>Anonymous server measurements. Select one build/schema cohort. Scripted sessions and human matches must be supplied as separate input directories.</p><select id="cohort" aria-label="Build cohort"></select><p id="coverage" class="notice"></p><div id="cards" class="cards"></div><h2>Connection samples</h2><div id="network" class="scroll"></div><h2>Timing and reconciliation</h2><p>Means are weighted by sample count. Percentile ranges are the lowest and highest per-match quantiles; they are not pooled population percentiles. Unknown values are never treated as zero.</p><div id="timing" class="scroll"></div><h2>Lag policy by weapon and connection</h2><p>Hit/rescue counts describe observed current-policy outcomes inside or outside the proposed window. Counterfactual classifications are emitted only where the server can replay the alternate geometry without side effects; unsupported mechanics remain unknown.</p><div id="lag" class="scroll"></div><h2>Combat acknowledgement detail</h2><div id="acks" class="scroll"></div><h2>Canonical match facts and awards</h2><div id="semantic"></div><h2>Combat and data quality</h2><div id="quality"></div><p id="sources"></p></main><script>
+</style><main><h1>''' + html.escape(title) + '''</h1><p>Anonymous server measurements. Select one build/schema cohort. Scripted sessions and human matches must be supplied as separate input directories.</p><select id="cohort" aria-label="Build cohort"></select><p id="coverage" class="notice"></p><div id="cards" class="cards"></div><h2>Connection samples</h2><div id="network" class="scroll"></div><h2>Timing and reconciliation</h2><p>Means are weighted by sample count. Percentile ranges are the lowest and highest per-match quantiles; they are not pooled population percentiles. Unknown values are never treated as zero.</p><div id="timing" class="scroll"></div><h2>Lag policy by weapon and connection</h2><p>Hit/rescue counts describe observed current-policy outcomes inside or outside the proposed window. Counterfactual classifications are emitted only where the server can replay the alternate geometry without side effects; unsupported mechanics remain unknown.</p><div id="lag" class="scroll"></div><h2>Combat acknowledgement detail</h2><div id="acks" class="scroll"></div><h2>Canonical match facts and awards</h2><div id="semantic"></div><h2>Balanced Mode balance study</h2><div id="balance"></div><h2>Combat and data quality</h2><div id="quality"></div><p id="sources"></p></main><script>
 const data=''' + payload + ''';
 const $=id=>document.getElementById(id), esc=x=>String(x).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const rate=(part,total)=>total>0?(100*part/total).toFixed(2)+'%':'Unknown';
@@ -126,6 +141,20 @@ $('acks').innerHTML=table(['Weapon','Result','Settlements','Latency mean; p50/p9
 const factNames=['Match started','Countdown started','Match ended','Spawn','Kill','Assist','Suicide','Weapon fired','Headshot','Objective pickup','Objective drop','Objective capture','Objective defense','Node contested','Node capture','Prime changed','Match point','Overtime'];
 const awardNames=['First blood','Double kill','Triple kill','Overkill','Killtacular','Killtrocity','Kilimanjaro','Killtastrophe','Killpocalypse','Killionaire','Killing spree','Killing frenzy','Running riot','Rampage','Untouchable','Invincible','Assist','Capture','Defender','Interceptor','Prime slayer'];
 $('semantic').innerHTML=table(['Fact','Count','Award','Count'],awardNames.map((name,i)=>[factNames[i]??'',i<18?n(s.semanticEvents?.[i]):'',name,n(s.matchAwards?.[i])]));
+const hunters=''' + json.dumps(HUNTERS) + ''';
+const b=s.balancedMode;
+if(!b){$('balance').textContent='No Balanced Mode telemetry in this cohort.'}else{
+const hunterRows=hunters.map((name,i)=>[name,n(b.hunterPicks[i]),n(b.hunterSeconds[i]),n(b.hunterKills[i]),n(b.hunterDeaths[i]),b.hunterDeaths[i]>0?(b.hunterKills[i]/b.hunterDeaths[i]).toFixed(2):(b.hunterKills[i]>0?'∞':'0.00'),n(b.hunterDamageDealt[i]),n(b.hunterDamageTaken[i])]);
+const weaponRows=weapons.slice(0,9).map((name,i)=>{const r=i*3;return[name,n(b.weaponShots[i]),n(b.weaponHits[i]),rate(b.weaponHits[i],b.weaponShots[i]),n(b.weaponKills[i]),n(b.weaponDamage[i]),n(b.directDamage[i]),n(b.splashDamage[i]),n(b.rangeDamage[r]),n(b.rangeDamage[r+1]),n(b.rangeDamage[r+2])]});
+const bh=b.battlehammer,af=b.affinity,imp=b.imperialist;
+$('balance').innerHTML='<p>Balance revision <strong>'+esc(b.revision)+'</strong>. Cohorts are separated by revision so later tuning never mixes incompatible rulesets.</p>'+
+table(['Hunter','Picks','Seconds','Kills','Deaths','K/D','Damage dealt','Damage taken'],hunterRows)+
+'<h3>Weapons</h3>'+table(['Weapon','Shots','Hits','Accuracy','Kills','Damage','Direct dmg','Splash dmg','Close dmg','Mid dmg','Far dmg'],weaponRows)+
+'<h3>Mechanic diagnostics</h3>'+table(['Measure','Value'],[
+['BH parent direct hits',n(bh[0])],['BH terrain impacts',n(bh[1])],['BH children spawned',n(bh[2])],['BH child hits',n(bh[3])],['BH child damage',n(bh[4])],['BH child kills',n(bh[5])],
+['Kanden disrupt applied / rejected',n(af[0])+' / '+n(af[1])],['Noxus freeze applied / rejected',n(af[2])+' / '+n(af[3])],['Spire burns / damage / kills',n(af[4])+' / '+n(af[5])+' / '+n(af[6])],
+['Sylux drain requested / actual / capped',n(af[7])+' / '+n(af[8])+' / '+n(af[9])],
+['Imperialist ammo acquired / fired / wasted',n(imp[0])+' / '+n(imp[1])+' / '+n(imp[2])],['Imperialist body / headshot kills',n(imp[3])+' / '+n(imp[4])]])}
 $('quality').innerHTML=table(['Measure','Value'],[['Dropped ticks',n(s.droppedTicks)],['Writer failures',n(s.writerFailures)],['Unknown shadow geometry',n(s.shadowOutcomes?.[6])],['Settled reported predictions',n(s.combat?.settledPredictions)],['Damage corrections',n(s.combat?.damageCorrections)],['Health corrections',n(s.combat?.healthCorrections)],['Headshot corrections',n(s.combat?.headshotCorrections)],['Claim rescued',n(s.claims?.[0])],['Claim already resolved',n(s.claims?.[1])],['Claim rescue rate',rate(s.claims?.[0],s.claims?.reduce((a,b)=>a+b,0))],['Claim rejection rate',rate(s.claims?.slice(2,13).reduce((a,b)=>a+b,0),s.claims?.reduce((a,b)=>a+b,0))],
 ['Transport lock acquisitions',n(s.transportContention?.acquisitions)],['Transport lock contended',n(s.transportContention?.contended)],
 ['Transport lock contention rate',rate(s.transportContention?.contended,s.transportContention?.acquisitions)],
@@ -141,7 +170,9 @@ def main():
     active=[m for m in matches if m['network'][0]>0 or m['combat'][0]>0]
     excluded_empty=len(matches)-len(active);matches=active
     for m in matches:
-        h=m['header'];groups[f"Protocol {h['protocol']} · schema {h['schema']} · {h['buildCommit']}"].append(m)
+        h=m['header']; revision=m.get('balancedMode', {}).get('revision', 0)
+        suffix=f" · balance r{revision}" if revision else ""
+        groups[f"Protocol {h['protocol']} · schema {h['schema']} · {h['buildCommit']}{suffix}"].append(m)
     data={'cohorts':[{'key':k,'summary':summarize(v)} for k,v in sorted(groups.items())], 'rejected':rejected,'duplicates':duplicates,'minimumMatches':max(1,a.minimum_matches),'excludedEmptyMatches':excluded_empty}
     a.output.parent.mkdir(parents=True,exist_ok=True);a.output.write_text(render(data,a.title));a.output.with_suffix('.json').write_text(json.dumps(data,indent=2,allow_nan=False)+'\n')
     print(f'{len(matches)} valid matches, {len(groups)} build cohorts, {len(rejected)} rejected files, {duplicates} duplicate uploads; wrote {a.output}')

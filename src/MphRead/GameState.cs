@@ -451,7 +451,11 @@ namespace MphRead
             ActiveHardpointId = -1; HardpointTicksRemaining = 0;
             ActivePlayers = 0;
             ResetMatchProgress();
-            if (Owner?.Services.IsReplica != true) Mods.Network.MatchReportStats.ResetTracking();
+            if (Owner?.Services.IsReplica != true)
+            {
+                Mods.Network.MatchReportStats.ResetTracking();
+                Mods.Multiplayer.BalancedModeTelemetry.Reset();
+            }
         }
 
         /// <summary>
@@ -498,6 +502,7 @@ namespace MphRead
 
         public void ProcessFrame(Scene scene)
         {
+            Mods.Multiplayer.BalancedModeTelemetry.Tick(scene);
             // Not on a headless simulation. The match intro is a camera
             // flying round the room for the person about to play in it, and a
             // server has neither -- _players.Main there is slot 0, which
