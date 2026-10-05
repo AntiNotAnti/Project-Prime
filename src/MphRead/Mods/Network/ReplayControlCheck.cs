@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using MphRead.Mods.Input;
+using MphRead.Entities;
 
 namespace MphRead.Mods.Network
 {
