@@ -333,6 +333,7 @@ namespace MphRead.Mods.Network
                     && !Mods.EnhancedHunters.EnhancedHunters.Enabled(noxus)
                     && !Mods.EnhancedHunters.EnhancedHunters.Enabled(weavel),
                     "Balanced Mode suppresses Enhanced Hunters so native ability tuning is independent");
+                scene.GameState.EnhancedHunters = false;
 
                 DamageFlags combat = DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln;
                 spire.Health = noxus.Health = kanden.Health = 150;
