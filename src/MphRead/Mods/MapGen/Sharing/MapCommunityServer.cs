@@ -33,6 +33,7 @@ public static class MapCommunityServer
     private const long MaxPartialUploadBytes = 2L * 1024 * 1024 * 1024;
     private const long DefaultPublishedStorageBytes = 50L * 1024 * 1024 * 1024;
     private static readonly TimeSpan PartialUploadRetention = TimeSpan.FromHours(24);
+    internal static readonly TimeSpan CommunityDeleteRetention = TimeSpan.FromDays(30);
 
     public static void Run(string prefix, string storage)
     {
@@ -66,6 +67,9 @@ public static class MapCommunityServer
             catch (Exception ex) { Console.Error.WriteLine("[maphub] Skipped package: " + ex.Message); }
         }
         var revisionCatalog = new MapCommunityRevisionCatalog(storage, maps.Values);
+        PurgeExpiredLifecycle();
+        DateTimeOffset nextLifecycleSweep = DateTimeOffset.UtcNow.AddHours(1);
+        object lifecycleSweepGate = new();
         using var listener = new HttpListener();
         listener.Prefixes.Add(prefix.TrimEnd('/') + "/"); listener.Start();
         using var registration = token.Register(listener.Close);
@@ -113,6 +117,112 @@ public static class MapCommunityServer
             if (offset < 0 || offset > upload.Bytes) throw new InvalidDataException("Partial upload has an invalid size.");
             return new(upload.PackageHash, upload.Bytes, offset, MapCommunityClient.UploadChunkBytes, false);
         }
+        int PurgeLifecycleHashes(IEnumerable<string> requested)
+        {
+            string[] hashes = requested.Where(MapCommunityClient.ValidHash)
+                .Distinct(StringComparer.Ordinal).ToArray();
+            if (hashes.Length == 0) return 0;
+
+            var removed = new List<string>();
+            var mapIds = new HashSet<Guid>();
+            foreach (string hash in hashes)
+            {
+                if (maps.TryGetValue(hash, out var entry)) mapIds.Add(entry.MapId);
+                string packagePath = Path.Combine(storage, hash + ".ppmap");
+                try
+                {
+                    if (File.Exists(packagePath)) File.Delete(packagePath);
+                    if (File.Exists(packagePath)) continue;
+                }
+                catch (IOException ex)
+                {
+                    Console.Error.WriteLine("[maphub] Deferred lifecycle purge for "
+                        + hash[..8] + ": " + ex.Message);
+                    continue;
+                }
+                catch (UnauthorizedAccessException ex)
+                {
+                    Console.Error.WriteLine("[maphub] Deferred lifecycle purge for "
+                        + hash[..8] + ": " + ex.Message);
+                    continue;
+                }
+
+                // The archive is the authoritative retained object. Once it is
+                // gone, remove the live catalog entry even if cleaning the tiny
+                // sidecar has to be retried later.
+                maps.TryRemove(hash, out _);
+                removed.Add(hash);
+                string metadataPath = Path.Combine(storage, hash + ".catalog.json");
+                try
+                {
+                    if (File.Exists(metadataPath)) File.Delete(metadataPath);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    Console.Error.WriteLine("[maphub] Orphaned catalog sidecar for "
+                        + hash[..8] + ": " + ex.Message);
+                }
+            }
+
+            if (removed.Count == 0) return 0;
+
+            var removedSet = removed.ToHashSet(StringComparer.Ordinal);
+            foreach (string metadata in Directory.EnumerateFiles(storage, "upload-*.json"))
+            {
+                try
+                {
+                    if (new FileInfo(metadata).Length > 65536) continue;
+                    var upload = JsonSerializer.Deserialize<MapUploadMetadata>(
+                        File.ReadAllBytes(metadata), MapPackageReader.JsonOptions);
+                    if (upload == null || !removedSet.Contains(upload.PackageHash)) continue;
+                    string key = Path.GetFileNameWithoutExtension(metadata)["upload-".Length..];
+                    DeleteUpload(key);
+                }
+                catch (Exception ex) when (ex is IOException or JsonException)
+                {
+                    Console.Error.WriteLine("[maphub] Skipped pending-upload cleanup: "
+                        + ex.Message);
+                }
+            }
+
+            revisionCatalog.RemovePurgedHashes(removed, maps.Values);
+            foreach (Guid mapId in mapIds)
+            {
+                if (!maps.Values.Any(m => m.MapId == mapId))
+                    catalog.PurgeMapData(mapId);
+            }
+            return removed.Count;
+        }
+
+        int PurgeExpiredLifecycle()
+            => PurgeLifecycleHashes(
+                revisionCatalog.PurgeCandidates(DateTimeOffset.UtcNow));
+
+        async Task SweepLifecycleIfDue(CancellationToken sweepToken)
+        {
+            bool due;
+            lock (lifecycleSweepGate)
+            {
+                due = DateTimeOffset.UtcNow >= nextLifecycleSweep;
+                if (due) nextLifecycleSweep = DateTimeOffset.UtcNow.AddHours(1);
+            }
+            if (!due) return;
+            await publication.WaitAsync(sweepToken);
+            try { PurgeExpiredLifecycle(); }
+            finally { publication.Release(); }
+        }
+
+        CommunityMapProject? ManagedProject(Guid mapId, MapCreatorCredential viewer,
+            bool includeDeleted = true)
+        {
+            CommunityMap[] visible = maps.Values.Where(m => m.MapId == mapId)
+                .Select(m => catalog.Decorate(m, viewer.CreatorId)).ToArray();
+            bool owner = visible.Any(m => m.OwnerId == viewer.CreatorId);
+            return revisionCatalog.BuildProject(mapId, visible,
+                revealCreatorIdentity: true, includeDeleted: includeDeleted,
+                canManageLifecycle: owner);
+        }
+
         (int Status, CommunityRevisionConflict? Conflict) ValidateRevisionIntent(
             Guid? mapId, bool? existingMap, string? expectedParentHash,
             bool allowStaleParent, MapCreatorCredential creator, bool resumeAvailable)
@@ -141,6 +251,10 @@ public static class MapCommunityServer
             CommunityRevisionConflict Conflict(string code, string message)
                 => new(code, mapId.Value, expectedParentHash, latest, currentHash,
                     latestRevision, resumeAvailable, message);
+
+            if (exists && revisionCatalog.IsProjectDeleted(mapId.Value))
+                return (409, Conflict("map_deleted",
+                    "This map is in Deleted Maps. Restore it before publishing another revision."));
 
             if (existingMap == false)
             {
@@ -194,6 +308,15 @@ public static class MapCommunityServer
             }
 
             var owner = maps.Values.FirstOrDefault(m => m.MapId == entry.MapId);
+            if (owner != null && revisionCatalog.IsProjectDeleted(entry.MapId))
+                return new PublishResult(409,
+                    Conflict: revisionUpload == null ? null : new CommunityRevisionConflict(
+                        "map_deleted", entry.MapId, revisionUpload.ExpectedParentHash,
+                        revisionCatalog.LatestHash(entry.MapId),
+                        revisionCatalog.CurrentHash(entry.MapId),
+                        revisionCatalog.LatestRevisionNumber(entry.MapId),
+                        false,
+                        "This map is in Deleted Maps. Restore it before publishing."));
             if (owner != null && !catalog.CanPublish(creator.CreatorId, owner))
                 return new PublishResult(403);
             if (owner != null) entry = entry with { OwnerId = owner.OwnerId };
@@ -228,6 +351,7 @@ public static class MapCommunityServer
             deadline.CancelAfter(TimeSpan.FromMinutes(2));
             try
             {
+                await SweepLifecycleIfDue(deadline.Token);
                 string route = context.Request.Url!.AbsolutePath.TrimEnd('/');
                 string root = new Uri(prefix).AbsolutePath.TrimEnd('/');
                 string? authorization=context.Request.Headers["Authorization"];
@@ -462,6 +586,9 @@ public static class MapCommunityServer
                     {
                         if(!maps.TryGetValue(parts[1],out var map)){context.Response.StatusCode=404;return;}
                         if(!catalog.CanPublish(creator.CreatorId,map)){context.Response.StatusCode=403;return;}
+                        if(revisionCatalog.IsProjectDeleted(map.MapId)
+                            ||revisionCatalog.IsRevisionDeleted(map.Hash))
+                        {context.Response.StatusCode=410;return;}
                         string visibility=await Body<string>();if(visibility is not ("Published" or "Unlisted" or "Draft"))throw new InvalidDataException("Invalid visibility.");
                         var updated=map with{Listed=visibility=="Published",Draft=visibility=="Draft"};
                         AtomicFile.Write(Path.Combine(storage,map.Hash+".catalog.json"),JsonSerializer.SerializeToUtf8Bytes(updated,MapPackageReader.JsonOptions));
@@ -470,6 +597,162 @@ public static class MapCommunityServer
                         context.Response.StatusCode=204;
                     }
                     finally{publication.Release();}return;
+                }
+                if(parts.Length==3&&parts[0]=="v2"&&parts[1]=="maps"
+                    &&Guid.TryParse(parts[2],out Guid deleteMapId)
+                    &&context.Request.HttpMethod=="DELETE")
+                {
+                    if(creator==null){context.Response.StatusCode=401;return;}
+                    CommunityMap? owned=maps.Values.FirstOrDefault(m=>m.MapId==deleteMapId);
+                    if(owned==null){context.Response.StatusCode=404;return;}
+                    if(owned.OwnerId!=creator.CreatorId){context.Response.StatusCode=403;return;}
+                    await publication.WaitAsync(deadline.Token);
+                    try
+                    {
+                        if(!revisionCatalog.DeleteMap(
+                            deleteMapId,CommunityDeleteRetention))
+                        {context.Response.StatusCode=404;return;}
+                        var project=ManagedProject(deleteMapId,creator,includeDeleted:true);
+                        if(project==null){context.Response.StatusCode=404;return;}
+                        await Json(context.Response,project,deadline.Token);
+                    }
+                    finally{publication.Release();}
+                    return;
+                }
+                if(parts.Length==4&&parts[0]=="v2"&&parts[1]=="maps"
+                    &&Guid.TryParse(parts[2],out Guid lifecycleMapId)
+                    &&parts[3] is "archive" or "restore" or "purge")
+                {
+                    if(creator==null){context.Response.StatusCode=401;return;}
+                    CommunityMap? owned=maps.Values.FirstOrDefault(m=>m.MapId==lifecycleMapId);
+                    if(owned==null){context.Response.StatusCode=404;return;}
+
+                    if(parts[3]=="purge")
+                    {
+                        if(context.Request.HttpMethod!="DELETE")
+                        {context.Response.StatusCode=405;return;}
+                        if(!creator.Moderator){context.Response.StatusCode=403;return;}
+                        await publication.WaitAsync(deadline.Token);
+                        try
+                        {
+                            string[] hashes=revisionCatalog.MapHashes(lifecycleMapId);
+                            if(hashes.Length==0){context.Response.StatusCode=404;return;}
+                            PurgeLifecycleHashes(hashes);
+                            context.Response.StatusCode=204;
+                        }
+                        finally{publication.Release();}
+                        return;
+                    }
+
+                    if(context.Request.HttpMethod!="POST")
+                    {context.Response.StatusCode=405;return;}
+                    if(owned.OwnerId!=creator.CreatorId){context.Response.StatusCode=403;return;}
+                    await publication.WaitAsync(deadline.Token);
+                    try
+                    {
+                        if(parts[3]=="archive")
+                        {
+                            if(!revisionCatalog.Archive(lifecycleMapId))
+                            {context.Response.StatusCode=409;return;}
+                        }
+                        else
+                        {
+                            var state=revisionCatalog.ProjectState(lifecycleMapId);
+                            if(state?.DeleteAfter is DateTimeOffset deadlineAt
+                                &&deadlineAt<=DateTimeOffset.UtcNow)
+                            {context.Response.StatusCode=410;return;}
+                            if(!revisionCatalog.RestoreMap(lifecycleMapId))
+                            {context.Response.StatusCode=404;return;}
+                        }
+                        var project=ManagedProject(
+                            lifecycleMapId,creator,includeDeleted:true);
+                        if(project==null){context.Response.StatusCode=404;return;}
+                        await Json(context.Response,project,deadline.Token);
+                    }
+                    finally{publication.Release();}
+                    return;
+                }
+                if(parts.Length==5&&parts[0]=="v2"&&parts[1]=="maps"
+                    &&Guid.TryParse(parts[2],out Guid revisionLifecycleMapId)
+                    &&parts[3]=="revisions"
+                    &&int.TryParse(parts[4],out int lifecycleRevision)
+                    &&context.Request.HttpMethod=="DELETE")
+                {
+                    if(creator==null){context.Response.StatusCode=401;return;}
+                    CommunityMap? owned=maps.Values.FirstOrDefault(
+                        m=>m.MapId==revisionLifecycleMapId);
+                    if(owned==null){context.Response.StatusCode=404;return;}
+                    if(owned.OwnerId!=creator.CreatorId){context.Response.StatusCode=403;return;}
+                    await publication.WaitAsync(deadline.Token);
+                    try
+                    {
+                        try
+                        {
+                            if(!revisionCatalog.DeleteRevision(
+                                revisionLifecycleMapId,lifecycleRevision,
+                                CommunityDeleteRetention,maps.Values))
+                            {context.Response.StatusCode=404;return;}
+                        }
+                        catch(InvalidOperationException)
+                        {context.Response.StatusCode=409;return;}
+                        var project=ManagedProject(
+                            revisionLifecycleMapId,creator,includeDeleted:true);
+                        if(project==null){context.Response.StatusCode=404;return;}
+                        await Json(context.Response,project,deadline.Token);
+                    }
+                    finally{publication.Release();}
+                    return;
+                }
+                if(parts.Length==6&&parts[0]=="v2"&&parts[1]=="maps"
+                    &&Guid.TryParse(parts[2],out Guid revisionActionMapId)
+                    &&parts[3]=="revisions"
+                    &&int.TryParse(parts[4],out int revisionActionNumber)
+                    &&parts[5] is "restore" or "purge")
+                {
+                    if(creator==null){context.Response.StatusCode=401;return;}
+                    CommunityMap? owned=maps.Values.FirstOrDefault(
+                        m=>m.MapId==revisionActionMapId);
+                    if(owned==null){context.Response.StatusCode=404;return;}
+
+                    if(parts[5]=="purge")
+                    {
+                        if(context.Request.HttpMethod!="DELETE")
+                        {context.Response.StatusCode=405;return;}
+                        if(!creator.Moderator){context.Response.StatusCode=403;return;}
+                        string? hash=revisionCatalog.RevisionHashForLifecycle(
+                            revisionActionMapId,revisionActionNumber);
+                        if(hash==null){context.Response.StatusCode=404;return;}
+                        await publication.WaitAsync(deadline.Token);
+                        try
+                        {
+                            PurgeLifecycleHashes(new[]{hash});
+                            context.Response.StatusCode=204;
+                        }
+                        finally{publication.Release();}
+                        return;
+                    }
+
+                    if(context.Request.HttpMethod!="POST")
+                    {context.Response.StatusCode=405;return;}
+                    if(owned.OwnerId!=creator.CreatorId){context.Response.StatusCode=403;return;}
+                    await publication.WaitAsync(deadline.Token);
+                    try
+                    {
+                        var state=revisionCatalog.RevisionState(
+                            revisionActionMapId,revisionActionNumber);
+                        if(state?.DeleteAfter is DateTimeOffset deadlineAt
+                            &&deadlineAt<=DateTimeOffset.UtcNow)
+                        {context.Response.StatusCode=410;return;}
+                        if(!revisionCatalog.RestoreRevision(
+                            revisionActionMapId,revisionActionNumber,maps.Values))
+                        {context.Response.StatusCode=404;return;}
+                        var project=ManagedProject(
+                            revisionActionMapId,creator,includeDeleted:true);
+                        if(project==null){context.Response.StatusCode=404;return;}
+                        await Json(context.Response,project,deadline.Token);
+                    }
+                    finally{publication.Release();}
+                    return;
                 }
                 if(parts.Length==6&&parts[0]=="v2"&&parts[1]=="maps"
                     &&Guid.TryParse(parts[2],out Guid promoteMapId)
@@ -482,9 +765,13 @@ public static class MapCommunityServer
                     CommunityMap? owned=maps.Values.FirstOrDefault(m=>m.MapId==promoteMapId);
                     if(owned==null){context.Response.StatusCode=404;return;}
                     if(!catalog.CanPublish(creator.CreatorId,owned)){context.Response.StatusCode=403;return;}
+                    if(revisionCatalog.IsProjectDeleted(promoteMapId))
+                    {context.Response.StatusCode=410;return;}
                     string? promoteHash=revisionCatalog.RevisionHash(promoteMapId,promoteRevision);
                     if(promoteHash==null||!maps.TryGetValue(promoteHash,out var promoteMap))
                     {context.Response.StatusCode=404;return;}
+                    if(revisionCatalog.IsRevisionDeleted(promoteHash))
+                    {context.Response.StatusCode=410;return;}
 
                     await publication.WaitAsync(deadline.Token);
                     try
@@ -497,7 +784,9 @@ public static class MapCommunityServer
                         CommunityMap[] visible=maps.Values.Where(m=>m.MapId==promoteMapId)
                             .Select(m=>catalog.Decorate(m,creator.CreatorId)).ToArray();
                         var project=revisionCatalog.BuildProject(
-                            promoteMapId,visible,revealCreatorIdentity:true);
+                            promoteMapId,visible,revealCreatorIdentity:true,
+                            canManageLifecycle:visible.Any(
+                                m=>m.OwnerId==creator.CreatorId));
                         if(project==null){context.Response.StatusCode=404;return;}
                         await Json(context.Response,project,deadline.Token);
                     }
@@ -513,12 +802,20 @@ public static class MapCommunityServer
                     if(parts.Length==2)
                     {
                         CommunityMap[] visible=maps.Values
-                            .Where(m=>mine ? creator!=null&&catalog.CanPublish(creator.CreatorId,m) : m.Listed&&!m.Draft)
+                            .Where(m=>mine
+                                ? creator!=null&&catalog.CanPublish(creator.CreatorId,m)
+                                : m.Listed&&!m.Draft
+                                    &&revisionCatalog.IsProjectDiscoverable(m.MapId)
+                                    &&!revisionCatalog.IsRevisionDeleted(m.Hash))
                             .Select(m=>catalog.Decorate(m,creator?.CreatorId))
                             .ToArray();
                         IEnumerable<CommunityMapProject> projects=visible
                             .GroupBy(m=>m.MapId)
-                            .Select(g=>revisionCatalog.BuildProject(g.Key,g,revealCreatorIdentity:mine))
+                            .Select(g=>revisionCatalog.BuildProject(
+                                g.Key,g,revealCreatorIdentity:mine,
+                                includeDeleted:mine,
+                                canManageLifecycle:mine&&creator!=null
+                                    &&g.Any(m=>m.OwnerId==creator.CreatorId)))
                             .OfType<CommunityMapProject>();
                         CommunityMap Presentation(CommunityMapProject project)
                             => project.CurrentRevision?.Package ?? project.LatestRevision.Package;
@@ -551,21 +848,31 @@ public static class MapCommunityServer
                         CommunityMap[] all=maps.Values.Where(m=>m.MapId==projectId).ToArray();
                         if(all.Length==0){context.Response.StatusCode=404;return;}
                         bool canManage=creator!=null&&all.Any(m=>catalog.CanPublish(creator.CreatorId,m));
+                        if(!canManage&&!revisionCatalog.IsProjectDiscoverable(projectId))
+                        {context.Response.StatusCode=404;return;}
                         CommunityMap[] visible=all
-                            .Where(m=>canManage||m.Listed&&!m.Draft)
+                            .Where(m=>canManage
+                                ||m.Listed&&!m.Draft
+                                    &&!revisionCatalog.IsRevisionDeleted(m.Hash))
                             .Select(m=>catalog.Decorate(m,creator?.CreatorId))
                             .ToArray();
                         if(visible.Length==0){context.Response.StatusCode=404;return;}
                         if(parts.Length==3)
                         {
-                            var project=revisionCatalog.BuildProject(projectId,visible,revealCreatorIdentity:canManage);
+                            var project=revisionCatalog.BuildProject(
+                                projectId,visible,revealCreatorIdentity:canManage,
+                                includeDeleted:canManage,
+                                canManageLifecycle:creator!=null
+                                    &&all.Any(m=>m.OwnerId==creator.CreatorId));
                             if(project==null){context.Response.StatusCode=404;return;}
                             await Json(context.Response,project,deadline.Token);
                             return;
                         }
                         if(parts[3]=="revisions")
                         {
-                            await Json(context.Response,revisionCatalog.BuildRevisions(projectId,visible,revealCreatorIdentity:canManage),deadline.Token);
+                            await Json(context.Response,revisionCatalog.BuildRevisions(
+                                projectId,visible,revealCreatorIdentity:canManage,
+                                includeDeleted:canManage),deadline.Token);
                             return;
                         }
                     }
@@ -592,9 +899,11 @@ public static class MapCommunityServer
                     var query = context.Request.QueryString;
                     if((query["mine"]=="true"||query["favorites"]=="true")&&creator==null){context.Response.StatusCode=401;return;}
                     IEnumerable<CommunityMap> found = maps.Values
-                        .Where(m => query["mine"]=="true"
-                            ? creator!=null&&catalog.CanPublish(creator.CreatorId,m)
-                            : m.Listed&&!m.Draft)
+                        .Where(m => revisionCatalog.IsProjectDiscoverable(m.MapId)
+                            && !revisionCatalog.IsRevisionDeleted(m.Hash)
+                            && (query["mine"]=="true"
+                                ? creator!=null&&catalog.CanPublish(creator.CreatorId,m)
+                                : m.Listed&&!m.Draft))
                         .Select(m=>catalog.Decorate(m,creator?.CreatorId))
                         .Select(revisionCatalog.LegacyPresentation);
                     if(query["favorites"]=="true")found=found.Where(m=>m.Favorited);
@@ -619,6 +928,8 @@ public static class MapCommunityServer
                     {
                         var versions = maps.Values
                             .Where(m => m.MapId == id
+                                && revisionCatalog.IsProjectDiscoverable(id)
+                                && !revisionCatalog.IsRevisionDeleted(m.Hash)
                                 && (m.Listed&&!m.Draft
                                     || creator!=null&&catalog.CanPublish(creator.CreatorId,m)))
                             .Select(revisionCatalog.LegacyPresentation)

@@ -39,6 +39,7 @@ internal static class CommunityMapChecks
         long resumableOffset = 0;
         Guid revisionMapId = Guid.NewGuid();
         string? revisionOneHash = null, revisionTwoHash = null;
+        Guid lifecycleMapId = Guid.NewGuid();
         string PackageBytes(string version, string name, int? projectLength = null, string projectEntry = "project.json",
             Action<MapDefinition>? configure = null, Guid? mapId = null)
         {
@@ -465,6 +466,113 @@ internal static class CommunityMapChecks
                 MapPackageReader.JsonOptions);
             check(legacyRollback?.Hash == revisionOne.Package.Hash,
                 "revision promotion also makes the rollback target current for legacy flat clients");
+
+            string lifecycleOnePath = PackageBytes("1", "LIFECYCLE_TEST",
+                configure: definition => definition.Description = "lifecycle one",
+                mapId: lifecycleMapId);
+            var lifecycleOne = await client.PublishAsync(
+                lifecycleOnePath,
+                new CommunityPublishRequest(false, null, "Lifecycle first"),
+                default, listed: true);
+            string lifecycleTwoPath = PackageBytes("1", "LIFECYCLE_TEST",
+                configure: definition => definition.Description = "lifecycle two",
+                mapId: lifecycleMapId);
+            var lifecycleTwo = await client.PublishAsync(
+                lifecycleTwoPath,
+                new CommunityPublishRequest(true, lifecycleOne.Package.Hash,
+                    "Lifecycle second"),
+                default, listed: true);
+
+            var lifecycleOwner = await client.GetProjectAsync(lifecycleMapId, default);
+            check(lifecycleOwner?.CanManageLifecycle == true,
+                "map owner receives lifecycle-management capability");
+
+            var archived = await client.ArchiveMapAsync(lifecycleMapId, default);
+            check(archived?.ArchivedAt != null && archived.DeletedAt == null,
+                "owner can archive a Community map without deleting it");
+            using (var publicArchived = await http.GetAsync("v2/maps/" + lifecycleMapId))
+                check(publicArchived.StatusCode == HttpStatusCode.NotFound,
+                    "archived map disappears from public v2 discovery");
+            check((await http.GetByteArrayAsync("packages/" + lifecycleTwo.Package.Hash))
+                    .Length == lifecycleTwo.Package.Bytes,
+                "archived map remains available by exact immutable package hash");
+
+            var restoredArchive = await client.RestoreMapAsync(lifecycleMapId, default);
+            check(restoredArchive?.ArchivedAt == null
+                && restoredArchive.DeletedAt == null,
+                "owner can restore an archived map");
+
+            var afterRevisionDelete = await client.DeleteRevisionAsync(
+                lifecycleMapId, lifecycleTwo.Revision!.RevisionNumber, default);
+            check(afterRevisionDelete?.CurrentHash == lifecycleOne.Package.Hash
+                && afterRevisionDelete.LatestHash == lifecycleOne.Package.Hash,
+                "deleting the current/latest revision falls back to the remaining active revision");
+            var deletedRevisionHistory = await client.GetRevisionsAsync(
+                lifecycleMapId, default);
+            var deletedRevision = deletedRevisionHistory.FirstOrDefault(
+                r => r.Hash == lifecycleTwo.Package.Hash);
+            check(deletedRevision?.DeletedAt != null
+                && deletedRevision.DeleteAfter > deletedRevision.DeletedAt,
+                "deleted revision receives a restore deadline tombstone");
+            check((await http.GetByteArrayAsync("packages/" + lifecycleTwo.Package.Hash))
+                    .Length == lifecycleTwo.Package.Bytes,
+                "soft-deleted revision stays downloadable by exact hash during retention");
+
+            var restoredRevisionProject = await client.RestoreRevisionAsync(
+                lifecycleMapId, lifecycleTwo.Revision.RevisionNumber, default);
+            check(restoredRevisionProject?.LatestHash == lifecycleTwo.Package.Hash
+                && (await client.GetRevisionsAsync(lifecycleMapId, default))
+                    .First(r => r.Hash == lifecycleTwo.Package.Hash).DeletedAt == null,
+                "owner can restore a deleted revision before retention expires");
+
+            var deletedMap = await client.DeleteMapAsync(lifecycleMapId, default);
+            check(deletedMap?.DeletedAt != null
+                && deletedMap.DeleteAfter is DateTimeOffset purgeDeadline
+                && purgeDeadline - deletedMap.DeletedAt.Value
+                    >= TimeSpan.FromDays(29),
+                "map deletion creates a thirty-day restore tombstone");
+            using (var publicDeleted = await http.GetAsync("v2/maps/" + lifecycleMapId))
+                check(publicDeleted.StatusCode == HttpStatusCode.NotFound,
+                    "deleted map disappears from public discovery immediately");
+            using (var legacyDeleted = await http.GetAsync("maps/" + lifecycleMapId))
+                check(legacyDeleted.StatusCode == HttpStatusCode.NotFound,
+                    "deleted map also disappears from the legacy flat catalog");
+            check((await http.GetByteArrayAsync("packages/" + lifecycleOne.Package.Hash))
+                    .Length == lifecycleOne.Package.Bytes,
+                "soft-deleted map exact hashes survive the restore window");
+
+            var restoredMap = await client.RestoreMapAsync(lifecycleMapId, default);
+            check(restoredMap?.DeletedAt == null && restoredMap.ArchivedAt == null,
+                "owner can restore a deleted map before permanent purge");
+
+            await client.DeleteMapAsync(lifecycleMapId, default);
+            await client.PurgeMapAsync(lifecycleMapId, default);
+            using (var purgedPackage = await http.GetAsync(
+                "packages/" + lifecycleOne.Package.Hash))
+                check(purgedPackage.StatusCode == HttpStatusCode.NotFound,
+                    "moderator permanent purge removes immutable package bytes");
+            check(await client.GetProjectAsync(lifecycleMapId, default) == null,
+                "permanent purge removes the map-level lifecycle tombstone");
+
+            string lifecycleCatalogRoot = Path.Combine(root, "lifecycle-expiry");
+            Directory.CreateDirectory(lifecycleCatalogRoot);
+            Guid expiryMapId = Guid.NewGuid();
+            string expiryHash = new string('a', 64);
+            var expiryPackage = new CommunityMap(
+                expiryHash, expiryMapId, new string('b', 64),
+                "EXPIRY_TEST", null, "Fixture", "1", 1)
+            {
+                OwnerId = MapCreatorCatalog.ServiceOwner,
+                Listed = true,
+                PublishedAt = DateTimeOffset.UtcNow
+            };
+            var expiryCatalog = new MapCommunityRevisionCatalog(
+                lifecycleCatalogRoot, new[] { expiryPackage });
+            check(expiryCatalog.DeleteMap(
+                    expiryMapId, TimeSpan.FromSeconds(-1))
+                && expiryCatalog.PurgeCandidates(DateTimeOffset.UtcNow)
+                    .Contains(expiryHash),
+                "expired lifecycle tombstones become garbage-collection candidates");
 
             // Leave a valid archive half-uploaded, stop the service, and let the
             // normal client continue it after restart. This exercises persistence

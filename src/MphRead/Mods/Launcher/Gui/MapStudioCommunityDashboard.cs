@@ -83,6 +83,13 @@ internal sealed partial class MapStudioScreen
             SelectedIndex = 1,
             MinWidth = 150
         };
+        var lifecycleFilter = new ComboBox
+        {
+            ItemsSource = new[] { "All", "Active", "Archived", "Deleted" },
+            SelectedIndex = 0,
+            MinWidth = 120,
+            IsVisible = false
+        };
         var upload = new PrimeButton("UPLOAD CURRENT", compact: true)
         {
             IsVisible = false
@@ -90,7 +97,7 @@ internal sealed partial class MapStudioScreen
         ControllerNav.Identify(upload, "studio.community.upload");
         var tools = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto"),
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto,Auto"),
             ColumnSpacing = 8
         };
         tools.Children.Add(tabs);
@@ -98,7 +105,9 @@ internal sealed partial class MapStudioScreen
         tools.Children.Add(search);
         Grid.SetColumn(sort, 2);
         tools.Children.Add(sort);
-        Grid.SetColumn(upload, 3);
+        Grid.SetColumn(lifecycleFilter, 3);
+        tools.Children.Add(lifecycleFilter);
+        Grid.SetColumn(upload, 4);
         tools.Children.Add(upload);
         Grid.SetRow(tools, 2);
         root.Children.Add(tools);
@@ -181,6 +190,22 @@ internal sealed partial class MapStudioScreen
 
         string Visibility(CommunityMap package)
             => package.Draft ? "DRAFT" : package.Listed ? "PUBLISHED" : "UNLISTED";
+
+        string Lifecycle(CommunityMapProject project)
+            => project.DeletedAt != null ? "DELETED"
+                : project.ArchivedAt != null ? "ARCHIVED" : "ACTIVE";
+
+        bool MatchesLifecycle(CommunityMapProject project)
+        {
+            if (CurrentTab() != CommunityDashboardTab.MyMaps) return true;
+            return lifecycleFilter.SelectedIndex switch
+            {
+                1 => project.ArchivedAt == null && project.DeletedAt == null,
+                2 => project.ArchivedAt != null && project.DeletedAt == null,
+                3 => project.DeletedAt != null,
+                _ => true
+            };
+        }
 
         string InstalledState(CommunityMap package)
         {
@@ -333,7 +358,8 @@ internal sealed partial class MapStudioScreen
         {
             Guid? wanted = preserve ?? selectedProject?.MapId;
             list.Clear();
-            CommunityMapProject[] filtered = Sorted(projects.Where(Matches)).ToArray();
+            CommunityMapProject[] filtered = Sorted(
+                projects.Where(Matches).Where(MatchesLifecycle)).ToArray();
             if (filtered.Length == 0)
             {
                 string title = CurrentTab() switch
@@ -362,7 +388,7 @@ internal sealed partial class MapStudioScreen
             {
                 CommunityMap package = Presentation(project);
                 string detailText = CurrentTab() == CommunityDashboardTab.MyMaps
-                    ? $"{Visibility(package)} · {RevisionLabel(project)} · {project.UpdatedAt.LocalDateTime:g}"
+                    ? $"{Lifecycle(project)} · {Visibility(package)} · {RevisionLabel(project)} · {project.UpdatedAt.LocalDateTime:g}"
                     : $"{project.Author ?? "Unknown author"} · {package.MinPlayers}–{package.MaxPlayers} players · ★ {package.FavoriteCount}";
                 var row = new UiListRow(project.DisplayName ?? project.Name,
                     detailText, spacious: true)
@@ -400,7 +426,9 @@ internal sealed partial class MapStudioScreen
 
             detail.Children.Add(new PrimeBadge(
                 CurrentTab() == CommunityDashboardTab.MyMaps
-                    ? Visibility(package)
+                    ? project.DeletedAt != null ? "DELETED"
+                        : project.ArchivedAt != null ? "ARCHIVED"
+                        : Visibility(package)
                     : "COMMUNITY MAP"));
             detail.Children.Add(PrimeChrome.Title(project.DisplayName ?? project.Name));
             detail.Children.Add(PrimeChrome.Text(
@@ -436,6 +464,22 @@ internal sealed partial class MapStudioScreen
                 InstalledState(package),
                 PrimeTypography.BodySmall,
                 PrimeTheme.TextSecondaryBrush));
+            if (project.DeletedAt is DateTimeOffset deletedAt)
+            {
+                detail.Children.Add(PrimeChrome.Text(
+                    "Deleted " + deletedAt.LocalDateTime.ToString("g")
+                    + (project.DeleteAfter is DateTimeOffset deleteAfter
+                        ? " · permanent purge after " + deleteAfter.LocalDateTime.ToString("g")
+                        : ""),
+                    PrimeTypography.BodySmall, PrimeTheme.WarningBrush));
+            }
+            else if (project.ArchivedAt is DateTimeOffset archivedAt)
+            {
+                detail.Children.Add(PrimeChrome.Text(
+                    "Archived " + archivedAt.LocalDateTime.ToString("g")
+                    + " · hidden from discovery and new lobby selection",
+                    PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+            }
 
             AddDivider();
             var actions = new WrapPanel { HorizontalAlignment = HorizontalAlignment.Left };
@@ -453,29 +497,155 @@ internal sealed partial class MapStudioScreen
             }
             else
             {
-                actions.Children.Add(new PrimeButton("UPLOAD CURRENT",
-                    ShowUploadForm, primary: true, compact: true));
-                actions.Children.Add(new PrimeButton(
-                    project.CurrentHash == project.LatestHash ? "LATEST IS CURRENT" : "MAKE LATEST CURRENT",
-                    () => PromoteRevision(project, project.LatestRevision),
-                    compact: true)
+                if (project.DeletedAt != null)
                 {
-                    IsEnabled = project.CurrentHash != project.LatestHash
-                });
-                actions.Children.Add(new PrimeButton("SET UNLISTED",
-                    () => ChangeVisibility(project.LatestRevision.Package, "Unlisted"),
-                    compact: true));
-                actions.Children.Add(new PrimeButton("SAVE AS DRAFT",
-                    () => ChangeVisibility(project.LatestRevision.Package, "Draft"),
-                    compact: true));
-                actions.Children.Add(new PrimeButton("INSTALL LATEST",
-                    () => Install(project.LatestRevision.Package, false), compact: true));
+                    if (project.CanManageLifecycle)
+                        actions.Children.Add(new PrimeButton("RESTORE MAP",
+                            () => RestoreProject(project), primary: true, compact: true));
+                    actions.Children.Add(new PrimeButton("INSTALL LATEST",
+                        () => Install(project.LatestRevision.Package, false), compact: true));
+                }
+                else
+                {
+                    actions.Children.Add(new PrimeButton("UPLOAD CURRENT",
+                        ShowUploadForm, primary: true, compact: true));
+                    actions.Children.Add(new PrimeButton(
+                        project.CurrentHash == project.LatestHash ? "LATEST IS CURRENT" : "MAKE LATEST CURRENT",
+                        () => PromoteRevision(project, project.LatestRevision),
+                        compact: true)
+                    {
+                        IsEnabled = project.CurrentHash != project.LatestHash
+                    });
+                    actions.Children.Add(new PrimeButton("SET UNLISTED",
+                        () => ChangeVisibility(project.LatestRevision.Package, "Unlisted"),
+                        compact: true));
+                    actions.Children.Add(new PrimeButton("SAVE AS DRAFT",
+                        () => ChangeVisibility(project.LatestRevision.Package, "Draft"),
+                        compact: true));
+                    actions.Children.Add(new PrimeButton("INSTALL LATEST",
+                        () => Install(project.LatestRevision.Package, false), compact: true));
+                    if (project.CanManageLifecycle)
+                    {
+                        actions.Children.Add(project.ArchivedAt != null
+                            ? new PrimeButton("RESTORE MAP",
+                                () => RestoreProject(project), compact: true)
+                            : new PrimeButton("ARCHIVE MAP",
+                                () => ArchiveProject(project), compact: true));
+                        actions.Children.Add(new PrimeButton("DELETE MAP",
+                            () => ConfirmDeleteProject(project), danger: true, compact: true));
+                    }
+                }
             }
             actions.Children.Add(new PrimeButton("REVISIONS",
                 () => ShowRevisionHistory(project), compact: true));
             actions.Children.Add(new PrimeButton("COPY LINK",
                 () => _ = CopyLink(package), compact: true));
             detail.Children.Add(actions);
+        }
+
+        void ShowLifecycleConfirm(string eyebrow, string title,
+            string copy, string actionLabel, Action action,
+            CommunityMapProject project)
+        {
+            detail.Children.Clear();
+            detail.Children.Add(PrimeChrome.Eyebrow(eyebrow, PrimeTheme.WarningBrush));
+            detail.Children.Add(PrimeChrome.Title(title));
+            detail.Children.Add(PrimeChrome.Text(
+                copy, PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
+            detail.Children.Add(PrimeChrome.Columns("*,*",
+                new PrimeButton("CANCEL", () => RenderProject(project), compact: true),
+                new PrimeButton(actionLabel, action, danger: true, compact: true)));
+        }
+
+        void ArchiveProject(CommunityMapProject project)
+        {
+            _ = Job("Archiving Community map", async token =>
+            {
+                await WithClient(true, token,
+                    client => client.ArchiveMapAsync(project.MapId, token));
+                lifecycleFilter.SelectedIndex = 2;
+                await ReloadProjects(token, project.MapId);
+                status.Text = "Map archived. Exact package links remain valid.";
+            });
+        }
+
+        void RestoreProject(CommunityMapProject project)
+        {
+            _ = Job("Restoring Community map", async token =>
+            {
+                await WithClient(true, token,
+                    client => client.RestoreMapAsync(project.MapId, token));
+                lifecycleFilter.SelectedIndex = 1;
+                await ReloadProjects(token, project.MapId);
+                status.Text = "Map restored to active Community management.";
+            });
+        }
+
+        void ConfirmDeleteProject(CommunityMapProject project)
+        {
+            ShowLifecycleConfirm(
+                "COMMUNITY // DELETE MAP",
+                "MOVE MAP TO DELETED MAPS",
+                "This hides the map immediately but keeps immutable package bytes available by exact hash for 30 days. You can restore it during that window.",
+                "DELETE MAP",
+                () => DeleteProject(project),
+                project);
+        }
+
+        void DeleteProject(CommunityMapProject project)
+        {
+            _ = Job("Deleting Community map", async token =>
+            {
+                await WithClient(true, token,
+                    client => client.DeleteMapAsync(project.MapId, token));
+                lifecycleFilter.SelectedIndex = 3;
+                await ReloadProjects(token, project.MapId);
+                status.Text = "Map moved to Deleted Maps. Restore is available for 30 days.";
+            });
+        }
+
+        void ConfirmDeleteRevision(CommunityMapProject project,
+            CommunityMapRevision revision)
+        {
+            ShowLifecycleConfirm(
+                "COMMUNITY // DELETE REVISION",
+                $"DELETE REVISION {revision.RevisionNumber}",
+                "The revision disappears from active history immediately, but its exact package remains available during the 30-day restore window.",
+                "DELETE REVISION",
+                () => DeleteRevision(project, revision),
+                project);
+        }
+
+        void DeleteRevision(CommunityMapProject project,
+            CommunityMapRevision revision)
+        {
+            _ = Job("Deleting Community revision", async token =>
+            {
+                await WithClient(true, token,
+                    client => client.DeleteRevisionAsync(
+                        project.MapId, revision.RevisionNumber, token));
+                await ReloadProjects(token, project.MapId);
+                CommunityMapProject? refreshed =
+                    projects.FirstOrDefault(p => p.MapId == project.MapId);
+                if (refreshed != null) ShowRevisionHistory(refreshed);
+                status.Text = $"Revision {revision.RevisionNumber} moved to Deleted revisions.";
+            });
+        }
+
+        void RestoreRevision(CommunityMapProject project,
+            CommunityMapRevision revision)
+        {
+            _ = Job("Restoring Community revision", async token =>
+            {
+                await WithClient(true, token,
+                    client => client.RestoreRevisionAsync(
+                        project.MapId, revision.RevisionNumber, token));
+                await ReloadProjects(token, project.MapId);
+                CommunityMapProject? refreshed =
+                    projects.FirstOrDefault(p => p.MapId == project.MapId);
+                if (refreshed != null) ShowRevisionHistory(refreshed);
+                status.Text = $"Revision {revision.RevisionNumber} restored.";
+            });
         }
 
         void ToggleFavorite(CommunityMapProject project)
@@ -567,9 +737,11 @@ internal sealed partial class MapStudioScreen
                     bool current = project.CurrentHash == revision.Hash;
                     var copy = PrimeChrome.Stack(
                         PrimeChrome.Eyebrow(
-                            current
-                                ? $"REVISION {revision.RevisionNumber} // CURRENT"
-                                : $"REVISION {revision.RevisionNumber}"),
+                            revision.DeletedAt != null
+                                ? $"REVISION {revision.RevisionNumber} // DELETED"
+                                : current
+                                    ? $"REVISION {revision.RevisionNumber} // CURRENT"
+                                    : $"REVISION {revision.RevisionNumber}"),
                         PrimeChrome.Text(
                             $"{Visibility(package)} · v{package.Version ?? "1"} · {package.Bytes / 1048576d:0.0} MiB",
                             PrimeTypography.BodySmall),
@@ -586,6 +758,16 @@ internal sealed partial class MapStudioScreen
                             PrimeTypography.BodySmall,
                             PrimeTheme.TextSecondaryBrush));
                     }
+                    if (revision.DeletedAt is DateTimeOffset revisionDeleted)
+                    {
+                        copy.Children.Add(PrimeChrome.Text(
+                            "Deleted " + revisionDeleted.LocalDateTime.ToString("g")
+                            + (revision.DeleteAfter is DateTimeOffset purgeAt
+                                ? " · permanent purge after " + purgeAt.LocalDateTime.ToString("g")
+                                : ""),
+                            PrimeTypography.BodySmall,
+                            PrimeTheme.WarningBrush));
+                    }
 
                     var revisionActions = new WrapPanel();
                     revisionActions.Children.Add(new PrimeButton("INSTALL",
@@ -594,16 +776,35 @@ internal sealed partial class MapStudioScreen
                         () => _ = CopyLink(package), compact: true));
                     if (authenticated)
                     {
-                        revisionActions.Children.Add(new PrimeButton(
-                            current ? "CURRENT" : "MAKE CURRENT",
-                            () => PromoteRevision(project, revision), compact: true)
+                        if (revision.DeletedAt != null)
                         {
-                            IsEnabled = !current
-                        });
-                        revisionActions.Children.Add(new PrimeButton("UNLIST",
-                            () => ChangeVisibility(package, "Unlisted"), compact: true));
-                        revisionActions.Children.Add(new PrimeButton("DRAFT",
-                            () => ChangeVisibility(package, "Draft"), compact: true));
+                            if (project.CanManageLifecycle)
+                                revisionActions.Children.Add(new PrimeButton(
+                                    "RESTORE REVISION",
+                                    () => RestoreRevision(project, revision),
+                                    primary: true, compact: true));
+                        }
+                        else if (project.DeletedAt == null)
+                        {
+                            revisionActions.Children.Add(new PrimeButton(
+                                current ? "CURRENT" : "MAKE CURRENT",
+                                () => PromoteRevision(project, revision), compact: true)
+                            {
+                                IsEnabled = !current
+                            });
+                            revisionActions.Children.Add(new PrimeButton("UNLIST",
+                                () => ChangeVisibility(package, "Unlisted"), compact: true));
+                            revisionActions.Children.Add(new PrimeButton("DRAFT",
+                                () => ChangeVisibility(package, "Draft"), compact: true));
+                            if (project.CanManageLifecycle
+                                && revisions.Count(r => r.DeletedAt == null) > 1)
+                            {
+                                revisionActions.Children.Add(new PrimeButton(
+                                    "DELETE REVISION",
+                                    () => ConfirmDeleteRevision(project, revision),
+                                    danger: true, compact: true));
+                            }
+                        }
                     }
                     copy.Children.Add(revisionActions);
                     detail.Children.Add(new PrimePanel(copy)
@@ -957,6 +1158,17 @@ internal sealed partial class MapStudioScreen
 
             CommunityMapProject? target =
                 projects.FirstOrDefault(p => p.MapId == mapId);
+            if (target?.DeletedAt != null)
+            {
+                detail.Children.Add(new PrimeStatePanel(
+                    PrimeStateKind.Warning,
+                    "MAP IS DELETED",
+                    "Restore this map from Deleted Maps before publishing another revision."));
+                detail.Children.Add(new PrimeButton(
+                    "RESTORE MAP", () => RestoreProject(target),
+                    primary: true, compact: true));
+                return;
+            }
             bool existingMap = target != null;
             string? expectedParentHash = target?.LatestHash;
             int nextRevision = (target?.LatestRevision.RevisionNumber ?? 0) + 1;
@@ -1018,12 +1230,16 @@ internal sealed partial class MapStudioScreen
         refresh.Click += (_, _) => Refresh(selectedProject?.MapId);
         tabs.Changed += (_, _) =>
         {
-            upload.IsVisible = CurrentTab() == CommunityDashboardTab.MyMaps;
+            bool creatorTab = CurrentTab() == CommunityDashboardTab.MyMaps;
+            upload.IsVisible = creatorTab;
+            lifecycleFilter.IsVisible = creatorTab;
             selectedProject = null;
             Refresh();
         };
         search.TextChanged += (_, _) => RenderList(selectedProject?.MapId);
         sort.SelectionChanged += (_, _) => RenderList(selectedProject?.MapId);
+        lifecycleFilter.SelectionChanged += (_, _) =>
+            RenderList(selectedProject?.MapId);
         upload.Click += (_, _) => ShowUploadForm();
 
         import.Click += (_, _) => Browse("Install map package", false,

@@ -266,6 +266,81 @@ public sealed class MapCommunityClient : IDisposable
         EnsureSuccess(response);
     }
 
+    public Task<CommunityMapProject?> ArchiveMapAsync(
+        Guid mapId, CancellationToken token)
+        => PostProjectActionAsync($"v2/maps/{mapId}/archive", token);
+
+    public Task<CommunityMapProject?> RestoreMapAsync(
+        Guid mapId, CancellationToken token)
+        => PostProjectActionAsync($"v2/maps/{mapId}/restore", token);
+
+    public async Task<CommunityMapProject?> DeleteMapAsync(
+        Guid mapId, CancellationToken token)
+    {
+        using var response = await _http.DeleteAsync(
+            $"v2/maps/{mapId}", token).ConfigureAwait(false);
+        return await ReadProjectResponseAsync(response, token).ConfigureAwait(false);
+    }
+
+    public async Task<CommunityMapProject?> DeleteRevisionAsync(
+        Guid mapId, int revisionNumber, CancellationToken token)
+    {
+        if (revisionNumber < 1)
+            throw new ArgumentOutOfRangeException(nameof(revisionNumber));
+        using var response = await _http.DeleteAsync(
+            $"v2/maps/{mapId}/revisions/{revisionNumber}",
+            token).ConfigureAwait(false);
+        return await ReadProjectResponseAsync(response, token).ConfigureAwait(false);
+    }
+
+    public Task<CommunityMapProject?> RestoreRevisionAsync(
+        Guid mapId, int revisionNumber, CancellationToken token)
+    {
+        if (revisionNumber < 1)
+            throw new ArgumentOutOfRangeException(nameof(revisionNumber));
+        return PostProjectActionAsync(
+            $"v2/maps/{mapId}/revisions/{revisionNumber}/restore", token);
+    }
+
+    public async Task PurgeMapAsync(Guid mapId, CancellationToken token)
+    {
+        using var response = await _http.DeleteAsync(
+            $"v2/maps/{mapId}/purge", token).ConfigureAwait(false);
+        EnsureSuccess(response);
+    }
+
+    public async Task PurgeRevisionAsync(Guid mapId, int revisionNumber,
+        CancellationToken token)
+    {
+        if (revisionNumber < 1)
+            throw new ArgumentOutOfRangeException(nameof(revisionNumber));
+        using var response = await _http.DeleteAsync(
+            $"v2/maps/{mapId}/revisions/{revisionNumber}/purge",
+            token).ConfigureAwait(false);
+        EnsureSuccess(response);
+    }
+
+    private async Task<CommunityMapProject?> PostProjectActionAsync(
+        string resource, CancellationToken token)
+    {
+        using var response = await _http.PostAsync(resource,
+            new ByteArrayContent(Array.Empty<byte>()), token).ConfigureAwait(false);
+        return await ReadProjectResponseAsync(response, token).ConfigureAwait(false);
+    }
+
+    private static async Task<CommunityMapProject?> ReadProjectResponseAsync(
+        HttpResponseMessage response, CancellationToken token)
+    {
+        EnsureSuccess(response);
+        if (response.StatusCode == HttpStatusCode.NoContent) return null;
+        using var data = new MemoryStream();
+        await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token),
+            data, 512 * 1024, token).ConfigureAwait(false);
+        if (data.Length == 0) return null;
+        return JsonSerializer.Deserialize<CommunityMapProject>(
+            data.ToArray(), MapPackageReader.JsonOptions);
+    }
+
     public async Task<CommunityMapProject?> PromoteRevisionAsync(
         Guid mapId, int revisionNumber, CancellationToken token)
     {
