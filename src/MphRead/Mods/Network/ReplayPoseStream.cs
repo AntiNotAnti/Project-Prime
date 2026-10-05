@@ -7,8 +7,9 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network;
 
-/// <summary>A bounded presentation cursor over accepted snapshots and intents. It can look
-/// ahead six recorded frames without advancing the simulation, a socket or RNG.
+/// <summary>A bounded presentation cursor over accepted snapshots and intents. It keeps
+/// a short ordinary pose lookahead plus enough future intent history to recover repeated
+/// FireEvents onto their authored frame, without advancing simulation, sockets or RNG.
 /// No smoothing decision depends on arrival wall time or monitor refresh.</summary>
 internal sealed class ReplayPoseStream : IDisposable
 {
@@ -42,6 +43,7 @@ internal sealed class ReplayPoseStream : IDisposable
     private readonly FireIndex[] _fireIndex = CreateFireIndex();
     private readonly HashSet<FireLife> _fireCapable = new();
     private readonly Dictionary<uint, List<ScheduledFire>> _fires = new();
+    private readonly List<uint> _firePrune = new();
     private readonly ScheduledFire?[] _activeFire = new ScheduledFire?[8];
     private readonly bool[] _fireConsumed = new bool[8];
     private DemoReader? _reader;
@@ -436,6 +438,18 @@ internal sealed class ReplayPoseStream : IDisposable
             {
                 intents.RemoveAt(0);
             }
+        }
+
+        // Keep source-frame scheduling bounded on long recordings. The active
+        // frame is never pruned, and retained history is deeper than the maximum
+        // FireEvent recovery age, so seeks/rebuilds still reconstruct identically.
+        if (frame % 120 == 0 && _fires.Count > 0)
+        {
+            _firePrune.Clear();
+            foreach (uint scheduled in _fires.Keys)
+                if ((ulong)scheduled + PresentationHistoryFrames < frame)
+                    _firePrune.Add(scheduled);
+            foreach (uint scheduled in _firePrune) _fires.Remove(scheduled);
         }
     }
 
