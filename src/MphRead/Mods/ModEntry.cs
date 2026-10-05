@@ -249,7 +249,7 @@ namespace MphRead.Mods
 
             // This diagnostic needs assets, but must not apply/clean updates
             // or enter any of the launcher/network command paths.
-            if (HasFlag(args, "respawnrendercheck"))
+            if (HasFlag(args, "respawnrendercheck") || HasFlag(args, "characteracceptancecheck"))
             {
                 Update.Updater.Disabled = true;
                 return false;
@@ -1409,6 +1409,15 @@ namespace MphRead.Mods
                     HasFlag(args, "timeout") ? ValueAfter(args, "timeout") ?? "" : null);
                 return true;
             }
+
+#if !ANDROID && !MPHREAD_SERVER
+            if (ValueAfter(args, "characteracceptancecheck") is string acceptanceRoom)
+            {
+                Environment.ExitCode = Render.Characters.CharacterAcceptanceCheck.Run(acceptanceRoom,
+                    ValueAfter(args, "output") ?? "character-acceptance");
+                return true;
+            }
+#endif
 
             (int width, int height) = ParseSize(args);
 

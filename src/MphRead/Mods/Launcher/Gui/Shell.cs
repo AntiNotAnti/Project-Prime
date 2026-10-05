@@ -41,7 +41,7 @@ namespace MphRead.Mods.Launcher.Gui
     /// decision a screen makes is therefore acted on at the top of the next
     /// frame rather than in the middle of the one that is being drawn.
     /// </summary>
-    internal static class Shell
+    internal static partial class Shell
     {
         /// <summary>True while the shell window is the one running.</summary>
         public static bool Active { get; private set; }
@@ -832,6 +832,7 @@ namespace MphRead.Mods.Launcher.Gui
                 StartBackgroundStartupWork();
             }
             Diagnostics.LauncherWindowCheck.AfterDraw(window);
+            ObserveSamusReturn(window);
             if (_shotDirectory == null)
             {
                 return;
@@ -981,6 +982,7 @@ namespace MphRead.Mods.Launcher.Gui
         /// into a fade, and a window mode takes a few frames to settle.
         /// </summary>
         private static Action<RenderWindow>[] Script =>
+            Environment.GetCommandLineArgs().Contains("-samusreturncheck") ? SamusReturnScript :
             (Environment.GetCommandLineArgs().Contains("-shelllifecycleonly") ? StandardScript.Take(3) : StandardScript)
             .Concat(_lifecycleTail ??= BuildLifecycleTail()).ToArray();
         private static Action<RenderWindow>[] StandardScript => new Action<RenderWindow>[]
