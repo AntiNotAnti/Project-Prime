@@ -111,6 +111,10 @@ namespace MphRead.Mods.Render
                     LauncherHunter.CinematicLighting = false;
                     Scene.LauncherPreviewCinematicLighting = false;
                 }
+                // A tiny amount of atmosphere belongs in front of the Hunter
+                // too. This is what visually shares the room's air without
+                // changing the actual Hunter material or gameplay renderer.
+                LauncherStageFx.DrawOverHunter(width, height);
                 // The fixed-function RmlUi renderer samples unit 0. The scene
                 // and preview are free to leave a different unit active.
                 GL.ActiveTexture(TextureUnit.Texture0);
