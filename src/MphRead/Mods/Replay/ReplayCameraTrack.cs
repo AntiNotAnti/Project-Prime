@@ -13,7 +13,8 @@ namespace MphRead.Mods.Replay
         Linear,
         Smooth,
         Spline,
-        Hold
+        Hold,
+        Bezier
     }
 
     internal enum ReplayCameraEase : byte
@@ -32,7 +33,10 @@ namespace MphRead.Mods.Replay
         sbyte LookAtSlot = -1,
         float Roll = 0,
         ReplayCameraInterpolation Interpolation = ReplayCameraInterpolation.Spline,
-        ReplayCameraEase Ease = ReplayCameraEase.InOut);
+        ReplayCameraEase Ease = ReplayCameraEase.InOut,
+        Vector3? IncomingTangent = null, Vector3? OutgoingTangent = null,
+        float FovIncomingTangent = 0, float FovOutgoingTangent = 0,
+        float RollIncomingTangent = 0, float RollOutgoingTangent = 0);
 
     internal readonly record struct ReplayCameraSegmentInfo(
         uint StartFrame,
@@ -55,6 +59,7 @@ namespace MphRead.Mods.Replay
         private const int HeaderSize = 23;
         private const int KeySizeV1 = 37;
         private const int KeySizeV2 = 43;
+        private const int KeySizeV4 = 85;
         private const int MaxIdentityBytes = 4096;
         private readonly List<ReplayCameraKeyframe> _keys = new();
 
@@ -151,12 +156,15 @@ namespace MphRead.Mods.Replay
                 {
                     t = ArcLengthParameter(p0, left.Position, right.Position, p3, t);
                 }
+                else if (constantSpeed && left.Interpolation == ReplayCameraInterpolation.Bezier)
+                    t = BezierArcParameter(left, right, t);
                 Vector3 position = left.Interpolation switch
                 {
                     ReplayCameraInterpolation.Linear => Vector3.Lerp(left.Position, right.Position, t),
                     ReplayCameraInterpolation.Smooth => Vector3.Lerp(left.Position, right.Position,
                         t * t * (3 - 2 * t)),
                     ReplayCameraInterpolation.Hold => raw >= 1 ? right.Position : left.Position,
+                    ReplayCameraInterpolation.Bezier => BezierPosition(left, right, t),
                     _ => CatmullRom(p0, left.Position, right.Position, p3, t)
                 };
 
@@ -164,9 +172,13 @@ namespace MphRead.Mods.Replay
                     (uint)Math.Clamp(frame, 0, UInt32.MaxValue),
                     position,
                     Quaternion.Slerp(left.Rotation, right.Rotation, t).Normalized(),
-                    left.Fov + (right.Fov - left.Fov) * t,
+                    left.Interpolation == ReplayCameraInterpolation.Bezier
+                        ? BezierValue(left.Fov, left.Fov + left.FovOutgoingTangent, right.Fov + right.FovIncomingTangent, right.Fov, t)
+                        : left.Fov + (right.Fov - left.Fov) * t,
                     frame == right.Frame ? right.LookAtSlot : left.LookAtSlot,
-                    left.Roll + (right.Roll - left.Roll) * t,
+                    left.Interpolation == ReplayCameraInterpolation.Bezier
+                        ? BezierValue(left.Roll, left.Roll + left.RollOutgoingTangent, right.Roll + right.RollIncomingTangent, right.Roll, t)
+                        : left.Roll + (right.Roll - left.Roll) * t,
                     left.Interpolation,
                     left.Ease);
                 return true;
@@ -296,6 +308,26 @@ namespace MphRead.Mods.Replay
         }
 
         private static bool Finite(float value) => float.IsFinite(value);
+        private static float BezierValue(float a, float b, float c, float d, float t)
+        { float u = 1 - t; return a * u * u * u + 3 * b * u * u * t + 3 * c * u * t * t + d * t * t * t; }
+        private static Vector3 BezierPosition(ReplayCameraKeyframe left, ReplayCameraKeyframe right, float t)
+        {
+            Vector3 a = left.Position, d = right.Position;
+            Vector3 b = a + (left.OutgoingTangent ?? (d - a) / 3);
+            Vector3 c = d + (right.IncomingTangent ?? (a - d) / 3);
+            float u = 1 - t; return a * u * u * u + 3 * b * u * u * t + 3 * c * u * t * t + d * t * t * t;
+        }
+        private static float BezierArcParameter(ReplayCameraKeyframe left, ReplayCameraKeyframe right, float fraction)
+        {
+            const int steps = 64; Span<float> lengths = stackalloc float[steps + 1]; float total = 0;
+            Vector3 previous = left.Position;
+            for (int i = 1; i <= steps; i++) { var point = BezierPosition(left, right, i / (float)steps); total += (point - previous).Length; lengths[i] = total; previous = point; }
+            if (total < .00001f) return fraction;
+            float target = Math.Clamp(fraction, 0, 1) * total; int index = 1;
+            while (index < steps && lengths[index] < target) index++;
+            float before = lengths[index - 1], after = lengths[index];
+            return (index - 1 + (after <= before ? 0 : (target - before) / (after - before))) / steps;
+        }
 
         private static bool Valid(ReplayCameraKeyframe key)
         {
@@ -311,6 +343,10 @@ namespace MphRead.Mods.Replay
                 && key.Fov <= MathHelper.DegreesToRadians(175)
                 && key.LookAtSlot is >= -1 and < 8
                 && Finite(key.Roll) && Math.Abs(key.Roll) <= MathHelper.TwoPi
+                && (!key.IncomingTangent.HasValue || float.IsFinite(key.IncomingTangent.Value.LengthSquared))
+                && (!key.OutgoingTangent.HasValue || float.IsFinite(key.OutgoingTangent.Value.LengthSquared))
+                && Finite(key.FovIncomingTangent) && Finite(key.FovOutgoingTangent)
+                && Finite(key.RollIncomingTangent) && Finite(key.RollOutgoingTangent)
                 && Enum.IsDefined(key.Interpolation)
                 && Enum.IsDefined(key.Ease);
         }
@@ -324,7 +360,7 @@ namespace MphRead.Mods.Replay
                 if (!File.Exists(sidecar)) return true;
                 using var input = new FileStream(sidecar, FileMode.Open, FileAccess.Read, FileShare.Read);
                 if (input.Length < HeaderSize + 32
-                    || input.Length > MaxIdentityBytes + MaxKeys * KeySizeV2 + 64)
+                    || input.Length > MaxIdentityBytes + MaxKeys * KeySizeV4 + 64)
                     throw new InvalidDataException("Camera track has an invalid size.");
 
                 byte[] bytes = new byte[(int)input.Length];
@@ -341,10 +377,10 @@ namespace MphRead.Mods.Replay
                 if (reader.ReadUInt32() != Magic)
                     throw new InvalidDataException("Unsupported camera track.");
                 byte version = reader.ReadByte();
-                if (version is not (1 or 2 or 3))
+                if (version is not (1 or 2 or 3 or 4))
                     throw new InvalidDataException("Unsupported camera track.");
 
-                if (version == 3)
+                if (version >= 3)
                 {
                     ReplayCameraTrackIdentity expected = ReplayCameraTrackIdentity.Create(replay);
                     string logicalId = reader.ReadString();
@@ -366,9 +402,9 @@ namespace MphRead.Mods.Replay
                 }
 
                 int count = reader.ReadUInt16();
-                int keySize = version == 1 ? KeySizeV1 : KeySizeV2;
-                long expectedLength = version == 3
-                    ? stream.Position + count * KeySizeV2 + 32
+                int keySize = version == 1 ? KeySizeV1 : version == 4 ? KeySizeV4 : KeySizeV2;
+                long expectedLength = version >= 3
+                    ? stream.Position + count * keySize + 32
                     : HeaderSize + count * keySize + 32;
                 if (count > MaxKeys || bytes.Length != expectedLength)
                     throw new InvalidDataException("Invalid camera keyframe count.");
@@ -392,8 +428,16 @@ namespace MphRead.Mods.Replay
                         ease = (ReplayCameraEase)reader.ReadByte();
                     }
 
+                    Vector3? incoming = null, outgoing = null; float fovIn = 0, fovOut = 0, rollIn = 0, rollOut = 0;
+                    if (version == 4)
+                    {
+                        bool hasIn = reader.ReadBoolean(); var inputTangent = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+                        bool hasOut = reader.ReadBoolean(); var outputTangent = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+                        incoming = hasIn ? inputTangent : null; outgoing = hasOut ? outputTangent : null;
+                        fovIn = reader.ReadSingle(); fovOut = reader.ReadSingle(); rollIn = reader.ReadSingle(); rollOut = reader.ReadSingle();
+                    }
                     var key = new ReplayCameraKeyframe(frame, position, rotation, fov,
-                        lookAt, roll, interpolation, ease);
+                        lookAt, roll, interpolation, ease, incoming, outgoing, fovIn, fovOut, rollIn, rollOut);
                     if (!Valid(key) || (i > 0 && key.Frame <= parsed[i - 1].Frame))
                         throw new InvalidDataException("Invalid camera keyframe.");
                     parsed.Add(key);
@@ -415,10 +459,12 @@ namespace MphRead.Mods.Replay
             try
             {
                 ReplayCameraTrackIdentity identity = ReplayCameraTrackIdentity.Create(replay);
-                using var stream = new MemoryStream(HeaderSize + MaxKeys * KeySizeV2 + 32);
+                bool tangents = _keys.Any(k => k.Interpolation == ReplayCameraInterpolation.Bezier || k.IncomingTangent.HasValue || k.OutgoingTangent.HasValue
+                    || k.FovIncomingTangent != 0 || k.FovOutgoingTangent != 0 || k.RollIncomingTangent != 0 || k.RollOutgoingTangent != 0);
+                using var stream = new MemoryStream(HeaderSize + MaxKeys * KeySizeV4 + 32);
                 using var writer = new BinaryWriter(stream);
                 writer.Write(Magic);
-                writer.Write((byte)3);
+                writer.Write((byte)(tangents ? 4 : 3));
                 writer.Write(identity.LogicalReplayId);
                 writer.Write(identity.SourceContentHash);
                 writer.Write(identity.StartFrame);
@@ -439,6 +485,15 @@ namespace MphRead.Mods.Replay
                     writer.Write(key.Roll);
                     writer.Write((byte)key.Interpolation);
                     writer.Write((byte)key.Ease);
+                    if (tangents)
+                    {
+                        writer.Write(key.IncomingTangent.HasValue); Vector3 input = key.IncomingTangent ?? default;
+                        writer.Write(input.X); writer.Write(input.Y); writer.Write(input.Z);
+                        writer.Write(key.OutgoingTangent.HasValue); Vector3 output = key.OutgoingTangent ?? default;
+                        writer.Write(output.X); writer.Write(output.Y); writer.Write(output.Z);
+                        writer.Write(key.FovIncomingTangent); writer.Write(key.FovOutgoingTangent);
+                        writer.Write(key.RollIncomingTangent); writer.Write(key.RollOutgoingTangent);
+                    }
                 }
                 writer.Flush();
                 byte[] body = stream.ToArray();

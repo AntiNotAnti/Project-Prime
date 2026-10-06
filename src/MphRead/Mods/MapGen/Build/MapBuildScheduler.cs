@@ -279,6 +279,8 @@ public sealed class MapBuildScheduler : IMapBuildScheduler
         {
             cancellation.ThrowIfCancellationRequested();
             MapRuntimeUsage.RequireInstallationAllowed(definition.Name);
+            using var runtimeLease = MapPublicationLease.AcquirePublication(CustomRooms.RuntimePublicationRoot,
+                CustomRooms.RuntimeNamespace, definition.Name, cancellation: cancellation);
             RoomPrewarm.Invalidate(definition.Name);
             Install(result, definition, archive, entities, nodes);
         }

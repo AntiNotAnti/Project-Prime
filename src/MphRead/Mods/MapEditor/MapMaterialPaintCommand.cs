@@ -11,6 +11,7 @@ public sealed partial class MapDocument
     {
         if (material < 0 || material >= Project.Definition.Materials.Count) throw new ArgumentOutOfRangeException(nameof(material));
         var mesh = Project.Definition.Geometry.OfType<MapMesh>().Single(m => m.Id == meshId);
+        MapModelingEnhancements.EnsureCanEditElements(mesh);
         var selected = faces.Distinct().ToArray();
         if (selected.Any(f => f < 0 || f >= mesh.Faces.Count)) throw new ArgumentOutOfRangeException(nameof(faces));
         var before = selected.ToDictionary(f => f, f => f < mesh.FaceMaterials.Count ? mesh.FaceMaterials[f] : mesh.Material);

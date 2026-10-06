@@ -21,7 +21,24 @@ root="$temp/publish with spaces"
 mkdir -p "$root/nested"
 # This synthetic packaging fixture acknowledges the wrapper's success marker;
 # the publish jobs separately run the real launcher's rendered window check.
-printf '#include <stdio.h>\nint main(void) { puts("Launcher window check passed."); puts("GLFW extraction path check passed."); puts("Thumbnail window check passed."); return 0; }\n' > "$temp/main.c"
+cat > "$temp/main.c" <<'C'
+#include <stdio.h>
+#include <string.h>
+#ifndef RELEASE_VERSION
+#define RELEASE_VERSION "1.2.3"
+#endif
+int main(int argc, char **argv) {
+    if (argc > 1 && (!strcmp(argv[1], "-studioversion") || !strcmp(argv[1], "--version"))) {
+        printf("{\"gameVersion\":\"%s\",\"studioVersion\":\"%s\",\"studioIpcVersion\":1}\n",
+               RELEASE_VERSION, RELEASE_VERSION);
+        return 0;
+    }
+    puts("Launcher window check passed.");
+    puts("GLFW extraction path check passed.");
+    puts("Thumbnail window check passed.");
+    return 0;
+}
+C
 printf 'int native_probe(void) { return 42; }\n' > "$temp/native.c"
 clang "$temp/main.c" -o "$root/ProjectPrime"
 clang -dynamiclib "$temp/native.c" -o "$root/libopenal.1.dylib"
@@ -84,10 +101,35 @@ printf '# Controller mapping packaging fixture\n' > "$fixture/gamecontrollerdb.t
 printf 'Controller mapping license fixture\n' > "$fixture/gamecontrollerdb.LICENSE"
 printf '{"Name":"PACKAGING TEST"}\n' > "$fixture/maps/fixture.json"
 printf '{"fixture":true}\n' > "$fixture/fidelity-baselines/fixture.json"
-"$repo/tools/package-macos.sh" "$fixture" "$temp/dist" "$rid" 1.2.3
+studio="$temp/studio package input"
+mkdir -p "$studio"
+clang "$temp/main.c" -o "$studio/ProjectPrimeStudio"
+cp "$root/libopenal.1.dylib" "$root/libwgpu_native.dylib" "$root/libktx.dylib" "$studio/"
+"$repo/tools/sign-macos.sh" "$studio" ProjectPrimeStudio
+"$repo/tools/check-macos-build.sh" "$studio" "$rid" ProjectPrimeStudio
+# The paired archive must reject a missing Studio, mismatched version, and a
+# Studio apphost without its own JIT entitlement before publishing anything.
+mv "$studio/ProjectPrimeStudio" "$temp/studio-good"
+expect_failure "$repo/tools/package-macos.sh" "$fixture" "$temp/dist" "$rid" 1.2.3 "$studio"
+clang -DRELEASE_VERSION='"1.2.4"' "$temp/main.c" -o "$studio/ProjectPrimeStudio"
+expect_failure "$repo/tools/package-macos.sh" "$fixture" "$temp/dist" "$rid" 1.2.3 "$studio"
+mv "$temp/studio-good" "$studio/ProjectPrimeStudio"
+codesign --remove-signature "$studio/ProjectPrimeStudio"
+codesign --force --sign - "$studio/ProjectPrimeStudio"
+expect_failure "$repo/tools/check-macos-build.sh" "$studio" "$rid" ProjectPrimeStudio
+"$repo/tools/sign-macos.sh" "$studio" ProjectPrimeStudio
+"$repo/tools/package-macos.sh" "$fixture" "$temp/dist" "$rid" 1.2.3 "$studio"
 mkdir "$temp/unpacked"
 tar -xzf "$temp/dist/ProjectPrime-v1.2.3-$rid.tar.gz" -C "$temp/unpacked"
 app="$temp/unpacked/Project Prime.app"
+studio_app="$temp/unpacked/Project Prime Studio.app"
+[[ -x "$studio_app/Contents/MacOS/ProjectPrimeStudio" ]] || exit 1
+[[ $(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$studio_app/Contents/Info.plist") == com.projectprime.studio ]] || exit 1
+[[ $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$studio_app/Contents/Info.plist") == 1.2.3 ]] || exit 1
+cmp "$temp/unpacked/.project-prime-desktop.json" "$app/Contents/Resources/.project-prime-desktop.json"
+cmp "$temp/unpacked/.project-prime-desktop.json" "$studio_app/Contents/Resources/.project-prime-desktop.json"
+codesign --verify --deep --strict "$studio_app"
+python3 "$repo/tools/studio-pair.py" smoke "$app/Contents/MacOS/ProjectPrime" "$studio_app/Contents/MacOS/ProjectPrimeStudio" 1.2.3
 [[ -f "$app/Contents/Resources/maps/fixture.json" ]] || exit 1
 [[ ! -e "$app/Contents/MacOS/maps" ]] || exit 1
 cmp "$fixture/fidelity-baselines/fixture.json" "$app/Contents/Resources/fidelity-baselines/fixture.json"
@@ -109,5 +151,7 @@ printf '\n' >> "$app/Contents/Resources/fidelity-baselines/fixture.json"
 expect_failure codesign --verify --deep --strict "$app"
 cp "$fixture/fidelity-baselines/fixture.json" "$app/Contents/Resources/fidelity-baselines/fixture.json"
 codesign --verify --deep --strict "$app"
-dotnet run --project "$repo/tools/platformtest/platformtest.csproj" -c Release
+if [[ ${PROJECT_PRIME_SKIP_PLATFORM_TEST:-false} != true ]]; then
+    dotnet run --project "$repo/tools/platformtest/platformtest.csproj" -c Release
+fi
 echo 'macOS bundle resource regressions passed.'

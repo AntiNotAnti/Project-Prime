@@ -134,6 +134,10 @@ namespace MphRead
             {
                 return null;
             }
+            // Package revisions may use the same recorded room key. Private
+            // sessions retain their own decoded room model and GL list lifetime.
+            if (Mods.StudioReplay.StudioReplayResources.Current?.Room(name) is { } privateRoom)
+                return new ModelInstance(Mods.StudioReplay.StudioReplayResources.Current.RoomModel(privateRoom, room => GetRoomModel(room)));
             if (!_modelCache.TryGetValue(name, out Model? model))
             {
                 if (!Mods.RoomPrewarm.TryGetRoomModel(name, out model))

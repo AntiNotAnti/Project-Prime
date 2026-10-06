@@ -91,7 +91,7 @@ internal sealed partial class MapStudioScreen
         if (previous != null && previous.NormalizedHash == ModelReimport.NormalizedHash(result)
             && previous.Settings == settings && previous.Source == path && previous.SourceHash == hash)
         { _status.Text = "Model and referenced materials are unchanged."; return; }
-        string previewRoot=Path.Combine(Path.GetTempPath(),"ProjectPrime-model-preview-"+Guid.NewGuid().ToString("N"));
+        string previewRoot=Path.Combine(_services.StagingDirectory,"ProjectPrime-model-preview-"+Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(previewRoot);
         try
         {

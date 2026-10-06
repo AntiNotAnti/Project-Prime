@@ -1,7 +1,8 @@
 Project Prime for macOS
 
-Extract the tar.gz and open "Project Prime.app". You can move the app to
-Applications. Use osx-arm64 for Apple Silicon, osx-x64 for Intel.
+Extract the tar.gz and keep "Project Prime.app" and "Project Prime Studio.app"
+beside each other. You can move both apps to Applications. Use osx-arm64 for
+Apple Silicon, osx-x64 for Intel. Open Studio for map and replay authoring.
 
 Bring your own Metroid Prime Hunters cartridge dump (.nds). No game data is
 included or downloaded. Settings, extracted files, saves and logs are stored
@@ -18,7 +19,8 @@ you trust, use System Settings > Privacy & Security > Open Anyway. If needed,
 remove quarantine from this app only, from the directory containing it:
   xattr -dr com.apple.quarantine "Project Prime.app"
 
-To update, download the new archive and replace the app. Your user data stays
+To update, download the new archive and replace both apps together. Their
+versions and local IPC must match. Your user data stays
 in Application Support. Older portable installations can keep their data:
 copy their contents (paths.txt, settings, saves and extracted files) into the
 user-data folder before launching. Absolute paths in paths.txt must still point

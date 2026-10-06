@@ -56,6 +56,8 @@ namespace MphRead.Mods.MapGen
     /// </summary>
     public sealed class MapMesh : MapGeometry
     {
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public MphRead.Mods.MapEditor.MapMeshModifierState? ModifierSource { get; set; }
         /// <summary>Authoring-visible collision proxy, omitted from the runtime visual model.</summary>
         public bool CollisionOnly { get; set; }
         public int Slipperiness { get; set; }

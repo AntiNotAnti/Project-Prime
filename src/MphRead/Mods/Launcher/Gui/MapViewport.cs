@@ -27,6 +27,10 @@ namespace MphRead.Mods.Launcher.Gui
         public float ScaleSnap {get;set;}=.25f;
         public bool LocalAxes {get;set;}
         public bool Wireframe { get; set; }
+        public bool LightingPreview { get; set; }
+        public bool ShadowPreview { get; set; }
+        public bool FogPreview { get; set; }
+        public MapViewportDiagnosticMode DiagnosticMode { get; set; }
         public bool Collision { get; set; }
         public bool CollisionHeatmap { get; set; }
         public bool CollisionRepairsOverlay { get; set; }
@@ -46,6 +50,7 @@ namespace MphRead.Mods.Launcher.Gui
         private void PaintAt(MapPickHit hit, KeyModifiers modifiers)
         {
             if (hit.ObjectId != _paintMesh || MapObjects.Find(Document.Project.Definition, hit.ObjectId)?.Value is not MapMesh mesh) return;
+            if(mesh.ModifierSource!=null){ModelingError?.Invoke("Bake modifier stack before editing mesh elements.");return;}
             int material = modifiers.HasFlag(KeyModifiers.Alt) ? mesh.Material : ActivePaintMaterial;
             if (material < 0 || material >= Document.Project.Definition.Materials.Count || !_painted.Add((hit.FaceIndex, material))) return;
             int[] faces = modifiers.HasFlag(KeyModifiers.Shift) ? MapMeshEditing.ConnectedFaces(mesh, hit.FaceIndex) : new[] { hit.FaceIndex };
@@ -63,6 +68,10 @@ namespace MphRead.Mods.Launcher.Gui
         public bool MaterialEyedropper { get; set; }
         public bool MeasureMode { get; set; }
         public bool EntityVisualization { get; set; } = true;
+        public bool ShowSpawns { get; set; } = true;
+        public bool ShowPickups { get; set; } = true;
+        public bool ShowJumpPads { get; set; } = true;
+        public bool NavigationOverlay { get; set; } = true;
         public event Action? SelectionChanged;
         public event Action<MapPickHit>? MaterialPicked;
         internal MapViewportCache Cache { get; } = new();
@@ -111,6 +120,10 @@ namespace MphRead.Mods.Launcher.Gui
             Document=document; Focusable=true; ClipToBounds=true;InitializeModelingMenu();
             Document.Invalidated += InvalidateDocument;
             InvalidateDocument(new(MapChangeDomain.All));
+#if MPHREAD_SHELL
+            AttachedToVisualTree+=(_,_)=>InitializeStudioPresentation();
+            DetachedFromVisualTree+=(_,_)=>ReleaseStudioPresentation();
+#endif
         }
         public void RefreshMaterialPreview()
         {
@@ -138,6 +151,9 @@ namespace MphRead.Mods.Launcher.Gui
         {
             CancelInteraction();
             Document.Invalidated -= InvalidateDocument;
+#if MPHREAD_SHELL
+            ReleaseStudioPresentation();
+#endif
         }
 
         public void SetImported(BuiltMap map)
@@ -175,7 +191,13 @@ namespace MphRead.Mods.Launcher.Gui
             };
 
         public MapPickHit? PickSurface(double x,double y)
-            => MapViewportPicking.PickHit(BuildRenderFrame(Layout),x,y,true);
+        {
+            var frame=BuildRenderFrame(Layout);
+#if MPHREAD_SHELL
+            if (_studioPresentation?.Active == true) return _studioPresentation.Pick(frame,x,y);
+#endif
+            return MapViewportPicking.PickHit(frame,x,y,true);
+        }
 
         public void FocusWorld(IEnumerable<Vector> points)
         {
@@ -244,7 +266,17 @@ namespace MphRead.Mods.Launcher.Gui
                 resident = resident.Select(m => m.ObjectId == _subPreview.ObjectId ? _subPreview.Present(m) : m).ToArray();
                 meshes = meshes.Select(m => m.ObjectId == _subPreview.ObjectId ? _subPreview.Present(m) : m).ToArray();
             }
-            return new(layout, Camera, meshes, Document.Selection.ToHashSet(), transforms, Wireframe, Collision) { ResidentMeshes=resident, GridView=View, GridStep=VisibleGridStep, Materials=_viewportMaterials, UvChecker=UvChecker };
+            var definition=Document.Project.Definition;
+            static Vector Direction(float[] value,Vector fallback) => value.Length>=3 ? new(value[0],value[1],value[2]) : fallback;
+            static Vector ColorVector(int[] value) => value.Length>=3 ? new(value[0]/31f,value[1]/31f,value[2]/31f) : Vector.One;
+            return new(layout, Camera, meshes, Document.Selection.ToHashSet(), transforms, Wireframe, Collision)
+            {
+                ResidentMeshes=resident, GridView=View, GridStep=VisibleGridStep, Materials=_viewportMaterials, UvChecker=UvChecker,
+                LightingPreview=LightingPreview,ShadowPreview=ShadowPreview,FogPreview=FogPreview,DiagnosticMode=DiagnosticMode,
+                Light1Vector=Direction(definition.Light1Vector,new(.3f,-1f,.2f)),Light2Vector=Direction(definition.Light2Vector,new(-.3f,1f,-.2f)),
+                Light1Color=ColorVector(definition.Light1Color),Light2Color=ColorVector(definition.Light2Color),
+                FogColor=ColorVector(definition.FogColor),FogEnabled=definition.FogEnabled,FogOffset=definition.FogOffset,FogSlope=definition.FogSlope
+            };
         }
 #if !MPHREAD_SHELL
         private bool GpuActive => false;
@@ -329,12 +361,20 @@ namespace MphRead.Mods.Launcher.Gui
         {
             base.Render(context);
 #if MPHREAD_SHELL
-            if (GpuActive) context.Custom(new ViewportHole(new Rect(Bounds.Size)));
+            if (DrawNativeStudioPresentation(context)) return;
+            if (_capturingStudioOverlay) { }
+            else
+            if (DrawStudioPresentation(context)) { }
+            else if (GpuActive) context.Custom(new ViewportHole(new Rect(Bounds.Size)));
             else
 #endif
                 context.FillRectangle(new SolidColorBrush(Color.Parse("#141c25")),new Rect(Bounds.Size));
             var grid=new SolidColorBrush(Color.Parse("#293641"));
-            if (!GpuActive)
+            if (!GpuActive
+#if MPHREAD_SHELL
+                || _capturingStudioOverlay
+#endif
+                )
                 foreach(var line in MapViewportGrid.Lines(View,VisibleGridStep))Line(context,line.A,line.B,grid);
             if(PartitionOverlay)
             {
@@ -490,6 +530,8 @@ namespace MphRead.Mods.Launcher.Gui
             foreach(var o in Cache.Entities)
             {
                 if (o.Value is MapSpawn) spawnIndex++;
+                if(o.Value is MapSpawn && !ShowSpawns || o.Value is MapItem && !ShowPickups || o.Value is MapJumpPad && !ShowJumpPads
+                    || o.Value is MapNavigationLink && !NavigationOverlay)continue;
                 Vector position = Vector.Transform(MapViewportScene.Vector(o.Position), _drag && Document.Selection.Contains(o.Id) ? PreviewTransform(o) : Matrix4x4.Identity);
                 var p=Project(position);if(p==null)continue;
                 bool warning = _warningObjects.Contains(o.Id);
@@ -554,7 +596,7 @@ namespace MphRead.Mods.Launcher.Gui
                 float y=Document.Project.Definition.KillHeight;
                 for(int i=-64;i<=64;i+=8)Line(context,new(i,y,-64),new(i,y,64),Brushes.IndianRed);
             }
-            if (Navigation is { } pathGraph)
+            if (NavigationOverlay && Navigation is { } pathGraph)
                 for (int i = 1; i < NavigationPath.Length; i++)
                 {
                     int a = NavigationPath[i-1], b = NavigationPath[i];
@@ -562,7 +604,7 @@ namespace MphRead.Mods.Launcher.Gui
                     var p = pathGraph.Positions[a]; var q = pathGraph.Positions[b];
                     Line(context, new(p.X,p.Y,p.Z), new(q.X,q.Y,q.Z), Brushes.Gold, 4);
                 }
-            if(Navigation!=null)
+            if(NavigationOverlay && Navigation!=null)
                 for(int i=0;i<Navigation.Positions.Length;i++)
                 {
                     var p=Navigation.Positions[i];Vector a=new(p.X,p.Y,p.Z);var projectedPoint=Project(a);
@@ -603,6 +645,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Vector center=GizmoCenter+_preview;
                 Line(context,center,center+GizmoAxis(selectedObject,0)*3,Brushes.Red,3);Line(context,center,center+GizmoAxis(selectedObject,1)*3,Brushes.Lime,3);Line(context,center,center+GizmoAxis(selectedObject,2)*3,Brushes.DeepSkyBlue,3);
+                DrawTransformHud(context);
             }
         }
         private static Rect SelectionRectangle(Point a, Point b)
@@ -635,7 +678,7 @@ namespace MphRead.Mods.Launcher.Gui
             if(props.IsLeftButtonPressed)
             {
                 if (ReadOnlyPreview) { e.Handled=true; return; }
-                MapPickHit? surface=MapViewportPicking.PickHit(BuildRenderFrame(Layout),_last.X,_last.Y,true);
+                MapPickHit? surface=PickSurface(_last.X,_last.Y);
                 if(surface!=null)LastSurfaceHit=surface;
 
                 if(MaterialEyedropper)
@@ -684,7 +727,7 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     // Entity handles sit above geometry; brush hits use world distance.
                     id=_pick.Where(p=>p.Depth==0&&Contains(p.Points,_last)).Select(p=>p.Id).FirstOrDefault();
-                    if(id==Guid.Empty)id=MapViewportPicking.Pick(BuildRenderFrame(Layout),_last.X,_last.Y);
+                    if(id==Guid.Empty)id=PickSurface(_last.X,_last.Y)?.ObjectId ?? Guid.Empty;
                 }
                 _boxAdditive=e.KeyModifiers.HasFlag(KeyModifiers.Shift);
                 if(!_boxAdditive&&!Document.Selection.Contains(id))Document.Selection.Clear();
@@ -703,7 +746,7 @@ namespace MphRead.Mods.Launcher.Gui
             base.OnPointerMoved(e);Point p=e.GetPosition(this);var delta=p-_last;_last=p;
             if (_paintStroke != null)
             {
-                if (MapViewportPicking.PickHit(BuildRenderFrame(Layout), p.X, p.Y, true) is { } hit) PaintAt(hit, e.KeyModifiers);
+                if (PickSurface(p.X,p.Y) is { } hit) PaintAt(hit, e.KeyModifiers);
                 InvalidateVisual(); return;
             }
             if (_boxSelect) { _boxCurrent=p; InvalidateVisual(); return; }

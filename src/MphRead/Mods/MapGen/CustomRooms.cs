@@ -48,6 +48,9 @@ namespace MphRead.Mods.MapGen
         /// </summary>
         // Private child-server namespace prevents two hosted versions sharing generated binaries.
         public static string RuntimeNamespace { get; set; } = "";
+        // Used by an isolated audit worker only. Asset reads retain the configured game paths.
+        public static string? GeneratedRuntimeRoot { get; set; }
+        public static string RuntimePublicationRoot => GeneratedRuntimeRoot ?? Paths.FileSystem;
         private static string RuntimePath(string path) => string.IsNullOrEmpty(RuntimeNamespace) ? path : Path.Combine("hosted", RuntimeNamespace, path);
 
         public static string UserMapDirectory { get; set; } = Path.Combine(Platform.AppPaths.UserDataDirectory, "user-maps");
@@ -189,7 +192,7 @@ namespace MphRead.Mods.MapGen
             // Metadata is also read before game-file setup. Only filenames
             // belong here; resolving runtime directories requires configured paths.
             MapOutputSet outputs = MapOutputSet.Create(def,"","","");
-            return new RoomMetadata(
+            var room = new RoomMetadata(
                 id: id,
                 name: def.Name,
                 inGameName: def.InGameName ?? def.Name,
@@ -223,6 +226,8 @@ namespace MphRead.Mods.MapGen
                 // is how the camera ends up stuck behind a wall
                 multiplayer: true) { MaterialMapId = def.MapId,
                     AuthoredMaterials = def.Materials.Select(m => (m.Id, m.Name)).ToArray() };
+            return GeneratedRuntimeRoot == null ? room : room.WithPrivateResources(MapOutputSet.Create(def,
+                ArchiveDirectory(def), EntityDirectory(), NodeDirectory()));
         }
 
         private static ColorRgb ToColor(int[] values)
@@ -237,17 +242,17 @@ namespace MphRead.Mods.MapGen
 
         public static string ArchiveDirectory(MapDefinition def)
         {
-            return Paths.Combine(Paths.FileSystem, @"_archives", RuntimePath(def.Name.ToLowerInvariant()));
+            return Paths.Combine(RuntimePublicationRoot, @"_archives", RuntimePath(def.Name.ToLowerInvariant()));
         }
 
         public static string EntityDirectory()
         {
-            return Paths.Combine(Paths.FileSystem, @"levels\entities", RuntimePath(""));
+            return Paths.Combine(RuntimePublicationRoot, @"levels\entities", RuntimePath(""));
         }
 
         public static string NodeDirectory()
         {
-            return Paths.Combine(Paths.FileSystem, @"levels\nodeData", RuntimePath(""));
+            return Paths.Combine(RuntimePublicationRoot, @"levels\nodeData", RuntimePath(""));
         }
 
         /// <summary>
@@ -299,6 +304,7 @@ namespace MphRead.Mods.MapGen
         /// </summary>
         public static void GenerateMissing(string roomName)
         {
+            if (StudioReplay.StudioReplayResources.Current?.Room(roomName) != null) return;
             if (String.IsNullOrWhiteSpace(roomName)) return;
             MapDefinition? definition;
             try
@@ -369,6 +375,7 @@ namespace MphRead.Mods.MapGen
         /// </summary>
         public static string? WhyUnplayable(string roomName)
         {
+            if (StudioReplay.StudioReplayResources.Current?.Room(roomName) != null) return null;
             MapDefinition? def = null;
             foreach (MapDefinition candidate in Definitions)
             {

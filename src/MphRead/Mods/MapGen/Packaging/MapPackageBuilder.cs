@@ -58,6 +58,8 @@ namespace MphRead.Mods.MapGen
             }
             // External authoring paths and reimport baselines are private, not runtime dependencies.
             definition.ModelSources.Clear();
+            definition.PrefabSource = null;
+            definition.PrefabInstances.Clear();
             foreach(var asset in definition.Assets) asset.SourcePath = null;
             entries.Add("project.json", Encoding.UTF8.GetBytes(definition.Serialize()));
             var manifest = new MapPackageManifest

@@ -175,6 +175,15 @@ namespace MphRead.Mods.Launcher.Gui
                         Finish(new LaunchPlan { Kind = LaunchKind.Offline, RoomKey = definition.Name, IsPlaytest = true,
                             Hunter = Hunter.Samus, Mode = GameMode.Battle, Bots = 0, BotLevel = 5, PlayerName = "Map author" });
                     };
+                    // During parity verification the embedded route remains available.
+                    // The paired desktop app owns new independent creator windows.
+                    forge.AddExternalStudioLaunch(() =>
+                    {
+                        if (!Mods.StudioIntegration.StudioApplicationLauncher.TryOpen(null, false, out string? error))
+                            _prime.Overlays.Show(new PrimePanel(PrimeChrome.Stack(
+                                PrimeChrome.Title("STUDIO COULD NOT START"), PrimeChrome.Text(error ?? "Studio is unavailable."),
+                                new PrimeButton("CLOSE", Pop))), PrimeModalSize.Small);
+                    });
                     return forge;
 #else
                     return new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("FORGE"),
@@ -299,6 +308,7 @@ namespace MphRead.Mods.Launcher.Gui
             _prime.IsVisible = true; _prime.IsEnabled = true;
             _prime.Router.Navigate(PrimeRoute.Forge);
         }
+        internal void OpenStudioHosting(string roomKey) => OpenCreateServer(roomKey);
         private void OpenCreateServer(string? firstMap = null)
         {
             if (NetSession.Active) { _prime.Router.Navigate(PrimeRoute.Lobby); return; }

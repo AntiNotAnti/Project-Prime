@@ -15,6 +15,34 @@ namespace MphRead.Mods.Render
     internal static unsafe class ModernGraphicsSurface
     {
         private static nint _quartzCore;
+        internal static Surface* CreateNativeHost(nint handle, string kind, nint display,
+            WebGPU api, Instance* instance, GraphicsBackend backend)
+        {
+            var descriptor = new SurfaceDescriptor();
+            if (OperatingSystem.IsWindows() && kind == "HWND")
+            {
+                var native = new SurfaceDescriptorFromWindowsHWND { Chain = new ChainedStruct { SType = SType.SurfaceDescriptorFromWindowsHwnd },
+                    Hwnd = (void*)handle, Hinstance = (void*)GetModuleHandle(null) };
+                descriptor.NextInChain = (ChainedStruct*)&native;
+                return api.InstanceCreateSurface(instance, &descriptor);
+            }
+            if (OperatingSystem.IsLinux() && kind == "XID" && display != 0)
+            {
+                var native = new SurfaceDescriptorFromXlibWindow { Chain = new ChainedStruct { SType = SType.SurfaceDescriptorFromXlibWindow },
+                    Display = (void*)display, Window = (ulong)handle };
+                descriptor.NextInChain = (ChainedStruct*)&native;
+                return api.InstanceCreateSurface(instance, &descriptor);
+            }
+            if (OperatingSystem.IsMacOS() && kind == "NSView")
+            {
+                if (backend == GraphicsBackend.Vulkan) return CreateAppKitSurface(instance, handle);
+                nint layer = AttachMetalLayer(handle);
+                var native = new SurfaceDescriptorFromMetalLayer { Chain = new ChainedStruct { SType = SType.SurfaceDescriptorFromMetalLayer }, Layer = (void*)layer };
+                descriptor.NextInChain = (ChainedStruct*)&native;
+                return api.InstanceCreateSurface(instance, &descriptor);
+            }
+            throw new PlatformNotSupportedException($"Studio native viewport does not support {kind} on this platform.");
+        }
         internal static Surface* Create(NativeWindow window, WebGPU api, Instance* instance, GraphicsBackend backend)
         {
             var descriptor = new SurfaceDescriptor();
@@ -95,6 +123,9 @@ namespace MphRead.Mods.Render
         }
 
         private static IntPtr AttachMetalLayer(NativeWindow window)
+            => AttachMetalLayer(GLFW.GetCocoaView(window.WindowPtr));
+
+        private static IntPtr AttachMetalLayer(nint view)
         {
             // Silk.NET's equivalent helper is internal. Reach the two Cocoa
             // properties directly instead of taking a dependency on its
@@ -105,7 +136,6 @@ namespace MphRead.Mods.Render
                     "/System/Library/Frameworks/QuartzCore.framework/QuartzCore");
             }
 
-            IntPtr view = GLFW.GetCocoaView(window.WindowPtr);
             if (view == IntPtr.Zero)
             {
                 throw new InvalidOperationException("GLFW returned no Cocoa content view.");

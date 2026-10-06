@@ -156,6 +156,11 @@ namespace MphRead.Mods.Network
             CancellationToken cancellation = default)
         {
             cancellation.ThrowIfCancellationRequested();
+            if (StudioReplay.StudioReplayResources.Current is { } privateResources)
+            {
+                privateResources.Prepare(metadata, cancellation);
+                return null;
+            }
             if (CustomSession(metadata) is not { } session) return null;
             var identity = session.Match.MapIdentity.Content(metadata.RoomKey);
             bool haveArchive = CustomRooms.Installed.HasExact(identity);
@@ -207,7 +212,8 @@ namespace MphRead.Mods.Network
 
         public static ReplayOpenResult Validate(ReplayMetadata metadata)
         {
-            if (metadata.CustomMapIdentity is { } identity && !CustomRooms.Installed.HasExact(identity))
+            if (metadata.CustomMapIdentity is { } identity
+                && !(StudioReplay.StudioReplayResources.Current?.Matches(identity) ?? CustomRooms.Installed.HasExact(identity)))
                 return ReplayOpenResult.MapHashMismatch;
             // Zero identifies an unavailable hash (e.g. an asset-free format fixture).
             // Real recordings require a hash at Start, so never silently waive it there.

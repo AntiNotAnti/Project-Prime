@@ -67,13 +67,13 @@ namespace MphRead.Mods.Replay
             Save(path, document);
         }
 
-        public static ReplayBookmark AddBookmark(string replay, uint frame, string? name)
+        public static ReplayBookmark AddBookmark(string replay, uint frame, string? name, uint? durationFrames = null)
         {
             string path = RequireReplay(replay);
             ReplayAnnotationDocument document = Load(path);
             string title = CleanName(name, $"Bookmark {ReplayHud.Time(frame)}");
             var bookmark = new ReplayBookmark(Guid.NewGuid(),
-                Math.Min(frame, ReplayController.DurationFrames), title, DateTime.UtcNow);
+                Math.Min(frame, durationFrames ?? ReplayController.DurationFrames), title, DateTime.UtcNow);
             document.Bookmarks.Add(bookmark);
             Save(path, document);
             return bookmark;

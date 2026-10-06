@@ -24,6 +24,106 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  studio-desktop:
+    name: Studio desktop acceptance (${{ matrix.os }})
+    needs: patched-wgpu-native
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: macos-latest
+            rid: osx-arm64
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/download-artifact@v8
+        if: runner.os != 'macOS'
+        with:
+          name: patched-wgpu-${{ matrix.rid }}
+          path: artifacts/wgpu-native-desktop/${{ matrix.rid }}/
+      - name: native dependencies for the canonical engine on macOS
+        if: runner.os == 'macOS'
+        run: |
+          tools/wgpu/build-native.sh "${{ matrix.rid }}"
+          tools/ktx/build-native.sh "${{ matrix.rid }}"
+      - name: cross-process map publication ownership
+        run: dotnet run --project tools/map-publication-check -c Release
+      - name: fractional replay sampling, offline PCM, worker processes and diagnostic redaction
+        run: dotnet run --project tools/studio-export-check -c Release
+      - name: software Vulkan, X11 and replay encoder dependencies on Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y ffmpeg xvfb xauth mesa-vulkan-drivers \
+            libx11-6 libxrandr2 libxi6 libxcursor1 libxinerama1 libice6 libsm6 libfontconfig1
+      - name: real replay PCM and video encoder acceptance on Linux
+        if: runner.os == 'Linux'
+        run: |
+          dotnet run --project tools/studio-export-check -c Release -- --ffmpeg ffmpeg --ffprobe ffprobe
+      - name: portable paired packaging regressions
+        shell: bash
+        run: python3 -m unittest discover -s tools -p 'test_studio_packaging.py'
+      - name: Studio architecture contracts
+        run: dotnet run --project tools/studio-architecture-check -c Release
+      - name: authenticated local IPC and forwarding
+        run: dotnet run --project tools/studio-ipc-check -c Release
+      - name: game broker and exact immutable package installation
+        run: dotnet run --project tools/game-studio-broker-check -c Release
+      - name: canonical prefab structure and propagation
+        run: dotnet run --project tools/map-prefab-check -c Release
+      - name: canonical Studio geometry and gameplay analysis
+        run: dotnet run --project tools/studio-modeling-check -c Release
+      - name: measured Studio diagnostics and owned jobs
+        run: dotnet run --project tools/studio-diagnostics-check -c Release
+      - name: Studio launcher paths and file routes
+        run: dotnet run --project tools/studio-launch-check -c Release
+      - name: Studio rendering CPU parity and lossless picking IDs
+        run: dotnet run --project tools/studio-render-check -c Release
+      - name: Studio document and process lifecycle
+        run: dotnet run --project tools/studio-lifecycle-check -c Release
+      - name: native Studio windows, Map surfaces and process recovery on Linux
+        if: runner.os == 'Linux'
+        run: |
+          xvfb-run -a --server-args="-screen 0 1920x1080x24" \
+            dotnet run --project tools/studio-lifecycle-check -c Release --no-build -- --native
+      - name: Studio home and workspace captures
+        run: dotnet run --project tools/studio-ui-check -c Release -- "${{ runner.temp }}/studio-ui"
+      - name: publish matching game and Studio executables
+        shell: bash
+        run: |
+          version=$(dotnet msbuild src/MphRead/MphRead.csproj -getProperty:Version)
+          dotnet publish src/MphRead/MphRead.csproj -c Release -r "${{ matrix.rid }}" \
+            --self-contained true -p:PublishSingleFile=true -p:Version="$version" \
+            -p:InformationalVersion="$version" -p:IncludeSourceRevisionInInformationalVersion=false \
+            -o "publish/game-${{ matrix.rid }}"
+          dotnet publish src/ProjectPrime.Studio/ProjectPrime.Studio.csproj -c Release -r "${{ matrix.rid }}" \
+            --self-contained true -p:PublishSingleFile=true -p:Version="$version" \
+            -p:InformationalVersion="$version" -p:IncludeSourceRevisionInInformationalVersion=false \
+            -o "publish/studio-${{ matrix.rid }}"
+          extension=""
+          if [[ "${{ runner.os }}" == Windows ]]; then extension=.exe; fi
+          python3 tools/studio-pair.py smoke "publish/game-${{ matrix.rid }}/ProjectPrime$extension" \
+            "publish/studio-${{ matrix.rid }}/ProjectPrimeStudio$extension" "$version"
+      - name: no game assets in Studio
+        shell: bash
+        run: tools/check-no-game-assets.sh publish/studio-${{ matrix.rid }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: project-prime-studio-desktop-${{ matrix.rid }}
+          path: |
+            publish/game-${{ matrix.rid }}
+            publish/studio-${{ matrix.rid }}
+            ${{ runner.temp }}/studio-ui
+          if-no-files-found: error
+
   engineering-contracts:
     uses: ./.github/workflows/engineering-contracts.yml
     with:
@@ -554,12 +654,28 @@ jobs:
           path: artifacts/wgpu-native-desktop/${{ matrix.rid }}/
       # Windows and Linux targets remain cross-published on Ubuntu.
       - name: publish ${{ matrix.summary }}
-        run: >
-          dotnet publish src/MphRead/MphRead.csproj
-          -c Release -r ${{ matrix.rid }} ${{ matrix.extra }}
-          --self-contained true -p:PublishSingleFile=true
-          -o publish/${{ matrix.id }}
+        run: |
+          VERSION=$(dotnet msbuild src/MphRead/MphRead.csproj -getProperty:Version)
+          dotnet publish src/MphRead/MphRead.csproj \
+            -c Release -r ${{ matrix.rid }} ${{ matrix.extra }} \
+            --self-contained true -p:PublishSingleFile=true -p:Version="$VERSION" \
+            -p:InformationalVersion="$VERSION" -p:IncludeSourceRevisionInInformationalVersion=false \
+            -o publish/${{ matrix.id }}
 
+      - name: publish Studio into the paired desktop package
+        if: matrix.extra == ''
+        run: |
+          VERSION=$(dotnet msbuild src/MphRead/MphRead.csproj -getProperty:Version)
+          dotnet publish src/ProjectPrime.Studio/ProjectPrime.Studio.csproj -c Release -r "${{ matrix.rid }}" \
+            --self-contained true -p:PublishSingleFile=true -p:Version="$VERSION" \
+            -p:InformationalVersion="$VERSION" -p:IncludeSourceRevisionInInformationalVersion=false \
+            -o "publish/studio-${{ matrix.id }}"
+          python3 tools/studio-pair.py merge "publish/${{ matrix.id }}" "publish/studio-${{ matrix.id }}" "$VERSION"
+      - name: exact paired desktop version smoke
+        if: matrix.id == 'linux-x64'
+        run: |
+          VERSION=$(dotnet msbuild src/MphRead/MphRead.csproj -getProperty:Version)
+          python3 tools/studio-pair.py smoke publish/linux-x64/ProjectPrime publish/linux-x64/ProjectPrimeStudio "$VERSION"
       - name: map editor history regressions
         if: matrix.id == 'linux-x64'
         run: dotnet run --project tools/map-editor-check -c Release
@@ -752,8 +868,15 @@ jobs:
           RID: ${{ matrix.rid }}
         run: |
           set -euo pipefail
+          VERSION=$(dotnet msbuild src/MphRead/MphRead.csproj -getProperty:Version)
           dotnet publish src/MphRead/MphRead.csproj -c Release -r "$RID" \
+            -p:Version="$VERSION" -p:InformationalVersion="$VERSION" -p:IncludeSourceRevisionInInformationalVersion=false \
             --self-contained true -p:PublishSingleFile=true -o "publish/$RID"
+          dotnet publish src/ProjectPrime.Studio/ProjectPrime.Studio.csproj -c Release -r "$RID" \
+            -p:Version="$VERSION" -p:InformationalVersion="$VERSION" -p:IncludeSourceRevisionInInformationalVersion=false \
+            --self-contained true -p:PublishSingleFile=true -o "publish/studio-$RID"
+          tools/sign-macos.sh "publish/studio-$RID" ProjectPrimeStudio
+          tools/check-macos-build.sh "publish/studio-$RID" "$RID" ProjectPrimeStudio
           chmod +x "publish/$RID/ProjectPrime"
           "publish/$RID/ProjectPrime" -renderbackendprobe -renderer metal
           tools/check-macos-modern-vulkan.sh "publish/$RID/ProjectPrime"
@@ -764,7 +887,7 @@ jobs:
           tools/check-no-game-assets.sh "publish/$RID"
           tools/check-maps-shipped.sh "publish/$RID"
           VERSION=$(dotnet msbuild src/MphRead/MphRead.csproj -getProperty:Version)
-          tools/package-macos.sh "publish/$RID" dist "$RID" "$VERSION"
+          tools/package-macos.sh "publish/$RID" dist "$RID" "$VERSION" "publish/studio-$RID"
       - uses: actions/upload-artifact@v7
         with:
           name: ProjectPrime-${{ matrix.rid }}

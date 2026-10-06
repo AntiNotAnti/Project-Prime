@@ -16,6 +16,12 @@ internal sealed partial class MapStudioScreen
         Guid id = viewport.SelectedFaceObjectId;
         int[] faces = viewport.SelectedFaceIndices.ToArray();
         if (MapObjects.Find(_document.Project.Definition, id)?.Value is not MapMesh mesh) return;
+        if(mesh.ModifierSource!=null)
+        {
+            panel.Children.Add(Text("Bake the modifier stack in Modeling before editing mesh UVs."));
+            AddButton(panel,"Open modifier stack",()=>ShowInspectorPage("Modeling"));
+            return;
+        }
         float texScale = _document.Project.Definition.Materials[mesh.Material].TexScale;
         panel.Children.Add(Text($"UV · {faces.Length} selected faces · " +
             (faces.All(i => i < mesh.FaceTexcoords.Count && mesh.FaceTexcoords[i] != null) ? "Explicit" : "Projected / mixed")));

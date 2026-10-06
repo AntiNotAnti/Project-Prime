@@ -14,6 +14,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NcsfPlay", "NcsfPlay\NcsfPl
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MphRead.Protocol.Generator", "MphRead.Protocol.Generator\MphRead.Protocol.Generator.csproj", "{4D983E66-9BA7-4DCD-9AD4-86D3B5EA8B88}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ProjectPrime.Studio", "ProjectPrime.Studio\ProjectPrime.Studio.csproj", "{DD544D6A-AF79-4FC4-9102-F125F8BA63A0}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ProjectPrime.Studio.Protocol", "ProjectPrime.Studio.Protocol\ProjectPrime.Studio.Protocol.csproj", "{E461733B-5B90-4FDC-B423-08C35F9856E7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,6 +36,14 @@ Global
 		{4D983E66-9BA7-4DCD-9AD4-86D3B5EA8B88}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4D983E66-9BA7-4DCD-9AD4-86D3B5EA8B88}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4D983E66-9BA7-4DCD-9AD4-86D3B5EA8B88}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DD544D6A-AF79-4FC4-9102-F125F8BA63A0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DD544D6A-AF79-4FC4-9102-F125F8BA63A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DD544D6A-AF79-4FC4-9102-F125F8BA63A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DD544D6A-AF79-4FC4-9102-F125F8BA63A0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E461733B-5B90-4FDC-B423-08C35F9856E7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E461733B-5B90-4FDC-B423-08C35F9856E7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E461733B-5B90-4FDC-B423-08C35F9856E7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E461733B-5B90-4FDC-B423-08C35F9856E7}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

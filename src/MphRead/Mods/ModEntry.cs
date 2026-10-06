@@ -34,6 +34,18 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+#if MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (HasFlag(args, "studioversion"))
+            {
+                Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    gameVersion = typeof(ModEntry).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+                        .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion ?? "local",
+                    studioIpcVersion = ProjectPrime.Studio.Protocol.StudioProtocol.StudioIpcVersion
+                }));
+                return true;
+            }
+#endif
             bool serverInvocation = HasFlag(args, "server")
                 || HasFlag(args, "dedicated") || HasFlag(args, "masterserver");
             bool hostedChild = HasFlag(args, "hostedchild");
@@ -127,6 +139,12 @@ namespace MphRead.Mods
 #endif
 #endif
 
+            if (ValueAfter(args, "customruntimeroot") is { } runtimeRoot)
+            {
+                if (!System.IO.Path.IsPathFullyQualified(runtimeRoot))
+                    throw new ArgumentException("The custom runtime root must be absolute.");
+                MapGen.CustomRooms.GeneratedRuntimeRoot = System.IO.Path.GetFullPath(runtimeRoot);
+            }
             if (ValueAfter(args, "customruntimenamespace") is { } runtimeNamespace)
             {
                 if (!Guid.TryParseExact(runtimeNamespace, "N", out _)) throw new ArgumentException("Invalid custom runtime namespace.");
@@ -667,7 +685,10 @@ namespace MphRead.Mods
                 Launcher.Gui.Shell.StudioProjectPath = ValueAfter(args, "studioproject");
                 if (Launcher.ClientInstanceGuard.TryAcquireForProcess(
                     TimeSpan.FromSeconds(5)))
+                {
+                    StudioIntegration.GameStudioIntegration.Start();
                     Launcher.Gui.Shell.Run();
+                }
 #else
                 Console.WriteLine("[mapeditor] Map Studio requires a desktop game build.");
                 Environment.ExitCode = 1;
@@ -900,8 +921,13 @@ namespace MphRead.Mods
                 if (!Launcher.ClientInstanceGuard.TryAcquireForProcess(TimeSpan.FromSeconds(5)))
                     return true;
                 MapGen.CustomRooms.DeferInitialRegistration = true;
+                StudioIntegration.GameStudioIntegration.Start();
                 bool ran = Launcher.Gui.Shell.Run();
-                if (!ran) MapGen.CustomRooms.RestoreDeferredRegistration();
+                if (!ran)
+                {
+                    StudioIntegration.GameStudioIntegration.Stop();
+                    MapGen.CustomRooms.RestoreDeferredRegistration();
+                }
                 if (ran) return true;
 
                 if (HasFlag(args, "rmluipocshot"))

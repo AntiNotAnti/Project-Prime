@@ -9,14 +9,21 @@ namespace MphRead.Mods.MapGen;
 public static class MapRuntimeUsage
 {
     internal static readonly object Gate = new();
-    private static readonly List<(WeakReference<Scene> Scene, string Room)> Readers = new();
+    private static readonly List<(WeakReference<Scene> Scene, string Room, MapPublicationLease Lease)> Readers = new();
     private static readonly Dictionary<string, int> Preparations = new(StringComparer.OrdinalIgnoreCase);
+    // Policy-only tools can exercise ownership before extracted game paths exist.
+    // Actual publication still requires its configured runtime root.
+    private static string LeaseRuntimeRoot => string.IsNullOrWhiteSpace(CustomRooms.RuntimePublicationRoot) ? AppContext.BaseDirectory : CustomRooms.RuntimePublicationRoot;
     internal static IDisposable AcquirePreparation(string room)
     {
-        lock (Gate) { Preparations.TryGetValue(room, out int count); Preparations[room] = count + 1; }
-        return new PreparationLease(room);
+        lock (Gate)
+        {
+            var lease = MapPublicationLease.AcquireReader(LeaseRuntimeRoot, CustomRooms.RuntimeNamespace, room);
+            Preparations.TryGetValue(room, out int count); Preparations[room] = count + 1;
+            return new PreparationLease(room, lease);
+        }
     }
-    private sealed class PreparationLease(string room) : IDisposable
+    private sealed class PreparationLease(string room, MapPublicationLease lease) : IDisposable
     {
         private bool _disposed;
         public void Dispose()
@@ -25,6 +32,7 @@ public static class MapRuntimeUsage
             {
                 if (_disposed) return; _disposed = true;
                 if (--Preparations[room] == 0) Preparations.Remove(room);
+                lease.Dispose();
             }
         }
     }
@@ -33,18 +41,29 @@ public static class MapRuntimeUsage
         lock (Gate)
         {
             Release(scene);
-            Readers.Add((new(scene), room));
+            var lease = MapPublicationLease.AcquireReader(LeaseRuntimeRoot, CustomRooms.RuntimeNamespace, room);
+            Readers.Add((new(scene), room, lease));
         }
     }
     internal static void Release(Scene scene)
     {
-        lock (Gate) Readers.RemoveAll(entry => !entry.Scene.TryGetTarget(out var target) || ReferenceEquals(target, scene));
+        lock (Gate) RemoveReaders(scene);
+    }
+    private static void RemoveReaders(Scene? scene = null)
+    {
+        for (int i = Readers.Count - 1; i >= 0; i--)
+        {
+            var entry = Readers[i];
+            if (entry.Scene.TryGetTarget(out var target) && !ReferenceEquals(target, scene)) continue;
+            entry.Lease.Dispose();
+            Readers.RemoveAt(i);
+        }
     }
     public static bool IsInUse(string room)
     {
         lock (Gate)
         {
-            Readers.RemoveAll(entry => !entry.Scene.TryGetTarget(out _));
+            RemoveReaders();
             return Preparations.ContainsKey(room) || Readers.Any(entry => entry.Room.Equals(room, StringComparison.OrdinalIgnoreCase));
         }
     }
@@ -52,7 +71,7 @@ public static class MapRuntimeUsage
     {
         lock (Gate)
         {
-            Readers.RemoveAll(entry => !entry.Scene.TryGetTarget(out _));
+            RemoveReaders();
             if (Network.NetSession.Active && Network.NetSession.SessionPhase != Network.SessionPhase.Lobby
                 && !(initialJoin && Network.NetSession.IsClient && Readers.Count == 0))
                 throw new IOException("Return to the lobby before installing map content.");

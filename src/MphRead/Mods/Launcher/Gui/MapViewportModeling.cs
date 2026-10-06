@@ -46,6 +46,7 @@ internal sealed partial class MapViewport
     private void BeginSubInteraction(PointerPressedEventArgs e)
     {
         var mesh = (MapMesh)ActiveSelection!.Value;
+        if(mesh.ModifierSource!=null){ModelingError?.Invoke("Bake modifier stack before editing mesh elements.");e.Handled=true;return;}
         if (mesh.Locked) { ModelingError?.Invoke("Unlock the mesh before editing it."); e.Handled=true; return; }
         SubSelection.Bind(mesh.Id); _axis=-1;
         if (HasSubSelection && !e.KeyModifiers.HasFlag(KeyModifiers.Control) && !e.KeyModifiers.HasFlag(KeyModifiers.Shift))
@@ -142,6 +143,7 @@ internal sealed partial class MapViewport
         else if(control&&(e.Key==Key.Subtract||e.Key==Key.OemMinus))SubSelection.Resize(mesh,ElementMode,false);
         else if(!control&&!alt&&(e.Key==Key.G||e.Key==Key.R||e.Key==Key.S))
         {
+            if(mesh.ModifierSource!=null){ModelingError?.Invoke("Bake modifier stack before editing mesh elements.");return true;}
             if(!HasSubSelection)return true;
             Tool=e.Key==Key.G?"Move":e.Key==Key.R?"Rotate":"Scale";
             try {_subPreview=new(mesh,SubSelection,ElementMode,PivotMode,CursorPivot);_keyboardTransform=true;_numericTransform="";_start=_last;_drag=true;_axis=-1;}
@@ -179,6 +181,7 @@ internal sealed partial class MapViewport
         try
         {
             if(ActiveSelection?.Value is not MapMesh source)throw new InvalidOperationException("Select an editable mesh first.");
+            if(source.ModifierSource!=null)throw new InvalidOperationException("Bake modifier stack before editing mesh elements.");
             if(source.Locked)throw new InvalidOperationException("Unlock the mesh first.");
             SubSelection.Bind(source.Id);SubSelection.Validate(source);
             int[] faces=SubSelection.Faces.Order().ToArray(),vertices=SubSelection.VertexIndices(source,ElementMode);

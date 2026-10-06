@@ -16,7 +16,13 @@ namespace MphRead.Mods.MapGen
         {
             // In-memory edits are the recipe. The file on disk may be older,
             // differently formatted or absent for an unsaved editor document.
-            string recipe = HashText(definition.Serialize());
+            var runtime = definition;
+            if (definition.PrefabSource != null || definition.PrefabInstances.Count != 0)
+            {
+                runtime = MapSnapshotCopy.Copy(definition);
+                runtime.PrefabSource = null; runtime.PrefabInstances.Clear();
+            }
+            string recipe = HashText(runtime.Serialize());
             var dependencies = MapDependencyAnalyzer.Analyze(definition);
             string Select(string kind) => HashText(JsonSerializer.Serialize(
                 System.Linq.Enumerable.Where(dependencies, d => d.Kind == kind)));

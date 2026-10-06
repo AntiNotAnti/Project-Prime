@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/MphRead/Mods/StudioReplay/StudioOfflineAudio.cs" Link="StudioOfflineAudio.cs" />
+    <Compile Include="../../src/MphRead/Mods/StudioReplay/StudioDiagnosticRedaction.cs" Link="StudioDiagnosticRedaction.cs" />
+    <Compile Include="../../src/MphRead/Mods/StudioReplay/StudioPortableArchive.cs" Link="StudioPortableArchive.cs" />
+    <Compile Include="../../src/MphRead/Mods/StudioReplay/StudioReplayContracts.cs" Link="StudioReplayContracts.cs" />
+    <Compile Include="../../src/ProjectPrime.Studio/Jobs/StudioJobManager.cs" Link="StudioJobManager.cs" />
+    <Compile Include="../../src/ProjectPrime.Studio/Replay/ReplayExportWorkerCoordinator.cs" Link="ReplayExportWorkerCoordinator.cs" />
+    <Compile Include="../../src/ProjectPrime.Studio/Replay/ReplayExportWorkerLog.cs" Link="ReplayExportWorkerLog.cs" />
+    <Compile Include="../../src/MphRead/Mods/Replay/ReplayExportSampler.cs" Link="ReplayExportSampler.cs" />
+    <Compile Include="../../src/MphRead/Mods/Replay/ReplayEncoderJob.cs" Link="ReplayEncoderJob.cs" />
+  </ItemGroup>
+</Project>

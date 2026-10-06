@@ -170,15 +170,53 @@ internal static class MapViewportCheck
             for (int i = 0; i < 5; i++) { System.Threading.Thread.Sleep(20); surface.Invalidate(); surface.Tick(); }
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
             surface.DrawMapViewport(window.FramebufferSize.X, window.FramebufferSize.Y);
+            var save = studio.GetVisualDescendants().OfType<PrimeButton>().First(b => b.Label == "SAVE");
+            // Compare the compositor with Avalonia's actual RGBA raster, rather
+            // than assuming every channel of the current button theme is bright.
+            var raster = (UiTopLevelImpl)typeof(UiSurface).GetField("_impl",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(surface)!;
+            using (var cpuUi = new SkiaSharp.SKBitmap(raster.PixelWidth, raster.PixelHeight,
+                SkiaSharp.SKColorType.Rgba8888, SkiaSharp.SKAlphaType.Premul))
+            {
+                unsafe { new ReadOnlySpan<byte>((void*)raster.Pixels, raster.PixelWidth * raster.PixelHeight * 4)
+                    .CopyTo(new Span<byte>((void*)cpuUi.GetPixels(), cpuUi.ByteCount)); }
+                using var image = SkiaSharp.SKImage.FromBitmap(cpuUi);
+                using var png = image.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100);
+                File.WriteAllBytes(Path.Combine(directory, "map-studio-ui-oracle.png"), png.ToArray());
+            }
+            const int channelTolerance = 3; // Byte quantization and bilinear sampling can differ by a few levels.
+            var toolbarSamples = new System.Collections.Generic.List<(int X, int Y, byte[] Expected)>();
+            for (int row = 0; row < 4; row++) for (int column = 0; column < 8; column++)
+            {
+                var point = save.TranslatePoint(new Point(save.Bounds.Width * (column + .5) / 8,
+                    save.Bounds.Height * (row + .5) / 4), surface.Root)!.Value;
+                int sx = Math.Clamp((int)point.X, 1, raster.PixelWidth - 2);
+                int sy = Math.Clamp((int)point.Y, 1, raster.PixelHeight - 2);
+                byte[] expected = new byte[4];
+                System.Runtime.InteropServices.Marshal.Copy(raster.Pixels + (sy * raster.PixelWidth + sx) * 4, expected, 0, 4);
+                if (expected[3] != 255) continue;
+                bool flat = true;
+                for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) for (int channel = 0; channel < 4; channel++)
+                    flat &= Math.Abs(System.Runtime.InteropServices.Marshal.ReadByte(raster.Pixels,
+                        ((sy + dy) * raster.PixelWidth + sx + dx) * 4 + channel) - expected[channel]) <= channelTolerance;
+                if (!flat) continue; // Text/edge antialiasing is not a stable pixel oracle.
+                int x = Math.Clamp((int)(point.X / surface.WindowWidth * window.FramebufferSize.X), 0, window.FramebufferSize.X - 1);
+                int y = window.FramebufferSize.Y - 1 - Math.Clamp((int)(point.Y / surface.WindowHeight * window.FramebufferSize.Y), 0, window.FramebufferSize.Y - 1);
+                GL.ReadPixels(x, y, 1, 1, OpenTK.Graphics.OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, marker);
+                if (Enumerable.Range(0, 3).Any(channel => Math.Abs(marker[channel] - expected[channel]) > channelTolerance))
+                    toolbarSamples.Add((x, y, expected));
+            }
             UiOverlay.Draw(window.FramebufferSize.X, window.FramebufferSize.Y);
             Check(ScreenCapture.SaveWindow(window.FramebufferSize.X, window.FramebufferSize.Y,
                 Path.Combine(directory, "map-studio-renderer.png")), "full editor composite capture");
-            var back = studio.GetVisualDescendants().OfType<PrimeButton>().First(b => b.Label == "SAVE");
-            var backCenter = back.TranslatePoint(new Point(back.Bounds.Width / 2, back.Bounds.Height / 2), surface.Root)!.Value;
-            GL.ReadPixels((int)(backCenter.X / surface.WindowWidth * window.FramebufferSize.X),
-                window.FramebufferSize.Y - (int)(backCenter.Y / surface.WindowHeight * window.FramebufferSize.Y),
-                1, 1, OpenTK.Graphics.OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, marker);
-            Check(marker[0] > 20 && marker[1] > 20 && marker[2] > 20, "editor toolbar survives GPU composite");
+            int matched = 0;
+            foreach (var sample in toolbarSamples)
+            {
+                GL.ReadPixels(sample.X, sample.Y, 1, 1, OpenTK.Graphics.OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, marker);
+                if (Enumerable.Range(0, 4).All(channel => Math.Abs(marker[channel] - sample.Expected[channel]) <= channelTolerance)) matched++;
+            }
+            Check(toolbarSamples.Count >= 8 && matched == toolbarSamples.Count,
+                $"editor toolbar matches CPU UI raster above GPU geometry ({matched}/{toolbarSamples.Count} contrasting pixels)");
             Check(ReferenceEquals(foregroundPlayers, MphRead.Entities.PlayerEntity.LegacyRegistry)
                 && ReferenceEquals(foregroundState, GameState.Current) && ReferenceEquals(foregroundRandom, Rng.Current),
                 "editor renderer preserves foreground scene ownership");
@@ -207,7 +245,9 @@ internal static class MapViewportCheck
             surface.Show(libraryRoot); surface.Resize(window.FramebufferSize.X,window.FramebufferSize.Y);
             typeof(MapStudioScreen).GetMethod("ShowLibrary",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.Invoke(libraryStudio,null);
             for(int i=0;i<5;i++){System.Threading.Thread.Sleep(20);surface.Invalidate();surface.Tick();}
-            var libraryFrame=(Border)overlays.Children.Single();
+            // The modal host also owns its persistent scrim. Locate the actual
+            // content frame rather than assuming that the host has one child.
+            var libraryFrame=overlays.Children.OfType<Border>().Single(frame => frame.Child != null);
             Check(libraryFrame.Bounds.Height<550 && libraryFrame.Bounds.Height>460,"map library fits its content instead of stretching to window height");
             GL.Clear(ClearBufferMask.ColorBufferBit|ClearBufferMask.DepthBufferBit);
             surface.PrepareMapRenderer();surface.DrawMapViewport(window.FramebufferSize.X,window.FramebufferSize.Y);UiOverlay.Draw(window.FramebufferSize.X,window.FramebufferSize.Y);

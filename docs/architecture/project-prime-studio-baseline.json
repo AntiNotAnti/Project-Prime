@@ -1,0 +1,137 @@
+{
+  "baselineCommit": "fcf311ccfc2031a07598860295db03eea330ff6e",
+  "date": "2026-10-06",
+  "host": {
+    "os": "macOS",
+    "architecture": "arm64",
+    "sdk": "10.0.100",
+    "runtime": "10.0.0"
+  },
+  "coreCodeChanged": false,
+  "regressions": {
+    "map-editor": {
+      "status": "passed",
+      "checks": 442,
+      "log": "artifacts/studio-baseline/fcf311c/map-editor.log"
+    },
+    "next-pass-only": {
+      "status": "passed",
+      "checks": 47,
+      "log": "artifacts/studio-baseline/fcf311c/next-pass-only.log"
+    },
+    "model-import-only": {
+      "status": "passed",
+      "checks": 65,
+      "log": "artifacts/studio-baseline/fcf311c/model-import-only.log"
+    },
+    "collision-only": {
+      "status": "passed",
+      "checks": 86,
+      "log": "artifacts/studio-baseline/fcf311c/collision-only.log"
+    },
+    "community-only": {
+      "status": "passed",
+      "checks": 84,
+      "log": "artifacts/studio-baseline/fcf311c/community-only.log"
+    },
+    "runtime-only": {
+      "status": "passed",
+      "checks": null,
+      "log": "artifacts/studio-baseline/fcf311c/runtime-only.log"
+    },
+    "renderer-retention-only": {
+      "status": "passed",
+      "checks": 12,
+      "log": "artifacts/studio-baseline/fcf311c/renderer-retention-only.log"
+    },
+    "replay-timeline": {
+      "status": "passed",
+      "checks": 43,
+      "log": "artifacts/studio-baseline/fcf311c/replay-timeline.log"
+    },
+    "replaycontrolcheck": {
+      "status": "passed",
+      "checks": null,
+      "log": "artifacts/studio-baseline/fcf311c/replaycontrolcheck.log"
+    },
+    "replayformatcheck": {
+      "status": "passed",
+      "checks": 2962,
+      "log": "artifacts/studio-baseline/fcf311c/replayformatcheck.log"
+    },
+    "replaydeterminism": {
+      "status": "passed",
+      "checks": 1801,
+      "log": "artifacts/studio-baseline/fcf311c/replaydeterminism.log"
+    },
+    "uishot": {
+      "status": "passed",
+      "checks": 35,
+      "log": "artifacts/studio-baseline/fcf311c/uishot.log"
+    },
+    "uibench": {
+      "status": "passed",
+      "checks": null,
+      "log": "artifacts/studio-baseline/fcf311c/uibench.log"
+    },
+    "mapviewport": {
+      "status": "failed-before-changes",
+      "reason": "editor toolbar survives GPU composite",
+      "location": "src/MphRead/Mods/Launcher/Gui/MapViewportCheck.cs:181",
+      "passedAssertions": 30,
+      "log": "artifacts/studio-baseline/fcf311c/mapviewport.log",
+      "capture": "artifacts/studio-baseline/fcf311c/viewport/map-studio-renderer.png"
+    },
+    "map-multiplayer": {
+      "status": "passed-after-harness-repair",
+      "lastPassed": "pre-cancelled download cannot install",
+      "log": "artifacts/studio-baseline/fcf311c/map-multiplayer-repaired.log",
+      "originalLog": "artifacts/studio-baseline/fcf311c/map-multiplayer.log",
+      "repair": "Fake HTTP peer now serves production retries; whole download is bounded; positive byte progress precedes cancellation.",
+      "faultRequestCounts": {
+        "truncatedBody": 5,
+        "midStreamCancellation": 1,
+        "substitutedArchive": 2
+      }
+    }
+  },
+  "determinism": {
+    "frames": 1801,
+    "coldAndCachedSeekTargets": 14,
+    "rates": [
+      0.25,
+      0.5,
+      1,
+      2,
+      4
+    ],
+    "referenceArtifact": "artifacts/studio-baseline/fcf311c/reference-hashes.ppdemo",
+    "referenceSha256": "3ed30a636d17d874e51713e225679adb1c87462a41ea75c84a83dfbfa80046e2",
+    "fixture": "local v134 replay; original immutable file retained"
+  },
+  "measurements": {
+    "gameStartupToUsableShell": "not measured",
+    "gameMemory": "not measured",
+    "uiRedraw": "Measured by existing -uibench, see log for resolution/scale/workload medians. These are CPU UI redraw measurements, not gameplay/GPU FPS.",
+    "studioStartup": {
+      "milliseconds": 997.4,
+      "definition": "Main entry to first native shell Opened event, safe-mode asset-free launch; one macOS sample, not a startup distribution."
+    },
+    "studioMemory": {
+      "workingSetBytes": 155189248,
+      "definition": "Process working set at that Opened event."
+    }
+  },
+  "captureManifest": "artifacts/studio-baseline/fcf311c/manifest.json",
+  "releaseAcceptance": false,
+  "studioChecks": {
+    "architecture": 542,
+    "architectureScannerSelfTests": 12,
+    "ipc": 45,
+    "lifecycle": 91,
+    "ui": 178,
+    "uiCaptures": 9,
+    "capturePath": "artifacts/studio-ui/foundation",
+    "scope": "Phase1/2 foundation only"
+  }
+}

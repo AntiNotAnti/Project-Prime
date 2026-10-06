@@ -1487,6 +1487,10 @@ namespace MphRead
         }
 
         public static void UpdatePaths()
+            => UpdatePaths("paths.txt");
+
+        /// <summary>Load the same authoritative extraction paths from an explicit desktop host source.</summary>
+        public static void UpdatePaths(string pathsFile)
         {
             _allPaths.Clear();
             _allPaths.Add(Ver.AMFE0, "");
@@ -1500,16 +1504,18 @@ namespace MphRead
             _allPaths.Add(Ver.AMHP1, "");
             _allPaths.Add(Ver.AMHK0, "");
             _allPaths.Add("Export", "");
-            if (File.Exists("paths.txt"))
+            if (File.Exists(pathsFile))
             {
-                string[] lines = File.ReadAllLines("paths.txt");
+                string directory = Path.GetDirectoryName(Path.GetFullPath(pathsFile))!;
+                string[] lines = File.ReadAllLines(pathsFile);
                 foreach (string line in lines)
                 {
                     string[] split = line.Trim().Split('=');
                     string key = split[0].Trim();
                     if (split.Length == 2 && _allPaths.ContainsKey(key))
                     {
-                        _allPaths[key] = Absolute(split[1].Trim());
+                        string value=split[1].Trim();
+                        _allPaths[key] = value.Length==0 ? "" : Absolute(Path.IsPathRooted(value) ? value : Path.Combine(directory,value));
                     }
                 }
             }

@@ -62,6 +62,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly PrimeButton _validateFiltered;
 #if !ANDROID
         private readonly HubNavButton _reveal;
+        private readonly HubNavButton _editInStudio;
 #endif
         private readonly Dictionary<string, DemoRecording> _recordings =
             new(StringComparer.OrdinalIgnoreCase);
@@ -146,9 +147,9 @@ namespace MphRead.Mods.Launcher.Gui
             };
 
             root.Children.Add(HubChrome.Header(
-                "HOME  /  REPLAY STUDIO",
-                "REPLAY STUDIO",
-                "Search the archive, inspect timeline stills and highlights, then open the cinematic editor.",
+                "HOME  /  THEATRE",
+                "THEATRE",
+                "Search the archive, watch a replay, or edit it in Project Prime Studio.",
                 "LOCAL LIBRARY"));
 
             _search = new DeckField("", widthEms: 0,
@@ -305,7 +306,7 @@ namespace MphRead.Mods.Launcher.Gui
             var actions = new Grid
             {
                 ColumnDefinitions = new ColumnDefinitions("*,*"),
-                RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto"),
+                RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,Auto"),
                 ColumnSpacing = 6,
                 RowSpacing = 6
             };
@@ -316,6 +317,9 @@ namespace MphRead.Mods.Launcher.Gui
             _recover = Action("RECOVER", "studio.recover", Recover,
                 accent: HubTheme.Warm);
             _export = Action("EXPORT", "studio.export", () => _ = ExportAsync());
+#if !ANDROID
+            _editInStudio = Action("EDIT IN REPLAY STUDIO", "studio.edit", EditInStudio);
+#endif
             var rename = Action("RENAME", "studio.rename", Rename);
             var organize = Action("SAVE TAGS", "studio.organize", SaveOrganization);
             _delete = Action("DELETE", "studio.delete", Delete,
@@ -328,7 +332,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _favorite, _validate, _recover, _export, rename, organize, _delete
 #if !ANDROID
-                , _reveal
+                , _reveal, _editInStudio
 #endif
             };
             for (int i = 0; i < actionList.Length; i++)
@@ -412,7 +416,7 @@ namespace MphRead.Mods.Launcher.Gui
             Grid.SetColumn(_status, 2);
             footer.Children.Add(_status);
 
-            _watch = new PrimeButton("LAUNCH CINEMATIC EDITOR", primary: true)
+            _watch = new PrimeButton("WATCH REPLAY", primary: true)
             {
                 IsEnabled = false
             };
@@ -1049,6 +1053,7 @@ namespace MphRead.Mods.Launcher.Gui
             _delete.IsEnabled = selected;
 #if !ANDROID
             _reveal.IsEnabled = selected;
+            _editInStudio.IsEnabled = selected && !interrupted;
 #endif
         }
 
@@ -1433,7 +1438,7 @@ namespace MphRead.Mods.Launcher.Gui
                     return;
                 }
                 if (CanLaunch?.Invoke() == false) return;
-                _status.Text = "OPENING CINEMATIC EDITOR";
+                _status.Text = "OPENING REPLAY";
                 _status.Foreground = HubTheme.GoodBrush;
                 Launched?.Invoke(this, new LaunchPlan
                 {
@@ -1449,7 +1454,7 @@ namespace MphRead.Mods.Launcher.Gui
             finally
             {
                 _launching = false;
-                _watch.Label = "LAUNCH CINEMATIC EDITOR";
+                _watch.Label = "WATCH REPLAY";
                 _watch.IsEnabled = _selected != null
                     && !_selected.EndsWith(".part", StringComparison.OrdinalIgnoreCase);
             }
@@ -1624,7 +1629,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         internal void ShowLaunchFailure(string message)
         {
-            _watch.Label = "LAUNCH CINEMATIC EDITOR";
+            _watch.Label = "WATCH REPLAY";
             _watch.IsEnabled = _selected != null
                 && !_selected.EndsWith(".part", StringComparison.OrdinalIgnoreCase);
             Fail(message);
@@ -1635,6 +1640,20 @@ namespace MphRead.Mods.Launcher.Gui
             _status.Text = message.ToUpperInvariant();
             _status.Foreground = HubTheme.DangerBrush;
         }
+#if !ANDROID
+        private void EditInStudio()
+        {
+            if (_selected is not string path) { Fail("Select a replay or clip first."); return; }
+            if (path.EndsWith(".part", StringComparison.OrdinalIgnoreCase))
+            { Fail("Recover the interrupted recording before opening it in Studio."); return; }
+            if (StudioIntegration.StudioApplicationLauncher.TryOpen(path, false, out string? error))
+            {
+                _status.Text = "OPENING PROJECT PRIME STUDIO";
+                _status.Foreground = HubTheme.GoodBrush;
+            }
+            else Fail(error ?? "Studio could not start.");
+        }
+#endif
     }
 }
 #endif

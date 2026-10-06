@@ -330,11 +330,11 @@ namespace MphRead.Entities
                 // on the replay's ordinary presentation clock. This changes drawing
                 // only: the replica simulation and authoritative recorded outcomes
                 // keep their existing timeline.
-                bool shooterView = _scene.Services.IsReplica
+                bool shooterView = _scene.StudioReplayShooterView ?? (_scene.Services.IsReplica
                     && Mods.Network.DemoPlayback.IsActive
                     && Mods.SpectatorMode.IsSpectating
                     && !Mods.SpectatorMode.FreeCamera
-                    && Mods.Replay.ReplayCamera.Mode == Mods.Replay.ReplayCameraMode.FirstPerson;
+                    && Mods.Replay.ReplayCamera.Mode == Mods.Replay.ReplayCameraMode.FirstPerson);
                 int viewerSlot = _scene.Players.Main.SlotIndex;
                 if (_scene.ReplayPoses.SamplePresentedForViewer(player.SlotIndex,
                     viewerSlot, shooterView, _scene.ReplayRenderAlpha,

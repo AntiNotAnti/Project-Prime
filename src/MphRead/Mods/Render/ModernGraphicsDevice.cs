@@ -175,6 +175,12 @@ namespace MphRead.Mods.Render
         internal Adapter* Adapter => _adapter;
         internal Device* Device => _device;
         internal Surface* Surface => _surface;
+        internal Instance* Instance => _instance;
+
+        // Studio owns independently hosted Avalonia native surfaces. The device
+        // only borrows the active replay target; the surface owner releases it.
+        internal void BorrowStudioSurface(Surface* surface) => _surface = surface;
+        internal void ClearBorrowedStudioSurface() => _surface = null;
 
         public static ModernGraphicsDevice Create(GraphicsBackend requested = GraphicsBackend.Auto)
         {

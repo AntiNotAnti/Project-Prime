@@ -36,7 +36,7 @@ internal static class ReplayUiCheck
         string missing = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid() + ".ppdemo");
         Select(missing);
         Pump(Watch());
-        if (!button.IsEnabled || button.Label != "LAUNCH CINEMATIC EDITOR" || String.IsNullOrEmpty(status.Text))
+        if (!button.IsEnabled || button.Label != "WATCH REPLAY" || String.IsNullOrEmpty(status.Text))
             throw new Exception("Failed replay launch did not restore controls and explain failure.");
 
         // A minimal legacy header is sufficient for the launch metadata probe.
@@ -47,7 +47,7 @@ internal static class ReplayUiCheck
         try
         {
             Pump(Watch());
-            if (launches != 1 || !button.IsEnabled || button.Label != "LAUNCH CINEMATIC EDITOR"
+            if (launches != 1 || !button.IsEnabled || button.Label != "WATCH REPLAY"
                 || status.Text?.Contains("LAUNCH CHECK FAILURE") != true)
                 throw new Exception("Launch exception stranded the library.");
         }
@@ -72,7 +72,7 @@ internal static class ReplayUiCheck
                 release.Set();
                 Pump(pending);
                 if (status.Text != "") throw new Exception("Stale replay launch changed the current screen.");
-                if (!button.IsEnabled || button.Label != "LAUNCH CINEMATIC EDITOR")
+                if (!button.IsEnabled || button.Label != "WATCH REPLAY")
                     throw new Exception("Cancelled replay launch left controls stuck.");
             }
             finally { release.Set(); Task.WaitAll(workers); window.Content = theatre; }

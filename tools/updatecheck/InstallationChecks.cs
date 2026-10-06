@@ -10,6 +10,14 @@ internal static class InstallationChecks
 {
     internal static int? RunChild(string[] args)
     {
+        if (args.Length == 2 && args[0] == "--hold-installation")
+        {
+            using var lifetime = InstallationLifetime.AcquireApplication(args[1]);
+            Console.WriteLine("READY");
+            Console.Out.Flush();
+            Console.ReadLine();
+            return 0;
+        }
         if (args.Length != 4 || args[0] != "--crash-install") return null;
         int at = int.Parse(args[3]);
         ReleaseInstallation.Apply(args[1], args[2], step => { if (step == at) Environment.Exit(73); });
@@ -19,6 +27,10 @@ internal static class InstallationChecks
     {
         string root = Path.Combine(Path.GetTempPath(), "prime-install-check-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
+        string? oldUserData = Environment.GetEnvironmentVariable("PROJECT_PRIME_USER_DATA");
+        string? oldLifetimeData = Environment.GetEnvironmentVariable("PROJECT_PRIME_INSTALLATION_LIFETIME_DATA");
+        Environment.SetEnvironmentVariable("PROJECT_PRIME_USER_DATA", Path.Combine(root, "state"));
+        Environment.SetEnvironmentVariable("PROJECT_PRIME_INSTALLATION_LIFETIME_DATA", Path.Combine(root, "lifetime"));
         try
         {
             (string Source, string Target) Fixture(string name)
@@ -157,7 +169,81 @@ internal static class InstallationChecks
             try { ReleaseInstallation.WaitForExit(Environment.ProcessId, 1); ReleaseInstallation.Apply(wait.Source, wait.Target); }
             catch (TimeoutException) { rejected = true; }
             check(rejected && Original(wait.Target), "a live old process prevents every installation mutation");
+
+            var paired = Fixture("paired");
+            string game = OperatingSystem.IsWindows() ? "ProjectPrime.exe" : "ProjectPrime";
+            string studio = OperatingSystem.IsWindows() ? "ProjectPrimeStudio.exe" : "ProjectPrimeStudio";
+            void PairSource(string directory, string gameVersion, string studioVersion)
+            {
+                File.WriteAllText(Path.Combine(directory, game), "game " + gameVersion);
+                File.WriteAllText(Path.Combine(directory, studio), "studio " + studioVersion);
+                File.WriteAllText(Path.Combine(directory, DesktopReleasePair.FileName),
+                    JsonSerializer.Serialize(new DesktopReleasePair(1, gameVersion, studioVersion, 1)));
+                File.Delete(Path.Combine(directory, ReleaseInstallation.ManifestName));
+                ReleaseInstallation.EnsureManifest(directory);
+            }
+            PairSource(paired.Source, "1.2.3+abc", "1.2.4+def");
+            rejected = false;
+            try { ReleaseInstallation.Apply(paired.Source, paired.Target); } catch (InvalidDataException) { rejected = true; }
+            check(rejected && Original(paired.Target), "mixed game/Studio release is rejected before any installed file changes");
+            foreach (string unsupported in new[] { "1.2.3 unsupported", new string('1',129) })
+            {
+                PairSource(paired.Source,unsupported,unsupported);
+                rejected=false;
+                try { ReleaseInstallation.Apply(paired.Source,paired.Target); } catch(InvalidDataException) { rejected=true; }
+                check(rejected && Original(paired.Target),"matching release versions must also satisfy the Studio IPC version contract");
+            }
+            PairSource(paired.Source, "1.2.3+abc", "1.2.3+abc");
+            var hold = new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false,
+                RedirectStandardInput = true, RedirectStandardOutput = true };
+            if (Path.GetFileNameWithoutExtension(Environment.ProcessPath).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+                hold.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);
+            hold.ArgumentList.Add("--hold-installation"); hold.ArgumentList.Add(paired.Target);
+            using (var child = Process.Start(hold)!)
+            {
+                try
+                {
+                    string? ready = child.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(10)).GetAwaiter().GetResult();
+                    check(ready == "READY", "a real child Studio application owns the paired installation lease");
+                    using var secondReader = InstallationLifetime.AcquireApplication(paired.Target);
+                    rejected = false;
+                    try { ReleaseInstallation.Apply(paired.Source, paired.Target); } catch (IOException) { rejected = true; }
+                    check(rejected && Original(paired.Target), "open Studio blocks paired update and preserves every installed byte");
+                    Environment.SetEnvironmentVariable("PROJECT_PRIME_USER_DATA",Path.Combine(root,"second-profile"));
+                    try
+                    {
+                        rejected=false;
+                        try { ReleaseInstallation.Apply(paired.Source,paired.Target); } catch(IOException) { rejected=true; }
+                        check(rejected && Original(paired.Target),"a different application profile cannot bypass ownership of the same paired installation");
+                    }
+                    finally { Environment.SetEnvironmentVariable("PROJECT_PRIME_USER_DATA",Path.Combine(root,"state")); }
+                }
+                finally
+                {
+                    child.Kill(); child.WaitForExit();
+                }
+            }
+            ReleaseInstallation.Apply(paired.Source, paired.Target);
+            check(File.ReadAllText(Path.Combine(paired.Target, game)) == "game 1.2.3+abc"
+                && File.ReadAllText(Path.Combine(paired.Target, studio)) == "studio 1.2.3+abc"
+                && File.ReadAllText(Path.Combine(paired.Target, "settings.json")) == "player data",
+                "after Studio crash the kernel lease releases and the paired update commits both apps preserving user data");
+            var downgrade = Fixture("unpaired-downgrade");
+            rejected = false;
+            try { ReleaseInstallation.Apply(downgrade.Source, paired.Target); } catch (InvalidDataException) { rejected = true; }
+            check(rejected && File.ReadAllText(Path.Combine(paired.Target, studio)) == "studio 1.2.3+abc",
+                "unpaired downgrade cannot silently leave a newer Studio beside an older game");
+            File.Delete(Path.Combine(paired.Source, DesktopReleasePair.FileName));
+            File.Delete(Path.Combine(paired.Source, ReleaseInstallation.ManifestName)); ReleaseInstallation.EnsureManifest(paired.Source);
+            rejected = false;
+            try { ReleaseInstallation.Apply(paired.Source, paired.Target); } catch (InvalidDataException) { rejected = true; }
+            check(rejected, "paired executables require owned compatibility metadata");
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PROJECT_PRIME_USER_DATA", oldUserData);
+            Environment.SetEnvironmentVariable("PROJECT_PRIME_INSTALLATION_LIFETIME_DATA", oldLifetimeData);
+            Directory.Delete(root, recursive: true);
+        }
     }
 }

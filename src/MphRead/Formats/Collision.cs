@@ -617,6 +617,8 @@ namespace MphRead.Formats.Collision
             new Vector4(0.615f, 0f, 0.909f, 1f), new Vector4(0.85f, 0.85f, 0.85f, 1f)
         };
 
+        public static Vector4 TerrainColor(Terrain terrain) => _colors[Math.Clamp((int)terrain,0,_colors.Count-1)];
+
         private static Vector4 Color(CollisionFace data, EntityType entityType, Scene scene)
         {
             Vector4 color;
@@ -624,7 +626,7 @@ namespace MphRead.Formats.Collision
                 color = entityType == EntityType.Platform ? new(0.109f, 0.768f, 0.850f, 1f)
                     : entityType == EntityType.Object ? new(0.952f, 0.105f, 0.635f, 1f)
                     : new(0.952f, 0.694f, 0.105f, 1f);
-            else if (scene.ColDisplayColor == CollisionColor.Terrain) color = _colors[(int)data.Terrain];
+            else if (scene.ColDisplayColor == CollisionColor.Terrain) color = TerrainColor(data.Terrain);
             else if (scene.ColDisplayColor == CollisionColor.Type)
                 color = data.IgnoreBeams ? new(0.956f, 0.933f, 0.203f, 1f)
                     : data.IgnorePlayers ? new(0.250f, 0.807f, 0.250f, 1f)

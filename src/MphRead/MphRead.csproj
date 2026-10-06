@@ -119,6 +119,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="'$(MphReadAvalonia)' == 'true'">
+    <ProjectReference Include="..\ProjectPrime.Studio.Protocol\ProjectPrime.Studio.Protocol.csproj" />
     <PackageReference Include="Avalonia" Version="12.1.2" />
     <!-- Desktop is still here for the platform's fonts, its Skia backend and
          the packages the render path pulls in; what it is no longer used for

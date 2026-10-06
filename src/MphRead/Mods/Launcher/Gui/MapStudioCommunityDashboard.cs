@@ -168,7 +168,7 @@ internal sealed partial class MapStudioScreen
             string endpoint = (address.Text ?? "").Trim();
             if (string.IsNullOrWhiteSpace(endpoint))
                 endpoint = MapCommunityClient.DefaultAddress;
-            Directory.CreateDirectory(LauncherPrefs.Directory);
+            Directory.CreateDirectory(_services.CommunitySettingsDirectory);
             File.WriteAllText(CommunitySettingsPath, endpoint);
             return endpoint;
         }
@@ -209,9 +209,9 @@ internal sealed partial class MapStudioScreen
 
         string InstalledState(CommunityMap package)
         {
-            if (!CustomRooms.Installed.TryGet(package.MapId, out var installed))
+            if (_services.GetInstalledIdentity(package.MapId) is not { } installed)
                 return "Not installed";
-            return installed.Identity.PackageHash.ToString() == package.Hash
+            return installed.PackageHash.ToString() == package.Hash
                 ? "Exact revision installed"
                 : "Different revision installed";
         }
@@ -275,23 +275,20 @@ internal sealed partial class MapStudioScreen
             _ = Job("Installing community map", async token =>
             {
                 status.Text = "Downloading and validating " + (package.DisplayName ?? package.Name) + "…";
-                if (!GameFiles.Ready)
+                if (!_services.IsStandalone && !_services.GameFilesReady)
                     throw new IOException("Set up game files before installing playable maps.");
-                EnsureMapInstallationAllowed();
-                GameFiles.ApplyPaths();
-                using var prepared = await WithClient(package.Draft, token,
-                    client => client.PrepareAsync(package, token,
-                        progress: (received, total) =>
-                            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-                                status.Text = $"Downloading… {received / 1048576d:0.0}/{total / 1048576d:0.0} MiB · {(total > 0 ? received * 100d / total : 0):0}%")));
+                if (!_services.IsStandalone) _services.ApplyGamePaths();
+                Directory.CreateDirectory(_services.StagingDirectory);
+                string staged = Path.Combine(_services.StagingDirectory,Guid.NewGuid().ToString("N") + ".ppmap");
+                var identity = new MapContentIdentity(package.MapId,package.Name,MapHash256.Parse(package.ContentHash),MapHash256.Parse(package.Hash),true);
+                await WithClient(package.Draft, token,async client => { await client.DownloadExactAsync(identity,staged,token); return true; });
                 GuardJob(token);
-                MapDefinition installed = prepared.Commit(UserMapLibrary, cancellation: token);
-                Metadata.RegisterDownloadedMap(installed);
+                MapDefinition installed = await _services.CommitPackageAsync(staged,identity,token);
                 status.Text = "Installed " + (package.DisplayName ?? package.Name) + ".";
                 if (host)
                 {
                     Dismiss();
-                    HostRequested?.Invoke(this, installed);
+                    if (_services.IsStandalone) await _services.RequestHostAsync(staged,identity,Endpoint(),token); else HostRequested?.Invoke(this, installed);
                 }
                 else if (selectedProject != null)
                 {
@@ -1063,7 +1060,7 @@ internal sealed partial class MapStudioScreen
                     throw new InvalidOperationException(
                         "The open Map Studio project changed before publishing. Reopen the publish form.");
 
-                string temporary = Path.Combine(Path.GetTempPath(),
+                string temporary = Path.Combine(_services.StagingDirectory,
                     Guid.NewGuid().ToString("N") + ".ppmap");
                 bool keepTemporary = false;
                 try
@@ -1071,7 +1068,7 @@ internal sealed partial class MapStudioScreen
                     status.Text = existingMap
                         ? "Building immutable map revision…"
                         : "Building new Community map…";
-                    await MapBuildScheduler.Shared.PackageAsync(
+                    await _services.BuildScheduler.PackageAsync(
                         MapBuildSnapshot.Capture(project), temporary, token);
                     GuardJob(token);
 
@@ -1246,18 +1243,15 @@ internal sealed partial class MapStudioScreen
         import.Click += (_, _) => Browse("Install map package", false,
             path => _ = Job("Installing map package", async token =>
             {
-                if (!GameFiles.Ready)
+                if (!_services.IsStandalone && !_services.GameFilesReady)
                     throw new IOException("Set up game files before installing playable maps.");
-                EnsureMapInstallationAllowed();
-                GameFiles.ApplyPaths();
+                if (!_services.IsStandalone) _services.ApplyGamePaths();
                 using var package = new MapPackageReader(path);
                 var manifest = package.Manifest
                     ?? throw new IOException("Rebuild this legacy package in Map Studio before sharing.");
                 var identity = MapContentIdentity.FromPackage(path);
-                using var prepared = await MapPackageInstaller.PrepareAsync(path, identity, token);
                 GuardJob(token);
-                var installed = prepared.Commit(UserMapLibrary, cancellation: token);
-                Metadata.RegisterDownloadedMap(installed);
+                var installed = await _services.CommitPackageAsync(path,identity,token);
                 status.Text = "Installed " + installed.Name + ".";
                 if (selectedProject != null) RenderProject(selectedProject);
             }), ".ppmap");

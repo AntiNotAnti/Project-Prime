@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-[[ $# == 2 ]] || { echo 'usage: check-macos-build.sh <publish-directory> <rid>' >&2; exit 1; }
+[[ $# == 2 || $# == 3 ]] || { echo 'usage: check-macos-build.sh <publish-directory> <rid> [ProjectPrime|ProjectPrimeStudio]' >&2; exit 1; }
 [[ $(uname -s) == Darwin ]] || { echo 'error: validation requires macOS' >&2; exit 1; }
 root=$(cd "$1" && pwd)
 case "$2" in
@@ -8,7 +8,9 @@ case "$2" in
     osx-x64) arch=x86_64 ;;
     *) echo "error: unsupported RID: $2" >&2; exit 1 ;;
 esac
-[[ -x "$root/ProjectPrime" ]] || { echo 'error: ProjectPrime is not executable' >&2; exit 1; }
+executable=${3:-ProjectPrime}
+case "$executable" in ProjectPrime|ProjectPrimeStudio) ;; *) echo 'error: unknown managed executable' >&2; exit 1 ;; esac
+[[ -x "$root/$executable" ]] || { echo "error: $executable is not executable" >&2; exit 1; }
 [[ -f "$root/libopenal.1.dylib" ]] || { echo 'error: missing OpenAL' >&2; exit 1; }
 [[ -f "$root/libwgpu_native.dylib" ]] || { echo 'error: missing wgpu-native' >&2; exit 1; }
 [[ -f "$root/libktx.dylib" ]] || { echo 'error: missing KTX runtime' >&2; exit 1; }
@@ -19,7 +21,7 @@ find "$root" -type f -print0 > "$list"
 while IFS= read -r -d '' component; do
     description=$(file -b "$component")
     if [[ "$description" != *Mach-O* ]]; then
-        if [[ "$component" == *.dylib || "$component" == "$root/ProjectPrime" ]]; then
+        if [[ "$component" == *.dylib || "$component" == "$root/$executable" ]]; then
             echo "error: not Mach-O: $component" >&2
             exit 1
         fi
@@ -31,11 +33,11 @@ while IFS= read -r -d '' component; do
     otool -L "$component"
     codesign --verify --strict --verbose=4 "$component"
 done < "$list"
-codesign -d --entitlements :- "$root/ProjectPrime" > "$entitlements"
+codesign -d --entitlements :- "$root/$executable" > "$entitlements"
 cat "$entitlements"
 # Bash 3.2 does not reliably apply errexit to a failed [[ ... ]] command.
 # Both an unreadable plist and a false/missing entitlement must fail explicitly.
 jit=$(/usr/libexec/PlistBuddy -c 'Print :com.apple.security.cs.allow-jit' "$entitlements") \
     || { echo 'error: missing JIT entitlement' >&2; exit 1; }
 [[ "$jit" == true ]] || { echo 'error: JIT entitlement is not true' >&2; exit 1; }
-echo "Validated architecture, signatures and JIT entitlement for $2."
+echo "Validated $executable architecture, signatures and JIT entitlement for $2."

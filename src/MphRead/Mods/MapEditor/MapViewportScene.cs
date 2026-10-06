@@ -13,7 +13,7 @@ namespace MphRead.Mods.MapEditor
         void FrameSelection();
     }
     public sealed record MapViewportFace(Guid ObjectId, Vector3[] Points, float Shade, int Material, bool Solid,
-        int SourceMaterial = -1, Vector2[]? Texcoords = null, bool CollisionOnly = false);
+        int SourceMaterial = -1, Vector2[]? Texcoords = null, bool CollisionOnly = false, MphRead.Terrain Terrain = MphRead.Terrain.Metal);
     public sealed class MapViewportScene
     {
         public List<MapViewportFace> Faces { get; } = new();
@@ -28,7 +28,7 @@ namespace MphRead.Mods.MapEditor
                     var points=new Vector3[face.Points.Length];
                     for(int i=0;i<points.Length;i++) points[i]=new(face.Points[i].X,face.Points[i].Y,face.Points[i].Z);
                     scene.Faces.Add(new(id,points,face.Shade,face.Material,solid,face.SourceMaterial,
-                        Array.ConvertAll(face.Texcoords, uv => new Vector2(uv.X,uv.Y)), collisionOnly));
+                        Array.ConvertAll(face.Texcoords, uv => new Vector2(uv.X,uv.Y)), collisionOnly,face.Terrain));
                 }
             }
             foreach(var b in definition.Brushes)

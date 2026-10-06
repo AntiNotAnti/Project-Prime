@@ -9,6 +9,7 @@ namespace MphRead.Mods.MapGen
     {
         public string? Name { get; set; }
         public string? SourcePath { get; set; }
+        public List<string> Tags { get; set; } = new();
         public string Path { get; set; } = "";
         public string Kind { get; set; } = "texture";
     }
@@ -47,6 +48,7 @@ namespace MphRead.Mods.MapGen
                 {
                     if(asset==null)throw new InvalidDataException("Null map asset.");
                     MapPackageReader.CanonicalName(asset.Path);
+                    if (asset.Tags == null || asset.Tags.Count > 32 || asset.Tags.Any(tag => tag == null || tag.Length > 64)) throw new InvalidDataException("Invalid asset tags.");
                     if(!paths.Add(asset.Path))throw new InvalidDataException("Duplicate map asset path.");
                     string ext=Path.GetExtension(asset.Path).ToLowerInvariant();
                     if(asset.Kind=="audio"&&ext is not(".wav" or ".ogg" or ".mp3"))throw new InvalidDataException("Music must be WAV, OGG or MP3.");

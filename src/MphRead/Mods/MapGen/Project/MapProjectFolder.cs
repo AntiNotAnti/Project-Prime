@@ -21,6 +21,7 @@ public static class MapProjectFolder
         foreach(var geometry in copy.Geometry){geometry.Material=Material(geometry.Material);if(geometry is MapMesh mesh)mesh.FaceMaterials=mesh.FaceMaterials.Select(Material).ToList();}
         if(copy.Import is {} import){import.DefaultMaterial=Material(import.DefaultMaterial);import.ShaderMaterials=import.ShaderMaterials.OrderBy(p=>p.Key,StringComparer.Ordinal).ToDictionary(p=>p.Key,p=>Material(p.Value));foreach(var replacement in import.MaterialReplacements)if(!replacement.TargetSource)replacement.Target=Material(replacement.Target);}
         if(copy.NativeRoom is {} native)foreach(var replacement in native.MaterialReplacements)if(!replacement.TargetSource)replacement.Target=Material(replacement.Target);
+        MapPrefabMetadata.RemapMaterialSlots(copy,remap);
         foreach(var model in copy.ModelSources)foreach(var obj in model.Objects){obj.BaseMaterial=Material(obj.BaseMaterial);obj.FaceMaterials=obj.FaceMaterials.OrderBy(p=>p.Key,StringComparer.Ordinal).ToDictionary(p=>p.Key,p=>Material(p.Value));}
         copy.Geometry=copy.Geometry.OrderBy(g=>g.Id).ToList();copy.Brushes=copy.Brushes.OrderBy(g=>g.Id).ToList();copy.Spawns=copy.Spawns.OrderBy(g=>g.Id).ToList();copy.Items=copy.Items.OrderBy(g=>g.Id).ToList();copy.JumpPads=copy.JumpPads.OrderBy(g=>g.Id).ToList();copy.NavigationLinks=copy.NavigationLinks.OrderBy(g=>g.Id).ToList();
         copy.Assets=copy.Assets.OrderBy(a=>a.Path,StringComparer.Ordinal).ToList();copy.ModelSources=copy.ModelSources.OrderBy(s=>s.Id).ToList();

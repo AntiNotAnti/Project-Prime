@@ -51,35 +51,15 @@ namespace MphRead
                 EnsureShadowTarget();
                 if (_shadowFramebuffer == 0 || _shadowTargetSize <= 0) return;
 
-                Vector3 direction = _light1Vector;
-                if (!float.IsFinite(direction.X) || !float.IsFinite(direction.Y)
-                    || !float.IsFinite(direction.Z) || direction.LengthSquared < .0001f)
-                {
-                    direction = new Vector3(-.45f, -.82f, -.35f);
-                }
-                direction = direction.Normalized();
-
-                Vector3 center = _cameraPosition + _cameraFacing * 24f;
-                Vector3 up = MathF.Abs(Vector3.Dot(direction, Vector3.UnitY)) > .92f
-                    ? Vector3.UnitZ : Vector3.UnitY;
-                float span = Mods.RenderOptions.Shadows == Mods.ShadowQuality.Low ? 100f : 130f;
-
-                // Stabilize the orthographic light camera to whole shadow texels.
-                // Without this, every sub-pixel camera movement slides the entire
-                // shadow map and produces visible crawl at high refresh rates.
-                Vector3 lightRight = Vector3.Cross(direction, up).Normalized();
-                Vector3 lightUp = Vector3.Cross(lightRight, direction).Normalized();
-                float worldPerTexel = span / Math.Max(1, _shadowTargetSize);
-                float alongRight = Vector3.Dot(center, lightRight);
-                float alongUp = Vector3.Dot(center, lightUp);
-                center += lightRight * (MathF.Round(alongRight / worldPerTexel)
-                        * worldPerTexel - alongRight)
-                    + lightUp * (MathF.Round(alongUp / worldPerTexel)
-                        * worldPerTexel - alongUp);
-
-                Vector3 eye = center - direction * 96f;
-                _shadowView = Matrix4.LookAt(eye, center, up);
-                _shadowProjection = Matrix4.CreateOrthographic(span, span, 1f, 220f);
+                var camera = Mods.Render.GraphicsEnvironmentMath.DirectionalShadowCamera(
+                    new(_cameraPosition.X,_cameraPosition.Y,_cameraPosition.Z),
+                    new(_cameraFacing.X,_cameraFacing.Y,_cameraFacing.Z),
+                    new(_light1Vector.X,_light1Vector.Y,_light1Vector.Z),_shadowTargetSize,
+                    Mods.RenderOptions.Shadows == Mods.ShadowQuality.Low);
+                static Matrix4 RuntimeMatrix(System.Numerics.Matrix4x4 m) => new(
+                    m.M11,m.M12,m.M13,m.M14,m.M21,m.M22,m.M23,m.M24,
+                    m.M31,m.M32,m.M33,m.M34,m.M41,m.M42,m.M43,m.M44);
+                _shadowView = RuntimeMatrix(camera.View); _shadowProjection = RuntimeMatrix(camera.Projection);
 
                 GL.BindFramebuffer(FramebufferTarget.Framebuffer, _shadowFramebuffer);
                 GL.Viewport(0, 0, _shadowTargetSize, _shadowTargetSize);

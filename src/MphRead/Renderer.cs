@@ -491,8 +491,7 @@ namespace MphRead
 
         private void SetShaderFog()
         {
-            float fogMin = _fogOffset / (float)0x7FFF;
-            float fogMax = (_fogOffset + 32 * (0x400 >> _fogSlope)) / (float)0x7FFF;
+            var (fogMin,fogMax) = Mods.Render.GraphicsEnvironmentMath.FogRange(_fogOffset,_fogSlope);
             GL.Uniform4(_shaderLocations.FogColor, _fogColor);
             GL.Uniform1(_shaderLocations.FogMinDistance, fogMin);
             GL.Uniform1(_shaderLocations.FogMaxDistance, fogMax);
@@ -2886,6 +2885,7 @@ namespace MphRead
                 GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref _viewMatrix);
             UpdateProjection();
             GetDrawItems();
+            DrawStudioReplayOverlays();
             using (Mods.Render.FrameRenderTelemetry.Measure(Mods.Render.FrameRenderTelemetry.Phase.RetainedExtraction))
                 CaptureRetainedRenderWorld();
         }
@@ -3559,7 +3559,7 @@ namespace MphRead
         private bool RenderFrameContent()
         {
             CountFrame();
-            bool drawGameHud = !Mods.Replay.ReplayVideoExporter.SuppressGameHud;
+            bool drawGameHud = StudioReplayGameHud ?? !Mods.Replay.ReplayVideoExporter.SuppressGameHud;
             if (!ExecuteCoreFrameRenderGraph(drawGameHud))
                 return false;
 
@@ -3605,6 +3605,7 @@ namespace MphRead
             // Replay controls and timeline belong to the presentation, not to
             // a particular hunter's visor. Keep them visible in chase, orbit
             // and free-camera modes as well as first-person playback.
+            DrawStudioReplayHud();
             if (!Services.IsReplica || Mods.Network.DemoPlayback.Owns(this))
             {
                 if (drawGameHud) AimTrainer?.DrawHud();

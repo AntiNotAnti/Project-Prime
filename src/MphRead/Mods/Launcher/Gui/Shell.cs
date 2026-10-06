@@ -310,6 +310,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 return;
             }
+            Mods.StudioIntegration.GameStudioIntegration.PumpOwnerThread(window);
 #if MPHREAD_RMLUI_POC
             if (RmlUiPrototype.Active && !window.HasScene
                 && _deferredCustomRoomsPending is { } rmlPending)

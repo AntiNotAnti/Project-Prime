@@ -18,6 +18,8 @@ namespace MphRead.Mods.Render
         private readonly Dictionary<string, Resident> _resident = new(StringComparer.Ordinal);
         private readonly Func<int> _allocateTexture;
         private readonly Action<int> _releaseTexture;
+        private readonly Action<int, PreparedTextureAsset, bool, TextureSamplerDescriptor>? _uploadPrepared;
+        private readonly Func<int>? _maximumDimension;
         private long _residentBytes;
 
         public TextureAssetManager(Func<int> allocateTexture, Action<int> releaseTexture)
@@ -25,6 +27,17 @@ namespace MphRead.Mods.Render
             _allocateTexture = allocateTexture;
             _releaseTexture = releaseTexture;
         }
+
+        // Direct creator renderers share preparation, sampling and residency
+        // policy while promoting resources through their own explicit device.
+        internal TextureAssetManager(Func<int> allocateTexture, Action<int> releaseTexture,
+            Action<int, PreparedTextureAsset, bool, TextureSamplerDescriptor> uploadPrepared,
+            Func<int> maximumDimension) : this(allocateTexture, releaseTexture)
+        { _uploadPrepared = uploadPrepared; _maximumDimension = maximumDimension; }
+
+        private int UploadDimensionLimit(TextureAssetClass assetClass, TextureAssetChannel channel)
+            => _maximumDimension == null ? DimensionLimit(assetClass, channel)
+                : Math.Min(RequestedDimensionLimit(EffectiveQuality(), assetClass), _maximumDimension());
 
         public long ResidentBytes => _residentBytes;
         public int ResidentCount => _resident.Count;
@@ -44,7 +57,7 @@ namespace MphRead.Mods.Render
         public int Upload(string key, Func<Stream?> open, TextureAssetClass assetClass,
             TextureAssetChannel channel, bool repeat, out int width, out int height)
         {
-            int cap = DimensionLimit(assetClass, channel);
+            int cap = UploadDimensionLimit(assetClass, channel);
             TextureSamplerDescriptor sampling = TextureSamplingPolicy.ResolveModern(assetClass, channel);
             string cacheKey = key + "|" + assetClass + "|" + channel + "|" + cap + "|sample=" + sampling.CacheKey;
             if (_resident.TryGetValue(cacheKey, out Resident resident))
@@ -71,7 +84,7 @@ namespace MphRead.Mods.Render
         public int UploadRgba(string key, TextureAssetClass assetClass, TextureAssetChannel channel,
             int width, int height, byte[] rgba, bool repeat, out int uploadedWidth, out int uploadedHeight)
         {
-            int cap = DimensionLimit(assetClass, channel);
+            int cap = UploadDimensionLimit(assetClass, channel);
             TextureSamplerDescriptor sampling = TextureSamplingPolicy.ResolveModern(assetClass, channel);
             string cacheKey = key + "|" + assetClass + "|" + channel + "|" + cap + "|sample=" + sampling.CacheKey;
             if (_resident.TryGetValue(cacheKey, out Resident resident))
@@ -108,10 +121,14 @@ namespace MphRead.Mods.Render
             int texture = _allocateTexture();
             try
             {
-                GL.ActiveTexture(TextureUnit.Texture0);
-                GL.BindTexture(TextureTarget.Texture2D, texture);
-                UploadPreparedBound(asset, repeat, sampling);
-                if (GL.GetError() != ErrorCode.NoError) throw new InvalidOperationException("GPU texture upload failed.");
+                if (_uploadPrepared != null) _uploadPrepared(texture, asset, repeat, sampling);
+                else
+                {
+                    GL.ActiveTexture(TextureUnit.Texture0);
+                    GL.BindTexture(TextureTarget.Texture2D, texture);
+                    UploadPreparedBound(asset, repeat, sampling);
+                    if (GL.GetError() != ErrorCode.NoError) throw new InvalidOperationException("GPU texture upload failed.");
+                }
                 _resident.Add(cacheKey, new(texture, bytes, width, height));
                 _residentBytes += bytes;
                 DebugLog.Line("render", "modern texture " + asset.Key + " " + width + "x" + height
@@ -125,7 +142,7 @@ namespace MphRead.Mods.Render
                 width = height = 0;
                 return 0;
             }
-            finally { GL.BindTexture(TextureTarget.Texture2D, 0); }
+            finally { if (_uploadPrepared == null) GL.BindTexture(TextureTarget.Texture2D, 0); }
         }
 
         public static bool TryUploadBound(Stream source, string key, TextureAssetClass assetClass,

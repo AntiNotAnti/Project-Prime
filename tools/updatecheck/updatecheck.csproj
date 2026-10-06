@@ -7,6 +7,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../src/MphRead/Mods/Update/ReleaseInstallation.cs" Link="ReleaseInstallation.cs" />
+    <Compile Include="../../src/MphRead/Mods/Update/InstallationLifetime.cs" Link="InstallationLifetime.cs" />
+    <Compile Include="../../src/MphRead/Mods/Update/DesktopReleasePair.cs" Link="DesktopReleasePair.cs" />
     <Compile Include="../../src/MphRead/Mods/Update/BuildVersion.cs" Link="BuildVersion.cs" />
     <Compile Include="../../src/MphRead/Mods/Update/UpdateCheck.cs" Link="UpdateCheck.cs" />
     <Compile Include="../../src/MphRead/Mods/Update/UpdateDownload.cs" Link="UpdateDownload.cs" />

@@ -131,6 +131,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         private static BufferMapAsyncStatus _mapStatus = BufferMapAsyncStatus.Unknown;
 
         private readonly ModernGraphicsDevice _device;
+        private readonly bool _ownsDevice;
         private readonly WebGPU _api;
         private readonly Queue* _queue;
         private readonly ModernGraphicsCompatState _programs = new();
@@ -234,9 +235,10 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         private bool _disposed;
 
         private ModernGraphicsCompat(ModernGraphicsDevice device, int width, int height,
-            ModernGraphicsCompat? previous = null)
+            ModernGraphicsCompat? previous = null, bool ownsDevice = true)
         {
             _device = device;
+            _ownsDevice = ownsDevice;
             if (previous != null)
             {
                 _programs = previous._programs;
@@ -433,6 +435,8 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 var current = _current ?? throw new InvalidOperationException("Modern graphics compatibility renderer is not active.");
                 if (current._device.IsLost && current._device.Surface != null)
                 {
+                    if (!current._ownsDevice)
+                        throw new InvalidOperationException("Studio graphics device was lost; the Studio owner will reconstruct it at the next frame boundary.");
                     if (_deviceRecoveryAttempts++ != 0)
                     {
                         _deviceRecoveryFailure = new InvalidOperationException("WebGPU device was lost again after reconstruction.");
@@ -976,7 +980,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             DisposeUniformBuffers();
             if (_uiShader != null) _api.ShaderModuleRelease(_uiShader);
             if (_queue != null) _api.QueueRelease(_queue);
-            _device.Dispose();
+            if (_ownsDevice) _device.Dispose();
         }
 
         private void LogCapabilities()

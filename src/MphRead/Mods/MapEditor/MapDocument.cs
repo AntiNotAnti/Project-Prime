@@ -29,6 +29,7 @@ namespace MphRead.Mods.MapEditor
             FilePath = path;
             // Legacy object IDs exist in the editor snapshot only until Save.
             foreach (var item in MapObjects.All(Project.Definition)) if (item.Id == Guid.Empty) item.SetId(Guid.NewGuid());
+            foreach (var material in Project.Definition.Materials) if (material.Id == Guid.Empty) material.Id = Guid.NewGuid();
             SavedStateId = path == null ? null : History.CurrentStateId;
             if (path != null) History.MarkSaved();
             History.Changed += change =>
@@ -175,8 +176,10 @@ namespace MphRead.Mods.MapEditor
                 || File.GetLastWriteTimeUtc(recovery) > File.GetLastWriteTimeUtc(FilePath));
         }
         public void Restore(string directory)
+            => RestoreRecoveryFile(RecoveryPath(directory));
+        public void RestoreRecoveryFile(string recoveryPath)
         {
-            var recovery = ReadRecovery(RecoveryPath(directory)).Definition;
+            var recovery = ReadRecovery(recoveryPath).Definition;
             // Relative imports are relative to the real document, not .autosave.
             recovery.BaseDirectory = Project.Definition.BaseDirectory;
             recovery.SourcePath = Project.Definition.SourcePath;

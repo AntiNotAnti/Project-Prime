@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using MphRead.Effects;
 using MphRead.Entities;
 using MphRead.Mods.Replay;
@@ -26,7 +27,9 @@ internal readonly record struct ReplayCombatDiagnostic(
     double AckServerFrame,
     bool HasAckTarget,
     Vector3 AckTargetPosition,
-    float AckImpactDistance)
+    float AckImpactDistance,
+    HistoricalBody? Body = null,
+    Vector3? DamageDirection = null)
 {
     internal bool HasPose => HasFire && Fire.HasPose;
 }
@@ -373,8 +376,39 @@ internal sealed class ReplayPoseStream : IDisposable
         if (!hasAckTarget) ackPosition = default;
         float delta = hasAckTarget
             ? Vector3.Distance(ackPosition, fact.ImpactPoint) : float.NaN;
+        HistoricalBody? body = null;
+        if (hasAckTarget && fact.VictimSlot < _world.Scene.Players.Items.Count)
+        {
+            ushort victimGeneration = fact.VictimGeneration, victimLife = fact.VictimLifeId;
+            var state = _poses[fact.VictimSlot].LastOrDefault(s => s.ServerTick <= ack
+                && s.State.SlotGeneration == victimGeneration && s.State.LifeId == victimLife).State;
+            var actor = _world.Scene.Players.Items[fact.VictimSlot];
+            bool alt = (state.Flags & PlayerState.FlagAltForm) != 0;
+            // Kanden's historical segment chain is not persisted in these pose
+            // samples; omit that volume rather than substituting a live chain.
+            if (!alt || actor.Hunter != Hunter.Kanden)
+            {
+                var volume = PlayerEntity.PlayerVolumes[(int)actor.Hunter, alt ? 2 : 0];
+                body = new(fact.VictimSlot, ackPosition + (alt ? volume.SpherePosition : Vector3.Zero), volume.SphereRadius,
+                    Fixed.ToFloat(actor.Values.MinPickupHeight), Fixed.ToFloat(actor.Values.MaxPickupHeight),
+                    alt ? HistoricalBodyType.AltSphere : HistoricalBodyType.BipedCylinder);
+            }
+        }
+        Vector3? damageDirection = null;
+        if(fact.VictimSlot < _poses.Length)
+            foreach(var sample in _poses[fact.VictimSlot])
+            {
+                if(sample.State.SlotGeneration != fact.VictimGeneration || sample.State.LifeId != fact.VictimLifeId)continue;
+                for(int index=0;index<PlayerState.DamageHistory;index++)
+                {
+                    var damage = sample.State.EventAt(index);
+                    if(damage.EventId == fact.DamageEventId && damage.AttackerSlot == fact.ShooterSlot && damage.AttackerGeneration == fact.ShooterGeneration)
+                    { damageDirection = damage.Direction; break; }
+                }
+                if(damageDirection.HasValue)break;
+            }
         diagnostic = new(recordingFrame, fireFrame, fact, hasFire, fire,
-            ack, hasAckTarget, ackPosition, delta);
+            ack, hasAckTarget, ackPosition, delta, body, damageDirection);
         return true;
     }
 
@@ -629,13 +663,18 @@ internal sealed class ReplayPoseStream : IDisposable
 
     private void DrawCombatDiagnosticPresentation(Scene scene)
     {
-        if (!ReplayCombatDiagnostics.ShowRays
-            || ReplayVideoExporter.Rendering && !ReplayVideoExporter.IncludeReplayOverlay)
+        if (!(scene.StudioReplayCombatRays ?? ReplayCombatDiagnostics.ShowRays)
+            || scene.StudioReplayCombatRays == null && ReplayVideoExporter.Rendering && !ReplayVideoExporter.IncludeReplayOverlay)
         {
             return;
         }
 
-        if (ReplayCombatDiagnostics.Selected is { } selection
+        if (scene.StudioReplayCombat is { } ownedDiagnostic)
+        {
+            DrawCombatDiagnostic(scene, ownedDiagnostic, selected: true);
+            return;
+        }
+        if (scene.StudioReplayCombatRays == null && ReplayCombatDiagnostics.Selected is { } selection
             && TryCombatDiagnostic(selection, out var selected))
         {
             DrawCombatDiagnostic(scene, selected, selected: true);
@@ -682,6 +721,14 @@ internal sealed class ReplayPoseStream : IDisposable
                     new Vector3(0.30f, 0.88f, 1f),
                     0.10f, 18);
             }
+            Vector3 direction = diagnostic.Fire.Direction;
+            if (selected && direction.LengthSquared >= .000001f)
+            {
+                direction = direction.Normalized();
+                float length = Math.Clamp(Vector3.Distance(diagnostic.Fire.Origin, fact.ImpactPoint), 3f, 18f);
+                DrawDiagnosticSegment(scene, diagnostic.Fire.Origin, diagnostic.Fire.Origin + direction * length,
+                    new Vector3(.85f, .4f, 1), .08f, 16);
+            }
 
             scene.AddSingleParticle(SingleType.Fuzzball,
                 diagnostic.Fire.Origin, new Vector3(0.42f, 1f, 0.48f),
@@ -694,10 +741,32 @@ internal sealed class ReplayPoseStream : IDisposable
                 diagnostic.AckTargetPosition, new Vector3(0.36f, 0.82f, 1f),
                 alpha: 0.92f, scale: selected ? 0.30f : 0.22f);
         }
+        if (selected && diagnostic.Body is { } body)
+        {
+            Vector3 bodyColor = new(.3f, .65f, 1), headColor = new(1, .4f, .3f);
+            if (body.Type == HistoricalBodyType.BipedCylinder)
+            {
+                foreach (float level in new[] { body.Bottom, body.Top - .3f, body.Top })
+                for (int i = 0; i < 12; i++)
+                {
+                    float angle = i * MathF.PI / 6;
+                    scene.AddSingleParticle(SingleType.Fuzzball, body.Position + new Vector3(MathF.Cos(angle) * body.Radius, level, MathF.Sin(angle) * body.Radius),
+                        level >= body.Top - .3f ? headColor : bodyColor, alpha: .8f, scale: .07f);
+                }
+            }
+            else for (int i = 0; i < 20; i++)
+            {
+                float angle = i * MathF.PI / 10;
+                scene.AddSingleParticle(SingleType.Fuzzball, body.Position + new Vector3(MathF.Cos(angle) * body.Radius, MathF.Sin(angle) * body.Radius, 0), bodyColor, alpha: .8f, scale: .07f);
+            }
+        }
 
         scene.AddSingleParticle(SingleType.Fuzzball,
             fact.ImpactPoint, impactColor, alpha: 1f,
             scale: selected ? 0.38f : 0.28f);
+        if(selected && diagnostic.DamageDirection is { } incoming && incoming.LengthSquared > .000001f)
+            DrawDiagnosticSegment(scene, fact.ImpactPoint - incoming.Normalized() * 1.5f, fact.ImpactPoint,
+                new Vector3(1,.25f,.2f),.13f,6);
     }
 
     private static void DrawDiagnosticSegment(Scene scene, Vector3 start,

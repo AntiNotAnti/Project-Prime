@@ -43,14 +43,15 @@ namespace MphRead.Mods.Network
             }
         }
 
-        public static ReplayOpenResult Validate(string path)
+        public static ReplayOpenResult Validate(string path, CancellationToken cancellation = default)
         {
+            cancellation.ThrowIfCancellationRequested();
             using DemoReader? reader = DemoReader.Open(path, out var result);
             if (reader == null) return result;
             bool any = false;
-            while (reader.ReadNext() != null) any = true;
+            while (reader.ReadNext() != null) { cancellation.ThrowIfCancellationRequested(); any = true; }
             if (reader.LastResult != ReplayOpenResult.Success) return reader.LastResult;
-            try { foreach (var checkpoint in reader.Checkpoints) reader.ReadCheckpoint(checkpoint); }
+            try { foreach (var checkpoint in reader.Checkpoints) { cancellation.ThrowIfCancellationRequested(); reader.ReadCheckpoint(checkpoint); } }
             catch (Exception ex) when (ex is IOException or InvalidDataException) { return ReplayFormatV3.Failure(ex); }
             return any ? ReplayOpenResult.Success : ReplayOpenResult.Empty;
         }
