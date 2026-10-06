@@ -26,6 +26,12 @@ namespace MphRead.Mods.Network
         public bool LobbyEnabled { get; init; }
         public bool AllowJoinInProgress { get; init; }
         public bool Online { get; init; }
+        /// <summary>
+        /// Server-instance identity published in MatchState. It changes when a
+        /// dedicated authority process restarts and is used by social invites
+        /// to reject stale endpoint reuse.
+        /// </summary>
+        public ulong AuthorityEpoch { get; init; }
         public string RoomKey
         {
             get => _roomKey ?? "";
@@ -298,6 +304,7 @@ namespace MphRead.Mods.Network
             return new ServerStatus
             {
                 Online = true,
+                AuthorityEpoch = match.AuthorityEpoch,
                 RoomKey = match.RoomKey,
                 ServerName = status.ServerName ?? "",
                 Mode = mode, Rules = status.Rules,
