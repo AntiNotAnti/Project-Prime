@@ -243,7 +243,6 @@ namespace MphRead.Mods.Launcher.Gui
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 _loaded = true;
-                _tabCache.Clear();
                 _snapshot = snapshot;
                 ApplySnapshot(snapshot);
                 Show(_face);
@@ -252,6 +251,10 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void ApplySnapshot(HunterLicenseSnapshot snapshot)
         {
+            // Snapshot-backed pages are cached for fast tab changes. Applying a
+            // new authoritative snapshot must invalidate those pages before any
+            // caller asks Show() to render them again.
+            _tabCache.Clear();
             HunterLicenseProfile p = snapshot.Profile;
             _player.Text = (p.DisplayName.Length == 0 ? "PLAYER" : p.DisplayName).ToUpperInvariant();
             _hunterId.Text = "HUNTER ID  " + HunterId(p.PlayerId);
