@@ -344,17 +344,20 @@ namespace MphRead.Mods.Render.Characters
                     && !materialNames.Contains(primitive.MaterialName))
                     throw new InvalidDataException(
                         $"HD material '{primitive.MaterialName}' does not exist in native model {native.Name}.");
-                Material material;
-                if (!String.IsNullOrWhiteSpace(primitive.MaterialName))
-                    material = native.Materials.First(m => m.Name.Equals(primitive.MaterialName, StringComparison.OrdinalIgnoreCase));
-                else
+                if (asset.NativeSupplementMaterials.Count > 0)
                 {
-                    Node node = native.GetNodeByName(primitive.TargetNode)!;
-                    if (node.MeshCount <= 0) throw new InvalidDataException($"HD node '{node.Name}' has no native material.");
-                    material = native.Materials[native.Meshes[node.MeshId / 2].MaterialId];
+                    Material material;
+                    if (!String.IsNullOrWhiteSpace(primitive.MaterialName))
+                        material = native.Materials.First(m => m.Name.Equals(primitive.MaterialName, StringComparison.OrdinalIgnoreCase));
+                    else
+                    {
+                        Node node = native.GetNodeByName(primitive.TargetNode)!;
+                        if (node.MeshCount <= 0) throw new InvalidDataException($"HD node '{node.Name}' has no native material.");
+                        material = native.Materials[native.Meshes[node.MeshId / 2].MaterialId];
+                    }
+                    if (asset.NativeSupplementMaterials.Contains(material.Name))
+                        throw new InvalidDataException($"HD material '{material.Name}' duplicates its explicit native supplement.");
                 }
-                if (asset.NativeSupplementMaterials.Contains(material.Name))
-                    throw new InvalidDataException($"HD material '{material.Name}' duplicates its explicit native supplement.");
             }
         }
 
