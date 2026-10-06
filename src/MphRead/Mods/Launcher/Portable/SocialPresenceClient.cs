@@ -218,8 +218,11 @@ namespace MphRead.Mods.Launcher
 
             if (NetSession.PersistentLobby && NetSession.IsInLobby)
             {
-                bool joinable = !NetSession.Refused && !NetSession.SessionTimedOut;
-                return new("lobby", room, joinable);
+                // RoomKey is the selected arena, not a globally unique lobby
+                // locator. Do not expose a fake Join Friend capability here.
+                // Slice 4 will set joinability only after it has an authenticated
+                // resolver from social lobby identity to the normal join path.
+                return new("lobby", room, false);
             }
 
             if (SpectatorMode.IsSpectating
