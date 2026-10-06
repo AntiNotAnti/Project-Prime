@@ -64,6 +64,8 @@ try {
  assert.deepEqual(socialPrivileges,{profile_select:false,request_select:false,mutate:false});
  let socialResult=(await db.query(`select prime.social_mutate('${socialA}'::uuid,'PP-2222-2222-2222-4222-8222','send_request') as value`)).rows[0].value;
  assert.equal(socialResult.ok,true); assert.equal(socialResult.status,'request_sent');
+ socialResult=(await db.query(`select prime.social_mutate('${socialA}'::uuid,'PP-2222-2222-2222-4222-8222','send_request') as value`)).rows[0].value;
+ assert.equal(socialResult.ok,true); assert.equal(socialResult.status,'request_pending');
  let socialSnapshot=(await db.query(`select prime.social_snapshot('${socialB}'::uuid) as value`)).rows[0].value;
  assert.deepEqual(socialSnapshot.incoming_requests.map(x=>x.prime_id),['PP-1111-1111-1111-4111-8111']);
  socialResult=(await db.query(`select prime.social_mutate('${socialB}'::uuid,'PP-1111-1111-1111-4111-8111','send_request') as value`)).rows[0].value;
