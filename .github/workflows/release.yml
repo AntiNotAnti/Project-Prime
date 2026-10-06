@@ -205,6 +205,8 @@ jobs:
           PROJECT_PRIME_USER_DATA: ${{ github.workspace }}/.release-user-data
         run: |
           set -euo pipefail
+          rm -rf "$PROJECT_PRIME_USER_DATA"
+          mkdir -p "$PROJECT_PRIME_USER_DATA/user-maps"
           dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
           find "$PROJECT_PRIME_USER_DATA/user-maps" -type f -name '*.ppmap' -exec cp {} maps/ \;
       - uses: actions/upload-artifact@v7
@@ -346,6 +348,9 @@ jobs:
             ndk="$ANDROID_HOME/ndk/28.2.13676358"
           fi
           ANDROID_NDK_ROOT="$ndk" tools/wgpu/build-native.sh android-arm64
+          ANDROID_NDK_ROOT="$ndk" tools/wgpu/build-native.sh android-x64
+          ANDROID_NDK_ROOT="$ndk" tools/ktx/build-native.sh android-arm64
+          ANDROID_NDK_ROOT="$ndk" tools/ktx/build-native.sh android-x64
           dotnet publish "$proj" -c Release -p:AndroidPackageFormat=apk "${sdk[@]}" \
             "${signing[@]}" \
             -p:Version="$VERSION" -p:InformationalVersion="$VERSION" \
@@ -633,6 +638,7 @@ jobs:
         run: |
           set -euo pipefail
           tools/wgpu/build-native.sh "$RID"
+          tools/ktx/build-native.sh "$RID"
           dotnet publish src/MphRead/MphRead.csproj -c Release -r "$RID" \
             -p:Version="$VERSION" -p:InformationalVersion="$VERSION" \
             --self-contained true -p:PublishSingleFile=true -o "publish/$RID"
