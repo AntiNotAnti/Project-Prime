@@ -357,6 +357,20 @@ jobs:
             -p:ApplicationDisplayVersion="$VERSION" \
             -p:ApplicationVersion="$ANDROID_VERSION_CODE" \
             -o publish/android
+      - name: verify Android native runtimes
+        run: |
+          set -euo pipefail
+          apk=$(ls publish/android/*-Signed.apk | head -1)
+          for native in \
+            lib/arm64-v8a/libwgpu_native.so \
+            lib/x86_64/libwgpu_native.so \
+            lib/arm64-v8a/libktx.so \
+            lib/x86_64/libktx.so; do
+            unzip -l "$apk" | grep -Fq "$native" || {
+              echo "::error::release APK is missing $native"
+              exit 1
+            }
+          done
       - name: report the APK's signer
         run: |
           set -euo pipefail
