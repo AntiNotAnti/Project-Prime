@@ -393,6 +393,14 @@ uniform float strength;
 uniform vec2 photo_texel;
 uniform int noise_enabled;
 uniform int stage_fx;
+uniform float stage_softness;
+uniform float stage_saturation;
+uniform float stage_cool_shift;
+uniform float stage_vignette;
+uniform float stage_left_scrim;
+uniform float stage_right_scrim;
+uniform float stage_floor_fade;
+uniform float stage_highlight_glow;
 varying vec2 photocoord;
 varying vec2 noisecoord;
 
@@ -421,24 +429,27 @@ void main()
         // the busier outer field where chrome sits.
         vec3 blur = soft_photo(photocoord);
         float focus_distance = distance(noisecoord, vec2(0.61, 0.47));
-        float softness = mix(0.14, 0.38, smoothstep(0.16, 0.76, focus_distance));
-        b = mix(b, blur, softness);
+        float softness_shape = mix(0.55, 1.25,
+            smoothstep(0.16, 0.76, focus_distance));
+        b = mix(b, blur, clamp(stage_softness * softness_shape, 0.0, 0.62));
 
-        // A restrained menu-only grade: cool the room, pull saturation back,
-        // preserve warm highlights, and keep the center-right stage readable.
+        // Room-independent shader, room-specific recipe. The profile controls
+        // how far the locally rendered stage is pushed behind the Hunter.
         float luma = dot(b, vec3(0.2126, 0.7152, 0.0722));
-        b = mix(vec3(luma), b, 0.82);
-        b *= vec3(0.92, 0.97, 1.04);
-        b += max(blur - vec3(0.58), vec3(0.0)) * 0.10;
+        b = mix(vec3(luma), b, clamp(stage_saturation, 0.0, 1.25));
+        b *= vec3(1.0 - stage_cool_shift,
+                  1.0 - stage_cool_shift * 0.32,
+                  1.0 + stage_cool_shift * 0.55);
+        b += max(blur - vec3(0.58), vec3(0.0)) * stage_highlight_glow;
 
         float radial = smoothstep(0.18, 0.88, focus_distance);
         float left_scrim = 1.0 - smoothstep(0.02, 0.42, noisecoord.x);
         float right_scrim = smoothstep(0.82, 1.0, noisecoord.x);
         float floor_fade = smoothstep(0.64, 1.0, noisecoord.y);
-        b *= 1.0 - radial * 0.18;
-        b *= 1.0 - left_scrim * 0.34;
-        b *= 1.0 - right_scrim * 0.18;
-        b *= 1.0 - floor_fade * 0.16;
+        b *= 1.0 - radial * stage_vignette;
+        b *= 1.0 - left_scrim * stage_left_scrim;
+        b *= 1.0 - right_scrim * stage_right_scrim;
+        b *= 1.0 - floor_fade * stage_floor_fade;
     }
 
     if (noise_enabled != 0) {
