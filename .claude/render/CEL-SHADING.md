@@ -152,8 +152,10 @@ the silhouettes instead of scribbling: SwiftShader measures **1998**, the
 floor lands at 11991, and the room is visible again instead of solid black.
 
 The probe runs in the same frame as the real pass and before it, so nobody
-ever sees it -- the scene has already been copied to `_celTexture` by then and
-the real pass paints every pixel back out of it.
+ever sees it. On outlined frames the world is rendered directly into the
+`_celTexture` source; the probe writes the normal scene-color target and the
+real pass immediately overwrites every pixel of that target from the untouched
+source. No full-frame color copy is required.
 
 Three lines of log say where a machine stands:
 
@@ -169,13 +171,15 @@ would have been drawing the machine's own error, and now is not.
 
 ## On OpenGL ES
 
-`Renderer.DrawCelOutline` uses a separate color-only framebuffer pointing at
-the scene color texture. It samples the copied color and the scene depth;
-neither is attached to the framebuffer being drawn into. Keeping that depth
-attachment out of the draw target avoids texture feedback without detaching
-and reattaching it on every frame. The color-only target is validated when
-attached and after resizing. Explicit pass state and respawn checks are
-documented in `RENDER-STABILITY.md`.
+`Renderer.DrawCelOutline` uses two persistent scene targets while an outline
+is active. World passes write `_celTexture` plus the readable scene depth;
+the outline samples both and resolves directly into the normal
+`_screenTexture` through a separate color-only framebuffer. Neither sampled
+texture is attached to the framebuffer being drawn into. This avoids both
+texture feedback and the previous full-resolution `CopyTexSubImage2D` every
+frame, while still avoiding depth detach/reattach flushes on tiled GPUs. Both
+targets are validated when their attachments change. Explicit pass state and
+respawn checks are documented in `RENDER-STABILITY.md`.
 
 ## Testing it
 
