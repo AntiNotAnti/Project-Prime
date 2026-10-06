@@ -1301,6 +1301,7 @@ namespace MphRead.Entities
 
         public override void GetDrawInfo()
         {
+            if (Mods.ThumbnailMode.SuppressCombatPresentation) return;
             if (_scene.Services.IsReplica && _replayImpactHidden) return;
 
             bool anchored = _scene.Services.IsReplica && _replayImpactPending
