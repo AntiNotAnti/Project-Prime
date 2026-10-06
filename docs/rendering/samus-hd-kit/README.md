@@ -75,8 +75,10 @@ body and armed bodygroup replacement. The converter fits the native animation
 frames, bakes those frames into the rest skeleton, preserves the original UVs
 and embedded albedos, and checks the exported inverse binds numerically.
 
-The candidate is `starter/samus/biped_sourceio_weighted4.glb`; copy it to
+The locally generated candidate is `starter/samus/biped_sourceio_weighted4.glb`; copy it to
 `starter/samus/biped_weighted4.glb`, validate the starter pack, and install it.
+Generated `.blend`/`.glb` outputs are intentionally Git-ignored and must not be
+committed because they contain user-extracted game content.
 The fixed export has 17 joints, 8 primitives and 39,000 triangles.
 
 Use the rebuilt game: its Weighted4 loader now reads embedded albedos and the
