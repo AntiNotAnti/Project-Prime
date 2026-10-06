@@ -54,6 +54,7 @@ namespace MphRead.Formats
 
     public static class CollisionDetection
     {
+        private const int CandidatePoolCapacity = 2048;
         private static bool FiniteVector(Vector3 value)
             => Single.IsFinite(value.X) && Single.IsFinite(value.Y) && Single.IsFinite(value.Z);
 
@@ -66,7 +67,10 @@ namespace MphRead.Formats
 
         public static void Init()
         {
-            for (int i = 0; i < 2048; i++)
+            // Multiple foreground/private scenes share this owner-thread scratch
+            // pool. Loading another scene must not add another full seed.
+            for (int i = _inactiveItems.Count + _activeItems.Count + _tempItems.Count;
+                i < CandidatePoolCapacity; i++)
             {
                 _inactiveItems.Enqueue(new CollisionCandidate(null!, default));
             }
@@ -357,7 +361,11 @@ namespace MphRead.Formats
                 int last = _activeItems.Count - 1;
                 CollisionCandidate item = _activeItems[last];
                 _activeItems.RemoveAt(last);
-                _inactiveItems.Enqueue(item);
+                item.Collision = null!;
+                item.EntityCollision = null;
+                item.Entry = default;
+                if (_inactiveItems.Count < CandidatePoolCapacity)
+                    _inactiveItems.Enqueue(item);
             }
         }
 

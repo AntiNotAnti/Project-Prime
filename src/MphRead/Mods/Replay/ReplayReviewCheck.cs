@@ -12,14 +12,33 @@ internal static class ReplayReviewCheck
     internal static void Run(Action<bool, string> check)
     {
         const string releaseContract = "455910DAF1D71841346B1B2692A3ACC3A4B742660CC34A485CCFF66999C2E273";
-        check(ReplayWorldCheckpoint.SupportsContract(releaseContract, "0.1.34+f0e01e09"),
-            "unchanged v0.1.34 replay layout rejected because of assembly version");
+        check(!ReplayWorldCheckpoint.SupportsContract(releaseContract, "0.1.34+f0e01e09"),
+            "archived v0.1.34 layout was incorrectly treated as the current saved world");
+        check(ReplayWorldCheckpoint.SupportsContract(ReplayWorldCheckpoint.ComputeContract(false, "0.1.34+f0e01e09"),
+                "0.1.34+f0e01e09"),
+            "current layout with an older assembly version was rejected");
         check(!ReplayWorldCheckpoint.SupportsContract(new string('0', 64), "0.1.34+f0e01e09"),
             "unknown replay layout bypassed schema validation");
         check(!ReplayWorldCheckpoint.SupportsContract("", "unknown"),
             "invalid producer version accepted an empty checkpoint contract");
         check(ReplayWorldCheckpoint.ComputeContract(true, "0.1.34") == ReplayWorldCheckpoint.ComputeContract(true, "9.8.7"),
             "stable checkpoint contract depends on product version");
+        var history = new ReplayHistorySet<int>(120, 2048);
+        int peak = 0;
+        for (uint frame = 0; frame < 100000; frame++)
+        {
+            history.Prune(frame);
+            check(history.Add((int)frame, frame) && !history.Add((int)frame, frame), "window identity is accepted exactly once");
+            peak = Math.Max(peak, history.Count);
+        }
+        check(peak == 121 && history.Count == 121, "long replay identities stay within retained history");
+        history.Clear();
+        check(history.Add(1, 1000) && history.Contains(1), "seek reconstructs identity history independently");
+        var bounded = new ReplayHistorySet<int>(120, 1);
+        bounded.Add(1, 0);
+        bool overflowRejected = false;
+        try { bounded.Add(2, 0); } catch (InvalidDataException) { overflowRejected = true; }
+        check(overflowRejected, "malformed single-frame identity growth is bounded");
         foreach (int fps in ReplayExportRates.Supported)
         {
             var samples = new ReplayExportSampler(10000, 10060, fps);

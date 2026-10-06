@@ -150,6 +150,9 @@ namespace MphRead.Mods.Launcher.Gui
             LaunchPlan? offlinePlan = null;
             offlineView.Launched += (_, plan) => offlinePlan = plan;
             var offlineRoot = new Grid(); offlineRoot.Children.Add(offlineView); offlineRoot.Children.Add(offlineOverlays);
+            // This standalone workspace needs its authored desktop layout.
+            // PrimeUiChecks covers compact sizes through the real shell host.
+            window.Width = 1280; window.Height = 720;
             window.Content = offlineRoot; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
             string[] offlineHeadings = offlineView.GetVisualDescendants().OfType<TextBlock>()
                 .Select(block => block.Text ?? "").ToArray();
@@ -158,7 +161,8 @@ namespace MphRead.Mods.Launcher.Gui
                 && offlineHeadings.Contains("HUNTER")
                 && offlineHeadings.Contains("TRAINING & ADVENTURE"),
                 "Offline exposes shared Match Arena Deployment setup hierarchy");
-            Click(window, ControllerNav.Find(offlineView, "offline.start")!);
+            WithOfflineEntityFixture(() =>
+                Click(window, ControllerNav.Find(offlineView, "offline.start")!));
             GamepadChecks.Check(offlinePlan is { Kind: LaunchKind.Offline, RoomKey: "MP3 PROVING GROUND" },
                 "Offline launches its selected local arena");
 
@@ -487,6 +491,50 @@ namespace MphRead.Mods.Launcher.Gui
                 GamepadChecks.Check(continued == 1, "pointer continues startup");
             }
             window.Close();
+        }
+
+        // Exercise the real capability gate and entity reader without a game
+        // extraction. Only this launch click sees the temporary asset root;
+        // configured paths are restored before any later workspace runs.
+        private static void WithOfflineEntityFixture(Action launch)
+        {
+            const string room = "MP3 PROVING GROUND";
+            string previousKey = Paths.MphKey;
+            string previousRoot = Paths.FileSystem;
+            string directory = Path.Combine(Path.GetTempPath(), "prime-gamepad-entities-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Paths.SetPath(previousKey, directory);
+                string entityFile = Paths.Combine(directory, Metadata.RoomMetadata[room].EntityPath!);
+                Directory.CreateDirectory(Path.GetDirectoryName(entityFile)!);
+                File.WriteAllBytes(entityFile, Utility.Repack.PackEntities(Array.Empty<Editor.EntityEditorBase>()));
+                var profile = Multiplayer.MatchWorldProfile.Resolve(1);
+                GamepadChecks.Check(!Multiplayer.MapModeCapabilities.Supports(room, GameMode.Battle,
+                    profile, out string missing)
+                    && missing.Contains("active player spawns", StringComparison.Ordinal),
+                    "Offline fixture preserves the real missing-spawn capability rejection");
+                File.WriteAllBytes(entityFile, Utility.Repack.PackEntities(new Editor.EntityEditorBase[]
+                {
+                    new Editor.PlayerSpawnEntityEditor
+                    {
+                        Id = 1, LayerMask = ushort.MaxValue, Active = true,
+                        Up = OpenTK.Mathematics.Vector3.UnitY,
+                        Facing = OpenTK.Mathematics.Vector3.UnitZ,
+                        NodeName = "rmMain"
+                    }
+                }));
+                GamepadChecks.Check(Multiplayer.MapModeCapabilities.Supports(room, GameMode.Battle,
+                    profile, out string reason), "Offline fixture has valid production-packed spawns: " + reason);
+                launch();
+            }
+            finally
+            {
+                Paths.SetPath(previousKey, previousRoot);
+                Paths.MphKey = previousKey;
+                if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+            }
+            GamepadChecks.Check(Paths.MphKey == previousKey && Paths.FileSystem == previousRoot,
+                "Offline fixture restores the configured game version and asset root");
         }
 
         private static void Click(Window window, Control control,
