@@ -303,7 +303,7 @@ namespace MphRead.Mods.Network
 
     internal sealed class CareerMatchReport
     {
-        public int Version { get; set; } = 1;
+        public int Version { get; set; } = 2;
         public Guid MatchId { get; set; }
         public ushort WireMatchId { get; set; }
         public Guid ServerIncarnation { get; set; }
@@ -319,6 +319,7 @@ namespace MphRead.Mods.Network
         public bool Teams { get; set; }
         public int TeamCount { get; set; }
         public bool ContainsBots { get; set; }
+        public bool AccountingComplete { get; set; } = true;
         public bool RatingEligible { get; set; }
         public List<CareerParticipantReport> Participants { get; set; } = new();
     }
@@ -328,6 +329,9 @@ namespace MphRead.Mods.Network
         public Guid ParticipantId { get; set; }
         public uint ClientId { get; set; }
         public string CareerTicket { get; set; } = "";
+        public long JoinedTicks { get; set; }
+        public long LeftTicks { get; set; }
+        public DateTimeOffset SegmentEndedAtUtc { get; set; }
         public string DisplayName { get; set; } = "Player";
         public int Hunter { get; set; }
         public bool SingleHunter { get; set; } = true;
@@ -373,7 +377,9 @@ namespace MphRead.Mods.Network
             public bool Teams;
             public int TeamCount;
             public bool RatingEligible;
-            public readonly Dictionary<uint, CareerParticipantState> Participants = new();
+            public readonly List<CareerParticipantState> Participants = new();
+            public readonly Dictionary<Peer, CareerParticipantState> Active = new();
+            public bool SegmentLimitReached;
         }
 
         private sealed class CareerParticipantState
@@ -381,6 +387,10 @@ namespace MphRead.Mods.Network
             public Guid ParticipantId = Guid.NewGuid();
             public uint ClientId;
             public string CareerTicket = "";
+            public Guid? TicketSubjectHint;
+            public long JoinedTicks;
+            public long LeftTicks;
+            public DateTimeOffset SegmentEndedAtUtc;
             public string DisplayName = "Player";
             public int Hunter;
             public bool SingleHunter = true;
@@ -412,7 +422,7 @@ namespace MphRead.Mods.Network
         private void EnsureCareerMatchStarted(double now)
         {
             if (_botAssistedMatch || _careerMatch != null || _sim == null || _phase != SessionPhase.InMatch
-                || _peers.Count == 0 || !NetRoomChange.GameplayReady)
+                || !_peers.Any(peer => !peer.Spectating) || !NetRoomChange.GameplayReady)
             {
                 return;
             }
@@ -446,57 +456,102 @@ namespace MphRead.Mods.Network
         private uint CareerKey(Peer peer)
             => peer.ClientId != 0 ? peer.ClientId : 0x80000000u | (uint)(peer.SlotIndex + 1);
 
+        // The report body is bounded independently of the eight concurrent slots.
+        // A segment is an admission/account lifetime, never a process-random ClientId lifetime.
+        private const int MaximumCareerSegments = 128;
+
         private void CareerActivate(Peer peer, bool startedMatch)
         {
-            if (_botAssistedMatch) return;
+            if (_botAssistedMatch || peer.Spectating) return;
             CareerMatchState? match = _careerMatch;
             if (match == null) return;
             uint key = CareerKey(peer);
-            if (!match.Participants.TryGetValue(key, out CareerParticipantState? p))
+            if (match.Active.TryGetValue(peer, out var active) && active.Active) return;
+            if (match.Participants.Count >= MaximumCareerSegments)
             {
-                p = new CareerParticipantState
-                {
-                    ClientId = peer.ClientId != 0 ? peer.ClientId : key,
-                    StartedMatch = startedMatch
-                };
-                match.Participants.Add(key, p);
+                if (!match.SegmentLimitReached) Console.WriteLine("[career] segment limit reached; retaining the bounded completed report as Practice");
+                match.SegmentLimitReached = true;
+                return;
             }
-            else
+            var p = new CareerParticipantState
             {
-                p.StartedMatch |= startedMatch;
-                if (p.Active) return;
-            }
+                ClientId = peer.ClientId != 0 ? peer.ClientId : key,
+                StartedMatch = startedMatch,
+                CareerTicket = peer.CareerTicket,
+                TicketSubjectHint = CareerTicketSubjectHint(peer.CareerTicket),
+                DisplayName = peer.Name.Length > 0 ? peer.Name : $"Player {peer.SlotIndex + 1}",
+                Hunter = Math.Clamp((int)peer.Hunter, 0, Launcher.Hunters.Playable - 1),
+                Team = Math.Clamp((int)peer.TeamIndex, 0, 7),
+                Slot = peer.SlotIndex,
+                JoinedFrame = CareerFrame,
+                JoinedTicks = Math.Max(0, CareerFrame - match.StartedFrame),
+                Start = CareerCounters(peer.SlotIndex),
+                Active = true
+            };
+            match.Participants.Add(p);
+            match.Active[peer] = p;
+        }
 
-            p.CareerTicket = peer.CareerTicket;
-            p.DisplayName = peer.Name.Length > 0 ? peer.Name : $"Player {peer.SlotIndex + 1}";
-            if (p.Active && p.Hunter != peer.Hunter) p.SingleHunter = false;
-            if (p.PlayedTicks > 0 && p.Hunter != peer.Hunter) p.SingleHunter = false;
-            p.Hunter = Math.Clamp((int)peer.Hunter, 0, Launcher.Hunters.Playable - 1);
-            p.Team = Math.Clamp((int)peer.TeamIndex, 0, 7);
-            p.Slot = peer.SlotIndex;
-            p.JoinedFrame = CareerFrame;
-            p.Start = CareerCounters(peer.SlotIndex);
-            p.Active = true;
-            p.Departed = false;
+        // This untrusted hint only splits accounting lifetimes; it authorizes nothing.
+        // The backend verifies the complete HMAC-signed ticket and client binding.
+        private static Guid? CareerTicketSubjectHint(string ticket)
+        {
+            if (ticket.Length > 768) return null;
+            string[] parts = ticket.Split('.');
+            if (parts.Length != 3 || parts[0] != "pp1") return null;
+            try
+            {
+                string payload = parts[1].Replace('-', '+').Replace('_', '/');
+                payload = payload.PadRight((payload.Length + 3) / 4 * 4, '=');
+                using JsonDocument document = JsonDocument.Parse(Convert.FromBase64String(payload));
+                return document.RootElement.TryGetProperty("sub", out JsonElement sub)
+                    && sub.ValueKind == JsonValueKind.String && Guid.TryParse(sub.GetString(), out Guid subject)
+                    ? subject : null;
+            }
+            catch (Exception ex) when (ex is FormatException or JsonException) { return null; }
         }
 
         private void CareerIdentityChanged(Peer peer, int previousHunter)
         {
-            if (_careerMatch == null) return;
-            uint key = CareerKey(peer);
-            if (!_careerMatch.Participants.TryGetValue(key, out CareerParticipantState? p)) return;
+            CareerTicketChanged(peer);
+            if (_careerMatch == null || !_careerMatch.Active.TryGetValue(peer, out var p)) return;
             if (previousHunter != peer.Hunter) p.SingleHunter = false;
             p.Hunter = Math.Clamp((int)peer.Hunter, 0, Launcher.Hunters.Playable - 1);
             p.Team = Math.Clamp((int)peer.TeamIndex, 0, 7);
             p.DisplayName = peer.Name;
-            p.CareerTicket = peer.CareerTicket;
         }
 
         private void CareerTicketChanged(Peer peer)
         {
-            if (_careerMatch == null) return;
-            if (_careerMatch.Participants.TryGetValue(CareerKey(peer), out CareerParticipantState? p))
+            CareerMatchState? match = _careerMatch;
+            if (match == null || !match.Active.TryGetValue(peer, out var p)
+                || p.CareerTicket == peer.CareerTicket && p.ClientId == CareerKey(peer)) return;
+            Guid? subject = CareerTicketSubjectHint(peer.CareerTicket);
+            // Only a refresh with the same subject hint can replace a frozen ticket.
+            // Invalid/empty tickets and changed accounts cannot inherit prior counters.
+            if (p.ClientId == CareerKey(peer) && p.TicketSubjectHint != null && p.TicketSubjectHint == subject)
+            {
                 p.CareerTicket = peer.CareerTicket;
+                return;
+            }
+            if (p.ClientId == CareerKey(peer) && p.CareerTicket.Length == 0 && p.PlayedTicks == 0 && CareerFrame == p.JoinedFrame)
+            {
+                p.CareerTicket = peer.CareerTicket;
+                p.TicketSubjectHint = subject;
+                return;
+            }
+            CareerCaptureSegment(p);
+            p.Departed = true;
+            match.Active.Remove(peer);
+            CareerMatchStats.ForgetSlot(peer.SlotIndex);
+            CareerActivate(peer, startedMatch: false);
+        }
+
+        private void CareerPeerRoleChanged(Peer peer)
+        {
+            if (_careerMatch == null) return;
+            if (peer.Spectating) CareerPeerLeaving(peer);
+            else if (_phase == SessionPhase.InMatch) CareerActivate(peer, startedMatch: false);
         }
 
         private void CareerPeerJoined(Peer peer)
@@ -508,8 +563,7 @@ namespace MphRead.Mods.Network
         private void CareerPeerLeaving(Peer peer)
         {
             if (_careerMatch == null) return;
-            uint key = CareerKey(peer);
-            if (_careerMatch.Participants.TryGetValue(key, out CareerParticipantState? p))
+            if (_careerMatch.Active.Remove(peer, out var p))
             {
                 CareerCaptureSegment(p);
                 p.Departed = true;
@@ -558,6 +612,8 @@ namespace MphRead.Mods.Network
             for (int beam = 0; beam < p.Metrics.BeamKills.Length; beam++)
                 p.Metrics.BeamKills[beam] += Delta(now.BeamKills[beam], p.Start.BeamKills[beam]);
             p.PlayedTicks += Math.Max(0, CareerFrame - p.JoinedFrame);
+            p.LeftTicks = Math.Max(p.JoinedTicks, CareerFrame - (_careerMatch?.StartedFrame ?? CareerFrame));
+            p.SegmentEndedAtUtc = DateTimeOffset.UtcNow;
             p.Active = false;
         }
 
@@ -583,13 +639,13 @@ namespace MphRead.Mods.Network
             GameState.UpdateStandings();
             foreach (Peer peer in _peers)
             {
-                uint key = CareerKey(peer);
-                if (!match.Participants.TryGetValue(key, out CareerParticipantState? p))
+                if (peer.Spectating) continue;
+                CareerTicketChanged(peer);
+                if (!match.Active.TryGetValue(peer, out CareerParticipantState? p))
                 {
                     CareerActivate(peer, startedMatch: false);
-                    p = match.Participants[CareerKey(peer)];
+                    if (!match.Active.TryGetValue(peer, out p)) continue;
                 }
-                p.CareerTicket = peer.CareerTicket;
                 p.DisplayName = peer.Name.Length > 0 ? peer.Name : p.DisplayName;
                 p.Hunter = Math.Clamp((int)peer.Hunter, 0, Launcher.Hunters.Playable - 1);
                 p.Team = Math.Clamp((int)peer.TeamIndex, 0, 7);
@@ -602,13 +658,15 @@ namespace MphRead.Mods.Network
             }
 
             var reports = new List<CareerParticipantReport>(match.Participants.Count);
-            foreach (CareerParticipantState p in match.Participants.Values)
+            foreach (CareerParticipantState p in match.Participants)
             {
                 reports.Add(new CareerParticipantReport
                 {
                     ParticipantId = p.ParticipantId,
                     ClientId = p.ClientId,
                     CareerTicket = p.CareerTicket,
+                    JoinedTicks = p.JoinedTicks, LeftTicks = p.LeftTicks,
+                    SegmentEndedAtUtc = p.SegmentEndedAtUtc,
                     DisplayName = SanitizeCareerName(p.DisplayName),
                     Hunter = p.Hunter,
                     SingleHunter = p.SingleHunter,
@@ -636,6 +694,11 @@ namespace MphRead.Mods.Network
                 p.Won = rank == 0 && !p.Tied;
             }
 
+            if (reports.Count == 0)
+            {
+                AbandonCareerMatch();
+                return;
+            }
             var report = new CareerMatchReport
             {
                 MatchId = match.MatchId,
@@ -652,7 +715,8 @@ namespace MphRead.Mods.Network
                 Teams = match.Teams,
                 TeamCount = match.TeamCount,
                 ContainsBots = _botAssistedMatch,
-                RatingEligible = match.RatingEligible && !_botAssistedMatch,
+                AccountingComplete = !match.SegmentLimitReached,
+                RatingEligible = match.RatingEligible && !_botAssistedMatch && !match.SegmentLimitReached,
                 Participants = reports
             };
             CareerReportOutbox.Enqueue(report);

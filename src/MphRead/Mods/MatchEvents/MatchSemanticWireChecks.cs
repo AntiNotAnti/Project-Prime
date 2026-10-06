@@ -166,12 +166,27 @@ internal static class MatchSemanticWireChecks
         bool rejected = false;
         try { replica.RestoreCheckpoint(new(malformed)); } catch (InvalidDataException) { rejected = true; }
         require(rejected && replica.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes), "bad semantic checkpoint is atomic");
-        // Version4 protocol34 ends before the new semantic component. Existing layout is unchanged.
+        // Version4 protocol34 ends before the semantic component and predates
+        // protocol42's player/roster fields and larger fire-event records.
         var empty = new ReplayReplicaState(); empty.Accept(matchBytes, 0);
         byte[] schemaFive = empty.CaptureCheckpoint().Bytes[..^8].ToArray(); schemaFive[4] = 5;
         var oldFive = new ReplayReplicaState(); oldFive.RestoreCheckpoint(new(schemaFive));
         require(oldFive.SemanticEvents.Events.Count == 0, "schema 5 checkpoints remain readable without presentation frontier");
-        byte[] legacy = empty.CaptureCheckpoint().Bytes[..^16].ToArray();
+        var legacyBytes = empty.CaptureCheckpoint().Bytes[..^16].ToArray().ToList();
+        const int matchStart = 46;
+        int rosterStart = matchStart + MatchStatePacket.Size + 1;
+        int firstPlayer = rosterStart + RosterPacket.Size;
+        int stride = 7 + PlayerState.Size + 1 + IntentPacket.FullSize + 4;
+        for (int slot = Entities.PlayerEntity.SlotCapacity - 1; slot >= 0; slot--)
+        {
+            legacyBytes.RemoveRange(firstPlayer + slot * stride + 7 + PlayerState.Size + 1 + IntentPacket.Protocol38FullSize,
+                IntentPacket.FullSize - IntentPacket.Protocol38FullSize);
+            legacyBytes.RemoveRange(firstPlayer + slot * stride + 7 + PlayerState.Protocol41Size,
+                PlayerState.Size - PlayerState.Protocol41Size);
+        }
+        for (int slot = RosterPacket.MaxSlots - 1; slot >= 0; slot--)
+            legacyBytes.RemoveAt(rosterStart + RosterPacket.HeaderSize + slot * RosterPacket.EntrySize + RosterPacket.EntrySize - 1);
+        byte[] legacy = legacyBytes.ToArray();
         BinaryPrimitives.WriteUInt16LittleEndian(legacy.AsSpan(4), 4); legacy[6] = 34;
         replica.RestoreCheckpoint(new(legacy));
         require(replica.Match?.MatchId == 1 && replica.SemanticEvents.Events.Count == 0, "protocol34 version4 checkpoint remains readable");

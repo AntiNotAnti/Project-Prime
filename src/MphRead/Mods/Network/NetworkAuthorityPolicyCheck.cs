@@ -246,20 +246,39 @@ public static class NetworkAuthorityPolicyCheck
             ResetEvidence();
             uint now = NetSession.NetFrame;
             void SetFrame(uint frame) => typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, frame);
-            IntentPacket Carrier(uint frame, uint id, uint source, BeamType beam) => new()
+            var aimVecs = typeof(PlayerEntity).GetMethod("UpdateAimVecs", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            Vector3 NativeMuzzle(Vector3 direction)
             {
-                MatchId = 1, AuthorityEpoch = 1, SlotGeneration = NetPlayerLifecycle.Generation(0), LifeId = NetPlayerLifecycle.Get(0),
-                Frame = frame, AckFrame = source, Position = shooter.Position, Aim = Vector3.UnitZ, WeaponSelect = (byte)beam,
-                HasFireEvents = true, FireEventCount = 1,
-                FireEvents = Events(new(id, source, source, 0, FireEventKind.PressFire, (byte)beam, 0, 0,
-                    FireEvent.FlagPose, victim.Position.AddY(Fixed.ToFloat(victim.Values.MinPickupHeight) + .05f) - Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ))
-            };
+                shooter.ModSetAim(direction); aimVecs.Invoke(shooter, null); return shooter.ModMuzzlePos;
+            }
+            void PlaceNativeMuzzle(Vector3 position)
+            {
+                shooter.ModPlaceAt(shooter.Position + position - NativeMuzzle(Vector3.UnitZ));
+                NativeMuzzle(Vector3.UnitZ);
+            }
+            IntentPacket Carrier(uint frame, uint id, uint source, BeamType beam)
+            {
+                Vector3 origin = NativeMuzzle(Vector3.UnitZ);
+                shooter.ModCaptureFireSource(false, out Vector3 sourceBody, out Vector3 sourceUp, out byte sourceFlags);
+                return new()
+                {
+                    MatchId = 1, AuthorityEpoch = 1, SlotGeneration = NetPlayerLifecycle.Generation(0), LifeId = NetPlayerLifecycle.Get(0),
+                    Frame = frame, AckFrame = source, Position = shooter.Position, Aim = Vector3.UnitZ, WeaponSelect = (byte)beam,
+                    HasFireEvents = true, FireEventCount = 1,
+                    FireEvents = Events(new(id, source, source, 0, FireEventKind.PressFire, (byte)beam, 0, 0,
+                        FireEvent.FlagPose, origin, Vector3.UnitZ, Vector3.UnitZ, Vector3.UnitZ,
+                        default, sourceBody, sourceUp, sourceFlags))
+                };
+            }
+            victim.ModPlaceAt(NativeMuzzle(Vector3.UnitZ) + Vector3.UnitZ
+                - Vector3.UnitY * (Fixed.ToFloat(victim.Values.MinPickupHeight) + .05f));
             void NativeWitness()
             {
-                // Keep a healthy historical target, then let the native shot
-                // traverse while no current collision target is present. The
-                // claim rescues the historical overlap instead of duplicating
-                // an already-authority damage result.
+                // Collision-independent native path fixture: retain a healthy
+                // historical body, detach only its current collision participation,
+                // then traverse a real admitted source-body/muzzle shot. This
+                // helper validates admission/path arbitration, not a live network
+                // owner prediction or a current authority collision.
                 int health = victim.Health; victim.Health = 0;
                 try
                 {
@@ -386,6 +405,7 @@ public static class NetworkAuthorityPolicyCheck
                 HitPoint = victim.Position, Flags = HitClaimPacket.FlagDirect
             };
             byte[] wire = new byte[1 + HitClaimPacket.Size]; wire[0] = 1; deferredClaim.Write(wire.AsSpan(1));
+            int previousPing = NetSession.SlotPing[0]; NetSession.SlotPing[0] = 1000;
             NetHitClaims.Receive(0, wire);
             Check(NetHitClaims.ClaimsPendingCurrent == 1 && victim.Health == 99,
                 "claim-before-intent remains pending during bounded grace");
@@ -396,9 +416,10 @@ public static class NetworkAuthorityPolicyCheck
             shooter.Health = 0;
             NativeWitness();
             for (uint i = 1; i <= NetHitClaims.MaxGraceFrames + 2; i++)
-            { SetFrame(baseline + i); NetHitClaims.Tick(); }
+            { SetFrame(baseline + i); NetUnlagged.Record(baseline + i); NetHitClaims.Tick(); }
+            NetSession.SlotPing[0] = previousPing;
             Check(NetHitClaims.AppliedHere == 1 && victim.Health == 98,
-                "production arbitration rescues authorized pre-death claim after reordered intent");
+                "retained native witness rescues reordered pre-death claim after grace exceeds rewind budget");
             NetHitClaims.Receive(0, wire); NetHitClaims.Tick();
             Check(victim.Health == 98, "claim retry remains idempotent after terminal verdict");
             // A source-admitted bomb survives shooter death and pays once via
@@ -494,7 +515,9 @@ public static class NetworkAuthorityPolicyCheck
                 var turret = new HalfturretEntity(victim, shooter.OwningScene) { Health = 40 };
                 turretField.SetValue(victim, turret);
                 typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(victim, previousFlags | PlayerFlags2.Halfturret);
-                victim.ModPlaceAt(shooter.Position); turret.Reposition(victim.Position + Vector3.UnitY * 2, victim.NodeRef);
+                victim.ModPlaceAt(NativeMuzzle(Vector3.UnitZ) + Vector3.UnitZ
+                    - Vector3.UnitY * (Fixed.ToFloat(victim.Values.MinPickupHeight) + .05f));
+                turret.Reposition(victim.Position + Vector3.UnitY * 2, victim.NodeRef);
                 uint bodyFrame = contactFrame + 100; SetFrame(bodyFrame); NetUnlagged.Record(bodyFrame);
                 var ownerRay = Carrier(bodyFrame, 1, bodyFrame, BeamType.Imperialist); NetSession.AcceptSlotIntent(0, ownerRay); NativeWitness();
                 var bodyClaim = claim; bodyClaim.Beam = (byte)BeamType.Imperialist; bodyClaim.ShotId = 1;
@@ -502,18 +525,18 @@ public static class NetworkAuthorityPolicyCheck
                 Check(NetAcceptedAttacks.ValidateClaim(0, bodyClaim), "Imperialist owner ray supports declared body");
                 var turretFlag = bodyClaim; turretFlag.Flags |= HitClaimPacket.FlagHalfturret;
                 Check(!NetAcceptedAttacks.ValidateClaim(0, turretFlag), "off-ray turret cannot borrow owner ray intersection");
+                PlaceNativeMuzzle(turret.Position - Vector3.UnitZ);
                 SetFrame(bodyFrame + 300); NetUnlagged.Record(bodyFrame + 300);
                 var turretRay = Carrier(bodyFrame + 300, 2, bodyFrame + 300, BeamType.Imperialist);
-                turretRay.FireEvents[0] = turretRay.FireEvents[0] with { Origin = turret.Position - Vector3.UnitZ };
                 NetSession.AcceptSlotIntent(0, turretRay); NativeWitness();
                 Check(NetAcceptedAttacks.Authorized(0, 2), "second native Imperialist source admitted after legal cadence");
                 turretFlag.ShotId = 2; turretFlag.Frame = turretFlag.AckFrame = turretFlag.LaunchFrame = bodyFrame + 300;
                 Check(NetAcceptedAttacks.ValidateClaim(0, turretFlag), "producer-shaped owner Position still permits independently proved turret hit");
                 var wrongOwner = turretFlag; wrongOwner.Flags &= unchecked((byte)~HitClaimPacket.FlagHalfturret);
                 Check(!NetAcceptedAttacks.ValidateClaim(0, wrongOwner), "off-ray owner cannot borrow turret ray intersection");
+                PlaceNativeMuzzle(victim.Position.AddY(Fixed.ToFloat(victim.Values.MaxPickupHeight) - .1f) - Vector3.UnitZ);
                 SetFrame(bodyFrame + 600); NetUnlagged.Record(bodyFrame + 600);
                 var headRay = Carrier(bodyFrame + 600, 3, bodyFrame + 600, BeamType.Imperialist);
-                headRay.FireEvents[0] = headRay.FireEvents[0] with { Origin = victim.Position.AddY(Fixed.ToFloat(victim.Values.MaxPickupHeight) - .1f) - Vector3.UnitZ };
                 NetSession.AcceptSlotIntent(0, headRay); NativeWitness();
                 var headClaim = bodyClaim; headClaim.ShotId = 3; headClaim.Flags |= HitClaimPacket.FlagHeadshot;
                 headClaim.Frame = headClaim.AckFrame = headClaim.LaunchFrame = bodyFrame + 600; headClaim.Damage = 200;

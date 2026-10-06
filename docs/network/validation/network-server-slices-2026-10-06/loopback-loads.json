@@ -1,0 +1,1262 @@
+{
+  "createdUtc": "2026-10-06T18:29:42.071833+00:00",
+  "finalProductionSourceCommit": "7b8b5d4e76cbf9eda21c41ca155645c8f261f986",
+  "measurementBuildBaseCommit": "5f531ad4a31cad765272d251c2e694532fa049a9",
+  "protocol": 42,
+  "runtime": ".NET10.0.12",
+  "sdk": "10.0.401 /tmp/project-prime-dotnet10/dotnet",
+  "platform": "macOS-27.0-arm64-arm-64bit",
+  "sourceManifest": {
+    "rawManifest": "docs/audits/network-server-2026-10-06-evidence/slices-validation/final-runtime-build-manifest.json",
+    "sourceHashesVerifiedAfterMeasurements": true,
+    "assembliesSha256": {
+      "ProjectPrime.dll": "c02f45851b00ed02925b37f8075aeccc3e47fc8ab5d476c00834fd47a668be83",
+      "nettest.dll": "5817bb82083fb1353e6184e4df165df1904f3be187367fc84135879531b13a42"
+    },
+    "serverBuild": "39warnings/0errors27.97s",
+    "guiBuild": {
+      "warnings": 104,
+      "errors": 0,
+      "seconds": 42.04,
+      "sha256": "fd9769defde772aa22840ad715baf94a58db3d821f8b3fa8a31af6690de2b4c0"
+    },
+    "sourceCount": 123,
+    "sourceSetSha256": "3361a56360a885f300debca7e403321f59198d0dc0d7169f6f776f12acb82c4d",
+    "trackedSourceManifest": "functional-checks.json#/sourceSha256",
+    "sourceSetMatchesTrackedFunctionalEvidence": true
+  },
+  "measurementWindow": {
+    "startedUtc": "2026-10-06T18:21:27.759865+00:00",
+    "completedUtc": "2026-10-06T18:24:06.593739+00:00",
+    "assemblySha256": {
+      "nettest.dll": "5817bb82083fb1353e6184e4df165df1904f3be187367fc84135879531b13a42",
+      "ProjectPrime.dll": "c02f45851b00ed02925b37f8075aeccc3e47fc8ab5d476c00834fd47a668be83"
+    },
+    "assemblyUnchanged": true,
+    "scope": "exclusive owned test/build window; CPU/RSS include same-process peers and diagnostics"
+  },
+  "outcome": {
+    "arms": 9,
+    "cycles": 11,
+    "passedArms": 9,
+    "passedCycles": 11,
+    "queueDrops": 0,
+    "socketErrors": 0,
+    "failedSimulationSteps": 0,
+    "droppedSimulationStepsDuringMeasurement": 0,
+    "stallsDuringMeasurement": 0,
+    "udpRebindPassedCycles": 11,
+    "healthyArchivePlaybackExitCode": 0
+  },
+  "definitions": {
+    "warmup": "2 seconds after ordinary admission, then12s measured for main8 arms; repeated lifecycle3 cycles each2s warm+2s measured",
+    "peerModel": "Actual native DedicatedServer/productionUDP with synthetic idle input peers. Load peers echo WorldReady identities; separate strict eight-peer-bootstrap regression validates all4 lanes/current fences before ACK. No rendered prediction/physical input-latency claim.",
+    "wireBytes": "Actual native server ReceiveFrom and successful SendTo datagram byte counts. Includes transport headers, retries and ACKs; excludes IP/UDP/link headers. Packet-kind peaks are lifetime per-type peaks and may include cold admission.",
+    "stepQuantiles": "Measured warm ServerSim histogram deltas in.01ms bins, roughly720steps per12s arm; p99.9 effectively one maximum observation, not a long-term SLO estimate.",
+    "wholeLoopQuantiles": "All main-loop bodies excluding pacing wait, including empty deadline-spin iterations. Denominator differs from simulation steps; cannot be called per-tick cost.",
+    "cpuMemory": "Same process includes server, synthetic peers,replay writer and diagnostics. Memory sampled at warm interval boundaries, not cold baseline.",
+    "impairment": "Only client transports capture fault queues. Each direction gets half configuredRTT plus nonnegative jitter; configuredRTT does not include extra jitter or retransmission latency.",
+    "lifecycle": "Immediate bind succeeds after each owned shutdown; establishes UDP port release, not a process/reporter leak proof. Three short same-process cycles are not a memory-soak test.",
+    "isolation": "Private dynamic loopback ports, extracted licensed assets byreference, isolateduserdata; no public directory or career calls; paths.txt clones contain scopedExport roots.",
+    "stepAllocation": "Allocated bytes on the authority thread inside ServerSim.Step, including synchronous snapshot/replay work; excludes ingress, maintenance and replay-writer thread allocations."
+  },
+  "arms": [
+    {
+      "name": "loopback-1-lan",
+      "exitCode": 0,
+      "startedUtc": "2026-10-06T18:21:27.763902+00:00",
+      "completedUtc": "2026-10-06T18:21:42.648626+00:00",
+      "wrapperSeconds": 14.885,
+      "cycles": [
+        {
+          "cycle": 0,
+          "players": 1,
+          "mode": "lan",
+          "seconds": 12.0011911,
+          "server": {
+            "rxBytes": 91932,
+            "txBytes": 290964,
+            "rxPackets": 740,
+            "txPackets": 1069,
+            "queueHigh": 2,
+            "queueDrops": 0,
+            "socketErrors": 0,
+            "invalid": 0,
+            "oversized": 0,
+            "acceptedIntents": 720
+          },
+          "simulation": {
+            "steps": 721,
+            "p99Ms": 0.34,
+            "p999Ms": 0.47,
+            "warmWorstBucketMs": 0.47,
+            "lifetimeWorstMs": 89.6426,
+            "stepAllocation": 1105360,
+            "StepFailures": 0,
+            "droppedStepsDuringMeasurement": 0,
+            "stallsDuringMeasurement": 0,
+            "lifetimeDroppedSteps": 3,
+            "lifetimeStalls": 0
+          },
+          "cpuMsIncludingPeers": 1734.881,
+          "rssStartIncludingPeers": 192102400,
+          "rssEndIncludingPeers": 194789376,
+          "replay": {
+            "state": "Disabled",
+            "Attempts": 0,
+            "Failures": 0,
+            "QueuedBytes": 0,
+            "Error": null,
+            "exportScope": "private temporary native paths.txt configuration; archive after owned shutdown checked separately"
+          },
+          "wholeLoop": {
+            "work": {
+              "count": 1871821,
+              "p99Ms": 0,
+              "p999Ms": 0,
+              "worstBucketMs": 0.47,
+              "lifetimeWorstMs": 128.150583
+            },
+            "overBudget": 0
+          },
+          "snapshots": [
+            721
+          ],
+          "relays": [
+            0
+          ],
+          "derived": {
+            "rxBytesPerSecond": 7660.239657,
+            "txBytesPerSecond": 24244.593522,
+            "rxPacketsPerSecond": 61.660546,
+            "txPacketsPerSecond": 89.074492,
+            "allocatedBytesPerSimulationStep": 1533.092926,
+            "processCpuOneCoreEquivalentPercent": 14.455907,
+            "rssStartMiBIncludingPeers": 183.203125,
+            "rssEndMiBIncludingPeers": 185.765625
+          }
+        }
+      ],
+      "profile": "lan",
+      "rawMetricEvidence": "docs/audits/network-server-2026-10-06-evidence/slices-validation/loopback-1-lan.json"
+    },
+    {
+      "name": "loopback-2-lan",
+      "exitCode": 0,
+      "startedUtc": "2026-10-06T18:21:42.653923+00:00",
+      "completedUtc": "2026-10-06T18:21:57.532427+00:00",
+      "wrapperSeconds": 14.879,
+      "cycles": [
+        {
+          "cycle": 0,
+          "players": 2,
+          "mode": "lan",
+          "seconds": 12.0003146,
+          "server": {
+            "rxBytes": 183672,
+            "txBytes": 977064,
+            "rxPackets": 1472,
+            "txPackets": 3576,
+            "queueHigh": 4,
+            "queueDrops": 0,
+            "socketErrors": 0,
+            "invalid": 0,
+            "oversized": 0,
+            "acceptedIntents": 1440
+          },
+          "simulation": {
+            "steps": 721,
+            "p99Ms": 0.35,
+            "p999Ms": 0.46,
+            "warmWorstBucketMs": 0.46,
+            "lifetimeWorstMs": 86.6554,
+            "stepAllocation": 1127688,
+            "StepFailures": 0,
+            "droppedStepsDuringMeasurement": 0,
+            "stallsDuringMeasurement": 0,
+            "lifetimeDroppedSteps": 2,
+            "lifetimeStalls": 0
+          },
+          "cpuMsIncludingPeers": 1801.148,
+          "rssStartIncludingPeers": 192397312,
+          "rssEndIncludingPeers": 195133440,
+          "replay": {
+            "state": "Disabled",
+            "Attempts": 0,
+            "Failures": 0,
+            "QueuedBytes": 0,
+            "Error": null,
+            "exportScope": "private temporary native paths.txt configuration; archive after owned shutdown checked separately"
+          },
+          "wholeLoop": {
+            "work": {
+              "count": 1822794,
+              "p99Ms": 0,
+              "p999Ms": 0.01,
+              "worstBucketMs": 0.47,
+              "lifetimeWorstMs": 114.399791
+            },
+            "overBudget": 0
+          },
+          "snapshots": [
+            720,
+            720
+          ],
+          "relays": [
+            720,
+            720
+          ],
+          "derived": {
+            "rxBytesPerSecond": 15305.598738,
+            "txBytesPerSecond": 81419.865443,
+            "rxPacketsPerSecond": 122.663451,
+            "txPacketsPerSecond": 297.992188,
+            "allocatedBytesPerSimulationStep": 1564.061026,
+            "processCpuOneCoreEquivalentPercent": 15.009173,
+            "rssStartMiBIncludingPeers": 183.484375,
+            "rssEndMiBIncludingPeers": 186.09375
+          }
+        }
+      ],
+      "profile": "lan",
+      "rawMetricEvidence": "docs/audits/network-server-2026-10-06-evidence/slices-validation/loopback-2-lan.json"
+    },
+    {
+      "name": "loopback-4-lan",
+      "exitCode": 0,
+      "startedUtc": "2026-10-06T18:21:57.537264+00:00",
+      "completedUtc": "2026-10-06T18:22:12.479880+00:00",
+      "wrapperSeconds": 14.943,
+      "cycles": [
+        {
+          "cycle": 0,
+          "players": 4,
+          "mode": "lan",
+          "seconds": 12.0005541,
+          "server": {
+            "rxBytes": 367368,
+            "txBytes": 3538716,
+            "rxPackets": 2945,
+            "txPackets": 12916,
+            "queueHigh": 8,
+            "queueDrops": 0,
+            "socketErrors": 0,
+            "invalid": 0,
+            "oversized": 0,
+            "acceptedIntents": 2880
+          },
+          "simulation": {
+            "steps": 721,
+            "p99Ms": 0.45,
+            "p999Ms": 0.51,
+            "warmWorstBucketMs": 0.51,
+            "lifetimeWorstMs": 86.1273,
+            "stepAllocation": 1152016,
+            "StepFailures": 0,
+            "droppedStepsDuringMeasurement": 0,
+            "stallsDuringMeasurement": 0,
+            "lifetimeDroppedSteps": 1,
+            "lifetimeStalls": 0
+          },
+          "cpuMsIncludingPeers": 1953.275,
+          "rssStartIncludingPeers": 193085440,
+          "rssEndIncludingPeers": 195985408,
+          "replay": {
+            "state": "Disabled",
+            "Attempts": 0,
+            "Failures": 0,
+            "QueuedBytes": 0,
+            "Error": null,
+            "exportScope": "private temporary native paths.txt configuration; archive after owned shutdown checked separately"
+          },
+          "wholeLoop": {
+            "work": {
+              "count": 1501905,
+              "p99Ms": 0,
+              "p999Ms": 0.09,
+              "worstBucketMs": 1.6,
+              "lifetimeWorstMs": 109.037167
+            },
+            "overBudget": 0
+          },
+          "snapshots": [
+            721,
+            721,
+            721,
+            721
+          ],
+          "relays": [
+            2160,
+            2160,
+            2160,
+            2160
+          ],
+          "derived": {
+            "rxBytesPerSecond": 30612.586464,
+            "txBytesPerSecond": 294879.383944,
+            "rxPacketsPerSecond": 245.405335,
+            "txPacketsPerSecond": 1076.283636,
+            "allocatedBytesPerSimulationStep": 1597.803051,
+            "processCpuOneCoreEquivalentPercent": 16.27654,
+            "rssStartMiBIncludingPeers": 184.140625,
+            "rssEndMiBIncludingPeers": 186.90625
+          }
+        }
+      ],
+      "profile": "lan",
+      "rawMetricEvidence": "docs/audits/network-server-2026-10-06-evidence/slices-validation/loopback-4-lan.json"
+    },
+    {
+      "name": "loopback-8-lan",
+      "exitCode": 0,
+      "startedUtc": "2026-10-06T18:22:12.484658+00:00",
+      "completedUtc": "2026-10-06T18:22:27.702271+00:00",
+      "wrapperSeconds": 15.218,
+      "cycles": [
+        {
+          "cycle": 0,
+          "players": 8,
+          "mode": "lan",
+          "seconds": 12.0007689,
+          "server": {
+            "rxBytes": 735960,
+            "txBytes": 13410944,
+            "rxPackets": 5941,
+            "txPackets": 48880,
+            "queueHigh": 16,
+            "queueDrops": 0,
+            "socketErrors": 0,
+            "invalid": 0,
+            "oversized": 0,
+            "acceptedIntents": 5760
+          },
+          "simulation": {
+            "steps": 720,
+            "p99Ms": 0.52,
+            "p999Ms": 0.63,
+            "warmWorstBucketMs": 0.63,
+            "lifetimeWorstMs": 87.8686,
+            "stepAllocation": 1144808,
+            "StepFailures": 0,
+            "droppedStepsDuringMeasurement": 0,
+            "stallsDuringMeasurement": 0,
+            "lifetimeDroppedSteps": 2,
+            "lifetimeStalls": 0
+          },
+          "cpuMsIncludingPeers": 2432.276,
+          "rssStartIncludingPeers": 194756608,
+          "rssEndIncludingPeers": 197476352,
+          "replay": {
+            "state": "Disabled",
+            "Attempts": 0,
+            "Failures": 0,
+            "QueuedBytes": 0,
+            "Error": null,
+            "exportScope": "private temporary native paths.txt configuration; archive after owned shutdown checked separately"
+          },
+          "wholeLoop": {
+            "work": {
+              "count": 826121,
+              "p99Ms": 0,
+              "p999Ms": 0.37,
+              "worstBucketMs": 0.92,
+              "lifetimeWorstMs": 111.751792
+            },
+            "overBudget": 0
+          },
+          "snapshots": [
+            721,
+            721,
+            721,
+            721,
+            721,
+            721,
+            721,
+            721
+          ],
+          "relays": [
+            5040,
+            5040,
+            5040,
+            5040,
+            5040,
+            5040,
+            5040,
+            5040
+          ],
+          "wireByKind": [
+            {
+              "type": "Intent",
+              "rxBytesPerSecond": 60956.094,
+              "txBytesPerSecond": 0.0,
+              "rxPacketsPerSecond": 479.969,
+              "txPacketsPerSecond": 0.0,
+              "lifetimePeakRxBytes": 127,
+              "lifetimePeakTxBytes": 0
+            },
+            {
+              "type": "Ping",
+              "rxBytesPerSecond": 0.0,
+              "txBytesPerSecond": 199.987,
+              "rxPacketsPerSecond": 0.0,
+              "txPacketsPerSecond": 7.999,
+              "lifetimePeakRxBytes": 0,
+              "lifetimePeakTxBytes": 25
+            },
+            {
+              "type": "Pong",
+              "rxBytesPerSecond": 199.987,
+              "txBytesPerSecond": 0.0,
+              "rxPacketsPerSecond": 7.999,
+              "txPacketsPerSecond": 0.0,
+              "lifetimePeakRxBytes": 25,
+              "lifetimePeakTxBytes": 0
+            },
+            {
+              "type": "MatchState",
+              "rxBytesPerSecond": 0.0,
+              "txBytesPerSecond": 1031.934,
+              "rxPacketsPerSecond": 0.0,
+              "txPacketsPerSecond": 7.999,
+              "lifetimePeakRxBytes": 0,
+              "lifetimePeakTxBytes": 129
+            },
+            {
+              "type": "Roster",
+              "rxBytesPerSecond": 0.0,
+              "txBytesPerSecond": 4271.726,
+              "rxPacketsPerSecond": 0.0,
+              "txPacketsPerSecond": 7.999,
+              "lifetimePeakRxBytes": 0,
+              "lifetimePeakTxBytes": 534
+            },
+            {
+              "type": "SlotIntent",
+              "rxBytesPerSecond": 0.0,
+              "txBytesPerSecond": 430052.444,
+              "rxPacketsPerSecond": 0.0,
+              "txPacketsPerSecond": 3359.785,
+              "lifetimePeakRxBytes": 0,
+              "lifetimePeakTxBytes": 128
+            },
+            {
+              "type": "VoteState",
+              "rxBytesPerSecond": 0.0,
+              "txBytesPerSecond": 951.939,
+              "rxPacketsPerSecond": 0.0,
+              "txPacketsPerSecond": 7.999,
+              "lifetimePeakRxBytes": 0,
+              "lifetimePeakTxBytes": 119
+            },
+            {
+              "type": "SessionState",
+              "rxBytesPerSecond": 0.0,
+              "txBytesPerSecond": 3423.781,
+              "rxPacketsPerSecond": 0.0,
+              "txPacketsPerSecond": 7.999,
+              "lifetimePeakRxBytes": 0,
+              "lifetimePeakTxBytes": 428
+            },
+            {
+              "type": "ReplayWorld",
+              "rxBytesPerSecond": 0.0,
+              "txBytesPerSecond": 80554.838,
+              "rxPacketsPerSecond": 0.0,
+              "txPacketsPerSecond": 79.995,
+              "lifetimePeakRxBytes": 0,
+              "lifetimePeakTxBytes": 1007
+            },
+            {
+              "type": "SnapshotFast",
+              "rxBytesPerSecond": 0.0,
+              "txBytesPerSecond": 580127.495,
+              "rxPacketsPerSecond": 0.0,
+              "txPacketsPerSecond": 480.636,
+              "lifetimePeakRxBytes": 0,
+              "lifetimePeakTxBytes": 1207
+            },
+            {
+              "type": "PlayerSlowState",
+              "rxBytesPerSecond": 0.0,
+              "txBytesPerSecond": 14639.062,
+              "rxPacketsPerSecond": 0.0,
+              "txPacketsPerSecond": 79.995,
+              "lifetimePeakRxBytes": 0,
+              "lifetimePeakTxBytes": 183
+            },
+            {
+              "type": "WorldState",
+              "rxBytesPerSecond": 0.0,
+              "txBytesPerSecond": 2207.859,
+              "rxPacketsPerSecond": 0.0,
+              "txPacketsPerSecond": 31.998,
+              "lifetimePeakRxBytes": 0,
+              "lifetimePeakTxBytes": 69
+            },
+            {
+              "type": "TransportAck",
+              "rxBytesPerSecond": 169.989,
+              "txBytesPerSecond": 0.0,
+              "rxPacketsPerSecond": 7.083,
+              "txPacketsPerSecond": 0.0,
+              "lifetimePeakRxBytes": 24,
+              "lifetimePeakTxBytes": 24
+            }
+          ],
+          "derived": {
+            "rxBytesPerSecond": 61326.070532,
+            "txBytesPerSecond": 1117507.062402,
+            "rxPacketsPerSecond": 495.051613,
+            "txPacketsPerSecond": 4073.072351,
+            "allocatedBytesPerSimulationStep": 1590.011111,
+            "processCpuOneCoreEquivalentPercent": 20.267668,
+            "rssStartMiBIncludingPeers": 185.734375,
+            "rssEndMiBIncludingPeers": 188.328125
+          }
+        }
+      ],
+      "profile": "lan",
+      "rawMetricEvidence": "docs/audits/network-server-2026-10-06-evidence/slices-validation/loopback-8-lan.json"
+    },
+    {
+      "name": "loopback-8-moderate",
+      "exitCode": 0,
+      "startedUtc": "2026-10-06T18:22:27.706867+00:00",
+      "completedUtc": "2026-10-06T18:22:50.612712+00:00",
+      "wrapperSeconds": 22.908,
+      "cycles": [
+        {
+          "cycle": 0,
+          "players": 8,
+          "mode": "moderate",
+          "seconds": 12.0006948,
+          "server": {
+            "rxBytes": 711141,
+            "txBytes": 13060656,
+            "rxPackets": 5728,
+            "txPackets": 46058,
+            "queueHigh": 9,
+            "queueDrops": 0,
+            "socketErrors": 0,
+            "invalid": 0,
+            "oversized": 0,
+            "acceptedIntents": 5367
+          },
+          "simulation": {
+            "steps": 720,
+            "p99Ms": 0.61,
+            "p999Ms": 0.95,
+            "warmWorstBucketMs": 0.95,
+            "lifetimeWorstMs": 86.5799,
+            "stepAllocation": 1179264,
+            "StepFailures": 0,
+            "droppedStepsDuringMeasurement": 0,
+            "stallsDuringMeasurement": 0,
+            "lifetimeDroppedSteps": 2,
+            "lifetimeStalls": 0
+          },
+          "cpuMsIncludingPeers": 3035.944,
+          "rssStartIncludingPeers": 197148672,
+          "rssEndIncludingPeers": 205815808,
+          "replay": {
+            "state": "Disabled",
+            "Attempts": 0,
+            "Failures": 0,
+            "QueuedBytes": 0,
+            "Error": null,
+            "exportScope": "private temporary native paths.txt configuration; archive after owned shutdown checked separately"
+          },
+          "wholeLoop": {
+            "work": {
+              "count": 878023,
+              "p99Ms": 0,
+              "p999Ms": 0.22,
+              "worstBucketMs": 2.08,
+              "lifetimeWorstMs": 113.402291
+            },
+            "overBudget": 0
+          },
+          "snapshots": [
+            668,
+            669,
+            672,
+            669,
+            664,
+            666,
+            675,
+            672
+          ],
+          "relays": [
+            4335,
+            4337,
+            4341,
+            4347,
+            4344,
+            4344,
+            4354,
+            4343
+          ],
+          "derived": {
+            "rxBytesPerSecond": 59258.318943,
+            "txBytesPerSecond": 1088324.985983,
+            "rxPacketsPerSecond": 477.305697,
+            "txPacketsPerSecond": 3837.94445,
+            "allocatedBytesPerSimulationStep": 1637.866667,
+            "processCpuOneCoreEquivalentPercent": 25.298069,
+            "rssStartMiBIncludingPeers": 188.015625,
+            "rssEndMiBIncludingPeers": 196.28125
+          }
+        }
+      ],
+      "profile": "moderate",
+      "rawMetricEvidence": "docs/audits/network-server-2026-10-06-evidence/slices-validation/loopback-8-moderate.json"
+    },
+    {
+      "name": "loopback-8-severe",
+      "exitCode": 0,
+      "startedUtc": "2026-10-06T18:22:50.617540+00:00",
+      "completedUtc": "2026-10-06T18:23:22.908291+00:00",
+      "wrapperSeconds": 32.292,
+      "cycles": [
+        {
+          "cycle": 0,
+          "players": 8,
+          "mode": "severe",
+          "seconds": 12.0004511,
+          "server": {
+            "rxBytes": 674485,
+            "txBytes": 12805480,
+            "rxPackets": 5427,
+            "txPackets": 44010,
+            "queueHigh": 8,
+            "queueDrops": 0,
+            "socketErrors": 0,
+            "invalid": 0,
+            "oversized": 0,
+            "acceptedIntents": 5064
+          },
+          "simulation": {
+            "steps": 721,
+            "p99Ms": 0.65,
+            "p999Ms": 1.08,
+            "warmWorstBucketMs": 1.08,
+            "lifetimeWorstMs": 88.092,
+            "stepAllocation": 1224304,
+            "StepFailures": 0,
+            "droppedStepsDuringMeasurement": 0,
+            "stallsDuringMeasurement": 0,
+            "lifetimeDroppedSteps": 2,
+            "lifetimeStalls": 0
+          },
+          "cpuMsIncludingPeers": 2906.174,
+          "rssStartIncludingPeers": 199000064,
+          "rssEndIncludingPeers": 207519744,
+          "replay": {
+            "state": "Disabled",
+            "Attempts": 0,
+            "Failures": 0,
+            "QueuedBytes": 0,
+            "Error": null,
+            "exportScope": "private temporary native paths.txt configuration; archive after owned shutdown checked separately"
+          },
+          "wholeLoop": {
+            "work": {
+              "count": 913353,
+              "p99Ms": 0,
+              "p999Ms": 0.22,
+              "worstBucketMs": 2.33,
+              "lifetimeWorstMs": 112.129042
+            },
+            "overBudget": 0
+          },
+          "snapshots": [
+            628,
+            630,
+            617,
+            632,
+            618,
+            628,
+            629,
+            633
+          ],
+          "relays": [
+            3870,
+            3872,
+            3893,
+            3861,
+            3870,
+            3870,
+            3867,
+            3877
+          ],
+          "derived": {
+            "rxBytesPerSecond": 56204.970495,
+            "txBytesPerSecond": 1067083.219897,
+            "rxPacketsPerSecond": 452.233,
+            "txPacketsPerSecond": 3667.362138,
+            "allocatedBytesPerSimulationStep": 1698.0638,
+            "processCpuOneCoreEquivalentPercent": 24.217206,
+            "rssStartMiBIncludingPeers": 189.78125,
+            "rssEndMiBIncludingPeers": 197.90625
+          }
+        }
+      ],
+      "profile": "severe",
+      "rawMetricEvidence": "docs/audits/network-server-2026-10-06-evidence/slices-validation/loopback-8-severe.json"
+    },
+    {
+      "name": "loopback-4-replay",
+      "exitCode": 0,
+      "startedUtc": "2026-10-06T18:23:22.913187+00:00",
+      "completedUtc": "2026-10-06T18:23:37.992411+00:00",
+      "wrapperSeconds": 15.079,
+      "cycles": [
+        {
+          "cycle": 0,
+          "players": 4,
+          "mode": "replay",
+          "seconds": 12.0010985,
+          "server": {
+            "rxBytes": 368112,
+            "txBytes": 3538716,
+            "rxPackets": 2976,
+            "txPackets": 12916,
+            "queueHigh": 8,
+            "queueDrops": 0,
+            "socketErrors": 0,
+            "invalid": 0,
+            "oversized": 0,
+            "acceptedIntents": 2880
+          },
+          "simulation": {
+            "steps": 721,
+            "p99Ms": 0.6,
+            "p999Ms": 12.07,
+            "warmWorstBucketMs": 12.07,
+            "lifetimeWorstMs": 162.82350000000002,
+            "stepAllocation": 13202680,
+            "StepFailures": 0,
+            "droppedStepsDuringMeasurement": 0,
+            "stallsDuringMeasurement": 0,
+            "lifetimeDroppedSteps": 6,
+            "lifetimeStalls": 0
+          },
+          "cpuMsIncludingPeers": 2534.828,
+          "rssStartIncludingPeers": 206831616,
+          "rssEndIncludingPeers": 213319680,
+          "replay": {
+            "state": "Recording",
+            "Attempts": 1,
+            "Failures": 0,
+            "QueuedBytes": 0,
+            "Error": null,
+            "exportScope": "private temporary native paths.txt configuration; archive after owned shutdown checked separately"
+          },
+          "wholeLoop": {
+            "work": {
+              "count": 1400957,
+              "p99Ms": 0,
+              "p999Ms": 0.08,
+              "worstBucketMs": 12.08,
+              "lifetimeWorstMs": 168.25225
+            },
+            "overBudget": 0
+          },
+          "snapshots": [
+            721,
+            721,
+            721,
+            721
+          ],
+          "relays": [
+            2160,
+            2160,
+            2160,
+            2160
+          ],
+          "derived": {
+            "rxBytesPerSecond": 30673.192125,
+            "txBytesPerSecond": 294866.007474,
+            "rxPacketsPerSecond": 247.9773,
+            "txPacketsPerSecond": 1076.234813,
+            "allocatedBytesPerSimulationStep": 18311.622746,
+            "processCpuOneCoreEquivalentPercent": 21.121633,
+            "rssStartMiBIncludingPeers": 197.25,
+            "rssEndMiBIncludingPeers": 203.4375
+          }
+        }
+      ],
+      "profile": "replay",
+      "rawMetricEvidence": "docs/audits/network-server-2026-10-06-evidence/slices-validation/loopback-4-replay.json"
+    },
+    {
+      "name": "loopback-4-replay-failure",
+      "exitCode": 0,
+      "startedUtc": "2026-10-06T18:23:37.997381+00:00",
+      "completedUtc": "2026-10-06T18:23:53.085194+00:00",
+      "wrapperSeconds": 15.088,
+      "cycles": [
+        {
+          "cycle": 0,
+          "players": 4,
+          "mode": "replay-failure",
+          "seconds": 12.000719,
+          "server": {
+            "rxBytes": 367464,
+            "txBytes": 3536208,
+            "rxPackets": 2949,
+            "txPackets": 12912,
+            "queueHigh": 8,
+            "queueDrops": 0,
+            "socketErrors": 0,
+            "invalid": 0,
+            "oversized": 0,
+            "acceptedIntents": 2880
+          },
+          "simulation": {
+            "steps": 721,
+            "p99Ms": 0.41,
+            "p999Ms": 1.09,
+            "warmWorstBucketMs": 1.09,
+            "lifetimeWorstMs": 161.0411,
+            "stepAllocation": 1155248,
+            "StepFailures": 0,
+            "droppedStepsDuringMeasurement": 0,
+            "stallsDuringMeasurement": 0,
+            "lifetimeDroppedSteps": 6,
+            "lifetimeStalls": 0
+          },
+          "cpuMsIncludingPeers": 1953.06,
+          "rssStartIncludingPeers": 201719808,
+          "rssEndIncludingPeers": 204668928,
+          "replay": {
+            "state": "Failed",
+            "Attempts": 1,
+            "Failures": 1,
+            "QueuedBytes": 0,
+            "Error": "Directory IO error: existing regular-file/_demos/server path cannot be created (exact diagnostic retained in raw log).",
+            "exportScope": "private temporary native paths.txt configuration; archive after owned shutdown checked separately"
+          },
+          "wholeLoop": {
+            "work": {
+              "count": 1534715,
+              "p99Ms": 0,
+              "p999Ms": 0.08,
+              "worstBucketMs": 1.1,
+              "lifetimeWorstMs": 168.470333
+            },
+            "overBudget": 0
+          },
+          "snapshots": [
+            720,
+            720,
+            720,
+            720
+          ],
+          "relays": [
+            2160,
+            2160,
+            2160,
+            2160
+          ],
+          "derived": {
+            "rxBytesPerSecond": 30620.165342,
+            "txBytesPerSecond": 294666.344575,
+            "rxPacketsPerSecond": 245.735276,
+            "txPacketsPerSecond": 1075.935534,
+            "allocatedBytesPerSimulationStep": 1602.285714,
+            "processCpuOneCoreEquivalentPercent": 16.274525,
+            "rssStartMiBIncludingPeers": 192.375,
+            "rssEndMiBIncludingPeers": 195.1875
+          }
+        }
+      ],
+      "profile": "replay-failure",
+      "rawMetricEvidence": "docs/audits/network-server-2026-10-06-evidence/slices-validation/loopback-4-replay-failure.json"
+    },
+    {
+      "name": "loopback-2-lan-3cycles",
+      "exitCode": 0,
+      "startedUtc": "2026-10-06T18:23:53.089991+00:00",
+      "completedUtc": "2026-10-06T18:24:06.593432+00:00",
+      "wrapperSeconds": 13.504,
+      "cycles": [
+        {
+          "cycle": 0,
+          "players": 2,
+          "mode": "lan",
+          "seconds": 2.0010835,
+          "server": {
+            "rxBytes": 30676,
+            "txBytes": 162844,
+            "rxPackets": 248,
+            "txPackets": 596,
+            "queueHigh": 4,
+            "queueDrops": 0,
+            "socketErrors": 0,
+            "invalid": 0,
+            "oversized": 0,
+            "acceptedIntents": 240
+          },
+          "simulation": {
+            "steps": 121,
+            "p99Ms": 0.36,
+            "p999Ms": 0.38,
+            "warmWorstBucketMs": 0.38,
+            "lifetimeWorstMs": 85.49220000000001,
+            "stepAllocation": 185048,
+            "StepFailures": 0,
+            "droppedStepsDuringMeasurement": 0,
+            "stallsDuringMeasurement": 0,
+            "lifetimeDroppedSteps": 1,
+            "lifetimeStalls": 0
+          },
+          "cpuMsIncludingPeers": 365.368,
+          "rssStartIncludingPeers": 192659456,
+          "rssEndIncludingPeers": 195002368,
+          "replay": {
+            "state": "Disabled",
+            "Attempts": 0,
+            "Failures": 0,
+            "QueuedBytes": 0,
+            "Error": null,
+            "exportScope": "private temporary native paths.txt configuration; archive after owned shutdown checked separately"
+          },
+          "wholeLoop": {
+            "work": {
+              "count": 294479,
+              "p99Ms": 0,
+              "p999Ms": 0.01,
+              "worstBucketMs": 0.38,
+              "lifetimeWorstMs": 107.60225
+            },
+            "overBudget": 0
+          },
+          "snapshots": [
+            120,
+            120
+          ],
+          "relays": [
+            120,
+            120
+          ],
+          "derived": {
+            "rxBytesPerSecond": 15329.695138,
+            "txBytesPerSecond": 81377.913515,
+            "rxPacketsPerSecond": 123.932859,
+            "txPacketsPerSecond": 297.838646,
+            "allocatedBytesPerSimulationStep": 1529.322314,
+            "processCpuOneCoreEquivalentPercent": 18.258508,
+            "rssStartMiBIncludingPeers": 183.734375,
+            "rssEndMiBIncludingPeers": 185.96875
+          }
+        },
+        {
+          "cycle": 1,
+          "players": 2,
+          "mode": "lan",
+          "seconds": 2.0009904,
+          "server": {
+            "rxBytes": 30580,
+            "txBytes": 162844,
+            "rxPackets": 244,
+            "txPackets": 596,
+            "queueHigh": 4,
+            "queueDrops": 0,
+            "socketErrors": 0,
+            "invalid": 0,
+            "oversized": 0,
+            "acceptedIntents": 240
+          },
+          "simulation": {
+            "steps": 120,
+            "p99Ms": 0.45,
+            "p999Ms": 0.6,
+            "warmWorstBucketMs": 0.6,
+            "lifetimeWorstMs": 0.6012,
+            "stepAllocation": 151912,
+            "StepFailures": 0,
+            "droppedStepsDuringMeasurement": 0,
+            "stallsDuringMeasurement": 0,
+            "lifetimeDroppedSteps": 0,
+            "lifetimeStalls": 0
+          },
+          "cpuMsIncludingPeers": 294.098,
+          "rssStartIncludingPeers": 205897728,
+          "rssEndIncludingPeers": 205979648,
+          "replay": {
+            "state": "Disabled",
+            "Attempts": 0,
+            "Failures": 0,
+            "QueuedBytes": 0,
+            "Error": null,
+            "exportScope": "private temporary native paths.txt configuration; archive after owned shutdown checked separately"
+          },
+          "wholeLoop": {
+            "work": {
+              "count": 284631,
+              "p99Ms": 0,
+              "p999Ms": 0.01,
+              "worstBucketMs": 0.6,
+              "lifetimeWorstMs": 27.408125
+            },
+            "overBudget": 0
+          },
+          "snapshots": [
+            120,
+            120
+          ],
+          "relays": [
+            120,
+            120
+          ],
+          "derived": {
+            "rxBytesPerSecond": 15282.43214,
+            "txBytesPerSecond": 81381.699782,
+            "rxPacketsPerSecond": 121.939616,
+            "txPacketsPerSecond": 297.852503,
+            "allocatedBytesPerSimulationStep": 1265.933333,
+            "processCpuOneCoreEquivalentPercent": 14.697622,
+            "rssStartMiBIncludingPeers": 196.359375,
+            "rssEndMiBIncludingPeers": 196.4375
+          }
+        },
+        {
+          "cycle": 2,
+          "players": 2,
+          "mode": "lan",
+          "seconds": 2.0008435,
+          "server": {
+            "rxBytes": 30676,
+            "txBytes": 162844,
+            "rxPackets": 248,
+            "txPackets": 596,
+            "queueHigh": 4,
+            "queueDrops": 0,
+            "socketErrors": 0,
+            "invalid": 0,
+            "oversized": 0,
+            "acceptedIntents": 240
+          },
+          "simulation": {
+            "steps": 120,
+            "p99Ms": 0.3,
+            "p999Ms": 0.34,
+            "warmWorstBucketMs": 0.34,
+            "lifetimeWorstMs": 0.5235,
+            "stepAllocation": 152336,
+            "StepFailures": 0,
+            "droppedStepsDuringMeasurement": 0,
+            "stallsDuringMeasurement": 0,
+            "lifetimeDroppedSteps": 0,
+            "lifetimeStalls": 0
+          },
+          "cpuMsIncludingPeers": 275.275,
+          "rssStartIncludingPeers": 211828736,
+          "rssEndIncludingPeers": 211845120,
+          "replay": {
+            "state": "Disabled",
+            "Attempts": 0,
+            "Failures": 0,
+            "QueuedBytes": 0,
+            "Error": null,
+            "exportScope": "private temporary native paths.txt configuration; archive after owned shutdown checked separately"
+          },
+          "wholeLoop": {
+            "work": {
+              "count": 297254,
+              "p99Ms": 0,
+              "p999Ms": 0.01,
+              "worstBucketMs": 0.38,
+              "lifetimeWorstMs": 29.935209
+            },
+            "overBudget": 0
+          },
+          "snapshots": [
+            120,
+            120
+          ],
+          "relays": [
+            120,
+            120
+          ],
+          "derived": {
+            "rxBytesPerSecond": 15331.533926,
+            "txBytesPerSecond": 81387.674748,
+            "rxPacketsPerSecond": 123.947725,
+            "txPacketsPerSecond": 297.874371,
+            "allocatedBytesPerSimulationStep": 1269.466667,
+            "processCpuOneCoreEquivalentPercent": 13.757948,
+            "rssStartMiBIncludingPeers": 202.015625,
+            "rssEndMiBIncludingPeers": 202.03125
+          }
+        }
+      ],
+      "profile": "lan",
+      "rawMetricEvidence": "docs/audits/network-server-2026-10-06-evidence/slices-validation/loopback-2-lan-3cycles.json"
+    }
+  ],
+  "healthyFinalizedArchivePlayback": {
+    "exitCode": 0,
+    "seconds": 2.744,
+    "scope": "Finalized current-protocol42 healthy recording after normal owned server stop; native passive decode/playback/seek/extraction; no rendered-frame performance claim",
+    "archiveBytes": 886726,
+    "archiveSha256": "dcd6b0f7053de9f5ca437379d0be22b4a5297bd80c0a34c35c427340befc37e3",
+    "protocol": 42,
+    "acceptedFactFrames": 859,
+    "frozenFrameComparisons": 251,
+    "assertions": [
+      "finalized file decode and passive native playback",
+      "fresh reconstruction toggle while accepted occupant exists",
+      "durable v4 save and frozen save",
+      "nested extraction",
+      "V2/V3 source extraction",
+      "exact gameplay/presentation parity",
+      "backward seek and match-reset isolation"
+    ],
+    "rawResult": "docs/audits/network-server-2026-10-06-evidence/slices-validation/healthy-archive-playback.json",
+    "check": "ProjectPrime.dll -replaylivecheck finalized healthy ppdemo"
+  },
+  "baselineComparisons": {
+    "matchedFourPeerLan": {
+      "baseline": {
+        "rawEvidence": "docs/audits/network-server-2026-10-06-evidence/validation/live-4-lan.json",
+        "rawEvidenceSha256": "36b5334f6b9a5def7cb1c09e851670084e34b242d45d05e0cd6f1d615d5a67d7",
+        "sourceCommit": "eab6f234",
+        "protocol": 41,
+        "players": 4,
+        "seconds": 12.007855,
+        "rxBytes": 3455184,
+        "txBytes": 12585168,
+        "rxBytesPerSecond": 287743.64780387504,
+        "txBytesPerSecond": 1048077.9456447468,
+        "steps": 720,
+        "stepAllocation": 857984,
+        "allocatedBytesPerSimulationStep": 1191.6444444444444,
+        "warmP99Ms": 0.73,
+        "warmP999Ms": 1.28,
+        "scope": "asset-backed real DedicatedServer + production NetTransport loopback; synthetic idle pose intents; no rendered clients; CPU/RSS includes same-process simulated peers; per-type bytes application packets exclude transport envelope"
+      },
+      "finalArm": "loopback-4-lan",
+      "rxReductionPercent": 89.36115994307355,
+      "txReductionPercent": 71.86474678054167,
+      "allocationIncreasePercent": 34.08387533435151
+    },
+    "matchedFourPeerReplayFailure": {
+      "baseline": {
+        "rawEvidence": "docs/audits/network-server-2026-10-06-evidence/validation/live-4-replay-failure.json",
+        "rawEvidenceSha256": "2a913b9ff0972eacf58b23980ea96da838278c26a87865c43c7f11a2e7946b05",
+        "sourceCommit": "eab6f234",
+        "protocol": 41,
+        "players": 4,
+        "seconds": 12.0046595,
+        "rxBytes": 3454584,
+        "txBytes": 12585168,
+        "rxBytesPerSecond": 287770.26120565936,
+        "txBytesPerSecond": 1048356.9317397132,
+        "steps": 721,
+        "stepAllocation": 3227244992,
+        "allocatedBytesPerSimulationStep": 4476067.950069348,
+        "warmP99Ms": 8.1,
+        "warmP999Ms": 10.01,
+        "scope": "asset-backed real DedicatedServer + production NetTransport loopback; synthetic idle pose intents; no rendered clients; CPU/RSS includes same-process simulated peers; per-type bytes application packets exclude transport envelope"
+      },
+      "finalArm": "loopback-4-replay-failure",
+      "allocationReductionPercent": 99.96420327546053,
+      "incrementalBytesPerStepOverCurrentReplayOff": 4.482662968099703
+    },
+    "eightPeerLan": {
+      "baseline": {
+        "rawEvidence": "docs/audits/network-server-2026-10-06-evidence/validation/latest-main/live-8-lan.json",
+        "rawEvidenceSha256": "881d7e8110f0c1b86aef7920cc6b5582e998c535b51829440760739684f2d2a1",
+        "sourceCommit": "9abcaa1ed1be0e021913d7845485db03c6435e5d",
+        "protocol": 41,
+        "players": 8,
+        "seconds": 12.0092745,
+        "rxBytes": 6910032,
+        "txBytes": 56036256,
+        "rxBytesPerSecond": 575391.2944532994,
+        "txBytesPerSecond": 4666081.702104486,
+        "steps": 721,
+        "stepAllocation": 867672,
+        "allocatedBytesPerSimulationStep": 1203.4285714285713,
+        "warmP99Ms": 0.97,
+        "warmP999Ms": 1.75,
+        "scope": "asset-backed real DedicatedServer + production NetTransport loopback; synthetic idle pose intents; no rendered clients; CPU/RSS includes same-process simulated peers; per-type bytes application packets exclude transport envelope"
+      },
+      "finalArm": "loopback-8-lan",
+      "rxReductionPercent": 89.34184942956101,
+      "txReductionPercent": 76.05041802209276,
+      "comparisonScope": "Historical eight-peer wrapper differs from the final strict-bootstrap wrapper; use as contextual idle traffic comparison. The matched four-peer wrapper comparison is stronger."
+    },
+    "interpretation": "Matched hardware/runtime/duration and ordinary idle relay, but many source changes betweencommits. Wire reductions directly reflect currenttraffic. General replay-off step allocation increased; healthy replay checkpoints retain measurable overhead."
+  },
+  "supersededEvidence": {
+    "path": "docs/audits/network-server-2026-10-06-evidence/slices-validation/load-first-attempt/",
+    "status": "Initial9 retained only as diagnosis, not final performance evidence",
+    "failures": [
+      "Three8-peer arms: actual ArgumentException Destination is too short while nativeSendBootstrap used fixed1200 staging vs1216 required.",
+      "Storage-fault arm: prior in-memoryExport override was reloaded frompaths.txt, so genuine fault notinjected."
+    ]
+  },
+  "coverageGaps": [
+    "No zero-player or multiserver/spectator-capacity performance run.",
+    "No long memory/CPU/storage soak; three short repeated cycles only.",
+    "Idle full relay is measured; 8-player sustained physicalcombat/fire-heavy bandwidth is not.",
+    "Rendered FPS independence, desktopfocus/AndroiddeviceUX and subjective lag feel remain separate from native fixtures."
+  ],
+  "profiles": {
+    "lan": {
+      "configuredRoundTripMs": 0,
+      "nonnegativeJitterMsPerDirection": [
+        0,
+        0
+      ],
+      "lossPercent": 0,
+      "reorderPercent": 0,
+      "duplicatePercent": 0
+    },
+    "moderate": {
+      "configuredRoundTripMs": 250,
+      "nonnegativeJitterMsPerDirection": [
+        0,
+        50
+      ],
+      "lossPercent": 5,
+      "reorderPercent": 3,
+      "duplicatePercent": 1
+    },
+    "severe": {
+      "configuredRoundTripMs": 550,
+      "nonnegativeJitterMsPerDirection": [
+        0,
+        50
+      ],
+      "lossPercent": 10,
+      "reorderPercent": 3,
+      "duplicatePercent": 1
+    },
+    "replay": {
+      "configuredRoundTripMs": 0,
+      "nonnegativeJitterMsPerDirection": [
+        0,
+        0
+      ],
+      "lossPercent": 0,
+      "reorderPercent": 0,
+      "duplicatePercent": 0,
+      "recorder": "enabled; scoped native paths.txt Export configuration"
+    },
+    "replay-failure": {
+      "configuredRoundTripMs": 0,
+      "nonnegativeJitterMsPerDirection": [
+        0,
+        0
+      ],
+      "lossPercent": 0,
+      "reorderPercent": 0,
+      "duplicatePercent": 0,
+      "recorder": "enabled; scoped Export points at existing regular file, causing genuine directory IO failure"
+    }
+  }
+}

@@ -93,15 +93,15 @@ internal static class NetAttackPaths
             claim.ShooterGeneration, claim.ShooterLifeId, claim.ShotId);
         Slot? slot = Slots[shooter.SlotIndex];
         if (slot == null || !slot.Heads.TryGetValue(key, out Head head)) { Missing++; return false; }
-        if (!NetUnlagged.TryHistoricalPose(victim, claim.AckFrame, out var pose)) return false;
-        // Protocol41 omits the claim's sub-frame. Keep the established
-        // presentation allowance, prove contact independently, and publish the
-        // canonical witness point rather than this approximate owner payload.
+        double claimTime = claim.AckFrame + claim.AckSubFrame / 256.0;
+        if (!NetUnlagged.TryHistoricalPose(victim, claimTime, out var pose)) return false;
+        // The proximity allowance is presentation tolerance; native contact
+        // is proved independently at the exact fractional viewed body.
         if ((claim.HitPoint - pose.Position).LengthSquared > NetHitClaims.ClaimRadius * NetHitClaims.ClaimRadius) return false;
         HistoricalBody body = NetHistoricalTrace.Body(victim, pose);
         if ((claim.Flags & HitClaimPacket.FlagHalfturret) != 0)
         {
-            if (!NetUnlagged.TryHistoricalHalfturretPosition(victim.SlotIndex, claim.AckFrame,
+            if (!NetUnlagged.TryHistoricalHalfturretPosition(victim.SlotIndex, claimTime,
                 claim.VictimGeneration, claim.VictimLifeId, out Vector3 turret)) return false;
             body = new(victim.SlotIndex, turret, .45f, 0, 0, HistoricalBodyType.AltSphere);
         }
@@ -136,7 +136,7 @@ internal static class NetAttackPaths
                     && !DirectOverlap(slot, head, sample, body)
                     && (pose.Position - sample.Start).LengthSquared < sample.Radius * sample.Radius
                     && NetDynamicGeometryHistory.TryTraceDistanceAtFrame(shooter.OwningScene,
-                        sample.Start, pose.Position, claim.AckFrame, out float world) && world >= .999f)
+                        sample.Start, pose.Position, claimTime, out float world) && world >= .999f)
                 {
                     valid = true; impact = sample.Start;
                     damage = BeamProjectileEntity.GetInterpolatedValue(sample.Interpolation, damage, 0,

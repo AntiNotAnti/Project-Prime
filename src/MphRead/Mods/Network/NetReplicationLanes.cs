@@ -1,5 +1,6 @@
 using System;
 using System.Buffers.Binary;
+using MphRead.Entities;
 
 namespace MphRead.Mods.Network;
 
@@ -8,7 +9,8 @@ namespace MphRead.Mods.Network;
 public static class SnapshotFast
 {
     public const int PlayerSize = PlayerState.Size - 7;
-    public const int MaximumEncodedSize = NetHeader.Size + SnapshotHeader.Size + 8 * PlayerSize;
+    public const int MaximumPayloadSize = SnapshotHeader.Size + PlayerEntity.SlotCapacity * PlayerSize;
+    public const int MaximumEncodedSize = NetHeader.Size + MaximumPayloadSize;
     public static int Write(ReadOnlySpan<byte> canonical, Span<byte> dest)
     {
         var header = SnapshotHeader.Read(canonical); header.Write(dest);
@@ -25,6 +27,9 @@ public static class SnapshotFast
 public sealed class NetReplicationLanes
 {
     public const int LaneHeader = 14, SlowEntry = 10;
+    public const int MaximumSlowPayloadSize = LaneHeader + 1 + PlayerEntity.SlotCapacity * SlowEntry + NetMatchTimeSync.Size;
+    public const int MaximumWorldPayloadSize = LaneHeader + NetHealthSync.HeaderSize + NetHealthSync.MaxSpawns * NetHealthSync.EntrySize
+        + 1 + Mods.EnhancedHunters.EnhancedHunterWorld.Capacity * Mods.EnhancedHunters.EnhancedHunterWorld.ZoneSize;
     public readonly byte[] Fast = new byte[1200], Slow = new byte[256], World = new byte[1200];
     public int FastLength { get; private set; }
     public int SlowLength { get; private set; }

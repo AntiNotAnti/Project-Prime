@@ -301,7 +301,8 @@ namespace MphRead.Mods.Network
             MatchFormat format = MatchFormat.Auto, bool requireReady = false,
             bool allowJoinInProgress = true, bool friendlyFire = false,
             bool shadowFreeze = false, bool affinityWeapons = false, bool enhancedHunters = false,
-            bool spawnProtection = false, bool waitUntilReady = true, NetworkMapIdentity? requiredMap = null, HostedMapPreparation? hostedMaps = null)
+            bool spawnProtection = false, bool waitUntilReady = true, NetworkMapIdentity? requiredMap = null, HostedMapPreparation? hostedMaps = null,
+            bool ownedProcess = false)
         {
             LastError = null;
             HostedLibrary = null;
@@ -443,6 +444,11 @@ namespace MphRead.Mods.Network
                 UseShellExecute = shell,
                 CreateNoWindow = false
             };
+            // Pooled lobbies and explicitly owned local sessions have a private
+            // stop channel. Independent launcher servers keep their own console
+            // and lifetime, including when their launching client exits.
+            string? controlToken = ownedProcess || hostedMaps != null
+                ? OwnedServerControl.Configure(start) : null;
             foreach (string argument in binary.Prefix)
             {
                 start.ArgumentList.Add(argument);
@@ -529,6 +535,8 @@ namespace MphRead.Mods.Network
                     LastError = "the server process would not start";
                     return -1;
                 }
+                if (hostedMaps?.LibraryPath != null) HostedPackageCache.SetLibraryOwner(hostedMaps.LibraryPath, Running);
+                if (controlToken != null) OwnedServerControl.Attach(Running, controlToken);
             }
             catch (Exception ex)
             {
@@ -664,16 +672,13 @@ namespace MphRead.Mods.Network
             }
             try
             {
-                if (!process.HasExited)
-                {
-                    process.Kill(entireProcessTree: true);
-                }
-                process.Dispose();
+                OwnedServerControl.Stop(process);
             }
             catch (Exception)
             {
                 // Already gone, or not ours to kill.
             }
+            finally { process.Dispose(); }
         }
 
         /// <summary>

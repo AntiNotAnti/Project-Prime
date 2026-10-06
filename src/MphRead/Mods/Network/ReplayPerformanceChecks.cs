@@ -14,8 +14,15 @@ internal static class ReplayPerformanceChecks
         var scratch = new ReplayAuthorityCaptureScratch();
         Func<MphRead.Entities.ItemInstanceEntity, int> identify = static item => item.Id;
         byte[] reference = ReplayAuthorityWorld.Capture(scene, 1, 1, 1, identify).Encode();
-        if (!scratch.Encode(scratch.Capture(scene, 1, 1, 1, identify)).SequenceEqual(reference))
+        var previous = scratch.Capture(scene, 1, 1, 1, identify);
+        if (!scratch.Encode(previous).SequenceEqual(reference))
             throw new InvalidDataException("Authority scratch changed captured values.");
+        var next = scratch.Capture(scene, 1, 1, 2, identify);
+        if (ReferenceEquals(previous, next) || ReferenceEquals(previous.Nodes, next.Nodes)
+            || ReferenceEquals(previous.Flags, next.Flags) || ReferenceEquals(previous.TokenStats, next.TokenStats)
+            || ReferenceEquals(previous.TeamPoints, next.TeamPoints) || previous.Tick != 1
+            || !scratch.Encode(previous).SequenceEqual(reference))
+            throw new InvalidDataException("Authority scratch overwrote the previous frame before comparison.");
         for (int i = 0; i < 100; i++) scratch.Encode(scratch.Capture(scene, 1, 1, 1, identify));
         long before = GC.GetAllocatedBytesForCurrentThread();
         for (int i = 0; i < 1000; i++) scratch.Encode(scratch.Capture(scene, 1, 1, 1, identify));

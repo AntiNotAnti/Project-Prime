@@ -36,6 +36,43 @@ namespace MphRead.Mods.Network
         private readonly byte[] _formSaid = new byte[PlayerEntity.SlotCapacity];
         private readonly ushort[] _jumpPadEventSeen = new ushort[PlayerEntity.SlotCapacity];
         private readonly bool[] _jumpPadEventKnown = new bool[PlayerEntity.SlotCapacity];
+        private readonly ushort[] _freezeEvent = new ushort[PlayerEntity.SlotCapacity];
+        private readonly bool[] _authorityFrozen = new bool[PlayerEntity.SlotCapacity];
+        private readonly ushort[] _freezeApplied = new ushort[PlayerEntity.SlotCapacity];
+
+        internal void CaptureMovementState(PlayerEntity player, ref PlayerState state)
+        {
+            int slot = player.SlotIndex;
+            bool frozen = player.Health > 0 && player.ModFrozen;
+            if (frozen && !_authorityFrozen[slot])
+                _freezeEvent[slot] = _freezeEvent[slot] == ushort.MaxValue ? (ushort)1 : (ushort)(_freezeEvent[slot] + 1);
+            _authorityFrozen[slot] = frozen;
+            state.FreezeEventId = _freezeEvent[slot];
+            state.Hunter = (byte)player.Hunter;
+            bool eliminated = (player.OwningScene.GameState.Mode is GameMode.Survival or GameMode.SurvivalTeams or GameMode.OneInTheChamber)
+                && player.OwningScene.GameState.TeamDeaths[slot] > player.OwningScene.GameState.PointGoal;
+            state.RespawnEligibleFrame = player.Health == 0 && !eliminated
+                && !player.Flags2.TestFlag(PlayerFlags2.Spectating)
+                ? unchecked(_host.Frame + (uint)player.RespawnTimer) : 0;
+        }
+
+        internal static int RemainingRespawnTicks(uint eligible, uint frame)
+            => eligible == 0 ? 0 : Math.Max(0, unchecked((int)(eligible - frame)));
+
+        private void ApplyFreezeCorrection(PlayerEntity player, in PlayerState state, bool isLocal, bool fresh)
+        {
+            int slot = player.SlotIndex;
+            ushort next = state.FreezeEventId;
+            if (fresh) _freezeApplied[slot] = next;
+            if (!isLocal || fresh || next == 0 || next == _freezeApplied[slot]
+                || (_freezeApplied[slot] != 0 && !NetLifecycleTracker.Newer(next, _freezeApplied[slot]))) return;
+            _freezeApplied[slot] = next;
+            // An event remains in snapshots after thaw so packet loss cannot
+            // erase the correction. Correct once, using this current body's
+            // authority pose; duplicated state must not pin native falling.
+            Move(player, InForm(player, state.Position, (state.Flags & PlayerState.FlagAltForm) != 0));
+            player.Speed = state.Speed;
+        }
 
         public string FormSaidByAuthority()
         {
@@ -233,6 +270,12 @@ namespace MphRead.Mods.Network
         private bool _hasLatch;
 
         /// <summary>Local player's controls and aim -> wire intent (client side).</summary>
+        internal void DiscardLocalInput()
+        {
+            _pressHistory = default; _edgeSender.DiscardPending();
+            _hasLatch = false; _latchedCharge = 0; _latchedHomingTarget = default;
+        }
+
         public IntentPacket CaptureIntent(PlayerEntity player)
         {
             if (_host.IsReplica) throw new InvalidOperationException("A replay replica cannot author gameplay input.");
@@ -602,6 +645,13 @@ namespace MphRead.Mods.Network
             if (!_host.IsReplica) NetFireEvents.Prepare(player, intent);
         }
 
+        internal void NeutralizeInput(PlayerEntity player)
+        {
+            player.Controls.ClearAll();
+            _respawnRequested[player.SlotIndex] = false;
+            ShootPressAge[player.SlotIndex] = 0;
+        }
+
         /// <summary>
         /// Rising edges this packet carries that this slot has not applied
         /// yet, taken from the packet's short history of them.
@@ -732,6 +782,13 @@ namespace MphRead.Mods.Network
             // must not emit a launch that happened before this machine observed it.
             _jumpPadEventSeen[slot] = state.JumpPadEventId;
             _jumpPadEventKnown[slot] = true;
+            if (state.Hunter < Launcher.Hunters.Playable && player.Hunter != (Hunter)state.Hunter)
+            {
+                player.ModPrepareHunterResources((Hunter)state.Hunter);
+                player.ModSetHunter((Hunter)state.Hunter);
+                player.Initialize();
+            }
+            if (slot == _host.LocalSlot) Mods.RespawnChoice.ObserveAuthoritySpawn(player.Hunter);
             _host.BeginLife(player, state);
             player.ModResetNetworkHistory();
             player.Controls?.ClearAll();
@@ -766,6 +823,11 @@ namespace MphRead.Mods.Network
             player.ModCosmeticObserveAuthority(state.Health, state.LifeId, state.SlotGeneration);
             bool fresh = !_lifeApplied[slot] || _appliedLifeId[slot] != state.LifeId;
             if (fresh) BeginRemoteLife(player, state);
+            if (state.Health == 0 && !_host.IsAuthority)
+                player.RespawnTimer = (ushort)Math.Min(ushort.MaxValue,
+                    RemainingRespawnTicks(state.RespawnEligibleFrame,
+                        _host.IsReplica ? _host.Frame : unchecked(NetSession.LastSnapshotFrame
+                            + (NetSession.SnapshotArrived == 0 ? 0 : NetSession.SnapshotAge))));
             // Spawn() necessarily starts a local timer when a new life is
             // materialized. Replace that guess immediately with the authority's
             // actual answer; this is what fixes join-in-progress false protection.
@@ -821,6 +883,7 @@ namespace MphRead.Mods.Network
                 player.Halfturret.Health = NetHitPrediction.TurretHealthFor(slot, state.HalfturretActive ? state.HalfturretHealth : 0);
                 if (!state.HalfturretActive) player.OnHalfturretDied();
             }
+            ApplyFreezeCorrection(player, state, isLocal, fresh);
             player.ModSetFrozen((state.Flags & PlayerState.FlagFrozen) != 0);
             ApplyAfflictions(player, state);
         }
@@ -920,6 +983,9 @@ namespace MphRead.Mods.Network
             Array.Clear(_formReconciliation);
             Array.Clear(_lifeApplied);
             Array.Clear(_reportSeen);
+            Array.Clear(_freezeApplied);
+            Array.Clear(_freezeEvent);
+            Array.Clear(_authorityFrozen);
         }
 
         public void Reset()
@@ -927,6 +993,9 @@ namespace MphRead.Mods.Network
             Array.Clear(_formReconciliation);
             Array.Clear(_appliedLifeId);
             Array.Clear(_lifeApplied);
+            Array.Clear(_freezeApplied);
+            Array.Clear(_freezeEvent);
+            Array.Clear(_authorityFrozen);
             Snaps = 0;
             WorstSnap = 0;
             NodeLookupsUnresolved = 0;
@@ -984,6 +1053,9 @@ namespace MphRead.Mods.Network
             _appliedLifeId[slot] = 0;
             _jumpPadEventSeen[slot] = 0;
             _jumpPadEventKnown[slot] = false;
+            _freezeApplied[slot] = 0;
+            _freezeEvent[slot] = 0;
+            _authorityFrozen[slot] = false;
             _lastPressFrame[slot] = 0;
             _pressSeen[slot] = false;
             _edgeReceivers[slot].Reset();

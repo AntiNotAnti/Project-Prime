@@ -21,9 +21,10 @@ namespace MphRead.Mods.Network
         private readonly List<ServerBotSlot> _bots = new();
         private bool _botAssistedMatch;
         private int OccupiedSlotCount => _peers.Count + _bots.Count;
+        private int CombatantCount => _peers.Count(p => !p.Spectating) + _bots.Count;
         private ServerBotSlot? FindBot(int slot) => _bots.Find(b => b.SlotIndex == slot);
         private int TeamOccupants(int team, int excludeSlot = -1) =>
-            _peers.Count(p => p.SlotIndex != excludeSlot && p.TeamIndex == team)
+            _peers.Count(p => !p.Spectating && p.SlotIndex != excludeSlot && p.TeamIndex == team)
             + _bots.Count(b => b.SlotIndex != excludeSlot && b.TeamIndex == team);
 
         private bool BotMapAvailable(MatchDefinition match, out string reason)
@@ -100,9 +101,9 @@ namespace MphRead.Mods.Network
         {
             if (FindBot(slot) == null || _phase != SessionPhase.InMatch) return;
             _scratch[0] = (byte)slot;
-            intent.Write(_scratch.AsSpan(1));
+            int intentLength = intent.WriteNetwork(_scratch.AsSpan(1));
             foreach (var peer in _peers)
-                _transport?.Send(peer.EndPoint, PacketType.SlotIntent, _scratch.AsSpan(0, 1 + IntentPacket.FullSize));
+                _transport?.Send(peer.EndPoint, PacketType.SlotIntent, _scratch.AsSpan(0, 1 + intentLength));
         }
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using MphRead.Entities;
 using OpenTK.Mathematics;
@@ -10,10 +11,12 @@ public enum FireEventKind : byte { PressFire, ReleaseFire, AutomaticFire, Contin
 public readonly record struct FireEvent(uint ShotId, uint SourceFrame, uint AckFrame, byte AckSubFrame,
     FireEventKind Kind, byte Weapon, byte Charge, uint ContinuousPhase,
     byte PoseFlags = 0, Vector3 Origin = default, Vector3 Direction = default,
-    Vector3 Aim = default, Vector3 View = default, Vector2 Reticle = default)
+    Vector3 Aim = default, Vector3 View = default, Vector2 Reticle = default,
+    Vector3 SourcePosition = default, Vector3 SourceUp = default, byte SourceFlags = 0)
 {
     public const int LegacySize = 20;
-    public const int Size = 67;
+    public const int Protocol41Size = 67;
+    public const int Size = 84;
     public const byte FlagPose = 1 << 0;
     public const byte FlagReticle = 1 << 1;
     // Non-continuous Imperialist events do not use ContinuousPhase. Preserve
@@ -24,6 +27,8 @@ public readonly record struct FireEvent(uint ShotId, uint SourceFrame, uint AckF
         && (ContinuousPhase & ScopedStateBit) != 0;
     internal bool HasPose => (PoseFlags & FlagPose) != 0;
     internal bool HasReticle => (PoseFlags & FlagReticle) != 0;
+    public const byte FlagSourcePose = 1 << 0, FlagSourceAlt = 1 << 1, FlagSourceTransition = 1 << 2;
+    internal bool HasSourcePose => (SourceFlags & FlagSourcePose) != 0;
 
     public void Write(Span<byte> bytes)
     {
@@ -47,11 +52,18 @@ public readonly record struct FireEvent(uint ShotId, uint SourceFrame, uint AckF
         BinaryPrimitives.WriteInt16LittleEndian(bytes[61..], PackUnit(View.Z));
         BinaryPrimitives.WriteUInt16LittleEndian(bytes[63..], PackReticle(Reticle.X));
         BinaryPrimitives.WriteUInt16LittleEndian(bytes[65..], PackReticle(Reticle.Y));
+        BinaryPrimitives.WriteSingleLittleEndian(bytes[67..], SourcePosition.X);
+        BinaryPrimitives.WriteSingleLittleEndian(bytes[71..], SourcePosition.Y);
+        BinaryPrimitives.WriteSingleLittleEndian(bytes[75..], SourcePosition.Z);
+        Vector2 up = PackOctahedral(SourceUp);
+        BinaryPrimitives.WriteInt16LittleEndian(bytes[79..], PackUnit(up.X));
+        BinaryPrimitives.WriteInt16LittleEndian(bytes[81..], PackUnit(up.Y));
+        bytes[83] = SourceFlags;
     }
 
     public static FireEvent Read(ReadOnlySpan<byte> bytes)
     {
-        byte poseFlags = bytes.Length >= Size ? bytes[20] : (byte)0;
+        byte poseFlags = bytes.Length >= Protocol41Size ? bytes[20] : (byte)0;
         bool pose = (poseFlags & FlagPose) != 0;
         Vector3 view = default;
         if (pose)
@@ -79,7 +91,34 @@ public readonly record struct FireEvent(uint ShotId, uint SourceFrame, uint AckF
             pose ? view : default,
             pose && (poseFlags & FlagReticle) != 0
                 ? new Vector2(UnpackReticle(BinaryPrimitives.ReadUInt16LittleEndian(bytes[63..])),
-                    UnpackReticle(BinaryPrimitives.ReadUInt16LittleEndian(bytes[65..]))) : default);
+                    UnpackReticle(BinaryPrimitives.ReadUInt16LittleEndian(bytes[65..]))) : default,
+            bytes.Length >= Size ? new Vector3(BinaryPrimitives.ReadSingleLittleEndian(bytes[67..]),
+                BinaryPrimitives.ReadSingleLittleEndian(bytes[71..]), BinaryPrimitives.ReadSingleLittleEndian(bytes[75..])) : default,
+            bytes.Length >= Size ? UnpackOctahedral(new(UnpackUnit(BinaryPrimitives.ReadInt16LittleEndian(bytes[79..])),
+                UnpackUnit(BinaryPrimitives.ReadInt16LittleEndian(bytes[81..])))) : default,
+            bytes.Length >= Size ? bytes[83] : (byte)0);
+    }
+
+    private static Vector2 PackOctahedral(Vector3 value)
+    {
+        if (!float.IsFinite(value.X) || !float.IsFinite(value.Y) || !float.IsFinite(value.Z)
+            || value.LengthSquared < .000001f) return default;
+        value /= MathF.Abs(value.X) + MathF.Abs(value.Y) + MathF.Abs(value.Z);
+        Vector2 packed = new(value.X, value.Z);
+        if (value.Y < 0) packed = new((1 - MathF.Abs(packed.Y)) * (packed.X < 0 ? -1 : 1),
+            (1 - MathF.Abs(packed.X)) * (packed.Y < 0 ? -1 : 1));
+        return packed;
+    }
+    private static Vector3 UnpackOctahedral(Vector2 value)
+    {
+        Vector3 up = new(value.X, 1 - MathF.Abs(value.X) - MathF.Abs(value.Y), value.Y);
+        if (up.Y < 0)
+        {
+            float x = up.X;
+            up.X = (1 - MathF.Abs(up.Z)) * (x < 0 ? -1 : 1);
+            up.Z = (1 - MathF.Abs(x)) * (up.Z < 0 ? -1 : 1);
+        }
+        return up.Normalized();
     }
 
     private static short PackUnit(float value)
@@ -132,6 +171,31 @@ public static class NetFireEvents
     }
     public static void Reset()
     { NetAcceptedAttacks.Reset(); foreach (var slot in _slots) { slot.Fence = default; slot.Count = 0; slot.Selected = slot.Seen = false; slot.Active = default; slot.NextId = slot.LastConsumed = 0; slot.AcceptedEmission = slot.AcceptedPhaseConsumed = false; } }
+    internal static void DiscardLocalPending(int slot)
+    {
+        if (NetSession.Role != NetRole.Client || NetSession.IsAuthority || NetSession.SemanticLegacyPlayback || (uint)slot >= 8
+            || slot < PlayerEntity.Players.Count && PlayerEntity.Players[slot].SceneServices.IsReplica) return;
+        var state = For(slot);
+        state.Count = 0; Array.Clear(state.Events); state.Active = default;
+        state.Selected = false; state.SelectedAt = 0;
+        state.AcceptedEmission = state.AcceptedPhaseConsumed = false;
+    }
+    internal static void RetireClientAttacks(Scene scene)
+    {
+        if (NetSession.Role != NetRole.Client || NetSession.IsAuthority
+            || NetSession.SemanticLegacyPlayback || scene.Services.IsReplica) return;
+        // Removal during enumeration invalidates the scene's linked-list cursor.
+        // Destroy is native silent cleanup; processing an expired bomb instead
+        // would explode it and could author a fresh claim on resume.
+        var stale = new List<EntityBase>();
+        foreach (EntityBase entity in scene.Entities)
+            if (entity is BeamProjectileEntity or BombEntity) stale.Add(entity);
+        foreach (EntityBase entity in stale)
+        {
+            scene.RemoveEntity(entity);
+            entity.Destroy();
+        }
+    }
     private static bool Finite(Vector3 value)
         => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
     public static bool Validate(in IntentPacket intent)
@@ -146,6 +210,9 @@ public static class NetFireEvents
                 || i > 0 && !NetLifecycleTracker.Newer(e.ShotId, previous)
                 || (e.PoseFlags & ~(FireEvent.FlagPose | FireEvent.FlagReticle)) != 0
                 || e.HasReticle && !e.HasPose
+                || (e.SourceFlags & ~(FireEvent.FlagSourcePose | FireEvent.FlagSourceAlt | FireEvent.FlagSourceTransition)) != 0
+                || e.HasSourcePose && (!e.HasPose || !Finite(e.SourcePosition) || !Finite(e.SourceUp)
+                    || e.SourceUp.LengthSquared < .99f || e.SourceUp.LengthSquared > 1.01f)
                 || e.HasPose && (!Finite(e.Origin) || !Finite(e.Direction) || !Finite(e.Aim)
                     || !Finite(e.View) || e.Direction.LengthSquared < 0.000001f
                     || e.Aim.LengthSquared < 0.000001f || e.View.LengthSquared < 0.000001f
@@ -186,9 +253,28 @@ public static class NetFireEvents
                 && fire.Kind == FireEventKind.TurretFire;
         }
         return !UsesEvents(player)
-            || For(player.SlotIndex).Selected && For(player.SlotIndex).Active.Kind == FireEventKind.TurretFire;
+            || For(player.SlotIndex).Selected && For(player.SlotIndex).Active.Kind == FireEventKind.TurretFire
+                && (!NetSession.IsAuthority || NetAcceptedAttacks.TryAcceptedFire(player.SlotIndex,
+                    For(player.SlotIndex).Active.ShotId, out _));
     }
-    internal static bool CanFire(PlayerEntity player) => !UsesEvents(player) || HasPending(player);
+    internal static bool CanFire(PlayerEntity player) => !UsesEvents(player)
+        || HasPending(player) && (!NetSession.IsAuthority || player.SceneServices.IsReplica
+            || NetAcceptedAttacks.TryAcceptedFire(player.SlotIndex, For(player.SlotIndex).Active.ShotId, out _));
+    internal static void RestoreAcceptedCharge(PlayerEntity player)
+    {
+        // Native input may have advanced its hold clock after Prepare. The
+        // admitted event owns this launch's charge; it grants no resources.
+        if (player.SceneServices.IsReplica)
+        {
+            if (HasPending(player) && player.OwningScene.ReplayPoses?.TryActiveFire(player, out FireEvent replayFire) == true)
+                player.EquipInfo.ChargeLevel = replayFire.Charge;
+            return;
+        }
+        if (!NetSession.IsAuthority || !HasPending(player)
+            || !TryTiming(player, out FireEvent fire)
+            || !NetAcceptedAttacks.TryAcceptedFire(player.SlotIndex, fire.ShotId, out fire)) return;
+        player.EquipInfo.ChargeLevel = fire.Charge;
+    }
     /// <summary>
     /// Scope belongs to the authored Imperialist shot, not necessarily to the
     /// newer intent packet that happened to deliver a recovered fire event.
@@ -224,10 +310,13 @@ public static class NetFireEvents
         {
             var e = intent.FireEvents[i];
             if (state.Seen && !NetLifecycleTracker.Newer(e.ShotId, state.LastConsumed)) continue;
-            if (NetSession.IsAuthority && !NetAcceptedAttacks.Authorized(player.SlotIndex, e.ShotId)) continue;
-            if (e.Kind == FireEventKind.ContinuousTick && e.ContinuousPhase != intent.ContinuousFireTick)
+            NetTargetIdentity target = intent.Target;
+            if (NetSession.IsAuthority && !NetAcceptedAttacks.TryAcceptedContext(player.SlotIndex, e.ShotId, out e, out target)) continue;
+            if (!NetSession.IsAuthority && e.Kind == FireEventKind.ContinuousTick && e.ContinuousPhase != intent.ContinuousFireTick)
             { state.Seen = true; state.LastConsumed = e.ShotId; continue; }
             state.Active = e; state.Selected = true; state.SelectedAt = NetSession.NetFrame;
+            state.AcceptedPhaseConsumed = false;
+            player.ModSetPendingHomingTarget(target);
             if (e.Kind == FireEventKind.TurretFire) return;
             player.ModSetWeapon((BeamType)e.Weapon);
             player.EquipInfo.ChargeLevel = e.Charge;
@@ -271,7 +360,8 @@ public static class NetFireEvents
         internal AcceptedEmissionScope(PlayerEntity player, in FireEvent fire, NetTargetIdentity target)
         {
             if (!NetSession.IsAuthority || player.SceneServices.IsReplica || (uint)player.SlotIndex >= 8
-                || fire.ShotId == 0 || !NetAcceptedAttacks.Authorized(player.SlotIndex, fire.ShotId))
+                || fire.ShotId == 0 || !NetAcceptedAttacks.TryAcceptedContext(player.SlotIndex, fire.ShotId,
+                    out FireEvent admittedFire, out NetTargetIdentity admittedTarget))
                 throw new InvalidOperationException("Native accepted emission requires an admitted authority event.");
             _state = For(player.SlotIndex);
             if (_state.AcceptedEmission) throw new InvalidOperationException("Accepted emission scopes cannot overlap.");
@@ -281,8 +371,8 @@ public static class NetFireEvents
             _previousSelectedAt = _state.SelectedAt;
             _previousTarget = player.ModConsumePendingHomingTarget();
             _player = player;
-            SelectAccepted(player, fire);
-            player.ModSetPendingHomingTarget(target);
+            SelectAccepted(player, admittedFire);
+            player.ModSetPendingHomingTarget(admittedTarget);
             _state.AcceptedEmission = true; _state.AcceptedPhaseConsumed = false;
         }
 
@@ -311,8 +401,10 @@ public static class NetFireEvents
         phase = 0; fresh = false;
         if (player.SceneServices.IsReplica || !NetSession.IsAuthority || (uint)player.SlotIndex >= 8) return false;
         Slot state = For(player.SlotIndex);
-        if (!state.AcceptedEmission || state.Active.Kind != FireEventKind.ContinuousTick
+        if (state.Active.Kind != FireEventKind.ContinuousTick
             || state.Active.ContinuousPhase == 0 || state.Active.Weapon != (byte)player.EquipInfo.Weapon.Beam) return false;
+        if (!state.AcceptedEmission && (!UsesEvents(player) || state.SelectedAt != NetSession.NetFrame
+            || !NetAcceptedAttacks.Authorized(player.SlotIndex, state.Active.ShotId))) return false;
         phase = state.Active.ContinuousPhase;
         fresh = !state.AcceptedPhaseConsumed;
         state.AcceptedPhaseConsumed = true;
@@ -353,6 +445,8 @@ public static class NetFireEvents
             && view.LengthSquared >= 0.000001f;
         byte poseFlags = poseValid ? FireEvent.FlagPose : (byte)0;
         if (poseValid && reticleValid) poseFlags |= FireEvent.FlagReticle;
+        player.ModCaptureFireSource(turret, out Vector3 sourcePosition, out Vector3 sourceUp, out byte sourceFlags);
+        if (!poseValid) sourceFlags = 0;
         state.Active = new(id, NetSession.NetFrame, ack, sub, kind,
             (byte)(turret ? player.ModTurretAttackWeapon.Beam : player.CurrentWeapon),
             turret ? (byte)0 : (byte)Math.Clamp((int)player.EquipInfo.ChargeLevel, 0, 255), turret ? 0 : shotState,
@@ -361,7 +455,8 @@ public static class NetFireEvents
             poseValid ? direction.Normalized() : default,
             poseValid ? aim.Normalized() : default,
             poseValid ? view.Normalized() : default,
-            poseValid && reticleValid ? reticle : default);
+            poseValid && reticleValid ? reticle : default,
+            sourcePosition, sourceUp, sourceFlags);
     }
     internal static void Commit(PlayerEntity player)
     {

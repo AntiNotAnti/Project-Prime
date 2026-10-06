@@ -42,8 +42,7 @@ namespace MphRead.Mods
                 {
                     // Handled here rather than by the default action, so the
                     // run loop can exit through its own cleanup.
-                    context.Cancel = true;
-                    Fire();
+                    context.Cancel = Fire();
                 }));
             }
             catch (Exception)
@@ -54,17 +53,17 @@ namespace MphRead.Mods
 
         private void OnCancelKey(object? sender, ConsoleCancelEventArgs e)
         {
-            e.Cancel = true;
-            Fire();
+            e.Cancel = Fire();
         }
 
-        private void Fire()
+        private bool Fire()
         {
             if (System.Threading.Interlocked.Exchange(ref _fired, 1) != 0)
             {
-                return;
+                return false;
             }
             _action?.Invoke();
+            return true;
         }
 
         public void Dispose()

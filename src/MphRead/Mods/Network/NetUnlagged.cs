@@ -666,6 +666,19 @@ namespace MphRead.Mods.Network
                 && Single.IsFinite(position.Z);
         }
 
+        internal static bool PositionAt(int slot, double target, ushort generation, ushort life, out Vector3 position)
+        {
+            position = default;
+            if (!double.IsFinite(target) || target < 1 || target >= uint.MaxValue) return false;
+            uint frame = (uint)Math.Floor(target);
+            if (!PositionAt(slot, frame, generation, life, out position)) return false;
+            float fraction = (float)(target - frame);
+            if (fraction > .0001f && PositionAt(slot, frame + 1, generation, life, out Vector3 next)
+                && _altForm[slot, frame % HistoryFrames] == _altForm[slot, (frame + 1) % HistoryFrames]
+                && (next - position).LengthSquared <= 16f) position += (next - position) * fraction;
+            return true;
+        }
+
         /// <summary>
         /// How far behind the simulation the owner of <paramref name="slot"/>
         /// is, in frames, clamped to what can honestly be served.

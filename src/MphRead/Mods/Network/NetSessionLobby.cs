@@ -39,7 +39,7 @@ namespace MphRead.Mods.Network
         // Loading stays frozen, but the countdown is a commitment made ahead of
         // time. Release against that local deadline instead of waiting for the
         // InMatch datagram to reach every client at a different instant.
-        public static bool FreezeGameplay => IsInLobby || !WorldIsReady || (IsStarting && !StartReleaseReached);
+        public static bool FreezeGameplay => ClientSuspended || IsInLobby || !WorldIsReady || (IsStarting && !StartReleaseReached);
         public static bool ShouldLoadMatch => RequiredMapReady && ServerSession is { } session
             && (session.Phase == SessionPhase.InMatch || (session.Phase == SessionPhase.Starting
                 && LocalSlot >= 0 && (session.ExpectedParticipants & (1 << LocalSlot)) != 0));
@@ -56,6 +56,8 @@ namespace MphRead.Mods.Network
         private static int _loadedSlot = -1;
         private static ushort _loadedSlotGeneration;
         private static (ushort MatchId, ulong AuthorityEpoch)? _pendingLoadedScene;
+        private static bool _pendingBootstrapRefresh;
+        private static MatchStartIdentity? _pendingBootstrapRefreshIdentity;
         private static ushort _rosterSessionRevision;
         private static MatchLoadStage _loadStage;
         private static MatchStartIdentity? _loadProgressIdentity, _countdownIdentity;
@@ -181,6 +183,9 @@ namespace MphRead.Mods.Network
             bool newMatch = ServerSession?.MatchId != state.MatchId;
             bool returningToLobby = state.Phase == SessionPhase.Lobby && !IsInLobby;
             var pendingScene = _pendingLoadedScene;
+            bool pendingRefresh = _pendingBootstrapRefresh && _pendingBootstrapRefreshIdentity is { } refresh
+                && refresh.MatchId == state.MatchId && refresh.AuthorityEpoch == state.AuthorityEpoch
+                && (refresh.StartGeneration == 0 || refresh.StartGeneration == state.StartGeneration);
             if (newMatch || returningToLobby)
             {
                 // A direct PostMatch -> Starting transition keeps the scene alive long
@@ -213,6 +218,10 @@ namespace MphRead.Mods.Network
                         | MatchStatePacket.RuleFlags(1, state.Match.AffinityWeapons)) }, rotated: false);
             }
             MatchStartIdentity startIdentity = StartIdentity(state);
+            // An unknown start generation is resolved by the first matching
+            // session state; a different match/start cannot inherit the request.
+            _pendingBootstrapRefresh = pendingRefresh && state.Phase is SessionPhase.Starting or SessionPhase.InMatch;
+            _pendingBootstrapRefreshIdentity = _pendingBootstrapRefresh ? startIdentity : null;
             // Progress belongs to the start attempt, not to whether MatchLoaded
             // has already been sent. The old _loadedStart check reset the local
             // stage on every SessionState while a scene was still loading.
@@ -340,8 +349,14 @@ namespace MphRead.Mods.Network
                 _scratch.AsSpan(0, MatchLoadProgressPacket.Size));
         }
 
-        public static void MarkMatchLoaded()
+        public static void MarkMatchLoaded(bool refreshBootstrap = false)
         {
+            if (refreshBootstrap)
+            {
+                _pendingBootstrapRefresh = true;
+                _pendingBootstrapRefreshIdentity = ServerSession is { } known ? StartIdentity(known)
+                    : ServerMatch is { } pending ? new(pending.MatchId, pending.AuthorityEpoch, 0) : null;
+            }
             ReportMatchLoadProgress(MatchLoadStage.SceneReady);
             if (_hostEndPoint == null) return;
             // A late join can finish its scene after MatchState but before the
@@ -363,14 +378,18 @@ namespace MphRead.Mods.Network
                 return;
             }
             var identity = new MatchStartIdentity(state.MatchId, state.AuthorityEpoch, state.StartGeneration);
+            refreshBootstrap = _pendingBootstrapRefresh && _pendingBootstrapRefreshIdentity is { } refresh
+                && refresh.MatchId == identity.MatchId && refresh.AuthorityEpoch == identity.AuthorityEpoch
+                && (refresh.StartGeneration == 0 || refresh.StartGeneration == identity.StartGeneration);
             ushort generation = NetPlayerLifecycle.Generation(LocalSlot);
-            if (_loadedStart == identity && _loadedSlot == LocalSlot && _loadedSlotGeneration == generation) return;
+            if (!refreshBootstrap && _loadedStart == identity && _loadedSlot == LocalSlot && _loadedSlotGeneration == generation) return;
             _appliedBootstrap = _receivingBootstrap = null; _bootstrapMask = 0;
             _loadedSlot = LocalSlot; _loadedSlotGeneration = generation;
             _loadedStart = identity; _loadedMatch = state.MatchId;
+            _pendingBootstrapRefresh = false; _pendingBootstrapRefreshIdentity = null;
             _lastLoadAck = Clock;
             new MatchLoadedRolePacket(state.MatchId, state.AuthorityEpoch, state.StartGeneration,
-                SpectatorMode.PreferSpectator).Write(_scratch);
+                SpectatorMode.PreferSpectator, refreshBootstrap).Write(_scratch);
             _transport?.Send(_hostEndPoint, PacketType.MatchLoaded,
                 _scratch.AsSpan(0, MatchLoadedRolePacket.Size));
         }
@@ -387,8 +406,10 @@ namespace MphRead.Mods.Network
         {
             _appliedBootstrap = null;
             _pendingLoadedScene = null;
+            _pendingBootstrapRefresh = false; _pendingBootstrapRefreshIdentity = null;
             NetTelemetry.NewMatch();
             NetHealthSync.BeginRoom();
+            NetObjectiveSync.Reset();
             NetPlayerSetup.Reset(); SpectatorMode.Reset(preservePreference: true); NetMatchSync.Reset();
             NetSlotManager.Reset(); NetDamage.Reset(resetSessionTotals: false);
             if (!preserveRoomChange) NetRoomChange.Reset();
@@ -411,6 +432,7 @@ namespace MphRead.Mods.Network
             ServerSession = null; _pendingLobby.Clear(); _loadedMatch = null; _loadedStart = null;
             _loadedSlot = -1; _loadedSlotGeneration = 0;
             _pendingLoadedScene = null;
+            _pendingBootstrapRefresh = false; _pendingBootstrapRefreshIdentity = null;
             _rosterRevision = 0; _hasRoster = false; _ownerToken = Guid.Empty;
             _rosterSessionRevision = 0;
             LobbyMessage = ""; _loadStage = MatchLoadStage.None; _loadProgressIdentity = null;
@@ -441,6 +463,7 @@ namespace MphRead.Mods.Network
                 roster.Flags[at] = SlotIsBot[slot] ? (byte)1 : (byte)0;
                 roster.BotLevels[at] = SlotBotLevel[slot];
                 roster.DamageReductions[at] = SlotDamageReduction[slot];
+                roster.Roles[at] = SlotSpectating[slot] ? (byte)1 : (byte)0;
             }
             return roster;
         }

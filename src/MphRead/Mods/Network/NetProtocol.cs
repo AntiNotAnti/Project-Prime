@@ -1111,7 +1111,9 @@ namespace MphRead.Mods.Network
         // slot, the server is the only party that can measure it for
         // everybody, and it already sends this packet every second.
         public const int LegacyEntrySize = 1 + 1 + 1 + 2 + MaxNameBytes + 6;
-        public const int EntrySize = LegacyEntrySize + 1;
+        public const int Protocol41EntrySize = LegacyEntrySize + 1;
+        public const int Protocol41Size = HeaderSize + MaxSlots * Protocol41EntrySize;
+        public const int EntrySize = Protocol41EntrySize + 1;
         public const int HeaderSize = 18;
         public const int LegacySize = HeaderSize + MaxSlots * LegacyEntrySize;
         public const int Size = HeaderSize + MaxSlots * EntrySize;
@@ -1130,6 +1132,8 @@ namespace MphRead.Mods.Network
         public byte[] Flags;
         public byte[] BotLevels;
         public byte[] DamageReductions; // incoming damage reduction percent, server-authoritative
+        public byte[] Roles; // 0 = player, 1 = spectator; bots remain players.
+        public bool IsSpectator(int index) => Roles != null && (uint)index < Roles.Length && Roles[index] == 1;
         public bool ContainsBots; // Sticky for the entire round, including late join bootstrap.
         public bool IsBot(int index) => Flags != null && (Flags[index] & 1) != 0;
         public ushort[] Pings;    // round trip to the server, milliseconds
@@ -1149,6 +1153,7 @@ namespace MphRead.Mods.Network
                 Flags = new byte[MaxSlots],
                 BotLevels = new byte[MaxSlots],
                 DamageReductions = new byte[MaxSlots],
+                Roles = new byte[MaxSlots],
                 Pings = new ushort[MaxSlots],
                 Names = new string[MaxSlots]
             };
@@ -1177,6 +1182,7 @@ namespace MphRead.Mods.Network
                 dest[offset + 9 + MaxNameBytes] = Flags?[i] ?? 0;
                 dest[offset + 10 + MaxNameBytes] = BotLevels?[i] ?? 0;
                 dest[offset + 11 + MaxNameBytes] = DamageReductions?[i] ?? 0;
+                dest[offset + 12 + MaxNameBytes] = Roles?[i] ?? 0;
                 offset += EntrySize;
             }
         }
@@ -1195,7 +1201,10 @@ namespace MphRead.Mods.Network
                     || src[offset + 9 + MaxNameBytes] > 1 || src[offset + 10 + MaxNameBytes] > 3
                     || (src[offset + 9 + MaxNameBytes] == 0 && src[offset + 10 + MaxNameBytes] != 0)
                     || src[offset + 2] > 3 || team < -1 || team > 3 || src[offset + 8 + MaxNameBytes] > 1
-                    || !PlayerHandicap.IsValid(src[offset + 11 + MaxNameBytes]))
+                    || !PlayerHandicap.IsValid(src[offset + 11 + MaxNameBytes])
+                    || src[offset + 12 + MaxNameBytes] > 1
+                    || (src[offset + 12 + MaxNameBytes] == 1 && (team != -1 || src[offset + 8 + MaxNameBytes] != 0
+                        || src[offset + 9 + MaxNameBytes] != 0)))
                     return false;
                 seen |= 1 << slot;
             }
@@ -1221,6 +1230,7 @@ namespace MphRead.Mods.Network
                 roster.Flags[i] = src[offset + 9 + MaxNameBytes];
                 roster.BotLevels[i] = src[offset + 10 + MaxNameBytes];
                 roster.DamageReductions[i] = src[offset + 11 + MaxNameBytes];
+                roster.Roles[i] = src[offset + 12 + MaxNameBytes];
                 roster.Pings[i] = BinaryPrimitives.ReadUInt16LittleEndian(src[(offset + 3)..]);
                 roster.Names[i] = ReadName(src.Slice(offset + 5, MaxNameBytes));
                 roster.Teams[i] = unchecked((sbyte)src[offset + 7 + MaxNameBytes]);
@@ -1402,7 +1412,26 @@ namespace MphRead.Mods.Network
         public const int StateSize = ShotStateSize + AnalogStateSize + ContinuousTickSize;
         public const int LegacyFullSize = Size + StateSize;
         public const int Protocol38FullSize = LegacyFullSize + NetFireEvents.LegacyWireSize;
+        public const int Protocol41FullSize = LegacyFullSize + 1 + NetFireEvents.Capacity * FireEvent.Protocol41Size;
         public const int FullSize = LegacyFullSize + NetFireEvents.WireSize;
+        public readonly int EncodedSize => LegacyFullSize + 1 + FireEventCount * FireEvent.Size;
+        public int WriteNetwork(Span<byte> dest)
+        {
+            if (FireEventCount > NetFireEvents.Capacity || dest.Length < EncodedSize)
+                throw new ArgumentException("Invalid or undersized intent buffer.", nameof(dest));
+            Write(dest[..EncodedSize]);
+            return EncodedSize;
+        }
+        public static bool TryReadNetwork(ReadOnlySpan<byte> src, out IntentPacket intent)
+        {
+            intent = default;
+            if (src.Length < LegacyFullSize + 1 || src[LegacyFullSize] > NetFireEvents.Capacity
+                || src.Length != LegacyFullSize + 1 + src[LegacyFullSize] * FireEvent.Size) return false;
+            intent = Read(src);
+            return true;
+        }
+        internal static bool IsCurrentRecord(ReadOnlySpan<byte> src)
+            => TryReadNetwork(src, out _) || (src.Length == FullSize && src[LegacyFullSize] <= NetFireEvents.Capacity);
         public bool HasFireEvents;
         public byte FireEventCount;
         public FireEventHistory FireEvents;
@@ -1636,10 +1665,10 @@ namespace MphRead.Mods.Network
             }
             if (dest.Length >= LegacyFullSize)
                 BinaryPrimitives.WriteUInt32LittleEndian(dest[(Size + 10)..], ContinuousFireTick);
-            if (dest.Length >= FullSize)
+            if (FireEventCount <= NetFireEvents.Capacity && dest.Length >= EncodedSize)
             {
                 dest[LegacyFullSize] = FireEventCount;
-                dest.Slice(LegacyFullSize + 1, NetFireEvents.Capacity * FireEvent.Size).Clear();
+                dest.Slice(LegacyFullSize + 1, Math.Min(dest.Length, FullSize) - LegacyFullSize - 1).Clear();
                 for (int i = 0; i < Math.Min((int)FireEventCount, NetFireEvents.Capacity); i++)
                     FireEvents[i].Write(dest[(LegacyFullSize + 1 + i * FireEvent.Size)..]);
             }
@@ -1653,16 +1682,19 @@ namespace MphRead.Mods.Network
                 presses[i] = BinaryPrimitives.ReadUInt16LittleEndian(src[(21 + i * 2)..]);
             }
             FireEventHistory fireEvents = default;
-            bool currentFireEvents = src.Length >= FullSize;
-            bool legacyFireEvents = !currentFireEvents && src.Length >= Protocol38FullSize;
-            int fireEventSize = currentFireEvents ? FireEvent.Size : FireEvent.LegacySize;
-            byte fireCount = currentFireEvents || legacyFireEvents ? src[LegacyFullSize] : (byte)0;
+            bool currentFireEvents = src.Length == FullSize || (src.Length >= LegacyFullSize + 1
+                && src[LegacyFullSize] <= NetFireEvents.Capacity
+                && src.Length == LegacyFullSize + 1 + src[LegacyFullSize] * FireEvent.Size);
+            bool protocol41FireEvents = !currentFireEvents && src.Length == Protocol41FullSize;
+            bool legacyFireEvents = !currentFireEvents && !protocol41FireEvents && src.Length == Protocol38FullSize;
+            int fireEventSize = currentFireEvents ? FireEvent.Size : protocol41FireEvents ? FireEvent.Protocol41Size : FireEvent.LegacySize;
+            byte fireCount = currentFireEvents || protocol41FireEvents || legacyFireEvents ? src[LegacyFullSize] : (byte)0;
             for (int i = 0; i < Math.Min((int)fireCount, NetFireEvents.Capacity); i++)
                 fireEvents[i] = FireEvent.Read(src.Slice(
                     LegacyFullSize + 1 + i * fireEventSize, fireEventSize));
             return new IntentPacket
             {
-                HasFireEvents = currentFireEvents || legacyFireEvents,
+                HasFireEvents = currentFireEvents || protocol41FireEvents || legacyFireEvents,
                 FireEventCount = fireCount, FireEvents = fireEvents,
                 MatchId = BinaryPrimitives.ReadUInt16LittleEndian(src[74..]),
                 AuthorityEpoch = BinaryPrimitives.ReadUInt64LittleEndian(src[76..]),
@@ -1767,7 +1799,11 @@ namespace MphRead.Mods.Network
         private const byte AuxSpawnProtected = 1 << 1;
         private const int JumpPadEventOffset = HalfturretOffset + 3;
         public const int LegacySize = JumpPadEventOffset + 2;
-        public const int Size = LegacySize + Mods.EnhancedHunters.EnhancedHunterNetState.Size;
+        public const int Protocol41Size = LegacySize + Mods.EnhancedHunters.EnhancedHunterNetState.Size;
+        public const int Size = Protocol41Size + 7;
+        public byte Hunter;
+        public ushort FreezeEventId;
+        public uint RespawnEligibleFrame;
         public Mods.EnhancedHunters.EnhancedHunterNetState Enhanced;
         public bool HalfturretActive;
         public bool SpawnProtected;
@@ -1895,6 +1931,9 @@ namespace MphRead.Mods.Network
         public void Write(Span<byte> dest)
         {
             Enhanced.Write(dest[LegacySize..]);
+            dest[Protocol41Size] = Hunter;
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[(Protocol41Size + 1)..], FreezeEventId);
+            BinaryPrimitives.WriteUInt32LittleEndian(dest[(Protocol41Size + 3)..], RespawnEligibleFrame);
             dest[0] = SlotIndex;
             dest[1] = Flags;
             WriteVec(dest[2..], Position);
@@ -1928,6 +1967,9 @@ namespace MphRead.Mods.Network
             var state = new PlayerState
             {
                 Enhanced = Mods.EnhancedHunters.EnhancedHunterNetState.Read(suffix[(LegacySize - 48)..]),
+                Hunter = suffix.Length >= Size - 48 ? suffix[Protocol41Size - 48] : byte.MaxValue,
+                FreezeEventId = suffix.Length >= Size - 48 ? BinaryPrimitives.ReadUInt16LittleEndian(suffix[(Protocol41Size + 1 - 48)..]) : (ushort)0,
+                RespawnEligibleFrame = suffix.Length >= Size - 48 ? BinaryPrimitives.ReadUInt32LittleEndian(suffix[(Protocol41Size + 3 - 48)..]) : 0,
                 SlotIndex = prefix[0],
                 Flags = prefix[1],
                 Position = ReadVec(prefix[2..]),
@@ -2070,7 +2112,9 @@ namespace MphRead.Mods.Network
         public ushort ShooterLifeId;
         public ushort VictimGeneration;
         public ushort VictimLifeId;
-        public const int Size = 59;
+        public const int Protocol41Size = 59;
+        public const int Size = Protocol41Size + 1;
+        public byte AckSubFrame;
         public uint ShotId;
         private const float DirectionScale = 16384f;
 
@@ -2149,6 +2193,7 @@ namespace MphRead.Mods.Network
 
         public void Write(Span<byte> dest)
         {
+            dest[Protocol41Size] = AckSubFrame;
             BinaryPrimitives.WriteUInt32LittleEndian(dest[55..], ShotId);
             BinaryPrimitives.WriteUInt16LittleEndian(dest[31..], MatchId);
             BinaryPrimitives.WriteUInt64LittleEndian(dest[33..], AuthorityEpoch);
@@ -2176,7 +2221,8 @@ namespace MphRead.Mods.Network
         {
             return new HitClaimPacket
             {
-                ShotId = src.Length >= Size ? BinaryPrimitives.ReadUInt32LittleEndian(src[55..]) : 0,
+                ShotId = src.Length >= Protocol41Size ? BinaryPrimitives.ReadUInt32LittleEndian(src[55..]) : 0,
+                AckSubFrame = src.Length >= Size ? src[Protocol41Size] : (byte)0,
                 MatchId = BinaryPrimitives.ReadUInt16LittleEndian(src[31..]),
                 AuthorityEpoch = BinaryPrimitives.ReadUInt64LittleEndian(src[33..]),
                 ShooterGeneration = BinaryPrimitives.ReadUInt16LittleEndian(src[41..]),
@@ -2315,11 +2361,11 @@ namespace MphRead.Mods.Network
     public static class NetConfig
     {
         public const ushort DefaultPort = 27888;
-        // Keep application datagrams within the IPv6 minimum-MTU budget after
-        // UDP/IP headers. Compact PlayerState leaves worst-case 8-player
-        // snapshots comfortably below this bound.
         public const int MaxSnapshotSize = 4096; // In-process/replay canonical state; never one live datagram.
-        public const int MaxPacketSize = 1472; // Rare control traffic; realtime lanes are separately bounded at 1200 bytes.
+        // The current transport uses IPv4 UDP: 1472 bytes leaves room for its
+        // 20-byte IP and 8-byte UDP headers on a 1500-byte path. All live lanes
+        // share this datagram ceiling, including reliable event/envelope bytes.
+        public const int MaxPacketSize = 1472;
         public const int MaxPayloadSize = MaxPacketSize - NetHeader.Size;
         /// <summary>
         /// Bumped when the wire format changes in a way an older build would
@@ -2477,7 +2523,7 @@ namespace MphRead.Mods.Network
         // not affect gameplay simulation, but protocol-40 transports would reject
         // the unknown reliable type without acknowledging it, so mixed v40/v41
         // peers must be refused rather than retrying replay evidence forever.
-        public const int ProtocolVersion = 41;
+        public const int ProtocolVersion = 42;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///
@@ -2495,8 +2541,12 @@ namespace MphRead.Mods.Network
         /// that true was a transport whose send queue dropped the *newest*
         /// packets when it filled, which is the opposite of what a position
         /// stream wants and was fixed since (see NETWORK-DIAGNOSTICS). Doubled
-        /// traffic is the cost: about 100 bytes on the wire per player per
-        /// frame, so 42 KB/s into each client of an eight-player match.
+        /// traffic is the cost. A quiet protocol-42 intent has a 103-byte
+        /// payload: 127 bytes with the connection header, or 128 bytes when
+        /// relayed with the slot tag. Seven remote idle players at 60 Hz send
+        /// 53,760 bytes/second to each player, before snapshots, replay world,
+        /// IP/UDP headers and retransmissions. Retained firing history adds
+        /// 84 bytes per event, up to a 1472-byte maximum relay datagram.
         ///
         /// The feature check samples both sides of a comparison on this
         /// cadence, which is now every frame.

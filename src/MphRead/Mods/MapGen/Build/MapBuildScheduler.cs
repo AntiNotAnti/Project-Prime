@@ -304,4 +304,28 @@ public sealed class MapBuildScheduler : IMapBuildScheduler
         foreach (var pair in result.Outputs.Files.Zip(destination.Files)) AtomicFile.Write(pair.Second, File.ReadAllBytes(pair.First));
         MapBuildManifest.Write(definition, destination, fingerprint);
     }
+
+    internal static string StageInstallation(MapBuildResult result, MapDefinition definition,
+        MapFilePublication publication, CancellationToken cancellation)
+    {
+        if (!result.Succeeded || result.Outputs == null) throw new InvalidOperationException("Cannot stage a failed build.");
+        var fingerprint = MapBuildFingerprint.Create(definition);
+        if (fingerprint.ContentKey != result.Fingerprint) throw new IOException("Map inputs changed after building.");
+        string directory = Path.GetDirectoryName(result.Outputs.Model)!;
+        using var lease = MapDiskCache.Acquire(Path.GetDirectoryName(directory)!, result.Fingerprint, cancellation);
+        var cache = ReadCache(Path.Combine(directory, "cache.json"), result.Fingerprint, result.Outputs)
+            ?? throw new IOException("Cached map outputs failed integrity validation.");
+        var destination = MapOutputSet.Create(definition, CustomRooms.ArchiveDirectory(definition),
+            CustomRooms.EntityDirectory(), CustomRooms.NodeDirectory());
+        var stages = result.Outputs.Files.Zip(destination.Files,
+            (source, target) => publication.Stage(source, target, cancellation)).ToArray();
+        if (!cache.Hashes.SequenceEqual(stages.Select(MapBuildFingerprint.HashFile)))
+            throw new IOException("Cached map outputs changed during publication preparation.");
+        // Use the exact copied output hashes. Manifest publication is deliberately last.
+        string temporary = Path.Combine(Path.GetDirectoryName(stages[0])!, "manifest.json");
+        File.WriteAllBytes(temporary, JsonSerializer.SerializeToUtf8Bytes(new MapBuildManifest
+            { Fingerprint = fingerprint, OutputHashes = cache.Hashes }));
+        publication.Stage(temporary, destination.Manifest, cancellation);
+        return destination.Manifest;
+    }
 }

@@ -211,8 +211,10 @@ namespace MphRead.Mods.Network
         public static MapRotation Load(string path)
         {
             var rotation = new MapRotation();
+            int lineNumber = 0;
             foreach (string raw in File.ReadAllLines(path))
             {
+                lineNumber++;
                 string line = raw;
                 int comment = line.IndexOf('#');
                 if (comment >= 0)
@@ -225,37 +227,57 @@ namespace MphRead.Mods.Network
                     continue;
                 }
                 string[] parts = line.Split('|');
+                if (parts.Length > 4)
+                    throw new InvalidDataException($"{path}:{lineNumber}: expected ROOM | mode | minutes | points.");
                 string roomKey = parts[0].Trim();
                 if (roomKey.Length == 0)
                 {
-                    continue;
+                    throw new InvalidDataException($"{path}:{lineNumber}: map name is empty.");
                 }
                 GameMode mode = GameMode.Battle;
-                if (parts.Length > 1 && Enum.TryParse(parts[1].Trim().Replace(" ", ""),
-                    ignoreCase: true, out GameMode parsedMode))
+                if (parts.Length > 1 && parts[1].Trim().Length > 0)
                 {
-                    mode = parsedMode;
+                    if (!Enum.TryParse(parts[1].Trim().Replace(" ", ""), ignoreCase: true, out mode)
+                        || !Enum.IsDefined(mode) || mode is GameMode.None or GameMode.SinglePlayer)
+                        throw new InvalidDataException($"{path}:{lineNumber}: invalid multiplayer mode '{parts[1].Trim()}'.");
                 }
                 float timeLimit = 7 * 60;
-                if (parts.Length > 2 && Single.TryParse(parts[2].Trim(),
-                    NumberStyles.Float, CultureInfo.InvariantCulture, out float minutes))
+                if (parts.Length > 2 && parts[2].Trim().Length > 0)
                 {
+                    if (!Single.TryParse(parts[2].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out float minutes))
+                        throw new InvalidDataException($"{path}:{lineNumber}: minutes must be a finite nonnegative number.");
                     timeLimit = minutes * 60;
                 }
                 int pointGoal = 7;
-                if (parts.Length > 3 && Int32.TryParse(parts[3].Trim(), out int parsedPoints))
+                if (parts.Length > 3 && parts[3].Trim().Length > 0)
                 {
-                    pointGoal = parsedPoints;
+                    if (!Int32.TryParse(parts[3].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out pointGoal))
+                        throw new InvalidDataException($"{path}:{lineNumber}: points must be a nonnegative integer.");
                 }
-                rotation._entries.Add(new RotationEntry
+                var entry = new RotationEntry
                 {
                     RoomKey = roomKey,
                     Mode = mode,
                     TimeLimit = timeLimit,
                     PointGoal = pointGoal
-                });
+                };
+                if (EntryProblem(entry) is string problem)
+                    throw new InvalidDataException($"{path}:{lineNumber}: {problem}");
+                rotation._entries.Add(entry);
             }
             return rotation;
+        }
+
+        internal static string? EntryProblem(RotationEntry entry)
+        {
+            if (String.IsNullOrWhiteSpace(entry.RoomKey)) return "Map name is empty.";
+            if (!Enum.IsDefined(entry.Mode) || entry.Mode is GameMode.None or GameMode.SinglePlayer)
+                return "Choose a defined multiplayer mode.";
+            if (!Single.IsFinite(entry.TimeLimit) || entry.TimeLimit < 0 || entry.TimeLimit > ushort.MaxValue)
+                return "Match length must be finite and between 0 and 65535 seconds.";
+            if (entry.PointGoal < 0 || entry.PointGoal > ushort.MaxValue)
+                return "Point goal must be between 0 and 65535.";
+            return null;
         }
 
         /// <summary>A starter rotation, written when no file exists yet.</summary>

@@ -21,6 +21,7 @@ namespace MphRead.Mods.Network
         public static readonly int[] Assists = new int[Slots];
         public static readonly int[] LongestKillStreak = new int[Slots];
 
+        private static readonly int[] _killStreak = new int[Slots];
         private static readonly int[,] _assistDamage = new int[Slots, Slots];
         private static readonly ulong[,] _assistFrame = new ulong[Slots, Slots];
 
@@ -29,6 +30,7 @@ namespace MphRead.Mods.Network
             Array.Clear(Damage);
             Array.Clear(Assists);
             Array.Clear(LongestKillStreak);
+            Array.Clear(_killStreak);
             Array.Clear(_assistDamage);
             Array.Clear(_assistFrame);
         }
@@ -43,6 +45,7 @@ namespace MphRead.Mods.Network
             Damage[slot] = 0;
             Assists[slot] = 0;
             LongestKillStreak[slot] = 0;
+            _killStreak[slot] = 0;
             for (int i = 0; i < Slots; i++)
             {
                 _assistDamage[slot, i] = 0;
@@ -90,6 +93,7 @@ namespace MphRead.Mods.Network
                 return;
             }
 
+            _killStreak[victimSlot] = 0;
             for (int slot = 0; slot < Slots; slot++)
             {
                 if (slot == attackerSlot || slot == victimSlot
@@ -123,8 +127,8 @@ namespace MphRead.Mods.Network
             if (!attacker.OwningScene.GameState.Multiplayer || !NetSession.IsAuthority) return;
             int slot = attacker.SlotIndex;
             if ((uint)slot >= Slots) return;
-            LongestKillStreak[slot] = Math.Max(LongestKillStreak[slot],
-                attacker.OwningScene.GameState.KillStreak[slot]);
+            if (_killStreak[slot] < Int32.MaxValue) _killStreak[slot]++;
+            LongestKillStreak[slot] = Math.Max(LongestKillStreak[slot], _killStreak[slot]);
         }
     }
 }

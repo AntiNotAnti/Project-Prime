@@ -1392,7 +1392,8 @@ namespace MphRead.Entities
 
         private void PickUpItems()
         {
-            if (_health == 0 || (IsBot && _scene.GameState.SinglePlayer) || IgnoreItemPickups
+            if (_health == 0 || (Mods.Network.NetSession.IsClient && !ModOwnsLocalNetworkResources)
+                || (IsBot && _scene.GameState.SinglePlayer) || IgnoreItemPickups
                 || IsMainPlayer && _scene.CameraSequences.Current?.BlockInput == true)
             {
                 return;
@@ -1581,6 +1582,7 @@ namespace MphRead.Entities
                 }
                 if (pickedUp)
                 {
+                    NotePredictedResourcePickup(item);
                     item.OnPickedUp(this);
                 }
             }
@@ -2453,6 +2455,11 @@ namespace MphRead.Entities
 
         private int GetTimeUntilRespawn()
         {
+            // Online authority auto-spawns when this native eligibility gate
+            // expires. Replicas refresh it from RespawnEligibleFrame; spectators
+            // and roster count must not choose a different display schedule.
+            if (Mods.Network.NetSession.Active && !_scene.Services.IsReplica)
+                return _respawnTimer;
             // todo: FPS stuff
             int count = 0;
             if (_scene.GameState.Mode != GameMode.Survival && _scene.GameState.Mode != GameMode.SurvivalTeams && _scene.GameState.Mode != GameMode.OneInTheChamber)

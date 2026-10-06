@@ -64,7 +64,8 @@ namespace MphRead.NetTest
         private static void Wire()
         {
             Check(NetUnlagged.PressAgeEnabled, "recovered trigger pulls include their age by default");
-            Check(PlayerState.Size == 145, "compact player wire size includes four damage events, jump-pad sequence and enhanced state");
+            Check(PlayerState.Protocol41Size == 145 && PlayerState.Size == 152,
+                "player wire extends historical damage/enhanced state with hunter, freeze event and respawn deadline");
             Check(1 + SnapshotHeader.Size + PlayerState.Size * PlayerEntity.SlotCapacity <= NetConfig.MaxPacketSize
                 && NetConfig.MaxPacketSize <= 1472, "eight-player snapshot fits one Ethernet UDP datagram");
             byte[] buffer = new byte[NetConfig.MaxPacketSize];
@@ -72,6 +73,7 @@ namespace MphRead.NetTest
             state.SpawnProtected = true;
             state.HalfturretActive = false;
             state.JumpPadEventId = 65534;
+            state.Hunter = (byte)Hunter.Weavel; state.FreezeEventId = 65533; state.RespawnEligibleFrame = 0x12345678;
             state.DamageEventId = 65535;
             state.Damage3 = new DamageEvent { EventId = 65535,
                 AttackerSlot = 0, AttackerGeneration = 123, Damage = 32,
@@ -81,7 +83,8 @@ namespace MphRead.NetTest
             Check(read.LifeId == 65535 && read.SlotGeneration == 65400 && read.Damage3.Damage == 32
                 && (read.Damage3.Direction - state.Damage3.Direction).Length < 0.0002f
                 && read.Damage3.AttackerGeneration == 123 && read.AttackerSlot == 0
-                && read.SpawnProtected && !read.HalfturretActive && read.JumpPadEventId == 65534,
+                && read.SpawnProtected && !read.HalfturretActive && read.JumpPadEventId == 65534
+                && read.Hunter == (byte)Hunter.Weavel && read.FreezeEventId == 65533 && read.RespawnEligibleFrame == 0x12345678,
                 "player, damage, jump-pad and spawn-protection state round trip");
             state.SpawnProtected = false;
             state.HalfturretActive = true;

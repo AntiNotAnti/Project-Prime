@@ -19,6 +19,9 @@ internal static class ReplayIdentityCompatibility
         => protocol >= OldestReplayProtocol && protocol < NetConfig.ProtocolVersion;
 
     internal static ReadOnlySpan<byte> Convert(ReadOnlySpan<byte> packet, int protocol)
+        => UpgradeProtocol42(ConvertLegacy(packet, protocol), protocol);
+
+    private static ReadOnlySpan<byte> ConvertLegacy(ReadOnlySpan<byte> packet, int protocol)
     {
         if (packet.IsEmpty) return packet;
         if (!Supports(protocol)) throw new InvalidDataException("Unsupported replay protocol.");
@@ -151,7 +154,7 @@ internal static class ReplayIdentityCompatibility
             Require(header.PlayerCount <= 8);
             bool fast = type == PacketType.SnapshotFast;
             int oldSize = PlayerState.LegacySize - (fast ? 7 : 0);
-            int newSize = oldSize + Mods.EnhancedHunters.EnhancedHunterNetState.Size;
+            int newSize = fast ? SnapshotFast.PlayerSize : PlayerState.Size;
             int oldTail = SnapshotHeader.Size + header.PlayerCount * oldSize;
             Require(body.Length >= oldTail);
             byte[] expanded = new byte[converted.Length + header.PlayerCount * (newSize - oldSize)];
@@ -161,6 +164,7 @@ internal static class ReplayIdentityCompatibility
                 int offset = 1 + SnapshotHeader.Size + i * newSize;
                 body.Slice(SnapshotHeader.Size + i * oldSize, oldSize).CopyTo(expanded.AsSpan(offset));
                 expanded[offset + oldSize + 1] = byte.MaxValue;
+                expanded[offset + PlayerState.Protocol41Size - (fast ? 7 : 0)] = byte.MaxValue;
             }
             body[oldTail..].CopyTo(expanded.AsSpan(1 + SnapshotHeader.Size + header.PlayerCount * newSize));
             return expanded;
@@ -175,6 +179,70 @@ internal static class ReplayIdentityCompatibility
             return result;
         }
         return converted;
+    }
+
+    // Older converters already emit current-width rows. Only expand the
+    // historical widths left at this boundary, once, without inventing source
+    // pose, role, freeze events, respawn deadlines or stock gameplay identity.
+    private static ReadOnlySpan<byte> UpgradeProtocol42(ReadOnlySpan<byte> packet, int protocol)
+    {
+        if (packet.IsEmpty || protocol >= 42) return packet;
+        PacketType type = (PacketType)packet[0];
+        if (type == PacketType.SessionState && packet.Length == 1 + SessionStatePacket.Protocol41Size)
+        {
+            byte[] expanded = New(type, SessionStatePacket.Size); packet.CopyTo(expanded);
+            return expanded;
+        }
+        if (type == PacketType.Roster && packet.Length == 1 + RosterPacket.Protocol41Size)
+        {
+            byte[] expanded = New(type, RosterPacket.Size);
+            packet[..(1 + RosterPacket.HeaderSize)].CopyTo(expanded);
+            for (int i = 0; i < RosterPacket.MaxSlots; i++)
+                packet.Slice(1 + RosterPacket.HeaderSize + i * RosterPacket.Protocol41EntrySize,
+                    RosterPacket.Protocol41EntrySize).CopyTo(expanded.AsSpan(1 + RosterPacket.HeaderSize + i * RosterPacket.EntrySize));
+            return expanded;
+        }
+        if (type is PacketType.Intent or PacketType.SlotIntent)
+        {
+            int prefix = type == PacketType.SlotIntent ? 2 : 1;
+            if (packet.Length == prefix + IntentPacket.FullSize) return packet;
+            Require(packet.Length == prefix + IntentPacket.Protocol41FullSize);
+            byte[] expanded = new byte[prefix + IntentPacket.FullSize];
+            packet[..(prefix + IntentPacket.LegacyFullSize + 1)].CopyTo(expanded);
+            int count = packet[prefix + IntentPacket.LegacyFullSize];
+            Require(count <= NetFireEvents.Capacity);
+            for (int i = 0; i < count; i++)
+                packet.Slice(prefix + IntentPacket.LegacyFullSize + 1 + i * FireEvent.Protocol41Size,
+                    FireEvent.Protocol41Size).CopyTo(expanded.AsSpan(prefix + IntentPacket.LegacyFullSize + 1 + i * FireEvent.Size));
+            return expanded;
+        }
+        if (protocol >= 29 && type is PacketType.Snapshot or PacketType.SnapshotFast)
+        {
+            Require(packet.Length >= 1 + SnapshotHeader.Size);
+            bool fast = type == PacketType.SnapshotFast;
+            int count = SnapshotHeader.Read(packet[1..]).PlayerCount;
+            Require(count <= RosterPacket.MaxSlots);
+            int oldSize = PlayerState.Protocol41Size - (fast ? 7 : 0);
+            int newSize = PlayerState.Size - (fast ? 7 : 0);
+            int oldTail = 1 + SnapshotHeader.Size + count * oldSize;
+            Require(packet.Length >= oldTail && (!fast || packet.Length == oldTail));
+            byte[] expanded = new byte[packet.Length + count * (newSize - oldSize)];
+            packet[..(1 + SnapshotHeader.Size)].CopyTo(expanded);
+            for (int i = 0; i < count; i++)
+            {
+                int at = 1 + SnapshotHeader.Size + i * newSize;
+                packet.Slice(1 + SnapshotHeader.Size + i * oldSize, oldSize).CopyTo(expanded.AsSpan(at));
+                expanded[at + oldSize] = byte.MaxValue; // hunter was carried only by the historical roster
+            }
+            packet[oldTail..].CopyTo(expanded.AsSpan(1 + SnapshotHeader.Size + count * newSize));
+            return expanded;
+        }
+        if (type == PacketType.HitClaim && packet.Length == 1 + HitClaimPacket.Protocol41Size)
+        {
+            byte[] expanded = New(type, HitClaimPacket.Size); packet.CopyTo(expanded);
+            return expanded;
+        }
+        return packet;
     }
 
     private static ReadOnlySpan<byte> ConvertIdentity(ReadOnlySpan<byte> packet, int protocol)
@@ -390,6 +458,7 @@ internal static class ReplayIdentityCompatibility
     private static void ConvertLegacyPlayer(ReadOnlySpan<byte> source, Span<byte> destination, int protocol)
     {
         destination.Clear();
+        destination[PlayerState.Protocol41Size] = byte.MaxValue;
         // Enhanced Hunter state did not exist. Its target slot uses FF as "none".
         destination[PlayerState.LegacySize + 1] = byte.MaxValue;
 

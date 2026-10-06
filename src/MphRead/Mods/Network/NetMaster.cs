@@ -381,6 +381,7 @@ namespace MphRead.Mods.Network
             try
             {
                 _transport = new NetTransport(_port);
+                _transport.EnableDirectoryFarewells();
                 _running = true;
                 Log($"listening on UDP {_transport.LocalPort}");
                 Log($"servers are dropped after {NetMasterConfig.ExpirySeconds:0} s of silence");
@@ -1154,10 +1155,12 @@ namespace MphRead.Mods.Network
                 socket.Client.ReceiveTimeout = 250;
                 HostChallengeReplyPacket challengeReply = default;
                 bool challenged = false;
-                DateTime challengeDeadline = DateTime.UtcNow.AddMilliseconds(
-                    Math.Clamp(timeoutMs, 250, 1500));
-                while (DateTime.UtcNow < challengeDeadline)
+                var challengeClock = System.Diagnostics.Stopwatch.StartNew();
+                int challengeTimeout = Math.Clamp(timeoutMs, 250, 1500);
+                while (challengeClock.ElapsedMilliseconds < challengeTimeout)
                 {
+                    socket.Client.ReceiveTimeout = Math.Max(1, Math.Min(250,
+                        challengeTimeout - (int)challengeClock.ElapsedMilliseconds));
                     try
                     {
                         byte[] answer = socket.Receive(ref challengeFrom);
@@ -1175,7 +1178,7 @@ namespace MphRead.Mods.Network
                     catch (SocketException ex) when (ex.SocketErrorCode
                         == SocketError.TimedOut)
                     {
-                        if (DateTime.UtcNow < challengeDeadline)
+                        if (challengeClock.ElapsedMilliseconds < challengeTimeout)
                         {
                             socket.Send(challengeWire, challengeWire.Length, endPoint);
                             continue;
@@ -1217,9 +1220,11 @@ namespace MphRead.Mods.Network
                 var from = new IPEndPoint(IPAddress.Any, 0);
                 int requestTimeout = request.RequiresMapPreparation ? Math.Max(timeoutMs, 150_000) : timeoutMs;
                 socket.Client.ReceiveTimeout = request.RequiresMapPreparation ? 1000 : timeoutMs;
-                DateTime deadline = DateTime.UtcNow.AddMilliseconds(requestTimeout);
-                while (DateTime.UtcNow < deadline)
+                var requestClock = System.Diagnostics.Stopwatch.StartNew();
+                while (requestClock.ElapsedMilliseconds < requestTimeout)
                 {
+                    socket.Client.ReceiveTimeout = Math.Max(1, Math.Min(request.RequiresMapPreparation ? 1000 : Math.Max(1, timeoutMs),
+                        requestTimeout - (int)requestClock.ElapsedMilliseconds));
                     byte[] reply;
                     try { reply = socket.Receive(ref from); }
                     catch (SocketException ex) when (request.RequiresMapPreparation && ex.SocketErrorCode == SocketError.TimedOut)
@@ -1312,15 +1317,18 @@ namespace MphRead.Mods.Network
         }
 
         public static MasterListResult Query(string host,
-            int port = NetMasterConfig.DefaultPort, int timeoutMs = 1500)
+            int port = NetMasterConfig.DefaultPort, int timeoutMs = 1500,
+            CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            timeoutMs = Math.Max(1, timeoutMs);
             var found = new List<MasterListing>();
             bool answered = false;
             bool? canHost = null;
             IPEndPoint endPoint;
             try
             {
-                IPAddress[] resolved = Dns.GetHostAddresses(host);
+                IPAddress[] resolved = Dns.GetHostAddressesAsync(host, cancellationToken).GetAwaiter().GetResult();
                 IPAddress? ipv4 = Array.Find(resolved,
                     a => a.AddressFamily == AddressFamily.InterNetwork);
                 if (ipv4 == null)
@@ -1329,6 +1337,7 @@ namespace MphRead.Mods.Network
                 }
                 endPoint = new IPEndPoint(ipv4, port);
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception)
             {
                 return new MasterListResult { Servers = found, Answered = false };
@@ -1336,17 +1345,20 @@ namespace MphRead.Mods.Network
             try
             {
                 using var socket = new UdpClient(AddressFamily.InterNetwork);
-                socket.Client.ReceiveTimeout = timeoutMs;
+                using var receiveDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                receiveDeadline.CancelAfter(timeoutMs);
                 socket.Send(new byte[]
                 {
                     (byte)PacketType.MasterQuery, NetConfig.ProtocolVersion
                 }, 2, endPoint);
-                var from = new IPEndPoint(IPAddress.Any, 0);
-                DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+                var clock = System.Diagnostics.Stopwatch.StartNew();
                 int total = -1;
-                while (DateTime.UtcNow < deadline && (total < 0 || found.Count < total))
+                while (clock.ElapsedMilliseconds < timeoutMs && (total < 0 || found.Count < total))
                 {
-                    byte[] reply = socket.Receive(ref from);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    UdpReceiveResult received = socket.ReceiveAsync(receiveDeadline.Token).AsTask().GetAwaiter().GetResult();
+                    cancellationToken.ThrowIfCancellationRequested();
+                    byte[] reply = received.Buffer;
                     if (reply.Length < 3 || reply[0] != (byte)PacketType.MasterList)
                     {
                         continue;
@@ -1396,11 +1408,13 @@ namespace MphRead.Mods.Network
             }
             catch (SocketException)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 // Timed out with nothing, or with part of the list. Part of a
                 // list is still a list.
             }
             catch (Exception)
             {
+                cancellationToken.ThrowIfCancellationRequested();
             }
             return new MasterListResult
             {

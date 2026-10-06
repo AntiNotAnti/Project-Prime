@@ -785,7 +785,7 @@ public sealed class MapCommunityClient : IDisposable
     }
 
     public async Task<PreparedMapInstallation> PrepareAsync(CommunityMap map, CancellationToken token,
-        Action<long, long>? progress = null)
+        Action<long, long>? progress = null, string? library = null)
     {
         if (map.MinimumProtocol > Network.NetConfig.ProtocolVersion) throw new InvalidDataException("Update Project Prime before installing this map.");
         if (!ValidHash(map.Hash) || !ValidHash(map.ContentHash) || map.MapId == Guid.Empty
@@ -800,7 +800,7 @@ public sealed class MapCommunityClient : IDisposable
                 if (package.Manifest?.Name != map.Name) throw new InvalidDataException("Map name does not match the listing.");
             var required = new MapContentIdentity(map.MapId, map.Name,
                 MapHash256.Parse(map.ContentHash), MapHash256.Parse(map.Hash), true);
-            return await MapPackageInstaller.PrepareAsync(temporary, required, token).ConfigureAwait(false);
+            return await MapPackageInstaller.PrepareAsync(temporary, required, token, library).ConfigureAwait(false);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
@@ -809,7 +809,7 @@ public sealed class MapCommunityClient : IDisposable
     public async Task<MapDefinition> InstallAsync(CommunityMap map, string library, CancellationToken token,
         Action<long, long>? progress = null)
     {
-        using var prepared = await PrepareAsync(map, token, progress);
+        using var prepared = await PrepareAsync(map, token, progress, library);
         return prepared.Commit(library, cancellation: token);
     }
 

@@ -68,6 +68,7 @@ namespace MphRead
 
         public static void Init()
         {
+            if (Mods.Headless.Active) return;
             Mods.MapGen.CustomMapMusic.Stop();
             _musicInfo = SoundRead.ReadInterMusicInfo();
             _roomMusic = SoundRead.ReadAssignMusic();
@@ -496,6 +497,7 @@ namespace MphRead
 
         public static void Stop(float fadeTime = 0)
         {
+            if (Mods.Headless.Active) return;
             Mods.MapGen.CustomMapMusic.Stop();
             _playing = false;
             _musicQueued = false;

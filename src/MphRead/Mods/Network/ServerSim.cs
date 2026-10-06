@@ -267,7 +267,10 @@ namespace MphRead.Mods.Network
                 // own, so a stray aspect ratio is at least the right one.
                 var scene = new Scene(new Vector2i(256, 192),
                     SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(),
-                    _ => { }, () => { });
+                    _ => { }, () => { }, DedicatedSceneServices.Instance);
+                // Publish before room construction so a failed partial load also
+                // reaches the same terminal ownership cleanup as a loaded world.
+                _scene = scene;
                 // Samus for every unoccupied slot, as a placeholder only: each
                 // slot's real hunter arrives on the roster and PlayerColors
                 // settles it every frame thereafter, the same as on a client.
@@ -275,7 +278,6 @@ namespace MphRead.Mods.Network
                     teams: GameState.IsTeamMode(mode), localSlot: -1);
                 scene.AddRoom(roomKey, mode, playerCount: NetLaunch.RoomPlayerCount);
                 scene.OnLoad();
-                _scene = scene;
                 Frames = 0;
                 StepSeconds = 0; StepAllocatedBytes = 0; Array.Clear(_stepHistogram);
                 WorstStepSeconds = 0;
@@ -377,15 +379,19 @@ namespace MphRead.Mods.Network
                 if (!preserveRoomPrewarm) Mods.RoomPrewarm.Clear();
                 return;
             }
-            MapGen.MapRuntimeUsage.Release(_scene);
+            Scene scene = _scene;
             _scene = null;
             _room = "";
-            if (preserveRoomPrewarm) NetSession.StopMatchRuntime();
-            else NetSession.Stop();
+            try { scene.CleanupAndReleaseRenderResources(canReleaseNativeResources: false); }
+            finally
+            {
+                if (preserveRoomPrewarm) NetSession.StopMatchRuntime();
+                else NetSession.Stop();
+                Read.ClearCache();
+            }
             // The room's models, collision and entity lists, which are held in
             // a static cache keyed by path: without this a rotation through
             // twenty maps keeps all twenty.
-            Read.ClearCache();
             CollectUnderMemoryPressure();
         }
 

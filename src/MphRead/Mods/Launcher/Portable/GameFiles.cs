@@ -78,10 +78,34 @@ namespace MphRead.Mods.Launcher
                 {
                     return "The extracted files are missing -- set up again";
                 }
+                if (CoreRootProblem(root) is string missing) return missing;
             }
             catch (Exception)
             {
                 return "No Metroid Prime Hunters files are configured";
+            }
+            return null;
+        }
+
+        // These stock extraction sentinels are present in every supported MPH
+        // revision. A paths entry naming an empty directory is not an install.
+        internal static string? CoreRootProblem(string root)
+        {
+            foreach ((string relative, int minimum) in new[]
+            {
+                (@"_archives\mp1\mp1_Model.bin", Sizes.Header),
+                (@"_archives\mp1\mp1_Collision.bin", Sizes.CollisionHeader),
+                (@"levels\entities\mp1_Ent.bin", Sizes.EntityHeader + Sizes.EntityEntry)
+            })
+            {
+                try
+                {
+                    string file = Paths.Combine(root, relative);
+                    if (!File.Exists(file) || new FileInfo(file).Length < minimum)
+                        return $"The extracted files are missing or incomplete ({relative}) -- set up again";
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                { return $"The extracted files could not be read ({relative})"; }
             }
             return null;
         }

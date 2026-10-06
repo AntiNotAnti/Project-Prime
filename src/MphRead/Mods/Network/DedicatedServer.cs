@@ -77,7 +77,12 @@ namespace MphRead.Mods.Network
             public MapAvailabilityState MapAvailability;
             public double LastMapAvailability = double.NegativeInfinity;
             public uint LastMapAvailabilitySequence;
-            public readonly byte[][] Bootstrap = { new byte[1200], new byte[512], new byte[600] };
+            public readonly byte[][] Bootstrap =
+            {
+                new byte[WorldBootstrapIdentity.Size + 1 + SnapshotFast.MaximumPayloadSize],
+                new byte[WorldBootstrapIdentity.Size + 1 + NetReplicationLanes.MaximumSlowPayloadSize],
+                new byte[WorldBootstrapIdentity.Size + 1 + NetReplicationLanes.MaximumWorldPayloadSize]
+            };
             public readonly int[] BootstrapLengths = new int[3];
             public byte[][] BootstrapObjectives = Array.Empty<byte[]>();
             public int BootstrapLength;
@@ -408,19 +413,21 @@ namespace MphRead.Mods.Network
                 ListingTarget = () => Reporter == null
                     ? null
                     : (Reporter.Host, Reporter.Port),
-                // A hosted child normally says goodbye itself, but that is one
-                // best-effort UDP datagram from a process that is disappearing.
-                // The parent also owns the host-pool lifecycle, so reinforce the
-                // unlist when it observes that child stop.
-                OnStopped = port => Reporter?.Farewell((ushort)port)
+                // Each child owns its reporter endpoint and sends its own
+                // farewell during graceful stop. A parent's reporter cannot
+                // authenticate removal of that independent registration.
             };
         }
 
         public void Run(CancellationToken cancel = default)
         {
             ushort listenPort = 0;
+            using var ownedStop = new CancellationTokenSource();
+            using var ownedControl = OwnedServerControl.Listen(() => { ownedStop.Cancel(); Stop(); });
             try
             {
+                using (OwnedServerControl.LoadingScope())
+                {
                 Telemetry.ProductionTelemetry.Configure(Telemetry.NetTelemetryConfig.Load());
                 InitializeWaitlist();
                 _transport = new NetTransport(_port);
@@ -444,8 +451,7 @@ namespace MphRead.Mods.Network
                     }
                     CareerReportOutbox.Start();
                 }
-                if (!_controlPlaneOnlyForTests)
-                    NetworkMapIdentity.StageRoom(_rotation.Current.RoomKey);
+                ValidateRotationReadiness();
                 _lobbyMatch = DefinitionFor(_rotation.Current);
                 if (LobbyRules.ValidateDefinition(_lobbyMatch, out string ruleError) != LobbyResultCode.Ok)
                     throw new InvalidOperationException(ruleError);
@@ -466,6 +472,7 @@ namespace MphRead.Mods.Network
                         : "authoritative server ready; simulation wakes on first player");
                 Log($"rotation: {_rotation.Entries.Count} map(s), starting on {_rotation.Current}");
                 Log(Hosts.Describe());
+                }
 
                 // The bound port, taken once: the heartbeat has to advertise the
                 // port players dial, which is not the requested one when the
@@ -479,8 +486,9 @@ namespace MphRead.Mods.Network
                 double lastUpdateCheck = double.NegativeInfinity;
                 double hostedEmptySince = 0;
                 _matchStarted = 0;
-                while (_running && !cancel.IsCancellationRequested)
+                while (_running && !cancel.IsCancellationRequested && !ownedStop.IsCancellationRequested)
                 {
+                    using var loopTiming = LoopDiagnostics.Begin(NetDiagnostics.Enabled || Telemetry.ProductionTelemetry.Enabled);
                     double now = clock.Elapsed.TotalSeconds;
                     _now = now;
                     RefreshWaitlist(now);
@@ -492,11 +500,14 @@ namespace MphRead.Mods.Network
                     // world: the intents that arrived this pass are the input
                     // to the steps this pass owes, exactly as a client applies
                     // what arrived before it steps.
+                    LoopDiagnostics.MarkPhase(ServerLoopPhase.MapAndControl);
                     PumpLobbyMapPreparation(now);
                     CheckLoadBarrier(now);
                     PumpSemanticDelivery();
                     PumpReplayShotDelivery();
+                    LoopDiagnostics.MarkPhase(ServerLoopPhase.Simulation);
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
+                    LoopDiagnostics.MarkPhase(ServerLoopPhase.PostIngress);
                     EnsureCareerMatchStarted(now);
                     foreach (ReceivedPacket packet in _transport.Drain(NetPumpBudget.AfterSimulation)) Handle(packet, now);
                     // Pongs and load-progress heartbeats are background control.
@@ -505,6 +516,7 @@ namespace MphRead.Mods.Network
                     PumpSemanticDelivery();
                     PumpReplayShotDelivery();
                     DropTimedOut(now);
+                    LoopDiagnostics.MarkPhase(ServerLoopPhase.Maintenance);
 
                     // The server owns the match clock, not the authority client:
                     // that is what lets a joiner adopt a running match's timer
@@ -645,6 +657,8 @@ namespace MphRead.Mods.Network
                     if (now - lastReport >= 30)
                     {
                         lastReport = now;
+                        if (NetDiagnostics.Enabled || Telemetry.ProductionTelemetry.Enabled)
+                            Log(LoopDiagnostics.Describe());
                         Log($"{_peers.Count} peer(s) connected"
                             + ", authority = this server"
                             + (_phase == SessionPhase.Lobby ? " (idle lobby)" : "")
@@ -684,6 +698,7 @@ namespace MphRead.Mods.Network
                     // Empty non-simulating servers can still sleep deeply; an
                     // active authority sleeps most of the gap, yields near the
                     // boundary, and only spins for the final fraction.
+                    loopTiming.Dispose();
                     PaceLoop(clock);
                 }
             }
@@ -758,6 +773,11 @@ namespace MphRead.Mods.Network
                 catch (Exception ex) { Log($"cleanup {name}: {ex.Message}"); }
             }
             _running = false;
+            Release("active peers", () =>
+            {
+                foreach (var peer in _peers)
+                    _transport?.Send(peer.EndPoint, PacketType.Bye, ReadOnlySpan<byte>.Empty);
+            });
             Release("queue", () =>
             {
                 foreach (var queued in _queuePeers.Values)
@@ -780,6 +800,56 @@ namespace MphRead.Mods.Network
             _sim = null;
             Release("room prewarm", () => Mods.RoomPrewarm.Clear());
             NetHitClaims.CombatAckSink = null;
+        }
+
+        private void ValidateRotationReadiness()
+        {
+            if (!_controlPlaneOnlyForTests)
+            {
+                if (!ServerSim.Available(out string reason)) throw new ProgramException(reason);
+                try { ServerAssetPreflight.SharedPlayerAssets(); }
+                catch (Exception ex) { throw new ProgramException("Required player assets are incomplete or corrupt: " + ex.Message); }
+            }
+            var entries = _rotation.Entries.Count == 0
+                ? new[] { _rotation.Current } : _rotation.Entries;
+            for (int index = 0; index < entries.Count; index++)
+            {
+                RotationEntry entry = entries[index];
+                try
+                {
+                    if (MapRotation.EntryProblem(entry) is string problem) throw new InvalidDataException(problem);
+                    if (!_controlPlaneOnlyForTests) NetworkMapIdentity.StageRoom(entry.RoomKey);
+                    MatchDefinition definition = DefinitionFor(entry);
+                    if (LobbyRules.ValidateDefinition(definition, out string ruleError) != LobbyResultCode.Ok)
+                        throw new InvalidDataException(ruleError);
+                    if (_controlPlaneOnlyForTests) continue;
+                    var (room, _) = Metadata.GetRoomByName(entry.RoomKey);
+                    if (room == null || !room.Multiplayer || room.FirstHunt)
+                        throw new InvalidDataException("Choose a supported multiplayer map.");
+                    if (definition.MapIdentity.IsCustom)
+                    {
+                        var custom = Mods.MapGen.CustomRooms.Definitions.FirstOrDefault(map =>
+                            String.Equals(map.Name, entry.RoomKey, StringComparison.OrdinalIgnoreCase));
+                        if (custom == null) throw new InvalidDataException("Custom map definition is missing.");
+                        if (!Mods.Multiplayer.MapModeCapabilities.Supports(custom, entry.Mode, _maxPlayers, out string unsupported))
+                            throw new InvalidDataException(unsupported);
+                    }
+                    else
+                    {
+                        ServerAssetPreflight.Room(room);
+                        if (!Mods.Multiplayer.MapModeCapabilities.Supports(room.Name, entry.Mode,
+                            LobbyRules.ResolveWorldProfile(definition, _maxPlayers), out string unsupported, _maxPlayers))
+                            throw new InvalidDataException(unsupported);
+                        // The same validated immutable gameplay identity is reused
+                        // by later networking, rather than hashed again on Hello.
+                        RememberStockGameplayHash(room.Name);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    throw new ProgramException($"Rotation entry {index + 1} '{entry.RoomKey}' cannot run: {ex.Message}");
+                }
+            }
         }
 
         /// <summary>
@@ -988,6 +1058,7 @@ namespace MphRead.Mods.Network
         private void StartSimulation()
         {
             if (_controlPlaneOnlyForTests) return;
+            using var loading = OwnedServerControl.LoadingScope();
             if (!ServerSim.Available(out string why))
             {
                 Log($"cannot run the match: {why}");
@@ -1068,56 +1139,8 @@ namespace MphRead.Mods.Network
 
         private void EnsureCanonicalReplay(ReadOnlySpan<byte> snapshot)
         {
-            if (!ServerReplayRecorder.Enabled || ServerReplayRecorder.IsRecording
-                || _sim == null || _peers.Count == 0)
-            {
-                return;
-            }
-
-            try
-            {
-                SessionStatePacket session = BuildSessionState();
-                MatchStatePacket state = BuildState(_now);
-                RosterPacket roster = BuildRoster();
-                byte[] sessionPacket = new byte[1 + SessionStatePacket.Size];
-                sessionPacket[0] = (byte)PacketType.SessionState;
-                session.Write(sessionPacket.AsSpan(1));
-                byte[] statePacket = new byte[1 + MatchStatePacket.Size];
-                statePacket[0] = (byte)PacketType.MatchState;
-                state.Write(statePacket.AsSpan(1));
-                byte[] rosterPacket = new byte[1 + RosterPacket.Size];
-                rosterPacket[0] = (byte)PacketType.Roster;
-                roster.Write(rosterPacket.AsSpan(1));
-                byte[] snapshotPacket = new byte[1 + snapshot.Length];
-                snapshotPacket[0] = (byte)PacketType.Snapshot;
-                snapshot.CopyTo(snapshotPacket.AsSpan(1));
-
-                var players = new List<ReplayPlayerInfo>(roster.Count);
-                for (int i = 0; i < roster.Count; i++)
-                {
-                    players.Add(new ReplayPlayerInfo(roster.Slots[i], roster.Hunters[i], roster.Teams[i],
-                        roster.Names[i], roster.IsBot(i), roster.BotLevels[i]));
-                }
-
-                var metadata = new ReplayMetadata
-                {
-                    Type = ReplayType.FullMatch,
-                    RoomKey = _rotation.Current.RoomKey,
-                    Mode = _rotation.Current.Mode,
-                    MapHash = ReplayMapIdentity.Compute(_rotation.Current.RoomKey),
-                    Players = players,
-                    Bootstrap = new ReplayBootstrap
-                    {
-                        Packets = new[] { sessionPacket, statePacket, rosterPacket, snapshotPacket }
-                    }
-                };
-                ServerReplayRecorder.Start(metadata);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
-                or InvalidDataException or KeyNotFoundException)
-            {
-                Log($"canonical replay unavailable: {ex.Message}");
-            }
+            if (_sim == null || _peers.Count == 0 || !ServerReplayRecorder.ShouldBeginMatch(_matchId, _authorityEpoch)) return;
+            ServerReplayRecorder.BeginMatch(_matchId, _authorityEpoch, CurrentDefinition.RoomKey);
         }
 
         /// <summary>
@@ -2107,7 +2130,16 @@ namespace MphRead.Mods.Network
             Peer? peer = Find(packet.Sender);
             if (peer != null && peer.ClientId != clientId)
             {
-                Remove(peer, "replaced connection");
+                // Hello has no connection envelope. A delayed join attempt
+                // cannot replace the occupant of a still-live endpoint.
+                // Replacement follows the same silence boundary as normal
+                // timeout cleanup, or an earlier connection-bound Bye.
+                if (now - peer.LastSeen <= NetConfig.TimeoutSeconds)
+                {
+                    Log($"ignored changed client identity at live endpoint {packet.Sender}");
+                    return;
+                }
+                Remove(peer, "timed out");
                 peer = null;
             }
             if (peer == null && clientId != 0 && !_queueAdmitting
@@ -2117,6 +2149,11 @@ namespace MphRead.Mods.Network
                     if (connected.ClientId == clientId) return; // a different endpoint cannot claim a live admission
             if (peer == null)
             {
+                if (_transport != null && !_transport.CanAdmitConnection(packet.Sender))
+                {
+                    SendRefusal(packet.Sender, RefusedPacket.ReasonServerBusy);
+                    return;
+                }
                 // Honour the slot the client asks for when it is free. A
                 // client that says hello again is usually one this server
                 // dropped while it was loading a room, and handing it a
@@ -2175,8 +2212,8 @@ namespace MphRead.Mods.Network
                 if (_phase == SessionPhase.InMatch && !AllowJoinInProgress
                     && !(SessionPolicy == ServerSessionPolicy.Continuous && _peers.Count == 0))
                 { SendRefusal(packet.Sender, RefusedPacket.ReasonInMatch); return; }
-                sbyte team = ChooseTeam(CurrentDefinition);
-                if (LobbyRules.TeamCount(CurrentDefinition) > 0 && team < 0)
+                sbyte team = spectating ? (sbyte)-1 : ChooseTeam(CurrentDefinition);
+                if (!spectating && LobbyRules.TeamCount(CurrentDefinition) > 0 && team < 0)
                 { SendRefusal(packet.Sender, RefusedPacket.ReasonFull); return; }
                 _slotGenerations[slot] = NetLifecycleTracker.Next(_slotGenerations[slot]);
                 bool rejoining = clientId != 0 && Array.IndexOf(_studyAdmissions, clientId) >= 0;
@@ -2188,13 +2225,10 @@ namespace MphRead.Mods.Network
                 CareerPeerJoined(peer);
                 EverOccupied = true;
                 Log($"{packet.Sender} joined as slot {slot}");
-                if (Simulating && _lastSnapshotLength != 0)
-                    _transport?.Send(peer.EndPoint, PacketType.Snapshot, _lastSnapshot.AsSpan(0, _lastSnapshotLength));
             }
             peer.ClientId = clientId;
-            peer.Spectating = spectating;
-            if (Simulating)
-                NetSession.SetAuthoritySpectating(peer.SlotIndex, spectating);
+            CareerTicketChanged(peer);
+            _ = TrySetPeerRole(peer, spectating); // A rejected role change retains the valid admission.
             ClaimOwner(peer, packet.Payload);
             peer.LastSeen = now;
             // Re-answered on every Hello; the first Welcome may have been lost.
@@ -2260,17 +2294,32 @@ namespace MphRead.Mods.Network
             if (hunter >= Launcher.Hunters.Playable || color > 3) return;
             hunter = (byte)Multiplayer.HunterRules.Sanitize((Hunter)hunter, CurrentDefinition.LowTier);
             if (!PlayerNameCodec.TryDecode(packet.Payload[2..], out string name, padded: false)) return;
-            if (peer.Name == name && peer.Hunter == hunter && peer.Color == color)
+            Hunter requested = NetSlotManager.PendingHunter(peer.SlotIndex) ?? (Hunter)peer.Hunter;
+            if (peer.Name == name && requested == (Hunter)hunter && peer.Color == color)
             {
                 return;
             }
             bool firstName = peer.Name.Length == 0;
             int previousHunter = peer.Hunter;
-            if (peer.Hunter != hunter || peer.Color != color) peer.LobbyReady = false;
+            if (requested != (Hunter)hunter || peer.Color != color) peer.LobbyReady = false;
             peer.Name = name;
-            peer.Hunter = hunter;
             peer.Color = color;
-            CareerIdentityChanged(peer, previousHunter);
+            if (_phase == SessionPhase.InMatch && _sim != null)
+            {
+                NetSlotManager.QueueHunterChoice(peer.SlotIndex, (Hunter)hunter, committed =>
+                {
+                    if (!_peers.Contains(peer)) return;
+                    int before = peer.Hunter;
+                    peer.Hunter = (byte)committed;
+                    CareerIdentityChanged(peer, before);
+                    TouchLobbyRevision($"slot {peer.SlotIndex} next-life hunter committed");
+                }, beforePlay: firstName && !peer.AdmissionReady);
+            }
+            else
+            {
+                peer.Hunter = hunter;
+                CareerIdentityChanged(peer, previousHunter);
+            }
             Log($"slot {peer.SlotIndex} is \"{name}\" playing {(Hunter)hunter} "
                 + $"in suit {color + 1}");
             if (firstName)
@@ -2346,6 +2395,7 @@ namespace MphRead.Mods.Network
                 roster.Generations[roster.Count] = _slotGenerations[_peers[i].SlotIndex];
                 roster.Teams[roster.Count] = _peers[i].TeamIndex;
                 roster.LobbyReady[roster.Count] = _peers[i].LobbyReady;
+                roster.Roles[roster.Count] = _peers[i].Spectating ? (byte)1 : (byte)0;
                 roster.Hunters[roster.Count] = _peers[i].Hunter;
                 roster.Colors[roster.Count] = _peers[i].Color;
                 roster.DamageReductions[roster.Count] = _peers[i].DamageReduction;
@@ -2407,11 +2457,10 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            if (packet.Payload.Length < IntentPacket.FullSize || packet.Payload.Length > IntentPacket.FullSize) return;
+            if (!IntentPacket.TryReadNetwork(packet.Payload, out IntentPacket intent)) return;
             peer.LastSeen = now;
             if (packet.Payload.Length >= IntentPacket.Size)
             {
-                IntentPacket intent = IntentPacket.Read(packet.Payload);
                 if (!NetIntentPolicy.Validate(intent)) return;
                 ushort life = NetPlayerLifecycle.Get(peer.SlotIndex);
                 var rejection = intent.MatchId != _matchId ? NetIntentRejection.WrongMatch

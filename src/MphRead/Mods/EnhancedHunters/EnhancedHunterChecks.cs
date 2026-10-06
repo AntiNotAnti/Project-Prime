@@ -119,9 +119,15 @@ public static class EnhancedHunterChecks
         at += world.Write(canonical.AsSpan(at));
         Check(NetHealthSync.Validate(canonical.AsSpan(healthAt, at - healthAt)), "maximum world validates");
         var lanes = new NetReplicationLanes(); lanes.Prepare(canonical.AsSpan(0, at));
-        Check(lanes.FastLength + NetHeader.Size <= 1200 && lanes.WorldLength + NetHeader.Size <= 1200
-            && lanes.SlowLength + NetHeader.Size <= 1200, "all maximum lanes fit realtime budget");
-        Check(SnapshotFast.MaximumEncodedSize + WorldBootstrapIdentity.Size + 5 <= 1200, "fast bootstrap fits budget");
+        Check(lanes.FastLength == SnapshotFast.MaximumPayloadSize
+            && lanes.SlowLength == NetReplicationLanes.MaximumSlowPayloadSize
+            && lanes.WorldLength == NetReplicationLanes.MaximumWorldPayloadSize, "maximum lanes match their derived layout sizes");
+        Check(lanes.FastLength + NetHeader.Size <= NetConfig.MaxPacketSize && lanes.WorldLength + NetHeader.Size <= NetConfig.MaxPacketSize
+            && lanes.SlowLength + NetHeader.Size <= NetConfig.MaxPacketSize, "all maximum lanes fit the live datagram ceiling");
+        int bootstrapOverhead = NetHeader.Size + WorldBootstrapIdentity.Size + 1 + sizeof(uint);
+        Check(lanes.FastLength + bootstrapOverhead <= NetConfig.MaxPacketSize
+            && lanes.SlowLength + bootstrapOverhead <= NetConfig.MaxPacketSize
+            && lanes.WorldLength + bootstrapOverhead <= NetConfig.MaxPacketSize, "all maximum reliable bootstrap lanes fit the unchanged datagram ceiling");
         var receiver = new NetReplicationReceiver();
         Check(receiver.Receive(PacketType.PlayerSlowState, lanes.Slow.AsSpan(0, lanes.SlowLength), 1, 1), "slow lane accepted");
         Check(receiver.Receive(PacketType.WorldState, lanes.World.AsSpan(0, lanes.WorldLength), 1, 1), "world lane accepted");

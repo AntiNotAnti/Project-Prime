@@ -340,6 +340,7 @@ namespace MphRead.Droid
             // thread. Background time must not become one giant render/sim
             // interval when the app returns.
             private bool _resetPacingOnResume;
+            private bool _networkSuspended;
             private bool _stopping;
             private bool _keepSession;
             private bool _holdingSurface;
@@ -622,6 +623,19 @@ namespace MphRead.Droid
                     {
                         while (!_stopping && (_holder == null || _paused))
                         {
+                            if (!_networkSuspended && Scene is { } suspendedScene)
+                            {
+                                // Network/world state belongs to this render owner,
+                                // never Android's UI-thread lifecycle callbacks.
+                                Monitor.Exit(_lock);
+                                try
+                                {
+                                    MphRead.Mods.Network.NetSession.SuspendClient(suspendedScene);
+                                    _networkSuspended = true;
+                                }
+                                finally { Monitor.Enter(_lock); }
+                                continue;
+                            }
                             // A system pause is an ownership boundary even when
                             // SurfaceView has not emitted SurfaceDestroyed yet.
                             // Keeping an EGL window surface current while Android
@@ -670,6 +684,12 @@ namespace MphRead.Droid
                     }
                     _lifetime.Cancellation.ThrowIfCancellationRequested();
                     if (!SurfaceStillCurrent(holder, generation)) continue;
+                    if (_networkSuspended && Scene is { } resumedScene)
+                    {
+                        MphRead.Mods.Network.NetSession.ResumeClient(resumedScene);
+                        _networkSuspended = false;
+                        FrameTiming.Reset();
+                    }
                     if (resetPacing)
                     {
                         // Do not feed time spent in the background into either

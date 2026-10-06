@@ -1,0 +1,1119 @@
+[
+  {
+    "label": "full-grid-before-final-resource-and-verdict-fixes",
+    "seed": 431,
+    "runtimeSha256": "9facdf5533f23206b1df4a91e649c0e13e10b2f7b0f5abb082941065313a1e35",
+    "modes": [
+      "jump"
+    ],
+    "secondsPerArm": 18,
+    "nativeGateSourceSha256": {
+      "src/MphRead/Mods/Network/HitRig.cs": "3aee41556a8b981c761ca4d74a41d200f22cd8e40b8a5c19f941b059e70d2cc6",
+      "src/MphRead/Mods/Network/NetCheckSimulation.cs": "d5f747b1d5919386c5da5ee5af9a44288080e708389a6cb450f976cc8cc671ce",
+      "src/MphRead/Entities/Players/PlayerInput.cs": "b4e88dfd9ff174b1a770585384af44786759a047e6999a7ceaa568b10e398c27",
+      "src/MphRead/Mods/Network/PlayerEntityNetAim.cs": "4d3ad66710aefa487c9d24346b5d5b60d69083cd0e550fae45129b95e855bdcf",
+      "src/MphRead/Mods/Network/NetFireEvents.cs": "6293cc30f85870097222bda3d1cf943779bfe7184993f32723dbf587ba35fb88"
+    },
+    "sourceUnchanged": true,
+    "runtimeUnchanged": true,
+    "scope": "real native simulation and UDP; no rendered/device acceptance",
+    "results": [
+      {
+        "profile": {
+          "name": "rtt0-loss0",
+          "rtt_ms": 0,
+          "loss_percent": 0,
+          "jitter_ms": 0,
+          "reorder_percent": 0,
+          "duplicate_percent": 0
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 17,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt0-loss1",
+          "rtt_ms": 0,
+          "loss_percent": 1,
+          "jitter_ms": 0,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 17,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt0-loss2",
+          "rtt_ms": 0,
+          "loss_percent": 2,
+          "jitter_ms": 0,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 15,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt0-loss5",
+          "rtt_ms": 0,
+          "loss_percent": 5,
+          "jitter_ms": 0,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 16,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt0-loss10",
+          "rtt_ms": 0,
+          "loss_percent": 10,
+          "jitter_ms": 0,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 17,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt25-loss0",
+          "rtt_ms": 25,
+          "loss_percent": 0,
+          "jitter_ms": 5,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 17,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt25-loss1",
+          "rtt_ms": 25,
+          "loss_percent": 1,
+          "jitter_ms": 5,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 17,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt25-loss2",
+          "rtt_ms": 25,
+          "loss_percent": 2,
+          "jitter_ms": 5,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 17,
+        "authority_confirmed_hits": 2,
+        "combat_confirmation_observed": true,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt25-loss5",
+          "rtt_ms": 25,
+          "loss_percent": 5,
+          "jitter_ms": 5,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 17,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt25-loss10",
+          "rtt_ms": 25,
+          "loss_percent": 10,
+          "jitter_ms": 5,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 17,
+        "authority_confirmed_hits": 1,
+        "combat_confirmation_observed": true,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt50-loss0",
+          "rtt_ms": 50,
+          "loss_percent": 0,
+          "jitter_ms": 10,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 17,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt50-loss1",
+          "rtt_ms": 50,
+          "loss_percent": 1,
+          "jitter_ms": 10,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 17,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt50-loss2",
+          "rtt_ms": 50,
+          "loss_percent": 2,
+          "jitter_ms": 10,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 17,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt50-loss5",
+          "rtt_ms": 50,
+          "loss_percent": 5,
+          "jitter_ms": 10,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 16,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt50-loss10",
+          "rtt_ms": 50,
+          "loss_percent": 10,
+          "jitter_ms": 10,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 15,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt100-loss0",
+          "rtt_ms": 100,
+          "loss_percent": 0,
+          "jitter_ms": 20,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 14,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt100-loss1",
+          "rtt_ms": 100,
+          "loss_percent": 1,
+          "jitter_ms": 20,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 16,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt100-loss2",
+          "rtt_ms": 100,
+          "loss_percent": 2,
+          "jitter_ms": 20,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": {
+          "role": "peer0",
+          "started_seconds": 6.258287749999965,
+          "elapsed_seconds": 4.041877542000009
+        },
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 12,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt100-loss5",
+          "rtt_ms": 100,
+          "loss_percent": 5,
+          "jitter_ms": 20,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 16,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt100-loss10",
+          "rtt_ms": 100,
+          "loss_percent": 10,
+          "jitter_ms": 20,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 17,
+        "authority_confirmed_hits": 1,
+        "combat_confirmation_observed": true,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt150-loss0",
+          "rtt_ms": 150,
+          "loss_percent": 0,
+          "jitter_ms": 30,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 15,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt150-loss1",
+          "rtt_ms": 150,
+          "loss_percent": 1,
+          "jitter_ms": 30,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 16,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt150-loss2",
+          "rtt_ms": 150,
+          "loss_percent": 2,
+          "jitter_ms": 30,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 15,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt150-loss5",
+          "rtt_ms": 150,
+          "loss_percent": 5,
+          "jitter_ms": 30,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 16,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt150-loss10",
+          "rtt_ms": 150,
+          "loss_percent": 10,
+          "jitter_ms": 30,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 15,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt250-loss0",
+          "rtt_ms": 250,
+          "loss_percent": 0,
+          "jitter_ms": 50,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 16,
+        "authority_confirmed_hits": 1,
+        "combat_confirmation_observed": true,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt250-loss1",
+          "rtt_ms": 250,
+          "loss_percent": 1,
+          "jitter_ms": 50,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 15,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt250-loss2",
+          "rtt_ms": 250,
+          "loss_percent": 2,
+          "jitter_ms": 50,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 14,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt250-loss5",
+          "rtt_ms": 250,
+          "loss_percent": 5,
+          "jitter_ms": 50,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 16,
+        "authority_confirmed_hits": 1,
+        "combat_confirmation_observed": true,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt250-loss10",
+          "rtt_ms": 250,
+          "loss_percent": 10,
+          "jitter_ms": 50,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 16,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt500-loss0",
+          "rtt_ms": 500,
+          "loss_percent": 0,
+          "jitter_ms": 60,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 16,
+        "authority_confirmed_hits": 1,
+        "combat_confirmation_observed": true,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt500-loss1",
+          "rtt_ms": 500,
+          "loss_percent": 1,
+          "jitter_ms": 60,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 16,
+        "authority_confirmed_hits": 2,
+        "combat_confirmation_observed": true,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt500-loss2",
+          "rtt_ms": 500,
+          "loss_percent": 2,
+          "jitter_ms": 60,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 16,
+        "authority_confirmed_hits": 1,
+        "combat_confirmation_observed": true,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt500-loss5",
+          "rtt_ms": 500,
+          "loss_percent": 5,
+          "jitter_ms": 60,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 16,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt500-loss10",
+          "rtt_ms": 500,
+          "loss_percent": 10,
+          "jitter_ms": 60,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 15,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      }
+    ],
+    "passed": 35,
+    "arms": 35,
+    "triggerAttempts": 557,
+    "authorityConfirmedHits": 10,
+    "nativeGateDescription": "unchanged existing netcheck simulation/scenario gates",
+    "serverExitScope": "Runner-owned server cleanup used SIGINT; negative signal exit is retained, not a graceful shutdown certification. Both client exits and native/scenario gates determine these arm results.",
+    "evidenceStatus": "historical",
+    "snapshot": "transport-native-grid-v6"
+  },
+  {
+    "label": "post-resource-and-verdict-fix-subset-before-final-landing-bound",
+    "seed": 431,
+    "runtimeSha256": "953f7ccd39f296d71056651166839aa428cf58508e0b4c8c215494915c000a13",
+    "modes": [
+      "jump"
+    ],
+    "secondsPerArm": 18,
+    "nativeGateSourceSha256": {
+      "src/MphRead/Mods/Network/HitRig.cs": "3aee41556a8b981c761ca4d74a41d200f22cd8e40b8a5c19f941b059e70d2cc6",
+      "src/MphRead/Mods/Network/NetCheckSimulation.cs": "d5f747b1d5919386c5da5ee5af9a44288080e708389a6cb450f976cc8cc671ce",
+      "src/MphRead/Entities/Players/PlayerInput.cs": "b4e88dfd9ff174b1a770585384af44786759a047e6999a7ceaa568b10e398c27",
+      "src/MphRead/Mods/Network/PlayerEntityNetAim.cs": "4d3ad66710aefa487c9d24346b5d5b60d69083cd0e550fae45129b95e855bdcf",
+      "src/MphRead/Mods/Network/NetFireEvents.cs": "6293cc30f85870097222bda3d1cf943779bfe7184993f32723dbf587ba35fb88"
+    },
+    "sourceUnchanged": true,
+    "runtimeUnchanged": true,
+    "scope": "real native simulation and UDP; no rendered/device acceptance",
+    "results": [
+      {
+        "profile": {
+          "name": "rtt0-loss0",
+          "rtt_ms": 0,
+          "loss_percent": 0,
+          "jitter_ms": 0,
+          "reorder_percent": 0,
+          "duplicate_percent": 0
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 17,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt100-loss2",
+          "rtt_ms": 100,
+          "loss_percent": 2,
+          "jitter_ms": 20,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": {
+          "role": "peer0",
+          "started_seconds": 6.232599167,
+          "elapsed_seconds": 4.015763583000002
+        },
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 13,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt500-loss10",
+          "rtt_ms": 500,
+          "loss_percent": 10,
+          "jitter_ms": 60,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 13,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      }
+    ],
+    "passed": 3,
+    "arms": 3,
+    "triggerAttempts": 43,
+    "authorityConfirmedHits": 0,
+    "nativeGateDescription": "unchanged existing netcheck simulation/scenario gates",
+    "serverExitScope": "Runner-owned server cleanup used SIGINT; negative signal exit is retained, not a graceful shutdown certification. Both client exits and native/scenario gates determine these arm results.",
+    "evidenceStatus": "historical",
+    "snapshot": "transport-native-final-v7"
+  },
+  {
+    "label": "historical-landing-bound-subset-before-bootstrap-and-fragment-fixes",
+    "seed": 431,
+    "runtimeSha256": "e4de18aee2440589170f0b3975dea91be3b290f5af4efa324a8277e58ad51674",
+    "modes": [
+      "jump"
+    ],
+    "secondsPerArm": 18,
+    "nativeGateSourceSha256": {
+      "src/MphRead/Mods/Network/HitRig.cs": "3aee41556a8b981c761ca4d74a41d200f22cd8e40b8a5c19f941b059e70d2cc6",
+      "src/MphRead/Mods/Network/NetCheckSimulation.cs": "d5f747b1d5919386c5da5ee5af9a44288080e708389a6cb450f976cc8cc671ce",
+      "src/MphRead/Entities/Players/PlayerInput.cs": "b4e88dfd9ff174b1a770585384af44786759a047e6999a7ceaa568b10e398c27",
+      "src/MphRead/Mods/Network/PlayerEntityNetAim.cs": "939ec0590a895622e0ee614264dc5a680e62c897c6c9b03e744d94604cb8d879",
+      "src/MphRead/Mods/Network/NetFireEvents.cs": "6293cc30f85870097222bda3d1cf943779bfe7184993f32723dbf587ba35fb88"
+    },
+    "nativeGateDescription": "unchanged existing netcheck simulation/scenario gates",
+    "sourceUnchanged": true,
+    "runtimeUnchanged": true,
+    "scope": "real native simulation and UDP; no rendered/device acceptance",
+    "results": [
+      {
+        "profile": {
+          "name": "rtt0-loss0",
+          "rtt_ms": 0,
+          "loss_percent": 0,
+          "jitter_ms": 0,
+          "reorder_percent": 0,
+          "duplicate_percent": 0
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 17,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt100-loss2",
+          "rtt_ms": 100,
+          "loss_percent": 2,
+          "jitter_ms": 20,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": {
+          "role": "peer0",
+          "started_seconds": 6.300378083999998,
+          "elapsed_seconds": 4.001354625000001
+        },
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 13,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt500-loss10",
+          "rtt_ms": 500,
+          "loss_percent": 10,
+          "jitter_ms": 60,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 16,
+        "authority_confirmed_hits": 1,
+        "combat_confirmation_observed": true,
+        "passed": true,
+        "server_exit_code": -2
+      }
+    ],
+    "passed": 3,
+    "arms": 3,
+    "triggerAttempts": 46,
+    "authorityConfirmedHits": 1,
+    "serverExitScope": "Runner-owned server cleanup used SIGINT; negative signal exit is retained, not a graceful shutdown certification. Both client exits and native/scenario gates determine these arm results.",
+    "evidenceStatus": "historical",
+    "snapshot": "transport-native-final-v8"
+  },
+  {
+    "label": "final-production-native-subset-after-bootstrap-and-fragment-fixes",
+    "evidenceStatus": "latest-final-runtime-subset",
+    "snapshot": "transport-native-final-v9",
+    "seed": 431,
+    "runtimeSha256": "c02f45851b00ed02925b37f8075aeccc3e47fc8ab5d476c00834fd47a668be83",
+    "modes": [
+      "jump"
+    ],
+    "map": "MP1 SANCTORUS",
+    "secondsPerArm": 18,
+    "nativeGateSourceSha256": {
+      "src/MphRead/Mods/Network/HitRig.cs": "3aee41556a8b981c761ca4d74a41d200f22cd8e40b8a5c19f941b059e70d2cc6",
+      "src/MphRead/Mods/Network/NetCheckSimulation.cs": "d5f747b1d5919386c5da5ee5af9a44288080e708389a6cb450f976cc8cc671ce",
+      "src/MphRead/Entities/Players/PlayerInput.cs": "b4e88dfd9ff174b1a770585384af44786759a047e6999a7ceaa568b10e398c27",
+      "src/MphRead/Mods/Network/PlayerEntityNetAim.cs": "939ec0590a895622e0ee614264dc5a680e62c897c6c9b03e744d94604cb8d879",
+      "src/MphRead/Mods/Network/NetFireEvents.cs": "6293cc30f85870097222bda3d1cf943779bfe7184993f32723dbf587ba35fb88"
+    },
+    "nativeGateDescription": "unchanged existing netcheck simulation/scenario gates",
+    "sourceUnchanged": true,
+    "runtimeUnchanged": true,
+    "nativeGateHashesEqualPreviousSubset": true,
+    "scope": "real native simulation and UDP; no rendered/device acceptance",
+    "results": [
+      {
+        "profile": {
+          "name": "rtt0-loss0",
+          "rtt_ms": 0,
+          "loss_percent": 0,
+          "jitter_ms": 0,
+          "reorder_percent": 0,
+          "duplicate_percent": 0
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 17,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt100-loss2",
+          "rtt_ms": 100,
+          "loss_percent": 2,
+          "jitter_ms": 20,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": {
+          "role": "peer0",
+          "started_seconds": 6.255999541999998,
+          "elapsed_seconds": 4.025746209000001
+        },
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 12,
+        "authority_confirmed_hits": 0,
+        "combat_confirmation_observed": false,
+        "passed": true,
+        "server_exit_code": -2
+      },
+      {
+        "profile": {
+          "name": "rtt500-loss10",
+          "rtt_ms": 500,
+          "loss_percent": 10,
+          "jitter_ms": 60,
+          "reorder_percent": 2,
+          "duplicate_percent": 1
+        },
+        "mode": "jump",
+        "pause": null,
+        "client_exit_codes": {
+          "peer0": 0,
+          "peer1": 0
+        },
+        "native_checks_passed": true,
+        "trigger_attempts": 15,
+        "authority_confirmed_hits": 1,
+        "combat_confirmation_observed": true,
+        "passed": true,
+        "server_exit_code": -2
+      }
+    ],
+    "passed": 3,
+    "arms": 3,
+    "triggerAttempts": 44,
+    "authorityConfirmedHits": 1,
+    "pauseConfiguration": {
+      "profile": "rtt100-loss2",
+      "role": "peer0",
+      "secondsAfterBothClientsLoaded": 6,
+      "requestedSeconds": 4
+    },
+    "runnerExitCode": 0,
+    "ownedChildrenExited": true,
+    "serverExitScope": "Runner-owned server cleanup used SIGINT; negative signal exit is retained, not a graceful shutdown certification. Both client exits and native/scenario gates determine these arm results.",
+    "performanceScope": "Functional native acceptance overlapped GUI/functional checks; no CPU/RSS timing claim.",
+    "sourceEvidence": {
+      "manifest": "docs/audits/network-server-2026-10-06-evidence/transport-native-final-v9/manifest.json",
+      "manifestSha256": "ce474a5041df8d5ebd08571c7355a4eb188617d013915339972431e765cf7006",
+      "summary": "docs/audits/network-server-2026-10-06-evidence/transport-native-final-v9/summary.json",
+      "summarySha256": "744a950309a76f77d82709c4c4efbc003f68651206168a6d5c80b2cdedfc0fd6"
+    }
+  }
+]

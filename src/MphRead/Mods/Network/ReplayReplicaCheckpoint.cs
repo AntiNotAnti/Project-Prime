@@ -61,6 +61,7 @@ internal sealed partial class ReplayReplicaState
             roster.Teams[index] = occupant.Team; roster.Names[index] = occupant.Name;
             roster.Flags[index] = occupant.IsBot ? (byte)1 : (byte)0; roster.BotLevels[index] = occupant.BotLevel;
             roster.DamageReductions[index] = occupant.DamageReduction;
+            roster.Roles[index] = occupant.IsSpectator ? (byte)1 : (byte)0;
         }
         Span<byte> rosterBytes = stackalloc byte[RosterPacket.Size]; roster.Write(rosterBytes); writer.Write(rosterBytes);
         Span<byte> playerBytes = stackalloc byte[PlayerState.Size];
@@ -107,10 +108,11 @@ internal sealed partial class ReplayReplicaState
             int protocol = reader.ReadByte();
             PlayerState ReadPlayer()
             {
-                if (protocol >= 29) return PlayerState.Read(Read(PlayerState.Size));
+                if (protocol >= 42) return PlayerState.Read(Read(PlayerState.Size));
                 byte[] upgraded = new byte[PlayerState.Size];
-                Read(PlayerState.LegacySize).CopyTo(upgraded, 0);
-                upgraded[PlayerState.LegacySize + 1] = byte.MaxValue;
+                Read(protocol >= 29 ? PlayerState.Protocol41Size : PlayerState.LegacySize).CopyTo(upgraded, 0);
+                if (protocol < 29) upgraded[PlayerState.LegacySize + 1] = byte.MaxValue;
+                upgraded[PlayerState.Protocol41Size] = byte.MaxValue;
                 return PlayerState.Read(upgraded);
             }
             // Replay packet compatibility reaches back to protocol 4, but this
@@ -132,13 +134,14 @@ internal sealed partial class ReplayReplicaState
             }
             if (reader.ReadBoolean())
             {
-                int size = protocol == 24 ? 41 + HostRequestPacket.MaxRoomBytes : protocol < 31 ? SessionStatePacket.Protocol28Size : SessionStatePacket.Size;
+                int size = protocol == 24 ? 41 + HostRequestPacket.MaxRoomBytes : protocol < 31 ? SessionStatePacket.Protocol28Size
+                    : protocol < 42 ? SessionStatePacket.Protocol41Size : SessionStatePacket.Size;
                 byte[] packet = new byte[size + 1]; packet[0] = (byte)PacketType.SessionState;
                 Read(size).CopyTo(packet, 1);
                 if (!SessionStatePacket.TryRead(ReplayIdentityCompatibility.Convert(packet, protocol)[1..], out var configuration)) throw Malformed();
                 restored.Configuration = configuration;
             }
-            int rosterSize = protocol >= 33 ? RosterPacket.Size
+            int rosterSize = protocol >= 42 ? RosterPacket.Size : protocol >= 33 ? RosterPacket.Protocol41Size
                 : protocol >= 27 ? RosterPacket.LegacySize
                 : protocol == 26 ? 18 + 27 * RosterPacket.MaxSlots : 17 + 25 * RosterPacket.MaxSlots;
             byte[] rosterPacket = new byte[rosterSize + 1]; rosterPacket[0] = (byte)PacketType.Roster;
@@ -153,13 +156,18 @@ internal sealed partial class ReplayReplicaState
             for (int i = 0; i < roster.Count; i++)
                 restored._roster[roster.Slots[i]] = new(roster.Generations[i], (Hunter)roster.Hunters[i],
                     roster.Colors[i], roster.Teams[i], roster.Names[i], roster.IsBot(i), roster.BotLevels[i],
-                    roster.DamageReductions[i]);
+                    roster.DamageReductions[i], roster.IsSpectator(i));
             for (int i = 0; i < _roster.Length; i++)
             {
                 restored._lives[i].Restore(new(reader.ReadUInt16(), reader.ReadUInt16(),
                     (NetworkPlayerState)reader.ReadByte(), reader.ReadBoolean()));
                 restored._hasPlayer[i] = reader.ReadBoolean(); restored._players[i] = ReadPlayer();
-                restored._hasIntent[i] = reader.ReadBoolean(); restored._intents[i] = IntentPacket.Read(Read(IntentPacket.FullSize));
+                restored._hasIntent[i] = reader.ReadBoolean();
+                int intentSize = protocol >= 42 ? IntentPacket.FullSize : protocol >= 39 ? IntentPacket.Protocol41FullSize
+                    : protocol >= 30 ? IntentPacket.Protocol38FullSize : IntentPacket.LegacyFullSize;
+                byte[] intentPacket = new byte[2 + intentSize]; intentPacket[0] = (byte)PacketType.SlotIntent; intentPacket[1] = (byte)i;
+                Read(intentSize).CopyTo(intentPacket, 2);
+                restored._intents[i] = IntentPacket.Read(ReplayIdentityCompatibility.Convert(intentPacket, protocol)[2..]);
                 restored._intentReceivedFrame[i] = reader.ReadUInt32();
                 if (restored._lives[i].Generation != restored._roster[i].Generation
                     || restored._hasPlayer[i] && (!restored.MatchesLife(i, restored._players[i].SlotGeneration, restored._players[i].LifeId)

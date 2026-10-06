@@ -73,6 +73,10 @@ internal static class LoadLifecycleTests
                 && roleLoaded.Identity == loaded.Identity && roleLoaded.Spectating,
                 "load acknowledgement carries spectator role");
             roleBytes[^1] = 2;
+            NetArchitectureTests.Check(MatchLoadedRolePacket.TryRead(roleBytes, out var refreshed)
+                && !refreshed.Spectating && refreshed.RefreshBootstrap,
+                "ordinary player load acknowledgement requests a fresh baseline");
+            roleBytes[^1] = 4;
             NetArchitectureTests.Check(!MatchLoadedRolePacket.TryRead(roleBytes, out _),
                 "invalid spectator role rejected");
 

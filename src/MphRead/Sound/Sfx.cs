@@ -337,7 +337,8 @@ namespace MphRead.Sound
 
         public static void QueueStream(VoiceId id, float delay = 0, float expiration = 0)
         {
-            Instance.QueueStream((int)id, delay, expiration);
+            // Dedicated worlds have no RenderWindow/audio initialization.
+            Instance?.QueueStream((int)id, delay, expiration);
         }
 
         public static void Load(Scene scene)

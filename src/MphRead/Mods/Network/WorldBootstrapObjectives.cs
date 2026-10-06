@@ -10,7 +10,7 @@ namespace MphRead.Mods.Network;
 internal sealed class WorldBootstrapObjectives
 {
     private const int Header = 6;
-    private const int PartBytes = NetConfig.MaxPayloadSize - WorldBootstrapIdentity.Size - 1 - Header;
+    private const int PartBytes = NetReliableChannel.MaximumPayloadSize - WorldBootstrapIdentity.Size - 1 - Header;
     private byte[]? _bytes;
     private ulong _received;
     internal ReplayAuthorityWorld? World { get; private set; }

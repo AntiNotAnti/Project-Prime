@@ -246,7 +246,8 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            if (!NetSession.RemoteIntentValid[slot])
+            if (!NetSession.RemoteIntentValid[slot]
+                || !IntentFresh(NetSession.RemoteIntentAge(slot)))
             {
                 return;
             }
@@ -256,6 +257,9 @@ namespace MphRead.Mods.Network
 
         public static Vector3 RemoteShotOrigin(PlayerEntity player, Vector3 current)
         {
+            if (NetSession.IsAuthority && !player.SceneServices.IsReplica
+                && NetFireEvents.TryAuthoredPose(player, out Vector3 acceptedOrigin, out _, out _))
+                return acceptedOrigin;
             if (player.SceneServices.IsReplica)
             {
                 if (NetFireEvents.TryAuthoredPose(player, out Vector3 authoredOrigin, out _, out _))
@@ -275,6 +279,9 @@ namespace MphRead.Mods.Network
 
         public static Vector3 RemoteShotDirection(PlayerEntity player, Vector3 current)
         {
+            if (NetSession.IsAuthority && !player.SceneServices.IsReplica
+                && NetFireEvents.TryAuthoredPose(player, out _, out Vector3 acceptedDirection, out _))
+                return acceptedDirection.Normalized();
             if (player.SceneServices.IsReplica)
             {
                 if (NetFireEvents.TryAuthoredPose(player, out _, out Vector3 authoredDirection, out _))
@@ -314,6 +321,8 @@ namespace MphRead.Mods.Network
         /// to say where its owner is: half a second at sixty frames.
         /// </summary>
         private const uint StaleIntentFrames = 30;
+
+        internal static bool IntentFresh(uint age) => age <= StaleIntentFrames;
 
         public static bool TryApplyRemoteInput(PlayerEntity player, int slot)
         {
@@ -372,6 +381,15 @@ namespace MphRead.Mods.Network
             }
             if (player.LoadFlags.TestFlag(LoadFlags.Active) && NetSession.RemoteIntentValid[slot])
             {
+                // Gameplay freshness is independent of transport heartbeat.
+                // Hold the owner's last input/pose for at most half a second;
+                // then release controls and let native environmental physics
+                // continue. The post-movement restore uses the same policy.
+                if (!IntentFresh(NetSession.RemoteIntentAge(slot)))
+                {
+                    player.OwningScene.PlayerReplication.NeutralizeInput(player);
+                    return true;
+                }
                 if (player.LoadFlags.TestFlag(LoadFlags.Spawned) && player.Health > 0
                     && NetRoomChange.GameplayReady
                     // Not from the relayed intent while the snapshot owns this
@@ -389,7 +407,7 @@ namespace MphRead.Mods.Network
                     // and forth every frame for the whole outage. Half a
                     // second of silence is already several lost packets, and
                     // the snapshot alone is the right answer from then on.
-                    && NetSession.RemoteIntentAge(slot) <= StaleIntentFrames)
+                    && IntentFresh(NetSession.RemoteIntentAge(slot)))
                 {
                     // Position and controls must enter the simulation
                     // together. Applying the position after the scene step
@@ -408,6 +426,7 @@ namespace MphRead.Mods.Network
                     player.ModSetSpectating(NetSession.SlotSpectating[slot]);
                 }
             }
+            else player.OwningScene.PlayerReplication.NeutralizeInput(player);
             return true;
         }
 

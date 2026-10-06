@@ -12,6 +12,8 @@ public readonly record struct ReliableTransmission(uint EventId, PacketType Type
 /// beyond the receiver's dedup window while an older event is pending.</summary>
 public sealed class NetReliableChannel
 {
+    public const int EventIdSize = sizeof(uint);
+    public const int MaximumPayloadSize = NetConfig.MaxPayloadSize - EventIdSize;
     public const int OrdinaryCapacity = 32, Capacity = 40, History = 256;
     public const double LifetimeMilliseconds = 15000;
     public const double MinimumRtoMilliseconds = 75, MaximumRtoMilliseconds = 1200;
@@ -42,6 +44,21 @@ public sealed class NetReliableChannel
     }
     public bool HasPending(PacketType type)
     { foreach (var pending in _pending) if (pending?.Type == type) return true; return false; }
+    public static bool IsTerminal(PacketType type) => type is PacketType.Bye or PacketType.Refused;
+    internal void BeginTerminalDrain()
+    {
+        // Closing a connection must not wait behind obsolete world/control
+        // traffic, or inherit its exhausted retry queue. Keep final event IDs
+        // intact so an ACK for any attempt still completes that event.
+        for (int i = 0; i < _pending.Length; i++)
+            if (_pending[i] is { } pending && !IsTerminal(pending.Type))
+            {
+                if (!pending.Critical) _ordinary--;
+                _pending[i] = null;
+                _count--;
+            }
+        Failed = false;
+    }
     public static bool IsReliable(PacketType type) => type is PacketType.QueueWelcome or PacketType.QueueJoin or PacketType.QueueLeave
         or PacketType.QueueState or PacketType.QueueSeatOffer or PacketType.QueueAccept or PacketType.QueueDecline
         or PacketType.Welcome or PacketType.SessionState
@@ -57,7 +74,7 @@ public sealed class NetReliableChannel
         bool expedite = false, bool supersedeState = false)
     {
         eventId = 0;
-        if (!IsReliable(type) || payload.Length > NetConfig.MaxPayloadSize - 4)
+        if (!IsReliable(type) || payload.Length > MaximumPayloadSize)
             throw new ArgumentException("Not a bounded reliable control payload");
         if (supersedeState && type is not (PacketType.SessionState or PacketType.Roster or PacketType.QueueState or PacketType.QueueSeatOffer))
             throw new ArgumentException("Only revision-fenced full state can supersede pending state");

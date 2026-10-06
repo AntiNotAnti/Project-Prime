@@ -13,7 +13,7 @@ internal static class NetworkAllocationTests
     {
         try
         {
-            byte[] intentBytes = NetArchitectureTests.IntentFixture();
+            byte[] intentBytes = NetArchitectureTests.CurrentIntentFixture();
             byte[] bytes = new byte[NetConfig.MaxPacketSize];
             var intent = IntentPacket.Read(intentBytes);
             var player = new PlayerState();
@@ -36,6 +36,8 @@ internal static class NetworkAllocationTests
                 ["Health.ComposeEmpty"] = () => _sink = (uint)NetHealthSync.Write(bytes),
                 ["IntentPacket.Read"] = () => _sink = IntentPacket.Read(intentBytes).Frame,
                 ["IntentPacket.Write"] = () => intent.Write(bytes),
+                ["IntentPacket.WriteNetwork"] = () => _sink = (uint)intent.WriteNetwork(bytes),
+                ["IntentPacket.TryReadNetwork"] = () => _sink = IntentPacket.TryReadNetwork(intentBytes, out var read) ? read.Frame : 0,
                 ["PlayerState.Read"] = () => _sink = PlayerState.Read(bytes).LifeId,
                 ["PlayerState.Write"] = () => player.Write(bytes),
                 ["Snapshot.Compose"] = () => { header.Write(bytes); for (int i = 0; i < 8; i++) player.Write(bytes.AsSpan(SnapshotHeader.Size + i * PlayerState.Size)); },

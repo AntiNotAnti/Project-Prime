@@ -21,6 +21,8 @@ internal static class HostedMapTrust
     internal static void Enable(string directory)
     {
         directory = Path.GetFullPath(directory);
+        if (File.Exists(Path.Combine(directory, ".cache-owner")))
+            Network.HostedPackageCache.SetLibraryOwner(directory);
         var identities = new Dictionary<Guid, MapContentIdentity>();
         string path = Path.Combine(directory, FileName);
         try

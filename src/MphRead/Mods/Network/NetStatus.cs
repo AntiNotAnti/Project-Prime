@@ -1,6 +1,8 @@
 using System;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
+using System.Diagnostics;
 
 namespace MphRead.Mods.Network
 {
@@ -105,8 +107,10 @@ namespace MphRead.Mods.Network
     public static class NetStatus
     {
         public static ServerStatus Query(string address, int port, bool allowJoinProbe,
-            int timeoutMs = 1200)
+            int timeoutMs = 1200, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            timeoutMs = Math.Max(1, timeoutMs);
             if (String.IsNullOrWhiteSpace(address))
             {
                 return ServerStatus.Offline("No server address.");
@@ -114,7 +118,7 @@ namespace MphRead.Mods.Network
             IPEndPoint endPoint;
             try
             {
-                IPAddress[] resolved = Dns.GetHostAddresses(address);
+                IPAddress[] resolved = Dns.GetHostAddressesAsync(address, cancellationToken).GetAwaiter().GetResult();
                 IPAddress? ipv4 = Array.Find(resolved,
                     a => a.AddressFamily == AddressFamily.InterNetwork);
                 if (ipv4 == null)
@@ -123,31 +127,34 @@ namespace MphRead.Mods.Network
                 }
                 endPoint = new IPEndPoint(ipv4, port);
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception)
             {
                 return ServerStatus.Offline($"Cannot find {address}.");
             }
 
             using var socket = new UdpClient(AddressFamily.InterNetwork);
-            socket.Client.ReceiveTimeout = timeoutMs;
             try
             {
+                using var receiveDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                receiveDeadline.CancelAfter(timeoutMs);
                 // The clock starts on the send and stops on the reply, so the
                 // number a browser shows is one round trip over the same path
                 // a match would use -- not an ICMP ping, which routers are
                 // free to treat differently, and not the server's own idea of
                 // anything.
-                var clock = System.Diagnostics.Stopwatch.StartNew();
+                var clock = Stopwatch.StartNew();
                 socket.Send(new byte[]
                 {
                     (byte)PacketType.StatusQuery, NetConfig.ProtocolVersion
                 }, 2, endPoint);
-                var from = new IPEndPoint(IPAddress.Any, 0);
-                DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-                while (DateTime.UtcNow < deadline)
+                while (clock.ElapsedMilliseconds < timeoutMs)
                 {
-                    byte[] reply = socket.Receive(ref from);
-                    if (!from.Equals(endPoint)) continue;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    UdpReceiveResult received = socket.ReceiveAsync(receiveDeadline.Token).AsTask().GetAwaiter().GetResult();
+                    cancellationToken.ThrowIfCancellationRequested();
+                    byte[] reply = received.Buffer;
+                    if (!received.RemoteEndPoint.Equals(endPoint)) continue;
                     if (reply.Length >= 1 + ServerStatusPacket.Size
                         && reply[0] == (byte)PacketType.StatusReply)
                     {
@@ -156,18 +163,21 @@ namespace MphRead.Mods.Network
                     }
                 }
             }
+            catch (OperationCanceledException) { cancellationToken.ThrowIfCancellationRequested(); }
             catch (SocketException)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 // Timed out or the host refused the datagram; either way the
                 // fallback below is the next thing to try.
             }
             catch (Exception ex)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 return ServerStatus.Offline($"Cannot reach {address}: {ex.Message}");
             }
 
             return allowJoinProbe
-                ? JoinProbe(socket, endPoint, address, timeoutMs)
+                ? JoinProbe(socket, endPoint, address, timeoutMs, cancellationToken)
                 : ServerStatus.Offline($"No answer from {address}:{port}.");
         }
 
@@ -179,22 +189,27 @@ namespace MphRead.Mods.Network
         /// would be worse than a probe that borrows a slot for 200 ms.
         /// </summary>
         private static ServerStatus JoinProbe(UdpClient socket, IPEndPoint endPoint,
-            string address, int timeoutMs)
+            string address, int timeoutMs, CancellationToken cancellationToken)
         {
+            bool welcomed = false, helloSent = false;
             try
             {
+                using var receiveDeadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                receiveDeadline.CancelAfter(timeoutMs);
                 // 0xFF asks for any free slot rather than a particular one.
                 socket.Send(new byte[]
                 {
                     (byte)PacketType.Hello, NetConfig.ProtocolVersion, 0xFF
                 }, 3, endPoint);
-                var from = new IPEndPoint(IPAddress.Any, 0);
-                DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
-                bool welcomed = false;
-                while (DateTime.UtcNow < deadline)
+                helloSent = true;
+                var clock = Stopwatch.StartNew();
+                while (clock.ElapsedMilliseconds < timeoutMs)
                 {
-                    byte[] reply = socket.Receive(ref from);
-                    if (!from.Equals(endPoint)) continue;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    UdpReceiveResult received = socket.ReceiveAsync(receiveDeadline.Token).AsTask().GetAwaiter().GetResult();
+                    cancellationToken.ThrowIfCancellationRequested();
+                    byte[] reply = received.Buffer;
+                    if (!received.RemoteEndPoint.Equals(endPoint)) continue;
                     if (reply.Length >= 1 && reply[0] == (byte)PacketType.Welcome)
                     {
                         welcomed = true;
@@ -203,7 +218,6 @@ namespace MphRead.Mods.Network
                     if (reply.Length >= 1 + MatchStatePacket.Size
                         && reply[0] == (byte)PacketType.MatchState)
                     {
-                        socket.Send(new byte[] { (byte)PacketType.Bye }, 1, endPoint);
                         MatchStatePacket match = MatchStatePacket.Read(reply.AsSpan(1));
                         // The probe is in the roster while it asks, so the
                         // count it is told includes itself. Reporting one
@@ -219,25 +233,24 @@ namespace MphRead.Mods.Network
                         }, legacy: true, latency: -1);
                     }
                 }
-                if (welcomed)
-                {
-                    socket.Send(new byte[] { (byte)PacketType.Bye }, 1, endPoint);
-                    return new ServerStatus
-                    {
-                        Online = true,
-                        RoomKey = "",
-                        ServerName = "",
-                        Latency = -1,
-                        Legacy = true,
-                        Message = "Online \u00B7 the server did not say what is running."
-                    };
-                }
             }
             catch (Exception)
             {
-                // Fall through to the offline answer: an exception here means
-                // no reply, which is the same thing as far as the screen goes.
+                cancellationToken.ThrowIfCancellationRequested();
+                // Timeouts and unreachable hosts return the partial legacy
+                // answer, if Welcome was already received.
             }
+            finally
+            {
+                // Return the borrowed legacy seat even if the caller cancels
+                // while waiting, or the reply naming it is lost.
+                if (helloSent)
+                    try { socket.Send(new byte[] { (byte)PacketType.Bye }, 1, endPoint); }
+                    catch (Exception ex) when (ex is SocketException or ObjectDisposedException) { }
+            }
+            if (welcomed)
+                return new ServerStatus { Online = true, Latency = -1, Legacy = true,
+                    Message = "Online · the server did not say what is running." };
             return ServerStatus.Offline($"No answer from {address}. It may be off, "
                 + "or a firewall may be blocking UDP.");
         }

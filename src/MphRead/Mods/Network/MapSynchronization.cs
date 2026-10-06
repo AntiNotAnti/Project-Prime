@@ -17,6 +17,8 @@ public sealed class LobbyMapPreparationState
     internal Task<PreparedMapInstallation>? Preparation;
     internal Task<bool>? Prewarm;
     internal bool Installed;
+    internal Task<MapHash256>? StockVerification;
+    public MapHash256 RequiredStockHash { get; init; }
 }
 
 public static partial class NetSession
@@ -28,15 +30,17 @@ public static partial class NetSession
     {
         if (MapPreparation?.State == MapAvailabilityState.Failed) ResetMapPreparation();
     }
-    public static bool RequiredMapReady => ServerSession is not { } session || !session.Match.MapIdentity.IsCustom || _playback
+    public static bool RequiredMapReady => ServerSession is not { } session || _playback
         || MapPreparation is { State: MapAvailabilityState.Ready } map && map.RequiredMap == session.Match.MapIdentity
-            && map.RoomKey == session.Match.RoomKey;
+            && map.RoomKey == session.Match.RoomKey && (session.Match.MapIdentity.IsCustom
+                || !session.StockGameplayHash.IsZero && map.RequiredStockHash == session.StockGameplayHash);
     public static void RequireExactMapForLoad()
     {
         if (_playback || ServerSession is not { } session) return;
         if (!session.Match.MapIdentity.IsCustom)
         {
             if (!Metadata.IsBuiltInRoom(session.Match.RoomKey)) throw new InvalidDataException("The server omitted custom map identity.");
+            if (!RequiredMapReady) throw new InvalidDataException("The stock map's gameplay content has not been verified against the server.");
             return;
         }
         if (!RequiredMapReady || !CustomRooms.Installed.HasExact(session.Match.MapIdentity.Content(session.Match.RoomKey)))
@@ -56,6 +60,8 @@ public static partial class NetSession
             if (t.Status == TaskStatus.RanToCompletion) t.Result.Dispose();
             _ = t.Exception; old.Cancellation.Dispose();
         }, TaskScheduler.Default);
+        else if (old.StockVerification is { } verification) _ = verification.ContinueWith(t =>
+        { _ = t.Exception; old.Cancellation.Dispose(); }, TaskScheduler.Default);
         else old.Cancellation.Dispose();
     }
 
@@ -63,7 +69,32 @@ public static partial class NetSession
     {
         if (_playback || ServerSession is not { } session || _hostEndPoint == null) return;
         var required = session.Match.MapIdentity;
-        if (!required.IsCustom) { if (MapPreparation != null) ResetMapPreparation(); return; }
+        if (!required.IsCustom)
+        {
+            if (MapPreparation == null || MapPreparation.RequiredMap.IsCustom || MapPreparation.RoomKey != session.Match.RoomKey
+                || MapPreparation.RequiredStockHash != session.StockGameplayHash)
+            {
+                ResetMapPreparation();
+                var stock = new LobbyMapPreparationState { RoomKey = session.Match.RoomKey,
+                    RequiredStockHash = session.StockGameplayHash, State = MapAvailabilityState.Verifying };
+                MapPreparation = stock;
+                stock.StockVerification = Task.Run(() =>
+                {
+                    if (stock.RequiredStockHash.IsZero) throw new InvalidDataException("The server did not advertise stock gameplay content identity.");
+                    stock.Cancellation.Token.ThrowIfCancellationRequested();
+                    var local = NetworkMapIdentity.StockGameplayHash(stock.RoomKey);
+                    if (local != stock.RequiredStockHash) throw new InvalidDataException("Stock map gameplay content differs from the server. Repair game-file extraction.");
+                    return local;
+                });
+            }
+            var stockState = MapPreparation;
+            if (stockState.StockVerification is { IsCompleted: true } verification && stockState.State == MapAvailabilityState.Verifying)
+            {
+                try { _ = verification.GetAwaiter().GetResult(); stockState.State = MapAvailabilityState.Ready; }
+                catch (Exception ex) { stockState.State = MapAvailabilityState.Failed; stockState.Error = ex.GetBaseException().Message; }
+            }
+            return;
+        }
         if (MapPreparation == null || MapPreparation.RequiredMap != required || MapPreparation.RoomKey != session.Match.RoomKey)
         {
             ResetMapPreparation();

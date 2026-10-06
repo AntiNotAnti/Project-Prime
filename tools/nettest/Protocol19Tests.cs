@@ -29,7 +29,7 @@ internal static class Protocol19Tests
     }
     private static void Codecs()
     {
-        Check(NetConfig.ProtocolVersion == 41 && SnapshotFast.MaximumEncodedSize <= 1200, "current version and eight-player fast packet budget");
+        Check(NetConfig.ProtocolVersion == 42 && SnapshotFast.MaximumEncodedSize <= NetConfig.MaxPacketSize, "current version and eight-player fast packet budget");
         Span<byte> bytes = stackalloc byte[PlayerState.Size];
         foreach (ushort health in new ushort[] { 0, 1, 37, 100, ushort.MaxValue })
         {
@@ -52,7 +52,7 @@ internal static class Protocol19Tests
         new SnapshotHeader { PlayerCount = 8 }.Write(canonical);
         for (byte i = 0; i < 8; i++) new PlayerState { SlotIndex = i, HalfturretActive = true, HalfturretHealth = ushort.MaxValue }.Write(canonical.AsSpan(SnapshotHeader.Size + i * PlayerState.Size));
         byte[] fast = new byte[1200]; int length = SnapshotFast.Write(canonical, fast);
-        Check(length + NetHeader.Size <= 1200, "eight maximum Weavel states fit realtime MTU");
+        Check(length + NetHeader.Size <= NetConfig.MaxPacketSize, "eight maximum Weavel states fit realtime MTU");
     }
     private static void FormEpisodes()
     {

@@ -218,6 +218,73 @@ namespace MphRead.Entities
         /// <summary>Where this player's next beam will be born. Diagnostics only.</summary>
         internal OpenTK.Mathematics.Vector3 ModMuzzlePos => _muzzlePos;
 
+        internal void ModCancelClientCharge()
+        {
+            if (NetSession.Role != NetRole.Client || NetSession.IsAuthority
+                || NetSession.SemanticLegacyPlayback || _scene.Services.IsReplica) return;
+            // Neutral controls must cancel a held charge, not release it as a
+            // charged native shot on the first input step after a pause.
+            EquipInfo.ChargeLevel = 0;
+            Flags2 &= ~PlayerFlags2.Shooting;
+            StopBeamChargeSfx(CurrentWeapon);
+            _shockCoilTimer = 0; _shockCoilTarget = null;
+            _modPendingHomingTarget = default;
+            NetContinuousTargeting.ResetPlayer(this);
+            _scene.WeaponPhase.ResetSlot(SlotIndex);
+        }
+
+        internal void ModCaptureFireSource(bool turret, out Vector3 position, out Vector3 up, out byte flags)
+        {
+            position = turret ? Halfturret?.Position ?? Position : Position;
+            up = turret ? Vector3.UnitY : NormalizeSpatialOr(_upVector, Vector3.UnitY);
+            flags = FireEvent.FlagSourcePose;
+            if (!turret && IsAltForm) flags |= FireEvent.FlagSourceAlt;
+            if (!turret && _camSwitchTimer < Values.CamSwitchTime * 2)
+                flags |= FireEvent.FlagSourceTransition;
+        }
+
+        /// <summary>Bind the muzzle to native source geometry, not to the body
+        /// in a newer carrier. Movement remains owner-reported; the muzzle may
+        /// not independently originate elsewhere in the world.</summary>
+        internal bool ModSupportsFireSource(in FireEvent fire, out Vector3 sightOrigin)
+        {
+            sightOrigin = default;
+            if (!fire.HasSourcePose || !NetIntentPolicy.Sane(fire.SourcePosition)
+                || !NetIntentPolicy.Sane(fire.Origin)) return false;
+            if (fire.Kind == FireEventKind.TurretFire)
+            {
+                bool current = Halfturret != null
+                    && (fire.SourcePosition - Halfturret.Position).LengthSquared <= .0001f;
+                bool retained = NetUnlagged.TryHistoricalHalfturretPosition(SlotIndex,
+                    fire.AckFrame + fire.AckSubFrame / 256.0, NetPlayerLifecycle.Generation(SlotIndex),
+                    NetPlayerLifecycle.Get(SlotIndex), out Vector3 historical)
+                    && (fire.SourcePosition - historical).LengthSquared <= .0001f;
+                if (!current && !retained) return false;
+                sightOrigin = fire.SourcePosition.AddY(.4f);
+                return (fire.Origin - sightOrigin).LengthSquared <= .0001f;
+            }
+            if ((fire.SourceFlags & FireEvent.FlagSourceAlt) != 0) return false;
+            // UpdateAimVecs places the gun by the table's three offsets, then
+            // the native muzzle offset. Walk/gun bob add their native maxima.
+            sightOrigin = fire.SourcePosition.AddY(Fixed.ToFloat(Values.AimYOffset));
+            float gunRadius = new Vector3(Fixed.ToFloat(Values.FieldB0),
+                Fixed.ToFloat(Values.FieldB4), Fixed.ToFloat(Values.FieldB8)).Length
+                + MathF.Abs(Fixed.ToFloat(Values.MuzzleOffset)) + Fixed.ToFloat(20);
+            // The admitted muzzle belongs to the owner's source frame. Its
+            // landing bob can differ from this authority's current camera.
+            // ProcessMovement caps the native coefficient at Fixed(800), and
+            // UpdateCameraFirst displaces the camera by at most twice that.
+            float cameraRadius = MathF.Abs(Fixed.ToFloat(Values.WalkBobMax)) + 2 * Fixed.ToFloat(800);
+            if ((fire.SourceFlags & FireEvent.FlagSourceTransition) != 0)
+            {
+                // Native alt camera collision constrains its distance to six
+                // units. A biped transition may interpolate from that camera.
+                cameraRadius += 6 + MathF.Abs(Fixed.ToFloat(Values.AimYOffset));
+            }
+            float radius = gunRadius + cameraRadius;
+            return (fire.Origin - sightOrigin).LengthSquared <= radius * radius;
+        }
+
         internal void ModResetNetworkHistory() => _networkPositionHistoryCount = 0;
 
         internal void ModRecordNetworkPosition(uint frame)
@@ -1779,7 +1846,7 @@ namespace MphRead.Entities
             }
             _boostDamage = _modReportedBoostDamage;
 
-            if (ModAuthorityOwnsResources) return; // Authority pickup/timer owns the powerup.
+            if (ModAuthorityOwnsResources || _networkResourcesKnown) return; // Authority pickup/timer owns the powerup.
             if (doubleDamage)
             {
                 // Held up rather than counted down: the owner says so again
@@ -1847,7 +1914,7 @@ namespace MphRead.Entities
         /// refill authority resource pools.</summary>
         internal void ModSetAmmo(int ua, int missiles)
         {
-            if (ModAuthorityOwnsResources || _scene.GameState.OneInTheChamber) return; // Only spawn, confirmed kills and authority ammo facts own this pool.
+            if (ModAuthorityOwnsResources || _networkResourcesKnown || _scene.GameState.OneInTheChamber) return; // Only spawn, confirmed kills and authority ammo facts own this pool.
             // -1 is the engine's "infinite" marker; a puppet must not be
             // handed one by a malformed packet.
             if (UsesBalancedImperialistAmmo(CurrentWeapon))

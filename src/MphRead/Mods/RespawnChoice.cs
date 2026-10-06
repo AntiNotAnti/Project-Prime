@@ -30,6 +30,32 @@ namespace MphRead.Mods
     {
         private static Hunter? _hunter;
         private static int? _color;
+        private static bool _spawnObserved;
+        private static bool _rosterObserved;
+
+        internal static Hunter IdentifyHunter => _hunter ?? NetSession.LocalHunter;
+        internal static int IdentifyColor => _color ?? NetSession.LocalColor;
+
+        internal static void ObserveAuthoritySpawn(Hunter hunter)
+        {
+            if (_hunter.HasValue && _hunter.Value == hunter)
+            {
+                _spawnObserved = true;
+                if (_rosterObserved) ClearPending();
+                else NetSession.LocalHunter = hunter;
+            }
+        }
+
+        internal static void ObserveAuthorityRoster(Hunter hunter, int color)
+        {
+            _rosterObserved = _hunter == hunter && (!_color.HasValue || _color.Value == color);
+            if (_spawnObserved && _rosterObserved) ClearPending();
+        }
+
+        private static void ClearPending()
+        {
+            _hunter = null; _color = null; _spawnObserved = _rosterObserved = false;
+        }
 
         /// <summary>What is queued, for a menu to show back.</summary>
         public static Hunter Hunter => _hunter ?? PlayerEntity.Main?.Hunter ?? Hunter.Samus;
@@ -42,8 +68,7 @@ namespace MphRead.Mods
         /// <summary>Forget anything queued. Called when a match is built.</summary>
         public static void Reset()
         {
-            _hunter = null;
-            _color = null;
+            ClearPending();
             // The results screen's other answer, forgotten with these two and
             // for the same reason: it describes the match that just ended.
             EndScreen.ClearReady();
@@ -68,6 +93,9 @@ namespace MphRead.Mods
         {
             _hunter = Multiplayer.HunterRules.Resolve(hunter, GameState.LowTier);
             _color = PlayerColors.Clamp(color);
+            _spawnObserved = _rosterObserved = false;
+            if (NetSession.Active && !NetSession.IsAuthority)
+                NetSession.SendIdentify();
         }
 
         /// <summary>
@@ -83,14 +111,16 @@ namespace MphRead.Mods
             {
                 return;
             }
+            // The authority has already committed the hunter before this
+            // replicated life was allocated. Never reinitialize/echo here.
+            if (NetSession.Active) return;
             if (!_hunter.HasValue && !_color.HasValue)
             {
                 return;
             }
             Hunter hunter = Multiplayer.HunterRules.Sanitize(_hunter ?? player.Hunter, player.OwningScene.GameState.LowTier);
             int color = _color ?? Color;
-            _hunter = null;
-            _color = null;
+            ClearPending();
             if (hunter != player.Hunter)
             {
                 // Initialize() is what rebuilds the models, the values, the

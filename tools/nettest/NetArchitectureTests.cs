@@ -39,6 +39,16 @@ internal static class NetArchitectureTests
         return bytes;
     }
 
+    internal static byte[] CurrentIntentFixture()
+    {
+        var intent = new IntentPacket { Frame = 1, MatchId = 51, AuthorityEpoch = 4,
+            SlotGeneration = 9, LifeId = 2, Position = new Vector3(1, 2, 3), Aim = Vector3.UnitZ,
+            WeaponSelect = 255, AmmoUa = 400, AmmoMissiles = 50, Buttons = IntentButtons.InPlayState };
+        byte[] bytes = new byte[intent.EncodedSize]; intent.WriteNetwork(bytes);
+        Check(IntentPacket.TryReadNetwork(bytes, out _), "current transport fixture uses live compact codec");
+        return bytes;
+    }
+
     public static int Run()
     {
         try
@@ -63,9 +73,9 @@ internal static class NetArchitectureTests
             Check(output.SequenceEqual(fixture), "protocol 38 legacy intent fixture remains readable");
             Check(intent.AckFrame == 0x87654321 && intent.AckSubFrame == 128 && IntentPacket.PressHistory == 8,
                 "displayed world ACK and eight-frame edge retention");
-            Check(NetConfig.ProtocolVersion == 41
+            Check(NetConfig.ProtocolVersion == 42
                 && IntentPacket.Protocol38FullSize == 423
-                && IntentPacket.FullSize == 1175 && intent.HasAnalogMove
+                && IntentPacket.Protocol41FullSize == 1175 && IntentPacket.FullSize == 1447 && intent.HasAnalogMove
                 && intent.MoveX == 64 && intent.MoveY == -96
                 && intent.HasContinuousFireTick && intent.ContinuousFireTick == 0xCAFEBABE
                 && Math.Abs(IntentPacket.UnpackMoveAxis(intent.MoveX) - 64 / 127f) < .00001f,

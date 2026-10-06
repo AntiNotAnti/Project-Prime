@@ -107,8 +107,8 @@ internal sealed class ReplayRecorder
         }
         Span<byte> bytes = stackalloc byte[2 + IntentPacket.FullSize];
         bytes[0] = (byte)PacketType.SlotIntent; bytes[1] = (byte)slot;
-        intent.Write(bytes[2..]);
-        var record = new ReplayTimelineRecord(frame, Timeline.LastServerTick ?? frame, ReplayFactKind.Intent, bytes);
+        int length = intent.WriteNetwork(bytes[2..]);
+        var record = new ReplayTimelineRecord(frame, Timeline.LastServerTick ?? frame, ReplayFactKind.Intent, bytes[..(2 + length)]);
         _intents[slot]?.Release();
         _intents[slot] = record;
         Publish(record);

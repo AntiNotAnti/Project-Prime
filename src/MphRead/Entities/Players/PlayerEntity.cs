@@ -714,9 +714,9 @@ namespace MphRead.Entities
 
         public void Spawn(Vector3 pos, Vector3 facing, Vector3 up, NodeRef nodeRef, bool respawn)
         {
-            Mods.EnhancedHunters.EnhancedHunters.OnPlayerSpawn(this);
             if (!_scene.Services.PlayerReplication.CanSpawn) return;
             _scene.Services.PlayerReplication.OnSpawn(this);
+            Mods.EnhancedHunters.EnhancedHunters.OnPlayerSpawn(this);
             _scene.MatchEvents.Spawn(_scene, this);
             _scene.PlayerReplication.NoteSpawn(SlotIndex);
             if (IsMainPlayer)

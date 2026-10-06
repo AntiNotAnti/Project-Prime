@@ -417,6 +417,10 @@ namespace MphRead.Mods.Network
                 var spire = PlayerEntity.Players[5];
                 var weavel = PlayerEntity.Players[6];
                 var scene = samus.OwningScene;
+                // This standalone fixture reuses match id 1 after earlier
+                // independently constructed scenes. Its seven native spawns
+                // must have their own telemetry boundary.
+                BalancedModeTelemetry.Reset();
                 foreach (var player in new[] { samus, kanden, trace, sylux, noxus, spire, weavel })
                     player.Spawn(player.Position, Vector3.UnitZ, Vector3.UnitY, player.NodeRef, respawn: false);
 
@@ -441,6 +445,7 @@ namespace MphRead.Mods.Network
                     Owner = kanden, Beam = BeamType.VoltDriver, BeamKind = BeamType.VoltDriver,
                     Flags = BeamFlags.Charged, Afflictions = Affliction.Disrupt, EnhancedDirectHit = true
                 };
+                NetPlayerLifecycle.StampProjectile(disrupt);
                 trace.Health = 199;
                 trace.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, disrupt);
                 ushort disrupted = (ushort)typeof(PlayerEntity).GetField("_disruptedTimer",
@@ -471,6 +476,7 @@ namespace MphRead.Mods.Network
                     Owner = noxus, Beam = BeamType.Judicator, BeamKind = BeamType.Judicator,
                     Flags = BeamFlags.Charged, Afflictions = Affliction.Freeze, EnhancedDirectHit = true
                 };
+                NetPlayerLifecycle.StampProjectile(freeze);
                 samus.Health = 199;
                 typeof(PlayerEntity).GetField("_timeSinceFrozen", BindingFlags.Instance | BindingFlags.NonPublic)!
                     .SetValue(samus, (ushort)255);
@@ -509,6 +515,7 @@ namespace MphRead.Mods.Network
                     Owner = spire, Beam = BeamType.Magmaul, BeamKind = BeamType.Magmaul,
                     Flags = BeamFlags.Charged, Afflictions = Affliction.Burn, EnhancedDirectHit = true
                 };
+                NetPlayerLifecycle.StampProjectile(burn);
                 samus.Health = 199;
                 typeof(PlayerEntity).GetField("_burnTimer", BindingFlags.Instance | BindingFlags.NonPublic)!
                     .SetValue(samus, (ushort)0);
@@ -556,10 +563,11 @@ namespace MphRead.Mods.Network
                     "Weavel affinity widens cluster coverage and adds 20 percent knockback without extra damage");
 
                 var balance = BalancedModeTelemetry.Capture();
-                Check(balance.Revision == BalancedModeRules.BalanceRevision
-                    && balance.HunterPicks.Sum() == 7
-                    && balance.Battlehammer[1] >= 1 && balance.Battlehammer[2] >= 3,
-                    "Balanced telemetry captures revision, hunter picks and impact-cluster activity");
+                Check(balance.Revision == BalancedModeRules.BalanceRevision, "Balanced telemetry captures its revision");
+                Check(balance.HunterPicks.Sum() == 7,
+                    "Balanced telemetry captures exactly seven occupied hunter picks: " + string.Join(",", balance.HunterPicks));
+                Check(balance.Battlehammer[1] >= 1 && balance.Battlehammer[2] >= 3,
+                    "Balanced telemetry captures impact-cluster activity: " + string.Join(",", balance.Battlehammer));
                 Check(balance.Affinity[0] >= 1 && balance.Affinity[1] >= 1
                     && balance.Affinity[2] >= 1 && balance.Affinity[3] >= 1
                     && balance.Affinity[4] >= 1,
@@ -720,14 +728,19 @@ namespace MphRead.Mods.Network
             int firstPlayer = rosterStart + RosterPacket.Size;
             int stride = 7 + PlayerState.Size + 1 + IntentPacket.FullSize + 4;
             for (int slot = PlayerEntity.SlotCapacity - 1; slot >= 0; slot--)
+            {
+                // Protocol 27 had neither the fire-event ring nor the later
+                // enhanced-player and protocol-42 reconciliation fields.
+                historicalBytes.RemoveRange(firstPlayer + slot * stride + 7 + PlayerState.Size + 1 + IntentPacket.LegacyFullSize,
+                    IntentPacket.FullSize - IntentPacket.LegacyFullSize);
                 historicalBytes.RemoveRange(firstPlayer + slot * stride + 7 + PlayerState.LegacySize,
-                    Mods.EnhancedHunters.EnhancedHunterNetState.Size);
-            // Protocol 33 added one handicap byte to every fixed roster entry.
-            // A protocol-27 checkpoint genuinely predates those bytes, so remove
-            // them rather than only relabelling a current-width roster.
+                    PlayerState.Size - PlayerState.LegacySize);
+            }
+            // Protocol 33 added handicap and protocol 42 added role to every
+            // fixed roster entry; protocol 27 predates both bytes.
             for (int slot = RosterPacket.MaxSlots - 1; slot >= 0; slot--)
-                historicalBytes.RemoveAt(rosterStart + RosterPacket.HeaderSize
-                    + slot * RosterPacket.EntrySize + RosterPacket.EntrySize - 1);
+                historicalBytes.RemoveRange(rosterStart + RosterPacket.HeaderSize
+                    + slot * RosterPacket.EntrySize + RosterPacket.EntrySize - 2, 2);
             historicalBytes.RemoveRange(matchStart + 103, 2);
             historicalCheckpoint = historicalBytes.ToArray();
             historicalCheckpoint[6] = 27;
