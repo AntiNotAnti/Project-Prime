@@ -141,9 +141,8 @@ begin
                 end,
             'room_key',
                 case
-                    when (r.activity_visibility = 'everyone'
-                       or (r.activity_visibility = 'friends' and r.is_friend))
-                      and r.joinable
+                    when r.activity_visibility = 'everyone'
+                       or (r.activity_visibility = 'friends' and r.is_friend)
                     then nullif(r.room_key, '')
                     else null
                 end,
