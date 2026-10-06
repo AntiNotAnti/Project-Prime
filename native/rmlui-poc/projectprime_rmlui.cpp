@@ -376,8 +376,6 @@ private:
 
     void SocialFilter(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
     {
-        if (data.social_search.size() > 48)
-            data.social_search.resize(48);
         handle.DirtyVariable("social_search");
         Emit((std::string("social:search:") + data.social_search).c_str());
     }
