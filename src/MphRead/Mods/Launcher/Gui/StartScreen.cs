@@ -292,6 +292,33 @@ namespace MphRead.Mods.Launcher.Gui
             if (_finished) return;
             _finished = true; Plan = plan; Done?.Invoke(this, plan);
         }
+        internal void JoinVerifiedSocialLobby(string host, int port)
+        {
+            // RmlUi already completed the product-startup decision before it
+            // handed us a verified social join. Do not put the startup card
+            // back in front of an action the player has just confirmed.
+            if (_startup != null)
+            {
+                _layers.Children.Remove(_startup);
+                _startup.Dispose();
+                _startup = null;
+            }
+            _prime.IsVisible = true;
+            _prime.IsEnabled = true;
+            _prime.Router.Navigate(PrimeRoute.Play);
+            if (_prime.Workspaces.Get(PrimeRoute.Play) is PlayWorkspace play)
+            {
+                Dispatcher.UIThread.Post(async () =>
+                {
+                    try { await play.JoinVerifiedSocialLobbyAsync(host, port); }
+                    catch (Exception ex)
+                    {
+                        Mods.DebugLog.Exception("social", ex);
+                    }
+                }, DispatcherPriority.Background);
+            }
+        }
+
         internal void OpenMapStudio()
         {
             // An explicit editor launch bypasses the ordinary startup gate.
