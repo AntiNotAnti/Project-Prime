@@ -32,6 +32,9 @@
                     <div class="account_name">{{player_name}}</div>
                     <div class="account_meta">{{profile_state}}</div>
                 </div>
+                <button id="social" class="utility social_button" data-event-click="open_social">
+                    SOCIAL <span class="social_badge" data-if="social_badge != ''">{{social_badge}}</span>
+                </button>
                 <button id="profile" class="utility" data-event-click="open_profile">PROFILE</button>
             </div>
         </div>
@@ -113,11 +116,116 @@
                         <div class="session_meta">{{hunter_name}} // READY</div>
                     </div>
                 </div>
-                <div class="session_slot">
-                    <span class="plus">+</span>
-                    <span>OPEN PARTY SLOT</span>
+                <div class="session_friends_header">
+                    <span>FRIENDS ONLINE</span>
+                    <span class="session_online_count">{{social_friend_count}}</span>
                 </div>
-                <div class="session_hint">PARTY CONTROLS APPEAR AFTER JOINING OR CREATING A LOBBY.</div>
+                <div class="home_friend" data-for="friend : home_friends">
+                    <span class="friend_dot"></span>
+                    <span class="home_friend_copy">
+                        <span class="home_friend_name">{{friend.name}}</span>
+                        <span class="home_friend_state">{{friend.activity}}<span data-if="friend.detail != ''"> // {{friend.detail}}</span></span>
+                    </span>
+                </div>
+                <div class="session_empty" data-if="home_friends.size == 0">NO FRIENDS ONLINE</div>
+                <button id="home_social" class="session_social" data-event-click="open_social">OPEN SOCIAL</button>
+                <div class="session_hint">INVITES AND JOIN FRIEND ARRIVE IN SOCIAL SLICE 4.</div>
+            </div>
+        </div>
+
+        <div id="social_backdrop" data-class-open="social_open">
+            <button id="social_scrim" data-event-click="close_social"></button>
+            <div id="social_drawer" class="enter_social">
+                <div class="social_header">
+                    <div>
+                        <div class="eyebrow">PROJECT PRIME NETWORK</div>
+                        <div class="social_title">SOCIAL</div>
+                    </div>
+                    <button id="social_close" class="social_icon_button" data-event-click="close_social">×</button>
+                </div>
+
+                <div class="social_tabs">
+                    <button id="social_tab_friends" class="social_tab"
+                            data-class-selected="social_tab == 0"
+                            data-event-click="social_friends">
+                        FRIENDS <span class="social_tab_count">{{social_friend_count}}</span>
+                    </button>
+                    <button id="social_tab_players" class="social_tab"
+                            data-class-selected="social_tab == 1"
+                            data-event-click="social_players">
+                        PLAYERS <span class="social_tab_count">{{social_online_count}}</span>
+                    </button>
+                    <button id="social_tab_requests" class="social_tab"
+                            data-class-selected="social_tab == 2"
+                            data-event-click="social_requests">
+                        REQUESTS <span class="social_tab_count">{{social_request_count}}</span>
+                    </button>
+                </div>
+
+                <div class="social_search_row">
+                    <input id="social_search" type="text" maxlength="48"
+                           data-value="social_search"
+                           placeholder="Filter visible players or paste a Prime ID" />
+                    <button id="social_filter" class="social_filter_button"
+                            data-event-click="social_filter">FILTER</button>
+                </div>
+
+                <div class="social_statebar">
+                    <span class="social_state_dot" data-class-loading="social_loading"></span>
+                    <span>{{social_status}}</span>
+                    <span class="social_ttl">45S TTL</span>
+                </div>
+
+                <div id="social_list">
+                    <div class="social_empty" data-if="social_rows.size == 0 && !social_loading">
+                        <div class="social_empty_title">NO HUNTERS HERE</div>
+                        <div class="social_empty_copy">Try another tab, clear the filter, or refresh the social service.</div>
+                    </div>
+
+                    <button class="social_row" data-for="row : social_rows"
+                            data-event-click="social_select(row.prime_id)">
+                        <span class="social_presence_dot" data-class-online="row.online"></span>
+                        <span class="social_row_copy">
+                            <span class="social_row_top">
+                                <span class="social_row_name">{{row.name}}</span>
+                                <span class="social_relation">{{row.relation}}</span>
+                            </span>
+                            <span class="social_row_meta">{{row.activity}}<span data-if="row.detail != ''"> // {{row.detail}}</span></span>
+                            <span class="social_row_id">{{row.prime_id}}</span>
+                        </span>
+                        <span class="social_row_more">•••</span>
+                    </button>
+                </div>
+
+                <div class="social_footer">
+                    <button id="social_blocks" class="social_footer_button"
+                            data-class-selected="social_tab == 3"
+                            data-event-click="social_blocks">MANAGE BLOCKS</button>
+                    <button id="social_refresh" class="social_footer_button"
+                            data-event-click="social_refresh">REFRESH</button>
+                </div>
+
+                <div id="social_context" data-class-open="social_context_open">
+                    <div class="social_context_header">
+                        <div>
+                            <div class="eyebrow">HUNTER ACTIONS</div>
+                            <div class="social_context_name">{{selected_name}}</div>
+                            <div class="social_context_id">{{selected_prime_id}}</div>
+                        </div>
+                        <button class="social_icon_button" data-event-click="social_context_close">×</button>
+                    </div>
+                    <div class="social_context_state">{{selected_activity}}<span data-if="selected_detail != ''"> // {{selected_detail}}</span></div>
+                    <div class="social_context_actions">
+                        <button class="social_action primary" data-if="selected_can_add" data-event-click="social_add">ADD FRIEND</button>
+                        <button class="social_action primary" data-if="selected_can_accept" data-event-click="social_accept">ACCEPT REQUEST</button>
+                        <button class="social_action" data-if="selected_can_decline" data-event-click="social_decline">DECLINE</button>
+                        <button class="social_action" data-if="selected_can_cancel" data-event-click="social_cancel">CANCEL REQUEST</button>
+                        <button class="social_action" data-if="selected_can_remove" data-event-click="social_remove">REMOVE FRIEND</button>
+                        <button class="social_action danger" data-if="selected_can_block" data-event-click="social_block">BLOCK PLAYER</button>
+                        <button class="social_action primary" data-if="selected_can_unblock" data-event-click="social_unblock">UNBLOCK PLAYER</button>
+                    </div>
+                    <div class="social_context_note">JOIN FRIEND AND GAME INVITES ARE RESERVED FOR SLICE 4'S AUTHENTICATED LOBBY RESOLVER.</div>
+                </div>
             </div>
         </div>
 
