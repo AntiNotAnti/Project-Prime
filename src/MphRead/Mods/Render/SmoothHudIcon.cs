@@ -88,7 +88,7 @@ namespace MphRead.Mods.Render
         {
             if (inst.CharacterData == data && inst.CurrentFrame == frame
                 && inst.Color.HasValue && inst.Color.Value == color
-                && inst.BindingId != -1)
+                && inst.PictureBoundTo(scene))
             {
                 return;
             }
@@ -130,14 +130,7 @@ namespace MphRead.Mods.Render
                             : transparent;
                 }
             }
-            if (inst.BindingId == -1)
-            {
-                inst.BindingId = scene.BindGetTexture(texture, outWidth, outHeight);
-            }
-            else
-            {
-                scene.BindTexture(texture, outWidth, outHeight, inst.BindingId);
-            }
+            inst.BindPicture(scene, outWidth, outHeight);
         }
 
         /// <summary>
