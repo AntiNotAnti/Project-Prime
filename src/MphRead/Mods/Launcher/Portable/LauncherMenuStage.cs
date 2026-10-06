@@ -41,6 +41,8 @@ namespace MphRead.Mods.Launcher
         float HighlightGlow,
         float Atmosphere,
         float Dust,
+        float HunterBackdropHaze,
+        float ForegroundHaze,
         float HunterLeft,
         float HunterTop,
         float HunterRight,
@@ -66,6 +68,8 @@ namespace MphRead.Mods.Launcher
             HighlightGlow: 0.10f,
             Atmosphere: 0.12f,
             Dust: 0.12f,
+            HunterBackdropHaze: 0.28f,
+            ForegroundHaze: 0.045f,
             HunterLeft: 0.40f,
             HunterTop: 0.075f,
             HunterRight: 0.81f,
@@ -91,14 +95,22 @@ namespace MphRead.Mods.Launcher
                 {
                     Name = "proving-ground-hero",
                     IntroFrame = 20,
-                    Zoom = 0.85f,
-                    FocusX = 0.47f,
-                    FocusY = 0.435f,
-                    Softness = 0.32f,
-                    LeftScrim = 0.38f,
-                    RightScrim = 0.20f,
+                    Zoom = 0.84f,
+                    // The first Menu Stage capture left the central bridge
+                    // cutting straight through Trace's torso. Pull the room
+                    // left and a little lower so its perspective lines lead
+                    // toward the Hunter instead of bisecting the silhouette.
+                    FocusX = 0.445f,
+                    FocusY = 0.455f,
+                    Softness = 0.31f,
+                    Saturation = 0.88f,
+                    CoolShift = 0.055f,
+                    LeftScrim = 0.36f,
+                    RightScrim = 0.18f,
                     Atmosphere = 0.14f,
-                    Dust = 0.14f
+                    Dust = 0.14f,
+                    HunterBackdropHaze = 0.34f,
+                    ForegroundHaze = 0.052f
                 },
                 ["MP1 SANCTORUS"] = MenuStageProfile.Default with
                 {
@@ -110,7 +122,9 @@ namespace MphRead.Mods.Launcher
                     Saturation = 0.88f,
                     CoolShift = 0.05f,
                     Vignette = 0.16f,
-                    Atmosphere = 0.10f
+                    Atmosphere = 0.10f,
+                    HunterBackdropHaze = 0.25f,
+                    ForegroundHaze = 0.038f
                 },
                 ["UNIT1 ALINOS LANDFALL"] = MenuStageProfile.Default with
                 {
@@ -123,7 +137,9 @@ namespace MphRead.Mods.Launcher
                     CoolShift = 0.02f,
                     HighlightGlow = 0.14f,
                     Atmosphere = 0.16f,
-                    Dust = 0.18f
+                    Dust = 0.18f,
+                    HunterBackdropHaze = 0.22f,
+                    ForegroundHaze = 0.035f
                 },
                 ["MP11 BREAKTHROUGH"] = MenuStageProfile.Default with
                 {
@@ -135,7 +151,9 @@ namespace MphRead.Mods.Launcher
                     Softness = 0.24f,
                     CoolShift = 0.12f,
                     Vignette = 0.22f,
-                    Atmosphere = 0.08f
+                    Atmosphere = 0.08f,
+                    HunterBackdropHaze = 0.30f,
+                    ForegroundHaze = 0.042f
                 },
                 ["AD2 ALINOS PERCH"] = MenuStageProfile.Default with
                 {
@@ -147,7 +165,9 @@ namespace MphRead.Mods.Launcher
                     Softness = 0.22f,
                     Saturation = 0.84f,
                     Vignette = 0.24f,
-                    Atmosphere = 0.08f
+                    Atmosphere = 0.08f,
+                    HunterBackdropHaze = 0.20f,
+                    ForegroundHaze = 0.030f
                 }
             };
 
