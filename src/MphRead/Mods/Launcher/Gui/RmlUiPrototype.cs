@@ -49,6 +49,19 @@ namespace MphRead.Mods.Launcher.Gui
         private static CancellationTokenSource? _stageRefreshCancel;
         private static string _stageRefreshRoom = "";
         private static bool _diagnosticsVisible;
+        private static CancellationTokenSource? _socialCancel;
+        private static Task<SocialSnapshot>? _socialLoad;
+        private static Task<SocialMutationResult>? _socialMutation;
+        private static Task<SocialLookupResult>? _socialLookup;
+        private static SocialSnapshot? _socialSnapshot;
+        private static SocialPlayer? _socialLookupPlayer;
+        private static string _socialPendingAction = "";
+        private static string _socialSearch = "";
+        private static string _socialFingerprint = "";
+        private static int _socialTab;
+        private static long _nextSocialReload;
+        private static bool _socialDrawerOpen;
+        private static bool _socialFixture;
 
         static RmlUiPrototype()
         {
@@ -109,6 +122,21 @@ namespace MphRead.Mods.Launcher.Gui
                 _captureFrames = 0;
                 _captureDirectory = CaptureDirectory();
                 _diagnosticsVisible = false;
+                _socialCancel?.Cancel();
+                _socialCancel?.Dispose();
+                _socialCancel = new CancellationTokenSource();
+                _socialLoad = null;
+                _socialMutation = null;
+                _socialLookup = null;
+                _socialSnapshot = null;
+                _socialLookupPlayer = null;
+                _socialPendingAction = "";
+                _socialSearch = "";
+                _socialFingerprint = "";
+                _socialTab = 0;
+                _nextSocialReload = 0;
+                _socialDrawerOpen = false;
+                _socialFixture = SocialCaptureRequested();
                 GamepadContexts.MenuVisible = true;
                 _gamepad.Reset();
 
@@ -117,6 +145,10 @@ namespace MphRead.Mods.Launcher.Gui
                 ConfigureHunter(snapshot);
                 RefreshState(snapshot, force: true);
                 BeginMenuStageRefresh(snapshot);
+                if (_socialFixture)
+                    SeedSocialCapture();
+                else
+                    BeginSocialLoad(force: true);
                 Mods.DebugLog.Line("rmlui", $"RmlUi 6.3 POC active at {width}x{height} ({density:0.##}x density)");
                 return true;
             }
@@ -156,6 +188,13 @@ namespace MphRead.Mods.Launcher.Gui
                     HubSnapshot snapshot = HubState.Capture();
                     ConfigureHunter(snapshot);
                     RefreshState(snapshot, force: false);
+                    if (!_socialFixture)
+                    {
+                        PollSocialWork();
+                        if (_socialDrawerOpen && now >= _nextSocialReload)
+                            BeginSocialLoad(force: false);
+                        RefreshSocialUi();
+                    }
                     _nextStateRefresh = now + 1000;
                 }
 
@@ -280,8 +319,11 @@ namespace MphRead.Mods.Launcher.Gui
             }
             if (e.Key == Keys.Escape)
             {
-                // The production shell owns its full back/quit semantics. A
-                // proof-screen Back cleanly hands control to that authority.
+                // Give RmlUi overlays first refusal before handing Back to the
+                // production shell. This keeps Escape/controller B inside the
+                // social drawer and its context sheet.
+                if (NativeBack() != 0)
+                    return;
                 _commands.Enqueue("route:news");
                 return;
             }
@@ -318,6 +360,19 @@ namespace MphRead.Mods.Launcher.Gui
             _stageRefreshCancel = null;
             _stageRefresh = null;
             _stageRefreshRoom = "";
+            _socialCancel?.Cancel();
+            _socialCancel?.Dispose();
+            _socialCancel = null;
+            _socialLoad = null;
+            _socialMutation = null;
+            _socialLookup = null;
+            _socialSnapshot = null;
+            _socialLookupPlayer = null;
+            _socialPendingAction = "";
+            _socialSearch = "";
+            _socialFingerprint = "";
+            _socialDrawerOpen = false;
+            _socialFixture = false;
             LauncherHunter.Reset();
             GamepadContexts.MenuVisible = false;
             Mods.DebugLog.Line("rmlui", "RmlUi POC shut down");
@@ -443,6 +498,11 @@ namespace MphRead.Mods.Launcher.Gui
                     ApplyStageAction(action);
                     continue;
                 }
+                if (action.StartsWith("social:", StringComparison.Ordinal))
+                {
+                    HandleSocialAction(action);
+                    continue;
+                }
                 _commands.Enqueue(action);
             }
         }
@@ -484,7 +544,8 @@ namespace MphRead.Mods.Launcher.Gui
             if (!_active) return;
             if (action == UiAction.Back)
             {
-                _commands.Enqueue("route:news");
+                if (NativeBack() == 0)
+                    _commands.Enqueue("route:news");
                 return;
             }
             int key = action switch
@@ -541,6 +602,10 @@ namespace MphRead.Mods.Launcher.Gui
             }
             return null;
         }
+
+        private static bool SocialCaptureRequested()
+            => Array.Exists(Environment.GetCommandLineArgs(),
+                value => value.Equals("-rmluisocial", StringComparison.OrdinalIgnoreCase));
 
         private static Vector2i? CaptureSize()
         {
@@ -656,6 +721,19 @@ namespace MphRead.Mods.Launcher.Gui
             _stageRefreshCancel = null;
             _stageRefresh = null;
             _stageRefreshRoom = "";
+            _socialCancel?.Cancel();
+            _socialCancel?.Dispose();
+            _socialCancel = null;
+            _socialLoad = null;
+            _socialMutation = null;
+            _socialLookup = null;
+            _socialSnapshot = null;
+            _socialLookupPlayer = null;
+            _socialPendingAction = "";
+            _socialSearch = "";
+            _socialFingerprint = "";
+            _socialDrawerOpen = false;
+            _socialFixture = false;
             LauncherHunter.Reset();
             GamepadContexts.MenuVisible = false;
             Mods.DebugLog.Line("rmlui", $"POC {message}: {ex.Message}; falling back to Avalonia");
@@ -701,6 +779,31 @@ namespace MphRead.Mods.Launcher.Gui
         [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_set_bool")]
         private static extern void NativeSetBool(
             [MarshalAs(UnmanagedType.LPUTF8Str)] string name, int value);
+
+        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_social_clear")]
+        private static extern void NativeSocialClear();
+
+        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_social_add_row")]
+        private static extern void NativeSocialAddRow(
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string primeId,
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string name,
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string activity,
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string detail,
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string relation,
+            int online, int friendOnline);
+
+        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_social_add_home_friend")]
+        private static extern void NativeSocialAddHomeFriend(
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string primeId,
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string name,
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string activity,
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string detail);
+
+        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_social_commit")]
+        private static extern void NativeSocialCommit();
+
+        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_back")]
+        private static extern int NativeBack();
 
         [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_take_action")]
         private static extern int NativeTakeAction([Out] byte[] buffer, int capacity);
