@@ -193,7 +193,7 @@ namespace MphRead.Mods.Launcher.Gui
                     if (!_socialFixture)
                     {
                         PollSocialWork();
-                        if (_socialDrawerOpen && now >= _nextSocialReload)
+                        if (now >= _nextSocialReload)
                             BeginSocialLoad(force: false);
                         RefreshSocialUi();
                     }
@@ -561,7 +561,7 @@ namespace MphRead.Mods.Launcher.Gui
             SetText("social_status", "SYNCING SOCIAL");
             SetBool("social_loading", true);
             _socialLoad = SocialClient.LoadAsync(_socialCancel.Token);
-            _nextSocialReload = now + 15000;
+            _nextSocialReload = now + (_socialDrawerOpen ? 15000 : 60000);
         }
 
         private static void BeginSocialLookup(string primeId)
@@ -723,6 +723,7 @@ namespace MphRead.Mods.Launcher.Gui
             if (action == "social:close")
             {
                 _socialDrawerOpen = false;
+                _nextSocialReload = Environment.TickCount64 + 60000;
                 NativeFocus("social");
                 return;
             }
