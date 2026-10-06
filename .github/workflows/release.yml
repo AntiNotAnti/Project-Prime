@@ -413,6 +413,14 @@ jobs:
             mkdir -p "publish/$target"
             cp -a "builds/build-linux-$target/." "publish/$target/"
           done
+
+          # Artifact upload/download is a content transport, not a reliable
+          # Unix-mode transport. Restore executable bits after assembly so the
+          # x64 smoke tests run the actual apphosts and the ARM64 tarball is
+          # usable immediately after extraction on the target machine.
+          chmod +x publish/linux-x64/ProjectPrime
+          chmod +x publish/linux-x64-server/ProjectPrime
+          chmod +x publish/linux-arm64/ProjectPrime
       - name: nothing from the game is in the output
         run: >
           tools/check-no-game-assets.sh publish/win-x64 publish/linux-x64
