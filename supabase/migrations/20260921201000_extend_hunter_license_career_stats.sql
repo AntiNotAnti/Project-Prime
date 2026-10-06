@@ -163,7 +163,7 @@ begin
         'cosmetics', coalesce(v_cosmetics, '[]'::jsonb)
     );
 end;
-$function$
+$function$;
 
 
 revoke all on function public.project_prime_hunter_license(text,integer)
