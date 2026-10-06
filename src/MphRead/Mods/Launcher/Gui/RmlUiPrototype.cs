@@ -700,11 +700,23 @@ namespace MphRead.Mods.Launcher.Gui
                 _nextSocialReload = 0;
                 BeginSocialLoad(force: true);
                 RefreshSocialUi(force: true);
+                NativeFocus("social_tab_friends");
                 return;
             }
             if (action == "social:close")
             {
                 _socialDrawerOpen = false;
+                NativeFocus("social");
+                return;
+            }
+            if (action.StartsWith("social:context:", StringComparison.Ordinal))
+            {
+                NativeFocus("social_context_close");
+                return;
+            }
+            if (action == "social:context-close")
+            {
+                NativeFocus(SocialTabFocusId());
                 return;
             }
             if (action == "social:refresh")
@@ -751,7 +763,16 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             BeginSocialMutation(verb, primeId);
+            NativeFocus(SocialTabFocusId());
         }
+
+        private static string SocialTabFocusId() => _socialTab switch
+        {
+            1 => "social_tab_players",
+            2 => "social_tab_requests",
+            3 => "social_blocks",
+            _ => "social_tab_friends"
+        };
 
         private static void RefreshSocialUi(bool force = false)
         {
@@ -1296,6 +1317,10 @@ namespace MphRead.Mods.Launcher.Gui
 
         [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_back")]
         private static extern int NativeBack();
+
+        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_focus")]
+        private static extern int NativeFocus(
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string id);
 
         [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_take_action")]
         private static extern int NativeTakeAction([Out] byte[] buffer, int capacity);
