@@ -2398,7 +2398,7 @@ namespace MphRead.Mods
             Console.WriteLine($"[thumbnails] rendering {rooms.Count} preview(s) at "
                 + $"{width}x{height}, {jobs} at a time");
             Console.WriteLine($"[thumbnails] output: {ThumbnailGenerator.CacheDirectory}");
-            int written = ThumbnailBatch.Run(rooms, jobs, width, height);
+            int written = ThumbnailBatch.Run(rooms, jobs, width, height, force: force);
             Console.WriteLine($"[thumbnails] done -- {written}/{rooms.Count} written");
         }
 

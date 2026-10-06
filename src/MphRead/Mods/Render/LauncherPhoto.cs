@@ -194,8 +194,8 @@ namespace MphRead.Mods.Render
             float zoom = Math.Clamp(LauncherBackdrop.Zoom, 0.84f, 1f);
             u *= zoom;
             v *= zoom;
-            float centreU = 0.5f;
-            float centreV = 0.5f;
+            float centreU = LauncherBackdrop.FocusX;
+            float centreV = LauncherBackdrop.FocusY;
             if (!LauncherPrefs.ReduceMotion)
             {
                 double seconds = Environment.TickCount64 / 1000.0;
@@ -300,6 +300,23 @@ namespace MphRead.Mods.Render
         /// launcher then looks the way it does over a match: the washes on
         /// black, which is a screen rather than a crash.
         /// </summary>
+        /// <summary>
+        /// Force the current cinematic image to be re-read on the next frame.
+        /// Called on the render thread after a background thumbnail worker has
+        /// replaced the file on disk.
+        /// </summary>
+        public static void Invalidate()
+        {
+            if (_texture != 0)
+            {
+                GL.DeleteTexture(_texture);
+                _texture = 0;
+            }
+            _loadedKey = "";
+            _width = _height = 0;
+            _lastAttemptAt = 0;
+        }
+
         private static bool Ensure()
         {
             string key = LauncherBackdrop.CacheKey;

@@ -75,6 +75,9 @@ namespace MphRead
         /// </summary>
         public static bool LauncherPreviewTransparent { get; set; }
 
+        /// <summary>Presentation-only launcher preview camera distance.</summary>
+        public static float LauncherPreviewDistanceScale { get; set; } = 1f;
+
         /// <summary>Did anybody ask for a preview this frame?</summary>
         private static bool PreviewAsked => Mods.EndScreen.Available || LauncherPreview;
 
@@ -261,12 +264,13 @@ namespace MphRead
         /// wide enough to read the shape, narrow enough not to distort it the
         /// way a wide angle at this distance would.
         /// </summary>
-        private static Matrix4 PreviewView(Hunter hunter, float aspect)
+        private static Matrix4 PreviewView(Hunter hunter, float aspect, float distanceScale = 1f)
         {
             // Trace's raised limbs and Spire's shoulders extend beyond the
             // shared biped framing. Narrow panels need horizontal room too.
             float distance = hunter == Hunter.Trace ? 4.6f : hunter == Hunter.Spire ? 4.2f : 3.9f;
             float targetHeight = hunter == Hunter.Trace ? 1.2f : 1.05f;
+            distance *= Math.Clamp(distanceScale, 0.65f, 1.25f);
             distance *= Math.Max(1, 1 / Math.Max(0.1f, aspect));
             return Matrix4.LookAt(new Vector3(0, targetHeight + 0.1f, distance),
                 new Vector3(0, targetHeight, 0), Vector3.UnitY);
@@ -432,7 +436,8 @@ namespace MphRead
                 MathHelper.DegreesToRadians(PreviewFov),
                 width / (float)height, 0.1f, 100f);
             Matrix4 view = PreviewView(_preview?.Mode == Mods.Cosmetics.SkinContext.Biped
-                ? _preview.Shown : Hunter.Samus, width / (float)height);
+                ? _preview.Shown : Hunter.Samus, width / (float)height,
+                LauncherPreview ? LauncherPreviewDistanceScale : 1f);
             GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref projection);
             GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref view);
             // No fog, whatever the room does with it: a preview window is not

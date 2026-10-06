@@ -52,6 +52,8 @@ struct PrimeMenuData {
     Rml::String build_version = "local";
     Rml::String renderer_name = "OPENGL // RMLUI 6.3";
     Rml::String ui_cost = "RMLUI DIRECT GPU OVERLAY // MEASURING";
+    bool reduce_motion = false;
+    bool diagnostics_visible = false;
 
     int activity_index = 0;
     Rml::String activity_title = "QUICK PLAY";
@@ -75,6 +77,8 @@ public:
         model.Bind("build_version", &data.build_version);
         model.Bind("renderer_name", &data.renderer_name);
         model.Bind("ui_cost", &data.ui_cost);
+        model.Bind("reduce_motion", &data.reduce_motion);
+        model.Bind("diagnostics_visible", &data.diagnostics_visible);
         model.Bind("activity_index", &data.activity_index);
         model.Bind("activity_title", &data.activity_title);
         model.Bind("activity_description", &data.activity_description);
@@ -108,6 +112,14 @@ public:
         else if (name == "build_version") data.build_version = value;
         else if (name == "renderer_name") data.renderer_name = value;
         else if (name == "ui_cost") data.ui_cost = value;
+        else return;
+        handle.DirtyVariable(name);
+    }
+
+    void SetBool(const std::string& name, bool value)
+    {
+        if (name == "reduce_motion") data.reduce_motion = value;
+        else if (name == "diagnostics_visible") data.diagnostics_visible = value;
         else return;
         handle.DirtyVariable(name);
     }
@@ -389,6 +401,11 @@ PP_EXPORT int pp_rmlui_text(unsigned int codepoint)
 PP_EXPORT void pp_rmlui_set_text(const char* name, const char* value)
 {
     if (g_model && name) g_model->SetText(name, value ? value : "");
+}
+
+PP_EXPORT void pp_rmlui_set_bool(const char* name, int value)
+{
+    if (g_model && name) g_model->SetBool(name, value != 0);
 }
 
 PP_EXPORT int pp_rmlui_take_action(unsigned char* buffer, int capacity)

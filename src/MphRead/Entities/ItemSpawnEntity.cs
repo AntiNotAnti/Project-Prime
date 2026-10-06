@@ -224,6 +224,10 @@ namespace MphRead.Entities
 
         public override void GetDrawInfo()
         {
+            if (Mods.ThumbnailMode.SuppressPickupPresentation)
+            {
+                return;
+            }
             if (IsVisible(NodeRef))
             {
                 base.GetDrawInfo();

@@ -38,11 +38,34 @@ namespace MphRead.Mods.Launcher
         /// </summary>
         public static float Zoom => _scene switch
         {
-            LauncherBackdropScene.Home => 0.91f,
+            LauncherBackdropScene.Home => 0.89f,
+            LauncherBackdropScene.Play => 0.88f,
+            LauncherBackdropScene.Multiplayer => 0.86f,
+            LauncherBackdropScene.Offline => 0.88f,
             LauncherBackdropScene.Adventure => 0.90f,
             LauncherBackdropScene.ReplayStudio => 0.94f,
             LauncherBackdropScene.Settings => 0.96f,
             _ => 0.93f
+        };
+
+        /// <summary>
+        /// Cinematic crop center in normalized source-image coordinates.
+        /// Generated previews are authored as level overviews, while the home
+        /// screen needs room on the left for activity chrome and on the right
+        /// for the Hunter. Keep the focal architecture slightly above/left.
+        /// </summary>
+        public static float FocusX => _scene switch
+        {
+            LauncherBackdropScene.Home or LauncherBackdropScene.Play
+                or LauncherBackdropScene.Multiplayer or LauncherBackdropScene.Offline => 0.46f,
+            _ => 0.5f
+        };
+
+        public static float FocusY => _scene switch
+        {
+            LauncherBackdropScene.Home or LauncherBackdropScene.Play
+                or LauncherBackdropScene.Multiplayer or LauncherBackdropScene.Offline => 0.44f,
+            _ => 0.5f
         };
 
         public static void Set(LauncherBackdropScene scene, string? roomKey = null)

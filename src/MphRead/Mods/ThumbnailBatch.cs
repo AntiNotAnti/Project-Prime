@@ -67,7 +67,8 @@ namespace MphRead.Mods
         public static int Run(IReadOnlyList<string> rooms, int parallelism,
                               int width, int height, Action<string>? report = null,
                               TimeSpan? workerTimeout = null,
-                              CancellationToken cancel = default)
+                              CancellationToken cancel = default,
+                              bool force = false)
         {
             // Setup and the front screen can request previews concurrently.
             // Recheck the cache after waiting rather than starting duplicate workers.
@@ -83,7 +84,15 @@ namespace MphRead.Mods
                 foreach (string room in rooms)
                 {
                     cancel.ThrowIfCancellationRequested();
-                    if (!ThumbnailGenerator.Exists(room)) missing.Add(room);
+                    if (force)
+                    {
+                        ThumbnailGenerator.InvalidateCinematicPresentation(room);
+                        missing.Add(room);
+                    }
+                    else if (!ThumbnailGenerator.Exists(room))
+                    {
+                        missing.Add(room);
+                    }
                 }
                 if (missing.Count == 0) return 0;
                 ThumbnailLog.Begin(missing.Count);
@@ -92,9 +101,9 @@ namespace MphRead.Mods
                 if (timeout <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(workerTimeout));
                 string? exePath = Environment.ProcessPath;
                 if (exePath == null)
-                    return RunSerial(missing, width, height, report, cancel);
+                    return RunSerial(missing, width, height, report, cancel, force);
                 int written = RunWorkers(missing, parallelism, width, height, exePath,
-                    timeout, report, cancel, out List<string> failed, out bool abnormalExit);
+                    timeout, report, cancel, force, out List<string> failed, out bool abnormalExit);
                 if (abnormalExit)
                 {
                     _workerFailed = true;
@@ -110,7 +119,7 @@ namespace MphRead.Mods
                     report?.Invoke(note);
                     ThumbnailLog.Write(note);
                     written += RunWorkers(failed, 1, width, height, exePath, timeout,
-                        report, cancel, out _, out _workerFailed);
+                        report, cancel, force, out _, out _workerFailed);
                 }
                 return written;
             }
@@ -119,6 +128,7 @@ namespace MphRead.Mods
         private static int RunWorkers(IReadOnlyList<string> rooms, int parallelism,
                                       int width, int height, string exePath, TimeSpan timeout,
                                       Action<string>? report, CancellationToken cancel,
+                                      bool force,
                                       out List<string> failedRooms, out bool abnormalExit)
         {
             failedRooms = new List<string>();
@@ -179,7 +189,11 @@ namespace MphRead.Mods
             {
                 foreach (string room in rooms)
                 {
-                    if (!pending.Contains(room) || !ThumbnailGenerator.Exists(room)) continue;
+                    if (!pending.Contains(room)) continue;
+                    bool complete = force
+                        ? ThumbnailGenerator.HasCinematicPresentation(room)
+                        : ThumbnailGenerator.Exists(room);
+                    if (!complete) continue;
                     pending.Remove(room);
                     written++;
                     report?.Invoke($"[thumbnails] {written}/{rooms.Count} ok {room}");
@@ -308,13 +322,14 @@ namespace MphRead.Mods
         }
 
         private static int RunSerial(IReadOnlyList<string> rooms, int width, int height,
-                                      Action<string>? report, CancellationToken cancel)
+                                      Action<string>? report, CancellationToken cancel,
+                                      bool force)
         {
             int written = 0;
             for (int i = 0; i < rooms.Count; i++)
             {
                 cancel.ThrowIfCancellationRequested();
-                if (ThumbnailGenerator.Exists(rooms[i]))
+                if (!force && ThumbnailGenerator.Exists(rooms[i]))
                 {
                     continue;
                 }

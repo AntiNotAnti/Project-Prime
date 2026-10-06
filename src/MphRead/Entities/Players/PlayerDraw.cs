@@ -85,6 +85,14 @@ namespace MphRead.Entities
                 // nobody, which is exactly how it was reported.
                 return;
             }
+            if (IsMainPlayer && Mods.ThumbnailMode.SuppressLocalPlayerPresentation)
+            {
+                // Thumbnail capture still needs a real player to drive the
+                // authored intro camera, but the resulting image is menu-stage
+                // environment art. Do not photograph that driver's body,
+                // shadow, arm cannon, muzzle effects, or viewmodel smoke.
+                return;
+            }
             DrawShadow(drawPosition);
             if (IsMainPlayer && ScanVisor)
             {
