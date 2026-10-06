@@ -109,6 +109,7 @@ namespace MphRead.Mods.Render
                 finally
                 {
                     LauncherHunter.CinematicLighting = false;
+                    Scene.LauncherPreviewCinematicLighting = false;
                 }
                 // The fixed-function RmlUi renderer samples unit 0. The scene
                 // and preview are free to leave a different unit active.
