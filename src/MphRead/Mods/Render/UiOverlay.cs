@@ -86,13 +86,30 @@ namespace MphRead.Mods.Render
             // washes over it -- and note that the composite is unchanged: the
             // overlay blends premultiplied, which is the same "over" Avalonia
             // applied when it owned both layers.
+#if MPHREAD_RMLUI_POC
+            bool rmlStage = Mods.Launcher.Gui.RmlUiPrototype.Active;
+            LauncherPhoto.StageFxEnabled = rmlStage;
+            LauncherStageFx.Enabled = rmlStage;
+#else
+            LauncherPhoto.StageFxEnabled = false;
+#endif
             LauncherPhoto.Draw(width, height);
 #if MPHREAD_RMLUI_POC
-            if (Mods.Launcher.Gui.RmlUiPrototype.Active)
+            if (rmlStage)
             {
-                // The proof is a real game overlay: cinematic backdrop, engine
-                // Hunter, then vector UI. No CPU-rasterized full-window texture.
-                LauncherHunter.Draw(window, width, height);
+                // Stage dressing belongs under the model. Drawing these cues in
+                // RmlUi would tint the Hunter itself because vector UI is the
+                // last layer in the composite.
+                LauncherStageFx.DrawUnderHunter(width, height);
+                LauncherHunter.CinematicLighting = true;
+                try
+                {
+                    LauncherHunter.Draw(window, width, height);
+                }
+                finally
+                {
+                    LauncherHunter.CinematicLighting = false;
+                }
                 // The fixed-function RmlUi renderer samples unit 0. The scene
                 // and preview are free to leave a different unit active.
                 GL.ActiveTexture(TextureUnit.Texture0);
@@ -122,7 +139,12 @@ namespace MphRead.Mods.Render
         /// <summary>Give the texture back. The context has to be current.</summary>
         public static void Release()
         {
-            try { _overlay.Release(); }
+            try
+            {
+                _overlay.Release();
+                LauncherStageFx.Release();
+                LauncherPhoto.StageFxEnabled = false;
+            }
             finally { Visible = false; }
         }
 
@@ -132,6 +154,8 @@ namespace MphRead.Mods.Render
         internal static void ForgetRendererResources()
         {
             _overlay.Forget();
+            LauncherStageFx.ForgetRendererResources();
+            LauncherPhoto.StageFxEnabled = false;
             Visible = false;
         }
     }
