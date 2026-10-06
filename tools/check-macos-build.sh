@@ -10,6 +10,8 @@ case "$2" in
 esac
 [[ -x "$root/ProjectPrime" ]] || { echo 'error: ProjectPrime is not executable' >&2; exit 1; }
 [[ -f "$root/libopenal.1.dylib" ]] || { echo 'error: missing OpenAL' >&2; exit 1; }
+[[ -f "$root/libwgpu_native.dylib" ]] || { echo 'error: missing wgpu-native' >&2; exit 1; }
+[[ -f "$root/libktx.dylib" ]] || { echo 'error: missing KTX runtime' >&2; exit 1; }
 list=$(mktemp)
 entitlements=$(mktemp)
 trap 'rm -f "$list" "$entitlements"' EXIT

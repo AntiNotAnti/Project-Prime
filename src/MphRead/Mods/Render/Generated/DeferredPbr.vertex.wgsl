@@ -220,7 +220,7 @@ fn prime_sample_emissive_tex(uv_6: vec2<f32>) -> vec4<f32> {
 
 fn prime_original_main() {
     var stack_mtx: mat4x4<f32>;
-    var packed: f32;
+    var packedJoints: f32;
     var j0_: i32;
     var j1_: i32;
     var j2_: i32;
@@ -245,23 +245,23 @@ fn prime_original_main() {
         {
             let _e205: vec3<f32> = prime_uv_1;
             let _e214: vec3<f32> = prime_uv_1;
-            packed = floor((vec4<f32>(_e214.x, _e214.y, _e214.z, 0f).z + 0.5f));
-            let _e227: f32 = packed;
+            packedJoints = floor((vec4<f32>(_e214.x, _e214.y, _e214.z, 0f).z + 0.5f));
+            let _e227: f32 = packedJoints;
             j0_ = i32((_e227 - (floor((_e227 / 32f)) * 32f)));
-            let _e235: f32 = packed;
-            let _e238: f32 = packed;
-            packed = floor((_e238 / 32f));
-            let _e244: f32 = packed;
+            let _e235: f32 = packedJoints;
+            let _e238: f32 = packedJoints;
+            packedJoints = floor((_e238 / 32f));
+            let _e244: f32 = packedJoints;
             j1_ = i32((_e244 - (floor((_e244 / 32f)) * 32f)));
-            let _e252: f32 = packed;
-            let _e255: f32 = packed;
-            packed = floor((_e255 / 32f));
-            let _e261: f32 = packed;
+            let _e252: f32 = packedJoints;
+            let _e255: f32 = packedJoints;
+            packedJoints = floor((_e255 / 32f));
+            let _e261: f32 = packedJoints;
             j2_ = i32((_e261 - (floor((_e261 / 32f)) * 32f)));
-            let _e269: f32 = packed;
-            let _e272: f32 = packed;
-            packed = floor((_e272 / 32f));
-            let _e278: f32 = packed;
+            let _e269: f32 = packedJoints;
+            let _e272: f32 = packedJoints;
+            packedJoints = floor((_e272 / 32f));
+            let _e278: f32 = packedJoints;
             j3_ = i32((_e278 - (floor((_e278 / 32f)) * 32f)));
             let _e286: f32 = prime_color_set_1;
             if (_e286 > 0.5f) {

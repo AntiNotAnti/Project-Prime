@@ -19,6 +19,13 @@ if [ "$(git -C "${source_dir}" rev-parse HEAD)" != "${revision}" ]; then
   git -C "${source_dir}" submodule update --init --recursive --depth 1
 fi
 
+# The pinned KTX revision keeps zstd.h beside basisu but zstd_errors.h in
+# other_include. macos-15-intel has a newer /usr/local zstd_errors.h and its
+# AppleClang can select that system header before the CMake -isystem path,
+# leaving ZSTD_getErrorCode undeclared. Keep the pin/ABI and make the matching
+# pinned header adjacent to zstd.h so normal -I resolution wins deterministically.
+cp "${source_dir}/other_include/zstd_errors.h"    "${source_dir}/external/basisu/zstd/zstd_errors.h"
+
 common=(
   -G Ninja
   -DCMAKE_BUILD_TYPE=Release

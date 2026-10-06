@@ -205,6 +205,8 @@ jobs:
           PROJECT_PRIME_USER_DATA: ${{ github.workspace }}/.release-user-data
         run: |
           set -euo pipefail
+          rm -rf "$PROJECT_PRIME_USER_DATA"
+          mkdir -p "$PROJECT_PRIME_USER_DATA/user-maps"
           dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
           find "$PROJECT_PRIME_USER_DATA/user-maps" -type f -name '*.ppmap' -exec cp {} maps/ \;
       - uses: actions/upload-artifact@v7
@@ -346,12 +348,31 @@ jobs:
             ndk="$ANDROID_HOME/ndk/28.2.13676358"
           fi
           ANDROID_NDK_ROOT="$ndk" tools/wgpu/build-native.sh android-arm64
+          ANDROID_NDK_ROOT="$ndk" tools/wgpu/build-native.sh android-x64
+          ANDROID_NDK_ROOT="$ndk" tools/ktx/build-native.sh android-arm64
+          ANDROID_NDK_ROOT="$ndk" tools/ktx/build-native.sh android-x64
           dotnet publish "$proj" -c Release -p:AndroidPackageFormat=apk "${sdk[@]}" \
             "${signing[@]}" \
             -p:Version="$VERSION" -p:InformationalVersion="$VERSION" \
             -p:ApplicationDisplayVersion="$VERSION" \
             -p:ApplicationVersion="$ANDROID_VERSION_CODE" \
             -o publish/android
+      - name: verify Android native runtimes
+        run: |
+          set -euo pipefail
+          apk=$(ls publish/android/*-Signed.apk | head -1)
+          entries="$RUNNER_TEMP/project-prime-apk-entries.txt"
+          unzip -Z1 "$apk" > "$entries"
+          for native in \
+            lib/arm64-v8a/libwgpu_native.so \
+            lib/x86_64/libwgpu_native.so \
+            lib/arm64-v8a/libktx.so \
+            lib/x86_64/libktx.so; do
+            grep -Fxq "$native" "$entries" || {
+              echo "::error::release APK is missing $native"
+              exit 1
+            }
+          done
       - name: report the APK's signer
         run: |
           set -euo pipefail
@@ -633,6 +654,7 @@ jobs:
         run: |
           set -euo pipefail
           tools/wgpu/build-native.sh "$RID"
+          tools/ktx/build-native.sh "$RID"
           dotnet publish src/MphRead/MphRead.csproj -c Release -r "$RID" \
             -p:Version="$VERSION" -p:InformationalVersion="$VERSION" \
             --self-contained true -p:PublishSingleFile=true -o "publish/$RID"
