@@ -1,0 +1,15 @@
+{
+  "hunter": "Kanden",
+  "acceptedLod0Root": "artifacts/sourceio-hd/material-weapon-review-v2/kanden/biped/releases/lod0-v3",
+  "sourceGlbSha256": "597b0dde50cd812788ab3b7c0a7f2939674d1fd6ad712b5445ad0902db47bd59",
+  "sourceBlendSha256": "71e438e1f6297ab4c01e75cc51a1f52579ada59f1bd68760805b83a3ceed9e6a",
+  "collapseRatio": 0.4,
+  "minimumTriangles": 6000,
+  "maximumTriangles": 8000,
+  "headProtection": 0.5,
+  "muzzleProtectionRadiusFraction": 0.035,
+  "sharpAngleDegrees": 35,
+  "materialNames": {},
+  "preserveAlphaTriangles": true,
+  "preserveEmissiveTriangles": true
+}

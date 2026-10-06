@@ -1,0 +1,15 @@
+{
+  "hunter": "Trace",
+  "acceptedLod0Root": "artifacts/sourceio-hd/material-weapon-review-v2/trace/biped/releases/lod0-v3",
+  "sourceGlbSha256": "fb0499c46f5fbfd605477ff55e50bd5575191eb1f3f9c7d7444944b53c6bbcfe",
+  "sourceBlendSha256": "502bba7ba529636e0bbf498c5d23cbb027cb37290fb0a229cf1d2e0ff57c8da1",
+  "collapseRatio": 0.4,
+  "minimumTriangles": 15000,
+  "maximumTriangles": 21000,
+  "headProtection": 0.5,
+  "muzzleProtectionRadiusFraction": 0.035,
+  "sharpAngleDegrees": 35,
+  "materialNames": {},
+  "preserveAlphaTriangles": true,
+  "preserveEmissiveTriangles": true
+}

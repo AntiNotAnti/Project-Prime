@@ -1471,7 +1471,11 @@ namespace MphRead.Mods
                 Render.Characters.CharacterModelPack.ForceMobileTierForCheck=HasFlag(args,"mobiletextures");
                 Render.Characters.CharacterModelRuntime.ResetPackForCheck();
                 Environment.ExitCode = Render.Characters.CharacterAcceptanceCheck.Run(lodRoom,
-                    ValueAfter(args, "output") ?? "lod1-acceptance", lodSweep: true);
+                    ValueAfter(args, "output") ?? "lod1-acceptance", lodSweep: true,
+                    hunter: ValueAfter(args, "hunter") is string lodHunter
+                        ? Enum.Parse<Hunter>(lodHunter, ignoreCase: true) : Hunter.Samus,
+                    muzzleAudit: ValueAfter(args, "muzzleaudit"),
+                    lod1MuzzleAudit: ValueAfter(args, "lod1muzzleaudit"));
                 return true;
             }
             if (ValueAfter(args, "characteracceptancecheck") is string acceptanceRoom)

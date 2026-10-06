@@ -1,0 +1,17 @@
+{
+  "hunter": "Weavel",
+  "acceptedLod0Root": "artifacts/sourceio-hd/material-weapon-review-v2/weavel/biped/releases/lod0-v3",
+  "sourceGlbSha256": "21501b5e9338cd50d8f934325828f49f8db0a7b40edc353417db191e5946a0fa",
+  "sourceBlendSha256": "7a2c18155d7d33a9aa5c396660e40f001dc4874e2d73625ca7c8c908ebf09eb0",
+  "collapseRatio": 0.75,
+  "minimumTriangles": 8000,
+  "maximumTriangles": 18000,
+  "headProtection": 0.5,
+  "muzzleProtectionRadiusFraction": 0.035,
+  "sharpAngleDegrees": 35,
+  "materialNames": {},
+  "preserveAlphaTriangles": true,
+  "protectedNativeBones": ["L_wrist", "R_wrist", "R_elbow"],
+  "protectInternalUvSeams": true,
+  "preserveEmissiveTriangles": true
+}

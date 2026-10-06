@@ -1,0 +1,15 @@
+{
+  "hunter": "Noxus",
+  "acceptedLod0Root": "artifacts/sourceio-hd/material-weapon-review-v2/noxus/biped/releases/lod0-v3",
+  "sourceGlbSha256": "3e64ae8fc047b8bbea2a82995f6a8fcbe4b1406f49dfcbc840da2bf6eec60fea",
+  "sourceBlendSha256": "7ed5208ff11245a8414b085bbb179a9ea2d91dbba96e8c5359407bf5db88dcfa",
+  "collapseRatio": 0.4,
+  "minimumTriangles": 12000,
+  "maximumTriangles": 17000,
+  "headProtection": 0.5,
+  "muzzleProtectionRadiusFraction": 0.035,
+  "sharpAngleDegrees": 35,
+  "materialNames": {},
+  "preserveAlphaTriangles": true,
+  "preserveEmissiveTriangles": true
+}

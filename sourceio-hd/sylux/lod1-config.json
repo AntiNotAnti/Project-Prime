@@ -1,0 +1,19 @@
+{
+  "hunter": "Sylux",
+  "acceptedLod0Root": "artifacts/sourceio-hd/material-weapon-review-v2/sylux/biped/releases/lod0-v3",
+  "sourceGlbSha256": "fe47447358df01a954a18dfe0d78b28621f59af480b105da0db72f53099cb800",
+  "sourceBlendSha256": "46b135b28abf5601627dc945c072c39e87c236a3f3d62faa87e561b28f3733c1",
+  "collapseRatio": 0.48,
+  "minimumTriangles": 6000,
+  "maximumTriangles": 7500,
+  "headProtection": 0.5,
+  "muzzleProtectionRadiusFraction": 0.035,
+  "sharpAngleDegrees": 35,
+  "materialNames": {
+    "biped": "Sylux_tga",
+    "biped1": "sylux1"
+  },
+  "preserveAlphaTriangles": true,
+  "protectInternalUvSeams": true,
+  "preserveEmissiveTriangles": true
+}

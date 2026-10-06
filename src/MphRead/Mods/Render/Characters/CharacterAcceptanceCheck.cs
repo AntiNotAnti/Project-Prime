@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
+using MphRead.Effects;
 using MphRead.Entities;
 using MphRead.Formats;
 using MphRead.Mods.Input;
@@ -32,6 +33,29 @@ internal static class CharacterAcceptanceCheck
         if (!condition) throw new InvalidOperationException(message);
     }
 
+    private sealed record MuzzleCheck(string Path, string Sha256, Vector3 RestPoint, string NativeBone);
+    private static string FileSha256(string path) =>
+        Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
+
+    private static MuzzleCheck ReadMuzzleCheck(string path, Hunter hunter, out bool nativeBind, out bool teamRecolors)
+    {
+        byte[] bytes = File.ReadAllBytes(path);
+        using var document = JsonDocument.Parse(bytes);
+        Require(document.RootElement.GetProperty("hunter").GetString() == hunter.ToString(), "Muzzle audit hunter differs.");
+        var proof = document.RootElement.GetProperty("muzzleProof");
+        nativeBind = document.RootElement.TryGetProperty("inheritedNativeBindScalePreserved", out var fullBind) && fullBind.GetBoolean();
+        teamRecolors = document.RootElement.TryGetProperty("teamRecolorsRequired", out var teamRequired) && teamRequired.GetBoolean();
+        var point = proof.GetProperty("restPoint").EnumerateArray().Select(n => n.GetSingle()).ToArray();
+        var local = proof.GetProperty("nativeLocalPoint").EnumerateArray().Select(n => n.GetSingle()).ToArray();
+        Require(point.Length == 3 && local.Length == 3, "Muzzle audit needs three-component points.");
+        Require((new Vector3(local[0],local[1],local[2])-Metadata.MuzzleOffests[(int)hunter]).Length < .00001f,
+            "Configured muzzle differs from authoritative native gameplay offset.");
+        string bone = proof.GetProperty("nativeBone").GetString()!;
+        Require(!string.IsNullOrWhiteSpace(bone), "Muzzle audit needs a native bone.");
+        return new(Path.GetFullPath(path), Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(),
+            new Vector3(point[0],point[1],point[2]), bone);
+    }
+
     // Match AnimateNode's S/Rx/Ry/Rz/T order using the native reference values.
     // ComputeNodeMatrices serves legacy static models and has a different M32
     // expression; it is not the character animation transform implementation.
@@ -45,10 +69,13 @@ internal static class CharacterAcceptanceCheck
         return node.ParentIndex < 0 ? local : local * NativeRestTransform(model, node.ParentIndex);
     }
 
-    internal static int Run(string room, string output, bool lodSweep = false, bool morphSweep = false, bool materialSweep = false, Hunter hunter = Hunter.Samus, string? muzzleAudit = null, bool fidelitySweep = false)
+    internal static int Run(string room, string output, bool lodSweep = false, bool morphSweep = false, bool materialSweep = false, Hunter hunter = Hunter.Samus, string? muzzleAudit = null, bool fidelitySweep = false, string? lod1MuzzleAudit = null)
     {
         string directory = Path.GetFullPath(output);
         Directory.CreateDirectory(directory);
+        // A failed rerun must not leave an earlier successful receipt visible.
+        File.Delete(Path.Combine(directory,"acceptance.json"));
+        File.Delete(Path.Combine(directory,"failure.txt"));
         bool oldBright = RenderOptions.BrightSkins, oldForce = MapAudit.ForceEveryone;
         bool oldDetail = Features.MaxPlayerDetail;
         bool oldAdvanced = RenderOptions.AdvancedMaterials;
@@ -59,31 +86,30 @@ internal static class CharacterAcceptanceCheck
         var frames = new List<object>();
         var failures = new List<string>();
         var cases = new List<object>();
-        Vector3? muzzleRestPoint = null;
-        string? muzzleNativeBone = null;
+        bool rosterLodSweep = lodSweep && hunter != Hunter.Samus;
+        var muzzleChecks = new Dictionary<int, MuzzleCheck>();
         float maximumMuzzleError = 0;
         int muzzleCheckedFrames = 0;
+        int[] muzzleCheckedFramesByLod = new int[2];
+        float[] maximumMuzzleErrorByLod = new float[2];
         int authoredSurfaceCheckedFrames = 0, transparentSurfaceCheckedFrames = 0;
         bool teamRecolorsRequired = false;
         int teamRecolorCheckedFrames = 0;
-        bool requireNativeBindIdentity = false;
+        bool requireNativeBindIdentity = lodSweep;
         float maximumNativeBindError = 0;
-        if (muzzleAudit != null)
-        {
-            using var document = JsonDocument.Parse(File.ReadAllText(muzzleAudit));
-            Require(document.RootElement.GetProperty("hunter").GetString() == hunter.ToString(), "Muzzle audit hunter differs.");
-            var proof = document.RootElement.GetProperty("muzzleProof");
-            requireNativeBindIdentity = document.RootElement.TryGetProperty("inheritedNativeBindScalePreserved", out var fullBind) && fullBind.GetBoolean();
-            teamRecolorsRequired = document.RootElement.TryGetProperty("teamRecolorsRequired", out var teamRequired) && teamRequired.GetBoolean();
-            var point = proof.GetProperty("restPoint").EnumerateArray().Select(n => n.GetSingle()).ToArray();
-            muzzleRestPoint = new Vector3(point[0],point[1],point[2]);
-            muzzleNativeBone = proof.GetProperty("nativeBone").GetString();
-            var local = proof.GetProperty("nativeLocalPoint").EnumerateArray().Select(n => n.GetSingle()).ToArray();
-            Require((new Vector3(local[0],local[1],local[2])-Metadata.MuzzleOffests[(int)hunter]).Length < .00001f,
-                "Configured muzzle differs from authoritative native gameplay offset.");
-        }
         try
         {
+            // LOD1 can have different native bind translations. Its proof must
+            // use its own authored rest point, never the LOD0 rest point.
+            foreach (var check in new[] { (Lod: 0, Path: muzzleAudit), (Lod: 1, Path: lod1MuzzleAudit) })
+            {
+                if (check.Path == null) continue;
+                muzzleChecks.Add(check.Lod, ReadMuzzleCheck(check.Path, hunter, out bool nativeBind, out bool recolors));
+                requireNativeBindIdentity |= nativeBind;
+                teamRecolorsRequired |= recolors;
+            }
+            if (rosterLodSweep)
+                Require(muzzleChecks.Count == 2, "Non-Samus LOD acceptance requires -muzzleaudit and -lod1muzzleaudit for both native binds.");
             GameSettings.Apply(GameState.LoadSettings());
             Require(RenderOptions.CharacterModelReplacements, "HD character models must already be enabled.");
             DebugLog.Force();
@@ -140,6 +166,7 @@ internal static class CharacterAcceptanceCheck
                 ("team-orange",60), ("team-green",60), ("double-damage",90), ("death-respawn",300)
             };
             if (lodSweep) stages.AddRange(new[] { ("lod-threshold-sweep",240), ("max-detail-override",60), ("lod1-restored",60), ("neutral-comparison",60) });
+            if (rosterLodSweep) stages.Insert(stages.FindIndex(s => s.Name == "lod-threshold-sweep"), ("respawn-lod-switch",60));
             if (morphSweep) stages.AddRange(new[] {
                 ("ball-enter",60), ("ball-idle",60), ("ball-materials-on",60), ("ball-materials-off",60),
                 ("ball-roll-forward",120), ("ball-roll-strafe",120), ("ball-boost",120), ("ball-stop",180), ("ball-bomb-jump",180),
@@ -163,6 +190,16 @@ internal static class CharacterAcceptanceCheck
             int[] lodFrames = new int[2]; int lodTransitions = 0, previousLod = -1;
             var lodModels = new Dictionary<int, CharacterWeightedRenderModel>();
             var lodAuthored = new Dictionary<int, CharacterWeightedModelData>();
+            var lodAssetAudits = new Dictionary<int, object>();
+            var lodModelHashes = new Dictionary<int, string>();
+            var lodStageCoverage = new Dictionary<string, int[]>();
+            var nativeBipedLists = new HashSet<int>();
+            int[] eligibleFramesByLod = new int[2], fallbackFramesByLod = new int[2];
+            int[] materialCheckedFramesByLod = new int[2], brightCheckedFramesByLod = new int[2];
+            int[] teamCheckedFramesByLod = new int[2], damageCheckedFramesByLod = new int[2];
+            int[] doubleDamageCheckedFramesByLod = new int[2], freezeCheckedFramesByLod = new int[2];
+            int[] muzzleEffectCheckedFramesByLod = new int[2];
+            float[] maximumNativeBindErrorByLod = new float[2];
             long residencyBeforeSecondLod = 0, residencyAfterSecondLod = 0;
             bool airborne = false, falling = false, landed = false, alt = false, morphing = false, unmorphing = false;
             bool frozen = false, died = false, respawned = false, fired = false, doubled = false;
@@ -175,6 +212,8 @@ internal static class CharacterAcceptanceCheck
             foreach (var stage in stages)
             {
                 int submitted = 0, missing = 0, ballBefore = ballFrames;
+                int[] stageLodFrames = new int[2];
+                lodStageCoverage.Add(stage.Name, stageLodFrames);
                 for (int age = 0; age < stage.Count; age++)
                 {
                     target.Controls.ClearAll();
@@ -219,6 +258,10 @@ internal static class CharacterAcceptanceCheck
                             break;
                         case "unmorph": if (age == 0) Hold(target.Controls.Morph, true); break;
                     }
+                    // Ordinary movement keeps passive cloaks from suppressing
+                    // the explicit textured bright/team presentation cases.
+                    if (rosterLodSweep && (stage.Name is "bright-skin" or "team-orange" or "team-green"))
+                        Hold(age < stage.Count / 2 ? target.Controls.MoveLeft : target.Controls.MoveRight);
                     Vector3 previous = target.Position;
                     // Keep the real AI opponent out of the inspection camera. It still
                     // simulates/fires, but cannot stand inside the subject's silhouette.
@@ -270,6 +313,8 @@ internal static class CharacterAcceptanceCheck
                     Follow(scene, target);
                     DesktopGraphicsSession.Resize(window);
                     float lodDistance = stage.Name == "lod-threshold-sweep" ? 3 + .4f * MathF.Sin((age + .25f) * MathF.PI / 15) : 4;
+                    if (rosterLodSweep && stage.Name is not ("lod-threshold-sweep" or "max-detail-override" or "lod1-restored"))
+                        lodDistance = (stage.Name == "damage" ? age % 2 : age / 15 % 2) == 0 ? 2.9f : 3.1f;
                     if (lodSweep) scene.Players.Main.CameraInfo.Position = target.Position + new Vector3(0,0,lodDistance);
                     long textureBytesBeforeDraw = ResidentBytes(scene);
                     scene.OnDrawFrame();
@@ -289,8 +334,9 @@ internal static class CharacterAcceptanceCheck
                         selectedWeighted = resolvedWeighted;
                         expectedPackets = resolvedWeighted.Segments.Count;
                     }
-                    var packets = Items(scene, "_decalItems").Concat(Items(scene, "_nonDecalItems")).Concat(Items(scene, "_translucentItems"))
-                        .Distinct()
+                    var allPackets = Items(scene, "_decalItems").Concat(Items(scene, "_nonDecalItems")).Concat(Items(scene, "_translucentItems"))
+                        .Distinct().ToArray();
+                    var packets = allPackets
                         .Where(item => item.WeightedSkinning && selectedWeighted != null
                             && selectedWeighted.Segments.Any(s => s.ListId == item.ListId)).ToArray();
                     bool eligible = target.Health > 0 && !target.IsAltForm
@@ -298,6 +344,16 @@ internal static class CharacterAcceptanceCheck
                         && !target.Flags2.TestFlag(PlayerFlags2.HideModel);
                     if (eligible)
                     {
+                        eligibleFramesByLod[lod]++;
+                        foreach (var mesh in target.BipedModel2.Model.Meshes)
+                            if (mesh.ListId != 0) nativeBipedLists.Add(mesh.ListId);
+                        int nativePackets = allPackets.Count(p => p.Type == RenderItemType.Mesh && !p.WeightedSkinning && nativeBipedLists.Contains(p.ListId));
+                        bool staleTier = allPackets.Any(p => p.WeightedSkinning && lodModels.Any(pair => pair.Key != lod
+                            && pair.Value.Segments.Any(s => s.ListId == p.ListId)));
+                        if (nativePackets != 0 || staleTier)
+                            failures.Add($"{stage.Name}/{age}: native biped packets={nativePackets}, stale HD tier={staleTier}.");
+                        if (nativePackets != 0 || staleTier || expectedPackets == 0 || packets.Length != expectedPackets)
+                            fallbackFramesByLod[lod]++;
                         if (expectedPackets == 0 || packets.Length != expectedPackets) { missing++; failures.Add($"{stage.Name}/{age}: biped drawn with {packets.Length}/{expectedPackets} Weighted4 packets"); }
                         else
                         {
@@ -313,6 +369,7 @@ internal static class CharacterAcceptanceCheck
                                     Require(residencyBeforeSecondLod > 0 && residencyBeforeSecondLod == residencyAfterSecondLod, "Loading the second LOD increased character texture residency.");
                                 }
                                 lodModels.Add(lod, weighted);
+                                lodModelHashes.Add(lod, FileSha256(weighted.Asset.ModelPath));
                                 checkedJoints = weighted.Joints.Select(j => target.BipedModel2.Model.Nodes[j.NativeNodeIndex].Name).ToArray();
                                 if (requireNativeBindIdentity)
                                 {
@@ -321,9 +378,10 @@ internal static class CharacterAcceptanceCheck
                                         Matrix4 identity = joint.InverseBind * NativeRestTransform(target.BipedModel2.Model, joint.NativeNodeIndex);
                                         for (int row = 0; row < 4; row++)
                                             for (int column = 0; column < 4; column++)
-                                                maximumNativeBindError = MathF.Max(maximumNativeBindError,
+                                                maximumNativeBindErrorByLod[lod] = MathF.Max(maximumNativeBindErrorByLod[lod],
                                                     MathF.Abs(identity[row, column] - (row == column ? 1 : 0)));
                                     }
+                                    maximumNativeBindError = MathF.Max(maximumNativeBindError, maximumNativeBindErrorByLod[lod]);
                                     Require(maximumNativeBindError < .0001f,
                                         $"Inverse binds differ from authoritative native rest transforms: {maximumNativeBindError}");
                                 }
@@ -331,8 +389,34 @@ internal static class CharacterAcceptanceCheck
                                 lodAuthored.Add(lod, authored);
                                 Require(authored.Primitives.Count == weighted.Segments.Count,
                                     "Authored material primitive count differs from rendered segments.");
+                                if (lodSweep)
+                                {
+                                    Require(authored.Joints.Count == weighted.Joints.Count
+                                        && authored.Joints.All(j => target.BipedModel2.Model.Nodes.Any(n => n.Name == j.TargetNode)),
+                                        "LOD skin does not map exclusively to the selected native hierarchy.");
+                                    float maximumWeightSumError = 0;
+                                    int blendedVertices = 0;
+                                    foreach (var vertex in authored.Primitives.SelectMany(p => p.Vertices))
+                                    {
+                                        var w = vertex.Weights;
+                                        Require(float.IsFinite(w.X) && float.IsFinite(w.Y) && float.IsFinite(w.Z) && float.IsFinite(w.W)
+                                            && w.X >= 0 && w.Y >= 0 && w.Z >= 0 && w.W >= 0, "Invalid loaded Weighted4 weights.");
+                                        maximumWeightSumError = MathF.Max(maximumWeightSumError, MathF.Abs(w.X+w.Y+w.Z+w.W-1));
+                                        var joints = CharacterWeightedModelLoader.UnpackJoints(vertex.PackedJoints);
+                                        Require(new[] { joints.J0, joints.J1, joints.J2, joints.J3 }.All(j => j >= 0 && j < authored.Joints.Count),
+                                            "Loaded Weighted4 joint index exceeds native palette.");
+                                        if (new[] { w.X, w.Y, w.Z, w.W }.Count(v => v > .000001f) > 1) blendedVertices++;
+                                    }
+                                    Require(maximumWeightSumError < .00001f, "Loaded Weighted4 weights are not normalized.");
+                                    lodAssetAudits.Add(lod, new { modelPath=weighted.Asset.ModelPath, sha256=lodModelHashes[lod],
+                                        vertices=authored.VertexCount, triangles=authored.IndexCount/3,
+                                        joints=authored.Joints.Select(j => j.TargetNode).ToArray(),
+                                        blendedVertices, maximumLoadedWeightSumError=maximumWeightSumError,
+                                        maximumNativeBindError=maximumNativeBindErrorByLod[lod] });
+                                }
                             }
                             authored = lodAuthored[lod];
+                            checkedJoints = weighted.Joints.Select(j => target.BipedModel2.Model.Nodes[j.NativeNodeIndex].Name).ToArray();
                             foreach (var segment in weighted.Segments)
                             {
                                 var packet = packets.Single(p => p.ListId == segment.ListId);
@@ -381,18 +465,97 @@ internal static class CharacterAcceptanceCheck
                                 if (packet.MatrixStack.Take(packet.MatrixStackCount*16).Any(v => !float.IsFinite(v)))
                                     failures.Add($"{stage.Name}/{age}: non-finite native joint palette");
                             }
-                            if (muzzleRestPoint.HasValue)
+                            stageLodFrames[lod]++;
+                            if (muzzleChecks.TryGetValue(lod, out var muzzleCheck))
                             {
-                                int joint = Array.IndexOf(checkedJoints, muzzleNativeBone);
+                                int joint = Array.IndexOf(checkedJoints, muzzleCheck.NativeBone);
                                 Require(joint >= 0, "Muzzle joint is absent from skin.");
                                 var node = target.BipedModel2.Model.Nodes[weighted.Joints[joint].NativeNodeIndex];
                                 Vector3 expectedMuzzle = Matrix.Vec3MultMtx4(Metadata.MuzzleOffests[(int)hunter], node.Animation);
-                                Vector3 actualMuzzle = Matrix.Vec3MultMtx4(muzzleRestPoint.Value,
+                                Vector3 actualMuzzle = Matrix.Vec3MultMtx4(muzzleCheck.RestPoint,
                                     weighted.Joints[joint].InverseBind * node.Animation);
                                 float error = (actualMuzzle-expectedMuzzle).Length;
                                 maximumMuzzleError = MathF.Max(maximumMuzzleError,error);
+                                maximumMuzzleErrorByLod[lod] = MathF.Max(maximumMuzzleErrorByLod[lod],error);
                                 Require(float.IsFinite(error) && error < .0001f, $"Animated weapon muzzle drift: {stage.Name}/{age}: {error}.");
                                 muzzleCheckedFrames++;
+                                muzzleCheckedFramesByLod[lod]++;
+                                if (rosterLodSweep)
+                                {
+                                    var shootNodes = (Node?[])typeof(PlayerEntity).GetField("_shootNodes", Private)!.GetValue(target)!;
+                                    Require(shootNodes[lod]?.Name == muzzleCheck.NativeBone,
+                                        "LOD muzzle proof does not use the native gameplay emitter bone.");
+                                    bool effectChecked = false;
+                                    foreach (string field in new[] { "_muzzleEffect", "_chargeEffect" })
+                                    {
+                                        var effect = (EffectEntry?)typeof(PlayerEntity).GetField(field,Private)!.GetValue(target);
+                                        if (effect == null || effect.IsFinished || effect.Elements.Count == 0) continue;
+                                        foreach (var element in effect.Elements)
+                                            Require((element.OwnTransform.Row3.Xyz-expectedMuzzle).Length < .0001f,
+                                                $"{stage.Name}/{age}: {field} is detached from the selected native LOD emitter.");
+                                        effectChecked = true;
+                                    }
+                                    if (effectChecked) muzzleEffectCheckedFramesByLod[lod]++;
+                                }
+                            }
+                            if (lodSweep)
+                            {
+                                bool damageFlash = (ushort)typeof(PlayerEntity).GetField("_timeSinceDamage",Private)!.GetValue(target)! < target.Values.DamageFlashTime * 2;
+                                bool checkedBright = false;
+                                for (int index = 0; index < weighted.Segments.Count; index++)
+                                {
+                                    var segment = weighted.Segments[index];
+                                    var material = target.BipedModel2.Model.Materials[segment.NativeMaterialIndex];
+                                    var packet = packets.Single(p => p.ListId == segment.ListId);
+                                    Require(packet.Diffuse == material.CurrentDiffuse && packet.Ambient == material.CurrentAmbient
+                                        && packet.Specular == material.CurrentSpecular, "Selected LOD lost native material animation.");
+                                    Require(packet.PaletteOverride == (damageFlash ? Metadata.RedPalette : (Vector4?)null),
+                                        "Selected LOD lost the native damage-flash palette.");
+                                    bool damageTexture = target.DoubleDamage && material.Lighting > 0;
+                                    int? expectedAlbedo = damageTexture ? target.DoubleDmgBindingId : segment.GetAlbedo(scene,target.Recolor);
+                                    Require(expectedAlbedo.HasValue && packet.HasTexture && packet.TextureBindingId == expectedAlbedo,
+                                        "Selected LOD lost its authored suit/team texture or native double-damage texture.");
+                                    bool authoredTexture = packet.TextureBindingId == segment.GetAlbedo(scene,target.Recolor);
+                                    if (authoredTexture)
+                                    {
+                                        Require(packet.TexgenMode == TexgenMode.Texcoord && packet.TexcoordMatrix == Matrix4.Identity
+                                            && packet.XRepeat == segment.WrapS && packet.YRepeat == segment.WrapT,
+                                            "Selected LOD lost authored UV or sampler state.");
+                                        if (segment.Transparent) Require(packet.RenderMode == RenderMode.Translucent,
+                                            "Selected LOD lost authored alpha blending.");
+                                    }
+                                    Require(packet.CosmeticMaterial.NormalBinding == (authoredTexture && RenderOptions.AdvancedMaterials ? segment.MaterialMaps.Normal : 0)
+                                        && packet.CosmeticMaterial.SpecularBinding == (authoredTexture && RenderOptions.AdvancedMaterials ? segment.MaterialMaps.Specular : 0)
+                                        && packet.CosmeticMaterial.EmissiveBinding == (authoredTexture && RenderOptions.AdvancedMaterials ? segment.MaterialMaps.Emissive : 0),
+                                        "Selected LOD lost its authored companion maps or status override.");
+                                    if (damageTexture)
+                                    {
+                                        Require(packet.TexgenMode == TexgenMode.Normal && packet.Emission == Metadata.EmissionGray,
+                                            "Selected LOD lost native double-damage generated coordinates or emission.");
+                                    }
+                                    else if (target.Team == Team.Orange || target.Team == Team.Green)
+                                        Require(packet.Emission == (target.Team == Team.Orange ? Metadata.EmissionOrange : Metadata.EmissionGreen),
+                                            "Selected LOD lost native team emission.");
+                                    Vector4? expectedColor = damageFlash ? null : BrightSkins.ForMaterial(BrightSkins.GetColor(target),
+                                        material.TextureId != -1, packet.Alpha, scene.ShowTextures);
+                                    Require(packet.OverrideColor == expectedColor,
+                                        "Selected LOD lost the expected bright/team/status surface color.");
+                                    if (expectedColor.HasValue)
+                                    {
+                                        Require(packet.TexturedPlayerSkin && packet.PaletteOverride == null,
+                                            "Selected LOD lost textured bright/team coloring.");
+                                        checkedBright = true;
+                                    }
+                                }
+                                materialCheckedFramesByLod[lod]++;
+                                if (checkedBright && stage.Name == "bright-skin") brightCheckedFramesByLod[lod]++;
+                                if (stage.Name is "team-orange" or "team-green") teamCheckedFramesByLod[lod]++;
+                                if (damageFlash && stage.Name == "damage") damageCheckedFramesByLod[lod]++;
+                                // Some native LOD materials are unlit. Their
+                                // authored texture correctly survives the buff;
+                                // require the native conditional behavior above.
+                                if (target.DoubleDamage && stage.Name == "double-damage") doubleDamageCheckedFramesByLod[lod]++;
+                                if (target.ModFrozen && stage.Name == "freeze") freezeCheckedFramesByLod[lod]++;
                             }
                             if (stage.Name.StartsWith("materials-", StringComparison.Ordinal) || (materialSweep && stage.Name.StartsWith("material-", StringComparison.Ordinal)))
                             {
@@ -486,7 +649,10 @@ internal static class CharacterAcceptanceCheck
                         frozen = target.ModFrozen, doubleDamage = target.DoubleDamage,
                         legAnimation = typeof(PlayerEntity).GetProperty("Biped1Anim", Private)!.GetValue(target)!.ToString(),
                         torsoAnimation = typeof(PlayerEntity).GetProperty("Biped2Anim", Private)!.GetValue(target)!.ToString(),
-                        weightedPackets = packets.Length, eligible, lod, lodDistance, boosting = target.Flags1.TestFlag(PlayerFlags1.Boosting), x=target.Position.X,y=target.Position.Y,z=target.Position.Z });
+                        weightedPackets = packets.Length, eligible, lod, lodDistance,
+                        nativeLodDistance = (target.Position-scene.Players.Main.CameraInfo.Position).Length,
+                        maxDetail = Features.MaxPlayerDetail,
+                        boosting = target.Flags1.TestFlag(PlayerFlags1.Boosting), x=target.Position.X,y=target.Position.Y,z=target.Position.Z });
                     DesktopGraphicsSession.Present(window); scene.AfterRenderFrame();
                     if (stage.Name == "ball-materials-off" && age == stage.Count - 1)
                     {
@@ -501,7 +667,8 @@ internal static class CharacterAcceptanceCheck
                         }
                     }
                 }
-                cases.Add(new { stage = stage.Name, frames = stage.Count, weightedFrames = submitted, missingWeightedFrames = missing, rigidBallFrames = ballFrames - ballBefore });
+                cases.Add(new { stage = stage.Name, frames = stage.Count, weightedFrames = submitted, missingWeightedFrames = missing,
+                    weightedFramesByLod = stageLodFrames, rigidBallFrames = ballFrames - ballBefore });
                 Console.WriteLine($"CHARACTER ACCEPTANCE {stage.Name}: {submitted} weighted frames, {ballFrames-ballBefore} rigid ball frames, {missing} missing");
             }
             Require(runTravel > .5f && strafeTravel > .5f, $"Run/strafe controls did not move {hunter}.");
@@ -511,20 +678,42 @@ internal static class CharacterAcceptanceCheck
             Require(died && respawned, "Death/respawn incomplete.");
             if (lodSweep)
             {
-                Require(lodFrames[0] > 60 && lodFrames[1] > 1000 && lodTransitions >= 12, "Both tiers and repeated native LOD transitions must be observed.");
+                Require(lodFrames[0] > (rosterLodSweep ? 500 : 60) && lodFrames[1] > (rosterLodSweep ? 500 : 1000)
+                    && lodTransitions >= 12, "Both tiers and repeated native LOD transitions must be observed.");
+                Require(fallbackFramesByLod.All(count => count == 0), "An eligible frame used a native fallback or stale HD LOD.");
                 var a = lodModels[0]; var b = lodModels[1];
-                Require(b.IndexCount / 3 is >= 3500 and <= 5500 && b.IndexCount < a.IndexCount, "LOD1 triangle budget invalid.");
-                foreach (var segment in a.Segments)
+                Require(b.IndexCount > 0 && b.IndexCount < a.IndexCount, "LOD1 must contain fewer triangles than LOD0.");
+                if (hunter == Hunter.Samus)
+                    Require(b.IndexCount / 3 is >= 3500 and <= 5500, "Samus LOD1 triangle budget invalid.");
+                // Native LOD1 may rename/reorder materials and change lighting
+                // (Sylux/Spire), and Weavel can use repeated material identities.
+                // Compare authored texture/surface semantics, not native indices.
+                var aSurfaces = a.Segments.Select(s => (s.AlbedoBinding,s.MaterialMaps,s.WrapS,s.WrapT,s.DoubleSided,s.Transparent)).ToHashSet();
+                var bSurfaces = b.Segments.Select(s => (s.AlbedoBinding,s.MaterialMaps,s.WrapS,s.WrapT,s.DoubleSided,s.Transparent)).ToHashSet();
+                Require(aSurfaces.SetEquals(bSurfaces), "LOD tiers lost authored texture/surface semantics or duplicated embedded texture residency.");
+                if (rosterLodSweep)
                 {
-                    var peer = b.Segments.Single(s => s.NativeMaterialIndex == segment.NativeMaterialIndex && s.AlbedoBinding == segment.AlbedoBinding);
-                    Require(segment.AlbedoBinding == peer.AlbedoBinding && segment.MaterialMaps == peer.MaterialMaps, "LOD tiers duplicated identical embedded material residency.");
+                    foreach (string name in new[] { "idle", "materials-on", "materials-off", "materials-restored", "run", "strafe", "jump-fall-land",
+                        "aim-turn", "fire", "damage", "freeze", "thaw", "unmorph", "bright-skin", "team-orange", "team-green", "double-damage", "respawn-lod-switch" })
+                        Require(lodStageCoverage[name].All(count => count > 0), $"{name}: both native distance tiers were not submitted.");
+                    Require(new[] { brightCheckedFramesByLod, damageCheckedFramesByLod, doubleDamageCheckedFramesByLod,
+                        freezeCheckedFramesByLod, teamCheckedFramesByLod, muzzleEffectCheckedFramesByLod, muzzleCheckedFramesByLod }
+                        .All(counts => counts.All(count => count > 0)), "LOD bright/team/status/muzzle effect coverage incomplete.");
+                    Require(lodStageCoverage["max-detail-override"][0] > 0 && lodStageCoverage["max-detail-override"][1] == 0
+                        && lodStageCoverage["lod1-restored"][1] > 0 && lodStageCoverage["lod1-restored"][0] == 0,
+                        "Native maximum-detail override/restoration was not observed.");
                 }
                 // Paired captures without advancing simulation isolate geometry switching.
                 Features.MaxPlayerDetail = false;
                 for (int tier = 0; tier < 2; tier++)
                 {
                     scene.Players.Main.CameraInfo.Position = target.Position + new Vector3(0,0,tier == 0 ? 2.9f : 3.1f);
-                    scene.OnDrawFrame(); Require(scene.OnRenderFrame(), "Comparison render stopped.");
+                    scene.OnDrawFrame();
+                    Require(target.Flags2.TestFlag(PlayerFlags2.Lod1) == (tier == 1), "Same-pose comparison selected the wrong native LOD.");
+                    var comparisonPackets = Items(scene,"_decalItems").Concat(Items(scene,"_nonDecalItems")).Concat(Items(scene,"_translucentItems"))
+                        .Distinct().Where(p => p.WeightedSkinning && lodModels[tier].Segments.Any(s => s.ListId == p.ListId)).ToArray();
+                    Require(comparisonPackets.Length == lodModels[tier].Segments.Count, "Same-pose comparison fell back from the requested HD tier.");
+                    Require(scene.OnRenderFrame(), "Comparison render stopped.");
                     ScreenCapture.Save(scene, Path.Combine(directory, $"same-pose-lod{tier}.png"));
                     DesktopGraphicsSession.Present(window); scene.AfterRenderFrame();
                 }
@@ -536,6 +725,10 @@ internal static class CharacterAcceptanceCheck
             int remainingVariantTextures=scene.CharacterVariantResidentCount;
             if (materialSweep) Require(variantEvictions>0 && remainingVariantTextures==0,
                 "Unused suit variants must evict, revisits must redraw, and the default settle must release every optional variant.");
+            foreach (var pair in lodModels)
+                Require(FileSha256(pair.Value.Asset.ModelPath) == lodModelHashes[pair.Key], "A tested model changed during acceptance.");
+            foreach (var check in muzzleChecks.Values)
+                Require(FileSha256(check.Path) == check.Sha256, "A muzzle proof changed during acceptance.");
             scene.DoCleanup(); scene.UnloadGl(); scene = null;
             Preview(preview, window, directory, "launcher-after", failures, hunter);
             if (fidelitySweep)
@@ -609,7 +802,12 @@ internal static class CharacterAcceptanceCheck
             }
             File.WriteAllText(Path.Combine(directory, "acceptance.json"), JsonSerializer.Serialize(new
             {
-                hunter = hunter.ToString(), backend = GraphicsBackendPolicy.Resolved.ToString(), room, submittedFrames, lodFrames, lodTransitions,
+                hunter = hunter.ToString(), backend = GraphicsBackendPolicy.Resolved.ToString(), room, submittedFrames, lodSweep, rosterLodSweep,
+                lodFrames, lodTransitions, eligibleFramesByLod, fallbackFramesByLod, lodAssetAudits, lodModelHashes,
+                materialCheckedFramesByLod, brightCheckedFramesByLod, teamCheckedFramesByLod, damageCheckedFramesByLod,
+                doubleDamageCheckedFramesByLod, freezeCheckedFramesByLod, muzzleEffectCheckedFramesByLod,
+                muzzleCheckedFramesByLod, maximumMuzzleErrorByLod, maximumNativeBindErrorByLod,
+                muzzleAuditInputs = muzzleChecks.Select(pair => new { lod=pair.Key, path=pair.Value.Path, sha256=pair.Value.Sha256 }),
                 materialSweep, fidelitySweep, morphSweep, ballFrames, boosted, bombed, bombJumped, altAirborne, ballDied, ballRespawned, ballRollTravel, boostTravel, textureBytesBeforeBall, textureBytesAfterBall, residencyAfterMaterialSweep,
                 mobileTextureTier=CharacterModelPack.ForceMobileTierForCheck, textureCompression=ModernGraphicsCompat.PreferredCharacterTextureCompression.ToString(),
                 peakCharacterTextureBytes,variantEvictions,remainingVariantTextures,
@@ -618,7 +816,7 @@ internal static class CharacterAcceptanceCheck
                 cases, failures, checkedJoints, authoredSurfaceCheckedFrames, transparentSurfaceCheckedFrames, muzzleCheckedFrames, maximumMuzzleError, teamRecolorCheckedFrames, requireNativeBindIdentity, maximumNativeBindError,
                 testedModelSha256 = weighted == null ? null : Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(weighted.Asset.ModelPath))).ToLowerInvariant(),
                 embeddedMaterialSegments = weighted?.Segments.Count(s => s.MaterialMaps.Any) ?? 0,
-                scope = (fidelitySweep ? "Twenty-four fixed-pose launcher fidelity captures at eight angles: Source companion maps off/on and texture-free geometry. " : "") + (materialSweep ? "All six native suit albedos for biped and ball, regular Textured bright/team colors, complete companion toggles, and 24 clean launcher material views. " : "") + (morphSweep ? "Rigid Source Morph Ball: native rolling/glow transforms, billboard, authored UV/material toggles, boost, bombs/jump, airborne morph, extra cycles and shared images. " : "") + (lodSweep ? "Native 3-unit distance switch, repeated LOD0/1 sweeps and max-detail override. Same embedded texture bindings across both tiers. " : "LOD0 forced. ") + $"Real scene simulation/render with one AI bot and scripted {hunter} controls. Custom cosmetic equipment disabled to inspect the embedded Source materials. Damage, freeze and double damage are injected. Every primitive's complete native joint palette is checked. Embedded material submission is checked through on/off/on toggles. Visual capture review is separate from packet assertions."
+                scope = (fidelitySweep ? "Twenty-four fixed-pose launcher fidelity captures at eight angles: Source companion maps off/on and texture-free geometry. " : "") + (materialSweep ? "All six native suit albedos for biped and ball, regular Textured bright/team colors, complete companion toggles, and 24 clean launcher material views. " : "") + (morphSweep ? "Rigid Source Morph Ball: native rolling/glow transforms, billboard, authored UV/material toggles, boost, bombs/jump, airborne morph, extra cycles and shared images. " : "") + (lodSweep ? "Native PlayerDraw 3-unit distance selection against the main-player camera while an independent free camera frames the subject; repeated LOD0/1 sweeps and maximum-detail override. Native rest inverse binds and normalized loaded weights checked for each tier; authored raw-weight normalization is a separate exporter/validator check. Same embedded texture/surface bindings across both tiers. " : "LOD0 forced. ") + (rosterLodSweep ? "Both tiers cover each movement/material/status stage, exact model/audit hashes, no eligible native or stale-tier packets, and actual charge/muzzle emitter transforms. Native freeze overlay and native alternate forms are retained; this check accepts biped LODs only. " : "") + $"Real scene simulation/render with one AI bot and scripted {hunter} controls. Custom cosmetic equipment disabled to inspect the embedded Source materials. Damage, freeze and double damage are injected. Every primitive's complete native joint palette is checked. Embedded material submission is checked through on/off/on toggles. Visual capture review is separate from packet assertions."
             }, Json));
             File.WriteAllText(Path.Combine(directory, "frames.json"), JsonSerializer.Serialize(frames, Json));
             Console.WriteLine($"CHARACTER ACCEPTANCE {(failures.Count == 0 ? "PASS" : "FAIL")} {directory}");

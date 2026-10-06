@@ -1,0 +1,22 @@
+{
+  "hunter": "Spire",
+  "acceptedLod0Root": "artifacts/sourceio-hd/material-weapon-review-v2/spire/biped/releases/lod0-v3",
+  "sourceGlbSha256": "28cca489bdffe70e07c38d31b66e2c8d1d61adf59e0f55ef84599c061ca54f32",
+  "sourceBlendSha256": "4cb0e34905da9f9b176d64b02cf92a766f1d7a46b866525a679e4c59ae857693",
+  "collapseRatio": 0.46,
+  "minimumTriangles": 6000,
+  "maximumTriangles": 8000,
+  "headProtection": 0.5,
+  "muzzleProtectionRadiusFraction": 0.035,
+  "sharpAngleDegrees": 35,
+  "materialNames": {
+    "BIPED_leg_tile": "BIPED_chest_rock2",
+    "BIPED_leg_tile1": "BIPED_chest_rock4",
+    "BIPED_leg_tile2": "BIPED_chest_rock3",
+    "BIPED_leg_tile3": "BIPED_chest_rock1",
+    "BIPED_leg_tile4": "Spire_03_tga",
+    "BIPED_leg_tile5": "BIPED_chest_rock"
+  },
+  "preserveAlphaTriangles": true,
+  "preserveEmissiveTriangles": true
+}
