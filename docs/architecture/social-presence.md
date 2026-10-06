@@ -69,10 +69,12 @@ Presence uses a separate authenticated `presence` Edge Function.
 - helper functions are not executable by client roles
 
 No server IP or UDP endpoint is stored in presence. The existing network
-`RoomKey` identifies the selected map, not a globally unique lobby, so the
-production client deliberately publishes `joinable=false` in Slice 2. Slice 4
-must introduce an authenticated lobby/invite resolver before Join Friend becomes
-real; map metadata is never treated as a connection address.
+`RoomKey` identifies the selected map, not a globally unique lobby. When
+activity privacy permits it, the map identity may be shown as activity detail
+independently of join permission. The production client deliberately publishes
+`joinable=false` in Slice 2. Slice 4 must introduce an authenticated
+lobby/invite resolver before Join Friend becomes real; map metadata is never
+treated as a connection address.
 
 ## Client read model
 
