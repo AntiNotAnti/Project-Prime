@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace MphRead.Hud
@@ -112,6 +113,64 @@ namespace MphRead.Hud
         public float Time = -1;
         public HudObjectLoopType Loop = HudObjectLoopType.None;
         public int AfterAnimFrame = -1;
+
+        // HUD text and animated pictures revisit the same small set of images.
+        // Rewriting one GPU texture between draws can split a render pass on
+        // modern/tiled backends, so keep immutable bindings for pictures this
+        // instance has already shown. The byte budget prevents a large animated
+        // sheet from quietly becoming an unbounded texture cache.
+        private const int MaxCachedPictures = 4096;
+        private const long MaxCachedPictureBytes = 8L * 1024 * 1024;
+        private Dictionary<PictureKey, int>? _pictures;
+        private Scene? _pictureScene;
+        private int _overflowBinding = -1;
+        private long _cachedPictureBytes;
+
+        private readonly struct PictureKey : IEquatable<PictureKey>
+        {
+            private readonly IReadOnlyList<byte>? _characters;
+            private readonly IReadOnlyList<ColorRgba>? _palette;
+            private readonly int _frame;
+            private readonly int _paletteIndex;
+            private readonly int _width;
+            private readonly int _height;
+            private readonly uint _color;
+            private readonly bool _hasColor;
+
+            public PictureKey(HudObjectInstance instance, int width, int height)
+            {
+                _characters = instance.CharacterData;
+                _palette = instance.PaletteData;
+                _frame = instance.CurrentFrame;
+                _paletteIndex = instance.PaletteIndex;
+                _width = width;
+                _height = height;
+                _hasColor = instance.Color.HasValue;
+                _color = instance.Color?.ToUint() ?? 0;
+            }
+
+            public bool Equals(PictureKey other)
+            {
+                return ReferenceEquals(_characters, other._characters)
+                    && ReferenceEquals(_palette, other._palette)
+                    && _frame == other._frame
+                    && _paletteIndex == other._paletteIndex
+                    && _width == other._width
+                    && _height == other._height
+                    && _color == other._color
+                    && _hasColor == other._hasColor;
+            }
+
+            public override bool Equals(object? obj) => obj is PictureKey other && Equals(other);
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(
+                    _characters == null ? 0 : RuntimeHelpers.GetHashCode(_characters),
+                    _palette == null ? 0 : RuntimeHelpers.GetHashCode(_palette),
+                    _frame, _paletteIndex, _width, _height, _color, _hasColor);
+            }
+        }
 
         public HudObjectInstance(int width, int height)
         {
@@ -269,14 +328,54 @@ namespace MphRead.Hud
                     }
                 }
             }
-            if (BindingId == -1)
+            BindPicture(scene, Width, Height);
+        }
+
+        internal bool PictureBoundTo(Scene scene)
+            => ReferenceEquals(_pictureScene, scene) && BindingId != -1;
+
+        internal void BindPicture(Scene scene, int width, int height)
+        {
+            if (!ReferenceEquals(_pictureScene, scene))
             {
-                BindingId = scene.BindGetTexture(Texture, Width, Height);
+                _pictures?.Clear();
+                _pictureScene = scene;
+                _overflowBinding = -1;
+                _cachedPictureBytes = 0;
+                BindingId = -1;
+            }
+
+            var key = new PictureKey(this, width, height);
+            if (_pictures != null && _pictures.TryGetValue(key, out int cached))
+            {
+                BindingId = cached;
+                return;
+            }
+
+            long bytes = (long)Math.Max(width, 0) * Math.Max(height, 0) * 4;
+            int count = _pictures?.Count ?? 0;
+            if (width > 0 && height > 0
+                && count < MaxCachedPictures
+                && bytes <= MaxCachedPictureBytes - _cachedPictureBytes)
+            {
+                int binding = scene.BindGetTexture(Texture, width, height);
+                (_pictures ??= new Dictionary<PictureKey, int>()).Add(key, binding);
+                _cachedPictureBytes += bytes;
+                BindingId = binding;
+                return;
+            }
+
+            // Very large or unusually diverse animated instances retain the old
+            // bounded behavior after the cache budget is reached.
+            if (_overflowBinding == -1)
+            {
+                _overflowBinding = scene.BindGetTexture(Texture, width, height);
             }
             else
             {
-                scene.BindTexture(Texture, Width, Height, BindingId);
+                scene.BindTexture(Texture, width, height, _overflowBinding);
             }
+            BindingId = _overflowBinding;
         }
 
         public void SetIndex(int frame, Scene scene)
