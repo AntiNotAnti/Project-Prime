@@ -49,6 +49,11 @@ namespace MphRead.Mods.Launcher
         int Players,
         int Servers);
 
+    public readonly record struct SocialLobbyVerification(
+        bool Verified,
+        ServerBrowserEntry Entry,
+        string Error);
+
     /// <summary>
     /// Application-layer server discovery and joining shared by every launcher
     /// presentation. The callbacks deliberately run off the UI thread; a GUI
@@ -206,6 +211,99 @@ namespace MphRead.Mods.Launcher
                 cancellationToken.ThrowIfCancellationRequested();
                 return NetStatus.Query(host, port, allowJoinProbe, cancellationToken: cancellationToken);
             }, cancellationToken);
+        }
+
+        /// <summary>
+        /// Find the public directory row for the exact authority this client is
+        /// already connected to. The client may itself be using 127.0.0.1 for a
+        /// locally-hosted lobby; the directory row is the public endpoint a
+        /// friend can actually dial.
+        /// </summary>
+        public static async Task<SocialLobbyVerification> FindListedLobbyAsync(
+            ulong authorityEpoch, CancellationToken cancellationToken = default)
+        {
+            if (authorityEpoch == 0)
+                return new(false, default, "The current lobby has no authority identity.");
+
+            ServerBrowserEntry match = default;
+            int matches = 0;
+            ServerDiscoveryResult discovery = await DiscoverAsync(entry =>
+            {
+                if (!entry.Live || !entry.Compatible
+                    || entry.Status.AuthorityEpoch != authorityEpoch
+                    || !entry.Status.LobbyEnabled
+                    || entry.Status.Phase != SessionPhase.Lobby)
+                    return;
+                Interlocked.Increment(ref matches);
+                match = entry;
+            }, cancellationToken);
+
+            if (cancellationToken.IsCancellationRequested)
+                return new(false, default, "Lobby verification cancelled.");
+            if (!discovery.DirectoryAnswered)
+                return new(false, default, "The public server directory did not answer.");
+            if (matches == 0)
+                return new(false, default,
+                    "This lobby is not currently listed in the public server directory.");
+            if (matches > 1)
+                return new(false, default,
+                    "The directory returned more than one server with this authority identity.");
+            return new(true, match, "");
+        }
+
+        /// <summary>
+        /// Treat a social locator as an untrusted hint until both the public
+        /// directory and the live server independently agree with it.
+        /// </summary>
+        public static async Task<SocialLobbyVerification> VerifySocialLobbyAsync(
+            string host, int port, ulong authorityEpoch, int protocol, string roomKey,
+            CancellationToken cancellationToken = default)
+        {
+            if (String.IsNullOrWhiteSpace(host) || port is < 1 or > 65535
+                || authorityEpoch == 0 || protocol != NetConfig.ProtocolVersion)
+                return new(false, default, "The invite target is not compatible with this build.");
+
+            MasterListResult directory = await Task.Run(
+                () => NetMasterClient.Query(LauncherPrefs.MasterHost, LauncherPrefs.MasterPort,
+                    cancellationToken: cancellationToken), cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!directory.Answered)
+                return new(false, default, "The public server directory did not answer.");
+
+            MasterListing listing = default;
+            int listedMatches = 0;
+            foreach (MasterListing candidate in directory.Servers ?? Array.Empty<MasterListing>())
+            {
+                if (candidate.Port == port
+                    && String.Equals(candidate.Address, host, StringComparison.OrdinalIgnoreCase))
+                {
+                    listing = candidate;
+                    listedMatches++;
+                }
+            }
+            if (listedMatches != 1)
+                return new(false, default,
+                    "That lobby is no longer present in the public server directory.");
+
+            ServerStatus status = await ProbeAsync(host, port,
+                allowJoinProbe: false, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!status.Online)
+                return new(false, default, "The invited lobby is no longer online.");
+            if (status.Protocol != NetConfig.ProtocolVersion
+                || status.Protocol != protocol)
+                return new(false, default, "The invited lobby is running a different protocol.");
+            if (!status.LobbyEnabled || status.Phase != SessionPhase.Lobby)
+                return new(false, default, "The invited server is no longer in its lobby.");
+            if (status.AuthorityEpoch != authorityEpoch)
+                return new(false, default,
+                    "The server restarted after this invite was created. Refresh the invite.");
+            if (!String.IsNullOrWhiteSpace(roomKey)
+                && !String.Equals(status.RoomKey, roomKey, StringComparison.OrdinalIgnoreCase))
+                return new(false, default,
+                    "The lobby changed its active arena after this invite was created.");
+
+            return new(true, new ServerBrowserEntry(listing, status), "");
         }
 
         public static async Task<OnlineJoinResult> JoinAsync(
