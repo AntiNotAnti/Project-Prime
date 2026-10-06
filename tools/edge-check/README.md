@@ -39,7 +39,7 @@ Primary runtime references: [PGlite setup and batch SQL](https://pglite.dev/docs
 [PGlite PL/pgSQL examples](https://pglite.dev/examples), and
 [PGlite source](https://github.com/electric-sql/pglite).
 
-Each of the seven functions has its own strict `deno.json` and integrity lock.
+Each of the eight functions has its own strict `deno.json` and integrity lock.
 CI checks those graphs with `--frozen-lockfile`; dependency drift fails instead
 of updating locks. Supabase client imports use exact version **2.117.2**, published
 2026-09-25. Runtime declarations come from the same exact `functions-js` npm
