@@ -107,6 +107,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--replication-decode-benchmark") return ReplicationDecodeBenchmark.Run(args);
             if (args.Length > 0 && args[0] == "--server-performance") return ServerPerformanceBenchmark.Run(args);
             if (args.Length > 0 && args[0] == "--loopback-load") return NetLobbyTest.RunLoopbackLoad(args);
+            if (args.Length > 1 && args[0] == "--eight-peer-bootstrap") return NetLobbyTest.RunEightPeerBootstrap(args[1]);
             if (args.Length > 0 && args[0] == "--netcode-performance") return NetcodePerformanceTests.Run();
             if (args.Length > 0 && args[0] == "--dynamic-geometry") return DynamicGeometryTests.Run();
             if (args.Length > 0 && args[0] == "--input-edges") return InputEdgeTests.Run();

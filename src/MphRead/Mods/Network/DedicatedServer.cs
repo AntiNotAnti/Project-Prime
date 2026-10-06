@@ -77,7 +77,12 @@ namespace MphRead.Mods.Network
             public MapAvailabilityState MapAvailability;
             public double LastMapAvailability = double.NegativeInfinity;
             public uint LastMapAvailabilitySequence;
-            public readonly byte[][] Bootstrap = { new byte[1200], new byte[512], new byte[600] };
+            public readonly byte[][] Bootstrap =
+            {
+                new byte[WorldBootstrapIdentity.Size + 1 + SnapshotFast.MaximumPayloadSize],
+                new byte[WorldBootstrapIdentity.Size + 1 + NetReplicationLanes.MaximumSlowPayloadSize],
+                new byte[WorldBootstrapIdentity.Size + 1 + NetReplicationLanes.MaximumWorldPayloadSize]
+            };
             public readonly int[] BootstrapLengths = new int[3];
             public byte[][] BootstrapObjectives = Array.Empty<byte[]>();
             public int BootstrapLength;

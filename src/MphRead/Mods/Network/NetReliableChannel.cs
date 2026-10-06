@@ -12,6 +12,8 @@ public readonly record struct ReliableTransmission(uint EventId, PacketType Type
 /// beyond the receiver's dedup window while an older event is pending.</summary>
 public sealed class NetReliableChannel
 {
+    public const int EventIdSize = sizeof(uint);
+    public const int MaximumPayloadSize = NetConfig.MaxPayloadSize - EventIdSize;
     public const int OrdinaryCapacity = 32, Capacity = 40, History = 256;
     public const double LifetimeMilliseconds = 15000;
     public const double MinimumRtoMilliseconds = 75, MaximumRtoMilliseconds = 1200;
@@ -72,7 +74,7 @@ public sealed class NetReliableChannel
         bool expedite = false, bool supersedeState = false)
     {
         eventId = 0;
-        if (!IsReliable(type) || payload.Length > NetConfig.MaxPayloadSize - 4)
+        if (!IsReliable(type) || payload.Length > MaximumPayloadSize)
             throw new ArgumentException("Not a bounded reliable control payload");
         if (supersedeState && type is not (PacketType.SessionState or PacketType.Roster or PacketType.QueueState or PacketType.QueueSeatOffer))
             throw new ArgumentException("Only revision-fenced full state can supersede pending state");

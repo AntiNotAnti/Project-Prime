@@ -79,6 +79,7 @@ public static partial class NetLobbyTest
         NetLag.Configure("0"); NetLag.ConfigureLoss("0"); NetLag.ConfigureReorder("0"); NetLag.ConfigureDuplicate("0");
         Rig? rig = null;
         string exportBefore = Paths.Export;
+        string workingDirectoryBefore = Directory.GetCurrentDirectory();
         try
         {
             string? replayDirectory = null;
@@ -89,7 +90,21 @@ public static partial class NetLobbyTest
                 string export = replayDirectory;
                 if (mode == "replay-failure")
                 { export = Path.Combine(replayDirectory, "regular-file"); File.WriteAllText(export, "storage fault fixture"); }
-                Paths.SetPath("Export", export);
+                // Readiness uses the same native paths loader as a real server.
+                // Put the requested export root in that loader's scoped input,
+                // so preflight cannot replace an in-memory override.
+                string configuration = Path.Combine(replayDirectory, "configuration");
+                Directory.CreateDirectory(configuration);
+                string[] paths = File.ReadAllLines(Path.Combine(workingDirectoryBefore, "paths.txt"));
+                paths = paths.Select(line =>
+                {
+                    int separator = line.IndexOf('=');
+                    string key = separator < 0 ? "" : line[..separator].Trim();
+                    return Paths.AllPaths.TryGetValue(key, out string? path) ? key + "=" + path : line;
+                }).ToArray();
+                File.WriteAllLines(Path.Combine(configuration, "paths.txt"), paths.Append("Export=" + export));
+                Directory.SetCurrentDirectory(configuration);
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
             }
             rig = new Rig(ServerSessionPolicy.Continuous, simulate: true, room: "MP1 SANCTORUS",
                 replayPolicy: new ServerReplayPolicy(Enabled: mode is "replay" or "replay-failure"));
@@ -172,6 +187,29 @@ public static partial class NetLobbyTest
             var after = transport.Telemetry.Capture(); process.Refresh();
             var loopAfter = rig.Server.LoopDiagnostics.Capture();
             var histogram = Histogram().Select((v, i) => v - histogramBefore[i]).ToArray();
+            var replay = ServerReplayRecorder.Diagnostics;
+            var serverError = typeof(Rig).GetField("_error", flags)!.GetValue(rig) as Exception;
+            var peers = (System.Collections.IEnumerable)typeof(DedicatedServer).GetField("_peers", flags)!.GetValue(rig.Server)!;
+            object? PeerField(object peer, string name) => peer.GetType().GetField(name)!.GetValue(peer);
+            Console.WriteLine("LOOPBACK OBSERVED " + JsonSerializer.Serialize(new
+            {
+                players, mode, seconds = elapsed, snapshots, relays,
+                steps = sim.Frames - frameBefore, acceptedIntents = NetSession.IntentsReceived - acceptedBefore,
+                rxPackets = after.PacketsReceived - before.PacketsReceived,
+                txPackets = after.PacketsSent - before.PacketsSent,
+                queueDrops = after.QueueDrops - before.QueueDrops,
+                socketErrors = after.SocketErrors - before.SocketErrors,
+                serverError = serverError?.ToString(), exportPath = Paths.Export,
+                replay = new { state = replay.State.ToString(), replay.Attempts, replay.Failures, replay.Error },
+                peers = peers.Cast<object>().Select(peer => new
+                {
+                    slot = PeerField(peer, "SlotIndex"), admissionReady = PeerField(peer, "AdmissionReady"),
+                    sceneLoaded = PeerField(peer, "SceneLoaded"), matchReady = PeerField(peer, "MatchReady"),
+                    bootstrapLength = PeerField(peer, "BootstrapLength"),
+                    matchLoadStage = PeerField(peer, "MatchLoadStage")
+                }).ToArray()
+            }));
+            if (serverError != null) throw new InvalidOperationException("Loopback server owner thread failed.", serverError);
             double Quantile(double q)
             {
                 long target = (long)Math.Ceiling(histogram.Sum() * q), sum = 0;
@@ -200,7 +238,6 @@ public static partial class NetLobbyTest
             Check(snapshots.All(n => n > 20), "every loopback client receives continuing authority snapshots");
             Check(players == 1 || relays.All(n => n > 20), "every loopback client receives current peer intents");
             Check(clients.All(c => NetSession.RemoteIntentValid[c.Slot]), "all admitted inputs accepted by native policy");
-            var replay = ServerReplayRecorder.Diagnostics;
             if (mode == "replay-failure")
                 Check(replay.State == ServerReplayRecorder.RecordingState.Failed && replay.Attempts == 1 && replay.Failures == 1,
                     "a failed optional replay writer is latched after one attempt while gameplay continues");
@@ -249,6 +286,11 @@ public static partial class NetLobbyTest
             Check(true, "loopback server shutdown releases its UDP port before next cycle");
             return metrics;
         }
-        finally { rig?.Dispose(); Paths.SetPath("Export", exportBefore); }
+        finally
+        {
+            rig?.Dispose();
+            Directory.SetCurrentDirectory(workingDirectoryBefore);
+            Paths.UpdatePaths(); Paths.ChooseMphPath(); Paths.SetPath("Export", exportBefore);
+        }
     }
 }

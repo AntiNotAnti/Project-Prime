@@ -2361,11 +2361,11 @@ namespace MphRead.Mods.Network
     public static class NetConfig
     {
         public const ushort DefaultPort = 27888;
-        // Keep application datagrams within the IPv6 minimum-MTU budget after
-        // UDP/IP headers. Compact PlayerState leaves worst-case 8-player
-        // snapshots comfortably below this bound.
         public const int MaxSnapshotSize = 4096; // In-process/replay canonical state; never one live datagram.
-        public const int MaxPacketSize = 1472; // Rare control traffic; realtime lanes are separately bounded at 1200 bytes.
+        // The current transport uses IPv4 UDP: 1472 bytes leaves room for its
+        // 20-byte IP and 8-byte UDP headers on a 1500-byte path. All live lanes
+        // share this datagram ceiling, including reliable event/envelope bytes.
+        public const int MaxPacketSize = 1472;
         public const int MaxPayloadSize = MaxPacketSize - NetHeader.Size;
         /// <summary>
         /// Bumped when the wire format changes in a way an older build would

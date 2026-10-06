@@ -39,6 +39,7 @@ internal static class TransportLifecycleTests
             DirectoryFarewellScope();
             ResumePreservesAdmission();
             foreach (PacketType type in new[] { PacketType.Bye, PacketType.Refused }) ResumePreservesTerminal(type);
+            WorldBootstrapFragments();
             Console.WriteLine($"PASS: {_checks} transport lifecycle assertions; terminal retries/ACKs, lobby retirement, roles, startup cleanup, fenced load timeout, wire counters, directory farewell scope");
             return 0;
         }
@@ -58,6 +59,59 @@ internal static class TransportLifecycleTests
             "terminal drain discards obsolete retries and preserves final event identity");
         channel.Acknowledge(close);
         Check(channel.Capture(1).Pending == 0, "terminal event completes with its original ACK identity");
+    }
+
+    private static void WorldBootstrapFragments()
+    {
+        // A valid map's door facts cross the first full-fragment boundary.
+        // Exercise the real reliable queue and UDP envelope, then assemble the
+        // received fragments in reverse order as the unordered channel permits.
+        var world = new ReplayAuthorityWorld { MatchId = 7, Epoch = 11, Tick = 100, Doors = new ReplayDoorState[96] };
+        for (int i = 0; i < world.Doors.Length; i++) world.Doors[i] = new(i, 0, false, true, false);
+        byte[] encoded = world.Encode();
+        Check(ReplayAuthorityWorld.Decode(encoded).Doors.Length == world.Doors.Length, "multi-fragment objective fixture is a valid ordinary world");
+        var identity = new WorldBootstrapIdentity(new(7, 11, 3), 5, 2, 100, 9, 12);
+        byte[][] fragments = WorldBootstrapObjectives.Packets(identity, world);
+        Check(fragments.Length > 1 && fragments[0].Length == NetReliableChannel.MaximumPayloadSize,
+            "objective baseline crosses a full reliable-fragment boundary");
+        using var transport = new NetTransport(0);
+        transport.EnablePacketKindDiagnostics();
+        using var peer = new WirePeer(transport);
+        foreach (byte[] fragment in fragments) transport.Send(peer.Endpoint, PacketType.WorldBootstrap, fragment);
+        var received = new List<byte[]>(); var events = new HashSet<uint>();
+        IPEndPoint sender = new(IPAddress.Any, 0);
+        var clock = Stopwatch.StartNew();
+        while (received.Count < fragments.Length && clock.ElapsedMilliseconds < 3000)
+        {
+            if (peer.Wire.Available == 0) { Thread.Sleep(2); continue; }
+            byte[] wire = peer.Wire.Receive(ref sender);
+            if (!NetHeader.TryRead(wire, out var header) || header.Type != PacketType.WorldBootstrap) continue;
+            Check((header.Flags & NetHeaderFlags.Reliable) != 0 && wire.Length <= NetConfig.MaxPacketSize,
+                "objective fragment travels in a reliable datagram within the unchanged wire ceiling");
+            peer.Connection.Receive(header, 0); peer.Ack();
+            uint eventId = BinaryPrimitives.ReadUInt32LittleEndian(wire.AsSpan(NetHeader.Size));
+            if (!events.Add(eventId)) continue;
+            byte[] payload = wire.AsSpan(NetHeader.Size + NetReliableChannel.EventIdSize).ToArray();
+            Check(WorldBootstrapIdentity.TryRead(payload, out var stamp) && stamp == identity
+                && payload[WorldBootstrapIdentity.Size] == 3, "received objective fragment retains the current full bootstrap identity");
+            received.Add(payload);
+        }
+        Check(received.Count == fragments.Length, "all objective fragments pass the production reliable queue and arrive over UDP");
+        Check(SpinWait.SpinUntil(() => transport.ReliableStats(peer.Endpoint)?.Pending == 0, 2000),
+            "every objective fragment completes through its actual datagram ACK");
+        var assembly = new WorldBootstrapObjectives();
+        for (int i = received.Count - 1; i >= 0; i--)
+        {
+            ReadOnlySpan<byte> part = received[i].AsSpan(WorldBootstrapIdentity.Size + 1);
+            Check(assembly.Accept(part, identity), "valid objective fragment assembles under ordinary unordered delivery");
+            Check(assembly.Accept(part, identity), "duplicate objective fragment remains idempotent");
+            if (i > 0) Check(assembly.World == null, "partial objective world cannot complete bootstrap readiness");
+        }
+        Check(assembly.World != null && assembly.World.MatchId == identity.Start.MatchId
+            && assembly.World.Epoch == identity.Start.AuthorityEpoch && assembly.World.Tick == identity.AuthorityFrame
+            && assembly.World.Encode().AsSpan().SequenceEqual(encoded), "complete objective world matches its current identity and every original fact");
+        Check(transport.PacketKindDiagnostics!.Capture(PacketType.WorldBootstrap).PeakBytesSent == NetConfig.MaxPacketSize,
+            "full objective fragment uses exactly the live datagram ceiling including event and envelope overhead");
     }
 
     private sealed class WirePeer : IDisposable
