@@ -563,7 +563,9 @@ namespace MphRead.Mods.Launcher.Gui
 
         private readonly record struct SocialUiRow(
             string PrimeId, string Name, string Activity, string Detail,
-            string Relation, bool Online, bool FriendOnline);
+            string Relation, string InviteId, bool Online, bool FriendOnline,
+            bool CanInvite, bool CanJoin, bool CanAcceptInvite,
+            bool CanDeclineInvite, bool CanCancelInvite);
 
         private static void BeginSocialLoad(bool force)
         {
@@ -600,7 +602,9 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (_socialFixture || _socialCancel == null || _socialCancel.IsCancellationRequested)
                 return;
-            if (_socialMutation is { IsCompleted: false })
+            if (_socialMutation is { IsCompleted: false }
+                || _socialInviteMutation is { IsCompleted: false }
+                || _socialJoin is { IsCompleted: false })
             {
                 SetText("social_status", "SOCIAL ACTION ALREADY IN PROGRESS");
                 return;
@@ -633,6 +637,73 @@ namespace MphRead.Mods.Launcher.Gui
                 "unblock" => "UNBLOCKING PLAYER",
                 _ => "UPDATING SOCIAL"
             });
+            SetBool("social_loading", true);
+        }
+
+        private static void BeginInviteMutation(string action, string id)
+        {
+            if (_socialFixture || _socialCancel == null || _socialCancel.IsCancellationRequested)
+                return;
+            if (_socialMutation is { IsCompleted: false }
+                || _socialInviteMutation is { IsCompleted: false }
+                || _socialJoin is { IsCompleted: false })
+            {
+                SetText("social_status", "SOCIAL ACTION ALREADY IN PROGRESS");
+                return;
+            }
+
+            CancellationToken token = _socialCancel.Token;
+            _socialInviteMutation = action switch
+            {
+                "invite-friend" => SocialInviteClient.SendInviteAsync(id, token),
+                "invite-decline" => SocialInviteClient.DeclineInviteAsync(id, token),
+                "invite-cancel" => SocialInviteClient.CancelInviteAsync(id, token),
+                _ => null
+            };
+            if (_socialInviteMutation == null)
+                return;
+
+            SetText("social_status", action switch
+            {
+                "invite-friend" => "SENDING GAME INVITE",
+                "invite-decline" => "DECLINING GAME INVITE",
+                "invite-cancel" => "CANCELLING GAME INVITE",
+                _ => "UPDATING INVITES"
+            });
+            SetBool("social_loading", true);
+        }
+
+        private static void BeginSocialJoin(string action, string id)
+        {
+            if (_socialFixture || _socialCancel == null || _socialCancel.IsCancellationRequested)
+                return;
+            if (NetSession.Active)
+            {
+                SetText("social_status", "LEAVE YOUR CURRENT SESSION BEFORE JOINING ANOTHER");
+                return;
+            }
+            if (_socialMutation is { IsCompleted: false }
+                || _socialInviteMutation is { IsCompleted: false }
+                || _socialJoin is { IsCompleted: false })
+            {
+                SetText("social_status", "SOCIAL ACTION ALREADY IN PROGRESS");
+                return;
+            }
+
+            CancellationToken token = _socialCancel.Token;
+            _socialJoin = action switch
+            {
+                "join-friend" => SocialInviteClient.PrepareFriendJoinAsync(id, token),
+                "invite-accept" => SocialInviteClient.PrepareInviteJoinAsync(
+                    id, accept: true, token),
+                _ => null
+            };
+            if (_socialJoin == null)
+                return;
+
+            SetText("social_status", action == "invite-accept"
+                ? "ACCEPTING INVITE // VERIFYING SERVER"
+                : "VERIFYING FRIEND LOBBY");
             SetBool("social_loading", true);
         }
 
@@ -708,6 +779,7 @@ namespace MphRead.Mods.Launcher.Gui
                         SetText("social_status", "ACTION REFUSED // "
                             + result.Status.Replace('_', ' ').ToUpperInvariant());
                     }
+                    SocialInviteClient.RefreshNow();
                     _socialFingerprint = "";
                 }
                 catch (OperationCanceledException) when (_socialCancel?.IsCancellationRequested == true)
@@ -723,10 +795,62 @@ namespace MphRead.Mods.Launcher.Gui
                 }
             }
 
+            if (_socialInviteMutation is { IsCompleted: true } inviteMutation)
+            {
+                _socialInviteMutation = null;
+                try
+                {
+                    SocialInviteMutationResult result =
+                        inviteMutation.GetAwaiter().GetResult();
+                    SetText("social_status", result.Success
+                        ? InviteMutationStatus(result.Status)
+                        : "INVITE REFUSED // "
+                            + result.Status.Replace('_', ' ').ToUpperInvariant());
+                    SocialInviteClient.RefreshNow();
+                    _socialFingerprint = "";
+                }
+                catch (OperationCanceledException) when (_socialCancel?.IsCancellationRequested == true)
+                {
+                }
+                catch (Exception ex)
+                {
+                    SetText("social_status", "INVITE FAILED // " + ShortSocialError(ex));
+                }
+            }
+
+            if (_socialJoin is { IsCompleted: true } join)
+            {
+                _socialJoin = null;
+                try
+                {
+                    SocialJoinResolution result = join.GetAwaiter().GetResult();
+                    if (result.Success)
+                    {
+                        _verifiedSocialJoins.Enqueue(result);
+                        SetText("social_status", "LOBBY VERIFIED // OPENING PLAY");
+                    }
+                    else
+                    {
+                        SetText("social_status", "JOIN REFUSED // "
+                            + result.Error.Replace('_', ' ').ToUpperInvariant());
+                    }
+                }
+                catch (OperationCanceledException) when (_socialCancel?.IsCancellationRequested == true)
+                {
+                }
+                catch (Exception ex)
+                {
+                    SetText("social_status", "JOIN FAILED // " + ShortSocialError(ex));
+                }
+                _socialFingerprint = "";
+            }
+
             SetBool("social_loading",
                 _socialLoad is { IsCompleted: false }
                 || _socialLookup is { IsCompleted: false }
-                || _socialMutation is { IsCompleted: false });
+                || _socialMutation is { IsCompleted: false }
+                || _socialInviteMutation is { IsCompleted: false }
+                || _socialJoin is { IsCompleted: false });
         }
 
         private static void HandleSocialAction(string action)
@@ -736,6 +860,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _socialDrawerOpen = true;
                 _nextSocialReload = 0;
                 BeginSocialLoad(force: true);
+                SocialInviteClient.RefreshNow();
                 RefreshSocialUi(force: true);
                 NativeFocus("social_tab_friends");
                 return;
@@ -760,6 +885,7 @@ namespace MphRead.Mods.Launcher.Gui
             if (action == "social:refresh")
             {
                 SocialPresenceClient.RefreshNow();
+                SocialInviteClient.RefreshNow();
                 _nextSocialReload = 0;
                 BeginSocialLoad(force: true);
                 SetText("social_status", "REFRESHING SOCIAL");
@@ -768,7 +894,7 @@ namespace MphRead.Mods.Launcher.Gui
             if (action.StartsWith("social:tab:", StringComparison.Ordinal))
             {
                 if (Int32.TryParse(action["social:tab:".Length..], out int tab))
-                    _socialTab = Math.Clamp(tab, 0, 3);
+                    _socialTab = Math.Clamp(tab, 0, 4);
                 _socialLookupPlayer = null;
                 _socialFingerprint = "";
                 RefreshSocialUi(force: true);
@@ -784,7 +910,8 @@ namespace MphRead.Mods.Launcher.Gui
                 if (_socialTab == 1 && LooksLikePrimeId(query))
                     BeginSocialLookup(query.ToUpperInvariant());
                 else
-                    SetText("social_status", query.Length == 0 ? "SOCIAL READY" : "FILTER APPLIED");
+                    SetText("social_status",
+                        query.Length == 0 ? "SOCIAL READY" : "FILTER APPLIED");
                 RefreshSocialUi(force: true);
                 return;
             }
@@ -794,13 +921,35 @@ namespace MphRead.Mods.Launcher.Gui
             if (separator <= prefix.Length || separator + 1 >= action.Length)
                 return;
             string verb = action[prefix.Length..separator];
-            string primeId = action[(separator + 1)..].Trim().ToUpperInvariant();
+            string id = action[(separator + 1)..].Trim();
+
+            if (verb is "invite-accept" or "invite-decline" or "invite-cancel")
+            {
+                if (!Guid.TryParse(id, out _))
+                {
+                    SetText("social_status", "INVALID INVITE ID");
+                    return;
+                }
+                if (verb == "invite-accept")
+                    BeginSocialJoin(verb, id);
+                else
+                    BeginInviteMutation(verb, id);
+                NativeFocus(SocialTabFocusId());
+                return;
+            }
+
+            string primeId = id.ToUpperInvariant();
             if (!LooksLikePrimeId(primeId))
             {
                 SetText("social_status", "INVALID PRIME ID");
                 return;
             }
-            BeginSocialMutation(verb, primeId);
+            if (verb == "invite-friend")
+                BeginInviteMutation(verb, primeId);
+            else if (verb == "join-friend")
+                BeginSocialJoin(verb, primeId);
+            else
+                BeginSocialMutation(verb, primeId);
             NativeFocus(SocialTabFocusId());
         }
 
@@ -808,7 +957,8 @@ namespace MphRead.Mods.Launcher.Gui
         {
             1 => "social_tab_players",
             2 => "social_tab_requests",
-            3 => "social_blocks",
+            3 => "social_tab_invites",
+            4 => "social_blocks",
             _ => "social_tab_friends"
         };
 
@@ -818,6 +968,10 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
 
             SocialPresenceSnapshot presence = SocialPresenceClient.Current;
+            SocialInviteSnapshot invites = SocialInviteClient.Current;
+            SocialLobbyLocator? ownLobby = SocialInviteClient.CurrentLobby;
+            bool canInvite = ownLobby != null
+                && ownLobby.ExpiresAt > DateTimeOffset.UtcNow;
             var presenceById = new Dictionary<string, SocialOnlinePlayer>(
                 StringComparer.OrdinalIgnoreCase);
             var onlineFriends = new List<SocialOnlinePlayer>();
@@ -832,12 +986,24 @@ namespace MphRead.Mods.Launcher.Gui
 
             int requests = (_socialSnapshot?.IncomingRequests.Count ?? 0)
                 + (_socialSnapshot?.OutgoingRequests.Count ?? 0);
+            int incomingInvites = invites.Incoming.Count;
+            int allInvites = incomingInvites + invites.Outgoing.Count;
+            int badge = requests + incomingInvites;
             SetText("social_online_count", $"{presence.Players.Count} ONLINE");
             SetText("social_friend_count", $"{onlineFriends.Count} ONLINE");
-            SetText("social_request_count", requests == 1 ? "1 REQUEST" : $"{requests} REQUESTS");
-            SetText("social_badge", requests > 0 ? Math.Min(requests, 99).ToString(CultureInfo.InvariantCulture) : "");
+            SetText("social_request_count",
+                requests == 1 ? "1 REQUEST" : $"{requests} REQUESTS");
+            SetText("social_invite_count",
+                allInvites == 1 ? "1 ACTIVE" : $"{allInvites} ACTIVE");
+            SetText("social_badge",
+                badge > 0 ? Math.Min(badge, 99).ToString(CultureInfo.InvariantCulture) : "");
+            SocialGameInvite? newestInvite = invites.Incoming.Count > 0
+                ? invites.Incoming[0] : null;
+            SetText("social_notice", newestInvite == null ? ""
+                : $"GAME INVITE // {newestInvite.DisplayName.ToUpperInvariant()} // "
+                    + SocialRoomLabel(newestInvite.RoomKey));
 
-            List<SocialUiRow> rows = BuildSocialRows(presenceById);
+            List<SocialUiRow> rows = BuildSocialRows(presenceById, canInvite);
             var filtered = new List<SocialUiRow>();
             foreach (SocialUiRow row in rows)
             {
@@ -856,6 +1022,12 @@ namespace MphRead.Mods.Launcher.Gui
                     "OFFLINE",
                     "PRIME ID LOOKUP",
                     relation,
+                    "",
+                    false,
+                    false,
+                    canInvite && relation != "BLOCKED",
+                    false,
+                    false,
                     false,
                     false);
                 if (SocialMatches(row, _socialSearch))
@@ -865,11 +1037,15 @@ namespace MphRead.Mods.Launcher.Gui
             var fingerprint = new StringBuilder();
             fingerprint.Append(_socialTab).Append('|').Append(_socialSearch).Append('|')
                 .Append(presence.Players.Count).Append('|').Append(onlineFriends.Count)
-                .Append('|').Append(requests);
+                .Append('|').Append(requests).Append('|').Append(allInvites)
+                .Append('|').Append(ownLobby?.LobbyId ?? "");
             foreach (SocialUiRow row in filtered)
                 fingerprint.Append('|').Append(row.PrimeId).Append(':').Append(row.Activity)
                     .Append(':').Append(row.Detail).Append(':').Append(row.Relation)
-                    .Append(':').Append(row.Online ? '1' : '0');
+                    .Append(':').Append(row.InviteId)
+                    .Append(':').Append(row.Online ? '1' : '0')
+                    .Append(':').Append(row.CanInvite ? '1' : '0')
+                    .Append(':').Append(row.CanJoin ? '1' : '0');
             for (int i = 0; i < onlineFriends.Count && i < 3; i++)
                 fingerprint.Append("|H:").Append(onlineFriends[i].PrimeId)
                     .Append(':').Append(onlineFriends[i].Activity)
@@ -884,7 +1060,11 @@ namespace MphRead.Mods.Launcher.Gui
             foreach (SocialUiRow row in filtered)
             {
                 NativeSocialAddRow(row.PrimeId, row.Name, row.Activity, row.Detail,
-                    row.Relation, row.Online ? 1 : 0, row.FriendOnline ? 1 : 0);
+                    row.Relation, row.InviteId,
+                    row.Online ? 1 : 0, row.FriendOnline ? 1 : 0,
+                    row.CanInvite ? 1 : 0, row.CanJoin ? 1 : 0,
+                    row.CanAcceptInvite ? 1 : 0, row.CanDeclineInvite ? 1 : 0,
+                    row.CanCancelInvite ? 1 : 0);
             }
 
             for (int i = 0; i < onlineFriends.Count && i < 3; i++)
@@ -900,14 +1080,15 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         private static List<SocialUiRow> BuildSocialRows(
-            Dictionary<string, SocialOnlinePlayer> presenceById)
+            Dictionary<string, SocialOnlinePlayer> presenceById, bool canInvite)
         {
             var rows = new List<SocialUiRow>();
             if (_socialTab == 0)
             {
                 if (_socialSnapshot == null) return rows;
                 foreach (SocialPlayer friend in _socialSnapshot.Friends)
-                    rows.Add(RowForPersistent(friend, "FRIEND", presenceById));
+                    rows.Add(RowForPersistent(
+                        friend, "FRIEND", presenceById, canInvite));
                 return rows;
             }
 
@@ -915,14 +1096,22 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 foreach (SocialOnlinePlayer player in SocialPresenceClient.Current.Players)
                 {
+                    string relation = RelationshipFor(player.PrimeId);
                     rows.Add(new SocialUiRow(
                         player.PrimeId,
                         player.DisplayName.ToUpperInvariant(),
                         ActivityLabel(player.Activity),
                         SocialRoomLabel(player.RoomKey),
-                        RelationshipFor(player.PrimeId),
+                        relation,
+                        "",
                         true,
-                        player.IsFriend));
+                        player.IsFriend,
+                        canInvite && relation != "BLOCKED",
+                        !NetSession.Active && relation == "FRIEND"
+                            && player.Joinable && !String.IsNullOrWhiteSpace(player.LobbyId),
+                        false,
+                        false,
+                        false));
                 }
                 return rows;
             }
@@ -931,24 +1120,70 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 if (_socialSnapshot == null) return rows;
                 foreach (SocialPlayer incoming in _socialSnapshot.IncomingRequests)
-                    rows.Add(RowForPersistent(incoming, "INCOMING", presenceById,
+                    rows.Add(RowForPersistent(
+                        incoming, "INCOMING", presenceById, canInvite,
                         offlineActivity: "REQUEST RECEIVED"));
                 foreach (SocialPlayer outgoing in _socialSnapshot.OutgoingRequests)
-                    rows.Add(RowForPersistent(outgoing, "OUTGOING", presenceById,
+                    rows.Add(RowForPersistent(
+                        outgoing, "OUTGOING", presenceById, canInvite,
                         offlineActivity: "REQUEST SENT"));
+                return rows;
+            }
+
+            if (_socialTab == 3)
+            {
+                SocialInviteSnapshot invites = SocialInviteClient.Current;
+                foreach (SocialGameInvite invite in invites.Incoming)
+                {
+                    presenceById.TryGetValue(invite.PrimeId, out SocialOnlinePlayer? online);
+                    rows.Add(new SocialUiRow(
+                        invite.PrimeId,
+                        invite.DisplayName.ToUpperInvariant(),
+                        invite.Status.Equals("accepted", StringComparison.OrdinalIgnoreCase)
+                            ? "INVITE ACCEPTED" : "GAME INVITE",
+                        InviteDetail(invite),
+                        "GAME INVITE",
+                        invite.InviteId,
+                        online != null,
+                        online?.IsFriend == true,
+                        false,
+                        false,
+                        !NetSession.Active,
+                        true,
+                        false));
+                }
+                foreach (SocialGameInvite invite in invites.Outgoing)
+                {
+                    presenceById.TryGetValue(invite.PrimeId, out SocialOnlinePlayer? online);
+                    rows.Add(new SocialUiRow(
+                        invite.PrimeId,
+                        invite.DisplayName.ToUpperInvariant(),
+                        "INVITE SENT",
+                        InviteDetail(invite),
+                        "INVITE SENT",
+                        invite.InviteId,
+                        online != null,
+                        online?.IsFriend == true,
+                        false,
+                        false,
+                        false,
+                        false,
+                        true));
+                }
                 return rows;
             }
 
             if (_socialSnapshot == null) return rows;
             foreach (SocialPlayer blocked in _socialSnapshot.Blocked)
-                rows.Add(RowForPersistent(blocked, "BLOCKED", presenceById,
+                rows.Add(RowForPersistent(
+                    blocked, "BLOCKED", presenceById, false,
                     offlineActivity: "BLOCKED"));
             return rows;
         }
 
         private static SocialUiRow RowForPersistent(
             SocialPlayer player, string relation,
-            Dictionary<string, SocialOnlinePlayer> presenceById,
+            Dictionary<string, SocialOnlinePlayer> presenceById, bool canInvite,
             string offlineActivity = "OFFLINE")
         {
             if (presenceById.TryGetValue(player.PrimeId, out SocialOnlinePlayer online))
@@ -959,8 +1194,15 @@ namespace MphRead.Mods.Launcher.Gui
                     ActivityLabel(online.Activity),
                     SocialRoomLabel(online.RoomKey),
                     relation,
+                    "",
                     true,
-                    relation == "FRIEND");
+                    relation == "FRIEND",
+                    canInvite && relation != "BLOCKED",
+                    !NetSession.Active && relation == "FRIEND"
+                        && online.Joinable && !String.IsNullOrWhiteSpace(online.LobbyId),
+                    false,
+                    false,
+                    false);
             }
             return new SocialUiRow(
                 player.PrimeId,
@@ -968,8 +1210,23 @@ namespace MphRead.Mods.Launcher.Gui
                 offlineActivity,
                 "",
                 relation,
+                "",
+                false,
+                false,
+                canInvite && relation != "BLOCKED",
+                false,
+                false,
                 false,
                 false);
+        }
+
+        private static string InviteDetail(SocialGameInvite invite)
+        {
+            string room = SocialRoomLabel(invite.RoomKey);
+            string server = invite.ServerName.Trim().ToUpperInvariant();
+            if (server.Length == 0) return room;
+            if (room.Length == 0) return server;
+            return server + " // " + room;
         }
 
         private static string RelationshipFor(string primeId)
@@ -1016,9 +1273,9 @@ namespace MphRead.Mods.Launcher.Gui
                     if (value[i] != '-') return false;
                     continue;
                 }
-                char c = value[i];
-                if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
-                    || (c >= 'A' && c <= 'F')))
+                char ch = value[i];
+                if (!((ch >= '0' && ch <= '9') || (ch >= 'a' && ch <= 'f')
+                    || (ch >= 'A' && ch <= 'F')))
                     return false;
             }
             return true;
@@ -1057,6 +1314,15 @@ namespace MphRead.Mods.Launcher.Gui
             _ => status.Replace('_', ' ').ToUpperInvariant()
         };
 
+        private static string InviteMutationStatus(string status) => status switch
+        {
+            "invite_sent" => "GAME INVITE SENT",
+            "invite_pending" => "GAME INVITE ALREADY PENDING",
+            "invite_declined" => "GAME INVITE DECLINED",
+            "invite_cancelled" => "GAME INVITE CANCELLED",
+            _ => status.Replace('_', ' ').ToUpperInvariant()
+        };
+
         private static string ShortSocialError(Exception ex)
         {
             string text = ex.Message.Trim().Replace('\n', ' ').Replace('\r', ' ');
@@ -1073,16 +1339,18 @@ namespace MphRead.Mods.Launcher.Gui
             SetText("social_online_count", "6 ONLINE");
             SetText("social_friend_count", "2 ONLINE");
             SetText("social_request_count", "2 REQUESTS");
-            SetText("social_badge", "2");
+            SetText("social_invite_count", "1 ACTIVE");
+            SetText("social_badge", "3");
+            SetText("social_notice", "GAME INVITE // SYLUX MAIN // SANCTORUS");
             NativeSocialClear();
             NativeSocialAddRow("PP-7A1C-5D91-44B2-8E31-9F20", "TRACE MAIN",
-                "IN LOBBY", "SANCTORUS", "FRIEND", 1, 1);
+                "IN LOBBY", "SANCTORUS", "FRIEND", "", 1, 1, 0, 1, 0, 0, 0);
             NativeSocialAddRow("PP-0D72-3F1A-4B8C-91E0-6A2B", "KANDEN",
-                "IN MATCH", "FUEL STACK", "FRIEND", 1, 1);
+                "IN MATCH", "FUEL STACK", "FRIEND", "", 1, 1, 0, 0, 0, 0, 0);
             NativeSocialAddRow("PP-991A-B732-4FD1-87C0-122E", "WEAVEL FAN",
-                "OFFLINE", "", "FRIEND", 0, 0);
+                "OFFLINE", "", "FRIEND", "", 0, 0, 0, 0, 0, 0, 0);
             NativeSocialAddRow("PP-AB22-01CE-4DA7-82E1-7F04", "NOXUS",
-                "OFFLINE", "", "FRIEND", 0, 0);
+                "OFFLINE", "", "FRIEND", "", 0, 0, 0, 0, 0, 0, 0);
             NativeSocialAddHomeFriend("PP-7A1C-5D91-44B2-8E31-9F20",
                 "TRACE MAIN", "IN LOBBY", "SANCTORUS");
             NativeSocialAddHomeFriend("PP-0D72-3F1A-4B8C-91E0-6A2B",
@@ -1341,7 +1609,9 @@ namespace MphRead.Mods.Launcher.Gui
             [MarshalAs(UnmanagedType.LPUTF8Str)] string activity,
             [MarshalAs(UnmanagedType.LPUTF8Str)] string detail,
             [MarshalAs(UnmanagedType.LPUTF8Str)] string relation,
-            int online, int friendOnline);
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string inviteId,
+            int online, int friendOnline, int canInvite, int canJoin,
+            int canAcceptInvite, int canDeclineInvite, int canCancelInvite);
 
         [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_social_add_home_friend")]
         private static extern void NativeSocialAddHomeFriend(
