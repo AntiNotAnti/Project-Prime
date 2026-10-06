@@ -1,0 +1,702 @@
+PASS: ready barrier, soft/hard loading, synchronized commitment, generation, failures, disconnect and rematch
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[22:48:20] [server] listening on UDP 62151, up to 8 players
+[22:48:20] [server] control-plane test mode: gameplay simulation disabled
+[22:48:20] [server] rotation: 1 map(s), starting on MP1 SANCTORUS (Battle, 0 min, 0 pts)
+[22:48:20] [server] not starting games for anybody (no host port range)
+[22:48:20] [server] 127.0.0.1:60224 joined as slot 0
+[22:48:20] [server] [lobby] revision 1 -> 2: owner = slot 0
+[22:48:20] [server] [lobby] revision 2 -> 3: peer slot 0 connected
+[22:48:20] [server] slot 0 is "Test880" playing Samus in suit 1
+[22:48:20] [server] [lobby] revision 3 -> 4: slot 0 identity changed
+[22:48:20] [server] 127.0.0.1:65363 joined as slot 1
+[22:48:20] [server] [lobby] revision 4 -> 5: peer slot 1 connected
+[22:48:20] [server] slot 1 is "Test881" playing Samus in suit 1
+[22:48:20] [server] [lobby] revision 5 -> 6: slot 1 identity changed
+[22:48:20] [server] [lobby] revision 6 -> 7: slot 0: UpdateMatch
+[22:48:20] [server] slot 1 is "Test881" playing Weavel in suit 1
+[22:48:20] [server] [lobby] revision 7 -> 8: slot 1 identity changed
+[22:48:20] [server] slot 1 is "Test881" playing Kanden in suit 1
+[22:48:20] [server] [lobby] revision 8 -> 9: slot 1 identity changed
+[22:48:20] [server] [bot] added slot 2 Kanden difficulty=1 team=-1
+[22:48:20] [server] [lobby] revision 9 -> 10: slot 0: AddBot
+[22:48:20] [server] [lobby] slot 0 UpdateMatch denied: Insta-Gib and No Imp cannot be enabled together.
+[22:48:20] [server] [lobby] revision 10 -> 11: slot 0: SetReady
+[22:48:20] [server] [lobby] revision 11 -> 12: slot 1: SetReady
+[22:48:20] [server] [lobby] phase Lobby -> Starting, match 2
+[22:48:20] [server] [lobby] revision 12 -> 13: phase changed
+[22:48:20] [server] [lobby] revision 13 -> 14: authority ready; waiting for loaded participants
+[22:48:20] [server] [lobby] authority loaded MP1 SANCTORUS in 0.00s; waiting for slots mask 03
+[22:48:20] [server] [lobby] revision 14 -> 15: slot 0: StartMatch
+[22:48:20] [server] [lobby] revision 15 -> 16: slot 0 synchronizing
+[22:48:20] [server] [lobby] revision 16 -> 17: slot 1 synchronizing
+[22:48:20] [server] [lobby] revision 17 -> 18: synchronizing authoritative world expected=03 loaded=03 ready=00
+[22:48:20] [server] [lobby] slot 0 applied world revision 1, frame 1
+[22:48:20] [server] [lobby] revision 18 -> 19: slot 0 world ready
+[22:48:20] [server] [lobby] slot 1 applied world revision 2, frame 1
+[22:48:20] [server] [lobby] revision 19 -> 20: slot 1 world ready
+[22:48:20] [server] [lobby] revision 20 -> 21: all participants ready; countdown started
+[22:48:21] [server] [lobby] phase Starting -> InMatch, match 2
+[22:48:21] [server] [lobby] revision 21 -> 22: phase changed
+[22:48:21] [server] 127.0.0.1:64553 joined as slot 3
+[22:48:21] [server] [lobby] revision 22 -> 23: peer slot 3 connected
+[22:48:21] [server] slot 3 is "Test882" playing Kanden in suit 1
+[22:48:21] [server] [lobby] revision 23 -> 24: slot 3 identity changed
+[22:48:21] [server] [lobby] revision 24 -> 25: slot 0 left; owner 881
+[22:48:21] [server] 127.0.0.1:60224 left (slot 0)
+[22:48:24] [server] [lobby] revision 25 -> 26: slot 1 left; owner 882
+[22:48:24] [server] 127.0.0.1:65363 left (slot 1)
+[22:48:24] [server] [lobby] last player left; resetting abandoned match
+[22:48:24] [server] [lobby] phase InMatch -> Lobby, match 2
+[22:48:24] [server] [lobby] revision 26 -> 27: phase changed
+[22:48:24] [server] 127.0.0.1:64553 left (slot 3)
+[22:48:26] [server] shutting down
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[22:48:26] [server] listening on UDP 50361, up to 8 players
+[22:48:26] [server] control-plane test mode: gameplay simulation disabled
+[22:48:26] [server] rotation: 1 map(s), starting on MP1 SANCTORUS (Battle, 0 min, 0 pts)
+[22:48:26] [server] not starting games for anybody (no host port range)
+[22:48:26] [server] 127.0.0.1:61682 joined as slot 0
+[22:48:26] [server] [lobby] revision 1 -> 2: peer slot 0 connected
+[22:48:26] [server] slot 0 is "Test2" playing Samus in suit 1
+[22:48:26] [server] [lobby] revision 2 -> 3: slot 0 identity changed
+[22:48:26] [server] 127.0.0.1:49857 joined as slot 1
+[22:48:26] [server] [lobby] revision 3 -> 4: owner = slot 1
+[22:48:26] [server] [lobby] revision 4 -> 5: peer slot 1 connected
+[22:48:26] [server] slot 1 is "Test1" playing Samus in suit 1
+[22:48:26] [server] [lobby] revision 5 -> 6: slot 1 identity changed
+[22:48:26] [server] [lobby] slot 0 StartMatch denied: Only the lobby owner can do that.
+[22:48:26] [server] [lobby] slot 1 StartMatch denied: Waiting for Test2 to ready.
+[22:48:26] [server] [lobby] slot 1 SetReady denied: The lobby changed. Review the updated settings and try again.
+[22:48:26] [server] [lobby] slot 0 SetHandicap denied: Only the lobby owner can do that.
+[22:48:26] [server] [lobby] revision 6 -> 7: slot 1: SetHandicap
+[22:48:26] [server] [lobby] revision 7 -> 8: slot 0: SetReady
+[22:48:26] [server] [lobby] revision 8 -> 9: slot 1: SetReady
+[22:48:26] [server] [lobby] revision 9 -> 10: slot 1: UpdateMatch
+[22:48:26] [server] [lobby] slot 0 UpdateMatch denied: Only the lobby owner can do that.
+[22:48:26] [server] [lobby] revision 10 -> 11: slot 0: SetReady
+[22:48:26] [server] [lobby] revision 11 -> 12: slot 1: SetReady
+[22:48:26] [server] [lobby] phase Lobby -> Starting, match 2
+[22:48:26] [server] [lobby] revision 12 -> 13: phase changed
+[22:48:26] [server] [lobby] revision 13 -> 14: authority ready; waiting for loaded participants
+[22:48:26] [server] [lobby] authority loaded MP2 HARVESTER in 0.00s; waiting for slots mask 03
+[22:48:26] [server] [lobby] revision 14 -> 15: slot 1: StartMatch
+[22:48:26] [server] [lobby] revision 15 -> 16: slot 1 synchronizing
+[22:48:26] [server] [lobby] slot 1 applied world revision 1, frame 1
+[22:48:26] [server] [lobby] revision 16 -> 17: slot 1 world ready
+[22:48:26] [server] 127.0.0.1:63427 joined as slot 2
+[22:48:26] [server] [lobby] revision 17 -> 18: peer slot 2 connected
+[22:48:26] [server] slot 2 is "Test3" playing Samus in suit 1
+[22:48:26] [server] [lobby] revision 18 -> 19: slot 2 identity changed
+[22:48:26] [server] [lobby] revision 19 -> 20: slot 0 synchronizing
+[22:48:26] [server] [lobby] revision 20 -> 21: synchronizing authoritative world expected=03 loaded=03 ready=02
+[22:48:26] [server] [lobby] slot 0 applied world revision 2, frame 1
+[22:48:26] [server] [lobby] revision 21 -> 22: slot 0 world ready
+[22:48:26] [server] [lobby] revision 22 -> 23: all participants ready; countdown started
+[22:48:27] [server] [lobby] phase Starting -> InMatch, match 2
+[22:48:27] [server] [lobby] revision 23 -> 24: phase changed
+[22:48:27] [server] [lobby] slot 1 SetHandicap denied: Wait until the server returns to the lobby.
+[career] no authoritative career baseline; match not reported
+[22:48:27] [server] [lobby] phase InMatch -> PostMatch, match 2
+[22:48:27] [server] [lobby] revision 24 -> 25: phase changed
+[22:48:27] [server] match over on MP2 HARVESTER (test); returning to lobby in 21 s
+[22:48:49] [server] [lobby] phase PostMatch -> Lobby, match 2
+[22:48:49] [server] [lobby] revision 25 -> 26: phase changed
+[22:48:49] [server] [lobby] revision 26 -> 27: slot 0: SetReady
+[22:48:49] [server] [lobby] revision 27 -> 28: slot 1: SetReady
+[22:48:49] [server] [lobby] revision 28 -> 29: slot 2: SetReady
+[22:48:49] [server] [lobby] phase Lobby -> Starting, match 3
+[22:48:49] [server] [lobby] revision 29 -> 30: phase changed
+[22:48:49] [server] [lobby] revision 30 -> 31: authority ready; waiting for loaded participants
+[22:48:49] [server] [lobby] authority loaded MP1 SANCTORUS in 0.00s; waiting for slots mask 07
+[22:48:49] [server] [lobby] revision 31 -> 32: slot 1: StartMatch
+[22:48:49] [server] [lobby] revision 32 -> 33: slot 0 synchronizing
+[22:48:49] [server] [lobby] revision 33 -> 34: slot 1 synchronizing
+[22:48:49] [server] [lobby] revision 34 -> 35: slot 2 synchronizing
+[22:48:49] [server] [lobby] revision 35 -> 36: synchronizing authoritative world expected=07 loaded=07 ready=00
+[22:48:49] [server] [lobby] slot 0 applied world revision 3, frame 1
+[22:48:49] [server] [lobby] revision 36 -> 37: slot 0 world ready
+[22:48:49] [server] [lobby] slot 1 applied world revision 4, frame 1
+[22:48:49] [server] [lobby] revision 37 -> 38: slot 1 world ready
+[22:48:49] [server] [lobby] slot 2 applied world revision 5, frame 1
+[22:48:49] [server] [lobby] revision 38 -> 39: slot 2 world ready
+[22:48:49] [server] [lobby] revision 39 -> 40: all participants ready; countdown started
+[22:48:50] [server] [lobby] phase Starting -> InMatch, match 3
+[22:48:50] [server] [lobby] revision 40 -> 41: phase changed
+[22:48:50] [server] [lobby] slot 0 ReturnToLobby denied: Only the lobby owner can do that.
+[22:48:50] [server] [lobby] phase InMatch -> Lobby, match 3
+[22:48:50] [server] [lobby] revision 41 -> 42: phase changed
+[22:48:50] [server] [lobby] revision 42 -> 43: slot 1 left; owner 2
+[22:48:50] [server] 127.0.0.1:49857 left (slot 1)
+[22:48:52] [server] [lobby] revision 43 -> 44: peer slot 0 connected
+[22:48:52] [server] [lobby] revision 44 -> 45: slot 0 left; owner 3
+[22:48:52] [server] 127.0.0.1:61682 left (slot 0)
+[22:48:52] [server] [lobby] last player left hosted lobby; stopping server
+[22:48:52] [server] 127.0.0.1:63427 left (slot 2)
+[22:48:52] [server] shutting down
+[22:48:54] [server] listening on UDP 58473, up to 8 players
+[22:48:54] [server] control-plane test mode: gameplay simulation disabled
+[22:48:54] [server] rotation: 1 map(s), starting on MP1 SANCTORUS (Battle, 0 min, 0 pts)
+[22:48:54] [server] not starting games for anybody (no host port range)
+[22:48:54] [server] 127.0.0.1:61095 joined as slot 0
+[22:48:54] [server] [lobby] revision 1 -> 2: owner = slot 0
+[22:48:54] [server] [lobby] revision 2 -> 3: peer slot 0 connected
+[22:48:54] [server] slot 0 is "Test130" playing Samus in suit 1
+[22:48:54] [server] [lobby] revision 3 -> 4: slot 0 identity changed
+[22:48:54] [server] 127.0.0.1:58661 joined as slot 1
+[22:48:54] [server] [lobby] revision 4 -> 5: peer slot 1 connected
+[22:48:54] [server] slot 1 is "Test131" playing Samus in suit 1
+[22:48:54] [server] [lobby] revision 5 -> 6: slot 1 identity changed
+[22:48:54] [server] [lobby] revision 6 -> 7: slot 0: UpdateMatch
+[22:48:54] [server] [lobby] phase Lobby -> Starting, match 2
+[22:48:54] [server] [lobby] revision 7 -> 8: phase changed
+[22:48:54] [server] [lobby] revision 8 -> 9: authority ready; waiting for loaded participants
+[22:48:54] [server] [lobby] authority loaded MP1 SANCTORUS in 0.00s; waiting for slots mask 03
+[22:48:54] [server] [lobby] revision 9 -> 10: slot 0: StartMatch
+[22:48:54] [server] [lobby] revision 10 -> 11: slot 0 synchronizing
+[22:48:54] [server] [lobby] revision 11 -> 12: slot 1 synchronizing
+[22:48:54] [server] [lobby] revision 12 -> 13: synchronizing authoritative world expected=03 loaded=03 ready=00
+[22:48:54] [server] [lobby] slot 0 applied world revision 1, frame 1
+[22:48:54] [server] [lobby] revision 13 -> 14: slot 0 world ready
+[22:48:54] [server] [lobby] slot 1 applied world revision 2, frame 1
+[22:48:54] [server] [lobby] revision 14 -> 15: slot 1 world ready
+[22:48:54] [server] [lobby] revision 15 -> 16: all participants ready; countdown started
+[22:48:56] [server] [lobby] phase Starting -> InMatch, match 2
+[22:48:56] [server] [lobby] revision 16 -> 17: phase changed
+[22:48:56] [server] [lobby] revision 17 -> 18: slot 0 left; owner 131
+[22:48:56] [server] 127.0.0.1:61095 left (slot 0)
+[22:48:58] [server] [lobby] last player left; resetting abandoned match
+[22:48:58] [server] [lobby] phase InMatch -> Lobby, match 2
+[22:48:58] [server] [lobby] revision 18 -> 19: phase changed
+[22:48:58] [server] 127.0.0.1:58661 left (slot 1)
+[22:48:58] [server] shutting down
+[22:48:58] [server] listening on UDP 64109, up to 8 players
+[22:48:58] [server] control-plane test mode: gameplay simulation disabled
+[22:48:58] [server] rotation: 1 map(s), starting on MP1 SANCTORUS (Battle, 0 min, 0 pts)
+[22:48:58] [server] not starting games for anybody (no host port range)
+[22:48:58] [server] 127.0.0.1:65064 joined as slot 0
+[22:48:58] [server] [lobby] revision 1 -> 2: owner = slot 0
+[22:48:58] [server] [lobby] revision 2 -> 3: peer slot 0 connected
+[22:48:58] [server] slot 0 is "Test100" playing Samus in suit 1
+[22:48:58] [server] [lobby] revision 3 -> 4: slot 0 identity changed
+[22:48:58] [server] 127.0.0.1:62506 joined as slot 1
+[22:48:58] [server] [lobby] revision 4 -> 5: peer slot 1 connected
+[22:48:58] [server] slot 1 is "Test101" playing Samus in suit 1
+[22:48:58] [server] [lobby] revision 5 -> 6: slot 1 identity changed
+[22:48:58] [server] [lobby] revision 6 -> 7: slot 0: SetReady
+[22:48:58] [server] [lobby] revision 7 -> 8: slot 1: SetReady
+[22:48:58] [server] [lobby] phase Lobby -> Starting, match 2
+[22:48:58] [server] [lobby] revision 8 -> 9: phase changed
+[22:48:58] [server] [lobby] revision 9 -> 10: authority ready; waiting for loaded participants
+[22:48:58] [server] [lobby] authority loaded MP1 SANCTORUS in 0.00s; waiting for slots mask 03
+[22:48:58] [server] [lobby] revision 10 -> 11: slot 0: StartMatch
+[22:48:58] [server] [lobby] revision 11 -> 12: slot 0 synchronizing
+[22:48:58] [server] [lobby] revision 12 -> 13: slot 1 synchronizing
+[22:48:58] [server] [lobby] revision 13 -> 14: synchronizing authoritative world expected=03 loaded=03 ready=00
+[22:48:58] [server] [lobby] slot 0 applied world revision 1, frame 1
+[22:48:58] [server] [lobby] revision 14 -> 15: slot 0 world ready
+[22:48:58] [server] [lobby] slot 1 applied world revision 2, frame 1
+[22:48:58] [server] [lobby] revision 15 -> 16: slot 1 world ready
+[22:48:58] [server] [lobby] revision 16 -> 17: all participants ready; countdown started
+[22:49:00] [server] [lobby] phase Starting -> InMatch, match 2
+[22:49:00] [server] [lobby] revision 17 -> 18: phase changed
+[22:49:00] [server] [lobby] revision 18 -> 19: slot 0 left; owner 101
+[22:49:00] [server] 127.0.0.1:65064 left (slot 0)
+[22:49:02] [server] [lobby] last player left; resetting abandoned match
+[22:49:02] [server] [lobby] phase InMatch -> Lobby, match 2
+[22:49:02] [server] [lobby] revision 19 -> 20: phase changed
+[22:49:02] [server] 127.0.0.1:62506 left (slot 1)
+[22:49:02] [server] 127.0.0.1:52502 joined as slot 0
+[22:49:02] [server] [lobby] revision 20 -> 21: owner = slot 0
+[22:49:02] [server] [lobby] revision 21 -> 22: peer slot 0 connected
+[22:49:02] [server] slot 0 is "Test102" playing Samus in suit 1
+[22:49:02] [server] [lobby] revision 22 -> 23: slot 0 identity changed
+[22:49:02] [server] [lobby] revision 23 -> 24: slot 0 left; owner 0
+[22:49:02] [server] 127.0.0.1:52502 left (slot 0)
+[22:49:04] [server] shutting down
+[22:49:04] [server] listening on UDP 52473, up to 8 players
+[22:49:04] [server] control-plane test mode: gameplay simulation disabled
+[22:49:04] [server] rotation: 1 map(s), starting on MP1 SANCTORUS (Battle, 0 min, 0 pts)
+[22:49:04] [server] not starting games for anybody (no host port range)
+[22:49:04] [server] 127.0.0.1:50474 joined as slot 0
+[22:49:04] [server] [lobby] revision 1 -> 2: owner = slot 0
+[22:49:04] [server] [lobby] revision 2 -> 3: peer slot 0 connected
+[22:49:04] [server] slot 0 is "Test110" playing Samus in suit 1
+[22:49:04] [server] [lobby] revision 3 -> 4: slot 0 identity changed
+[22:49:04] [server] 127.0.0.1:60583 joined as slot 1
+[22:49:04] [server] [lobby] revision 4 -> 5: peer slot 1 connected
+[22:49:04] [server] slot 1 is "Test111" playing Samus in suit 1
+[22:49:04] [server] [lobby] revision 5 -> 6: slot 1 identity changed
+[22:49:04] [server] [lobby] revision 6 -> 7: slot 0 left; owner 111
+[22:49:04] [server] 127.0.0.1:50474 left (slot 0)
+[22:49:06] [server] [lobby] revision 7 -> 8: slot 1: CloseLobby
+[22:49:06] [server] [lobby] slot 1 closed the lobby and its local server
+[22:49:06] [server] shutting down
+[22:49:08] [server] listening on UDP 61713, up to 8 players
+[22:49:08] [server] control-plane test mode: gameplay simulation disabled
+[22:49:08] [server] rotation: 1 map(s), starting on MP1 SANCTORUS (Battle, 0 min, 0 pts)
+[22:49:08] [server] not starting games for anybody (no host port range)
+[22:49:08] [server] 127.0.0.1:57764 joined as slot 0
+[22:49:08] [server] [lobby] revision 1 -> 2: owner = slot 0
+[22:49:08] [server] [lobby] revision 2 -> 3: peer slot 0 connected
+[22:49:08] [server] slot 0 is "Test120" playing Samus in suit 1
+[22:49:08] [server] [lobby] revision 3 -> 4: slot 0 identity changed
+[22:49:08] [server] 127.0.0.1:49480 joined as slot 1
+[22:49:08] [server] [lobby] revision 4 -> 5: peer slot 1 connected
+[22:49:08] [server] slot 1 is "Test121" playing Samus in suit 1
+[22:49:08] [server] [lobby] revision 5 -> 6: slot 1 identity changed
+[22:49:08] [server] [lobby] revision 6 -> 7: slot 0: TransferOwner
+[22:49:08] [server] [lobby] revision 7 -> 8: slot 1: CloseLobby
+[22:49:08] [server] [lobby] slot 1 closed the lobby and its local server
+[22:49:08] [server] shutting down
+[22:49:12] [server] listening on UDP 56710, up to 8 players
+[22:49:12] [server] control-plane test mode: gameplay simulation disabled
+[22:49:12] [server] rotation: 1 map(s), starting on MP1 SANCTORUS (Battle, 0 min, 0 pts)
+[22:49:12] [server] not starting games for anybody (no host port range)
+[22:49:12] [server] 127.0.0.1:54910 joined as slot 0
+[22:49:12] [server] [lobby] revision 1 -> 2: owner = slot 0
+[22:49:12] [server] [lobby] revision 2 -> 3: peer slot 0 connected
+[22:49:12] [server] slot 0 is "Test10" playing Samus in suit 1
+[22:49:12] [server] [lobby] revision 3 -> 4: slot 0 identity changed
+[22:49:12] [server] 127.0.0.1:54425 joined as slot 1
+[22:49:12] [server] [lobby] revision 4 -> 5: peer slot 1 connected
+[22:49:12] [server] slot 1 is "Test11" playing Samus in suit 1
+[22:49:12] [server] [lobby] revision 5 -> 6: slot 1 identity changed
+[22:49:12] [server] [lobby] revision 6 -> 7: slot 0: UpdateMatch
+[22:49:12] [server] 127.0.0.1:60817 joined as slot 2
+[22:49:12] [server] [lobby] revision 7 -> 8: peer slot 2 connected
+[22:49:12] [server] slot 2 is "Test12" playing Samus in suit 1
+[22:49:12] [server] [lobby] revision 8 -> 9: slot 2 identity changed
+[22:49:12] [server] 127.0.0.1:59978 joined as slot 3
+[22:49:12] [server] [lobby] revision 9 -> 10: peer slot 3 connected
+[22:49:12] [server] slot 3 is "Test13" playing Samus in suit 1
+[22:49:12] [server] [lobby] revision 10 -> 11: slot 3 identity changed
+[22:49:12] [server] [lobby] slot 0 SetTeam denied: That team is full.
+[22:49:12] [server] [lobby] phase Lobby -> Starting, match 2
+[22:49:12] [server] [lobby] revision 11 -> 12: phase changed
+[22:49:12] [server] [lobby] revision 12 -> 13: authority ready; waiting for loaded participants
+[22:49:12] [server] [lobby] authority loaded MP1 SANCTORUS in 0.00s; waiting for slots mask 0F
+[22:49:12] [server] [lobby] revision 13 -> 14: slot 0: StartMatch
+[22:49:12] [server] [lobby] revision 14 -> 15: slot 1 left; owner 10
+[22:49:12] [server] 127.0.0.1:54425 left (slot 1)
+[22:49:14] [server] [lobby] revision 15 -> 16: slot 3 left; owner 10
+[22:49:14] [server] [lobby] start cancelled: At least two teams need a player.
+[22:49:14] [server] [lobby] phase Starting -> Lobby, match 2
+[22:49:14] [server] [lobby] revision 16 -> 17: phase changed
+[22:49:14] [server] 127.0.0.1:59978 left (slot 3)
+[22:49:14] [server] [lobby] revision 17 -> 18: slot 0: UpdateMatch
+[22:49:14] [server] 127.0.0.1:52936 joined as slot 1
+[22:49:14] [server] [lobby] revision 18 -> 19: peer slot 1 connected
+[22:49:14] [server] slot 1 is "Test14" playing Samus in suit 1
+[22:49:14] [server] [lobby] revision 19 -> 20: slot 1 identity changed
+[22:49:14] [server] 127.0.0.1:53220 joined as slot 3
+[22:49:14] [server] [lobby] revision 20 -> 21: peer slot 3 connected
+[22:49:14] [server] slot 3 is "Test15" playing Samus in suit 1
+[22:49:14] [server] [lobby] revision 21 -> 22: slot 3 identity changed
+[22:49:14] [server] 127.0.0.1:56164 joined as slot 4
+[22:49:14] [server] [lobby] revision 22 -> 23: peer slot 4 connected
+[22:49:14] [server] slot 4 is "Test16" playing Samus in suit 1
+[22:49:14] [server] [lobby] revision 23 -> 24: slot 4 identity changed
+[22:49:14] [server] 127.0.0.1:58538 joined as slot 5
+[22:49:14] [server] [lobby] revision 24 -> 25: peer slot 5 connected
+[22:49:14] [server] slot 5 is "Test17" playing Samus in suit 1
+[22:49:14] [server] [lobby] revision 25 -> 26: slot 5 identity changed
+[22:49:14] [server] 127.0.0.1:64111 joined as slot 6
+[22:49:14] [server] [lobby] revision 26 -> 27: peer slot 6 connected
+[22:49:14] [server] slot 6 is "Test18" playing Samus in suit 1
+[22:49:14] [server] [lobby] revision 27 -> 28: slot 6 identity changed
+[22:49:14] [server] 127.0.0.1:60532 joined as slot 7
+[22:49:14] [server] [lobby] revision 28 -> 29: peer slot 7 connected
+[22:49:14] [server] slot 7 is "Test19" playing Samus in suit 1
+[22:49:14] [server] [lobby] revision 29 -> 30: slot 7 identity changed
+[22:49:14] [server] [lobby] revision 30 -> 31: slot 0: UpdateMatch
+[22:49:14] [server] [lobby] phase Lobby -> Starting, match 3
+[22:49:14] [server] [lobby] revision 31 -> 32: phase changed
+[22:49:14] [server] [lobby] revision 32 -> 33: authority ready; waiting for loaded participants
+[22:49:14] [server] [lobby] authority loaded MP1 SANCTORUS in 0.00s; waiting for slots mask FF
+[22:49:14] [server] [lobby] revision 33 -> 34: slot 0: StartMatch
+[22:49:14] [server] [lobby] revision 34 -> 35: slot 0 synchronizing
+[22:49:14] [server] [lobby] revision 35 -> 36: slot 2 synchronizing
+[22:49:14] [server] [lobby] revision 36 -> 37: slot 1 synchronizing
+[22:49:14] [server] [lobby] revision 37 -> 38: slot 3 synchronizing
+[22:49:14] [server] [lobby] revision 38 -> 39: slot 4 synchronizing
+[22:49:14] [server] [lobby] revision 39 -> 40: slot 5 synchronizing
+[22:49:14] [server] [lobby] revision 40 -> 41: slot 6 synchronizing
+[22:49:14] [server] [lobby] revision 41 -> 42: slot 7 left; owner 10
+[22:49:14] [server] [lobby] revision 42 -> 43: synchronizing authoritative world expected=7F loaded=7F ready=00
+[22:49:14] [server] 127.0.0.1:60532 could not load match: test load failure (slot 7)
+[22:49:14] [server] [lobby] slot 0 applied world revision 1, frame 1
+[22:49:14] [server] [lobby] revision 43 -> 44: slot 0 world ready
+[22:49:14] [server] [lobby] slot 2 applied world revision 2, frame 1
+[22:49:14] [server] [lobby] revision 44 -> 45: slot 2 world ready
+[22:49:14] [server] [lobby] slot 1 applied world revision 3, frame 1
+[22:49:14] [server] [lobby] revision 45 -> 46: slot 1 world ready
+[22:49:14] [server] [lobby] slot 3 applied world revision 4, frame 1
+[22:49:14] [server] [lobby] revision 46 -> 47: slot 3 world ready
+[22:49:14] [server] [lobby] slot 4 applied world revision 5, frame 1
+[22:49:14] [server] [lobby] revision 47 -> 48: slot 4 world ready
+[22:49:14] [server] [lobby] slot 5 applied world revision 6, frame 1
+[22:49:14] [server] [lobby] revision 48 -> 49: slot 5 world ready
+[22:49:14] [server] [lobby] slot 6 applied world revision 7, frame 1
+[22:49:14] [server] [lobby] revision 49 -> 50: slot 6 world ready
+[22:49:14] [server] [lobby] revision 50 -> 51: all participants ready; countdown started
+[22:49:16] [server] [lobby] phase Starting -> InMatch, match 3
+[22:49:16] [server] [lobby] revision 51 -> 52: phase changed
+[22:49:16] [server] [lobby] revision 52 -> 53: slot 0 left; owner 12
+[22:49:16] [server] 127.0.0.1:54910 left (slot 0)
+[22:49:18] [server] [lobby] revision 53 -> 54: slot 2 left; owner 14
+[22:49:18] [server] 127.0.0.1:60817 left (slot 2)
+[22:49:18] [server] [lobby] revision 54 -> 55: slot 1 left; owner 15
+[22:49:18] [server] 127.0.0.1:52936 left (slot 1)
+[22:49:20] [server] [lobby] revision 55 -> 56: slot 3 left; owner 16
+[22:49:20] [server] 127.0.0.1:53220 left (slot 3)
+[22:49:22] [server] [lobby] revision 56 -> 57: slot 4 left; owner 17
+[22:49:22] [server] 127.0.0.1:56164 left (slot 4)
+[22:49:22] [server] [lobby] revision 57 -> 58: slot 5 left; owner 18
+[22:49:22] [server] 127.0.0.1:58538 left (slot 5)
+[22:49:24] [server] [lobby] last player left; resetting abandoned match
+[22:49:24] [server] [lobby] phase InMatch -> Lobby, match 3
+[22:49:24] [server] [lobby] revision 58 -> 59: phase changed
+[22:49:24] [server] 127.0.0.1:64111 left (slot 6)
+[22:49:28] [server] shutting down
+[22:49:28] [server] listening on UDP 63919, up to 8 players
+[22:49:28] [server] control-plane test mode: gameplay simulation disabled
+[22:49:28] [server] rotation: 1 map(s), starting on MP1 SANCTORUS (Battle, 0 min, 0 pts)
+[22:49:28] [server] not starting games for anybody (no host port range)
+[22:49:28] [server] 127.0.0.1:61203 joined as slot 0
+[22:49:28] [server] [lobby] revision 1 -> 2: owner = slot 0
+[22:49:28] [server] [lobby] revision 2 -> 3: peer slot 0 connected
+[22:49:28] [server] slot 0 is "Test50" playing Samus in suit 1
+[22:49:28] [server] [lobby] revision 3 -> 4: slot 0 identity changed
+[22:49:28] [server] 127.0.0.1:51048 joined as slot 1
+[22:49:28] [server] [lobby] revision 4 -> 5: peer slot 1 connected
+[22:49:28] [server] slot 1 is "Test51" playing Samus in suit 1
+[22:49:28] [server] [lobby] revision 5 -> 6: slot 1 identity changed
+[22:49:28] [server] [lobby] revision 6 -> 7: slot 0: UpdateMatch
+[22:49:28] [server] [lobby] slot 1 SetTeam denied: Only the owner can move another player.
+[22:49:28] [server] [lobby] revision 7 -> 8: slot 1: SetTeam
+[22:49:28] [server] [lobby] revision 8 -> 9: slot 1: SetReady
+[22:49:28] [server] [lobby] revision 9 -> 10: slot 0: SetTeam
+[22:49:28] [server] [lobby] revision 10 -> 11: slot 0: UpdateMatch
+[22:49:28] [server] [lobby] slot 1 SetTeam denied: Team changes are locked by the owner.
+[22:49:28] [server] [lobby] revision 11 -> 12: slot 0: SetTeam
+[22:49:28] [server] [lobby] slot 0 SetTeam denied: Choose a team for the current format.
+[22:49:28] [server] 127.0.0.1:51793 joined as slot 2
+[22:49:28] [server] [lobby] revision 12 -> 13: peer slot 2 connected
+[22:49:28] [server] slot 2 is "Test52" playing Samus in suit 1
+[22:49:28] [server] [lobby] revision 13 -> 14: slot 2 identity changed
+[22:49:28] [server] 127.0.0.1:61753 joined as slot 3
+[22:49:28] [server] [lobby] revision 14 -> 15: peer slot 3 connected
+[22:49:28] [server] slot 3 is "Test53" playing Samus in suit 1
+[22:49:28] [server] [lobby] revision 15 -> 16: slot 3 identity changed
+[22:49:28] [server] 127.0.0.1:55864 joined as slot 4
+[22:49:28] [server] [lobby] revision 16 -> 17: peer slot 4 connected
+[22:49:28] [server] slot 4 is "Test54" playing Samus in suit 1
+[22:49:28] [server] [lobby] revision 17 -> 18: slot 4 identity changed
+[22:49:28] [server] 127.0.0.1:51525 joined as slot 5
+[22:49:28] [server] [lobby] revision 18 -> 19: peer slot 5 connected
+[22:49:28] [server] slot 5 is "Test55" playing Samus in suit 1
+[22:49:28] [server] [lobby] revision 19 -> 20: slot 5 identity changed
+[22:49:28] [server] [lobby] slot 0 UpdateMatch denied: The layout must fit the connected roster and server player limit.
+[22:49:28] [server] [lobby] phase Lobby -> Starting, match 2
+[22:49:28] [server] [lobby] revision 20 -> 21: phase changed
+[22:49:28] [server] [lobby] revision 21 -> 22: authority ready; waiting for loaded participants
+[22:49:28] [server] [lobby] authority loaded MP1 SANCTORUS in 0.00s; waiting for slots mask 3F
+[22:49:28] [server] [lobby] revision 22 -> 23: slot 0: StartMatch
+[22:49:28] [server] [lobby] revision 23 -> 24: slot 5 left; owner 50
+[22:49:28] [server] 127.0.0.1:51525 left (slot 5)
+[22:49:31] [server] [lobby] revision 24 -> 25: slot 0 synchronizing
+[22:49:31] [server] [lobby] revision 25 -> 26: slot 1 synchronizing
+[22:49:31] [server] [lobby] revision 26 -> 27: slot 2 synchronizing
+[22:49:31] [server] [lobby] revision 27 -> 28: slot 3 synchronizing
+[22:49:31] [server] [lobby] revision 28 -> 29: slot 4 synchronizing
+[22:49:31] [server] [lobby] revision 29 -> 30: synchronizing authoritative world expected=1F loaded=1F ready=00
+[22:49:31] [server] [lobby] slot 0 applied world revision 1, frame 1
+[22:49:31] [server] [lobby] revision 30 -> 31: slot 0 world ready
+[22:49:31] [server] [lobby] slot 1 applied world revision 2, frame 1
+[22:49:31] [server] [lobby] revision 31 -> 32: slot 1 world ready
+[22:49:31] [server] [lobby] slot 2 applied world revision 3, frame 1
+[22:49:31] [server] [lobby] revision 32 -> 33: slot 2 world ready
+[22:49:31] [server] [lobby] slot 3 applied world revision 4, frame 1
+[22:49:31] [server] [lobby] revision 33 -> 34: slot 3 world ready
+[22:49:31] [server] [lobby] slot 4 applied world revision 5, frame 1
+[22:49:31] [server] [lobby] revision 34 -> 35: slot 4 world ready
+[22:49:31] [server] [lobby] revision 35 -> 36: all participants ready; countdown started
+[22:49:32] [server] [lobby] phase Starting -> InMatch, match 2
+[22:49:32] [server] [lobby] revision 36 -> 37: phase changed
+[22:49:32] [server] 127.0.0.1:57135 joined as slot 5
+[22:49:32] [server] [lobby] revision 37 -> 38: peer slot 5 connected
+[22:49:32] [server] slot 5 is "Test60" playing Samus in suit 1
+[22:49:32] [server] [lobby] revision 38 -> 39: slot 5 identity changed
+[22:49:32] [server] [lobby] revision 39 -> 40: slot 2 left; owner 50
+[22:49:32] [server] 127.0.0.1:51793 left (slot 2)
+[22:49:34] [server] 127.0.0.1:61869 joined as slot 2
+[22:49:34] [server] [lobby] revision 40 -> 41: peer slot 2 connected
+[22:49:34] [server] slot 2 is "Test61" playing Samus in suit 1
+[22:49:34] [server] [lobby] revision 41 -> 42: slot 2 identity changed
+[22:49:34] [server] [lobby] revision 42 -> 43: slot 0 left; owner 51
+[22:49:34] [server] 127.0.0.1:61203 left (slot 0)
+[22:49:36] [server] [lobby] revision 43 -> 44: slot 1 left; owner 53
+[22:49:36] [server] 127.0.0.1:51048 left (slot 1)
+[22:49:36] [server] [lobby] revision 44 -> 45: slot 3 left; owner 54
+[22:49:36] [server] 127.0.0.1:61753 left (slot 3)
+[22:49:38] [server] [lobby] revision 45 -> 46: slot 4 left; owner 60
+[22:49:38] [server] 127.0.0.1:55864 left (slot 4)
+[22:49:38] [server] [lobby] revision 46 -> 47: slot 5 left; owner 61
+[22:49:38] [server] 127.0.0.1:57135 left (slot 5)
+[22:49:40] [server] [lobby] last player left; resetting abandoned match
+[22:49:40] [server] [lobby] phase InMatch -> Lobby, match 2
+[22:49:40] [server] [lobby] revision 47 -> 48: phase changed
+[22:49:40] [server] 127.0.0.1:61869 left (slot 2)
+[22:49:40] [server] shutting down
+[22:49:40] [server] listening on UDP 61619, up to 8 players
+[22:49:40] [server] control-plane test mode: gameplay simulation disabled
+[22:49:40] [server] rotation: 1 map(s), starting on MP1 SANCTORUS (Battle, 0 min, 0 pts)
+[22:49:40] [server] not starting games for anybody (no host port range)
+[22:49:40] [server] 127.0.0.1:59412 joined as slot 0
+[22:49:40] [server] [lobby] revision 1 -> 2: owner = slot 0
+[22:49:40] [server] [lobby] revision 2 -> 3: peer slot 0 connected
+[22:49:40] [server] slot 0 is "Test70" playing Samus in suit 1
+[22:49:40] [server] [lobby] revision 3 -> 4: slot 0 identity changed
+[22:49:40] [server] [lobby] revision 4 -> 5: slot 0: UpdateMatch
+[22:49:40] [server] 127.0.0.1:52619 joined as slot 1
+[22:49:40] [server] [lobby] revision 5 -> 6: peer slot 1 connected
+[22:49:40] [server] slot 1 is "Test71" playing Samus in suit 1
+[22:49:40] [server] [lobby] revision 6 -> 7: slot 1 identity changed
+[22:49:41] [server] 127.0.0.1:49899 joined as slot 2
+[22:49:41] [server] [lobby] revision 7 -> 8: peer slot 2 connected
+[22:49:41] [server] slot 2 is "Test72" playing Samus in suit 1
+[22:49:41] [server] [lobby] revision 8 -> 9: slot 2 identity changed
+[22:49:41] [server] 127.0.0.1:50540 joined as slot 3
+[22:49:41] [server] [lobby] revision 9 -> 10: peer slot 3 connected
+[22:49:41] [server] slot 3 is "Test73" playing Samus in suit 1
+[22:49:41] [server] [lobby] revision 10 -> 11: slot 3 identity changed
+[22:49:41] [server] 127.0.0.1:50746 joined as slot 4
+[22:49:41] [server] [lobby] revision 11 -> 12: peer slot 4 connected
+[22:49:41] [server] slot 4 is "Test74" playing Samus in suit 1
+[22:49:41] [server] [lobby] revision 12 -> 13: slot 4 identity changed
+[22:49:41] [server] [lobby] revision 13 -> 14: slot 0: SetTeam
+[22:49:41] [server] 127.0.0.1:64329 joined as slot 5
+[22:49:41] [server] [lobby] revision 14 -> 15: peer slot 5 connected
+[22:49:41] [server] slot 5 is "Test75" playing Samus in suit 1
+[22:49:41] [server] [lobby] revision 15 -> 16: slot 5 identity changed
+[22:49:41] [server] [lobby] revision 16 -> 17: slot 0: SetTeam
+[22:49:41] [server] 127.0.0.1:50566 joined as slot 6
+[22:49:41] [server] [lobby] revision 17 -> 18: peer slot 6 connected
+[22:49:41] [server] slot 6 is "Test76" playing Samus in suit 1
+[22:49:41] [server] [lobby] revision 18 -> 19: slot 6 identity changed
+[22:49:41] [server] [lobby] revision 19 -> 20: slot 0: SetTeam
+[22:49:41] [server] 127.0.0.1:63334 joined as slot 7
+[22:49:41] [server] [lobby] revision 20 -> 21: peer slot 7 connected
+[22:49:41] [server] slot 7 is "Test77" playing Samus in suit 1
+[22:49:41] [server] [lobby] revision 21 -> 22: slot 7 identity changed
+[22:49:41] [server] chat Test70: A only
+[22:49:41] [server] [lobby] revision 22 -> 23: peer slot 5 connected
+[22:49:41] [server] [lobby] phase Lobby -> Starting, match 2
+[22:49:41] [server] [lobby] revision 23 -> 24: phase changed
+[22:49:41] [server] [lobby] revision 24 -> 25: authority ready; waiting for loaded participants
+[22:49:41] [server] [lobby] authority loaded MP1 SANCTORUS in 0.00s; waiting for slots mask FF
+[22:49:41] [server] [lobby] revision 25 -> 26: slot 0: StartMatch
+[22:49:41] [server] [lobby] revision 26 -> 27: slot 0 synchronizing
+[22:49:41] [server] [lobby] revision 27 -> 28: slot 1 synchronizing
+[22:49:41] [server] [lobby] revision 28 -> 29: slot 2 synchronizing
+[22:49:41] [server] [lobby] revision 29 -> 30: slot 3 synchronizing
+[22:49:41] [server] [lobby] revision 30 -> 31: slot 4 synchronizing
+[22:49:41] [server] [lobby] revision 31 -> 32: slot 5 synchronizing
+[22:49:41] [server] [lobby] revision 32 -> 33: slot 6 synchronizing
+[22:49:41] [server] [lobby] revision 33 -> 34: slot 7 synchronizing
+[22:49:41] [server] [lobby] revision 34 -> 35: synchronizing authoritative world expected=FF loaded=FF ready=00
+[22:49:41] [server] [lobby] slot 0 applied world revision 1, frame 1
+[22:49:41] [server] [lobby] revision 35 -> 36: slot 0 world ready
+[22:49:41] [server] [lobby] slot 1 applied world revision 2, frame 1
+[22:49:41] [server] [lobby] revision 36 -> 37: slot 1 world ready
+[22:49:41] [server] [lobby] slot 2 applied world revision 3, frame 1
+[22:49:41] [server] [lobby] revision 37 -> 38: slot 2 world ready
+[22:49:41] [server] [lobby] slot 3 applied world revision 4, frame 1
+[22:49:41] [server] [lobby] revision 38 -> 39: slot 3 world ready
+[22:49:41] [server] [lobby] slot 4 applied world revision 5, frame 1
+[22:49:41] [server] [lobby] revision 39 -> 40: slot 4 world ready
+[22:49:41] [server] [lobby] slot 5 applied world revision 6, frame 1
+[22:49:41] [server] [lobby] revision 40 -> 41: slot 5 world ready
+[22:49:41] [server] [lobby] slot 6 applied world revision 7, frame 1
+[22:49:41] [server] [lobby] revision 41 -> 42: slot 6 world ready
+[22:49:41] [server] [lobby] slot 7 applied world revision 8, frame 1
+[22:49:41] [server] [lobby] revision 42 -> 43: slot 7 world ready
+[22:49:41] [server] [lobby] revision 43 -> 44: all participants ready; countdown started
+[22:49:42] [server] [lobby] phase Starting -> InMatch, match 2
+[22:49:42] [server] [lobby] revision 44 -> 45: phase changed
+[22:49:42] [server] [lobby] revision 45 -> 46: slot 0 left; owner 71
+[22:49:42] [server] 127.0.0.1:59412 left (slot 0)
+[22:49:44] [server] [lobby] revision 46 -> 47: slot 1 left; owner 72
+[22:49:44] [server] 127.0.0.1:52619 left (slot 1)
+[22:49:44] [server] [lobby] revision 47 -> 48: slot 2 left; owner 73
+[22:49:44] [server] 127.0.0.1:49899 left (slot 2)
+[22:49:46] [server] [lobby] revision 48 -> 49: slot 3 left; owner 74
+[22:49:46] [server] 127.0.0.1:50540 left (slot 3)
+[22:49:46] [server] [lobby] revision 49 -> 50: slot 4 left; owner 75
+[22:49:46] [server] 127.0.0.1:50746 left (slot 4)
+[22:49:48] [server] [lobby] revision 50 -> 51: slot 5 left; owner 76
+[22:49:48] [server] 127.0.0.1:64329 left (slot 5)
+[22:49:50] [server] [lobby] revision 51 -> 52: slot 6 left; owner 77
+[22:49:50] [server] 127.0.0.1:50566 left (slot 6)
+[22:49:50] [server] [lobby] last player left; resetting abandoned match
+[22:49:50] [server] [lobby] phase InMatch -> Lobby, match 2
+[22:49:50] [server] [lobby] revision 52 -> 53: phase changed
+[22:49:50] [server] 127.0.0.1:63334 left (slot 7)
+[22:49:53] [server] shutting down
+[22:49:53] [server] listening on UDP 51785, up to 8 players
+[22:49:53] [server] control-plane test mode: gameplay simulation disabled
+[22:49:53] [server] rotation: 1 map(s), starting on MP1 SANCTORUS (Battle, 0 min, 0 pts)
+[22:49:53] [server] not starting games for anybody (no host port range)
+[22:49:53] [server] 127.0.0.1:62139 joined as slot 0
+[22:49:53] [server] [lobby] revision 1 -> 2: peer slot 0 connected
+[22:49:53] [server] slot 0 is "Test20" playing Samus in suit 1
+[22:49:53] [server] [lobby] revision 2 -> 3: slot 0 identity changed
+[career] no authoritative career baseline; match not reported
+[22:49:53] [server] [lobby] phase InMatch -> PostMatch, match 2
+[22:49:53] [server] [lobby] revision 3 -> 4: phase changed
+[22:49:53] [server] match over on MP1 SANCTORUS (test); MP1 SANCTORUS in 21 s; ballot open
+[22:50:14] [server] rotating to MP1 SANCTORUS (Battle, 0 min, 0 pts)
+[22:50:14] [server] [lobby] phase PostMatch -> Starting, match 3
+[22:50:14] [server] [lobby] revision 4 -> 5: phase changed
+[22:50:14] [server] [lobby] revision 5 -> 6: authority ready; waiting for loaded participants
+[22:50:14] [server] [lobby] authority loaded MP1 SANCTORUS in 0.00s; waiting for slots mask 01
+[22:50:14] [server] [lobby] revision 6 -> 7: slot 0 synchronizing
+[22:50:14] [server] [lobby] revision 7 -> 8: synchronizing authoritative world expected=01 loaded=01 ready=00
+[22:50:14] [server] [lobby] slot 0 applied world revision 1, frame 1
+[22:50:14] [server] [lobby] revision 8 -> 9: slot 0 world ready
+[22:50:14] [server] [lobby] revision 9 -> 10: all participants ready; countdown started
+[22:50:15] [server] [lobby] phase Starting -> InMatch, match 3
+[22:50:15] [server] [lobby] revision 10 -> 11: phase changed
+[22:50:15] [server] [lobby] revision 11 -> 12: slot 0 left; owner 0
+[22:50:15] [server] 127.0.0.1:62139 left (slot 0)
+[22:50:17] [server] shutting down
+[22:50:17] [server] listening on UDP 56361, up to 8 players
+[22:50:17] [server] control-plane test mode: gameplay simulation disabled
+[22:50:17] [server] rotation: 1 map(s), starting on MP1 SANCTORUS (Battle, 0 min, 0 pts)
+[22:50:17] [server] not starting games for anybody (no host port range)
+[22:50:17] [server] 127.0.0.1:60887 joined as slot 0
+[22:50:17] [server] [lobby] revision 1 -> 2: owner = slot 0
+[22:50:17] [server] [lobby] revision 2 -> 3: peer slot 0 connected
+[22:50:17] [server] slot 0 is "Test420" playing Samus in suit 1
+[22:50:17] [server] [lobby] revision 3 -> 4: slot 0 identity changed
+[22:50:17] [server] [lobby] revision 4 -> 5: slot 0: SetReady
+[22:50:17] [server] [lobby] phase Lobby -> Starting, match 2
+[22:50:17] [server] [lobby] revision 5 -> 6: phase changed
+[22:50:17] [server] [lobby] revision 6 -> 7: authority ready; waiting for loaded participants
+[22:50:17] [server] [lobby] authority loaded MP1 SANCTORUS in 0.00s; waiting for slots mask 01
+[22:50:17] [server] [lobby] revision 7 -> 8: slot 0: StartMatch
+[22:50:17] [server] [lobby] revision 8 -> 9: slot 0 synchronizing
+[22:50:17] [server] [lobby] revision 9 -> 10: synchronizing authoritative world expected=01 loaded=01 ready=00
+[22:50:17] [server] [lobby] slot 0 applied world revision 1, frame 1
+[22:50:17] [server] [lobby] revision 10 -> 11: slot 0 world ready
+[22:50:17] [server] [lobby] revision 11 -> 12: all participants ready; countdown started
+[22:50:19] [server] [lobby] phase Starting -> InMatch, match 2
+[22:50:19] [server] [lobby] revision 12 -> 13: phase changed
+[22:50:19] [server] 127.0.0.1:59147 joined as slot 1
+[22:50:19] [server] [lobby] revision 13 -> 14: peer slot 1 connected
+[net] joining 127.0.0.1:56361 as "LateTrace"
+[net] joined as slot 1
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[22:50:19] [server] slot 1 is "LateTrace" playing Samus in suit 3
+[22:50:19] [server] [lobby] revision 14 -> 15: slot 1 identity changed
+[22:50:19] [server] slot 1 is "LateTrace" playing Trace in suit 3
+[22:50:19] [server] [lobby] revision 15 -> 16: slot 1 identity changed
+[net] connected in InMatch, slot 1
+[22:50:19] [server] [lobby] revision 16 -> 17: slot 1 left; owner 420
+[22:50:19] [server] 127.0.0.1:59147 left (slot 1)
+[22:50:21] [server] [lobby] last player left; resetting abandoned match
+[22:50:21] [server] [lobby] phase InMatch -> Lobby, match 2
+[22:50:21] [server] [lobby] revision 17 -> 18: phase changed
+[22:50:21] [server] 127.0.0.1:60887 left (slot 0)
+[22:50:21] [server] shutting down
+[22:50:21] [server] listening on UDP 51799, up to 8 players
+[22:50:21] [server] control-plane test mode: gameplay simulation disabled
+[22:50:21] [server] rotation: 1 map(s), starting on MP1 SANCTORUS (Battle, 0 min, 0 pts)
+[22:50:21] [server] not starting games for anybody (no host port range)
+[net] joining 127.0.0.1:51799 as "RealClient"
+[22:50:21] [server] 127.0.0.1:57079 joined as slot 0
+[22:50:21] [server] [lobby] revision 1 -> 2: owner = slot 0
+[22:50:21] [server] [lobby] revision 2 -> 3: peer slot 0 connected
+[22:50:21] [server] [lobby] revision 3 -> 4: peer slot 0 connected
+[net] joined as slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[22:50:21] [server] slot 0 is "RealClient" playing Samus in suit 1
+[22:50:21] [server] [lobby] revision 4 -> 5: slot 0 identity changed
+[net] connected in Lobby, slot 0
+[22:50:22] [server] [lobby] revision 5 -> 6: slot 0: SetReady
+[22:50:23] [server] [lobby] phase Lobby -> Starting, match 2
+[22:50:23] [server] [lobby] revision 6 -> 7: phase changed
+[22:50:23] [server] [lobby] revision 7 -> 8: authority ready; waiting for loaded participants
+[22:50:23] [server] [lobby] authority loaded MP1 SANCTORUS in 0.00s; waiting for slots mask 01
+[22:50:23] [server] [lobby] revision 8 -> 9: slot 0: StartMatch
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[22:50:23] [server] [lobby] slot 0 loading: StartReceived
+[22:50:23] [server] [lobby] revision 9 -> 10: slot 0 synchronizing
+[22:50:23] [server] [lobby] revision 10 -> 11: synchronizing authoritative world expected=01 loaded=01 ready=00
+[22:50:23] [server] [lobby] slot 0 loading: SceneReady
+[22:50:23] [server] [lobby] slot 0 applied world revision 1, frame 1
+[22:50:23] [server] [lobby] revision 11 -> 12: slot 0 world ready
+[22:50:23] [server] [lobby] revision 12 -> 13: all participants ready; countdown started
+[22:50:25] [server] [lobby] phase Starting -> InMatch, match 2
+[22:50:25] [server] [lobby] revision 13 -> 14: phase changed
+[career] no authoritative career baseline; match not reported
+[22:50:25] [server] [lobby] phase InMatch -> PostMatch, match 2
+[22:50:25] [server] [lobby] revision 14 -> 15: phase changed
+[22:50:25] [server] match over on MP1 SANCTORUS (test); returning to lobby in 21 s
+[22:50:46] [server] [lobby] phase PostMatch -> Lobby, match 2
+[22:50:46] [server] [lobby] revision 15 -> 16: phase changed
+[22:50:47] [server] [lobby] revision 16 -> 17: slot 0: SetReady
+[22:50:47] [server] [lobby] phase Lobby -> Starting, match 3
+[22:50:47] [server] [lobby] revision 17 -> 18: phase changed
+[22:50:47] [server] [lobby] revision 18 -> 19: authority ready; waiting for loaded participants
+[22:50:47] [server] [lobby] authority loaded MP1 SANCTORUS in 0.00s; waiting for slots mask 01
+[22:50:47] [server] [lobby] revision 19 -> 20: slot 0: StartMatch
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[22:50:47] [server] [lobby] revision 20 -> 21: slot 0 synchronizing
+[22:50:47] [server] [lobby] revision 21 -> 22: synchronizing authoritative world expected=01 loaded=01 ready=00
+[22:50:47] [server] [lobby] slot 0 loading: StartReceived
+[22:50:47] [server] [lobby] slot 0 loading: SceneReady
+[22:50:47] [server] [lobby] slot 0 applied world revision 2, frame 1
+[22:50:47] [server] [lobby] revision 22 -> 23: slot 0 world ready
+[22:50:47] [server] [lobby] revision 23 -> 24: all participants ready; countdown started
+[22:50:49] [server] [lobby] phase Starting -> InMatch, match 3
+[22:50:49] [server] [lobby] revision 24 -> 25: phase changed
+[22:50:49] [server] [lobby] last player left; resetting abandoned match
+[22:50:49] [server] [lobby] phase InMatch -> Lobby, match 3
+[22:50:49] [server] [lobby] revision 25 -> 26: phase changed
+[22:50:49] [server] 127.0.0.1:57079 left (slot 0)
+[22:50:51] [server] shutting down
+[22:50:51] [server] listening on UDP 55320, up to 8 players
+[22:50:51] [server] control-plane test mode: gameplay simulation disabled
+[22:50:51] [server] rotation: 1 map(s), starting on SYNC_TEST_MAP (Battle, 0 min, 0 pts)
+[22:50:51] [server] not starting games for anybody (no host port range)
+[22:50:51] [server] 127.0.0.1:55479 joined as slot 0
+[22:50:51] [server] [lobby] revision 1 -> 2: owner = slot 0
+[22:50:51] [server] [lobby] revision 2 -> 3: peer slot 0 connected
+[22:50:51] [server] slot 0 is "Test310" playing Samus in suit 1
+[22:50:51] [server] [lobby] revision 3 -> 4: slot 0 identity changed
+[22:50:51] [server] 127.0.0.1:49997 joined as slot 1
+[22:50:51] [server] [lobby] revision 4 -> 5: peer slot 1 connected
+[22:50:51] [server] slot 1 is "Test311" playing Samus in suit 1
+[22:50:51] [server] [lobby] revision 5 -> 6: slot 1 identity changed
+[22:50:51] [server] [lobby] revision 6 -> 7: slot 0: SetReady
+[22:50:51] [server] [lobby] revision 7 -> 8: slot 1: SetReady
+[22:50:51] [server] [lobby] slot 0 StartMatch denied: Waiting for Test310 to prepare SYNC_TEST_MAP (Unknown).
+[22:50:51] [server] [lobby] slot 0 StartMatch denied: Waiting for Test311 to prepare SYNC_TEST_MAP (Unknown).
+[22:50:51] [server] [lobby] slot 0 StartMatch denied: Waiting for Test311 to prepare SYNC_TEST_MAP (Failed).
+[22:50:51] [server] [lobby] phase Lobby -> Starting, match 2
+[22:50:51] [server] [lobby] revision 8 -> 9: phase changed
+[22:50:51] [server] [lobby] revision 9 -> 10: authority ready; waiting for loaded participants
+[22:50:51] [server] [lobby] authority loaded SYNC_TEST_MAP in 0.00s; waiting for slots mask 03
+[22:50:51] [server] [lobby] revision 10 -> 11: slot 0: StartMatch
+[22:50:51] [server] [lobby] revision 11 -> 12: slot 0 left; owner 311
+[22:50:51] [server] 127.0.0.1:55479 left (slot 0)
+[22:50:54] [server] [lobby] last player left; resetting abandoned match
+[22:50:54] [server] [lobby] phase Starting -> Lobby, match 2
+[22:50:54] [server] [lobby] revision 12 -> 13: phase changed
+[22:50:54] [server] 127.0.0.1:49997 left (slot 1)
+[22:50:54] [server] shutting down
+[netlobbytest] PASS: 7736 assertions; protocol, UDP lifecycle/farewell, join-in-progress identity, owner lobby return, direct post-match lobby return, abandoned-session cleanup, hosted ownership, teams, rebind and continuous rotation.

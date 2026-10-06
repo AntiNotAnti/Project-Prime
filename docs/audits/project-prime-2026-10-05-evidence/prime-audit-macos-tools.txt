@@ -1,0 +1,11 @@
+/Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/Platforms/macOS/ProjectPrime.entitlements: OK
+/var/folders/8x/m8p269sd5dl015jr01kkpzbr0000gn/T/tmp.KoaCR22pS4/publish with spaces/nested/extensionless-native: replacing existing signature
+/var/folders/8x/m8p269sd5dl015jr01kkpzbr0000gn/T/tmp.KoaCR22pS4/publish with spaces/nested/extensionless-native: valid on disk
+/var/folders/8x/m8p269sd5dl015jr01kkpzbr0000gn/T/tmp.KoaCR22pS4/publish with spaces/nested/extensionless-native: satisfies its Designated Requirement
+/var/folders/8x/m8p269sd5dl015jr01kkpzbr0000gn/T/tmp.KoaCR22pS4/publish with spaces/libopenal.1.dylib: replacing existing signature
+/var/folders/8x/m8p269sd5dl015jr01kkpzbr0000gn/T/tmp.KoaCR22pS4/publish with spaces/libopenal.1.dylib: valid on disk
+/var/folders/8x/m8p269sd5dl015jr01kkpzbr0000gn/T/tmp.KoaCR22pS4/publish with spaces/libopenal.1.dylib: satisfies its Designated Requirement
+/var/folders/8x/m8p269sd5dl015jr01kkpzbr0000gn/T/tmp.KoaCR22pS4/publish with spaces/ProjectPrime: replacing existing signature
+/var/folders/8x/m8p269sd5dl015jr01kkpzbr0000gn/T/tmp.KoaCR22pS4/publish with spaces/ProjectPrime: valid on disk
+/var/folders/8x/m8p269sd5dl015jr01kkpzbr0000gn/T/tmp.KoaCR22pS4/publish with spaces/ProjectPrime: satisfies its Designated Requirement
+error: missing wgpu-native

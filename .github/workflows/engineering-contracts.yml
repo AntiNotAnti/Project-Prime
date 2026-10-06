@@ -1,0 +1,35 @@
+name: engineering contracts
+on:
+  workflow_call:
+    inputs:
+      revision:
+        description: Exact commit that will be packaged
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.revision }}
+      - name: assert exact checkout
+        env:
+          EXPECTED_REVISION: ${{ inputs.revision }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_REVISION"
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: '2.9.7'
+      - name: typecheck locked Edge function dependencies
+        run: bash tools/edge-check/check-deno.sh
+      - name: compile and verify asset-free contracts
+        run: tools/check-engineering-contracts.sh

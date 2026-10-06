@@ -1,0 +1,23 @@
+DESKTOPPACING PASS native 60 cap uses the 59.94 Hz display clock
+DESKTOPPACING PASS native 60 cap uses the 60 Hz display clock
+DESKTOPPACING PASS native 90 cap uses the 90 Hz display clock
+DESKTOPPACING PASS native 120 cap uses the 120 Hz display clock
+DESKTOPPACING PASS native 144 cap uses the 144 Hz display clock
+DESKTOPPACING PASS native 165 cap uses the 165 Hz display clock
+DESKTOPPACING PASS native 240 cap uses the 240 Hz display clock
+DESKTOPPACING PASS Display always uses display pacing
+DESKTOPPACING PASS Unlimited never aliases Display/VSync
+DESKTOPPACING PASS 120 cap on 144 Hz remains an explicit software-paced request
+DESKTOPPACING PASS 144 cap on 120 Hz remains an explicit software-paced request
+DESKTOPPACING PASS normal Linux compositor jitter does not trigger fallback
+DESKTOPPACING PASS Linux display mode detects ignored swap interval
+DESKTOPPACING PASS Linux ignored-VSync fallback stays latched for the monitor
+DESKTOPPACING PASS ignored-VSync fallback is Linux-only
+DESKTOPPACING PASS non-native numeric caps never trigger the Linux display fallback
+DESKTOPPACING PASS Unlimited never triggers the Linux VSync fallback
+DESKTOPPACING PASS native explicit caps inherit the Linux ignored-VSync fallback
+DESKTOPPACING PASS non-native cap uses software pacing when modern present is nonblocking
+DESKTOPPACING PASS Unlimited leaves the OpenTK frame loop genuinely uncapped
+DESKTOPPACING PASS FIFO fallback never stacks a software cap on blocking presentation
+DESKTOPPACING PASS native cap has exactly one display pacing clock
+DESKTOPPACING PASS Linux ignored-VSync fallback paces at monitor refresh

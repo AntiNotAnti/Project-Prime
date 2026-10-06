@@ -1,0 +1,16 @@
+PASS 1.0.0 is a valid release tag
+PASS prerelease channel stays manual
+PASS explicit local stamp is not a release
+PASS 0.9.0 can update to 1.0.0
+PASS client picks the client package when the server asset is first
+PASS client keeps GitHub's SHA-256 release digest
+PASS GitHub SHA-256 digest is accepted for one-click install
+PASS unsupported release digests are refused
+PASS same version is not offered again
+PASS a newer installation is not downgraded
+PASS prerelease is not offered as a stable update
+PASS version manager keeps only published stable releases
+PASS version manager keeps release ordering
+PASS version manager includes older releases for explicit downgrade
+PASS older release keeps its verified package digest
+PASS unstamped assembly remains a local build

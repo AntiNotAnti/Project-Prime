@@ -1,0 +1,29 @@
+[debug] standard error is being written to /tmp/prime-audit-client-tests/logs/ProjectPrime-20261005-224811-65548-native.txt
+Project Prime a local build
+OS: macOS 27.0.0
+OS architecture: Arm64
+Process architecture: Arm64
+RID: osx-arm64
+Runtime: .NET 10.0.12
+Base directory: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/
+Launch directory: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online
+Current directory: /private/tmp/prime-audit-client-tests
+User data: /tmp/prime-audit-client-tests
+Native: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libopenal.1.dylib
+Native: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libglfw.3.dylib
+Native: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libSkiaSharp.dylib
+Native: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libAvaloniaNative.dylib
+Native: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libminiaudio.dylib
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[primeuicheck] FAIL: System.InvalidOperationException: Hunter License identifies the latest accepted match
+   at MphRead.Mods.Launcher.Gui.PrimeUiChecks.Check(Boolean condition, String message) in /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/Mods/Launcher/Gui/PrimeUiChecks.cs:line 20
+   at MphRead.Mods.Launcher.Gui.PrimeUiChecks.CheckHunterLicenseIdentitySurface() in /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/Mods/Launcher/Gui/PrimeUiChecks.cs:line 211
+   at MphRead.Mods.Launcher.Gui.PrimeUiChecks.<>c__DisplayClass14_0.<Run>b__0() in /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/Mods/Launcher/Gui/PrimeUiChecks.cs:line 522
+   at Avalonia.Threading.Dispatcher.Invoke(Action callback, DispatcherPriority priority, CancellationToken cancellationToken, TimeSpan timeout)
+   at Avalonia.Threading.Dispatcher.Invoke(Action callback)
+   at MphRead.Mods.Launcher.Gui.PrimeUiChecks.Run(String directory) in /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/Mods/Launcher/Gui/PrimeUiChecks.cs:line 503
+[gamepadcheck] FAIL: System.InvalidOperationException: persistent shell navigation and draft checks
+   at MphRead.Mods.Input.GamepadChecks.Check(Boolean condition, String message) in /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/Mods/Input/GamepadChecks.cs:line 12
+   at MphRead.Mods.Launcher.Gui.GamepadUiChecks.Run(String shots) in /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/Mods/Launcher/Gui/GamepadUiChecks.cs:line 66
+   at MphRead.Mods.Input.GamepadChecks.Run(String shots) in /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/Mods/Input/GamepadChecks.cs:line 343

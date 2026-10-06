@@ -1,0 +1,113 @@
+{
+  "date": "2026-10-06",
+  "host": "macOS27 arm64 / Apple M4 Pro",
+  "source": {
+    "validated_product_object": "1c6a87c504c41f802c8fbcf300430858bbbcfb3e",
+    "non_docs_git_ls_tree_sha256": "83aac9cc627e9b716e9d1d4f6773a1d3ca8399f81f025f0ec0b4515db1d0ac21",
+    "non_docs_tracked_files": 1671,
+    "fingerprint_definition": "SHA256 of git ls-tree -rz records excluding docs/ paths, joined by NUL with final NUL; modes and blob IDs included. Final review objects change documentation only."
+  },
+  "builds": {
+    "client": {
+      "warnings": 101,
+      "errors": 0,
+      "elapsed_seconds": 54.75,
+      "clean_rebuild": true
+    },
+    "server": {
+      "warnings": 37,
+      "errors": 0,
+      "elapsed_seconds": 23.89,
+      "isolated": true
+    },
+    "android_compile": {
+      "warnings": 117,
+      "errors": 0,
+      "elapsed_seconds": 31.32,
+      "rid": "android-arm64",
+      "apk_or_device_execution": false
+    }
+  },
+  "checks": {
+    "complete_engineering_contract_suite": "PASS on c63 archive; exact final narrow product delta recompiled and retested separately",
+    "final_network_policy": {
+      "assertions_per_run": 503,
+      "independent_runs": 3,
+      "rapid_dispose_cycles_total": 96
+    },
+    "native_authority": 57,
+    "existing_combat": 162,
+    "alt_contact": 995,
+    "continuous_target": 62,
+    "spire_active_attack_frames": 44,
+    "protocol19_native60": "PASS",
+    "world_geometry": "PASS",
+    "lobby": 7736,
+    "weapon_profiles": 1620,
+    "health_shot_assertions": 3338739,
+    "udp_stress": {
+      "peers": 8,
+      "native_owner_intents": 1720,
+      "isolated_final_intents": 1712,
+      "exact_once_controls_each": 128,
+      "pump_stall_ms": 400
+    },
+    "updater": {
+      "checks": 76,
+      "actual_killed_child_cases": 14
+    },
+    "dedicated_prerequisite_refusal": {
+      "checks": 8,
+      "server_exit": 1,
+      "directory_answers": true,
+      "refused_server_listed": false
+    },
+    "replay_format": 2957,
+    "replay_preparation_asset_free": 24,
+    "replay_asset_world": 80,
+    "live_capture_frames": 1801,
+    "live_frozen_comparisons": 251,
+    "killcam": 2354,
+    "map_roadmap": 108,
+    "authored_mip_native_readback": {
+      "metal_levels": 93,
+      "opengl_levels": 93
+    },
+    "native_ui": {
+      "prime_ui": 170,
+      "gamepad_asset_free": 1006,
+      "gamepad_configured_assets": 1008
+    },
+    "release_policy_shell_cases": 9,
+    "node_edge_tests": 10,
+    "frozen_deno_graphs": 5,
+    "corrupt_lock_negative": "PASS"
+  },
+  "failed_attempts_retained": [
+    "Selected-surface restore mismatch in isolated client after server build; corrected with client restore.",
+    "Final shared client missing generated Avalonia resource CS1566; clean Rebuild passed.",
+    "Legacy fixture paused after Seek; fixture now explicitly resumes and guards paused/EOF advancement."
+  ],
+  "remaining_release_gates": [
+    "Physical Android Vulkan/GLES lifecycle and touch",
+    "Windows DX12/Vulkan and Linux Vulkan native resource/pacing/updater/process-tree",
+    "High-refresh steady-state and effect-heavy native traces",
+    "Real local Supabase opaque-credential gateway relay acceptance; Docker daemon unavailable",
+    "Real protocol41 delayed/lost/reordered native full modifier soak; client-owned source pose remains a trust boundary"
+  ],
+  "log_sha256": {
+    "prime-roadmap-client-final-clean.log": "df37af9836d153d94e020108a04a1f570ec68d31bc9cb4a30cc7eba8bece566c",
+    "prime-roadmap-android-final-transport.log": "f4899ee0d35d8556c7a8f34e6f0923678a6ea29ae76d82bb819e83f9595b1a53",
+    "prime-network-server-race-final.log": "f12136b7638f5949b03b83bf4c88b394cbe968b3f09034f08f6cf3a6ae308b75",
+    "prime-network-policy-fixed-1.log": "1acf7d6042d54c8e1df89718a1557985dbf43cdfb4e893f56fcd952bf0736ef8",
+    "prime-network-policy-fixed-2.log": "1acf7d6042d54c8e1df89718a1557985dbf43cdfb4e893f56fcd952bf0736ef8",
+    "prime-network-policy-fixed-3.log": "1acf7d6042d54c8e1df89718a1557985dbf43cdfb4e893f56fcd952bf0736ef8",
+    "prime-network-alt-final.log": "1cbe9f61b761a408b2794afdd89d1da361512adfd59e4efb890f61d5704c5b59",
+    "prime-network-transport-final.log": "aaa9061276e0ab6b2dbcca84fd14f4ab3bfc2f02b85988b8319125d27cfbbe73",
+    "prime-roadmap-replayformat-final.log": "ff5a8bc8fd1879d3fe189f2973df7ae37d93fc67271a535fde72d6ee97dede96",
+    "prime-p04-source-final.log": "4ad2f86aec9acfee0a1ec4d444d3a7b56a917cc5eda58f33152a512b2e91b1b1",
+    "prime-p04-asset-final.log": "674bd3db3d7842cc796a38e15b973a746e21cb1a10fb10900c1999b5eac2305d",
+    "prime-p04-livecapture-final.log": "bab92f7b0d8b36bd8dae9a4ebfdd37bb653074281d6285bd0f83f3983bac053a",
+    "prime-p04-killcam-final.log": "23d4d926d095f51ccc6c94464c47a8702074a95cca5e15c916e6f9f7144915ba"
+  }
+}

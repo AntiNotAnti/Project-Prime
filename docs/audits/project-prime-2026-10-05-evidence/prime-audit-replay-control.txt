@@ -1,0 +1,3 @@
+[replaycheck] timing: rates, presentation independence and deterministic receive clock passed
+[replaycheck] camera: interpolation, persistence, bounds, corruption and profiles passed
+[replaycheck] FAIL: unchanged v0.1.34 replay layout rejected because of assembly version

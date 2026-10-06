@@ -1,0 +1,3 @@
+Replay timeline: 36 checks passed.
+PASS: 40 timeline checks including allocation regression
+PASS: 43 checks including pooled lifetime

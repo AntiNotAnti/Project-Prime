@@ -1,0 +1,373 @@
+{
+  "Runtime": ".NET 10.0.12",
+  "Platform": "macOS 27.0.0",
+  "Source": "prime-replay-privateworld-six-minute.ppdemo",
+  "Frames": 21600,
+  "Notes": "Headless simulation, warm OS/asset/JIT caches. Seek baseline is identical v4 facts without a durable checkpoint index. CPU is process CPU; allocations are calling-thread allocations. No rendering/GPU costs included.",
+  "TimelineBytes": 17398016,
+  "RecordCount": 6008,
+  "RestorePointCount": 10,
+  "ClipBytes": 1737728,
+  "KillcamManagedBytes": 9811976,
+  "IndexedBytes": 9256589,
+  "BaselineBytes": 3655147,
+  "Samples": [
+    {
+      "Operation": "startup",
+      "Source": "unindexed",
+      "WallMs": 28.3237,
+      "CpuMs": 30.309,
+      "AllocatedBytes": 37895856,
+      "Steps": 0,
+      "RestoreFrame": 0,
+      "Hash": "85AFCF0F38FCE8F87F075335E4A85B7A03D4D7774726E282E94637561EB13777"
+    },
+    {
+      "Operation": "cold seek 1800",
+      "Source": "unindexed",
+      "WallMs": 91.3999,
+      "CpuMs": 91.204,
+      "AllocatedBytes": 43842168,
+      "Steps": 1800,
+      "RestoreFrame": 0,
+      "Hash": "F760A71F566A888020CC80F51822AFE0B0B616886A94BE1C572DACE2F85925A3"
+    },
+    {
+      "Operation": "cold seek 18000",
+      "Source": "unindexed",
+      "WallMs": 825.6712,
+      "CpuMs": 963.748,
+      "AllocatedBytes": 424555360,
+      "Steps": 18000,
+      "RestoreFrame": 0,
+      "Hash": "67B0A6B3ACEB7BC15D5153D81BD8C1E0CCDF91620A96F6DDE9726280C5F21B27"
+    },
+    {
+      "Operation": "backward seek 1800",
+      "Source": "unindexed",
+      "WallMs": 41.4647,
+      "CpuMs": 41.682,
+      "AllocatedBytes": 50827352,
+      "Steps": 0,
+      "RestoreFrame": 1800,
+      "Hash": "F760A71F566A888020CC80F51822AFE0B0B616886A94BE1C572DACE2F85925A3"
+    },
+    {
+      "Operation": "startup",
+      "Source": "unindexed",
+      "WallMs": 27.6782,
+      "CpuMs": 27.598,
+      "AllocatedBytes": 37897688,
+      "Steps": 0,
+      "RestoreFrame": 0,
+      "Hash": "85AFCF0F38FCE8F87F075335E4A85B7A03D4D7774726E282E94637561EB13777"
+    },
+    {
+      "Operation": "cold seek 1800",
+      "Source": "unindexed",
+      "WallMs": 90.8412,
+      "CpuMs": 90.708,
+      "AllocatedBytes": 43842168,
+      "Steps": 1800,
+      "RestoreFrame": 0,
+      "Hash": "F760A71F566A888020CC80F51822AFE0B0B616886A94BE1C572DACE2F85925A3"
+    },
+    {
+      "Operation": "cold seek 18000",
+      "Source": "unindexed",
+      "WallMs": 845.7188,
+      "CpuMs": 1111.708,
+      "AllocatedBytes": 382602320,
+      "Steps": 18000,
+      "RestoreFrame": 0,
+      "Hash": "67B0A6B3ACEB7BC15D5153D81BD8C1E0CCDF91620A96F6DDE9726280C5F21B27"
+    },
+    {
+      "Operation": "backward seek 1800",
+      "Source": "unindexed",
+      "WallMs": 48.4881,
+      "CpuMs": 47.969,
+      "AllocatedBytes": 49321344,
+      "Steps": 0,
+      "RestoreFrame": 1800,
+      "Hash": "F760A71F566A888020CC80F51822AFE0B0B616886A94BE1C572DACE2F85925A3"
+    },
+    {
+      "Operation": "startup",
+      "Source": "unindexed",
+      "WallMs": 25.2532,
+      "CpuMs": 27.641,
+      "AllocatedBytes": 37653736,
+      "Steps": 0,
+      "RestoreFrame": 0,
+      "Hash": "85AFCF0F38FCE8F87F075335E4A85B7A03D4D7774726E282E94637561EB13777"
+    },
+    {
+      "Operation": "cold seek 1800",
+      "Source": "unindexed",
+      "WallMs": 93.4758,
+      "CpuMs": 91.501,
+      "AllocatedBytes": 43842528,
+      "Steps": 1800,
+      "RestoreFrame": 0,
+      "Hash": "F760A71F566A888020CC80F51822AFE0B0B616886A94BE1C572DACE2F85925A3"
+    },
+    {
+      "Operation": "cold seek 18000",
+      "Source": "unindexed",
+      "WallMs": 817.081,
+      "CpuMs": 885.34,
+      "AllocatedBytes": 382595360,
+      "Steps": 18000,
+      "RestoreFrame": 0,
+      "Hash": "67B0A6B3ACEB7BC15D5153D81BD8C1E0CCDF91620A96F6DDE9726280C5F21B27"
+    },
+    {
+      "Operation": "backward seek 1800",
+      "Source": "unindexed",
+      "WallMs": 21.6213,
+      "CpuMs": 21.645,
+      "AllocatedBytes": 49461776,
+      "Steps": 0,
+      "RestoreFrame": 1800,
+      "Hash": "F760A71F566A888020CC80F51822AFE0B0B616886A94BE1C572DACE2F85925A3"
+    },
+    {
+      "Operation": "linear 18001 frames",
+      "Source": "unindexed",
+      "WallMs": 811.4603,
+      "CpuMs": 838.108,
+      "AllocatedBytes": 383264160,
+      "Steps": 18000,
+      "RestoreFrame": 0,
+      "Hash": "67B0A6B3ACEB7BC15D5153D81BD8C1E0CCDF91620A96F6DDE9726280C5F21B27"
+    },
+    {
+      "Operation": "startup",
+      "Source": "indexed",
+      "WallMs": 23.6921,
+      "CpuMs": 23.171,
+      "AllocatedBytes": 37627096,
+      "Steps": 0,
+      "RestoreFrame": 0,
+      "Hash": "85AFCF0F38FCE8F87F075335E4A85B7A03D4D7774726E282E94637561EB13777"
+    },
+    {
+      "Operation": "cold seek 1800",
+      "Source": "indexed",
+      "WallMs": 28.41,
+      "CpuMs": 27.141,
+      "AllocatedBytes": 50222256,
+      "Steps": 0,
+      "RestoreFrame": 1800,
+      "Hash": "F760A71F566A888020CC80F51822AFE0B0B616886A94BE1C572DACE2F85925A3"
+    },
+    {
+      "Operation": "cold seek 18000",
+      "Source": "indexed",
+      "WallMs": 23.2035,
+      "CpuMs": 23.201,
+      "AllocatedBytes": 50224760,
+      "Steps": 0,
+      "RestoreFrame": 18000,
+      "Hash": "67B0A6B3ACEB7BC15D5153D81BD8C1E0CCDF91620A96F6DDE9726280C5F21B27"
+    },
+    {
+      "Operation": "backward seek 1800",
+      "Source": "indexed",
+      "WallMs": 30.2309,
+      "CpuMs": 29.054,
+      "AllocatedBytes": 50223816,
+      "Steps": 0,
+      "RestoreFrame": 1800,
+      "Hash": "F760A71F566A888020CC80F51822AFE0B0B616886A94BE1C572DACE2F85925A3"
+    },
+    {
+      "Operation": "startup",
+      "Source": "indexed",
+      "WallMs": 14.5189,
+      "CpuMs": 15.23,
+      "AllocatedBytes": 37657960,
+      "Steps": 0,
+      "RestoreFrame": 0,
+      "Hash": "85AFCF0F38FCE8F87F075335E4A85B7A03D4D7774726E282E94637561EB13777"
+    },
+    {
+      "Operation": "cold seek 1800",
+      "Source": "indexed",
+      "WallMs": 29.2614,
+      "CpuMs": 43.06,
+      "AllocatedBytes": 50222184,
+      "Steps": 0,
+      "RestoreFrame": 1800,
+      "Hash": "F760A71F566A888020CC80F51822AFE0B0B616886A94BE1C572DACE2F85925A3"
+    },
+    {
+      "Operation": "cold seek 18000",
+      "Source": "indexed",
+      "WallMs": 22.5526,
+      "CpuMs": 22.553,
+      "AllocatedBytes": 50295272,
+      "Steps": 0,
+      "RestoreFrame": 18000,
+      "Hash": "67B0A6B3ACEB7BC15D5153D81BD8C1E0CCDF91620A96F6DDE9726280C5F21B27"
+    },
+    {
+      "Operation": "backward seek 1800",
+      "Source": "indexed",
+      "WallMs": 29.5811,
+      "CpuMs": 28.35,
+      "AllocatedBytes": 50294920,
+      "Steps": 0,
+      "RestoreFrame": 1800,
+      "Hash": "F760A71F566A888020CC80F51822AFE0B0B616886A94BE1C572DACE2F85925A3"
+    },
+    {
+      "Operation": "startup",
+      "Source": "indexed",
+      "WallMs": 14.4113,
+      "CpuMs": 16.742,
+      "AllocatedBytes": 37729256,
+      "Steps": 0,
+      "RestoreFrame": 0,
+      "Hash": "85AFCF0F38FCE8F87F075335E4A85B7A03D4D7774726E282E94637561EB13777"
+    },
+    {
+      "Operation": "cold seek 1800",
+      "Source": "indexed",
+      "WallMs": 28.3377,
+      "CpuMs": 46.747,
+      "AllocatedBytes": 50293400,
+      "Steps": 0,
+      "RestoreFrame": 1800,
+      "Hash": "F760A71F566A888020CC80F51822AFE0B0B616886A94BE1C572DACE2F85925A3"
+    },
+    {
+      "Operation": "cold seek 18000",
+      "Source": "indexed",
+      "WallMs": 24.0219,
+      "CpuMs": 38.786,
+      "AllocatedBytes": 50325376,
+      "Steps": 0,
+      "RestoreFrame": 18000,
+      "Hash": "67B0A6B3ACEB7BC15D5153D81BD8C1E0CCDF91620A96F6DDE9726280C5F21B27"
+    },
+    {
+      "Operation": "backward seek 1800",
+      "Source": "indexed",
+      "WallMs": 28.1822,
+      "CpuMs": 27.867,
+      "AllocatedBytes": 50325256,
+      "Steps": 0,
+      "RestoreFrame": 1800,
+      "Hash": "F760A71F566A888020CC80F51822AFE0B0B616886A94BE1C572DACE2F85925A3"
+    },
+    {
+      "Operation": "linear 18001 frames",
+      "Source": "indexed",
+      "WallMs": 844.7095,
+      "CpuMs": 936.708,
+      "AllocatedBytes": 383292472,
+      "Steps": 18000,
+      "RestoreFrame": 0,
+      "Hash": "67B0A6B3ACEB7BC15D5153D81BD8C1E0CCDF91620A96F6DDE9726280C5F21B27"
+    },
+    {
+      "Operation": "killcam prepare 120 frames",
+      "Source": "indexed",
+      "WallMs": 28.8017,
+      "CpuMs": 28.778,
+      "AllocatedBytes": 35238952,
+      "Steps": 179,
+      "RestoreFrame": 0,
+      "Hash": "53640E637BCECF3A80DA47A649E5E1BE1B7D020F3FCC5E22820DD02E8CE95BE5"
+    }
+  ],
+  "ProcessReplayOperations": [
+    {
+      "Operation": "Capture",
+      "Count": 0,
+      "MeanMs": 0,
+      "MaximumMs": 0,
+      "MeanAllocatedBytes": 0
+    },
+    {
+      "Operation": "Step",
+      "Count": 0,
+      "MeanMs": 0,
+      "MaximumMs": 0,
+      "MeanAllocatedBytes": 0
+    },
+    {
+      "Operation": "Checkpoint",
+      "Count": 392,
+      "MeanMs": 3.256387987244898,
+      "MaximumMs": 20.171959,
+      "MeanAllocatedBytes": 3865765
+    },
+    {
+      "Operation": "AuthorityCapture",
+      "Count": 0,
+      "MeanMs": 0,
+      "MaximumMs": 0,
+      "MeanAllocatedBytes": 0
+    },
+    {
+      "Operation": "AuthorityEncode",
+      "Count": 0,
+      "MeanMs": 0,
+      "MaximumMs": 0,
+      "MeanAllocatedBytes": 0
+    },
+    {
+      "Operation": "Timeline",
+      "Count": 0,
+      "MeanMs": 0,
+      "MaximumMs": 0,
+      "MeanAllocatedBytes": 0
+    },
+    {
+      "Operation": "Enqueue",
+      "Count": 0,
+      "MeanMs": 0,
+      "MaximumMs": 0,
+      "MeanAllocatedBytes": 0
+    },
+    {
+      "Operation": "ArchiveOpen",
+      "Count": 36,
+      "MeanMs": 2.9685555555555556,
+      "MaximumMs": 17.655209,
+      "MeanAllocatedBytes": 1913335
+    },
+    {
+      "Operation": "WorldConstruction",
+      "Count": 37,
+      "MeanMs": 13.597897513513514,
+      "MaximumMs": 164.105833,
+      "MeanAllocatedBytes": 23106904
+    },
+    {
+      "Operation": "WorldRestore",
+      "Count": 49,
+      "MeanMs": 10.238722836734695,
+      "MaximumMs": 36.6205,
+      "MeanAllocatedBytes": 11862340
+    },
+    {
+      "Operation": "Lookahead",
+      "Count": 3054506,
+      "MeanMs": 0.0005391378432388085,
+      "MaximumMs": 17.38625,
+      "MeanAllocatedBytes": 233
+    },
+    {
+      "Operation": "DecodeChunk",
+      "Count": 3300,
+      "MeanMs": 0.39068629818181816,
+      "MaximumMs": 2.014041,
+      "MeanAllocatedBytes": 168562
+    }
+  ],
+  "Workload": "Synthetic six-minute moving eight-player v3 archive; real built-in MP1 SANCTORUS assets. Warm local OS/JIT/asset caches after initial construction. Not a recorded match or rendering benchmark."
+}

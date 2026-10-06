@@ -1,0 +1,105 @@
+{
+  "timingContract": "Synchronous production DebugLog.Line including timestamp, global lock, ring and existing 32-line flush policy. Local file uses warm OS cache. The 5 ms flush delay is an artificial sensitivity model, not a measured slow disk or gameplay frame.",
+  "platform": "Unix 27.0.0",
+  "results": [
+    {
+      "storage": "memory-ring",
+      "linesPerSample": 1,
+      "samples": 300,
+      "flushDelayMs": 0,
+      "p50Ms": 0.0002,
+      "p95Ms": 0.0003,
+      "p99Ms": 0.0015,
+      "maximumMs": 0.0039,
+      "allocatedBytesPerLine": 299
+    },
+    {
+      "storage": "local-file",
+      "linesPerSample": 1,
+      "samples": 300,
+      "flushDelayMs": 0,
+      "p50Ms": 0.0002,
+      "p95Ms": 0.0007,
+      "p99Ms": 0.007,
+      "maximumMs": 0.0115,
+      "allocatedBytesPerLine": 326
+    },
+    {
+      "storage": "modeled-slow-flush",
+      "linesPerSample": 1,
+      "samples": 300,
+      "flushDelayMs": 5,
+      "p50Ms": 0.0003,
+      "p95Ms": 0.0161,
+      "p99Ms": 7.5477,
+      "maximumMs": 7.5799,
+      "allocatedBytesPerLine": 272
+    },
+    {
+      "storage": "memory-ring",
+      "linesPerSample": 10,
+      "samples": 300,
+      "flushDelayMs": 0,
+      "p50Ms": 0.0029,
+      "p95Ms": 0.0041,
+      "p99Ms": 0.0058,
+      "maximumMs": 0.0535,
+      "allocatedBytesPerLine": 272
+    },
+    {
+      "storage": "local-file",
+      "linesPerSample": 10,
+      "samples": 300,
+      "flushDelayMs": 0,
+      "p50Ms": 0.0035,
+      "p95Ms": 0.0118,
+      "p99Ms": 0.0289,
+      "maximumMs": 0.0769,
+      "allocatedBytesPerLine": 272
+    },
+    {
+      "storage": "modeled-slow-flush",
+      "linesPerSample": 10,
+      "samples": 300,
+      "flushDelayMs": 5,
+      "p50Ms": 0.0085,
+      "p95Ms": 7.576,
+      "p99Ms": 7.6373,
+      "maximumMs": 7.6542,
+      "allocatedBytesPerLine": 255
+    },
+    {
+      "storage": "memory-ring",
+      "linesPerSample": 100,
+      "samples": 300,
+      "flushDelayMs": 0,
+      "p50Ms": 0.0121,
+      "p95Ms": 0.0326,
+      "p99Ms": 0.0686,
+      "maximumMs": 2.4159,
+      "allocatedBytesPerLine": 248
+    },
+    {
+      "storage": "local-file",
+      "linesPerSample": 100,
+      "samples": 300,
+      "flushDelayMs": 0,
+      "p50Ms": 0.0257,
+      "p95Ms": 0.0805,
+      "p99Ms": 0.1374,
+      "maximumMs": 0.307,
+      "allocatedBytesPerLine": 248
+    },
+    {
+      "storage": "modeled-slow-flush",
+      "linesPerSample": 100,
+      "samples": 300,
+      "flushDelayMs": 5,
+      "p50Ms": 21.8821,
+      "p95Ms": 30.8648,
+      "p99Ms": 112.7877,
+      "maximumMs": 171.5595,
+      "allocatedBytesPerLine": 248
+    }
+  ]
+}

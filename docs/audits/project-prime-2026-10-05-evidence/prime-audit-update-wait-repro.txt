@@ -1,0 +1,2 @@
+[update] process 65202 is still running; carrying on
+WaitForExit returned after 30.41s with child alive=True

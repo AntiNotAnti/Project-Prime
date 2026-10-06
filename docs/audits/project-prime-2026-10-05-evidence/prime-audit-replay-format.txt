@@ -1,0 +1,5 @@
+[replay] Recording interrupted; recover completed chunks from its .part file. Replay storage queue is full or closed.
+[replay] Recording interrupted; recover completed chunks from its .part file. Replay storage queue exceeded its byte budget.
+[net] server map: MP1 SANCTORUS (Battle, 300 s left)
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[replayformat] PASS 2888 checks (v2/v3/v4, order, metadata, CRC, recovery, extraction, malformed files)

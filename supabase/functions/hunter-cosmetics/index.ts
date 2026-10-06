@@ -1,4 +1,5 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+/// <reference types="npm:@supabase/functions-js@2.117.2/src/edge-runtime.d.ts" />
+import { readObjectBounded, RequestBodyError } from "../_shared/request-body.ts";
 import postgres from "npm:postgres@3.4.7";
 import { validLoadout } from "./catalog.ts";
 
@@ -19,10 +20,8 @@ Deno.serve(async (req: Request) => {
   if (typeof user.id !== "string") return json(401, { error: "invalid_session" });
   let body: unknown;
   try {
-    const text = await req.text();
-    if (text.length > 2048) return json(413, { error: "payload_too_large" });
-    body = JSON.parse(text);
-  } catch { return json(400, { error: "invalid_json" }); }
+    body = await readObjectBounded(req, 2048);
+  } catch (error) { return json(error instanceof RequestBodyError ? error.status : 400, { error: "invalid_json" }); }
   if (!validLoadout(body)) return json(400, { error: "invalid_cosmetic_loadout" });
   try {
     // Identity comes solely from verified Auth. SQL values are parameterized.

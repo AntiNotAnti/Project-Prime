@@ -1,5 +1,6 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+/// <reference types="npm:@supabase/functions-js@2.117.2/src/edge-runtime.d.ts" />
+import { readObjectBounded, RequestBodyError } from "../_shared/request-body.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -50,7 +51,8 @@ async function verifyTicket(ticket: string) {
   const parts = ticket.split(".");
   if (parts.length !== 3 || parts[0] !== ticketPrefix) return null;
   let payloadBytes: Uint8Array;
-  let signature: Uint8Array;
+  // Preserve the decoder's owned ArrayBuffer type required by WebCrypto.
+  let signature: ReturnType<typeof fromB64url>;
   try {
     payloadBytes = fromB64url(parts[1]);
     signature = fromB64url(parts[2]);
@@ -83,9 +85,9 @@ Deno.serve(async (req: Request) => {
 
   let body: { action?: string; ticket?: string };
   try {
-    body = await req.json();
-  } catch {
-    return json(400, { error: "invalid_json" });
+    body = await readObjectBounded(req, 4096) as typeof body;
+  } catch (error) {
+    return json(error instanceof RequestBodyError ? error.status : 400, { error: "invalid_json" });
   }
 
   if (body.action === "verify") {

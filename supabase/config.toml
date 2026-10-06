@@ -1,2 +1,6 @@
 [functions.community-map-ticket]
 verify_jwt = false
+
+# Dedicated reporters use an opaque server credential validated by the handler.
+[functions.career-report]
+verify_jwt = false

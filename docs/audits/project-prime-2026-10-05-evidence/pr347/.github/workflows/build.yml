@@ -1,0 +1,924 @@
+# Build every target on every push using GitHub-hosted runners, and refuse to
+# publish anything that came out of the cartridge. Public repositories can use
+# the standard hosted runner pool without consuming private-repository minutes.
+#
+# The guard runs twice on purpose: once over what git is tracking, and once
+# over what the build produced. The first catches a map preview committed by
+# accident, the second catches one that got swept into an artifact.
+name: build
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One branch only needs one expensive cross-platform build at a time. A newer
+# push supersedes the older revision; keeping both burns runner time and makes
+# the useful result wait behind code nobody intends to ship.
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  assets:
+    name: no game assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: telemetry collector and report checks
+        run: python3 -m unittest discover -s tools/telemetry -p 'test_*.py'
+
+
+      - name: nothing from the game is tracked
+        run: tools/check-no-game-assets.sh
+
+      - name: every custom map has the level it converts
+        run: tools/check-maps-shipped.sh
+
+  server-compile:
+    name: dedicated server compile gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: compile server-only surface
+        run: dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadServer=true
+
+  character-model-check:
+    name: HD character model contract
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: rigid and Weighted4 asset contract
+        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -charactermodelcheck
+
+  fidelity-oracle:
+    name: content-free fidelity oracle (F0/F1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: framework and presentation-rate checks
+        run: dotnet run --project tools/fidelity-oracle -c Release
+      - name: verify reviewed normalized baselines
+        run: dotnet run --project tools/fidelity-oracle -c Release --no-build -- verify all -baselines tools/fidelity-oracle/baselines
+
+  modern-renderer-windows:
+    name: modern renderer Windows ${{ matrix.renderer }} smoke
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        renderer: [dx12, vulkan]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: publish focused renderer build
+        shell: pwsh
+        run: >
+          dotnet publish src/MphRead/MphRead.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -o publish/modern-win
+      - name: backend policy, device, draw and window present
+        shell: pwsh
+        run: |
+          publish/modern-win/ProjectPrime.exe -renderfullcheck -renderer ${{ matrix.renderer }}
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  modern-renderer-linux:
+    name: modern renderer Vulkan smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: install software Vulkan and X11
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth mesa-vulkan-drivers libx11-6 libxrandr2 libxi6 libxcursor1 libxinerama1
+      - name: publish focused renderer build
+        run: >
+          dotnet publish src/MphRead/MphRead.csproj
+          -c Release -r linux-x64 --self-contained true
+          -p:PublishSingleFile=true -o publish/modern-linux
+      - name: retained render graph structure
+        run: publish/modern-linux/ProjectPrime -rendergraphcheck
+      - name: Vulkan full compatibility check through GLFW
+        run: |
+          xvfb-run -a --server-args="-screen 0 640x480x24" \
+            publish/modern-linux/ProjectPrime -renderfullcheck -renderer vulkan
+
+  android-pacing-policy:
+    name: Android frame pacing and governor policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet run --project tools/android-pacing-check -c Release
+
+  rmlui-home-poc:
+    name: RmlUi home POC Linux render gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: install native and window dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y build-essential cmake libgl1-mesa-dev libx11-dev \
+            xvfb xauth libgl1 libglx-mesa0 libxinerama1 libxcursor1 libxi6
+      - name: build pinned RmlUi 6.3 bridge
+        run: bash tools/rmlui/build-native.sh linux-x64
+      - name: publish opt-in Project Prime host
+        run: >
+          dotnet publish src/MphRead/MphRead.csproj
+          -c Release -r linux-x64
+          -p:MphReadRmlUiPoc=true
+          --self-contained true -p:PublishSingleFile=true
+          -o publish/rmlui-linux
+      - name: open the real RmlUi shell across desktop and Retina layouts
+        run: |
+          set -euo pipefail
+          chmod +x publish/rmlui-linux/ProjectPrime
+          capture() {
+            name="$1"
+            size="$2"
+            density="$3"
+            out="$RUNNER_TEMP/rmlui-proof/$name"
+            xvfb-run -a --server-args="-screen 0 4096x2304x24" \
+              env LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe \
+              publish/rmlui-linux/ProjectPrime \
+              -rmluipocshot "$out" -rmluisize "$size" -rmluidensity "$density" \
+              -renderer opengl -windowed -noupdate
+            test -s "$out/rmlui-home.png"
+          }
+          capture 720p 1280x720 1
+          capture 1080p 1920x1080 1
+          capture 1440p 2560x1440 1
+          capture 4k 3840x2160 1
+          capture retina-3008 3008x1692 2
+      - name: RmlUi multi-resolution proof captures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-home-proof
+          path: ${{ runner.temp }}/rmlui-proof
+          if-no-files-found: warn
+
+  rmlui-home-poc-macos:
+    name: RmlUi home POC macOS ${{ matrix.rid }} compile gate
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: osx-arm64
+            runner: macos-latest
+          - rid: osx-x64
+            runner: macos-15-intel
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: build pinned RmlUi 6.3 bridge
+        run: bash tools/rmlui/build-native.sh "${{ matrix.rid }}"
+      - name: compile opt-in Project Prime host
+        run: >
+          dotnet build src/MphRead/MphRead.csproj
+          -c Release -r "${{ matrix.rid }}"
+          -p:MphReadRmlUiPoc=true
+  desktop-pacing-policy:
+    name: Desktop frame pacing policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet run --project tools/desktop-pacing-check -c Release
+
+  renderer-policy-foundation:
+    name: renderer state, lifecycle and low-latency policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: content-free renderer state and lifecycle contracts
+        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -renderbackendcheck
+
+  modern-renderer-android:
+    name: modern renderer Android Vulkan surface and lifecycle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: install Android workload and native toolchain
+        run: |
+          dotnet workload install android
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "ndk;28.2.13676358" "platforms;android-36" "build-tools;36.0.0"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/28.2.13676358" tools/wgpu/build-native.sh android-x64
+          ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/28.2.13676358" tools/ktx/build-native.sh android-x64
+      - name: Vulkan surface, readback, present and surface recreation
+        run: tools/render-check/android-check.sh
+      - name: renderer acceptance logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: renderer-acceptance-android
+          path: ${{ runner.temp }}/renderer-android-*
+          if-no-files-found: warn
+
+  modern-shader-source-check:
+    name: modern shaders match shared rendering sources
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: regenerate and check WGSL
+        run: tools/modern-shaders/check.sh
+
+  modern-renderer-macos:
+    name: modern renderer macOS ${{ matrix.rid }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: osx-arm64
+            runner: macos-latest
+          - rid: osx-x64
+            runner: macos-15-intel
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: build pinned modern renderer and KTX runtimes
+        run: |
+          tools/wgpu/build-native.sh "${{ matrix.rid }}"
+          tools/ktx/build-native.sh "${{ matrix.rid }}"
+      - name: publish focused renderer build
+        run: |
+          dotnet publish src/MphRead/MphRead.csproj -c Release -r "${{ matrix.rid }}" \
+            --self-contained true -p:PublishSingleFile=true -o "publish/modern-${{ matrix.rid }}"
+          chmod +x "publish/modern-${{ matrix.rid }}/ProjectPrime"
+      - name: OpenGL texture-update compatibility reference
+        # GitHub's Apple-Silicon hosted runner may expose no NSGL pixel format
+        # at all. Keep one real macOS OpenGL reference on the Intel runner;
+        # Metal and MoltenVK remain exercised on both architectures below.
+        if: matrix.rid == 'osx-x64'
+        run: '"publish/modern-${{ matrix.rid }}/ProjectPrime" -textureupdatecheck -renderer opengl'
+      - name: Metal device, draw and window present
+        run: |
+          "publish/modern-${{ matrix.rid }}/ProjectPrime" -renderfullcheck -renderer metal
+      - name: MoltenVK device, draw and window present
+        run: tools/check-macos-modern-vulkan.sh "publish/modern-${{ matrix.rid }}/ProjectPrime" --window
+
+  enhanced-hunter-checks:
+    name: enhanced hunter regressions
+    needs: assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: generated packet schema and malformed wire checks
+        run: dotnet run --project tools/protocol-generator-check -c Release
+      - name: waitlist policy and synthetic UDP wire checks
+        run: dotnet run --project tools/lobby-waitlist-check -c Release
+      - name: enhanced rules, state and maximum packet budgets
+        run: dotnet run --project tools/nettest -c Release -- --enhanced-hunters
+      - name: production waitlist admission and real UDP lifecycle
+        run: dotnet run --project tools/nettest -c Release --no-build -- --waitlist
+      - name: replication lane round trip
+        run: dotnet run --project tools/nettest -c Release --no-build -- --protocol18
+      - name: mixed-quality eight-player transport
+        run: dotnet run --project tools/nettest -c Release --no-build -- --transport-stress
+      - name: replay format compatibility
+        run: dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -replayformatcheck
+
+      - name: modern renderer policy, retained graph and geometry bridge
+        run: |
+          dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -renderbackendcheck
+          dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -rendergraphcheck
+          dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -charactermodelcheck
+  map-editor-checks:
+    name: map editor regressions (${{ matrix.os }})
+    needs: assets
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: map editor history and PK3 import regressions
+        run: dotnet run --project tools/map-editor-check -c Release
+
+      - name: model import, collision and community focused checks
+        shell: bash
+        run: |
+          dotnet run --no-build --project tools/map-editor-check -c Release -- --model-import-only
+          dotnet run --no-build --project tools/map-editor-check -c Release -- --collision-only
+          dotnet run --no-build --project tools/map-editor-check -c Release -- --community-only
+
+      - name: isolated multiplayer and historical package acceptance
+        run: dotnet run --project tools/map-multiplayer-check -c Release -- "${{ runner.temp }}/map-multiplayer-check"
+
+      - name: Linux viewport with real GL
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1 libglx-mesa0
+          xvfb-run -a --server-args="-screen 0 3840x2160x24" dotnet src/MphRead/bin/Release/net10.0/ProjectPrime.dll -mapviewportcheck "$RUNNER_TEMP/mapviewportcheck"
+
+      - name: Windows and macOS viewport with real GL
+        if: runner.os != 'Linux'
+        run: dotnet src/MphRead/bin/Release/net10.0/ProjectPrime.dll -mapviewportcheck "${{ runner.temp }}/mapviewportcheck"
+
+      - name: map acceptance logs and viewport captures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: map-acceptance-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/map-multiplayer-check
+            ${{ runner.temp }}/mapviewportcheck
+          if-no-files-found: warn
+
+  controller-checks:
+    name: input regressions (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, macos-15-intel]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: deterministic graphics preset and texture checks
+        if: matrix.os == 'windows-latest'
+        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -graphicscheck
+
+      - name: deterministic controller and headless UI checks
+        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -gamepadcheck
+      - name: deterministic pointer and stylus checks
+        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -pointercheck
+
+      - name: high-refresh frame timing and first-person pose checks
+        if: matrix.os == 'windows-latest'
+        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -frametimingcheck
+
+  build:
+    name: ${{ matrix.id }}
+    needs: assets
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: win-x64
+            rid: win-x64
+            summary: the game and the launcher, for Windows
+            extra: ""
+          - id: linux-x64
+            rid: linux-x64
+            summary: the game, the launcher and the dedicated server, for Linux
+            extra: ""
+          # Every platform gets a server package alongside its game build, so
+          # this is the same RID a second time with the launcher and the UI
+          # toolkit left out -- a plain x64 box (a VPS, a spare desktop) that
+          # nobody is playing on, same as the two below it.
+          - id: linux-x64-server
+            rid: linux-x64
+            summary: the dedicated server and the directory, for a plain x64 Linux machine
+            extra: "-p:MphReadServer=true"
+          # Nobody plays on the Pi: this box runs the dedicated server and the
+          # directory and nothing else, so it is published as the server
+          # package. That drops the launcher and, with it, a desktop UI toolkit
+          # the machine would never open.
+          - id: linux-arm64
+            rid: linux-arm64
+            summary: the dedicated server and the directory, for a Raspberry Pi
+            extra: "-p:MphReadServer=true"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+
+      # Cook every custom map into the one file it ships as. The recipe, the
+      # level it converts and the textures baked from it go into a .ppmap,
+      # with the level trimmed to the lumps the importer actually reads: 376 KB
+      # for de_dust2 against the 2.8 MB its folder weighs. That bundle is what
+      # the packages carry, and it is what somebody can be handed on its own --
+      # the .pk3 it was cooked from is a source and is kept out of the output
+      # by CopyToPublishDirectory. It is not committed, so it is cooked here.
+      - name: cook the map bundles
+        env:
+          PROJECT_PRIME_USER_DATA: ${{ runner.temp }}/map-bundle-user-data
+        run: |
+          set -euo pipefail
+          rm -rf "$PROJECT_PRIME_USER_DATA"
+          mkdir -p "$PROJECT_PRIME_USER_DATA/user-maps"
+          dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
+          find "$PROJECT_PRIME_USER_DATA/user-maps" -type f -name '*.ppmap' -exec cp {} maps/ \;
+
+      - name: netcode lifecycle and health/shot regressions
+        if: matrix.id == 'linux-x64'
+        run: |
+          dotnet run --project tools/settings-archive-check -c Release
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --lifecycle
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --health-shots
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --architecture
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --bot-ai
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --lobby
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --custom-map-download
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --allocations
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --protocol17
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --protocol18
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --protocol19
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --continuous-targets
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --alt-hits
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --claim-stress
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --input-edges
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --dynamic-geometry
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --netcode-performance
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --reliable
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --queue-budget
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --load-lifecycle
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --lagcomp-shadow
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --weapon-policy
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --transport-stress
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --network-benchmark --smoke
+
+      # Windows and Linux targets remain cross-published on Ubuntu.
+      - name: publish ${{ matrix.summary }}
+        run: >
+          dotnet publish src/MphRead/MphRead.csproj
+          -c Release -r ${{ matrix.rid }} ${{ matrix.extra }}
+          --self-contained true -p:PublishSingleFile=true
+          -o publish/${{ matrix.id }}
+
+      - name: map editor history regressions
+        if: matrix.id == 'linux-x64'
+        run: dotnet run --project tools/map-editor-check -c Release
+
+      - name: replay timeline bounds and identity regressions
+        if: matrix.id == 'linux-x64'
+        run: dotnet run --project tools/replay-timeline-check -c Release
+
+      - name: replay format and server-retention regressions
+        if: matrix.id == 'linux-x64'
+        run: publish/linux-x64/ProjectPrime -replayformatcheck
+
+      - name: bounded thumbnail worker regression
+        if: matrix.id == 'linux-x64'
+        run: dotnet run --project tools/thumbnail-batch-check/thumbnail-batch-check.csproj -c Release
+
+      - name: legacy thumbnail diagnostics without KHR_debug
+        if: matrix.id == 'linux-x64'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth libgl1-mesa-dri libglx-mesa0 libxinerama1 libxcursor1 libxi6
+          chmod +x publish/linux-x64/ProjectPrime
+          xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe \
+            MESA_GL_VERSION_OVERRIDE=2.1 MESA_EXTENSION_OVERRIDE=-GL_KHR_debug \
+            publish/linux-x64/ProjectPrime -thumbnailwindowcheck -legacyglcheck
+
+      - name: nothing from the game is in the output
+        run: tools/check-no-game-assets.sh publish/${{ matrix.id }}
+
+      # A release has to arrive with its maps ready. The room binaries are
+      # still built on the player's machine, because they land where that
+      # machine's extracted files are, but everything needed to build them
+      # travels -- and a map file that reached the package without its level
+      # would register a room the game then declines to build.
+      - name: the custom maps reached the package
+        run: tools/check-maps-shipped.sh publish/${{ matrix.id }}
+
+      # Double-clicking the game must not put a terminal behind it. That is one
+      # field in the PE header, it comes out of a csproj condition, and nothing
+      # else in this workflow would notice it changing.
+      - name: the game is a GUI binary
+        if: matrix.id == 'win-x64'
+        run: tools/check-subsystem.sh gui publish/${{ matrix.id }}/ProjectPrime.exe
+
+      # Every avares:// asset the screens name has to be in the package.
+      # Avalonia does not fall back for a font behind one of those: it throws
+      # out of the measure pass, which is a crash on the first screen. Cheap,
+      # and it reads the project rather than the picture, so it holds for the
+      # targets nothing here can start.
+      - name: the launcher's assets are in the package
+        if: matrix.extra == ''
+        run: >
+          tools/check-avares.py src/MphRead/MphRead.csproj
+          -p:RuntimeIdentifier=${{ matrix.rid }}
+
+      # The launcher has to actually come up.
+      #
+      # Nothing else here opens a window: every check above reads the files a
+      # publish produced. So a fault that only exists once the toolkit is
+      # drawing -- a control invalidating itself inside the render pass, which
+      # Avalonia throws on -- passed six green jobs and shipped, and what a
+      # player saw was a program that starts and shows nothing. On Windows
+      # there is not even a console for it to say so in.
+      #
+      # -shellshot opens the real shell window, photographs the front screen,
+      # walks into the browser and presses Escape, and exits non-zero if the
+      # launcher could not be opened at all. It needs a display and no game
+      # files, which is what Xvfb and this runner are. Linux only: it is the
+      # same shared launcher on every desktop target.
+      - name: the headless UI layouts render
+        if: matrix.id == 'linux-x64'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb libgl1 libglx-mesa0
+          xvfb-run -a --server-args="-screen 0 1280x800x24" \
+            publish/${{ matrix.id }}/ProjectPrime -uishot "$RUNNER_TEMP/uishot"
+
+      - name: persistent shell navigation and responsive layouts
+        if: matrix.id == 'linux-x64'
+        run: >
+          xvfb-run -a --server-args="-screen 0 1920x1080x24"
+          publish/${{ matrix.id }}/ProjectPrime -primeuicheck -shots "$RUNNER_TEMP/prime-shell"
+
+      - name: persistent shell captures
+        if: matrix.id == 'linux-x64' && always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: prime-shell-layouts
+          path: ${{ runner.temp }}/prime-shell
+          if-no-files-found: warn
+
+      - name: the headless UI layouts
+        if: matrix.id == 'linux-x64' && always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: launcher-layouts
+          path: ${{ runner.temp }}/uishot
+          if-no-files-found: warn
+
+      - name: the launcher opens
+        if: matrix.id == 'linux-x64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1 libglx-mesa0
+          xvfb-run -a --server-args="-screen 0 1280x800x24" \
+            publish/${{ matrix.id }}/ProjectPrime -shellshot "$RUNNER_TEMP/shellshot"
+
+      - name: the screens it drew
+        if: matrix.id == 'linux-x64' && always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: launcher-screens
+          path: ${{ runner.temp }}/shellshot
+          if-no-files-found: warn
+
+      - name: map viewport renderer, picking and resource ownership
+        if: matrix.id == 'linux-x64'
+        run: |
+          xvfb-run -a --server-args="-screen 0 3840x2160x24" \
+            publish/${{ matrix.id }}/ProjectPrime -mapviewportcheck "$RUNNER_TEMP/mapviewportcheck" \
+            -mapproject "publish/${{ matrix.id }}/maps/dust2.ppmap"
+
+      - name: map viewport captures
+        if: matrix.id == 'linux-x64' && always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: map-viewport
+          path: ${{ runner.temp }}/mapviewportcheck
+          if-no-files-found: warn
+
+      # Both x64 Linux builds contain a dedicated server -- one with a launcher
+      # attached, one without. CI cannot contain the proprietary game files an
+      # authoritative server needs, so it verifies the safe startup contract:
+      # a clear, non-zero refusal and a working directory, rather than the old
+      # relay behaviour. Keyed on rid because the ARM64 build cannot run on
+      # this x64 runner.
+      - name: the dedicated-server startup contract holds
+        if: matrix.rid == 'linux-x64'
+        run: tools/check-dedicated-server.sh publish/${{ matrix.id }}
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ProjectPrime-${{ matrix.id }}
+          path: publish/${{ matrix.id }}
+          if-no-files-found: error
+
+  macos:
+    name: macOS ${{ matrix.rid }}
+    needs: assets
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: osx-arm64
+            runner: macos-latest
+          - rid: osx-x64
+            runner: macos-15-intel
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: bounded thumbnail worker regression
+        run: dotnet run --project tools/thumbnail-batch-check/thumbnail-batch-check.csproj -c Release
+
+      - name: signing gate regressions
+        run: tools/test-macos-tools.sh
+      - name: cook the map bundles
+        env:
+          PROJECT_PRIME_USER_DATA: ${{ runner.temp }}/map-bundle-user-data
+        run: |
+          set -euo pipefail
+          rm -rf "$PROJECT_PRIME_USER_DATA"
+          mkdir -p "$PROJECT_PRIME_USER_DATA/user-maps"
+          dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
+          find "$PROJECT_PRIME_USER_DATA/user-maps" -type f -name '*.ppmap' -exec cp {} maps/ \;
+
+      - name: build modern renderer and KTX runtimes
+        env:
+          RID: ${{ matrix.rid }}
+        run: |
+          tools/wgpu/build-native.sh "$RID"
+          tools/ktx/build-native.sh "$RID"
+
+      - name: publish, sign and validate
+        env:
+          RID: ${{ matrix.rid }}
+        run: |
+          set -euo pipefail
+          dotnet publish src/MphRead/MphRead.csproj -c Release -r "$RID" \
+            --self-contained true -p:PublishSingleFile=true -o "publish/$RID"
+          chmod +x "publish/$RID/ProjectPrime"
+          "publish/$RID/ProjectPrime" -renderbackendprobe -renderer metal
+          tools/check-macos-modern-vulkan.sh "publish/$RID/ProjectPrime"
+          tools/sign-macos.sh "publish/$RID"
+          tools/check-macos-build.sh "publish/$RID" "$RID"
+          tools/run-macos-smoke.sh "publish/$RID" "$RID"
+          python3 tools/test-compatibility-smoke.py "publish/$RID/ProjectPrime"
+          tools/check-no-game-assets.sh "publish/$RID"
+          tools/check-maps-shipped.sh "publish/$RID"
+          VERSION=$(dotnet msbuild src/MphRead/MphRead.csproj -getProperty:Version)
+          tools/package-macos.sh "publish/$RID" dist "$RID" "$VERSION"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ProjectPrime-${{ matrix.rid }}
+          path: dist/*.tar.gz
+          if-no-files-found: error
+
+  # The Android head, and the APK a phone can install.
+  #
+  # Its own job rather than a row in the matrix above, because nothing about it
+  # matches: a different target framework (net10.0-android36.0, not net10.0), a
+  # JDK and an Android SDK the other six targets do not need, and an APK rather
+  # than a folder of binaries. It is also the only job whose failure is usually
+  # about *shared* code -- the head compiles the same sources with ANDROID
+  # defined, so it stops building the moment they grow something desktop-only,
+  # which is the whole reason it was in the tree before it could play anything.
+  #
+  # No asset guard on the output: an APK is a zip this script cannot see into,
+  # and pointing it at a directory holding one would prove nothing. What
+  # actually rules game data out is the `assets` job above -- the APK is built
+  # from tracked sources and NuGet packages and nothing else.
+  android:
+    name: android
+    needs: assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+
+      # The Android workload brings the .NET side of the toolchain. It does not
+      # bring a JDK, and the Android SDK's build tools are Java.
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: install the android workload
+        run: dotnet workload install android
+
+      # Cook every custom map into the one file it ships as. The recipe, the
+      # level it converts and the textures baked from it go into a .ppmap,
+      # with the level trimmed to the lumps the importer actually reads: 376 KB
+      # for de_dust2 against the 2.8 MB its folder weighs. That bundle is what
+      # the packages carry, and it is what somebody can be handed on its own --
+      # the .pk3 it was cooked from is a source and is kept out of the output
+      # by CopyToPublishDirectory. It is not committed, so it is cooked here.
+      - name: cook the map bundles
+        env:
+          PROJECT_PRIME_USER_DATA: ${{ runner.temp }}/map-bundle-user-data
+        run: |
+          set -euo pipefail
+          rm -rf "$PROJECT_PRIME_USER_DATA"
+          mkdir -p "$PROJECT_PRIME_USER_DATA/user-maps"
+          dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
+          find "$PROJECT_PRIME_USER_DATA/user-maps" -type f -name '*.ppmap' -exec cp {} maps/ \;
+
+      # net10.0-android36.0 wants platform 36 and its build tools, which a
+      # runner image does not necessarily carry. This target asks for exactly
+      # what the project declares and accepts the licences, instead of naming
+      # sdkmanager packages here that would then have to be kept in step with
+      # the TargetFramework.
+      - name: install what the Android SDK is missing
+        run: >
+          dotnet build src/MphRead.Android/MphRead.Android.csproj
+          -t:InstallAndroidDependencies
+          -p:AndroidSdkDirectory="$ANDROID_HOME"
+          -p:JavaSdkDirectory="$JAVA_HOME"
+          -p:AcceptAndroidSDKLicenses=True
+
+      - name: expose Android platform tools
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools"
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+
+      - name: build Android Vulkan wgpu-native
+        run: |
+          set -euo pipefail
+          ndk="${ANDROID_NDK_LATEST_HOME:-${ANDROID_NDK_ROOT:-${ANDROID_NDK_HOME:-}}}"
+          if [ -z "$ndk" ] && [ -d "$ANDROID_HOME/ndk" ]; then
+            ndk=$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          fi
+          if [ -z "$ndk" ]; then
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358"
+            ndk="$ANDROID_HOME/ndk/28.2.13676358"
+          fi
+          ANDROID_NDK_ROOT="$ndk" tools/wgpu/build-native.sh android-arm64
+          ANDROID_NDK_ROOT="$ndk" tools/wgpu/build-native.sh android-x64
+          ANDROID_NDK_ROOT="$ndk" tools/ktx/build-native.sh android-arm64
+          ANDROID_NDK_ROOT="$ndk" tools/ktx/build-native.sh android-x64
+
+      - name: Android custom-map package, download and runtime acceptance
+        run: bash tools/map-multiplayer-check/android-check.sh
+
+      - name: Android map acceptance logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: map-acceptance-android
+          path: ${{ runner.temp }}/map-android-*.txt
+          if-no-files-found: warn
+
+      # The same check, on the head it was written for: this is the project
+      # whose asset list drifted from the desktop's, and the APK builds and
+      # signs perfectly well without the fonts its every label asks for.
+      - name: the launcher's assets are in the APK
+        run: >
+          tools/check-avares.py src/MphRead.Android/MphRead.Android.csproj
+          -p:AndroidSdkDirectory="$ANDROID_HOME"
+          -p:JavaSdkDirectory="$JAVA_HOME"
+
+      # The one a player would install. Release runs the IL trimmer over this
+      # app, which matters here more than usual: the touch controls reach
+      # OpenTK's KeyboardState and MouseState by reflection, so
+      # Properties/TrimmerRoots.xml is what keeps them from being linked away
+      # and turning into a first-frame crash that Debug would never show.
+      - name: publish the APK
+        run: >
+          dotnet publish src/MphRead.Android/MphRead.Android.csproj
+          -c Release -p:AndroidPackageFormat=apk
+          -p:AndroidSdkDirectory="$ANDROID_HOME"
+          -p:JavaSdkDirectory="$JAVA_HOME"
+          -o publish/android
+
+      # One APK, the one people install. An untrimmed Debug build was
+      # collected beside it, as a way of telling a crash on a device apart
+      # from the trimmer having removed something -- which is a thing to build
+      # when that question is actually being asked, not to hand out with every
+      # push: it is much bigger, much slower, and two APKs in one folder is an
+      # invitation to install the wrong one. Building one by hand needs
+      # `-p:EmbedAssembliesIntoApk=true`, or it holds no managed code at all
+      # (see .claude/android/ANDROID-PORT.md).
+      - name: collect the APK
+        run: |
+          set -euo pipefail
+          mkdir -p artifact
+          cp publish/android/*-Signed.apk artifact/ProjectPrime-release.apk
+          cat > artifact/INSTALL.txt <<'NOTE'
+          Project Prime for Android.
+
+            adb install -r ProjectPrime-release.apk
+
+          It is signed with the SDK's debug key, which is enough to install and
+          not enough for a store.
+
+          The game's own files are yours and are not in here. Extract them on a
+          desktop, then copy paths.txt and the extracted folders into
+
+            Android/data/com.projectprime.game/files
+
+          which shows up over USB with no storage permission asked for. The
+          front screen says so while they are missing, and has a
+          "Check for game files" entry for when they arrive.
+
+          The front screen has been run, on an emulator. A match has not: that
+          needs the game files above, which are nobody's to ship. If it
+          misbehaves, .claude/android/ANDROID-PORT.md lists what to look at, in
+          order, and `adb logcat` is where the renderer says so.
+          NOTE
+          ls -la artifact
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ProjectPrime-android
+          path: artifact
+          if-no-files-found: error
+
+  # The dedicated server for Windows.
+  #
+  # Its own job on a Windows runner, rather than another row in the matrix
+  # above, for the same reason the binary exists at all: what is worth proving
+  # is that a console-subsystem build really does hold a terminal and run a
+  # server on Windows, and cross-compiling it on Linux would demonstrate
+  # neither. The publish is the same project with the launcher left out.
+  windows-server:
+    name: win-x64 dedicated server
+    needs: assets
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+
+      - name: publish the dedicated server, for Windows
+        run: >
+          dotnet publish src/MphRead/MphRead.csproj
+          -c Release -r win-x64 -p:MphReadServer=true
+          --self-contained true -p:PublishSingleFile=true
+          -o publish/win-x64-server
+
+      # The whole difference between this binary and the game's, and the one
+      # thing that makes it usable from a terminal or a service supervisor.
+      - name: the server is a console binary
+        shell: bash
+        run: tools/check-subsystem.sh console publish/win-x64-server/ProjectPrimeServer.exe
+
+      - name: nothing from the game is in the output
+        shell: bash
+        run: tools/check-no-game-assets.sh publish/win-x64-server
+
+      # The same startup-contract script the Linux job runs, on Windows.
+      - name: the dedicated-server startup contract holds
+        shell: bash
+        run: tools/check-dedicated-server.sh publish/win-x64-server
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ProjectPrime-win-x64-server
+          path: publish/win-x64-server
+          if-no-files-found: error

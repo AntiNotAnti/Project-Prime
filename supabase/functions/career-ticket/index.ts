@@ -1,5 +1,6 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+/// <reference types="npm:@supabase/functions-js@2.117.2/src/edge-runtime.d.ts" />
+import { readObjectBounded, RequestBodyError } from "../_shared/request-body.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 
 const enc = new TextEncoder();
 
@@ -38,9 +39,9 @@ Deno.serve(async (req: Request) => {
 
   let body: { client_id?: number };
   try {
-    body = await req.json();
-  } catch {
-    return json(400, { error: "invalid_json" });
+    body = await readObjectBounded(req, 4096) as typeof body;
+  } catch (error) {
+    return json(error instanceof RequestBodyError ? error.status : 400, { error: "invalid_json" });
   }
   const clientId = body.client_id;
   if (!Number.isInteger(clientId) || clientId! <= 0 || clientId! > 0xffffffff) {

@@ -1,0 +1,1960 @@
+diff --git a/.github/workflows/build.yml b/.github/workflows/build.yml
+index 90c56c1b..e9804811 100644
+--- a/.github/workflows/build.yml
++++ b/.github/workflows/build.yml
+@@ -154,14 +154,28 @@ jobs:
+           -p:MphReadRmlUiPoc=true
+           --self-contained true -p:PublishSingleFile=true
+           -o publish/rmlui-linux
+-      - name: open the real RmlUi shell and capture the final composite
++      - name: open the real RmlUi shell across desktop and Retina layouts
+         run: |
++          set -euo pipefail
+           chmod +x publish/rmlui-linux/ProjectPrime
+-          xvfb-run -a --server-args="-screen 0 1920x1080x24" \
+-            publish/rmlui-linux/ProjectPrime \
+-            -rmluipocshot "$RUNNER_TEMP/rmlui-proof" -renderer opengl -noupdate
+-          test -s "$RUNNER_TEMP/rmlui-proof/rmlui-home.png"
+-      - name: RmlUi proof capture
++          capture() {
++            name="$1"
++            size="$2"
++            density="$3"
++            out="$RUNNER_TEMP/rmlui-proof/$name"
++            xvfb-run -a --server-args="-screen 0 4096x2304x24" \
++              env LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe \
++              publish/rmlui-linux/ProjectPrime \
++              -rmluipocshot "$out" -rmluisize "$size" -rmluidensity "$density" \
++              -renderer opengl -windowed -noupdate
++            test -s "$out/rmlui-home.png"
++          }
++          capture 720p 1280x720 1
++          capture 1080p 1920x1080 1
++          capture 1440p 2560x1440 1
++          capture 4k 3840x2160 1
++          capture retina-3008 3008x1692 2
++      - name: RmlUi multi-resolution proof captures
+         if: always()
+         uses: actions/upload-artifact@v7
+         with:
+diff --git a/docs/architecture/rmlui-home-poc.md b/docs/architecture/rmlui-home-poc.md
+index 6e013eaa..50645ccf 100644
+--- a/docs/architecture/rmlui-home-poc.md
++++ b/docs/architecture/rmlui-home-poc.md
+@@ -1,32 +1,42 @@
+ # RmlUi home proof of concept
+ 
+-This is an **opt-in desktop prototype**, not a replacement for the current shell yet. It answers one question before Project Prime commits to a UI renderer migration:
++Project Prime's player-facing frontend is being evaluated on RmlUi before any broad Avalonia removal. The proof keeps one physical game window and preserves the existing launcher, network, replay, editor, setup and settings authority underneath it.
+ 
+-> Can the front screen render as a native-resolution, GPU-drawn game UI over Project Prime's own cinematic backdrop and animated Hunter, while preserving the existing launcher/network/editor/replay authority underneath it?
++The native bridge is pinned to **RmlUi 6.3** at `ba95ffe8bfb6370efb2cdcca927eaad4710c5413`. FreeType 2.13.3 is pinned to `42608f77f20749dd6ddc9e0536788eaad70ea4b5`. Both build locally under the ignored `artifacts/` tree.
+ 
+-The POC uses **RmlUi 6.3** with its OpenGL 2 compatibility renderer. The version is pinned to commit `ba95ffe8bfb6370efb2cdcca927eaad4710c5413`. FreeType 2.13.3 is built locally from commit `42608f77f20749dd6ddc9e0536788eaad70ea4b5`. Neither dependency nor any native build output is committed.
+-
+-## What the prototype changes
++## Current proof
+ 
+ When built with `MphReadRmlUiPoc=true` and launched with `-rmluipoc`:
+ 
+-- the normal front screen is replaced by `rmlui/prime_home.rml`;
+-- RmlUi draws **directly into the game's OpenGL back buffer** after the cinematic launcher backdrop;
+-- the existing engine-rendered Hunter preview is drawn between the backdrop and RmlUi, with its old opaque preview clear disabled for this route;
+-- the Avalonia `UiSurface` is not ticked or uploaded while the RmlUi front screen owns the window;
+-- mouse, keyboard, controller focus, hover, and button activation are forwarded to RmlUi;
+-- player name, preferred Hunter, suit, game-data readiness, and build version come from the existing renderer-neutral `HubState` contract;
+-- RmlUi reports its measured CPU submit time on the proof-status panel;
+-- PLAY / HUNTERS / COMMUNITY / STUDIO / SETTINGS hand back to the existing Prime shell. Existing networking, lobby, replay, Map Studio, settings, and launch contracts remain authoritative.
++- RmlUi renders directly into Project Prime's OpenGL back buffer. The front screen does not rasterize or upload an Avalonia full-window bitmap.
++- Project Prime renders the cinematic room image and the real animated Hunter. RmlUi renders only the interactive chrome above them.
++- `HubState` remains the presentation-neutral source for player, Hunter, suit and setup state.
++- Mouse, keyboard and controller navigation feed the RmlUi context.
++- PLAY / HUNTERS / COMMUNITY / STUDIO / SETTINGS still hand off to the existing Prime shell, so this proof does not duplicate gameplay or service state.
++- Failure to load the native bridge, RML, RCSS or fonts falls back to the established frontend for an interactive run. The automated capture fails instead of hiding the error.
++
++## Slice 2: Retina and menu-stage composition
++
++The first real macOS capture proved the renderer seam but also exposed two presentation faults: CSS pixel units made the UI tiny on a Retina framebuffer, and the locally generated room image still read as a first-person gameplay frame.
+ 
+-If the native bridge, assets, font load, or RmlUi initialization fails, Project Prime logs the reason and falls back to the current Avalonia front screen.
++Slice 2 changes those contracts:
+ 
+-## Run it on macOS
++- normal UI dimensions, type, spacing and borders use RmlUi `dp` units;
++- the RmlUi context continues to receive the framebuffer/client density ratio, so a 2x Retina display gets a 2x physical raster for the same logical layout;
++- the home screen is composed around a 1920x1080-class logical canvas, with larger activity controls, header, profile and CTA;
++- the Hunter stage moves right and uses a closer presentation-only preview camera;
++- the old proof diagnostics panel is removed from the normal composition and replaced by a restrained session card; F10 toggles a developer-only telemetry panel when the render path needs inspecting;
++- backdrop scrims, vignette and floor fade separate the UI from busy room art;
++- entrance and focus motion is short and presentation-only, and the existing Reduce menu motion preference disables the page-entry animations;
++- generated room previews now suppress the local player, arm cannon, local shadow and pickup presentation while retaining the authored intro camera and environment;
++- old cached menu-stage thumbnails are recognized by a presentation-version marker. The active room is regenerated once in a background worker, then its GL texture is swapped on the render thread without blanking the current screen.
+ 
+-Prerequisites are Git, CMake, and the Xcode command-line tools. CMake can be installed with Homebrew if it is not already available.
++Generated room images still come only from the player's locally extracted files. No cartridge-derived backdrop is added to the repository or release.
++
++## macOS
+ 
+ ```sh
+-git checkout poc/rmlui-home
++git checkout feature/rmlui-retina-menu-stage
+ bash tools/rmlui/build-native.sh auto
+ 
+ dotnet run --project src/MphRead/MphRead.csproj \
+@@ -34,19 +44,12 @@ dotnet run --project src/MphRead/MphRead.csproj \
+   -rmluipoc -renderer opengl
+ ```
+ 
+-The native build stays under `artifacts/`, which is already ignored by Git. `dotnet run` copies the matching bridge plus the RML, RCSS, and existing Project Prime fonts into the output directory.
+-
+-## Run it on Linux x64
++The first run after this slice may regenerate the current menu-stage room image in a background process. The existing image stays visible until the clean replacement is ready.
+ 
+-Install a C++ toolchain, CMake, Git, and OpenGL development headers first. On Debian/Ubuntu:
+-
+-```sh
+-sudo apt-get install build-essential cmake git libgl1-mesa-dev
+-```
+-
+-Then:
++## Linux x64
+ 
+ ```sh
++sudo apt-get install build-essential cmake git libgl1-mesa-dev libx11-dev
+ bash tools/rmlui/build-native.sh linux-x64
+ 
+ dotnet run --project src/MphRead/MphRead.csproj \
+@@ -54,36 +57,47 @@ dotnet run --project src/MphRead/MphRead.csproj \
+   -rmluipoc -renderer opengl
+ ```
+ 
+-## Automated real-window capture
++## Deterministic layout captures
+ 
+-The branch CI also runs the proof without cartridge data:
++`-rmluipocshot` opens the real GLFW shell without cartridge data, draws the direct RmlUi composite, captures the final backbuffer and exits.
++
++Two diagnostic-only arguments make DPI/layout checks deterministic:
+ 
+ ```sh
+-ProjectPrime -rmluipocshot /tmp/rmlui-proof -renderer opengl -noupdate
++ProjectPrime \
++  -rmluipocshot /tmp/rmlui-proof \
++  -rmluisize 3008x1692 \
++  -rmluidensity 2 \
++  -renderer opengl -windowed -noupdate
+ ```
+ 
+-That path bypasses the ordinary game-file setup check only for the diagnostic, opens the actual Project Prime GLFW shell, loads the native RmlUi bridge and document, draws 30 frames, captures `rmlui-home.png` from the final backbuffer, then quits. A missing native bridge, failed RML parse, font failure, or missing output makes the job fail.
+-
+-## Why OpenGL only for this first gate
++The Linux CI gate captures these layouts:
+ 
+-The goal is to validate RmlUi's authoring model, input behavior, visual quality, and direct-render performance without also building four renderer adapters at once. Project Prime already has a compatibility OpenGL context on desktop, and RmlUi ships a compact GL2 render interface that can draw into that existing context without creating another window.
++| Capture | Framebuffer | RmlUi density |
++| --- | ---: | ---: |
++| 720p | 1280x720 | 1x |
++| 1080p | 1920x1080 | 1x |
++| 1440p | 2560x1440 | 1x |
++| 4K | 3840x2160 | 1x |
++| Retina simulation | 3008x1692 | 2x |
+ 
+-If this gate is successful, the next renderer slice should implement Project Prime-owned RmlUi render interfaces for the retained modern graphics layer so the same RML can run on Metal, Vulkan, DX12, and Android Vulkan. The RML/data model should not need to change.
++macOS arm64 and x64 continue to compile the native bridge and managed host separately.
+ 
+ ## Acceptance gate
+ 
+-Do not replace Avalonia globally just because this screen looks better. The POC is successful only if all of these hold on real hardware:
++The proof is ready to expand only when:
+ 
+-- native-resolution type remains sharp at 1080p, 1440p, and 4K;
+-- animation and focus remain fluid at 60/120/144 Hz;
+-- the proof-status `RMLUI DRAW` time remains comfortably below the current moving Avalonia surface cost;
+-- no full-screen CPU-raster UI texture is uploaded while the POC owns the front screen;
+-- mouse and controller navigation have no dead focus states;
+-- resizing/fullscreen transitions preserve layout and pointer alignment;
+-- the real Hunter can idle over the cinematic background without an opaque preview rectangle;
+-- choosing an existing destination returns to the current shell without changing gameplay/network authority;
+-- quitting and renderer teardown release the RmlUi context cleanly.
++- type and controls have comparable logical size on standard-DPI and Retina displays;
++- 720p through 4K captures stay inside safe bounds with no clipped CTA, nav or profile controls;
++- the real Hunter reads as the avatar focal point rather than an enemy placed in the center of a gameplay screenshot;
++- the menu-stage room art contains no local arm cannon, local body/shadow or pickup clutter;
++- mouse and controller focus have no dead states;
++- resize/fullscreen changes preserve pointer alignment and RmlUi density;
++- reduced-motion mode removes page-entry animation;
++- UI submit cost remains comfortably below the moving Avalonia surface path;
++- switching to an unmigrated destination returns to the current authoritative Prime shell cleanly;
++- shutdown releases RmlUi and the preview scene without leaving a native resource behind.
+ 
+ ## Deliberate limits
+ 
+-This first POC is desktop OpenGL only. Linux is compiled and opened under Xvfb in CI, producing a real final-composite screenshot; macOS arm64/x64 are compile-gated separately. It does not migrate Lobby, Settings, Replay Studio, Map Studio, pause/results, Android, or the modern graphics backends. It also does not add a second source of truth for game state. Those are follow-up slices only after the front-screen gate is measured and accepted.
++This proof still targets the desktop compatibility OpenGL renderer. It does not yet migrate Lobby, Settings, Replay Studio, Map Studio, pause/results, Android, Metal, Vulkan or DX12 presentation. The next renderer slice, if this gate passes, should implement a Project Prime-owned RmlUi render interface over the retained modern graphics layer so the same RML/data model can move to those backends without redesigning the frontend again.
+diff --git a/native/rmlui-poc/projectprime_rmlui.cpp b/native/rmlui-poc/projectprime_rmlui.cpp
+index 887fc986..fd7a7133 100644
+--- a/native/rmlui-poc/projectprime_rmlui.cpp
++++ b/native/rmlui-poc/projectprime_rmlui.cpp
+@@ -52,6 +52,8 @@ struct PrimeMenuData {
+     Rml::String build_version = "local";
+     Rml::String renderer_name = "OPENGL // RMLUI 6.3";
+     Rml::String ui_cost = "RMLUI DIRECT GPU OVERLAY // MEASURING";
++    bool reduce_motion = false;
++    bool diagnostics_visible = false;
+ 
+     int activity_index = 0;
+     Rml::String activity_title = "QUICK PLAY";
+@@ -75,6 +77,8 @@ public:
+         model.Bind("build_version", &data.build_version);
+         model.Bind("renderer_name", &data.renderer_name);
+         model.Bind("ui_cost", &data.ui_cost);
++        model.Bind("reduce_motion", &data.reduce_motion);
++        model.Bind("diagnostics_visible", &data.diagnostics_visible);
+         model.Bind("activity_index", &data.activity_index);
+         model.Bind("activity_title", &data.activity_title);
+         model.Bind("activity_description", &data.activity_description);
+@@ -112,6 +116,14 @@ public:
+         handle.DirtyVariable(name);
+     }
+ 
++    void SetBool(const std::string& name, bool value)
++    {
++        if (name == "reduce_motion") data.reduce_motion = value;
++        else if (name == "diagnostics_visible") data.diagnostics_visible = value;
++        else return;
++        handle.DirtyVariable(name);
++    }
++
+     bool TakeAction(std::string& result)
+     {
+         if (actions.empty()) return false;
+@@ -391,6 +403,11 @@ PP_EXPORT void pp_rmlui_set_text(const char* name, const char* value)
+     if (g_model && name) g_model->SetText(name, value ? value : "");
+ }
+ 
++PP_EXPORT void pp_rmlui_set_bool(const char* name, int value)
++{
++    if (g_model && name) g_model->SetBool(name, value != 0);
++}
++
+ PP_EXPORT int pp_rmlui_take_action(unsigned char* buffer, int capacity)
+ {
+     if (!g_model || !buffer || capacity <= 1) return 0;
+diff --git a/src/MphRead/Entities/ItemInstanceEntity.cs b/src/MphRead/Entities/ItemInstanceEntity.cs
+index 775d98b0..b8b29900 100644
+--- a/src/MphRead/Entities/ItemInstanceEntity.cs
++++ b/src/MphRead/Entities/ItemInstanceEntity.cs
+@@ -187,6 +187,10 @@ namespace MphRead.Entities
+ 
+         public override void GetDrawInfo()
+         {
++            if (Mods.ThumbnailMode.SuppressPickupPresentation)
++            {
++                return;
++            }
+             if (IsVisible(NodeRef))
+             {
+                 base.GetDrawInfo();
+diff --git a/src/MphRead/Entities/ItemSpawnEntity.cs b/src/MphRead/Entities/ItemSpawnEntity.cs
+index c4753464..1d487e9a 100644
+--- a/src/MphRead/Entities/ItemSpawnEntity.cs
++++ b/src/MphRead/Entities/ItemSpawnEntity.cs
+@@ -224,6 +224,10 @@ namespace MphRead.Entities
+ 
+         public override void GetDrawInfo()
+         {
++            if (Mods.ThumbnailMode.SuppressPickupPresentation)
++            {
++                return;
++            }
+             if (IsVisible(NodeRef))
+             {
+                 base.GetDrawInfo();
+diff --git a/src/MphRead/Entities/Players/PlayerDraw.cs b/src/MphRead/Entities/Players/PlayerDraw.cs
+index 36e0becc..26f5e9dc 100644
+--- a/src/MphRead/Entities/Players/PlayerDraw.cs
++++ b/src/MphRead/Entities/Players/PlayerDraw.cs
+@@ -85,6 +85,14 @@ namespace MphRead.Entities
+                 // nobody, which is exactly how it was reported.
+                 return;
+             }
++            if (IsMainPlayer && Mods.ThumbnailMode.SuppressLocalPlayerPresentation)
++            {
++                // Thumbnail capture still needs a real player to drive the
++                // authored intro camera, but the resulting image is menu-stage
++                // environment art. Do not photograph that driver's body,
++                // shadow, arm cannon, muzzle effects, or viewmodel smoke.
++                return;
++            }
+             DrawShadow(drawPosition);
+             if (IsMainPlayer && ScanVisor)
+             {
+diff --git a/src/MphRead/Mods/Launcher/Gui/RmlUiPrototype.cs b/src/MphRead/Mods/Launcher/Gui/RmlUiPrototype.cs
+index c8baf299..e890b9fb 100644
+--- a/src/MphRead/Mods/Launcher/Gui/RmlUiPrototype.cs
++++ b/src/MphRead/Mods/Launcher/Gui/RmlUiPrototype.cs
+@@ -2,12 +2,17 @@
+ using System;
+ using System.Collections.Generic;
+ using System.Diagnostics;
++using System.Globalization;
+ using System.IO;
+ using System.Runtime.InteropServices;
+ using System.Text;
++using System.Threading;
++using System.Threading.Tasks;
+ using MphRead.Mods.Input;
+ using MphRead.Mods.Render;
++using OpenTK.Mathematics;
+ using OpenTK.Windowing.Common;
++using OpenTK.Windowing.Desktop;
+ using OpenTK.Windowing.GraphicsLibraryFramework;
+ 
+ namespace MphRead.Mods.Launcher.Gui
+@@ -38,6 +43,10 @@ namespace MphRead.Mods.Launcher.Gui
+         private static double _renderMs;
+         private static int _captureFrames;
+         private static string? _captureDirectory;
++        private static Task<int>? _stageRefresh;
++        private static CancellationTokenSource? _stageRefreshCancel;
++        private static string _stageRefreshRoom = "";
++        private static bool _diagnosticsVisible;
+ 
+         static RmlUiPrototype()
+         {
+@@ -74,6 +83,13 @@ namespace MphRead.Mods.Launcher.Gui
+ 
+             try
+             {
++                if (CaptureSize() is Vector2i requested)
++                {
++                    window.ClientSize = requested;
++                    // The diagnostic needs the framebuffer size produced by
++                    // the resize, not the previous frame's cached value.
++                    NativeWindow.ProcessWindowEvents(false);
++                }
+                 ReadSize(window, out int width, out int height, out float density);
+                 int ok = NativeInitialize(width, height, density, root);
+                 if (ok == 0)
+@@ -90,6 +106,7 @@ namespace MphRead.Mods.Launcher.Gui
+                 _nextStateRefresh = 0;
+                 _captureFrames = 0;
+                 _captureDirectory = CaptureDirectory();
++                _diagnosticsVisible = false;
+                 GamepadContexts.MenuVisible = true;
+                 _gamepad.Reset();
+ 
+@@ -97,6 +114,7 @@ namespace MphRead.Mods.Launcher.Gui
+                 HubSnapshot snapshot = HubState.Capture();
+                 ConfigureHunter(snapshot);
+                 RefreshState(snapshot, force: true);
++                BeginMenuStageRefresh(snapshot);
+                 Mods.DebugLog.Line("rmlui", $"RmlUi 6.3 POC active at {width}x{height} ({density:0.##}x density)");
+                 return true;
+             }
+@@ -145,6 +163,7 @@ namespace MphRead.Mods.Launcher.Gui
+                 else
+                     _gamepad.Update(GamepadManager.Snapshot, GamepadContext.Menu, now);
+ 
++                PollMenuStageRefresh();
+                 NativeUpdate();
+                 DrainActions();
+             }
+@@ -246,6 +265,12 @@ namespace MphRead.Mods.Launcher.Gui
+         public static void KeyDown(KeyboardKeyEventArgs e)
+         {
+             if (!_active) return;
++            if (e.Key == Keys.F10)
++            {
++                _diagnosticsVisible = !_diagnosticsVisible;
++                SetBool("diagnostics_visible", _diagnosticsVisible);
++                return;
++            }
+             if (e.Key == Keys.Escape)
+             {
+                 // The production shell owns its full back/quit semantics. A
+@@ -282,6 +307,10 @@ namespace MphRead.Mods.Launcher.Gui
+             _gamepad.Reset();
+             _captureDirectory = null;
+             _captureFrames = 0;
++            _stageRefreshCancel?.Cancel();
++            _stageRefreshCancel = null;
++            _stageRefresh = null;
++            _stageRefreshRoom = "";
+             LauncherHunter.Reset();
+             GamepadContexts.MenuVisible = false;
+             Mods.DebugLog.Line("rmlui", "RmlUi POC shut down");
+@@ -294,6 +323,8 @@ namespace MphRead.Mods.Launcher.Gui
+             SetText("profile_state", snapshot.GameFilesReady ? "LOCAL PROFILE // GAME DATA READY" : "LOCAL PROFILE // SETUP REQUIRED");
+             SetText("game_data_state", snapshot.GameFilesReady ? "GAME DATA READY" : "GAME DATA NOT CONFIGURED");
+             SetText("build_version", Update.BuildVersion.Display);
++            SetBool("reduce_motion", LauncherPrefs.ReduceMotion);
++            SetBool("diagnostics_visible", _diagnosticsVisible);
+             if (force)
+             {
+                 SetText("renderer_name", "OPENGL // RMLUI 6.3");
+@@ -307,13 +338,83 @@ namespace MphRead.Mods.Launcher.Gui
+             LauncherHunter.CanPresent = () => _active;
+             LauncherHunter.Hunter = snapshot.DisplayHunter;
+             LauncherHunter.Suit = snapshot.Suit;
+-            LauncherHunter.Left = 0.34f;
+-            LauncherHunter.Top = 0.105f;
+-            LauncherHunter.Right = 0.735f;
+-            LauncherHunter.Bottom = 0.93f;
++            // Frame the Hunter as the player's avatar rather than an enemy in
++            // the middle of a match. The preview pass keeps true model scale;
++            // only its camera and screen-space stage placement change.
++            LauncherHunter.Left = 0.40f;
++            LauncherHunter.Top = 0.075f;
++            LauncherHunter.Right = 0.81f;
++            LauncherHunter.Bottom = 0.94f;
++            LauncherHunter.DistanceScale = 0.84f;
+             LauncherHunter.TransparentBackground = true;
+         }
+ 
++        private static void BeginMenuStageRefresh(HubSnapshot snapshot)
++        {
++            if (!snapshot.GameFilesReady || !ThumbnailBatch.CanRun || _stageRefresh != null)
++                return;
++
++            string room = LauncherBackdrop.RoomKey;
++            if (String.IsNullOrWhiteSpace(room)
++                || ThumbnailGenerator.HasCinematicPresentation(room))
++                return;
++
++            _stageRefreshRoom = room;
++            _stageRefreshCancel = new CancellationTokenSource();
++            CancellationToken token = _stageRefreshCancel.Token;
++            Mods.DebugLog.Line("rmlui",
++                $"refreshing cinematic menu stage for {room} in a background preview worker");
++            _stageRefresh = Task.Run(() => ThumbnailBatch.Run(
++                new[] { room },
++                parallelism: 1,
++                width: ThumbnailGenerator.ThumbnailWidth,
++                height: ThumbnailGenerator.ThumbnailHeight,
++                report: line => Mods.DebugLog.Line("rmlui", line),
++                cancel: token,
++                force: true), token);
++        }
++
++        private static void PollMenuStageRefresh()
++        {
++            Task<int>? task = _stageRefresh;
++            if (task == null || !task.IsCompleted)
++                return;
++
++            string room = _stageRefreshRoom;
++            CancellationTokenSource? completedCancel = _stageRefreshCancel;
++            _stageRefresh = null;
++            _stageRefreshRoom = "";
++            _stageRefreshCancel = null;
++            try
++            {
++                int written = task.GetAwaiter().GetResult();
++                if (written > 0 || ThumbnailGenerator.HasCinematicPresentation(room))
++                {
++                    // The old GPU texture is still valid while the worker
++                    // replaces the PNG, so the menu never flashes to black.
++                    // Swap to the clean image now, on the GL owner thread.
++                    LauncherPhoto.Invalidate();
++                    LauncherBackdrop.Refresh();
++                    Mods.DebugLog.Line("rmlui",
++                        $"cinematic menu stage refreshed for {room}");
++                }
++            }
++            catch (OperationCanceledException)
++            {
++                Mods.DebugLog.Line("rmlui", "cinematic menu-stage refresh cancelled");
++            }
++            catch (Exception ex)
++            {
++                // A stale backdrop is cosmetic. The frontend remains usable.
++                Mods.DebugLog.Line("rmlui",
++                    $"cinematic menu-stage refresh failed: {ex.Message}");
++            }
++            finally
++            {
++                completedCancel?.Dispose();
++            }
++        }
++
+         private static void DrainActions()
+         {
+             for (int i = 0; i < 8; i++)
+@@ -389,11 +490,69 @@ namespace MphRead.Mods.Launcher.Gui
+             return null;
+         }
+ 
+-        private static void ReadSize(RenderWindow window, out int width, out int height, out float density)
++        private static Vector2i? CaptureSize()
++        {
++            string[] args = Environment.GetCommandLineArgs();
++            for (int i = 0; i + 1 < args.Length; i++)
++            {
++                if (!args[i].Equals("-rmluisize", StringComparison.OrdinalIgnoreCase))
++                    continue;
++                string[] parts = args[i + 1].Split('x', 'X');
++                if (parts.Length == 2
++                    && Int32.TryParse(parts[0], out int width)
++                    && Int32.TryParse(parts[1], out int height)
++                    && width is >= 640 and <= 7680
++                    && height is >= 360 and <= 4320)
++                    return new Vector2i(width, height);
++            }
++            return null;
++        }
++
++        private static unsafe void ReadSize(RenderWindow window, out int width, out int height, out float density)
+         {
+             width = Math.Max(window.FramebufferSize.X, 1);
+             height = Math.Max(window.FramebufferSize.Y, 1);
+-            density = window.ClientSize.X > 0 ? Math.Max(1f, width / (float)window.ClientSize.X) : 1f;
++
++            // Framebuffer/client ratio catches Retina on the platforms where
++            // GLFW exposes logical client points. Window content scale catches
++            // DPI-aware desktop configurations where both sizes are already
++            // physical pixels. Use the larger answer so UI never shrinks just
++            // because the windowing backend chose the other coordinate model.
++            float framebufferScale = window.ClientSize.X > 0
++                ? Math.Max(1f, width / (float)window.ClientSize.X)
++                : 1f;
++            float contentScale = 1f;
++            try
++            {
++                GLFW.GetWindowContentScale(window.WindowPtr, out float xScale, out float yScale);
++                if (float.IsFinite(xScale) && float.IsFinite(yScale))
++                    contentScale = Math.Max(1f, Math.Max(xScale, yScale));
++            }
++            catch
++            {
++                // Ratio fallback above remains valid if the platform cannot
++                // report a content scale for this compatibility window.
++            }
++            density = Math.Max(framebufferScale, contentScale);
++
++            float forced = DensityOverride();
++            if (forced > 0)
++                density = forced;
++        }
++
++        private static float DensityOverride()
++        {
++            string[] args = Environment.GetCommandLineArgs();
++            for (int i = 0; i + 1 < args.Length; i++)
++            {
++                if (!args[i].Equals("-rmluidensity", StringComparison.OrdinalIgnoreCase))
++                    continue;
++                if (float.TryParse(args[i + 1], NumberStyles.Float,
++                    CultureInfo.InvariantCulture, out float value)
++                    && float.IsFinite(value))
++                    return Math.Clamp(value, 0.75f, 4f);
++            }
++            return 0;
+         }
+ 
+         private static void SetText(string name, string value)
+@@ -401,6 +560,11 @@ namespace MphRead.Mods.Launcher.Gui
+             if (_active) NativeSetText(name, value ?? string.Empty);
+         }
+ 
++        private static void SetBool(string name, bool value)
++        {
++            if (_active) NativeSetBool(name, value ? 1 : 0);
++        }
++
+         private static void Fail(string message, Exception ex)
+         {
+             bool wasActive = _active;
+@@ -415,6 +579,10 @@ namespace MphRead.Mods.Launcher.Gui
+             _gamepad.Reset();
+             _captureDirectory = null;
+             _captureFrames = 0;
++            _stageRefreshCancel?.Cancel();
++            _stageRefreshCancel = null;
++            _stageRefresh = null;
++            _stageRefreshRoom = "";
+             LauncherHunter.Reset();
+             GamepadContexts.MenuVisible = false;
+             Mods.DebugLog.Line("rmlui", $"POC {message}: {ex.Message}; falling back to Avalonia");
+@@ -457,6 +625,10 @@ namespace MphRead.Mods.Launcher.Gui
+             [MarshalAs(UnmanagedType.LPUTF8Str)] string name,
+             [MarshalAs(UnmanagedType.LPUTF8Str)] string value);
+ 
++        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_set_bool")]
++        private static extern void NativeSetBool(
++            [MarshalAs(UnmanagedType.LPUTF8Str)] string name, int value);
++
+         [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_take_action")]
+         private static extern int NativeTakeAction([Out] byte[] buffer, int capacity);
+     }
+diff --git a/src/MphRead/Mods/Launcher/Portable/LauncherBackdrop.cs b/src/MphRead/Mods/Launcher/Portable/LauncherBackdrop.cs
+index 3601206f..21d9ac6d 100644
+--- a/src/MphRead/Mods/Launcher/Portable/LauncherBackdrop.cs
++++ b/src/MphRead/Mods/Launcher/Portable/LauncherBackdrop.cs
+@@ -38,13 +38,36 @@ namespace MphRead.Mods.Launcher
+         /// </summary>
+         public static float Zoom => _scene switch
+         {
+-            LauncherBackdropScene.Home => 0.91f,
++            LauncherBackdropScene.Home => 0.89f,
++            LauncherBackdropScene.Play => 0.88f,
++            LauncherBackdropScene.Multiplayer => 0.86f,
++            LauncherBackdropScene.Offline => 0.88f,
+             LauncherBackdropScene.Adventure => 0.90f,
+             LauncherBackdropScene.ReplayStudio => 0.94f,
+             LauncherBackdropScene.Settings => 0.96f,
+             _ => 0.93f
+         };
+ 
++        /// <summary>
++        /// Cinematic crop center in normalized source-image coordinates.
++        /// Generated previews are authored as level overviews, while the home
++        /// screen needs room on the left for activity chrome and on the right
++        /// for the Hunter. Keep the focal architecture slightly above/left.
++        /// </summary>
++        public static float FocusX => _scene switch
++        {
++            LauncherBackdropScene.Home or LauncherBackdropScene.Play
++                or LauncherBackdropScene.Multiplayer or LauncherBackdropScene.Offline => 0.46f,
++            _ => 0.5f
++        };
++
++        public static float FocusY => _scene switch
++        {
++            LauncherBackdropScene.Home or LauncherBackdropScene.Play
++                or LauncherBackdropScene.Multiplayer or LauncherBackdropScene.Offline => 0.44f,
++            _ => 0.5f
++        };
++
+         public static void Set(LauncherBackdropScene scene, string? roomKey = null)
+         {
+             string nextRoom = String.IsNullOrWhiteSpace(roomKey)
+diff --git a/src/MphRead/Mods/Launcher/RmlUi/Assets/prime_home.rcss b/src/MphRead/Mods/Launcher/RmlUi/Assets/prime_home.rcss
+index f4d0494f..8cecdee9 100644
+--- a/src/MphRead/Mods/Launcher/RmlUi/Assets/prime_home.rcss
++++ b/src/MphRead/Mods/Launcher/RmlUi/Assets/prime_home.rcss
+@@ -1,11 +1,33 @@
+ * { box-sizing: border-box; }
+ 
++@keyframes enter-top {
++    from { opacity: 0; transform: translateY(-10dp); }
++    to   { opacity: 1; transform: translateY(0dp); }
++}
++@keyframes enter-left {
++    from { opacity: 0; transform: translateX(-18dp); }
++    to   { opacity: 1; transform: translateX(0dp); }
++}
++@keyframes enter-right {
++    from { opacity: 0; transform: translateX(14dp); }
++    to   { opacity: 1; transform: translateX(0dp); }
++}
++@keyframes enter-bottom {
++    from { opacity: 0; transform: translateY(8dp); }
++    to   { opacity: 1; transform: translateY(0dp); }
++}
++@keyframes enter-hunter {
++    from { opacity: 0; transform: translateY(8dp); }
++    to   { opacity: 1; transform: translateY(0dp); }
++}
++
+ body {
+     margin: 0;
+     width: 100%;
+     height: 100%;
+     color: #edf7ff;
+     font-family: Rajdhani;
++    font-size: 16dp;
+     background-color: rgba(0, 0, 0, 0);
+ }
+ 
+@@ -14,8 +36,6 @@ body {
+     width: 100%;
+     height: 100%;
+     overflow: hidden;
+-    background-color: rgba(4, 12, 23, 0.34);
+-    decorator: radial-gradient(62% 82% at 54% 43%, rgba(24,92,154,0.12), rgba(2,7,14,0.08) 54%, rgba(1,5,10,0.46));
+ }
+ 
+ #scene_tint {
+@@ -24,16 +44,59 @@ body {
+     top: 0;
+     width: 100%;
+     height: 100%;
+-    decorator: linear-gradient(90deg, rgba(2,8,16,0.97) 0%, rgba(4,13,25,0.79) 27%, rgba(4,13,25,0.08) 52%, rgba(4,13,25,0.18) 72%, rgba(2,8,16,0.92) 100%);
++    decorator: linear-gradient(90deg,
++        rgba(1,6,12,0.96) 0%,
++        rgba(2,10,20,0.82) 22%,
++        rgba(3,12,22,0.34) 43%,
++        rgba(3,12,22,0.04) 60%,
++        rgba(2,8,16,0.18) 77%,
++        rgba(1,5,11,0.72) 100%);
++}
++
++#scene_vignette {
++    position: absolute;
++    left: 0;
++    top: 0;
++    width: 100%;
++    height: 100%;
++    decorator: radial-gradient(58% 74% at 57% 45%,
++        rgba(24,105,176,0.08) 0%,
++        rgba(2,7,14,0.02) 48%,
++        rgba(1,4,9,0.56) 100%);
++}
++
++#floor_fade {
++    position: absolute;
++    left: 0;
++    bottom: 0;
++    width: 100%;
++    height: 38%;
++    decorator: linear-gradient(180deg,
++        rgba(1,6,12,0.00) 0%,
++        rgba(1,6,12,0.28) 56%,
++        rgba(1,5,10,0.78) 100%);
++}
++
++#hunter_glow {
++    position: absolute;
++    left: 36%;
++    top: 8%;
++    width: 46%;
++    height: 82%;
++    opacity: 0.72;
++    decorator: radial-gradient(50% 58% at 53% 48%,
++        rgba(35,132,221,0.18) 0%,
++        rgba(18,82,142,0.08) 35%,
++        rgba(0,0,0,0.00) 72%);
+ }
+ 
+ #top_rule {
+     position: absolute;
+     left: 0;
+-    top: 78px;
++    top: 92dp;
+     width: 100%;
+-    height: 1px;
+-    background-color: rgba(97, 182, 246, 0.28);
++    height: 1dp;
++    background-color: rgba(97,182,246,0.25);
+ }
+ 
+ #topbar {
+@@ -41,33 +104,71 @@ body {
+     left: 0;
+     top: 0;
+     width: 100%;
+-    height: 78px;
++    height: 92dp;
+     display: flex;
+     align-items: center;
+-    padding-left: 34px;
+-    padding-right: 34px;
+-    background-color: rgba(3, 9, 17, 0.86);
+-    border-bottom: 1px rgba(97, 182, 246, 0.12);
++    padding-left: 46dp;
++    padding-right: 46dp;
++    background-color: rgba(2,8,15,0.82);
++    border-bottom: 1dp rgba(97,182,246,0.10);
++}
++
++.enter_top { animation: 0.16s quad-out 1 enter-top; }
++.enter_left { animation: 0.18s quad-out 1 enter-left; }
++.enter_right { animation: 0.18s quad-out 1 enter-right; }
++.enter_bottom { animation: 0.16s quad-out 1 enter-bottom; }
++.enter_hunter { animation: 0.18s quad-out 1 enter-hunter; }
++
++.reduce-motion .enter_top,
++.reduce-motion .enter_left,
++.reduce-motion .enter_right,
++.reduce-motion .enter_bottom,
++.reduce-motion .enter_hunter {
++    animation: none;
+ }
+ 
+-#brand { width: 315px; display: flex; align-items: center; }
++#brand {
++    width: 286dp;
++    display: flex;
++    align-items: center;
++}
+ #brand_mark {
+-    width: 50px;
+-    height: 50px;
+-    line-height: 50px;
++    width: 54dp;
++    height: 54dp;
++    line-height: 54dp;
+     text-align: center;
+-    margin-right: 12px;
++    margin-right: 14dp;
+     color: #ffffff;
+-    font-size: 30px;
++    font-size: 31dp;
+     font-weight: bold;
+     background-color: #1c72e1;
+-    border: 1px #61b6f6;
++    border: 1dp #72c7ff;
+     transform: rotate(-3deg);
+ }
+-.brand_title { display: block; color: #ffffff; font-size: 20px; line-height: 22px; font-weight: bold; letter-spacing: 1.5px; }
+-.brand_subtitle { display: block; margin-top: 2px; color: #6e8498; font-size: 8px; line-height: 10px; letter-spacing: 1.2px; }
++.brand_title {
++    display: block;
++    color: #ffffff;
++    font-size: 22dp;
++    line-height: 23dp;
++    font-weight: bold;
++    letter-spacing: 1.4dp;
++}
++.brand_subtitle {
++    display: block;
++    margin-top: 3dp;
++    color: #6d8396;
++    font-size: 9dp;
++    line-height: 11dp;
++    letter-spacing: 1.6dp;
++}
++
++#primary_nav {
++    display: flex;
++    align-items: stretch;
++    height: 100%;
++    flex: 1;
++}
+ 
+-#primary_nav { display: flex; align-items: stretch; height: 100%; flex: 1; }
+ button {
+     tab-index: auto;
+     cursor: pointer;
+@@ -76,80 +177,190 @@ button {
+     border: 0;
+     font-family: Rajdhani;
+ }
++
+ .nav {
+-    min-width: 124px;
+-    padding-left: 22px;
+-    padding-right: 22px;
+-    font-size: 17px;
++    min-width: 116dp;
++    padding-left: 20dp;
++    padding-right: 20dp;
++    font-size: 18dp;
+     font-weight: bold;
+-    letter-spacing: 1px;
+-    border-bottom: 3px rgba(0,0,0,0);
+-    transition: color background-color border-bottom-color 0.13s quad-out;
++    letter-spacing: 1dp;
++    border-bottom: 4dp rgba(0,0,0,0);
++    transition: color background-color border-bottom-color transform 0.14s quad-out;
+ }
+ .nav:hover, .nav:focus {
+     color: #ffffff;
+-    background-color: rgba(43,158,247,0.09);
++    background-color: rgba(43,158,247,0.10);
+     border-bottom-color: #2b9ef7;
++    transform: translateY(-1dp);
++}
++.nav.active {
++    color: #ffffff;
++    background-color: rgba(28,114,225,0.12);
++    border-bottom-color: #72c7ff;
++}
++
++#account_cluster {
++    width: 312dp;
++    display: flex;
++    justify-content: flex-end;
++    align-items: center;
++}
++.online_dot {
++    width: 9dp;
++    height: 9dp;
++    border-radius: 5dp;
++    margin-right: 10dp;
++    background-color: #55e18c;
++}
++.account_copy {
++    width: 188dp;
++    margin-right: 13dp;
++    text-align: right;
++}
++.account_name {
++    display: block;
++    color: #ffffff;
++    font-size: 17dp;
++    line-height: 19dp;
++    font-weight: bold;
++}
++.account_meta {
++    display: block;
++    margin-top: 2dp;
++    color: #667e92;
++    font-size: 8dp;
++    line-height: 10dp;
++    letter-spacing: 0.7dp;
+ }
+-.nav.active { color: #ffffff; background-color: rgba(28,114,225,0.12); border-bottom-color: #61b6f6; }
+ 
+-#account_cluster { width: 340px; display: flex; justify-content: flex-end; align-items: center; }
+-.online_dot { width: 8px; height: 8px; border-radius: 4px; margin-right: 10px; background-color: #55e18c; }
+-.account_copy { width: 205px; margin-right: 12px; text-align: right; }
+-.account_name { display: block; color: #ffffff; font-size: 16px; line-height: 18px; font-weight: bold; }
+-.account_meta { display: block; color: #657c90; font-size: 7px; line-height: 9px; letter-spacing: 0.6px; }
+ .utility, .footer_button {
+-    padding: 9px 13px;
+-    border: 1px rgba(97,182,246,0.25);
++    padding: 10dp 15dp;
++    border: 1dp rgba(97,182,246,0.28);
+     background-color: rgba(7,18,31,0.72);
+-    font-size: 11px;
++    font-size: 12dp;
+     font-weight: bold;
+-    letter-spacing: 0.8px;
+-    transition: color background-color border-color transform 0.12s quad-out;
++    letter-spacing: 0.8dp;
++    transition: color background-color border-color transform 0.13s quad-out;
+ }
+-.utility:hover, .utility:focus, .footer_button:hover, .footer_button:focus {
++.utility:hover, .utility:focus,
++.footer_button:hover, .footer_button:focus {
+     color: #ffffff;
+     border-color: #61b6f6;
+-    background-color: rgba(28,114,225,0.30);
+-    transform: translateY(-1px);
++    background-color: rgba(28,114,225,0.31);
++    transform: translateY(-1dp);
++}
++
++#stage {
++    position: absolute;
++    left: 0;
++    top: 93dp;
++    right: 0;
++    bottom: 68dp;
++}
++
++#activity_panel {
++    position: absolute;
++    left: 52dp;
++    bottom: 44dp;
++    width: 470dp;
+ }
+ 
+-#stage { position: absolute; left: 0; top: 79px; right: 0; bottom: 58px; }
++.eyebrow {
++    color: #72c7ff;
++    font-size: 10dp;
++    line-height: 12dp;
++    font-weight: bold;
++    letter-spacing: 1.9dp;
++    margin-bottom: 6dp;
++}
++
++#activity_title {
++    color: #ffffff;
++    font-size: 49dp;
++    line-height: 50dp;
++    font-weight: bold;
++    letter-spacing: 0.7dp;
++}
++
++#activity_description {
++    width: 430dp;
++    margin-top: 5dp;
++    margin-bottom: 18dp;
++    color: #9cb0c1;
++    font-size: 14dp;
++    line-height: 19dp;
++}
++
++#activity_list {
++    width: 100%;
++    margin-bottom: 11dp;
++}
+ 
+-#activity_panel { position: absolute; left: 38px; bottom: 34px; width: 420px; }
+-.eyebrow { color: #61b6f6; font-size: 9px; font-weight: bold; letter-spacing: 1.8px; margin-bottom: 5px; }
+-#activity_title { color: #ffffff; font-size: 38px; line-height: 40px; font-weight: bold; letter-spacing: 0.7px; }
+-#activity_description { width: 360px; margin-top: 3px; margin-bottom: 15px; color: #91a5b8; font-size: 12px; line-height: 18px; }
+-#activity_list { width: 100%; margin-bottom: 10px; }
+ .activity {
+-    width: 420px;
+-    min-height: 58px;
++    width: 100%;
++    min-height: 68dp;
+     display: flex;
+     align-items: center;
+     text-align: left;
+-    margin-bottom: 4px;
+-    padding: 8px 12px;
+-    color: #8da2b5;
+-    background-color: rgba(7,22,38,0.91);
+-    border-left: 3px rgba(97,182,246,0.18);
+-    border-top: 1px rgba(97,182,246,0.12);
+-    border-right: 1px rgba(97,182,246,0.08);
+-    border-bottom: 1px rgba(97,182,246,0.08);
+-    transition: color background-color border-left-color padding-left transform 0.12s quad-out;
++    margin-bottom: 5dp;
++    padding: 9dp 14dp;
++    color: #91a6b8;
++    background-color: rgba(5,16,29,0.80);
++    border-left: 3dp rgba(97,182,246,0.18);
++    border-top: 1dp rgba(97,182,246,0.12);
++    border-right: 1dp rgba(97,182,246,0.09);
++    border-bottom: 1dp rgba(97,182,246,0.09);
++    transition: color background-color border-left-color padding-left transform 0.13s quad-out;
+ }
+ .activity:hover, .activity:focus, .activity.selected {
+     color: #ffffff;
+-    background-color: rgba(14,63,104,0.94);
+-    border-left-color: #61b6f6;
+-    padding-left: 17px;
+-    transform: translateX(2px);
+-}
+-.activity_code { width: 34px; color: #4e6b84; font-size: 10px; }
+-.activity:hover .activity_code, .activity:focus .activity_code, .activity.selected .activity_code { color: #61b6f6; }
+-.activity_copy { display: block; flex: 1; }
+-.activity_name { display: block; color: inherit; font-size: 17px; font-weight: bold; letter-spacing: 0.7px; }
+-.activity_meta { display: block; margin-top: 1px; color: #71869a; font-size: 9px; }
+-.activity_arrow { width: 20px; text-align: right; color: #61b6f6; font-size: 24px; }
++    background-color: rgba(15,55,92,0.92);
++    border-left-color: #72c7ff;
++    padding-left: 19dp;
++    transform: translateX(3dp);
++}
++.activity.selected {
++    background-color: rgba(18,72,120,0.94);
++}
++
++.activity_code {
++    width: 38dp;
++    color: #557189;
++    font-size: 10dp;
++    font-family: "JetBrains Mono";
++}
++.activity:hover .activity_code,
++.activity:focus .activity_code,
++.activity.selected .activity_code {
++    color: #72c7ff;
++}
++
++.activity_copy {
++    display: block;
++    flex: 1;
++}
++.activity_name {
++    display: block;
++    color: inherit;
++    font-size: 20dp;
++    line-height: 22dp;
++    font-weight: bold;
++    letter-spacing: 0.7dp;
++}
++.activity_meta {
++    display: block;
++    margin-top: 2dp;
++    color: #758b9e;
++    font-size: 10dp;
++    line-height: 13dp;
++}
++.activity_arrow {
++    width: 24dp;
++    text-align: right;
++    color: #72c7ff;
++    font-size: 27dp;
++}
+ 
+ #mode_quick { nav-down: #mode_browser; nav-right: #nav_play; }
+ #mode_browser { nav-up: #mode_quick; nav-down: #mode_offline; }
+@@ -163,102 +374,341 @@ button {
+ #profile { nav-left: #nav_studio; }
+ 
+ #activity_status {
++    width: 100%;
+     display: flex;
+-    width: 420px;
+     justify-content: space-between;
+-    padding: 7px 11px;
+-    color: #758a9e;
+-    font-size: 9px;
+-    letter-spacing: 1px;
+-    background-color: rgba(3,10,18,0.82);
+-    border-left: 1px rgba(97,182,246,0.16);
+-    border-right: 1px rgba(97,182,246,0.16);
+-    border-top: 1px rgba(97,182,246,0.10);
++    padding: 8dp 13dp;
++    color: #7a8fa2;
++    font-size: 9dp;
++    letter-spacing: 1dp;
++    background-color: rgba(3,10,18,0.86);
++    border-left: 1dp rgba(97,182,246,0.16);
++    border-right: 1dp rgba(97,182,246,0.16);
++    border-top: 1dp rgba(97,182,246,0.10);
+ }
+ .ready { color: #55e18c; }
++
+ #deploy {
+     position: relative;
+-    display: block;
+-    width: 420px;
+-    height: 80px;
+-    min-height: 80px;
+-    padding: 12px 60px 10px 18px;
++    width: 100%;
++    min-height: 94dp;
++    padding: 13dp 66dp 11dp 19dp;
+     text-align: left;
+     color: #ffffff;
+-    background-color: #175ab1;
+-    border-left: 4px #72c7ff;
+-    border-top: 1px #3a8ce4;
+-    border-right: 1px #104983;
+-    border-bottom: 1px #104983;
+-    transition: background-color transform 0.11s quad-out;
+-}
+-#deploy:hover, #deploy:focus { background-color: #1c72e1; transform: translateY(-2px); }
+-.deploy_kicker { display: block; color: #b6dbf6; font-size: 8px; letter-spacing: 1.3px; }
+-.deploy_label { display: block; font-size: 29px; line-height: 32px; font-weight: bold; letter-spacing: 1.2px; }
+-.deploy_arrow { position: absolute; right: 18px; top: 17px; color: #e6f7ff; font-size: 38px; }
++    background-color: #175fb8;
++    border-left: 4dp #8bd3ff;
++    border-top: 1dp #489aea;
++    border-right: 1dp #104983;
++    border-bottom: 1dp #104983;
++    transition: background-color transform filter 0.13s quad-out;
++}
++#deploy:hover, #deploy:focus {
++    background-color: #1c72e1;
++    transform: translateY(-2dp);
++}
++.deploy_kicker {
++    display: block;
++    color: #b9ddf7;
++    font-size: 8dp;
++    line-height: 10dp;
++    letter-spacing: 1.5dp;
++}
++.deploy_label {
++    display: block;
++    margin-top: 2dp;
++    font-size: 34dp;
++    line-height: 37dp;
++    font-weight: bold;
++    letter-spacing: 1.1dp;
++}
++.deploy_arrow {
++    position: absolute;
++    right: 20dp;
++    top: 18dp;
++    color: #e9f8ff;
++    font-size: 42dp;
++}
+ 
+ #hunter_caption {
+     position: absolute;
+-    left: 47%;
+-    bottom: 32px;
+-    width: 330px;
++    left: 55%;
++    bottom: 46dp;
++    width: 330dp;
++    display: flex;
++    align-items: center;
++}
++.hunter_rule {
++    width: 58dp;
++    height: 1dp;
++    margin-right: 12dp;
++    background-color: rgba(114,199,255,0.72);
++}
++#hunter_name {
++    color: #ffffff;
++    font-size: 27dp;
++    line-height: 29dp;
++    font-weight: bold;
++    letter-spacing: 0.6dp;
++}
++#hunter_meta {
++    margin-top: 1dp;
++    color: #6b8295;
++    font-size: 8dp;
++    line-height: 10dp;
++    letter-spacing: 1.1dp;
++}
++
++#session_panel {
++    position: absolute;
++    right: 46dp;
++    top: 38dp;
++    width: 304dp;
++    padding: 15dp;
++    background-color: rgba(4,14,25,0.68);
++    border: 1dp rgba(97,182,246,0.14);
++    border-left: 2dp rgba(114,199,255,0.45);
++}
++.session_header {
++    display: flex;
++    align-items: center;
++    justify-content: space-between;
++    margin-bottom: 12dp;
++}
++.session_header .eyebrow { margin-bottom: 0; }
++.session_state {
++    color: #55e18c;
++    font-size: 10dp;
++    font-weight: bold;
++    letter-spacing: 1dp;
++}
++.session_player {
++    display: flex;
++    align-items: center;
++    padding: 12dp;
++    background-color: rgba(12,40,65,0.80);
++    border: 1dp rgba(97,182,246,0.14);
++}
++.session_badge {
++    width: 40dp;
++    height: 40dp;
++    line-height: 40dp;
++    text-align: center;
++    margin-right: 11dp;
++    color: #ffffff;
++    font-size: 20dp;
++    font-weight: bold;
++    background-color: #1c72e1;
++}
++.session_copy { flex: 1; }
++.session_name {
++    color: #ffffff;
++    font-size: 16dp;
++    line-height: 18dp;
++    font-weight: bold;
++}
++.session_meta {
++    margin-top: 2dp;
++    color: #8197aa;
++    font-size: 9dp;
++    line-height: 11dp;
++}
++.session_slot {
+     display: flex;
+     align-items: center;
++    margin-top: 7dp;
++    padding: 11dp 12dp;
++    color: #72899c;
++    font-size: 10dp;
++    letter-spacing: 0.8dp;
++    background-color: rgba(5,16,29,0.58);
++    border: 1dp rgba(97,182,246,0.09);
++}
++.plus {
++    width: 28dp;
++    color: #61b6f6;
++    font-size: 21dp;
++}
++.session_hint {
++    margin-top: 10dp;
++    color: #536b80;
++    font-size: 8dp;
++    line-height: 12dp;
++}
++
++#diagnostics_panel {
++    display: none;
++    position: absolute;
++    right: 46dp;
++    bottom: 82dp;
++    width: 330dp;
++    padding: 13dp;
++    color: #91a6b8;
++    background-color: rgba(2,10,18,0.93);
++    border: 1dp rgba(114,199,255,0.28);
++    border-left: 3dp #2b9ef7;
++}
++#diagnostics_panel.open { display: block; }
++.diag_header {
++    display: flex;
++    justify-content: space-between;
++    margin-bottom: 8dp;
++    color: #ffffff;
++    font-size: 12dp;
++    font-weight: bold;
++    letter-spacing: 1dp;
++}
++.diag_key { color: #72c7ff; }
++.diag_row {
++    display: flex;
++    justify-content: space-between;
++    padding-top: 5dp;
++    padding-bottom: 5dp;
++    border-bottom: 1dp rgba(114,199,255,0.09);
++    font-size: 9dp;
++    letter-spacing: 0.6dp;
++}
++.diag_row b {
++    max-width: 220dp;
++    color: #dcebf7;
++    text-align: right;
++    font-weight: bold;
+ }
+-.hunter_rule { width: 52px; height: 1px; margin-right: 11px; background-color: rgba(97,182,246,0.62); }
+-#hunter_name { color: #ffffff; font-size: 23px; font-weight: bold; }
+-#hunter_meta { color: #637b90; font-size: 8px; letter-spacing: 1px; }
+-
+-#right_panel { position: absolute; right: 34px; top: 30px; width: 300px; }
+-.side_title { margin-bottom: 8px; color: #dcebf7; font-size: 15px; font-weight: bold; letter-spacing: 1.2px; }
+-.status_card {
+-    margin-bottom: 8px;
+-    padding: 13px;
+-    background-color: rgba(6,17,29,0.76);
+-    border: 1px rgba(97,182,246,0.14);
+-}
+-.status_card.accent { border-left: 3px #2b9ef7; background-color: rgba(9,31,51,0.80); }
+-.status_card.note { border-left: 2px #526d84; }
+-.status_value { color: #ffffff; font-size: 19px; font-weight: bold; letter-spacing: 0.8px; }
+-.status_meta { margin-top: 4px; color: #7d93a7; font-size: 9px; line-height: 14px; }
+-.row { display: flex; justify-content: space-between; padding-top: 6px; padding-bottom: 6px; border-bottom: 1px rgba(97,182,246,0.08); color: #71879a; font-size: 8px; letter-spacing: 0.7px; }
+-.row b { color: #d8e9f6; font-size: 7px; font-weight: bold; text-align: right; max-width: 176px; }
+ 
+ #footerbar {
+     position: absolute;
+     left: 0;
+     bottom: 0;
+     width: 100%;
+-    height: 58px;
++    height: 68dp;
+     display: flex;
+     align-items: center;
+     justify-content: space-between;
+-    padding-left: 34px;
+-    padding-right: 34px;
+-    background-color: rgba(2,8,15,0.91);
+-    border-top: 1px rgba(97,182,246,0.13);
+-}
+-#build_info { color: #60788d; font-size: 9px; letter-spacing: 0.8px; }
+-.blue { color: #61b6f6; }
+-.divider { margin-left: 9px; margin-right: 9px; color: #344d62; }
++    padding-left: 46dp;
++    padding-right: 46dp;
++    background-color: rgba(2,8,15,0.88);
++    border-top: 1dp rgba(97,182,246,0.13);
++}
++#build_info {
++    color: #60788d;
++    font-size: 9dp;
++    letter-spacing: 0.8dp;
++}
++.blue { color: #72c7ff; }
++.divider {
++    margin-left: 10dp;
++    margin-right: 10dp;
++    color: #344d62;
++}
+ #footer_actions { display: flex; }
+-.footer_button { min-width: 86px; margin-left: 6px; }
+-.footer_button.danger:hover, .footer_button.danger:focus { border-color: #ef6870; background-color: rgba(178,47,58,0.28); }
++.footer_button {
++    min-width: 90dp;
++    margin-left: 7dp;
++}
++.footer_button.danger:hover,
++.footer_button.danger:focus {
++    border-color: #ef6870;
++    background-color: rgba(178,47,58,0.28);
++}
++
++@media (max-width: 1500px) {
++    #topbar { padding-left: 28dp; padding-right: 28dp; }
++    #brand { width: 246dp; }
++    #brand_mark { width: 48dp; height: 48dp; line-height: 48dp; font-size: 28dp; }
++    .brand_title { font-size: 19dp; line-height: 21dp; }
++    .nav { min-width: 96dp; padding-left: 13dp; padding-right: 13dp; font-size: 16dp; }
++    #account_cluster { width: 235dp; }
++    .account_copy { width: 135dp; }
++    #activity_panel { left: 32dp; width: 410dp; }
++    #activity_title { font-size: 43dp; line-height: 44dp; }
++    #activity_description { width: 385dp; }
++    #session_panel { right: 28dp; width: 270dp; }
++    #footerbar { padding-left: 28dp; padding-right: 28dp; }
++}
+ 
+ @media (max-width: 1180px) {
+-    #right_panel { display: none; }
+-    #account_cluster { width: 260px; }
+-    .account_copy { width: 150px; }
+-    #hunter_caption { left: 55%; }
++    #session_panel { display: none; }
++    #account_cluster { width: 168dp; }
++    .account_copy { display: none; }
++    #activity_panel { width: 390dp; }
++    #activity_description { width: 365dp; }
++    #hunter_caption { left: 62%; }
+ }
+ 
+ @media (max-width: 900px) {
+-    #brand { width: 235px; }
++    #topbar { height: 82dp; }
++    #top_rule { top: 82dp; }
++    #stage { top: 83dp; }
++    #brand { width: 190dp; }
+     .brand_subtitle { display: none; }
+-    .nav { min-width: 92px; padding-left: 12px; padding-right: 12px; font-size: 15px; }
+-    #account_cluster { width: 170px; }
+-    .account_copy { display: none; }
+-    #activity_panel { left: 22px; width: 360px; }
+-    .activity, #activity_status, #deploy { width: 360px; }
++    .nav { min-width: 78dp; padding-left: 8dp; padding-right: 8dp; font-size: 14dp; }
++    #account_cluster { width: 96dp; }
++    #activity_panel { left: 20dp; bottom: 24dp; width: 350dp; }
++    #activity_title { font-size: 38dp; line-height: 40dp; }
++    #activity_description { width: 330dp; font-size: 12dp; line-height: 16dp; }
++    .activity { min-height: 58dp; }
++    .activity_name { font-size: 17dp; line-height: 19dp; }
++    #deploy { min-height: 78dp; }
++    .deploy_label { font-size: 28dp; line-height: 31dp; }
+     #hunter_caption { display: none; }
++    #footerbar { height: 58dp; }
++    #stage { bottom: 58dp; }
++}
++
++@media (max-height: 760px) {
++    #topbar { height: 78dp; }
++    #top_rule { top: 78dp; }
++    #stage { top: 79dp; bottom: 54dp; }
++    #footerbar { height: 54dp; }
++
++    #brand_mark {
++        width: 44dp;
++        height: 44dp;
++        line-height: 44dp;
++        font-size: 25dp;
++    }
++    .brand_title { font-size: 18dp; line-height: 20dp; }
++    .nav { font-size: 15dp; }
++
++    #activity_panel { bottom: 20dp; }
++    .eyebrow { margin-bottom: 4dp; }
++    #activity_title { font-size: 39dp; line-height: 40dp; }
++    #activity_description {
++        margin-top: 3dp;
++        margin-bottom: 10dp;
++        font-size: 12dp;
++        line-height: 15dp;
++    }
++    #activity_list { margin-bottom: 7dp; }
++    .activity {
++        min-height: 54dp;
++        margin-bottom: 3dp;
++        padding-top: 6dp;
++        padding-bottom: 6dp;
++    }
++    .activity_name { font-size: 17dp; line-height: 18dp; }
++    .activity_meta { font-size: 9dp; line-height: 11dp; }
++    #activity_status { padding-top: 5dp; padding-bottom: 5dp; }
++    #deploy {
++        min-height: 72dp;
++        padding-top: 9dp;
++        padding-bottom: 8dp;
++    }
++    .deploy_label { font-size: 28dp; line-height: 30dp; }
++    .deploy_arrow { top: 11dp; font-size: 36dp; }
++
++    #session_panel { top: 20dp; }
++    #hunter_caption { bottom: 22dp; }
++}
++
++@media (min-resolution: 2x) {
++    #top_rule,
++    #footerbar,
++    #session_panel,
++    .activity,
++    #activity_status,
++    #deploy,
++    .utility,
++    .footer_button {
++        border-color: rgba(114,199,255,0.22);
++    }
+ }
+diff --git a/src/MphRead/Mods/Launcher/RmlUi/Assets/prime_home.rml b/src/MphRead/Mods/Launcher/RmlUi/Assets/prime_home.rml
+index e6936427..b4616953 100644
+--- a/src/MphRead/Mods/Launcher/RmlUi/Assets/prime_home.rml
++++ b/src/MphRead/Mods/Launcher/RmlUi/Assets/prime_home.rml
+@@ -1,19 +1,22 @@
+ <rml>
+ <head>
+-    <title>Project Prime // RmlUi Proof</title>
++    <title>Project Prime</title>
+     <link type="text/rcss" href="prime_home.rcss" />
+ </head>
+ <body data-model="prime_menu">
+-    <div id="screen">
++    <div id="screen" data-class-reduce-motion="reduce_motion">
+         <div id="scene_tint"></div>
++        <div id="scene_vignette"></div>
++        <div id="floor_fade"></div>
++        <div id="hunter_glow"></div>
+         <div id="top_rule"></div>
+ 
+-        <div id="topbar">
++        <div id="topbar" class="enter_top">
+             <div id="brand">
+                 <div id="brand_mark">P</div>
+                 <div id="brand_copy">
+                     <div class="brand_title">PROJECT PRIME</div>
+-                    <div class="brand_subtitle">RMLUI PROOF // DIRECT GPU UI</div>
++                    <div class="brand_subtitle">HUNTERS ONLINE</div>
+                 </div>
+             </div>
+ 
+@@ -35,7 +38,7 @@
+         </div>
+ 
+         <div id="stage">
+-            <div id="activity_panel">
++            <div id="activity_panel" class="enter_left">
+                 <div class="eyebrow">SELECT ACTIVITY</div>
+                 <div id="activity_title">{{activity_title}}</div>
+                 <div id="activity_description">{{activity_description}}</div>
+@@ -84,49 +87,60 @@
+                     <span class="ready">READY</span>
+                 </div>
+                 <button id="deploy" data-event-click="deploy">
+-                    <span class="deploy_kicker">CONTINUE WITH EXISTING PROJECT PRIME FLOW</span>
++                    <span class="deploy_kicker">PROJECT PRIME ACTIVITY</span>
+                     <span class="deploy_label">{{activity_action}}</span>
+                     <span class="deploy_arrow">→</span>
+                 </button>
+             </div>
+ 
+-            <div id="hunter_caption">
++            <div id="hunter_caption" class="enter_hunter">
+                 <div class="hunter_rule"></div>
+                 <div>
+-                    <div class="eyebrow">ACTIVE HUNTER // ENGINE RENDERED</div>
++                    <div class="eyebrow">ACTIVE HUNTER</div>
+                     <div id="hunter_name">{{hunter_name}}</div>
+-                    <div id="hunter_meta">3D PREVIEW IS NOT AN RMLUI IMAGE</div>
++                    <div id="hunter_meta">SELECTED LOADOUT</div>
+                 </div>
+             </div>
+ 
+-            <div id="right_panel">
+-                <div class="side_title">PROOF STATUS</div>
+-                <div class="status_card accent">
+-                    <div class="eyebrow">RENDER PATH</div>
+-                    <div class="status_value">RMLUI DIRECT</div>
+-                    <div class="status_meta">No full-screen Avalonia bitmap upload on this screen.</div>
++            <div id="session_panel" class="enter_right">
++                <div class="session_header">
++                    <div class="eyebrow">CURRENT SESSION</div>
++                    <div class="session_state">SOLO</div>
+                 </div>
+-                <div class="status_card">
+-                    <div class="row"><span>UI LIBRARY</span><b>RMLUI 6.3</b></div>
+-                    <div class="row"><span>BACKEND</span><b>OPENGL 2</b></div>
+-                    <div class="row"><span>GAME DATA</span><b>{{game_data_state}}</b></div>
+-                    <div class="row"><span>UI COST</span><b>{{ui_cost}}</b></div>
++                <div class="session_player">
++                    <div class="session_badge">P</div>
++                    <div class="session_copy">
++                        <div class="session_name">{{player_name}}</div>
++                        <div class="session_meta">{{hunter_name}} // READY</div>
++                    </div>
+                 </div>
+-                <div class="status_card note">
+-                    <div class="eyebrow">POC BOUNDARY</div>
+-                    <div class="status_meta">PLAY is native RmlUi. Other destinations hand back to the existing Prime shell so networking, settings, Replay Studio and Map Studio remain authoritative.</div>
++                <div class="session_slot">
++                    <span class="plus">+</span>
++                    <span>OPEN PARTY SLOT</span>
+                 </div>
++                <div class="session_hint">PARTY CONTROLS APPEAR AFTER JOINING OR CREATING A LOBBY.</div>
+             </div>
+         </div>
+ 
+-        <div id="footerbar">
++        <div id="diagnostics_panel" data-class-open="diagnostics_visible">
++            <div class="diag_header">
++                <span>UI DIAGNOSTICS</span>
++                <span class="diag_key">F10</span>
++            </div>
++            <div class="diag_row"><span>LIBRARY</span><b>RMLUI 6.3</b></div>
++            <div class="diag_row"><span>RENDERER</span><b>{{renderer_name}}</b></div>
++            <div class="diag_row"><span>GAME DATA</span><b>{{game_data_state}}</b></div>
++            <div class="diag_row"><span>SUBMIT</span><b>{{ui_cost}}</b></div>
++        </div>
++
++        <div id="footerbar" class="enter_bottom">
+             <div id="build_info">
+                 <span class="blue">BUILD {{build_version}}</span>
+                 <span class="divider">//</span>
+-                <span>{{renderer_name}}</span>
++                <span>PROJECT PRIME CLIENT</span>
+             </div>
+             <div id="footer_actions">
+-                <button class="footer_button" data-event-click="open_classic">CURRENT UI</button>
++                <button class="footer_button" data-event-click="open_classic">NEWS</button>
+                 <button class="footer_button" data-event-click="open_settings">SETTINGS</button>
+                 <button class="footer_button danger" data-event-click="quit_game">QUIT</button>
+             </div>
+diff --git a/src/MphRead/Mods/ModEntry.cs b/src/MphRead/Mods/ModEntry.cs
+index 29a8f253..b0b21829 100644
+--- a/src/MphRead/Mods/ModEntry.cs
++++ b/src/MphRead/Mods/ModEntry.cs
+@@ -2360,7 +2360,7 @@ namespace MphRead.Mods
+             Console.WriteLine($"[thumbnails] rendering {rooms.Count} preview(s) at "
+                 + $"{width}x{height}, {jobs} at a time");
+             Console.WriteLine($"[thumbnails] output: {ThumbnailGenerator.CacheDirectory}");
+-            int written = ThumbnailBatch.Run(rooms, jobs, width, height);
++            int written = ThumbnailBatch.Run(rooms, jobs, width, height, force: force);
+             Console.WriteLine($"[thumbnails] done -- {written}/{rooms.Count} written");
+         }
+ 
+diff --git a/src/MphRead/Mods/Render/LauncherHunter.cs b/src/MphRead/Mods/Render/LauncherHunter.cs
+index 75bafc1c..1c809687 100644
+--- a/src/MphRead/Mods/Render/LauncherHunter.cs
++++ b/src/MphRead/Mods/Render/LauncherHunter.cs
+@@ -66,6 +66,13 @@ namespace MphRead.Mods.Render
+         /// </summary>
+         public static bool TransparentBackground { get; set; }
+ 
++        /// <summary>
++        /// Camera distance multiplier for launcher presentation. Values below
++        /// one move the preview camera closer without changing the model or
++        /// gameplay scale.
++        /// </summary>
++        public static float DistanceScale { get; set; } = 1f;
++
+         /// <summary>
+         /// Where it goes, in fractions of the window: left, top, right,
+         /// bottom, measured down from the top the way a screen's own
+@@ -134,7 +141,9 @@ namespace MphRead.Mods.Render
+             Wanted = false;
+             CanPresent = null;
+             TransparentBackground = false;
++            DistanceScale = 1f;
+             Scene.LauncherPreviewTransparent = false;
++            Scene.LauncherPreviewDistanceScale = 1f;
+             Drawn = false;
+             _failureCount = 0;
+             _retryAfter = 0;
+@@ -198,6 +207,7 @@ namespace MphRead.Mods.Render
+                 Scene.LauncherHunter = Hunter;
+                 Scene.LauncherSuit = Math.Clamp(Suit, 0, 3);
+                 Scene.LauncherPreviewTransparent = TransparentBackground;
++                Scene.LauncherPreviewDistanceScale = Math.Clamp(DistanceScale, 0.65f, 1.25f);
+                 Scene.PreviewWanted = true;
+                 Scene.PreviewLeft = Left;
+                 Scene.PreviewTop = Top;
+diff --git a/src/MphRead/Mods/Render/LauncherPhoto.cs b/src/MphRead/Mods/Render/LauncherPhoto.cs
+index 9004a4fc..714f1337 100644
+--- a/src/MphRead/Mods/Render/LauncherPhoto.cs
++++ b/src/MphRead/Mods/Render/LauncherPhoto.cs
+@@ -194,8 +194,8 @@ namespace MphRead.Mods.Render
+             float zoom = Math.Clamp(LauncherBackdrop.Zoom, 0.84f, 1f);
+             u *= zoom;
+             v *= zoom;
+-            float centreU = 0.5f;
+-            float centreV = 0.5f;
++            float centreU = LauncherBackdrop.FocusX;
++            float centreV = LauncherBackdrop.FocusY;
+             if (!LauncherPrefs.ReduceMotion)
+             {
+                 double seconds = Environment.TickCount64 / 1000.0;
+@@ -300,6 +300,23 @@ namespace MphRead.Mods.Render
+         /// launcher then looks the way it does over a match: the washes on
+         /// black, which is a screen rather than a crash.
+         /// </summary>
++        /// <summary>
++        /// Force the current cinematic image to be re-read on the next frame.
++        /// Called on the render thread after a background thumbnail worker has
++        /// replaced the file on disk.
++        /// </summary>
++        public static void Invalidate()
++        {
++            if (_texture != 0)
++            {
++                GL.DeleteTexture(_texture);
++                _texture = 0;
++            }
++            _loadedKey = "";
++            _width = _height = 0;
++            _lastAttemptAt = 0;
++        }
++
+         private static bool Ensure()
+         {
+             string key = LauncherBackdrop.CacheKey;
+diff --git a/src/MphRead/Mods/Render/PreviewPass.cs b/src/MphRead/Mods/Render/PreviewPass.cs
+index 1ccb89aa..a26684be 100644
+--- a/src/MphRead/Mods/Render/PreviewPass.cs
++++ b/src/MphRead/Mods/Render/PreviewPass.cs
+@@ -75,6 +75,9 @@ namespace MphRead
+         /// </summary>
+         public static bool LauncherPreviewTransparent { get; set; }
+ 
++        /// <summary>Presentation-only launcher preview camera distance.</summary>
++        public static float LauncherPreviewDistanceScale { get; set; } = 1f;
++
+         /// <summary>Did anybody ask for a preview this frame?</summary>
+         private static bool PreviewAsked => Mods.EndScreen.Available || LauncherPreview;
+ 
+@@ -261,12 +264,13 @@ namespace MphRead
+         /// wide enough to read the shape, narrow enough not to distort it the
+         /// way a wide angle at this distance would.
+         /// </summary>
+-        private static Matrix4 PreviewView(Hunter hunter, float aspect)
++        private static Matrix4 PreviewView(Hunter hunter, float aspect, float distanceScale = 1f)
+         {
+             // Trace's raised limbs and Spire's shoulders extend beyond the
+             // shared biped framing. Narrow panels need horizontal room too.
+             float distance = hunter == Hunter.Trace ? 4.6f : hunter == Hunter.Spire ? 4.2f : 3.9f;
+             float targetHeight = hunter == Hunter.Trace ? 1.2f : 1.05f;
++            distance *= Math.Clamp(distanceScale, 0.65f, 1.25f);
+             distance *= Math.Max(1, 1 / Math.Max(0.1f, aspect));
+             return Matrix4.LookAt(new Vector3(0, targetHeight + 0.1f, distance),
+                 new Vector3(0, targetHeight, 0), Vector3.UnitY);
+@@ -432,7 +436,8 @@ namespace MphRead
+                 MathHelper.DegreesToRadians(PreviewFov),
+                 width / (float)height, 0.1f, 100f);
+             Matrix4 view = PreviewView(_preview?.Mode == Mods.Cosmetics.SkinContext.Biped
+-                ? _preview.Shown : Hunter.Samus, width / (float)height);
++                ? _preview.Shown : Hunter.Samus, width / (float)height,
++                LauncherPreview ? LauncherPreviewDistanceScale : 1f);
+             GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref projection);
+             GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref view);
+             // No fog, whatever the room does with it: a preview window is not
+diff --git a/src/MphRead/Mods/ThumbnailBatch.cs b/src/MphRead/Mods/ThumbnailBatch.cs
+index be62aa22..76a65c52 100644
+--- a/src/MphRead/Mods/ThumbnailBatch.cs
++++ b/src/MphRead/Mods/ThumbnailBatch.cs
+@@ -67,7 +67,8 @@ namespace MphRead.Mods
+         public static int Run(IReadOnlyList<string> rooms, int parallelism,
+                               int width, int height, Action<string>? report = null,
+                               TimeSpan? workerTimeout = null,
+-                              CancellationToken cancel = default)
++                              CancellationToken cancel = default,
++                              bool force = false)
+         {
+             // Setup and the front screen can request previews concurrently.
+             // Recheck the cache after waiting rather than starting duplicate workers.
+@@ -83,7 +84,15 @@ namespace MphRead.Mods
+                 foreach (string room in rooms)
+                 {
+                     cancel.ThrowIfCancellationRequested();
+-                    if (!ThumbnailGenerator.Exists(room)) missing.Add(room);
++                    if (force)
++                    {
++                        ThumbnailGenerator.InvalidateCinematicPresentation(room);
++                        missing.Add(room);
++                    }
++                    else if (!ThumbnailGenerator.Exists(room))
++                    {
++                        missing.Add(room);
++                    }
+                 }
+                 if (missing.Count == 0) return 0;
+                 ThumbnailLog.Begin(missing.Count);
+@@ -92,9 +101,9 @@ namespace MphRead.Mods
+                 if (timeout <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(workerTimeout));
+                 string? exePath = Environment.ProcessPath;
+                 if (exePath == null)
+-                    return RunSerial(missing, width, height, report, cancel);
++                    return RunSerial(missing, width, height, report, cancel, force);
+                 int written = RunWorkers(missing, parallelism, width, height, exePath,
+-                    timeout, report, cancel, out List<string> failed, out bool abnormalExit);
++                    timeout, report, cancel, force, out List<string> failed, out bool abnormalExit);
+                 if (abnormalExit)
+                 {
+                     _workerFailed = true;
+@@ -110,7 +119,7 @@ namespace MphRead.Mods
+                     report?.Invoke(note);
+                     ThumbnailLog.Write(note);
+                     written += RunWorkers(failed, 1, width, height, exePath, timeout,
+-                        report, cancel, out _, out _workerFailed);
++                        report, cancel, force, out _, out _workerFailed);
+                 }
+                 return written;
+             }
+@@ -119,6 +128,7 @@ namespace MphRead.Mods
+         private static int RunWorkers(IReadOnlyList<string> rooms, int parallelism,
+                                       int width, int height, string exePath, TimeSpan timeout,
+                                       Action<string>? report, CancellationToken cancel,
++                                      bool force,
+                                       out List<string> failedRooms, out bool abnormalExit)
+         {
+             failedRooms = new List<string>();
+@@ -179,7 +189,11 @@ namespace MphRead.Mods
+             {
+                 foreach (string room in rooms)
+                 {
+-                    if (!pending.Contains(room) || !ThumbnailGenerator.Exists(room)) continue;
++                    if (!pending.Contains(room)) continue;
++                    bool complete = force
++                        ? ThumbnailGenerator.HasCinematicPresentation(room)
++                        : ThumbnailGenerator.Exists(room);
++                    if (!complete) continue;
+                     pending.Remove(room);
+                     written++;
+                     report?.Invoke($"[thumbnails] {written}/{rooms.Count} ok {room}");
+@@ -308,13 +322,14 @@ namespace MphRead.Mods
+         }
+ 
+         private static int RunSerial(IReadOnlyList<string> rooms, int width, int height,
+-                                      Action<string>? report, CancellationToken cancel)
++                                      Action<string>? report, CancellationToken cancel,
++                                      bool force)
+         {
+             int written = 0;
+             for (int i = 0; i < rooms.Count; i++)
+             {
+                 cancel.ThrowIfCancellationRequested();
+-                if (ThumbnailGenerator.Exists(rooms[i]))
++                if (!force && ThumbnailGenerator.Exists(rooms[i]))
+                 {
+                     continue;
+                 }
+diff --git a/src/MphRead/Mods/ThumbnailCapture.cs b/src/MphRead/Mods/ThumbnailCapture.cs
+index a5f3c82d..272f44b2 100644
+--- a/src/MphRead/Mods/ThumbnailCapture.cs
++++ b/src/MphRead/Mods/ThumbnailCapture.cs
+@@ -186,8 +186,10 @@ namespace MphRead.Mods
+             _captured = ScreenCapture.Save(Scene, ThumbnailGenerator.PathFor(_roomKey));
+             if (_captured)
+             {
++                ThumbnailGenerator.MarkCinematicPresentation(_roomKey);
+                 ThumbnailLog.Write($"{_roomKey}: captured at {Scene.Size.X}x{Scene.Size.Y}"
+-                    + (_attempts > 0 ? $" on attempt {_attempts + 1}, window shown" : ""));
++                    + (_attempts > 0 ? $" on attempt {_attempts + 1}, window shown" : "")
++                    + " // clean cinematic presentation");
+             }
+             if (!_captured)
+             {
+diff --git a/src/MphRead/Mods/ThumbnailGenerator.cs b/src/MphRead/Mods/ThumbnailGenerator.cs
+index 16842cdd..56d2e9a4 100644
+--- a/src/MphRead/Mods/ThumbnailGenerator.cs
++++ b/src/MphRead/Mods/ThumbnailGenerator.cs
+@@ -57,6 +57,53 @@ namespace MphRead.Mods
+             return file.Exists && file.Length > 0;
+         }
+ 
++        // Bump only when the generated environment composition changes.
++        // Custom-map authored previews do not need this marker; it is used by
++        // the RmlUi menu stage to know whether a locally rendered room image
++        // predates the clean no-player/no-pickup presentation pass.
++        public const int CinematicPresentationVersion = 2;
++
++        public static string CinematicMarkerFor(string roomKey)
++            => PathFor(roomKey) + ".cinematic";
++
++        public static bool HasCinematicPresentation(string roomKey)
++        {
++            if (!Exists(roomKey))
++                return false;
++            try
++            {
++                return File.Exists(CinematicMarkerFor(roomKey))
++                    && String.Equals(File.ReadAllText(CinematicMarkerFor(roomKey)).Trim(),
++                        CinematicPresentationVersion.ToString(),
++                        StringComparison.Ordinal);
++            }
++            catch
++            {
++                return false;
++            }
++        }
++
++        internal static void MarkCinematicPresentation(string roomKey)
++        {
++            EnsureCacheDirectory();
++            File.WriteAllText(CinematicMarkerFor(roomKey),
++                CinematicPresentationVersion.ToString());
++        }
++
++        internal static void InvalidateCinematicPresentation(string roomKey)
++        {
++            try
++            {
++                string marker = CinematicMarkerFor(roomKey);
++                if (File.Exists(marker)) File.Delete(marker);
++            }
++            catch
++            {
++                // The preview itself remains usable; this only means a later
++                // session may ask the worker to refresh it again.
++            }
++        }
++
+         /// <summary>
+         /// Multiplayer rooms a launcher would offer.
+         ///
+diff --git a/src/MphRead/Mods/ThumbnailMode.cs b/src/MphRead/Mods/ThumbnailMode.cs
+index 71c6ff18..3628f12a 100644
+--- a/src/MphRead/Mods/ThumbnailMode.cs
++++ b/src/MphRead/Mods/ThumbnailMode.cs
+@@ -20,6 +20,14 @@ namespace MphRead.Mods
+         /// </summary>
+         public static bool Active { get; private set; }
+ 
++        /// <summary>
++        /// A map preview is environment art, not a live first-person frame.
++        /// Keep the local hunter/viewmodel and item presentation out of the
++        /// generated image while leaving gameplay simulation untouched.
++        /// </summary>
++        public static bool SuppressLocalPlayerPresentation => Active;
++        public static bool SuppressPickupPresentation => Active;
++
+         private static float _sfxVolume = 0.35f;
+         private static float _musicVolume = 1;
+ 
+diff --git a/tools/thumbnail-batch-check/FakeCapture.cs b/tools/thumbnail-batch-check/FakeCapture.cs
+index 5e274472..db7e567a 100644
+--- a/tools/thumbnail-batch-check/FakeCapture.cs
++++ b/tools/thumbnail-batch-check/FakeCapture.cs
+@@ -9,7 +9,14 @@ namespace MphRead.Mods
+     public static class ThumbnailGenerator
+     {
+         public static string Root => Environment.GetEnvironmentVariable("FRUITY_PREVIEW_FIXTURE")!;
+-        public static bool Exists(string room) => File.Exists(Path.Combine(Root, "result-" + room));
++        private static string Result(string room) => Path.Combine(Root, "result-" + room);
++        public static bool Exists(string room) => File.Exists(Result(room));
++        public static bool HasCinematicPresentation(string room) => Exists(room);
++        public static void InvalidateCinematicPresentation(string room)
++        {
++            string path = Result(room);
++            if (File.Exists(path)) File.Delete(path);
++        }
+     }
+     public static class ThumbnailLog
+     {
+diff --git a/tools/thumbnail-batch-check/Program.cs b/tools/thumbnail-batch-check/Program.cs
+index 30885957..75460f16 100644
+--- a/tools/thumbnail-batch-check/Program.cs
++++ b/tools/thumbnail-batch-check/Program.cs
+@@ -36,9 +36,14 @@ if (args.Length == 2 && args[0] == "--case")
+     try
+     {
+         string[] rooms = { "one", "two", "three" };
++        bool force = args[1] == "force";
++        if (force)
++            foreach (string room in rooms)
++                File.WriteAllText(Path.Combine(fixture, "result-" + room), "stale");
+         int parallelism = args[1] == "success" ? 16 : 1;
+         TimeSpan timeout = TimeSpan.FromSeconds(args[1] == "timeout" ? 2 : 10);
+-        int Run() => ThumbnailBatch.Run(rooms, parallelism, 64, 64, workerTimeout: timeout);
++        int Run() => ThumbnailBatch.Run(rooms, parallelism, 64, 64,
++            workerTimeout: timeout, force: force);
+         if (args[1] == "parent-exit")
+         {
+             _ = Task.Run(Run);
+@@ -82,7 +87,7 @@ if (args.Length == 2 && args[0] == "--case")
+     finally { Directory.Delete(fixture, recursive: true); }
+ }
+ 
+-foreach (string mode in new[] { "success", "crash", "timeout", "concurrent", "parent-exit" })
++foreach (string mode in new[] { "success", "force", "crash", "timeout", "concurrent", "parent-exit" })
+ {
+     var start = new ProcessStartInfo(Environment.ProcessPath!)
+     { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };

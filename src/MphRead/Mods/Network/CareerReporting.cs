@@ -254,7 +254,9 @@ namespace MphRead.Mods.Network
 
                         int status = (int)response.StatusCode;
                         Console.WriteLine($"[career] report refused ({status}): {Trim(body, 240)}");
-                        if (status is 400 or 401 or 403 or 409 or 413)
+                        // An operator can repair a gateway/key configuration. Keep
+                        // authoritative reports durable until that repair is made.
+                        if (status is 400 or 409 or 413)
                         {
                             File.Move(claim, path + ".rejected", overwrite: true);
                         }
