@@ -1,0 +1,116 @@
+{
+  "createdUtc": "2026-10-06T17:55:25.681385+00:00",
+  "branch": "codex/network-server-slices",
+  "sdk": "/tmp/project-prime-dotnet10/dotnet",
+  "platform": "macOS-27.0-arm64-arm-64bit",
+  "sourceSha256": {
+    "src/MphRead/Mods/MapGen/Packaging/MapFilePublication.cs": "fb0f3dc20e9ccec8e91c7a37f8ecc4d473f6938dea58ad974c0c3c2d8b6b28f1",
+    "src/MphRead/Mods/MapGen/Packaging/MapPublicationFileIdentity.cs": "4a6e6a67e35895cb0ef83861fe9c1ec096e66f76c29b3ed5d3f18e5d4bc61016",
+    "src/MphRead/Mods/MapGen/Packaging/MapPackageInstaller.cs": "f08e03a533cf65e48d1820728a20f251664b9d64c6e1fe892110d79fd50e1212",
+    "src/MphRead/Mods/MapGen/Build/MapBuildScheduler.cs": "94215909b9b19cd593c027905b7e9f6432d89a7ffa238bf5cc2d08f65f159296",
+    "src/MphRead/Mods/MapGen/Build/MapDiskCache.cs": "6e8a1a00806fc4ce1d677da24719d190a5fe126cdfaa8099100bdff53ff49674",
+    "src/MphRead/Mods/MapGen/Sharing/MapCommunityClient.cs": "9bac8e7eae5c609490f107ae5cf194e41a4e9d6e8b4b140ecab0706cb3c3085b",
+    "src/MphRead/Mods/MapGen/HostedMapTrust.cs": "da6416d6bc7e07718c78a117425368eb440caa00e1e4c4306cd7ab075be88aba",
+    "src/MphRead/Mods/Network/HostedPackageCache.cs": "225d3e89d6d073e084382d56266b0941225b576d10cc3b635b5a7f5286f19d28",
+    "src/MphRead/Mods/Network/HostedMapRequests.cs": "93ea54bec91db9975e5a24c38ababd39ccb3bff52e7869d44dc1373c0993ba6e",
+    "src/MphRead/Mods/Network/StockGameplayIdentity.cs": "22007f6450070bf3a0d18e9a950cb493e193fac6b84f5171f5e7afb2c48cd969",
+    "src/MphRead/Mods/Network/NetworkMapIdentity.cs": "a4bc22d68d882737c6efd77c7429b0225dc5a660f54f8a7252885fd4582520dc",
+    "src/MphRead/Mods/Network/DedicatedServerStockMaps.cs": "27845e2d2c0156e264d082d2ead398fc78c3b924ab566db57adf343a628032a8",
+    "src/MphRead/Mods/Network/CareerReporting.cs": "aa1974333977bd8458bf93cdfdce5afbb90dc38c093048e380979d0c4f54cd2f",
+    "src/MphRead/Mods/Network/CareerMatchStats.cs": "4f3994bd34f0c53e65967d44de3c0d8338d5bfb903bb44e725dff0e6b7c0d038",
+    "src/MphRead/Mods/Network/DedicatedServer.cs": "331d9e16eabf19520ea445cf36119d6416a978dc60072b18a3b9001cf7f24206",
+    "src/MphRead/Mods/Network/DedicatedServerPeerRoles.cs": "863fd84dd7a278d01dee9146e029045a4c77b1bdf07252d49110cd14e8edd75a",
+    "src/MphRead/Mods/Network/LobbyCommands.cs": "811a72be8dc09c4d9219cbc481aaa6ccdd89a479dbcd34dd292e9b2d5bdfee15",
+    "src/MphRead/Mods/Network/MapSynchronization.cs": "4d540e667703b9188a88cb502edb9235f267660ad5215cd28d4237e9eb12e54e",
+    "src/MphRead/Mods/Network/LocalServer.cs": "bf287e006c78b5995dba98b8ac8197b7a19914a4e612b28f3d01376740183631",
+    "tools/maps-career-check/Program.cs": "8b179d6448d685d4051ddf062960731fa5a9ff69b9309cc227aa5207fc6732d2",
+    "tools/maps-career-check/MapsCareerCheck.csproj": "c73d734f876f52987aa4c9ba54fe6b5573a778ed0b424541824d6367e6ebd8eb",
+    "tools/map-editor-check/map-editor-check.csproj": "56c376935529bec1b597ac2f7943ba605683fd9d30b0bfd09c92cde57b6d6ab9",
+    "tools/map-editor-check/Benchmarks.cs": "af287e95fabb46fb39014b3d35c67084f51d7e83a206ae9d7a1587cf29f6f516",
+    "tools/map-editor-check/CommunityMapChecks.cs": "1c173ddcc69cfc763e1e94efaf26e013d3e35aa6cbd256b08219dd209944834f",
+    "tools/map-editor-check/CustomCollisionChecks.cs": "9054ba95184da20a24d8114ef6a51bdadc24c0abd0dcffd906028f1290ba80af",
+    "tools/map-editor-check/EditorMeshRetentionChecks.cs": "c10c16088a49d2d2ab9942a0cf4fe51e07ebd92570392066d7be5871dc3dad57",
+    "tools/map-editor-check/MapPerformanceChecks.cs": "385652793e703d7fb8600ae97ad77ab1e9beaf66e5f3638f4dbb115ec62f3d7a",
+    "tools/map-editor-check/MapStorageChecks.cs": "e634c08a7620f8c5b2a52bfeadb02540dead26cf0323cb426a633b131266f6af",
+    "tools/map-editor-check/ModelCollisionChecks.cs": "82a6e3bf3be83b96a4ed337d0b12267b2d20bda1bea5f6baf6a59f8cfaf5df0d",
+    "tools/map-editor-check/ModelImportChecks.cs": "491ed80d9c85360d07cc08c052ca042ba0e18b355a5b613f212cf872c6265dfa",
+    "tools/map-editor-check/ModelReimportChecks.cs": "4ae4a50b24ce1c93d4976426e5bf9c7feb342d7c77e1bd279e6f9f524947f2e0",
+    "tools/map-editor-check/NextPassChecks.cs": "c7309ca5c0e8926b444cbbcc11b574e7df66187fa8baca6daaf6786ec36ae81e",
+    "tools/map-editor-check/Program.cs": "2e9a7a7b27681ac6498255a2727b4064a33ad9f2b5acee8c418c3b001cf05989",
+    "tools/map-editor-check/Q3ImportChecks.cs": "54fefb8889facdaef4467116d431d72e2f619d7eb99073a629bbfe69c506e1a3",
+    "tools/map-editor-check/ReplayAcceptedFireChecks.cs": "7d9f6f0d9d7c26cc954c813ae5e4fcc83e8f242c5f3e256fc330f05c57968a71",
+    "tools/map-editor-check/ReplayFrozenCompare.cs": "8b8a125bd233d4aff1d56e59ff0fe6fbf2d91bac2653b96049d29aace81a527d",
+    "tools/map-editor-check/ReplayLegacyRangeChecks.cs": "b57d0c2c8dc504bda8db715d0a0957eca04fe26d5d05f4268e7dd90ab8fdbbd8",
+    "tools/map-editor-check/ReplayMapPreparationChecks.cs": "19fd1884f07b6baeac3581e23a212cdd2f7268811a7faad47f6f7304e7d4e964",
+    "tools/map-editor-check/ReplayPreparationChecks.cs": "95b0b7a62e8aa6a3cbb4a7d2cbd0a2493607ebbca1b8b7bcdb827bd15edb98cb",
+    "tools/map-editor-check/RoadmapChecks.cs": "70756b2eca45a243a4a2d523f298a04f0901d6d9f287ccc4d4f57c3c52d68013"
+  },
+  "productionSha256Before": "e4de18aee2440589170f0b3975dea91be3b290f5af4efa324a8277e58ad51674",
+  "productionSha256After": "e4de18aee2440589170f0b3975dea91be3b290f5af4efa324a8277e58ad51674",
+  "result": "PASS29 helper +442 map-editor, same latest DLL and stable linked sources",
+  "scope": "Directly linked production publication/cache source; production stock/career methods via referenced assembly. Scaled byte limits; one local prepared 16 MiB commit sample. No licensed asset data preserved.",
+  "nativeHelperAssertions": 29,
+  "mapEditorAssertions": 442,
+  "preparedCommitSample": {
+    "preparedArchiveBytes": 16777216,
+    "ownerMilliseconds": 0.222,
+    "ownerAllocatedBytes": 1872,
+    "samples": 1
+  },
+  "backendHandlerTests": 18,
+  "careerFunctionFrozenDenoCheck": "PASS",
+  "commands": [
+    {
+      "arguments": [
+        "/tmp/project-prime-dotnet10/dotnet",
+        "build",
+        "tools/maps-career-check/MapsCareerCheck.csproj",
+        "-c",
+        "Release",
+        "-p:PrimeAssembly=/tmp/project-prime-network-slices-integration-build/bin/MphRead/release/ProjectPrime.dll",
+        "--artifacts-path",
+        "/tmp/prime-maps-career-final-check-build",
+        "-p:UseSharedCompilation=false",
+        "--nologo",
+        "-m:1"
+      ],
+      "exitCode": 0,
+      "seconds": 1.236653083
+    },
+    {
+      "arguments": [
+        "/tmp/project-prime-dotnet10/dotnet",
+        "/tmp/prime-maps-career-final-check-build/bin/MapsCareerCheck/release/MapsCareerCheck.dll"
+      ],
+      "exitCode": 0,
+      "seconds": 0.3918542079999998
+    },
+    {
+      "arguments": [
+        "/tmp/project-prime-dotnet10/dotnet",
+        "build",
+        "tools/map-editor-check/map-editor-check.csproj",
+        "-c",
+        "Release",
+        "-p:BuildProjectReferences=false",
+        "-p:MphReadServer=true",
+        "-p:MphReadAvalonia=false",
+        "--artifacts-path",
+        "/tmp/project-prime-network-slices-integration-build",
+        "-p:UseSharedCompilation=false",
+        "--nologo",
+        "-m:1"
+      ],
+      "exitCode": 0,
+      "seconds": 2.283853333
+    },
+    {
+      "arguments": [
+        "/tmp/project-prime-dotnet10/dotnet",
+        "/tmp/project-prime-network-slices-integration-build/bin/map-editor-check/release/map-editor-check.dll"
+      ],
+      "exitCode": 0,
+      "seconds": 1.4134067909999994
+    }
+  ]
+}

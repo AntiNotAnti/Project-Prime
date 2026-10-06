@@ -78,10 +78,12 @@ gate on a machine with a working Docker daemon and Supabase CLI:
    413. Repeat with the unknown key; expect 401 before body consumption. Preserve
    the relay/function/database logs and destroy the disposable stack afterward.
 
-The 2026-10-06 engineering run could not execute that gate: the single daemon
+The initial 2026-10-06 engineering run could not execute that gate: the single daemon
 check failed to connect to `~/.docker/run/docker.sock`. Frozen checks passed with
 an empty Deno cache, a deliberately incomplete private lock failed, and all ten
-Node tests passed. Production credentials and deployments were never used.
+original Node tests passed. The cumulative participation implementation expands
+the passing Node suite to 18 tests and adds the disposable PostgreSQL acceptance
+run described above. Production credentials and deployments were never used.
 
 Primary references checked for this change: [Supabase dependencies](https://supabase.com/docs/guides/functions/dependencies),
 [Supabase npm security](https://supabase.com/docs/guides/security/npm-security),

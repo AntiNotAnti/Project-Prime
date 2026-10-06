@@ -1,0 +1,23 @@
+Command: node tools/edge-check/check-career-sql.mjs
+Scope: disposable compatible schema; no production connection, concurrency or relay/JWT certification.
+
+PASS isolated runtime pin 0.5.8 sha512-n9tsbUOhwx2epK1V0ZG9Ar4SHWUju04dhmzZXiSBXwBoleOvIfals33NAaWgagQVAL4Rbvx/Ptsu3P+pA09f6Q==
+[{"version":"PostgreSQL 18.3 (PGlite 0.5.8) on wasm32-unknown-emscripten, compiled by emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 3.1.74 (1092ec30a3fb1d46b1782ff1b4db5094d3d06ae5), 32-bit","current_user":"postgres"}]
+PASS disposable compatible prime schema and auth roles
+PASS migration 20260921134100_project_prime_hunter_license_bridge.sql b6fe39fd74d94faa03bef088bf3a5fcf38b51c0a2193267414ec24e056eede68
+PASS migration 20260921192500_preserve_hunter_profile_on_recovery.sql 0a1072bf06a94fd5f760174559f52c827499cd7a3f0dca4399784e0562e5b413
+PASS migration 20260921195500_authoritative_career_ingestion.sql 1dedbc6c4bdcdde425eba261697609e7c65e1a85e8799a0739bcab9322bab245
+PASS migration 20260921201000_extend_hunter_license_career_stats.sql 21c318721d5a335453521bc731634b244f191ca2fa92395e27a47ae91e14b4cb
+PASS migration 20260921201500_lock_career_reporter_registry.sql 5f11e837be3d3669db4a340833f2249d04a2a54501a0fc89f496d59bd36877a6
+PASS migration 20260921211500_add_career_reporter_observability.sql 216177152692a4ce6ac5f45c65d2adf22945e593ba56b7f02b0c24f6e05a5188
+PASS migration 20260921220500_add_hunter_license_edge_bridge.sql a1fe45ee541bc94bfaaae770aecb2aa205aa68b073c7115061051411b28ce7fc
+PASS migration 20260928193230_exclude_bot_assisted_career_matches.sql fc96b64a1182790fadadf757e1f8dcc6cb0c818609ed0aba9443b51a4c03b022
+PASS pre-upgrade version 1 acceptance, post-upgrade unchanged retry, changed hash/reporter conflicts, bot no-write, all rows/aggregates/balances unchanged, rollback
+PASS migration 20261006163506_career_cumulative_admissions.sql 44f414f99e37a1a69be364fce51ceef0f5fdfe4be0dead3ef21019684710a800
+PASS actual service/session bridge and recovered profile preservation
+PASS preserved service-only ingestion/bridge/reporter grants [{"rol":"anon","ingest":false,"bridge":false,"reporter_select":false},{"rol":"authenticated","ingest":false,"bridge":false,"reporter_select":false},{"rol":"service_role","ingest":true,"bridge":true,"reporter_select":true}]
+PASS actual anon/authenticated denied ingestion and reporter SELECT, service-role execution allowed
+PASS exact acceptance gate supabase/tests/bot_assisted_career.sql 32891cdbbe064195a29338f4406c7c09cf5a5b2c786d703bb2754a15c3689388
+PASS exact acceptance gate tools/edge-check/career-cumulative.sql 4320fada5687e1294de74f782b28d0f9fa5afbb95a10735dfd6bbc4d49d2fff4
+PASS all acceptance fixtures rolled back {"matches":0,"participants":0,"ratings":0,"aggregates":0,"players":0,"reporters":0}
+PASS complete local SQL verification

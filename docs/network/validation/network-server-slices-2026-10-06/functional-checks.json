@@ -1,0 +1,1129 @@
+{
+  "sourceCommit": "7b8b5d4e",
+  "baseCommit": "18ac50d58006a6dcbc4ac9dc76a55b0eba0eeb31",
+  "protocol": 42,
+  "scope": "56 distinct modes composed from the original full 54-mode run and targeted affected followups; per-row stage provenance retained",
+  "passed": 56,
+  "rows": [
+    {
+      "mode": "authority-policy",
+      "exitCode": 0,
+      "seconds": 0.136,
+      "tail": [
+        "[net] server map:  (None, 0 s left)",
+        "PASS: 503 network authority/admission policy assertions"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--authority-policy"
+      ]
+    },
+    {
+      "mode": "gamemodecheck",
+      "exitCode": 0,
+      "seconds": 0.063,
+      "tail": [
+        "[gamemodecheck] PASS 2198 lifecycle checks (asset-free; not objective simulation)"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--gamemodecheck"
+      ]
+    },
+    {
+      "mode": "advanced-rules",
+      "exitCode": 0,
+      "seconds": 2.302,
+      "tail": [
+        "[12:34:28] [server] [lobby] phase InMatch -> Lobby, match 2",
+        "[12:34:28] [server] [lobby] revision 26 -> 27: phase changed",
+        "[12:34:28] [server] 127.0.0.1:63970 left (slot 3)",
+        "[12:34:28] [server] shutting down",
+        "[advanced-rules] PASS 129 checks"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--advanced-rules"
+      ]
+    },
+    {
+      "mode": "player-names-chat",
+      "exitCode": 0,
+      "seconds": 0.068,
+      "tail": [
+        "Player names/chat: 823 checks passed."
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--player-names-chat"
+      ]
+    },
+    {
+      "mode": "protocol19",
+      "exitCode": 0,
+      "seconds": 1.751,
+      "tail": [
+        "V19 PASS slow HTTP timeout retains retry without simulation work",
+        "V19 PASS offline upload retains bounded batch and retry deadline",
+        "V19 PASS next match records while previous writer drains",
+        "V19 PASS two stalled writers cap match rollover without waiting",
+        "PASS: 143 Protocol 19 combat/telemetry checks"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--protocol19"
+      ]
+    },
+    {
+      "mode": "protocol18",
+      "exitCode": 0,
+      "seconds": 0.041,
+      "tail": [
+        "PASS: protocol 18 lane round-trip, revision fencing, 0 decode allocations, 1207B worst-case fast datagram"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--protocol18"
+      ]
+    },
+    {
+      "mode": "protocol17",
+      "exitCode": 0,
+      "seconds": 0.153,
+      "tail": [
+        "PASS: protocol 19 transport sequences, ACK bits, wrap, identity and UDP integration"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--protocol17"
+      ]
+    },
+    {
+      "mode": "alt-hits",
+      "exitCode": 0,
+      "seconds": 0.179,
+      "tail": [
+        "[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.",
+        "[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.",
+        "CONTACT PERFORMANCE 100000 queries: 7.22 ms, 0 allocated bytes; 56 pairs: 0.0040 ms",
+        "PASS: alt-form poses, all hunter beams, Kanden chain, contact sweeps, counterfactual geometry and lifecycle boundaries"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--alt-hits"
+      ]
+    },
+    {
+      "mode": "continuous-targets",
+      "exitCode": 0,
+      "seconds": 0.091,
+      "tail": [
+        "[net] server map:  (None, 0 s left)",
+        "PASS: protocol 19, targeting geometry, retention, classified traces, 20 impairment profiles, zero warmed allocations"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--continuous-targets"
+      ]
+    },
+    {
+      "mode": "netcode-performance",
+      "exitCode": 0,
+      "seconds": 0.56,
+      "tail": [
+        "[net] server map:  (None, 0 s left)",
+        "PASS: doors, force fields, moving collision, fractional sampling, catch-up, exception restoration, misses and 0 rewind allocations",
+        "PASS: deterministic sampling, ledger reference comparison, direct decode equivalence and telemetry batches"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--netcode-performance"
+      ]
+    },
+    {
+      "mode": "dynamic-geometry",
+      "exitCode": 0,
+      "seconds": 0.046,
+      "tail": [
+        "PASS: doors, force fields, moving collision, fractional sampling, catch-up, exception restoration, misses and 0 rewind allocations"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--dynamic-geometry"
+      ]
+    },
+    {
+      "mode": "input-edges",
+      "exitCode": 0,
+      "seconds": 0.036,
+      "tail": [
+        "PASS: input sequence wrap, lifecycle reset, rapid identical actions, 0-3 lost packets, duplication, reorder and ages 0-7"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--input-edges"
+      ]
+    },
+    {
+      "mode": "claim-stress",
+      "exitCode": 0,
+      "seconds": 0.08,
+      "tail": [
+        "[net] server map:  (None, 0 s left)",
+        "PASS: claim retention, multiplicity, exact matching, shooter isolation and capacity refusal"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--claim-stress"
+      ]
+    },
+    {
+      "mode": "health-shots",
+      "exitCode": 0,
+      "seconds": 5.995,
+      "artifactManifest": "final-validation-build-manifest.json",
+      "tail": [
+        "[net] server map:  (None, 0 s left)",
+        "[net] server map:  (None, 0 s left)",
+        "[net] server map:  (None, 0 s left)",
+        "[net] server map:  (None, 0 s left)",
+        "[net] server map:  (None, 0 s left)",
+        "Ghost input matrix: 7776 weapon/profiles, 2 delivery streams, dropped=18360 duplicated=8424 reordered=14256",
+        "PASS: 3338739 health/shot assertions"
+      ],
+      "evidenceStage": "final three-file batch followup",
+      "arguments": [
+        "--health-shots"
+      ]
+    },
+    {
+      "mode": "lifecycle",
+      "exitCode": 0,
+      "seconds": 2.482,
+      "tail": [
+        "[net] server map:  (None, 0 s left)",
+        "[net] server map:  (None, 0 s left)",
+        "[net] server map:  (None, 0 s left)",
+        "[net] server map:  (None, 0 s left)",
+        "PASS: 3688 lifecycle assertions (production code, deterministic seed 8128)"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--lifecycle"
+      ]
+    },
+    {
+      "mode": "custom-map",
+      "exitCode": 0,
+      "seconds": 2.051,
+      "tail": [
+        "[12:34:42] [server] [lobby] phase Starting -> Lobby, match 2",
+        "[12:34:42] [server] [lobby] revision 12 -> 13: phase changed",
+        "[12:34:42] [server] 127.0.0.1:65111 left (slot 1)",
+        "[12:34:42] [server] shutting down",
+        "Custom map readiness passed."
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--custom-map"
+      ]
+    },
+    {
+      "mode": "lobby-community-selection",
+      "exitCode": 0,
+      "seconds": 2.833,
+      "tail": [
+        "[12:34:44] [server] 127.0.0.1:64380 left (slot 0)",
+        "[12:34:45] [server] [lobby] revision 8 -> 9: slot 1 left; owner 0",
+        "[12:34:45] [server] 127.0.0.1:57813 left (slot 1)",
+        "[12:34:45] [server] shutting down",
+        "Community lobby selection passed: missing-map preparation, exact identity, owner checks, trusted source, and duplicate commands."
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--lobby-community-selection"
+      ]
+    },
+    {
+      "mode": "custom-map-download",
+      "exitCode": 0,
+      "seconds": 1.184,
+      "tail": [
+        "[12:34:46] [server] [lobby] phase Starting -> Lobby, match 2",
+        "[12:34:46] [server] [lobby] revision 9 -> 10: phase changed",
+        "[12:34:46] [server] 127.0.0.1:63503 left (slot 0)",
+        "Custom map automatic HTTP download, build, prewarm and readiness passed.",
+        "[12:34:46] [server] shutting down"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--custom-map-download"
+      ]
+    },
+    {
+      "mode": "bot-ai",
+      "exitCode": 0,
+      "seconds": 0.042,
+      "tail": [
+        "[bot-ai] PASS target-based jump pad contributes an aerial navigation link",
+        "[bot-ai] PASS damaging terrain generates hazard nodes",
+        "[bot-ai] PASS elevated ledge generates vantage nodes",
+        "[bot-ai] PASS generated drop does not become an impossible reverse climb",
+        "[bot-ai] 20 checks passed"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--bot-ai"
+      ]
+    },
+    {
+      "mode": "bots",
+      "exitCode": 0,
+      "seconds": 25.347,
+      "tail": [
+        "[12:35:11] [server] [lobby] phase InMatch -> Lobby, match 2",
+        "[12:35:11] [server] [lobby] revision 15 -> 16: phase changed",
+        "[12:35:11] [server] 127.0.0.1:60960 left (slot 0)",
+        "[12:35:11] [server] shutting down",
+        "[bots] PASS 197 checks"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--bots"
+      ]
+    },
+    {
+      "mode": "waitlist",
+      "exitCode": 0,
+      "seconds": 55.549,
+      "tail": [
+        "[12:36:05] [server] 127.0.0.1:55093 left (slot 0)",
+        "[12:36:05] [server] [lobby] revision 7 -> 8: slot 1 left; owner 0",
+        "[12:36:05] [server] 127.0.0.1:58597 left (slot 1)",
+        "[12:36:05] [server] shutting down",
+        "[waitlist] PASS 309 assertions; real server transport bootstrap, FIFO, refusal/reservation, wrong-owner/offer, decline and same-connection admission."
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--waitlist"
+      ]
+    },
+    {
+      "mode": "lobby",
+      "exitCode": 0,
+      "seconds": 102.231,
+      "tail": [
+        "[12:37:49] [server] [lobby] phase Starting -> Lobby, match 2",
+        "[12:37:49] [server] [lobby] revision 12 -> 13: phase changed",
+        "[12:37:49] [server] 127.0.0.1:52565 left (slot 1)",
+        "[12:37:49] [server] shutting down",
+        "[netlobbytest] PASS: 8162 assertions; protocol, UDP lifecycle/farewell, join-in-progress identity, owner lobby return, direct post-match lobby return, abandoned-session cleanup, hosted ownership, teams, rebind and continuous rotation."
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--lobby"
+      ]
+    },
+    {
+      "mode": "architecture",
+      "exitCode": 0,
+      "seconds": 0.138,
+      "tail": [
+        "[net] server map:  (None, 0 s left)",
+        "PASS: architecture, owner position, full snapshots and v20 byte fixture"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--architecture"
+      ]
+    },
+    {
+      "mode": "allocations",
+      "exitCode": 0,
+      "seconds": 0.629,
+      "tail": [
+        "PlayerState.Read: 0.00 B/op",
+        "PlayerState.Write: 0.00 B/op",
+        "Snapshot.Compose: 0.00 B/op",
+        "Snapshot.Decode: 0.00 B/op",
+        "NetTransport.Send UDP: 0.00 B/op (receive/fault/replay ownership excluded)"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--allocations"
+      ]
+    },
+    {
+      "mode": "reliable",
+      "exitCode": 0,
+      "seconds": 0.204,
+      "tail": [
+        "PASS: reliability under 5% loss / 80ms jitter / 3% reorder / 1% duplicate; capacity, dedup span and expiry",
+        "[net] reliable control failed for 127.0.0.1:49800; disconnecting"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--reliable"
+      ]
+    },
+    {
+      "mode": "queue-budget",
+      "exitCode": 0,
+      "seconds": 0.038,
+      "tail": [
+        "PASS: flood capacity, critical reserve, per-peer rate limits and pump budgets"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--queue-budget"
+      ]
+    },
+    {
+      "mode": "load-lifecycle",
+      "exitCode": 0,
+      "seconds": 101.902,
+      "tail": [
+        "[12:39:32] [server] [lobby] phase Starting -> Lobby, match 2",
+        "[12:39:32] [server] [lobby] revision 12 -> 13: phase changed",
+        "[12:39:32] [server] 127.0.0.1:53285 left (slot 1)",
+        "[12:39:32] [server] shutting down",
+        "[netlobbytest] PASS: 8161 assertions; protocol, UDP lifecycle/farewell, join-in-progress identity, owner lobby return, direct post-match lobby return, abandoned-session cleanup, hosted ownership, teams, rebind and continuous rotation."
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--load-lifecycle"
+      ]
+    },
+    {
+      "mode": "lagcomp-shadow",
+      "exitCode": 0,
+      "seconds": 0.034,
+      "tail": [
+        "PASS: 2352 shadow timing profiles, fractional equivalence, pure geometry and outcome categories"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--lagcomp-shadow"
+      ]
+    },
+    {
+      "mode": "weapon-policy",
+      "exitCode": 0,
+      "seconds": 0.086,
+      "tail": [
+        "ShockCoil charged=True: Continuous, cap=45, homing=409/409/409",
+        "OmegaCannon charged=False: ProjectileCatchUp, cap=45, homing=0/102/102",
+        "OmegaCannon charged=True: ProjectileCatchUp, cap=45, homing=0/102/102",
+        "[net] server map:  (None, 0 s left)",
+        "PASS: 1620 weapon timing profiles, all MP variants, bounded catch-up equivalence"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--weapon-policy"
+      ]
+    },
+    {
+      "mode": "transport-stress",
+      "exitCode": 0,
+      "seconds": 8.89,
+      "tail": [
+        "peer 5: configured RTT=320, snapshots=208, queueHigh=9, ACK RTT=398.3",
+        "peer 6: configured RTT=400, snapshots=208, queueHigh=9, ACK RTT=498.6",
+        "peer 7: configured RTT=150, snapshots=208, queueHigh=23, ACK RTT=207.6",
+        "LOCK acquisitions=23328 contentions=13 ratio=0.056% waitTotalMs=0.543 waitMaxMs=0.011 holdTotalMs=4.748 holdMaxMs=0.154",
+        "PASS: eight mixed-quality UDP peers, 1768 intents, 128 exact-once controls, 400ms client pump stall"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--transport-stress"
+      ]
+    },
+    {
+      "mode": "server-pacing-benchmark",
+      "exitCode": 0,
+      "seconds": 2.035,
+      "tail": [
+        "PACING MEASUREMENT OS=macOS 27.0.0 arch=Arm64 frames=120 wall=2006.4ms cpu=208.3ms lateness-p50=0.001ms p99=0.039ms worst=6.782ms pacing sleep=1436 yield=756072 spin=119 wait=1912.2ms"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--server-pacing-benchmark"
+      ]
+    },
+    {
+      "mode": "transport-lifecycle",
+      "exitCode": 0,
+      "seconds": 7.373,
+      "artifactManifest": "final-runtime-build-manifest.json",
+      "tail": [
+        "[net] join failed: Specified argument was out of the range of valid values. (Parameter 'port')",
+        "[net] join failed: Specified argument was out of the range of valid values. (Parameter 'port')",
+        "[net] joining 127.0.0.1:57017 as \"Player\"",
+        "[net] joining 127.0.0.1:62454 as \"Player\"",
+        "[net] server map: MP1 SANCTORUS (Battle, 0 s left)",
+        "[net] joined as slot 1",
+        "PASS: 136 transport lifecycle assertions; terminal retries/ACKs, lobby retirement, roles, startup cleanup, fenced load timeout, wire counters, directory farewell scope"
+      ],
+      "evidenceStage": "final runtime bootstrap/reliable prefix batch",
+      "arguments": [
+        "--transport-lifecycle"
+      ]
+    },
+    {
+      "mode": "network-lifecycle",
+      "exitCode": 0,
+      "seconds": 0.91,
+      "artifactManifest": "final-runtime-build-manifest.json",
+      "tail": [
+        "[13:17:01] [server] [lobby] revision 2 -> 3: slot 0 synchronizing",
+        "[13:17:01] [server] [lobby] slot 0 applied world revision 1, frame 100",
+        "[13:17:01] [server] [lobby] revision 3 -> 4: slot 0 synchronizing",
+        "[13:17:01] [server] [lobby] revision 4 -> 5: slot 0 synchronizing",
+        "[13:17:01] [server] [lobby] revision 5 -> 6: slot 0 synchronizing",
+        "[13:17:01] [server] [lobby] slot 0 applied world revision 3, frame 100",
+        "[network-lifecycle] PASS: 48 asset/rotation/headless/lease/signal and owned subprocess assertions"
+      ],
+      "evidenceStage": "final runtime bootstrap/reliable prefix batch",
+      "arguments": [
+        "--network-lifecycle"
+      ]
+    },
+    {
+      "mode": "server-engineering",
+      "exitCode": 0,
+      "seconds": 0.359,
+      "artifactManifest": "final-runtime-build-manifest.json",
+      "tail": [
+        "[replay] canonical recording disabled for match 62000: Could not find a part of the path '/var/folders/8x/m8p269sd5dl015jr01kkpzbr0000gn/T/9a53c0e235c74a56872055d072c491a6/missing-map.bin'.; recover any .part file",
+        "[replay] canonical server recording: _demos/server/test-room_2026-10-06_13-17-01-791_6990c5fd1a8141298cbb3b74c133d4a6.ppdemo",
+        "[replay] canonical server recording: _demos/server/test-room_2026-10-06_13-17-01-796_c59f6943ce5b4af8b16c29b3d7cd0216.ppdemo",
+        "COMPACT idle owner=127B relay=128B; eight-player 60Hz ingress=60960B/s relay=430080B/s; max relay=1472B",
+        "PASS: per-match replay failure latch, spectator combat eligibility, Quick Play policy, bounded cancellable probes and loop diagnostics"
+      ],
+      "evidenceStage": "final runtime bootstrap/reliable prefix batch",
+      "arguments": [
+        "--server-engineering"
+      ]
+    },
+    {
+      "mode": "replay-protocol42",
+      "exitCode": 0,
+      "seconds": 0.054,
+      "artifactManifest": "final-validation-build-manifest.json",
+      "tail": [
+        "PASS: 80 protocol-42 historical replay packet/checkpoint assertions"
+      ],
+      "evidenceStage": "final three-file batch followup",
+      "arguments": [
+        "--replay-protocol42"
+      ]
+    },
+    {
+      "mode": "authority-combat",
+      "exitCode": 0,
+      "seconds": 0.517,
+      "artifactManifest": "final-validation-build-manifest.json",
+      "tail": [
+        "[net] server map: MP1 SANCTORUS (Battle, 0 s left)",
+        "[net] slot 0 activated (Policy) -- 1 player(s) in scene",
+        "[net] slot 1 activated (Policy) -- 2 player(s) in scene",
+        "[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots",
+        "[net] slot 0 (Samus) wears suit 1",
+        "[net] slot 1 (Samus) wears suit 2 -- asked for 1",
+        "PASS: 57 real authority attack/resource policy assertions"
+      ],
+      "evidenceStage": "final three-file batch followup",
+      "arguments": [
+        "--authority-combat",
+        "<isolated licensed test data>"
+      ]
+    },
+    {
+      "mode": "protocol19-scene",
+      "exitCode": 0,
+      "seconds": 0.479,
+      "tail": [
+        "V19 COMBAT PASS prediction emits exact claim",
+        "V19 COMBAT PASS CombatAck corrects visible health and retires exact debit immediately",
+        "V19 COMBAT PASS repeated CombatAck is idempotent",
+        "V19 COMBAT PASS newer snapshot replaces acknowledgement presentation",
+        "PASS: 60 Protocol 19 asset-backed checks"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--protocol19-scene",
+        "<isolated licensed test data>"
+      ]
+    },
+    {
+      "mode": "continuous-scene",
+      "exitCode": 0,
+      "seconds": 0.533,
+      "tail": [
+        "[net] slot 5 (Spire) wears suit 1",
+        "[net] slot 6 (Weavel) wears suit 1",
+        "[net] slot 7 (Samus) wears suit 2 -- asked for 1",
+        "[net] slot 1 deactivated -- player left",
+        "PASS: 62 continuous target scene assertions, all hunters, historical forms, lifecycle, zero allocations"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--continuous-scene",
+        "<isolated licensed test data>"
+      ]
+    },
+    {
+      "mode": "alt-scene",
+      "exitCode": 0,
+      "seconds": 0.59,
+      "tail": [
+        "ALT MATRIX LAN rtt=0 jitter=0 loss=0% reorder=0% attempts=239 visible=119 authority=119 beamDisagreeBefore=0 beamDisagreeAfter=0 contactVisible=119 contactHistorical=119 contactLive=0 historicalOnly=119 liveOnly=0 historyMisses=0 meanRewind=0.00 sweepDistance=4",
+        "ALT MATRIX moderate rtt=100 jitter=20 loss=1% reorder=1% attempts=232 visible=113 authority=113 beamDisagreeBefore=7 beamDisagreeAfter=0 contactVisible=113 contactHistorical=113 contactLive=21 historicalOnly=92 liveOnly=0 historyMisses=0 meanRewind=8.38 sweepDistance=4",
+        "ALT MATRIX severe rtt=250 jitter=40 loss=2% reorder=1% attempts=222 visible=110 authority=110 beamDisagreeBefore=20 beamDisagreeAfter=0 contactVisible=110 contactHistorical=110 contactLive=5 historicalOnly=105 liveOnly=0 historyMisses=0 meanRewind=18.36 sweepDistance=4",
+        "ALT MATRIX extreme rtt=320 jitter=80 loss=5% reorder=3% attempts=209 visible=106 authority=106 beamDisagreeBefore=24 beamDisagreeAfter=0 contactVisible=106 contactHistorical=106 contactLive=5 historicalOnly=101 liveOnly=0 historyMisses=0 meanRewind=25.20 sweepDistance=4",
+        "ALT SCENE PASS 995 checks; history+contact 0.0175 ms/frame, 0 bytes; alt contact: attempts 3, visible checks 0, visible overlaps 0, checks 56, historical 5, live 3, historical-only 2, live-only 0, unavailable 9, noxus-live-fallback 7, sweep-only 1, rewind total 123.50, sweep distance 28.00"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--alt-scene",
+        "<isolated licensed test data>"
+      ]
+    },
+    {
+      "mode": "advanced-rules-scene",
+      "exitCode": 0,
+      "seconds": 1.524,
+      "tail": [
+        "[net] slot 3 activated (Sylux) -- 7 player(s) in scene",
+        "[net] slot 4 activated (Noxus) -- 7 player(s) in scene",
+        "[net] slot 5 activated (Spire) -- 7 player(s) in scene",
+        "[net] slot 6 activated (Weavel) -- 7 player(s) in scene",
+        "[advanced-rules-scene] PASS 338 checks"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--advanced-rules-scene",
+        "<isolated licensed test data>"
+      ]
+    },
+    {
+      "mode": "bots-online",
+      "exitCode": 0,
+      "seconds": 2.807,
+      "tail": [
+        "[12:39:58] [server] [lobby] last player left; resetting abandoned match",
+        "[12:39:58] [server] [lobby] phase InMatch -> Lobby, match 2",
+        "[12:39:58] [server] [lobby] revision 26 -> 27: phase changed",
+        "[12:39:58] [server] 127.0.0.1:64006 left (slot 2)",
+        "[12:39:58] [server] shutting down"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--bots-online",
+        "<isolated licensed test data>"
+      ]
+    },
+    {
+      "mode": "bots-scene",
+      "exitCode": 0,
+      "seconds": 1.027,
+      "tail": [
+        "[net] player slots prepared -- local slot 0, 4 active, AI enabled only on authoritative bot slots",
+        "[botcheck] PASS client slot 0 never runs AI",
+        "[botcheck] PASS client slot 1 never runs AI",
+        "[botcheck] PASS client slot 2 never runs AI",
+        "[botcheck] PASS client slot 3 never runs AI"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--bots-scene",
+        "<isolated licensed test data>"
+      ]
+    },
+    {
+      "mode": "claim-load-scene",
+      "exitCode": 0,
+      "seconds": 1.348,
+      "tail": [
+        "CLAIM LOAD PASS legacy ledger fixture rtt=50 claims=7200 tooOld=0 rescued=1439 suppressed=1439 pendingHigh=58 ledgerHigh=512 peakRepliesPerShooterPump=28",
+        "CLAIM LOAD PASS legacy ledger fixture rtt=150 claims=7200 tooOld=0 rescued=1440 suppressed=1440 pendingHigh=65 ledgerHigh=512 peakRepliesPerShooterPump=27",
+        "CLAIM LOAD PASS legacy ledger fixture rtt=250 claims=7200 tooOld=0 rescued=1408 suppressed=1408 pendingHigh=75 ledgerHigh=512 peakRepliesPerShooterPump=30",
+        "CLAIM LOAD PASS legacy ledger fixture rtt=320 claims=7200 tooOld=0 rescued=1392 suppressed=1392 pendingHigh=65 ledgerHigh=512 peakRepliesPerShooterPump=26",
+        "CLAIM LOAD PASS legacy ledger fixture rtt=400 claims=7200 tooOld=2 rescued=948 suppressed=948 pendingHigh=74 ledgerHigh=512 peakRepliesPerShooterPump=25"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--claim-load-scene",
+        "<isolated licensed test data>"
+      ]
+    },
+    {
+      "mode": "geometry-scene",
+      "exitCode": 0,
+      "seconds": 0.379,
+      "tail": [
+        "[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.",
+        "[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.",
+        "[net] player slots built, main player = slot 0",
+        "GEOMETRY room=UNIT1_RM1 doors=12 fields=11 meshes=9",
+        "GEOMETRY PASS: real asset traces, historical blocked=12, current blocked=23, exact restoration"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--geometry-scene",
+        "<isolated licensed test data>"
+      ]
+    },
+    {
+      "mode": "bootstrap-scene",
+      "exitCode": 0,
+      "seconds": 0.448,
+      "artifactManifest": "final-runtime-build-manifest.json",
+      "tail": [
+        "[net] slot 6 activated (BOOT6) -- 7 player(s) in scene",
+        "[net] slot 7 activated (BOOT7) -- 8 player(s) in scene",
+        "[net] slot 0 deactivated -- player left",
+        "[net] joined as slot 0",
+        "[net] slot 0 activated (BOOT0) -- 8 player(s) in scene",
+        "[net] joined as slot 0",
+        "BOOTSTRAP Battle PASS: eight real players, frozen spawn, lane loss/reorder/duplicate, valid first ACK and rematch fence"
+      ],
+      "evidenceStage": "final runtime bootstrap/reliable prefix batch",
+      "arguments": [
+        "--bootstrap-scene",
+        "<isolated licensed test data>"
+      ]
+    },
+    {
+      "mode": "semantic-scene",
+      "exitCode": 0,
+      "seconds": 0.462,
+      "tail": [
+        "[net] slot 2 activated (SEMANTIC CHECK) -- 4 player(s) in scene",
+        "[net] slot 3 activated (SEMANTIC CHECK) -- 4 player(s) in scene",
+        "[net] player slots prepared -- local slot -1, 4 active, AI enabled only on authoritative bot slots",
+        "[net] match clock synced to server: 600 s remaining on MP1 SANCTORUS",
+        "SEMANTIC F2 PASS 35 real-authority damage/parity checks"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--semantic-scene",
+        "<isolated licensed test data>"
+      ]
+    },
+    {
+      "mode": "combat-scene",
+      "exitCode": 0,
+      "seconds": 0.562,
+      "artifactManifest": "final-validation-build-manifest.json",
+      "tail": [
+        "COMBAT PASS ProjectileLifecycleAcrossShooterRespawn/Judicator",
+        "COMBAT PASS rescued flight cannot pay twice after respawn/Judicator",
+        "COMBAT PASS old launch still damages target/Judicator",
+        "COMBAT PASS forged launch life rejected",
+        "COMBAT PASS ricochet child keeps original fire event/Judicator",
+        "COMBAT PASS no simulation failures",
+        "COMBAT PASS 162 assertions"
+      ],
+      "evidenceStage": "final three-file batch followup",
+      "arguments": [
+        "--combat-scene",
+        "<isolated licensed test data>"
+      ]
+    },
+    {
+      "mode": "gamemodecheck-scene",
+      "exitCode": 0,
+      "seconds": 2.332,
+      "tail": [
+        "[net] slot 6 activated (MODE TEST) -- 8 player(s) in scene",
+        "[net] slot 7 activated (MODE TEST) -- 8 player(s) in scene",
+        "[net] player slots prepared -- local slot -1, 8 active, AI enabled only on authoritative bot slots",
+        "[net] match clock synced to server: 600 s remaining on AD1 TRANSFER LOCK BT",
+        "[gamemodecheck-scene] PASS 891 authority checks"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--gamemodecheck-scene",
+        "<isolated licensed test data>"
+      ]
+    },
+    {
+      "mode": "accepted-fire-context",
+      "exitCode": 0,
+      "seconds": 0.474,
+      "artifactManifest": "final-validation-build-manifest.json",
+      "tail": [
+        "FIRE CONTEXT PASS one fractional tick outside 45 frames refused",
+        "FIRE CONTEXT PASS fractional point inside 45 frames admitted",
+        "FIRE CONTEXT PASS fractional future ACK refused",
+        "FIRE CONTEXT PASS absent exact ACK refused",
+        "FIRE CONTEXT PASS configured launch/contact/claim ceiling honored fractionally",
+        "FIRE CONTEXT PASS native fixture has no scene step failures",
+        "FIRE CONTEXT PASS 156 assertions (native fixture; no live network prediction assertion)"
+      ],
+      "evidenceStage": "final three-file batch followup",
+      "arguments": [
+        "--accepted-fire-context",
+        "<isolated licensed test data>"
+      ]
+    },
+    {
+      "mode": "movement-network",
+      "exitCode": 0,
+      "seconds": 0.462,
+      "tail": [
+        "[net] player slots built, main player = slot 0",
+        "[net] slot 0 activated (MOVEMENT FIXTURE) -- 1 player(s) in scene",
+        "[net] player slots prepared -- local slot -1, 1 active, AI enabled only on authoritative bot slots",
+        "[net] match clock synced to server: 600 s remaining on MP1 SANCTORUS",
+        "PASS: 43 movement timing/lifecycle checks"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--movement-network",
+        "<isolated licensed test data>"
+      ]
+    },
+    {
+      "mode": "resources-network",
+      "exitCode": 0,
+      "seconds": 0.485,
+      "tail": [
+        "RESOURCE PASS old-life resource actor cannot apply to new native spawn",
+        "RESOURCE PASS new native life can predict an ordinary pickup",
+        "RESOURCE PASS old-life ACK cannot release a new-life pickup prediction across clock offsets",
+        "RESOURCE PASS removed authority drops disappear from client world",
+        "PASS: 37 native resource/world checks"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "--resources-network",
+        "<isolated licensed test data>"
+      ]
+    },
+    {
+      "mode": "replayformatcheck",
+      "exitCode": 0,
+      "seconds": 0.615,
+      "tail": [
+        "[replay] Recording interrupted; recover completed chunks from its .part file. Replay storage queue is full or closed.",
+        "[replay] Recording interrupted; recover completed chunks from its .part file. Replay storage queue exceeded its byte budget.",
+        "[net] server map: MP1 SANCTORUS (Battle, 300 s left)",
+        "[net] server map: MP1 SANCTORUS (Battle, 0 s left)",
+        "[replayformat] PASS 2962 checks (v2/v3/v4, order, metadata, CRC, recovery, extraction, malformed files)"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "-replayformatcheck"
+      ]
+    },
+    {
+      "mode": "frametimingcheck",
+      "exitCode": 0,
+      "seconds": 0.218,
+      "tail": [
+        "FRAMETIMING ok   Lockjaw different source changes sequence",
+        "FRAMETIMING ok   Lockjaw different owner changes sequence",
+        "FRAMETIMING ok   Lockjaw offsets stay in [-0.25, 0.25)",
+        "FRAMETIMING ok   Lockjaw global Rng1 unchanged",
+        "FRAMETIMING all cases pass"
+      ],
+      "evidenceStage": "v7 full54 matrix",
+      "arguments": [
+        "-frametimingcheck"
+      ]
+    },
+    {
+      "mode": "replaylivecheck",
+      "exitCode": 0,
+      "seconds": 2.781,
+      "artifactManifest": "final-validation-build-manifest.json",
+      "tail": [
+        "[replayperf-warm] checkpoint=5.215ms allocation=3752812B",
+        "[replayperf] Capture=0.000ms max=0.000ms alloc=0B n=0 Step=0.194ms max=71.390ms alloc=6646B n=1170 Checkpoint=5.765ms max=18.177ms alloc=3803402B n=112 AuthorityCapture=0.000ms max=0.000ms alloc=0B n=0 AuthorityEncode=0.006ms max=0.547ms alloc=259B n=1408 Timeline=0.000ms max=0.115ms alloc=292B n=4739 Enqueue=0.000ms max=0.000ms alloc=0B n=0 ArchiveOpen=0.000ms max=0.000ms alloc=0B n=0 WorldConstruction=70.019ms max=126.362ms alloc=34412864B n=2 WorldRestore=0.000ms max=0.000ms alloc=0B n=0 Lookahead=0.000ms max=0.523ms alloc=0B n=19587 DecodeChunk=1.127ms max=2.818ms alloc=423934B n=12 MapValidation=0.000ms max=0.000ms alloc=0B n=0 MapPublication=0.000ms max=0.000ms alloc=0B n=0 checkpoint=619595B timeline=4138752B facts=1768 GC=68/8/2",
+        "[replaylive] Durable v4 clip and two nested ranges preserve every gameplay/presentation frame, exact frame zero, EOF and backward seek.",
+        "[replayclipcheck] PASS: 101 gameplay/presentation frames; clip 0-100 matches source 400-500.",
+        "[replayclipcheck] PASS: 51 gameplay/presentation frames; clip 0-50 matches source 0-50.",
+        "[replayclipcheck] PASS: 51 gameplay/presentation frames; clip 0-50 matches source 400-450.",
+        "[replaylive] PASS: 1170 accepted-fact frames, 5 world checkpoints, 4138752 timeline bytes, 251 frozen frame comparisons, backward seek and match-reset isolation. Last capture 8.83 ms; replica tick 0.037 ms."
+      ],
+      "evidenceStage": "final three-file batch followup",
+      "arguments": [
+        "-replaylivecheck",
+        "<original protocol-41 demo>"
+      ]
+    },
+    {
+      "mode": "eight-peer-bootstrap",
+      "exitCode": 0,
+      "seconds": 4.649,
+      "artifactManifest": "final-runtime-build-manifest.json",
+      "tail": [
+        "EIGHT PEER BOOTSTRAP PASS: 1295 checks; fast=1183, reliableBootstrapWire=1244, snapshots=[120,120,120,120,120,120,120,120], discardedFrozenSnapshots=[8,8,8,8,8,8,8,8], nativeSteps=120",
+        "[13:17:07] [server] 127.0.0.1:52360 left (slot 6)",
+        "[net] slot 7 (Samus) wears suit 1",
+        "[13:17:07] [server] [lobby] last player left; resetting abandoned match",
+        "[13:17:07] [server] [lobby] phase InMatch -> Lobby, match 2",
+        "[13:17:07] [server] [lobby] revision 55 -> 56: phase changed",
+        "[13:17:07] [server] 127.0.0.1:50268 left (slot 7)",
+        "[13:17:07] [server] shutting down"
+      ],
+      "evidenceStage": "final runtime bootstrap/reliable prefix batch",
+      "arguments": [
+        "--eight-peer-bootstrap",
+        "<isolated licensed test data>"
+      ],
+      "observations": {
+        "checks": 1295,
+        "fastLaneBytes": 1183,
+        "reliableBootstrapUdpBytes": 1244,
+        "snapshotsPerPeer": [
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120,
+          120
+        ],
+        "discardedFrozenSnapshotsPerPeer": [
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8,
+          8
+        ],
+        "continuingNativeSteps": 120
+      }
+    },
+    {
+      "mode": "enhanced-hunters",
+      "exitCode": 0,
+      "seconds": 0.076,
+      "artifactManifest": "final-runtime-build-manifest.json",
+      "tail": [
+        "ENHANCED PASS 38 checks; fast ceiling 1207 bytes"
+      ],
+      "evidenceStage": "final runtime bootstrap/reliable prefix batch",
+      "arguments": [
+        "--enhanced-hunters"
+      ]
+    }
+  ],
+  "initialProductSha256": "953f7ccd39f296d71056651166839aa428cf58508e0b4c8c215494915c000a13",
+  "finalProductSha256": "c02f45851b00ed02925b37f8075aeccc3e47fc8ab5d476c00834fd47a668be83",
+  "finalNettestSha256": "5817bb82083fb1353e6184e4df165df1904f3be187367fc84135879531b13a42",
+  "finalGraphicalProductSha256": "fd9769defde772aa22840ad715baf94a58db3d821f8b3fa8a31af6690de2b4c0",
+  "sourceDeltaAfterFullMatrix": [
+    {
+      "path": "src/MphRead/Mods/Network/NetAcceptedFireContextCheck.cs",
+      "previousSha256": "ccf5e578046b467309b7812efde9e6a324bc49c72412adef46e394a7bb1c85c3",
+      "sha256": "0e883c627a161df48a4ec4c65d332b674d45697b96cbde6dc399714b56eaa909"
+    },
+    {
+      "path": "src/MphRead/Mods/Network/PlayerEntityNetAim.cs",
+      "previousSha256": "4d3ad66710aefa487c9d24346b5d5b60d69083cd0e550fae45129b95e855bdcf",
+      "sha256": "939ec0590a895622e0ee614264dc5a680e62c897c6c9b03e744d94604cb8d879"
+    },
+    {
+      "path": "src/MphRead/Mods/Network/ReplayLiveCaptureCheck.cs",
+      "previousSha256": "f302b28a6d6557869064f6cc9e89d18655899cf277cd225417cebe2bce4e0b8e",
+      "sha256": "8cd8f21f8935ece12ab31b06e89e9f4394beacfdb116c4ef29f48ecd42688755"
+    }
+  ],
+  "sourceSha256": {
+    "src/MphRead.Android/GameView.cs": "fc4c11977af7f73e39ca316f9d7b85dc59830ddc72ed41221a2f791939f206fd",
+    "src/MphRead/Entities/BeamProjectileEntity.cs": "616a2698c26b50667ed8872ed608c30b52a82e4ea9315436baace3c232d8599d",
+    "src/MphRead/Entities/ItemInstanceEntity.cs": "103a2f23d627b2010717d7977362ea491a179559e3e88f2c8962b4e736ded4ec",
+    "src/MphRead/Entities/ItemSpawnEntity.cs": "1b68222a4519a65531a669ea7129d8e661e910a275e214f792510924ce0c986f",
+    "src/MphRead/Entities/Players/PlayerEntity.cs": "316b0b75d6be28d5dfd9aa27bf51e09b4e74fd8d1f7b9c282d076b3106bbe426",
+    "src/MphRead/Entities/Players/PlayerInput.cs": "b4e88dfd9ff174b1a770585384af44786759a047e6999a7ceaa568b10e398c27",
+    "src/MphRead/Entities/Players/PlayerModeLoadouts.cs": "fd9afcfea08897ec54adc89715257b4508ef2e951c020e101a961f37f3cfd920",
+    "src/MphRead/Entities/Players/PlayerNetworkResources.cs": "40e8ea8ebf18da4ebd1c470b895ed9b0c21126ce8ebd76e252d77e031a4b1820",
+    "src/MphRead/Entities/Players/PlayerProcess.cs": "8752ddef5367ddb969ad0cb7bf9ca9552dc09b2e264460e94a497731835ac2f3",
+    "src/MphRead/Mods/EnhancedHunters/EnhancedHunterChecks.cs": "5be4e58dc0e54476dcda1fc29fc1e00e42b8af3326fa7565787e0d4c9e0a8266",
+    "src/MphRead/Mods/Launcher/Portable/GameFiles.cs": "384ccc2a3bb504d46f229638dbe73aa672b8f3941f01fa46846313c055726ce0",
+    "src/MphRead/Mods/Launcher/Portable/ServerBrowserService.cs": "e16db9847fabdc3d4fa5fa655a185cfd3a1536cde292f7a4faa76374fd59893d",
+    "src/MphRead/Mods/MapGen/Build/MapBuildScheduler.cs": "94215909b9b19cd593c027905b7e9f6432d89a7ffa238bf5cc2d08f65f159296",
+    "src/MphRead/Mods/MapGen/Build/MapDiskCache.cs": "6e8a1a00806fc4ce1d677da24719d190a5fe126cdfaa8099100bdff53ff49674",
+    "src/MphRead/Mods/MapGen/HostedMapTrust.cs": "da6416d6bc7e07718c78a117425368eb440caa00e1e4c4306cd7ab075be88aba",
+    "src/MphRead/Mods/MapGen/Packaging/MapFilePublication.cs": "fb0f3dc20e9ccec8e91c7a37f8ecc4d473f6938dea58ad974c0c3c2d8b6b28f1",
+    "src/MphRead/Mods/MapGen/Packaging/MapPackageInstaller.cs": "f08e03a533cf65e48d1820728a20f251664b9d64c6e1fe892110d79fd50e1212",
+    "src/MphRead/Mods/MapGen/Packaging/MapPublicationFileIdentity.cs": "4a6e6a67e35895cb0ef83861fe9c1ec096e66f76c29b3ed5d3f18e5d4bc61016",
+    "src/MphRead/Mods/MapGen/Sharing/MapCommunityClient.cs": "9bac8e7eae5c609490f107ae5cf194e41a4e9d6e8b4b140ecab0706cb3c3085b",
+    "src/MphRead/Mods/MatchEvents/MatchSemanticWireChecks.cs": "f0977c3f289b7c7d1728270d97928c8d4168d042a5e87e0b7ac3e6a00cd24063",
+    "src/MphRead/Mods/Network/AdvancedMatchRulesCheck.cs": "c42f2f39853e5ff6c27deb7a3bacad9eb99ea433badfb578c63fe7137d6f6169",
+    "src/MphRead/Mods/Network/CareerMatchStats.cs": "4f3994bd34f0c53e65967d44de3c0d8338d5bfb903bb44e725dff0e6b7c0d038",
+    "src/MphRead/Mods/Network/CareerReporting.cs": "aa1974333977bd8458bf93cdfdce5afbb90dc38c093048e380979d0c4f54cd2f",
+    "src/MphRead/Mods/Network/DedicatedServer.cs": "759d70f1c4057697929bfdc043c78045d64ef31a27af23efe31eef73bac383db",
+    "src/MphRead/Mods/Network/DedicatedServerPeerRoles.cs": "863fd84dd7a278d01dee9146e029045a4c77b1bdf07252d49110cd14e8edd75a",
+    "src/MphRead/Mods/Network/DedicatedServerStockMaps.cs": "27845e2d2c0156e264d082d2ead398fc78c3b924ab566db57adf343a628032a8",
+    "src/MphRead/Mods/Network/HostPool.cs": "127df6ab72ef4b8202637e5643e14424eb0fa394ccba6fcf57ed07f9c91e4862",
+    "src/MphRead/Mods/Network/HostedMapRequests.cs": "93ea54bec91db9975e5a24c38ababd39ccb3bff52e7869d44dc1373c0993ba6e",
+    "src/MphRead/Mods/Network/HostedPackageCache.cs": "225d3e89d6d073e084382d56266b0941225b576d10cc3b635b5a7f5286f19d28",
+    "src/MphRead/Mods/Network/HostedServerProcess.cs": "ad2196f4b9b154ac08ee53338ba56b65f1515705cc0242a406137893f4c98900",
+    "src/MphRead/Mods/Network/LagCompensationPolicy.cs": "61d9783c825feb92371484977a65a6b92b3725aac0c9924fd4b4d76d53360a9f",
+    "src/MphRead/Mods/Network/LobbyCommands.cs": "811a72be8dc09c4d9219cbc481aaa6ccdd89a479dbcd34dd292e9b2d5bdfee15",
+    "src/MphRead/Mods/Network/LobbyRules.cs": "1e091fc73db9b5ec635ae12da88c929e830d4b1f317503616b01566562426df6",
+    "src/MphRead/Mods/Network/LocalServer.cs": "bf287e006c78b5995dba98b8ac8197b7a19914a4e612b28f3d01376740183631",
+    "src/MphRead/Mods/Network/MapRotation.cs": "a8cf75a7c8f67a51893cb78e18508fd1f356ff44f2997b848406192ad0375362",
+    "src/MphRead/Mods/Network/MapSynchronization.cs": "4d540e667703b9188a88cb502edb9235f267660ad5215cd28d4237e9eb12e54e",
+    "src/MphRead/Mods/Network/NetAcceptedAttacks.cs": "c1c4016a75807d48c21f3d6ce8925da8f8966beb2a3161533581ea1b1872cb86",
+    "src/MphRead/Mods/Network/NetAcceptedFireContextCheck.cs": "0e883c627a161df48a4ec4c65d332b674d45697b96cbde6dc399714b56eaa909",
+    "src/MphRead/Mods/Network/NetAttackPaths.cs": "7c39689184c78421ff6c23164c959345071de80856e7abda154c86211c77c442",
+    "src/MphRead/Mods/Network/NetClaimLoadCheck.cs": "515ca5ab8f28c41559e68dd4962c6fc6921c57d5e185b1808357b73e69c4926e",
+    "src/MphRead/Mods/Network/NetClientSuspension.cs": "92644ee9409b129726e76e6a095a977ca44aac384ba546b0823793095b7a2b3e",
+    "src/MphRead/Mods/Network/NetCombatCheck.cs": "9632dd257c4a91373d8f94522fc30332c209755182088eac4ce7514410260517",
+    "src/MphRead/Mods/Network/NetContinuousTargeting.cs": "dfe18a526649c0f99725079a930f4eae0cceabe16c07b126cebe58f7bd492fa3",
+    "src/MphRead/Mods/Network/NetEightPeerBootstrapCheck.cs": "8a3caee0147d917fce8e17e623c38e4f05fe8b121427dbff87a2b42316707a79",
+    "src/MphRead/Mods/Network/NetFaultQueue.cs": "3efd419f8d3d47b84cba671cc4c96aca4f7edf3124f7659bc20df878b1aad2e5",
+    "src/MphRead/Mods/Network/NetFireEvents.cs": "6293cc30f85870097222bda3d1cf943779bfe7184993f32723dbf587ba35fb88",
+    "src/MphRead/Mods/Network/NetHitClaims.cs": "01646a40cafbc9245909a9e1201e70ed457ab2089e7ff97c7919595cf258e030",
+    "src/MphRead/Mods/Network/NetHooks.cs": "1adcd0923169a53c801a156785211364f2aa34aa5e234fc1356b1291d864ee60",
+    "src/MphRead/Mods/Network/NetHostSession.cs": "2c2ba7dcdbc4c00ca322984c4e1aa15cbcf90d4e75b1e865d77d2923a49f6f41",
+    "src/MphRead/Mods/Network/NetInputEdges.cs": "693dfc0626f3d6c054831859197c21eaa2a03e9e3904d91523f5bc8e56afe43f",
+    "src/MphRead/Mods/Network/NetLobbyTest.cs": "9401959b908f0431309a81807f4d3f8eb194f54bf11cae9e9f4e08604ae901a8",
+    "src/MphRead/Mods/Network/NetLobbyWaitlistTest.cs": "b645b762febad0b303cd28c69dc0aaadb817ddd6e4b35b40e44f1b3fd3d7c265",
+    "src/MphRead/Mods/Network/NetLoopbackCheck.cs": "5e644c2fefe700b78e1a54723c616da44fe1322693627f56cc6e9b8f53bda7d4",
+    "src/MphRead/Mods/Network/NetMaster.cs": "fbef8d05ee45c8f9fc047a4fed9415ce25c8cb3c9f14146131facbec0a5f9723",
+    "src/MphRead/Mods/Network/NetMovementCheck.cs": "d9042c79fbc51b4c51d4b11d9208d38b4d58ed34cf065eb458a62168204dff14",
+    "src/MphRead/Mods/Network/NetObjectiveSync.cs": "93e1672317540d7d18553fbb4507f91732a5990e4703985a72941cfe228f180b",
+    "src/MphRead/Mods/Network/NetPacketKindDiagnostics.cs": "448e242787cffc634ff13e57e451f48fe218147aecb3e551e54724ca042169be",
+    "src/MphRead/Mods/Network/NetPlayerLifecycle.cs": "f6f585f993fbd6be1ecb17a5d8a72c95e18bf46e3508be8f97b1613108ef0f52",
+    "src/MphRead/Mods/Network/NetProtocol.cs": "c8622a1266f138576f66e99f04497a28eccdf2b8367e237b180fae4b362f9c4d",
+    "src/MphRead/Mods/Network/NetReliableChannel.cs": "e3609f3c372ce92ab5e05a215c79dee1daa10bcaa3e0432a9961b5689ce5a418",
+    "src/MphRead/Mods/Network/NetReplicationLanes.cs": "4648e5a8ed26b77fb9c88acb98f4f46a9cf4d7742bd66044d2f6e2ac8caad2a9",
+    "src/MphRead/Mods/Network/NetResourcesCheck.cs": "78b54aa186cb42f4018912dd210690be07d556d8745cbe9ea0d718d93f59bce4",
+    "src/MphRead/Mods/Network/NetSession.cs": "1782a0948243318a83c1aca60ad1d1b001cbd463f4bb1bed15e47d2b996f3743",
+    "src/MphRead/Mods/Network/NetSessionLobby.cs": "b19949efb10f0b4752a5fa390070f50adfd317fb6caeab9ba1d075c6a6aa0e20",
+    "src/MphRead/Mods/Network/NetSlotManager.cs": "4615a30b618c87fce629f62b0c2c37d87c297a608b42077983462b3b9494a964",
+    "src/MphRead/Mods/Network/NetSmoothing.cs": "e4982bdf6bcebca039e94d7d572f92700e4c2ce4f33f7b0993a04ed033f40060",
+    "src/MphRead/Mods/Network/NetStatus.cs": "d081af821f86fefcc0a2d5612e114b109025028c478482bb52eaa18c9d6ad24f",
+    "src/MphRead/Mods/Network/NetTransport.cs": "4eccbbe61c4db61ea3ad02edd994f1c5818a97abe0536cb0d7addaf66df93d8e",
+    "src/MphRead/Mods/Network/NetUnlagged.cs": "7936f0138abdee12f2c0e6c47345191c773a444298e2292f52b52318c144797d",
+    "src/MphRead/Mods/Network/NetworkAuthorityPolicyCheck.cs": "b302760858e17ffa356887255668e3d23422bb34aa308583109db6427d2a5681",
+    "src/MphRead/Mods/Network/NetworkLifecycleCheck.cs": "3d1c07dec149806a4cdd430870fc65605c9eac7e9cb1e8d42827414b4adf083b",
+    "src/MphRead/Mods/Network/NetworkMapIdentity.cs": "a4bc22d68d882737c6efd77c7429b0225dc5a660f54f8a7252885fd4582520dc",
+    "src/MphRead/Mods/Network/OwnedServerControl.cs": "ad99eb46d8b6ce7f80e5376e1aefa6b13fbaa7715051fe0392a3b11cdcc9624f",
+    "src/MphRead/Mods/Network/PlayerEntityNetAim.cs": "939ec0590a895622e0ee614264dc5a680e62c897c6c9b03e744d94604cb8d879",
+    "src/MphRead/Mods/Network/PlayerReplicationBridge.cs": "36cdcd9b58e25585727e1da03316a1f4917f96c957fb207e69bf83aac637c064",
+    "src/MphRead/Mods/Network/ReplayAuthorityCaptureScratch.cs": "6f465691959b5f476215606f775527991dee0a777de465f3b3ea20ee9cfc08b8",
+    "src/MphRead/Mods/Network/ReplayAuthorityChecks.cs": "ccbab4ee8a4d22ebf2dd0473c9842f9848d77b3b08bbeef6fef285d1538d4f01",
+    "src/MphRead/Mods/Network/ReplayAuthorityWorld.cs": "3a0ca4b8eb22de406e9bbe533cd0d1ffaeb3f659f5ba951be77b1029d7997050",
+    "src/MphRead/Mods/Network/ReplayCapture.cs": "5f73e14cc3d2a06d7f548038e4e7145c2dda28c62f769431713504e70a5cabfa",
+    "src/MphRead/Mods/Network/ReplayFormatV3.cs": "f60314ee75c66eb6a45daff1c4cba5b01a8bd617e8241df448b5486b73893193",
+    "src/MphRead/Mods/Network/ReplayIdentityCompatibility.cs": "10a48be6c998b90c703cde1deba62dd6714160a45e25c51bda020acf1eb1ed39",
+    "src/MphRead/Mods/Network/ReplayLiveCaptureCheck.cs": "8cd8f21f8935ece12ab31b06e89e9f4394beacfdb116c4ef29f48ecd42688755",
+    "src/MphRead/Mods/Network/ReplayLiveWorld.cs": "20d0a8bbd437a6d7ffcc8e54bf52ee29c6bc6b07191a958945d07cece4a417b5",
+    "src/MphRead/Mods/Network/ReplayPerformanceChecks.cs": "4ae9268dc0a09c24de448529e447ad6d577e8ab5e3d354fbb451f3d116eb9c23",
+    "src/MphRead/Mods/Network/ReplayReplicaCheckpoint.cs": "0bca8ce5093c7462a90e46718181ecc76eba50d927f7ec53ed9acb6da197d6fd",
+    "src/MphRead/Mods/Network/ReplayReplicaState.cs": "cab25f369b619a40608a8bba2d9dae18bb51aec5bf568c57d0e7b7cb0f649347",
+    "src/MphRead/Mods/Network/ReplayTimeline/ReplayRecorder.cs": "21ed3f47b53a017044f0dabc1a35b29c9df66e0189af2aa7492c4fed1ee23d29",
+    "src/MphRead/Mods/Network/ReplayTimelineArchive.cs": "badb64355e990a0fce2eb2536721de053738c7256780faadeaba2f265f9f117c",
+    "src/MphRead/Mods/Network/ServerAssetPreflight.cs": "4d9c919075766b3b0a77b41b321eeb8adfba5b0e0abc086232387bb0540c8fd3",
+    "src/MphRead/Mods/Network/ServerBotSlot.cs": "87c68546c0d3adfde5b995c1ca7481e0cc37af94f72f091f7d5c8539f08332de",
+    "src/MphRead/Mods/Network/ServerLoopDiagnostics.cs": "44da80dfc52568660852db4fb9648c2b82c16570ba076fd13c972d959ecd0cf3",
+    "src/MphRead/Mods/Network/ServerReplayRecorder.cs": "fa006892683147067c6e005599eb07abc2fb19932756cc9560fc5166223fdabf",
+    "src/MphRead/Mods/Network/ServerSim.cs": "6ab688a2d47b2ddfa4872fd2458959bd30866293fb64ec60a5ca9bfeb04bbf75",
+    "src/MphRead/Mods/Network/SessionProtocol.cs": "ee16e11e2584b38c1dc7ee626e294a8891f57a8e764dd3e0f8a729de7a96847c",
+    "src/MphRead/Mods/Network/StockGameplayIdentity.cs": "22007f6450070bf3a0d18e9a950cb493e193fac6b84f5171f5e7afb2c48cd969",
+    "src/MphRead/Mods/Network/WorldBootstrapObjectives.cs": "7baab6fdbbaf5bf7ed71748e49cb4ed9a697c3c2b063bd21dac1b84151464671",
+    "src/MphRead/Mods/RespawnChoice.cs": "2e14594ed36091182d00f823774c0dd04bbe9be4ab8a05af87e4ca8dd5c4661d",
+    "src/MphRead/Mods/ShutdownSignals.cs": "b7ecb7df89917ea498f95f6179d0340177ca56bfd47b9c1dbc8430ab356129c0",
+    "src/MphRead/Renderer.cs": "0aea88db847158eadd87b63a777e32330bacec93124209675d6a474a8ed8485d",
+    "src/MphRead/SceneServices.cs": "2e3b04d614f585071de8c8292f6a55566bb5662315670b8639c10ff0517f92a0",
+    "src/MphRead/Sound/Music.cs": "db17992b1325026aa082859957c5dbecbb95f72defee0a8399cbb2818f407785",
+    "src/MphRead/Sound/Sfx.cs": "248be6de1adc902ce8349123c24db4114a967a6f5760c1a6b685c3804b9d65ca",
+    "tools/dedicated_smoke.py": "86d639b9f99ea14ddbde1037686513efedd27c183065a489321c23b52f9e1890",
+    "tools/hitrig/run-networking-slices.py": "50e921dac8e3beabb10468b741399dc520e0e2a04884fb21180e9aa4887f3a96",
+    "tools/map-editor-check/Program.cs": "2e9a7a7b27681ac6498255a2727b4064a33ad9f2b5acee8c418c3b001cf05989",
+    "tools/maps-career-check/MapsCareerCheck.csproj": "c73d734f876f52987aa4c9ba54fe6b5573a778ed0b424541824d6367e6ebd8eb",
+    "tools/maps-career-check/Program.cs": "8b179d6448d685d4051ddf062960731fa5a9ff69b9309cc227aa5207fc6732d2",
+    "tools/nettest/ClaimStressTests.cs": "bdb27888f1968456d51f13430c7579afcc35c1629b9945b15771888a78dab81b",
+    "tools/nettest/ContinuousTargetTests.cs": "8af4bb906aabaa4cc54d118075df2a56bb9691608d6b594138e529356dcc5e64",
+    "tools/nettest/LifecycleTests.cs": "c308a78843b035e2f31f91c32ab25a825c4750ce177bfcfa6dd3f948757e1053",
+    "tools/nettest/LoadLifecycleTests.cs": "7c232cf8a9550441a98a48173d4430179453d83406953597c6233165f79e7d38",
+    "tools/nettest/NetArchitectureTests.cs": "388f4202f442a49ecc53316b8938366b1831f27fc926d82edd5c046f1cf9d91d",
+    "tools/nettest/NetcodePerformanceTests.cs": "5b1a63a9f53f483c7af2428ee144f52367786e860a26fd40c90a0f95a93a4b13",
+    "tools/nettest/NetworkAllocationTests.cs": "0836a46d1c032c1a6b42187178f1d31a61b63f5ce3e596071bdd3caea0da878d",
+    "tools/nettest/NetworkBenchmark.cs": "1fe9680a1647ac4659af7111d9c87e2763a08eaaafd121a7b46e052e622ecfca",
+    "tools/nettest/Program.cs": "6802bfa36568ecd7d34b0d6446618b6c0f1fe7c9383e8d83e9a3c62b1bd86b53",
+    "tools/nettest/Protocol17Tests.cs": "4f8f177efff57628b6991944a5bf0b54f16ac20343a6c12c7788942e4243b0a9",
+    "tools/nettest/Protocol18Tests.cs": "48e7424f38ccb8723226f560150d2e984686db92bb9b371f6448948e070c6a7e",
+    "tools/nettest/Protocol19Tests.cs": "f6c0235a1bbb960d2a811af620f96a950f5542e6a77b51b5df665bd6dfaff2da",
+    "tools/nettest/ReplayProtocol42Tests.cs": "bd0ca8ed865aa817be0cc207a170e2ee229a2c9f80fddd8012da5d1c346833d7",
+    "tools/nettest/ServerEngineeringTests.cs": "51bef1b396a1c95656474c899622c00efd2d1070b29361297bf061f6a739baaf",
+    "tools/nettest/TransportLifecycleTests.cs": "9d67cec9adcd1a0b9d18f9f09a31098944e846eedd176db255bd4e894f3849be",
+    "tools/nettest/TransportStressTests.cs": "25403a05b21d1519ef0100237351a01d572596a84ac152866df39041e83cf709"
+  },
+  "serverBuild": "39 warnings / 0 errors; 27.97 seconds",
+  "graphicalBuild": "104 warnings / 0 errors; 42.04 seconds",
+  "sdk": "10.0.401 /tmp/project-prime-dotnet10/dotnet",
+  "runtime": "10.0.12",
+  "coverageNote": "The original full 54-mode run passed 53 and exposed an EOF assumption in the replay fixture. Six affected modes passed after native landing-camera bounds and fixture repairs. A later eight-peer load exposed actual bootstrap staging and reliable fragment size bugs; six affected modes then passed on the final runtime, including native eight-peer bootstrap and maximum-layout checks. Unchanged modes retain historical artifact provenance. Current compiled source hashes match the final manifest; this is composed coverage, not one final-runtime execution of all 56 modes.",
+  "artifactStages": {
+    "v7 full54 matrix": {
+      "productSha256": "953f7ccd39f296d71056651166839aa428cf58508e0b4c8c215494915c000a13",
+      "passed": 53,
+      "failed": 1
+    },
+    "final three-file batch followup": {
+      "productSha256": "e4de18aee2440589170f0b3975dea91be3b290f5af4efa324a8277e58ad51674",
+      "modes": [
+        "health-shots",
+        "replay-protocol42",
+        "authority-combat",
+        "combat-scene",
+        "accepted-fire-context",
+        "replaylivecheck"
+      ],
+      "allPassed": true
+    },
+    "final runtime bootstrap/reliable prefix batch": {
+      "productSha256": "c02f45851b00ed02925b37f8075aeccc3e47fc8ab5d476c00834fd47a668be83",
+      "modes": [
+        "transport-lifecycle",
+        "network-lifecycle",
+        "server-engineering",
+        "bootstrap-Battle",
+        "eight-peer-bootstrap",
+        "enhanced-hunters"
+      ],
+      "allPassed": true
+    }
+  },
+  "sourceDeltaAfterBootstrapStage": [
+    {
+      "path": "src/MphRead/Mods/EnhancedHunters/EnhancedHunterChecks.cs",
+      "previousSha256": null,
+      "sha256": "5be4e58dc0e54476dcda1fc29fc1e00e42b8af3326fa7565787e0d4c9e0a8266"
+    },
+    {
+      "path": "src/MphRead/Mods/Network/NetEightPeerBootstrapCheck.cs",
+      "previousSha256": "1f292c204481c4714089267106db4ba9b11d8ffb11be27a981475267a679ebb8",
+      "sha256": "8a3caee0147d917fce8e17e623c38e4f05fe8b121427dbff87a2b42316707a79"
+    },
+    {
+      "path": "src/MphRead/Mods/Network/NetReliableChannel.cs",
+      "previousSha256": "f148e2a90e558c1f77759704cd06cfc017f4c2647e5702981fd3dbb50179e338",
+      "sha256": "e3609f3c372ce92ab5e05a215c79dee1daa10bcaa3e0432a9961b5689ce5a418"
+    },
+    {
+      "path": "src/MphRead/Mods/Network/WorldBootstrapObjectives.cs",
+      "previousSha256": null,
+      "sha256": "7baab6fdbbaf5bf7ed71748e49cb4ed9a697c3c2b063bd21dac1b84151464671"
+    },
+    {
+      "path": "tools/nettest/TransportLifecycleTests.cs",
+      "previousSha256": "eeffb2a2bc8d455f0f7861900f711c15307a8fabea7e99e8bfd692277692d053",
+      "sha256": "9d67cec9adcd1a0b9d18f9f09a31098944e846eedd176db255bd4e894f3849be"
+    }
+  ],
+  "buildBaseCommit": "5f531ad4",
+  "compiledSourceState": "Final runtime built before the capacity followup commit; every compiled source hash matches the subsequently committed 7b8b5d4e source. Historical stages retain their own runtime provenance."
+}
