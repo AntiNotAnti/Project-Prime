@@ -50,6 +50,7 @@ Deno.serve(async (req: Request) => {
     activity?: string;
     room_key?: string | null;
     joinable?: boolean;
+    lobby_id?: string | null;
     presence_visibility?: string;
     activity_visibility?: string;
     invite_policy?: string;
@@ -82,6 +83,7 @@ Deno.serve(async (req: Request) => {
   let activity = "";
   let roomKey: string | null = null;
   let joinable = false;
+  let lobbyId: string | null = null;
   if (action === "heartbeat") {
     activity = typeof body.activity === "string" ? body.activity.trim() : "";
     if (!activities.has(activity)) return json(400, { error: "invalid_activity" });
@@ -92,6 +94,12 @@ Deno.serve(async (req: Request) => {
       roomKey = body.room_key.trim() || null;
     }
     joinable = body.joinable === true;
+    if (body.lobby_id !== undefined && body.lobby_id !== null) {
+      if (typeof body.lobby_id !== "string" || !uuidPattern.test(body.lobby_id.trim())) {
+        return json(400, { error: "invalid_lobby_id" });
+      }
+      lobbyId = body.lobby_id.trim();
+    }
   }
 
   let presence = "";
@@ -142,7 +150,8 @@ Deno.serve(async (req: Request) => {
           ${sessionId}::uuid,
           ${activity},
           ${roomKey},
-          ${joinable}
+          ${joinable},
+          ${lobbyId}::uuid
         ) as value
       `;
       const snapshot = rows[0]?.value;
