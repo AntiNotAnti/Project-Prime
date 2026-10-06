@@ -163,6 +163,7 @@ namespace MphRead.Mods.Launcher.Gui
                 LifecycleTiming.Startup("RmlUi proof requested; Avalonia surface deferred");
             }
             LauncherPrefs.Load();
+            SocialPresenceClient.Start();
             LifecycleTiming.Startup("launcher preferences loaded");
             Interlocked.Exchange(ref _firstFrameStarted, 0);
             // The backdrop is GL's from here on: this is the one head with a
@@ -247,6 +248,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _startupWork = null;
                 _deferredCustomRoomsPending = null;
                 _deferredCustomRoomsToken = default;
+                SocialPresenceClient.Stop();
                 Active = false;
                 OfflineRematch.StartNext = null;
                 _window = null;
