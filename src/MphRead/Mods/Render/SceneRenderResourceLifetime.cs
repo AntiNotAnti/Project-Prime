@@ -61,6 +61,7 @@ public partial class Scene
         _replayOutputFramebuffer = _replayOutputTexture = 0;
         _replayOutputSize = default;
         _celFrameBuffer = _celFrameBufferColor = _frameBuffer = _renderBuffer = 0;
+        _celSourceFrameBuffer = _celSourceFrameBufferColor = _celSourceFrameBufferDepth = 0;
         _screenTexture = _celTexture = _depthTexture = 0;
         _shaderProgramId = _rttShaderProgramId = _shiftShaderProgramId = _celShaderProgramId = 0;
         _playerOutlineFramebuffer = _playerOutlineTexture = _playerOutlineProgram = 0;
