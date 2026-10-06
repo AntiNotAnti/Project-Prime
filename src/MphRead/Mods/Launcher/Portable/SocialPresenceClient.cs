@@ -17,7 +17,7 @@ namespace MphRead.Mods.Launcher
     /// forty-five seconds, so crashes and lost networks heal without requiring
     /// a perfect logout packet.
     /// </summary>
-    internal static class SocialPresenceClient
+    public static class SocialPresenceClient
     {
         private static readonly object Sync = new();
         private static readonly TimeSpan HeartbeatInterval = TimeSpan.FromSeconds(15);
@@ -35,14 +35,14 @@ namespace MphRead.Mods.Launcher
         /// Raised on the presence worker thread. UI consumers must marshal to
         /// their own dispatcher.
         /// </summary>
-        public static event Action<SocialPresenceSnapshot>? Changed;
+        internal static event Action<SocialPresenceSnapshot>? Changed;
 
-        public static SocialPresenceSnapshot Current
+        internal static SocialPresenceSnapshot Current
         {
             get { lock (Sync) return _current; }
         }
 
-        public static bool Running
+        internal static bool Running
         {
             get { lock (Sync) return _lifetime != null; }
         }
@@ -89,13 +89,13 @@ namespace MphRead.Mods.Launcher
         public static void Suspend() => Stop();
         public static void Resume() => Start();
 
-        public static void NotifyPrivacyChanged()
+        internal static void NotifyPrivacyChanged()
         {
             Interlocked.Exchange(ref _privacyDirty, 1);
             Interlocked.Exchange(ref _forceRefresh, 1);
         }
 
-        public static void RefreshNow()
+        internal static void RefreshNow()
             => Interlocked.Exchange(ref _forceRefresh, 1);
 
         private static async Task RunAsync(
@@ -411,9 +411,9 @@ namespace MphRead.Mods.Launcher
             InvitePolicy.ToLowerInvariant());
 
         public static bool operator ==(SocialPrivacySettings? left, SocialPrivacySettings? right)
-            => Equals(left, right);
+            => Object.Equals(left, right);
         public static bool operator !=(SocialPrivacySettings? left, SocialPrivacySettings? right)
-            => !Equals(left, right);
+            => !Object.Equals(left, right);
     }
 
     internal sealed class SocialOnlinePlayer
