@@ -679,6 +679,15 @@ namespace MphRead.Mods.Launcher.Gui
             _detailMetaMotion = PrimeMotion.Enter(_detailMeta, 3, 0.13);
         }
 
+        internal Task JoinVerifiedSocialLobbyAsync(string host, int port)
+        {
+            _address.Value = port == NetConfig.DefaultPort
+                ? host
+                : $"{host}:{port.ToString(CultureInfo.InvariantCulture)}";
+            _summary.Text = "JOINING VERIFIED SOCIAL LOBBY";
+            return JoinAsync();
+        }
+
         private async Task JoinAsync(bool spectate = false)
         {
             if (CanLaunch?.Invoke() == false) return;
