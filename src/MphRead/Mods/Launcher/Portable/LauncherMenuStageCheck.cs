@@ -37,6 +37,9 @@ namespace MphRead.Mods.Launcher
                     $"{room} Hunter stage rectangle is valid");
                 Check(p.HunterDistanceScale is >= 0.65f and <= 1.25f,
                     $"{room} Hunter camera distance is safe");
+                Check(p.HunterBackdropHaze is >= 0f and <= 0.55f
+                    && p.ForegroundHaze is >= 0f and <= 0.12f,
+                    $"{room} Hunter depth haze is bounded");
                 Check((p.Visibility & MenuStageVisibility.Default) == MenuStageVisibility.Default,
                     $"{room} suppresses gameplay-only presentation");
             }
@@ -45,6 +48,11 @@ namespace MphRead.Mods.Launcher
             string oldRoom = LauncherBackdrop.RoomKey;
             try
             {
+                LauncherBackdrop.Set(LauncherBackdropScene.Multiplayer, "MP3 PROVING GROUND");
+                MenuStageProfile proving = LauncherMenuStage.Current;
+                Check(proving.FocusX < 0.47f && proving.FocusY > 0.44f,
+                    "Proving Ground framing leads toward the Hunter instead of crossing the torso");
+
                 LauncherBackdrop.Set(LauncherBackdropScene.Adventure, "UNIT1 ALINOS LANDFALL");
                 MenuStageProfile adventure = LauncherMenuStage.Current;
                 Check(adventure.Atmosphere >= LauncherMenuStage.ForRoom("UNIT1 ALINOS LANDFALL").Atmosphere,
