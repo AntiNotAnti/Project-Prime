@@ -43,6 +43,7 @@ namespace MphRead.Mods.Network
 
         private readonly List<Hosted> _hosted = new();
         private readonly Dictionary<int, double> _cooling = new();
+        private readonly HostedRequestCache _requests = new();
         private int _first;
         private int _last = -1;
 
@@ -87,6 +88,11 @@ namespace MphRead.Mods.Network
         /// Start a match for somebody, and say where it is listening.
         /// </summary>
         public HostReplyPacket Start(HostRequestPacket request, IPEndPoint asker, double now, HostedMapPreparation? hostedMaps = null)
+            => _requests.GetOrStart(request, asker, now,
+                () => StartOnce(request, asker, now, hostedMaps));
+
+        private HostReplyPacket StartOnce(HostRequestPacket request, IPEndPoint asker,
+            double now, HostedMapPreparation? hostedMaps)
         {
             // A child can die between regular server-loop reaps and this
             // request. Drop those dead reservations before choosing a port so

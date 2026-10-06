@@ -2434,7 +2434,13 @@ namespace MphRead.Entities
             UpdateCamera();
         }
 
-        private void SpawnBomb()
+        internal bool ModSpawnAcceptedBomb(Vector3 sourcePosition, bool doubleDamage, uint sourceGroup)
+        {
+            if (!ModCanAuthorBomb || _bombAmmo == 0 && !(Hunter == Hunter.Sylux && SyluxBombCount >= 3)) return false;
+            return SpawnBomb(sourcePosition, doubleDamage, sourceGroup);
+        }
+
+        private bool SpawnBomb(Vector3? sourcePosition = null, bool? doubleDamage = null, uint sourceGroup = 0)
         {
             if (!_scene.Services.IsReplica) Mods.Network.NetDamage.BombSpawnCalls++;
             // todo?: wi-fi condition and alternate function for spawning Lockjaw bombs
@@ -2442,7 +2448,8 @@ namespace MphRead.Entities
             if (Hunter == Hunter.Kanden)
             {
                 Matrix4 segMtx = _kandenSegMtx[4];
-                transform = GetTransformMatrix(segMtx.Row2.Xyz, segMtx.Row1.Xyz, _kandenSegPos[4]);
+                transform = GetTransformMatrix(segMtx.Row2.Xyz, segMtx.Row1.Xyz,
+                    _kandenSegPos[4] + (sourcePosition.HasValue ? sourcePosition.Value - Position : Vector3.Zero));
             }
             else
             {
@@ -2471,12 +2478,12 @@ namespace MphRead.Entities
                     if (detonated)
                     {
                         if (!_scene.Services.IsReplica) Mods.Network.NetDamage.BombSpawnDetonated++;
-                        return;
+                        return true;
                     }
                     if (!_scene.Services.IsReplica) Mods.Network.NetDamage.BombSpawnStaleCount++;
                     SyluxBombCount = 0;
                 }
-                transform = GetTransformMatrix(Vector3.UnitZ, Vector3.UnitY, Position.AddY(Fixed.ToFloat(-1000)));
+                transform = GetTransformMatrix(Vector3.UnitZ, Vector3.UnitY, (sourcePosition ?? Position).AddY(Fixed.ToFloat(-1000)));
             }
             var bomb = BombEntity.Spawn(this, transform, _scene);
             if (bomb == null)
@@ -2516,7 +2523,7 @@ namespace MphRead.Entities
                         bomb.Damage = bomb.EnemyDamage = (ushort)(Hunter == Hunter.Kanden ? 8 : 6);
                     }
                 }
-                if (_doubleDmgTimer > 0)
+                if (doubleDamage ?? _doubleDmgTimer > 0)
                 {
                     bomb.Damage *= 2;
                     bomb.EnemyDamage *= 2;
@@ -2526,6 +2533,7 @@ namespace MphRead.Entities
                     _bombRefillTimer = (ushort)(Values.BombRefillTime * 2); // todo: FPS stuff
                 }
                 _bombAmmo--;
+                NetAcceptedAttacks.BombLaunched(this, bomb, sourceGroup);
                 // BombCooldown is copied from the native player table as a packed/raw
                 // integer. Stock behavior has always narrowed the doubled value to
                 // ushort when it reaches _bombCooldown. Kanden's table entry is
@@ -2555,6 +2563,7 @@ namespace MphRead.Entities
                 }
                 bomb.PlaySpawnSfx();
             }
+            return bomb != null;
         }
 
         private void EndAltAttack()

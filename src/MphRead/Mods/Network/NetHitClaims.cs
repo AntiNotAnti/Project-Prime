@@ -671,6 +671,7 @@ namespace MphRead.Mods.Network
         {
             public Telemetry.NetTelemetryEvent RescueStudy;
             public uint ContinuousPhase;
+            public uint SourceFrame;
             public ushort MatchId;
             public ulong AuthorityEpoch;
             public ushort ShooterGeneration;
@@ -700,6 +701,7 @@ namespace MphRead.Mods.Network
             /// </summary>
             public int Grace;
             public bool Live;
+            public bool RequireAttackEvidence;
         }
 
         private static readonly Pending[] _pending = new Pending[PendingCapacity];
@@ -1230,7 +1232,7 @@ namespace MphRead.Mods.Network
             return true;
         }
 
-        public static void Receive(int shooterSlot, ReadOnlySpan<byte> payload)
+        public static void Receive(int shooterSlot, ReadOnlySpan<byte> payload, bool requireAttackEvidence = true)
         {
             if (!Arbitrating || shooterSlot < 0 || shooterSlot >= Slots || payload.Length < 1)
             {
@@ -1279,13 +1281,13 @@ namespace MphRead.Mods.Network
                 NetShotDiagnostics.Claims[NetShotDiagnostics.Bucket((BeamType)claim.Beam)]++;
                 Remember(shooterSlot, claim.ClaimId, ResultPending);
                 _seenOutcomes[shooterSlot, claimAt] = new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot, VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId };
-                byte immediate = Judge(shooterSlot, claim);
+                byte immediate = Judge(shooterSlot, claim, requireAttackEvidence);
                 if (immediate != HitVerdictPacket.ResultApplied)
                 {
                     Answer(shooterSlot, claim.ClaimId, immediate);
                     continue;
                 }
-                Park(shooterSlot, claim);
+                Park(shooterSlot, claim, requireAttackEvidence);
             }
         }
 
@@ -1325,11 +1327,11 @@ namespace MphRead.Mods.Network
         /// the claim says the hit landed.</item>
         /// </list>
         ///
-        /// The last is the one that makes the whole thing safe. A claim can
-        /// only ever rescue a shot the authority's own record agrees was
-        /// there to be taken.
+        /// These are admission checks, not attack proof. Production claims also
+        /// require a resource/cadence-backed accepted attack and the declared
+        /// historical body to intersect its native path or contact volume.
         /// </summary>
-        private static byte Judge(int shooterSlot, in HitClaimPacket claim)
+        private static byte Judge(int shooterSlot, in HitClaimPacket claim, bool requireAttackEvidence)
         {
             int victimSlot = claim.VictimSlot;
             if (Telemetry.ProductionTelemetry.Enabled)
@@ -1374,8 +1376,9 @@ namespace MphRead.Mods.Network
                 return HitVerdictPacket.ResultImpulseLimit;
             }
             // Where the authority itself had the victim, at the frame the
-            // shooter was looking at. This is the claim's only evidence and
-            // the authority's own record of it.
+            // shooter was looking at. This lifecycle/proximity admission check
+            // is followed by independent accepted attack and native geometry
+            // proof before a production claim can apply damage.
             bool turretClaim = (claim.Flags & HitClaimPacket.FlagHalfturret) != 0;
             bool historicalAvailable = turretClaim
                 ? NetUnlagged.TryHistoricalHalfturretPosition(victimSlot, claim.AckFrame,
@@ -1390,6 +1393,12 @@ namespace MphRead.Mods.Network
                 TooOldHere++;
                 return HitVerdictPacket.ResultTooOld;
             }
+            // Protocol41 prediction reports the player's Position even for
+            // turret damage. Keep that payload compatible while the independent
+            // attack proof must intersect the explicitly declared turret body.
+            if (requireAttackEvidence && turretClaim
+                && NetUnlagged.PositionAt(victimSlot, claim.AckFrame, claim.VictimGeneration,
+                    claim.VictimLifeId, out Vector3 ownerPosition)) was = ownerPosition;
             if (!WithinClaimRadius(was, claim.HitPoint, claim.Beam))
             {
                 Vector3 offset = claim.HitPoint - was;
@@ -1401,7 +1410,9 @@ namespace MphRead.Mods.Network
             }
             PlayerEntity shooter = PlayerEntity.Players[shooterSlot];
             if (shooter.OwningScene.GameState.OneInTheChamber && claim.Beam == (byte)BeamType.Imperialist
-                && !shooter.KnowsChamberShot(claim.ShotId)) return HitVerdictPacket.ResultInvalidLaunch;
+                && !shooter.KnowsChamberShot(claim.ShotId)
+                && !(requireAttackEvidence && NetAcceptedAttacks.Authorized(shooterSlot, claim.ShotId)))
+                return HitVerdictPacket.ResultInvalidLaunch;
             PlayerEntity victim = PlayerEntity.Players[victimSlot];
             if (!victim.LoadFlags.TestFlag(LoadFlags.Active) || !victim.ModIsInPlay)
             {
@@ -1587,7 +1598,8 @@ namespace MphRead.Mods.Network
             ApplyingClaimAck = entry.AckFrame;
             ApplyingClaimLaunch = entry.LaunchFrame;
             ApplyingClaimShotId = entry.ShotId;
-            ApplyingClaimHitPoint = entry.HitPoint;
+            ApplyingClaimHitPoint = entry.RequireAttackEvidence
+                ? NetAcceptedAttacks.LastResolvedImpact : entry.HitPoint;
             ApplyingClaimFlags = entry.Flags;
             _applyingContinuousPhase = entry.ContinuousPhase;
             try
@@ -1617,7 +1629,7 @@ namespace MphRead.Mods.Network
                 + $"added={applied}");
         }
 
-        private static void Park(int shooterSlot, in HitClaimPacket claim)
+        private static void Park(int shooterSlot, in HitClaimPacket claim, bool requireAttackEvidence)
         {
             int index = -1;
             int start = shooterSlot * PendingPerShooter;
@@ -1646,6 +1658,8 @@ namespace MphRead.Mods.Network
                         LagCompensationPolicy.Evaluate(shooterSlot, NetSession.NetFrame, claim.AckFrame, 0, 0), 2)
                     : default,
                 MatchId = claim.MatchId,
+                RequireAttackEvidence = requireAttackEvidence,
+                SourceFrame = claim.Frame,
                 AuthorityEpoch = claim.AuthorityEpoch,
                 ShooterGeneration = claim.ShooterGeneration,
                 ShooterLifeId = claim.ShooterLifeId,
@@ -1812,16 +1826,22 @@ namespace MphRead.Mods.Network
                         continue;
                     }
                     int resolved;
-                    if (entry.ContinuousPhase != 0
+                    bool evidence = !entry.RequireAttackEvidence
+                        || NetAcceptedAttacks.ValidateClaim(entry.ShooterSlot, ClaimFor(entry));
+                    bool trustedAnonymousPair = entry.Beam == HitClaimPacket.NoBeam
+                        && (entry.Flags & HitClaimPacket.FlagHeadshot) == 0;
+                    if ((evidence || trustedAnonymousPair) && (entry.ContinuousPhase != 0
                         ? TakeContinuousLedger(entry.ShooterSlot, entry.VictimSlot, entry.ContinuousPhase, out resolved)
                         : TakeLedger(entry.ShooterSlot, entry.VictimSlot, entry.AckFrame,
-                            entry.LaunchFrame, entry.Arrived, entry.Grace, out resolved, entry.ShotId))
+                            entry.LaunchFrame, entry.Arrived, entry.Grace, out resolved, entry.ShotId)))
                     {
                         // A validated Imperialist headshot can pair with the
                         // authority's body hit when the two rewinds differ by
                         // only the narrow head band. "Duplicate" used to throw
                         // away the missing 128 damage and leave the target
                         // alive after the shooter had been told HEADSHOT.
+                        if (entry.RequireAttackEvidence)
+                            NetAcceptedAttacks.ConsumeClaim(entry.ShooterSlot, ClaimFor(entry));
                         ReconcileImperialistHeadshot(ref entry, resolved);
                         DeactivatePending(ref entry);
                         DuplicateHere++;
@@ -1938,6 +1958,18 @@ namespace MphRead.Mods.Network
         /// goes through, so the damage sequence, the scoreboard, the death and
         /// the snapshot that carries all three are the ones that already work.
         /// </summary>
+        private static HitClaimPacket ClaimFor(in Pending entry) => new()
+        {
+            MatchId = entry.MatchId, AuthorityEpoch = entry.AuthorityEpoch,
+            ShooterGeneration = entry.ShooterGeneration, ShooterLifeId = entry.ShooterLifeId,
+            VictimGeneration = entry.VictimGeneration, VictimLifeId = entry.VictimLifeId,
+            ClaimId = entry.Id, VictimSlot = entry.VictimSlot, Beam = entry.Beam,
+            Damage = entry.Damage, Flags = entry.Flags, AckFrame = entry.AckFrame,
+            LaunchFrame = entry.LaunchFrame, ShotId = entry.ShotId,
+            HitPoint = entry.HitPoint, Direction = entry.Direction,
+            Frame = entry.ContinuousPhase != 0 ? entry.ContinuousPhase : entry.SourceFrame
+        };
+
         private static void ApplyOne(ref Pending entry)
         {
             int victimSlot = entry.VictimSlot;
@@ -1983,6 +2015,12 @@ namespace MphRead.Mods.Network
                 Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultClaimCapacity);
                 return;
             }
+            if (entry.RequireAttackEvidence && !NetAcceptedAttacks.ConsumeClaim(shooterSlot, ClaimFor(entry)))
+            {
+                RefusedHere++;
+                Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultInvalidLaunch);
+                return;
+            }
             DamageFlags flags = DamageFlags.NoDmgInvuln;
             if ((entry.Flags & HitClaimPacket.FlagHalfturret) != 0)
             {
@@ -2005,7 +2043,8 @@ namespace MphRead.Mods.Network
             ApplyingClaimAck = entry.AckFrame;
             ApplyingClaimLaunch = entry.LaunchFrame;
             ApplyingClaimShotId = entry.ShotId;
-            ApplyingClaimHitPoint = entry.HitPoint;
+            ApplyingClaimHitPoint = entry.RequireAttackEvidence
+                ? NetAcceptedAttacks.LastResolvedImpact : entry.HitPoint;
             ApplyingClaimFlags = entry.Flags;
             _applyingContinuousPhase = entry.ContinuousPhase;
             bool lethal = victim.Health <= entry.Damage;
@@ -2024,7 +2063,8 @@ namespace MphRead.Mods.Network
             // It is bounded against the named weapon in Judge before reaching
             // here. Zero remains null so non-knockback hits retain the damage
             // indicator's existing attacker-position fallback.
-            Vector3? impact = entry.Direction == Vector3.Zero ? null : entry.Direction;
+            Vector3 claimDirection = entry.RequireAttackEvidence ? NetAcceptedAttacks.LastResolvedDirection : entry.Direction;
+            Vector3? impact = claimDirection == Vector3.Zero ? null : claimDirection;
             try
             {
                 using (new NetDamage.ClaimScope(entry.Beam == HitClaimPacket.NoBeam
@@ -2056,7 +2096,7 @@ namespace MphRead.Mods.Network
                 }
                 if ((entry.Flags & HitClaimPacket.FlagBurning) != 0)
                 {
-                    victim.ModSetBurning(true);
+                    victim.ModSetClaimBurning(shooter);
                 }
                 if ((entry.Flags & HitClaimPacket.FlagDisrupted) != 0)
                 {

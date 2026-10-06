@@ -68,6 +68,8 @@ public static class NetAltHitCheck
             }
             var weavel = PlayerEntity.Players[6];
             weavel.ModForceForm(true);
+            // Forced form bypasses EnterAltForm's detached-turret flag.
+            weavel.ModRestoreHalfturretFlag();
             weavel.ModPlaceAt(new Vector3(30, 5, 10));
             weavel.Halfturret.Health = 37;
             Vector3 historicalTurret = weavel.Halfturret.Position;
@@ -128,12 +130,18 @@ public static class NetAltHitCheck
             shooter.ModSetShotState(0, 0, doubleDamage: false, boostActive: false);
 
             victim.Health = 199;
+            // Authority powerups come from native world state, never the
+            // remote intent's double-damage bit.
+            typeof(PlayerEntity).GetField("_doubleDmgTimer", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .SetValue(shooter, (ushort)120);
             shooter.ModSetShotState(0, shooter.Values.AltAttackDamage, doubleDamage: true, boostActive: true);
             shooter.ModApplyReportedBoostState(fresh: true);
             exactHealth = victim.Health;
             shooter.ModApplyContactHit(victim, ContactAttackKind.Boost);
             Check(exactHealth - victim.Health == shooter.Values.AltAttackDamage * 2,
                 "full boost receives Double Damage exactly once");
+            typeof(PlayerEntity).GetField("_doubleDmgTimer", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .SetValue(shooter, (ushort)0);
             shooter.ModSetShotState(0, 0, doubleDamage: false, boostActive: false);
 
             shooter.ModSetShotState(0, shooter.Values.AltAttackDamage, doubleDamage: false, boostActive: true);
@@ -191,6 +199,9 @@ public static class NetAltHitCheck
             Check(victim.Health == health && NetContactLagComp.HistoryUnavailable > unavailable,
                 "actual delayed contact cannot cross victim respawn");
             NetSession.RemoteIntentValid[0] = false;
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags1))!.SetValue(shooter,
+                shooter.Flags1 & ~PlayerFlags1.Boosting);
+            shooter.ModPlaceAt(new Vector3(100, 5, 10));
 
             // Noxus regression: exercise the actual authority resolver, not only the
             // standalone radial geometry helper. PR #98 moved network player contact
@@ -201,7 +212,9 @@ public static class NetAltHitCheck
                 BindingFlags.NonPublic | BindingFlags.Instance)!;
             noxus.ModForceForm(true); victim.ModForceForm(false);
             noxus.ModPlaceAt(new Vector3(0, 5, 10)); victim.ModPlaceAt(new Vector3(1, 5, 10));
+            victim.ModPlaceAt(victim.Position.AddY(noxus.Volume.SpherePosition.Y - victim.Volume.SpherePosition.Y));
             noxus.Health = victim.Health = 199;
+            victim.ModSetSpawnProtectionFromAuthority(false);
             typeof(PlayerEntity).GetField("_spawnInvulnTimer", BindingFlags.NonPublic | BindingFlags.Instance)!
                 .SetValue(victim, (ushort)0);
             noxusAttackTime.SetValue(noxus, (ushort)(noxus.Values.AltAttackStartup * 2));
@@ -213,11 +226,12 @@ public static class NetAltHitCheck
             health = victim.Health;
             NetContactLagComp.ResolveFrame();
             Check(victim.Health < health && Convert.ToUInt16(noxusAttackTime.GetValue(noxus)) == 0,
-                "authority applies Noxus spin damage and consumes attack");
+                $"authority applies Noxus spin damage and consumes attack: health={health}/{victim.Health}, time={noxusAttackTime.GetValue(noxus)}");
 
             // If the requested ACK frame is absent from the ring entirely, retain the
             // pre-lag-comp live-authority behavior instead of manufacturing a miss.
             noxus.ModPlaceAt(new Vector3(0, 5, 10)); victim.ModPlaceAt(new Vector3(1, 5, 10));
+            victim.ModPlaceAt(victim.Position.AddY(noxus.Volume.SpherePosition.Y - victim.Volume.SpherePosition.Y));
             noxusAttackTime.SetValue(noxus, (ushort)(noxus.Values.AltAttackStartup * 2));
             typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(noxus,
                 noxus.Flags2 | PlayerFlags2.AltAttack);
@@ -225,10 +239,14 @@ public static class NetAltHitCheck
             NetSession.RemoteIntentValid[noxus.SlotIndex] = true;
             NetSession.RemoteIntents[noxus.SlotIndex] = new IntentPacket { AckFrame = 335 };
             long noxusFallbacks = NetContactLagComp.HistoryFallbacks;
+            int eligibleNoxusVictims = 0;
+            foreach (var player in PlayerEntity.Players)
+                if (player != noxus && player.LoadFlags.TestFlag(LoadFlags.Active)
+                    && player.ModIsInPlay && !player.Flags2.TestFlag(PlayerFlags2.Spectating)) eligibleNoxusVictims++;
             health = victim.Health;
             NetContactLagComp.ResolveFrame();
-            Check(victim.Health < health && NetContactLagComp.HistoryFallbacks == noxusFallbacks + 1,
-                "Noxus missing history falls back to original live authority contact");
+            Check(victim.Health < health && NetContactLagComp.HistoryFallbacks == noxusFallbacks + eligibleNoxusVictims,
+                $"Noxus missing history falls back to original live authority contact: health={health}/{victim.Health}, fallbacks={NetContactLagComp.HistoryFallbacks - noxusFallbacks}/{eligibleNoxusVictims}");
 
             // A recorded frame that refuses the current victim is not a missing sample:
             // it is a lifecycle fence. Never use the live fallback across respawn.
@@ -236,9 +254,11 @@ public static class NetAltHitCheck
             NetUnlagged.Record(350);
             victim.Spawn(victim.Position, Vector3.UnitZ, Vector3.UnitY, victim.NodeRef, respawn: true);
             victim.Health = 199;
+            victim.ModSetSpawnProtectionFromAuthority(false);
             typeof(PlayerEntity).GetField("_spawnInvulnTimer", BindingFlags.NonPublic | BindingFlags.Instance)!
                 .SetValue(victim, (ushort)0);
             noxus.ModPlaceAt(new Vector3(0, 5, 10)); victim.ModPlaceAt(new Vector3(1, 5, 10));
+            victim.ModPlaceAt(victim.Position.AddY(noxus.Volume.SpherePosition.Y - victim.Volume.SpherePosition.Y));
             noxusAttackTime.SetValue(noxus, (ushort)(noxus.Values.AltAttackStartup * 2));
             typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(noxus,
                 noxus.Flags2 | PlayerFlags2.AltAttack);
@@ -270,7 +290,7 @@ public static class NetAltHitCheck
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine($"ALT SCENE FAIL {ex}"); return 1; }
-        finally { sim.Stop(); }
+        finally { sim.Stop(); NetSession.Stop(); }
     }
     private readonly record struct Probe(uint Frame, HistoricalPlayerPose Pose, Vector3 Start, Vector3 End,
         bool Visible, HistoricalAltAttackState Attack, bool ContactVisible);

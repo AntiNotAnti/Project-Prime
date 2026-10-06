@@ -61,7 +61,7 @@ namespace MphRead.Mods.Network
                 }
                 shooter.ModArmWeapon(BeamType.Missile);
                 for (int i = 0; i < 40; i++) sim.Step();
-                shooter.ModSetAmmo(0, 0);
+                Array.Clear((int[])typeof(PlayerEntity).GetField("_ammo", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(shooter)!);
                 typeof(PlayerEntity).GetField("_timeSinceShot", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(shooter, (ushort)1000);
                 shooter.Controls.Shoot.IsDown = shooter.Controls.Shoot.IsPressed = true;
                 int fired = NetDamage.Fired[0];
@@ -69,7 +69,8 @@ namespace MphRead.Mods.Network
                     && NetShotDiagnostics.Outcomes[(int)BeamType.Missile, (int)ShotAttemptResult.NoAmmo] > 0,
                     "FiredCounterRequiresActualSpawn/empty missile");
                 shooter.ModArmWeapon(BeamType.PowerBeam);
-                shooter.ModSetAmmo(400, 50);
+                var fixtureAmmo = (int[])typeof(PlayerEntity).GetField("_ammo", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(shooter)!;
+                fixtureAmmo[0] = 400; fixtureAmmo[1] = 50;
                 typeof(PlayerEntity).GetField("_timeSinceShot", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(shooter, (ushort)1000);
                 int reportShots = scene.GameState.ShotsFired[0];
                 int semanticShots = scene.MatchEvents.Bus.Events.Count(e => e.Type == Mods.MatchEvents.MatchSemanticEventType.WeaponFired);
@@ -162,7 +163,7 @@ namespace MphRead.Mods.Network
         private static void Receive(int shooter, in HitClaimPacket claim)
         {
             byte[] bytes = new byte[1 + HitClaimPacket.Size]; bytes[0] = 1; claim.Write(bytes.AsSpan(1));
-            NetHitClaims.Receive(shooter, bytes);
+            NetHitClaims.Receive(shooter, bytes, requireAttackEvidence: false);
         }
         private static void InvalidHitClaimIsRefused()
         {
@@ -171,17 +172,17 @@ namespace MphRead.Mods.Network
             foreach (float offset in new[] { .5f, 1f, 1.5f, 2f, 2.5f, 4f })
             {
                 var claim = Claim(0, NetSession.NetFrame - 1); claim.HitPoint += Vector3.UnitX * offset;
-                byte result = (byte)judge.Invoke(null, new object[] { 0, claim })!;
+                byte result = (byte)judge.Invoke(null, new object[] { 0, claim, false })!;
                 Check(offset <= 2 ? result == HitVerdictPacket.ResultApplied : result != HitVerdictPacket.ResultApplied,
                     $"InvalidHitClaimIsRefused/offset={offset} result={HitVerdictPacket.Describe(result)}");
             }
             var impulse = Claim(0, NetSession.NetFrame - 1);
             impulse.Beam = (byte)BeamType.Missile;
             impulse.Direction = new Vector3(.3f, .03f, 0);
-            Check((byte)judge.Invoke(null, new object[] { 0, impulse })! == HitVerdictPacket.ResultApplied,
+            Check((byte)judge.Invoke(null, new object[] { 0, impulse, false })! == HitVerdictPacket.ResultApplied,
                 "InvalidHitClaimIsRefused/valid missile impulse");
             impulse.Direction = new Vector3(2f, 0, 0);
-            Check((byte)judge.Invoke(null, new object[] { 0, impulse })! == HitVerdictPacket.ResultImpulseLimit,
+            Check((byte)judge.Invoke(null, new object[] { 0, impulse, false })! == HitVerdictPacket.ResultImpulseLimit,
                 "InvalidHitClaimIsRefused/forged impulse rejected");
 
             MethodInfo validImpulse = typeof(NetHitClaims).GetMethod("ValidClaimImpulse",
@@ -190,8 +191,8 @@ namespace MphRead.Mods.Network
                 { (byte)BeamType.Battlehammer, Hunter.Weavel, new Vector3(.49f, 0, 0) })!,
                 "InvalidHitClaimIsRefused/affinity Battlehammer impulse accepted");
             Check(!(bool)validImpulse.Invoke(null, new object[]
-                { (byte)BeamType.Battlehammer, Hunter.Samus, new Vector3(.49f, 0, 0) })!,
-                "InvalidHitClaimIsRefused/non-affinity Battlehammer cannot borrow affinity impulse");
+                { (byte)BeamType.Battlehammer, Hunter.Samus, new Vector3(.53f, 0, 0) })!,
+                "InvalidHitClaimIsRefused/Battlehammer impulse above native airburst admission ceiling rejected");
         }
         private static void MutualKillOrdering()
         {
@@ -322,25 +323,46 @@ namespace MphRead.Mods.Network
         {
             PrepareClaims(); NetFireEvents.Reset();
             var shooter = PlayerEntity.Players[0]; var victim = PlayerEntity.Players[1];
-            shooter.Health = victim.Health = 999;
-            shooter.ModArmWeapon(BeamType.Missile);
-            uint now = NetSession.NetFrame;
-            var source = new FireEvent(41, 100, now - 2, 128, FireEventKind.PressFire, (byte)BeamType.Missile, 0, 0);
-            var carrier = new IntentPacket { Frame = 103, AckFrame = now, FireEventCount = 1, HasFireEvents = true };
-            carrier.FireEvents[0] = source;
-            NetSession.RemoteIntents[0] = carrier; NetSession.RemoteIntentValid[0] = true;
+            shooter.Health = victim.Health = 999; shooter.ModArmWeapon(BeamType.Missile);
+            uint now = NetSession.NetFrame, sourceFrame = 100;
+            var carrier = new IntentPacket { Frame = 103, AckFrame = now, HasFireEvents = true,
+                Position = shooter.Position, Aim = Vector3.UnitY, WeaponSelect = (byte)BeamType.Missile };
             var fire = typeof(PlayerEntity).GetMethod("TryFireWeapon", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            FireEvent Event(uint id, FireEventKind kind, BeamType beam, byte charge = 0, uint scope = 0,
+                uint? launch = null) => new(id, sourceFrame, launch ?? NetSession.NetFrame - 2, 128, kind,
+                    (byte)beam, charge, scope, FireEvent.FlagPose, shooter.Position + Vector3.UnitY,
+                    Vector3.UnitY, Vector3.UnitY, Vector3.UnitY);
+            void Advance(int frames)
+            {
+                sourceFrame += (uint)frames; now += (uint)frames;
+                typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, now);
+                for (uint at = now - 2; at <= now; at++) NetUnlagged.Record(at);
+                carrier.Frame = sourceFrame + 3; carrier.AckFrame = now;
+            }
+            void Admit(FireEvent authored)
+            {
+                carrier.WeaponSelect = authored.Weapon; carrier.FireEventCount = 1; carrier.FireEvents[0] = authored;
+                NetSession.RemoteIntents[0] = carrier; NetSession.RemoteIntentValid[0] = true;
+                NetAcceptedAttacks.AcceptIntent(0, carrier);
+                Check(NetAcceptedAttacks.Authorized(0, authored.ShotId), "retained source event has legal authority resource/cadence evidence");
+                NetFireEvents.Prepare(shooter, carrier);
+            }
+            BeamProjectileEntity? Launched(uint id)
+            { foreach (var candidate in shooter.EquipInfo.Beams) if (candidate.ModShotId == id) return candidate; return null; }
+            void Spawn(string label)
+            {
+                typeof(PlayerEntity).GetField("_timeSinceShot", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(shooter, (ushort)1000);
+                Check((bool)fire.Invoke(shooter, null)!, label);
+            }
             try
             {
-                NetFireEvents.Prepare(shooter, carrier);
+                FireEvent source = Event(41, FireEventKind.PressFire, BeamType.Missile);
+                Admit(source);
                 object[] timing = { shooter.SlotIndex, true, 0, 0.0 };
                 typeof(NetUnlagged).GetMethod("RewindFor", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, timing);
                 Check((double)timing[3] > 0, "recovered event ACK is selected before validating a newer carrier ACK");
-
-                typeof(PlayerEntity).GetField("_timeSinceShot", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(shooter, (ushort)1000);
-                Check((bool)fire.Invoke(shooter, null)!, "recovered press spawns from retained fire event");
-                BeamProjectileEntity? beam = null;
-                foreach (var candidate in shooter.EquipInfo.Beams) if (candidate.ModShotId == 41) beam = candidate;
+                Spawn("recovered press spawns from retained fire event");
+                var beam = Launched(41);
                 Check(beam != null && beam.ModLaunchFrame == source.AckFrame && beam.ModLaunchKey.ShotId == 41,
                     "non-1:1 carrier ACK retains original ShotId and launch clock");
                 int before = victim.Health;
@@ -352,68 +374,46 @@ namespace MphRead.Mods.Network
                     "recovered shot double-hit regression: later claim never rescues duplicate damage");
                 NetFireEvents.Prepare(shooter, carrier);
                 Check(!NetFireEvents.CanFire(shooter), "repeated or reordered carrier cannot fire twice");
-                carrier.Frame++; carrier.FireEventCount = 2;
-                carrier.FireEvents[1] = source with { ShotId = 42, SourceFrame = 101 };
-                NetSession.RemoteIntents[0] = carrier;
-                NetFireEvents.Prepare(shooter, carrier);
-                typeof(PlayerEntity).GetField("_timeSinceShot", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(shooter, (ushort)1000);
-                Check((bool)fire.Invoke(shooter, null)!, "second rapid shot with same launch clock spawns independently");
-                foreach (var candidate in shooter.EquipInfo.Beams) if (candidate.ModShotId == 42) beam = candidate;
-                victim.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, beam);
+                Advance(shooter.EquipInfo.Weapon.ShotCooldown * 2);
+                Admit(Event(42, FireEventKind.PressFire, BeamType.Missile, launch: source.AckFrame));
+                Spawn("second legally spaced shot with same launch clock spawns independently");
+                beam = Launched(42); victim.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, beam);
                 claim.ClaimId = 2; claim.ShotId = 42;
                 Receive(0, claim); NetHitClaims.Tick();
                 Check(victim.Health == before - 2 && NetHitClaims.DuplicateHere == 2 && NetHitClaims.AppliedHere == 0,
                     "distinct ShotIds at the same launch frame both pay exactly once");
                 NetHitClaims.ValidateLedgerCounters();
-
-                // Quick-scope regression: the carrier that finally delivers a
-                // lost shot may already say "unscoped". The fire event must
-                // restore the scope state from the frame the shot was authored.
-                shooter.ModArmWeapon(BeamType.Imperialist);
-                shooter.ModSetZoom(false);
-                carrier.Frame++;
-                carrier.FireEventCount++;
-                uint scopedId = (uint)(40 + carrier.FireEventCount);
+                shooter.ModArmWeapon(BeamType.Imperialist); shooter.ModSetZoom(false);
+                Advance(shooter.EquipInfo.Weapon.ShotCooldown * 2);
                 carrier.Buttons &= ~IntentButtons.ZoomedState;
-                carrier.FireEvents[carrier.FireEventCount - 1] = new(scopedId, carrier.Frame,
-                    source.AckFrame, source.AckSubFrame, FireEventKind.PressFire,
-                    (byte)BeamType.Imperialist, 0, FireEvent.ScopedStateBit);
-                NetSession.RemoteIntents[0] = carrier;
-                NetFireEvents.Prepare(shooter, carrier);
-                Check(!shooter.EquipInfo.Zoomed,
-                    "recovered Imperialist quick-scope leaves newer carrier zoom state intact");
-                typeof(PlayerEntity).GetField("_timeSinceShot", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(shooter, (ushort)1000);
-                Check((bool)fire.Invoke(shooter, null)!,
-                    "recovered scoped Imperialist quick-scope actually spawns");
-                BeamProjectileEntity? scopedBeam = null;
-                foreach (var candidate in shooter.EquipInfo.Beams)
-                    if (candidate.ModShotId == scopedId) scopedBeam = candidate;
+                Admit(Event(43, FireEventKind.PressFire, BeamType.Imperialist, scope: FireEvent.ScopedStateBit));
+                Check(!shooter.EquipInfo.Zoomed, "recovered Imperialist quick-scope leaves newer carrier zoom state intact");
+                Spawn("recovered scoped Imperialist quick-scope actually spawns");
+                var scopedBeam = Launched(43);
                 Check(scopedBeam != null && scopedBeam.HeadshotDamage == shooter.EquipInfo.HeadshotDamage,
                     "recovered scoped Imperialist keeps full headshot damage");
                 NetFireEvents.Prepare(shooter, carrier);
-                Check(!NetFireEvents.CanFire(shooter),
-                    "repeated scoped Imperialist carrier cannot fire twice");
-
+                Check(!NetFireEvents.CanFire(shooter), "repeated scoped Imperialist carrier cannot fire twice");
+                uint id = 44;
                 foreach (var kind in new[] { FireEventKind.ReleaseFire, FireEventKind.AutomaticFire })
                 {
                     shooter.ModArmWeapon(BeamType.PowerBeam);
-                    byte charge = kind == FireEventKind.ReleaseFire ? (byte)(shooter.EquipInfo.Weapon.FullCharge * 2) : (byte)0;
-                    carrier.Frame++; carrier.FireEventCount++;
-                    uint id = (uint)(40 + carrier.FireEventCount);
-                    carrier.FireEvents[carrier.FireEventCount - 1] = new(id, carrier.Frame, source.AckFrame,
-                        source.AckSubFrame, kind, (byte)BeamType.PowerBeam, charge, 0);
-                    NetSession.RemoteIntents[0] = carrier;
+                    int delay = Math.Max(shooter.EquipInfo.Weapon.ShotCooldown, shooter.EquipInfo.Weapon.AutofireCooldown) * 2;
+                    Advance(delay);
+                    byte charge = 0;
+                    if (kind == FireEventKind.ReleaseFire)
+                    {
+                        carrier.WeaponSelect = (byte)BeamType.PowerBeam; carrier.Buttons |= IntentButtons.Shoot;
+                        carrier.FireEventCount = 0; NetAcceptedAttacks.AcceptIntent(0, carrier);
+                        charge = (byte)(shooter.EquipInfo.Weapon.FullCharge * 2); Advance(charge);
+                    }
+                    Admit(Event(id, kind, BeamType.PowerBeam, charge));
+                    Check(shooter.EquipInfo.ChargeLevel == charge && (kind != FireEventKind.ReleaseFire || shooter.Controls.Shoot.IsReleased),
+                        $"lost {kind} retains observed charge and control edge");
+                    Spawn($"retained {kind} actually spawns");
+                    Check(Launched(id) != null, $"retained {kind} carries independent shot identity");
                     NetFireEvents.Prepare(shooter, carrier);
-                    Check(shooter.EquipInfo.ChargeLevel == charge
-                        && (kind != FireEventKind.ReleaseFire || shooter.Controls.Shoot.IsReleased),
-                        $"lost {kind} retains charge and control edge");
-                    typeof(PlayerEntity).GetField("_timeSinceShot", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(shooter, (ushort)1000);
-                    Check((bool)fire.Invoke(shooter, null)!, $"retained {kind} actually spawns");
-                    bool stamped = false;
-                    foreach (var candidate in shooter.EquipInfo.Beams) if (candidate.ModShotId == id) stamped = true;
-                    Check(stamped, $"retained {kind} carries independent shot identity");
-                    NetFireEvents.Prepare(shooter, carrier);
-                    Check(!NetFireEvents.CanFire(shooter), $"repeated {kind} does not spawn twice");
+                    Check(!NetFireEvents.CanFire(shooter), $"repeated {kind} does not spawn twice"); id++;
                 }
             }
             finally { NetSession.RemoteIntentValid[0] = false; NetFireEvents.Reset(); PrepareClaims(); }

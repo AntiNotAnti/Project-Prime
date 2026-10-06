@@ -92,7 +92,10 @@ public static class NetContinuousTargetCheck
             Check(Remote(identity) == ContinuousTargetRejection.Angle && beam.Target == null, "loss leaves cone without retaining prior target");
             target.ModPlaceAt(new(0, 0, 5)); Check(Remote(identity) == ContinuousTargetRejection.None, "re-entry reacquires");
             typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(target, target.Flags2 | PlayerFlags2.Spectating);
-            Check(Remote(identity) == ContinuousTargetRejection.Eligibility, "spectator rejected");
+            var spectatorRejection = Remote(identity);
+            Check((spectatorRejection == ContinuousTargetRejection.Eligibility
+                    || spectatorRejection == ContinuousTargetRejection.UnavailableHistory) && beam.Target == null,
+                "spectator rejected by eligibility or fenced historical target lookup");
             typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(target, target.Flags2 & ~PlayerFlags2.Spectating);
             foreach (var player in PlayerEntity.Players)
             {

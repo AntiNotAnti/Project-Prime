@@ -31,6 +31,11 @@ namespace MphRead.Entities
         public uint ModLaunchFrame { get; set; }
         public uint ModShotId { get; set; }
         public ShotKey ModLaunchKey { get; internal set; }
+        // Detached claim witnesses distinguish actual native pellets/children
+        // and accumulate real simulation/catch-up travel rather than ACK age.
+        internal uint ModWitnessComponent { get; private set; }
+        internal uint ModClaimTravelFrames { get; private set; }
+        private static int _nextWitnessComponent;
 
         // Replay impact reconciliation is presentation-only. It never changes
         // projectile collision/lifespan, so checkpoint/RNG/gameplay state stays
@@ -287,6 +292,7 @@ namespace MphRead.Entities
                 }
                 return false;
             }
+            if (ModClaimTravelFrames < uint.MaxValue) ModClaimTravelFrames++;
             Age += _scene.FrameTime;
             BackPosition = Position;
             // the game does this every other frame at 30 fps and keeps 5 past positions; we do it every other frame at 60 fps and keep 10,
@@ -627,6 +633,10 @@ namespace MphRead.Entities
                 }
             }
             NetContinuousTargetDiagnostics.CollisionWinner(this, colWith, minDist);
+            // Keep the native winning boundary, before impact/ricochet mutates
+            // Position or reuses a projectile pool slot. This is claim evidence,
+            // not another simulation or a damage decision.
+            NetAttackPaths.Segment(this, minDist >= 0 && minDist <= 1 ? anyRes.Position : Position);
             if (minDist >= 0 && minDist <= 1)
             {
                 float amt = Fixed.ToFloat(204);
@@ -1127,6 +1137,9 @@ namespace MphRead.Entities
                 Debug.Assert(Owner != null);
                 // note: when hitting halfturret, colWith has been replaced with the turret's owning player by this point
                 Vector3 splashOrigin = ModSplashOrigin(_scene, Beam, Position, colRes.Position);
+                int excludedVictim = colWith is PlayerEntity hitPlayer ? hitPlayer.SlotIndex
+                    : colWith is HalfturretEntity hitTurret ? hitTurret.Owner.SlotIndex : -1;
+                NetAttackPaths.Splash(this, splashOrigin, excludedVictim);
                 CheckSplashDamage(colWith, splashOrigin);
                 if (RicochetWeapon != null && (colWith == null || colWith.Type != EntityType.Player))
                 {
@@ -1260,7 +1273,7 @@ namespace MphRead.Entities
             }
         }
 
-        private float GetInterpolatedValue(int type, float value1, float value2, float ratio)
+        internal static float GetInterpolatedValue(int type, float value1, float value2, float ratio)
         {
             if (type == 3)
             {
@@ -1684,7 +1697,14 @@ namespace MphRead.Entities
             bool freshContinuousTick = true;
             if (weapon.Flags.TestFlag(WeaponFlags.Continuous) && owner is PlayerEntity firingPlayer)
             {
-                if (scene.Services.IsReplica
+                if (parent == null && NetFireEvents.TryAcceptedContinuousPhase(firingPlayer, out ulong acceptedPhase,
+                    out bool acceptedFresh))
+                {
+                    phase = acceptedPhase;
+                    sharedPhase = true;
+                    freshContinuousTick = acceptedFresh;
+                }
+                else if (scene.Services.IsReplica
                     && NetFireEvents.TryTiming(firingPlayer, out FireEvent replayFire)
                     && replayFire.Kind == FireEventKind.ContinuousTick)
                 {
@@ -1749,6 +1769,7 @@ namespace MphRead.Entities
                     }
                 }
             }
+            uint inheritedTravel = parent?.ModClaimTravelFrames ?? 0;
             int projectiles = (int)GetAmount(weapon.Projectiles, weapon.MinChargeProjectiles, weapon.ChargedProjectiles);
             if (projectiles <= 0)
             {
@@ -1866,9 +1887,9 @@ namespace MphRead.Entities
             }
             if (Features.HalfDamageUnscoped && weapon.Beam == BeamType.Imperialist && !scopedImperialist)
             {
-                // Vanilla Imperialist: firing without the scope halves both
-                // ordinary and headshot damage. Zoomed shots keep the weapon's
-                // full values regardless of how far the camera FOV has blended.
+                // The optional unscoped penalty applies to ordinary and head
+                // damage. Shot-time scope, rather than the newer carrier or
+                // camera FOV blend, controls both native values.
                 damage /= 2;
                 hsDamage /= 2;
             }
@@ -2048,6 +2069,14 @@ namespace MphRead.Entities
                 beam.Flags = flags;
                 beam.NodeRef = nodeRef;
                 beam.Age = 0;
+                beam.ModClaimTravelFrames = inheritedTravel;
+                uint component = 0;
+                if (!scene.Services.IsReplica && NetSession.IsAuthority)
+                {
+                    component = unchecked((uint)System.Threading.Interlocked.Increment(ref _nextWitnessComponent));
+                    if (component == 0) component = unchecked((uint)System.Threading.Interlocked.Increment(ref _nextWitnessComponent));
+                }
+                beam.ModWitnessComponent = component;
                 beam.InitialSpeed = beam.Speed = speed;
                 beam.FinalSpeed = finalSpeed;
                 beam.SpeedDecayTime = speedDecayTime;
@@ -2497,6 +2526,7 @@ namespace MphRead.Entities
                 : weapon.MinChargeSpread + ((weapon.ChargedSpread - weapon.MinChargeSpread) * chargePct);
             angle /= 4096f;
             Debug.Assert(angle == 60);
+            NetAttackPaths.IceWave(this, angle);
             CheckIceWaveCollision(angle);
             Mods.EnhancedHunters.EnhancedHunterProjectiles.IceWaveFloor(this);
             Vector3 up = Direction;
@@ -2602,7 +2632,7 @@ namespace MphRead.Entities
                 angleCos, shadowFreeze: true);
         }
 
-        private static bool ModIceWaveContains(Vector3 origin, Vector3 direction, Vector3 up,
+        internal static bool ModIceWaveContains(Vector3 origin, Vector3 direction, Vector3 up,
             float maxDistance, Vector3 target, float angleCos, bool shadowFreeze)
         {
             Vector3 full = target - origin;
@@ -2624,18 +2654,20 @@ namespace MphRead.Entities
         }
 
         private Vector3 GetDamageDirection(Vector3 beamPos, Vector3 targetPos)
+            => ModDamageDirection(DamageDirType, DamageDirMag, Velocity, beamPos, targetPos);
+        internal static Vector3 ModDamageDirection(byte type, float magnitude, Vector3 velocity, Vector3 beamPos, Vector3 targetPos)
         {
-            if (DamageDirType == 1)
+            if (type == 1)
             {
                 // multiply velocity (or unit Y if not moving) by magnitude -- unused?
                 Vector3 direction = Vector3.UnitY;
-                if (Velocity != Vector3.Zero)
+                if (velocity != Vector3.Zero)
                 {
-                    direction = Velocity.Normalized();
+                    direction = velocity.Normalized();
                 }
-                return direction * DamageDirMag;
+                return direction * magnitude;
             }
-            if (DamageDirType == 2)
+            if (type == 2)
             {
                 // normalize vector between, halve Y, minimum 0.03 Y (or 0.03 Y if not moving), multiply by magnitude
                 Vector3 direction = targetPos - beamPos;
@@ -2652,23 +2684,23 @@ namespace MphRead.Entities
                 {
                     direction = new Vector3(0, 0.03f, 0);
                 }
-                return direction * DamageDirMag;
+                return direction * magnitude;
             }
-            if (DamageDirType == 3)
+            if (type == 3)
             {
                 // normalize horizontal vector between, multiply by magnitude
                 Vector3 direction = (targetPos - beamPos).WithY(0);
                 if (direction != Vector3.Zero)
                 {
                     direction = direction.Normalized();
-                    direction *= DamageDirMag;
+                    direction *= magnitude;
                 }
                 return direction;
             }
-            if (DamageDirType == 4)
+            if (type == 4)
             {
                 //unit Y multiplied by magnitude -- unused?
-                return new Vector3(0, DamageDirMag, 0);
+                return new Vector3(0, magnitude, 0);
             }
             return Vector3.Zero;
         }

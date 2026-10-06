@@ -84,6 +84,11 @@ namespace MphRead.Mods.Network
         private IPEndPoint? _endPoint;
         private double _lastBeat = Double.NegativeInfinity;
         private double _lastResolve = Double.NegativeInfinity;
+        private readonly CancellationTokenSource _resolveCancellation = new();
+        private readonly Func<string, CancellationToken, Task<IPAddress[]>> _resolveAddresses;
+        private Task<IPAddress[]>? _resolution;
+        private bool _disposed;
+        private readonly byte[] _datagram = new byte[1 + MasterHeartbeatPacket.Size];
         private bool _complained;
         private readonly byte[] _scratch = new byte[MasterHeartbeatPacket.Size];
 
@@ -91,7 +96,12 @@ namespace MphRead.Mods.Network
         {
             _host = host;
             _port = port;
+            _resolveAddresses = (name, cancel) => Dns.GetHostAddressesAsync(name, cancel);
         }
+
+        internal MasterReporter(string host, int port,
+            Func<string, CancellationToken, Task<IPAddress[]>> resolver) : this(host, port)
+            => _resolveAddresses = resolver;
 
         /// <summary>
         /// Where this one reports, so another can be made pointing at the same
@@ -109,14 +119,16 @@ namespace MphRead.Mods.Network
         public void Beat(double now, string serverName, ushort port, byte players,
             byte maxPlayers, byte mode, string roomKey)
         {
+            if (_disposed) return;
+            try { Resolve(now); } // Poll detached DNS even between heartbeat deadlines.
+            catch (Exception ex) { Complain(ex.Message); }
             if (now - _lastBeat < NetMasterConfig.HeartbeatSeconds)
             {
                 return;
             }
-            _lastBeat = now;
             try
             {
-                if (!Resolve(now))
+                if (_endPoint == null)
                 {
                     return;
                 }
@@ -131,10 +143,10 @@ namespace MphRead.Mods.Network
                     RoomKey = roomKey
                 };
                 beat.Write(_scratch);
-                var datagram = new byte[1 + MasterHeartbeatPacket.Size];
-                datagram[0] = (byte)PacketType.MasterHeartbeat;
-                _scratch.CopyTo(datagram, 1);
-                _socket!.Send(datagram, datagram.Length, _endPoint);
+                _datagram[0] = (byte)PacketType.MasterHeartbeat;
+                _scratch.CopyTo(_datagram, 1);
+                _socket!.Send(_datagram, _datagram.Length, _endPoint);
+                _lastBeat = now;
             }
             catch (Exception ex)
             {
@@ -186,25 +198,47 @@ namespace MphRead.Mods.Network
         /// can change. An hour is far more often than that happens and far
         /// less often than it would cost anything.
         /// </summary>
-        private bool Resolve(double now)
+        private void Resolve(double now)
         {
-            if (_endPoint != null && now - _lastResolve < 3600)
+            if (_resolution?.IsCompleted == true)
             {
-                return true;
+                Task<IPAddress[]> resolution = _resolution;
+                _resolution = null;
+                try
+                {
+                    IPAddress? ipv4 = Array.Find(resolution.GetAwaiter().GetResult(),
+                        a => a.AddressFamily == AddressFamily.InterNetwork);
+                    if (ipv4 == null) Complain($"{_host} has no IPv4 address");
+                    else
+                    {
+                        _endPoint = new IPEndPoint(ipv4, _port);
+                        _socket ??= new UdpClient(AddressFamily.InterNetwork);
+                        _complained = false;
+                    }
+                }
+                catch (Exception ex) { Complain(ex.Message); }
             }
-            IPAddress[] addresses = Dns.GetHostAddresses(_host);
-            IPAddress? ipv4 = Array.Find(addresses,
-                a => a.AddressFamily == AddressFamily.InterNetwork);
-            if (ipv4 == null)
-            {
-                Complain($"{_host} has no IPv4 address");
-                return false;
-            }
+            double retry = _endPoint == null ? NetMasterConfig.HeartbeatSeconds : 3600;
+            if (_resolution != null || now - _lastResolve < retry) return;
             _lastResolve = now;
-            _endPoint = new IPEndPoint(ipv4, _port);
-            _socket ??= new UdpClient(AddressFamily.InterNetwork);
-            _complained = false;
-            return true;
+            if (IPAddress.TryParse(_host, out IPAddress? literal))
+            {
+                if (literal.AddressFamily != AddressFamily.InterNetwork)
+                { Complain($"{_host} has no IPv4 address"); return; }
+                _endPoint = new IPEndPoint(literal, _port);
+                _socket ??= new UdpClient(AddressFamily.InterNetwork);
+                return;
+            }
+            try
+            {
+                // The worker owns only a hostname/token, never match or Scene state.
+                _resolution = _resolveAddresses(_host, _resolveCancellation.Token);
+                // Disposal never waits for DNS; faults are still observed if no next Beat occurs.
+                _ = _resolution.ContinueWith(task => { _ = task.Exception; },
+                    CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted
+                    | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            }
+            catch (Exception ex) { Complain(ex.Message); }
         }
 
         private void Complain(string message)
@@ -221,6 +255,10 @@ namespace MphRead.Mods.Network
 
         public void Dispose()
         {
+            if (_disposed) return;
+            _disposed = true;
+            _resolveCancellation.Cancel();
+            _resolveCancellation.Dispose();
             _socket?.Dispose();
             _socket = null;
         }
@@ -236,22 +274,9 @@ namespace MphRead.Mods.Network
     /// </summary>
     public sealed class MasterServer
     {
-        private sealed class Entry
-        {
-            public IPEndPoint Key = null!;
-            public uint Address;
-            public ushort Port;
-            public byte Players;
-            public byte MaxPlayers;
-            public byte Mode;
-            public byte Protocol;
-            public string ServerName = "";
-            public string RoomKey = "";
-            public double LastSeen;
-        }
-
         private readonly int _port;
-        private readonly List<Entry> _entries = new();
+        private readonly MasterDirectory _directory = new();
+        private List<MasterDirectory.Entry> _entries => _directory.Entries;
         private readonly byte[] _scratch = new byte[NetConfig.MaxPacketSize];
         private NetTransport? _transport;
         private volatile bool _running;
@@ -353,86 +378,95 @@ namespace MphRead.Mods.Network
 
         public void Run(CancellationToken cancel = default)
         {
-            _transport = new NetTransport(_port);
-            _running = true;
-            Log($"listening on UDP {_transport.LocalPort}");
-            Log($"servers are dropped after {NetMasterConfig.ExpirySeconds:0} s of silence");
-            if (_publicAddress != 0)
+            try
             {
-                Log($"servers on this machine are listed as {_publicName}");
-            }
-            if (_hosts.CanHost)
-            {
-                string? gameProblem = Launcher.GameFiles.Problem();
-                _hostingReady = LocalServer.Ready && gameProblem == null;
-                if (!_hostingReady)
+                _transport = new NetTransport(_port);
+                _running = true;
+                Log($"listening on UDP {_transport.LocalPort}");
+                Log($"servers are dropped after {NetMasterConfig.ExpirySeconds:0} s of silence");
+                if (_publicAddress != 0)
                 {
-                    _hostingUnavailable = !LocalServer.Ready
-                        ? "no dedicated-server executable is available"
-                        : gameProblem ?? "authoritative game files are unavailable";
-                    Log("hosted lobby allocation disabled: " + _hostingUnavailable);
+                    Log($"servers on this machine are listed as {_publicName}");
                 }
-            }
-            Log(CanHost ? _hosts.Describe()
-                : _hosts.CanHost
-                    ? "not starting games: " + _hostingUnavailable
-                    : _hosts.Describe());
-            _clock.Restart();
-            double lastReport = 0;
-            double lastHostReap = double.NegativeInfinity;
-            double lastMapPump = double.NegativeInfinity;
-            double lastUpdateCheck = double.NegativeInfinity;
-            while (_running && !cancel.IsCancellationRequested)
-            {
-                double now = _clock.Elapsed.TotalSeconds;
-                foreach (ReceivedPacket packet in _transport.Drain())
+                if (_hosts.CanHost)
                 {
-                    Handle(packet, now);
-                }
-                Expire(now);
-                if (now - lastHostReap >= 1.0)
-                {
-                    lastHostReap = now;
-                    _hosts.Reap(now);
-                }
-                if (now - lastMapPump >= 0.05)
-                {
-                    lastMapPump = now;
-                    _mapRequests.Pump(now,
-                        (request, sender, time, packages) => _hosts.Start(request, sender, time, packages),
-                        SendHostReply);
-                }
-                // The directory keeps itself current too, and waits on the
-                // matches it is running rather than on the servers it lists:
-                // a listed server re-announces every fifteen seconds, so the
-                // list rebuilds itself within a restart, but a hosted match
-                // lives in this process and a restart ends it.
-                if (now - lastUpdateCheck >= 1.0)
-                {
-                    lastUpdateCheck = now;
-                    if (Update.ServerUpdate.ShouldRestart(_hosts.Count + _mapRequests.ActiveCount))
+                    string? gameProblem = Launcher.GameFiles.Problem();
+                    _hostingReady = LocalServer.Ready && gameProblem == null;
+                    if (!_hostingReady)
                     {
-                        Log("shutting down to come back on the new build");
-                        _running = false;
-                        break;
+                        _hostingUnavailable = !LocalServer.Ready
+                            ? "no dedicated-server executable is available"
+                            : gameProblem ?? "authoritative game files are unavailable";
+                        Log("hosted lobby allocation disabled: " + _hostingUnavailable);
                     }
                 }
-                if (now - lastReport >= 60)
+                Log(CanHost ? _hosts.Describe()
+                    : _hosts.CanHost
+                        ? "not starting games: " + _hostingUnavailable
+                        : _hosts.Describe());
+                _clock.Restart();
+                double lastReport = 0;
+                double lastHostReap = double.NegativeInfinity;
+                double lastMapPump = double.NegativeInfinity;
+                double lastUpdateCheck = double.NegativeInfinity;
+                while (_running && !cancel.IsCancellationRequested)
                 {
-                    lastReport = now;
-                    Log($"{_entries.Count} server(s) listed"
-                        + (_hosts.Count > 0 ? $", {_hosts.Count} started here" : ""));
+                    double now = _clock.Elapsed.TotalSeconds;
+                    foreach (ReceivedPacket packet in _transport.Drain())
+                    {
+                        Handle(packet, now);
+                    }
+                    Expire(now);
+                    if (now - lastHostReap >= 1.0)
+                    {
+                        lastHostReap = now;
+                        _hosts.Reap(now);
+                    }
+                    if (now - lastMapPump >= 0.05)
+                    {
+                        lastMapPump = now;
+                        _mapRequests.Pump(now,
+                            (request, sender, time, packages) => _hosts.Start(request, sender, time, packages),
+                            SendHostReply);
+                    }
+                    // The directory keeps itself current too, and waits on the
+                    // matches it is running rather than on the servers it lists:
+                    // a listed server re-announces every fifteen seconds, so the
+                    // list rebuilds itself within a restart, but a hosted match
+                    // lives in this process and a restart ends it.
+                    if (now - lastUpdateCheck >= 1.0)
+                    {
+                        lastUpdateCheck = now;
+                        if (Update.ServerUpdate.ShouldRestart(_hosts.Count + _mapRequests.ActiveCount))
+                        {
+                            Log("shutting down to come back on the new build");
+                            _running = false;
+                            break;
+                        }
+                    }
+                    if (now - lastReport >= 60)
+                    {
+                        lastReport = now;
+                        Log($"{_entries.Count} server(s) listed"
+                            + (_hosts.Count > 0 ? $", {_hosts.Count} started here" : ""));
+                    }
+                    // UDP receive owns its blocking worker. Sleep this lightweight
+                    // allocator until traffic arrives, with a bounded maintenance
+                    // deadline for map completions, reaping and update checks.
+                    _transport.WaitForActivity(50);
                 }
-                // UDP receive owns its blocking worker. Sleep this lightweight
-                // allocator until traffic arrives, with a bounded maintenance
-                // deadline for map completions, reaping and update checks.
-                _transport.WaitForActivity(50);
             }
-            Log("shutting down");
-            _mapRequests.Dispose();
-            _hosts.StopAll("the directory is shutting down");
-            _transport.Dispose();
-            _transport = null;
+            finally
+            {
+                _running = false;
+                Log("shutting down");
+                try { _mapRequests.Dispose(); }
+                catch (Exception ex) { Log("cleanup map requests: " + ex.Message); }
+                try { _hosts.StopAll("the directory is shutting down"); }
+                catch (Exception ex) { Log("cleanup hosted children: " + ex.Message); }
+                try { _transport?.Dispose(); }
+                finally { _transport = null; }
+            }
         }
 
         private void Handle(ReceivedPacket packet, double now)
@@ -443,11 +477,16 @@ namespace MphRead.Mods.Network
             }
             else if (packet.Type == PacketType.MasterQuery)
             {
-                SendList(packet.Sender);
+                if (_directory.AllowQuery(packet.Sender.Address, now)) SendList(packet.Sender);
             }
             else if (packet.Type == PacketType.HostChallenge)
             {
                 HandleHostChallenge(packet, now);
+            }
+            else if (packet.Type == PacketType.HostChallengeReply)
+            {
+                if (HostChallengeReplyPacket.TryRead(packet.Payload, out var proof))
+                    _directory.Complete(packet.Sender, proof.Nonce, now);
             }
             else if (packet.Type == PacketType.HostRequest)
             {
@@ -480,13 +519,7 @@ namespace MphRead.Mods.Network
             }
             ushort port = System.Buffers.Binary.BinaryPrimitives
                 .ReadUInt16LittleEndian(packet.Payload);
-            var key = new IPEndPoint(packet.Sender.Address, port);
-            Entry? entry = _entries.Find(e => e.Key.Equals(key));
-            if (entry != null)
-            {
-                Log($"- {entry.Key} \"{entry.ServerName}\" (said goodbye)");
-                _entries.Remove(entry);
-            }
+            _directory.Farewell(packet.Sender, port);
         }
 
         /// <summary>
@@ -593,35 +626,22 @@ namespace MphRead.Mods.Network
             }
             ushort port = beat.Port != 0 ? beat.Port : (ushort)packet.Sender.Port;
             var key = new IPEndPoint(packet.Sender.Address, port);
-            Entry? entry = _entries.Find(e => e.Key.Equals(key));
-            if (entry == null)
+            if (beat.Protocol != NetConfig.ProtocolVersion || port == 0
+                || beat.MaxPlayers is < 1 or > 8 || beat.Players > beat.MaxPlayers
+                || !Enum.IsDefined(typeof(GameMode), beat.Mode)) return;
+            var entry = new MasterDirectory.Entry
             {
-                entry = new Entry { Key = key };
-                _entries.Add(entry);
-                Log($"+ {key} \"{beat.ServerName}\"");
-            }
-            entry.Address = address;
-            entry.Port = port;
-            entry.Players = beat.Players;
-            entry.MaxPlayers = beat.MaxPlayers;
-            entry.Mode = beat.Mode;
-            entry.Protocol = beat.Protocol;
-            entry.ServerName = beat.ServerName;
-            entry.RoomKey = beat.RoomKey;
-            entry.LastSeen = now;
+                Key = key, Reporter = packet.Sender, Address = address, Port = port,
+                Players = beat.Players, MaxPlayers = beat.MaxPlayers, Mode = beat.Mode,
+                Protocol = beat.Protocol, ServerName = beat.ServerName, RoomKey = beat.RoomKey
+            };
+            if (!_directory.Begin(entry, now, out ulong nonce)) return;
+            new HostChallengePacket(NetConfig.ProtocolVersion, nonce).Write(_scratch);
+            _transport?.Send(key, PacketType.HostChallenge,
+                _scratch.AsSpan(0, HostChallengePacket.Size));
         }
 
-        private void Expire(double now)
-        {
-            for (int i = _entries.Count - 1; i >= 0; i--)
-            {
-                if (now - _entries[i].LastSeen > NetMasterConfig.ExpirySeconds)
-                {
-                    Log($"- {_entries[i].Key} \"{_entries[i].ServerName}\"");
-                    _entries.RemoveAt(i);
-                }
-            }
-        }
+        private void Expire(double now) => _directory.Expire(now);
 
         /// <summary>
         /// Answer a query, in as many datagrams as the list needs.
@@ -644,7 +664,7 @@ namespace MphRead.Mods.Network
                 int offset = 2;
                 for (int i = 0; i < count; i++)
                 {
-                    Entry entry = _entries[sent + i];
+                    MasterDirectory.Entry entry = _entries[sent + i];
                     var wire = new MasterEntryPacket
                     {
                         Address = entry.Address,
@@ -1115,9 +1135,9 @@ namespace MphRead.Mods.Network
             {
                 using var socket = new UdpClient(AddressFamily.InterNetwork);
                 ulong hostNonce;
+                Span<byte> nonceBytes = stackalloc byte[8];
                 do
                 {
-                    Span<byte> nonceBytes = stackalloc byte[8];
                     RandomNumberGenerator.Fill(nonceBytes);
                     hostNonce = System.Buffers.Binary.BinaryPrimitives
                         .ReadUInt64LittleEndian(nonceBytes);

@@ -58,7 +58,7 @@ internal static class HostRequestGuard
     private static readonly byte[] Secret = RandomNumberGenerator.GetBytes(32);
     private static readonly object Gate = new();
     private static readonly Dictionary<IPAddress, Bucket> PerAddress = new();
-    private static readonly Dictionary<string, (int Fingerprint, double Expires)> Accepted = new();
+    private static readonly Dictionary<string, (string Fingerprint, double Expires)> Accepted = new();
     private static readonly Bucket Global = new() { Tokens = 10 };
     private const double CookieBucketSeconds = 30;
     private const double AddressRatePerSecond = 6.0 / 60.0;
@@ -81,7 +81,7 @@ internal static class HostRequestGuard
             return false;
         }
 
-        int fingerprint = Fingerprint(request);
+        string fingerprint = HostedRequestCache.Fingerprint(request);
         string proofKey = sender.Address + ":" + sender.Port.ToString(
             System.Globalization.CultureInfo.InvariantCulture) + ":" + request.HostNonce.ToString(
             System.Globalization.CultureInfo.InvariantCulture);
@@ -128,6 +128,11 @@ internal static class HostRequestGuard
                 }
             }
 
+            if (Accepted.Count >= 2048)
+            {
+                reason = "host admission table is busy; try again shortly";
+                return false;
+            }
             if (!Take(Global, now, GlobalRatePerSecond, GlobalBurst))
             {
                 reason = "host is starting other lobbies; try again shortly";
@@ -161,25 +166,6 @@ internal static class HostRequestGuard
             Accepted[proofKey] = (fingerprint, now + 180);
         }
         return true;
-    }
-
-    private static int Fingerprint(HostRequestPacket request)
-    {
-        var hash = new HashCode();
-        hash.Add(request.Protocol); hash.Add(request.MaxPlayers); hash.Add(request.Mode);
-        hash.Add(request.TimeLimit); hash.Add(request.PointGoal);
-        hash.Add(request.RoomKey, StringComparer.OrdinalIgnoreCase);
-        hash.Add(request.ServerName, StringComparer.Ordinal);
-        hash.Add(request.MapIdentity); hash.Add(request.Policy);
-        hash.Add(request.AllowJoinInProgress); hash.Add(request.RequireReady);
-        hash.Add(request.Format);
-        if (request.Rotation != null)
-            foreach (HostRotationEntry entry in request.Rotation)
-            {
-                hash.Add(entry.RoomKey, StringComparer.OrdinalIgnoreCase);
-                hash.Add(entry.Mode); hash.Add(entry.PackageHash);
-            }
-        return hash.ToHashCode();
     }
 
     private static bool Take(Bucket bucket, double now, double rate, double burst)

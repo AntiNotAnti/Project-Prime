@@ -159,6 +159,7 @@ namespace MphRead.Mods.Network
             or PacketType.HostChallenge or PacketType.HostChallengeReply
             or PacketType.HostRequest or PacketType.HostReply;
         private readonly UdpClient? _socket;
+        private readonly Socket? _nativeSocket;
         private readonly Thread? _worker;
         // Playback remains lossless and ordered. Live queue reserves 128 control
         // slots plus nine bounded coalescing cells within the 2048 packet ceiling.
@@ -296,52 +297,67 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static long TotalPacketsSent;
 
-        public NetTransport(int port, bool playbackOnly = false)
+        public NetTransport(int port, bool playbackOnly = false) : this(port, playbackOnly, null) { }
+
+        // A start operation lets lifecycle checks exercise a deterministic
+        // startup failure. Ordinary construction retains the native operation.
+        internal NetTransport(int port, bool playbackOnly, Action<Thread>? startWorker)
         {
             // Playback uses the normal inbox/handlers without opening a UDP listener.
             // A replay cannot receive real datagrams or send gameplay traffic.
             if (playbackOnly) return;
-            _socket = new UdpClient(AddressFamily.InterNetwork);
-            if (OperatingSystem.IsWindows())
-            {
-                // SIO_UDP_CONNRESET. Without it, a peer that vanishes makes
-                // Windows raise ConnectionReset on the *next* receive, which
-                // would kill the worker. The control code is Windows-only and
-                // throws PlatformNotSupportedException elsewhere, so it is
-                // guarded rather than swallowed.
-                _socket.Client.IOControl(unchecked((int)0x9800000C), new byte[] { 0, 0, 0, 0 }, null);
-            }
             try
             {
-                _socket.Client.ReceiveBufferSize = SocketBufferBytes;
-                _socket.Client.SendBufferSize = SocketBufferBytes;
-            }
-            catch (SocketException)
-            {
-                Telemetry.Error();
-                // A system that refuses the size keeps its default; the
-                // session still works, it just tolerates less of a stall.
-            }
-            _socket.Client.Bind(new IPEndPoint(IPAddress.Any, port));
-            LocalPort = ((IPEndPoint)_socket.Client.LocalEndPoint!).Port;
-            _running = true;
-            _worker = new Thread(ReceiveLoop)
-            {
-                IsBackground = true,
-                Name = "MphRead net"
-            };
-            _worker.Start();
-            if (NetLag.Active)
-            {
-                // Only when asked for. A thread that wakes a thousand times a
-                // second to look at an empty queue is not something a real
-                // session should be paying for.
-                _lagWorker = new Thread(LagLoop)
+                _socket = new UdpClient(AddressFamily.InterNetwork);
+                _nativeSocket = _socket.Client;
+                if (OperatingSystem.IsWindows())
+                {
+                    // SIO_UDP_CONNRESET. Without it, a peer that vanishes makes
+                    // Windows raise ConnectionReset on the *next* receive, which
+                    // would kill the worker. The control code is Windows-only and
+                    // throws PlatformNotSupportedException elsewhere, so it is
+                    // guarded rather than swallowed.
+                    _socket.Client.IOControl(unchecked((int)0x9800000C), new byte[] { 0, 0, 0, 0 }, null);
+                }
+                try
+                {
+                    _socket.Client.ReceiveBufferSize = SocketBufferBytes;
+                    _socket.Client.SendBufferSize = SocketBufferBytes;
+                }
+                catch (SocketException)
+                {
+                    Telemetry.Error();
+                    // A system that refuses the size keeps its default; the
+                    // session still works, it just tolerates less of a stall.
+                }
+                _socket.Client.Bind(new IPEndPoint(IPAddress.Any, port));
+                LocalPort = ((IPEndPoint)_socket.Client.LocalEndPoint!).Port;
+                _running = true;
+                _worker = new Thread(ReceiveLoop)
                 {
                     IsBackground = true,
-                    Name = "MphRead net lag"
+                    Name = "MphRead net"
                 };
-                _lagWorker.Start();
+                if (startWorker == null) _worker.Start(); else startWorker(_worker);
+                if (NetLag.Active)
+                {
+                    // Only when asked for. A thread that wakes a thousand times a
+                    // second to look at an empty queue is not something a real
+                    // session should be paying for.
+                    _lagWorker = new Thread(LagLoop)
+                    {
+                        IsBackground = true,
+                        Name = "MphRead net lag"
+                    };
+                    if (startWorker == null) _lagWorker.Start(); else startWorker(_lagWorker);
+                }
+            }
+            catch
+            {
+                // A failed constructor cannot be assigned to its server/session
+                // owner, so it must release every resource acquired so far.
+                Dispose();
+                throw;
             }
         }
 
@@ -376,6 +392,12 @@ namespace MphRead.Mods.Network
 
         private void ReceiveLoop()
         {
+            // UdpClient.Dispose clears its Client property. Keep the actual
+            // socket stable while shutdown races this worker: socket disposal
+            // then raises the handled ObjectDisposedException, rather than
+            // turning a later Client property read into a null dereference.
+            Socket? socket = _nativeSocket;
+            if (socket == null) return;
             var any = new IPEndPoint(IPAddress.Any, 0);
             while (_running)
             {
@@ -385,7 +407,7 @@ namespace MphRead.Mods.Network
                     // Poll sleeps in the kernel until a datagram arrives or the
                     // maintenance interval expires. It wakes immediately for
                     // traffic without using timeout exceptions as an idle timer.
-                    if (!_socket!.Client.Poll(50_000, SelectMode.SelectRead))
+                    if (!socket.Poll(50_000, SelectMode.SelectRead))
                     {
                         continue;
                     }
@@ -394,7 +416,7 @@ namespace MphRead.Mods.Network
                     try
                     {
                         EndPoint remote = any;
-                        int length = _socket.Client.ReceiveFrom(data, 0,
+                        int length = socket.ReceiveFrom(data, 0,
                             NetConfig.MaxPacketSize + 1, SocketFlags.None, ref remote);
                         Telemetry.Received(length);
                         if (length == 0 || length > NetConfig.MaxPacketSize
@@ -821,6 +843,7 @@ namespace MphRead.Mods.Network
             uint burstEventId = 0, int copies = 1)
         {
             int budget = copies > 1 ? NetReliableChannel.Capacity : 4;
+            Span<byte> bytes = stackalloc byte[NetConfig.MaxPacketSize];
             for (int i = 0; i < budget; i++)
             {
                 ReliableTransmission eventPacket;
@@ -839,7 +862,6 @@ namespace MphRead.Mods.Network
                 int transmissions = eventPacket.EventId == burstEventId ? copies : 1;
                 for (int copy = 0; copy < transmissions; copy++)
                 {
-                    Span<byte> bytes = stackalloc byte[NetConfig.MaxPacketSize];
                     stamp = EnterConnectionLock();
                     try
                     {
@@ -876,6 +898,7 @@ namespace MphRead.Mods.Network
             {
                 double now = ticks * 1000.0 / Stopwatch.Frequency;
                 int count = 0;
+                Span<byte> ack = stackalloc byte[NetHeader.Size];
                 long stamp = EnterConnectionLock();
                 try
                 {
@@ -913,7 +936,6 @@ namespace MphRead.Mods.Network
 
                     bool failed = false;
                     bool sendAck = false;
-                    Span<byte> ack = stackalloc byte[NetHeader.Size];
                     stamp = EnterConnectionLock();
                     try
                     {
@@ -951,14 +973,15 @@ namespace MphRead.Mods.Network
 
         private void SendNow(IPEndPoint target, ReadOnlySpan<byte> datagram)
         {
-            if (_socket == null) return;
+            Socket? socket = _nativeSocket;
+            if (socket == null) return;
             try
             {
                 SocketAddress address;
                 long lockStamp = EnterConnectionLock();
                 try { address = _connections.TryGetValue(target, out var connection) ? connection.SendAddress : target.Serialize(); }
                 finally { ExitConnectionLock(lockStamp); }
-                _socket.Client.SendTo(datagram, SocketFlags.None, address);
+                socket.SendTo(datagram, SocketFlags.None, address);
                 Telemetry.Sent(datagram.Length);
                 Interlocked.Increment(ref TotalPacketsSent);
             }
@@ -1004,7 +1027,7 @@ namespace MphRead.Mods.Network
             _running = false;
             _activity.Set();
             _socket?.Dispose();
-            if (_worker != null && !_worker.Join(TimeSpan.FromSeconds(1)))
+            if (_worker?.IsAlive == true && !_worker.Join(TimeSpan.FromSeconds(1)))
             {
                 // Background thread; the process can exit regardless.
             }
@@ -1024,7 +1047,7 @@ namespace MphRead.Mods.Network
                     _latestSlotIntent[i] = null;
                 }
             }
-            _lagWorker?.Join(TimeSpan.FromSeconds(1));
+            if (_lagWorker?.IsAlive == true) _lagWorker.Join(TimeSpan.FromSeconds(1));
             _activity.Dispose();
         }
     }

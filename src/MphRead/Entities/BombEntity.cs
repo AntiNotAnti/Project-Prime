@@ -499,6 +499,7 @@ namespace MphRead.Entities
             }
         }
 
+        internal bool ModLockjawConnectionsActive => BombType == BombType.Lockjaw && _target == null && !Flags.TestFlag(BombFlags.Exploded);
         private bool LockjawCheckSnare(Vector3 position)
         {
             BombEntity? bombZero = Owner.SyluxBombs[0];
@@ -507,22 +508,26 @@ namespace MphRead.Entities
             Debug.Assert(bombZero != null);
             Debug.Assert(bombOne != null);
             Debug.Assert(bombTwo != null);
-            Vector3 zeroToOne = bombOne.Position - bombZero.Position;
-            Vector3 oneToTwo = bombTwo.Position - bombOne.Position;
+            return ModLockjawSnareContains(bombZero.Position, bombOne.Position, bombTwo.Position, position);
+        }
+        internal static bool ModLockjawSnareContains(Vector3 zero, Vector3 one, Vector3 two, Vector3 position)
+        {
+            Vector3 zeroToOne = one - zero;
+            Vector3 oneToTwo = two - one;
             Vector3 cross1 = Vector3.Cross(oneToTwo, zeroToOne).Normalized();
-            Vector3 zeroToPosition = position - bombZero.Position;
+            Vector3 zeroToPosition = position - zero;
             float dot = Vector3.Dot(cross1, zeroToPosition);
             if (dot > -0.75f && dot < 0.75f)
             {
                 var cross2 = Vector3.Cross(zeroToPosition, zeroToOne);
                 if (Vector3.Dot(cross2, cross1) > 0)
                 {
-                    Vector3 oneToPosition = position - bombOne.Position;
+                    Vector3 oneToPosition = position - one;
                     var cross3 = Vector3.Cross(oneToPosition, oneToTwo);
                     if (Vector3.Dot(cross3, cross1) > 0)
                     {
-                        Vector3 twoToPosition = position - bombTwo.Position;
-                        Vector3 twoToZero = bombZero.Position - bombTwo.Position;
+                        Vector3 twoToPosition = position - two;
+                        Vector3 twoToZero = zero - two;
                         var cross4 = Vector3.Cross(twoToPosition, twoToZero);
                         if (Vector3.Dot(cross4, cross1) > 0)
                         {

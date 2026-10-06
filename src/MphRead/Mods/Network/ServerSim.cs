@@ -90,6 +90,19 @@ namespace MphRead.Mods.Network
         /// <summary>Times a long stall forced the absolute schedule to re-base.</summary>
         public long Stalls { get; private set; }
 
+        public long DeadlineWakes { get; private set; }
+        private readonly long[] _wakeHistogram = new long[1001];
+        public double WorstWakeMilliseconds { get; private set; }
+        public double WakePercentile(double quantile)
+        {
+            if (DeadlineWakes == 0) return 0;
+            long threshold = (long)Math.Ceiling(DeadlineWakes * Math.Clamp(quantile, 0, 1));
+            long count = 0;
+            for (int i = 0; i < _wakeHistogram.Length; i++)
+            { count += _wakeHistogram[i]; if (count >= threshold) return i == 1000 ? WorstWakeMilliseconds : i / 10.0; }
+            return WorstWakeMilliseconds;
+        }
+
         // Absolute wall-clock deadline for the next 60 Hz step. Advancing the
         // deadline by a fixed period rather than "now + period" prevents loop
         // jitter from becoming clock drift.
@@ -123,6 +136,12 @@ namespace MphRead.Mods.Network
                 return;
             }
 
+            if (now >= _nextStepAt)
+            {
+                double lateness = Math.Max(0, now - _nextStepAt) * 1000;
+                DeadlineWakes++; WorstWakeMilliseconds = Math.Max(WorstWakeMilliseconds, lateness);
+                _wakeHistogram[Math.Min(1000, (int)(lateness * 10))]++;
+            }
             int steps = 0;
             while (now >= _nextStepAt && steps < Render.FrameTiming.MaxCatchUpSteps)
             {
@@ -265,6 +284,7 @@ namespace MphRead.Mods.Network
                 DroppedSteps = 0;
                 Stalls = 0;
                 _nextStepAt = -1;
+                DeadlineWakes = 0; WorstWakeMilliseconds = 0; Array.Clear(_wakeHistogram);
                 return true;
             }
             catch (Exception ex)

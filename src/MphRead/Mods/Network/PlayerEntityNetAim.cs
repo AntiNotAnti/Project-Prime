@@ -1652,37 +1652,26 @@ namespace MphRead.Entities
             // it. Charging comes with it: a puppet that could hold a weapon
             // but not charge it fired uncharged shots for its owner's charged
             // ones, which is every affliction in the game.
-            _availableWeapons[weapon] = true;
-            _availableCharges[weapon] = true;
+            if (ModAuthorityOwnsResources)
+            {
+                if (!_availableWeapons[weapon]) return;
+            }
+            else
+            {
+                _availableWeapons[weapon] = true;
+                _availableCharges[weapon] = true;
+            }
             TryEquipWeapon(weapon, silent: true);
         }
 
         /// <summary>
-        /// Universal ammo and missiles, as the owner's own machine counts
-        /// them.
+        /// This scene's universal ammo and missiles. The authority owns its
+        /// resource pools; client replicas consume authoritative ammo facts.
         /// </summary>
         internal (int Ua, int Missiles) ModAmmo
             => (UsesBalancedImperialistAmmo(CurrentWeapon) ? _balancedImperialistAmmo : _ammo[UA],
                 _ammo[Missiles]);
 
-        /// <summary>
-        /// Put a remote player's ammo where its owner says it is.
-        ///
-        /// Not cosmetic, and not a nicety: BeamProjectileEntity refuses to
-        /// spawn a beam whose cost exceeds the shooter's ammo, so a puppet
-        /// that has run dry produces no projectile at all -- on the very
-        /// machine that decides what is hit. The shooter watches their own
-        /// beam leave the gun and connect, the authority never creates one,
-        /// and the target is untouchable. It reads exactly like an invincible
-        /// player, and switching to a weapon on the other ammo pool "fixes"
-        /// it, because that pool still has something in it.
-        ///
-        /// The two drift apart within a round for a reason that cannot be
-        /// closed any other way: every machine simulates the shot and spends
-        /// the ammo, but pickups are collected locally and are not
-        /// replicated, so only the owner's count is ever right. Sending it is
-        /// cheaper and more honest than trying to replicate item state.
-        /// </summary>
         /// <summary>
         /// The most universal ammo this player can hold, for the harness's
         /// top-up. Read rather than assumed: the cap is a per-hunter value and
@@ -1698,31 +1687,9 @@ namespace MphRead.Entities
         internal int ModBoostDamage => _boostDamage;
 
         /// <summary>
-        /// Put a remote player's shot strength where its owner says it is:
-        /// the charge on the gun, the strength of the ram, and whether double
-        /// damage is running.
-        ///
-        /// <b>All three decide the damage of a shot, and all three were
-        /// re-derived here rather than received.</b> The charge was a count of
-        /// frames the relayed trigger had been held -- which is the owner's
-        /// count give or take the send interval, the jitter and whatever was
-        /// dropped -- and on a partial-charge weapon the damage is a
-        /// continuous function of that count, so the two machines put
-        /// different numbers on the same shot every time one was fired. Double
-        /// damage is worse, because it is not a drift but a factor of two: the
-        /// powerup is collected by each machine's own copy of the pickups, on
-        /// its own respawn timer, so the authority's copy of a shooter can
-        /// simply not have one the owner is holding.
-        ///
-        /// Either way the shooter's own machine resolves its hits now
-        /// (<see cref="Mods.Network.NetHitPrediction"/>) and the authority
-        /// resolves them again a round trip later; where the numbers differ
-        /// the client runs a victim's health down faster than the authority
-        /// does, and the shot after that predicts a kill on somebody who is
-        /// still standing.
-        ///
-        /// The same shape as <see cref="ModSetAmmo"/> and the alt-form state:
-        /// whoever is playing a character is the one who knows.
+        /// Pending homing selection for one source attack. Owner charge and
+        /// boost reports preserve input timing; admitted native attacks bound
+        /// their cost and damage. Authority double damage comes from pickups.
         /// </summary>
         private NetTargetIdentity _modPendingHomingTarget;
         // The owner's morph-ball attack state is state, not a second simulation.
@@ -1793,7 +1760,8 @@ namespace MphRead.Entities
                 // back to it a round trip later.
                 return;
             }
-            EquipInfo.ChargeLevel = (ushort)Math.Clamp(chargeLevel, 0, UInt16.MaxValue);
+            EquipInfo.ChargeLevel = (ushort)Math.Clamp(chargeLevel, 0,
+                ModAuthorityOwnsResources ? NetAcceptedAttacks.AllowedCharge(SlotIndex) : UInt16.MaxValue);
 
             // A client may report the exact value it computed, but it may not
             // invent a stronger ram. Samus' table tops out at AltAttackDamage
@@ -1811,6 +1779,7 @@ namespace MphRead.Entities
             }
             _boostDamage = _modReportedBoostDamage;
 
+            if (ModAuthorityOwnsResources) return; // Authority pickup/timer owns the powerup.
             if (doubleDamage)
             {
                 // Held up rather than counted down: the owner says so again
@@ -1874,9 +1843,11 @@ namespace MphRead.Entities
             _modReportedBoostConsumed = false;
         }
 
+        /// <summary>Apply bounded replica ammo facts. Owner intents cannot
+        /// refill authority resource pools.</summary>
         internal void ModSetAmmo(int ua, int missiles)
         {
-            if (_scene.GameState.OneInTheChamber) return; // Only spawn, confirmed kills and authority ammo facts own this pool.
+            if (ModAuthorityOwnsResources || _scene.GameState.OneInTheChamber) return; // Only spawn, confirmed kills and authority ammo facts own this pool.
             // -1 is the engine's "infinite" marker; a puppet must not be
             // handed one by a malformed packet.
             if (UsesBalancedImperialistAmmo(CurrentWeapon))
@@ -1888,6 +1859,40 @@ namespace MphRead.Entities
                 _ammo[UA] = Math.Clamp(ua, 0, _ammoMax[UA]);
             }
             _ammo[Missiles] = Math.Clamp(missiles, 0, _ammoMax[Missiles]);
+        }
+
+        internal bool ModAuthorityOwnsResources => !_scene.Services.IsReplica
+            && NetSession.Active && NetSession.IsAuthority;
+        internal bool ModOwnsAttackWeapon(BeamType beam)
+            => beam >= BeamType.PowerBeam && beam <= BeamType.OmegaCannon
+                && _availableWeapons[beam];
+        internal bool ModOwnsAttackCharge(BeamType beam) => beam >= BeamType.PowerBeam
+            && beam <= BeamType.OmegaCannon && _availableCharges[beam];
+        internal int ModBombAmmo => _bombAmmo;
+        internal bool ModCanAuthorBomb => _abilities.TestFlag(AbilityFlags.Bombs) && _field35C == null;
+        internal void ModConsumeClaimBomb()
+        {
+            if (_bombAmmo == 0) return;
+            if (_bombAmmo >= 2) _bombRefillTimer = (ushort)(Values.BombRefillTime * 2);
+            _bombAmmo--;
+        }
+        internal WeaponInfo ModTurretAttackWeapon => Halfturret?.EquipInfo.Weapon ?? _scene.WeaponRules[(int)BeamType.Battlehammer];
+        internal int ModAttackAmmoPool(BeamType beam, WeaponInfo weapon)
+            => UsesBalancedImperialistAmmo(beam) ? 2 : weapon.AmmoType == 1 ? 1 : 0;
+        internal int ModAttackAmmo(BeamType beam, WeaponInfo weapon)
+            => UsesBalancedImperialistAmmo(beam) ? _balancedImperialistAmmo
+                : weapon.AmmoCost == 0 && weapon.ChargeCost == 0 ? int.MaxValue
+                : _ammo[weapon.AmmoType == 1 ? Missiles : UA];
+        internal void ModConsumeAttackAmmo(BeamType beam, WeaponInfo weapon, int cost)
+        {
+            if (cost <= 0) return;
+            if (UsesBalancedImperialistAmmo(beam))
+                _balancedImperialistAmmo = Math.Max(0, _balancedImperialistAmmo - cost);
+            else
+            {
+                int pool = weapon.AmmoType == 1 ? Missiles : UA;
+                _ammo[pool] = Math.Max(0, _ammo[pool] - cost);
+            }
         }
 
         /// <summary>
@@ -2135,6 +2140,11 @@ namespace MphRead.Entities
         }
 
         /// <summary>Burning from an affinity Magmaul.</summary>
+        internal void ModSetClaimBurning(PlayerEntity source)
+        {
+            ModSetBurning(true);
+            _burnedBy = source; // Validated native/accepted projectile owns subsequent burn credit.
+        }
         internal bool ModBurning => _burnTimer > 0;
 
         /// <summary>Aim disrupted by an affinity Volt Driver.</summary>
