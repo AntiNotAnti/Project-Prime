@@ -205,5 +205,7 @@ try:runpy.run_path(str(kit/'prepare-altform-weighted4.py'),run_name='__main__')
 finally:scene.collection.children.link(source_reference)
 from binds import correct_native_binds
 correct_native_binds(ROOT/'kit/starter'/hunter.lower()/'altform_weighted4.glb',native_bind,ROOT)
+from alternate_weighted_normals import restore as restore_raw_source_normals
+restore_raw_source_normals(ROOT,cfg,SOURCE)
 (ROOT/'kit/starter/characters.json').write_text(json.dumps({'format':1,'id':hunter.lower()+'-sourceio-alternate-v1','models':[entry]},indent=2)+'\n')
 print('SOURCEIO_ALTERNATE_RETARGET',hunter,len(verts),len(faces),dict(target_hist))

@@ -1,7 +1,7 @@
 """Pre-execution source/code/reference fingerprint and unchanged-input guard."""
 import hashlib,json
 from pathlib import Path
-MODULES=['alternate_native.py','alternate_components.py','alternate_convert.py','alternate_materials.py','alternate_pipeline.py','alternate_audit.py','alternate_provenance.py','alternate_effects.py','atlas.py','source_materials.py','material_maps.py','recolors.py','binds.py','native.py','glb.py','install.py','runtime.py','shape_fit.py']
+MODULES=['alternate_native.py','alternate_components.py','alternate_convert.py','alternate_weighted_normals.py','alternate_materials.py','alternate_pipeline.py','alternate_audit.py','alternate_provenance.py','alternate_effects.py','atlas.py','source_materials.py','material_maps.py','recolors.py','binds.py','native.py','glb.py','install.py','runtime.py','shape_fit.py']
 def digest(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 def capture(common,repo,config,source,kit):
     paths=[Path(common)/n for n in MODULES]+[Path(config),Path(source),Path(repo)/'src/MphRead/Export/modules/mph_common.py']
