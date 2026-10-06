@@ -892,7 +892,7 @@ namespace MphRead.Mods.Launcher.Gui
             Dictionary<string, SocialOnlinePlayer> presenceById,
             string offlineActivity = "OFFLINE")
         {
-            if (presenceById.TryGetValue(player.PrimeId, out SocialOnlinePlayer? online))
+            if (presenceById.TryGetValue(player.PrimeId, out SocialOnlinePlayer online))
             {
                 return new SocialUiRow(
                     player.PrimeId,
