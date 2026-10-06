@@ -390,17 +390,66 @@ void main()
 uniform sampler2D photo;
 uniform sampler2D noise;
 uniform float strength;
+uniform vec2 photo_texel;
+uniform int noise_enabled;
+uniform int stage_fx;
 varying vec2 photocoord;
 varying vec2 noisecoord;
+
+vec3 soft_photo(vec2 uv)
+{
+    vec2 t = photo_texel * 2.15;
+    vec3 c = texture2D(photo, uv).rgb * 0.28;
+    c += texture2D(photo, uv + vec2( t.x, 0.0)).rgb * 0.12;
+    c += texture2D(photo, uv + vec2(-t.x, 0.0)).rgb * 0.12;
+    c += texture2D(photo, uv + vec2(0.0,  t.y)).rgb * 0.12;
+    c += texture2D(photo, uv + vec2(0.0, -t.y)).rgb * 0.12;
+    c += texture2D(photo, uv + vec2( t.x,  t.y)).rgb * 0.06;
+    c += texture2D(photo, uv + vec2(-t.x,  t.y)).rgb * 0.06;
+    c += texture2D(photo, uv + vec2( t.x, -t.y)).rgb * 0.06;
+    c += texture2D(photo, uv + vec2(-t.x, -t.y)).rgb * 0.06;
+    return c;
+}
 
 void main()
 {
     vec3 b = texture2D(photo, photocoord).rgb;
-    vec3 s = texture2D(noise, noisecoord).rgb;
-    vec3 lo = 2.0 * b * s;
-    vec3 hi = 1.0 - 2.0 * (1.0 - b) * (1.0 - s);
-    vec3 over = mix(lo, hi, step(vec3(0.5), b));
-    gl_FragColor = vec4(mix(b, over, strength), 1.0);
+
+    if (stage_fx != 0) {
+        // A menu backdrop is scenery, not a second focal subject. Keep the
+        // architecture readable around the Hunter, then progressively soften
+        // the busier outer field where chrome sits.
+        vec3 blur = soft_photo(photocoord);
+        float focus_distance = distance(noisecoord, vec2(0.61, 0.47));
+        float softness = mix(0.14, 0.38, smoothstep(0.16, 0.76, focus_distance));
+        b = mix(b, blur, softness);
+
+        // A restrained menu-only grade: cool the room, pull saturation back,
+        // preserve warm highlights, and keep the center-right stage readable.
+        float luma = dot(b, vec3(0.2126, 0.7152, 0.0722));
+        b = mix(vec3(luma), b, 0.82);
+        b *= vec3(0.92, 0.97, 1.04);
+        b += max(blur - vec3(0.58), vec3(0.0)) * 0.10;
+
+        float radial = smoothstep(0.18, 0.88, focus_distance);
+        float left_scrim = 1.0 - smoothstep(0.02, 0.42, noisecoord.x);
+        float right_scrim = smoothstep(0.82, 1.0, noisecoord.x);
+        float floor_fade = smoothstep(0.64, 1.0, noisecoord.y);
+        b *= 1.0 - radial * 0.18;
+        b *= 1.0 - left_scrim * 0.34;
+        b *= 1.0 - right_scrim * 0.18;
+        b *= 1.0 - floor_fade * 0.16;
+    }
+
+    if (noise_enabled != 0) {
+        vec3 s = texture2D(noise, noisecoord).rgb;
+        vec3 lo = 2.0 * b * s;
+        vec3 hi = 1.0 - 2.0 * (1.0 - b) * (1.0 - s);
+        vec3 over = mix(lo, hi, step(vec3(0.5), b));
+        b = mix(b, over, strength);
+    }
+
+    gl_FragColor = vec4(clamp(b, 0.0, 1.0), 1.0);
 }
 ";
 
