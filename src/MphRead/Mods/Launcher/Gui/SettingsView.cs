@@ -298,6 +298,9 @@ namespace MphRead.Mods.Launcher.Gui
         private FieldRow _playerName = null!;
         private ChoiceRow _hunterRow = null!;
         private ChoiceRow _colorRow = null!;
+        private ChoiceRow _presenceVisibilityRow = null!;
+        private ChoiceRow _activityVisibilityRow = null!;
+        private ChoiceRow _invitePolicyRow = null!;
         private FieldRow _serverRow = null!;
         private FieldRow _masterRow = null!;
         private ToggleRow _autoUpdate = null!;
@@ -2704,6 +2707,20 @@ namespace MphRead.Mods.Launcher.Gui
             _colorRow = Add(page, new ChoiceRow("Suit colour", colors,
                 Mods.Network.PlayerColors.Clamp(LauncherPrefs.LastColor)));
 
+            Heading(page, "Social privacy");
+            _presenceVisibilityRow = Add(page, new ChoiceRow("Online visibility",
+                new[] { "Everyone", "Friends only", "Appear offline" },
+                (int)LauncherPrefs.PresenceVisibility));
+            Explain(page, "Controls whether your Hunter License appears in the online-player directory.");
+            _activityVisibilityRow = Add(page, new ChoiceRow("Activity visibility",
+                new[] { "Everyone", "Friends only", "Private" },
+                (int)LauncherPrefs.ActivityVisibility));
+            Explain(page, "Private activity still shows you as online to people allowed by Online visibility, but hides lobby, match and spectator details.");
+            _invitePolicyRow = Add(page, new ChoiceRow("Who can invite you",
+                new[] { "Everyone", "Friends only", "Nobody" },
+                (int)LauncherPrefs.InvitePolicy));
+            Explain(page, "Stored now so the invite system can enforce the choice server-side when invite delivery is enabled.");
+
             Heading(page, "Servers");
             _serverRow = Add(page, new FieldRow("Default server",
                 $"{LauncherPrefs.ServerAddress}:{LauncherPrefs.ServerPort}", boxWidth: 220));
@@ -3123,6 +3140,14 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 LauncherPrefs.LastColor = Mods.Network.PlayerColors.Clamp(suit - 1);
             }
+            LauncherPrefs.PresenceVisibility = (SocialPresenceVisibility)Math.Clamp(
+                _presenceVisibilityRow.Index, 0, 2);
+            LauncherPrefs.ActivityVisibility = (SocialActivityVisibility)Math.Clamp(
+                _activityVisibilityRow.Index, 0, 2);
+            LauncherPrefs.InvitePolicy = (SocialInvitePolicy)Math.Clamp(
+                _invitePolicyRow.Index, 0, 2);
+            LauncherPrefs.SocialPrivacyConfigured = true;
+            SocialPresenceClient.NotifyPrivacyChanged();
             // These two rows are reachable from the pause menu as well as from
             // the front screen, so answering them during a match has to mean
             // something. It means the same as the pause menu's own pair: at
