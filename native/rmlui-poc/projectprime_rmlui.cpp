@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <vector>
 
 #if defined(_WIN32)
 #define NOMINMAX
@@ -44,6 +45,16 @@ private:
     std::chrono::steady_clock::time_point started;
 };
 
+struct SocialRow {
+    Rml::String prime_id;
+    Rml::String name;
+    Rml::String activity;
+    Rml::String detail;
+    Rml::String relation;
+    bool online = false;
+    bool friend_online = false;
+};
+
 struct PrimeMenuData {
     Rml::String player_name = "PLAYER";
     Rml::String profile_state = "LOCAL PROFILE";
@@ -60,6 +71,32 @@ struct PrimeMenuData {
     Rml::String activity_description = "Find the best compatible public hunt and deploy immediately.";
     Rml::String activity_hint = "MATCHMAKING ENTRY";
     Rml::String activity_action = "DEPLOY";
+
+    bool social_open = false;
+    bool social_loading = false;
+    bool social_context_open = false;
+    int social_tab = 0;
+    Rml::String social_search;
+    Rml::String social_status = "CONNECTING";
+    Rml::String social_badge;
+    Rml::String social_online_count = "0 ONLINE";
+    Rml::String social_friend_count = "0 ONLINE";
+    Rml::String social_request_count = "0 REQUESTS";
+    std::vector<SocialRow> social_rows;
+    std::vector<SocialRow> home_friends;
+
+    Rml::String selected_prime_id;
+    Rml::String selected_name;
+    Rml::String selected_activity;
+    Rml::String selected_detail;
+    Rml::String selected_relation;
+    bool selected_can_add = false;
+    bool selected_can_accept = false;
+    bool selected_can_decline = false;
+    bool selected_can_cancel = false;
+    bool selected_can_remove = false;
+    bool selected_can_block = false;
+    bool selected_can_unblock = false;
 };
 
 class PrimeMenuModel {
@@ -85,6 +122,41 @@ public:
         model.Bind("activity_hint", &data.activity_hint);
         model.Bind("activity_action", &data.activity_action);
 
+        if (auto row = model.RegisterStruct<SocialRow>()) {
+            row.RegisterMember("prime_id", &SocialRow::prime_id);
+            row.RegisterMember("name", &SocialRow::name);
+            row.RegisterMember("activity", &SocialRow::activity);
+            row.RegisterMember("detail", &SocialRow::detail);
+            row.RegisterMember("relation", &SocialRow::relation);
+            row.RegisterMember("online", &SocialRow::online);
+            row.RegisterMember("friend_online", &SocialRow::friend_online);
+        }
+        model.RegisterArray<std::vector<SocialRow>>();
+        model.Bind("social_open", &data.social_open);
+        model.Bind("social_loading", &data.social_loading);
+        model.Bind("social_context_open", &data.social_context_open);
+        model.Bind("social_tab", &data.social_tab);
+        model.Bind("social_search", &data.social_search);
+        model.Bind("social_status", &data.social_status);
+        model.Bind("social_badge", &data.social_badge);
+        model.Bind("social_online_count", &data.social_online_count);
+        model.Bind("social_friend_count", &data.social_friend_count);
+        model.Bind("social_request_count", &data.social_request_count);
+        model.Bind("social_rows", &data.social_rows);
+        model.Bind("home_friends", &data.home_friends);
+        model.Bind("selected_prime_id", &data.selected_prime_id);
+        model.Bind("selected_name", &data.selected_name);
+        model.Bind("selected_activity", &data.selected_activity);
+        model.Bind("selected_detail", &data.selected_detail);
+        model.Bind("selected_relation", &data.selected_relation);
+        model.Bind("selected_can_add", &data.selected_can_add);
+        model.Bind("selected_can_accept", &data.selected_can_accept);
+        model.Bind("selected_can_decline", &data.selected_can_decline);
+        model.Bind("selected_can_cancel", &data.selected_can_cancel);
+        model.Bind("selected_can_remove", &data.selected_can_remove);
+        model.Bind("selected_can_block", &data.selected_can_block);
+        model.Bind("selected_can_unblock", &data.selected_can_unblock);
+
         model.BindEventCallback("select_quick", &PrimeMenuModel::SelectQuick, this);
         model.BindEventCallback("select_browser", &PrimeMenuModel::SelectBrowser, this);
         model.BindEventCallback("select_offline", &PrimeMenuModel::SelectOffline, this);
@@ -97,6 +169,23 @@ public:
         model.BindEventCallback("open_settings", &PrimeMenuModel::OpenSettings, this);
         model.BindEventCallback("open_classic", &PrimeMenuModel::OpenClassic, this);
         model.BindEventCallback("quit_game", &PrimeMenuModel::Quit, this);
+        model.BindEventCallback("open_social", &PrimeMenuModel::OpenSocial, this);
+        model.BindEventCallback("close_social", &PrimeMenuModel::CloseSocial, this);
+        model.BindEventCallback("social_friends", &PrimeMenuModel::SocialFriends, this);
+        model.BindEventCallback("social_players", &PrimeMenuModel::SocialPlayers, this);
+        model.BindEventCallback("social_requests", &PrimeMenuModel::SocialRequests, this);
+        model.BindEventCallback("social_blocks", &PrimeMenuModel::SocialBlocks, this);
+        model.BindEventCallback("social_refresh", &PrimeMenuModel::SocialRefresh, this);
+        model.BindEventCallback("social_filter", &PrimeMenuModel::SocialFilter, this);
+        model.BindEventCallback("social_select", &PrimeMenuModel::SocialSelect, this);
+        model.BindEventCallback("social_context_close", &PrimeMenuModel::SocialContextClose, this);
+        model.BindEventCallback("social_add", &PrimeMenuModel::SocialAdd, this);
+        model.BindEventCallback("social_accept", &PrimeMenuModel::SocialAccept, this);
+        model.BindEventCallback("social_decline", &PrimeMenuModel::SocialDecline, this);
+        model.BindEventCallback("social_cancel", &PrimeMenuModel::SocialCancel, this);
+        model.BindEventCallback("social_remove", &PrimeMenuModel::SocialRemove, this);
+        model.BindEventCallback("social_block", &PrimeMenuModel::SocialBlock, this);
+        model.BindEventCallback("social_unblock", &PrimeMenuModel::SocialUnblock, this);
         model.BindEventCallback("noop", &PrimeMenuModel::Noop, this);
 
         handle = model.GetModelHandle();
@@ -112,6 +201,12 @@ public:
         else if (name == "build_version") data.build_version = value;
         else if (name == "renderer_name") data.renderer_name = value;
         else if (name == "ui_cost") data.ui_cost = value;
+        else if (name == "social_search") data.social_search = value;
+        else if (name == "social_status") data.social_status = value;
+        else if (name == "social_badge") data.social_badge = value;
+        else if (name == "social_online_count") data.social_online_count = value;
+        else if (name == "social_friend_count") data.social_friend_count = value;
+        else if (name == "social_request_count") data.social_request_count = value;
         else return;
         handle.DirtyVariable(name);
     }
@@ -120,6 +215,9 @@ public:
     {
         if (name == "reduce_motion") data.reduce_motion = value;
         else if (name == "diagnostics_visible") data.diagnostics_visible = value;
+        else if (name == "social_open") data.social_open = value;
+        else if (name == "social_loading") data.social_loading = value;
+        else if (name == "social_context_open") data.social_context_open = value;
         else return;
         handle.DirtyVariable(name);
     }
@@ -130,6 +228,37 @@ public:
         result = std::move(actions.front());
         actions.pop_front();
         return true;
+    }
+
+    void ClearSocial()
+    {
+        data.social_rows.clear();
+        data.home_friends.clear();
+    }
+
+    void AddSocialRow(const SocialRow& row) { data.social_rows.push_back(row); }
+    void AddHomeFriend(const SocialRow& row) { data.home_friends.push_back(row); }
+
+    void CommitSocial()
+    {
+        handle.DirtyVariable("social_rows");
+        handle.DirtyVariable("home_friends");
+    }
+
+    bool Back()
+    {
+        if (data.social_context_open) {
+            data.social_context_open = false;
+            handle.DirtyVariable("social_context_open");
+            return true;
+        }
+        if (data.social_open) {
+            data.social_open = false;
+            handle.DirtyVariable("social_open");
+            Emit("social:close");
+            return true;
+        }
+        return false;
     }
 
 private:
@@ -204,6 +333,117 @@ private:
     void OpenSettings(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:settings"); }
     void OpenClassic(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:news"); }
     void Quit(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("quit"); }
+
+    void OpenSocial(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    {
+        data.social_open = true;
+        data.social_context_open = false;
+        handle.DirtyVariable("social_open");
+        handle.DirtyVariable("social_context_open");
+        Emit("social:open");
+    }
+
+    void CloseSocial(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    {
+        data.social_open = false;
+        data.social_context_open = false;
+        handle.DirtyVariable("social_open");
+        handle.DirtyVariable("social_context_open");
+        Emit("social:close");
+    }
+
+    void SelectSocialTab(int tab, const char* action)
+    {
+        data.social_tab = tab;
+        data.social_context_open = false;
+        handle.DirtyVariable("social_tab");
+        handle.DirtyVariable("social_context_open");
+        Emit(action);
+    }
+
+    void SocialFriends(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+        { SelectSocialTab(0, "social:tab:0"); }
+    void SocialPlayers(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+        { SelectSocialTab(1, "social:tab:1"); }
+    void SocialRequests(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+        { SelectSocialTab(2, "social:tab:2"); }
+    void SocialBlocks(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+        { SelectSocialTab(3, "social:tab:3"); }
+    void SocialRefresh(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+        { Emit("social:refresh"); }
+
+    void SocialFilter(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    {
+        if (data.social_search.size() > 48)
+            data.social_search.resize(48);
+        handle.DirtyVariable("social_search");
+        Emit((std::string("social:search:") + data.social_search).c_str());
+    }
+
+    const SocialRow* FindRow(const Rml::String& prime_id) const
+    {
+        for (const SocialRow& row : data.social_rows)
+            if (row.prime_id == prime_id) return &row;
+        return nullptr;
+    }
+
+    void SocialSelect(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList& arguments)
+    {
+        if (arguments.empty()) return;
+        const Rml::String prime_id = arguments[0].Get<Rml::String>();
+        const SocialRow* row = FindRow(prime_id);
+        if (!row) return;
+
+        data.selected_prime_id = row->prime_id;
+        data.selected_name = row->name;
+        data.selected_activity = row->activity;
+        data.selected_detail = row->detail;
+        data.selected_relation = row->relation;
+        data.selected_can_add = row->relation == "player";
+        data.selected_can_accept = row->relation == "incoming";
+        data.selected_can_decline = row->relation == "incoming";
+        data.selected_can_cancel = row->relation == "outgoing";
+        data.selected_can_remove = row->relation == "friend";
+        data.selected_can_block = row->relation != "blocked";
+        data.selected_can_unblock = row->relation == "blocked";
+        data.social_context_open = true;
+
+        handle.DirtyVariable("selected_prime_id");
+        handle.DirtyVariable("selected_name");
+        handle.DirtyVariable("selected_activity");
+        handle.DirtyVariable("selected_detail");
+        handle.DirtyVariable("selected_relation");
+        handle.DirtyVariable("selected_can_add");
+        handle.DirtyVariable("selected_can_accept");
+        handle.DirtyVariable("selected_can_decline");
+        handle.DirtyVariable("selected_can_cancel");
+        handle.DirtyVariable("selected_can_remove");
+        handle.DirtyVariable("selected_can_block");
+        handle.DirtyVariable("selected_can_unblock");
+        handle.DirtyVariable("social_context_open");
+    }
+
+    void SocialContextClose(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    {
+        data.social_context_open = false;
+        handle.DirtyVariable("social_context_open");
+    }
+
+    void EmitSelected(const char* action)
+    {
+        if (data.selected_prime_id.empty()) return;
+        actions.emplace_back(std::string("social:") + action + ":" + data.selected_prime_id);
+        data.social_context_open = false;
+        handle.DirtyVariable("social_context_open");
+    }
+
+    void SocialAdd(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitSelected("add"); }
+    void SocialAccept(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitSelected("accept"); }
+    void SocialDecline(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitSelected("decline"); }
+    void SocialCancel(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitSelected("cancel"); }
+    void SocialRemove(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitSelected("remove"); }
+    void SocialBlock(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitSelected("block"); }
+    void SocialUnblock(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitSelected("unblock"); }
     void Noop(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) {}
 };
 
@@ -410,6 +650,56 @@ PP_EXPORT void pp_rmlui_set_text(const char* name, const char* value)
 PP_EXPORT void pp_rmlui_set_bool(const char* name, int value)
 {
     if (g_model && name) g_model->SetBool(name, value != 0);
+}
+
+PP_EXPORT void pp_rmlui_social_clear()
+{
+    if (g_model) g_model->ClearSocial();
+}
+
+PP_EXPORT void pp_rmlui_social_add_row(const char* prime_id, const char* name,
+    const char* activity, const char* detail, const char* relation, int online, int friend_online)
+{
+    if (!g_model) return;
+    SocialRow row;
+    row.prime_id = prime_id ? prime_id : "";
+    row.name = name ? name : "";
+    row.activity = activity ? activity : "";
+    row.detail = detail ? detail : "";
+    row.relation = relation ? relation : "";
+    row.online = online != 0;
+    row.friend_online = friend_online != 0;
+    g_model->AddSocialRow(row);
+}
+
+PP_EXPORT void pp_rmlui_social_add_home_friend(const char* prime_id, const char* name,
+    const char* activity, const char* detail)
+{
+    if (!g_model) return;
+    SocialRow row;
+    row.prime_id = prime_id ? prime_id : "";
+    row.name = name ? name : "";
+    row.activity = activity ? activity : "";
+    row.detail = detail ? detail : "";
+    row.relation = "friend";
+    row.online = true;
+    row.friend_online = true;
+    g_model->AddHomeFriend(row);
+}
+
+PP_EXPORT void pp_rmlui_social_commit()
+{
+    if (g_model) g_model->CommitSocial();
+}
+
+PP_EXPORT int pp_rmlui_back()
+{
+    if (!g_model || !g_model->Back()) return 0;
+    if (g_document) {
+        if (Rml::Element* social = g_document->GetElementById("social"))
+            social->Focus();
+    }
+    return 1;
 }
 
 PP_EXPORT int pp_rmlui_take_action(unsigned char* buffer, int capacity)
