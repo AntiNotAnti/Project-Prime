@@ -345,14 +345,15 @@ namespace MphRead.Mods.Launcher.Gui
             LauncherHunter.CanPresent = () => _active;
             LauncherHunter.Hunter = snapshot.DisplayHunter;
             LauncherHunter.Suit = snapshot.Suit;
-            // Frame the Hunter as the player's avatar rather than an enemy in
-            // the middle of a match. The preview pass keeps true model scale;
-            // only its camera and screen-space stage placement change.
-            LauncherHunter.Left = 0.40f;
-            LauncherHunter.Top = 0.075f;
-            LauncherHunter.Right = 0.81f;
-            LauncherHunter.Bottom = 0.94f;
-            LauncherHunter.DistanceScale = 0.84f;
+            // The room profile owns composition now, not the RML document.
+            // Changing activity can therefore move the map camera and Hunter
+            // together without duplicating presentation constants in UI code.
+            MenuStageProfile stage = LauncherMenuStage.Current;
+            LauncherHunter.Left = stage.HunterLeft;
+            LauncherHunter.Top = stage.HunterTop;
+            LauncherHunter.Right = stage.HunterRight;
+            LauncherHunter.Bottom = stage.HunterBottom;
+            LauncherHunter.DistanceScale = stage.HunterDistanceScale;
             LauncherHunter.TransparentBackground = true;
         }
 
@@ -419,6 +420,12 @@ namespace MphRead.Mods.Launcher.Gui
             finally
             {
                 completedCancel?.Dispose();
+                // The player may have selected another activity while this
+                // worker was rendering. Chain the current room now that the
+                // single preview-worker slot is free.
+                if (_active && !String.Equals(room, LauncherBackdrop.RoomKey,
+                    StringComparison.OrdinalIgnoreCase))
+                    BeginMenuStageRefresh(HubState.Capture());
             }
         }
 
@@ -429,9 +436,47 @@ namespace MphRead.Mods.Launcher.Gui
                 Array.Clear(_actionBuffer, 0, _actionBuffer.Length);
                 int length = NativeTakeAction(_actionBuffer, _actionBuffer.Length);
                 if (length <= 0) return;
-                string action = Encoding.UTF8.GetString(_actionBuffer, 0, Math.Min(length, _actionBuffer.Length - 1));
+                string action = Encoding.UTF8.GetString(
+                    _actionBuffer, 0, Math.Min(length, _actionBuffer.Length - 1));
+                if (action.StartsWith("stage:", StringComparison.Ordinal))
+                {
+                    ApplyStageAction(action);
+                    continue;
+                }
                 _commands.Enqueue(action);
             }
+        }
+
+        private static void ApplyStageAction(string action)
+        {
+            switch (action)
+            {
+                case "stage:quick":
+                    LauncherBackdrop.Set(LauncherBackdropScene.Multiplayer,
+                        "MP3 PROVING GROUND");
+                    break;
+                case "stage:browser":
+                    LauncherBackdrop.Set(LauncherBackdropScene.Play,
+                        "MP1 SANCTORUS");
+                    break;
+                case "stage:offline":
+                    LauncherBackdrop.Set(LauncherBackdropScene.Offline,
+                        "MP3 PROVING GROUND");
+                    break;
+                case "stage:adventure":
+                    LauncherBackdrop.Set(LauncherBackdropScene.Adventure,
+                        "UNIT1 ALINOS LANDFALL");
+                    break;
+                default:
+                    return;
+            }
+
+            HubSnapshot snapshot = HubState.Capture();
+            ConfigureHunter(snapshot);
+            BeginMenuStageRefresh(snapshot);
+            Mods.DebugLog.Line("rmlui",
+                $"menu stage -> {LauncherBackdrop.Scene}/{LauncherBackdrop.RoomKey} "
+                + $"profile={LauncherMenuStage.Current.Name}");
         }
 
         private static void HandleGamepad(UiAction action)

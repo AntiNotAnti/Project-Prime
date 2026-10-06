@@ -1,5 +1,6 @@
 #if !ANDROID && !MPHREAD_SERVER
 using System;
+using MphRead.Mods.Launcher;
 using OpenTK.Graphics.OpenGL;
 
 namespace MphRead.Mods.Render
@@ -27,6 +28,7 @@ namespace MphRead.Mods.Render
                 return;
 
             EnsureTexture();
+            MenuStageProfile stage = LauncherMenuStage.Current;
 
             float left = LauncherHunter.Left;
             float right = LauncherHunter.Right;
@@ -60,11 +62,42 @@ namespace MphRead.Mods.Render
             // environmental spill around the silhouette rather than a neon UI
             // circle.
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
+            float atmosphere = Math.Clamp(stage.Atmosphere, 0f, 0.35f);
             DrawRadial(centerX, centerY, spanX * 1.42f, spanY * 1.02f,
-                0.18f, 0.56f, 0.96f, 0.16f);
+                0.18f, 0.56f, 0.96f, 0.10f + atmosphere * 0.42f);
             DrawRadial(centerX + spanX * 0.03f, centerY - spanY * 0.02f,
                 spanX * 0.92f, spanY * 0.72f,
-                0.26f, 0.72f, 1.00f, 0.08f);
+                0.26f, 0.72f, 1.00f, 0.05f + atmosphere * 0.22f);
+
+            // Slow low fog stays behind the model. It is intentionally made
+            // from a few broad alpha fields rather than a particle system: the
+            // menu needs atmospheric depth, not gameplay smoke simulation.
+            double time = LauncherPrefs.ReduceMotion ? 0
+                : Environment.TickCount64 / 1000.0;
+            float fogShift = (float)Math.Sin(time * 0.11) * 0.035f;
+            DrawRadial(0.50f + fogShift, 0.79f, 0.92f, 0.23f,
+                0.18f, 0.38f, 0.55f, atmosphere * 0.22f);
+            DrawRadial(0.68f - fogShift * 0.7f, 0.68f, 0.62f, 0.17f,
+                0.20f, 0.45f, 0.66f, atmosphere * 0.12f);
+
+            // Deterministic dust motes give the stage life without making
+            // screenshot-to-screenshot layout nondeterministic.
+            float dust = Math.Clamp(stage.Dust, 0f, 0.30f);
+            for (int i = 0; i < 14; i++)
+            {
+                float seedX = Hash01(i * 17 + 3);
+                float seedY = Hash01(i * 29 + 11);
+                float phase = Hash01(i * 43 + 7) * MathF.PI * 2f;
+                float dx = LauncherPrefs.ReduceMotion ? 0
+                    : MathF.Sin((float)time * (0.07f + Hash01(i + 91) * 0.05f) + phase) * 0.018f;
+                float dy = LauncherPrefs.ReduceMotion ? 0
+                    : MathF.Cos((float)time * (0.05f + Hash01(i + 53) * 0.04f) + phase) * 0.012f;
+                float moteX = 0.30f + seedX * 0.55f + dx;
+                float moteY = 0.18f + seedY * 0.58f + dy;
+                float size = 0.004f + Hash01(i * 61 + 5) * 0.009f;
+                DrawRadial(moteX, moteY, size, size * 1.15f,
+                    0.62f, 0.84f, 1.00f, dust * (0.18f + Hash01(i * 13 + 2) * 0.36f));
+            }
 
             // A faint reflected pool under the boots helps the character share
             // a floor with the room even though the model itself is rendered by
@@ -149,6 +182,20 @@ namespace MphRead.Mods.Render
             GL.TexParameter(TextureTarget.Texture2D,
                 TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
             GL.BindTexture(TextureTarget.Texture2D, 0);
+        }
+
+        private static float Hash01(int value)
+        {
+            unchecked
+            {
+                uint x = (uint)value;
+                x ^= x >> 16;
+                x *= 0x7feb352dU;
+                x ^= x >> 15;
+                x *= 0x846ca68bU;
+                x ^= x >> 16;
+                return (x & 0x00ffffff) / 16777215f;
+            }
         }
 
         private static void DrawRadial(float centerX, float centerY,

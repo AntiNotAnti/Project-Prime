@@ -60,10 +60,27 @@ namespace MphRead.Mods.Render
         private static readonly LightInfo _cinematicLight = new LightInfo(
             new Vector3(-0.28f, -0.38f, -0.88f), new Vector3(1f, 0.93f, 0.82f),
             new Vector3(0.72f, 0.16f, 0.67f), new Vector3(0.20f, 0.52f, 0.90f));
+        private static readonly LightInfo _adventureLight = new LightInfo(
+            new Vector3(-0.34f, -0.42f, -0.84f), new Vector3(1f, 0.82f, 0.62f),
+            new Vector3(0.74f, 0.14f, 0.66f), new Vector3(0.24f, 0.42f, 0.76f));
+        private static readonly LightInfo _studioLight = new LightInfo(
+            new Vector3(-0.18f, -0.34f, -0.92f), new Vector3(0.84f, 0.94f, 1f),
+            new Vector3(0.78f, 0.12f, 0.61f), new Vector3(0.24f, 0.62f, 1f));
 
-        private static LightInfo PreviewLight =>
-            Scene.LauncherPreview && Scene.LauncherPreviewCinematicLighting
-                ? _cinematicLight : _light;
+        private static LightInfo PreviewLight
+        {
+            get
+            {
+                if (!Scene.LauncherPreview || !Scene.LauncherPreviewCinematicLighting)
+                    return _light;
+                return Mods.Launcher.LauncherBackdrop.Scene switch
+                {
+                    Mods.Launcher.LauncherBackdropScene.Adventure => _adventureLight,
+                    Mods.Launcher.LauncherBackdropScene.ReplayStudio => _studioLight,
+                    _ => _cinematicLight
+                };
+            }
+        }
 
         /// <summary>Half a turn: these models are authored facing away.</summary>
         private static readonly Matrix4 _facing =

@@ -75,6 +75,11 @@ namespace MphRead.Mods
                 Environment.ExitCode = Render.ModernGraphicsBackendCheck.Run();
                 return true;
             }
+            if (HasFlag(args, "menustagecheck"))
+            {
+                Environment.ExitCode = Launcher.LauncherMenuStageCheck.Run();
+                return true;
+            }
 #if !MPHREAD_SERVER
             if (HasFlag(args, "rendergraphcheck"))
             {

@@ -46,10 +46,27 @@ The first real menu-stage captures still read as a sharp character composited ov
 
 The background blur is intentionally a lightweight focal softening over the already-rendered room image, not a depth-buffer DOF effect. A true depth-aware menu scene remains a later Menu Stage renderer slice if the POC is promoted.
 
+## Slice B: authored Menu Stage system
+
+Slice B turns the one-off visual treatment into a data-driven presentation layer. The room image is still generated from Project Prime's real room renderer in an isolated preview worker, but the result is no longer an arbitrary thumbnail with global styling:
+
+- `LauncherMenuStage` owns an authored profile per built-in stage room: intro-camera sample frame, crop/focus, drift, post-process values, atmosphere, Hunter framing and visibility policy;
+- built-in rooms sample a deliberate frame on their original multiplayer intro-camera path. Custom maps continue to use their explicit `MapDefinition.Preview` camera;
+- menu-stage capture hides the local player/viewmodel, pickups, projectiles, bombs and enemies while leaving doors, platforms and architectural entities intact;
+- the launcher photo shader receives the active profile's softness, saturation, cool shift, vignette, side scrims, floor fade and highlight glow instead of hard-coded global numbers;
+- the under-Hunter native pass reads the same profile for low fog and deterministic dust motes. Reduce menu motion freezes atmospheric drift without removing the composition;
+- Hunter lighting changes with destination: the multiplayer/play stage keeps the balanced cinematic key/fill, Adventure warms the key, and Studio uses a cooler technical treatment;
+- QUICK PLAY, SERVER BROWSER, OFFLINE BATTLE and ADVENTURE now emit stage-selection events before deployment, allowing the environment, camera recipe and Hunter composition to change while the RmlUi home remains active;
+- when a selected stage has not been generated yet, the current stage stays visible until the background worker finishes instead of flashing to black;
+- cinematic cache version 3 forces old captures to be regenerated with the authored camera and expanded visibility policy;
+- `-menustagecheck` validates all shipped profiles without requiring game assets, and the RmlUi CI gate runs it before native rendering checks.
+
+The architecture deliberately keeps room simulation isolated in the preview worker for this POC. Loading a second full multiplayer `Scene` into the long-lived launcher process would currently share compatibility-era static match state with the player's next real match. Promoting Menu Stage to a continuously live 3D room should happen only after that state boundary is made explicitly scene-local, rather than hiding a second gameplay world behind the menu.
+
 ## macOS
 
 ```sh
-git checkout feature/rmlui-retina-menu-stage
+git checkout feature/rmlui-poc-menu-stage-b
 bash tools/rmlui/build-native.sh auto
 
 dotnet run --project src/MphRead/MphRead.csproj \

@@ -1,3 +1,4 @@
+using System;
 namespace MphRead.Mods
 {
     /// <summary>
@@ -19,20 +20,29 @@ namespace MphRead.Mods
         /// than to a preview image.
         /// </summary>
         public static bool Active { get; private set; }
+        private static string _roomKey = "";
 
         /// <summary>
-        /// A map preview is environment art, not a live first-person frame.
-        /// Keep the local hunter/viewmodel and item presentation out of the
-        /// generated image while leaving gameplay simulation untouched.
+        /// A menu-stage capture is environment art, not a live match. The
+        /// authored room profile decides which gameplay-only presentation is
+        /// omitted without mutating the room simulation itself.
         /// </summary>
-        public static bool SuppressLocalPlayerPresentation => Active;
-        public static bool SuppressPickupPresentation => Active;
+        public static bool SuppressLocalPlayerPresentation => Active
+            && Launcher.LauncherMenuStage.Has(Launcher.MenuStageVisibility.HideLocalPlayer, _roomKey);
+        public static bool SuppressPickupPresentation => Active
+            && Launcher.LauncherMenuStage.Has(Launcher.MenuStageVisibility.HidePickups, _roomKey);
+        public static bool SuppressCombatPresentation => Active
+            && Launcher.LauncherMenuStage.Has(Launcher.MenuStageVisibility.HideCombatActors, _roomKey);
+        public static bool SuppressCombatEffects => Active
+            && Launcher.LauncherMenuStage.Has(Launcher.MenuStageVisibility.HideCombatEffects, _roomKey);
 
         private static float _sfxVolume = 0.35f;
         private static float _musicVolume = 1;
 
-        public static void Enter()
+        public static void Enter(string? roomKey = null)
         {
+            if (!String.IsNullOrWhiteSpace(roomKey))
+                _roomKey = roomKey.Trim();
             if (Active)
             {
                 return;
@@ -64,6 +74,7 @@ namespace MphRead.Mods
                 return;
             }
             Active = false;
+            _roomKey = "";
             MphRead.Sound.Sfx.Volume = _sfxVolume;
             Music.SetUserVolume(_musicVolume);
         }

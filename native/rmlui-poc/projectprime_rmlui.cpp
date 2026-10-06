@@ -159,6 +159,7 @@ private:
         SetActivity(0, "QUICK PLAY",
             "Find the best compatible public hunt and deploy immediately.",
             "MATCHMAKING ENTRY", "DEPLOY");
+        Emit("stage:quick");
     }
 
     void SelectBrowser(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
@@ -166,6 +167,7 @@ private:
         SetActivity(1, "SERVER BROWSER",
             "Browse live lobbies, inspect arena and rules, then choose your hunt.",
             "LIVE DIRECTORY", "BROWSE SERVERS");
+        Emit("stage:browser");
     }
 
     void SelectOffline(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
@@ -173,6 +175,7 @@ private:
         SetActivity(2, "OFFLINE BATTLE",
             "Configure bots, arena, rules and hunter loadout without going online.",
             "LOCAL SESSION", "CONFIGURE MATCH");
+        Emit("stage:offline");
     }
 
     void SelectAdventure(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
@@ -180,6 +183,7 @@ private:
         SetActivity(3, "ADVENTURE",
             "Continue an existing save or begin a new solo campaign.",
             "SAVE DATA", "CONTINUE");
+        Emit("stage:adventure");
     }
 
     void Deploy(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)

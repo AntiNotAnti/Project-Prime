@@ -299,6 +299,7 @@ namespace MphRead.Entities
 
         public override void GetDrawInfo()
         {
+            if (Mods.ThumbnailMode.SuppressCombatPresentation) return;
             if (_health > 0 && Flags.TestFlag(EnemyFlags.Visible))
             {
                 if (!EnemyGetDrawInfo())
