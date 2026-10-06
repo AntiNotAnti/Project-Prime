@@ -213,7 +213,7 @@ namespace MphRead.Mods.Render
             }
             // Slice B: the menu stage owns an authored camera recipe per room.
             // Non-RmlUi shell routes retain the established launcher crop.
-            Launcher.MenuStageProfile stage = Launcher.LauncherMenuStage.Current;
+            MenuStageProfile stage = LauncherMenuStage.Current;
             float zoom = Math.Clamp(StageFxEnabled ? stage.Zoom : LauncherBackdrop.Zoom, 0.82f, 1f);
             u *= zoom;
             v *= zoom;
