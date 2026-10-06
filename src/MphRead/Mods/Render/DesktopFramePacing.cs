@@ -10,12 +10,17 @@ internal static class DesktopFramePacing
 {
     internal const double NativeRefreshToleranceHz = 0.75;
 
-    internal static bool NativeRefreshMatches(int cap, double refreshRate) =>
-        cap > 0 && refreshRate > 0
-        && Math.Abs(cap - refreshRate) <= NativeRefreshToleranceHz;
-
+    /// <summary>
+    /// Only the explicit Display/VSync setting is allowed to hand pacing over
+    /// to the monitor/compositor. Numeric caps are strict ceilings even when
+    /// they happen to equal the active refresh rate.
+    ///
+    /// Treating e.g. 240 on a 240 Hz monitor as display-paced disables the
+    /// software limiter entirely. Drivers, VRR and compositor/present-mode
+    /// behavior can then report or deliver frames above the requested cap.
+    /// </summary>
     internal static bool UseDisplayPacing(int cap, double refreshRate) =>
-        cap == 0 || NativeRefreshMatches(cap, refreshRate);
+        cap == FrameTiming.DisplayRate;
 
     internal static bool LinuxVSyncIgnored(bool isLinux, int cap, double refreshRate,
         double measuredFrameRate, bool alreadyLatched)
