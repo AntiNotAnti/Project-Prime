@@ -38,6 +38,8 @@ namespace MphRead.Mods.Launcher.Gui
         private static int _width;
         private static int _height;
         private static float _density = 1;
+        private static float _pointerScaleX = 1;
+        private static float _pointerScaleY = 1;
         private static long _nextStateRefresh;
         private static int _renderSamples;
         private static double _renderMs;
@@ -241,7 +243,12 @@ namespace MphRead.Mods.Launcher.Gui
 
         public static void PointerMoved(double x, double y)
         {
-            if (_active) NativeMouseMove((int)Math.Round(x), (int)Math.Round(y), 0);
+            if (_active)
+            {
+                NativeMouseMove(
+                    (int)Math.Round(x * _pointerScaleX),
+                    (int)Math.Round(y * _pointerScaleY), 0);
+            }
         }
 
         public static void PointerButton(MouseButton button, double x, double y, bool down)
@@ -513,14 +520,33 @@ namespace MphRead.Mods.Launcher.Gui
             width = Math.Max(window.FramebufferSize.X, 1);
             height = Math.Max(window.FramebufferSize.Y, 1);
 
-            // Framebuffer/client ratio catches Retina on the platforms where
-            // GLFW exposes logical client points. Window content scale catches
-            // DPI-aware desktop configurations where both sizes are already
-            // physical pixels. Use the larger answer so UI never shrinks just
-            // because the windowing backend chose the other coordinate model.
-            float framebufferScale = window.ClientSize.X > 0
-                ? Math.Max(1f, width / (float)window.ClientSize.X)
-                : 1f;
+            // Do not use NativeWindow.ClientSize for the Retina ratio here.
+            // On macOS/OpenTK it can already reflect framebuffer-sized pixels,
+            // which makes a 2x Retina window look like 1x and shrinks every
+            // density-independent RmlUi control by half on screen.
+            //
+            // GLFW window size is explicitly in screen coordinates while the
+            // framebuffer size is in pixels. Their ratio is therefore the
+            // authoritative conversion for both RmlUi dp and pointer input.
+            int windowWidth = 0, windowHeight = 0;
+            float framebufferScaleX = 1f, framebufferScaleY = 1f;
+            try
+            {
+                GLFW.GetWindowSize(window.WindowPtr, out windowWidth, out windowHeight);
+                if (windowWidth > 0)
+                    framebufferScaleX = Math.Max(1f, width / (float)windowWidth);
+                if (windowHeight > 0)
+                    framebufferScaleY = Math.Max(1f, height / (float)windowHeight);
+            }
+            catch
+            {
+                // Keep the 1x fallback and let content scale below provide a
+                // platform DPI answer if GLFW window-size lookup is unavailable.
+            }
+
+            _pointerScaleX = framebufferScaleX;
+            _pointerScaleY = framebufferScaleY;
+
             float contentScale = 1f;
             try
             {
@@ -530,10 +556,12 @@ namespace MphRead.Mods.Launcher.Gui
             }
             catch
             {
-                // Ratio fallback above remains valid if the platform cannot
-                // report a content scale for this compatibility window.
+                // Framebuffer/window ratio above remains the primary answer.
             }
-            density = Math.Max(framebufferScale, contentScale);
+
+            density = Math.Max(
+                Math.Max(framebufferScaleX, framebufferScaleY),
+                contentScale);
 
             float forced = DensityOverride();
             if (forced > 0)
