@@ -71,42 +71,12 @@ public sealed class InstallationLifetime : IDisposable
 
     private static bool IsBusy(int error) => OperatingSystem.IsWindows() ? error is 32 or 33 : error is 11 or 35;
     private static IOException Busy(bool update) => new(update
-        ? "Project Prime Studio is still open. Save and close Studio, then retry the update; no installed files were changed."
-        : "This desktop installation is being updated. Start Studio after the update completes.");
+        ? "Project Prime or Project Prime Studio is still open. Close both applications, then retry the update; no installed files were changed."
+        : "This desktop installation is being updated. Start Project Prime or Studio after the update completes.");
 
     /// <summary>Two sibling macOS bundles form one installation; directory aliases share ownership.</summary>
     public static string CanonicalInstallation(string directory)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(directory);
-        string full = Resolve(Path.GetFullPath(directory), 0);
-        var info = new DirectoryInfo(full);
-        if (info.Name == "MacOS" && info.Parent?.Name == "Contents"
-            && info.Parent.Parent is { } bundle && bundle.Name.EndsWith(".app", StringComparison.OrdinalIgnoreCase))
-            full = bundle.Parent?.FullName ?? bundle.FullName;
-        full = Path.TrimEndingDirectorySeparator(full);
-        return OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? full.ToUpperInvariant() : full;
-    }
-
-    private static string Resolve(string directory, int depth)
-    {
-        if (depth > 32) throw new IOException("The installation contains too many directory aliases.");
-        string root = Path.GetPathRoot(directory)!;
-        string current = root;
-        foreach (string component in directory[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
-        {
-            current = Path.Combine(current, component);
-            var info = new DirectoryInfo(current);
-            try
-            {
-                if ((info.Attributes & FileAttributes.ReparsePoint) != 0)
-                    current = Resolve(info.ResolveLinkTarget(true)?.FullName
-                        ?? throw new IOException("The installation directory alias cannot be resolved."), depth + 1);
-            }
-            catch (FileNotFoundException) { }
-            catch (DirectoryNotFoundException) { }
-        }
-        return current;
-    }
+        => ProjectPrime.DesktopShared.DesktopInstallationIdentity.CanonicalInstallation(directory);
 
     public void Dispose() => Interlocked.Exchange(ref _stream, null)?.Dispose();
     [StructLayout(LayoutKind.Sequential)]

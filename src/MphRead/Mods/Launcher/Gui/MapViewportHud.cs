@@ -7,6 +7,19 @@ namespace MphRead.Mods.Launcher.Gui;
 
 internal sealed partial class MapViewport
 {
+    private FormattedText? _unavailablePreviewText;
+    private void DrawUnavailablePreviewHud(DrawingContext context)
+    {
+        if(GpuActive || !(LightingPreview || ShadowPreview || FogPreview || DiagnosticMode!=MphRead.Mods.MapEditor.MapViewportDiagnosticMode.None))return;
+#if MPHREAD_SHELL
+        if(_capturingStudioOverlay)return;
+#endif
+        _unavailablePreviewText ??=new FormattedText("Preview requires the native GPU viewport · CPU authoring remains available",
+            CultureInfo.InvariantCulture,FlowDirection.LeftToRight,GuiTheme.Face(bold:false),11,Brushes.Gold);
+        var bounds=new Rect(10,10,Math.Max(1,Math.Min(_unavailablePreviewText.Width+16,Bounds.Width-20)),_unavailablePreviewText.Height+12);
+        context.DrawRectangle(new SolidColorBrush(Color.FromArgb(230,18,30,42)),null,bounds,4,4);
+        using(context.PushClip(bounds))context.DrawText(_unavailablePreviewText,bounds.TopLeft+new Avalonia.Vector(8,6));
+    }
     private string? _transformHudValue;
     private FormattedText? _transformHudText;
     private void DrawTransformHud(DrawingContext context)

@@ -114,6 +114,7 @@ namespace MphRead.Mods.Launcher.Gui
         internal MapStudioScreen(IMapStudioHostServices services, bool preview = false)
         {
             _services = services;
+            ConfigureAssetDropTarget();
             if (services.IsStandalone)
             {
                 _root.Margin=new Thickness(6);_root.RowSpacing=4;
@@ -318,14 +319,23 @@ namespace MphRead.Mods.Launcher.Gui
                 VerticalScrollBarVisibility =
                     Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
             };
-            var inspectQuick = new PrimeButton("INSPECT",
-                () => ShowInspectorPage("Inspector"), compact: true);
-            var materialsQuick = new PrimeButton("MATERIALS",
-                () => ShowInspectorPage("Materials"), compact: true);
-            var assetsQuick = new PrimeButton("ASSETS",
-                () => ShowInspectorPage("Assets & music"), compact: true);
-            var healthQuick = new PrimeButton("HEALTH",
-                () => ShowInspectorPage("Map health"), compact: true);
+            Control InspectorQuick(string label, string page)
+            {
+                if (!services.IsStandalone) return new PrimeButton(label.ToUpperInvariant(),
+                    () => ShowInspectorPage(page), compact: true);
+                var button = new Avalonia.Controls.Button
+                {
+                    Content = new TextBlock { Text=label,FontSize=11,TextWrapping=TextWrapping.NoWrap },
+                    MinHeight=28,Height=28,MaxHeight=28,MinWidth=0,Padding=new Thickness(4,2),
+                    HorizontalContentAlignment=HorizontalAlignment.Center
+                };
+                button.Click += (_,_) => ShowInspectorPage(page);
+                return button;
+            }
+            var inspectQuick = InspectorQuick("Inspect", "Inspector");
+            var materialsQuick = InspectorQuick("Materials", "Materials");
+            var assetsQuick = InspectorQuick("Assets", "Assets & music");
+            var healthQuick = InspectorQuick("Health", "Map health");
             ControllerNav.Identify(inspectQuick, "studio.inspector");
             ControllerNav.Identify(materialsQuick, "studio.materials");
             ControllerNav.Identify(assetsQuick, "studio.assets");
@@ -338,7 +348,6 @@ namespace MphRead.Mods.Launcher.Gui
                 inspectorQuick);
             if(services.IsStandalone)
             {
-                foreach(var button in new[]{inspectQuick,materialsQuick,assetsQuick,healthQuick}) {button.MinHeight=button.Height=button.MaxHeight=28;button.FontSize=10;}
                 inspectorHeader.Children.Clear();inspectorHeader.Children.Add(inspectorQuick);
             }
             var inspectorPanel = new MapInspectorPanel(inspectorHeader,inspectorScroll);
@@ -484,6 +493,7 @@ _dropSubscription?.Dispose(); _dropSubscription = null;
         }
         public void Dispose()
         {
+            DisposeAssetThumbnails();
             _detached=true; _editorGeneration++; _idle.Stop(); _work?.Cancel(); _dropSubscription?.Dispose(); _dropSubscription=null; _autosave.Dispose(); _sourceWatch?.Dispose(); _sourceWatch=null;
             if (_document != null) _document.Changed -= Changed;
             ReleaseViews();

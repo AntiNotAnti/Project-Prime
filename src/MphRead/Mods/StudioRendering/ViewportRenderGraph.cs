@@ -18,11 +18,14 @@ public sealed unsafe partial class StudioRenderDevice
 {
     private RenderPipeline* _fillPipeline, _edgePipeline, _pickPipeline;
     private RenderPipeline* _bgraFillPipeline, _bgraEdgePipeline;
+    private RenderPipeline* _shadowPipeline,_overdrawPipeline,_bgraOverdrawPipeline;
     private BindGroupLayout* _materialLayout;
     private ShaderModule* _shader;
     private long _lastVisiblePrimitives;
     private const string Shader = """
-struct Params { mvp: mat4x4<f32>, model: mat4x4<f32>, view: mat4x4<f32>, uv: vec4<f32>, tint: vec4<f32>, features: vec4<f32> };
+struct Params { mvp: mat4x4<f32>, model: mat4x4<f32>, view: mat4x4<f32>, uv: vec4<f32>, tint: vec4<f32>, features: vec4<f32>,
+ light1vec: vec4<f32>, light2vec: vec4<f32>, light1col: vec4<f32>, light2col: vec4<f32>, fogColor: vec4<f32>, settings: vec4<f32>,
+ materialColor: vec4<f32>, fogRange: vec4<f32>, shadowView: mat4x4<f32>, shadowProjection: mat4x4<f32> };
 @group(0) @binding(0) var<uniform> p: Params;
 @group(0) @binding(1) var image: texture_2d<f32>;
 @group(0) @binding(2) var sample_image: sampler;
@@ -32,6 +35,7 @@ struct Params { mvp: mat4x4<f32>, model: mat4x4<f32>, view: mat4x4<f32>, uv: vec
 @group(0) @binding(6) var specular_sampler: sampler;
 @group(0) @binding(7) var emissive_image: texture_2d<f32>;
 @group(0) @binding(8) var emissive_sampler: sampler;
+@group(0) @binding(9) var shadow_image: texture_depth_2d;
 var<private> surface_position_1: vec3<f32>;
 var<private> surface_normal_1: vec3<f32>;
 var<private> texcoord_1: vec2<f32>;
@@ -39,9 +43,14 @@ fn prime_sample_tex(uv: vec2<f32>) -> vec4<f32> { return textureSample(image,sam
 fn prime_sample_normal_tex(uv: vec2<f32>) -> vec4<f32> { return textureSample(normal_image,normal_sampler,uv); }
 fn prime_sample_specular_tex(uv: vec2<f32>) -> vec4<f32> { return textureSample(specular_image,specular_sampler,uv); }
 fn prime_sample_emissive_tex(uv: vec2<f32>) -> vec4<f32> { return textureSample(emissive_image,emissive_sampler,uv); }
-struct Input { @location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) uv: vec2<f32>, @location(3) shade: f32, @location(4) id: u32 };
+fn prime_sample_shadow_tex(uv: vec2<f32>) -> vec4<f32> {
+ let dims=vec2<i32>(textureDimensions(shadow_image));
+ let point=clamp(vec2<i32>(vec2<f32>(uv.x,1f-uv.y)*vec2<f32>(dims)),vec2<i32>(0),dims-vec2<i32>(1));
+ return vec4<f32>(textureLoad(shadow_image,point,0));
+}
+struct Input { @location(0) position: vec3<f32>, @location(1) normal: vec3<f32>, @location(2) uv: vec2<f32>, @location(3) shade: f32, @location(4) id: u32, @location(5) terrain: u32 };
 struct Output { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>, @location(1) shade: f32, @location(2) @interpolate(flat) id: u32,
- @location(3) world: vec3<f32>, @location(4) normal: vec3<f32> };
+ @location(3) world: vec3<f32>, @location(4) normal: vec3<f32>, @location(5) @interpolate(flat) terrain: u32 };
 @vertex fn vertex(input: Input) -> Output {
  var o: Output; o.position = p.mvp * vec4<f32>(input.position,1.0);
  if(p.uv.w > 0.5 && p.uv.w < 1.5) {
@@ -54,7 +63,7 @@ struct Output { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f3
    let point=mix(o.position,end,input.uv.x);
    o.position=vec4<f32>(point.xy+perpendicular*input.uv.y*p.uv.xy*point.w,point.z-0.00001*point.w,point.w);
  }
- o.uv = input.uv * p.uv.xy; o.shade = input.shade; o.id = input.id;
+ o.uv = input.uv * p.uv.xy; o.shade = input.shade; o.id = input.id;o.terrain=input.terrain;
  o.world=(p.model*vec4<f32>(input.position,1.0)).xyz;
  let cofactor=mat3x3<f32>(cross(p.model[1].xyz,p.model[2].xyz),cross(p.model[2].xyz,p.model[0].xyz),cross(p.model[0].xyz,p.model[1].xyz));
  let determinant=dot(p.model[0].xyz,cofactor[0]);
@@ -66,9 +75,21 @@ struct Output { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f3
  let tex = textureSample(image, sample_image, input.uv);
  var color = select(vec4<f32>(vec3<f32>(input.shade), 1.0), tex, p.uv.z > 0.5);
  surface_position_1=input.world;surface_normal_1=input.normal;texcoord_1=input.uv;
- apply_material_lighting(&color); return color * p.tint;
+ apply_material_lighting(&color);
+ let texel_uv=input.uv*vec2<f32>(textureDimensions(image));let dx=dpdx(texel_uv);let dy=dpdy(texel_uv);
+ let density=sqrt(abs(dx.x*dy.y-dx.y*dy.x)/max(length(cross(dpdx(input.world),dpdy(input.world))),0.000001f));
+ if(p.settings.z>0.5f && p.settings.z<1.5f){color=vec4<f32>(terrain_color(input.terrain),1f);}
+ if(p.settings.z>2.5f && p.settings.z<3.5f){color=vec4<f32>(density_color(density),1f);}
+ if(p.settings.z>3.5f){color=p.materialColor;}
+ if(p.settings.z<0.5f){
+   if(color.a<=0.0039f){discard;}
+   color=vec4<f32>(color.rgb*directional_shadow(input.world,input.normal),color.a);
+   color=creator_fog(color,input.position.z);
+ }
+ return color * p.tint;
 }
 @fragment fn pick(input: Output) -> @location(0) u32 { return input.id; }
+@fragment fn overdraw(input: Output) -> @location(0) vec4<f32> { return vec4<f32>(0.12f,0.025f,0.004f,1f); }
 """;
 
     private void PrepareGraph()
@@ -83,33 +104,40 @@ struct Output { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f3
             _fillPipeline = Pipeline(PrimitiveTopology.TriangleList, GpuTextureFormat.Rgba8Unorm, "fragment");
             _edgePipeline = Pipeline(PrimitiveTopology.LineList, GpuTextureFormat.Rgba8Unorm, "fragment");
             _pickPipeline = Pipeline(PrimitiveTopology.TriangleList, GpuTextureFormat.R32Uint, "pick");
+            _shadowPipeline = Pipeline(PrimitiveTopology.TriangleList,GpuTextureFormat.Undefined,null);
+            _overdrawPipeline = Pipeline(PrimitiveTopology.TriangleList,GpuTextureFormat.Rgba8Unorm,"overdraw");
             _materialLayout = Api.RenderPipelineGetBindGroupLayout(_fillPipeline, 0);
             Device.ThrowIfFailed();
         }
         finally { SilkMarshal.Free(source); }
     }
-    private RenderPipeline* Pipeline(PrimitiveTopology topology, GpuTextureFormat format, string fragmentName)
+    private RenderPipeline* Pipeline(PrimitiveTopology topology, GpuTextureFormat format, string? fragmentName)
     {
-        var attributes = stackalloc VertexAttribute[5];
+        var attributes = stackalloc VertexAttribute[6];
         attributes[0] = new() { Format = VertexFormat.Float32x3, Offset = 0, ShaderLocation = 0 };
         attributes[1] = new() { Format = VertexFormat.Float32x3, Offset = 12, ShaderLocation = 1 };
         attributes[2] = new() { Format = VertexFormat.Float32x2, Offset = 24, ShaderLocation = 2 };
         attributes[3] = new() { Format = VertexFormat.Float32, Offset = 32, ShaderLocation = 3 };
         attributes[4] = new() { Format = VertexFormat.Uint32, Offset = 36, ShaderLocation = 4 };
-        var layout = new VertexBufferLayout { Attributes = attributes, AttributeCount = 5, ArrayStride = 40, StepMode = VertexStepMode.Vertex };
+        attributes[5] = new() { Format = VertexFormat.Uint32, Offset = 40, ShaderLocation = 5 };
+        var layout = new VertexBufferLayout { Attributes = attributes, AttributeCount = 6, ArrayStride = MeshResource.VertexStride, StepMode = VertexStepMode.Vertex };
         var color = new ColorTargetState { Format = format, WriteMask = ColorWriteMask.All };
-        var depth = new DepthStencilState { Format = GpuTextureFormat.Depth32float, DepthWriteEnabled = topology == PrimitiveTopology.TriangleList,
-            DepthCompare = CompareFunction.LessEqual, StencilReadMask = 0, StencilWriteMask = 0,
+        bool overdraw=fragmentName=="overdraw";
+        var blend = new BlendState {Color=new BlendComponent {Operation=BlendOperation.Add,SrcFactor=overdraw ? BlendFactor.One : BlendFactor.SrcAlpha,DstFactor=overdraw ? BlendFactor.One : BlendFactor.OneMinusSrcAlpha},
+            Alpha=new BlendComponent {Operation=BlendOperation.Add,SrcFactor=BlendFactor.One,DstFactor=overdraw ? BlendFactor.Zero : BlendFactor.OneMinusSrcAlpha}};
+        if(fragmentName is "fragment" or "overdraw")color.Blend=&blend;
+        var depth = new DepthStencilState { Format = GpuTextureFormat.Depth32float, DepthWriteEnabled = !overdraw && topology == PrimitiveTopology.TriangleList,
+            DepthCompare = overdraw ? CompareFunction.Always : CompareFunction.LessEqual, StencilReadMask = 0, StencilWriteMask = 0,
             StencilFront = new StencilFaceState { Compare = CompareFunction.Always, FailOp = StencilOperation.Keep, DepthFailOp = StencilOperation.Keep, PassOp = StencilOperation.Keep },
             StencilBack = new StencilFaceState { Compare = CompareFunction.Always, FailOp = StencilOperation.Keep, DepthFailOp = StencilOperation.Keep, PassOp = StencilOperation.Keep } };
-        nint vs = SilkMarshal.StringToPtr("vertex"), fs = SilkMarshal.StringToPtr(fragmentName);
+        nint vs = SilkMarshal.StringToPtr("vertex"), fs = fragmentName==null ? 0 : SilkMarshal.StringToPtr(fragmentName);
         try
         {
             var fragment = new FragmentState { Module = _shader, EntryPoint = (byte*)fs, TargetCount = 1, Targets = &color };
             var descriptor = new RenderPipelineDescriptor {
                 Vertex = new VertexState { Module = _shader, EntryPoint = (byte*)vs, Buffers = &layout, BufferCount = 1 },
                 Primitive = new PrimitiveState { Topology = topology, FrontFace = FrontFace.Ccw, CullMode = CullMode.None },
-                Multisample = new MultisampleState { Count = 1, Mask = uint.MaxValue }, Fragment = &fragment, DepthStencil = &depth };
+                Multisample = new MultisampleState { Count = 1, Mask = uint.MaxValue }, Fragment = fragmentName==null ? null : &fragment, DepthStencil = &depth };
             var pipeline = Api.DeviceCreateRenderPipeline(Device.Device, &descriptor);
             if (pipeline == null) throw new InvalidOperationException("Studio viewport pipeline creation failed.");
             return pipeline;
@@ -119,20 +147,33 @@ struct Output { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f3
     internal StudioViewportImage Render(StudioRenderSurface target, EditorRenderWorld world, MapRenderFrame frame)
     {
         var watch = Stopwatch.StartNew();
-        Prepare(target, world, frame);
-        int draws = Draw(target, world, frame, false);
+        var metrics=SubmitForDiagnostics(target,world,frame);
         byte[] rgba = ReadTexture(target.Color, 0, 0, target.Width, target.Height);
-        target.Metrics = new(world.MeshUploads, world.ResidentMeshes, world.ResidentTextures, world.TextureBytes,
-            draws, watch.Elapsed.TotalMilliseconds, rgba.LongLength, Generation,world.GeometryBytes,
-            BatchCount:draws,VisiblePrimitives:_lastVisiblePrimitives,GeometryUploadBytes:world.GeometryUploadBytes);
+        target.Metrics=metrics with {CpuMilliseconds=watch.Elapsed.TotalMilliseconds,ReadbackBytes=rgba.LongLength};
         return new((int)target.Width, (int)target.Height, rgba);
+    }
+    internal StudioRenderMetrics SubmitForDiagnostics(StudioRenderSurface target, EditorRenderWorld world, MapRenderFrame frame)
+    {
+        var watch=Stopwatch.StartNew();
+        Prepare(target, world, frame);
+        int shadowDraws=frame.ShadowPreview ? Draw(target,world,frame with {Meshes=frame.ResidentMeshes},false,shadow:true) : 0;
+        int draws = Draw(target, world, frame, false)+shadowDraws;
+        target.Metrics = new(world.MeshUploads, world.ResidentMeshes, world.ResidentTextures, world.TextureBytes,
+            draws, watch.Elapsed.TotalMilliseconds, 0, Generation,world.GeometryBytes,
+            BatchCount:draws,VisiblePrimitives:_lastVisiblePrimitives,GeometryUploadBytes:world.GeometryUploadBytes,PixelWidth:(int)target.Width,PixelHeight:(int)target.Height);
+        return target.Metrics;
     }
     internal StudioPickResult Pick(StudioRenderSurface target, EditorRenderWorld world, MapRenderFrame frame, double x, double y,StudioPickKind kind)
     {
         var cpu = EditorPickPass.Cpu(frame, x, y,kind);
         try
         {
-            Prepare(target, world, frame); Draw(target, world, frame, true,kind);
+            Prepare(target, world, frame);
+            if(target.PickFrame?.Matches(world,frame,kind)!=true)
+            {
+                Draw(target, world, frame, true,kind);target.PickPassSubmissions++;
+                target.PickFrame=new(world,frame,kind);
+            }
             uint px = (uint)Math.Clamp((int)Math.Floor(x * frame.Layout.RenderScale), 0, (int)target.Width-1);
             uint py = (uint)Math.Clamp((int)Math.Floor(y * frame.Layout.RenderScale), 0, (int)target.Height-1);
             byte[] pixel = ReadTexture(target.Ids, px, py, 1, 1);
@@ -157,9 +198,10 @@ struct Output { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f3
         if (!frame.Layout.IsValid) throw new ArgumentException("Viewport pixel bounds are invalid.");
         RecoverIfLost(); PrepareGraph();
         target.Resize((uint)frame.Layout.PixelWidth, (uint)frame.Layout.PixelHeight);
-        world.Synchronize(frame);
+        target.EnsureShadow(frame);
+        world.Synchronize(frame.ShadowPreview ? frame with {Meshes=frame.ResidentMeshes} : frame);
     }
-    private int Draw(StudioRenderSurface target, EditorRenderWorld world, MapRenderFrame frame, bool picking,StudioPickKind pickKind=StudioPickKind.Face)
+    private int Draw(StudioRenderSurface target, EditorRenderWorld world, MapRenderFrame frame, bool picking,StudioPickKind pickKind=StudioPickKind.Face,bool shadow=false)
     {
         var api = Api;
         var queue = api.DeviceGetQueue(Device.Device);
@@ -172,16 +214,17 @@ struct Output { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f3
             encoder = api.DeviceCreateCommandEncoder(Device.Device, new CommandEncoderDescriptor());
             var attachment = new RenderPassColorAttachment { DepthSlice = uint.MaxValue,
                 View = picking ? target.IdView : target.ColorView, LoadOp = LoadOp.Clear, StoreOp = StoreOp.Store,
-                ClearValue = picking ? new Silk.NET.WebGPU.Color(0,0,0,0) : new Silk.NET.WebGPU.Color(20d/255,28d/255,37d/255,1) };
-            var depth = new RenderPassDepthStencilAttachment { View = target.DepthView, DepthLoadOp = LoadOp.Clear, DepthStoreOp = StoreOp.Store,
+                ClearValue = picking ? new Silk.NET.WebGPU.Color(0,0,0,0) : frame.DiagnosticMode==MapViewportDiagnosticMode.Overdraw ? new Silk.NET.WebGPU.Color(0,0,0,1) : new Silk.NET.WebGPU.Color(20d/255,28d/255,37d/255,1) };
+            var depth = new RenderPassDepthStencilAttachment { View = shadow ? target.ShadowView : target.DepthView, DepthLoadOp = LoadOp.Clear, DepthStoreOp = StoreOp.Store,
                 DepthClearValue = 1, StencilLoadOp = LoadOp.Undefined, StencilStoreOp = StoreOp.Undefined, StencilReadOnly = true };
-            var descriptor = new RenderPassDescriptor { ColorAttachments = &attachment, ColorAttachmentCount = 1, DepthStencilAttachment = &depth };
+            var descriptor = new RenderPassDescriptor { ColorAttachments = shadow ? null : &attachment, ColorAttachmentCount = shadow ? 0u : 1u, DepthStencilAttachment = &depth };
             pass = api.CommandEncoderBeginRenderPass(encoder, &descriptor);
+            api.RenderPassEncoderSetViewport(pass,0,0,shadow ? target.ShadowSize : target.Width,shadow ? target.ShadowSize : target.Height,0,1);
             var basis = frame.Camera.Basis();
-            var view = Matrix4x4.CreateLookAt(frame.Camera.Position, frame.Camera.Target, basis.Up);
+            var view = shadow ? target.ShadowCameraView : Matrix4x4.CreateLookAt(frame.Camera.Position, frame.Camera.Target, basis.Up);
             // Canonical camera projection is GL clip depth. Convert to WebGPU 0..1.
             var clipDepth = Matrix4x4.Identity; clipDepth.M33 = .5f; clipDepth.M43 = .5f;
-            var vp = view * frame.Camera.Projection(frame.Layout) * clipDepth;
+            var vp = view * (shadow ? target.ShadowCameraProjection : frame.Camera.Projection(frame.Layout)) * clipDepth;
             foreach (var mesh in frame.Meshes)
             {
                 var resource = world.Meshes[mesh.ObjectId];
@@ -196,7 +239,9 @@ struct Output { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f3
                     var material = source == null ? world.White : world.Material(source);
                     // Pick pipeline's automatically inferred layout excludes
                     // texture bindings. Give it its own layout-compatible group.
-                    var pipeline = picking ? _pickPipeline : target.TargetFormat == GpuTextureFormat.Bgra8Unorm
+                    bool overdraw=!picking && !shadow && !edge && frame.DiagnosticMode==MapViewportDiagnosticMode.Overdraw;
+                    var pipeline = shadow ? _shadowPipeline : picking ? _pickPipeline : overdraw
+                        ? (target.TargetFormat==GpuTextureFormat.Bgra8Unorm ? _bgraOverdrawPipeline : _overdrawPipeline) : target.TargetFormat == GpuTextureFormat.Bgra8Unorm
                         ? (edge ? _bgraEdgePipeline : _bgraFillPipeline) : edge ? _edgePipeline : _fillPipeline;
                     api.RenderPassEncoderSetPipeline(pass, pipeline);
                     var mvp = transform * vp;
@@ -204,17 +249,24 @@ struct Output { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f3
                     float uvY = source == null ? 1 : 1f / (source.CoordinateHeight > 0 ? source.CoordinateHeight : source.Height);
                     var tint = edge ? (selected ? new Vector4(1,.8f,.15f,1) : new Vector4(.45f,.6f,.7f,1))
                         : frame.Collision ? new Vector4(.2f,.6f,.4f,1) : Vector4.One;
-                    float* words = stackalloc float[60];
+                    float* words = stackalloc float[124];
                     *(Matrix4x4*)words = mvp; *(Matrix4x4*)(words+16) = transform; *(Matrix4x4*)(words+32) = view;
                     int mode = !picking ? 0 : part.PickKind == StudioPickKind.Vertex ? 1 : part.PickKind == StudioPickKind.Edge ? 2 : 0;
                     *(Vector4*)(words+48) = mode==0 ? new(uvX,uvY,source == null ? 0 : 1,0)
                         : new(18f/target.Width,18f/target.Height,0,mode); *(Vector4*)(words+52) = tint;
-                    *(Vector4*)(words+56) = new(material.Enhanced ? 1 : 0,material.Normal != 0 ? 1 : 0,material.Specular != 0 ? 1 : 0,material.Emissive != 0 ? 1 : 0);
-                    api.QueueWriteBuffer(queue, part.Uniform, 0, words, 240);
+                    *(Vector4*)(words+56) = new(!edge && (material.Enhanced || frame.LightingPreview) ? 1 : 0,material.Normal != 0 ? 1 : 0,material.Specular != 0 ? 1 : 0,material.Emissive != 0 ? 1 : 0);
+                    *(Vector4*)(words+60)=new(frame.Light1Vector,0);*(Vector4*)(words+64)=new(frame.Light2Vector,0);
+                    *(Vector4*)(words+68)=new(frame.Light1Color,0);*(Vector4*)(words+72)=new(frame.Light2Color,0);*(Vector4*)(words+76)=new(frame.FogColor,1);
+                    *(Vector4*)(words+80)=new(frame.FogPreview && frame.FogEnabled && !edge ? 1 : 0,frame.ShadowPreview && !edge ? 1 : 0,edge ? 0 : (int)frame.DiagnosticMode,0);
+                    *(Vector4*)(words+84)=new(MapViewportDiagnostics.MaterialColor(part.Material.Imported,part.Material.Index),1);
+                    var fog=MphRead.Mods.Render.GraphicsEnvironmentMath.FogRange(frame.FogOffset,frame.FogSlope);
+                    *(Vector4*)(words+88)=new(fog.Minimum,fog.Maximum,1f/target.ShadowSize,0);
+                    *(Matrix4x4*)(words+92)=target.ShadowCameraView;*(Matrix4x4*)(words+108)=target.ShadowCameraProjection;
+                    api.QueueWriteBuffer(queue, part.Uniform, 0, words, MeshResource.UniformBytes);
                     var bindingLayout = api.RenderPipelineGetBindGroupLayout(pipeline, 0);
                     frameLayouts.Add((nint)bindingLayout);
-                    var entries = stackalloc BindGroupEntry[9];
-                    entries[0] = new() { Binding = 0, Buffer = part.Uniform, Size = 240 };
+                    var entries = stackalloc BindGroupEntry[10];
+                    entries[0] = new() { Binding = 0, Buffer = part.Uniform, Size = MeshResource.UniformBytes };
                     entries[1] = new() { Binding = 1, TextureView = material.View };
                     entries[2] = new() { Binding = 2, Sampler = material.Sampler };
                     int[] companions = {material.Normal,material.Specular,material.Emissive};
@@ -224,20 +276,21 @@ struct Output { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f3
                         entries[3+channel*2]=new() { Binding=(uint)(3+channel*2),TextureView=companion.View };
                         entries[4+channel*2]=new() { Binding=(uint)(4+channel*2),Sampler=companion.Sampler };
                     }
-                    var bindingDescriptor = new BindGroupDescriptor { Layout = bindingLayout, EntryCount = picking ? 1u : 9u, Entries = entries };
+                    entries[9]=new() {Binding=9,TextureView=target.ShadowView};
+                    var bindingDescriptor = new BindGroupDescriptor { Layout = bindingLayout, EntryCount = picking || shadow || overdraw ? 1u : 10u, Entries = entries };
                     var binding = api.DeviceCreateBindGroup(Device.Device, &bindingDescriptor);
                     frameBindings.Add((nint)binding);
                     // wgpu resolves recorded binding IDs when the pass ends.
                     // Keep every binding alive through command submission.
                     api.RenderPassEncoderSetBindGroup(pass, 0, binding, 0, null);
-                    api.RenderPassEncoderSetVertexBuffer(pass, 0, part.Vertices, 0, (ulong)(part.Count*40));
+                    api.RenderPassEncoderSetVertexBuffer(pass, 0, part.Vertices, 0, (ulong)(part.Count*MeshResource.VertexStride));
                     api.RenderPassEncoderDraw(pass, (uint)part.Count, 1, 0, 0); drawCalls++;
                     _lastVisiblePrimitives+=part.Count/(edge ? 2 : 3);
                 }
-                if (picking || !frame.Wireframe) foreach (var part in resource.Parts) Submit(part, false);
+                if (shadow || picking || !frame.Wireframe) foreach (var part in resource.Parts) Submit(part, false);
                 if(picking && pickKind==StudioPickKind.Vertex)foreach(var part in resource.PickVertices)Submit(part,false);
                 if(picking && pickKind==StudioPickKind.Edge)foreach(var part in resource.PickEdges)Submit(part,false);
-                if (!picking && (frame.Wireframe || selected)) foreach (var part in resource.Edges) Submit(part, true);
+                if (!picking && !shadow && (frame.Wireframe || selected)) foreach (var part in resource.Edges) Submit(part, true);
             }
             api.RenderPassEncoderEnd(pass);
             commands = api.CommandEncoderFinish(encoder, new CommandBufferDescriptor());
@@ -299,9 +352,13 @@ struct Output { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f3
         if (_pickPipeline != null) Api.RenderPipelineRelease(_pickPipeline);
         if (_bgraFillPipeline != null) Api.RenderPipelineRelease(_bgraFillPipeline);
         if (_bgraEdgePipeline != null) Api.RenderPipelineRelease(_bgraEdgePipeline);
+        if (_shadowPipeline!=null)Api.RenderPipelineRelease(_shadowPipeline);
+        if (_overdrawPipeline!=null)Api.RenderPipelineRelease(_overdrawPipeline);
+        if (_bgraOverdrawPipeline!=null)Api.RenderPipelineRelease(_bgraOverdrawPipeline);
         if (_shader != null) Api.ShaderModuleRelease(_shader);
         _materialLayout = null; _fillPipeline = _edgePipeline = _pickPipeline = null; _shader = null;
         _bgraFillPipeline = _bgraEdgePipeline = null;
+        _shadowPipeline=_overdrawPipeline=_bgraOverdrawPipeline=null;
         ReleaseOverlayGraph();
     }
 }

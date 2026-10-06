@@ -116,16 +116,31 @@ namespace MphRead.Mods.Render
                         (int start, int end) =
                             ModernGraphicsCompat.GpuHiZReductionFootprint(
                                 currentSize, dst);
+                        // Production uses normalized footprints. An odd source
+                        // texel can straddle two destination cells, so both must
+                        // retain it for conservative depth rejection.
+                        hiZCoverage &= start==(int)Math.Floor(dst*(double)currentSize/nextSize)
+                            && end==(int)Math.Ceiling((dst+1)*(double)currentSize/nextSize);
                         for (int src = start; src < end; src++)
                         {
                             covered[src]++;
                             next[dst] = Math.Max(next[dst], current[src]);
-                            // Same clamped pixel/2 lookup used in the shader.
-                            hiZCoverage &= Math.Min(src / 2, nextSize - 1) == dst;
                         }
                     }
                     foreach (int count in covered)
-                        hiZCoverage &= count == 1;
+                        hiZCoverage &= count is >=1 and <=2;
+                    for(int src=0;src<currentSize;src++)
+                        for(int quarter=0;quarter<4;quarter++)
+                        {
+                            // Shader hiz_at maps pixel/viewport to mip size,
+                            // then clamps the resulting destination texel.
+                            int lookup=Math.Clamp((int)(((4L*src+quarter)*nextSize)/(4L*currentSize)),0,nextSize-1);
+                            var footprint=ModernGraphicsCompat.GpuHiZReductionFootprint(currentSize,lookup);
+                            hiZCoverage &= footprint.Start<=src && src<footprint.End;
+                        }
+                    var first=ModernGraphicsCompat.GpuHiZReductionFootprint(currentSize,0);
+                    var last=ModernGraphicsCompat.GpuHiZReductionFootprint(currentSize,nextSize-1);
+                    hiZCoverage &= first.Start==0 && last.End==currentSize;
                     hiZCoverage &= next[^1] == 1f;
                     current = next;
                     currentSize = nextSize;

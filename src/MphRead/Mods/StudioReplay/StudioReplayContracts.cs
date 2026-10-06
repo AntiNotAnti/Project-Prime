@@ -38,7 +38,8 @@ public sealed record StudioReplayExportRequest(string Directory, uint StartFrame
     int Height = 1080, int Fps = 60, string? Encoder = null, string OutputName = "replay.mp4", bool GameHud = false,
     bool ReplayOverlay = false, StudioReplayCameraMode Camera = StudioReplayCameraMode.Authored, StudioReplayAudioOptions? Audio = null,
     StudioReplayView? View = null);
-public sealed record StudioReplayExportStatus(Guid Id, string State, long Frames, long TotalFrames, string? Error, string Directory);
+public sealed record StudioReplayExportStatus(Guid Id, string State, long Frames, long TotalFrames, string? Error, string Directory,
+    int? WorkerProcessId = null, long? WorkerStartUtcTicks = null, bool OriginCaptured = false);
 public sealed record StudioReplayPortableImport(string ReplayPath, IReadOnlyList<string> PackageDirectories);
 public sealed record StudioAudioEventBinding(string EventType, string WaveFile, StudioAudioBus Bus = StudioAudioBus.Game, int? Value = null, float Gain = 1);
 public sealed record StudioReplayAudioOptions(bool Enabled = true, StudioAudioVolumes? Volumes = null,
@@ -46,7 +47,7 @@ public sealed record StudioReplayAudioOptions(bool Enabled = true, StudioAudioVo
 public sealed record StudioReplayExportTicket(Guid Id, string ReplayPath, string CacheRoot,
     StudioReplayExportRequest Request, string StatusFile, string CancelFile,
     IReadOnlyDictionary<string,string> RuntimePaths, IReadOnlyList<StudioReplayCameraKey> CameraKeys,
-    IReadOnlyList<string> PackageDirectories, string MphKey, string FhKey);
+    IReadOnlyList<string> PackageDirectories, string MphKey, string FhKey, string? RequiredPackageHash = null, byte[]? CameraState = null);
 
 /// <summary>Invoked only by the native graphics owner while its context is active.</summary>
 public interface IStudioReplayGraphicsSession

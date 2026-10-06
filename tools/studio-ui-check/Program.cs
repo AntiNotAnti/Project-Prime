@@ -34,7 +34,7 @@ internal static partial class Program
             await using HeadlessUnitTestSession session = HeadlessUnitTestSession.StartNew(typeof(StudioUiApplication));
             await session.Dispatch(async () =>
             {
-                await CheckShellAsync(output, data); await CheckMapEditorAsync(output, Path.Combine(data, "map-editor"));
+                await CheckShellAsync(output, data); await CheckMapEditorAsync(output, Path.Combine(data, "map-editor"),args.Contains("--assets"));
                 int replay=Array.IndexOf(args,"--replay");
                 if(replay>=0)await CheckReplayEditorAsync(output,Path.Combine(data,"replay-editor"),Path.GetFullPath(args[replay+1]));
                 return true;
@@ -279,7 +279,7 @@ internal static partial class Program
             route + " actual image has opaque surface, contrast and text instead of a blank frame");
     }
 
-    private static void PumpLayout(StudioWindow window)
+    private static void PumpLayout(Window window)
     {
         window.UpdateLayout();
         Dispatcher.UIThread.RunJobs();

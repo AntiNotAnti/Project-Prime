@@ -10,6 +10,7 @@ public interface IStudioMapPresentation : IDisposable
     bool Active { get; }
     StudioViewportImage Render(MapRenderFrame frame);
     MapPickHit? Pick(MapRenderFrame frame, double x, double y);
+    StudioPickResult? PickElement(MapRenderFrame frame,double x,double y,StudioPickKind kind) => null;
 }
 
 public interface IStudioNativeMapPresentation : IStudioMapPresentation

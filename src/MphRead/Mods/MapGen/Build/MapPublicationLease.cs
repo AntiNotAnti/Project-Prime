@@ -121,6 +121,10 @@ public sealed class MapPublicationLease : IDisposable
         return OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? result.ToUpperInvariant() : result;
     }
 
+    /// <summary>Resolve directory aliases for physical containment without folding casing or installation roles.</summary>
+    public static string ResolveRuntimeDirectoryAliases(string directory)
+        => ProjectPrime.DesktopShared.DesktopInstallationIdentity.ResolveDirectoryAliases(directory);
+
     private static string CanonicalDirectory(string directory, int depth = 0)
     {
         if (depth > 32) throw new IOException("Map runtime directory has too many symbolic links.");

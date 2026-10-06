@@ -9,6 +9,13 @@ IDs, cancellation, disconnected peers, handshake timeout, clean shutdown,
 cross-process forwarding, a stale-descriptor startup race, and crash/reconnect
 with a fresh local capability.
 On Unix it verifies mode 0700 directories and mode 0600 descriptors.
+It also exercises the production game owner queue entry: cancellation removes
+pending work promptly, while an executing action retains its staging resources
+until its actual completion is observed.
+An actual directory alias forwards to the same primary on Unix; Windows casing
+and paired macOS bundle identity use the same BCL helper as installation leases.
+An independent delayed game child replaces an unavailable descriptor whose old
+PID remains alive, proving reconnect waits for a new authenticated endpoint.
 
 The shared protocol project references only the .NET base class library. Studio
 IPC version 1 is independent of the gameplay network protocol and carries small

@@ -23,6 +23,7 @@ public static class LocalIpcClient
             PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
         using var connectTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         connectTimeout.CancelAfter(StudioProtocol.ConnectTimeout);
+        bool authenticated = false;
         try
         {
             await pipe.ConnectAsync(connectTimeout.Token).ConfigureAwait(false);
@@ -41,6 +42,7 @@ public static class LocalIpcClient
             if (welcome.Version != StudioProtocol.StudioIpcVersion || welcome.Type != "Welcome"
                 || !StudioIpcAuthentication.VerifyProof(endpoint.Secret, challenge.Nonce, "server", welcome.Version, welcome.Proof))
                 return Failure(request.RequestId, "Studio IPC authentication failed.");
+            authenticated = true;
 
             using var requestTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             requestTimeout.CancelAfter(endpoint.Role == StudioEndpointRole.Game ? StudioProtocol.GameRequestTimeout : StudioProtocol.RequestTimeout);
@@ -65,7 +67,7 @@ public static class LocalIpcClient
             }
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-        { return Failure(request.RequestId, TimeoutMessage); }
+        { return Failure(request.RequestId, authenticated ? TimeoutMessage : UnavailableMessage); }
         catch (OperationCanceledException) { return Failure(request.RequestId, "The Studio request was cancelled."); }
         catch (StudioProtocolException ex) { return Failure(request.RequestId, ex.Message); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ObjectDisposedException)

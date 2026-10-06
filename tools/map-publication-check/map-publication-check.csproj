@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../src/MphRead/Mods/MapGen/Build/MapPublicationLease.cs" Link="MapPublicationLease.cs" />
+    <Compile Include="../../src/MphRead/Mods/Update/DesktopInstallationIdentity.cs" Link="DesktopInstallationIdentity.cs" />
     <Compile Include="../../src/MphRead/Mods/MapGen/Project/MapRuntimeUsage.cs" Link="MapRuntimeUsage.cs" />
     <Compile Include="../../src/MphRead/Mods/MapGen/Packaging/MapFilePublication.cs" Link="MapFilePublication.cs" />
     <Compile Include="../../src/MphRead/Mods/MapGen/Packaging/MapPublicationFileIdentity.cs" Link="MapPublicationFileIdentity.cs" />

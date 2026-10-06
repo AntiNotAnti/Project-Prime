@@ -26,6 +26,7 @@ public sealed partial class StudioReplayPlayer : IStudioReplayGraphicsSession, I
     private readonly Queue<Action<PassiveReplayPlayer>> _commands = new();
     private ReplayPreparationJob? _preparation;
     private PassiveReplayPlayer? _player;
+    private int? _sceneGraphicsGeneration;
     private int? _owner;
     private Vector2i _size = new(640, 480);
     private double _fixedAccumulator;
@@ -64,22 +65,7 @@ public sealed partial class StudioReplayPlayer : IStudioReplayGraphicsSession, I
     private void BeginPreparation()
     {
         using var scope = _resources.Enter();
-        _preparation = ReplayPreparationJob.Start(token =>
-        {
-            string source = LogicalPath;
-            if (Path.GetExtension(source).Equals(ReplayVirtualClips.Extension, StringComparison.OrdinalIgnoreCase))
-            {
-                string cache = Path.Combine(_cacheRoot, "clips");
-                Directory.CreateDirectory(cache);
-                string identity = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(LogicalPath))).ToLowerInvariant();
-                string materialized = Path.Combine(cache, identity + ".ppdemo");
-                token.ThrowIfCancellationRequested();
-                var result = ReplayVirtualClips.Materialize(source, materialized);
-                if (result != ReplayOpenResult.Success) throw new IOException("Cannot open replay clip: " + result);
-                source = materialized;
-            }
-            return PreparedReplaySource.File(source, cancellation: token);
-        });
+        _preparation = ReplayPreparationJob.Start(PrepareImmutablePlaybackSource);
     }
     public void OnGraphicsInitialize(int width, int height)
     {
@@ -97,6 +83,7 @@ public sealed partial class StudioReplayPlayer : IStudioReplayGraphicsSession, I
         {
             using var source = prepared.TakeCompleted();
             var candidate = new PassiveReplayPlayer(source, _size, new(EnableAsyncPreparation: true));
+            _sceneGraphicsGeneration = ModernGraphicsCompat.Active ? ModernGraphicsCompat.DeviceGeneration : null;
             _player = candidate; _playbackPath = source.Path;
             candidate.Transport.Pause();
             candidate.Transport.SetPlaybackRate(_resumeRate);
@@ -228,7 +215,9 @@ public sealed partial class StudioReplayPlayer : IStudioReplayGraphicsSession, I
     }
     private static StudioReplayCapture CaptureScene(Scene scene)
     {
-        byte[] rgb = scene.ReadSceneTarget(out int width, out int height) ?? throw new IOException("The replay graphics target is unavailable.");
+        // The scene target deliberately excludes the 2D HUD. Explicit replay
+        // captures and exports read the canonical completed native composite.
+        byte[] rgb = scene.ReadWindowBuffer(out int width, out int height) ?? throw new IOException("The replay graphics target is unavailable.");
         byte[] rgba = new byte[checked(width * height * 4)];
         for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
         {
@@ -248,11 +237,14 @@ public sealed partial class StudioReplayPlayer : IStudioReplayGraphicsSession, I
             _resumeRate = transport.PlaybackRate; _resumeIn = transport.ClipIn; _resumeOut = transport.ClipOut;
         }
         using var scope = _resources.Enter();
-        RenderResourceLifetime.WithNativeReleaseEligibility(nativeReleaseEligible, () =>
+        bool release = nativeReleaseEligible && (_sceneGraphicsGeneration == null
+            || ModernGraphicsCompat.CanReleaseNativeResources && _sceneGraphicsGeneration == ModernGraphicsCompat.DeviceGeneration);
+        RenderResourceLifetime.WithNativeReleaseEligibility(release, () =>
         {
             _player?.Dispose(); _player = null;
             foreach (var job in _exports) job.ReleasePlayer();
         });
+        _sceneGraphicsGeneration = null;
         if (!_disposed && _preparation == null) BeginPreparation();
     }
     private void Queue(Action<PassiveReplayPlayer> command)

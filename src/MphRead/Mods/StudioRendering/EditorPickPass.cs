@@ -1,5 +1,7 @@
 #if !ANDROID && !MPHREAD_SERVER
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using MphRead.Mods.MapEditor;
 
@@ -50,5 +52,31 @@ public static class EditorPickPass
     // Encoded fallback is bit-preserving RGBA8Unorm, never sRGB/premultiplied or multisampled.
     public static uint DecodeRgba(byte r, byte g, byte b, byte a) => (uint)(r | g << 8 | b << 16 | a << 24);
     public static (byte R, byte G, byte B, byte A) EncodeRgba(uint value) => ((byte)value, (byte)(value>>8), (byte)(value>>16), (byte)(value>>24));
+}
+/// <summary>Exact pick-affecting state; selection/material changes keep the integer target valid.</summary>
+internal sealed class StudioPickFrameSnapshot
+{
+    private readonly EditorRenderWorld _world;
+    private readonly long _uploads;
+    private readonly MapViewportLayout _layout;
+    private readonly MapViewportCamera _camera;
+    private readonly bool _collision;
+    private readonly StudioPickKind _kind;
+    private readonly MapViewportMesh[] _meshes;
+    private readonly Dictionary<Guid,Matrix4x4> _transforms;
+    internal StudioPickFrameSnapshot(EditorRenderWorld world,MapRenderFrame frame,StudioPickKind kind)
+    {
+        _world=world;_uploads=world.MeshUploads;_layout=frame.Layout;_camera=frame.Camera;_collision=frame.Collision;
+        _kind=kind==StudioPickKind.Object ? StudioPickKind.Face : kind;
+        _meshes=frame.Meshes.ToArray();_transforms=new(frame.PreviewTransforms);
+    }
+    internal bool Matches(EditorRenderWorld world,MapRenderFrame frame,StudioPickKind kind)
+    {
+        if(!ReferenceEquals(world,_world) || world.MeshUploads!=_uploads || frame.Layout!=_layout || frame.Camera!=_camera
+            || frame.Collision!=_collision || (kind==StudioPickKind.Object ? StudioPickKind.Face : kind)!=_kind
+            || frame.Meshes.Count!=_meshes.Length || frame.PreviewTransforms.Count!=_transforms.Count)return false;
+        for(int i=0;i<_meshes.Length;i++)if(!ReferenceEquals(frame.Meshes[i],_meshes[i]))return false;
+        return _transforms.All(pair=>frame.PreviewTransforms.TryGetValue(pair.Key,out var value) && value==pair.Value);
+    }
 }
 #endif

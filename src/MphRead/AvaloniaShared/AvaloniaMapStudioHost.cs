@@ -67,19 +67,32 @@ public sealed class AvaloniaMapStudioHost : UserControl, IAsyncDisposable
     public void FrameAll() => _screen.FrameAll();
     public void ToggleWireframe() => _screen.ToggleWireframe();
     public void OpenAssetBrowser() => _screen.OpenAssetBrowser();
+    public Task ImportAssetAsync(string path,CancellationToken cancellation=default) => _screen.ImportAssetAsync(path,cancellation);
+    public static bool SupportsAssetDrop(string path) => MapStudioScreen.SupportsAssetDrop(path);
+    public Task ImportDroppedFilesAsync(System.Collections.Generic.IReadOnlyList<string> paths,CancellationToken cancellation=default) => _screen.ImportDroppedFilesAsync(paths,cancellation);
+    public Task WaitForAssetThumbnailsAsync() => _screen.WaitForAssetThumbnailsAsync();
+    public Task ReplaceAssetAsync(string assetPath,string sourcePath,CancellationToken cancellation=default) => _screen.ReplaceAssetAsync(assetPath,sourcePath,cancellation);
+    public Task ImportModelAsync(string path,ModelImportSettings? settings=null,Guid? sourceId=null,CancellationToken cancellation=default) => _screen.ImportModelAsync(path,settings,sourceId,cancellation);
+    public static Avalonia.Input.DataFormat<MapAssetDragData> AssetDragFormat => MapStudioScreen.AssetDragFormat;
+    public Task ApplyAssetDropAsync(MapAssetDragData data,Avalonia.Point position) => _screen.ApplyAssetDropAsync(data,position);
+    public MapAssetDragData CreateAssetDragData(MapAssetDragKind kind,string key) => _screen.CreateAssetDragData(kind,key);
     public void SetViewportMode(string mode) => _screen.SetViewportMode(mode);
     public MphRead.Mods.StudioRendering.StudioViewportImage? CaptureViewport() => _screen.CaptureViewport();
     public ValueTask DisposeAsync() => DisposeAsync(true);
     public Task DiscardRecoveryAsync(CancellationToken cancellation = default) => _screen.DiscardRecoveryAsync(cancellation);
+    public Task CancelPendingJobsAsync(CancellationToken cancellation = default) => _screen.CancelPendingJobsAsync(cancellation);
     public async ValueTask DisposeAsync(bool preserveRecovery)
     {
         if (_disposed) return;
         _disposed = true;
         _screen.DocumentChanged -= OnChanged;
         _screen.Closed -= OnClose;
-        await _screen.ShutdownAsync(preserveRecovery);
-        if (_services is IDisposable disposable) disposable.Dispose();
-        Content = null;
+        try { await _screen.ShutdownAsync(preserveRecovery); }
+        finally
+        {
+            try { if (_services is IDisposable disposable) disposable.Dispose(); }
+            finally { Content = null; }
+        }
     }
 }
 

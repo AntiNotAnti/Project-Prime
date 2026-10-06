@@ -4,12 +4,12 @@ repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 [[ $# -ge 1 ]] || { echo 'usage: tools/wgpu/build-native.sh <win-x64|linux-x64|linux-arm64|osx-arm64|osx-x64|android-arm64|android-x64> [--offline] [--fault-test] [--unit-tests]' >&2; exit 2; }
 requested=$1
 shift
-offline=()
+offline_option=""
 fault=false
 unit_tests=false
 for option in "$@"; do
     case "$option" in
-        --offline) offline=(--offline) ;;
+        --offline) offline_option=--offline ;;
         --fault-test) fault=true ;;
         --unit-tests) unit_tests=true ;;
         *) echo "unknown option: $option" >&2; exit 2 ;;
@@ -21,7 +21,7 @@ if ! command -v cargo >/dev/null && [[ -x "${CARGO_HOME:-$HOME/.cargo}/bin/cargo
 fi
 command -v cargo >/dev/null || { echo 'error: install Rust/cargo' >&2; exit 1; }
 python_bin="${PRIME_PYTHON:-python3}"
-src=$("$python_bin" "$repo/tools/wgpu/prepare-native.py" "${offline[@]}")
+src=$("$python_bin" "$repo/tools/wgpu/prepare-native.py" ${offline_option:+"$offline_option"})
 features=wgsl,glsl
 library=libwgpu_native.so
 out="$repo/artifacts/wgpu-native-desktop/$requested"
@@ -63,18 +63,18 @@ case "$requested" in
     *) echo "unsupported target: $requested" >&2; exit 2 ;;
 esac
 if ! rustup target list --installed | grep -Fxq "$triple"; then
-    [[ ${#offline[@]} == 0 ]] || { echo "error: Rust target unavailable offline: $triple" >&2; exit 1; }
+    [[ -z "$offline_option" ]] || { echo "error: Rust target unavailable offline: $triple" >&2; exit 1; }
     rustup target add "$triple"
 fi
 if $fault; then features="$features,prime-fault-injection"; out="$repo/artifacts/wgpu-native-fault-tests/$requested"; fi
 export CARGO_TARGET_DIR="$repo/artifacts/wgpu-native-target-patched"
-cargo build --manifest-path "$src/Cargo.toml" --locked "${offline[@]}" --release --target "$triple" --no-default-features --features "$features"
+cargo build --manifest-path "$src/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --target "$triple" --no-default-features --features "$features"
 if $unit_tests; then
-    cargo test --manifest-path "$src/Cargo.toml" --locked "${offline[@]}" --release --target "$triple" --no-default-features --features "$features" --lib prime_surface_tests
+    cargo test --manifest-path "$src/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --target "$triple" --no-default-features --features "$features" --lib prime_surface_tests
     rustc --test "$repo/tools/wgpu/prime-dx12-wsi-policy.rs" -o "$CARGO_TARGET_DIR/prime-dx12-policy-tests"
     "$CARGO_TARGET_DIR/prime-dx12-policy-tests"
     if [[ "$requested" == win-x64 ]]; then
-        cargo test --manifest-path "${src}-core/wgpu-hal/Cargo.toml" --locked "${offline[@]}" --release --features dx12 --lib prime_dx12_tests
+        cargo test --manifest-path "${src}-core/wgpu-hal/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --features dx12 --lib prime_dx12_tests
     fi
 fi
 mkdir -p "$out"

@@ -75,9 +75,23 @@ internal sealed partial class MapViewport
     {
         if (ActiveSelection?.Value is not MapMesh mesh) return false;
         int face=-1, vertex=-1; MapEdge? edge=null;
+        var renderFrame=BuildRenderFrame(Layout);
+#if MPHREAD_SHELL
+        MphRead.Mods.StudioRendering.StudioPickResult? gpuPick=null;
+        if(_studioPresentation?.Active==true)
+        {
+            try
+            {
+                var kind=ElementMode=="Vertex" ? MphRead.Mods.StudioRendering.StudioPickKind.Vertex
+                    : ElementMode=="Edge" ? MphRead.Mods.StudioRendering.StudioPickKind.Edge : MphRead.Mods.StudioRendering.StudioPickKind.Face;
+                gpuPick=_studioPresentation.PickElement(renderFrame,point.X,point.Y,kind);
+            }
+            catch(Exception ex){DegradeStudioPresentation(ex);}
+        }
+#endif
         if (ElementMode=="Face")
         {
-            var hit=MapViewportPicking.PickHit(BuildRenderFrame(Layout),point.X,point.Y,false);
+            var hit=MapViewportPicking.PickHit(renderFrame,point.X,point.Y,false);
             if(hit is not {} picked || picked.ObjectId!=mesh.Id)return false;
             face=picked.FaceIndex;
         }
@@ -99,6 +113,22 @@ internal sealed partial class MapViewport
                 if(edge==null)return false;
             }
         }
+#if MPHREAD_SHELL
+        // GPU IDs refer to face-local polygon corners. Convert to canonical
+        // mesh indices, preserving the established CPU selection oracle when
+        // editor radius, hidden-element or clipping semantics disagree.
+        if(gpuPick?.Element is { } gpuElement && gpuElement.ObjectId==mesh.Id && (uint)gpuElement.Face<mesh.Faces.Count)
+        {
+            var corners=mesh.Faces[gpuElement.Face];
+            if(ElementMode=="Face" && gpuElement.Face==face)face=gpuElement.Face;
+            else if(ElementMode=="Vertex" && (uint)gpuElement.A<corners.Length && corners[gpuElement.A]==vertex)vertex=corners[gpuElement.A];
+            else if(ElementMode=="Edge" && (uint)gpuElement.A<corners.Length && (uint)gpuElement.B<corners.Length)
+            {
+                var pickedEdge=new MapEdge(corners[gpuElement.A],corners[gpuElement.B]);
+                if(pickedEdge==edge)edge=pickedEdge;
+            }
+        }
+#endif
         if(!add&&!toggle)SubSelection.Clear();SubSelection.Bind(mesh.Id);
         var topology=new MapMeshTopology(mesh);
         if(face>=0){SelectElements(SubSelection.Faces,linked?topology.ConnectedFaces(face):new[]{face},toggle);SubSelection.ActiveFace=face;}

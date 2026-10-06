@@ -20,19 +20,25 @@ using ProjectPrime.Studio.Replay;
 internal static partial class Program
 {
     private sealed record NativeDocument(Guid Id, string Kind, string? Path, bool Dirty);
-    private sealed record NativeReplay(bool Ready,uint Frame,uint Duration,string State,string? Error,int Views);
+    private sealed record NativeReplay(bool Ready,uint Frame,uint Duration,string State,string? Error,int Views,
+        string Camera,float Fov,int CameraKeys,float Rate,uint? ClipIn,uint? ClipOut,NativeReplayClock Clock);
+    private sealed record NativeReplayClock(double WorkspaceSeconds,double LastViewSeconds,double AccumulatorSeconds,
+        bool SharedTimerEnabled,bool[] TimerEnabled,bool[] AutomaticRendering);
     private sealed record NativeMap(Guid DocumentId,Guid MapId,ulong State,ulong? SavedState,Guid[] Selection,Guid? ActiveObject,int CommandCount,
         bool CanUndo,bool CanRedo,string DefinitionHash,string Layout,bool Dirty,string? Path);
+    private sealed record NativeViewport(double Width,double Height,double RenderScale,int PixelWidth,int PixelHeight);
     private sealed record NativeSnapshot(int ProcessId, NativeDocument[] Documents, int MapViewports, StudioRenderMetrics? MapMetrics,
-        int Worlds, int NativeSurfaces, int ViewportTargets,NativeReplay? Replay,NativeMap? Map);
+        int Worlds, int NativeSurfaces, int ViewportTargets,NativeReplay? Replay,NativeMap? Map,long MetricsRevision,NativeViewport[] MapBounds,long Timestamp,int? Generation);
     private sealed record NativeStartup(int ProcessId,double UsableHomeMilliseconds,long WorkingSetBytes,double Width,double Height,double RenderScale,int PixelWidth,int PixelHeight);
     private static readonly Dictionary<int,NativeStartup> NativeStartups=[];
+    private static long _nativeMetricsRevision;
 
     private static int RunNativeProbe(string[] args)
     {
         if (args.Length != 2 || !Path.IsPathFullyQualified(args[1])) return 2;
         var paths = new StudioPaths(AppContext.BaseDirectory, args[1]);
         var startup=Stopwatch.StartNew();
+        StudioGraphicsHost.DiagnosticsChanged+=_=>Interlocked.Increment(ref _nativeMetricsRevision);
         var request = new StudioOpenRequest(Guid.NewGuid(), StudioOpenKind.Home, Recover: true);
         var ready = new TaskCompletionSource<StudioWindow>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var lifetime = new CancellationTokenSource();
@@ -87,12 +93,18 @@ internal static partial class Program
                         StudioGraphicsHost.NativeSurfaceCount, StudioGraphicsHost.ViewportSurfaceCount,
                         window.Documents.ActiveDocument is ReplayStudioDocument {Session:{ } replay} replayDocument
                             ?new NativeReplay(replay.Player.Status.Ready,replay.Player.Status.Frame,replay.Player.Status.DurationFrames,
-                                replay.Player.Status.State,replay.Player.Status.Error,replayDocument.Host.GetVisualDescendants().OfType<ReplayViewportHost>().Count(view=>view.IsEffectivelyVisible)):null,
+                                replay.Player.Status.State,replay.Player.Status.Error,replayDocument.Host.GetVisualDescendants().OfType<ReplayViewportHost>().Count(view=>view.IsEffectivelyVisible),
+                                replay.Camera.ToString(),replay.Fov,replay.Player.CameraKeys.Count,replay.Player.Status.Rate,replay.Player.Status.ClipIn,replay.Player.Status.ClipOut,
+                                ReadNativeReplayClock(replayDocument)):null,
                         window.Documents.ActiveDocument is MapStudioDocument {Host.Document:{ } map} mapDocument
                             ?new NativeMap(mapDocument.Id.Value,map.Project.Definition.MapId,map.CurrentStateId.Value,map.SavedStateId?.Value,map.Selection.Order().ToArray(),map.ActiveObjectId,
                                 map.History.CommandCount,map.History.CanUndo,map.History.CanRedo,
                                 Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(map.Project.Definition.Serialize()))),
-                                JsonSerializer.Serialize(mapDocument.DockHost!.CaptureLayout()),mapDocument.Dirty,mapDocument.Path):null));
+                                JsonSerializer.Serialize(mapDocument.DockHost!.CaptureLayout()),mapDocument.Dirty,mapDocument.Path):null,
+                        Interlocked.Read(ref _nativeMetricsRevision),window.GetVisualDescendants().OfType<Control>()
+                            .Where(control=>control.GetType().Name=="MapViewport"&&control.IsEffectivelyVisible)
+                            .Select(control=>new NativeViewport(control.Bounds.Width,control.Bounds.Height,window.RenderScaling,
+                                (int)Math.Round(control.Bounds.Width*window.RenderScaling),(int)Math.Round(control.Bounds.Height*window.RenderScaling))).ToArray(),Stopwatch.GetTimestamp(),StudioGraphicsHost.DeviceGeneration));
                     Console.WriteLine("STATUS " + JsonSerializer.Serialize(snapshot));
                     Console.Out.Flush();
                 }
@@ -103,13 +115,52 @@ internal static partial class Program
                 }
                 else if(command.StartsWith("resize ",StringComparison.Ordinal))
                 {
-                    string[] dimensions=command.Split(' ');window.Width=int.Parse(dimensions[1]);window.Height=int.Parse(dimensions[2]);window.UpdateLayout();
+                    string[] dimensions=command.Split(' ');window.Width=int.Parse(dimensions[1]);window.Height=int.Parse(dimensions[2]);
+                    // Native Configure/Resize is asynchronous; report the measured allocation
+                    // after the platform has delivered it, instead of the old client size.
+                    await Task.Delay(100);
+                    await Dispatcher.UIThread.InvokeAsync(()=>window.UpdateLayout(),DispatcherPriority.Render);
                     Console.WriteLine("RESIZED "+JsonSerializer.Serialize(new{Width=window.ClientSize.Width,Height=window.ClientSize.Height,Scale=window.RenderScaling}));Console.Out.Flush();
                 }
                 else if(command=="frame-all")
                 {
                     ((MapStudioDocument)window.Documents.ActiveDocument!).Host.FrameAll();
                     Console.WriteLine("FRAMED");Console.Out.Flush();
+                }
+                else if(command=="focus-map")
+                {
+                    var dock=((MapStudioDocument)window.Documents.ActiveDocument!).DockHost!;
+                    foreach(var region in new[]{ProjectPrime.Studio.Shell.StudioDockRegion.Left,ProjectPrime.Studio.Shell.StudioDockRegion.Right,ProjectPrime.Studio.Shell.StudioDockRegion.Bottom})dock.Hide(region);
+                    window.UpdateLayout();Console.WriteLine("MAP-FOCUSED");Console.Out.Flush();
+                }
+                else if(command=="redraw-map")
+                {
+                    ((MapStudioDocument)window.Documents.ActiveDocument!).Host.FrameAll();
+                    foreach(Control viewport in window.GetVisualDescendants().OfType<Control>().Where(control=>control.GetType().Name=="MapViewport"&&control.IsEffectivelyVisible))viewport.InvalidateVisual();
+                    Console.WriteLine("MAP-REDRAW");Console.Out.Flush();
+                }
+                else if(command.StartsWith("map-mode ",StringComparison.Ordinal))
+                {
+                    ((MapStudioDocument)window.Documents.ActiveDocument!).Host.SetViewportMode(command[9..]);
+                    Console.WriteLine("MAP-MODE");Console.Out.Flush();
+                }
+                else if(command.StartsWith("capture-hud ",StringComparison.Ordinal))
+                {
+                    if(window.PerformanceHud is null)window.TogglePerformanceHud();
+                    window.RefreshPerformanceHudPlacement();await Task.Delay(100);
+                    var hud=window.PerformanceHud??throw new InvalidOperationException("HUD did not allocate.");hud.RefreshSnapshot();
+                    var floating=window.PerformanceHudWindow??throw new InvalidOperationException("Native graphics HUD did not use its owned window.");
+                    floating.UpdateLayout();double hudScale=floating.RenderScaling;
+                    using var bitmap=new Avalonia.Media.Imaging.RenderTargetBitmap(new PixelSize((int)Math.Round(floating.ClientSize.Width*hudScale),(int)Math.Round(floating.ClientSize.Height*hudScale)),new Vector(96*hudScale,96*hudScale));
+                    bitmap.Render(floating);bitmap.Save(command[12..],new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+                    Console.WriteLine("HUD-CAPTURED "+JsonSerializer.Serialize(new{Visible=floating.IsVisible,OwnsWindow=ReferenceEquals(floating.Owner,window),
+                        NativeHandle=floating.TryGetPlatformHandle()?.Handle.ToInt64()??0,Sampling=hud.IsSampling,Width=bitmap.PixelSize.Width,Height=bitmap.PixelSize.Height,
+                        hud.Snapshot,hud.DisplayText}));Console.Out.Flush();
+                }
+                else if(command=="hide-hud")
+                {
+                    var hud=window.PerformanceHud;window.TogglePerformanceHud();
+                    Console.WriteLine("HUD-HIDDEN "+JsonSerializer.Serialize(new{Sampling=hud?.IsSampling,Released=hud?.Snapshot is null,WindowReleased=window.PerformanceHudWindow is null}));Console.Out.Flush();
                 }
                 else if(command=="new-map")
                 {
@@ -158,12 +209,105 @@ internal static partial class Program
                         .RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
                     Console.WriteLine("REPLAY-FOUR");Console.Out.Flush();
                 }
+                else if(command=="replay-hud-off")
+                {
+                    var document=(ReplayStudioDocument)window.Documents.ActiveDocument!;
+                    document.Session!.GameHud=false;document.Session.SavePresentation();
+                    foreach(var viewport in document.Host.GetVisualDescendants().OfType<ReplayViewportHost>())viewport.Retry();
+                    Console.WriteLine("REPLAY-HUD-OFF");Console.Out.Flush();
+                }
+                else if(command.StartsWith("replay-hud ",StringComparison.Ordinal))
+                {
+                    var replay=((ReplayStudioDocument)window.Documents.ActiveDocument!).Session!;
+                    replay.GameHud=bool.Parse(command[11..]);
+                    Console.WriteLine("REPLAY-HUD");Console.Out.Flush();
+                }
+                else if(command.StartsWith("replay-slot ",StringComparison.Ordinal))
+                {
+                    var replay=((ReplayStudioDocument)window.Documents.ActiveDocument!).Session!;
+                    replay.PlayerSlot=int.Parse(command[12..]);
+                    Console.WriteLine("REPLAY-SLOT");Console.Out.Flush();
+                }
+                else if(command=="replay-state")
+                {
+                    var replay=((ReplayStudioDocument)window.Documents.ActiveDocument!).Session!;
+                    Console.WriteLine("REPLAY-STATE "+JsonSerializer.Serialize(new{World=replay.Player.Snapshot(),replay.GameHud,replay.PlayerSlot},
+                        new JsonSerializerOptions{IncludeFields=true}));Console.Out.Flush();
+                }
+                else if(command=="replay-transport")
+                {
+                    var player=((ReplayStudioDocument)window.Documents.ActiveDocument!).Session!.Player;
+                    player.SetRate(2);player.SetRange(5,45);player.Seek(17);player.Pause();
+                    Console.WriteLine("REPLAY-TRANSPORT");Console.Out.Flush();
+                }
+                else if(command.StartsWith("replay-play ",StringComparison.Ordinal))
+                {
+                    var player=((ReplayStudioDocument)window.Documents.ActiveDocument!).Session!.Player;
+                    player.SetRate(float.Parse(command[12..],System.Globalization.CultureInfo.InvariantCulture));player.Seek(0,resume:true);player.Advance(TimeSpan.Zero);
+                    Console.WriteLine("REPLAY-PLAYING");Console.Out.Flush();
+                }
+                else if(command=="replay-pause")
+                {
+                    var player=((ReplayStudioDocument)window.Documents.ActiveDocument!).Session!.Player;
+                    player.Pause();player.Advance(TimeSpan.Zero);
+                    Console.WriteLine("REPLAY-PAUSED");Console.Out.Flush();
+                }
+                else if(command=="replay-retry")
+                {
+                    var document=(ReplayStudioDocument)window.Documents.ActiveDocument!;
+                    foreach(var viewport in document.Host.GetVisualDescendants().OfType<ReplayViewportHost>())viewport.Retry();
+                    Console.WriteLine("REPLAY-RETRY");Console.Out.Flush();
+                }
+                else if(command=="replay-fail-last-and-loss")
+                {
+                    var document=(ReplayStudioDocument)window.Documents.ActiveDocument!;
+                    var last=document.Host.GetVisualDescendants().OfType<ReplayViewportHost>().Where(view=>view.IsEffectivelyVisible).Last();
+                    last.GetType().GetMethod("Fail",BindingFlags.Instance|BindingFlags.NonPublic)!.Invoke(last,[new InvalidOperationException("Owned stale fourth-view test failure")]);
+                    int? generation=StudioGraphicsHost.DeviceGeneration;StudioGraphicsHost.Device.SimulateDeviceLossForDiagnostics();
+                    Console.WriteLine("REPLAY-LOST "+generation);Console.Out.Flush();
+                }
+                else if(command=="replay-resources")
+                {
+                    Console.WriteLine("REPLAY-RESOURCES "+JsonSerializer.Serialize(new{Counts=MphRead.Mods.Render.ModernGraphicsCompat.LiveResources,
+                        Generation=StudioGraphicsHost.DeviceGeneration,Surfaces=StudioGraphicsHost.NativeSurfaceCount}));Console.Out.Flush();
+                }
+                else if(command=="replay-dispose-views")
+                {
+                    var document=(ReplayStudioDocument)window.Documents.ActiveDocument!;
+                    var views=document.Host.GetVisualDescendants().OfType<ReplayViewportHost>().Where(view=>view.IsEffectivelyVisible).ToArray();
+                    foreach(var view in views.Take(views.Length-1))view.Dispose();views[^1].Dispose();
+                    Console.WriteLine("REPLAY-VIEWS-DISPOSED");Console.Out.Flush();
+                }
                 else if(command.StartsWith("capture-replay ",StringComparison.Ordinal))
                 {
                     var document=(ReplayStudioDocument)window.Documents.ActiveDocument!;
                     var viewport=document.Host.GetVisualDescendants().OfType<ReplayViewportHost>().First(view=>view.IsEffectivelyVisible);
                     var capture=viewport.Capture(640,360)??throw new InvalidOperationException("Native Replay did not capture its real GPU target.");
                     StudioReplayPlayer.SavePng(command[15..],capture);Console.WriteLine("CAPTURED");Console.Out.Flush();
+                }
+                else if(command.StartsWith("capture-replay-view ",StringComparison.Ordinal))
+                {
+                    int separator=command.IndexOf(' ',20);int index=int.Parse(command[20..separator]);
+                    var document=(ReplayStudioDocument)window.Documents.ActiveDocument!;
+                    var viewport=document.Host.GetVisualDescendants().OfType<ReplayViewportHost>().Where(view=>view.IsEffectivelyVisible).ElementAt(index);
+                    var capture=viewport.Capture(640,360)??throw new InvalidOperationException("Native Replay view did not capture its real GPU target.");
+                    StudioReplayPlayer.SavePng(command[(separator+1)..],capture);
+                    Console.WriteLine("VIEW-CAPTURED "+JsonSerializer.Serialize(new{Index=index,Frame=document.Session!.Player.Status.Frame,
+                        Camera=viewport.ViewFactory(640,360).Camera.ToString()}));Console.Out.Flush();
+                }
+                else if(command=="prepare-replay-clip")
+                {
+                    var replay=((ReplayStudioDocument)window.Documents.ActiveDocument!).Session!;
+                    replay.Camera=StudioReplayCameraMode.Free;replay.Position=new(4,5,8);replay.Fov=65;replay.SavePresentation();
+                    replay.Player.PutCameraKey(new(40,new(4,5,8),System.Numerics.Quaternion.Identity,Fov:65));
+                    replay.Player.SetRange(30,60);replay.Player.Advance(TimeSpan.Zero);
+                    Console.WriteLine("REPLAY-CLIP-PREPARED");Console.Out.Flush();
+                }
+                else if(command.StartsWith("save-replay-as ",StringComparison.Ordinal))
+                {
+                    var document=(ReplayStudioDocument)window.Documents.ActiveDocument!;
+                    await document.SaveAsync(command[15..],CancellationToken.None);
+                    Console.WriteLine("REPLAY-SAVED");Console.Out.Flush();
                 }
                 else if(command.StartsWith("export ",StringComparison.Ordinal))
                 {
@@ -199,6 +343,20 @@ internal static partial class Program
             }
         }
         catch (Exception ex) { Console.WriteLine("ERROR " + JsonSerializer.Serialize(ex.ToString())); Console.Out.Flush(); }
+    }
+
+    private static NativeReplayClock ReadNativeReplayClock(ReplayStudioDocument document)
+    {
+        const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
+        object workspace=document.Host;Type type=workspace.GetType();
+        var clock=(Stopwatch)type.GetField("_viewClock",flags)!.GetValue(workspace)!;
+        var last=(TimeSpan)type.GetField("_lastViewTime",flags)!.GetValue(workspace)!;
+        var timer=(DispatcherTimer)type.GetField("_viewTimer",flags)!.GetValue(workspace)!;
+        double accumulator=(double)document.Session!.Player.GetType().GetField("_fixedAccumulator",flags)!.GetValue(document.Session.Player)!;
+        var hosts=document.Host.GetVisualDescendants().OfType<ReplayViewportHost>().Where(view=>view.IsEffectivelyVisible).ToArray();
+        return new(clock.Elapsed.TotalSeconds,last.TotalSeconds,accumulator,timer.IsEnabled,
+            hosts.Select(view=>((DispatcherTimer)view.GetType().GetField("_timer",flags)!.GetValue(view)!).IsEnabled).ToArray(),
+            hosts.Select(view=>view.AutomaticRenderingEnabled).ToArray());
     }
 
     private static async Task CheckNativeProcessLifecycleAsync(string directory)
@@ -316,12 +474,33 @@ internal static partial class Program
     private static async Task<string> ReadNativeLineAsync(Process process, string prefix)
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        try
+        {
         while (true)
         {
             string? line = await process.StandardOutput.ReadLineAsync(deadline.Token);
             if (line is null) throw new InvalidOperationException("Native probe exited before " + prefix + ": " + await process.StandardError.ReadToEndAsync());
             if (line.StartsWith("ERROR ", StringComparison.Ordinal)) throw new InvalidOperationException(line);
             if (line.StartsWith(prefix, StringComparison.Ordinal)) return line;
+        }
+        }
+        catch(OperationCanceledException)when(deadline.IsCancellationRequested)
+        {
+            // Preserve an owned macOS child's blocked native/UI stack before its
+            // test cleanup kills it. Other platforms retain the ordinary timeout.
+            if(OperatingSystem.IsMacOS()&&!process.HasExited)
+            {
+                string path=Path.Combine(Path.GetTempPath(),"project-prime-native-probe-"+process.Id+".sample.txt");
+                var start=new ProcessStartInfo("/usr/bin/sample"){UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true};
+                foreach(string argument in new[]{process.Id.ToString(),"1","1","-file",path})start.ArgumentList.Add(argument);
+                using var sampler=Process.Start(start);
+                if(sampler is not null)
+                {
+                    try{await sampler.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5));Console.Error.WriteLine("Owned native timeout sample: "+path);}
+                    catch(TimeoutException){if(!sampler.HasExited)sampler.Kill();}
+                }
+            }
+            throw;
         }
     }
 

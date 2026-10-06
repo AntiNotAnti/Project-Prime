@@ -7,6 +7,7 @@
     <Compile Include="../../src/MphRead/Mods/Render/AuthoredRgbaMipFixtures.cs" Link="AuthoredRgbaMipFixtures.cs" />
     <Compile Include="../../src/MphRead/Mods/Render/RgbaMipTextureAsset.cs" Link="RgbaMipTextureAsset.cs" />
     <Compile Include="../../src/MphRead/Mods/Render/Ktx2TextureAsset.cs" Link="Ktx2TextureAsset.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/CompressedTextureLayout.cs" Link="CompressedTextureLayout.cs" />
     <Compile Include="../../src/MphRead/Mods/Render/PreparedTextureAsset.cs" Link="PreparedTextureAsset.cs" />
     <Compile Include="../../src/MphRead/Mods/Render/PreparedTextureCodec.cs" Link="PreparedTextureCodec.cs" />
     <Compile Include="../../src/MphRead/Mods/Render/ModernTextureAsset.cs" Link="ModernTextureAsset.cs" />

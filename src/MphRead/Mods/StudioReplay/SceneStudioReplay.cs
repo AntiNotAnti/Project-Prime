@@ -5,6 +5,7 @@ using MphRead.Formats;
 using MphRead.Formats.Collision;
 using MphRead.Hud;
 using MphRead.Mods.Chat;
+using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 
 namespace MphRead;
@@ -70,6 +71,16 @@ public partial class Scene
         if (!Services.IsReplica) throw new InvalidOperationException("Studio cameras require a private replica scene.");
         Players.MainPlayerIndex = Math.Clamp(slot, 0, Players.Items.Count - 1);
         _cameraMode = CameraMode.Player;
+        // TransformCamera writes this scene's view uniform. A previous viewport
+        // or postprocess pass may have left a different scene/program bound.
+        GL.UseProgram(_shaderProgramId);
+        global::MphRead.Entities.PlayerEntity main = Players.Main;
+        if (StudioReplayGameHud == true && !Mods.Headless.Active
+            && main.LoadFlags.TestFlag(global::MphRead.Entities.LoadFlags.Active))
+        {
+            if (!main.HudReady) main.SetUpHud();
+            main.PrepareReplicaHudPresentation();
+        }
         TransformCamera(); UpdateCameraPosition();
     }
 }

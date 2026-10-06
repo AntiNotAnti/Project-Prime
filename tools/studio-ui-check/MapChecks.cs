@@ -13,7 +13,7 @@ using ProjectPrime.Studio.Shell;
 
 internal static partial class Program
 {
-    private static async Task CheckMapEditorAsync(string output, string directory)
+    private static async Task CheckMapEditorAsync(string output, string directory,bool loadedAssets=false)
     {
         Directory.CreateDirectory(directory);
         var paths = new StudioPaths(AppContext.BaseDirectory, directory);
@@ -31,6 +31,7 @@ internal static partial class Program
                 "new canonical project exposes geometry and real dirty/save lifecycle");
             CheckActualMapDockingAndSearch(window, document, paths);
             await CheckAssetBrowserAsync(document,paths,output);
+            if(loadedAssets)await CheckLoadedAssetWorkflowAsync(window,document,paths,output);
             await CaptureMapVariantsAsync(window, document, output, "map-studio-default", fourViews: false);
             document.Host.ToggleFourViews();
             await CaptureMapVariantsAsync(window, document, output, "map-studio-four-view", fourViews: true);
@@ -52,6 +53,7 @@ internal static partial class Program
             foreach(string panel in new[]{"Gameplay analysis","Structural diff","Prefabs"})
             {
                 document.Host.ShowPanel(panel);
+                if(panel=="Gameplay analysis")await CheckGameplayAnalysisWorkflowAsync(window,document);
                 await CaptureMapVariantsAsync(window,document,output,"map-studio-"+panel.ToLowerInvariant().Replace(' ','-'),fourViews:false);
             }
             await using (var community = new EmptyCommunityService())
@@ -74,12 +76,43 @@ internal static partial class Program
             document.Host.ShowPanel("Inspector");
             await CheckCanonicalMapLifecycleAsync(window, document, canonical, paths);
         }
+        catch(Exception error){Console.Error.WriteLine("Map editor acceptance failed before cleanup: "+error);throw;}
         finally
         {
             await window.Documents.RequestCloseAllAsync(_ => Task.FromResult(StudioCloseDecision.Discard), _ => Task.FromResult<string?>(null));
             await window.TryCloseAsync();
             window.Close();
             await window.DisposeResourcesAsync();
+        }
+    }
+
+    private static async Task CheckGameplayAnalysisWorkflowAsync(StudioWindow window,MapStudioDocument document)
+    {
+        var map=document.Host.Document!;string before=map.Project.Definition.Serialize();var state=map.CurrentStateId;int history=map.History.CommandCount;
+        Control analyze=document.Host.GetVisualDescendants().OfType<Control>().Single(control=>control.GetType().Name=="PrimeButton"
+            &&control.GetType().GetProperty("Label")?.GetValue(control)?.ToString()=="ANALYZE COLLISION AND NAVIGATION");
+        Click(window,analyze);var timer=System.Diagnostics.Stopwatch.StartNew();
+        while(timer.Elapsed<TimeSpan.FromSeconds(30))
+        {
+            if(!window.Jobs.Jobs.Any(job=>job.State==ProjectPrime.Studio.Jobs.StudioJobState.Running)
+                &&document.Host.GetVisualDescendants().OfType<TextBlock>().Any(block=>block.Text?.StartsWith("Navigation · ",StringComparison.Ordinal)==true))break;
+            await Task.Delay(10);PumpLayout(window);
+        }
+        Check(document.Host.GetVisualDescendants().OfType<TextBlock>().Any(block=>block.Text?.StartsWith("Navigation · ",StringComparison.Ordinal)==true)
+            &&map.CurrentStateId==state&&map.History.CommandCount==history&&map.Project.Definition.Serialize()==before,
+            "actual gameplay analysis worker publishes collision/navigation results without changing authored map or history");
+        if(map.Project.Definition.Spawns.Count>0)
+        {
+            Control select=document.Host.GetVisualDescendants().OfType<Control>().First(control=>control.GetType().Name=="PrimeButton"
+                &&control.GetType().GetProperty("Label")?.GetValue(control)?.ToString()=="SELECT SPAWN");
+            Click(window,select);
+            Check(map.Selection.SetEquals([map.Project.Definition.Spawns[0].Id])&&map.History.CommandCount==history,
+                "actual gameplay result action selects the canonical spawn without an authored edit");
+            var hierarchy=document.Host.GetVisualDescendants().OfType<ListBox>().Single(list=>list.Items.Cast<object>()
+                .Any(item=>item.GetType().Name=="HierarchyRow"));
+            Guid[] selected=hierarchy.SelectedItems!.Cast<object>().Select(item=>(MapObject?)item.GetType().GetProperty("Object")!.GetValue(item))
+                .Where(item=>item is not null).Select(item=>item!.Id).ToArray();
+            Check(map.Selection.SetEquals(selected),"gameplay result selection also updates actual hierarchy selected rows");
         }
     }
 
@@ -155,7 +188,8 @@ internal static partial class Program
         document.Host.Redo();
         Check(document.Dirty, "standalone Redo restores edited dirty identity");
         await document.Host.ValidateAsync();
-        Check(canonical.Diagnostics.IsValid, "standalone validation consumes canonical authored map successfully");
+        Check(canonical.Diagnostics.IsValid, "standalone validation consumes canonical authored map successfully; diagnostics="
+            +System.Text.Json.JsonSerializer.Serialize(canonical.Diagnostics));
         await document.Host.BuildAsync(package: false);
         string runtime = Path.Combine(paths.UserDataDirectory, "runtime");
         Check(Directory.Exists(runtime) && Directory.EnumerateFiles(runtime, "*", SearchOption.AllDirectories).Any(),

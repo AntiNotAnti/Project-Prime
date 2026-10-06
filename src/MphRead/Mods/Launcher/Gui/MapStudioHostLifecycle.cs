@@ -83,13 +83,27 @@ internal sealed partial class MapStudioScreen
         _idle.Stop(); _autosave.Dispose(); await _autosave.Completion;
         cancellation.ThrowIfCancellationRequested(); _document?.DiscardRecovery(_services.UserMapDirectory);
     }
+    internal async Task CancelPendingJobsAsync(CancellationToken cancellation)
+    {
+        _work?.Cancel();
+        if(_jobCompletion is {} completion)await completion.Task;
+        try { await WaitForAssetThumbnailsAsync().WaitAsync(cancellation); }catch(OperationCanceledException){throw;}catch(Exception){}
+        cancellation.ThrowIfCancellationRequested();
+    }
     internal async Task ShutdownAsync(bool preserveRecovery)
     {
         _idle.Stop();
         _work?.Cancel();
-        if (_jobCompletion is { } completion) await completion.Task;
-        if (preserveRecovery) await PreserveRecoveryAsync(CancellationToken.None);
-        Dispose();
-        await _autosave.Completion;
+        try
+        {
+            if (_jobCompletion is { } completion) await completion.Task;
+            await StopAssetThumbnailsAsync();
+            if (preserveRecovery) await PreserveRecoveryAsync(CancellationToken.None);
+        }
+        finally
+        {
+            try { Dispose(); }
+            finally { await _autosave.Completion; }
+        }
     }
 }

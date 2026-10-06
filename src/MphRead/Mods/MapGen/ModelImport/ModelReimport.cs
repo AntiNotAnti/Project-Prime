@@ -46,14 +46,15 @@ public static class ModelReimport
     private static string FaceUvHash(MapMesh mesh, int index) => Hash(index < mesh.FaceTexcoords.Count ? mesh.FaceTexcoords[index] : null!);
 
     public static MapModelSource Apply(MapDefinition definition, ImportedModel imported, string path,
-        string sourceHash, ModelImportSettings settings, Guid? sourceId = null)
+        string sourceHash, ModelImportSettings settings, Guid? sourceId = null,IReadOnlyList<MapSourceDependency>? dependencySnapshot=null)
     {
         var previous = sourceId.HasValue ? definition.ModelSources.Single(s => s.Id == sourceId) : null;
         string normalized = NormalizedHash(imported);
         if (previous != null && previous.NormalizedHash == normalized && previous.Source == path && previous.Settings == settings && previous.SourceHash == sourceHash)
             return previous;
         var source = new MapModelSource { Id = previous?.Id ?? Guid.NewGuid(), Source = path,
-            SourceHash = sourceHash, NormalizedHash = normalized, Settings = settings, Dependencies = MapSourceFingerprint.Capture(imported.Dependencies) };
+            SourceHash = sourceHash, NormalizedHash = normalized, Settings = settings,
+            Dependencies = dependencySnapshot?.Select(item=>new MapSourceDependency(item.Path,item.Hash)).ToList() ?? MapSourceFingerprint.Capture(imported.Dependencies) };
         var materials = new int[imported.Materials.Count];
         var materialNames = new Dictionary<string, int>(StringComparer.Ordinal);
         for (int i = 0; i < materials.Length; i++)

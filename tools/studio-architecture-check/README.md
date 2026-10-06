@@ -18,6 +18,10 @@ foreground replay facades, runtime map publication, HTTP/TCP listeners,
 gameplay-protocol coupling and Android-specific code. Shared engine models and
 private playback may retain the `MphRead` namespace; the protocol project remains
 framework-only and cannot import engine or Avalonia namespaces.
+Its one external source link is the exact internal
+`MphRead/Mods/Update/DesktopInstallationIdentity.cs` helper, compiled into both
+assemblies from the same BCL-only file. This grants no engine assembly reference
+or permission to link other engine sources; the helper is scanned too.
 The game and Android projects may consume the protocol but cannot depend on the
 Studio executable or its presentation sources. Studio must start an ordinary
 Avalonia Desktop application targeting `net10.0`.
@@ -31,7 +35,7 @@ references.
 The tool also consumes the actual framework-only protocol assembly and exercises
 identity/hash/path validation, game-option bounds, playtest IDs, unknown frame
 fields, message size limits and challenge/version/side-bound authentication.
-`--self-test` runs 40 scanner and protocol assertions without opening a pipe or
+`--self-test` runs 46 scanner and protocol assertions without opening a pipe or
 starting either application.
 This is a checked-in source boundary, not a semantic compiler or a substitute for
 map/replay parity, security review, UI captures, runtime lifecycle tests or builds

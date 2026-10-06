@@ -22,6 +22,29 @@ internal static partial class Program
         await window.InitializeAsync(promptForRecovery:false);window.Show();
         try
         {
+            window.NewMapProject("Replay cancellation survivor",example:false);
+            var survivor=(ProjectPrime.Studio.Map.MapStudioDocument)window.Documents.ActiveDocument!;
+            string survivorDefinition=survivor.Host.Document!.Project.Definition.Serialize();
+            var survivorState=survivor.Host.Document.CurrentStateId;
+            using(var cancellation=new CancellationTokenSource())
+            {
+                void CancelAtPrepared()
+                {
+                    if(window.Jobs.Jobs.Any(job=>job.Title.StartsWith("Prepare replay ",StringComparison.Ordinal)
+                        &&job.State==ProjectPrime.Studio.Jobs.StudioJobState.Running&&job.Progress.Fraction==1))cancellation.Cancel();
+                }
+                window.Jobs.Changed+=CancelAtPrepared;
+                try
+                {
+                    var rejected=await window.HandleLaunchRequestAsync(new(Guid.NewGuid(),StudioOpenKind.Replay,source),cancellation.Token);
+                    Check(cancellation.IsCancellationRequested&&!rejected.Accepted&&ReferenceEquals(window.Documents.ActiveDocument,survivor)
+                        &&window.Documents.Documents.Count==1&&survivor.Host.Document.CurrentStateId==survivorState
+                        &&survivor.Host.Document.Project.Definition.Serialize()==survivorDefinition,
+                        "late replay preparation cancellation at progress one preserves existing canonical Map and native tab");
+                }
+                finally{window.Jobs.Changed-=CancelAtPrepared;}
+            }
+            await window.Documents.RequestCloseAsync(survivor,_=>Task.FromResult(StudioCloseDecision.Discard),_=>Task.FromResult<string?>(null));
             Check((await window.HandleLaunchRequestAsync(new(Guid.NewGuid(),StudioOpenKind.Replay,source))).Accepted,
                 "native Replay factory opens actual standalone replay document");
             var document=window.Documents.ActiveDocument as ReplayStudioDocument ?? throw new InvalidOperationException("Replay factory returned source fallback.");
@@ -68,9 +91,12 @@ internal static partial class Program
             session=document.Session!;session.Player.OnGraphicsInitialize(256,192);deadline.Restart();
             while(!session.Player.Status.Ready&&deadline.Elapsed<TimeSpan.FromSeconds(30)){session.Player.Advance(TimeSpan.Zero);await Task.Delay(1);}
             PumpLayout(window);
-            Check(session.Player.Status.Ready&&session.Player.Status.DurationFrames==30&&document.Host.IsEffectivelyVisible
-                &&!oldHost.IsEffectivelyVisible&&session.Camera==StudioReplayCameraMode.Free,
-                "saved clip continues in the actual native tab with selected range and presentation camera preserved");
+            bool currentAttached=window.GetVisualDescendants().Any(control=>ReferenceEquals(control,document.Host));
+            bool oldAttached=window.GetVisualDescendants().Any(control=>ReferenceEquals(control,oldHost));
+            Check(session.Player.Status.Ready&&session.Player.Status.DurationFrames==30&&currentAttached&&!oldAttached
+                &&document.Host.IsEffectivelyVisible&&session.Camera==StudioReplayCameraMode.Free,
+                "saved clip continues in the actual native tab with selected range and presentation camera preserved: "
+                +System.Text.Json.JsonSerializer.Serialize(new{session.Player.Status,currentAttached,oldAttached,session.Camera}));
             await CaptureReplayVariantsAsync(window,document,output,"replay-studio-saved-clip",1);
             Check(immutable.SequenceEqual(File.ReadAllBytes(source))&&!MphRead.Mods.Network.NetSession.Active,
                 "native Replay controls retain immutable recording and construct no network session");
@@ -85,6 +111,15 @@ internal static partial class Program
         foreach((int width,int height,double scale) in new[]{(1280,800,1d),(1920,1080,1d),(1280,800,2d)})
         {
             window.Width=width;window.Height=height;window.SetRenderScaling(scale);PumpLayout(window);
+            var refresh=System.Diagnostics.Stopwatch.StartNew();TextBlock? transport;
+            do
+            {
+                transport=document.Host.GetVisualDescendants().OfType<TextBlock>().FirstOrDefault(block=>block.Text?.Contains(" checkpoints (",StringComparison.Ordinal)==true);
+                if(transport is not null)break;
+                await Task.Delay(5);PumpLayout(window);
+            }while(refresh.Elapsed<TimeSpan.FromSeconds(2));
+            Check(transport is not null,route+" has refreshed its actual transport status before capture");
+            CheckControlBounds(window,transport!,200,10,route+" keeps readable transport status in allocated viewport");
             var viewports=document.Host.GetVisualDescendants().OfType<ReplayViewportHost>().Where(viewport=>viewport.IsEffectivelyVisible).ToArray();
             Check(viewports.Length==views,route+" uses expected canonical passive replay view count");
             foreach(var viewport in viewports)CheckControlBounds(window,viewport,views==1?300:140,views==1?180:100,route+" reserves unclipped replay viewport allocation");
@@ -100,7 +135,7 @@ internal static partial class Program
             await Task.Yield();
         }
     }
-    private static void Click(StudioWindow window,Control control)
+    private static void Click(Window window,Control control)
     {
         PumpLayout(window);Point point=control.TranslatePoint(new Point(control.Bounds.Width/2,control.Bounds.Height/2),window)
             ??throw new InvalidOperationException("Native control has no window origin.");

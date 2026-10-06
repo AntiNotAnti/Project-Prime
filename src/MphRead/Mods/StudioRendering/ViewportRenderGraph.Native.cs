@@ -29,19 +29,21 @@ struct Output { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f3
         var watch = Stopwatch.StartNew();
         Prepare(target,world,frame);
         if (_bgraFillPipeline == null)
-        { _bgraFillPipeline = Pipeline(PrimitiveTopology.TriangleList,GpuTextureFormat.Bgra8Unorm,"fragment"); _bgraEdgePipeline = Pipeline(PrimitiveTopology.LineList,GpuTextureFormat.Bgra8Unorm,"fragment"); }
+        { _bgraFillPipeline = Pipeline(PrimitiveTopology.TriangleList,GpuTextureFormat.Bgra8Unorm,"fragment"); _bgraEdgePipeline = Pipeline(PrimitiveTopology.LineList,GpuTextureFormat.Bgra8Unorm,"fragment");
+            _bgraOverdrawPipeline=Pipeline(PrimitiveTopology.TriangleList,GpuTextureFormat.Bgra8Unorm,"overdraw"); }
+        int shadowDraws=frame.ShadowPreview ? Draw(target,world,frame with {Meshes=frame.ResidentMeshes},false,shadow:true) : 0;
         var view = native.Acquire(frame.Layout);
         if (view == null) return;
         var old = target.ColorView; var oldFormat = target.TargetFormat;
         try
         {
             target.ColorView=view; target.TargetFormat=native.Format;
-            int draws=Draw(target,world,frame,false);
+            int draws=Draw(target,world,frame,false)+shadowDraws;
             DrawOverlay(target,native.Format,overlay);
             native.Present();
             target.Metrics = new(world.MeshUploads,world.ResidentMeshes,world.ResidentTextures,world.TextureBytes,
                 draws+1,watch.Elapsed.TotalMilliseconds,0,Generation,world.GeometryBytes,target.Metrics?.PickReadbackBytes ?? 0,
-                BatchCount:draws+1,VisiblePrimitives:_lastVisiblePrimitives+1,GeometryUploadBytes:world.GeometryUploadBytes);
+                BatchCount:draws+1,VisiblePrimitives:_lastVisiblePrimitives+1,GeometryUploadBytes:world.GeometryUploadBytes,PixelWidth:(int)target.Width,PixelHeight:(int)target.Height);
         }
         finally { target.ColorView=old; target.TargetFormat=oldFormat; }
     }

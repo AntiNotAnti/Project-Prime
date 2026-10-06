@@ -50,7 +50,9 @@ def patch_fingerprint():
               ROOT/'tools/wgpu/prepare-native.py', ROOT/'tools/wgpu/prime-dx12-wsi-policy.rs', *sorted((ROOT/'tools/wgpu/patches').glob('*.patch'))]
     digest = hashlib.sha256((NATIVE + CORE).encode())
     for item in inputs:
-        digest.update(item.name.encode()); digest.update(item.read_bytes())
+        # Every input is checked-in UTF-8 source/patch text. Git's Windows
+        # checkout line endings must not change the identity of the same patch.
+        digest.update(item.name.encode()); digest.update(item.read_text(encoding='utf-8').encode('utf-8'))
     return digest.hexdigest()
 
 

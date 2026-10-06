@@ -17,7 +17,7 @@ public static class StudioPerformanceSources
     {
         if (document is MapStudioDocument map)
         {
-            var metrics = StudioGraphicsHost.LastMetrics;
+            var metrics = map.Host.Document is { } canonical ? StudioGraphicsHost.GetMapMetrics(canonical) : null;
             var scheduler = map.BuildScheduler;
             var render = metrics == null ? UnknownRender() : new StudioRenderPerformance(
                 metrics.CpuMilliseconds, metrics.GpuMilliseconds, metrics.DrawCalls, metrics.BatchCount,
@@ -28,21 +28,21 @@ public static class StudioPerformanceSources
                 Cache: new(scheduler.CompiledCacheCount, scheduler.CompiledCacheBytes,
                     scheduler.PendingCount, scheduler.CompilationCount,
                     scheduler.PreparationPeak, scheduler.PreparationMilliseconds),
-                Detail: "Frame counters describe the latest map viewport. GPU timestamp timing is unavailable.");
+                Detail: "Frame counters describe this document's latest viewport submission. GPU timestamp timing is unavailable.");
         }
         if (document is ReplayStudioDocument { Session: { } session } replay)
         {
             var status = session.Player.Status;
             var performance = session.Player.Performance;
             return new("Replay · " + replay.Title,
-                Render: UnknownRender() with { CpuMilliseconds = StudioGraphicsHost.LastReplayCpuMilliseconds },
+                Render: UnknownRender() with { CpuMilliseconds = performance.RenderMilliseconds },
                 Replay: new(performance.SeekMilliseconds, performance.AdvanceMilliseconds,
                     performance.RenderMilliseconds, performance.CheckpointCaptureMilliseconds,
                     performance.SeekMilliseconds.HasValue ? performance.SeekRestoreFrame : null,
                     performance.SeekMilliseconds.HasValue ? performance.SeekSimulationSteps : null,
                     status.CheckpointCount, status.CheckpointBytes,
                     status.Ready ? performance.RejectedCheckpoints : null, performance.CheckpointSource),
-                Detail: "Replay GPU counters and checkpoint capture timing are unavailable until measured.");
+                Detail: "Replay render CPU describes this player's latest rendering call. GPU counters and checkpoint capture timing are unavailable until measured.");
         }
         return new("Viewport", Render: UnknownRender(), Detail: "Open a map or replay to collect viewport measurements.");
     }

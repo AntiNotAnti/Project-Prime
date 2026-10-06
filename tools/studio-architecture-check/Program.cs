@@ -64,6 +64,20 @@ Require(HasRuntimePublication("var publisher = MapBuildScheduler.Publish;"),
     "publication scanner misses a publishing method group");
 Require(!HasRuntimePublication("// MapBuildScheduler.Publish(result)\nvar label = \"MapBuildScheduler.Install\";"),
     "publication scanner treats explanatory comments or labels as runtime writes");
+string linkFixture = Path.Combine(Path.GetTempPath(), "studio-source-contract");
+string protocolFixture = Path.Combine(linkFixture, "src", "ProjectPrime.Studio.Protocol", "ProjectPrime.Studio.Protocol.csproj");
+Require(IsSharedProtocolSource(linkFixture, protocolFixture, "../MphRead/Mods/Update/DesktopInstallationIdentity.cs"),
+    "source contract rejects the exact shared BCL installation identity helper");
+Require(IsSharedProtocolSource(linkFixture, protocolFixture, "..\\MphRead\\Mods\\Update\\DesktopInstallationIdentity.cs"),
+    "source contract rejects the exact shared BCL helper using Windows separators");
+Require(!IsSharedProtocolSource(linkFixture, protocolFixture, "../MphRead/Mods/Update/InstallationLifetime.cs"),
+    "source contract permits another engine file through the BCL helper exception");
+Require(!IsSharedProtocolSource(linkFixture, protocolFixture, "../MphRead/Mods/StudioIntegration/GameStudioBroker.cs"),
+    "source contract permits a gameplay broker through the BCL helper exception");
+Require(!IsSharedProtocolSource(linkFixture, Path.Combine(linkFixture, "src", "ProjectPrime.Studio", "ProjectPrime.Studio.csproj"),
+    "../MphRead/Mods/Update/DesktopInstallationIdentity.cs"), "source contract grants the Protocol-only link to Studio");
+Require(!IsSharedProtocolSource(linkFixture, protocolFixture, "$(EngineRoot)/Mods/Update/DesktopInstallationIdentity.cs"),
+    "source contract permits an unevaluated shared source path");
 
 // Exercise the actual framework-only protocol validators. A lexical graph check
 // cannot establish exact identity, path, message bounds or authentication meaning.
@@ -274,6 +288,27 @@ if (!args.Contains("--self-test"))
         {
             Require(!document.Descendants("ProjectReference").Any(), "The Studio protocol cannot depend on another project");
             Require(!document.Descendants("PackageReference").Any(), "The Studio protocol must remain framework-only");
+            var identityLinks = document.Descendants("Compile").Where(element =>
+                IsSharedProtocolSource(repository, projectPath, (string?)element.Attribute("Include") ?? "")).ToArray();
+            Require(identityLinks.Length == 1, "The Studio protocol must compile the one canonical BCL installation identity helper");
+            foreach (var link in identityLinks)
+                Require(link.Attribute("Condition") == null && (string?)link.Attribute("Link") == "DesktopInstallationIdentity.cs",
+                    "The shared BCL installation identity link must be explicit and unconditional");
+            string identityPath = Path.Combine(repository, "src", "MphRead", "Mods", "Update", "DesktopInstallationIdentity.cs");
+            Require(File.Exists(identityPath), "The canonical shared BCL installation identity helper is missing");
+            if (File.Exists(identityPath))
+            {
+                string source = File.ReadAllText(identityPath), code = Code(source);
+                var identifiers = Identifiers(source);
+                foreach (string owner in forbiddenOwners.Concat(forbiddenPublication).Concat(["MphRead", "Avalonia"]))
+                    Require(!identifiers.Contains(owner), $"The shared installation identity helper references prohibited owner {owner}");
+                Require(Regex.IsMatch(code, @"\bnamespace\s+ProjectPrime\s*\.\s*DesktopShared\s*;")
+                    && Regex.IsMatch(code, @"\binternal\s+static\s+class\s+DesktopInstallationIdentity\b"),
+                    "The shared installation identity helper must remain internal in the desktop BCL namespace");
+                foreach (Match import in Regex.Matches(code, @"\busing\s+([A-Za-z_][A-Za-z0-9_.]*)\s*;"))
+                    Require(import.Groups[1].Value is "System" or "System.IO",
+                        $"The shared installation identity helper imports outside its BCL path scope: {import.Groups[1].Value}");
+            }
         }
         foreach (var framework in document.Descendants().Where(element =>
             element.Name.LocalName is "TargetFramework" or "TargetFrameworks" or "RuntimeIdentifier" or "RuntimeIdentifiers"))
@@ -308,7 +343,8 @@ if (!args.Contains("--self-test"))
             string include = compile.Attribute("Include")!.Value.Replace('\\', Path.DirectorySeparatorChar);
             Require(!include.Contains("$", StringComparison.Ordinal), $"{relative} has an unevaluated compile link: {include}");
             string full = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(projectPath)!, include));
-            Require(full.StartsWith(Path.GetDirectoryName(projectPath)! + Path.DirectorySeparatorChar, StringComparison.Ordinal),
+            Require(full.StartsWith(Path.GetDirectoryName(projectPath)! + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                || IsSharedProtocolSource(repository, projectPath, include),
                 $"{relative} links source from outside its own boundary: {include}");
         }
     }
@@ -333,6 +369,15 @@ static bool ReferencesCreator(string value)
     return normalized.Contains("ProjectPrime.Studio/", StringComparison.OrdinalIgnoreCase)
         || normalized.Contains("ProjectPrime.Studio.csproj", StringComparison.OrdinalIgnoreCase)
         || normalized.Contains("ProjectPrimeStudio", StringComparison.OrdinalIgnoreCase);
+}
+
+static bool IsSharedProtocolSource(string repository, string project, string include)
+{
+    if (include.Contains('$') || include.Contains('*') || include.Contains('?') || string.IsNullOrWhiteSpace(include)) return false;
+    string protocol = Path.Combine(repository, "src", "ProjectPrime.Studio.Protocol", "ProjectPrime.Studio.Protocol.csproj");
+    if (Path.GetFullPath(project) != Path.GetFullPath(protocol)) return false;
+    string target = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(project)!, include.Replace('\\', Path.DirectorySeparatorChar)));
+    return target == Path.GetFullPath(Path.Combine(repository, "src", "MphRead", "Mods", "Update", "DesktopInstallationIdentity.cs"));
 }
 
 static string FindRoot()

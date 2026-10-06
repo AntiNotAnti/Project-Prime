@@ -5,4 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>ProjectPrime.Studio.Protocol</AssemblyName>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../MphRead/Mods/Update/DesktopInstallationIdentity.cs" Link="DesktopInstallationIdentity.cs" />
+  </ItemGroup>
 </Project>

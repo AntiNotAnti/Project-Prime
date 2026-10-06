@@ -25,11 +25,13 @@ internal struct EditorVertex
     internal Vector2 Uv;
     internal float Shade;
     internal uint FaceId;
+    internal uint Terrain;
 }
 
 /// <summary>Direct vertex resources; the game Scene/display-list command path is never involved.</summary>
 public sealed unsafe class MeshResource : IDisposable
 {
+    internal const int VertexStride=44,UniformBytes=496;
     internal sealed class Part
     {
         internal GpuBuffer* Vertices;
@@ -47,14 +49,14 @@ public sealed unsafe class MeshResource : IDisposable
     internal readonly List<Part> PickEdges = new();
     private readonly StudioRenderDevice _owner;
     public Guid ObjectId { get; }
-    public long ResidentBytes => Parts.Concat(Edges).Concat(PickVertices).Concat(PickEdges).Sum(part => (long)part.Count * 40 + 240);
-    public long GeometryUploadBytes => Parts.Concat(Edges).Concat(PickVertices).Concat(PickEdges).Sum(part => (long)part.Count * 40);
+    public long ResidentBytes => Parts.Concat(Edges).Concat(PickVertices).Concat(PickEdges).Sum(part => (long)part.Count * VertexStride + UniformBytes);
+    public long GeometryUploadBytes => Parts.Concat(Edges).Concat(PickVertices).Concat(PickEdges).Sum(part => (long)part.Count * VertexStride);
     internal MeshResource(StudioRenderDevice owner, MapViewportMesh source, ref uint id,
         Dictionary<uint, StudioPickElement> picks)
     {
         _owner = owner; ObjectId = source.ObjectId;
         var admissionFaces=source.Faces.Concat(source.CollisionFaces ?? Array.Empty<MapViewportFace>());
-        owner.RequireGeometryAdmission(admissionFaces.Sum(face => (long)(Math.Max(0,face.Points.Length-2)*3+face.Points.Length*14)*40+960));
+        owner.RequireGeometryAdmission(admissionFaces.Sum(face => (long)(Math.Max(0,face.Points.Length-2)*3+face.Points.Length*14)*VertexStride+UniformBytes*4));
         try
         {
             foreach (var variant in source.CollisionFaces == null
@@ -73,7 +75,7 @@ public sealed unsafe class MeshResource : IDisposable
                     if (!groups.TryGetValue(key, out var group)) groups[key] = group = (new(), new(), new(), new());
                     var normal = Vector3.Cross(face.Points[1] - face.Points[0], face.Points[2] - face.Points[0]);
                     normal = normal.LengthSquared() < 1e-10f ? Vector3.UnitY : Vector3.Normalize(normal);
-                    EditorVertex Vertex(int index) => new() { Position = face.Points[index], Normal = normal,
+                    EditorVertex Vertex(int index) => new() { Position = face.Points[index], Normal = normal,Terrain=(uint)face.Terrain,
                         Uv = face.Texcoords is { } uv && index < uv.Length ? uv[index] : Vector2.Zero,
                         Shade = Math.Clamp(face.Shade, .2f, 1), FaceId = faceId };
                     for (int i = 1; i < face.Points.Length - 1; i++)
@@ -110,7 +112,7 @@ public sealed unsafe class MeshResource : IDisposable
         {
             ulong bytes = (ulong)(vertices.Count * Marshal.SizeOf<EditorVertex>());
             part.Vertices = _owner.Api.DeviceCreateBuffer(_owner.Device.Device, new BufferDescriptor { Size = bytes, Usage = BufferUsage.Vertex | BufferUsage.CopyDst });
-            part.Uniform = _owner.Api.DeviceCreateBuffer(_owner.Device.Device, new BufferDescriptor { Size = 240, Usage = BufferUsage.Uniform | BufferUsage.CopyDst });
+            part.Uniform = _owner.Api.DeviceCreateBuffer(_owner.Device.Device, new BufferDescriptor { Size = UniformBytes, Usage = BufferUsage.Uniform | BufferUsage.CopyDst });
             if (part.Vertices == null || part.Uniform == null) throw new InvalidOperationException("Studio retained mesh allocation failed.");
             var queue = _owner.Api.DeviceGetQueue(_owner.Device.Device);
             try { fixed (EditorVertex* data = vertices.ToArray()) _owner.Api.QueueWriteBuffer(queue, part.Vertices, 0, data, (nuint)bytes); }
@@ -214,7 +216,7 @@ public sealed unsafe class EditorRenderWorld : IDisposable
             foreach(var face in faces)
             {
                 writer.Write(face.ObjectId.ToByteArray());writer.Write(face.Material);writer.Write(face.SourceMaterial);
-                writer.Write(face.Shade);writer.Write(face.Solid);writer.Write(face.CollisionOnly);writer.Write(face.Points.Length);
+                writer.Write(face.Shade);writer.Write(face.Solid);writer.Write(face.CollisionOnly);writer.Write((byte)face.Terrain);writer.Write(face.Points.Length);
                 foreach(var p in face.Points){writer.Write(p.X);writer.Write(p.Y);writer.Write(p.Z);}
                 writer.Write(face.Texcoords?.Length ?? -1);
                 if(face.Texcoords is { } uv)foreach(var p in uv){writer.Write(p.X);writer.Write(p.Y);}

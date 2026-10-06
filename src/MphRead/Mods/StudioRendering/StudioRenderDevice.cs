@@ -56,9 +56,19 @@ public sealed unsafe partial class StudioRenderDevice : IDisposable
     { RequireOwner(); var surface = new StudioNativeSurface(this,handle,kind,display); _nativeSurfaces.Add(surface); return surface; }
     internal void Forget(StudioNativeSurface surface)
     {
+        ModernGraphicsCompat.DetachStudioSurface(_device,surface.Surface);
         if (ReferenceEquals(_activeReplaySurface,surface))
-        { ModernGraphicsCompat.DetachStudioSurface(_device,surface.Surface); _activeReplaySurface=null; }
+            _activeReplaySurface=null;
         _nativeSurfaces.Remove(surface);
+    }
+    public void RecreateNativeSurface(StudioNativeSurface surface)
+    {
+        RequireOwner();
+        if(!ReferenceEquals(surface.Owner,this))throw new ArgumentException("Native surface belongs to another device.");
+        if(_device.IsLost){RecoverIfLost();return;}
+        ModernGraphicsCompat.DetachStudioSurface(_device,surface.Surface);
+        if(ReferenceEquals(_activeReplaySurface,surface))_activeReplaySurface=null;
+        surface.Recreate();
     }
     public void BeginReplayFrame(StudioNativeSurface surface, int width, int height)
     {
@@ -103,7 +113,7 @@ public sealed unsafe partial class StudioRenderDevice : IDisposable
 public sealed record StudioRenderMetrics(long MeshUploads, int ResidentMeshes, int ResidentTextures,
     long TextureBytes, int DrawCalls, double CpuMilliseconds, long ReadbackBytes, int DeviceGeneration,
     long GeometryBytes = 0, long PickReadbackBytes = 0, double? GpuMilliseconds = null,
-    int? BatchCount = null, long? VisiblePrimitives = null, long GeometryUploadBytes = 0);
+    int? BatchCount = null, long? VisiblePrimitives = null, long GeometryUploadBytes = 0, int PixelWidth = 0, int PixelHeight = 0);
 
 /// <summary>Independent viewport targets/camera; meshes/materials live in its shared document world.</summary>
 public sealed unsafe class StudioRenderSurface : IDisposable
@@ -115,11 +125,18 @@ public sealed unsafe class StudioRenderSurface : IDisposable
     internal TextureView* DepthView;
     internal GpuTexture* Ids;
     internal TextureView* IdView;
+    internal GpuTexture* ShadowDepth;
+    internal TextureView* ShadowView;
+    internal uint ShadowSize;
+    internal System.Numerics.Matrix4x4 ShadowCameraView=System.Numerics.Matrix4x4.Identity;
+    internal System.Numerics.Matrix4x4 ShadowCameraProjection=System.Numerics.Matrix4x4.Identity;
     internal uint Width, Height;
     internal GpuTextureFormat TargetFormat = GpuTextureFormat.Rgba8Unorm;
     private bool _disposed;
     internal StudioRenderSurface(StudioRenderDevice owner) { Owner = owner; }
     public StudioRenderMetrics? Metrics { get; internal set; }
+    public long PickPassSubmissions { get; internal set; }
+    internal StudioPickFrameSnapshot? PickFrame;
     internal void Resize(uint width, uint height)
     {
         Owner.RequireOwner();
@@ -135,19 +152,41 @@ public sealed unsafe class StudioRenderSurface : IDisposable
     private GpuTexture* Create(GpuTextureFormat format, TextureUsage usage) => Owner.Api.DeviceCreateTexture(Owner.Device.Device,
         new TextureDescriptor { Size = new(Width, Height, 1), Dimension = TextureDimension.Dimension2D,
             Format = format, Usage = usage, MipLevelCount = 1, SampleCount = 1 });
+    internal void EnsureShadow(MapRenderFrame frame)
+    {
+        uint wanted=frame.ShadowPreview ? 1024u : 1u;
+        if(ShadowDepth==null || ShadowSize!=wanted)
+        {
+            if(ShadowView!=null)Owner.Api.TextureViewRelease(ShadowView);
+            if(ShadowDepth!=null)Owner.Api.TextureRelease(ShadowDepth);
+            ShadowSize=wanted;
+            ShadowDepth=Owner.Api.DeviceCreateTexture(Owner.Device.Device,new TextureDescriptor {Size=new(wanted,wanted,1),Dimension=TextureDimension.Dimension2D,
+                Format=GpuTextureFormat.Depth32float,Usage=TextureUsage.RenderAttachment|TextureUsage.TextureBinding,MipLevelCount=1,SampleCount=1});
+            ShadowView=Owner.Api.TextureCreateView(ShadowDepth,null);
+        }
+        var camera=GraphicsEnvironmentMath.DirectionalShadowCamera(frame.Camera.Position,frame.Camera.Basis().Forward,frame.Light1Vector,(int)wanted,lowQuality:true);
+        ShadowCameraView=camera.View;ShadowCameraProjection=camera.Projection;
+    }
     internal void ReleaseNative()
     {
         var api = Owner.Api;
         if (ColorView != null) api.TextureViewRelease(ColorView);
         if (DepthView != null) api.TextureViewRelease(DepthView);
         if (IdView != null) api.TextureViewRelease(IdView);
+        if (ShadowView != null)api.TextureViewRelease(ShadowView);
         if (Color != null) api.TextureRelease(Color);
         if (Depth != null) api.TextureRelease(Depth);
         if (Ids != null) api.TextureRelease(Ids);
+        if (ShadowDepth != null)api.TextureRelease(ShadowDepth);
         Color = Depth = Ids = null; ColorView = DepthView = IdView = null;
+        ShadowDepth=null;ShadowView=null;ShadowSize=0;
+        PickFrame=null;
     }
     public StudioViewportImage Render(EditorRenderWorld world, MapRenderFrame frame)
     { ObjectDisposedException.ThrowIf(_disposed, this); return Owner.Render(this, world, frame); }
+    /// <summary>Diagnostic frame submission without GPU readback or a native window. CPU timing measures submission, not GPU completion.</summary>
+    public StudioRenderMetrics SubmitForDiagnostics(EditorRenderWorld world, MapRenderFrame frame)
+    { ObjectDisposedException.ThrowIf(_disposed,this);return Owner.SubmitForDiagnostics(this,world,frame); }
     public StudioPickResult Pick(EditorRenderWorld world, MapRenderFrame frame, double x, double y, StudioPickKind kind = StudioPickKind.Face)
     { ObjectDisposedException.ThrowIf(_disposed, this); return Owner.Pick(this, world, frame, x, y, kind); }
     public void Present(StudioNativeSurface native, EditorRenderWorld world, MapRenderFrame frame, StudioViewportImage overlay)

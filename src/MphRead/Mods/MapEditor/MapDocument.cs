@@ -60,9 +60,9 @@ namespace MphRead.Mods.MapEditor
         }
         public MapProject Snapshot() => new(CaptureBuildSnapshot().CreateDefinition());
         private readonly HashSet<string> _recoveryAssets = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, string> _generatedAssets = new(StringComparer.Ordinal);
-        public void RegisterGeneratedAsset(string relative, string root)
-            => _generatedAssets[relative] = Path.GetFullPath(root);
+        private readonly Dictionary<string, (string Root,string CanonicalRoot)> _generatedAssets = new(StringComparer.Ordinal);
+        public void RegisterGeneratedAsset(string relative, string root,string? canonicalRoot=null)
+            => _generatedAssets[relative] = (Path.GetFullPath(root),canonicalRoot??MapPublicationLease.CanonicalizeRuntimeDirectory(root));
         public int CleanupGeneratedAssets()
         {
             var retained = Project.Definition.Assets.Select(a => a.Path).Concat(History.RetainedAssets).Concat(_recoveryAssets).ToHashSet(StringComparer.Ordinal);
@@ -70,9 +70,10 @@ namespace MphRead.Mods.MapEditor
             foreach (var entry in _generatedAssets.ToArray())
             {
                 if (retained.Contains(entry.Key)) continue;
-                string root = entry.Value + Path.DirectorySeparatorChar;
-                string path = Path.GetFullPath(Path.Combine(root, entry.Key));
-                if (!path.StartsWith(root, StringComparison.Ordinal) || File.GetAttributes(Path.GetDirectoryName(path)!).HasFlag(FileAttributes.ReparsePoint)) continue;
+                string path;
+                try { path=MapAssetDestination.Resolve(entry.Value.Root,entry.Key,entry.Value.CanonicalRoot); }
+                catch(IOException) { continue; }
+                catch(UnauthorizedAccessException) { continue; }
                 if (File.Exists(path)) { File.Delete(path); removed++; }
                 _generatedAssets.Remove(entry.Key);
             }

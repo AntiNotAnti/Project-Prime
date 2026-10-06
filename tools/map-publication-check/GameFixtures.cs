@@ -23,3 +23,11 @@ namespace MphRead.Mods.Network
         public static SessionPhase SessionPhase { get; set; }
     }
 }
+namespace MphRead.Mods.StudioReplay
+{
+    internal sealed class StudioReplayResources(string privateRoom)
+    {
+        [System.ThreadStatic] internal static StudioReplayResources? Current;
+        internal object? Room(string room) => room.Equals(privateRoom, System.StringComparison.OrdinalIgnoreCase) ? this : null;
+    }
+}

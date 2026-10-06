@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Security.Cryptography;
 using System.IO.Compression;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using MphRead;
 using MphRead.Mods;
 using MphRead.Mods.MapEditor;
@@ -170,20 +171,100 @@ internal static partial class Program
         using (var corrupt = new StudioReplayPlayer(path,Path.Combine(root,"camera-corrupt")))
             Check(corrupt.CameraKeys.Count==0, "camera sidecar checksum rejects corrupted authored track without changing recording");
         File.WriteAllBytes(path+".camera",validCamera);
+        CheckReplayEvidence(player,path,root,before);
+        StudioReplayAnalysis analysis=player.AnalyzeAsync().GetAwaiter().GetResult();
+        Check(analysis.SourceHash.Equals(Convert.ToHexString(SHA256.HashData(recording)),StringComparison.OrdinalIgnoreCase)
+            &&analysis.DurationFrames==duration&&analysis.Samples.All(sample=>float.IsFinite(sample.Position.X)
+                &&float.IsFinite(sample.Position.Y)&&float.IsFinite(sample.Position.Z)&&float.IsFinite(sample.Weight))
+            &&SameReplayWorld(before,player.Snapshot())&&!NetSession.Active&&!MphRead.Mods.Launcher.Gui.Shell.Active,
+            "detached recorded-packet analytics preserves source identity and all owner world fields without game session");
+        using(var cancelled=new CancellationTokenSource())
+        {
+            cancelled.Cancel();bool rejected=false;
+            try{player.AnalyzeAsync(cancelled.Token).GetAwaiter().GetResult();}catch(OperationCanceledException){rejected=true;}
+            Check(rejected&&SameReplayWorld(before,player.Snapshot()),"analytics cancellation leaves owner replay graph unchanged");
+        }
+        var originalSidecars=Directory.GetFiles(Path.GetDirectoryName(path)!,Path.GetFileName(path)+".*")
+            .ToDictionary(file=>file,File.ReadAllBytes);
         string clip=Path.Combine(root,Path.GetFileNameWithoutExtension(path)+"-saved.ppclip");
         player.SaveClipProjectAsync(30,80,clip).GetAwaiter().GetResult();
-        using(var clipPlayer=new StudioReplayPlayer(clip,Path.Combine(root,"clip-cache")))
+        string sharedClipCache=Path.Combine(root,"clip-cache-"+Path.GetFileNameWithoutExtension(path));
+        using(var clipPlayer=new StudioReplayPlayer(clip,sharedClipCache))
         {
             clipPlayer.OnGraphicsInitialize(256,192);WaitReplayReady(clipPlayer);
             Check(clipPlayer.Status.DurationFrames==50&&clipPlayer.CameraKeys.Any(key=>key.Frame==50)
                 &&recording.SequenceEqual(File.ReadAllBytes(path)),"canonical Save As clip retains selected range and retimed camera keys without rewriting original replay");
+            clipPlayer.Seek(17);clipPlayer.SetRate(2);clipPlayer.SetRange(5,45);WaitReplayReady(clipPlayer);
+            StudioReplayWorldSnapshot clipBefore=clipPlayer.Snapshot();
+            clipPlayer.OnGraphicsDeinitialize(false);clipPlayer.OnGraphicsInitialize(256,192);WaitReplayReady(clipPlayer);
+            Check(SameReplayWorld(clipBefore,clipPlayer.Snapshot())&&clipPlayer.Status is {Frame:17,Rate:2,State:"Paused",ClipIn:5,ClipOut:45},
+                "clip viewport recreation retains nonzero exact graph, rate, pause and marked range");
+            using(var overlapping=new StudioReplayPlayer(clip,sharedClipCache))
+            {
+                overlapping.OnGraphicsInitialize(256,192);WaitReplayReady(overlapping);overlapping.Seek(23);WaitReplayReady(overlapping);
+                var overlapBefore=overlapping.Snapshot();clipPlayer.Dispose();overlapping.Advance(TimeSpan.Zero);
+                Check(SameReplayWorld(overlapBefore,overlapping.Snapshot()),"overlapping clip players sharing cache retain independent source leases and passive world");
+            }
         }
+        using(var reopened=new StudioReplayPlayer(clip,sharedClipCache))
+        {reopened.OnGraphicsInitialize(256,192);WaitReplayReady(reopened);reopened.Seek(17);WaitReplayReady(reopened);
+            Check(reopened.Status.Frame==17&&reopened.Status.DurationFrames==50,"clip can reopen sequentially with exact same private cache root");}
+        Check(originalSidecars.All(pair=>pair.Value.SequenceEqual(File.ReadAllBytes(pair.Key)))&&recording.SequenceEqual(File.ReadAllBytes(path)),
+            "clip Save As, overlap and recreation leave original recording and authored sidecars byte-identical");
+        var savedClipFiles=Directory.GetFiles(root,Path.GetFileName(clip)+"*").ToDictionary(file=>file,File.ReadAllBytes);
+        using(var cancelled=new CancellationTokenSource())
+        {
+            cancelled.Cancel();bool rejected=false;
+            try{player.SaveClipProjectAsync(40,70,clip,cancelled.Token).GetAwaiter().GetResult();}catch(OperationCanceledException){rejected=true;}
+            Check(rejected&&savedClipFiles.All(pair=>pair.Value.SequenceEqual(File.ReadAllBytes(pair.Key))),
+                "cancelled clip Save As preserves existing descriptor and every authored sidecar atomically");
+        }
+        string detachedSource=Path.Combine(root,"detached-analytics-"+Path.GetFileName(path));File.WriteAllBytes(detachedSource,recording);
+        Task<StudioReplayAnalysis> detached;
+        using(var analyticsOwner=new StudioReplayPlayer(detachedSource,Path.Combine(root,"detached-analytics-cache-"+Path.GetFileNameWithoutExtension(path))))
+        {analyticsOwner.OnGraphicsInitialize(256,192);WaitReplayReady(analyticsOwner);detached=analyticsOwner.AnalyzeAsync();}
+        File.Move(detachedSource,detachedSource+".renamed");var detachedResult=detached.GetAwaiter().GetResult();
+        Check(detachedResult.SourceHash.Equals(Convert.ToHexString(SHA256.HashData(recording)),StringComparison.OrdinalIgnoreCase)
+            &&detachedResult.DurationFrames==duration&&!NetSession.Active&&!MphRead.Mods.Launcher.Gui.Shell.Active,
+            "detached recorded-packet analytics completes with immutable source after owner disposal and original-path rename");
         Check(player.Performance.SeekSimulationSteps <= PassiveReplayPlayer.MaximumStepsPerUpdate && player.Status.CheckpointBytes <= 64L * 1024 * 1024,
             "standalone checkpoint ownership remains bounded");
         player.OnGraphicsDeinitialize(false);
         player.OnGraphicsInitialize(256, 192); WaitReplayReady(player);
         Check(SameReplayWorld(before, player.Snapshot()) && player.Status.Rate == 4 && player.Status.State == "Paused",
             "passive viewport detach/recreation restores prior scene and transport preferences without game shell");
+    }
+
+    private static void CheckReplayEvidence(StudioReplayPlayer player,string path,string root,StudioReplayWorldSnapshot before)
+    {
+        var evidence=player.Evidence(new(256,192));string report=Path.Combine(root,Path.GetFileNameWithoutExtension(path)+"-evidence.json");
+        StudioReplayPlayer.SaveEvidenceAsync(evidence,report).GetAwaiter().GetResult();
+        var loaded=StudioReplayPlayer.LoadEvidenceAsync(report).GetAwaiter().GetResult();var comparison=StudioReplayPlayer.CompareEvidence(evidence,loaded);
+        Check(comparison is {SameSource:true,ProjectilesEqual:true,AnimationsEqual:true,CameraEqual:true,ResolvedShotsEqual:true}
+            &&comparison.World is {GameplayEqual:true,PresentationEqual:true,FullGraphEqual:true}&&SameReplayWorld(before,player.Snapshot()),
+            "actual replay evidence round trip retains world, animations, projectiles, camera and resolved combat without owner mutation");
+        string json=File.ReadAllText(report);var rootNode=JsonNode.Parse(json)!.AsObject();
+        Action<JsonObject>[] malformed=[
+            node=>node["World"]=null,node=>node["Camera"]=null,node=>node["Camera"]!["Descriptor"]=null,
+            node=>node["Camera"]!["View"]=null,node=>node["World"]!["Players"]=null,
+            node=>node["Projectiles"]=null,node=>node["Animations"]=null,node=>node["ResolvedShots"]=null,
+            node=>node["World"]!["Players"]=new JsonArray((JsonNode?)null),
+            node=>node["Projectiles"]=new JsonArray((JsonNode?)null),node=>node["Animations"]=new JsonArray((JsonNode?)null),
+            node=>node["ResolvedShots"]=new JsonArray((JsonNode?)null),node=>node["SourceHash"]="not-a-hash",
+            node=>node["World"]!["FullGraphHash"]="00",node=>node["Camera"]!["View"]![0]=1e100,
+            node=>node["Camera"]!["Descriptor"]!["Fov"]=1e100,
+            node=>node["Camera"]!["View"]=new JsonArray(Enumerable.Repeat(0,17).Select(value=>(JsonNode?)JsonValue.Create(value)).ToArray()),
+            node=>node["Animations"]=new JsonArray(Enumerable.Range(0,32769).Select(_=>JsonSerializer.SerializeToNode(
+                new StudioReplayAnimation(0,"Player",0,0,0,0,0,0,0))).ToArray())];
+        for(int index=0;index<malformed.Length;index++)
+        {
+            var mutated=rootNode.DeepClone().AsObject();malformed[index](mutated);File.WriteAllText(report,mutated.ToJsonString());
+            bool rejected=false;try{StudioReplayPlayer.LoadEvidenceAsync(report).GetAwaiter().GetResult();}catch(InvalidDataException){rejected=true;}
+            Check(rejected,"malformed nested replay evidence is rejected with a data error "+index);
+        }
+        File.WriteAllText(report,"{");bool invalidJson=false;
+        try{StudioReplayPlayer.LoadEvidenceAsync(report).GetAwaiter().GetResult();}catch(InvalidDataException){invalidJson=true;}
+        Check(invalidJson,"malformed evidence JSON is normalized to a data error");File.WriteAllText(report,json);
     }
 
     private static void WaitReplayReady(StudioReplayPlayer player)

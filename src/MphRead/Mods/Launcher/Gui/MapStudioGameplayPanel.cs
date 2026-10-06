@@ -54,7 +54,7 @@ internal sealed partial class MapStudioScreen
         static string Distance(float? value)=>value is {} number?$"{number:0.0} units":"unreachable / unavailable";
     }
     private void SelectGameplayObject(Guid id)
-    {if(_document==null)return;_document.Selection.Clear();_document.Selection.Add(id);_document.SelectionChanged();_viewport?.FrameSelection();}
+    {if(_document==null)return;_document.Selection.Clear();_document.Selection.Add(id);_document.ActiveObjectId=id;_document.SelectionChanged();RefreshHierarchy();_viewport?.FrameSelection();}
     private void StructuralDiffInspector()
     {
         _inspector.Children.Clear();_inspector.Children.Add(Text("STRUCTURAL MAP DIFF"));

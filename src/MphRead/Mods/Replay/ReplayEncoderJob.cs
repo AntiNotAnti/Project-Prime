@@ -14,12 +14,19 @@ internal sealed record ReplayEncodingResult(bool Cancelled, int? ExitCode, strin
 internal sealed class ReplayEncoderJob : IDisposable
 {
     private readonly CancellationTokenSource _cancel = new();
+    private readonly object _cancellationGate = new();
+    private bool _cancellationDisposed;
+    private int _disposeRequested;
     private int _frames;
     internal int Frames => Volatile.Read(ref _frames);
     internal Task<ReplayEncodingResult> Completion { get; }
     internal ReplayEncoderJob(string executable, string arguments, string directory)
         => Completion = Task.Run(() => Run(executable, arguments, directory));
-    internal void Cancel() => _cancel.Cancel();
+    internal void Cancel()
+    {
+        lock (_cancellationGate)
+            if (!_cancellationDisposed) _cancel.Cancel();
+    }
     private async Task<ReplayEncodingResult> Run(string executable, string arguments, string directory)
     {
         var tail = new StringBuilder();
@@ -74,7 +81,15 @@ internal sealed class ReplayEncoderJob : IDisposable
     }
     public void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposeRequested, 1) != 0) return;
         Cancel();
-        _ = Completion.ContinueWith(_ => _cancel.Dispose(), TaskScheduler.Default);
+        _ = Completion.ContinueWith(_ =>
+        {
+            lock (_cancellationGate)
+            {
+                _cancellationDisposed = true;
+                _cancel.Dispose();
+            }
+        }, TaskScheduler.Default);
     }
 }

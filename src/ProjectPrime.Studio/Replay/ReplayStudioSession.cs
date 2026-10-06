@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Text.Json;
 using MphRead.Mods.StudioReplay;
+using ProjectPrime.Studio.Rendering;
 using ProjectPrime.Studio.Settings;
 
 namespace ProjectPrime.Studio.Replay;
@@ -28,6 +29,7 @@ public sealed class ReplayStudioSession : IStudioReplayGraphicsSession, IDisposa
     private readonly string _presentationPath;
     private readonly StudioPaths _paths;
     private bool _comparisonInitialized;
+    private int? _graphicsGeneration;
     public event Action? Changed;
     public ReplayStudioSession(string path, StudioPaths paths, IEnumerable<string>? packageDirectories = null, Func<string, Task>? exportWorkerLauncher = null)
     {
@@ -46,11 +48,17 @@ public sealed class ReplayStudioSession : IStudioReplayGraphicsSession, IDisposa
         CollisionAvoidance: CollisionAvoidance, Combat: CombatSelection, CombatRays: CombatRays, ShooterView: WhatShooterSaw);
     public IStudioReplayGraphicsSession SecondaryView(Func<int, int, StudioReplayView> view) => new ViewSession(this, view);
     public IStudioReplayGraphicsSession ComparisonView() => new ComparisonViewSession(this);
-    public StudioReplayCapture? Capture(StudioReplayView view) => Player.Capture(view);
+    public StudioReplayCapture? Capture(StudioReplayView view)
+    { EnsureGraphicsGeneration(view); return Player.Capture(view); }
     public void OnGraphicsInitialize(int width, int height)
-    { if (_views++ == 0) Player.OnGraphicsInitialize(width, height); }
+    {
+        if (_views++ != 0) return;
+        _graphicsGeneration = StudioGraphicsHost.DeviceGeneration;
+        Player.OnGraphicsInitialize(width, height);
+    }
     public void OnGraphicsFrame(TimeSpan elapsed, StudioReplayView view)
     {
+        EnsureGraphicsGeneration(view);
         Player.OnGraphicsFrame(elapsed, view);
         if (ComparisonPlayer is { } comparison)
         {
@@ -63,10 +71,25 @@ public sealed class ReplayStudioSession : IStudioReplayGraphicsSession, IDisposa
     {
         if (_views > 0 && --_views == 0)
         {
-            Player.OnGraphicsDeinitialize(nativeReleaseEligible);
-            if (_comparisonInitialized) ComparisonPlayer?.OnGraphicsDeinitialize(nativeReleaseEligible);
+            bool release = nativeReleaseEligible && _graphicsGeneration == StudioGraphicsHost.DeviceGeneration;
+            Player.OnGraphicsDeinitialize(release);
+            if (_comparisonInitialized) ComparisonPlayer?.OnGraphicsDeinitialize(release);
             _comparisonInitialized = false;
+            _graphicsGeneration = null;
         }
+    }
+    private void EnsureGraphicsGeneration(StudioReplayView view)
+    {
+        int? generation = StudioGraphicsHost.DeviceGeneration;
+        if (!generation.HasValue || generation == _graphicsGeneration) return;
+        _graphicsGeneration = generation;
+        // A different document may have recovered the shared device. Release
+        // this private world's old IDs without submitting them to the new device.
+        // Keep viewport leases: all views adopt this one restored transport.
+        Player.OnGraphicsDeinitialize(false);
+        Player.OnGraphicsInitialize(view.Width, view.Height);
+        if (_comparisonInitialized) ComparisonPlayer?.OnGraphicsDeinitialize(false);
+        _comparisonInitialized = false;
     }
     public void LoadComparison(string path)
     {
@@ -82,16 +105,19 @@ public sealed class ReplayStudioSession : IStudioReplayGraphicsSession, IDisposa
     private sealed class ViewSession(ReplayStudioSession session, Func<int, int, StudioReplayView> viewFactory) : IStudioReplayGraphicsSession
     {
         public void OnGraphicsInitialize(int width, int height) => session.OnGraphicsInitialize(width, height);
-        public void OnGraphicsFrame(TimeSpan elapsed, StudioReplayView view) => session.Player.Render(viewFactory(view.Width, view.Height));
+        public void OnGraphicsFrame(TimeSpan elapsed, StudioReplayView view)
+        { session.EnsureGraphicsGeneration(view); session.Player.Render(viewFactory(view.Width, view.Height)); }
         public void OnGraphicsDeinitialize(bool nativeReleaseEligible) => session.OnGraphicsDeinitialize(nativeReleaseEligible);
-        public StudioReplayCapture? Capture(StudioReplayView view) => session.Player.Capture(viewFactory(view.Width, view.Height));
+        public StudioReplayCapture? Capture(StudioReplayView view) => session.Capture(viewFactory(view.Width, view.Height));
     }
     private sealed class ComparisonViewSession(ReplayStudioSession session) : IStudioReplayGraphicsSession
     {
         public void OnGraphicsInitialize(int width,int height) => session.OnGraphicsInitialize(width,height);
-        public void OnGraphicsFrame(TimeSpan elapsed,StudioReplayView view) { if(session._comparisonInitialized)session.ComparisonPlayer?.Render(view); }
+        public void OnGraphicsFrame(TimeSpan elapsed,StudioReplayView view)
+        { session.EnsureGraphicsGeneration(view); if(session._comparisonInitialized)session.ComparisonPlayer?.Render(view); }
         public void OnGraphicsDeinitialize(bool nativeReleaseEligible) => session.OnGraphicsDeinitialize(nativeReleaseEligible);
-        public StudioReplayCapture? Capture(StudioReplayView view) => session._comparisonInitialized ? session.ComparisonPlayer?.Capture(view) : null;
+        public StudioReplayCapture? Capture(StudioReplayView view)
+        { session.EnsureGraphicsGeneration(view); return session._comparisonInitialized ? session.ComparisonPlayer?.Capture(view) : null; }
     }
     public void PutCurrentKey() => Player.PutCameraKey(new(Player.Status.Frame, Position, Rotation, Fov));
     public void SavePresentation()

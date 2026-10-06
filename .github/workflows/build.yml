@@ -51,6 +51,7 @@ jobs:
       - name: native dependencies for the canonical engine on macOS
         if: runner.os == 'macOS'
         run: |
+          python3 tools/wgpu/test-build-shell.py
           tools/wgpu/build-native.sh "${{ matrix.rid }}"
           tools/ktx/build-native.sh "${{ matrix.rid }}"
       - name: cross-process map publication ownership
@@ -70,6 +71,8 @@ jobs:
       - name: portable paired packaging regressions
         shell: bash
         run: python3 -m unittest discover -s tools -p 'test_studio_packaging.py'
+      - name: paired updater versions and installation lifetime
+        run: dotnet run --project tools/updatecheck -c Release
       - name: Studio architecture contracts
         run: dotnet run --project tools/studio-architecture-check -c Release
       - name: authenticated local IPC and forwarding
@@ -208,6 +211,8 @@ jobs:
           PYTHONUTF8: '1'
         run: |
           if [[ "${{ runner.os }}" == Windows ]]; then export LIBCLANG_PATH='C:/Program Files/LLVM/bin'; else unset LIBCLANG_PATH; fi
+          python tools/wgpu/test-patch-fingerprint.py
+          if [[ "${{ runner.os }}" == Linux ]]; then python tools/wgpu/test-build-shell.py; fi
           tools/wgpu/build-native.sh "${{ matrix.rid }}" --unit-tests
           tools/wgpu/build-native.sh "${{ matrix.rid }}" --fault-test
           python tools/wgpu/verify-runtime.py artifacts/wgpu-native-desktop/${{ matrix.rid }}/${{ matrix.rid == 'win-x64' && 'wgpu_native.dll' || 'libwgpu_native.so' }}
@@ -288,12 +293,17 @@ jobs:
 
   rmlui-home-poc:
     name: RmlUi home POC Linux render gate
+    needs: patched-wgpu-native
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      - uses: actions/download-artifact@v8
+        with:
+          name: patched-wgpu-linux-x64
+          path: artifacts/wgpu-native-desktop/linux-x64
       - name: validate authored menu-stage profiles
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -menustagecheck
       - name: install native and window dependencies
@@ -536,6 +546,7 @@ jobs:
           path: |
             ${{ runner.temp }}/map-multiplayer-check
             ${{ runner.temp }}/mapviewportcheck
+            src/MphRead/bin/Release/net10.0/logs/
           if-no-files-found: warn
 
   controller-checks:

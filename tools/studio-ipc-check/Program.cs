@@ -5,6 +5,35 @@ using System.Reflection;
 using System.Text;
 using ProjectPrime.Studio.IPC;
 using ProjectPrime.Studio.Protocol;
+using MphRead.Mods.StudioIntegration;
+
+if (Environment.GetEnvironmentVariable("PROJECT_PRIME_IPC_CHECK_GAME") is { Length: > 0 } gameMarker)
+{
+    // A separate broker starts after an unavailable old descriptor whose PID is still alive.
+    // This is transport/startup coverage; canonical package mutation remains in the game broker gate.
+    await Task.Delay(800);
+    string gameData = LocalIpcEndpointStore.DefaultUserDataDirectory;
+    string gameDirectory = LocalIpcEndpointStore.GetDirectory(AppContext.BaseDirectory, gameData);
+    LocalIpcEndpointStore.EnsurePrivateDirectory(Path.GetDirectoryName(gameDirectory)!);
+    LocalIpcEndpointStore.EnsurePrivateDirectory(gameDirectory);
+    using var gameLease = LocalIpcEndpointStore.OpenLock(gameDirectory, StudioEndpointRole.Game);
+    string gameSecret = Environment.GetEnvironmentVariable("PROJECT_PRIME_STUDIO_LAUNCH_SECRET")
+        ?? throw new Exception("The delayed game received no inherited capability.");
+    Environment.SetEnvironmentVariable("PROJECT_PRIME_STUDIO_LAUNCH_SECRET", null);
+    var gameEndpoint = new StudioEndpointDescriptor(StudioProtocol.StudioIpcVersion,
+        "ProjectPrime.Game." + Guid.NewGuid().ToString("N")[..16], gameSecret, Environment.ProcessId, StudioEndpointRole.Game);
+    await using (var gameServer = new LocalIpcServer(gameEndpoint, (request, _) => Task.FromResult(
+        new StudioIpcEnvelope(StudioProtocol.StudioIpcVersion, "Result", request.RequestId, GameResult: new StudioGameResult(true)))))
+    {
+        LocalIpcEndpointStore.Write(gameDirectory, gameEndpoint);
+        gameServer.Start();
+        await File.WriteAllTextAsync(gameMarker, "ready");
+        var gameDeadline = Stopwatch.StartNew();
+        while (!File.Exists(gameMarker + ".stop") && gameDeadline.Elapsed < TimeSpan.FromSeconds(30)) await Task.Delay(25);
+    }
+    File.Delete(LocalIpcEndpointStore.GetDescriptorPath(AppContext.BaseDirectory, gameData, StudioEndpointRole.Game));
+    return 0;
+}
 
 if (args.FirstOrDefault() == "--child-owner")
 {
@@ -31,6 +60,31 @@ var disconnectedStarted = new TaskCompletionSource(TaskCreationOptions.RunContin
 var disconnectedCancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 try
 {
+    using (var pendingCancellation = new CancellationTokenSource())
+    {
+        int pendingExecutions = 0;
+        var pending = new GameStudioOwnerWork(() => { pendingExecutions++; return new(true); }, pendingCancellation.Token);
+        pendingCancellation.Cancel();
+        Require(pending.Completion.IsCanceled, "pending game owner cancellation completes without waiting for another frame");
+        pending.Execute();
+        Require(pendingExecutions == 0, "cancelled game owner entry cannot later mutate publication or launch state");
+    }
+    using (var runningCancellation = new CancellationTokenSource())
+    using (var entered = new ManualResetEventSlim())
+    using (var release = new ManualResetEventSlim())
+    {
+        var running = new GameStudioOwnerWork(() => { entered.Set(); release.Wait(); return new(true); }, runningCancellation.Token);
+        Task ownerExecution = Task.Run(running.Execute);
+        try
+        {
+            Require(entered.Wait(TimeSpan.FromSeconds(3)), "game owner action claims its queued resources before cancellation");
+            runningCancellation.Cancel();
+            Require(!running.Completion.IsCompleted, "running owner cancellation preserves resources until actual operation finishes");
+        }
+        finally { release.Set(); }
+        await ownerExecution.WaitAsync(TimeSpan.FromSeconds(3));
+        Require((await running.Completion).Accepted, "real game owner completion is observed before caller resource disposal");
+    }
     string inheritedInstallation = Path.Combine(root, "inherited-installation"), inheritedData = Path.Combine(root, "inherited-data");
     string inheritedSecret = StudioIpcAuthentication.NewSecret();
     Environment.SetEnvironmentVariable("PROJECT_PRIME_STUDIO_LAUNCH_SECRET", inheritedSecret);
@@ -69,6 +123,36 @@ try
     });
     Require(owner.IsPrimary, "primary process acquires durable instance lease");
     var endpoint = owner.Endpoint!;
+    if (!OperatingSystem.IsWindows())
+    {
+        Directory.CreateDirectory(installation);
+        string alias = Path.Combine(root, "installation-alias");
+        Directory.CreateSymbolicLink(alias, installation);
+        Require(StudioEndpointStore.GetDirectory(alias, data) == StudioEndpointStore.GetDirectory(installation, data),
+            "installation directory alias resolves to the same authenticated endpoint identity");
+        await using var aliasLaunch = await StudioInstanceGuard.TryAcquireAsync(alias, data, NewRequest(),
+            (_, _) => throw new Exception("directory alias must not create another owner"));
+        Require(!aliasLaunch.IsPrimary && aliasLaunch.ForwardResult.Accepted,
+            "real alias launch forwards through the existing owner's durable lock and authenticated pipe");
+        Directory.Delete(alias);
+    }
+    else
+    {
+        Require(StudioEndpointStore.GetDirectory(installation.ToLowerInvariant(), data)
+            == StudioEndpointStore.GetDirectory(installation.ToUpperInvariant(), data),
+            "Windows installation path casing resolves to one endpoint identity");
+    }
+    if (OperatingSystem.IsMacOS())
+    {
+        string gameBundle = Path.Combine(root, "paired", "Project Prime.app", "Contents", "MacOS");
+        string studioBundle = Path.Combine(root, "paired", "Project Prime Studio.app", "Contents", "MacOS");
+        Require(StudioEndpointStore.GetDirectory(gameBundle, data) == StudioEndpointStore.GetDirectory(studioBundle, data),
+            "paired macOS bundles share an installation identity while retaining distinct role descriptors");
+        Require(LocalIpcEndpointStore.GetDescriptorPath(gameBundle, data, StudioEndpointRole.Game)
+            != LocalIpcEndpointStore.GetDescriptorPath(studioBundle, data, StudioEndpointRole.Studio),
+            "game and Studio roles retain separate endpoint descriptors within a paired installation");
+    }
+    Interlocked.Exchange(ref executions, 0);
     Require(endpoint.Version == 1, "Studio IPC version is independently 1");
     if (!OperatingSystem.IsWindows())
     {
@@ -229,6 +313,7 @@ try
         Require(!(await StudioIpcClient.ForwardAsync(restarted.Endpoint! with { Secret = endpoint.Secret }, NewRequest())).Accepted,
             "stale launch capability cannot authenticate a restarted owner");
     }
+    await CheckDelayedGameRestart(root);
     await CheckSeparateProcesses(root);
     Console.WriteLine("Studio IPC checks passed.");
     return 0;
@@ -314,5 +399,54 @@ static async Task CheckSeparateProcesses(string root)
     finally
     {
         if (!process.HasExited) { process.Kill(true); await process.WaitForExitAsync(); }
+    }
+}
+
+static async Task CheckDelayedGameRestart(string root)
+{
+    string installation = Path.Combine(root, "delayed-game-installation");
+    string data = Path.Combine(root, "delayed-game-data");
+    string marker = Path.Combine(root, "delayed-game-ready");
+    Directory.CreateDirectory(installation);
+    string source = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
+    foreach (string file in Directory.EnumerateFiles(source).Where(path => Path.GetExtension(path) is ".dll" or ".json"))
+        File.Copy(file, Path.Combine(installation, Path.GetFileName(file)));
+    string game = Path.Combine(installation, Path.GetFileName(Assembly.GetExecutingAssembly().Location));
+    string directory = LocalIpcEndpointStore.GetDirectory(installation, data);
+    LocalIpcEndpointStore.EnsurePrivateDirectory(Path.GetDirectoryName(directory)!);
+    LocalIpcEndpointStore.EnsurePrivateDirectory(directory);
+    var old = new StudioEndpointDescriptor(StudioProtocol.StudioIpcVersion,
+        "ProjectPrime.Game." + Guid.NewGuid().ToString("N")[..16], StudioIpcAuthentication.NewSecret(), Environment.ProcessId, StudioEndpointRole.Game);
+    LocalIpcEndpointStore.Write(directory, old);
+    string? previousGame = Environment.GetEnvironmentVariable("PROJECT_PRIME_GAME_PATH");
+    string? previousMarker = Environment.GetEnvironmentVariable("PROJECT_PRIME_IPC_CHECK_GAME");
+    try
+    {
+        Environment.SetEnvironmentVariable("PROJECT_PRIME_GAME_PATH", game);
+        Environment.SetEnvironmentVariable("PROJECT_PRIME_IPC_CHECK_GAME", marker);
+        using var client = new StudioGameBrokerClient(installation, data);
+        var result = await client.RequestAsync(new(Guid.NewGuid(), StudioGameCommand.Diagnostics), startGameIfMissing: true);
+        Require(result.Accepted && File.Exists(marker), "game reconnect waits for a delayed new broker instead of trusting an unavailable live PID"
+            + (result.Accepted ? "" : ": " + result.Error));
+        var endpoint = LocalIpcEndpointStore.Read(installation, data, StudioEndpointRole.Game);
+        Require(endpoint.Secret != old.Secret && endpoint.ProcessId != old.ProcessId,
+            "delayed game restart rotates capability before request adoption");
+    }
+    finally
+    {
+        Environment.SetEnvironmentVariable("PROJECT_PRIME_GAME_PATH", previousGame);
+        Environment.SetEnvironmentVariable("PROJECT_PRIME_IPC_CHECK_GAME", previousMarker);
+        await File.WriteAllTextAsync(marker + ".stop", "stop");
+        try
+        {
+            var endpoint = LocalIpcEndpointStore.Read(installation, data, StudioEndpointRole.Game);
+            if (endpoint.ProcessId != Environment.ProcessId)
+            {
+                using var child = Process.GetProcessById(endpoint.ProcessId);
+                try { await child.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(3)); }
+                catch (TimeoutException) { child.Kill(true); await child.WaitForExitAsync(); }
+            }
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException or InvalidOperationException) { }
     }
 }

@@ -14,8 +14,7 @@ public static class LocalIpcEndpointStore
 {
     public static string GetDirectory(string installationDirectory, string userDataDirectory)
     {
-        string installation = Path.GetFullPath(installationDirectory).TrimEnd(Path.DirectorySeparatorChar);
-        if (OperatingSystem.IsWindows()) installation = installation.ToUpperInvariant();
+        string installation = ProjectPrime.DesktopShared.DesktopInstallationIdentity.CanonicalInstallation(installationDirectory);
         string identity = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(installation)))[..24];
         return Path.Combine(Path.GetFullPath(userDataDirectory), "ipc", identity);
     }

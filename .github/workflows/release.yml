@@ -227,6 +227,7 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release -- --lobby
       - name: Studio architecture and authenticated process boundaries
         run: |
+          dotnet run --project tools/updatecheck -c Release
           dotnet run --project tools/studio-architecture-check -c Release
           dotnet run --project tools/studio-ipc-check -c Release
           dotnet run --project tools/map-publication-check -c Release
@@ -298,6 +299,8 @@ jobs:
           PYTHONUTF8: '1'
         run: |
           if [[ "${{ runner.os }}" == Windows ]]; then export LIBCLANG_PATH='C:/Program Files/LLVM/bin'; else unset LIBCLANG_PATH; fi
+          python tools/wgpu/test-patch-fingerprint.py
+          if [[ "${{ runner.os }}" == Linux ]]; then python tools/wgpu/test-build-shell.py; fi
           tools/wgpu/build-native.sh "${{ matrix.rid }}" --unit-tests
           tools/wgpu/build-native.sh "${{ matrix.rid }}" --fault-test
           python tools/wgpu/verify-runtime.py artifacts/wgpu-native-desktop/${{ matrix.rid }}/${{ matrix.rid == 'win-x64' && 'wgpu_native.dll' || 'libwgpu_native.so' }}

@@ -25,9 +25,11 @@ namespace MphRead.Mods.Launcher.Gui
         private void OnFilesDropped(IReadOnlyList<string> files)
         {
             if(_work!=null||_detached||_poppedOut)return;
+            var assets=files.Where(file=>File.Exists(file)&&SupportsAssetDrop(file)).ToArray();
+            if(assets.Length>0){_=RunAssetUiAsync(()=>ImportDroppedFilesAsync(assets));return;}
             string? path=files.FirstOrDefault(file=>File.Exists(file)&&
                 Path.GetExtension(file).ToLowerInvariant() is ".pk3" or ".bsp" or ".json" or ".ppmap");
-            if(path==null){_status.Text="Drop a .pk3, .bsp, .json or .ppmap file into Map Studio.";return;}
+            if(path==null){_status.Text="Drop texture images, models, audio, Quake source maps or map projects into Map Studio.";return;}
             string extension=Path.GetExtension(path).ToLowerInvariant();
             if(extension is ".pk3" or ".bsp")ShowImportWizard(path);
             else Open(path);

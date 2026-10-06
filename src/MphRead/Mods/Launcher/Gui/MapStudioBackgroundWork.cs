@@ -26,13 +26,15 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if(_document==null||_work!=null)return;var snapshot=_document.CaptureBuildSnapshot();await Job(label,async token=>{var project=await Task.Run(()=>new MapProject(snapshot.CreateDefinition()),token);GuardJob(token);await action(project,token);});
         }
-        private async Task Job(string label,Func<CancellationToken,Task> action)
+        private async Task Job(string label,Func<CancellationToken,Task> action,CancellationToken cancellation=default,bool propagateErrors=false)
         {
-            if(_work!=null||_detached||_poppedOut)return;var work=new CancellationTokenSource();_work=work; _jobCompletion=new(TaskCreationOptions.RunContinuationsAsynchronously);
+            cancellation.ThrowIfCancellationRequested();
+            if(_work!=null||_detached||_poppedOut){if(propagateErrors)throw new InvalidOperationException("Wait for the current map operation or cancel it first.");return;}
+            var work=CancellationTokenSource.CreateLinkedTokenSource(cancellation);_work=work; _jobCompletion=new(TaskCreationOptions.RunContinuationsAsynchronously);
             _jobDocument=_document;_jobState=_document?.CurrentStateId;_jobGeneration=_editorGeneration;long generation=_editorGeneration;
             _status.Text=label+"…";
             SetBusy(true);
-            try{await _services.RunJobAsync(label,action,work.Token);}catch(OperationCanceledException){if(!_detached&&generation==_editorGeneration)_status.Text="Cancelled.";}catch(Exception ex){if(!_detached&&generation==_editorGeneration)Failure(ex);}finally{_jobCompletion?.TrySetResult();work.Dispose();if(_work==work){_work=null;if(!_detached)SetBusy(false);}}
+            try{await _services.RunJobAsync(label,action,work.Token);}catch(OperationCanceledException){if(!_detached&&generation==_editorGeneration)_status.Text="Cancelled.";if(propagateErrors)throw;}catch(Exception ex){if(!_detached&&generation==_editorGeneration)Failure(ex);if(propagateErrors)throw;}finally{_jobCompletion?.TrySetResult();work.Dispose();if(_work==work){_work=null;if(!_detached)SetBusy(false);}}
         }
         private void SetBusy(bool busy)
         {

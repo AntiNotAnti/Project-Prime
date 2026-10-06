@@ -8,5 +8,6 @@
   <ItemGroup>
     <ProjectReference Include="../../src/ProjectPrime.Studio.Protocol/ProjectPrime.Studio.Protocol.csproj" />
     <Compile Include="../../src/ProjectPrime.Studio/IPC/*.cs" Link="IPC/%(Filename)%(Extension)" />
+    <Compile Include="../../src/MphRead/Mods/StudioIntegration/GameStudioOwnerWork.cs" Link="GameStudioOwnerWork.cs" />
   </ItemGroup>
 </Project>

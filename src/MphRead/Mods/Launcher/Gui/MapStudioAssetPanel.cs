@@ -28,7 +28,10 @@ namespace MphRead.Mods.Launcher.Gui
             if(bytes.LongLength>MapPackageReader.MaxEntryBytes)throw new IOException("Asset exceeds the 256 MiB package entry limit.");
             string root=_document.Project.Definition.BaseDirectory??_services.MapLibraryDirectory;
             string relative=kind+"/"+Guid.NewGuid().ToString("N")+extension;
-            AtomicFile.Write(Path.Combine(root,relative),bytes);
+            string canonicalRoot=MapPublicationLease.CanonicalizeRuntimeDirectory(root);
+            string destination=MapAssetDestination.Resolve(root,relative,canonicalRoot);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            AtomicFile.Write(MapAssetDestination.Resolve(root,relative,canonicalRoot),bytes);
             _document.RegisterGeneratedAsset(relative,root);
             _document.Edit(kind=="preview"?"Replace preview":"Add "+kind,d=>{d.BaseDirectory=root;if(kind=="preview")d.Assets.RemoveAll(a=>a.Kind=="preview");d.Assets.Add(new(){Path=relative,Kind=kind=="audio"?"audio":kind=="preview"?"preview":"texture"});});
             return relative;
@@ -42,38 +45,12 @@ namespace MphRead.Mods.Launcher.Gui
             var unused=new CheckBox {Content="Only unused assets",IsChecked=_assetUnused};
             var rows=new StackPanel {Spacing=6};
             target.Children.Add(search); target.Children.Add(unused); target.Children.Add(rows);
-            void RefreshRows() { _assetSearch=search.Text??""; _assetUnused=unused.IsChecked==true; rows.Children.Clear(); AppendAssetRows(rows,_assetSearch,_assetUnused); }
+            void RefreshRows() { _assetSearch=search.Text??""; _assetUnused=unused.IsChecked==true; _assetPage=0; rows.Children.Clear(); AppendAssetRows(rows,_assetSearch,_assetUnused); }
             search.TextChanged+=(_,_)=>RefreshRows(); unused.IsCheckedChanged+=(_,_)=>RefreshRows(); RefreshRows();
             AddButton(target,"Clean generated orphans",()=>{try{_status.Text=$"Removed {_document.CleanupGeneratedAssets()} generated files. Undo and recovery assets retained.";}catch(Exception ex){Failure(ex);}});
-            AddButton(target,"Import texture",()=>Browse("Choose a texture image",false,path=>_=Job("Baking texture",async token=>
-            {
-                try
-                {
-                    byte[] source=await Task.Run(()=>File.ReadAllBytes(path),token);
-                    if(source.LongLength>MapPackageReader.MaxEntryBytes)throw new IOException("Texture image exceeds the 256 MiB asset limit.");
-                    _=ModernTextureAsset.ProbeDimensions(source);
-                    string extension=ModernTextureAsset.PortableEncodedExtension(source)
-                        ?? throw new InvalidDataException("HD map textures must be PNG, JPEG, TGA or KTX2.");
-                    byte[] baked=await Task.Run(()=>MapTextureBake.BakeImage(source, token),token);
-                    GuardJob(token);
-                    string fallback=StoreAsset("textures",".tex",baked);
-                    string albedo=StoreAsset("textures",extension,source);
-                    _document.Edit("Add custom HD material",d=>d.Materials.Add(new(){Id=Guid.NewGuid(),Name=Path.GetFileNameWithoutExtension(path),Texture=fallback,Albedo=albedo,TexScale=16}));
-                    MaterialInspector();
-                }
-                catch(OperationCanceledException){throw;}
-                catch(Exception ex){GuardJob(token);Failure(ex);}
-            }),".png",".jpg",".jpeg",".tga",".ktx2"));
-            AddButton(target,"Choose custom music",()=>Browse("Choose map music",false,path=>
-            {
-                try
-                {
-                    if(new FileInfo(path).Length>32*1024*1024)throw new IOException("Music exceeds 32 MiB.");
-                    string asset=StoreAsset("audio",Path.GetExtension(path).ToLowerInvariant(),File.ReadAllBytes(path));
-                    _document.Edit("Map music",d=>d.Audio=new(){Music=asset});AssetInspector(target);
-                }
-                catch(Exception ex){Failure(ex);}
-            },".wav",".ogg",".mp3"));
+            AddButton(target,"Import texture",()=>Browse("Choose a texture image",false,path=>_=RunAssetUiAsync(()=>ImportAssetAsync(path)),".png",".jpg",".jpeg",".tga",".ktx2",".tex"));
+            AddButton(target,"Import model",ImportModel);
+            AddButton(target,"Choose custom music",()=>Browse("Choose map music",false,path=>_=RunAssetUiAsync(()=>ImportAssetAsync(path)),".wav",".ogg",".mp3"));
             var gameMusic=new ComboBox {ItemsSource=Enum.GetNames<MusicId>(),SelectedItem=_document.Project.Definition.Audio?.GameMusic};target.Children.Add(Text("Existing game music"));target.Children.Add(gameMusic);
             AddButton(target,"Use game music",()=>{if(gameMusic.SelectedItem is string music)_document.Edit("Game music",d=>d.Audio=new(){GameMusic=music});});
             var volume=new TextBox {Text=(_document.Project.Definition.Audio?.Volume??.8f).ToString(CultureInfo.InvariantCulture)};
@@ -97,10 +74,18 @@ namespace MphRead.Mods.Launcher.Gui
         }
         private string _assetSearch="";
         private bool _assetUnused;
+        private int _assetPage;
         private void AppendAssetRows(StackPanel rows,string query,bool unused)
         {
             if(_document==null)return;
-            foreach(var asset in _document.Project.Definition.Assets.Where(asset=>MapAssetCatalog.Matches(asset,query)))
+            var matches=_document.Project.Definition.Assets.Where(asset=>MapAssetCatalog.Matches(asset,query))
+                .Where(asset=>!unused || MapAssetCatalog.Usages(_document.Project.Definition,asset.Path).Count==0).ToArray();
+            const int pageSize=32;_assetPage=Math.Clamp(_assetPage,0,Math.Max(0,(matches.Length-1)/pageSize));
+            rows.Children.Add(Text($"{matches.Length} matching assets · page {_assetPage+1}/{Math.Max(1,(matches.Length+pageSize-1)/pageSize)}"));
+            void Page(int page){_assetPage=page;rows.Children.Clear();AppendAssetRows(rows,query,unused);}
+            if(_assetPage>0)AddButton(rows,"Previous assets",()=>Page(_assetPage-1));
+            if((_assetPage+1)*pageSize<matches.Length)AddButton(rows,"Next assets",()=>Page(_assetPage+1));
+            foreach(var asset in matches.Skip(_assetPage*pageSize).Take(pageSize))
             {
                 var entry = asset;
                 string root = _document.Project.Definition.BaseDirectory ?? _services.MapLibraryDirectory;
@@ -116,18 +101,10 @@ namespace MphRead.Mods.Launcher.Gui
                     if(Path.GetExtension(sourcePath).ToLowerInvariant() is ".png" or ".jpg" or ".jpeg" or ".tga" or ".ktx2")
                         AddButton(rows,"Reload source texture",()=>_=ReplaceAsset(entry.Path,sourcePath));
                 }
-                if(entry.Kind=="texture")
-                {
-                    try
-                    {
-                        var material = new MapMaterial {Texture=entry.Path}; string key = PreviewCacheKey(_document.Project.Definition,material);
-                        if(!_materialPreviewCache.TryGetValue(key,out var preview))
-                        { preview=MapMaterialPreview.Create(_document.Project.Definition,material); _materialPreviewCache[key]=preview; }
-                        rows.Children.Add(new Image {Source=preview.Bitmap,Width=72,Height=72,HorizontalAlignment=HorizontalAlignment.Left});
-                        rows.Children.Add(Text(preview.Details));
-                    }
-                    catch(Exception ex) when(ex is IOException or InvalidDataException or ProgramException or ArgumentException) { rows.Children.Add(Text("Preview unavailable: "+ex.Message)); }
-                }
+                if(entry.Kind is "texture" or "preview")AddTextureThumbnail(rows,entry);
+                if(entry.Kind=="audio")AddAudioThumbnail(rows,entry);
+                AddAssetDrag(rows,entry.Name??Path.GetFileName(entry.Path),new(_document.Project.Definition.MapId,
+                    entry.Kind=="audio"?MapAssetDragKind.Audio:MapAssetDragKind.Texture,entry.Path));
                 AddButton(rows,"Export asset…",()=>Browse("Export asset",true,path=>
                 {
                     try {AtomicFile.Write(path,MapAssets.Read(_document.Project.Definition,entry.Path));_status.Text="Asset exported.";}catch(Exception ex){Failure(ex);}
@@ -136,7 +113,7 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     _status.Text = usages.Count==0 ? "No references use this asset." : string.Join(" · ",usages.Select(usage=>usage.Kind+": "+usage.Name));
                 });
-                var tags=new TextBox {Text=string.Join(", ",entry.Tags),PlaceholderText="Tags separated by commas"};
+                var tags=new TextBox {Text=string.Join(", ",entry.Tags ?? new()),PlaceholderText="Tags separated by commas"};
                 rows.Children.Add(tags);
                 AddButton(rows,"Apply tags",()=> { try { var values=MapAssetCatalog.ParseTags(tags.Text??""); _document.Edit("Asset tags",d=>d.Assets.Find(a=>a.Path==entry.Path)!.Tags=values,MapChangeDomain.Metadata); } catch(Exception ex) {Failure(ex);} });
                 var logicalName = new TextBox { Text = entry.Name ?? Path.GetFileNameWithoutExtension(entry.Path) };
@@ -151,68 +128,70 @@ namespace MphRead.Mods.Launcher.Gui
                     path => _ = ReplaceAsset(entry.Path, path)));
                 if (uses == 0) AddButton(rows, "Remove unused reference", () => { _document.Edit("Remove unused asset", d => d.Assets.RemoveAll(a => a.Path == entry.Path)); AssetInspector(); });
             }
-            if(!unused) AppendAssetSources(rows,query);
+            AppendAssetSources(rows,query,unused);
         }
-        private void AppendAssetSources(StackPanel rows,string query)
+        private void AppendAssetSources(StackPanel rows,string query,bool unused)
         {
             if(_document==null)return;
             bool Match(string value)=>query.Split(' ',StringSplitOptions.RemoveEmptyEntries).All(term=>value.Contains(term,StringComparison.OrdinalIgnoreCase));
-            var definition=_document.Project.Definition;
-            foreach(var material in definition.Materials.Where(material=>Match("material "+material.Name)))
+            var definition=_document.Project.Definition;MapBuildSnapshot? geometrySnapshot=null;
+            string MaterialTerms(MapMaterial material)
             {
-                int uses=definition.Geometry.Count(geometry=>geometry.Material==definition.Materials.IndexOf(material));
+                string?[] references={material.Texture,material.Albedo,material.Normal,material.SpecularRoughness,material.Emissive};
+                return string.Join(" ",definition.Assets.Where(asset=>references.Contains(asset.Path)).SelectMany(asset=>asset.Tags??new()));
+            }
+            foreach(var material in definition.Materials.Where(material=>Match("material "+material.Name+" "+MaterialTerms(material))).Take(32))
+            {
+                int index=definition.Materials.IndexOf(material);
+                int uses=definition.Geometry.Count(geometry=>geometry.Material==index || geometry is MapMesh mesh&&mesh.FaceMaterials.Contains(index))+definition.Brushes.Count(brush=>brush.Material==index);
+                if(unused&&uses!=0)continue;
                 rows.Children.Add(Text("Material · "+material.Name+" · "+uses+" objects"));
+                string? preview=material.Albedo??material.Texture;
+                if(preview is not null && definition.Assets.FirstOrDefault(asset=>asset.Path==preview) is {} asset)AddTextureThumbnail(rows,asset);
+                AddAssetDrag(rows,material.Name,new(definition.MapId,MapAssetDragKind.Material,material.Id.ToString()));
                 AddButton(rows,"Open material editor",()=>ShowInspectorPage("Materials"));
             }
-            foreach(var source in definition.ModelSources.Where(source=>Match("model "+source.Source)))
+            foreach(var source in definition.ModelSources.Where(source=>Match("model "+source.Source)).Take(32))
             {
-                rows.Children.Add(Text("Model · "+Path.GetFileName(source.Source)+" · "+source.Objects.Count+" objects"));
+                var ids=source.Objects.Select(item=>item.Id).ToHashSet();int uses=definition.Geometry.Count(geometry=>ids.Contains(geometry.Id));
+                if(unused&&uses!=0)continue;
+                rows.Children.Add(Text("Model · "+Path.GetFileName(source.Source)+" · "+uses+" objects"));
+                geometrySnapshot??=_document.CaptureBuildSnapshot();AddGeometryThumbnail(rows,geometrySnapshot,ids);
+                AddAssetDrag(rows,Path.GetFileName(source.Source),new(definition.MapId,MapAssetDragKind.Model,source.Source));
                 AddButton(rows,"Reimport model",()=>ModelImportOptions(source.Source,source));
                 AddButton(rows,"Locate model source",()=>Browse("Locate source model",false,path=>ModelImportOptions(path,source),".obj",".gltf",".glb"));
-                AddButton(rows,"Select model objects",()=> { _document.Selection.Clear(); foreach(var model in source.Objects)_document.Selection.Add(model.Id); _document.SelectionChanged(); _viewport?.FrameSelection(); });
+                AddButton(rows,"Select model objects",()=> { _document.Selection.Clear(); foreach(var model in source.Objects)_document.Selection.Add(model.Id); _document.SelectionChanged();RefreshHierarchy();_viewport?.FrameSelection(); });
+#if !ANDROID
+                AddButton(rows,"Reveal model source",()=>RevealAssetFolder(source.Source));
+#endif
             }
-            if(definition.Import is {} import && Match("source import "+import.Source))
+            if(!unused && definition.Import is {} import && Match("source import "+import.Source))
             { rows.Children.Add(Text("Source import · "+import.Source)); AddButton(rows,"Reimport source",()=>_=PickReimportSource()); }
-            if(Match("prefab library")) AddButton(rows,"Browse prefab library",InsertPrefab);
+            string prefabRoot=Path.Combine(_services.MapLibraryDirectory,".prefabs");
+            if(Directory.Exists(prefabRoot))foreach(string path in Directory.EnumerateFiles(prefabRoot,"*.json").OrderBy(path=>path,StringComparer.OrdinalIgnoreCase).Take(32))
+            {
+                if(!Match("prefab "+Path.GetFileName(path)))continue;
+                int uses=definition.PrefabInstances.Count(instance=>string.Equals(instance.SourcePath,path,StringComparison.OrdinalIgnoreCase));
+                if(unused&&uses!=0)continue;
+                rows.Children.Add(Text("Prefab · "+Path.GetFileNameWithoutExtension(path)+" · "+uses+" instances"));AddPrefabThumbnail(rows,path);
+                AddAssetDrag(rows,Path.GetFileNameWithoutExtension(path),new(definition.MapId,MapAssetDragKind.Prefab,path));
+                AddButton(rows,"Insert prefab",()=>_=InsertPrefabAsync(path));
+#if !ANDROID
+                AddButton(rows,"Reveal prefab",()=>RevealAssetFolder(path));
+#endif
+            }
+            if(Match("prefab library"))AddButton(rows,"Browse prefab library",InsertPrefab);
         }
-        private Task ReplaceAsset(string previous, string source) => Job("Replacing asset", async token =>
+#if !ANDROID
+        private void RevealAssetFolder(string path)
+        {try{System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Path.GetDirectoryName(Path.GetFullPath(path))!) {UseShellExecute=true});}catch(Exception error){Failure(error);}}
+#endif
+        private Task ReplaceAsset(string previous,string source)=>RunAssetUiAsync(()=>ReplaceAssetAsync(previous,source));
+        private async Task RunAssetUiAsync(Func<Task> action)
         {
-            if (_document == null) return;
-            var document = _document;
-            var original = document.Project.Definition.Assets.Find(asset => asset.Path == previous);
-            if (original == null) return;
-            string root = document.Project.Definition.BaseDirectory ?? _services.MapLibraryDirectory;
-            string kind = original.Kind;
-            var replacement = await Task.Run(() =>
-            {
-                token.ThrowIfCancellationRequested();
-                if (new FileInfo(source).Length > 32 * 1024 * 1024) throw new IOException("Assets must be no larger than 32 MiB.");
-                byte[] bytes = File.ReadAllBytes(source);
-                string extension = Path.GetExtension(source).ToLowerInvariant();
-                if (kind == "texture")
-                {
-                    if(Path.GetExtension(previous).Equals(".tex",StringComparison.OrdinalIgnoreCase))
-                    { bytes=extension==".tex" ? bytes : MapTextureBake.BakeImage(bytes,token); extension=".tex"; var pack=MapTexturePack.Load(bytes,source); if(pack.Entries.Count!=1) throw new IOException("Choose a single baked texture."); }
-                    else { _=ModernTextureAsset.ProbeDimensions(bytes); extension=ModernTextureAsset.PortableEncodedExtension(bytes) ?? throw new IOException("Choose a portable PNG, JPEG, TGA or KTX2 image."); }
-                }
-                else if (kind == "preview" && extension != ".png") throw new IOException("Choose a PNG preview.");
-                else if (kind == "audio" && extension is not (".wav" or ".ogg" or ".mp3")) throw new IOException("Choose WAV, OGG or MP3 audio.");
-                string relative = kind + "/" + Guid.NewGuid().ToString("N") + extension;
-                token.ThrowIfCancellationRequested();
-                AtomicFile.Write(Path.Combine(root, relative), bytes);
-                return relative;
-            }, token);
-            // Record ownership even if cancellation arrives just after publication, so
-            // later explicit cleanup can reclaim the generated orphan safely.
-            document.RegisterGeneratedAsset(replacement, root);
-            GuardJob(token);
-            document.Edit("Replace asset", d =>
-            {
-                var asset = d.Assets.Find(a => a.Path == previous); if (asset == null) return;
-                asset.Path = replacement; asset.SourcePath = source; d.BaseDirectory = root;
-                MapAssetCatalog.ReplaceReferences(d,previous,replacement);
-            });
-            AssetInspector(); _status.Text = "Asset replaced. Previous version remains available to Undo.";
-        });
+            try { await action(); }
+            catch(OperationCanceledException) { }
+            catch(Exception error) { Failure(error); }
+        }
     }
 }

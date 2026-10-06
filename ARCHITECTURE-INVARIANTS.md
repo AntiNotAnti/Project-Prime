@@ -6,7 +6,9 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **41** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **42** (`NetConfig.ProtocolVersion`). It was already
+  42 at the Studio migration baseline (`fcf311cc`); the creator migration does not
+  change the gameplay protocol.
 - Protocol mismatches are refused during the Hello handshake. Do not make incompatible wire or simulation changes without a protocol bump.
 - Dated protocol 6/7/8 measurements in `.claude/` are historical A/B evidence, not the current architecture.
 
@@ -25,6 +27,14 @@ This file is the short, machine-oriented source of truth for architectural assum
   prediction and alt-contact activation must use the same tuning.
 - Protocol 41 adds reliable authority-only resolved-shot facts keyed by ShotId and
   DamageEventId. They are replay evidence only and never drive gameplay outcomes.
+- Protocol 42 adds explicit roster roles, stock gameplay identity in session state,
+  Hunter/freeze/respawn state in player snapshots and fractional ACK timing in hit
+  claims. Repeated FireEvents include source position, up direction and morph/
+  transition flags so accepted shots retain their original firing context.
+  Live intents encode only their populated fire events; fixed canonical/replay
+  representations remain separate. Authority-world version 5 also records fenced
+  player resources. Historical packet/checkpoint readers supply missing defaults
+  at the replay boundary; live protocol mismatches remain refused.
 
 ## Authority and simulation
 
@@ -235,7 +245,9 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Enhanced Hunters defaults OFF and is independent of affinity pickup replacement.
 - Accepted authority hits own enhanced damage and status. Owner movement remains owner-reported.
 - Per-player enhanced state fences target life and generation; zones belong to each Scene (maximum 16).
-- Canonical snapshots may reach 4096 bytes internally; realtime fast/world lanes remain at most 1200 bytes.
+- Canonical snapshots may reach 4096 bytes internally. Every live UDP datagram,
+  including reliable envelopes and fast/world lanes, is bounded by the 1472-byte
+  `NetConfig.MaxPacketSize`; canonical state is never sent as one oversized datagram.
 - Historical replay protocols 24–28 upgrade at playback boundaries and default Enhanced Hunters OFF.
 
 ## Protocol 30 shot identity and performance

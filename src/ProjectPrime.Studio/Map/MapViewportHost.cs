@@ -26,7 +26,7 @@ public sealed class MapViewportHost : IStudioNativeMapPresentation
     public void Present(MapRenderFrame frame,StudioViewportImage overlay)
     {
         Prepare();if(_native.Surface is { } native)_surface!.Present(native,_world!,frame,overlay);
-        if(_surface?.Metrics is { } metrics)StudioGraphicsHost.Report(metrics);
+        if(_surface?.Metrics is { } metrics)StudioGraphicsHost.Report(_document,metrics);
     }
     /// <summary>Explicit capture; never used by the normal native presentation path.</summary>
     public StudioViewportImage Render(MapRenderFrame frame)
@@ -34,7 +34,12 @@ public sealed class MapViewportHost : IStudioNativeMapPresentation
     public MapPickHit? Pick(MapRenderFrame frame,double x,double y)
     {
         Prepare();var picked=_surface!.Pick(_world!,frame,x,y);
-        if(_surface.Metrics is { } metrics)StudioGraphicsHost.Report(metrics);return picked.Surface;
+        if(_surface.Metrics is { } metrics)StudioGraphicsHost.Report(_document,metrics);return picked.Surface;
+    }
+    public StudioPickResult PickElement(MapRenderFrame frame,double x,double y,StudioPickKind kind)
+    {
+        Prepare();var picked=_surface!.Pick(_world!,frame,x,y,kind);
+        if(_surface.Metrics is { } metrics)StudioGraphicsHost.Report(_document,metrics);return picked;
     }
     public void Dispose()
     {

@@ -39,7 +39,12 @@ internal static class Program
         Configure(args[1]);
         if (args[0] == "--reader")
         {
-            if (args[3] == "preparation")
+            bool privateReader = args[3].StartsWith("private-", StringComparison.Ordinal);
+            using var privateBytes = privateReader ? File.OpenRead(Path.Combine(args[1], "private-history", "model.bin")) : null;
+            string? privateHash = privateBytes == null ? null : Hash(privateBytes);
+            if (privateReader)
+                MphRead.Mods.StudioReplay.StudioReplayResources.Current = new(args[2]);
+            if (args[3].EndsWith("preparation", StringComparison.Ordinal))
             {
                 using var preparation = MapRuntimeUsage.AcquirePreparation(args[2]);
                 Console.WriteLine("READY");
@@ -53,6 +58,11 @@ internal static class Program
                 await Console.In.ReadLineAsync();
                 MapRuntimeUsage.Release(scene);
                 GC.KeepAlive(scene);
+            }
+            if (privateBytes != null)
+            {
+                privateBytes.Position = 0;
+                if (Hash(privateBytes) != privateHash) throw new InvalidDataException("Private historical room bytes changed during game publication.");
             }
             return 0;
         }
@@ -136,6 +146,22 @@ internal static class Program
             await reader.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
             var afterCrash = await Publish(root, rebuiltPackage, rebuiltHash);
             Check(afterCrash.Exit == 0, "kernel releases scene lease when owning game process crashes");
+        }
+
+        string privateRuntime = Path.Combine(root, "private-history", "model.bin");
+        Directory.CreateDirectory(Path.GetDirectoryName(privateRuntime)!);
+        File.WriteAllText(privateRuntime, "immutable earlier same-room historical runtime");
+        string privateHash = Hash(privateRuntime);
+        foreach (string mode in new[] { "private-preparation", "private-scene" })
+        {
+            using var reader = Start("--reader", root, Room, mode);
+            await Ready(reader);
+            var independent = await Publish(root, oldPackage, Hash(oldPackage));
+            Check(independent.Exit == 0, mode + " consuming its scoped private same-room package does not block game publication");
+            Check(Hash(privateRuntime) == privateHash, "game publication preserves private historical room bytes");
+            await reader.StandardInput.WriteLineAsync("release");
+            await reader.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+            Check(reader.ExitCode == 0, "private scoped reader releases independently");
         }
 
         using (var preparation = MapRuntimeUsage.AcquirePreparation(Room))

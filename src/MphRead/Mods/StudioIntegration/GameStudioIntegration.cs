@@ -16,7 +16,7 @@ namespace MphRead.Mods.StudioIntegration;
 /// <summary>Authenticated local endpoint and a bounded owner queue. No gameplay timing or network protocol changes.</summary>
 public static class GameStudioIntegration
 {
-    private static readonly ConcurrentQueue<OwnerWork> Queue = new();
+    private static readonly ConcurrentQueue<GameStudioOwnerWork> Queue = new();
     private static readonly Dictionary<Guid, StudioGameResult> Playtests = new();
     private static readonly object PlaytestGate = new();
     private static CancellationTokenSource? _lifetime;
@@ -28,8 +28,6 @@ public static class GameStudioIntegration
     private static Guid _currentPlaytest;
     private static string? _currentRoom;
     private static int _pendingCount;
-
-    private sealed record OwnerWork(Func<StudioGameResult> Action, CancellationToken Token, TaskCompletionSource<StudioGameResult> Completion);
 
     public static void Start()
     {
@@ -76,7 +74,7 @@ public static class GameStudioIntegration
     public static async Task StopAsync()
     {
         _lifetime?.Cancel();
-        while (Queue.TryDequeue(out var work)) { Interlocked.Decrement(ref _pendingCount); work.Completion.TrySetCanceled(); }
+        while (Queue.TryDequeue(out var work)) { Interlocked.Decrement(ref _pendingCount); work.CancelPendingAndRelease(); }
         LocalIpcServer? server = Interlocked.Exchange(ref _server, null);
         if (server != null) await server.DisposeAsync().ConfigureAwait(false);
         if (_descriptorPath != null)
@@ -102,10 +100,7 @@ public static class GameStudioIntegration
         for (int index = 0; index < 8 && Queue.TryDequeue(out var work); index++)
         {
             Interlocked.Decrement(ref _pendingCount);
-            if (work.Token.IsCancellationRequested) { work.Completion.TrySetCanceled(work.Token); continue; }
-            try { work.Completion.TrySetResult(work.Action()); }
-            catch (OperationCanceledException) { work.Completion.TrySetCanceled(work.Token); }
-            catch (Exception ex) { work.Completion.TrySetException(ex); }
+            work.Execute();
         }
         lock (PlaytestGate)
         {
@@ -132,9 +127,11 @@ public static class GameStudioIntegration
             Interlocked.Decrement(ref _pendingCount);
             return Task.FromResult(StudioGameResult.Rejected("The game owner queue is full. Retry later.", deferred: true));
         }
-        var completion = new TaskCompletionSource<StudioGameResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-        Queue.Enqueue(new(action, token, completion));
-        return completion.Task.WaitAsync(token);
+        var work = new GameStudioOwnerWork(action, token);
+        Queue.Enqueue(work);
+        // Pending cancellation completes promptly. Once execution begins, await the real action
+        // so a caller cannot dispose staged publication files while the owner still uses them.
+        return work.Completion;
     }
 
     private static string? CheckPublication()

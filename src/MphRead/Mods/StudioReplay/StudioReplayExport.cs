@@ -35,7 +35,8 @@ public sealed partial class StudioReplayPlayer
             var ticket = new StudioReplayExportTicket(job.Id, _playbackPath, Path.Combine(directory, "cache"),
                 job.Request with { Directory = Path.Combine(job.Request.Directory, job.Id.ToString("N")) },
                 job.StatusFile, job.CancelFile, Paths.AllPaths.ToDictionary(p => p.Key, p => p.Value),
-                CameraKeys, new[] { Path.Combine(_cacheRoot, "packages") }, Paths.MphKey, Paths.FhKey);
+                CameraKeys, new[] { Path.Combine(_cacheRoot, "packages") }, Paths.MphKey, Paths.FhKey,
+                _player?.Current.Session.Metadata?.CustomMapIdentity?.PackageHash.ToString());
             job.PublishedDirectory = ticket.Request.Directory;
             string path = Path.Combine(directory, "ticket.json");
             File.WriteAllText(path, JsonSerializer.Serialize(ticket, new JsonSerializerOptions { IncludeFields = true }));
@@ -64,7 +65,8 @@ public sealed partial class StudioReplayPlayer
             {
                 using var source = preparation.TakeCompleted();
                 job.Player = new(source, new(job.Request.Width, job.Request.Height), new(EnableAsyncPreparation: true));
-                job.Player.Transport.Pause(); preparation.Dispose(); job.Preparation = null; job.State = "Rendering";
+                job.Player.Transport.Pause(); job.Player.Seek(job.Sampler.At(Math.Min(job.Frames, job.Sampler.Count - 1)).SimulationFrame);
+                preparation.Dispose(); job.Preparation = null; job.State = "Rendering";
             }
             if (job.Player is { } player && job.Frames < job.Sampler.Count)
             {

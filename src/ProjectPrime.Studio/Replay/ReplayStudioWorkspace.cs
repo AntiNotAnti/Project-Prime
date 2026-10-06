@@ -40,15 +40,25 @@ public sealed class ReplayStudioWorkspace : UserControl, IDisposable
     private bool _disposed;
     public ReplayStudioWorkspace(IStudioDocument document)
     {
-        _viewTimer = new DispatcherTimer(TimeSpan.FromSeconds(1d / 60), DispatcherPriority.Render, (_, _) =>
+        // One owner callback advances all views. Let input, commands and cancellation
+        // run before another frame when several native surfaces take longer than 16 ms.
+        _viewTimer = new DispatcherTimer(TimeSpan.FromSeconds(1d / 60), DispatcherPriority.Background, (_, _) =>
         {
             var now = _viewClock.Elapsed; var elapsed = now - _lastViewTime; _lastViewTime = now;
             for (int i = 0; i < _viewports.Count; i++) _viewports[i].RenderExternal(i == 0 ? elapsed : TimeSpan.Zero);
         });
+        _viewTimer.Stop(); // The interval/handler constructor starts immediately.
         _session = (document as ReplayStudioDocument)?.Session;
         if (_session == null)
         {
-            Content = StudioWorkspaceView.Create(document, "Replay Studio", "Open a .ppdemo recording or .ppclip selection to edit its camera, timeline, annotations and export. The recording remains immutable; edits save in sidecars.");
+            var guidance = new StackPanel { Spacing = 18, MaxWidth = 670, Margin = new Thickness(35),
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            guidance.Children.Add(new TextBlock { Text = "Replay Studio", FontSize = 30 });
+            guidance.Children.Add(new TextBlock { Text = "Use File → Open to choose a .ppdemo recording, a .ppclip selection, or a portable replay bundle.",
+                TextWrapping = TextWrapping.Wrap, FontSize = 15, LineHeight = 24 });
+            guidance.Children.Add(new TextBlock { Text = "Edit cameras, timeline markers, annotations and exports. The recording stays unchanged; presentation edits save in sidecars. Save As stores the selected range as a .ppclip project.",
+                TextWrapping = TextWrapping.Wrap, LineHeight = 22 });
+            Content = new ScrollViewer { Content = guidance };
             return;
         }
         _timeline = new(_session.Player);
@@ -75,6 +85,7 @@ public sealed class ReplayStudioWorkspace : UserControl, IDisposable
         DockPanel.SetDock(inspector, Dock.Right); root.Children.Add(inspector); root.Children.Add(_viewGrid);
         Content = root; SetViews(false);
         _refresh = new DispatcherTimer(TimeSpan.FromMilliseconds(100), DispatcherPriority.Background, (_, _) => Refresh());
+        _refresh.Stop();
         AttachedToVisualTree += (_, _) => { _refresh.Start(); _lastViewTime = _viewClock.Elapsed; _viewTimer.Start(); };
         DetachedFromVisualTree += (_, _) => { _refresh.Stop(); _viewTimer.Stop(); };
     }

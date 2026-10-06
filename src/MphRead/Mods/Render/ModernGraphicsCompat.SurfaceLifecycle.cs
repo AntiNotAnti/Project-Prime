@@ -20,6 +20,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
         if (_device.IsLost) return false;
         if (_surfaceNeedsRecreation)
         {
+            if(!_ownsDevice)
+                throw new System.InvalidOperationException("Studio native surface was lost. Retry its viewport to recreate presentation.");
             _device.RecreateSurface();
             _surfaceNeedsRecreation = false;
             QuerySurfaceFormat();

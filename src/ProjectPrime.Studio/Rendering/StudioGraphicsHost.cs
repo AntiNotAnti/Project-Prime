@@ -7,7 +7,8 @@ namespace ProjectPrime.Studio.Rendering;
 /// <summary>Application device ownership, separate from every document and native surface lifetime.</summary>
 public static class StudioGraphicsHost
 {
-    private sealed class DocumentWorld(EditorRenderWorld world) { internal EditorRenderWorld World = world; internal int References; }
+    private sealed class DocumentWorld(EditorRenderWorld world)
+    { internal EditorRenderWorld World = world; internal int References; internal StudioRenderMetrics? Metrics; }
     private static StudioRenderDevice? _device;
     private static readonly Dictionary<MapDocument,DocumentWorld> Worlds = new();
     public static bool SafeMode { get; private set; }
@@ -22,7 +23,14 @@ public static class StudioGraphicsHost
     public static double? LastReplayCpuMilliseconds { get; private set; }
     public static event Action<StudioRenderMetrics>? DiagnosticsChanged;
     public static event Action<double>? ReplayCpuFrameMeasured;
-    internal static void Report(StudioRenderMetrics metrics) {LastMetrics=metrics;DiagnosticsChanged?.Invoke(metrics);}
+    public static StudioRenderMetrics? GetMapMetrics(MapDocument document)
+        => _device?.NativeResourcesAvailable==true && Worlds.TryGetValue(document,out var entry)
+            && entry.Metrics?.DeviceGeneration==_device.Generation ? entry.Metrics : null;
+    internal static void Report(MapDocument document,StudioRenderMetrics metrics)
+    {
+        if(Worlds.TryGetValue(document,out var entry))entry.Metrics=metrics;
+        LastMetrics=metrics;DiagnosticsChanged?.Invoke(metrics);
+    }
     internal static void ReportReplayFrame(double milliseconds) {LastReplayCpuMilliseconds=milliseconds;ReplayCpuFrameMeasured?.Invoke(milliseconds);}
     public static StudioRenderDevice Device => SafeMode ? throw new InvalidOperationException("Graphics are disabled in Studio safe mode.") : _device ??= new StudioRenderDevice();
     public static void Initialize(bool safeMode)
@@ -46,5 +54,6 @@ public static class StudioGraphicsHost
         StudioViewportConfiguration.MapPresentationFactory=null;
         foreach(var world in Worlds.Values)world.World.Dispose();Worlds.Clear();
         _device?.Dispose();_device=null;
+        LastMetrics=null;LastReplayCpuMilliseconds=null;
     }
 }

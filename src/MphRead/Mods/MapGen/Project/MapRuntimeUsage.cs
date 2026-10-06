@@ -18,10 +18,18 @@ public static class MapRuntimeUsage
     {
         lock (Gate)
         {
+            if (StudioReplay.StudioReplayResources.Current?.Room(room) != null) return PrivatePreparation.Instance;
             var lease = MapPublicationLease.AcquireReader(LeaseRuntimeRoot, CustomRooms.RuntimeNamespace, room);
             Preparations.TryGetValue(room, out int count); Preparations[room] = count + 1;
             return new PreparationLease(room, lease);
         }
+    }
+    // The scoped historical room reads its immutable private package, whose
+    // lifetime belongs to the replay cache. It does not read game runtime bytes.
+    private sealed class PrivatePreparation : IDisposable
+    {
+        internal static readonly PrivatePreparation Instance = new();
+        public void Dispose() { }
     }
     private sealed class PreparationLease(string room, MapPublicationLease lease) : IDisposable
     {
@@ -41,6 +49,7 @@ public static class MapRuntimeUsage
         lock (Gate)
         {
             Release(scene);
+            if (StudioReplay.StudioReplayResources.Current?.Room(room) != null) return;
             var lease = MapPublicationLease.AcquireReader(LeaseRuntimeRoot, CustomRooms.RuntimeNamespace, room);
             Readers.Add((new(scene), room, lease));
         }

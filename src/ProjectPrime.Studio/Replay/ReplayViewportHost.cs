@@ -26,8 +26,9 @@ public sealed class ReplayViewportHost : Grid, IDisposable
         set
         {
             Dispatcher.UIThread.VerifyAccess();_automaticRenderingEnabled=value;
+            if(!value)_timer.Stop();
             if(!_initialized)return;
-            if(value){_last=_clock.Elapsed;_timer.Start();}else _timer.Stop();
+            if(value){_last=_clock.Elapsed;_timer.Start();}
         }
     }
     public Func<int,int,StudioReplayView> ViewFactory { get; set; } = (width,height)=>new(width,height);
@@ -39,7 +40,9 @@ public sealed class ReplayViewportHost : Grid, IDisposable
         else { _error.Text="Safe mode: replay graphics are disabled. Metadata and authoring edits remain available.";_error.IsVisible=true; }
         _native.GraphicsReady+=Start;_native.GraphicsDestroying+=Stop;
         _native.GraphicsFailed+=Fail;
-        _timer=new DispatcherTimer(TimeSpan.FromSeconds(1d/60),DispatcherPriority.Render,(_,_)=>RenderFrame());
+        _timer=new DispatcherTimer(TimeSpan.FromSeconds(1d/60),DispatcherPriority.Background,(_,_)=>RenderFrame());
+        // This Avalonia constructor starts immediately; the native owner decides when to render.
+        _timer.Stop();
         AttachedToVisualTree+=(_,_)=>{if(_native.Surface!=null)Start();};DetachedFromVisualTree+=(_,_)=>Stop();
     }
     private (int Width,int Height) PixelBounds()
@@ -61,6 +64,7 @@ public sealed class ReplayViewportHost : Grid, IDisposable
     }
     private void RenderFrame()
     {
+        if(!_automaticRenderingEnabled || _disposed)return;
         var now=_clock.Elapsed;var elapsed=now-_last;_last=now;
         RenderExternal(elapsed);
     }
@@ -89,7 +93,15 @@ public sealed class ReplayViewportHost : Grid, IDisposable
         _native.IsVisible=false;
     }
     public void Retry()
-    { if(StudioGraphicsHost.SafeMode)return;Stop();_native.IsVisible=true;Start(); }
+    {
+        if(StudioGraphicsHost.SafeMode)return;Stop();
+        try
+        {
+            if(_native.Surface is { } surface)StudioGraphicsHost.Device.RecreateNativeSurface(surface);
+            _native.IsVisible=true;Start();
+        }
+        catch(Exception ex){Fail(ex);}
+    }
     /// <summary>Explicit diagnostic/export capture. Ordinary presentation never reads the GPU target.</summary>
     public StudioReplayCapture? Capture(int width,int height)
     {
@@ -118,7 +130,10 @@ public sealed class ReplayViewportHost : Grid, IDisposable
         _timer.Stop();if(!_initialized)return;
         try
         {
-            bool nativeEligible=StudioGraphicsHost.HasDevice && StudioGraphicsHost.Device.NativeResourcesAvailable;
+            // Bind the currently healthy owner surface even if this view last
+            // presented an older generation. A shared session checks the actual
+            // world's generation before releasing native IDs.
+            bool nativeEligible=_native.Surface!=null && StudioGraphicsHost.HasDevice && StudioGraphicsHost.Device.NativeResourcesAvailable;
             if(_native.Surface!=null && nativeEligible)
             {
                 try {var size=PixelBounds();StudioGraphicsHost.Device.BeginReplayFrame(_native.Surface,size.Width,size.Height);}

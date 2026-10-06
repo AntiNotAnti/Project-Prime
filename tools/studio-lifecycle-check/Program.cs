@@ -36,11 +36,13 @@ internal static partial class Program
                 await CheckNativeStartupAsync(directory,args[startupIndex+1]);
             if(Array.IndexOf(args,"--native-dense") is int denseIndex&&denseIndex>=0)
                 await CheckNativeDenseMapAsync(directory,args[denseIndex+1]);
+            if(Array.IndexOf(args,"--native-map-modes") is int modeIndex&&modeIndex>=0)
+                await CheckNativeMapModesAsync(directory,args[modeIndex+1]);
             if (Array.IndexOf(args,"--native-game") is int gameIndex && gameIndex >= 0)
                 await CheckNativeGameLifecycleAsync(directory, args.Length > gameIndex + 1 ? args[gameIndex + 1]
                     : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Application Support", "Project Prime", "paths.txt"));
             if(Array.IndexOf(args,"--native-replay") is int nativeReplayIndex&&nativeReplayIndex>=0)
-                await CheckNativeReplayLifecycleAsync(directory,args[nativeReplayIndex+1],args[nativeReplayIndex+2],args[nativeReplayIndex+3]);
+                await CheckNativeReplayLifecycleAsync(directory,args[nativeReplayIndex+1],args[nativeReplayIndex+2],args[nativeReplayIndex+3],args.Contains("--native-replay-no-hud"),args.Contains("--native-replay-workers-only"),args.Contains("--native-replay-stale-view"));
             Console.WriteLine($"Studio lifecycle checks passed: {_checks}. Base gates cover CLI, persistence, document host, jobs and authenticated process isolation; " +
                 "optional native/replay/game/performance gates run only when their explicit arguments are supplied.");
             return 0;

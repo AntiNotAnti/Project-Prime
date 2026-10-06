@@ -647,6 +647,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Line(context,center,center+GizmoAxis(selectedObject,0)*3,Brushes.Red,3);Line(context,center,center+GizmoAxis(selectedObject,1)*3,Brushes.Lime,3);Line(context,center,center+GizmoAxis(selectedObject,2)*3,Brushes.DeepSkyBlue,3);
                 DrawTransformHud(context);
             }
+            DrawUnavailablePreviewHud(context);
         }
         private static Rect SelectionRectangle(Point a, Point b)
         {

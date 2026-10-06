@@ -17,10 +17,10 @@ public static class StudioPerformanceText
             text.AppendLine(source.Name);
             if (source.Render is { } render)
             {
-                text.AppendLine($"CPU frame  {Milliseconds(render.CpuMilliseconds)}");
+                text.AppendLine($"{(source.Replay == null ? "Renderer CPU submission" : "Replay render CPU")}  {Milliseconds(render.CpuMilliseconds)}");
                 text.AppendLine($"GPU frame  {Milliseconds(render.GpuMilliseconds)}");
                 text.AppendLine($"Draws / batches  {Count(render.DrawCalls)} / {Count(render.BatchCount)}");
-                text.AppendLine($"Visible primitives  {Count(render.VisiblePrimitives)}");
+                text.AppendLine($"Submitted primitives  {Count(render.VisiblePrimitives)}");
                 text.AppendLine($"Geometry uploaded  {Bytes(render.GeometryUploadBytes)}");
                 text.AppendLine($"Geometry resident  {Bytes(render.GeometryResidentBytes)} · meshes {Count(render.ResidentMeshes)}");
                 text.AppendLine($"Textures resident  {Count(render.ResidentTextures)} · {Bytes(render.TextureBytes)}");

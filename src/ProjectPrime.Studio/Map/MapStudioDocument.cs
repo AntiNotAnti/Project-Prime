@@ -57,18 +57,19 @@ public sealed class MapStudioDocument : IStudioDocument, IStudioDocumentNotifica
     public async Task CloseAsync(CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
+        await Host.CancelPendingJobsAsync(cancellation);
         if (Dirty && !_discarded) await Host.PreserveRecoveryAsync(cancellation);
         State = StudioDocumentState.Closed;
     }
     public async Task DiscardChangesAsync(CancellationToken cancellation)
-    { await Host.DiscardRecoveryAsync(cancellation);_discarded=true; }
+    { await Host.CancelPendingJobsAsync(cancellation);await Host.DiscardRecoveryAsync(cancellation);_discarded=true; }
     public async ValueTask DisposeAsync()
     {
         if (_disposed) return;
         _disposed = true;
         Host.Changed -= OnChanged;
         Host.CloseRequested -= OnCloseRequested;
-        await Host.DisposeAsync(!_discarded);
-        State = StudioDocumentState.Closed;
+        try { await Host.DisposeAsync(!_discarded && State!=StudioDocumentState.Closed); }
+        finally { State = StudioDocumentState.Closed; }
     }
 }

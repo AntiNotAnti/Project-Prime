@@ -101,11 +101,16 @@ public sealed class StudioGameBrokerClient : IDisposable
         await _launchGate.WaitAsync(token).ConfigureAwait(false);
         try
         {
-            if (!forceStart)
+            try
             {
-                try { return LocalIpcEndpointStore.Read(_installationDirectory, _userDataDirectory, StudioEndpointRole.Game); }
-                catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException) { }
+                var current = LocalIpcEndpointStore.Read(_installationDirectory, _userDataDirectory, StudioEndpointRole.Game);
+                if (!forceStart || endpoint == null || current.Secret != endpoint.Secret) return current;
+                endpoint = current;
             }
+            catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException) { }
+            // A live process ID does not mean its old pipe still accepts requests during shutdown.
+            // A recovered old broker can avoid a duplicate game launch only after authenticating.
+            if (forceStart && endpoint != null && await IsResponsiveAsync(endpoint, token).ConfigureAwait(false)) return endpoint;
             var launch = new ProcessStartInfo { UseShellExecute = false, WorkingDirectory = _installationDirectory };
             if (Path.GetExtension(_gameExecutable).Equals(".dll", StringComparison.OrdinalIgnoreCase))
             {
@@ -126,7 +131,8 @@ public sealed class StudioGameBrokerClient : IDisposable
                 try
                 {
                     var next = LocalIpcEndpointStore.Read(_installationDirectory, _userDataDirectory, StudioEndpointRole.Game);
-                    if (endpoint == null || next.Secret != endpoint.Secret || IsProcessAlive(next.ProcessId)) return next;
+                    if (endpoint == null || next.Secret != endpoint.Secret
+                        || await IsResponsiveAsync(next, token).ConfigureAwait(false)) return next;
                 }
                 catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException) { }
                 if (process.HasExited && process.ExitCode != 0) return null;
@@ -137,10 +143,14 @@ public sealed class StudioGameBrokerClient : IDisposable
         finally { _launchGate.Release(); }
     }
 
-    private static bool IsProcessAlive(int processId)
+    private static async Task<bool> IsResponsiveAsync(StudioEndpointDescriptor endpoint, CancellationToken token)
     {
-        try { using var process = Process.GetProcessById(processId); return !process.HasExited; }
-        catch (ArgumentException) { return false; }
+        using var probe = CancellationTokenSource.CreateLinkedTokenSource(token);
+        probe.CancelAfter(TimeSpan.FromMilliseconds(500));
+        var response = await LocalIpcClient.RequestAsync(endpoint,
+            new(StudioProtocol.StudioIpcVersion, "Ping", Guid.NewGuid()), probe.Token).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        return response.Result?.Accepted == true;
     }
     private static bool Matches(StudioMapIdentity? actual, StudioMapIdentity required)
         => actual != null && actual.MapId == required.MapId

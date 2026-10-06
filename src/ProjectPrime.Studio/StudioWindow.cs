@@ -38,6 +38,8 @@ public sealed class StudioWindow : Window
     private readonly Panel _hudLayer = new();
     private StudioPerformanceHud? _performanceHud;
     public StudioPerformanceHud? PerformanceHud => _performanceHud;
+    private Window? _performanceWindow;
+    public Window? PerformanceHudWindow => _performanceWindow;
     private readonly StackPanel _inspector = new() { Spacing = 12, Margin = new Thickness(12) };
     private readonly StackPanel _jobList = new() { Spacing = 6, Margin = new Thickness(10) };
     private StackPanel? _floatingJobList;
@@ -49,6 +51,7 @@ public sealed class StudioWindow : Window
     private readonly DispatcherTimer _pulse;
     private bool _allowClose, _closing, _initialized, _disposed, _restored, _restoring;
     private Task? _initialization;
+    private Task? _disposal;
     private readonly List<Task> _queuedRequests = [];
 
     public StudioWindow(StudioPaths paths, StudioSettings settings, StudioOpenRequest initialRequest, StudioSession? previousSession = null)
@@ -114,7 +117,7 @@ public sealed class StudioWindow : Window
         Documents.Changed += DocumentsChanged;
         Jobs.Changed += JobsChanged;
         _pulse = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _pulse.Tick += (_, _) => RefreshJobs();
+        _pulse.Tick += (_, _) => { RefreshJobs(); RefreshPerformanceHudPlacement(); };
         _pulse.Start();
         Closing += (_, e) => { if (_allowClose) return; e.Cancel = true; if (!_closing) _ = CloseWindowAsync(); };
         Opened += (_, _) => { DockHost.RestoreFloating(); _ = InitializeSafelyAsync(); };
@@ -242,7 +245,26 @@ public sealed class StudioWindow : Window
             try { await Jobs.RunAsync("Open map " + Path.GetFileName(path),async(progress,token)=> { progress.Report(new(0)); await Dispatcher.UIThread.InvokeAsync(()=>map.OpenAsync(path,token)); progress.Report(new(1)); return true; },cancellationToken); document=map; }
             catch { await map.DisposeAsync(); throw; }
         }
-        else document = await Jobs.RunAsync("Prepare replay " + Path.GetFileName(path),async(progress,token)=> { progress.Report(new(0)); var replay=await Dispatcher.UIThread.InvokeAsync(()=>ProjectPrime.Studio.Replay.ReplayStudioDocument.OpenAsync(kind,path,_paths,token,id,packageDirectories,ExportWorkers.LaunchAsync)); progress.Report(new(1)); return replay; },cancellationToken);
+        else
+        {
+            ReplayStudioDocument? preparedReplay=null;
+            try
+            {
+                document=await Jobs.RunAsync("Prepare replay " + Path.GetFileName(path),async(progress,token)=>
+                {
+                    progress.Report(new(0));
+                    preparedReplay=await Dispatcher.UIThread.InvokeAsync(()=>ReplayStudioDocument.OpenAsync(kind,path,_paths,token,id,packageDirectories,ExportWorkers.LaunchAsync));
+                    progress.Report(new(1));return preparedReplay;
+                },cancellationToken);
+            }
+            catch
+            {
+                // The job manager can observe cancellation after preparation returns.
+                // Keep the UI-affine owner reachable until successful adoption.
+                if(preparedReplay is not null)await preparedReplay.DisposeAsync();
+                throw;
+            }
+        }
         // Publish only after successful inspection. Failed opens leave the current tab intact.
         if (_closing || cancellationToken.IsCancellationRequested) { await document.DisposeAsync(); cancellationToken.ThrowIfCancellationRequested(); return; }
         Documents.Add(document);
@@ -338,13 +360,16 @@ public sealed class StudioWindow : Window
             await Jobs.DisposeAsync();
             PersistSettings();
             if (!_initialRequest.SafeMode && !_store.SaveSession(session)) ShowError("Session could not be saved: " + _store.LastError);
+            // Keep the dispatcher alive while pending opens and native resources drain.
+            await DisposeResourcesAsync();
             _allowClose = true;
             return true;
         }
         catch (Exception ex) { _closing = false; ShowError(ex.Message); return false; }
     }
     private async Task CloseWindowAsync() { if (await TryCloseAsync()) Close(); }
-    public async Task DisposeResourcesAsync()
+    public Task DisposeResourcesAsync() => _disposal ??= DisposeResourcesCoreAsync();
+    private async Task DisposeResourcesCoreAsync()
     {
         if (_disposed) return;
         _disposed = true;
@@ -353,16 +378,21 @@ public sealed class StudioWindow : Window
         Documents.Changed -= DocumentsChanged;
         Jobs.Changed -= JobsChanged;
         DockHost.Dispose();
-        _performanceHud?.Dispose(); _hudLayer.Children.Clear(); _performanceHud = null;
+        ClosePerformanceHud();
         _jobsWindow?.Close();_jobsWindow=null;_floatingJobList=null;
         ExportWorkers.DetachForShutdown();
         await Jobs.DisposeAsync();
         await Task.WhenAll(_queuedRequests.ToArray());
-        await Documents.DisposeAsync();
-        StudioGraphicsHost.Shutdown();
-        if (MapIntegration is IDisposable integration) integration.Dispose();
-        _lifetime.Dispose();
-        _log.Write("Studio desktop resources disposed.");
+        try { await Documents.DisposeAsync(); }
+        finally
+        {
+            try { StudioGraphicsHost.Shutdown(); }
+            finally
+            {
+                try { if (MapIntegration is IDisposable integration) integration.Dispose(); }
+                finally { _lifetime.Dispose();_log.Write("Studio desktop resources disposed."); }
+            }
+        }
     }
     public async Task RestoreSessionAsync()
     {
@@ -503,14 +533,45 @@ public sealed class StudioWindow : Window
     public void TogglePerformanceHud()
     {
         if (_performanceHud is not null)
-        { _hudLayer.Children.Remove(_performanceHud); _performanceHud.Dispose(); _performanceHud=null; return; }
+        { ClosePerformanceHud(); return; }
+        if(_disposed || _closing)return;
         _performanceHud=new(Jobs,()=>Documents.ActiveDocument)
         { HorizontalAlignment=HorizontalAlignment.Right,VerticalAlignment=VerticalAlignment.Top,Margin=new Thickness(12,84,12,12),IsHitTestVisible=true };
         _hudLayer.Children.Add(_performanceHud);
+        RefreshPerformanceHudPlacement();
+    }
+    public void RefreshPerformanceHudPlacement()
+    {
+        if(_disposed || _closing || _performanceHud is not {} hud || _performanceWindow is not null || !StudioGraphicsHost.HasDevice)return;
+        // Native viewport children occupy their own airspace. An owned native window
+        // keeps diagnostics visible without covering or resizing the editor surface.
+        _hudLayer.Children.Remove(hud);hud.Margin=new Thickness(8);hud.Width=double.NaN;
+        hud.HorizontalAlignment=HorizontalAlignment.Stretch;hud.VerticalAlignment=VerticalAlignment.Stretch;
+        var window=new Window
+        {
+            Title="Project Prime Studio · Performance",Width=380,Height=580,MinWidth=300,MinHeight=240,
+            Background=Background,Content=hud,ShowInTaskbar=false,WindowStartupLocation=WindowStartupLocation.CenterOwner
+        };
+        _performanceWindow=window;
+        window.Closed+=(_,_)=>
+        {
+            window.Content=null;hud.Dispose();
+            if(ReferenceEquals(_performanceHud,hud))_performanceHud=null;
+            if(ReferenceEquals(_performanceWindow,window))_performanceWindow=null;
+        };
+        window.Show(this);
+    }
+    private void ClosePerformanceHud()
+    {
+        var hud=_performanceHud;var window=_performanceWindow;
+        _performanceHud=null;_performanceWindow=null;
+        if(hud is not null){_hudLayer.Children.Remove(hud);hud.Dispose();}
+        if(window is not null){window.Content=null;window.Close();}
     }
     private void HandleDroppedSources(object? sender, DragEventArgs args)
     {
         var paths=args.DataTransfer.TryGetFiles()?.Select(file=>file.TryGetLocalPath()).OfType<string>().ToArray() ?? [];
+        var assetOwner=Documents.ActiveDocument as MapStudioDocument;
         bool accepted=false;
         foreach(string path in paths)
         {
@@ -519,7 +580,15 @@ public sealed class StudioWindow : Window
             var result=EnqueueLaunchRequest(new(Guid.NewGuid(),target,Path.GetFullPath(path)),_lifetime.Token);
             if(!result.Accepted)ShowError(result.Error??"Could not open the dropped document.");accepted=true;
         }
+        var assets=paths.Where(AvaloniaMapStudioHost.SupportsAssetDrop).ToArray();
+        if(assetOwner is not null && assets.Length>0){_=ImportDroppedAssetsSafelyAsync(assetOwner,assets);accepted=true;}
         if(accepted)args.Handled=true;
+    }
+    private async Task ImportDroppedAssetsSafelyAsync(MapStudioDocument owner,string[] paths)
+    {
+        try{await owner.Host.ImportDroppedFilesAsync(paths,_lifetime.Token);}
+        catch(OperationCanceledException){}
+        catch(Exception error){ShowError(error.Message);}
     }
     private void HandleKey(object? sender, KeyEventArgs e)
     {

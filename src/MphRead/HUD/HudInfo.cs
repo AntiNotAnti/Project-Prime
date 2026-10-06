@@ -46,6 +46,15 @@ namespace MphRead.Hud
         public int TankCount;
         public HudObjectInstance BarInst = null!;
         public HudObjectInstance? TankInst;
+
+        internal HudMeter CopyDefinition() => new()
+        {
+            Horizontal = Horizontal, Length = Length, TankSpacing = TankSpacing,
+            TankOffsetX = TankOffsetX, TankOffsetY = TankOffsetY,
+            BarOffsetX = BarOffsetX, BarOffsetY = BarOffsetY,
+            TextOffsetX = TextOffsetX, TextOffsetY = TextOffsetY,
+            Align = Align, MessageId = MessageId, TankAmount = TankAmount, TankCount = TankCount
+        };
     }
 
     public class HudObject

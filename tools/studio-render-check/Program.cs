@@ -40,6 +40,11 @@ if(args.Contains("--gpu"))
         Check(world.MeshUploads==uploads,"camera and selection changes retain uploaded geometry");
         var hit=views[0].Pick(world,frame,64,64);
         Check(hit.GpuUsed && hit.MatchesCpu && hit.Surface?.ObjectId==front,"one-pixel R32Uint depth pick agrees with CPU oracle");
+        long pickPasses=views[0].PickPassSubmissions;
+        var repeated=views[0].Pick(world,frame with {Selection=new HashSet<Guid>{front}},64,64);
+        Check(repeated.GpuUsed && repeated.MatchesCpu && views[0].PickPassSubmissions==pickPasses,"unchanged geometry and camera reuse the integer pick target across selection changes");
+        views[0].Pick(world,frame with {Camera=new(new(1,1,8),Vector3.Zero,true)},64,64);
+        Check(views[0].PickPassSubmissions==pickPasses+1,"camera changes invalidate the cached integer pick target");
         var vertex=views[0].Pick(world,frame,36,92,StudioPickKind.Vertex);
         Check(vertex.GpuUsed && vertex.MatchesCpu && vertex.Element is {Kind:StudioPickKind.Vertex,A:0},"GPU vertex ID quads preserve CPU element parity");
         var edge=views[0].Pick(world,frame,64,90,StudioPickKind.Edge);
@@ -79,6 +84,38 @@ if(args.Contains("--gpu"))
             Check(device.Generation==3 && restored.Rgba[center]>210 && restored.Rgba[center+1]<30,"device recovery promotes frozen companion bytes after external sources disappear");
         }
         finally{Directory.Delete(materialDirectory,recursive:true);}
+        // Modes must change the real retained GPU output without rebuilding
+        // canonical geometry; captures alone may read back full images.
+        using var diagnosticWorld=device.CreateWorld();
+        var diagnosticMeshes=new[] {Mesh(front,0),Mesh(back,-2)};
+        var diagnosticFrame=frame with {Meshes=diagnosticMeshes,ResidentMeshes=diagnosticMeshes};
+        int diagnosticCenter=(64*128+64)*4;
+        var unlit=views[0].Render(diagnosticWorld,diagnosticFrame);
+        var lit=views[0].Render(diagnosticWorld,diagnosticFrame with {LightingPreview=true,Light1Color=Vector3.Zero,Light2Color=Vector3.Zero});
+        Check(!unlit.Rgba.AsSpan(diagnosticCenter,3).SequenceEqual(lit.Rgba.AsSpan(diagnosticCenter,3)),"authored lighting uniforms change native material preview pixels");
+        var fogged=views[0].Render(diagnosticWorld,diagnosticFrame with {FogPreview=true,FogEnabled=true,FogColor=new(.1f,.2f,.8f),FogOffset=0,FogSlope=5});
+        Check(Math.Abs(fogged.Rgba[diagnosticCenter]-26)<=1 && Math.Abs(fogged.Rgba[diagnosticCenter+2]-204)<=1,"authoritative World fog block applies authored color and range");
+        var terrain=views[0].Render(diagnosticWorld,diagnosticFrame with {DiagnosticMode=MapViewportDiagnosticMode.Terrain});
+        var terrainColor=MapViewportDiagnostics.TerrainColor(MphRead.Terrain.Metal);
+        Check(Math.Abs(terrain.Rgba[diagnosticCenter]-terrainColor.X*255)<=1 && Math.Abs(terrain.Rgba[diagnosticCenter+2]-terrainColor.Z*255)<=1,"terrain mode samples canonical collision terrain palette per face");
+        var materialIds=views[0].Render(diagnosticWorld,diagnosticFrame with {DiagnosticMode=MapViewportDiagnosticMode.MaterialId});
+        var materialColor=MapViewportDiagnostics.MaterialColor(false,0);
+        Check(Math.Abs(materialIds.Rgba[diagnosticCenter]-materialColor.X*255)<=1 && Math.Abs(materialIds.Rgba[diagnosticCenter+1]-materialColor.Y*255)<=1,"material ID view uses deterministic canonical material keys");
+        var doubled=views[0].Render(diagnosticWorld,diagnosticFrame with {DiagnosticMode=MapViewportDiagnosticMode.Overdraw});
+        var single=views[0].Render(diagnosticWorld,diagnosticFrame with {DiagnosticMode=MapViewportDiagnosticMode.Overdraw,Meshes=new[]{diagnosticMeshes[0]}});
+        Check(doubled.Rgba[diagnosticCenter]>=single.Rgba[diagnosticCenter]*2-1 && single.Rgba[diagnosticCenter]>20,"overdraw pass counts occluded fragments with additive GPU blending");
+        var density=views[0].Render(diagnosticWorld,diagnosticFrame with {DiagnosticMode=MapViewportDiagnosticMode.TexelDensity});
+        Check(density.Rgba[diagnosticCenter+2]>230 && density.Rgba[diagnosticCenter]<60,"texel density derives blue low-density output from canonical UV world derivatives");
+        Check(diagnosticWorld.MeshUploads==2,"changing diagnostic previews preserves retained mesh uploads");
+        var shadowDefinition=new MapDefinition {Geometry=new() {new MapBox {Transform=new() {Position=new[]{0f,-1f,0f},Scale=new[]{20f,1f,20f}}},new MapBox {Transform=new() {Position=new[]{0f,3f,0f},Scale=new[]{4f,6f,4f}}}}};
+        var shadowCache=new MapViewportCache();shadowCache.Invalidate(shadowDefinition,new(MapChangeDomain.All));
+        var shadowFrame=new MapRenderFrame(new(384,256),new(new(20,17,22),Vector3.Zero,true),shadowCache.Meshes,new HashSet<Guid>(),new Dictionary<Guid,Matrix4x4>(),false,false)
+            {ResidentMeshes=shadowCache.Meshes,Light1Vector=new(.7f,-.7f,.1f)};
+        using var shadowWorld=device.CreateWorld();
+        var noShadow=views[0].Render(shadowWorld,shadowFrame);
+        var shadowed=views[0].Render(shadowWorld,shadowFrame with {ShadowPreview=true});
+        int darkened=Enumerable.Range(0,shadowed.Width*shadowed.Height).Count(i=>noShadow.Rgba[i*4]>shadowed.Rgba[i*4]+10);
+        Check(darkened>50 && views[0].Metrics?.DrawCalls==shadowCache.Meshes.Count*2,"shared runtime directional shadow camera and PCF shader produce retained depth shadows");
         int outputIndex=Array.IndexOf(args,"--output");
         if(outputIndex>=0 && outputIndex+1<args.Length)
         {
@@ -101,11 +138,41 @@ if(args.Contains("--gpu"))
             Save("map-default",canonical);Save("map-hidpi",canonical with {Layout=new(960,600,2)});
             Save("map-uv-checker",canonical with {UvChecker=true});
             Save("map-wireframe",canonical with {Wireframe=true});
+            Save("map-lighting",canonical with {LightingPreview=true});
+            Save("map-fog",canonical with {FogPreview=true,FogEnabled=true,FogColor=new(.12f,.18f,.3f),FogOffset=24000,FogSlope=1});
+            Save("map-terrain",canonical with {DiagnosticMode=MapViewportDiagnosticMode.Terrain});
+            Save("map-overdraw",canonical with {DiagnosticMode=MapViewportDiagnosticMode.Overdraw});
+            Save("map-texel-density",canonical with {DiagnosticMode=MapViewportDiagnosticMode.TexelDensity});
+            Save("map-material-id",canonical with {DiagnosticMode=MapViewportDiagnosticMode.MaterialId});
+            Save("map-shadows",shadowFrame with {ShadowPreview=true});
+            Save("map-shadows-disabled",shadowFrame);
             Save("map-four-view-perspective",canonical with {Layout=new(480,300)});
             Save("map-four-view-top",canonical with {Layout=new(480,300),Camera=new(new(0,60,0),Vector3.Zero,false)});
             Save("map-four-view-front",canonical with {Layout=new(480,300),Camera=new(new(0,0,60),Vector3.Zero,false)});
             Save("map-four-view-side",canonical with {Layout=new(480,300),Camera=new(new(60,0,0),Vector3.Zero,false)});
             Console.WriteLine("Explicit diagnostic GPU captures: "+directory);
+            var denseDefinition=new MapDefinition {Geometry=Enumerable.Range(0,1024).Select(i=>(MapGeometry)new MapBox
+                {Transform=new() {Position=new[]{(i%32-16)*2f,0f,(i/32-16)*2f},Scale=new[]{1f,1f,1f}}}).ToList()};
+            var denseCache=new MapViewportCache();denseCache.Invalidate(denseDefinition,new(MapChangeDomain.All));
+            var denseFrame=new MapRenderFrame(new(2560,1440),new(new(65,65,65),Vector3.Zero,true),denseCache.Meshes,new HashSet<Guid>(),new Dictionary<Guid,Matrix4x4>(),false,false)
+                {ResidentMeshes=denseCache.Meshes};
+            using var denseWorld=device.CreateWorld();
+            views[0].SubmitForDiagnostics(denseWorld,denseFrame);
+            long denseUploads=denseWorld.GeometryUploadBytes;
+            var samples=Enumerable.Range(0,20).Select(i=>views[0].SubmitForDiagnostics(denseWorld,denseFrame with
+                {Camera=new(new(65+i*.1f,65,65),Vector3.Zero,true)})).ToArray();
+            Check(samples.All(sample=>sample.PixelWidth==2560 && sample.PixelHeight==1440 && sample.ReadbackBytes==0)
+                && denseWorld.GeometryUploadBytes==denseUploads && denseWorld.ResidentMeshes==1024,"twenty dense 1440p retained submissions keep geometry uploads stable and perform zero GPU readback");
+            var times=samples.Select(sample=>sample.CpuMilliseconds).Order().ToArray();
+            var report=new {Scope="Retained offscreen GPU targets; CPU measures renderer submission only; GPU time unavailable",device.Backend,device.Adapter,
+                Width=2560,Height=1440,Objects=1024,CpuMedianMilliseconds=times[times.Length/2],CpuP95Milliseconds=times[(int)Math.Ceiling(times.Length*.95)-1],
+                CpuMaximumMilliseconds=times[^1],Samples=samples};
+            File.WriteAllText(Path.Combine(directory,"dense-1440p.json"),System.Text.Json.JsonSerializer.Serialize(report,new System.Text.Json.JsonSerializerOptions {WriteIndented=true}));
+            var denseCapture=views[0].Render(denseWorld,denseFrame);
+            using var denseBitmap=new SKBitmap(denseCapture.Width,denseCapture.Height,SKColorType.Rgba8888,SKAlphaType.Opaque);
+            Marshal.Copy(denseCapture.Rgba,0,denseBitmap.GetPixels(),denseCapture.Rgba.Length);
+            using var denseImage=SKImage.FromBitmap(denseBitmap);using var densePng=denseImage.Encode(SKEncodedImageFormat.Png,100);
+            File.WriteAllBytes(Path.Combine(directory,"dense-1440p.png"),densePng.ToArray());
         }
         Console.WriteLine($"backend={device.Backend} adapter={device.Adapter} generation={device.Generation}");
     }

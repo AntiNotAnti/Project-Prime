@@ -7,11 +7,26 @@ using MphRead.Mods.StudioReplay;
 using ProjectPrime.Studio.Jobs;
 using ProjectPrime.Studio.Replay;
 
+if (args is ["--pin-child", var pinnedRoot, var pinnedKey, var pinReady])
+{
+    using var pin = MphRead.Mods.MapGen.MapDiskCache.Pin(pinnedRoot, pinnedKey);
+    File.WriteAllText(pinReady, "ready"); await Task.Delay(TimeSpan.FromSeconds(30)); return;
+}
+
+if (args is ["--snapshot-child", var recordingToSnapshot, var sharedSnapshotRoot, var snapshotResult])
+{
+    File.WriteAllText(snapshotResult, StudioReplaySnapshotCache.Capture(recordingToSnapshot, sharedSnapshotRoot, default));
+    Console.WriteLine("frame=1"); return;
+}
 if (args is ["--stdio-child", var childLoggingDirectory])
 {
     using var log = new ReplayExportWorkerLog(Path.Combine(childLoggingDirectory, "worker.log"));
     Console.SetOut(log); Console.SetError(log);
     File.WriteAllText(Path.Combine(childLoggingDirectory, "ready"), "ready");
+    var parentExit = Stopwatch.StartNew();
+    while (!File.Exists(Path.Combine(childLoggingDirectory, "parent-exited")) && parentExit.Elapsed < TimeSpan.FromSeconds(10))
+    { Console.WriteLine("waiting independently for launcher exit"); await Task.Delay(10); }
+    if (parentExit.Elapsed >= TimeSpan.FromSeconds(10)) throw new TimeoutException("Launcher exit was not observed.");
     for (int i = 0; i < 100; i++) { Console.WriteLine(new string('x', 500)); Console.Error.WriteLine("teardown progress " + i); await Task.Delay(10); }
     File.WriteAllText(Path.Combine(childLoggingDirectory, "complete"), "complete"); return;
 }
@@ -24,15 +39,16 @@ if (args is ["--stdio-parent", var loggingDirectoryForParent])
     var ready = Stopwatch.StartNew();
     while (!File.Exists(Path.Combine(loggingDirectoryForParent, "ready")) && ready.Elapsed < TimeSpan.FromSeconds(5)) await Task.Delay(10);
     if (ready.Elapsed >= TimeSpan.FromSeconds(5)) throw new TimeoutException("Independent logging child did not start.");
+    File.WriteAllText(Path.Combine(loggingDirectoryForParent, "parent-pid"), Environment.ProcessId.ToString());
     Console.WriteLine("frame=1"); return;
 }
 if (args is ["--coordinator-child", var stateFile, var cancelFile, var jobId])
 {
     Guid id = Guid.Parse(jobId);
-    void Publish(string state) { string staging = stateFile + ".fixture"; File.WriteAllText(staging, JsonSerializer.Serialize(new StudioReplayExportStatus(id, state, state == "Complete" ? 2 : 0, 2, null, Path.GetDirectoryName(stateFile)!))); File.Move(staging, stateFile, true); }
+    void Publish(string state) { string staging = stateFile + ".fixture"; using var process = Process.GetCurrentProcess(); File.WriteAllText(staging, JsonSerializer.Serialize(new StudioReplayExportStatus(id, state, state == "Complete" ? 2 : 0, 2, null, Path.GetDirectoryName(stateFile)!, process.Id, process.StartTime.ToUniversalTime().Ticks))); File.Move(staging, stateFile, true); }
     Publish("Rendering");
     for (int i = 0; i < 100; i++) { if (File.Exists(cancelFile)) { Publish("Cancelled"); return; } await Task.Delay(20); }
-    Publish("Complete"); return;
+    Publish("Complete"); await Task.Delay(150); return;
 }
 
 if (args.Contains("--encoder-child"))
@@ -48,6 +64,27 @@ string root = Path.Combine(Path.GetTempPath(), "prime-offline-export-" + Guid.Ne
 Directory.CreateDirectory(root);
 try
 {
+    string sourceRecording = Path.Combine(root, "external.ppdemo"), snapshotRoot = Path.Combine(root, "private-sources");
+    byte[] sourceBytes = Enumerable.Range(0, 300000).Select(i => (byte)(i * 13)).ToArray(); File.WriteAllBytes(sourceRecording, sourceBytes);
+    string stableRecording = StudioReplaySnapshotCache.Capture(sourceRecording, snapshotRoot, default);
+    Check(Path.GetDirectoryName(stableRecording) == Path.Combine(snapshotRoot, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(sourceBytes)).ToLowerInvariant())
+        && File.ReadAllBytes(stableRecording).AsSpan().SequenceEqual(sourceBytes), "private replay snapshots use the exact SHA identity and preserve all streamed recording bytes");
+    Check(StudioReplaySnapshotCache.Capture(sourceRecording, snapshotRoot, default) == stableRecording
+        && Directory.GetDirectories(snapshotRoot).Length == 1, "reopening the same source reuses its immutable bytes instead of accumulating GUID recordings");
+    File.WriteAllBytes(sourceRecording, [1, 2, 3]); string changedRecording = StudioReplaySnapshotCache.Capture(sourceRecording, snapshotRoot, default); File.Delete(sourceRecording);
+    Check(changedRecording != stableRecording && File.ReadAllBytes(stableRecording).AsSpan().SequenceEqual(sourceBytes)
+        && File.ReadAllBytes(changedRecording).AsSpan().SequenceEqual(new byte[] { 1, 2, 3 }), "queued private source survives external recording replacement and deletion without reusing changed bytes");
+    using (var cancelledCapture = new CancellationTokenSource())
+    {
+        cancelledCapture.Cancel(); bool captureStopped = false;
+        try { StudioReplaySnapshotCache.Capture(stableRecording, Path.Combine(root, "cancelled-sources"), cancelledCapture.Token); } catch (OperationCanceledException) { captureStopped = true; }
+        Check(captureStopped && !Directory.Exists(Path.Combine(root, "cancelled-sources")), "cancelled immutable capture leaves no partial promoted recording or staging directory");
+    }
+    File.WriteAllBytes(changedRecording, [4]); bool corruptSnapshot = false;
+    File.WriteAllBytes(sourceRecording, [1, 2, 3]);
+    try { StudioReplaySnapshotCache.Capture(sourceRecording, snapshotRoot, default); } catch (InvalidDataException) { corruptSnapshot = true; }
+    Check(corruptSnapshot && File.ReadAllBytes(changedRecording).AsSpan().SequenceEqual(new byte[] { 4 }), "a corrupted content-addressed snapshot is rejected without replacing bytes held by another owner");
+    await CacheRetentionChecks.Run(root, Check);
     foreach (int fps in new[] { 24, 30, 48, 60, 90, 120, 144 })
     {
         var sampler = new ReplayExportSampler(120, 180, fps);
@@ -129,12 +166,28 @@ try
         Check(observed && before.AsSpan().SequenceEqual(File.ReadAllBytes(repeated)), "cancelled audio leaves prior output intact");
     }
     string executable = Environment.ProcessPath!;
+    string snapshotPrefix = Path.GetFileNameWithoutExtension(executable).Equals("dotnet", StringComparison.OrdinalIgnoreCase)
+        ? "\"" + Assembly.GetExecutingAssembly().Location + "\" " : "";
+    string sharedSources = Path.Combine(root, "cross-process sources"), firstResult = Path.Combine(root, "first-snapshot"), secondResult = Path.Combine(root, "second-snapshot");
+    using (var firstCapture = new ReplayEncoderJob(executable, snapshotPrefix + "--snapshot-child \"" + stableRecording + "\" \"" + sharedSources + "\" \"" + firstResult + "\"", root))
+    using (var secondCapture = new ReplayEncoderJob(executable, snapshotPrefix + "--snapshot-child \"" + stableRecording + "\" \"" + sharedSources + "\" \"" + secondResult + "\"", root))
+    {
+        var results = await Task.WhenAll(firstCapture.Completion, secondCapture.Completion).WaitAsync(TimeSpan.FromSeconds(10));
+        string first = File.ReadAllText(firstResult), second = File.ReadAllText(secondResult);
+        Check(results.All(result => result.ExitCode == 0) && first == second && Directory.GetDirectories(sharedSources).Length == 1
+            && File.ReadAllBytes(first).AsSpan().SequenceEqual(sourceBytes), "two actual preparation processes share one exactly hashed immutable recording through the production cache lease");
+    }
     string child = Path.GetFileNameWithoutExtension(executable).Equals("dotnet", StringComparison.OrdinalIgnoreCase)
         ? "\"" + Assembly.GetExecutingAssembly().Location + "\" --encoder-child" : "--encoder-child";
     using (var encoder = new ReplayEncoderJob(executable, child, root))
     {
         var result = await encoder.Completion.WaitAsync(TimeSpan.FromSeconds(10));
         Check(result.ExitCode == 0 && !result.Cancelled && encoder.Frames == 17, "canonical owned encoder job drains progress and completes a real child process");
+        encoder.Dispose();
+        await Task.Delay(50);
+        encoder.Dispose(); encoder.Cancel();
+        Check(encoder.Completion.IsCompletedSuccessfully && encoder.Completion.Result.ExitCode == 0,
+            "encoder completion remains valid through repeated native teardown disposal and late cancellation");
         Check(result.Stderr.Length <= 16384, "canonical encoder diagnostics remain bounded under noisy child stderr");
     }
     using (var encoder = new ReplayEncoderJob(executable, child + " --hold", root))
@@ -148,8 +201,16 @@ try
         ? "\"" + Assembly.GetExecutingAssembly().Location + "\" " : "";
     using (var loggingParent = new ReplayEncoderJob(executable, loggingPrefix + "--stdio-parent \"" + loggingDirectory + "\"", root))
     {
+        var started = Stopwatch.StartNew();
+        while (!File.Exists(Path.Combine(loggingDirectory, "parent-pid")) && started.Elapsed < TimeSpan.FromSeconds(5)) await Task.Delay(10);
+        int parentId = int.Parse(File.ReadAllText(Path.Combine(loggingDirectory, "parent-pid")));
+        bool parentExited = false;
+        try { using var parent = Process.GetProcessById(parentId); await parent.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5)); parentExited = parent.HasExited; }
+        catch (ArgumentException) { parentExited = true; }
+        Check(parentId != Environment.ProcessId && parentExited && !File.Exists(Path.Combine(loggingDirectory, "complete")), "actual intermediate launcher exits while its independently logging child remains alive");
+        File.WriteAllText(Path.Combine(loggingDirectory, "parent-exited"), "verified parent exit");
         var result = await loggingParent.Completion.WaitAsync(TimeSpan.FromSeconds(10));
-        Check(result.ExitCode == 0 && !File.Exists(Path.Combine(loggingDirectory, "complete")), "actual intermediate launcher exits and closes its redirected child pipes while logging continues");
+        Check(result.ExitCode == 0, "launcher diagnostic pipe draining completes after descendant inherited handles close");
     }
     var logDeadline = Stopwatch.StartNew();
     while (!File.Exists(Path.Combine(loggingDirectory, "complete")) && logDeadline.Elapsed < TimeSpan.FromSeconds(5)) await Task.Delay(20);

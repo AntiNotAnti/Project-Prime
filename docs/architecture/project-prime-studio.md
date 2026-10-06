@@ -16,21 +16,21 @@ or full authoring parity.
 | Phase | Scope | Acceptance gate | Current status |
 | --- | --- | --- | --- |
 | 0 | Baseline and architecture contracts | Original map/replay checks, recorded captures/hashes/measurements, source contracts | Source inspection and contracts added; executable evidence recorded below |
-| 1 | Independent desktop executable | Start game/Studio in either order; duplicate game rejected; duplicate Studio forwards; independent shutdown | 106 native macOS game/empty-Studio lifecycle checks passed; integrated editor lifecycle acceptance pending |
-| 2 | Shared shell | Asset-free home, recent paths, workspace documents, commands, dock layout, jobs, clean shutdown | Foundation source implemented; UI acceptance pending |
-| 3 | Map extraction and decomposition | Same `MapDocument`, open/save/recovery/history/import/modeling/UV/materials/build/package/Community/four-view parity | Native facade, injected services and separate hierarchy/inspector/tool/import/build/panel owners implemented; standalone parity acceptance pending |
-| 4 | Cross-process publication | Game holds a map lease; Studio install cannot change files; retry after release installs exact package hash | Shared reader/exclusive OS publication fence implemented; 45 independent-process synthetic assertions passed; live-game/package acceptance pending |
-| 5 | Game/Studio IPC | Versioned authenticated current-user endpoint; failure/reconnect/cancellation/duplicate-ID checks | Authenticated protocol and game-owner broker implemented; integration acceptance pending |
-| 6 | External map playtest | Unsaved map packaged privately; exact identity verified; Studio selection/history/layout survive; stale response rejected | Broker and game-owner queue/launch/status path implemented; actual gameplay acceptance pending |
-| 7 | Replay extraction | Private `PassiveReplayPlayer`, deterministic seeks, clips, cameras, diagnostics, export, historical custom-map identity | Public engine player facade and per-document session/workspace implemented; deterministic native-host acceptance pending |
-| 8 | Replay presentation host | Explicit update/render/resize/dispose lifecycle; unpublished failure leaves current document/world intact | Studio-owned native viewport and explicit player lifecycle implemented; resource/crash/resize acceptance pending |
-| 9 | Dedicated Studio renderer | Shared modern backend, retained editor resources, DPI contract, resource release and picking parity | 20 real retained GPU/picking/device-loss checks passed; native viewport surface parity/lifecycle acceptance pending |
+| 1 | Independent desktop executable | Start game/Studio in either order; duplicate game rejected; duplicate Studio forwards; independent shutdown | 118 native macOS game/editor integration checks passed; remaining desktop platform acceptance pending |
+| 2 | Shared shell | Asset-free home, recent paths, workspace documents, commands, dock layout, jobs, clean shutdown | 682 headless shell/Map/Replay, native Home and full default native Replay 139 checks passed; remaining enhanced workflows and platform acceptance pending |
+| 3 | Map extraction and decomposition | Same `MapDocument`, open/save/recovery/history/import/modeling/UV/materials/build/package/Community/four-view parity | Canonical document UI workflows, 114 native Map lifecycle/render and 118 native game/editor integration checks passed; Community and remaining enhanced editor acceptance pending |
+| 4 | Cross-process publication | Game holds a map lease; Studio install cannot change files; retry after release installs exact package hash | 53 independent-process fixtures pass, including isolated private Replay readers; native game/editor 118 also proves live-scene publication rejection, unchanged runtime bytes and exact stop/rebuild/restart |
+| 5 | Game/Studio IPC | Versioned authenticated current-user endpoint; failure/reconnect/cancellation/duplicate-ID checks | 60 authenticated IPC, 34 canonical broker and 118 native game/editor integration assertions passed; remaining platform acceptance pending |
+| 6 | External map playtest | Unsaved map packaged privately; exact identity verified; Studio selection/history/layout survive; stale response rejected | 118 native game/editor integration checks passed, including dirty canonical document retention, exact new-package restart, stale stop rejection and independent crashes |
+| 7 | Replay extraction | Private `PassiveReplayPlayer`, deterministic seeks, clips, cameras, diagnostics, export, historical custom-map identity | 94 headless and full default native 139 assertions passed; camera/source binding, v5 persistence and final bounded private-cache retention acceptance pending |
+| 8 | Replay presentation host | Explicit update/render/resize/dispose lifecycle; unpublished failure leaves current document/world intact | Native 139 proves HUD, one-clock multiview, three-hash retry and continuing Save As viewport; additional stale-fourth-view cleanup/resource edge pending |
+| 9 | Dedicated Studio renderer | Shared modern backend, retained editor resources, DPI contract, resource release and picking parity | 34 retained GPU/M2/picking/device-loss, 114 native Map lifecycle and 97 dense-redraw checks passed; complete native 1440p frame timing acceptance pending |
 | 10 | Map enhancements | Reviewed panels/workflows, GPU picking, import/build diagnostics and measured dense-map behavior | Canonical panels, native ID picking and retained metrics implemented; dense-map and native parity acceptance pending |
 | 11 | Replay enhancements | Synchronized multiview, camera curve graph, annotations, export queue and audio ownership | Session-owned views, camera/annotation/export facade and tools implemented; feature/export/audio acceptance pending |
-| 12 | Shared creator enhancements | Multiple documents, layouts, asset/source browser, command palette, recovery and diagnostics | Source-backed search, configurable commands and measured diagnostic HUD implemented; final UI integration and editor acceptance pending |
-| Release | Packaging/updater/associations | Windows/Linux/macOS packages and compatibility checks; Android excludes Studio | Paired package metadata and installation lifetime guards implemented; updater 82 checks pass locally; platform release acceptance pending |
+| 12 | Shared creator enhancements | Multiple documents, layouts, asset/source browser, command palette, recovery and diagnostics | Source-backed search, configurable commands and measured diagnostic HUD implemented; native modes/HUD 116 passed; final document-scoped diagnostics and editor acceptance pending |
+| Release | Packaging/updater/associations | Windows/Linux/macOS packages and compatibility checks; Android excludes Studio | Paired metadata/lifetime guards and 85 updater checks pass locally; earlier Android Release APK passed, final source/APK rerun pending; desktop platform CI/release acceptance pending |
 | Cleanup | Remove legacy embedded routes | All standalone map/replay acceptance gates proven first | Deferred |
-| Later | Selective shared assembly extraction | Small compiler-enforced boundaries without namespace/engine rewrite | Deferred |
+| Later | Optional selective shared assembly extraction | Small compiler-enforced boundaries without namespace/engine rewrite | Optional follow-up after migration acceptance |
 
 ## Product and process boundaries
 
@@ -56,11 +56,13 @@ Studio may consume the canonical `MphRead` project while the process boundary is
 established. A game assembly reference is not permission to acquire the game shell
 or a live session. The small `ProjectPrime.Studio.Protocol` project remains
 framework-only and can be shared without introducing UI, engine ownership or a
-gameplay socket. Host/service extraction exposes existing implementations through
+gameplay socket. Its one external source link compiles the same internal,
+BCL-only `DesktopInstallationIdentity.cs` helper into both assemblies; it does
+not introduce an engine assembly dependency. Host/service extraction exposes existing implementations through
 reviewed contracts; it must not copy the engine into Studio or add the game
-launcher as the creator application shell. Assembly extraction follows process
-and host boundaries, feature parity, renderer separation and reduction of static
-ownership.
+launcher as the creator application shell. Selective assembly extraction is an
+optional follow-up after process and host boundaries, feature parity, renderer
+separation and reduction of static ownership.
 
 The Studio application starts through `StartWithClassicDesktopLifetime`; its
 window belongs to Avalonia. It may later host native GPU viewport surfaces with
@@ -151,8 +153,13 @@ device and installation lease through graphics shutdown. The window coordinator
 observes at most two workers, exposes central job progress and sends an explicit
 persisted cancellation signal. Window shutdown detaches observers without
 cancelling export children; restart observes live statuses and resumes queued
-tickets without starting duplicate writers. These source contracts still need
-native replay-pixel, cancellation and window-close acceptance.
+tickets without starting duplicate writers. The reduced native worker gate now
+proves actual encoder/cancellation and document/window-close behavior; the full
+default native Replay gate now also proves HUD pixels, synchronized multiview and
+continuing clip presentation. Later camera/source binding and cache retention
+acceptance remains separate.
+The focused component checker uses FFmpeg testsrc fixture pixels, separately
+from native replay viewport captures.
 
 `StudioReplayBundles` materializes the canonical replay and records its exact
 SHA-256, historical map/room/content/package identity, camera keys, reel and
@@ -172,6 +179,14 @@ shutdown, and forward map/replay/clip/recovery requests to the owning Studio. A
 second process must receive an acknowledgment or a useful error; it may not
 silently discard the requested document. Game and Studio windows have independent
 lifetimes and crashes.
+
+The game updater's installation lease and local IPC endpoint use the same
+canonical installation identity helper. It resolves directory aliases and
+paired macOS bundle parent directories before platform case normalization.
+The Protocol project compiles only that exact BCL path helper; role-specific
+game and Studio endpoints remain separate. The current IPC fixture passes 60
+checks, including real symlink forwarding, paired bundle identity, delayed
+startup, stale endpoints and capability rotation.
 
 The game/Studio IPC version is separate from `NetConfig.ProtocolVersion`. Use a
 current-user named pipe or equivalent Unix local endpoint, bounded length-prefixed
@@ -196,9 +211,13 @@ an immediate exclusive lease before replacing package/runtime outputs. Unix uses
 `MapRuntimeUsage.Gate` and installation checks remain. The
 `tools/map-publication-check` fixture exercises independent readers/publishers,
 unchanged rejected outputs, release/retry, crash release, case/symlink identity
-and runtime namespaces. Its 45 passing assertions use deterministic ZIP/runtime
-fixture files and the actual fence/file publication implementation; they do not
-claim decoded game `.ppmap` or live-scene acceptance.
+and runtime namespaces. Its 53 passing assertions use deterministic ZIP/runtime
+fixture files and the actual fence/file publication implementation. The added
+private Replay scope fixture opens and hashes historical payload bytes in a
+separate process while same-room game publication succeeds. Ordinary game reader
+deferral and exact-hash retry remain covered. The fixture does not claim decoded
+game `.ppmap` or live-scene acceptance; its log is
+`/tmp/project-prime-map-publication-private.log`.
 
 Community publication continues using the existing narrow, short-lived `ppm1`
 ticket. Raw Hunter License/Supabase refresh/access credentials do not cross Studio
@@ -313,8 +332,9 @@ and [map authoring inventory](../../.claude/mapgen/MAP-STUDIO.md).
 
 Historical measurements in
 [`replay-map-performance.md`](replay-map-performance.md) are prior engineering
-evidence, not fresh results at this baseline. The requested <1.5-second warm shell
-start and 60+ FPS at 1440p remain targets until measured.
+evidence, not fresh results at this baseline. The five measured native Home starts
+are below the requested 1.5 seconds. Loaded-editor startup and 60+ FPS at 1440p
+remain targets until measured.
 
 Existing component measurement commands are:
 
@@ -341,11 +361,16 @@ native owners on the correct thread.
 
 `StudioPerformanceHud` reads immutable renderer reports, canonical replay player
 performance/status, the selected map scheduler and the actual Studio job manager.
-Its optional overlay does not resize a viewport. It samples every 500 ms while
-attached and visible, releases providers on disposal and does not initialize a
-graphics device. Map counters distinguish cumulative vertex upload bytes from
+Its optional owned native window does not resize a viewport. It samples every
+500 ms while attached and visible, releases providers on disposal and does not
+initialize a graphics device. Map reports belong to the selected document and
+return unavailable after resource release or device loss; Replay timings belong
+to that document's player. Map counters distinguish cumulative vertex upload bytes from
 resident vertex/uniform storage, frame readback from accumulated one-pixel picking
-readback, and submitted draw/batch/primitive counts. Replay exposes actual nullable
+readback, and submitted draw/batch/primitive counts. Map renderer CPU submission
+timing covers retained graph preparation, GPU uploads, submission and surface
+presentation; it excludes the preceding canonical CPU overlay rasterization and
+is labelled as a component measurement. Replay exposes actual nullable
 seek/advance/render times and checkpoint cache count/bytes. GPU timestamp timing,
 replay GPU counters and checkpoint capture timing remain explicitly unavailable
 where their canonical implementations do not measure them.
@@ -370,8 +395,9 @@ stale state or Save As races before mutation. Runtime packages contain resolved
 objects/resources and remove external prefab provenance; compilation does not
 require the source prefab file. `MapStructuralDiff` compares typed canonical
 objects, materials, gameplay resources, navigation, environment and prefab state.
-The focused canonical fixtures passed 44 checks before the latest context/type
-hardening; those new checks and native panel integration remain pending.
+The focused canonical fixtures pass 46 checks, including Save As context races,
+local type-conversion preservation and compiler/package independence after the
+prefab source disappears. Native prefab panel integration remains separate.
 
 `MapMesh.ModifierSource` stores resolved runtime geometry together with one
 self-contained original source and an ordered, typed modifier list. Repeated
@@ -403,31 +429,39 @@ The framework-only `tools/studio-diagnostics-check` compiles the actual collecto
 formatter and job manager. Its 18 assertions cover provider release over 1,000
 registration cycles, cancellation, immutable samples, bounded job history over
 80 real jobs and unknown timing values. On this host, 120 collection samples
-averaged 0.008 ms CPU and 7,264 allocated bytes per sample, with measured working
-set 48,807,936 bytes. This is collector overhead; it is not GPU or viewport FPS.
+averaged 0.030 ms CPU and 7,264 allocated bytes per sample, with measured working
+set 48,758,784 bytes (`/tmp/project-prime-studio-diagnostics-final-labels.log`).
+This is collector overhead; it is not GPU or viewport FPS.
 Native rendering and UI tests must separately prove resource release and the
 reported renderer counters.
 
 | Evidence | Current verification status |
 | --- | --- |
 | Baseline revision and initial clean checkout | Recorded above |
-| Architecture scanner | Current source scan passed; 40/40 scanner/protocol self-tests pass on .NET SDK 10.0.100; alias/static/method-group publication, nested interpolation, exact map identity, bounded paths/frames and challenge/version-bound authentication covered; full scan rerun after each new host/broker boundary |
+| Architecture scanner | Current source scan passed; 46 scanner/protocol self-tests cover alias/static/method-group publication, nested interpolation, exact map identity, bounded paths/frames, challenge/version-bound authentication and the exact BCL-only Protocol source link; full scan rerun after each new host/broker boundary |
 | Original map/replay suites | Map editor 442; next pass 47; model import 65; collision 86; Community 84; runtime pass; renderer retention 12; replay timeline 43; replay format 2,962; replay controls pass |
 | Isolated map multiplayer acceptance | Passed after test HTTP-peer retry/cancellation harness repair; original timeout log retained separately |
 | Baseline map/replay UI captures | 35 original `-uishot` captures, including map/replay editor layouts; asset-backed replay presentation captures pending |
 | Baseline GPU viewport captures | 30 assertions passed and captures produced; original check fails at the toolbar composite assertion on macOS Retina (`MapViewportCheck.cs:181`); baseline gate remains failed |
 | Current game GPU viewport regression | 48 assertions passed after repairing the diagnostic's toolbar/overlay oracles against actual production composition; original failed baseline evidence remains retained |
 | Asset-backed deterministic reference hashes | Existing local fixture: 1,801 frames, 14 seeks, five rates and EOF/divergence checks passed; enriched reference recording saved |
-| End-to-end startup/memory/frame measurements | Five native Home samples pass their startup check: median 490.1517 ms, maximum 1,163.267 ms, median working set 182,403,072 bytes at logical 1280×800/native 2×; loaded-editor frame/startup distributions pending |
-| Studio desktop UI/lifecycle acceptance | Foundation 178 UI assertions/nine captures retained; 106 native game/empty-Studio lifecycle checks now pass, including both launch orders, duplicate-game guard, independent crashes and production exact-map scene start/end; integrated Map layout/native presentation and Replay frame-zero reruns pending repairs |
-| Diagnostic collection ownership | 18 actual collector/job checks passed; native HUD/UI/resource assertions pending |
-| Retained Studio renderer | 20 real Metal/Apple M4 Pro checks passed: four canonical cache views share uploads, face/vertex/edge ID/depth picking agrees with CPU, removal releases resources and device-loss recovery restores generation 2; native-surface zero-readback/lifecycle acceptance pending |
-| Current game replay regressions | Immutable current game snapshot passes 2,962 format checks, all replay-control groups, and the exact baseline reference's 1,801 frames/14 cold-cached seeks/five rates/EOF/divergence; standalone native Replay host acceptance pending |
+| End-to-end startup/memory/frame measurements | Five native Home samples: median 490.1517 ms, maximum 1,163.267 ms, median working set 182,403,072 bytes at logical 1280×800/native 2×; 20 distinct dense Map submissions have renderer CPU median 10.2702 ms/p95 11.8727 ms at actual 2560×1019 pixels; full 1440p CPU/GPU frame and loaded-editor startup distributions pending |
+| Studio desktop UI/lifecycle acceptance | 682 headless assertions pass, including the 462 shell/Map gates plus Replay marker/key search, Save As tab adoption, camera preferences, read-only world state, late cancellation, visible transport status and Map gameplay analysis/selection; 55 Replay-suite manifest captures and three additional gameplay captures reviewed; full default native Replay139 passed; remaining enhanced workflow/outliner acceptance pending |
+| Diagnostic collection ownership | 18 actual collector/job checks passed; native modes/owned HUD suite passed 116, including native ownership, measured counters, unchanged viewport allocation and sampling/provider release; new document-scoped/released metrics acceptance pending |
+| Retained Studio renderer | 34 real Metal/Apple M4 Pro checks passed including M2 modes; native Map114 proves one/four-view shared resources, zero normal readback and final-close resource counts zero; dense97 proves 20 distinct native submissions without geometry reuploads; offscreen 2560×1440 submission costs measured separately |
+| Current game replay regressions | Immutable current game snapshot passes 2,962 format checks, all replay-control groups, and the exact baseline reference's 1,801 frames/14 cold-cached seeks/five rates/EOF/divergence; full default standalone native Replay139 also passed |
+| Standalone Replay simulation | 94 headless assertions pass with two historical recordings, two isolated custom-map versions and portable identity; this does not prove native GPU presentation/export |
 | Enhanced canonical mesh modeling | 115 actual canonical-engine fixtures passed; two detached proposal runs measured 37.203/118.373 ms and 25,691,296 allocated bytes each; native modeling UI acceptance pending |
-| Replay export components | 1,096 assertions pass with actual FFmpeg 9 H.264/AAC child encoding, canonical sampler/PCM/WAV/portable ZIP and bounded worker cancellation/detach/restart; fixture pixels use FFmpeg testsrc, with native replay/player/window-close proof pending |
-| Headless server build | Release `MphReadServer=true` build passed, zero errors and 38 existing warnings; Studio presentation remains excluded |
-| Android build | Actual Release APK build passed, zero errors and 140 warnings, after building/verifying patched arm64/x86_64 runtimes with the installed NDK; SDK 36, .NET 10 Android workload and JDK 27 used; APK signature verification passed; device runtime acceptance remains separate |
-| Paired release/updater ownership | 82 updater assertions passed on macOS with net10 target override, including independent child Studio lifetime, unchanged blocked install bytes, crash release, exact paired versions and unpaired downgrade rejection |
+| Replay export components | 1,130 assertions pass with actual FFmpeg 9 H.264/AAC child encoding, canonical sampler/PCM/WAV/portable ZIP, bounded worker cancellation/detach/restart/parent-exit logs, deep ticket validation and cross-process cache-pin/pruning fixtures; full default native Replay139 passes actual PNG/MP4, positive PCM, cancellation, document/window-close, renamed-source and installation-lease gates; final session retention acceptance pending |
+| Canonical prefab/diff and game broker components | 46 prefab/diff and 34 game-owner broker assertions passed; live native playtest acceptance remains separate |
+| Native game/editor integration | 118 checks passed with actual unsaved canonical Map, real game scene, exact package restart, unchanged active runtime bytes, dirty-close Cancel and independent crash/reconnect ownership |
+| Headless server build | M5 plus critical Replay repair Release `MphReadServer=true` build passed, zero errors and 38 existing warnings; Studio presentation remains excluded; final camera/retention source rerun pending |
+| Android build | Earlier Release APK passed with zero errors/140 warnings and signature verification; current arm64/x86_64 patched runtimes rebuilt and managed source exclusions repaired; final source/APK rerun pending latest Replay batch; device runtime acceptance remains separate |
+| Paired release/updater ownership | 85 updater assertions passed on macOS with net10 target override, including profile-independent coordination, IPC version labels, child Studio lifetime, unchanged blocked install bytes, crash release, exact paired versions and unpaired downgrade rejection |
+
+Native lifecycle suite totals include the shared 91 CLI/persistence/document/job/
+process assertions. The additional native gates depend on the run's explicit
+arguments; a worker-only result does not include omitted HUD/multiview/clip gates.
 
 The GPU toolbar assertion failed before gameplay/editor source changes in this
 work. Its capture shows the toolbar, but visual presence does not make the failed
@@ -439,15 +473,103 @@ and match after composition. The corrected current-source check now passes all
 captures are in `/tmp/project-prime-studio-mapviewport-final/`. The original
 failure/capture remains a failed baseline gate.
 
-The current integrated Map layout check exposes a 694×73 viewport at logical
-1280×800; its capture is
-`/tmp/project-prime-studio-ui-actual/map-studio-default-current.png`. The compact
-panel/layout repair awaits the next coherent native host run. Native Map child
-attachment and Replay's ready-but-unsimulated frame-zero defects likewise have
-source repairs awaiting runtime reruns. The successful empty-shell lifecycle and
-Home startup checks do not turn these integrated editor gates green. Native game
-lifecycle output is `/tmp/project-prime-host-native-game-awake.log`; the five
-startup samples are in `/tmp/project-prime-native-startup.json`.
+The fresh immutable M5 regression snapshot in
+`/tmp/project-prime-original-regressions-m5/` again passes Map editor 442, next
+pass 47, model import 65, collision 86, Community 84, portable runtime, complete
+map multiplayer acceptance, Replay timeline 43, format 2,962 and all replay
+control groups. Its map logs use `/tmp/project-prime-map-*-m5.log`, and Replay
+logs use `/tmp/project-prime-replay-*-m5.log`. Original native
+OpenGL viewport acceptance also passes 48 in `/tmp/project-prime-mapviewport-m5.log`.
+These original-domain gates remain distinct from the full standalone native
+Replay139 result and later camera/final cache-retention acceptance.
+
+The earlier integrated Map capture exposed a 694×73 viewport at logical
+1280×800 (`/tmp/project-prime-studio-ui-actual/map-studio-default-current.png`).
+The repaired current layout/UI suite now passes 462 assertions and native Map
+passes 114. Current UI captures are in `/tmp/project-prime-studio-ui-current/`;
+the expanded Replay UI suite passes 680 assertions with 55 manifest captures in
+`/tmp/project-prime-studio-ui-replay/`, recorded by
+`/tmp/project-prime-host-ui-replay.log`. Its replay viewport is intentionally
+blank in headless mode; these captures establish panel layout, not GPU pixels.
+Native Map output is `/tmp/project-prime-host-native-map.log`. The corrected
+dense gate passes 97 checks and samples 20 distinct rendered revisions (10–29),
+recorded in `/tmp/project-prime-native-dense-redraw.json` and
+`/tmp/project-prime-host-native-dense-redraw.log`. Its actual 2560×1019-pixel
+viewport at 2× contains 1,024 resident meshes and 1,025 draws. Renderer CPU
+submission has median 10.2702 ms, p95 11.8727 ms and maximum 19.7944 ms;
+cumulative geometry uploads remain 15,237,120 bytes and normal readback is zero.
+GPU time is unavailable. The window manager limited the requested 2560×1440
+viewport, and this component timing excludes preceding CPU overlay rasterization.
+It does not establish full-frame 1440p FPS. Earlier repeated samples of one
+cached submission remain invalid evidence.
+
+The native Map modes/owned HUD suite passes 116 checks, recorded in
+`/tmp/project-prime-host-native-map-modes-hud.log`. The HUD has its own native
+window and owner, remains readable with the Inspector/Hierarchy hidden, and
+does not alter viewport bounds. Its capture and measured device/CPU/memory
+snapshot are in `/tmp/project-prime-native-map-modes-hud/`; hiding it releases
+sampling and providers. The HUD capture renders the actual owned Avalonia
+window separately from GPU viewport captures; it does not claim an OS composite
+screenshot. Document-scoped metrics and released/lost resource cases require
+the next coherent Studio snapshot.
+
+Primitive counters describe CPU-visible triangles/lines submitted in the main
+pass, including the native fullscreen overlay triangle. They exclude shadow
+passes and do not count the final depth-tested visible pixels. Batch counts are
+actual draw submissions/material parts.
+
+The current retained renderer's 34-check gate includes a separate 1,024-object,
+2560×1440 offscreen target workload on Metal/Apple M4 Pro. Renderer CPU submission
+is median 7.829 ms, p95 12.5427 ms and maximum 19.7572 ms, recorded in
+`/tmp/project-prime-studio-render-evidence/dense-1440p.json`. Its normal readback
+remains zero; GPU time is unmeasured. This offscreen component test does not
+include native window presentation or canonical CPU overlay rasterization and
+does not establish end-to-end 1440p FPS.
+
+Standalone Replay94 is a headless canonical simulation gate, recorded in
+`/tmp/project-prime-host-replay-current.log`. The earlier native Replay snapshot
+failed with an invalid uniform location; the M5 default HUD check then failed
+its positive health/reticle-region pixel assertion. Those failures remain
+recorded in `/tmp/project-prime-host-native-replay.log` and
+`/tmp/project-prime-host-native-replay-m5.log`. A reduced native worker diagnostic
+passes 113 checks in `/tmp/project-prime-host-native-replay-m5-workers.log`,
+including actual MP4 encoding and document/whole-window closure. Its explicit
+Game HUD, four-view and clip omissions do not certify those default paths.
+The repaired full default native gate now passes 139 checks in
+`/tmp/project-prime-host-native-replay-cancel-fixed.log`, with GPU captures and
+clock/encoder evidence in `/tmp/project-prime-native-replay-cancel-fixed-evidence/`.
+It verifies positive default HUD health/reticle pixels, a second player POV,
+four camera views sharing one clock at two rates, read-only timer flags,
+nonzero-frame retry preserving all three semantic hashes and a continuing clip
+viewport after Save As. Native PNG/MP4 workers, positive PCM, actual FFprobe,
+explicit cancellation, document closure, whole-window closure,
+source rename and installation ownership also pass. The critical repair binds
+the scene shader before camera uniforms, composes the private replica's HUD
+without advancing gameplay and coordinates native generations and the single
+workspace clock. These results do not certify later v5 camera persistence,
+exact source binding, final cache-retention or stale-fourth-view cleanup cases.
+The replay owner repaired repeated `.ppclip`
+materialization through unique temporary extraction and retained immutable
+snapshots; reopen/retry/two-session tests must prove that change. Evidence now
+uses the retained source hash, avoiding a full source-file hash on the UI thread,
+and validates nested comparison DTOs before adoption. A further review found
+that Save As clips still reference the mutable logical source instead of the
+prepared immutable recording; source-replacement acceptance remains pending.
+The immutable recording snapshots and historical runtime directories require
+bounded age/byte retention with active session/export owners excluded. Shared
+cache pins and age/byte pruning primitives have been added; session adoption,
+queued/detached export handoff and independent-process eviction fixtures remain
+pending. Export's actual cache pin/prune and deep-descriptor fixtures now pass
+within the 1,130-check component suite in `/tmp/project-prime-export-retention.log`.
+Its contention fixture holds the real owner gate while UI job submission returns
+within 500 ms and queued cancellation interrupts within two seconds before a
+worker launches. Preparation-only cache locks do not establish session lifetime.
+These remain pending gates. Native game/editor integration now passes 118 checks
+in `/tmp/project-prime-host-native-game-expanded.log`, extending the earlier
+empty-Studio lifecycle check with real dirty canonical Map state/history/
+selection/layout retention, live-scene publication deferral and exact stop/edit/
+rebuild/restart identities. The five Home startup samples are
+in `/tmp/project-prime-native-startup.json`.
 
 Local output is retained under `artifacts/studio-baseline/fcf311c/`, with a
 `manifest.json` recording artifact SHA-256 and size. It includes suite logs,
@@ -463,6 +585,7 @@ unmeasured items. It marks release acceptance false.
 
 Current additional logs are `/tmp/project-prime-studio-modeling-optimized.log`,
 `/tmp/project-prime-studio-modeling-final.log`,
+`/tmp/project-prime-studio-server-m5-repaired.log`,
 `/tmp/project-prime-studio-server-build.log` and
 `/tmp/project-prime-studio-android-build-final.log`. The Android build produced
 `src/MphRead.Android/bin/Release/net10.0-android36.0/com.projectprime.game-Signed.apk`;

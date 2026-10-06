@@ -172,9 +172,15 @@ public sealed class StudioDocumentHost : IAsyncDisposable
     {
         if (_disposed) return;
         _disposed = true;
+        List<Exception> failures=[];
         foreach (IStudioDocument document in Documents.ToArray())
-        { if (document is IStudioDocumentNotifications notifications) notifications.Changed -= OnDocumentChanged; await document.DisposeAsync(); }
+        {
+            if (document is IStudioDocumentNotifications notifications) notifications.Changed -= OnDocumentChanged;
+            try { await document.DisposeAsync(); }
+            catch(Exception error) { failures.Add(error); }
+        }
         Documents.Clear();
         ActiveDocument = null;
+        if(failures.Count>0)throw new AggregateException("Studio documents failed to dispose cleanly.",failures);
     }
 }

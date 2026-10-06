@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Diagnostics;
 using MphRead.Mods.StudioReplay;
 using ProjectPrime.Studio.Jobs;
 
@@ -30,10 +31,10 @@ public sealed class ReplayExportWorkerCoordinator(StudioJobManager jobs, Func<st
             {
                 var ticket = ReadTicket(path);
                 var state = ReadStatus(ticket);
-                if (state?.State is "Complete" or "Failed" or "Cancelled") continue;
+                if (state?.State is "Complete" or "Failed" or "Cancelled" && !IsRetainedWorkerAlive(state)) continue;
                 pending.Add((path, state == null || state.State == "Queued"));
             }
-            catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException or ArgumentException) { }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or JsonException or UnauthorizedAccessException or ArgumentException) { }
         }
         // Existing children reserve their slots synchronously before any queued
         // work is submitted. A fast restart must not add two new children beside
@@ -48,30 +49,45 @@ public sealed class ReplayExportWorkerCoordinator(StudioJobManager jobs, Func<st
     {
         var ticket = ReadTicket(path);
         bool reserved;
+        IDisposable? references = null;
         lock (_gate)
         {
             if (_detaching) return Task.CompletedTask;
             if (!_observed.Add(ticket.Id)) return Task.CompletedTask;
             reserved = !launch && _slots.Wait(0);
         }
-        return jobs.RunAsync("Replay export " + Path.GetFileName(ticket.Request.OutputName), async (progress, cancellation) =>
+        int slotHeld = reserved ? 1 : 0;
+        Task observation = jobs.RunAsync("Replay export " + Path.GetFileName(ticket.Request.OutputName), async (progress, cancellation) =>
         {
-            using var wait = CancellationTokenSource.CreateLinkedTokenSource(cancellation, _observationStop.Token);
+            using var persistedCancellation = new CancellationTokenSource();
+            using var cancelSignal = new Timer(_ =>
+            {
+                if (File.Exists(ticket.CancelFile))
+                    try { persistedCancellation.Cancel(); } catch (ObjectDisposedException) { }
+            }, null, 0, 100);
+            using var wait = CancellationTokenSource.CreateLinkedTokenSource(cancellation, _observationStop.Token, persistedCancellation.Token);
+            using var cancel = cancellation.Register(() =>
+            {
+                try { File.WriteAllText(ticket.CancelFile, "cancel"); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+            });
             bool acquired = reserved;
             try
             {
                 if (launch) WriteStatus(ticket, new(ticket.Id, "Queued", 0, 0, null, ticket.Request.Directory));
                 progress.Report(new(0, launch ? "Queued · waiting for an export slot" : "Observing existing export worker"));
-                if (!acquired) { await _slots.WaitAsync(wait.Token).ConfigureAwait(false); acquired = true; }
+                if (File.Exists(ticket.CancelFile)) persistedCancellation.Cancel();
+                CancellationToken acquisition = launch ? wait.Token : _observationStop.Token;
+                acquisition.ThrowIfCancellationRequested();
+                var retained = ReadStatus(ticket);
+                if (retained?.OriginCaptured != true && retained?.State is not ("Complete" or "Failed" or "Cancelled"))
+                    references = StudioReplayCachePins.PinReferences(ticket, acquisition);
+                if (!acquired) { await _slots.WaitAsync(acquisition).ConfigureAwait(false); acquired = true; Interlocked.Exchange(ref slotHeld, 1); }
                 if (_observationStop.IsCancellationRequested) return true;
                 Task? child = null;
-                using var cancel = cancellation.Register(() =>
-                {
-                    try { File.WriteAllText(ticket.CancelFile, "cancel"); } catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-                });
                 if (launch)
                 {
-                    cancellation.ThrowIfCancellationRequested();
+                    if (File.Exists(ticket.CancelFile)) persistedCancellation.Cancel();
+                    wait.Token.ThrowIfCancellationRequested();
                     WriteStatus(ticket, new(ticket.Id, "Worker starting", 0, 0, null, ticket.Request.Directory));
                     child = launchWorker(path);
                     _ = child.ContinueWith(t => _ = t.Exception, CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
@@ -80,11 +96,13 @@ public sealed class ReplayExportWorkerCoordinator(StudioJobManager jobs, Func<st
                 {
                     if (_observationStop.IsCancellationRequested) return true;
                     var status = ReadStatus(ticket);
+                    if (status?.OriginCaptured == true) references?.Dispose();
                     progress.Report(new(status is { TotalFrames: > 0 } ? status.Frames / (double)status.TotalFrames : 0,
                         status == null ? "Waiting for worker status" : status.State + $" · {status.Frames}/{status.TotalFrames} frames"));
                     if (status?.State is "Complete" or "Cancelled" or "Failed")
                     {
                         if (child != null) await child.ConfigureAwait(false);
+                        else await WaitForRetainedWorkerExitAsync(status).ConfigureAwait(false);
                         if (status.State == "Failed") throw new IOException(status.Error ?? "Replay export failed.");
                         if (status.State == "Cancelled") throw new OperationCanceledException(cancellation);
                         return true;
@@ -102,19 +120,56 @@ public sealed class ReplayExportWorkerCoordinator(StudioJobManager jobs, Func<st
                 }
             }
             catch (OperationCanceledException) when (_observationStop.IsCancellationRequested) { return true; }
-            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
-            { if (!acquired) WriteStatus(ticket, new(ticket.Id, "Cancelled", 0, 0, null, ticket.Request.Directory)); throw; }
+            catch (OperationCanceledException)
+            {
+                if (ReadStatus(ticket)?.State != "Cancelled")
+                    WriteStatus(ticket, new(ticket.Id, "Cancelled", 0, 0, null, ticket.Request.Directory));
+                throw;
+            }
             catch (Exception ex)
             { WriteStatus(ticket, new(ticket.Id, "Failed", 0, 0, ex.Message, ticket.Request.Directory)); throw; }
-            finally { if (acquired) _slots.Release(); }
+            finally { if (Interlocked.Exchange(ref slotHeld, 0) == 1) _slots.Release(); }
         }, continueOnShutdown: true);
+        return ReleaseReferencesAsync();
+        async Task ReleaseReferencesAsync()
+        {
+            try { await observation.ConfigureAwait(false); }
+            finally
+            {
+                references?.Dispose();
+                if (Interlocked.Exchange(ref slotHeld, 0) == 1) _slots.Release();
+            }
+        }
+    }
+    private async Task WaitForRetainedWorkerExitAsync(StudioReplayExportStatus status)
+    {
+        if (status is not { WorkerProcessId: { } id, WorkerStartUtcTicks: { } start }) return;
+        try
+        {
+            using var process = Process.GetProcessById(id);
+            if (process.StartTime.ToUniversalTime().Ticks == start)
+                await process.WaitForExitAsync(_observationStop.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { }
+    }
+    private static bool IsRetainedWorkerAlive(StudioReplayExportStatus status)
+    {
+        if (status is not { WorkerProcessId: { } id, WorkerStartUtcTicks: { } start }) return false;
+        try
+        {
+            using var process = Process.GetProcessById(id);
+            return !process.HasExited && process.StartTime.ToUniversalTime().Ticks == start;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { return false; }
     }
     private static StudioReplayExportTicket ReadTicket(string path)
     {
         using var input = File.OpenRead(path);
         if (input.Length > 1024 * 1024) throw new InvalidDataException("Export ticket exceeds its size limit.");
-        return JsonSerializer.Deserialize<StudioReplayExportTicket>(input, new JsonSerializerOptions { IncludeFields = true })
+        var ticket = JsonSerializer.Deserialize<StudioReplayExportTicket>(input, new JsonSerializerOptions { IncludeFields = true })
             ?? throw new InvalidDataException("Export ticket is empty.");
+        StudioReplayCachePins.ValidateTicket(ticket);
+        return ticket;
     }
     private static StudioReplayExportStatus? ReadStatus(StudioReplayExportTicket ticket)
     {
