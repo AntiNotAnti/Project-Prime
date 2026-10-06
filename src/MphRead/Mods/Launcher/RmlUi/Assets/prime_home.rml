@@ -212,7 +212,7 @@
                             <div class="social_context_name">{{selected_name}}</div>
                             <div class="social_context_id">{{selected_prime_id}}</div>
                         </div>
-                        <button class="social_icon_button" data-event-click="social_context_close">×</button>
+                        <button id="social_context_close" class="social_icon_button" data-event-click="social_context_close">×</button>
                     </div>
                     <div class="social_context_state">{{selected_activity}}<span data-if="selected_detail != ''"> // {{selected_detail}}</span></div>
                     <div class="social_context_actions">
