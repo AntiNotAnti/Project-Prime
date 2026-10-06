@@ -87,12 +87,19 @@ echo "checking the dedicated server in $DIR"
 
 $BIN -masterserver -port "$MASTER_PORT" >"$WORK/master.log" 2>&1 &
 MASTER_PID=$!
-$BIN -server -port "$SERVER_PORT" -players 8 \
-     -servername "CI smoke test" \
-     -server_replays=true -server_replay_storage_gb=7 \
-     -server_replay_retention_days=3 -server_replay_keep_last=9 \
-     -master 127.0.0.1 -masterport "$MASTER_PORT" \
-     -rotation "$(topath "$WORK/maprotation.txt")" >"$WORK/server.log" 2>&1 &
+SERVER_EXIT_MARKER="$WORK/server.exit"
+(
+  $BIN -server -port "$SERVER_PORT" -players 8 \
+       -servername "CI smoke test" \
+       -server_replays=true -server_replay_storage_gb=7 \
+       -server_replay_retention_days=3 -server_replay_keep_last=9 \
+       -master 127.0.0.1 -masterport "$MASTER_PORT" \
+       -rotation "$(topath "$WORK/maprotation.txt")" >"$WORK/server.log" 2>&1
+  status=$?
+  printf '%s\n' "$status" >"$SERVER_EXIT_MARKER.tmp"
+  mv "$SERVER_EXIT_MARKER.tmp" "$SERVER_EXIT_MARKER"
+  exit "$status"
+) &
 SERVER_PID=$!
 
 # The directory binds before it logs. The server binds before it checks whether
@@ -118,10 +125,21 @@ grep -q "Put the game files on this machine and paths.txt beside the binary" "$W
   && pass "the refusal tells an operator how to fix the installation" \
   || fail "the refusal did not tell an operator how to fix the installation"
 
-if kill -0 "$SERVER_PID" 2>/dev/null; then
+# kill -0 is not a reliable "still running" test for a child that has
+# already exited but has not been reaped yet: Unix keeps such a process entry
+# around as a zombie until wait(2). The dedicated-server apphost can exit fast
+# enough to hit that race. Have the child publish an atomic exit marker, allow
+# a short grace period, then use wait as the authoritative status check.
+for _ in $(seq 1 50); do
+  [ -f "$SERVER_EXIT_MARKER" ] && break
+  sleep 0.1
+done
+
+if [ ! -f "$SERVER_EXIT_MARKER" ]; then
   fail "the server stayed up without the game files"
   kill "$SERVER_PID" 2>/dev/null || true
 fi
+
 wait "$SERVER_PID"
 SERVER_STATUS=$?
 [ "$SERVER_STATUS" -eq 1 ] \
