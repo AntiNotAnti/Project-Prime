@@ -5,6 +5,23 @@
 -- by the client until it is independently matched against the live public
 -- directory and the server's authoritative epoch.
 
+create table if not exists prime.social_lobby_memberships (
+    player_id uuid not null references prime.social_profiles(player_id) on delete cascade,
+    authority_epoch numeric(20,0) not null,
+    reporter_id uuid not null,
+    client_id bigint not null,
+    updated_at timestamptz not null default now(),
+    expires_at timestamptz not null,
+    primary key (player_id, authority_epoch, reporter_id),
+    constraint social_lobby_memberships_epoch check (authority_epoch > 0),
+    constraint social_lobby_memberships_client check (client_id between 1 and 4294967295)
+);
+
+create index if not exists social_lobby_memberships_expiry_idx
+    on prime.social_lobby_memberships (expires_at);
+create index if not exists social_lobby_memberships_actor_epoch_idx
+    on prime.social_lobby_memberships (player_id, authority_epoch, expires_at desc);
+
 create table if not exists prime.social_lobbies (
     lobby_id uuid primary key default gen_random_uuid(),
     owner_id uuid not null references prime.social_profiles(player_id) on delete cascade,
@@ -104,6 +121,14 @@ begin
         select 1 from prime.social_profiles where player_id = p_actor
     ) then
         return jsonb_build_object('ok', false, 'status', 'profile_required');
+    end if;
+    if not exists (
+        select 1 from prime.social_lobby_memberships m
+        where m.player_id = p_actor
+          and m.authority_epoch = p_authority_epoch
+          and m.expires_at > now()
+    ) then
+        return jsonb_build_object('ok', false, 'status', 'membership_unverified');
     end if;
     if family(p_host) <> 4
        or p_host <<= inet '0.0.0.0/8'
@@ -833,9 +858,11 @@ create trigger project_prime_social_block_invite_cleanup
 after insert on prime.player_blocks
 for each row execute function prime.social_block_invite_cleanup();
 
+alter table prime.social_lobby_memberships enable row level security;
 alter table prime.social_lobbies enable row level security;
 alter table prime.game_invites enable row level security;
 
+revoke all on table prime.social_lobby_memberships from public, anon, authenticated;
 revoke all on table prime.social_lobbies from public, anon, authenticated;
 revoke all on table prime.game_invites from public, anon, authenticated;
 
