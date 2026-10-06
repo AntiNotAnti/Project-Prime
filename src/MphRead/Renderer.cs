@@ -8954,10 +8954,10 @@ localCenter *= _profileHudScale;
         }
 
         /// <summary>
-        /// Apply exactly one presentation clock. Display mode and an explicit
-        /// cap matching the active monitor use the monitor/compositor clock.
-        /// Other numeric caps use OpenTK only when presentation is genuinely
-        /// non-blocking. Linux additionally detects drivers that ignore swap
+        /// Apply exactly one presentation clock. Display mode uses the
+        /// monitor/compositor clock. Every numeric cap remains an explicit
+        /// software deadline when presentation can run non-blocking, even if
+        /// the cap equals the monitor refresh. Linux additionally detects drivers that ignore swap
         /// interval and latches a software display-rate fallback.
         /// </summary>
         private void ApplyFrameRateSettings()
