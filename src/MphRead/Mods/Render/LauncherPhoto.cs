@@ -75,6 +75,7 @@ namespace MphRead.Mods.Render
         private static int _width;
         private static int _height;
         private static string _loadedKey = "";
+        private static string _lastAttemptKey = "";
         private static long _lastAttemptAt;
 
         /// <summary>
@@ -351,6 +352,7 @@ namespace MphRead.Mods.Render
                 _texture = 0;
             }
             _loadedKey = "";
+            _lastAttemptKey = "";
             _width = _height = 0;
             _lastAttemptAt = 0;
         }
@@ -360,52 +362,49 @@ namespace MphRead.Mods.Render
             string key = LauncherBackdrop.CacheKey;
             bool same = String.Equals(_loadedKey, key, StringComparison.Ordinal);
             if (same && _texture != 0)
-            {
                 return true;
-            }
 
             long now = Environment.TickCount64;
-            if (same && now - _lastAttemptAt < 1000)
-            {
-                return false;
-            }
+            if (String.Equals(_lastAttemptKey, key, StringComparison.Ordinal)
+                && now - _lastAttemptAt < 1000)
+                return _texture != 0;
 
-            _loadedKey = key;
+            _lastAttemptKey = key;
             _lastAttemptAt = now;
-            if (_texture != 0) GL.DeleteTexture(_texture);
-            _texture = 0;
-            _width = _height = 0;
 
             string room = LauncherBackdrop.RoomKey;
             if (room.Length == 0)
             {
                 Mods.DebugLog.Line("ui",
                     $"cinematic backdrop {LauncherBackdrop.Scene}: graded field");
-                return false;
+                return _texture != 0;
             }
 
+            int candidate = 0;
             try
             {
                 string path = MphRead.Mods.ThumbnailGenerator.PathFor(room);
                 if (!File.Exists(path))
                 {
+                    // Activity changes are allowed to point at a room whose
+                    // authored stage is still being regenerated. Keep the old
+                    // stage visible instead of flashing the window to black.
                     Mods.DebugLog.Line("ui",
-                        $"cinematic backdrop has no thumbnail for {room}");
-                    return false;
+                        $"cinematic backdrop waiting for menu-stage capture {room}");
+                    return _texture != 0;
                 }
 
                 using Stream stream = File.OpenRead(path);
                 using StbImage image = StbImage.Load(stream, StbiImageFormat.Rgba);
-                _width = image.Width;
-                _height = image.Height;
-                if (_width <= 0 || _height <= 0 || image.ImagePointer == IntPtr.Zero)
-                {
-                    return false;
-                }
+                int candidateWidth = image.Width;
+                int candidateHeight = image.Height;
+                if (candidateWidth <= 0 || candidateHeight <= 0
+                    || image.ImagePointer == IntPtr.Zero)
+                    return _texture != 0;
 
                 GL.ActiveTexture(TextureUnit.Texture0);
-                _texture = GL.GenTexture();
-                GL.BindTexture(TextureTarget.Texture2D, _texture);
+                candidate = GL.GenTexture();
+                GL.BindTexture(TextureTarget.Texture2D, candidate);
                 GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
                 GL.PixelStore(PixelStoreParameter.UnpackRowLength, 0);
                 GL.PixelStore(PixelStoreParameter.UnpackSkipPixels, 0);
@@ -415,46 +414,54 @@ namespace MphRead.Mods.Render
                 GL.PixelStore(PixelStoreParameter.UnpackSwapBytes, 0);
                 GL.PixelStore(PixelStoreParameter.UnpackLsbFirst, 0);
                 GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
-                    _width, _height, 0, PixelFormat.Rgba, PixelType.UnsignedByte,
-                    image.ImagePointer);
+                    candidateWidth, candidateHeight, 0, PixelFormat.Rgba,
+                    PixelType.UnsignedByte, image.ImagePointer);
 
                 ErrorCode uploaded = GL.GetError();
                 if (uploaded != ErrorCode.NoError)
-                {
                     Mods.DebugLog.Line("ui",
                         $"cinematic backdrop upload said {uploaded}");
-                }
 
                 GL.TexParameter(TextureTarget.Texture2D,
                     TextureParameterName.TextureBaseLevel, 0);
                 GL.TexParameter(TextureTarget.Texture2D,
                     TextureParameterName.TextureMaxLevel, 0);
                 GL.TexParameter(TextureTarget.Texture2D,
-                    TextureParameterName.TextureMinFilter,
-                    (int)TextureMinFilter.Linear);
+                    TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
                 GL.TexParameter(TextureTarget.Texture2D,
-                    TextureParameterName.TextureMagFilter,
-                    (int)TextureMagFilter.Linear);
+                    TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
                 GL.TexParameter(TextureTarget.Texture2D,
-                    TextureParameterName.TextureWrapS,
-                    (int)TextureWrapMode.ClampToEdge);
+                    TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
                 GL.TexParameter(TextureTarget.Texture2D,
-                    TextureParameterName.TextureWrapT,
-                    (int)TextureWrapMode.ClampToEdge);
+                    TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
                 GL.BindTexture(TextureTarget.Texture2D, 0);
 
+                int previous = _texture;
+                _texture = candidate;
+                candidate = 0;
+                _width = candidateWidth;
+                _height = candidateHeight;
+                _loadedKey = key;
+                if (previous != 0) GL.DeleteTexture(previous);
+
                 Mods.DebugLog.Line("ui",
-                    $"cinematic backdrop {LauncherBackdrop.Scene}: {room} "
-                    + $"{_width}x{_height}");
+                    $"cinematic menu stage {LauncherBackdrop.Scene}: {room} "
+                    + $"{_width}x{_height} profile={LauncherMenuStage.Current.Name}");
                 return true;
             }
             catch (Exception ex)
             {
-                if (_texture != 0) GL.DeleteTexture(_texture);
-                _texture = 0;
                 Mods.DebugLog.Line("ui",
                     $"cinematic backdrop could not load {room}: {ex.Message}");
-                return false;
+                return _texture != 0;
+            }
+            finally
+            {
+                if (candidate != 0)
+                {
+                    try { GL.DeleteTexture(candidate); }
+                    catch { }
+                }
             }
         }
     }
