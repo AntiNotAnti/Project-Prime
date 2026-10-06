@@ -1,0 +1,146 @@
+{
+  "format": 1,
+  "hunter": "Sylux",
+  "part": "alternateForm",
+  "skinning": "rigidNodes",
+  "sourceRelative": "models/sylux/sylux_b.glb",
+  "sourceSha256": "15407e2041eb6266cc52a96b590c67fdae11e4e4b05006e3d9303c2b18f07629",
+  "sourceMeshes": [
+    "MPH/Sylux_B.mdl_Body_Sylux_Lockjaw.smd_MESH"
+  ],
+  "expectedTriangles": 34828,
+  "nativeKit": "artifacts/sourceio-hd/material-weapon-review-v2/sylux/biped/kit",
+  "sourceMaterialRoot": "/Users/jarrett/Downloads/mph/gmpublisher/materials",
+  "sourceDecodedTextureRoot": "/Users/jarrett/Downloads/mph/converted-sourceio/decoded-vtf",
+  "sourceMaterialMaxDimension": 1024,
+  "reuseSingleMaterialTextures": true,
+  "compactPeriodicUVs": true,
+  "powerOfTwoAtlases": false,
+  "preserveSourceNormals": true,
+  "preserveSourceMaterialAlpha": true,
+  "recolorModelRelative": "sylux/altform.glb",
+  "sourceToNativeGame": [
+    [
+      -1.0176474331870955,
+      0.0,
+      0.0,
+      0.035909672143534806
+    ],
+    [
+      0.0,
+      1.0176474331870955,
+      0.0,
+      -0.46303695762891933
+    ],
+    [
+      0.0,
+      0.0,
+      -1.0176474331870955,
+      0.10200704486140774
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "yawDegrees": 180,
+  "fitAnchorGame": [
+    0.03528694808483124,
+    0.45500724762678146,
+    0.10023809969425201
+  ],
+  "fitStatus": "Candidate native-scale/root conversion; independent native-surface sampler proof and runtime capture acceptance required",
+  "nativeSupplementMaterials": [
+    "blinn2"
+  ],
+  "externalNativeSupplementMaterials": [
+    "WaveBeam_tga"
+  ],
+  "sourceTriangleStateVisibility": "Native node enablement and material alpha remain authoritative",
+  "materialMap": {
+    "Sylux_Body1": "SyluxShaded",
+    "Metal": "SyluxShaded",
+    "Sylux_Glow": "SyluxLit"
+  },
+  "materialCopies": {
+    "Ball": "SyluxLit"
+  },
+  "componentSeeds": [
+    {
+      "object": "Sylux_Lockjaw.smd",
+      "id": "lower-shell",
+      "triangles": 7300,
+      "centerGame": [
+        0.008816667464693768,
+        0.3006641107357619,
+        0.07002795185192433
+      ],
+      "centerTolerance": 1e-05,
+      "node": "LowerArm"
+    },
+    {
+      "object": "Sylux_Lockjaw.smd",
+      "id": "upper-shell",
+      "triangles": 7300,
+      "centerGame": [
+        0.04481007161639033,
+        0.6169545527958077,
+        0.07839698912114494
+      ],
+      "centerTolerance": 1e-05,
+      "node": "UpperArm"
+    },
+    {
+      "object": "Sylux_Lockjaw.smd",
+      "id": "central-sphere",
+      "triangles": 480,
+      "centerGame": [
+        0.03460987691651098,
+        0.4467404480163868,
+        0.09921368752346517
+      ],
+      "centerTolerance": 1e-05,
+      "node": "BallSpinner"
+    }
+  ],
+  "partitions": [
+    {
+      "object": "Sylux_Lockjaw.smd",
+      "method": "wholeComponentsNearestSourceSeed",
+      "seeds": [
+        "lower-shell",
+        "upper-shell"
+      ],
+      "nativeMaterialByNode": {
+        "BallSpinner": "Ball"
+      },
+      "minimumDistanceMargin": 1e-05
+    }
+  ],
+  "reverseWindingNodes": [
+    "BallSpinner"
+  ],
+  "reverseWindingReason": "Native Ball culls front faces; reverse only Source sphere index order while retaining authored outward normals so the exterior remains visible.",
+  "fitAudit": {
+    "sourceObjects": [
+      "Sylux_Lockjaw.smd"
+    ],
+    "nativeMaterials": [
+      "Ball",
+      "SyluxLit",
+      "SyluxShaded"
+    ]
+  },
+  "teamRecolorMaterials": [
+    "SyluxShaded"
+  ],
+  "stateChecks": [
+    "Two complete Source arm branches independently follow native parent wobble",
+    "BallSpinner spins independently; complete central sphere exterior visible",
+    "Native Sphere billboard node SyluxAltGlow retained",
+    "Exact native WaveBeam bridging geometry is submitted as an external native supplement",
+    "Elbow/tip local animation channels remain constant in native sole Idle animation"
+  ]
+}

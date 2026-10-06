@@ -1,0 +1,81 @@
+{
+  "format": 1,
+  "hunter": "Kanden",
+  "part": "alternateForm",
+  "skinning": "weighted4",
+  "sourceRelative": "models/kanden/kanden_b.glb",
+  "sourceSha256": "33280826b300965fa9081d780c3f578b0a8283c44bebf063d6d97ca7fc9548ac",
+  "sourceMeshes": [
+    "MPH/Kanden_B.mdl_Body_Stinglarva.smd_MESH"
+  ],
+  "bodygroups": [
+    "Stinglarva.smd"
+  ],
+  "expectedSourceBones": 6,
+  "expectedTriangles": 23282,
+  "nativeKit": "artifacts/sourceio-hd/material-weapon-review-v2/kanden/biped/kit",
+  "sourceMaterialRoot": "/Users/jarrett/Downloads/mph/gmpublisher/materials",
+  "sourceDecodedTextureRoot": "/Users/jarrett/Downloads/mph/converted-sourceio/decoded-vtf",
+  "sourceMaterialMaxDimension": 1024,
+  "reuseSingleMaterialTextures": true,
+  "compactPeriodicUVs": true,
+  "powerOfTwoAtlases": false,
+  "preserveSourceNormals": true,
+  "preserveSourceMaterialAlpha": true,
+  "recolorModelRelative": "kanden/altform_weighted4.glb",
+  "rootSource": "ValveBiped.Bip01_Head1",
+  "rootNative": "joint1",
+  "yawDegrees": 180,
+  "boneMap": {
+    "ValveBiped.Bip01_Head1": "joint1",
+    "ValveBiped.Bip01_Neck1": "joint2",
+    "ValveBiped.Bip01_Pelvis": "joint3",
+    "ValveBiped.Bip01_Spine": "joint4",
+    "ValveBiped.Bip01_Spine1": "joint5",
+    "Tail": "joint5"
+  },
+  "fit": {
+    "joint1": {
+      "anchor": "ValveBiped.Bip01_Head1",
+      "endSource": "ValveBiped.Bip01_Neck1",
+      "endNative": "joint2"
+    },
+    "joint2": {
+      "anchor": "ValveBiped.Bip01_Neck1",
+      "endSource": "ValveBiped.Bip01_Pelvis",
+      "endNative": "joint3"
+    },
+    "joint3": {
+      "anchor": "ValveBiped.Bip01_Pelvis",
+      "endSource": "ValveBiped.Bip01_Spine",
+      "endNative": "joint4"
+    },
+    "joint4": {
+      "anchor": "ValveBiped.Bip01_Spine",
+      "endSource": "ValveBiped.Bip01_Spine1",
+      "endNative": "joint5"
+    },
+    "joint5": {
+      "anchor": "ValveBiped.Bip01_Spine1",
+      "orientFrom": "ValveBiped.Bip01_Spine",
+      "orientNative": "joint4"
+    }
+  },
+  "materialMap": {
+    "Kanden_Body1": "main_body",
+    "Kanden_Body2": "main_body",
+    "Kanden_Eyes": "Alt_Decal01",
+    "Kanden_Light": "Lightning"
+  },
+  "nativeFitMaterials": [
+    "main_body",
+    "tail_mat"
+  ],
+  "nativeSupplementMaterials": [],
+  "teamRecolorMaterials": [
+    "main_body"
+  ],
+  "excludedMeshesContaining": [
+    "Larva Bomb"
+  ]
+}

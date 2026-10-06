@@ -1,0 +1,145 @@
+{
+  "format": 1,
+  "hunter": "Weavel",
+  "part": "alternateForm",
+  "skinning": "weighted4",
+  "sourceRelative": "models/weavel/weavel_b.glb",
+  "sourceSha256": "2c41460042b5f4c5e234f4eb2a7201f7f105ca84f33373f4ee5f987b87b81855",
+  "sourceMeshes": [
+    "MPH/Weavel_B.mdl_Body_Halfturret.smd_MESH",
+    "MPH/Weavel_B.mdl_Scythe_Scythe.smd_MESH"
+  ],
+  "bodygroups": [
+    "Halfturret.smd",
+    "Scythe.smd.001"
+  ],
+  "expectedSourceBones": 19,
+  "expectedTriangles": 13854,
+  "nativeKit": "artifacts/sourceio-hd/material-weapon-review-v2/weavel/biped/kit",
+  "sourceMaterialRoot": "/Users/jarrett/Downloads/mph/gmpublisher/materials",
+  "sourceDecodedTextureRoot": "/Users/jarrett/Downloads/mph/converted-sourceio/decoded-vtf",
+  "sourceMaterialMaxDimension": 1024,
+  "reuseSingleMaterialTextures": true,
+  "compactPeriodicUVs": true,
+  "powerOfTwoAtlases": false,
+  "preserveSourceNormals": true,
+  "preserveSourceMaterialAlpha": true,
+  "recolorModelRelative": "weavel/altform_weighted4.glb",
+  "rootSource": "ValveBiped.Bip01_Pelvis",
+  "rootNative": "Root",
+  "yawDegrees": 0,
+  "globalAnchor": "floor",
+  "sourceFitBodygroups": [
+    "Halfturret.smd"
+  ],
+  "boneMap": {
+    "ValveBiped.Bip01_Pelvis": "Root",
+    "ValveBiped.Bip01_L_UpperArm": "L_ShoulderPad",
+    "ValveBiped.Bip01_L_Forearm": "L_Elbow",
+    "bip_hand_L": "L_Wrist",
+    "bip_index_0_L": "L_Wrist",
+    "bip_index_1_L": "L_Wrist",
+    "bip_ring_0_L": "L_Wrist",
+    "bip_ring_1_L": "L_Wrist",
+    "bip_thumb_0_L": "L_Wrist",
+    "bip_thumb_1_L": "L_Wrist",
+    "ValveBiped.Bip01_R_UpperArm": "R_ShoulderPad",
+    "ValveBiped.Bip01_R_Forearm": "R_Elbow",
+    "bip_hand_R": "R_Wrist",
+    "bip_index_0_R": "R_Wrist",
+    "bip_index_1_R": "R_Wrist",
+    "bip_ring_0_R": "R_Wrist",
+    "bip_ring_1_R": "R_Wrist",
+    "bip_thumb_0_R": "R_Wrist",
+    "bip_thumb_1_R": "R_Wrist"
+  },
+  "fit": {
+    "Root": {
+      "anchor": "ValveBiped.Bip01_Pelvis",
+      "preserveSourceShape": true
+    },
+    "Neck_Mid": {
+      "sourcePoint": [
+        -0.01646,
+        -0.23838,
+        0.38481
+      ],
+      "preserveSourceShape": true
+    },
+    "L_ShoulderPad": {
+      "anchor": "ValveBiped.Bip01_L_UpperArm",
+      "endSource": "ValveBiped.Bip01_L_Forearm",
+      "endNative": "L_Elbow"
+    },
+    "L_Elbow": {
+      "anchor": "ValveBiped.Bip01_L_Forearm",
+      "endSource": "bip_hand_L",
+      "endNative": "L_Wrist"
+    },
+    "L_Wrist": {
+      "anchor": "bip_hand_L",
+      "orientFrom": "ValveBiped.Bip01_L_Forearm",
+      "orientNative": "L_Elbow"
+    },
+    "R_ShoulderPad": {
+      "anchor": "ValveBiped.Bip01_R_UpperArm",
+      "endSource": "ValveBiped.Bip01_R_Forearm",
+      "endNative": "R_Elbow"
+    },
+    "R_Elbow": {
+      "anchor": "ValveBiped.Bip01_R_Forearm",
+      "endSource": "bip_hand_R",
+      "endNative": "R_Wrist"
+    },
+    "R_Wrist": {
+      "anchor": "bip_hand_R",
+      "orientFrom": "ValveBiped.Bip01_R_Forearm",
+      "orientNative": "R_Elbow"
+    }
+  },
+  "materialMap": {
+    "Weavel_Body": "WeavelLeg",
+    "Weavel_Light": "WeavelLegLit",
+    "Weavel_Hair": "WeavelLeg"
+  },
+  "nativeFitMaterials": [
+    "WeavelLeg",
+    "WeavelLegLit"
+  ],
+  "nativeSupplementMaterials": [],
+  "teamRecolorMaterials": [
+    "WeavelLeg"
+  ],
+  "geometryOverrides": [
+    {
+      "object": "Scythe.smd.001",
+      "sourceMaterial": "Weavel_Body",
+      "nativeBone": "Neck_Mid"
+    },
+    {
+      "object": "Halfturret.smd",
+      "sourceMaterial": "Weavel_Hair",
+      "nativeBone": "Neck_Mid"
+    },
+    {
+      "object": "Halfturret.smd",
+      "component": {
+        "triangles": 1571,
+        "centerGame": [
+          -0.01742957640940958,
+          0.4520969945846534,
+          0.21309936561326429
+        ],
+        "centerTolerance": 1e-05
+      },
+      "nativeBone": "Neck_Mid"
+    }
+  ],
+  "materialOverrides": [
+    {
+      "object": "Scythe.smd.001",
+      "sourceMaterial": "Weavel_Light",
+      "nativeMaterial": "Weavel_Sword_01_tga"
+    }
+  ]
+}

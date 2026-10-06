@@ -194,7 +194,7 @@ namespace MphRead.Mods.Render.Characters
                             {
                                 CharacterWeightedModelData geometry =
                                     CharacterWeightedModelLoader.Load(asset);
-                                ValidateMaterials(native, geometry);
+                                ValidateMaterials(native, geometry, asset);
                                 Console.WriteLine(
                                     $"[charactermodelvalidate] {hunter}/{part}/lod{lod}: "
                                     + $"weighted4, {geometry.Joints.Count} joints, "
@@ -206,7 +206,7 @@ namespace MphRead.Mods.Render.Characters
                             {
                                 CharacterRigidModelData geometry =
                                     CharacterRigidModelLoader.Load(asset);
-                                ValidateMaterials(native, geometry);
+                                ValidateMaterials(native, geometry, asset);
                                 Console.WriteLine(
                                     $"[charactermodelvalidate] {hunter}/{part}/lod{lod}: "
                                     + $"rigid, {geometry.Primitives.Count} primitives, "
@@ -315,7 +315,7 @@ namespace MphRead.Mods.Render.Characters
                 .ToArray();
         }
 
-        private static void ValidateMaterials(Model native, CharacterWeightedModelData geometry)
+        private static void ValidateMaterials(Model native, CharacterWeightedModelData geometry, CharacterModelAsset asset)
         {
             var materialNames = native.Materials.Select(material => material.Name)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -327,12 +327,14 @@ namespace MphRead.Mods.Render.Characters
                         $"Weighted HD material '{primitive.MaterialName ?? "(unnamed)"}' "
                         + $"does not exist in native model {native.Name}.");
                 var material = native.Materials.First(m => m.Name.Equals(primitive.MaterialName, StringComparison.OrdinalIgnoreCase));
+                if (asset.NativeSupplementMaterials.Contains(material.Name))
+                    throw new InvalidDataException($"HD material '{material.Name}' duplicates its explicit native supplement.");
                 if (!CharacterModelRuntime.CanUseAuthoredTexcoords(material.TexgenMode, primitive.Albedo != null))
                     throw new InvalidDataException($"Weighted HD material '{material.Name}' requires generated coordinates without an authored albedo.");
             }
         }
 
-        private static void ValidateMaterials(Model native, CharacterRigidModelData geometry)
+        private static void ValidateMaterials(Model native, CharacterRigidModelData geometry, CharacterModelAsset asset)
         {
             var materialNames = native.Materials.Select(material => material.Name)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -342,6 +344,17 @@ namespace MphRead.Mods.Render.Characters
                     && !materialNames.Contains(primitive.MaterialName))
                     throw new InvalidDataException(
                         $"HD material '{primitive.MaterialName}' does not exist in native model {native.Name}.");
+                Material material;
+                if (!String.IsNullOrWhiteSpace(primitive.MaterialName))
+                    material = native.Materials.First(m => m.Name.Equals(primitive.MaterialName, StringComparison.OrdinalIgnoreCase));
+                else
+                {
+                    Node node = native.GetNodeByName(primitive.TargetNode)!;
+                    if (node.MeshCount <= 0) throw new InvalidDataException($"HD node '{node.Name}' has no native material.");
+                    material = native.Materials[native.Meshes[node.MeshId / 2].MaterialId];
+                }
+                if (asset.NativeSupplementMaterials.Contains(material.Name))
+                    throw new InvalidDataException($"HD material '{material.Name}' duplicates its explicit native supplement.");
             }
         }
 

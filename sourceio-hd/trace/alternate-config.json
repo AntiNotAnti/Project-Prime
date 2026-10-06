@@ -1,0 +1,122 @@
+{
+  "format": 1,
+  "hunter": "Trace",
+  "part": "alternateForm",
+  "skinning": "weighted4",
+  "sourceRelative": "models/trace/trace_b.glb",
+  "sourceSha256": "8a19c72198633d4df172fc83386d3f94cc2c33c25871ac3e94c0ead115371b6a",
+  "sourceMeshes": [
+    "MPH/Trace_B.mdl_Body_Triskelion.smd_MESH"
+  ],
+  "bodygroups": [
+    "Triskelion.smd"
+  ],
+  "expectedSourceBones": 13,
+  "expectedTriangles": 48800,
+  "nativeKit": "artifacts/sourceio-hd/material-weapon-review-v2/trace/biped/kit",
+  "sourceMaterialRoot": "/Users/jarrett/Downloads/mph/gmpublisher/materials",
+  "sourceDecodedTextureRoot": "/Users/jarrett/Downloads/mph/converted-sourceio/decoded-vtf",
+  "sourceMaterialMaxDimension": 1024,
+  "reuseSingleMaterialTextures": true,
+  "compactPeriodicUVs": true,
+  "powerOfTwoAtlases": false,
+  "preserveSourceNormals": true,
+  "preserveSourceMaterialAlpha": true,
+  "recolorModelRelative": "trace/altform_weighted4.glb",
+  "rootSource": "ValveBiped.Bip01_Pelvis",
+  "rootNative": "BodyRoot",
+  "yawDegrees": 0,
+  "globalAnchor": "floor",
+  "boneMap": {
+    "ValveBiped.Bip01_Pelvis": "BodyRoot",
+    "ValveBiped.Bip01_Head1": "Head",
+    "ValveBiped.Bip01_L_UpperArm": "LeftLeg1",
+    "ValveBiped.Bip01_L_Forearm": "LeftLeg2",
+    "ValveBiped.Bip01_L_Hand": "LeftLeg3",
+    "ValveBiped.Bip01_R_UpperArm": "RightLeg1",
+    "ValveBiped.Bip01_R_Forearm": "RightLeg2",
+    "ValveBiped.Bip01_R_Hand": "RightLeg3",
+    "Tail1": "BackLeg1",
+    "Tail2": "BackLeg2",
+    "Tail3": "BackLeg3",
+    "Tail4": "BackLeg4",
+    "Tail5": "BackLeg4"
+  },
+  "fit": {
+    "BodyRoot": {
+      "anchor": "ValveBiped.Bip01_Pelvis",
+      "preserveSourceShape": true
+    },
+    "Head": {
+      "anchor": "ValveBiped.Bip01_Head1",
+      "preserveSourceShape": true
+    },
+    "LeftLeg1": {
+      "anchor": "ValveBiped.Bip01_L_UpperArm",
+      "endSource": "ValveBiped.Bip01_L_Forearm",
+      "endNative": "LeftLeg2"
+    },
+    "LeftLeg2": {
+      "anchor": "ValveBiped.Bip01_L_Forearm",
+      "endSource": "ValveBiped.Bip01_L_Hand",
+      "endNative": "LeftLeg3"
+    },
+    "LeftLeg3": {
+      "anchor": "ValveBiped.Bip01_L_Hand",
+      "orientFrom": "ValveBiped.Bip01_L_Forearm",
+      "orientNative": "LeftLeg2",
+      "groundShape": true
+    },
+    "RightLeg1": {
+      "anchor": "ValveBiped.Bip01_R_UpperArm",
+      "endSource": "ValveBiped.Bip01_R_Forearm",
+      "endNative": "RightLeg2"
+    },
+    "RightLeg2": {
+      "anchor": "ValveBiped.Bip01_R_Forearm",
+      "endSource": "ValveBiped.Bip01_R_Hand",
+      "endNative": "RightLeg3"
+    },
+    "RightLeg3": {
+      "anchor": "ValveBiped.Bip01_R_Hand",
+      "orientFrom": "ValveBiped.Bip01_R_Forearm",
+      "orientNative": "RightLeg2",
+      "groundShape": true
+    },
+    "BackLeg1": {
+      "anchor": "Tail1",
+      "endSource": "Tail2",
+      "endNative": "BackLeg2"
+    },
+    "BackLeg2": {
+      "anchor": "Tail2",
+      "endSource": "Tail3",
+      "endNative": "BackLeg3"
+    },
+    "BackLeg3": {
+      "anchor": "Tail3",
+      "endSource": "Tail4",
+      "endNative": "BackLeg4"
+    },
+    "BackLeg4": {
+      "anchor": "Tail4",
+      "orientFrom": "Tail3",
+      "orientNative": "BackLeg3",
+      "groundShape": true
+    }
+  },
+  "materialMap": {
+    "Trace_Body": "Trace_TGA",
+    "Trace_Black": "Trace_TGA",
+    "Trace_Glow": "pasted_TraceEyeGlow_tga"
+  },
+  "nativeFitMaterials": [
+    "Trace_Lit",
+    "Trace_TGA",
+    "pasted_TraceEyeGlow_tga"
+  ],
+  "nativeSupplementMaterials": [],
+  "teamRecolorMaterials": [
+    "Trace_TGA"
+  ]
+}

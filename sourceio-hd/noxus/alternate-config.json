@@ -1,0 +1,68 @@
+{
+  "format": 1,
+  "hunter": "Noxus",
+  "part": "alternateForm",
+  "skinning": "weighted4",
+  "sourceRelative": "models/noxus/noxus_b.glb",
+  "sourceSha256": "54713314d13588e9c0c05e9543e00f62b911c422a77d7a5b7086431a8341a228",
+  "sourceMeshes": [
+    "MPH/Noxus_B.mdl_Body_Vhoscythe.smd_MESH"
+  ],
+  "bodygroups": [
+    "Vhoscythe.smd"
+  ],
+  "expectedSourceBones": 4,
+  "expectedTriangles": 24691,
+  "nativeKit": "artifacts/sourceio-hd/material-weapon-review-v2/noxus/biped/kit",
+  "sourceMaterialRoot": "/Users/jarrett/Downloads/mph/gmpublisher/materials",
+  "sourceDecodedTextureRoot": "/Users/jarrett/Downloads/mph/converted-sourceio/decoded-vtf",
+  "sourceMaterialMaxDimension": 1024,
+  "reuseSingleMaterialTextures": true,
+  "compactPeriodicUVs": true,
+  "powerOfTwoAtlases": false,
+  "preserveSourceNormals": true,
+  "preserveSourceMaterialAlpha": true,
+  "recolorModelRelative": "noxus/altform_weighted4.glb",
+  "rootSource": "ValveBiped.Bip01_Pelvis",
+  "rootNative": "body_mesh",
+  "yawDegrees": 0,
+  "globalAnchor": "floor",
+  "boneMap": {
+    "ValveBiped.Bip01_Pelvis": "body_mesh",
+    "ValveBiped.Bip01_L_UpperArm": "body_mesh",
+    "ValveBiped.Bip01_L_Forearm": "joint1",
+    "ValveBiped.Bip01_L_Hand": "joint2"
+  },
+  "fit": {
+    "body_mesh": {
+      "anchor": "ValveBiped.Bip01_Pelvis",
+      "preserveSourceShape": true
+    },
+    "joint1": {
+      "anchor": "ValveBiped.Bip01_L_Forearm",
+      "endSource": "ValveBiped.Bip01_L_Hand",
+      "endNative": "joint2"
+    },
+    "joint2": {
+      "anchor": "ValveBiped.Bip01_L_Hand",
+      "orientFrom": "ValveBiped.Bip01_L_Forearm",
+      "orientNative": "joint1"
+    }
+  },
+  "materialMap": {
+    "Noxus_Body1": "body",
+    "Noxus_Body2": "body",
+    "Noxus_Light": "body_Lit"
+  },
+  "nativeFitMaterials": [
+    "body",
+    "body_Lit",
+    "EyeDecal"
+  ],
+  "nativeSupplementMaterials": [
+    "NoxAlt_ArmTracer_tga"
+  ],
+  "teamRecolorMaterials": [
+    "body"
+  ]
+}

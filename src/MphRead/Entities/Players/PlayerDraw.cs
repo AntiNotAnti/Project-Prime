@@ -488,6 +488,9 @@ namespace MphRead.Entities
                     _scene.CosmeticSubmission = previousCosmetic;
                     _scene.CosmeticMaterialSubmission = previousMaterial;
                 }
+                if (weighted.Asset.NativeSupplementMaterials.Count > 0)
+                    GetDrawItems(inst, model.Nodes[0], alpha, weightedPolygonId, recolor,
+                        overrideColor, outlineColor, materialFilter: weighted.Asset.NativeSupplementMaterials);
                 return true;
             }
 
@@ -548,11 +551,15 @@ namespace MphRead.Entities
                 _scene.CosmeticSubmission = previousCosmetic;
                 _scene.CosmeticMaterialSubmission = previousMaterial;
             }
+            if (replacement.Asset.NativeSupplementMaterials.Count > 0)
+                GetDrawItems(inst, model.Nodes[0], alpha, polygonId, recolor,
+                    overrideColor, outlineColor, materialFilter: replacement.Asset.NativeSupplementMaterials);
             return true;
         }
 
         private void GetDrawItems(ModelInstance inst, Node node, float alpha, int polygonId = -1, int recolor = -1,
-            Vector4? overrideColor = null, Vector4? outlineColor = null, bool cosmeticDeath = false)
+            Vector4? overrideColor = null, Vector4? outlineColor = null, bool cosmeticDeath = false,
+            System.Collections.Generic.IReadOnlySet<string>? materialFilter = null)
         {
             if (alpha <= 0)
             {
@@ -574,6 +581,7 @@ namespace MphRead.Entities
                         continue;
                     }
                     Material material = model.Materials[mesh.MaterialId];
+                    if (materialFilter != null && !materialFilter.Contains(material.Name)) continue;
                     Vector3 emission = GetEmission(inst, material, mesh.MaterialId);
                     Matrix4 texcoordMatrix = GetTexcoordMatrix(inst, material, mesh.MaterialId, node, recolor);
                     Vector4? color = PaletteOverride == null
@@ -603,12 +611,12 @@ namespace MphRead.Entities
                 }
                 if (node.ChildIndex != -1)
                 {
-                    GetDrawItems(inst, model.Nodes[node.ChildIndex], alpha, polygonId, recolor, overrideColor, outlineColor, cosmeticDeath);
+                    GetDrawItems(inst, model.Nodes[node.ChildIndex], alpha, polygonId, recolor, overrideColor, outlineColor, cosmeticDeath, materialFilter);
                 }
             }
             if (node.NextIndex != -1)
             {
-                GetDrawItems(inst, model.Nodes[node.NextIndex], alpha, polygonId, recolor, overrideColor, outlineColor, cosmeticDeath);
+                GetDrawItems(inst, model.Nodes[node.NextIndex], alpha, polygonId, recolor, overrideColor, outlineColor, cosmeticDeath, materialFilter);
             }
         }
 

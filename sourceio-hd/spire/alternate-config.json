@@ -1,0 +1,139 @@
+{
+  "format": 1,
+  "hunter": "Spire",
+  "part": "alternateForm",
+  "skinning": "rigidNodes",
+  "sourceRelative": "models/spire/spire_b.glb",
+  "sourceSha256": "30e072a1579c80cdb54604d42cc78a727c2c9ed677db18eb6f81ff9db8a147bb",
+  "sourceMeshes": [
+    "MPH/Spire_B.mdl_Body_Dialanche.smd_MESH",
+    "MPH/Spire_B.mdl_Attack_Dialanche_Attack.smd_MESH",
+    "MPH/Spire_B.mdl_Attack_Dialanche_Shelled.smd_MESH"
+  ],
+  "expectedTriangles": 1954,
+  "nativeKit": "artifacts/sourceio-hd/material-weapon-review-v2/spire/biped/kit",
+  "sourceMaterialRoot": "/Users/jarrett/Downloads/mph/gmpublisher/materials",
+  "sourceDecodedTextureRoot": "/Users/jarrett/Downloads/mph/converted-sourceio/decoded-vtf",
+  "sourceMaterialMaxDimension": 1024,
+  "reuseSingleMaterialTextures": true,
+  "compactPeriodicUVs": true,
+  "powerOfTwoAtlases": false,
+  "preserveSourceNormals": true,
+  "preserveSourceMaterialAlpha": true,
+  "recolorModelRelative": "spire/altform.glb",
+  "sourceToNativeGame": [
+    [
+      -1.0041241873166924,
+      0.0,
+      0.0,
+      -0.05479872710478542
+    ],
+    [
+      0.0,
+      1.0041241873166924,
+      0.0,
+      -0.6168263787036685
+    ],
+    [
+      0.0,
+      0.0,
+      -1.0041241873166924,
+      0.027279935689150756
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "yawDegrees": 180,
+  "fitAnchorGame": [
+    -0.054573655128479004,
+    0.6142929196357727,
+    0.02716789022088051
+  ],
+  "fitStatus": "Candidate native-scale/root conversion; independent native-surface sampler proof and runtime capture acceptance required",
+  "nativeSupplementMaterials": [],
+  "externalNativeSupplementMaterials": [],
+  "sourceTriangleStateVisibility": "Native node enablement and material alpha remain authoritative",
+  "materialMap": {
+    "Spire_Crystal": "ALT_Rock_01_tga2",
+    "Spire_Body": "ALT_Rock_01_tga1"
+  },
+  "materialCopies": {
+    "ALT_Rock_01_tga": "ALT_Rock_01_tga1",
+    "ALT_Rock_01_tga3": "ALT_Rock_01_tga1"
+  },
+  "partitions": [
+    {
+      "object": "Dialanche.smd",
+      "method": "node",
+      "node": "Root",
+      "nativeMaterial": "ALT_Rock_01_tga2"
+    },
+    {
+      "object": "Dialanche_Attack.smd",
+      "method": "wholeComponentsNativeCage",
+      "options": [
+        {
+          "nativeMaterial": "ALT_Rock_01_tga",
+          "nativeNodes": [
+            "L_Rock01",
+            "L_Rock02"
+          ],
+          "node": "L_Rock02"
+        },
+        {
+          "nativeMaterial": "ALT_Rock_01_tga",
+          "nativeNodes": [
+            "R_Rock01",
+            "R_Rock02"
+          ],
+          "node": "R_Rock02"
+        }
+      ],
+      "nativeMaterial": "ALT_Rock_01_tga",
+      "minimumDistanceMargin": 1e-05
+    },
+    {
+      "object": "Dialanche_Shelled.smd",
+      "method": "nativeCageTriangles",
+      "nativeMaterials": [
+        "ALT_Rock_01_tga1",
+        "ALT_Rock_01_tga3"
+      ],
+      "nativeMaterialByNode": {
+        "R_POS_ROT": "ALT_Rock_01_tga1",
+        "L_Rock01": "ALT_Rock_01_tga1",
+        "L_Rock02": "ALT_Rock_01_tga1",
+        "L_Rock03": "ALT_Rock_01_tga1",
+        "R_POS_ROT_1": "ALT_Rock_01_tga3",
+        "R_Rock01": "ALT_Rock_01_tga3",
+        "R_Rock02": "ALT_Rock_01_tga3",
+        "R_Rock03": "ALT_Rock_01_tga3"
+      }
+    }
+  ],
+  "fitAudit": {
+    "sourceObjects": [
+      "Dialanche.smd",
+      "Dialanche_Shelled.smd"
+    ],
+    "nativeMaterials": [
+      "ALT_Rock_01_tga1",
+      "ALT_Rock_01_tga2",
+      "ALT_Rock_01_tga3"
+    ]
+  },
+  "teamRecolorMaterials": [
+    "ALT_Rock_01_tga1",
+    "ALT_Rock_01_tga3"
+  ],
+  "stateChecks": [
+    "Closed core/shell at native attack frame0; ghost alpha0",
+    "Both Source blades independently follow left/right rock chain during attack",
+    "Every native rock section moves and no opaque duplicate blade appears at rest",
+    "Native attack completion closes shell; inspect seams introduced by coherent rigid triangle partition"
+  ]
+}

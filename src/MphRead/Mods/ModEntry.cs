@@ -260,7 +260,7 @@ namespace MphRead.Mods
 
             // This diagnostic needs assets, but must not apply/clean updates
             // or enter any of the launcher/network command paths.
-            if (HasFlag(args, "respawnrendercheck") || HasFlag(args, "characteracceptancecheck") || HasFlag(args, "lod1acceptancecheck") || HasFlag(args, "charactermaterialpalette") || HasFlag(args, "charactermaterialacceptancecheck") || HasFlag(args, "morphballacceptancecheck") || HasFlag(args, "viewmodelacceptancecheck"))
+            if (HasFlag(args, "respawnrendercheck") || HasFlag(args, "characteracceptancecheck") || HasFlag(args, "lod1acceptancecheck") || HasFlag(args, "charactermaterialpalette") || HasFlag(args, "charactermaterialacceptancecheck") || HasFlag(args, "morphballacceptancecheck") || HasFlag(args, "viewmodelacceptancecheck") || HasFlag(args, "altformacceptancecheck") || HasFlag(args, "halfturretacceptancecheck"))
             {
 #if !MPHREAD_SERVER
                 if (ValueAfter(args, "compression") is string compression)
@@ -1464,6 +1464,29 @@ namespace MphRead.Mods
             {
                 Environment.ExitCode = Render.Characters.CharacterAcceptanceCheck.Run(morphRoom,
                     ValueAfter(args, "output") ?? "morphball-acceptance", morphSweep: true);
+                return true;
+            }
+            if (ValueAfter(args, "altformacceptancecheck") is string altRoom)
+            {
+                Render.Characters.CharacterModelPack.ForceMobileTierForCheck=HasFlag(args,"mobiletextures");
+                Render.Characters.CharacterModelRuntime.ResetPackForCheck();
+                Environment.ExitCode = Render.Characters.AltFormAcceptanceCheck.Run(altRoom,
+                    ValueAfter(args,"output") ?? "altform-acceptance",
+                    Enum.Parse<Hunter>(ValueAfter(args,"hunter") ?? throw new ArgumentException("Alternate-form acceptance requires -hunter."),ignoreCase:true),
+                    ValueAfter(args,"sourceaudit") ?? throw new ArgumentException("Alternate-form acceptance requires -sourceaudit."),
+                    ValueAfter(args,"sourceaudithash") ?? throw new ArgumentException("Alternate-form acceptance requires -sourceaudithash."),
+                    ValueAfter(args,"sourceglb"));
+                return true;
+            }
+            if (ValueAfter(args, "halfturretacceptancecheck") is string turretRoom)
+            {
+                Render.Characters.CharacterModelPack.ForceMobileTierForCheck=HasFlag(args,"mobiletextures");
+                Render.Characters.CharacterModelRuntime.ResetPackForCheck();
+                Environment.ExitCode=Render.Characters.HalfturretAcceptanceCheck.Run(turretRoom,
+                    ValueAfter(args,"output") ?? "weavel-halfturret-acceptance",
+                    ValueAfter(args,"sourceaudit") ?? throw new ArgumentException("Halfturret acceptance requires -sourceaudit."),
+                    ValueAfter(args,"sourceaudithash") ?? throw new ArgumentException("Halfturret acceptance requires -sourceaudithash."),
+                    ValueAfter(args,"sourceglb") ?? throw new ArgumentException("Halfturret acceptance requires -sourceglb."));
                 return true;
             }
             if (ValueAfter(args, "lod1acceptancecheck") is string lodRoom)

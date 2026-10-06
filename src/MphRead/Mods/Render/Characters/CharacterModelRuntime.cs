@@ -332,6 +332,8 @@ namespace MphRead.Mods.Render.Characters
                         throw new InvalidDataException($"Native model no longer contains mapped node '{primitive.TargetNode}'.");
                     int materialIndex = ResolveMaterial(nativeModel, nodeIndex, primitive.MaterialName, materialIndices);
                     Material material = nativeModel.Materials[materialIndex];
+                    if (asset.NativeSupplementMaterials.Contains(material.Name))
+                        throw new InvalidDataException($"HD material '{material.Name}' duplicates its explicit native supplement.");
                     if (!CanUseAuthoredTexcoords(material.TexgenMode, primitive.Albedo != null))
                         throw new InvalidDataException(
                             $"HD primitive material '{material.Name}' uses native generated coordinates; rigid GLB UVs require None/Texcoord.");
@@ -400,6 +402,8 @@ namespace MphRead.Mods.Render.Characters
                             $"Weighted HD material '{primitive.MaterialName ?? "(unnamed)"}' "
                             + $"does not match a native material in {nativeModel.Name}.");
                     Material material = nativeModel.Materials[materialIndex];
+                    if (asset.NativeSupplementMaterials.Contains(material.Name))
+                        throw new InvalidDataException($"HD material '{material.Name}' duplicates its explicit native supplement.");
                     if (!CanUseAuthoredTexcoords(material.TexgenMode, primitive.Albedo != null))
                         throw new InvalidDataException(
                             $"Weighted HD material '{material.Name}' uses generated native coordinates; "

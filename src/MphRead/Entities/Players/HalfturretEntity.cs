@@ -416,6 +416,9 @@ namespace MphRead.Entities
                 node.Animation *= root; // todo?: could do this in the shader
             }
             model.UpdateMatrixStack();
+            // Team/suit presentation can change while the owner remains split.
+            // Both native materials and authored HD variants follow that owner.
+            Recolor = Owner.Recolor;
             UpdateMaterials(inst, Recolor);
             _brightSkin = _health > 0 && PaletteOverride == null ? BrightSkins.GetColor(Owner) : null;
             _outlineColor = _health > 0 && _freezeTimer == 0 && PaletteOverride == null ? BrightSkins.GetOutlineColor(Owner) : null;

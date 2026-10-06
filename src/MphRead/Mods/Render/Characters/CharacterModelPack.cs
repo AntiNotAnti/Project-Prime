@@ -43,6 +43,11 @@ namespace MphRead.Mods.Render.Characters
 
         // Source glTF node/joint name -> native MPH node name.
         public Dictionary<string, string> BoneMap { get; set; } = new(StringComparer.Ordinal);
+
+        // Explicit native-only animated overlay groups appended after a valid
+        // HD replacement. Omitted for all existing character packs.
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<string>? NativeSupplementMaterials { get; set; }
     }
 
     internal sealed record CharacterModelAsset(
@@ -54,7 +59,8 @@ namespace MphRead.Mods.Render.Characters
         IReadOnlyDictionary<string, string> BoneMap,
         IReadOnlySet<string> SourceNodes,
         bool HasSkin,
-        int PrimitiveCount);
+        int PrimitiveCount,
+        IReadOnlySet<string> NativeSupplementMaterials);
 
     /// <summary>
     /// Local-only HD character geometry catalog.
@@ -188,6 +194,21 @@ namespace MphRead.Mods.Render.Characters
                         throw new InvalidDataException($"{hunter}/{entry.Part} maps more than one glTF joint to native node '{targetName}'.");
                 }
 
+                var supplements = new HashSet<string>(StringComparer.Ordinal);
+                if (entry.NativeSupplementMaterials?.Count > 1)
+                    throw new InvalidDataException("Only one explicitly allowed native supplement material is supported.");
+                foreach (string name in entry.NativeSupplementMaterials ?? new List<string>())
+                {
+                    string material = ValidateName(name, "native supplement material");
+                    // This is an exact presentation exception for Lockjaw's
+                    // native multi-joint energy strip, never a general fallback.
+                    if (hunter != Hunter.Sylux || entry.Part != CharacterModelPart.AlternateForm
+                        || entry.Lod != 0 || material != "WaveBeam_tga")
+                        throw new InvalidDataException($"{hunter}/{entry.Part}/lod{entry.Lod} cannot supplement native material '{material}'.");
+                    if (!supplements.Add(material))
+                        throw new InvalidDataException($"Duplicate native supplement material '{material}'.");
+                }
+
                 string modelPath = "";
                 GlbInspection inspection = default;
                 bool selectMobile = mobile ?? (OperatingSystem.IsAndroid() || ForceMobileTierForCheck);
@@ -215,7 +236,7 @@ namespace MphRead.Mods.Render.Characters
                 var key = (hunter, entry.Part, entry.Lod);
                 if (!assets.TryAdd(key, new CharacterModelAsset(
                     hunter, entry.Part, entry.Lod, entry.Skinning, modelPath, boneMap,
-                    inspection.NodeNames, inspection.HasSkin, inspection.PrimitiveCount)))
+                    inspection.NodeNames, inspection.HasSkin, inspection.PrimitiveCount, supplements)))
                     throw new InvalidDataException(
                         $"Duplicate character model entry for {hunter}/{entry.Part}/lod{entry.Lod}.");
             }
@@ -249,6 +270,16 @@ namespace MphRead.Mods.Render.Characters
             {
                 issue = $"HD {asset.Hunter}/{asset.Part}/lod{asset.Lod} maps {mappedTargets.Count} weighted bones; the current renderer contract supports 32.";
                 return false;
+            }
+
+            foreach (string material in asset.NativeSupplementMaterials)
+            {
+                int index = Array.FindIndex(nativeModel.Materials.ToArray(), value => value.Name == material);
+                if (index < 0 || !nativeModel.Meshes.Any(mesh => mesh.MaterialId == index))
+                {
+                    issue = $"HD {asset.Hunter}/{asset.Part} requests missing native supplement material '{material}' in {nativeModel.Name}.";
+                    return false;
+                }
             }
 
             issue = null;
