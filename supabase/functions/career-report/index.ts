@@ -1,5 +1,6 @@
 /// <reference types="npm:@supabase/functions-js@2.117.2/src/edge-runtime.d.ts" />
 import { readObjectBounded, RequestBodyError } from "../_shared/request-body.ts";
+import { mergeCareerSegments } from "../_shared/career-segments.ts";
 import { normalizePlayerName } from "../_shared/player-name.ts";
 import postgres from "npm:postgres@3.4.7";
 
@@ -66,7 +67,7 @@ async function verifyTicket(token: unknown, clientId: number, matchEpoch: number
       // Outbox delivery may happen well after a network outage. The ticket
       // must have covered the authoritative match end, not the later retry.
       || payload.exp < matchEpoch - 300 || payload.iat > matchEpoch + 300
-      || payload.exp - payload.iat > 2 * 60 * 60
+      || payload.exp < payload.iat || payload.exp - payload.iat > 2 * 60 * 60
       || typeof payload.sub !== "string"
       || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.sub)) {
       return null;
@@ -165,11 +166,11 @@ Deno.serve(async (req: Request) => {
   };
   await mark("received");
 
-  if (incoming?.version !== 1 || typeof incoming.match_id !== "string"
+  if (![1, 2].includes(incoming?.version) || typeof incoming.match_id !== "string"
     || typeof incoming.server_incarnation !== "string"
     || typeof incoming.room_key !== "string"
     || !Array.isArray(incoming.participants)
-    || incoming.participants.length < 1 || incoming.participants.length > 8) {
+    || incoming.participants.length < 1 || incoming.participants.length > 128) {
     return json(400, { error: "invalid_report" });
   }
 
@@ -187,11 +188,15 @@ Deno.serve(async (req: Request) => {
   }
 
   const normalizedParticipants: any[] = [];
-  const players = new Set<string>();
-  const duplicatePlayers = new Set<string>();
-  let missingStartedIdentity = false;
+  const segmentIds = new Set<string>();
+  const matchTicks = integer(incoming.played_ticks, 0, 5184000);
+  const startedEpoch = Math.floor(Date.parse(incoming.started_at_utc) / 1000);
+  if (matchTicks == null || !Number.isFinite(startedEpoch) || startedEpoch > matchEpoch
+    || (incoming.version === 2 && typeof incoming.accounting_complete !== "boolean"))
+    return json(400, { error: "invalid_match_facts" });
 
   for (const p of incoming.participants) {
+    if (p?.is_spectator === true) continue;
     const clientId = integer(p?.client_id, 1, 0xffffffff);
     const hunter = integer(p?.hunter, 0, 6);
     const team = integer(p?.team, 0, 7);
@@ -217,15 +222,24 @@ Deno.serve(async (req: Request) => {
       return json(400, { error: "invalid_metrics" });
     }
 
-    const playerId = await verifyTicket(p.career_ticket, clientId, matchEpoch);
-    if (p.started_match && !playerId) missingStartedIdentity = true;
-    if (playerId) {
-      if (players.has(playerId)) duplicatePlayers.add(playerId);
-      players.add(playerId);
+    const joinedTicks = incoming.version === 2 ? integer(p.joined_ticks, 0, matchTicks) : 0;
+    const leftTicks = incoming.version === 2 ? integer(p.left_ticks, 0, matchTicks) : ticks;
+    const segmentEpoch = incoming.version === 2 ? Math.floor(Date.parse(p.segment_ended_at_utc) / 1000) : matchEpoch;
+    if (typeof p.participant_id !== "string"
+      || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(p.participant_id)
+      || segmentIds.has(p.participant_id.toLowerCase())
+      || joinedTicks == null || leftTicks == null || leftTicks < joinedTicks
+      || ticks > leftTicks - joinedTicks || (p.started_match === true && joinedTicks !== 0)
+      || !Number.isFinite(segmentEpoch) || segmentEpoch < startedEpoch - 300 || segmentEpoch > matchEpoch + 300) {
+      return json(400, { error: "invalid_segment" });
     }
+    segmentIds.add(p.participant_id.toLowerCase());
+    const verifiedPlayer = await verifyTicket(p.career_ticket, clientId, segmentEpoch);
+    const playerId = incoming.version === 2 ? verifiedPlayer?.toLowerCase() ?? null : verifiedPlayer;
 
     normalizedParticipants.push({
-      participant_id: p.participant_id,
+      participant_id: incoming.version === 2 ? p.participant_id.toLowerCase() : p.participant_id,
+      ...(incoming.version === 2 ? { joined_ticks: joinedTicks, left_ticks: leftTicks } : {}),
       client_id: clientId,
       player_id: playerId,
       display_name: normalizePlayerName(p.display_name),
@@ -254,21 +268,31 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // Two simultaneous participants claiming one Hunter License are never
-  // allowed to create two durable rows for that account. Treat the whole
-  // match as Practice rather than rejecting the server's immutable report;
-  // this also handles a process restart/rejoin that briefly overlaps the old
-  // connection without turning an operational race into a lost report.
-  if (duplicatePlayers.size > 0) {
-    for (const p of normalizedParticipants) {
-      if (p.player_id && duplicatePlayers.has(p.player_id)) {
-        if (p.started_match) missingStartedIdentity = true;
-        p.player_id = null;
-      }
+  if (normalizedParticipants.length === 0) return json(200, { accepted: false, reason: "NoPlayingParticipants" });
+  const merged = mergeCareerSegments(normalizedParticipants, incoming.version);
+  if (incoming.version === 2) {
+    // A starting account may return in a later non-starting segment. Derive its
+    // whole-match outcome from the merged authenticated roster, rather than
+    // retaining that later segment's default won/tied flags.
+    const rank = (p: any) => incoming.teams === true ? p.team_standing : p.standing;
+    for (const p of merged.participants) {
+      p.won = false; p.tied = false;
+      if (!p.started_match || p.departed) continue;
+      const opponents = merged.participants.filter((o) => o.started_match
+        && o.participant_id !== p.participant_id && (incoming.teams !== true || o.team !== p.team));
+      if (opponents.length === 0) continue;
+      p.tied = opponents.some((o) => !o.departed && rank(o) === rank(p));
+      p.won = rank(p) === 0 && !p.tied;
     }
   }
-
-  const effectiveTrust = missingStartedIdentity ? 5 : reporter.trust_class;
+  const missingStartedIdentity = merged.missingStartedIdentity;
+  const accountingComplete = incoming.version === 1 || incoming.accounting_complete !== false;
+  const effectiveTrust = missingStartedIdentity || !accountingComplete ? 5 : reporter.trust_class;
+  // Aggregation must retain the same numeric/body bounds as a single admission.
+  if (merged.participants.some((p) => p.played_ticks > matchTicks
+    || Object.entries(p.metrics).some(([key, value]) => key === "beam_kills"
+      ? (value as number[]).some((n) => integer(n, 0, 1_000_000) == null)
+      : integer(value, 0, 1_000_000) == null))) return json(400, { error: "invalid_aggregate_metrics" });
   const normalized = {
     version: 1,
     match_id: incoming.match_id,
@@ -285,8 +309,8 @@ Deno.serve(async (req: Request) => {
     teams: incoming.teams === true,
     team_count: incoming.team_count,
     contains_bots: incoming.contains_bots === true,
-    rating_eligible: incoming.rating_eligible === true && !missingStartedIdentity && incoming.contains_bots !== true,
-    participants: normalizedParticipants,
+    rating_eligible: incoming.rating_eligible === true && accountingComplete && !missingStartedIdentity && incoming.contains_bots !== true,
+    participants: merged.participants,
   };
   const normalizedText = JSON.stringify(normalized);
   const payloadHash = (await sha256(normalizedText)).toUpperCase();
