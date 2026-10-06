@@ -165,7 +165,7 @@ namespace MphRead
                 GL.ColorMask(true, true, true, true);
                 GL.DepthMask(true);
                 GL.Disable(EnableCap.AlphaTest);
-                GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer, SceneWorldFramebuffer());
                 GL.Viewport(0, 0, _targetSize.X, _targetSize.Y);
                 GL.UseProgram(_shaderProgramId);
                 GL.UniformMatrix4(_shaderLocations.ViewMatrix, false, ref _viewMatrix);
