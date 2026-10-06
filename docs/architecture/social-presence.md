@@ -68,9 +68,11 @@ Presence uses a separate authenticated `presence` Edge Function.
 - direct `anon`/`authenticated` grants are revoked
 - helper functions are not executable by client roles
 
-No server IP or UDP endpoint is stored in presence. Joinability currently means
-"this player is in a persistent lobby"; Slice 4 can resolve a permitted room to
-an invite/join target without turning presence into an address directory.
+No server IP or UDP endpoint is stored in presence. The existing network
+`RoomKey` identifies the selected map, not a globally unique lobby, so the
+production client deliberately publishes `joinable=false` in Slice 2. Slice 4
+must introduce an authenticated lobby/invite resolver before Join Friend becomes
+real; map metadata is never treated as a connection address.
 
 ## Client read model
 
