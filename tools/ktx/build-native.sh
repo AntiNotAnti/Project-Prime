@@ -44,19 +44,22 @@ rm -rf "${build_dir}"
 
 case "${target}" in
   osx-arm64|osx-x64)
-    arch="arm64"
-    astc=()
     if [ "${target}" = "osx-x64" ]; then
-      arch="x86_64"
       # KTX otherwise selects astcenc's AVX2 backend on Intel. astcenc
       # deliberately compiles that backend as x86_64h, while libktx itself
       # remains x86_64. Apple ld then discards the entire ASTC archive and
       # fails on unresolved astcenc_* symbols. SSE4.1 is KTX's supported
       # plain-x86_64 backend and keeps compatibility with older Intel Macs.
-      astc=(-DASTCENC_ISA_SSE41=ON)
+      cmake -S "${source_dir}" -B "${build_dir}" "${common[@]}" \
+        -DCMAKE_OSX_ARCHITECTURES=x86_64 \
+        -DASTCENC_ISA_SSE41=ON
+    else
+      # The system Bash on macOS is still 3.2. With set -u, expanding an empty
+      # optional array can raise "unbound variable". Keep the arm64 configure
+      # explicit so it never evaluates an absent Intel-only ASTC argument.
+      cmake -S "${source_dir}" -B "${build_dir}" "${common[@]}" \
+        -DCMAKE_OSX_ARCHITECTURES=arm64
     fi
-    cmake -S "${source_dir}" -B "${build_dir}" "${common[@]}" \
-      -DCMAKE_OSX_ARCHITECTURES="${arch}" "${astc[@]}"
     cmake --build "${build_dir}" --target ktx --parallel
     library="$(find "${build_dir}" -type f -name 'libktx*.dylib' | head -1)"
     [ -n "${library}" ] || { echo "libktx.dylib was not produced" >&2; exit 1; }
