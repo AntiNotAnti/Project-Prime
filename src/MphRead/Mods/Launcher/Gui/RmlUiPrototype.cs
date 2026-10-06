@@ -539,6 +539,498 @@ namespace MphRead.Mods.Launcher.Gui
                 + $"profile={LauncherMenuStage.Current.Name}");
         }
 
+        private readonly record struct SocialUiRow(
+            string PrimeId, string Name, string Activity, string Detail,
+            string Relation, bool Online, bool FriendOnline);
+
+        private static void BeginSocialLoad(bool force)
+        {
+            if (_socialFixture || _socialCancel == null || _socialCancel.IsCancellationRequested)
+                return;
+            if (_socialMutation is { IsCompleted: false })
+                return;
+            if (_socialLoad is { IsCompleted: false })
+                return;
+
+            long now = Environment.TickCount64;
+            if (!force && now < _nextSocialReload)
+                return;
+
+            SetText("social_status", "SYNCING SOCIAL");
+            SetBool("social_loading", true);
+            _socialLoad = SocialClient.LoadAsync(_socialCancel.Token);
+            _nextSocialReload = now + 15000;
+        }
+
+        private static void BeginSocialLookup(string primeId)
+        {
+            if (_socialFixture || _socialCancel == null || _socialCancel.IsCancellationRequested
+                || _socialLookup is { IsCompleted: false })
+                return;
+            _socialLookupPlayer = null;
+            SetText("social_status", "LOOKING UP PRIME ID");
+            SetBool("social_loading", true);
+            _socialLookup = SocialClient.LookupAsync(primeId, _socialCancel.Token);
+        }
+
+        private static void BeginSocialMutation(string action, string primeId)
+        {
+            if (_socialFixture || _socialCancel == null || _socialCancel.IsCancellationRequested)
+                return;
+            if (_socialMutation is { IsCompleted: false })
+            {
+                SetText("social_status", "SOCIAL ACTION ALREADY IN PROGRESS");
+                return;
+            }
+
+            CancellationToken token = _socialCancel.Token;
+            _socialPendingAction = action;
+            _socialMutation = action switch
+            {
+                "add" => SocialClient.SendFriendRequestAsync(primeId, token),
+                "accept" => SocialClient.AcceptFriendRequestAsync(primeId, token),
+                "decline" => SocialClient.DeclineFriendRequestAsync(primeId, token),
+                "cancel" => SocialClient.CancelFriendRequestAsync(primeId, token),
+                "remove" => SocialClient.RemoveFriendAsync(primeId, token),
+                "block" => SocialClient.BlockPlayerAsync(primeId, token),
+                "unblock" => SocialClient.UnblockPlayerAsync(primeId, token),
+                _ => null
+            };
+            if (_socialMutation == null)
+                return;
+
+            SetText("social_status", action switch
+            {
+                "add" => "SENDING FRIEND REQUEST",
+                "accept" => "ACCEPTING FRIEND REQUEST",
+                "decline" => "DECLINING FRIEND REQUEST",
+                "cancel" => "CANCELLING FRIEND REQUEST",
+                "remove" => "REMOVING FRIEND",
+                "block" => "BLOCKING PLAYER",
+                "unblock" => "UNBLOCKING PLAYER",
+                _ => "UPDATING SOCIAL"
+            });
+            SetBool("social_loading", true);
+        }
+
+        private static void PollSocialWork()
+        {
+            if (_socialLoad is { IsCompleted: true } load)
+            {
+                _socialLoad = null;
+                try
+                {
+                    _socialSnapshot = load.GetAwaiter().GetResult();
+                    SetText("social_status", "SOCIAL READY");
+                    _socialFingerprint = "";
+                }
+                catch (OperationCanceledException) when (_socialCancel?.IsCancellationRequested == true)
+                {
+                }
+                catch (Exception ex)
+                {
+                    SetText("social_status", "SOCIAL UNAVAILABLE // " + ShortSocialError(ex));
+                }
+            }
+
+            if (_socialLookup is { IsCompleted: true } lookup)
+            {
+                _socialLookup = null;
+                try
+                {
+                    SocialLookupResult result = lookup.GetAwaiter().GetResult();
+                    _socialLookupPlayer = result.Found ? result.Player : null;
+                    SetText("social_status", result.Found ? "PRIME ID FOUND" : "PRIME ID NOT FOUND");
+                    _socialFingerprint = "";
+                }
+                catch (OperationCanceledException) when (_socialCancel?.IsCancellationRequested == true)
+                {
+                }
+                catch (Exception ex)
+                {
+                    _socialLookupPlayer = null;
+                    SetText("social_status", "LOOKUP FAILED // " + ShortSocialError(ex));
+                }
+            }
+
+            if (_socialMutation is { IsCompleted: true } mutation)
+            {
+                _socialMutation = null;
+                try
+                {
+                    SocialMutationResult result = mutation.GetAwaiter().GetResult();
+                    if (result.Success)
+                    {
+                        if (result.Snapshot != null)
+                            _socialSnapshot = result.Snapshot;
+                        SetText("social_status", SocialMutationStatus(result.Status));
+                        _nextSocialReload = 0;
+                    }
+                    else
+                    {
+                        SetText("social_status", "ACTION REFUSED // "
+                            + result.Status.Replace('_', ' ').ToUpperInvariant());
+                    }
+                    _socialFingerprint = "";
+                }
+                catch (OperationCanceledException) when (_socialCancel?.IsCancellationRequested == true)
+                {
+                }
+                catch (Exception ex)
+                {
+                    SetText("social_status", "ACTION FAILED // " + ShortSocialError(ex));
+                }
+                finally
+                {
+                    _socialPendingAction = "";
+                }
+            }
+
+            SetBool("social_loading",
+                _socialLoad is { IsCompleted: false }
+                || _socialLookup is { IsCompleted: false }
+                || _socialMutation is { IsCompleted: false });
+        }
+
+        private static void HandleSocialAction(string action)
+        {
+            if (action == "social:open")
+            {
+                _socialDrawerOpen = true;
+                _nextSocialReload = 0;
+                BeginSocialLoad(force: true);
+                RefreshSocialUi(force: true);
+                return;
+            }
+            if (action == "social:close")
+            {
+                _socialDrawerOpen = false;
+                return;
+            }
+            if (action == "social:refresh")
+            {
+                SocialPresenceClient.RefreshNow();
+                _nextSocialReload = 0;
+                BeginSocialLoad(force: true);
+                SetText("social_status", "REFRESHING SOCIAL");
+                return;
+            }
+            if (action.StartsWith("social:tab:", StringComparison.Ordinal))
+            {
+                if (Int32.TryParse(action["social:tab:".Length..], out int tab))
+                    _socialTab = Math.Clamp(tab, 0, 3);
+                _socialLookupPlayer = null;
+                _socialFingerprint = "";
+                RefreshSocialUi(force: true);
+                return;
+            }
+            if (action.StartsWith("social:search:", StringComparison.Ordinal))
+            {
+                string query = action["social:search:".Length..].Trim();
+                if (query.Length > 48) query = query[..48];
+                _socialSearch = query;
+                _socialLookupPlayer = null;
+                _socialFingerprint = "";
+                if (_socialTab == 1 && LooksLikePrimeId(query))
+                    BeginSocialLookup(query.ToUpperInvariant());
+                else
+                    SetText("social_status", query.Length == 0 ? "SOCIAL READY" : "FILTER APPLIED");
+                RefreshSocialUi(force: true);
+                return;
+            }
+
+            const string prefix = "social:";
+            int separator = action.IndexOf(':', prefix.Length);
+            if (separator <= prefix.Length || separator + 1 >= action.Length)
+                return;
+            string verb = action[prefix.Length..separator];
+            string primeId = action[(separator + 1)..].Trim().ToUpperInvariant();
+            if (!LooksLikePrimeId(primeId))
+            {
+                SetText("social_status", "INVALID PRIME ID");
+                return;
+            }
+            BeginSocialMutation(verb, primeId);
+        }
+
+        private static void RefreshSocialUi(bool force = false)
+        {
+            if (!_active || _socialFixture)
+                return;
+
+            SocialPresenceSnapshot presence = SocialPresenceClient.Current;
+            var presenceById = new Dictionary<string, SocialOnlinePlayer>(
+                StringComparer.OrdinalIgnoreCase);
+            var onlineFriends = new List<SocialOnlinePlayer>();
+            foreach (SocialOnlinePlayer player in presence.Players)
+            {
+                if (player.PrimeId.Length == 0) continue;
+                presenceById[player.PrimeId] = player;
+                if (player.IsFriend) onlineFriends.Add(player);
+            }
+            onlineFriends.Sort((a, b) => StringComparer.OrdinalIgnoreCase.Compare(
+                a.DisplayName, b.DisplayName));
+
+            int requests = (_socialSnapshot?.IncomingRequests.Count ?? 0)
+                + (_socialSnapshot?.OutgoingRequests.Count ?? 0);
+            SetText("social_online_count", $"{presence.Players.Count} ONLINE");
+            SetText("social_friend_count", $"{onlineFriends.Count} ONLINE");
+            SetText("social_request_count", requests == 1 ? "1 REQUEST" : $"{requests} REQUESTS");
+            SetText("social_badge", requests > 0 ? Math.Min(requests, 99).ToString(CultureInfo.InvariantCulture) : "");
+
+            List<SocialUiRow> rows = BuildSocialRows(presenceById);
+            var filtered = new List<SocialUiRow>();
+            foreach (SocialUiRow row in rows)
+            {
+                if (SocialMatches(row, _socialSearch))
+                    filtered.Add(row);
+            }
+
+            if (_socialTab == 1 && _socialLookupPlayer is { } lookup
+                && !filtered.Exists(row => row.PrimeId.Equals(
+                    lookup.PrimeId, StringComparison.OrdinalIgnoreCase)))
+            {
+                string relation = RelationshipFor(lookup.PrimeId);
+                var row = new SocialUiRow(
+                    lookup.PrimeId,
+                    lookup.DisplayName.ToUpperInvariant(),
+                    "OFFLINE",
+                    "PRIME ID LOOKUP",
+                    relation,
+                    false,
+                    false);
+                if (SocialMatches(row, _socialSearch))
+                    filtered.Insert(0, row);
+            }
+
+            var fingerprint = new StringBuilder();
+            fingerprint.Append(_socialTab).Append('|').Append(_socialSearch).Append('|')
+                .Append(presence.Players.Count).Append('|').Append(onlineFriends.Count)
+                .Append('|').Append(requests);
+            foreach (SocialUiRow row in filtered)
+                fingerprint.Append('|').Append(row.PrimeId).Append(':').Append(row.Activity)
+                    .Append(':').Append(row.Detail).Append(':').Append(row.Relation)
+                    .Append(':').Append(row.Online ? '1' : '0');
+            for (int i = 0; i < onlineFriends.Count && i < 3; i++)
+                fingerprint.Append("|H:").Append(onlineFriends[i].PrimeId)
+                    .Append(':').Append(onlineFriends[i].Activity)
+                    .Append(':').Append(onlineFriends[i].RoomKey);
+
+            string key = fingerprint.ToString();
+            if (!force && key == _socialFingerprint)
+                return;
+            _socialFingerprint = key;
+
+            NativeSocialClear();
+            foreach (SocialUiRow row in filtered)
+            {
+                NativeSocialAddRow(row.PrimeId, row.Name, row.Activity, row.Detail,
+                    row.Relation, row.Online ? 1 : 0, row.FriendOnline ? 1 : 0);
+            }
+
+            for (int i = 0; i < onlineFriends.Count && i < 3; i++)
+            {
+                SocialOnlinePlayer friend = onlineFriends[i];
+                NativeSocialAddHomeFriend(
+                    friend.PrimeId,
+                    friend.DisplayName.ToUpperInvariant(),
+                    ActivityLabel(friend.Activity),
+                    SocialRoomLabel(friend.RoomKey));
+            }
+            NativeSocialCommit();
+        }
+
+        private static List<SocialUiRow> BuildSocialRows(
+            Dictionary<string, SocialOnlinePlayer> presenceById)
+        {
+            var rows = new List<SocialUiRow>();
+            if (_socialTab == 0)
+            {
+                if (_socialSnapshot == null) return rows;
+                foreach (SocialPlayer friend in _socialSnapshot.Friends)
+                    rows.Add(RowForPersistent(friend, "FRIEND", presenceById));
+                return rows;
+            }
+
+            if (_socialTab == 1)
+            {
+                foreach (SocialOnlinePlayer player in SocialPresenceClient.Current.Players)
+                {
+                    rows.Add(new SocialUiRow(
+                        player.PrimeId,
+                        player.DisplayName.ToUpperInvariant(),
+                        ActivityLabel(player.Activity),
+                        SocialRoomLabel(player.RoomKey),
+                        RelationshipFor(player.PrimeId),
+                        true,
+                        player.IsFriend));
+                }
+                return rows;
+            }
+
+            if (_socialTab == 2)
+            {
+                if (_socialSnapshot == null) return rows;
+                foreach (SocialPlayer incoming in _socialSnapshot.IncomingRequests)
+                    rows.Add(RowForPersistent(incoming, "INCOMING", presenceById,
+                        offlineActivity: "REQUEST RECEIVED"));
+                foreach (SocialPlayer outgoing in _socialSnapshot.OutgoingRequests)
+                    rows.Add(RowForPersistent(outgoing, "OUTGOING", presenceById,
+                        offlineActivity: "REQUEST SENT"));
+                return rows;
+            }
+
+            if (_socialSnapshot == null) return rows;
+            foreach (SocialPlayer blocked in _socialSnapshot.Blocked)
+                rows.Add(RowForPersistent(blocked, "BLOCKED", presenceById,
+                    offlineActivity: "BLOCKED"));
+            return rows;
+        }
+
+        private static SocialUiRow RowForPersistent(
+            SocialPlayer player, string relation,
+            Dictionary<string, SocialOnlinePlayer> presenceById,
+            string offlineActivity = "OFFLINE")
+        {
+            if (presenceById.TryGetValue(player.PrimeId, out SocialOnlinePlayer? online))
+            {
+                return new SocialUiRow(
+                    player.PrimeId,
+                    player.DisplayName.ToUpperInvariant(),
+                    ActivityLabel(online.Activity),
+                    SocialRoomLabel(online.RoomKey),
+                    relation,
+                    true,
+                    relation == "FRIEND");
+            }
+            return new SocialUiRow(
+                player.PrimeId,
+                player.DisplayName.ToUpperInvariant(),
+                offlineActivity,
+                "",
+                relation,
+                false,
+                false);
+        }
+
+        private static string RelationshipFor(string primeId)
+        {
+            if (_socialSnapshot == null)
+                return "PLAYER";
+            if (ContainsPrimeId(_socialSnapshot.Friends, primeId))
+                return "FRIEND";
+            if (ContainsPrimeId(_socialSnapshot.IncomingRequests, primeId))
+                return "INCOMING";
+            if (ContainsPrimeId(_socialSnapshot.OutgoingRequests, primeId))
+                return "OUTGOING";
+            if (ContainsPrimeId(_socialSnapshot.Blocked, primeId))
+                return "BLOCKED";
+            return "PLAYER";
+        }
+
+        private static bool ContainsPrimeId(List<SocialPlayer> players, string primeId)
+        {
+            foreach (SocialPlayer player in players)
+                if (player.PrimeId.Equals(primeId, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            return false;
+        }
+
+        private static bool SocialMatches(SocialUiRow row, string search)
+        {
+            if (String.IsNullOrWhiteSpace(search))
+                return true;
+            return row.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || row.PrimeId.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || row.Activity.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || row.Detail.Contains(search, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool LooksLikePrimeId(string value)
+        {
+            if (value.Length != 27 || !value.StartsWith("PP-", StringComparison.OrdinalIgnoreCase))
+                return false;
+            for (int i = 3; i < value.Length; i++)
+            {
+                if (i is 7 or 12 or 17 or 22)
+                {
+                    if (value[i] != '-') return false;
+                    continue;
+                }
+                char c = value[i];
+                if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')
+                    || (c >= 'A' && c <= 'F')))
+                    return false;
+            }
+            return true;
+        }
+
+        private static string ActivityLabel(string activity) => activity switch
+        {
+            "menu" => "MAIN MENU",
+            "lobby" => "IN LOBBY",
+            "in_match" => "IN MATCH",
+            "spectating" => "SPECTATING",
+            _ => "ONLINE"
+        };
+
+        private static string SocialRoomLabel(string? roomKey)
+        {
+            if (String.IsNullOrWhiteSpace(roomKey))
+                return "";
+            if (Metadata.RoomMetadata.TryGetValue(roomKey, out RoomMetadata? metadata)
+                && !String.IsNullOrWhiteSpace(metadata.InGameName))
+                return metadata.InGameName!.ToUpperInvariant();
+            return roomKey.ToUpperInvariant();
+        }
+
+        private static string SocialMutationStatus(string status) => status switch
+        {
+            "request_sent" => "FRIEND REQUEST SENT",
+            "request_pending" => "FRIEND REQUEST ALREADY PENDING",
+            "friends" => "FRIEND ADDED",
+            "already_friends" => "ALREADY FRIENDS",
+            "request_declined" => "FRIEND REQUEST DECLINED",
+            "request_cancelled" => "FRIEND REQUEST CANCELLED",
+            "friend_removed" => "FRIEND REMOVED",
+            "blocked" => "PLAYER BLOCKED",
+            "unblocked" => "PLAYER UNBLOCKED",
+            _ => status.Replace('_', ' ').ToUpperInvariant()
+        };
+
+        private static string ShortSocialError(Exception ex)
+        {
+            string text = ex.Message.Trim().Replace('\n', ' ').Replace('\r', ' ');
+            if (text.Length == 0) text = ex.GetType().Name;
+            return text.Length > 52 ? text[..52].ToUpperInvariant() : text.ToUpperInvariant();
+        }
+
+        private static void SeedSocialCapture()
+        {
+            _socialDrawerOpen = true;
+            SetBool("social_open", true);
+            SetBool("social_loading", false);
+            SetText("social_status", "SOCIAL READY // CAPTURE FIXTURE");
+            SetText("social_online_count", "6 ONLINE");
+            SetText("social_friend_count", "2 ONLINE");
+            SetText("social_request_count", "2 REQUESTS");
+            SetText("social_badge", "2");
+            NativeSocialClear();
+            NativeSocialAddRow("PP-7A1C-5D91-44B2-8E31-9F20", "TRACE MAIN",
+                "IN LOBBY", "SANCTORUS", "FRIEND", 1, 1);
+            NativeSocialAddRow("PP-0D72-3F1A-4B8C-91E0-6A2B", "KANDEN",
+                "IN MATCH", "FUEL STACK", "FRIEND", 1, 1);
+            NativeSocialAddRow("PP-991A-B732-4FD1-87C0-122E", "WEAVEL FAN",
+                "OFFLINE", "", "FRIEND", 0, 0);
+            NativeSocialAddRow("PP-AB22-01CE-4DA7-82E1-7F04", "NOXUS",
+                "OFFLINE", "", "FRIEND", 0, 0);
+            NativeSocialAddHomeFriend("PP-7A1C-5D91-44B2-8E31-9F20",
+                "TRACE MAIN", "IN LOBBY", "SANCTORUS");
+            NativeSocialAddHomeFriend("PP-0D72-3F1A-4B8C-91E0-6A2B",
+                "KANDEN", "IN MATCH", "FUEL STACK");
+            NativeSocialCommit();
+        }
+
         private static void HandleGamepad(UiAction action)
         {
             if (!_active) return;
