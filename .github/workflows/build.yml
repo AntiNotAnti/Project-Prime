@@ -228,6 +228,14 @@ jobs:
           capture 1440p 2560x1440 1
           capture 4k 3840x2160 1
           capture retina-3008 3008x1692 2
+          social_out="$RUNNER_TEMP/rmlui-proof/social-1080"
+          xvfb-run -a --server-args="-screen 0 4096x2304x24" \
+            env LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe \
+            publish/rmlui-linux/ProjectPrime \
+            -rmluipocshot "$social_out" -rmluisocial \
+            -rmluisize 1920x1080 -rmluidensity 1 \
+            -renderer opengl -windowed -noupdate
+          test -s "$social_out/rmlui-home.png"
       - name: RmlUi multi-resolution proof captures
         if: always()
         uses: actions/upload-artifact@v7
