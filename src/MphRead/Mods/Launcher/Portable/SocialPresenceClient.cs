@@ -210,7 +210,7 @@ namespace MphRead.Mods.Launcher
         private static LocalPresence CaptureLocal()
         {
             if (DemoPlayback.IsActive || !NetSession.Active)
-                return new("menu", "", false);
+                return new("menu", "", false, "");
 
             string room = NetSession.ActiveMatchDefinition?.RoomKey
                 ?? NetSession.ServerMatch?.RoomKey
@@ -218,21 +218,23 @@ namespace MphRead.Mods.Launcher
 
             if (NetSession.PersistentLobby && NetSession.IsInLobby)
             {
-                // RoomKey is the selected arena, not a globally unique lobby
-                // locator. Do not expose a fake Join Friend capability here.
-                // Slice 4 will set joinability only after it has an authenticated
-                // resolver from social lobby identity to the normal join path.
-                return new("lobby", room, false);
+                SocialLobbyLocator? lobby = SocialInviteClient.CurrentLobby;
+                bool joinable = lobby != null
+                    && lobby.ExpiresAt > DateTimeOffset.UtcNow
+                    && lobby.TryAuthorityEpoch(out ulong epoch)
+                    && epoch == NetSession.AuthorityEpoch;
+                return new("lobby", room, joinable,
+                    joinable ? lobby!.LobbyId : "");
             }
 
             if (SpectatorMode.IsSpectating
                 || (NetSession.IsPlaying && SpectatorMode.PreferSpectator))
-                return new("spectating", room, false);
+                return new("spectating", room, false, "");
 
             if (NetSession.IsStarting || NetSession.IsPlaying || NetSession.IsPostMatch)
-                return new("in_match", room, false);
+                return new("in_match", room, false, "");
 
-            return new("online", "", false);
+            return new("online", "", false, "");
         }
 
         private static Dictionary<string, object?> CommonBody(string action)
@@ -256,6 +258,7 @@ namespace MphRead.Mods.Launcher
             body["activity"] = local.Activity;
             body["room_key"] = local.RoomKey.Length == 0 ? null : local.RoomKey;
             body["joinable"] = local.Joinable;
+            body["lobby_id"] = local.LobbyId.Length == 0 ? null : local.LobbyId;
             return body;
         }
 
@@ -368,7 +371,8 @@ namespace MphRead.Mods.Launcher
                     ? SocialInvitePolicy.Nobody
                     : SocialInvitePolicy.Friends;
 
-        private readonly record struct LocalPresence(string Activity, string RoomKey, bool Joinable);
+        private readonly record struct LocalPresence(
+            string Activity, string RoomKey, bool Joinable, string LobbyId);
     }
 
     internal sealed class PresenceEnvelope
@@ -433,6 +437,8 @@ namespace MphRead.Mods.Launcher
         public string Activity { get; set; } = "online";
         [JsonPropertyName("room_key")]
         public string? RoomKey { get; set; }
+        [JsonPropertyName("lobby_id")]
+        public string? LobbyId { get; set; }
         [JsonPropertyName("joinable")]
         public bool Joinable { get; set; }
         [JsonPropertyName("is_friend")]
