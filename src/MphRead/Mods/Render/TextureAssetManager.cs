@@ -168,6 +168,25 @@ namespace MphRead.Mods.Render
                 return;
             }
 #if !MPHREAD_SERVER
+            if (asset is RgbaMipTextureAsset authored)
+            {
+                sampling=sampling with {Mipmaps=sampling.Mipmaps && authored.MipmapsAvailable};
+                GL.PixelStore(PixelStoreParameter.UnpackAlignment,4);
+                if (ModernGraphicsCompat.Active)
+                    ModernGraphicsCompat.UploadRgbaMipTexture(authored,sampling.Mipmaps);
+                else
+                {
+                    int count=sampling.Mipmaps ? authored.Mips.Length : 1;
+                    for (int level=0;level<count;level++)
+                    {
+                        RgbaTextureMip mip=authored.Mips[level];
+                        GL.TexImage2D(TextureTarget.Texture2D,level,PixelInternalFormat.Rgba8,
+                            mip.Width,mip.Height,0,PixelFormat.Rgba,PixelType.UnsignedByte,mip.Data);
+                    }
+                }
+                ApplyBoundSampling(repeat,sampling,generateMipmaps:false);
+                return;
+            }
             if (asset is Ktx2TextureAsset compressed)
             {
                 if (!ModernGraphicsCompat.Active)

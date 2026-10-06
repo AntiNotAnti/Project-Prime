@@ -17,15 +17,17 @@ internal sealed unsafe partial class ModernGraphicsCompat
         internal WgpuBuffer* Index;
         internal ulong VertexCapacityBytes;
         internal ulong IndexCapacityBytes;
-        internal uint VertexCursor;
-        internal uint IndexCursor;
+        internal RetainedAtlasRanges Vertices = null!;
+        internal RetainedAtlasRanges Indices = null!;
+        internal int LiveEntries;
     }
 
     private readonly record struct RetainedMultiDrawEntry(
         RetainedMultiDrawPage Page,
         uint FirstIndex,
         int BaseVertex,
-        uint IndexCount);
+        uint IndexCount,
+        uint VertexCount);
 
     private readonly record struct RetainedDenseMultiDrawBucket(
         int Id,
@@ -118,13 +120,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
         for (int i = 0; i < _retainedMultiDrawPages.Count; i++)
         {
             RetainedMultiDrawPage candidate = _retainedMultiDrawPages[i];
-            ulong usedVertexBytes = checked(
-                (ulong)candidate.VertexCursor
-                * (ulong)strideFloats * sizeof(float));
-            ulong usedIndexBytes = checked(
-                (ulong)candidate.IndexCursor * sizeof(int));
-            if (usedVertexBytes + vertexBytes <= candidate.VertexCapacityBytes
-                && usedIndexBytes + indexBytes <= candidate.IndexCapacityBytes)
+            if (candidate.Vertices.CanRent(vertexCount)
+                && candidate.Indices.CanRent(indexCount))
             {
                 page = candidate;
                 break;
@@ -140,7 +137,9 @@ internal sealed unsafe partial class ModernGraphicsCompat
             page = new RetainedMultiDrawPage
             {
                 VertexCapacityBytes = vertexCapacity,
-                IndexCapacityBytes = indexCapacity
+                IndexCapacityBytes = indexCapacity,
+                Vertices = new(checked((uint)(vertexCapacity / ((ulong)strideFloats * sizeof(float))))),
+                Indices = new(checked((uint)(indexCapacity / sizeof(int))))
             };
             page.Vertex = _api.DeviceCreateBuffer(
                 _device.Device, new BufferDescriptor
@@ -164,26 +163,40 @@ internal sealed unsafe partial class ModernGraphicsCompat
             _retainedMultiDrawPages.Add(page);
         }
 
-        uint baseVertex = page.VertexCursor;
-        uint firstIndex = page.IndexCursor;
+        uint baseVertex = page.Vertices.Rent(vertexCount);
+        uint firstIndex = page.Indices.Rent(indexCount);
         ulong vertexOffset = checked(
             (ulong)baseVertex * (ulong)strideFloats * sizeof(float));
         ulong indexOffset = checked((ulong)firstIndex * sizeof(int));
-        fixed (float* vertexPtr = geometry.Vertices)
+        try
         {
-            WriteProfiledBuffer(page.Vertex, vertexOffset,
-                vertexPtr, checked((nuint)vertexBytes));
+            fixed (float* vertexPtr = geometry.Vertices)
+            {
+                WriteProfiledBuffer(page.Vertex, vertexOffset,
+                    vertexPtr, checked((nuint)vertexBytes));
+            }
+            fixed (int* indexPtr = geometry.Triangles)
+            {
+                WriteProfiledBuffer(page.Index, indexOffset,
+                    indexPtr, checked((nuint)indexBytes));
+            }
         }
-        fixed (int* indexPtr = geometry.Triangles)
+        catch
         {
-            WriteProfiledBuffer(page.Index, indexOffset,
-                indexPtr, checked((nuint)indexBytes));
+            page.Vertices.Return(baseVertex, vertexCount);
+            page.Indices.Return(firstIndex, indexCount);
+            if (page.LiveEntries == 0)
+            {
+                _retainedMultiDrawPages.Remove(page);
+                _api.BufferRelease(page.Vertex);
+                _api.BufferRelease(page.Index);
+            }
+            throw;
         }
-        page.VertexCursor = checked(baseVertex + vertexCount);
-        page.IndexCursor = checked(firstIndex + indexCount);
+        page.LiveEntries++;
 
         var entry = new RetainedMultiDrawEntry(
-            page, firstIndex, checked((int)baseVertex), indexCount);
+            page, firstIndex, checked((int)baseVertex), indexCount, vertexCount);
         _retainedMultiDrawEntries.Add(geometry, entry);
         _retainedMultiDrawAtlasBytes += checked(
             (long)(vertexBytes + indexBytes));
@@ -808,7 +821,23 @@ internal sealed unsafe partial class ModernGraphicsCompat
     private void ReleaseRetainedMultiDrawGeometry(
         GeometryList geometry)
     {
-        _retainedMultiDrawEntries.Remove(geometry);
+        if (_retainedMultiDrawEntries.TryGetValue(geometry, out RetainedMultiDrawEntry entry))
+        {
+            // Submit every command referencing this span before a future
+            // QueueWriteBuffer can reuse it. Queue ordering retains in-flight data.
+            FlushCommands();
+            _retainedMultiDrawEntries.Remove(geometry);
+            RetainedMultiDrawPage page = entry.Page;
+            page.Vertices.Return(checked((uint)entry.BaseVertex), entry.VertexCount);
+            page.Indices.Return(entry.FirstIndex, entry.IndexCount);
+            if (--page.LiveEntries == 0)
+            {
+                _retainedMultiDrawPages.Remove(page);
+                if (page.Vertex != null) _api.BufferRelease(page.Vertex);
+                if (page.Index != null) _api.BufferRelease(page.Index);
+                page.Vertex = page.Index = null;
+            }
+        }
         _retainedMultiDrawExplicitNormals.Remove(geometry);
     }
 

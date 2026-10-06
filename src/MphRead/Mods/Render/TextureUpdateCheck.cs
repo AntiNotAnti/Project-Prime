@@ -20,6 +20,7 @@ internal static class TextureUpdateCheck
             using var graphics = new DesktopGraphicsSession(window);
             DesktopGraphicsSession.Resize(window);
             Verify();
+            AuthoredRgbaMipGpuCheck.Verify();
             Console.WriteLine($"[textureupdatecheck] PASS {GraphicsBackendPolicy.Resolved}");
             return 0;
         }

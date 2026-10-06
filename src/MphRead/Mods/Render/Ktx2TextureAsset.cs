@@ -62,13 +62,17 @@ namespace MphRead.Mods.Render
                     maximumDimension = Math.Clamp(maximumDimension, 1,
                         ModernTextureAsset.MaximumDimension);
                     bool needsFit = width > maximumDimension || height > maximumDimension;
+                    // WebGPU requires base compressed extents to be block-aligned.
+                    // Retain the authored NPOT UV/aspect/texels through RGBA rather
+                    // than padding/rescaling the image or allocating an invalid texture.
+                    bool unalignedBlocks=PreserveRgbaMips(assetClass) && (width%4 != 0 || height%4 != 0);
                     bool basis = Ktx2.NeedsTranscoding(texture);
 
                     if (basis)
                     {
-                        GpuTextureCompressionFormat preferred = needsFit
+                        GpuTextureCompressionFormat preferred = needsFit || unalignedBlocks
                             ? GpuTextureCompressionFormat.None
-                            : assetClass is TextureAssetClass.Hunter or TextureAssetClass.Weapon
+                            : PreserveRgbaMips(assetClass)
                                 ? ModernGraphicsCompat.PreferredCharacterTextureCompression
                                 : ModernGraphicsCompat.PreferredTextureCompression;
                         if (preferred != GpuTextureCompressionFormat.None)
@@ -79,12 +83,15 @@ namespace MphRead.Mods.Render
                         }
 
                         TranscodeRgba(texture);
+                        if (PreserveRgbaMips(assetClass))
+                            return CopyRgbaMips(texture,key,assetClass,channel,maximumDimension,
+                                needsFit ? "dimension-cap" : unalignedBlocks ? "unaligned-block-extent" : "adapter-format-fallback");
                         return CopyRgba(texture, key, assetClass, channel,
                             width, height, maximumDimension);
                     }
 
                     GpuTextureCompressionFormat direct = DirectCompression(texture->VkFormat);
-                    if (!needsFit && direct != GpuTextureCompressionFormat.None
+                    if (!needsFit && !unalignedBlocks && direct != GpuTextureCompressionFormat.None
                         && ModernGraphicsCompat.TextureCompressionSupported(direct))
                     {
                         return CopyCompressed(texture, key, assetClass, channel,
@@ -94,6 +101,9 @@ namespace MphRead.Mods.Render
                     if (texture->VkFormat is Ktx2.VkFormat.R8G8B8A8Unorm
                         or Ktx2.VkFormat.R8G8B8A8Srgb)
                     {
+                        if (PreserveRgbaMips(assetClass))
+                            return CopyRgbaMips(texture,key,assetClass,channel,maximumDimension,
+                                needsFit ? "dimension-cap" : "authored-rgba8");
                         return CopyRgba(texture, key, assetClass, channel,
                             width, height, maximumDimension);
                     }
@@ -242,6 +252,44 @@ namespace MphRead.Mods.Render
             return ModernTextureAsset.FromRgbaPointer(
                 key, assetClass, channel, width, height,
                 (IntPtr)(texture->PData + offset), maximumDimension);
+        }
+
+        private static bool PreserveRgbaMips(TextureAssetClass assetClass)
+            => assetClass is TextureAssetClass.Hunter or TextureAssetClass.Weapon
+                or TextureAssetClass.AlternateForm or TextureAssetClass.Turret;
+
+        private static RgbaMipTextureAsset CopyRgbaMips(Ktx2.Texture* texture,string key,
+            TextureAssetClass assetClass,TextureAssetChannel channel,int maximumDimension,string preparationReason)
+        {
+            int width=checked((int)texture->BaseWidth),height=checked((int)texture->BaseHeight);
+            int count=checked((int)texture->NumLevels);
+            int maximumLevels=1+(int)Math.Floor(Math.Log2(Math.Max(width,height)));
+            if (count < 1 || count > maximumLevels)
+                throw new InvalidDataException("KTX2 authored RGBA mip count is invalid.");
+            int first=0;
+            while (first < count && (Math.Max(1,width >> first) > maximumDimension
+                || Math.Max(1,height >> first) > maximumDimension)) first++;
+            if (first == count)
+                throw new InvalidDataException("KTX2 authored RGBA chain has no level within the character texture cap.");
+            var mips=new RgbaTextureMip[count-first];
+            long total=0;
+            for (int level=first;level<count;level++)
+            {
+                int mipWidth=Math.Max(1,width >> level),mipHeight=Math.Max(1,height >> level);
+                int expected=checked(mipWidth*mipHeight*4);
+                total=checked(total+expected);
+                if (total > ModernTextureAsset.MaximumDecodedBytes)
+                    throw new InvalidDataException("KTX2 authored RGBA chain exceeds the decoded-byte limit.");
+                Ktx2.ErrorCode error=Ktx2.GetImageOffset(texture,(uint)level,0,0,out nuint offset);
+                nuint size=Ktx2.GetImageSize(texture,(uint)level);
+                if (error != Ktx2.ErrorCode.Success || texture->PData == null
+                    || size != (nuint)expected || offset > texture->DataSize || size > texture->DataSize-offset)
+                    throw new InvalidDataException($"KTX2 authored RGBA mip {level} has invalid bounds or layout.");
+                byte[] pixels=new byte[expected];
+                Marshal.Copy((IntPtr)(texture->PData+offset),pixels,0,expected);
+                mips[level-first]=new(mipWidth,mipHeight,pixels);
+            }
+            return new RgbaMipTextureAsset(key,assetClass,channel,mips,first,preparationReason);
         }
 
         private static GpuTextureCompressionFormat DirectCompression(Ktx2.VkFormat format) =>

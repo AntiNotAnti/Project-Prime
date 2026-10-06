@@ -15,7 +15,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
         int QueueSubmissions, double QueueSubmitMs, int BufferWrites, long BufferWriteBytes, double BufferWriteMs,
         int BindGroupsCreated, double BindGroupCreationMs,
         int CoreDraws, int CoreRenderPasses, int StagedTextureUploads,
-        int RetainedGeometryPromotions, long RetainedGeometryBytes);
+        int RetainedGeometryPromotions, long RetainedGeometryBytes,
+        TrackedStorage Storage, string StorageCoverage, BufferUploadBreakdown BufferUploads);
 
     private bool _measurePerformance;
     private int _createdPipelines;
@@ -42,6 +43,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
         s._retainedGeometryBytes = 0;
         s._bufferWriteBytes = 0; s._queueSubmitMs = s._bufferWriteMs = s._bindGroupCreationMs = 0;
         s._surfaceAcquisitions = 0; s._surfaceAcquireMs = s._longestSurfaceAcquireMs = 0;
+        Array.Clear(s._bufferUploadCategoryBytes);
     }
 
     private long PerformanceStart() => _measurePerformance ? Stopwatch.GetTimestamp() : 0;
@@ -62,49 +64,23 @@ internal sealed unsafe partial class ModernGraphicsCompat
         if (start == 0) return;
         _bufferWrites++; _bufferWriteBytes += (long)size;
         _bufferWriteMs += Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+        RecordBufferUpload((nint)buffer, checked((long)size));
     }
 
     internal static PerformanceSample EndPerformanceSample()
     {
         var s = Current;
         s._measurePerformance = false;
-        long textureBytes = 0, bufferBytes = 0;
-        foreach (var texture in s._nativeTextures.Values)
-        {
-            int width = texture.Width, height = texture.Height;
-            bool blockCompressed = texture.Format is
-                Silk.NET.WebGPU.TextureFormat.BC7RgbaUnorm
-                or Silk.NET.WebGPU.TextureFormat.BC7RgbaUnormSrgb
-                or Silk.NET.WebGPU.TextureFormat.Etc2Rgba8Unorm
-                or Silk.NET.WebGPU.TextureFormat.Etc2Rgba8UnormSrgb
-                or Silk.NET.WebGPU.TextureFormat.Astc4x4Unorm
-                or Silk.NET.WebGPU.TextureFormat.Astc4x4UnormSrgb;
-            int pixelBytes = texture.Format == Silk.NET.WebGPU.TextureFormat.Rgba16float ? 8 : 4;
-            for (int mip = 0; mip < texture.MipCount; mip++)
-            {
-                textureBytes += blockCompressed
-                    ? (long)Math.Max(1, (width + 3) / 4) * Math.Max(1, (height + 3) / 4) * 16
-                    : (long)width * height * pixelBytes;
-                width = Math.Max(1, width / 2); height = Math.Max(1, height / 2);
-            }
-        }
-        foreach (var geometry in s._geometryCache.Values)
-            bufferBytes += (long)(geometry.VertexCapacity + geometry.IndexCapacity);
-        foreach (var page in s._geometryArena)
-            bufferBytes += (long)(page.VertexCapacity + page.IndexCapacity);
-        foreach (var page in s._uniformArena)
-            bufferBytes += (long)page.Capacity;
-        foreach (var page in s._retainedUniformArena)
-            bufferBytes += (long)page.Capacity;
-        foreach (var upload in s._uploadBuffers)
-            bufferBytes += (long)upload.Capacity;
+        TrackedStorage storage = s.Storage();
         return new(s._createdPipelines, s._pipelineCreationMs, s._longestPipelineCreationMs,
-            s._textureUploadBytes, s._textureUploadMs, textureBytes, bufferBytes,
+            s._textureUploadBytes, s._textureUploadMs, storage.TextureBytes, storage.BufferCapacityBytes,
             s._surfaceAcquisitions, s._surfaceAcquireMs, s._longestSurfaceAcquireMs, s._vsync, s._presentMode.ToString(),
             s._queueSubmissions, s._queueSubmitMs, s._bufferWrites, s._bufferWriteBytes, s._bufferWriteMs,
             s._bindGroupsCreated, s._bindGroupCreationMs,
             s._coreDraws, s._coreRenderPasses, s._stagedTextureUploads,
-            s._retainedGeometryPromotions, s._retainedGeometryBytes);
+            s._retainedGeometryPromotions, s._retainedGeometryBytes, storage,
+            "logical native texture capacity (depth24plus estimated 4B/pixel), native buffer capacity; excludes driver padding/private memory and managed staging",
+            s.BufferUploads());
     }
 }
 #endif

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/MphRead/Mods/Render/AuthoredRgbaMipFixtures.cs" Link="AuthoredRgbaMipFixtures.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/RgbaMipTextureAsset.cs" Link="RgbaMipTextureAsset.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/Ktx2TextureAsset.cs" Link="Ktx2TextureAsset.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/PreparedTextureAsset.cs" Link="PreparedTextureAsset.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/PreparedTextureCodec.cs" Link="PreparedTextureCodec.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/ModernTextureAsset.cs" Link="ModernTextureAsset.cs" />
+    <PackageReference Include="Ktx2.NET" Version="1.0.5" />
+    <PackageReference Include="ReFuel.StbImage" Version="2.1.1" />
+  </ItemGroup>
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX')) and Exists('$(MSBuildProjectDirectory)/../../artifacts/ktx-native-macos/$(NETCoreSdkRuntimeIdentifier)/libktx.dylib')">
+    <None Include="../../artifacts/ktx-native-macos/$(NETCoreSdkRuntimeIdentifier)/libktx.dylib"
+          Link="libktx.dylib" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

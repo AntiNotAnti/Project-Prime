@@ -8842,6 +8842,8 @@ localCenter *= _profileHudScale;
         private bool _appliedLinuxVSyncFallback;
         private bool _reportedModernBlockingFallback;
         private long _presentationInputRevision = Mods.Input.GamepadContexts.Revision;
+        private bool? _rawMouseSupported;
+        private bool _rawMouseEnabled;
 
         private static unsafe double MonitorRefreshRate(NativeWindow window)
         {
@@ -8955,6 +8957,16 @@ localCenter *= _profileHudScale;
             }
         }
 
+        private void SetPointerCapture(CursorState state)
+        {
+            CursorState = state;
+            bool rawMouse = state == CursorState.Grabbed
+                && (_rawMouseSupported ??= SupportsRawMouseInput);
+            if (rawMouse == _rawMouseEnabled) return;
+            RawMouseInput = rawMouse;
+            _rawMouseEnabled = rawMouse;
+        }
+
         private void PresentFrame()
         {
 #if !MPHREAD_SERVER
@@ -8995,7 +9007,7 @@ localCenter *= _profileHudScale;
             {
                 // The launcher, with no match behind it. The pointer is the
                 // system's -- there is nobody to aim.
-                CursorState = CursorState.Normal;
+                SetPointerCapture(CursorState.Normal);
                 Mods.Input.PointerDevice.Reset();
                 Mods.Render.UiOverlay.DrawAlone(this, FramebufferSize.X, FramebufferSize.Y);
                 // Before the swap: the back buffer holds this frame and
@@ -9034,15 +9046,15 @@ localCenter *= _profileHudScale;
                 && !Mods.Input.StylusZone.Placing && !GameState.DialogPause && !GameState.MenuPause;
             if (gameplayPointer && Mods.Input.PointerInput.StylusMode)
             {
-                CursorState = CursorState.Hidden;
+                SetPointerCapture(CursorState.Hidden);
             }
             else if (gameplayPointer && !Scene.ShowCursor)
             {
-                CursorState = CursorState.Grabbed;
+                SetPointerCapture(CursorState.Grabbed);
             }
             else
             {
-                CursorState = CursorState.Normal;
+                SetPointerCapture(CursorState.Normal);
             }
             // Where the pointer is, for the picker to light up what it is
             // over, and in the same units its hit boxes are kept in. Against

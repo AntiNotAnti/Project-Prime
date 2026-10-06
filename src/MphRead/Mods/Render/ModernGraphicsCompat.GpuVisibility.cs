@@ -78,6 +78,13 @@ internal sealed unsafe partial class ModernGraphicsCompat
 
     internal static bool GpuVisibilityEnabled =>
         _current?.UseGpuVisibility ?? false;
+    internal static bool GpuTemporalOcclusionEnabled => ConservativeHiZ.TemporalOcclusionEnabled
+        && (_current?.UseGpuVisibility ?? false);
+    internal static void ValidateVisibilityShadersForCheck()
+    {
+        Current.EnsureGpuVisibilityPipelines();
+        Current._device.ThrowIfFailed();
+    }
     internal static long GpuVisibilityDispatches =>
         _current?._gpuVisibilityDispatches ?? 0;
     internal static long GpuVisibilityCandidates =>
@@ -308,7 +315,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
                 checked((nuint)(bucketWords * sizeof(uint))));
         }
 
-        bool useHistory = historyValid
+        bool useHistory = ConservativeHiZ.TemporalOcclusionEnabled && historyValid
             && _gpuVisibilityPreviousMatricesValid
             && _gpuHiZFullView != 0
             && depthTexture != 0
@@ -354,7 +361,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
         Matrix4 projection, Matrix4 view,
         int depthTexture, int width, int height)
     {
-        if (!UseGpuVisibility || depthTexture == 0
+        if (!UseGpuVisibility || !ConservativeHiZ.TemporalOcclusionEnabled || depthTexture == 0
             || width <= 0 || height <= 0)
         {
             _gpuVisibilityPreviousMatricesValid = false;
@@ -591,8 +598,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
         int mipHeight = height;
         for (int mip = 1; mip < _gpuHiZMipCount; mip++)
         {
-            mipWidth = Math.Max(1, (mipWidth + 1) / 2);
-            mipHeight = Math.Max(1, (mipHeight + 1) / 2);
+            mipWidth = Math.Max(1, mipWidth / 2);
+            mipHeight = Math.Max(1, mipHeight / 2);
             DispatchGpuCompute(
                 _gpuHiZReducePipeline,
                 (BindGroup*)_gpuHiZReduceBindGroups[mip - 1],
@@ -891,16 +898,14 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
     let src_size = textureDimensions(source);
-    let base = vec2<i32>(i32(id.x * 2u), i32(id.y * 2u));
-    let hi = vec2<i32>(i32(src_size.x) - 1, i32(src_size.y) - 1);
-    let p0 = clamp(base, vec2<i32>(0), hi);
-    let p1 = clamp(base + vec2<i32>(1, 0), vec2<i32>(0), hi);
-    let p2 = clamp(base + vec2<i32>(0, 1), vec2<i32>(0), hi);
-    let p3 = clamp(base + vec2<i32>(1, 1), vec2<i32>(0), hi);
-    let d = max(max(textureLoad(source, p0, 0).x,
-                    textureLoad(source, p1, 0).x),
-                max(textureLoad(source, p2, 0).x,
-                    textureLoad(source, p3, 0).x));
+    let begin = id.xy * src_size / dst_size;
+    let end = ((id.xy + vec2<u32>(1u)) * src_size + dst_size - vec2<u32>(1u)) / dst_size;
+    var d = 0.0;
+    for (var y = begin.y; y < end.y; y = y + 1u) {
+        for (var x = begin.x; x < end.x; x = x + 1u) {
+            d = max(d, textureLoad(source, vec2<i32>(i32(x), i32(y)), 0).x);
+        }
+    }
     textureStore(destination, vec2<i32>(i32(id.x), i32(id.y)),
         vec4<f32>(d, 0.0, 0.0, 0.0));
 }
@@ -974,8 +979,7 @@ fn pixel_from_clip(clip: vec4<f32>) -> vec2<f32> {
 
 fn hiz_at(pixel: vec2<f32>, mip: u32) -> f32 {
     let size = textureDimensions(hiz, i32(mip));
-    let scale = exp2(f32(mip));
-    let p = vec2<i32>(pixel / scale);
+    let p = vec2<i32>(pixel / uniforms.viewport.xy * vec2<f32>(size));
     let hi = vec2<i32>(i32(size.x) - 1, i32(size.y) - 1);
     return textureLoad(hiz, clamp(p, vec2<i32>(0), hi), i32(mip)).x;
 }
