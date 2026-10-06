@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "tierId": "sourceio-roster-mobile-v1",
+  "mobilePrefix": "mobile-roster-v1",
+  "optimizeHunters": ["Spire", "Noxus", "Kanden", "Sylux", "Trace", "Weavel"],
+  "preserveHunters": ["Samus"],
+  "maximumDimensions": {
+    "albedo": 1024,
+    "normal": 512,
+    "material": 256,
+    "emissive": 256
+  },
+  "ktxRevision": "6b3d8bf15788f604c6b91dd95fafabb6c59cd723",
+  "uastcLevel": 2,
+  "zstdLevel": 9,
+  "compressionAcceptance": {
+    "minimumRgbPsnrDb": 35,
+    "minimumAlphaPsnrDb": 35,
+    "maximumMeanNormalAngleDegrees": 1.5,
+    "maximumP99NormalAngleDegrees": 6
+  },
+  "runtimeFormatPolicy": "Existing character runtime: ASTC4x4 when supported, bounded RGBA fallback on ETC2-only adapters. Physical Android acceptance is separate.",
+  "scope": "Texture-only candidates from an explicitly hashed accepted desktop pack. Preserve existing Samus desktop/mobile bytes and entries. Preserve Source albedo, recovered detail, normal, gloss/roughness, self-illumination and native recolors. Preserve rectangular aspect ratios, UVs, atlas layout, all geometry, weights, binds and native transforms. No installation or device operations."
+}
