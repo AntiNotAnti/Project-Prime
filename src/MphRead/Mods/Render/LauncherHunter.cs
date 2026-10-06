@@ -74,6 +74,12 @@ namespace MphRead.Mods.Render
         public static float DistanceScale { get; set; } = 1f;
 
         /// <summary>
+        /// Use the brighter warm-key/cool-fill menu-stage lighting instead of
+        /// the neutral picker light.
+        /// </summary>
+        public static bool CinematicLighting { get; set; }
+
+        /// <summary>
         /// Where it goes, in fractions of the window: left, top, right,
         /// bottom, measured down from the top the way a screen's own
         /// coordinates are.
@@ -150,8 +156,10 @@ namespace MphRead.Mods.Render
             CanPresent = null;
             TransparentBackground = false;
             DistanceScale = 1f;
+            CinematicLighting = false;
             Scene.LauncherPreviewTransparent = false;
             Scene.LauncherPreviewDistanceScale = 1f;
+            Scene.LauncherPreviewCinematicLighting = false;
             Drawn = false;
             _failureCount = 0;
             _retryAfter = 0;
@@ -216,6 +224,7 @@ namespace MphRead.Mods.Render
                 Scene.LauncherSuit = Math.Clamp(Suit, 0, 3);
                 Scene.LauncherPreviewTransparent = TransparentBackground;
                 Scene.LauncherPreviewDistanceScale = Math.Clamp(DistanceScale, 0.65f, 1.25f);
+                Scene.LauncherPreviewCinematicLighting = CinematicLighting;
                 Scene.PreviewWanted = true;
                 Scene.PreviewLeft = Left;
                 Scene.PreviewTop = Top;

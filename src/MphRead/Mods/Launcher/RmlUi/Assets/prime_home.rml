@@ -5,10 +5,9 @@
 </head>
 <body data-model="prime_menu">
     <div id="screen" data-class-reduce-motion="reduce_motion">
-        <div id="scene_tint"></div>
-        <div id="scene_vignette"></div>
-        <div id="floor_fade"></div>
-        <div id="hunter_glow"></div>
+        <!-- Background grading, vignette, halo and floor contact now live
+             below the Hunter in the native GL stage pass. Keeping them out of
+             RmlUi prevents a translucent wash from flattening the character. -->
         <div id="top_rule"></div>
 
         <div id="topbar" class="enter_top">

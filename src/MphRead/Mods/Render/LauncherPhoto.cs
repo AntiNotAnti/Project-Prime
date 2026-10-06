@@ -65,6 +65,12 @@ namespace MphRead.Mods.Render
         /// </summary>
         public static bool Enabled { get; set; }
 
+        /// <summary>
+        /// Presentation-only treatment used by the RmlUi hero stage. It never
+        /// changes the locally generated source thumbnail on disk.
+        /// </summary>
+        public static bool StageFxEnabled { get; set; }
+
         private static int _texture;
         private static int _width;
         private static int _height;
@@ -79,6 +85,7 @@ namespace MphRead.Mods.Render
         private static int _program;
         private static bool _programTried;
         private static int _photoUniform = -1, _noiseUniform = -1, _strengthUniform = -1;
+        private static int _photoTexelUniform = -1, _noiseEnabledUniform = -1, _stageFxUniform = -1;
 
         /// <summary>`#backdrop { opacity: .62 }`.</summary>
         private const float Strength = 0.16f;
@@ -134,6 +141,9 @@ namespace MphRead.Mods.Render
                 _photoUniform = GL.GetUniformLocation(program, "photo");
                 _noiseUniform = GL.GetUniformLocation(program, "noise");
                 _strengthUniform = GL.GetUniformLocation(program, "strength");
+                _photoTexelUniform = GL.GetUniformLocation(program, "photo_texel");
+                _noiseEnabledUniform = GL.GetUniformLocation(program, "noise_enabled");
+                _stageFxUniform = GL.GetUniformLocation(program, "stage_fx");
                 Mods.DebugLog.Line("ui", "the moving backdrop is on");
                 return true;
             }
@@ -209,9 +219,10 @@ namespace MphRead.Mods.Render
             // The moving field over the photograph. Both have to be there:
             // no program, or no field yet, and this is the still picture it
             // has always been.
-            bool moving = LauncherNoise.Step(width, height)
-                && LauncherNoise.Texture != 0 && EnsureProgram();
-            GL.UseProgram(moving ? _program : 0);
+            bool noiseReady = LauncherNoise.Step(width, height)
+                && LauncherNoise.Texture != 0;
+            bool useProgram = (noiseReady || StageFxEnabled) && EnsureProgram();
+            GL.UseProgram(useProgram ? _program : 0);
             GL.Disable(EnableCap.DepthTest);
             GL.Disable(EnableCap.CullFace);
             GL.Disable(EnableCap.AlphaTest);
@@ -223,7 +234,7 @@ namespace MphRead.Mods.Render
             // for the same reason: the scene leaves the active unit wherever
             // its last shader wanted it.
             GL.ActiveTexture(TextureUnit.Texture1);
-            if (moving)
+            if (noiseReady)
             {
                 GL.Enable(EnableCap.Texture2D);
                 GL.BindTexture(TextureTarget.Texture2D, LauncherNoise.Texture);
@@ -239,11 +250,15 @@ namespace MphRead.Mods.Render
             GL.TexEnv(TextureEnvTarget.TextureEnv, TextureEnvParameter.TextureEnvMode,
                 (int)TextureEnvMode.Replace);
             GL.Color4(1f, 1f, 1f, 1f);
-            if (moving)
+            if (useProgram)
             {
                 GL.Uniform1(_photoUniform, 0);
                 GL.Uniform1(_noiseUniform, 1);
                 GL.Uniform1(_strengthUniform, Strength);
+                GL.Uniform2(_photoTexelUniform,
+                    1f / Math.Max(_width, 1), 1f / Math.Max(_height, 1));
+                GL.Uniform1(_noiseEnabledUniform, noiseReady ? 1 : 0);
+                GL.Uniform1(_stageFxUniform, StageFxEnabled ? 1 : 0);
             }
             GL.MatrixMode(MatrixMode.Projection);
             GL.PushMatrix();
@@ -279,7 +294,7 @@ namespace MphRead.Mods.Render
             GL.TexEnv(TextureEnvTarget.TextureEnv, TextureEnvParameter.TextureEnvMode,
                 (int)TextureEnvMode.Modulate);
             GL.BindTexture(TextureTarget.Texture2D, 0);
-            if (moving)
+            if (useProgram)
             {
                 // Put the units back the way everything after this expects
                 // them: the overlay and the scene both assume unit 1 is off

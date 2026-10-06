@@ -51,6 +51,20 @@ namespace MphRead.Mods.Render
             new Vector3(-0.35f, -0.30f, -0.89f), new Vector3(1f, 0.97f, 0.92f),
             new Vector3(0.60f, 0.20f, 0.77f), new Vector3(0.32f, 0.36f, 0.48f));
 
+        /// <summary>
+        /// Menu-stage light: a slightly warmer key with a stronger cool fill.
+        /// It is still the preview renderer's own lighting, but the increased
+        /// blue-side response creates the rim separation the cinematic room
+        /// cannot provide because the Hunter is drawn in an isolated pass.
+        /// </summary>
+        private static readonly LightInfo _cinematicLight = new LightInfo(
+            new Vector3(-0.28f, -0.38f, -0.88f), new Vector3(1f, 0.93f, 0.82f),
+            new Vector3(0.72f, 0.16f, 0.67f), new Vector3(0.20f, 0.52f, 0.90f));
+
+        private static LightInfo PreviewLight =>
+            Scene.LauncherPreview && Scene.LauncherPreviewCinematicLighting
+                ? _cinematicLight : _light;
+
         /// <summary>Half a turn: these models are authored facing away.</summary>
         private static readonly Matrix4 _facing =
             Matrix4.CreateRotationY(MathHelper.DegreesToRadians(180));
@@ -278,7 +292,7 @@ namespace MphRead.Mods.Render
 
         protected override LightInfo GetLightInfo()
         {
-            return _light;
+            return PreviewLight;
         }
 
         /// <summary>
@@ -326,7 +340,7 @@ namespace MphRead.Mods.Render
                     try
                     {
                         _scene.AddRenderItem(material, weightedPolygonId, Alpha,
-                            emission, _light, Matrix4.Identity, Matrix4.Identity,
+                            emission, PreviewLight, Matrix4.Identity, Matrix4.Identity,
                             segment.ListId, weighted.Joints.Count, weighted.MatrixPalette,
                             color, PaletteOverride, SelectionType.None,
                             BillboardMode.None, _drawScale, bindingOverride,
@@ -370,7 +384,7 @@ namespace MphRead.Mods.Render
                         segment.MaterialMaps.Specular, segment.MaterialMaps.Emissive);
                 try
                 {
-                    _scene.AddRenderItem(material, polygonId, Alpha, emission, _light,
+                    _scene.AddRenderItem(material, polygonId, Alpha, emission, PreviewLight,
                         Matrix4.Identity, node.Animation, segment.ListId,
                         0, Array.Empty<float>(), color, PaletteOverride,
                         SelectionType.None, node.BillboardMode, _drawScale,
@@ -437,7 +451,7 @@ namespace MphRead.Mods.Render
                     && progress < _cosmetics.Death.HideBodyAt))
                 {
                     if (!TryDrawModernCharacter())
-                        GetDrawItems(_model, 0, _light);
+                        GetDrawItems(_model, 0, PreviewLight);
                 }
             }
             finally { _scene.CosmeticSubmission = previous; }
