@@ -421,12 +421,14 @@ private:
         handle.DirtyVariable("selected_can_block");
         handle.DirtyVariable("selected_can_unblock");
         handle.DirtyVariable("social_context_open");
+        Emit((std::string("social:context:") + data.selected_prime_id).c_str());
     }
 
     void SocialContextClose(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
     {
         data.social_context_open = false;
         handle.DirtyVariable("social_context_open");
+        Emit("social:context-close");
     }
 
     void EmitSelected(const char* action)
@@ -700,6 +702,16 @@ PP_EXPORT int pp_rmlui_back()
             social->Focus();
     }
     return 1;
+}
+
+PP_EXPORT int pp_rmlui_focus(const char* id)
+{
+    if (!g_document || !id) return 0;
+    if (Rml::Element* element = g_document->GetElementById(id)) {
+        element->Focus();
+        return 1;
+    }
+    return 0;
 }
 
 PP_EXPORT int pp_rmlui_take_action(unsigned char* buffer, int capacity)
