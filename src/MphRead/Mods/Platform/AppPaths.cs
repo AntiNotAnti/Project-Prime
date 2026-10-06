@@ -32,10 +32,13 @@ namespace MphRead.Mods.Platform
 
         public static void PrepareUserData()
         {
-            if (OperatingSystem.IsMacOS())
-            {
-                Directory.CreateDirectory(UserDataDirectory);
-            }
+            // UserDataDirectory may be an isolated path supplied by automation,
+            // a launcher, or a developer harness. Treat that override as a
+            // directory contract on every desktop platform, not only macOS.
+            // CreateDirectory is harmless when the portable Windows/Linux
+            // executable directory already exists and still surfaces genuine
+            // permission/path failures before we change the process cwd.
+            Directory.CreateDirectory(UserDataDirectory);
         }
     }
 }
