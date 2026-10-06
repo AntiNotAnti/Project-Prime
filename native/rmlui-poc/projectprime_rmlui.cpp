@@ -245,21 +245,23 @@ public:
         handle.DirtyVariable("home_friends");
     }
 
-    bool Back()
+    int Back()
     {
         if (data.social_context_open) {
             data.social_context_open = false;
             handle.DirtyVariable("social_context_open");
-            return true;
+            return 2;
         }
         if (data.social_open) {
             data.social_open = false;
             handle.DirtyVariable("social_open");
             Emit("social:close");
-            return true;
+            return 1;
         }
-        return false;
+        return 0;
     }
+
+    int SocialTab() const { return data.social_tab; }
 
 private:
     PrimeMenuData data;
@@ -696,10 +698,21 @@ PP_EXPORT void pp_rmlui_social_commit()
 
 PP_EXPORT int pp_rmlui_back()
 {
-    if (!g_model || !g_model->Back()) return 0;
+    if (!g_model) return 0;
+    const int layer = g_model->Back();
+    if (layer == 0) return 0;
     if (g_document) {
-        if (Rml::Element* social = g_document->GetElementById("social"))
-            social->Focus();
+        const char* id = "social";
+        if (layer == 2) {
+            switch (g_model->SocialTab()) {
+            case 1: id = "social_tab_players"; break;
+            case 2: id = "social_tab_requests"; break;
+            case 3: id = "social_blocks"; break;
+            default: id = "social_tab_friends"; break;
+            }
+        }
+        if (Rml::Element* element = g_document->GetElementById(id))
+            element->Focus();
     }
     return 1;
 }
