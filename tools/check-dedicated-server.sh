@@ -30,12 +30,29 @@ DIR="${1:-publish/linux-x64}"
 BIN=""
 for candidate in ProjectPrimeServer.exe ProjectPrimeServer ProjectPrime.exe ProjectPrime \
                  MphReadServer.exe MphReadServer MphRead.exe MphRead; do
-  if [ -x "$DIR/$candidate" ]; then
-    BIN="$DIR/$candidate"
-    break
+  if [ -f "$DIR/$candidate" ]; then
+    # GitHub artifact transfer does not guarantee preservation of Unix mode
+    # bits. Release assembly can therefore receive a correct self-contained
+    # apphost as 0644. Restore its executable bit before testing it instead of
+    # falling back to a DLL that single-file publish intentionally omits.
+    case "$candidate" in
+      *.exe) ;;
+      *) chmod +x "$DIR/$candidate" 2>/dev/null || true ;;
+    esac
+    if [ -x "$DIR/$candidate" ] || [[ "$candidate" == *.exe ]]; then
+      BIN="$DIR/$candidate"
+      break
+    fi
   fi
 done
-[ -n "$BIN" ] || BIN="dotnet $DIR/ProjectPrime.dll"
+if [ -z "$BIN" ]; then
+  if [ -f "$DIR/ProjectPrime.dll" ]; then
+    BIN="dotnet $DIR/ProjectPrime.dll"
+  else
+    echo "FAIL: no runnable Project Prime server binary found in $DIR"
+    exit 1
+  fi
+fi
 
 PYTHON="python3"
 command -v "$PYTHON" >/dev/null 2>&1 || PYTHON="python"
