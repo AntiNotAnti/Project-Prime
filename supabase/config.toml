@@ -4,3 +4,10 @@ verify_jwt = false
 # Dedicated reporters use an opaque server credential validated by the handler.
 [functions.career-report]
 verify_jwt = false
+
+
+# Dedicated game servers authenticate with the same opaque reporter credential
+# used by career-report. The function validates that credential and the player's
+# signed Hunter License ticket itself.
+[functions.social-lobby-membership]
+verify_jwt = false
