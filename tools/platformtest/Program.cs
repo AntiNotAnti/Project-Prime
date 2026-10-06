@@ -2,6 +2,35 @@ using System;
 using System.IO;
 using MphRead.Mods.Platform;
 
+string? previousUserData = Environment.GetEnvironmentVariable("PROJECT_PRIME_USER_DATA");
+string isolatedUserData = Path.Combine(Path.GetTempPath(),
+    $"project-prime-user-data-{Guid.NewGuid():N}");
+try
+{
+    Environment.SetEnvironmentVariable("PROJECT_PRIME_USER_DATA", isolatedUserData);
+    if (Directory.Exists(isolatedUserData))
+    {
+        Directory.Delete(isolatedUserData, recursive: true);
+    }
+    AppPaths.PrepareUserData();
+    if (!Directory.Exists(isolatedUserData))
+    {
+        throw new Exception("PrepareUserData did not create an isolated user-data directory.");
+    }
+    if (AppPaths.UserDataDirectory != Path.GetFullPath(isolatedUserData))
+    {
+        throw new Exception("PROJECT_PRIME_USER_DATA did not resolve to the isolated directory.");
+    }
+}
+finally
+{
+    Environment.SetEnvironmentVariable("PROJECT_PRIME_USER_DATA", previousUserData);
+    if (Directory.Exists(isolatedUserData))
+    {
+        Directory.Delete(isolatedUserData, recursive: true);
+    }
+}
+
 string root = Path.Combine(Path.GetTempPath(), "path fixture with spaces");
 string bundle = Path.Combine(root, "Project Prime.app", "Contents");
 string executable = Path.Combine(bundle, "MacOS");
@@ -29,4 +58,4 @@ foreach (var item in cases)
         throw new Exception($"Map path mismatch: expected {expected}, got {actual}");
     }
 }
-Console.WriteLine($"Platform map path regressions passed ({cases.Length} cases).");
+Console.WriteLine($"Platform path regressions passed (user-data creation + {cases.Length} map cases).");
