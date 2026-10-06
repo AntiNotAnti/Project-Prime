@@ -262,12 +262,14 @@ namespace MphRead.Mods
             // or enter any of the launcher/network command paths.
             if (HasFlag(args, "respawnrendercheck") || HasFlag(args, "characteracceptancecheck") || HasFlag(args, "lod1acceptancecheck") || HasFlag(args, "charactermaterialpalette") || HasFlag(args, "charactermaterialacceptancecheck") || HasFlag(args, "morphballacceptancecheck") || HasFlag(args, "viewmodelacceptancecheck"))
             {
+#if !MPHREAD_SERVER
                 if (ValueAfter(args, "compression") is string compression)
                 {
                     if (!Enum.TryParse<Render.GpuTextureCompressionFormat>(compression, true, out var format))
                         throw new ArgumentException("Unknown diagnostic texture compression: " + compression);
                     Render.ModernGraphicsCompat.TextureCompressionForCheck = format;
                 }
+#endif
                 Update.Updater.Disabled = true;
                 return false;
             }
