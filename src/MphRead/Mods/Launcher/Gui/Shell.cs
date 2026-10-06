@@ -168,9 +168,13 @@ namespace MphRead.Mods.Launcher.Gui
             // Realtime or network availability. Interactive POC runs still use
             // the normal social presence lifetime.
             if (!RmlUiPrototype.CaptureRequested)
+            {
                 SocialPresenceClient.Start();
+                SocialInviteClient.Start();
+            }
 #else
             SocialPresenceClient.Start();
+            SocialInviteClient.Start();
 #endif
             LifecycleTiming.Startup("launcher preferences loaded");
             Interlocked.Exchange(ref _firstFrameStarted, 0);
@@ -256,6 +260,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _startupWork = null;
                 _deferredCustomRoomsPending = null;
                 _deferredCustomRoomsToken = default;
+                SocialInviteClient.Stop();
                 SocialPresenceClient.Stop();
                 Active = false;
                 OfflineRematch.StartNext = null;
