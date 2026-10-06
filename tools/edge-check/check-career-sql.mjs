@@ -78,13 +78,13 @@ try {
  const sessionA='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
  const sessionB='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
  const sessionC='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
- await db.query(`select prime.social_presence_heartbeat('${socialA}'::uuid,'${sessionA}'::uuid,'lobby','MP1 SANCTORUS',true)`);
+ await db.query(`select prime.social_presence_heartbeat('${socialA}'::uuid,'${sessionA}'::uuid,'lobby','MP1 SANCTORUS',false)`);
  await db.query(`select prime.social_presence_heartbeat('${socialB}'::uuid,'${sessionB}'::uuid,'menu',null,false)`);
  await db.query(`select prime.social_presence_heartbeat('${socialC}'::uuid,'${sessionC}'::uuid,'in_match','MP1 FUEL STACK',false)`);
  let presence=(await db.query(`select prime.social_presence_snapshot('${socialB}'::uuid) as value`)).rows[0].value;
  let alpha=presence.players.find(x=>x.prime_id==='PP-1111-1111-1111-4111-8111');
  let gamma=presence.players.find(x=>x.prime_id==='PP-3333-3333-3333-4333-8333');
- assert.equal(alpha.activity,'lobby'); assert.equal(alpha.room_key,'MP1 SANCTORUS'); assert.equal(alpha.joinable,true); assert.equal(alpha.is_friend,true);
+ assert.equal(alpha.activity,'lobby'); assert.equal(alpha.room_key,'MP1 SANCTORUS'); assert.equal(alpha.joinable,false); assert.equal(alpha.is_friend,true);
  assert.equal(gamma.activity,'online'); assert.equal(gamma.room_key,null); assert.equal(gamma.joinable,false); assert.equal(gamma.is_friend,false);
 
  presence=(await db.query(`select prime.social_privacy_update('${socialA}'::uuid,'friends','private','nobody') as value`)).rows[0].value;
