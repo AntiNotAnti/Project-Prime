@@ -41,6 +41,7 @@ namespace MphRead.Mods.Render
                 {
                     ModernGraphicsCompat.Resize(96, 64);
                     ModernGraphicsCompat.ValidateGeneratedShaders();
+                    ModernGraphicsCompat.ValidateVisibilityShadersForCheck();
                     GraphicsApi.Viewport(0, 0, 96, 64);
                     GraphicsApi.ClearColor(0f, 0f, 0f, 1f);
                     GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
@@ -92,7 +93,9 @@ namespace MphRead.Mods.Render
                     RunScissorBoundsCheck();
                     RunCopyFormatCheck();
                     RunDeviceRecoveryCheck();
+                    RunTrackedStorageCheck();
                     RunMipmapCheck();
+                    AuthoredRgbaMipGpuCheck.Verify();
                     RunLargeTextureMipmapCheck();
                     RunProgressiveTexturePromotionCheck();
                     RunReadbackOrientationCheck();
@@ -299,6 +302,7 @@ namespace MphRead.Mods.Render
             GraphicsApi.ReadPixels(1, 1, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
             if (pixel[0] > 10 || pixel[1] < 245 || pixel[2] > 10)
                 throw new InvalidOperationException("Fresh OpenGL context failed after device recovery failure.");
+            AuthoredRgbaMipGpuCheck.Verify();
             DesktopGraphicsSession.Present(window);
             Console.WriteLine("[renderwindowcheck] failed recovery to fresh OpenGL context PASS");
         }
@@ -480,6 +484,32 @@ namespace MphRead.Mods.Render
             Console.WriteLine("[renderwindowcheck] scissored clear and bottom-up readback PASS");
         }
 
+        private static void RunTrackedStorageCheck()
+        {
+            var before = ModernGraphicsCompat.TrackedStorageCapacity;
+            int texture = GraphicsApi.GenTexture();
+            try
+            {
+                GraphicsApi.BindTexture(TextureTarget.Texture2D, texture);
+                GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
+                    32, 16, 0, PixelFormat.Rgba, PixelType.UnsignedByte, new byte[32 * 16 * 4]);
+                GraphicsApi.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+                ModernGraphicsCompat.EnsureBoundTextureResident();
+                var during = ModernGraphicsCompat.TrackedStorageCapacity;
+                long expected = TextureStorageMath.Bytes(32, 16, 6, 4, false);
+                if (during.TextureBytes - before.TextureBytes != expected)
+                    throw new InvalidOperationException($"Tracked mip capacity delta differs: {during.TextureBytes - before.TextureBytes} != {expected}.");
+            }
+            finally
+            {
+                GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
+                GraphicsApi.DeleteTexture(texture);
+            }
+            if (ModernGraphicsCompat.TrackedStorageCapacity.TextureBytes != before.TextureBytes)
+                throw new InvalidOperationException("Tracked native texture capacity did not return after deletion.");
+            Console.WriteLine("[renderwindowcheck] native mip capacity/delete accounting PASS");
+        }
+
         private static void RunLifetimeCheck()
         {
             // Warm caches before measuring: bounded pipeline retention is intentional.
@@ -504,6 +534,13 @@ namespace MphRead.Mods.Render
 
         private static void RunDeviceRecoveryCheck()
         {
+            var authored = AuthoredRgbaMipFixtures.Decode(
+                AuthoredRgbaMipFixtures.Levels(7, 5, TextureAssetChannel.Normal),
+                TextureAssetClass.Hunter, TextureAssetChannel.Normal, 8192);
+            int authoredTexture = GraphicsApi.GenTexture();
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, authoredTexture);
+            TextureAssetManager.UploadPreparedBound(authored, repeat: false,
+                new TextureSamplerDescriptor(true, true, true, 1, 0));
             int texture = GraphicsApi.GenTexture();
             GraphicsApi.BindTexture(TextureTarget.Texture2D, texture);
             GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
@@ -527,9 +564,11 @@ namespace MphRead.Mods.Render
             GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
             if (ModernGraphicsCompat.DeviceGeneration != generation + 1 || pixel[1] < 220 || pixel[0] > 24)
                 throw new InvalidOperationException("Device reconstruction did not restore texture/display-list contents.");
+            AuthoredRgbaMipGpuCheck.VerifyTexture(authoredTexture, authored, mipmaps: true);
             ModernGraphicsCompat.Present();
             GraphicsApi.DeleteLists(list, 1);
             GraphicsApi.DeleteTexture(texture);
+            GraphicsApi.DeleteTexture(authoredTexture);
             Console.WriteLine("[renderwindowcheck] device reconstruction and resource restoration PASS");
         }
 
@@ -766,6 +805,12 @@ namespace MphRead.Mods.Render
                     throw new InvalidOperationException(
                         "Large replacement did not retain the complete live fallback while promotion began.");
                 }
+
+                var pendingStorage = ModernGraphicsCompat.TrackedStorageCapacity;
+                long pendingCapacity = TextureStorageMath.Bytes(width, height,
+                    1 + (int)Math.Floor(Math.Log2(Math.Max(width, height))), 4, false);
+                if (pendingStorage.TextureBytes < pendingCapacity + 2 * 2 * 4)
+                    throw new InvalidOperationException("Tracked native texture capacity omitted a pending replacement or its retained fallback.");
 
                 // 2048 RGBA rows are 8 KiB each. A 4 MiB frame budget therefore
                 // uploads 512 rows, so this 1536-row image must take three

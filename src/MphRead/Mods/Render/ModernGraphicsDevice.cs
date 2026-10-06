@@ -454,11 +454,15 @@ namespace MphRead.Mods.Render
             // Silk 2.23 targets the older wgpu-native callback ABI. Requests
             // normally complete inline, but pumping events makes that contract
             // explicit and keeps the probe correct if a driver defers work.
-            for (int i = 0; i < 256 && !complete(); i++)
+            long start = System.Diagnostics.Stopwatch.GetTimestamp();
+            int iterations = 0;
+            for (; iterations < 256 && !complete(); iterations++)
             {
                 api.InstanceProcessEvents(instance);
                 System.Threading.Thread.Yield();
             }
+            Mods.DebugLog.Checkpoint("render", $"native callback pump: {iterations} iterations, "
+                + $"{System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds:0.000} ms, completed={complete()}");
         }
 
         private static void OnAdapterRequested(RequestAdapterStatus status, Adapter* received,

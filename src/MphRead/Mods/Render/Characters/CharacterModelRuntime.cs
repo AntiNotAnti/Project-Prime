@@ -314,6 +314,7 @@ namespace MphRead.Mods.Render.Characters
             var materialMaps = new Dictionary<CharacterEmbeddedMaterialMaps, MaterialMapBindings>();
             TextureAssetClass assetClass = asset.Part == CharacterModelPart.ViewModel
                 ? TextureAssetClass.Weapon : TextureAssetClass.Hunter;
+            using var uploads = scene.BeginCharacterTextureUpload();
             try
             {
                 // Reserve all base images before optional maps. Shared material
@@ -323,7 +324,7 @@ namespace MphRead.Mods.Render.Characters
                     if (primitive.Albedo == null || albedos.ContainsKey(primitive.Albedo)) continue;
                     int binding = scene.GetCharacterModelTexture(asset.ModelPath + "/rigid-albedo/" + albedos.Count,
                         primitive.Albedo.Image, assetClass, primitive.Albedo.Opaque);
-                    if (binding == 0) throw new InvalidDataException("Embedded rigid character albedo could not be uploaded.");
+                    if (binding == 0) throw new CharacterTextureAdmissionException();
                     albedos.Add(primitive.Albedo, binding);
                 }
                 foreach (CharacterRigidPrimitive primitive in geometry.Primitives)
@@ -353,7 +354,9 @@ namespace MphRead.Mods.Render.Characters
                         primitive.Albedo?.Recolors?.Count > 0
                             ? new CharacterAlbedoPalette(primitive.Albedo, assetClass, albedos[primitive.Albedo]) : null, primitive.DoubleSided, primitive.Albedo?.Opaque == false));
                 }
-                return new(asset, compiled.ToArray(), geometry.VertexCount, geometry.IndexCount);
+                var result = new CharacterRigidRenderModel(asset, compiled.ToArray(), geometry.VertexCount, geometry.IndexCount);
+                uploads.Commit();
+                return result;
             }
             catch
             {
@@ -392,6 +395,7 @@ namespace MphRead.Mods.Render.Characters
             }
 
             var compiled = new List<CharacterWeightedRenderSegment>(geometry.Primitives.Count);
+            using var uploads = scene.BeginCharacterTextureUpload();
             try
             {
                 foreach (CharacterWeightedPrimitive primitive in geometry.Primitives)
@@ -418,7 +422,7 @@ namespace MphRead.Mods.Render.Characters
                                 ? TextureAssetClass.Weapon : TextureAssetClass.Hunter,
                             primitive.Albedo.Opaque);
                         if (binding == 0)
-                            throw new InvalidDataException("Embedded character albedo could not be uploaded.");
+                            throw new CharacterTextureAdmissionException();
                         albedo = binding;
                     }
                     MaterialMapBindings maps = primitive.MaterialMaps == null ? default
@@ -433,8 +437,10 @@ namespace MphRead.Mods.Render.Characters
                             ? new CharacterAlbedoPalette(primitive.Albedo, asset.Part == CharacterModelPart.ViewModel
                                 ? TextureAssetClass.Weapon : TextureAssetClass.Hunter, albedo.Value) : null, primitive.DoubleSided, primitive.Albedo?.Opaque == false));
                 }
-                return new(asset, compiled.ToArray(), joints.ToArray(),
+                var result = new CharacterWeightedRenderModel(asset, compiled.ToArray(), joints.ToArray(),
                     geometry.VertexCount, geometry.IndexCount);
+                uploads.Commit();
+                return result;
             }
             catch
             {

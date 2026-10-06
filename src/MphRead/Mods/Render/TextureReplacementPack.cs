@@ -123,7 +123,7 @@ namespace MphRead.Mods.Render
                     asset.AssetClass, asset.Channel);
                 sampling = sampling with
                 {
-                    Mipmaps = sampling.Mipmaps && (asset.Width > 1 || asset.Height > 1)
+                    Mipmaps = sampling.Mipmaps && asset.MipmapsAvailable
                 };
                 TextureAssetManager.UploadPreparedBound(asset, repeat, sampling);
                 if (GL.GetError() != ErrorCode.NoError) return false;

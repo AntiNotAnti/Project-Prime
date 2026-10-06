@@ -94,6 +94,10 @@ namespace MphRead
             _characterTexturePicture=0;
         }
 
+        internal TextureUploadTransaction BeginCharacterTextureUpload()
+            => new(_characterImageBindings, _characterPinnedBindings,
+                binding => _characterTextureAssets?.ReleaseBinding(binding));
+
         internal MaterialMapBindings GetCharacterModelMaterialMaps(string key,
             CharacterEmbeddedMaterialMaps maps, TextureAssetClass assetClass)
         {

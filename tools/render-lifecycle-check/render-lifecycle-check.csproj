@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/MphRead/Mods/Render/OwnerCleanup.cs" Link="OwnerCleanup.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/ConservativeHiZ.cs" Link="ConservativeHiZ.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/RetainedAtlasRanges.cs" Link="RetainedAtlasRanges.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/TextureUploadTransaction.cs" Link="TextureUploadTransaction.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/TextureStorageMath.cs" Link="TextureStorageMath.cs" />
+    <Compile Include="../../src/MphRead/Sound/LatestResourceQueue.cs" Link="LatestResourceQueue.cs" />
+  </ItemGroup>
+</Project>

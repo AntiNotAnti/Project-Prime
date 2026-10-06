@@ -285,8 +285,8 @@ namespace MphRead.Droid
             _loop.SetPaused(false);
         }
 
-        // The three callbacks. None of them waits for the render thread; that
-        // is the point of the class.
+        // Creation/resize publish a generation. Destruction waits until the
+        // render owner has detached that native window; loading uses a pbuffer.
 
         public void SurfaceCreated(ISurfaceHolder holder)
         {
@@ -322,16 +322,6 @@ namespace MphRead.Droid
             // drivers -- but "most" is how a phone gets a context that fails
             // every call in GlEs with no message.
             private const int OpenGlEs3Bit = 0x40;
-
-            /// <summary>
-            /// How long <see cref="SurfaceGone"/> will wait for the render
-            /// thread to let go. Android wants the surface unused by the time
-            /// that callback returns, and this is the one place where that is
-            /// worth a wait at all -- but not an unbounded one: the thread
-            /// cannot answer from inside a room load, and hanging the UI thread
-            /// is the thing this class exists to stop.
-            /// </summary>
-            private const int SurfaceReleaseMs = 2000;
 
             private readonly TouchControls _controls;
             private readonly AndroidInput _input;
@@ -388,6 +378,7 @@ namespace MphRead.Droid
             private EGLDisplay? _display;
             private EGLConfig? _config;
             private EGLSurface? _eglSurface;
+            private EGLSurface? _loadingSurface;
             private EGLContext? _context;
             private ISurfaceHolder? _boundTo;
             private Vector2i _size;
@@ -472,21 +463,12 @@ namespace MphRead.Droid
                 {
                     _holder = null;
                     Monitor.PulseAll(_lock);
-                    long deadline = Environment.TickCount64 + SurfaceReleaseMs;
                     while (_holdingSurface)
                     {
-                        int left = (int)(deadline - Environment.TickCount64);
-                        if (left <= 0)
-                        {
-                            // Mid-load, almost certainly. The thread drops the
-                            // surface the moment it looks up, and a swap
-                            // against a surface the framework has taken back
-                            // fails rather than crashing -- which is handled.
-                            Console.WriteLine("[android] the surface went away while the GL thread "
-                                + "was busy; carrying on without waiting for it");
-                            break;
-                        }
-                        Monitor.Wait(_lock, left);
+                        // SurfaceDestroyed may return only after the owner has
+                        // detached native presentation. Loading uses a pbuffer,
+                        // so it does not hold this callback across room decoding.
+                        Monitor.Wait(_lock);
                     }
                 }
             }
@@ -511,6 +493,7 @@ namespace MphRead.Droid
                 }
                 finally
                 {
+                    ReleaseScene();
                     _performanceHints?.Dispose();
                     _performanceHints = null;
                     try { ReleaseSurface(); }
@@ -609,19 +592,32 @@ namespace MphRead.Droid
             /// </summary>
             private bool BindSurface(ISurfaceHolder holder, Vector2i wanted)
             {
+                lock (_lock)
+                {
+                    // The holder copied by Loop may have been destroyed while
+                    // the render owner was releasing the preceding generation.
+                    if (_stopping || _paused || !ReferenceEquals(holder, _holder)) return false;
+                    return BindSurfaceCore(holder, wanted);
+                }
+            }
+
+            private bool BindSurfaceCore(ISurfaceHolder holder, Vector2i wanted)
+            {
                 if (_modern)
                 {
                     if (!ReferenceEquals(_boundTo, holder) || _nativeWindow == 0)
                     {
                         ReleaseSurface();
                         if (holder.Surface == null || !holder.Surface.IsValid) return false;
+                        _holdingSurface = true;
                         _nativeWindow = ANativeWindow_fromSurface(Android.Runtime.JNIEnv.Handle, holder.Surface.Handle);
-                        if (_nativeWindow == 0) return false;
+                        if (_nativeWindow == 0) { ReleaseSurface(); return false; }
                         try { ModernGraphicsCompat.AttachAndroidWindow(_nativeWindow, wanted.X, wanted.Y); }
                         catch (Exception ex) when (!ModernGraphicsCompat.Active)
                         {
                             ANativeWindow_release(_nativeWindow);
                             _nativeWindow = 0;
+                            ReleaseSurface();
                             GraphicsBackendPolicy.UseCompatibilityFallback(ex.Message);
                             _modern = false;
                             return BindSurface(holder, wanted);
@@ -689,7 +685,7 @@ namespace MphRead.Droid
                 int[] attributes =
                 {
                     EGL14.EglRenderableType, OpenGlEs3Bit,
-                    EGL14.EglSurfaceType, EGL14.EglWindowBit,
+                    EGL14.EglSurfaceType, EGL14.EglWindowBit | EGL14.EglPbufferBit,
                     EGL14.EglRedSize, 8,
                     EGL14.EglGreenSize, 8,
                     EGL14.EglBlueSize, 8,
@@ -712,6 +708,10 @@ namespace MphRead.Droid
                 {
                     return Fail($"eglCreateContext failed (0x{EGL14.EglGetError():X})");
                 }
+                _loadingSurface = EGL14.EglCreatePbufferSurface(_display, _config,
+                    new[] { EGL14.EglWidth, 1, EGL14.EglHeight, 1, EGL14.EglNone }, 0);
+                if (_loadingSurface == null || _loadingSurface.Equals(EGL14.EglNoSurface))
+                    return Fail($"eglCreatePbufferSurface failed (0x{EGL14.EglGetError():X})");
                 return true;
             }
 
@@ -726,11 +726,13 @@ namespace MphRead.Droid
                 {
                     return false;
                 }
+                _holdingSurface = true;
                 _eglSurface = EGL14.EglCreateWindowSurface(_display, _config, window,
                     new[] { EGL14.EglNone }, 0);
                 if (_eglSurface == null || _eglSurface.Equals(EGL14.EglNoSurface))
                 {
                     _eglSurface = null;
+                    ReleaseSurface();
                     // Not fatal on its own: the window can be on its way out.
                     Console.WriteLine("[android] eglCreateWindowSurface failed "
                         + $"(0x{EGL14.EglGetError():X})");
@@ -761,6 +763,7 @@ namespace MphRead.Droid
                         Console.WriteLine($"[android] discarding a failed EGL surface failed: {ex.Message}");
                     }
 
+                    ReleaseSurface();
                     const int EglBadCurrentSurface = 0x3007;
                     const int EglBadNativeWindow = 0x300B;
                     const int EglBadSurface = 0x300D;
@@ -815,33 +818,50 @@ namespace MphRead.Droid
                     surface = _eglSurface;
                     _eglSurface = null;
                     _boundTo = null;
-                    _holdingSurface = false;
                     // SetFrameRate belongs to the Android window surface, not
                     // the long-lived EGL context. A replacement surface must be
                     // told again even when the requested cap did not change.
                     _requestedFrameRate = -1;
                     _appliedSwapInterval = -1;
-                    Monitor.PulseAll(_lock);
-                }
-                if (_nativeWindow != 0)
-                {
-                    ModernGraphicsCompat.DetachAndroidWindow();
-                    ANativeWindow_release(_nativeWindow);
-                    _nativeWindow = 0;
-                }
-                if (_display == null || surface == null)
-                {
-                    return;
                 }
                 try
                 {
-                    EGL14.EglMakeCurrent(_display, EGL14.EglNoSurface, EGL14.EglNoSurface,
-                        EGL14.EglNoContext);
-                    EGL14.EglDestroySurface(_display, surface);
+                    if (_nativeWindow != 0)
+                    {
+                        try { ModernGraphicsCompat.DetachAndroidWindow(); }
+                        finally
+                        {
+                            ANativeWindow_release(_nativeWindow);
+                            _nativeWindow = 0;
+                        }
+                    }
+                    if (_display != null && surface != null)
+                    {
+                        // Keep a usable owner context for loading and cleanup,
+                        // independent of SurfaceView's presentation generation.
+                        try
+                        {
+                            if (!EGL14.EglMakeCurrent(_display, _loadingSurface, _loadingSurface, _context))
+                            {
+                                EGL14.EglMakeCurrent(_display, EGL14.EglNoSurface, EGL14.EglNoSurface, EGL14.EglNoContext);
+                                throw new InvalidOperationException("Could not detach EGL window onto loading pbuffer.");
+                            }
+                        }
+                        finally { EGL14.EglDestroySurface(_display, surface); }
+                    }
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[android] releasing the surface failed: {ex.Message}");
+                    lock (_lock) { _stopping = true; }
+                }
+                finally
+                {
+                    lock (_lock)
+                    {
+                        _holdingSurface = false;
+                        Monitor.PulseAll(_lock);
+                    }
                 }
             }
 
@@ -858,6 +878,7 @@ namespace MphRead.Droid
                         EGL14.EglNoContext);
                     if (_context != null)
                     {
+                        if (_loadingSurface != null) EGL14.EglDestroySurface(_display, _loadingSurface);
                         EGL14.EglDestroyContext(_display, _context);
                     }
                     EGL14.EglTerminate(_display);
@@ -867,6 +888,7 @@ namespace MphRead.Droid
                     Console.WriteLine($"[android] tearing the context down failed: {ex.Message}");
                 }
                 _context = null;
+                _loadingSurface = null;
                 _config = null;
                 _display = null;
             }
@@ -898,6 +920,8 @@ namespace MphRead.Droid
                 }
                 try
                 {
+                    ReleaseSurface();
+                    lock (_lock) { if (_stopping) return; }
                     AndroidPerformance.PrepareForWindow(_size.X, _size.Y);
                     if (_modern)
                     {
@@ -907,7 +931,9 @@ namespace MphRead.Droid
                         ModernGraphicsCompat.PrewarmCommonPipelines();
                     }
                     Scene = _build(_input, _size);
+                    lock (_lock) { if (_stopping) return; }
                     Scene.OnLoad();
+                    lock (_lock) { if (_stopping) return; }
                     // Compile/execute the real presentation path once while the
                     // loading notice still covers the surface. OnLoad has loaded
                     // the scene resources; this hidden draw warms driver state,
@@ -921,6 +947,7 @@ namespace MphRead.Droid
                     }
                     MphRead.Mods.DebugLog.Line("androidperf",
                         $"presentation prewarm {Milliseconds(warmStart, Stopwatch.GetTimestamp()):0.00} ms");
+                    lock (_lock) { if (_stopping) return; }
                     MphRead.Mods.Network.NetSession.ReportMatchLoadProgress(
                         MphRead.Mods.Network.MatchLoadStage.SceneReady);
                     MphRead.Mods.Network.NetSession.MarkMatchLoaded();
@@ -933,7 +960,7 @@ namespace MphRead.Droid
                     // the process down from a thread nobody is watching.
                     Console.WriteLine($"[android] the match could not start: {ex}");
                     MphRead.Mods.Network.NetSession.ReportMatchLoadFailed(ex.Message);
-                    Scene = null;
+                    ReleaseScene();
                     _ended = true;
                     _onError(ex.Message);
                     lock (_lock)
@@ -1317,8 +1344,7 @@ namespace MphRead.Droid
             private void End(Scene scene, bool keepSession = false)
             {
                 _ended = true;
-                scene.DoCleanup();
-                Scene = null;
+                ReleaseScene();
                 // Whatever the session asked to have saved, before anything
                 // else can run and before the front screen comes back. This is
                 // the desktop's line after its render loop returns; nothing is
@@ -1336,6 +1362,18 @@ namespace MphRead.Droid
                 }
                 if (keepSession) MainActivity.Instance?.RunOnUiThread(() => MainActivity.Instance?.EndMatchToLobby());
                 else _onEnd();
+            }
+
+            private void ReleaseScene()
+            {
+                Scene? scene = Scene;
+                if (scene == null) return;
+                Scene = null;
+                // Resource disposal can be expensive. Detach the presentation
+                // generation first, while retaining the pbuffer owner context.
+                ReleaseSurface();
+                OwnerCleanup.Release(scene.DoCleanup, () => scene.UnloadGl(),
+                    ex => Console.WriteLine($"[android] scene release failed: {ex.Message}"));
             }
 
             /// <summary>

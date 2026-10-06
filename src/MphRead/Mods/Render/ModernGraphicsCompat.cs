@@ -365,9 +365,12 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             // after reconstruction itself failed.
             var current = _current;
             if (current == null || current._disposed) return;
-            current.ReleaseSurfaceTexture();
-            current._device.SetAndroidWindow(0);
-            current._width = current._height = 0;
+            try { current.ReleaseSurfaceTexture(); }
+            finally
+            {
+                current._device.SetAndroidWindow(0);
+                current._width = current._height = 0;
+            }
         }
 #endif
 
@@ -1182,13 +1185,15 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             _nativeTextures.TryGetValue(id, out NativeTexture? existing);
             WgpuTextureFormat format = NativeTextureFormat(record);
             bool compressed = record.CompressionFormat != GpuTextureCompressionFormat.None;
-            byte[] data = record.Dirty && !compressed
+            bool authoredRgba = record.RgbaMips != null;
+            byte[] data = record.Dirty && !compressed && !authoredRgba
                 ? ConvertPixels(record, ref format) : Array.Empty<byte>();
             int width = Math.Max(1, record.Width);
             int height = Math.Max(1, record.Height);
             bool depth = format == WgpuTextureFormat.Depth24Plus || format == WgpuTextureFormat.Depth24PlusStencil8;
             int mipCount = compressed
                 ? Math.Max(1, record.CompressedMips?.Length ?? 1)
+                : authoredRgba ? record.RgbaMips!.Length
                 : record.HasMipmaps && !depth
                     ? 1 + (int)Math.Floor(Math.Log2(Math.Max(width, height))) : 1;
 
@@ -1208,7 +1213,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 }
             }
 
-            if (existing != null && record.Dirty && !compressed && !depth
+            if (existing != null && record.Dirty && !compressed && !authoredRgba && !depth
                 && !record.FramebufferOrigin && data.Length > ProgressiveTextureUploadThresholdBytes)
             {
                 BeginPendingTextureUpload(id, record, format, width, height, mipCount, data);
@@ -1222,18 +1227,20 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 {
                     if (compressed && record.CompressedMips != null)
                         UploadCompressedTexture(existing, record.CompressedMips, mipCount);
+                    else if (authoredRgba)
+                        UploadRgbaMipTexture(existing,record.RgbaMips!,mipCount);
                     else if (data.Length > 0)
                         UploadTexture(existing, data);
                 }
                 if (record.SamplerDirty) UpdateSampler(existing, record);
-                if (!compressed && mipCount > 1 && (record.Dirty || record.MipmapsDirty))
+                if (!compressed && !authoredRgba && mipCount > 1 && (record.Dirty || record.MipmapsDirty))
                     GenerateNativeMipmaps(existing);
                 record.Dirty = record.MipmapsDirty = false;
                 return existing;
             }
             // Expanding a render target's mip chain must preserve its GPU base
             // level; the CPU image may be absent or older than the rendered image.
-            bool preserveBase = !compressed && existing != null && !record.Dirty
+            bool preserveBase = !compressed && !authoredRgba && existing != null && !record.Dirty
                 && existing.Width == width && existing.Height == height && existing.Format == format;
             var descriptor = new TextureDescriptor
             {
@@ -1296,8 +1303,10 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             }
             else if (compressed && record.CompressedMips != null)
                 UploadCompressedTexture(native, record.CompressedMips, mipCount);
+            else if (authoredRgba)
+                UploadRgbaMipTexture(native,record.RgbaMips!,mipCount);
             else if (data.Length > 0) UploadTexture(native, data);
-            if (!compressed && mipCount > 1) GenerateNativeMipmaps(native);
+            if (!compressed && !authoredRgba && mipCount > 1) GenerateNativeMipmaps(native);
             if (depth && record.MipmapsDirty)
                 Mods.DebugLog.Line("render", $"Texture {id}: mipmaps unavailable for {format}; using base level.");
             if (existing != null) ReleaseNativeTexture(existing);

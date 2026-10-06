@@ -806,240 +806,174 @@ namespace MphRead
             }
         }
 
-        public static bool Loading { get; private set; }
-        public static bool StopLoading { get; set; }
-        private static Task _loadTask = Task.CompletedTask;
+        private static readonly object _musicGate = new();
+        private static readonly Sound.LatestResourceQueue<LoadedMusic> _loads = new();
+        public static bool Loading => _loads.Loading;
+        public static bool StopLoading
+        {
+            get => _loads.Cancelled;
+            set { if (value) _loads.Cancel(); }
+        }
         private static volatile bool _shutdownRequested;
+        private static LoadedMusic? _loaded;
+
+        private sealed class LoadedMusic : IDisposable
+        {
+            internal NCSFPlayerStream? Stream;
+            internal RawDataProvider? Provider;
+            internal SoundPlayer? Player;
+            internal bool Mixed;
+            private bool _disposed;
+            public void Dispose()
+            {
+                if (_disposed) return;
+                _disposed = true;
+                try
+                {
+                    Player?.Stop();
+                    if (Mixed && Player != null) _playbackDevice.MasterMixer.RemoveComponent(Player);
+                }
+                finally
+                {
+                    try { Player?.Dispose(); }
+                    finally
+                    {
+                        try { Provider?.Dispose(); }
+                        finally { Stream?.Dispose(); }
+                    }
+                }
+            }
+        }
 
         internal static void RequestShutdown()
         {
             _shutdownRequested = true;
-            StopLoading = true;
+            _loads.Close();
         }
 
         private static void Shutdown()
         {
             RequestShutdown();
-            // A load can still be constructing an NCSF stream on a worker. It
-            // is unsafe to dispose the native engine underneath that constructor,
-            // but it is equally wrong to keep the whole process alive for many
-            // seconds after the window has gone. Give cancellation a short
-            // bounded drain; if third-party decoding ignores it, the OS will
-            // reclaim that process-local device at exit.
-            bool loaderStopped = false;
-            try
+            // The serial tail includes all workers, even a superseded decoder
+            // that cannot observe cancellation inside its native constructor.
+            if (!_loads.Pending.Wait(TimeSpan.FromSeconds(2)))
             {
-                loaderStopped = _loadTask.Wait(TimeSpan.FromSeconds(2));
-            }
-            catch (AggregateException ex)
-            {
-                loaderStopped = true;
-                Console.Error.WriteLine($"[shutdown] music load failed: {ex.GetBaseException().Message}");
-            }
-            if (!loaderStopped)
-            {
-                Console.Error.WriteLine(
-                    "[shutdown] music loader exceeded 2 seconds; skipping racing native disposal.");
+                Console.Error.WriteLine("[shutdown] music loader exceeded 2 seconds; skipping racing native disposal.");
                 return;
             }
-
-            try
+            lock (_musicGate)
             {
-                Mods.MapGen.CustomMapMusic.Stop();
-                Remove(shutdown: true);
-                _playbackDevice.Stop();
-            }
-            finally
-            {
-                _audioEngine.Dispose();
-                Available = false;
+                try
+                {
+                    Mods.MapGen.CustomMapMusic.Stop();
+                    RemoveCore();
+                    _playbackDevice.Stop();
+                }
+                finally { _audioEngine.Dispose(); Available = false; }
             }
         }
 
         public static void Load(SeqId seqId, ushort tracks = UInt16.MaxValue, float volume = 1)
         {
-            if (!Available || _shutdownRequested)
+            if (!Available || _shutdownRequested) return;
+            // Revoke and release the preceding published track before loading.
+            // If decoding fails, Ready must not resume that older sequence.
+            Remove();
+            if (seqId == SeqId.None) { _loads.Cancel(); return; }
+            _loads.Request(cancel =>
             {
-                return;
-            }
-            Loading = true;
-            Stop();
-            if (seqId == SeqId.None)
-            {
-                Loading = false;
-                return;
-            }
-            _loadTask = Task.Run(() =>
-            {
+                var local = new LoadedMusic();
                 try
                 {
-                    while (StopLoading)
-                    {
-                        if (_shutdownRequested) return;
-                        Thread.Sleep(1);
-                    }
-                    if (_shutdownRequested) return;
-                    Remove();
-                    if (StopLoading)
-                    {
-                        return;
-                    }
                     string path = Paths.Combine(Paths.FileSystem, "_seq", Metadata.SequenceFiles[(int)seqId]);
-                    // todo: should look at allocations (including recreating these objects, but especially the byte and float lists internal to NCSF)
-                    _stream = new NCSFPlayerStream(path, (uint)_sampleRate, Interpolation.None, skipSilenceOnStartSec: 5,
+                    local.Stream = new NCSFPlayerStream(path, (uint)_sampleRate, Interpolation.None, skipSilenceOnStartSec: 5,
                         defaultLengthInMS: 115000, defaultFadeInMS: 5000, NCSF123.VolumeType.ReplayGainAlbum, PeakType.ReplayGainTrack,
                         playForever: true, volume, channelMutes: 0, trackMutes: 0, ignoreVolume: false);
-                    // use volume and mute directly instead of trackMutes to make it easy to potentially fade them in later without the player interfering
+                    cancel.ThrowIfCancellationRequested();
                     for (int i = 0; i < 16; i++)
                     {
-                        if ((tracks & (1 << i)) == 0)
-                        {
-                            NCSFCommon.Track? track = MusicPlayer.GetTrack(i);
-                            if (track != null)
-                            {
-                                track.Volume = 0;
-                                track.Mute = true;
-                            }
-                        }
+                        if ((tracks & (1 << i)) == 0 && local.Stream.Player.GetTrack(i) is { } track)
+                        { track.Volume = 0; track.Mute = true; }
                     }
-                    if (StopLoading)
-                    {
-                        return;
-                    }
-                    _provider = new RawDataProvider(_stream, SampleFormat.F32, _sampleRate);
-                    if (StopLoading)
-                    {
-                        return;
-                    }
-                    _player = new SoundPlayer(_audioEngine, _format, _provider);
-                    if (StopLoading)
-                    {
-                        return;
-                    }
-                    _playbackDevice.MasterMixer.AddComponent(_player);
-                    if (StopLoading)
-                    {
-                        return;
-                    }
-                    _playbackDevice.Start();
+                    local.Provider = new RawDataProvider(local.Stream, SampleFormat.F32, _sampleRate);
+                    cancel.ThrowIfCancellationRequested();
+                    local.Player = new SoundPlayer(_audioEngine, _format, local.Provider);
+                    cancel.ThrowIfCancellationRequested();
+                    return local;
                 }
-                finally
+                catch { local.Dispose(); throw; }
+            }, local =>
+            {
+                lock (_musicGate)
                 {
-                    Loading = false;
-                    StopLoading = false;
+                    RemoveCore();
+                    try
+                    {
+                        _playbackDevice.MasterMixer.AddComponent(local.Player!);
+                        local.Mixed = true;
+                        _playbackDevice.Start();
+                        _loaded = local;
+                        _stream = local.Stream; _provider = local.Provider; _player = local.Player;
+                    }
+                    catch { local.Dispose(); throw; }
                 }
-            });
+            }, local => local.Dispose(), ex => Console.Error.WriteLine($"[music] load failed: {ex.Message}"));
         }
 
         public static void WaitForLoad(int sleepMs = 100)
         {
-            while (MusicPlayer.Loading)
-            {
-                Thread.Sleep(sleepMs);
-            }
+            // Snapshot the latest complete serial chain, instead of polling a
+            // shared Boolean that a superseded worker could clear prematurely.
+            _loads.Pending.GetAwaiter().GetResult();
         }
 
         public static void Play(float volume)
         {
-            if (!Available)
+            lock (_musicGate)
             {
-                return;
+                if (!Available || _shutdownRequested) return;
+                Volume = volume;
+                _player?.Play();
             }
-            Volume = volume;
-            _player?.Play();
         }
 
-        public static void Pause()
-        {
-            _player?.Pause();
-        }
-
+        public static void Pause() { lock (_musicGate) _player?.Pause(); }
         public static PlaybackState State
         {
-            get
-            {
-                if (_player != null)
-                {
-                    return _player.State;
-                }
-                return PlaybackState.Stopped;
-            }
+            get { lock (_musicGate) return _player?.State ?? PlaybackState.Stopped; }
         }
-
         public static float Volume
         {
-            get
-            {
-                if (_stream != null)
-                {
-                    return _stream.VolumeModification;
-                }
-                return 0;
-            }
-            set
-            {
-                if (_stream != null)
-                {
-                    _stream.VolumeModification = Math.Clamp(value, 0, 1);
-                }
-            }
+            get { lock (_musicGate) return _stream?.VolumeModification ?? 0; }
+            set { lock (_musicGate) { if (_stream != null) _stream.VolumeModification = Math.Clamp(value, 0, 1); } }
         }
-
         public static ushort Tempo
         {
-            get
-            {
-                if (_stream != null)
-                {
-                    return _stream.Player.TempoRatio;
-                }
-                return 0;
-            }
-            set
-            {
-                if (_stream != null)
-                {
-                    _stream.Player.TempoRatio = value;
-                }
-            }
+            get { lock (_musicGate) return _stream?.Player.TempoRatio ?? 0; }
+            set { lock (_musicGate) { if (_stream != null) _stream.Player.TempoRatio = value; } }
         }
-
         public static NCSFCommon.Track? GetTrack(int index)
         {
-            return _stream?.Player.GetTrack(index);
+            lock (_musicGate) return _stream?.Player.GetTrack(index);
         }
-
-        public static void Stop()
-        {
-            if (!Available)
-            {
-                return;
-            }
-            if (_player != null)
-            {
-                _player.Stop();
-            }
-        }
-
+        public static void Stop() { lock (_musicGate) { if (Available) _player?.Stop(); } }
         public static void Remove(bool shutdown = false)
         {
-            if (_player != null)
+            // Scene/SFX teardown must also revoke a constructor which has not
+            // yet published. Take the queue fence before the player lock.
+            _loads.Cancel();
+            lock (_musicGate)
             {
-                Debug.Assert(_provider != null);
-                Debug.Assert(_stream != null);
-                _player.Stop();
-                if (shutdown)
-                {
-                    _playbackDevice.Stop();
-                }
-                _playbackDevice.MasterMixer.RemoveComponent(_player);
-                _provider.Dispose();
-                _stream.Dispose();
-                _player.Dispose();
-                _provider = null;
-                _stream = null;
-                _player = null;
+                if (shutdown && Available) _playbackDevice.Stop();
+                RemoveCore();
             }
+        }
+        private static void RemoveCore()
+        {
+            LoadedMusic? old = _loaded;
+            _loaded = null;
+            _player = null; _provider = null; _stream = null;
+            old?.Dispose();
         }
     }
 }

@@ -23,6 +23,7 @@ namespace MphRead.Mods.Render
             internal byte[]? Pixels;
             internal GpuTextureCompressionFormat CompressionFormat;
             internal CompressedTextureMip[]? CompressedMips;
+            internal RgbaTextureMip[]? RgbaMips;
             internal int MinFilter = (int)TextureMinFilter.Nearest;
             internal int MagFilter = (int)TextureMagFilter.Nearest;
             internal int WrapS = (int)TextureWrapMode.Repeat;
@@ -168,6 +169,12 @@ namespace MphRead.Mods.Render
             if ((int)target != (int)TextureTarget.Texture2D)
                 throw new NotSupportedException($"Mipmap target {target} is not supported.");
             TextureRecord record = BoundTextureRecord(TextureTarget.Texture2D);
+            if (record.RgbaMips != null)
+            {
+                record.HasMipmaps=record.RgbaMips.Length > 1;
+                record.MipmapsDirty=false; record.SamplerDirty=true;
+                return;
+            }
             if (record.CompressionFormat != GpuTextureCompressionFormat.None)
             {
                 record.HasMipmaps = (record.CompressedMips?.Length ?? 0) > 1;
@@ -226,12 +233,27 @@ namespace MphRead.Mods.Render
             record.Pixels = null;
             record.CompressionFormat = compressionFormat;
             record.CompressedMips = (CompressedTextureMip[])mips.Clone();
+            record.RgbaMips = null;
             record.FramebufferOrigin = false;
             record.HasMipmaps = mips.Length > 1;
             record.NativeMipCount = mips.Length;
             record.MipmapsDirty = false;
             record.SamplerDirty = true;
             record.Dirty = true;
+        }
+
+        internal void RgbaMipTexImage2D(TextureTarget target,RgbaTextureMip[] mips)
+        {
+            RequireTexture2D(target);
+            if (mips == null || mips.Length == 0)
+                throw new ArgumentException("An authored RGBA texture requires at least one mip.");
+            TextureRecord record=BoundTextureRecord(target);
+            SetImageMetadata(record,PixelInternalFormat.Rgba8,mips[0].Width,mips[0].Height,PixelFormat.Rgba,PixelType.UnsignedByte);
+            record.Pixels=null;
+            record.RgbaMips=(RgbaTextureMip[])mips.Clone();
+            record.HasMipmaps=mips.Length > 1;
+            record.NativeMipCount=mips.Length;
+            record.SamplerDirty=true;
         }
 
         internal void TexSubImage2D(TextureTarget target, int x, int y, int width, int height,
@@ -508,6 +530,7 @@ namespace MphRead.Mods.Render
             record.Type = type;
             record.CompressionFormat = GpuTextureCompressionFormat.None;
             record.CompressedMips = null;
+            record.RgbaMips = null;
             record.FramebufferOrigin = false;
             record.HasMipmaps = false;
             record.NativeMipCount = 1;
@@ -519,6 +542,8 @@ namespace MphRead.Mods.Render
             PixelFormat format, PixelType type, byte[] source)
         {
             TextureRecord record = BoundTextureRecord(target);
+            if (record.RgbaMips != null)
+                throw new NotSupportedException("Sub-image updates are not supported for authored RGBA mip chains.");
             if (record.CompressionFormat != GpuTextureCompressionFormat.None)
                 throw new NotSupportedException("Sub-image updates are not supported for block-compressed authored textures.");
             if (record.Format != format || record.Type != type)

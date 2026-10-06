@@ -108,7 +108,14 @@ internal sealed unsafe partial class ModernGraphicsCompat
                 views += s._fallbackDepth.SampleView == s._fallbackDepth.View ? 1 : 2;
                 if (s._fallbackDepth.Sampler != null) samplers++;
             }
-            int buffers = s._geometryCache.Count * 2;
+            var additional = s.AdditionalResourceCounts();
+            textures += additional.Textures; views += additional.Views; samplers += additional.Samplers;
+            int buffers = additional.Buffers;
+            foreach (var geometry in s._geometryCache.Values)
+            {
+                if (geometry.Vertex != null) buffers++;
+                if (geometry.Index != null) buffers++;
+            }
             foreach (var page in s._uniformArena) if (page.Buffer != 0) buffers++;
             foreach (var page in s._retainedUniformArena) if (page.Buffer != 0) buffers++;
             foreach (var upload in s._uploadBuffers) if (upload.Buffer != 0) buffers++;
@@ -123,7 +130,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
                 + (s._playerOutlineShader != null ? 1 : 0) + (s._toneMapShader != null ? 1 : 0)
                 + (s._uiShader != null ? 1 : 0);
             return new(textures, s._nativeRenderbuffers.Count, s._geometryCache.Count,
-                s._pipelines.Count + s._corePipelines.Count + s._blitPipelines.Count,
+                s._pipelines.Count + s._corePipelines.Count + s._blitPipelines.Count + additional.Pipelines,
                 s._generatedPrograms.Count, s._lists.Count, views, samplers, buffers, shaders, s._liveBindGroups,
                 s._device.Surface != null ? 1 : 0);
         }
