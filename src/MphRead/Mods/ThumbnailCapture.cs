@@ -186,8 +186,10 @@ namespace MphRead.Mods
             _captured = ScreenCapture.Save(Scene, ThumbnailGenerator.PathFor(_roomKey));
             if (_captured)
             {
+                ThumbnailGenerator.MarkCinematicPresentation(_roomKey);
                 ThumbnailLog.Write($"{_roomKey}: captured at {Scene.Size.X}x{Scene.Size.Y}"
-                    + (_attempts > 0 ? $" on attempt {_attempts + 1}, window shown" : ""));
+                    + (_attempts > 0 ? $" on attempt {_attempts + 1}, window shown" : "")
+                    + " // clean cinematic presentation");
             }
             if (!_captured)
             {

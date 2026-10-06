@@ -9,7 +9,14 @@ namespace MphRead.Mods
     public static class ThumbnailGenerator
     {
         public static string Root => Environment.GetEnvironmentVariable("FRUITY_PREVIEW_FIXTURE")!;
-        public static bool Exists(string room) => File.Exists(Path.Combine(Root, "result-" + room));
+        private static string Result(string room) => Path.Combine(Root, "result-" + room);
+        public static bool Exists(string room) => File.Exists(Result(room));
+        public static bool HasCinematicPresentation(string room) => Exists(room);
+        public static void InvalidateCinematicPresentation(string room)
+        {
+            string path = Result(room);
+            if (File.Exists(path)) File.Delete(path);
+        }
     }
     public static class ThumbnailLog
     {

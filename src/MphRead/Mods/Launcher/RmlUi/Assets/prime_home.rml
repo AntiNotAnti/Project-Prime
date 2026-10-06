@@ -1,19 +1,22 @@
 <rml>
 <head>
-    <title>Project Prime // RmlUi Proof</title>
+    <title>Project Prime</title>
     <link type="text/rcss" href="prime_home.rcss" />
 </head>
 <body data-model="prime_menu">
-    <div id="screen">
+    <div id="screen" data-class-reduce-motion="reduce_motion">
         <div id="scene_tint"></div>
+        <div id="scene_vignette"></div>
+        <div id="floor_fade"></div>
+        <div id="hunter_glow"></div>
         <div id="top_rule"></div>
 
-        <div id="topbar">
+        <div id="topbar" class="enter_top">
             <div id="brand">
                 <div id="brand_mark">P</div>
                 <div id="brand_copy">
                     <div class="brand_title">PROJECT PRIME</div>
-                    <div class="brand_subtitle">RMLUI PROOF // DIRECT GPU UI</div>
+                    <div class="brand_subtitle">HUNTERS ONLINE</div>
                 </div>
             </div>
 
@@ -35,7 +38,7 @@
         </div>
 
         <div id="stage">
-            <div id="activity_panel">
+            <div id="activity_panel" class="enter_left">
                 <div class="eyebrow">SELECT ACTIVITY</div>
                 <div id="activity_title">{{activity_title}}</div>
                 <div id="activity_description">{{activity_description}}</div>
@@ -84,49 +87,60 @@
                     <span class="ready">READY</span>
                 </div>
                 <button id="deploy" data-event-click="deploy">
-                    <span class="deploy_kicker">CONTINUE WITH EXISTING PROJECT PRIME FLOW</span>
+                    <span class="deploy_kicker">PROJECT PRIME ACTIVITY</span>
                     <span class="deploy_label">{{activity_action}}</span>
                     <span class="deploy_arrow">→</span>
                 </button>
             </div>
 
-            <div id="hunter_caption">
+            <div id="hunter_caption" class="enter_hunter">
                 <div class="hunter_rule"></div>
                 <div>
-                    <div class="eyebrow">ACTIVE HUNTER // ENGINE RENDERED</div>
+                    <div class="eyebrow">ACTIVE HUNTER</div>
                     <div id="hunter_name">{{hunter_name}}</div>
-                    <div id="hunter_meta">3D PREVIEW IS NOT AN RMLUI IMAGE</div>
+                    <div id="hunter_meta">SELECTED LOADOUT</div>
                 </div>
             </div>
 
-            <div id="right_panel">
-                <div class="side_title">PROOF STATUS</div>
-                <div class="status_card accent">
-                    <div class="eyebrow">RENDER PATH</div>
-                    <div class="status_value">RMLUI DIRECT</div>
-                    <div class="status_meta">No full-screen Avalonia bitmap upload on this screen.</div>
+            <div id="session_panel" class="enter_right">
+                <div class="session_header">
+                    <div class="eyebrow">CURRENT SESSION</div>
+                    <div class="session_state">SOLO</div>
                 </div>
-                <div class="status_card">
-                    <div class="row"><span>UI LIBRARY</span><b>RMLUI 6.3</b></div>
-                    <div class="row"><span>BACKEND</span><b>OPENGL 2</b></div>
-                    <div class="row"><span>GAME DATA</span><b>{{game_data_state}}</b></div>
-                    <div class="row"><span>UI COST</span><b>{{ui_cost}}</b></div>
+                <div class="session_player">
+                    <div class="session_badge">P</div>
+                    <div class="session_copy">
+                        <div class="session_name">{{player_name}}</div>
+                        <div class="session_meta">{{hunter_name}} // READY</div>
+                    </div>
                 </div>
-                <div class="status_card note">
-                    <div class="eyebrow">POC BOUNDARY</div>
-                    <div class="status_meta">PLAY is native RmlUi. Other destinations hand back to the existing Prime shell so networking, settings, Replay Studio and Map Studio remain authoritative.</div>
+                <div class="session_slot">
+                    <span class="plus">+</span>
+                    <span>OPEN PARTY SLOT</span>
                 </div>
+                <div class="session_hint">PARTY CONTROLS APPEAR AFTER JOINING OR CREATING A LOBBY.</div>
             </div>
         </div>
 
-        <div id="footerbar">
+        <div id="diagnostics_panel" data-class-open="diagnostics_visible">
+            <div class="diag_header">
+                <span>UI DIAGNOSTICS</span>
+                <span class="diag_key">F10</span>
+            </div>
+            <div class="diag_row"><span>LIBRARY</span><b>RMLUI 6.3</b></div>
+            <div class="diag_row"><span>RENDERER</span><b>{{renderer_name}}</b></div>
+            <div class="diag_row"><span>GAME DATA</span><b>{{game_data_state}}</b></div>
+            <div class="diag_row"><span>SUBMIT</span><b>{{ui_cost}}</b></div>
+        </div>
+
+        <div id="footerbar" class="enter_bottom">
             <div id="build_info">
                 <span class="blue">BUILD {{build_version}}</span>
                 <span class="divider">//</span>
-                <span>{{renderer_name}}</span>
+                <span>PROJECT PRIME CLIENT</span>
             </div>
             <div id="footer_actions">
-                <button class="footer_button" data-event-click="open_classic">CURRENT UI</button>
+                <button class="footer_button" data-event-click="open_classic">NEWS</button>
                 <button class="footer_button" data-event-click="open_settings">SETTINGS</button>
                 <button class="footer_button danger" data-event-click="quit_game">QUIT</button>
             </div>

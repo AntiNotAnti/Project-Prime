@@ -20,6 +20,14 @@ namespace MphRead.Mods
         /// </summary>
         public static bool Active { get; private set; }
 
+        /// <summary>
+        /// A map preview is environment art, not a live first-person frame.
+        /// Keep the local hunter/viewmodel and item presentation out of the
+        /// generated image while leaving gameplay simulation untouched.
+        /// </summary>
+        public static bool SuppressLocalPlayerPresentation => Active;
+        public static bool SuppressPickupPresentation => Active;
+
         private static float _sfxVolume = 0.35f;
         private static float _musicVolume = 1;
 

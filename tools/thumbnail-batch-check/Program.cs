@@ -36,9 +36,14 @@ if (args.Length == 2 && args[0] == "--case")
     try
     {
         string[] rooms = { "one", "two", "three" };
+        bool force = args[1] == "force";
+        if (force)
+            foreach (string room in rooms)
+                File.WriteAllText(Path.Combine(fixture, "result-" + room), "stale");
         int parallelism = args[1] == "success" ? 16 : 1;
         TimeSpan timeout = TimeSpan.FromSeconds(args[1] == "timeout" ? 2 : 10);
-        int Run() => ThumbnailBatch.Run(rooms, parallelism, 64, 64, workerTimeout: timeout);
+        int Run() => ThumbnailBatch.Run(rooms, parallelism, 64, 64,
+            workerTimeout: timeout, force: force);
         if (args[1] == "parent-exit")
         {
             _ = Task.Run(Run);
@@ -82,7 +87,7 @@ if (args.Length == 2 && args[0] == "--case")
     finally { Directory.Delete(fixture, recursive: true); }
 }
 
-foreach (string mode in new[] { "success", "crash", "timeout", "concurrent", "parent-exit" })
+foreach (string mode in new[] { "success", "force", "crash", "timeout", "concurrent", "parent-exit" })
 {
     var start = new ProcessStartInfo(Environment.ProcessPath!)
     { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };

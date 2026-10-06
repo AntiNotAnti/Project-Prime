@@ -57,6 +57,53 @@ namespace MphRead.Mods
             return file.Exists && file.Length > 0;
         }
 
+        // Bump only when the generated environment composition changes.
+        // Custom-map authored previews do not need this marker; it is used by
+        // the RmlUi menu stage to know whether a locally rendered room image
+        // predates the clean no-player/no-pickup presentation pass.
+        public const int CinematicPresentationVersion = 2;
+
+        public static string CinematicMarkerFor(string roomKey)
+            => PathFor(roomKey) + ".cinematic";
+
+        public static bool HasCinematicPresentation(string roomKey)
+        {
+            if (!Exists(roomKey))
+                return false;
+            try
+            {
+                return File.Exists(CinematicMarkerFor(roomKey))
+                    && String.Equals(File.ReadAllText(CinematicMarkerFor(roomKey)).Trim(),
+                        CinematicPresentationVersion.ToString(),
+                        StringComparison.Ordinal);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        internal static void MarkCinematicPresentation(string roomKey)
+        {
+            EnsureCacheDirectory();
+            File.WriteAllText(CinematicMarkerFor(roomKey),
+                CinematicPresentationVersion.ToString());
+        }
+
+        internal static void InvalidateCinematicPresentation(string roomKey)
+        {
+            try
+            {
+                string marker = CinematicMarkerFor(roomKey);
+                if (File.Exists(marker)) File.Delete(marker);
+            }
+            catch
+            {
+                // The preview itself remains usable; this only means a later
+                // session may ask the worker to refresh it again.
+            }
+        }
+
         /// <summary>
         /// Multiplayer rooms a launcher would offer.
         ///

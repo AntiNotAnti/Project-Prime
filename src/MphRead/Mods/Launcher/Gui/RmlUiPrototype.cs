@@ -2,12 +2,17 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using MphRead.Mods.Input;
 using MphRead.Mods.Render;
+using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
+using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace MphRead.Mods.Launcher.Gui
@@ -38,6 +43,10 @@ namespace MphRead.Mods.Launcher.Gui
         private static double _renderMs;
         private static int _captureFrames;
         private static string? _captureDirectory;
+        private static Task<int>? _stageRefresh;
+        private static CancellationTokenSource? _stageRefreshCancel;
+        private static string _stageRefreshRoom = "";
+        private static bool _diagnosticsVisible;
 
         static RmlUiPrototype()
         {
@@ -74,6 +83,13 @@ namespace MphRead.Mods.Launcher.Gui
 
             try
             {
+                if (CaptureSize() is Vector2i requested)
+                {
+                    window.ClientSize = requested;
+                    // The diagnostic needs the framebuffer size produced by
+                    // the resize, not the previous frame's cached value.
+                    NativeWindow.ProcessWindowEvents(false);
+                }
                 ReadSize(window, out int width, out int height, out float density);
                 int ok = NativeInitialize(width, height, density, root);
                 if (ok == 0)
@@ -90,6 +106,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _nextStateRefresh = 0;
                 _captureFrames = 0;
                 _captureDirectory = CaptureDirectory();
+                _diagnosticsVisible = false;
                 GamepadContexts.MenuVisible = true;
                 _gamepad.Reset();
 
@@ -97,6 +114,7 @@ namespace MphRead.Mods.Launcher.Gui
                 HubSnapshot snapshot = HubState.Capture();
                 ConfigureHunter(snapshot);
                 RefreshState(snapshot, force: true);
+                BeginMenuStageRefresh(snapshot);
                 Mods.DebugLog.Line("rmlui", $"RmlUi 6.3 POC active at {width}x{height} ({density:0.##}x density)");
                 return true;
             }
@@ -145,6 +163,7 @@ namespace MphRead.Mods.Launcher.Gui
                 else
                     _gamepad.Update(GamepadManager.Snapshot, GamepadContext.Menu, now);
 
+                PollMenuStageRefresh();
                 NativeUpdate();
                 DrainActions();
             }
@@ -246,6 +265,12 @@ namespace MphRead.Mods.Launcher.Gui
         public static void KeyDown(KeyboardKeyEventArgs e)
         {
             if (!_active) return;
+            if (e.Key == Keys.F10)
+            {
+                _diagnosticsVisible = !_diagnosticsVisible;
+                SetBool("diagnostics_visible", _diagnosticsVisible);
+                return;
+            }
             if (e.Key == Keys.Escape)
             {
                 // The production shell owns its full back/quit semantics. A
@@ -282,6 +307,10 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepad.Reset();
             _captureDirectory = null;
             _captureFrames = 0;
+            _stageRefreshCancel?.Cancel();
+            _stageRefreshCancel = null;
+            _stageRefresh = null;
+            _stageRefreshRoom = "";
             LauncherHunter.Reset();
             GamepadContexts.MenuVisible = false;
             Mods.DebugLog.Line("rmlui", "RmlUi POC shut down");
@@ -294,6 +323,8 @@ namespace MphRead.Mods.Launcher.Gui
             SetText("profile_state", snapshot.GameFilesReady ? "LOCAL PROFILE // GAME DATA READY" : "LOCAL PROFILE // SETUP REQUIRED");
             SetText("game_data_state", snapshot.GameFilesReady ? "GAME DATA READY" : "GAME DATA NOT CONFIGURED");
             SetText("build_version", Update.BuildVersion.Display);
+            SetBool("reduce_motion", LauncherPrefs.ReduceMotion);
+            SetBool("diagnostics_visible", _diagnosticsVisible);
             if (force)
             {
                 SetText("renderer_name", "OPENGL // RMLUI 6.3");
@@ -307,11 +338,81 @@ namespace MphRead.Mods.Launcher.Gui
             LauncherHunter.CanPresent = () => _active;
             LauncherHunter.Hunter = snapshot.DisplayHunter;
             LauncherHunter.Suit = snapshot.Suit;
-            LauncherHunter.Left = 0.34f;
-            LauncherHunter.Top = 0.105f;
-            LauncherHunter.Right = 0.735f;
-            LauncherHunter.Bottom = 0.93f;
+            // Frame the Hunter as the player's avatar rather than an enemy in
+            // the middle of a match. The preview pass keeps true model scale;
+            // only its camera and screen-space stage placement change.
+            LauncherHunter.Left = 0.40f;
+            LauncherHunter.Top = 0.075f;
+            LauncherHunter.Right = 0.81f;
+            LauncherHunter.Bottom = 0.94f;
+            LauncherHunter.DistanceScale = 0.84f;
             LauncherHunter.TransparentBackground = true;
+        }
+
+        private static void BeginMenuStageRefresh(HubSnapshot snapshot)
+        {
+            if (!snapshot.GameFilesReady || !ThumbnailBatch.CanRun || _stageRefresh != null)
+                return;
+
+            string room = LauncherBackdrop.RoomKey;
+            if (String.IsNullOrWhiteSpace(room)
+                || ThumbnailGenerator.HasCinematicPresentation(room))
+                return;
+
+            _stageRefreshRoom = room;
+            _stageRefreshCancel = new CancellationTokenSource();
+            CancellationToken token = _stageRefreshCancel.Token;
+            Mods.DebugLog.Line("rmlui",
+                $"refreshing cinematic menu stage for {room} in a background preview worker");
+            _stageRefresh = Task.Run(() => ThumbnailBatch.Run(
+                new[] { room },
+                parallelism: 1,
+                width: ThumbnailGenerator.ThumbnailWidth,
+                height: ThumbnailGenerator.ThumbnailHeight,
+                report: line => Mods.DebugLog.Line("rmlui", line),
+                cancel: token,
+                force: true), token);
+        }
+
+        private static void PollMenuStageRefresh()
+        {
+            Task<int>? task = _stageRefresh;
+            if (task == null || !task.IsCompleted)
+                return;
+
+            string room = _stageRefreshRoom;
+            CancellationTokenSource? completedCancel = _stageRefreshCancel;
+            _stageRefresh = null;
+            _stageRefreshRoom = "";
+            _stageRefreshCancel = null;
+            try
+            {
+                int written = task.GetAwaiter().GetResult();
+                if (written > 0 || ThumbnailGenerator.HasCinematicPresentation(room))
+                {
+                    // The old GPU texture is still valid while the worker
+                    // replaces the PNG, so the menu never flashes to black.
+                    // Swap to the clean image now, on the GL owner thread.
+                    LauncherPhoto.Invalidate();
+                    LauncherBackdrop.Refresh();
+                    Mods.DebugLog.Line("rmlui",
+                        $"cinematic menu stage refreshed for {room}");
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Mods.DebugLog.Line("rmlui", "cinematic menu-stage refresh cancelled");
+            }
+            catch (Exception ex)
+            {
+                // A stale backdrop is cosmetic. The frontend remains usable.
+                Mods.DebugLog.Line("rmlui",
+                    $"cinematic menu-stage refresh failed: {ex.Message}");
+            }
+            finally
+            {
+                completedCancel?.Dispose();
+            }
         }
 
         private static void DrainActions()
@@ -389,16 +490,79 @@ namespace MphRead.Mods.Launcher.Gui
             return null;
         }
 
-        private static void ReadSize(RenderWindow window, out int width, out int height, out float density)
+        private static Vector2i? CaptureSize()
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            for (int i = 0; i + 1 < args.Length; i++)
+            {
+                if (!args[i].Equals("-rmluisize", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                string[] parts = args[i + 1].Split('x', 'X');
+                if (parts.Length == 2
+                    && Int32.TryParse(parts[0], out int width)
+                    && Int32.TryParse(parts[1], out int height)
+                    && width is >= 640 and <= 7680
+                    && height is >= 360 and <= 4320)
+                    return new Vector2i(width, height);
+            }
+            return null;
+        }
+
+        private static unsafe void ReadSize(RenderWindow window, out int width, out int height, out float density)
         {
             width = Math.Max(window.FramebufferSize.X, 1);
             height = Math.Max(window.FramebufferSize.Y, 1);
-            density = window.ClientSize.X > 0 ? Math.Max(1f, width / (float)window.ClientSize.X) : 1f;
+
+            // Framebuffer/client ratio catches Retina on the platforms where
+            // GLFW exposes logical client points. Window content scale catches
+            // DPI-aware desktop configurations where both sizes are already
+            // physical pixels. Use the larger answer so UI never shrinks just
+            // because the windowing backend chose the other coordinate model.
+            float framebufferScale = window.ClientSize.X > 0
+                ? Math.Max(1f, width / (float)window.ClientSize.X)
+                : 1f;
+            float contentScale = 1f;
+            try
+            {
+                GLFW.GetWindowContentScale(window.WindowPtr, out float xScale, out float yScale);
+                if (float.IsFinite(xScale) && float.IsFinite(yScale))
+                    contentScale = Math.Max(1f, Math.Max(xScale, yScale));
+            }
+            catch
+            {
+                // Ratio fallback above remains valid if the platform cannot
+                // report a content scale for this compatibility window.
+            }
+            density = Math.Max(framebufferScale, contentScale);
+
+            float forced = DensityOverride();
+            if (forced > 0)
+                density = forced;
+        }
+
+        private static float DensityOverride()
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            for (int i = 0; i + 1 < args.Length; i++)
+            {
+                if (!args[i].Equals("-rmluidensity", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                if (float.TryParse(args[i + 1], NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out float value)
+                    && float.IsFinite(value))
+                    return Math.Clamp(value, 0.75f, 4f);
+            }
+            return 0;
         }
 
         private static void SetText(string name, string value)
         {
             if (_active) NativeSetText(name, value ?? string.Empty);
+        }
+
+        private static void SetBool(string name, bool value)
+        {
+            if (_active) NativeSetBool(name, value ? 1 : 0);
         }
 
         private static void Fail(string message, Exception ex)
@@ -415,6 +579,10 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepad.Reset();
             _captureDirectory = null;
             _captureFrames = 0;
+            _stageRefreshCancel?.Cancel();
+            _stageRefreshCancel = null;
+            _stageRefresh = null;
+            _stageRefreshRoom = "";
             LauncherHunter.Reset();
             GamepadContexts.MenuVisible = false;
             Mods.DebugLog.Line("rmlui", $"POC {message}: {ex.Message}; falling back to Avalonia");
@@ -456,6 +624,10 @@ namespace MphRead.Mods.Launcher.Gui
         private static extern void NativeSetText(
             [MarshalAs(UnmanagedType.LPUTF8Str)] string name,
             [MarshalAs(UnmanagedType.LPUTF8Str)] string value);
+
+        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_set_bool")]
+        private static extern void NativeSetBool(
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string name, int value);
 
         [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_take_action")]
         private static extern int NativeTakeAction([Out] byte[] buffer, int capacity);

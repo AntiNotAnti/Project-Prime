@@ -67,6 +67,13 @@ namespace MphRead.Mods.Render
         public static bool TransparentBackground { get; set; }
 
         /// <summary>
+        /// Camera distance multiplier for launcher presentation. Values below
+        /// one move the preview camera closer without changing the model or
+        /// gameplay scale.
+        /// </summary>
+        public static float DistanceScale { get; set; } = 1f;
+
+        /// <summary>
         /// Where it goes, in fractions of the window: left, top, right,
         /// bottom, measured down from the top the way a screen's own
         /// coordinates are.
@@ -142,7 +149,9 @@ namespace MphRead.Mods.Render
             Wanted = false;
             CanPresent = null;
             TransparentBackground = false;
+            DistanceScale = 1f;
             Scene.LauncherPreviewTransparent = false;
+            Scene.LauncherPreviewDistanceScale = 1f;
             Drawn = false;
             _failureCount = 0;
             _retryAfter = 0;
@@ -206,6 +215,7 @@ namespace MphRead.Mods.Render
                 Scene.LauncherHunter = Hunter;
                 Scene.LauncherSuit = Math.Clamp(Suit, 0, 3);
                 Scene.LauncherPreviewTransparent = TransparentBackground;
+                Scene.LauncherPreviewDistanceScale = Math.Clamp(DistanceScale, 0.65f, 1.25f);
                 Scene.PreviewWanted = true;
                 Scene.PreviewLeft = Left;
                 Scene.PreviewTop = Top;
