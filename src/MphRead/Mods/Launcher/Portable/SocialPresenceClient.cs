@@ -180,18 +180,6 @@ namespace MphRead.Mods.Launcher
                 PresenceEnvelope envelope = await InvokeAsync(
                     CommonBody("snapshot"), cancellationToken).ConfigureAwait(false);
                 Publish(generation, envelope.Snapshot);
-                if (envelope.Snapshot?.Settings is not { } remote) return;
-
-                if (!LauncherPrefs.SocialPrivacyConfigured)
-                {
-                    LauncherPrefs.PresenceVisibility = ParsePresence(remote.PresenceVisibility);
-                    LauncherPrefs.ActivityVisibility = ParseActivity(remote.ActivityVisibility);
-                    LauncherPrefs.InvitePolicy = ParseInvite(remote.InvitePolicy);
-                }
-                else if (LocalPrivacy() != remote)
-                {
-                    Interlocked.Exchange(ref _privacyDirty, 1);
-                }
                 ClearFailure();
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -296,6 +284,22 @@ namespace MphRead.Mods.Launcher
             lock (Sync)
             {
                 if (generation != _generation || _lifetime == null) return;
+
+                // Reconcile on every successful response, not only startup.
+                // If startup happened while Auth/networking was unavailable, a
+                // later heartbeat still adopts a recovered account's privacy.
+                SocialPrivacySettings remote = snapshot.Settings;
+                if (!LauncherPrefs.SocialPrivacyConfigured)
+                {
+                    LauncherPrefs.PresenceVisibility = ParsePresence(remote.PresenceVisibility);
+                    LauncherPrefs.ActivityVisibility = ParseActivity(remote.ActivityVisibility);
+                    LauncherPrefs.InvitePolicy = ParseInvite(remote.InvitePolicy);
+                }
+                else if (LocalPrivacy() != remote)
+                {
+                    Interlocked.Exchange(ref _privacyDirty, 1);
+                }
+
                 _current = snapshot;
                 changed = Changed;
             }
