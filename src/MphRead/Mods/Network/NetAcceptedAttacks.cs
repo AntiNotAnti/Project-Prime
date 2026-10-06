@@ -39,6 +39,7 @@ internal static class NetAcceptedAttacks
         public readonly int[] Emissions = new int[NetFireEvents.Capacity];
         public int EmissionCount;
         public readonly Powerup[] Powerups = new Powerup[128];
+        public readonly SourceBody[] SourceBodies = new SourceBody[128];
         public int Cursor, Charge, Weapon = -1;
         public uint LastId, LastFire, LastTurretFire, LastSource, LastArrival, SourceOrigin, ArrivalOrigin;
         public bool SeenId, SeenFire, SeenTurretFire, SeenIntent, Holding;
@@ -66,6 +67,7 @@ internal static class NetAcceptedAttacks
     }
     private readonly record struct BombSample(int Id, uint Born, uint Frame, uint TravelFrames, Vector3 Position, float Radius, int Damage, int Index, bool Connections);
     private readonly record struct Powerup(uint Frame, bool DoubleDamage, bool Prime);
+    private readonly record struct SourceBody(uint Frame, Vector3 Position, Vector3 Up, byte Flags);
     private static readonly Slot[] Slots = Create();
     public static long Accepted, Refused, ResourceRefused, ClaimsWithoutEvidence, GeometryRefused;
     internal static Vector3 LastResolvedImpact { get; private set; }
@@ -81,7 +83,7 @@ internal static class NetAcceptedAttacks
             state.Fence = fence; state.Index.Clear(); state.CoilHeld = false;
             Array.Clear(state.BurnFrames); Array.Clear(state.NativeBombs); Array.Clear(state.BombHistory);
             Array.Clear(state.Attacks); Array.Clear(state.Reserved); Array.Clear(state.Outcomes); Array.Clear(state.Components);
-            Array.Clear(state.Deferred); Array.Clear(state.Powerups);
+            Array.Clear(state.Deferred); Array.Clear(state.Powerups); Array.Clear(state.SourceBodies);
             Array.Clear(state.AltIntents); Array.Clear(state.AltArrivals); Array.Clear(state.AltPaid);
             Array.Clear(state.AltGroups); Array.Clear(state.PaidGroups); Array.Clear(state.BombPaid); Array.Clear(state.GroupArrived); Array.Clear(state.GroupBomb); Array.Clear(state.AltDouble); Array.Clear(state.BombEmitted); Array.Clear(state.BombLineFrames); Array.Clear(state.AltContacts);
             state.ReservedBombs = 0; state.AltStart = state.LastBombSource = 0;
@@ -101,7 +103,7 @@ internal static class NetAcceptedAttacks
             state.Fence = default; state.Index.Clear(); state.CoilHeld = false;
             Array.Clear(state.BurnFrames); Array.Clear(state.NativeBombs); Array.Clear(state.BombHistory);
             Array.Clear(state.Attacks); Array.Clear(state.Deferred);
-            Array.Clear(state.Reserved); Array.Clear(state.Outcomes); Array.Clear(state.Components); Array.Clear(state.Powerups);
+            Array.Clear(state.Reserved); Array.Clear(state.Outcomes); Array.Clear(state.Components); Array.Clear(state.Powerups); Array.Clear(state.SourceBodies);
             Array.Clear(state.AltIntents); Array.Clear(state.AltArrivals); Array.Clear(state.AltPaid);
             Array.Clear(state.AltGroups); Array.Clear(state.PaidGroups); Array.Clear(state.BombPaid); Array.Clear(state.GroupArrived); Array.Clear(state.GroupBomb); Array.Clear(state.AltDouble); Array.Clear(state.BombEmitted); Array.Clear(state.BombLineFrames); Array.Clear(state.AltContacts);
             state.SeenIntent = state.SeenId = state.SeenFire = state.SeenTurretFire = state.Holding = false;
@@ -155,8 +157,9 @@ internal static class NetAcceptedAttacks
             state.LastId = fire.ShotId; state.SeenId = true;
             BeamType beam = (BeamType)fire.Weapon;
             bool turret = fire.Kind == FireEventKind.TurretFire;
-            if (!clock || !fire.HasPose || fire.AckFrame == 0 || fire.AckFrame > now
-                || now - fire.AckFrame >= NetUnlagged.HistoryFrames
+            if (!clock || !fire.HasPose
+                || !LagCompensationPolicy.TryAdmitTime(now, fire.AckFrame, fire.AckSubFrame, out _)
+                || !SourcePoseSupported(player, state, fire)
                 || !WeaponResourceRules.AllowsBeam(beam, player.OwningScene.GameState.InstaGib,
                     player.OwningScene.GameState.NoImperialist)
                 || turret && player.Hunter != Hunter.Weavel)
@@ -220,7 +223,7 @@ internal static class NetAcceptedAttacks
         state.Holding = intent.Buttons.HasFlag(IntentButtons.Shoot);
         if (!state.Holding) state.Charge = 0;
         state.Weapon = intent.WeaponSelect; state.LastSource = intent.Frame; state.LastArrival = now; state.SeenIntent = true;
-        if (!clock) return; // Alt/contact cadence shares the same bounded owner clock.
+        if (!clock || !LagCompensationPolicy.TryAdmitTime(now, intent.AckFrame, intent.AckSubFrame, out _)) return;
         bool alt = intent.Buttons.HasFlag(IntentButtons.AltFormState);
         bool altHeld = alt && intent.Buttons.HasFlag(IntentButtons.AltAttack);
         bool boost = alt && player.Hunter == Hunter.Samus
@@ -290,6 +293,29 @@ internal static class NetAcceptedAttacks
             }
         }
     }
+    private static bool SourcePoseSupported(PlayerEntity player, Slot state, in FireEvent fire)
+    {
+        if (!player.ModSupportsFireSource(fire, out Vector3 sightOrigin)) return false;
+        if (fire.Kind != FireEventKind.TurretFire)
+        {
+            SourceBody body = state.SourceBodies[fire.SourceFrame % 128];
+            if (body.Frame == fire.SourceFrame
+                && ((body.Position - fire.SourcePosition).LengthSquared > .0001f
+                    || (body.Up - fire.SourceUp).LengthSquared > .0001f
+                    || body.Flags != fire.SourceFlags)) return false;
+            // Firing occurs after native movement, while the carrier body is
+            // sampled before movement. Admit this separate mid-step movement
+            // report once; later carriers/events cannot rewrite its source body.
+            // This is muzzle coupling, not server speed/teleport authority.
+        }
+        bool clear = NetDynamicGeometryHistory.TryTraceDistanceAtFrame(player.OwningScene,
+            sightOrigin, fire.Origin, fire.AckFrame + fire.AckSubFrame / 256.0, out float world)
+            && world >= .999f;
+        if (clear && fire.Kind != FireEventKind.TurretFire)
+            state.SourceBodies[fire.SourceFrame % 128] = new(fire.SourceFrame, fire.SourcePosition,
+                fire.SourceUp, fire.SourceFlags);
+        return clear;
+    }
     private static bool Admit(PlayerEntity player, Slot state, in Attack candidate)
     {
         if (state.EmissionCount >= state.Emissions.Length) return false;
@@ -327,6 +353,12 @@ internal static class NetAcceptedAttacks
                     if (!expired.Paid) state.Reserved[expired.Pool] -= expired.Cost;
                     state.Index.Remove(expired.Fire.ShotId); expired.Valid = false;
                 }
+                if (expired.Valid && !expired.Launched && !expired.EmitAttempted
+                    && !LagCompensationPolicy.TryAdmitTime(frame, expired.Fire.AckFrame, expired.Fire.AckSubFrame, out _))
+                {
+                    if (!expired.Paid) state.Reserved[expired.Pool] -= expired.Cost;
+                    state.Index.Remove(expired.Fire.ShotId); expired.Valid = false;
+                }
                 if (expired.Valid && unchecked(frame - expired.Arrived) <= 1
                     && expired.RequestedDouble && player.DoubleDamage) expired.DoubleDamage = true;
             }
@@ -351,7 +383,8 @@ internal static class NetAcceptedAttacks
             {
                 ref Attack candidate = ref state.Deferred[i];
                 if (!candidate.Valid) continue;
-                if (unchecked(frame - candidate.Arrived) > NetFireEvents.RetentionFrames)
+                if (unchecked(frame - candidate.Arrived) > NetFireEvents.RetentionFrames
+                    || !LagCompensationPolicy.TryAdmitTime(frame, candidate.Fire.AckFrame, candidate.Fire.AckSubFrame, out _))
                 { candidate.Valid = false; continue; }
                 if (Admit(player, state, candidate)) candidate.Valid = false;
             }
@@ -360,6 +393,18 @@ internal static class NetAcceptedAttacks
     private static int Find(Slot state, uint id)
         => state.Index.TryGetValue(id, out int at) && state.Attacks[at].Valid
             && unchecked(NetSession.NetFrame - state.Attacks[at].Arrived) <= LifetimeFrames ? at : -1;
+    internal static bool TryAcceptedFire(int slot, uint id, out FireEvent fire)
+        => TryAcceptedContext(slot, id, out fire, out _);
+    internal static bool TryAcceptedContext(int slot, uint id, out FireEvent fire, out NetTargetIdentity target)
+    {
+        fire = default; target = default;
+        if ((uint)slot >= 8) return false;
+        Slot state = For(slot); int at = Find(state, id);
+        if (at < 0) return false;
+        fire = state.Attacks[at].Fire;
+        target = state.Attacks[at].Target;
+        return LagCompensationPolicy.TryAdmitTime(NetSession.NetFrame, fire.AckFrame, fire.AckSubFrame, out _);
+    }
     internal static bool Authorized(int slot, uint id)
         => (uint)slot < 8 && id != 0 && Find(For(slot), id) >= 0;
     internal static void Launched(PlayerEntity player)
@@ -388,6 +433,12 @@ internal static class NetAcceptedAttacks
                 if (!attack.Valid || attack.Launched || attack.EmitAttempted) continue;
                 attack.EmitAttempted = true;
                 FireEvent fire = attack.Fire; WeaponInfo weapon = attack.Weapon;
+                if (!LagCompensationPolicy.TryAdmitTime(NetSession.NetFrame, fire.AckFrame, fire.AckSubFrame, out _))
+                {
+                    if (!attack.Paid) state.Reserved[attack.Pool] -= attack.Cost;
+                    state.Index.Remove(fire.ShotId); attack.Valid = false;
+                    continue;
+                }
                 // A turret's native owner type controls speed/affinity rules.
                 EntityBase owner = fire.Kind == FireEventKind.TurretFire
                     ? player.Halfturret ?? new HalfturretEntity(player, player.OwningScene) : player;
@@ -446,6 +497,9 @@ internal static class NetAcceptedAttacks
                 if (group == 0 || state.PaidGroups[at] != group || !state.GroupBomb[at]
                     || state.BombPaid[at] || state.BombEmitted[at]
                     || unchecked(NetSession.NetFrame - state.GroupArrived[at]) > NetFireEvents.RetentionFrames) continue;
+                if (!LagCompensationPolicy.TryAdmitTime(NetSession.NetFrame,
+                    state.AltIntents[i].AckFrame, state.AltIntents[i].AckSubFrame, out _))
+                { state.BombPaid[at] = true; state.ReservedBombs = Math.Max(0, state.ReservedBombs - 1); continue; }
                 state.BombEmitted[at] = true;
                 if (player.ModSpawnAcceptedBomb(state.AltIntents[i].Position, state.AltDouble[i], group)
                     && !state.BombPaid[at])
@@ -471,8 +525,14 @@ internal static class NetAcceptedAttacks
         { state.BombPaid[at] = true; state.ReservedBombs = Math.Max(0, state.ReservedBombs - 1); }
     }
     internal static bool ValidateClaim(int slot, in HitClaimPacket claim, bool pay = false)
+        => ValidateClaimCore(slot, claim, pay, admittedTime: false);
+    private static bool ValidateClaimCore(int slot, in HitClaimPacket claim, bool pay, bool admittedTime)
     {
+        if (pay) LastResolvedImpact = LastResolvedDirection = default;
         if ((uint)slot >= 8 || slot >= PlayerEntity.Players.Count) return false;
+        if ((uint)claim.VictimSlot >= PlayerEntity.Players.Count
+            || !admittedTime && !LagCompensationPolicy.TryAdmitTime(NetSession.NetFrame,
+                claim.AckFrame, claim.AckSubFrame, out _)) return false;
         Slot clockState = For(slot);
         if (!SourceTimeSupported(clockState, claim.Frame)) return false;
         if (claim.Beam == HitClaimPacket.NoBeam) return ValidateAlt(slot, claim, pay);
@@ -480,7 +540,7 @@ internal static class NetAcceptedAttacks
         if (at < 0) { ClaimsWithoutEvidence++; return false; }
         ref Attack attack = ref state.Attacks[at]; FireEvent fire = attack.Fire;
         if (fire.Weapon != claim.Beam || claim.LaunchFrame != fire.AckFrame
-            || claim.AckFrame < fire.AckFrame
+            || claim.AckFrame + claim.AckSubFrame / 256.0 < fire.AckFrame + fire.AckSubFrame / 256.0
             || fire.Kind == FireEventKind.ContinuousTick && (claim.Frame != fire.ContinuousPhase
                 || (claim.Flags & HitClaimPacket.FlagContinuousTick) == 0)
             || fire.Kind != FireEventKind.ContinuousTick && (claim.Flags & HitClaimPacket.FlagContinuousTick) != 0) return false;
@@ -489,7 +549,7 @@ internal static class NetAcceptedAttacks
         if (!ValidateGeometry(shooter, victim, attack, claim, components, out uint component, out Vector3 resolvedPoint, out Vector3 resolvedDirection)) { GeometryRefused++; return false; }
         bool head = (claim.Flags & HitClaimPacket.FlagHeadshot) != 0;
         if (head && (fire.Kind == FireEventKind.TurretFire || claim.Beam == (byte)BeamType.ShockCoil
-            || !NetUnlagged.TryHistoricalBiped(victim, claim.AckFrame, out _))) return false;
+            || !NetUnlagged.TryHistoricalBiped(victim, claim.AckFrame + claim.AckSubFrame / 256.0, out _))) return false;
         byte afflictions = NetHitClaims.AfflictionClaimFlags(attack.Weapon.Afflictions[attack.Charged ? 1 : 0]);
         const byte mask = HitClaimPacket.FlagFrozen | HitClaimPacket.FlagBurning | HitClaimPacket.FlagDisrupted;
         if ((claim.Flags & mask & ~afflictions) != 0) return false;
@@ -516,6 +576,16 @@ internal static class NetAcceptedAttacks
         return true;
     }
     internal static bool ConsumeClaim(int slot, in HitClaimPacket claim) => ValidateClaim(slot, claim, pay: true);
+    /// <summary>Reserve the proven native component and its resource payment
+    /// once, while historical geometry is available. Pending arbitration owns
+    /// the immutable witness; no geometry or time budget is re-read after grace.</summary>
+    internal static bool TryReserveClaim(int slot, in HitClaimPacket claim, out Vector3 point, out Vector3 direction)
+    {
+        point = direction = default;
+        if (!ValidateClaimCore(slot, claim, pay: true, admittedTime: true)) return false;
+        point = LastResolvedImpact; direction = LastResolvedDirection;
+        return true;
+    }
     private static bool ValidateGeometry(PlayerEntity shooter, PlayerEntity victim,
         in Attack attack, in HitClaimPacket claim, ReadOnlySpan<uint> used, out uint component, out Vector3 resolvedPoint, out Vector3 resolvedDirection)
     {
@@ -589,8 +659,9 @@ internal static class NetAcceptedAttacks
         PlayerEntity shooter = PlayerEntity.Players[slot], victim = PlayerEntity.Players[claim.VictimSlot];
         Slot state = For(slot);
         if (pay) LastResolvedDirection = Vector3.Zero;
+        double claimTime = claim.AckFrame + claim.AckSubFrame / 256.0;
         if (!NetIntentPolicy.Sane(claim.HitPoint)
-            || !NetUnlagged.TryHistoricalPose(victim, claim.AckFrame, out var pose)
+            || !NetUnlagged.TryHistoricalPose(victim, claimTime, out var pose)
             || (claim.HitPoint - pose.Position).LengthSquared > NetHitClaims.ClaimRadius * NetHitClaims.ClaimRadius
             || !SourceTimeSupported(state, claim.Frame)) return false;
         var volume = PlayerEntity.PlayerVolumes[(int)victim.Hunter, pose.AltForm ? 2 : 0];
@@ -598,7 +669,7 @@ internal static class NetAcceptedAttacks
             volume.SphereRadius, 0, 0, HistoricalBodyType.AltSphere);
         if ((claim.Flags & HitClaimPacket.FlagHalfturret) != 0)
         {
-            if (!NetUnlagged.TryHistoricalHalfturretPosition(victim.SlotIndex, claim.AckFrame,
+            if (!NetUnlagged.TryHistoricalHalfturretPosition(victim.SlotIndex, claimTime,
                 claim.VictimGeneration, claim.VictimLifeId, out Vector3 turret)) return false;
             body = body with { Position = turret, Radius = .45f };
         }
@@ -676,7 +747,8 @@ internal static class NetAcceptedAttacks
         {
             IntentPacket intent = state.AltIntents[i]; uint group = state.AltGroups[i]; int at = (int)(group % 128);
             if (state.AltArrivals[i] == 0 || unchecked(NetSession.NetFrame - state.AltArrivals[i]) > 124
-                || unchecked(claim.Frame - intent.Frame) > 2 || intent.AckFrame > claim.AckFrame
+                || unchecked(claim.Frame - intent.Frame) > 2
+                || intent.AckFrame + intent.AckSubFrame / 256.0 > claimTime
                 || claim.AckFrame - intent.AckFrame > 32 || group == 0 || state.PaidGroups[at] != group
                 || state.GroupBomb[at] || (state.AltPaid[at] & (1 << claim.VictimSlot)) != 0
                 || frozen && shooter.Hunter != Hunter.Noxus) continue;

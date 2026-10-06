@@ -8,6 +8,9 @@ internal static class ClaimStressTests
     private static object? Call(string name, params object[] args)
     {
         var method = typeof(NetHitClaims).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static)!;
+        // This is ledger capacity/retention coverage, not native firing policy.
+        if (name == "Park" && args.Length == 2)
+            return method.Invoke(null, new object[] { args[0], args[1], false });
         if (name is "NoteLedger" or "TakeLedger" && args.Length + 1 == method.GetParameters().Length)
         {
             object[] expanded = new object[args.Length + 1]; args.CopyTo(expanded, 0); expanded[^1] = args[3];

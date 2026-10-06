@@ -331,7 +331,8 @@ namespace MphRead.Mods.Network
             FireEvent Event(uint id, FireEventKind kind, BeamType beam, byte charge = 0, uint scope = 0,
                 uint? launch = null) => new(id, sourceFrame, launch ?? NetSession.NetFrame - 2, 128, kind,
                     (byte)beam, charge, scope, FireEvent.FlagPose, shooter.Position + Vector3.UnitY,
-                    Vector3.UnitY, Vector3.UnitY, Vector3.UnitY);
+                    Vector3.UnitY, Vector3.UnitY, Vector3.UnitY, default,
+                    shooter.Position, Vector3.UnitY, FireEvent.FlagSourcePose);
             void Advance(int frames)
             {
                 sourceFrame += (uint)frames; now += (uint)frames;

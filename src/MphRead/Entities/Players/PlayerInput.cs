@@ -1259,6 +1259,7 @@ namespace MphRead.Entities
         private bool TryFireWeapon()
         {
             if (!NetFireEvents.CanFire(this)) return false;
+            NetFireEvents.RestoreAcceptedCharge(this);
             bool exactReplayFire = _scene.Services.IsReplica && NetFireEvents.HasPending(this);
             if (_scene.AimTrainer is { } trainer)
             {
@@ -1322,7 +1323,8 @@ namespace MphRead.Entities
             // projectile itself follows the final post-spread shotVec below.
             Vector3 shotAim = NormalizeSpatialOr(shotVec, _gunVec1);
             shotVec = shotAim;
-            if (_disruptedTimer > 0)
+            if (_disruptedTimer > 0
+                && !NetFireEvents.TryAuthoredPose(this, out _, out _, out _))
             {
                 // random values between -3 and 3
                 shotVec.X += Fixed.ToFloat((int)_scene.Random.GetRandomInt2(24576) - 12288);
@@ -1377,6 +1379,7 @@ namespace MphRead.Entities
             BeamResultFlags result;
             _scene.AimTrainer?.BeginShot(this);
             bool replayAmmoBypass = exactReplayFire && !EquipInfo.InfiniteAmmo;
+            int resourceUaBefore = _ammo[UA], resourceMissilesBefore = _ammo[Missiles], resourceBalancedBefore = _balancedImperialistAmmo;
             if (replayAmmoBypass) EquipInfo.InfiniteAmmo = true;
             try
             {
@@ -1404,6 +1407,7 @@ namespace MphRead.Entities
                 SlotIndex, value: (int)CurrentWeapon);
             else _scene.ReplayShotPresented?.Invoke(SlotIndex, (int)CurrentWeapon);
             NetShotDiagnostics.Finish(this, ShotAttemptResult.Spawned, shotVec, _gunVec1);
+            NotePredictedResourceSpend(resourceUaBefore, resourceMissilesBefore, resourceBalancedBefore, CurrentWeapon == BeamType.OmegaCannon);
             NoteChamberShot();
             ModControllerFeedback(EquipWeapon.MinCharge > 0 && EquipInfo.ChargeLevel >= EquipWeapon.MinCharge * 2
                 ? Mods.Input.GamepadFeedback.ChargedShot : Mods.Input.GamepadFeedback.Fire);

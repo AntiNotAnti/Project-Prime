@@ -15,13 +15,17 @@ internal static class ReplayTimelineArchive
     private static readonly byte[] FrameMarker = [255];
     internal static ReplayMetadata Metadata(PassiveReplayScene world, ReplayType type)
     {
-        var match = world.State.Match ?? throw new InvalidDataException("Replay has no match.");
         using var checkpoint = ReplayWorldCheckpoint.Capture(world, world.Session.RecordingFrame);
+        return Metadata(world, type, checkpoint.Bytes);
+    }
+    internal static ReplayMetadata Metadata(PassiveReplayScene world, ReplayType type, ReadOnlySpan<byte> checkpoint)
+    {
+        var match = world.State.Match ?? throw new InvalidDataException("Replay has no match.");
         return new ReplayMetadata
         {
             FormatVersion = 4, Type = type, RoomKey = match.RoomKey, Mode = (GameMode)match.Mode,
             MapHash = world.MapHash, OriginRecordingFrame = world.Session.RecordingFrame,
-            WorldCheckpoint = checkpoint.Bytes.ToArray(), Bootstrap = ReplayBootstrap.FromState(world.State),
+            WorldCheckpoint = checkpoint.ToArray(), Bootstrap = ReplayBootstrap.FromState(world.State),
             Players = Enumerable.Range(0, 8).Select(slot => (Slot: slot, Occupant: world.State.Occupant(slot)))
                 .Where(p => p.Occupant.Generation != 0)
                 .Select(p => new ReplayPlayerInfo((byte)p.Slot, (byte)p.Occupant.Hunter,

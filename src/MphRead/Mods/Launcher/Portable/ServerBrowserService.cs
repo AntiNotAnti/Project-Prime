@@ -56,6 +56,7 @@ namespace MphRead.Mods.Launcher
     /// </summary>
     public static class ServerBrowserService
     {
+        internal const int MaximumConcurrentProbes = 8;
         public static async Task<ServerDiscoveryResult> DiscoverAsync(
             Action<ServerBrowserEntry>? onEntry = null,
             CancellationToken cancellationToken = default)
@@ -66,7 +67,7 @@ namespace MphRead.Mods.Launcher
             try
             {
                 result = await Task.Run(
-                    () => NetMasterClient.Query(host, port), cancellationToken);
+                    () => NetMasterClient.Query(host, port, cancellationToken: cancellationToken), cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -90,34 +91,26 @@ namespace MphRead.Mods.Launcher
                     "The directory is online and has no servers listed.");
             }
 
-            Task<ServerBrowserEntry>[] jobs = listed.Select(listing => Task.Run(() =>
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                ServerStatus status = NetStatus.Query(listing.Address, listing.Port,
-                    allowJoinProbe: false);
-                if (!status.Online && !cancellationToken.IsCancellationRequested)
-                {
-                    // Directory removal and browser refresh are independent UDP
-                    // exchanges. Confirm a dead row once before hiding it so a
-                    // single lost status reply does not erase a healthy server.
-                    Thread.Sleep(100);
-                    cancellationToken.ThrowIfCancellationRequested();
-                    status = NetStatus.Query(listing.Address, listing.Port,
-                        allowJoinProbe: false, timeoutMs: 350);
-                }
-                var entry = new ServerBrowserEntry(listing, status);
-                // A directory row is only a discovery hint. Once the endpoint
-                // itself has twice confirmed that it is gone, do not render a
-                // ghost lobby while the master's expiry/farewell catches up.
-                if (entry.Live && !cancellationToken.IsCancellationRequested)
-                    onEntry?.Invoke(entry);
-                return entry;
-            }, cancellationToken)).ToArray();
-
-            ServerBrowserEntry[] entries;
+            var entries = new ServerBrowserEntry[listed.Count];
             try
             {
-                entries = await Task.WhenAll(jobs);
+                await ProbeListingsAsync(listed, async (index, listing, token) =>
+                {
+                    ServerStatus status = await Task.Run(() => NetStatus.Query(listing.Address, listing.Port,
+                        allowJoinProbe: false, cancellationToken: token), token);
+                    if (!status.Online)
+                    {
+                        // Confirm a dead row once: a lost reply must not erase
+                        // a healthy server. This wait is cancellable as well.
+                        await Task.Delay(100, token);
+                        status = await Task.Run(() => NetStatus.Query(listing.Address, listing.Port,
+                            allowJoinProbe: false, timeoutMs: 350, cancellationToken: token), token);
+                    }
+                    token.ThrowIfCancellationRequested();
+                    var entry = new ServerBrowserEntry(listing, status);
+                    entries[index] = entry;
+                    if (entry.Live) onEntry?.Invoke(entry);
+                }, cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -130,6 +123,31 @@ namespace MphRead.Mods.Launcher
                     ? "1 server answered."
                     : $"{live} of {listed.Count} servers answered.");
         }
+
+        // One worker per permitted outstanding probe, rather than one task/socket
+        // per directory row. The callback also makes the bound independently testable.
+        internal static Task ProbeListingsAsync(IReadOnlyList<MasterListing> listed,
+            Func<int, MasterListing, CancellationToken, Task> probe, CancellationToken token)
+        {
+            int next = -1;
+            async Task Worker()
+            {
+                while (true)
+                {
+                    token.ThrowIfCancellationRequested();
+                    int index = Interlocked.Increment(ref next);
+                    if (index >= listed.Count) return;
+                    await probe(index, listed[index], token);
+                }
+            }
+            return Task.WhenAll(Enumerable.Range(0, Math.Min(MaximumConcurrentProbes, listed.Count))
+                .Select(_ => Worker()));
+        }
+
+        internal static bool CanQuickPlay(ServerBrowserEntry entry) => entry.Live && entry.Compatible
+            && (entry.Status.MaxPlayers <= 0 || entry.Status.Players < entry.Status.MaxPlayers)
+            && (entry.Status.Legacy || entry.Status.Phase == SessionPhase.Lobby
+                || (entry.Status.Phase == SessionPhase.InMatch && entry.Status.AllowJoinInProgress));
 
         public static async Task<OnlinePopulationResult> CountOnlinePlayersAsync(
             CancellationToken cancellationToken = default)
@@ -158,10 +176,7 @@ namespace MphRead.Mods.Launcher
                 return new(false, default, discovery, "Cancelled.");
 
             ServerBrowserEntry[] candidates = found
-                .Where(entry => entry.Live
-                    && entry.Compatible
-                    && (entry.Status.MaxPlayers <= 0
-                        || entry.Status.Players < entry.Status.MaxPlayers))
+                .Where(CanQuickPlay)
                 .OrderBy(entry => entry.Status.Latency < 0
                     ? Int32.MaxValue : entry.Status.Latency)
                 .ThenByDescending(entry => entry.Status.Players)
@@ -189,7 +204,7 @@ namespace MphRead.Mods.Launcher
             return Task.Run(() =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                return NetStatus.Query(host, port, allowJoinProbe);
+                return NetStatus.Query(host, port, allowJoinProbe, cancellationToken: cancellationToken);
             }, cancellationToken);
         }
 

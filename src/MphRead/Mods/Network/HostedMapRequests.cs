@@ -24,8 +24,6 @@ public sealed record HostedMapPreparation(IReadOnlyList<HostedMapArchive> Archiv
 // Owned/pumped by the network loop. Workers only write verified private archives.
 internal sealed class HostedMapRequests : IDisposable
 {
-    private const long MaximumCacheBytes = 2L * 1024 * 1024 * 1024;
-
     private sealed class Pending
     {
         public HostRequestPacket Request;
@@ -164,6 +162,8 @@ internal sealed class HostedMapRequests : IDisposable
         token.ThrowIfCancellationRequested();
         Validate(request);
         Directory.CreateDirectory(directory);
+        var cache = new HostedPackageCache(directory);
+        using var cachePins = new HostedPackageCache.Pins(cache);
 
         IReadOnlyList<HostRotationEntry> entries = RequestedMaps(request);
         var archives = new List<HostedMapArchive>();
@@ -175,6 +175,7 @@ internal sealed class HostedMapRequests : IDisposable
             HostRotationEntry entry = entries[i];
             if (!entry.IsCustom)
                 continue;
+            cachePins.Add(entry.PackageHash.ToString(), token);
             if (resolved.TryGetValue(entry.PackageHash, out HostedMapArchive? duplicate))
             {
                 if (!StringComparer.OrdinalIgnoreCase.Equals(duplicate.RoomKey, entry.RoomKey))
@@ -187,6 +188,13 @@ internal sealed class HostedMapRequests : IDisposable
             if (i == 0 && request.MapIdentity.IsCustom)
             {
                 identity = request.MapIdentity.Content(entry.RoomKey);
+            }
+            else if (TryReadCachedIdentity(directory, entry, token) is { } cachedIdentity)
+            {
+                // A validated content-addressed package already contains its
+                // hash-bound manifest facts. Offline rotation reuse does
+                // not need a second Community metadata availability dependency.
+                identity = cachedIdentity;
             }
             else
             {
@@ -239,6 +247,7 @@ internal sealed class HostedMapRequests : IDisposable
         try
         {
             Directory.CreateDirectory(library);
+            HostedPackageCache.SetLibraryOwner(library);
             foreach (HostedMapArchive archive in archives
                 .GroupBy(a => a.Identity.MapId).Select(group => group.First()))
             {
@@ -246,8 +255,17 @@ internal sealed class HostedMapRequests : IDisposable
                 string target = Path.Combine(library,
                     archive.Identity.MapId.ToString("N") + MapBundle.Extension);
                 if (!File.Exists(target))
-                    LinkOrCopy(archive.PackagePath, target);
+                {
+                    if (!TryCreateHardLink(archive.PackagePath, target))
+                    {
+                        long copyBytes = new FileInfo(archive.PackagePath).Length;
+                        using var reservation = cache.Reserve(token, copyBytes);
+                        File.Copy(archive.PackagePath, target, overwrite: false);
+                        cache.RecordCopy(library, copyBytes, token);
+                    }
+                }
             }
+            cache.PublishPins(library, archives.Select(a => a.Identity.PackageHash.ToString()), token);
             return new HostedMapPreparation(archives, library, runtimeNamespace);
         }
         catch
@@ -257,41 +275,83 @@ internal sealed class HostedMapRequests : IDisposable
         }
     }
 
+    private static MapContentIdentity? TryReadCachedIdentity(string directory, HostRotationEntry entry, CancellationToken token)
+    {
+        string path = Path.Combine(directory, entry.PackageHash + ".ppmap");
+        using var lease = MapDiskCache.Acquire(directory, entry.PackageHash.ToString(), token);
+        try
+        {
+            if (!File.Exists(path)) return null;
+            var identity = MapContentIdentity.FromPackage(path);
+            return identity.PackageHash == entry.PackageHash
+                && StringComparer.OrdinalIgnoreCase.Equals(identity.RoomKey, entry.RoomKey)
+                ? identity : null;
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException) { return null; }
+        finally
+        {
+            lease.Dispose();
+            MapDiskCache.RemoveIdleKey(directory, entry.PackageHash.ToString());
+        }
+    }
+
     private static async Task<string> PrepareOneAsync(
         MapContentIdentity identity, string address, string directory,
         string? installed, CancellationToken token)
     {
         string path = Path.Combine(directory, identity.PackageHash + ".ppmap");
-        if (File.Exists(path))
+        // One publisher per content address also keeps child hard links on the
+        // same inode. Concurrent equivalent overwrites could otherwise strand
+        // physical archive copies outside the cache's byte accounting.
+        using var archiveLease = MapDiskCache.Acquire(directory, identity.PackageHash.ToString(), token);
+        try
         {
-            try
+            if (File.Exists(path))
             {
-                if (MapContentIdentity.FromPackage(path).Matches(identity))
-                    return path;
+                try
+                {
+                    if (MapContentIdentity.FromPackage(path).Matches(identity))
+                    {
+                        new HostedPackageCache(directory).Touch(path);
+                        return path;
+                    }
+                }
+                catch (InvalidDataException) { }
             }
-            catch (InvalidDataException) { }
+
+            using var reservation = new HostedPackageCache(directory).Reserve(token);
+
+            token.ThrowIfCancellationRequested();
+            if (installed != null && File.Exists(installed)
+                && MapContentIdentity.FromPackage(installed).Matches(identity))
+            {
+                string temporary = path + "." + Guid.NewGuid().ToString("N") + ".download";
+                try
+                {
+                    await using (var input = new FileStream(installed, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    await using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                        await MapCommunityClient.CopyBoundedAsync(input, output, MapPackageReader.MaxArchiveBytes, token).ConfigureAwait(false);
+                    if (!MapContentIdentity.FromPackage(temporary).Matches(identity)) throw new InvalidDataException("Installed archive changed while caching.");
+                    token.ThrowIfCancellationRequested(); File.Move(temporary, path, overwrite: true);
+                }
+                finally { if (File.Exists(temporary)) File.Delete(temporary); }
+            }
+            else
+            {
+                using var client = new MapCommunityClient(address);
+                await client.DownloadExactAsync(identity, path, token).ConfigureAwait(false);
+            }
+
+            token.ThrowIfCancellationRequested();
+            return path;
         }
-
-        long cacheBytes = Directory.EnumerateFiles(directory, "*.ppmap")
-            .Sum(p => new FileInfo(p).Length);
-        if (cacheBytes > MaximumCacheBytes)
-            throw new IOException("Hosted package cache is full; ask the server operator to clear unused packages.");
-
-        token.ThrowIfCancellationRequested();
-        if (installed != null && File.Exists(installed)
-            && MapContentIdentity.FromPackage(installed).Matches(identity))
+        finally
         {
-            AtomicFile.Write(path,
-                await File.ReadAllBytesAsync(installed, token).ConfigureAwait(false));
+            archiveLease.Dispose();
+            // Stable owner fencing also reclaims idle content-key lock files;
+            // failed arbitrary hashes must not accumulate cache inodes forever.
+            MapDiskCache.RemoveIdleKey(directory, identity.PackageHash.ToString());
         }
-        else
-        {
-            using var client = new MapCommunityClient(address);
-            await client.DownloadExactAsync(identity, path, token).ConfigureAwait(false);
-        }
-
-        token.ThrowIfCancellationRequested();
-        return path;
     }
 
     internal static void LinkOrCopy(string source, string target)

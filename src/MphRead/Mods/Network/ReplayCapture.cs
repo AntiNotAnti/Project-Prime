@@ -244,14 +244,14 @@ namespace MphRead.Mods.Network
                 if (world.ActiveHardpointId != old.ActiveHardpointId)
                     Marker(ReplayMarkerKind.HardpointChanged, value: world.ActiveHardpointId);
                 if (NetSession.ServerMatch?.Mode is (byte)GameMode.Hardpoint or (byte)GameMode.HardpointTeams)
-                    foreach (var node in world.Nodes)
-                        foreach (var previous in old.Nodes)
+                    foreach (var node in world.Nodes.AsSpan(0, world.NodeCount < 0 ? world.Nodes.Length : world.NodeCount))
+                        foreach (var previous in old.Nodes.AsSpan(0, old.NodeCount < 0 ? old.Nodes.Length : old.NodeCount))
                             if (node.Id == world.ActiveHardpointId && node.Id == previous.Id
                                 && node.Team >= 0 && node.Team != previous.Team)
                                 Marker(ReplayMarkerKind.HardpointCaptured, node.Capturer.Slot, value: node.Id);
                 if (NetSession.ServerMatch?.Mode == (byte)GameMode.Relic)
-                    foreach (var flag in world.Flags)
-                        foreach (var previous in old.Flags)
+                    foreach (var flag in world.Flags.AsSpan(0, world.FlagCount < 0 ? world.Flags.Length : world.FlagCount))
+                        foreach (var previous in old.Flags.AsSpan(0, old.FlagCount < 0 ? old.Flags.Length : old.FlagCount))
                             if (flag.Id == previous.Id && flag.Carrier != previous.Carrier)
                             {
                                 if (previous.Carrier.Slot < 8) Marker(ReplayMarkerKind.RelicDrop, previous.Carrier.Slot, value: flag.Id);

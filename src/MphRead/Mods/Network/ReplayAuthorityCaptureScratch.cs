@@ -5,8 +5,9 @@ using MphRead.Mods.Replay;
 
 namespace MphRead.Mods.Network;
 
-/// <summary>Owner-thread double buffer: LatestAuthorityWorld is borrowed until the
-/// next capture. Only immutable encoded facts escape into timeline/network owners.</summary>
+/// <summary>Owner-thread double buffer: the previously accepted world remains
+/// unchanged through the next capture and comparison. Only immutable encoded
+/// facts escape into timeline/network owners.</summary>
 internal sealed class ReplayAuthorityCaptureScratch
 {
     private readonly ReplayAuthorityWorld[] _frames = [Create(), Create()];
@@ -34,7 +35,11 @@ internal sealed class ReplayAuthorityCaptureScratch
         world.EndCause = ReplayEndCause.None; world.EndingKill = null;
         world.ActiveHardpointId = scene.GameState.ActiveHardpointId;
         world.HardpointTicksRemaining = scene.GameState.HardpointTicksRemaining;
-        for (int slot = 0; slot < 8; slot++) world.Chamber[slot] = ReplayAuthorityWorld.CaptureChamber(scene, slot);
+        for (int slot = 0; slot < 8; slot++)
+        {
+            world.Chamber[slot] = ReplayAuthorityWorld.CaptureChamber(scene, slot);
+            world.Resources[slot] = ReplayAuthorityWorld.CaptureResources(scene, slot);
+        }
         world.Phase = scene.GameState.MatchState; world.MatchTime = scene.GameState.MatchTime;
         int prime = scene.GameState.PrimeHunter;
         world.Prime = ReplayActorRef.Capture(prime is >= 0 and < 8 ? scene.Players.Items[prime] : null);

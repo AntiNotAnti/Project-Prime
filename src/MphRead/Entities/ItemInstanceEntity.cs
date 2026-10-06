@@ -73,6 +73,13 @@ namespace MphRead.Entities
             { Id = -2 - drop.Identity };
         }
 
+        internal static ItemInstanceEntity CreateLiveAuthorityDrop(Mods.Network.ReplayDropState drop, Scene scene)
+        {
+            if (!Mods.Network.NetObjectiveSync.IsClient(scene)) throw new InvalidOperationException("Live drops require a client scene.");
+            return new(new(drop.Position, drop.Type, drop.DespawnTimer), scene.Room!.GetNodeRefByPosition(drop.Position), scene)
+            { Id = -2 - drop.Identity };
+        }
+
         public override void Initialize()
         {
             base.Initialize();
@@ -129,7 +136,7 @@ namespace MphRead.Entities
             }
             if (DespawnTimer == 0)
             {
-                if (Owner != null)
+                if (Owner != null && ReferenceEquals(Owner.Item, this))
                 {
                     Owner.Item = null;
                     if (_scene.GameState.SinglePlayer)

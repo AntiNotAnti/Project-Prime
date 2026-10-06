@@ -22,10 +22,44 @@ namespace MphRead.Mods.Network
     public static class NetSlotManager
     {
         private static readonly bool[] _activated = new bool[PlayerEntity.SlotCapacity];
+        private sealed record HunterChoice(Hunter Hunter, ushort Generation, bool BeforePlay, Action<Hunter> Commit);
+        private static readonly HunterChoice?[] _hunterChoices = new HunterChoice?[PlayerEntity.SlotCapacity];
+
+        internal static Hunter? PendingHunter(int slot) => (uint)slot < _hunterChoices.Length
+            ? _hunterChoices[slot]?.Hunter : null;
+
+        internal static void QueueHunterChoice(int slot, Hunter hunter, Action<Hunter> commit, bool beforePlay = false)
+        {
+            if ((uint)slot >= _hunterChoices.Length) return;
+            _hunterChoices[slot] = new(hunter, NetPlayerLifecycle.Generation(slot), beforePlay, commit);
+        }
+
+        internal static void ForgetHunterChoice(int slot)
+        {
+            if ((uint)slot < _hunterChoices.Length) _hunterChoices[slot] = null;
+        }
+
+        internal static void ApplyAuthorityHunterForSpawn(PlayerEntity player)
+        {
+            int slot = player.SlotIndex;
+            if (!NetSession.IsAuthority || (uint)slot >= _hunterChoices.Length) return;
+            var choice = _hunterChoices[slot];
+            if (choice == null) return;
+            _hunterChoices[slot] = null;
+            if (choice.Generation != NetPlayerLifecycle.Generation(slot)) return;
+            if (choice.Hunter != player.Hunter)
+            {
+                player.ModPrepareHunterResources(choice.Hunter);
+                player.ModSetHunter(choice.Hunter);
+                player.Initialize();
+            }
+            choice.Commit(choice.Hunter);
+        }
 
         public static void Reset()
         {
             Array.Clear(_activated);
+            Array.Clear(_hunterChoices);
             NetBotInput.Reset();
             NetSession.ContinuousPhase.Reset();
         }
@@ -60,6 +94,12 @@ namespace MphRead.Mods.Network
                 bool occupied = slot == NetSession.LocalSlot
                     || (slot < NetSession.SlotOccupied.Length && NetSession.SlotOccupied[slot]);
 
+                // The admission's first identity can arrive after its default
+                // placeholder was built, but before that peer can play. Every
+                // later hunter choice waits for the real next spawn.
+                if (occupied && _activated[slot] && _hunterChoices[slot]?.BeforePlay == true)
+                    ApplyAuthorityHunterForSpawn(player);
+
                 // The final team roster can arrive after the match starts.
                 // Correct active players as well as newly activated slots.
                 if (occupied && _activated[slot])
@@ -83,14 +123,12 @@ namespace MphRead.Mods.Network
                     Activate(player, slot);
                 }
                 else if (occupied && slot != NetSession.LocalSlot
+                    && NetPlayerLifecycle.Get(slot) == 0 && player.Health == 0
                     && NetSession.SlotHunter[slot] != player.Hunter)
                 {
-                    // The roster's first mention of a slot can precede the
-                    // peer's Identify, in which case the hunter it carried was
-                    // a default. Correct it whenever it is wrong rather than
-                    // only before the player spawns: the alternative is
-                    // wearing the wrong character for the rest of the map, and
-                    // ModSetHunter makes this converge on the next frame.
+                    // Roster identity can initialize only an unspawned
+                    // placeholder. Fresh life snapshots carry the committed
+                    // hunter; a reordered roster can never reset a live body.
                     player.ModPrepareHunterResources(NetSession.SlotHunter[slot]);
                     player.ModSetHunter(NetSession.SlotHunter[slot]);
                     player.Initialize();
@@ -132,6 +170,8 @@ namespace MphRead.Mods.Network
             // out of range had nothing to say about eight players all
             // correctly holding zero.
             SyncTeam(player, slot);
+            if (_hunterChoices[slot]?.BeforePlay == true)
+                ApplyAuthorityHunterForSpawn(player);
             // The hunter comes from the server roster. Initial loading no
             // longer uploads every possible hunter, so prepare this slot's
             // actual hunter before Initialize binds its model resources.

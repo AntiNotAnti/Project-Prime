@@ -29,12 +29,24 @@ namespace MphRead.NetTest
         private static int Main(string[] args)
         {
             if (args.Length > 0 && args[0] == "--authority-policy") return NetworkAuthorityPolicyCheck.Run();
+            if (args.Length > 0 && args[0] == "--transport-lifecycle") return TransportLifecycleTests.Run();
+            if (args.Length > 0 && args[0] == "--movement-network") return NetMovementCheck.Run(args.Length > 1 ? args[1] : null);
+            if (args.Length > 0 && args[0] == "--resources-network") return NetResourcesCheck.Run(args.Length > 1 ? args[1] : null);
+            if (args.Length > 0 && args[0] == "--network-lifecycle") return NetworkLifecycleCheck.Run();
+            if (args.Length > 0 && args[0] == "--server-engineering") return ServerEngineeringTests.Run();
+            if (args.Length > 0 && args[0] == "--replay-protocol42") return ReplayProtocol42Tests.Run();
             if (args.Length > 0 && args[0] == "--server-pacing-benchmark") return ServerPacingBenchmark.Run();
             if (args.Length > 1 && args[0] == "--authority-combat")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return NetworkAuthorityPolicyCheck.RunCombat(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
+            if (args.Length > 1 && args[0] == "--accepted-fire-context")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return NetAcceptedFireContextCheck.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
             if (args.Length > 0 && args[0] == "--gamemodecheck") return GameModeCheck.Run();
             if (args.Length > 1 && args[0] == "--gamemodecheck-scene")
@@ -94,6 +106,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--continuous-targets") return ContinuousTargetTests.Run();
             if (args.Length > 0 && args[0] == "--replication-decode-benchmark") return ReplicationDecodeBenchmark.Run(args);
             if (args.Length > 0 && args[0] == "--server-performance") return ServerPerformanceBenchmark.Run(args);
+            if (args.Length > 0 && args[0] == "--loopback-load") return NetLobbyTest.RunLoopbackLoad(args);
             if (args.Length > 0 && args[0] == "--netcode-performance") return NetcodePerformanceTests.Run();
             if (args.Length > 0 && args[0] == "--dynamic-geometry") return DynamicGeometryTests.Run();
             if (args.Length > 0 && args[0] == "--input-edges") return InputEdgeTests.Run();
@@ -300,8 +313,8 @@ namespace MphRead.NetTest
                     MatchId = LastState?.MatchId ?? 0, AuthorityEpoch = LastState?.AuthorityEpoch ?? 0,
                     SlotGeneration = Slot < 0 ? (ushort)0 : _generations[Slot],
                     LifeId = Slot < 0 ? (ushort)0 : _lives[Slot] };
-                byte[] payload = new byte[IntentPacket.Size];
-                intent.Write(payload);
+                byte[] payload = new byte[intent.EncodedSize];
+                intent.WriteNetwork(payload);
                 Send(PacketType.Intent, payload);
             }
 

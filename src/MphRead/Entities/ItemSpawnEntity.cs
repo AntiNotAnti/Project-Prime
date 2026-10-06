@@ -82,14 +82,14 @@ namespace MphRead.Entities
             if (!state.Available && Item != null)
             {
                 int localSlot = _scene.Services.PlayerReplication.LocalSlot;
-                if (feedback && Item.DespawnTimer != 0 && state.PickerSlot == localSlot
+                if (feedback && Mods.Multiplayer.MapResourceRules.IsHealth(_data.ItemType) && Item.DespawnTimer != 0 && state.PickerSlot == localSlot
                     && localSlot >= 0 && localSlot < _scene.Players.Items.Count)
                 {
                     _scene.Players.Items[localSlot].PlayHealthPickupSfx(Item.ItemType);
                 }
                 Item.DespawnTimer = 0;
             }
-            else if (state.Available && Item == null)
+            else if (state.Available && (Item == null || Item.DespawnTimer == 0))
             {
                 Item = SpawnItem(_data.ItemType, Position.AddY(0.65f), NodeRef, _scene);
                 if (Item != null) { Item.Owner = this; Item.ParentId = _data.ParentId; }
@@ -115,6 +115,7 @@ namespace MphRead.Entities
                 Position = Matrix.Vec3MultMtx4(_invPos, _parent.CollisionTransform);
             }
             if (_scene.Services.ReplicatesHealthSpawns && (Mods.Multiplayer.MapResourceRules.IsHealth(_data.ItemType)
+                || Mods.Network.NetObjectiveSync.TryGetPickup((short)Id, out _)
                 || _scene.Services is Mods.Network.ReplaySceneServices { HasAuthorityWorld: true }))
             {
                 if (_scene.Services.TryGetHealthSpawn((short)Id, out var state))

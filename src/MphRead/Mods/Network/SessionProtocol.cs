@@ -1,5 +1,6 @@
 using System;
 using MphRead.Mods.Multiplayer;
+using MphRead.Mods.MapGen;
 using System.Buffers.Binary;
 
 namespace MphRead.Mods.Network
@@ -12,7 +13,9 @@ namespace MphRead.Mods.Network
         public const int DownloadSourceOffset = AvailabilityOffset + 8;
         public const int MaxDownloadSourceBytes = 192;
         public const int Protocol28Size = DownloadSourceOffset + MaxDownloadSourceBytes + 2;
-        public const int Size = Protocol28Size + 4;
+        public const int Protocol41Size = Protocol28Size + 4;
+        public const int Size = Protocol41Size + 32;
+        public MapHash256 StockGameplayHash;
         public ushort MapGeneration;
         public string? MapDownloadSource;
         public MapAvailabilityState[]? MapAvailability;
@@ -34,6 +37,7 @@ namespace MphRead.Mods.Network
         public void Write(Span<byte> dest)
         {
             dest[..Size].Clear();
+            StockGameplayHash.Write(dest[Protocol41Size..]);
             BinaryPrimitives.WriteUInt32LittleEndian(dest[Protocol28Size..], (uint)Match.Rules);
             BinaryPrimitives.WriteUInt16LittleEndian(dest[(Protocol28Size-2)..],MapGeneration);
             Match.MapIdentity.Write(dest[(LegacySize + 6)..]);
@@ -79,6 +83,7 @@ namespace MphRead.Mods.Network
             }
             state = new SessionStatePacket
             {
+                StockGameplayHash = MapHash256.Read(src.Slice(Protocol41Size, 32)),
                 MapAvailability = availability,
                 MapGeneration = BinaryPrimitives.ReadUInt16LittleEndian(src[(Protocol28Size-2)..]),
                 MapDownloadSource = NetText.Read(src.Slice(DownloadSourceOffset, MaxDownloadSourceBytes)),
@@ -254,23 +259,48 @@ namespace MphRead.Mods.Network
     /// separate from MatchLoadedPacket because that 14-byte identity is also
     /// embedded in bootstrap/start-control packets.
     /// </summary>
+    // Uses PacketType.Refused after admission. Lifecycle fencing prevents an old
+    // load timeout from terminating a replacement connection or a later match.
+    public readonly record struct LoadFailurePacket(ushort MatchId, ulong AuthorityEpoch,
+        uint StartGeneration, ushort RecipientSlotGeneration, byte Reason)
+    {
+        public const int Size = MatchLoadedPacket.Size + 3;
+        public MatchStartIdentity Identity => new(MatchId, AuthorityEpoch, StartGeneration);
+        public void Write(Span<byte> dest)
+        {
+            new MatchLoadedPacket(MatchId, AuthorityEpoch, StartGeneration).Write(dest);
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[MatchLoadedPacket.Size..], RecipientSlotGeneration);
+            dest[MatchLoadedPacket.Size + 2] = Reason;
+        }
+        public static bool TryRead(ReadOnlySpan<byte> src, out LoadFailurePacket packet)
+        {
+            packet = default;
+            if (src.Length != Size || src[MatchLoadedPacket.Size + 2] != RefusedPacket.ReasonLoadTimeout
+                || !MatchLoadedPacket.TryRead(src[..MatchLoadedPacket.Size], out var identity)) return false;
+            packet = new(identity.MatchId, identity.AuthorityEpoch, identity.StartGeneration,
+                BinaryPrimitives.ReadUInt16LittleEndian(src[MatchLoadedPacket.Size..]), src[MatchLoadedPacket.Size + 2]);
+            return packet.MatchId != 0 && packet.AuthorityEpoch != 0 && packet.StartGeneration != 0
+                && packet.RecipientSlotGeneration != 0;
+        }
+    }
+
     public readonly record struct MatchLoadedRolePacket(ushort MatchId, ulong AuthorityEpoch,
-        uint StartGeneration, bool Spectating)
+        uint StartGeneration, bool Spectating, bool RefreshBootstrap = false)
     {
         public const int Size = MatchLoadedPacket.Size + 1;
         public MatchStartIdentity Identity => new(MatchId, AuthorityEpoch, StartGeneration);
         public void Write(Span<byte> dest)
         {
             new MatchLoadedPacket(MatchId, AuthorityEpoch, StartGeneration).Write(dest);
-            dest[MatchLoadedPacket.Size] = Spectating ? (byte)1 : (byte)0;
+            dest[MatchLoadedPacket.Size] = (byte)((Spectating ? 1 : 0) | (RefreshBootstrap ? 2 : 0));
         }
         public static bool TryRead(ReadOnlySpan<byte> src, out MatchLoadedRolePacket packet)
         {
             packet = default;
-            if (src.Length != Size || src[MatchLoadedPacket.Size] > 1
+            if (src.Length != Size || src[MatchLoadedPacket.Size] > 3
                 || !MatchLoadedPacket.TryRead(src[..MatchLoadedPacket.Size], out var identity)) return false;
             packet = new(identity.MatchId, identity.AuthorityEpoch, identity.StartGeneration,
-                src[MatchLoadedPacket.Size] != 0);
+                (src[MatchLoadedPacket.Size] & 1) != 0, (src[MatchLoadedPacket.Size] & 2) != 0);
             return true;
         }
     }

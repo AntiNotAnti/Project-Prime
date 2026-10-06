@@ -35,6 +35,18 @@ internal static class MapDiskCache
             catch(IOException)when(clock.Elapsed<TimeSpan.FromSeconds(30)){Thread.Sleep(25);}
         }
     }
+    internal static void RemoveIdleKey(string root, string key)
+    {
+        try
+        {
+            using var owners = Open(Path.Combine(root, ".owners.lock"), CancellationToken.None);
+            string path = Path.Combine(root, key + ".lock");
+            if (!File.Exists(path) || Directory.Exists(Path.Combine(root, key))) return;
+            using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }
+            File.Delete(path);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    }
     internal static void Prune(string root,long budget,TimeSpan retention,string? protectedKey=null)
     {
         try

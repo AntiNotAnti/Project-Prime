@@ -95,6 +95,8 @@ namespace MphRead.Mods.Network
                 OwnerSlot = _lobbyOwnerClientId == 0 ? byte.MaxValue : ownerSlot,
                 MaxPlayers = (byte)_maxPlayers, Match = CurrentDefinition,
                 MapDownloadSource = CurrentDefinition.MapIdentity.IsCustom ? MapDownloadSource : "",
+                StockGameplayHash = !CurrentDefinition.MapIdentity.IsCustom && !_controlPlaneOnlyForTests
+                    ? _stockGameplayHashes.GetValueOrDefault(CurrentDefinition.RoomKey) : default,
                 MapAvailability = availability,
                 WorldProfile = SessionPolicy == ServerSessionPolicy.Lobby && _phase != SessionPhase.Lobby
                     ? _frozenWorldProfile : LobbyRules.ResolveWorldProfile(CurrentDefinition, _maxPlayers),
@@ -129,7 +131,7 @@ namespace MphRead.Mods.Network
             Span<int> counts = stackalloc int[4];
             counts.Clear();
             foreach (Peer peer in _peers)
-                if (peer != exclude && peer.TeamIndex >= 0 && peer.TeamIndex < layout.TeamCount) counts[peer.TeamIndex]++;
+                if (!peer.Spectating && peer != exclude && peer.TeamIndex >= 0 && peer.TeamIndex < layout.TeamCount) counts[peer.TeamIndex]++;
             foreach (var bot in _bots)
                 if (bot.TeamIndex >= 0 && bot.TeamIndex < layout.TeamCount) counts[bot.TeamIndex]++;
             return TeamRules.ChooseTeam(layout, counts);
@@ -139,7 +141,8 @@ namespace MphRead.Mods.Network
         {
             foreach (Peer peer in _peers) peer.TeamIndex = -1;
             foreach (var bot in _bots) bot.TeamIndex = -1;
-            foreach (Peer peer in _peers) peer.TeamIndex = ChooseTeam(CurrentDefinition, peer);
+            foreach (Peer peer in _peers)
+                if (!peer.Spectating) peer.TeamIndex = ChooseTeam(CurrentDefinition, peer);
             foreach (var bot in _bots) bot.TeamIndex = ChooseTeam(CurrentDefinition);
         }
 
@@ -238,6 +241,8 @@ namespace MphRead.Mods.Network
                     { reason = "That bot has left."; return LobbyResultCode.TargetNotFound; }
                     break;
                 case LobbyCommandType.SetReady:
+                    if (peer.Spectating)
+                    { reason = "Spectators do not ready for combat."; return LobbyResultCode.InvalidConfiguration; }
                     peer.LobbyReady = command.Ready;
                     break;
                 case LobbyCommandType.SetTeam:
@@ -252,6 +257,8 @@ namespace MphRead.Mods.Network
                     }
                     Peer? target = _peers.Find(p => p.SlotIndex == command.TargetSlot);
                     if (target == null) { reason = "That player has left."; return LobbyResultCode.TargetNotFound; }
+                    if (target.Spectating)
+                    { reason = "Spectators do not occupy a combat team."; return LobbyResultCode.InvalidTeam; }
                     if (target != peer && !owner) { reason = "Only the owner can move another player."; return LobbyResultCode.NotOwner; }
                     if (LockTeams && !owner) { reason = "Team changes are locked by the owner."; return LobbyResultCode.NotOwner; }
                     sbyte requestedTeam = command.TeamIndex == -1 ? ChooseTeam(_lobbyMatch, target) : command.TeamIndex;
@@ -284,7 +291,7 @@ namespace MphRead.Mods.Network
                     string? room = ResolveRoomKey(proposed.RoomKey);
                     if (room == null) { reason = "The server does not have that map."; return LobbyResultCode.MapUnavailable; }
                     TeamLayout proposedLayout = LobbyRules.ResolveTeamLayout(proposed);
-                    if (proposedLayout.TeamCount > 0 && (proposedLayout.TotalPlayers < OccupiedSlotCount
+                    if (proposedLayout.TeamCount > 0 && (proposedLayout.TotalPlayers < CombatantCount
                         || (LobbyRules.ExactTeams(proposed) && proposedLayout.TotalPlayers > _maxPlayers)))
                     { reason = "The layout must fit the connected roster and server player limit."; return LobbyResultCode.InvalidConfiguration; }
                     bool topologyChanged = proposedLayout != LobbyRules.ResolveTeamLayout(_lobbyMatch);
@@ -501,7 +508,10 @@ namespace MphRead.Mods.Network
                 + (stopProcess ? " and its local server" : ""));
 
             foreach (Peer connected in _peers)
+            {
                 _transport?.Send(connected.EndPoint, PacketType.Bye, ReadOnlySpan<byte>.Empty);
+                _transport?.RetireConnection(connected.EndPoint);
+            }
 
             StopLobbyMatchRuntime(matchEnded: _matchEndedAt >= 0);
             CancelMapVote(_now);
@@ -549,10 +559,12 @@ namespace MphRead.Mods.Network
             Peer? peer = Find(packet.Sender);
             MatchStartIdentity identity;
             bool spectating = false;
+            bool refreshBootstrap = false;
             if (MatchLoadedRolePacket.TryRead(packet.Payload, out var roleLoaded))
             {
                 identity = roleLoaded.Identity;
                 spectating = roleLoaded.Spectating;
+                refreshBootstrap = roleLoaded.RefreshBootstrap;
             }
             else if (MatchLoadedPacket.TryRead(packet.Payload, out var legacyLoaded))
             {
@@ -564,8 +576,15 @@ namespace MphRead.Mods.Network
             if (peer == null || identity != CurrentStartIdentity
                 || _phase is not (SessionPhase.Starting or SessionPhase.InMatch)) return;
             if (CurrentDefinition.MapIdentity.IsCustom && (peer.PreparedMap != CurrentDefinition.MapIdentity || peer.MapAvailability != MapAvailabilityState.Ready)) return;
-            peer.Spectating = spectating;
-            if (Simulating) NetSession.SetAuthoritySpectating(peer.SlotIndex, spectating);
+            _ = TrySetPeerRole(peer, spectating); // Still bootstrap the retained valid role.
+            if (refreshBootstrap)
+            {
+                // Resume preserves this admission and transport fence, but must
+                // acknowledge a newly captured world before authoring gameplay.
+                peer.MatchReady = false;
+                peer.BootstrapLength = 0;
+                peer.FirstBootstrapAt = -1;
+            }
             peer.LastSeen = now; peer.SceneLoaded = true;
             if (_phase == SessionPhase.Starting) _start.MarkLoaded(peer.SlotIndex, identity);
             SendBootstrap(peer, now);
@@ -626,7 +645,10 @@ namespace MphRead.Mods.Network
                 for (int i = _peers.Count - 1; i >= 0; i--)
                     if ((missing & (1 << _peers[i].SlotIndex)) != 0)
                     {
-                        SendRefusal(_peers[i].EndPoint, RefusedPacket.ReasonLoadTimeout);
+                        Peer timedOut = _peers[i];
+                        new LoadFailurePacket(_matchId, _authorityEpoch, _start.Identity.StartGeneration,
+                            _slotGenerations[timedOut.SlotIndex], RefusedPacket.ReasonLoadTimeout).Write(_scratch);
+                        _transport?.Send(timedOut.EndPoint, PacketType.Refused, _scratch.AsSpan(0, LoadFailurePacket.Size));
                         Remove(_peers[i], "match load hard timeout");
                     }
 

@@ -180,7 +180,7 @@ internal static class NetworkBenchmark
                         os = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
                         architecture = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString(),
                         cpu = CpuDescription(), stopwatchFrequency = Stopwatch.Frequency }, seed = 8128,
-                    scope = "virtual-time production codec and impairment queue; timings are machine dependent", scenarios },
+                    scope = "virtual-time maximum canonical-width production codec and impairment queue; excludes full relay fan-out and live traffic; timings are machine dependent", scenarios },
                     new JsonSerializerOptions { WriteIndented = true }));
             }
             Console.WriteLine($"PASS: {scenarios.Length} seeded network benchmark scenarios"); return 0;

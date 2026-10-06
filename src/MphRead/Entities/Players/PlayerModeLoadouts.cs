@@ -27,6 +27,7 @@ public partial class PlayerEntity
 
     internal void ApplySpawnLoadoutModifiers()
     {
+        ResetNetworkResources();
         Array.Clear(_chamberShots); _chamberShotCursor = 0; _lastChamberLocalShotFrame = 0;
         var state = _scene.GameState;
         var host = _scene.Services.PlayerReplication;

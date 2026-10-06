@@ -8,11 +8,11 @@ internal static class Protocol18Tests
     {
         try
         {
-            NetArchitectureTests.Check(SnapshotFast.MaximumEncodedSize <= 1200, "worst-case fast datagram MTU");
-            NetArchitectureTests.Check(NetHeader.Size + IntentPacket.FullSize <= 1200
-                && NetHeader.Size + 1 + IntentPacket.FullSize <= 1200
-                && NetHeader.Size + 1 + HitClaimPacket.MaxPerPacket * HitClaimPacket.Size <= 1200
-                && NetHeader.Size + HitVerdictPacket.HeaderSize + HitVerdictPacket.MaxPerPacket * HitVerdictPacket.EntrySize <= 1200,
+            NetArchitectureTests.Check(SnapshotFast.MaximumEncodedSize <= NetConfig.MaxPacketSize, "worst-case fast datagram MTU");
+            NetArchitectureTests.Check(NetHeader.Size + IntentPacket.FullSize <= NetConfig.MaxPacketSize
+                && NetHeader.Size + 1 + IntentPacket.FullSize <= NetConfig.MaxPacketSize
+                && NetHeader.Size + 1 + HitClaimPacket.MaxPerPacket * HitClaimPacket.Size <= NetConfig.MaxPacketSize
+                && NetHeader.Size + HitVerdictPacket.HeaderSize + HitVerdictPacket.MaxPerPacket * HitVerdictPacket.EntrySize <= NetConfig.MaxPacketSize,
                 "intent/slot-intent, full claim batch and full verdict batch MTU");
             int time = SnapshotHeader.Size + 8 * PlayerState.Size, world = time + 64;
             byte[] canonical = new byte[world + NetHealthSync.HeaderSize + NetHealthSync.MaxSpawns * NetHealthSync.EntrySize];
@@ -26,8 +26,8 @@ internal static class Protocol18Tests
             BinaryPrimitives.WriteUInt16LittleEndian(canonical.AsSpan(world), 65535); canonical[world + 2] = 56;
             for (int i = 0; i < 56; i++) BinaryPrimitives.WriteInt16LittleEndian(canonical.AsSpan(world + 3 + i * 7), (short)i);
             var lanes = new NetReplicationLanes(); lanes.Prepare(canonical);
-            NetArchitectureTests.Check(lanes.SlowLength + NetHeader.Size <= 1200 && lanes.WorldLength + NetHeader.Size <= 1200
-                && SnapshotFast.MaximumEncodedSize + WorldBootstrapIdentity.Size + 1 + 4 <= 1200,
+            NetArchitectureTests.Check(lanes.SlowLength + NetHeader.Size <= NetConfig.MaxPacketSize && lanes.WorldLength + NetHeader.Size <= NetConfig.MaxPacketSize
+                && SnapshotFast.MaximumEncodedSize + WorldBootstrapIdentity.Size + 1 + 4 <= NetConfig.MaxPacketSize,
                 "all lanes and reliable bootstrap envelope fit the MTU budget");
             var receiver = new NetReplicationReceiver();
             NetArchitectureTests.Check(receiver.Receive(PacketType.WorldState, lanes.World.AsSpan(0, lanes.WorldLength), 65535, ulong.MaxValue), "world independent");

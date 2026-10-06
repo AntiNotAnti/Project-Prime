@@ -63,6 +63,7 @@ public sealed class NetInputEdgeSender
         | IntentButtons.AltAttack | IntentButtons.ScanVisor | IntentButtons.RollLeft | IntentButtons.RollRight
         | IntentButtons.RollUp | IntentButtons.RollDown;
     public void Reset() { _count = 0; _sequence = 0; }
+    public void DiscardPending() => _count = 0; // Preserve same-life sequence deduplication.
     public InputEdgeHistory Record(uint frame, IntentButtons pressed)
     {
         int count = 0;

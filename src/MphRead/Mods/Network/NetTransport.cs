@@ -49,8 +49,8 @@ namespace MphRead.Mods.Network
     /// <summary>
     /// UDP transport on a dedicated worker thread.
     ///
-    /// The game loop never touches a socket: it only drains a bounded
-    /// concurrent queue. This mirrors the threading decision documented in
+    /// Receive runs on the worker; callers send synchronously and drain a
+    /// bounded concurrent queue. This mirrors the receive decision documented in
     /// ndsrecomp's wifi_net.cpp, and it matters for the same reason -- a
     /// blocking recv on the simulation thread turns a network hiccup into a
     /// frame hitch. Bounded, because an unbounded queue converts a flood
@@ -59,6 +59,13 @@ namespace MphRead.Mods.Network
     public sealed class NetTransport : IDisposable
     {
         public NetTransportTelemetry Telemetry { get; } = new();
+        private NetPacketKindDiagnostics? _packetKindDiagnostics;
+        public NetPacketKindDiagnostics? PacketKindDiagnostics => Volatile.Read(ref _packetKindDiagnostics);
+        public void EnablePacketKindDiagnostics()
+        {
+            if (PacketKindDiagnostics == null)
+                Interlocked.CompareExchange(ref _packetKindDiagnostics, new NetPacketKindDiagnostics(), null);
+        }
         // Connection state belongs to this transport. The socket worker and
         // simulation sender serialize access, including sequence allocation.
         private readonly object _connectionLock = new();
@@ -68,6 +75,10 @@ namespace MphRead.Mods.Network
         private readonly Dictionary<IPEndPoint, NetConnection> _connections = new();
         private readonly Dictionary<IPEndPoint, uint> _pendingConnections = new();
         private readonly HashSet<ulong> _supersededIds = new(); // bounded by 64 reconnects per transport
+        private volatile bool _directoryFarewells;
+        // Directory registration uses its reporter endpoint/port proof rather
+        // than a gameplay connection envelope. Peer transports never opt in.
+        internal void EnableDirectoryFarewells() => _directoryFarewells = true;
 
         private long EnterConnectionLock()
         {
@@ -129,6 +140,7 @@ namespace MphRead.Mods.Network
             finally { ExitConnectionLock(stamp); }
         }
         internal const int MaximumConnections = 320; // 256 queued + player/pending/retired headroom, still bounded.
+        internal const double TerminalDrainMilliseconds = 2000;
         private readonly Dictionary<IPEndPoint, (uint ClientId, ulong Nonce)> _pendingQueueConnections = new();
         private readonly IPEndPoint?[] _expiredConnections = new IPEndPoint?[MaximumConnections];
         internal ulong QueueConnectionId(IPEndPoint endpoint)
@@ -145,7 +157,22 @@ namespace MphRead.Mods.Network
         public void RetireConnection(IPEndPoint endpoint)
         {
             long stamp = EnterConnectionLock();
-            try { if (_connections.TryGetValue(endpoint, out var peer)) peer.RetiredAt = NowMilliseconds; }
+            try
+            {
+                if (_connections.TryGetValue(endpoint, out var peer))
+                {
+                    peer.Reliable.BeginTerminalDrain();
+                    peer.RetiredAt ??= NowMilliseconds;
+                }
+                _pendingConnections.Remove(endpoint);
+                _pendingQueueConnections.Remove(endpoint);
+            }
+            finally { ExitConnectionLock(stamp); }
+        }
+        internal bool CanAdmitConnection(IPEndPoint endpoint)
+        {
+            long stamp = EnterConnectionLock();
+            try { return _connections.ContainsKey(endpoint) || _connections.Count < MaximumConnections; }
             finally { ExitConnectionLock(stamp); }
         }
         public void ForgetConnection(IPEndPoint endpoint)
@@ -237,6 +264,56 @@ namespace MphRead.Mods.Network
 
         public void EnableRealtimeStateCoalescing() => _coalesceRealtimeState = true;
 
+        /// <summary>
+        /// Discard cached arrivals after an owner resumes, between Drain pumps.
+        /// The bound socket, connection identity, ACK/sequence windows, outgoing
+        /// retries, accepted terminal notices and real connection-failure
+        /// signals remain established.
+        /// </summary>
+        public void DiscardIncoming()
+        {
+            // Live acceptance uses this monitor before queue/state admission.
+            // Held promotion releases _heldLock before taking it, so this order
+            // cannot invert the receiver's existing synchronization.
+            long stamp = EnterConnectionLock();
+            try
+            {
+                while (_inbox.TryDequeue(out var playback))
+                {
+                    Interlocked.Decrement(ref _inboxCount);
+                    _playbackBytes -= playback.Length;
+                    playback.Release();
+                }
+                List<ReceivedPacket>? terminal = null;
+                for (int priority = 0; priority < 3; priority++)
+                    while (_liveInbox.TryDequeue((NetPacketPriority)priority, out var packet))
+                    {
+                        // Accepted reliable controls have already been ACKed.
+                        // Their retries will be deduplicated, so the first
+                        // accepted terminal signal must still reach the owner.
+                        if (NetReliableChannel.IsTerminal(packet.Type))
+                            (terminal ??= new List<ReceivedPacket>()).Add(packet);
+                        else packet.Release();
+                    }
+                if (terminal != null)
+                    foreach (var packet in terminal)
+                        if (!_liveInbox.TryEnqueue(packet)) packet.Release(); // Existing bounded capacity is unchanged.
+                Telemetry.Queue(_liveInbox.Count);
+                lock (_stateLock)
+                {
+                    if (_latestSnapshot.HasValue) _latestSnapshot.Value.Release();
+                    _latestSnapshot = null;
+                    for (int i = 0; i < _latestSlotIntent.Length; i++)
+                    {
+                        if (_latestSlotIntent[i].HasValue) _latestSlotIntent[i]!.Value.Release();
+                        _latestSlotIntent[i] = null;
+                    }
+                }
+                lock (_heldLock) _heldIn.Clear(static held => held.Release());
+            }
+            finally { ExitConnectionLock(stamp); }
+        }
+
         private static bool OlderThan(in ReceivedPacket next, in ReceivedPacket previous) => next.ConnectionId != 0
             && next.ConnectionId == previous.ConnectionId && !SequenceMath.Newer(next.Sequence, previous.Sequence);
 
@@ -303,6 +380,8 @@ namespace MphRead.Mods.Network
         // startup failure. Ordinary construction retains the native operation.
         internal NetTransport(int port, bool playbackOnly, Action<Thread>? startWorker)
         {
+            if (NetDiagnostics.Enabled || MphRead.Mods.Network.Telemetry.ProductionTelemetry.Enabled)
+                EnablePacketKindDiagnostics();
             // Playback uses the normal inbox/handlers without opening a UDP listener.
             // A replay cannot receive real datagrams or send gameplay traffic.
             if (playbackOnly) return;
@@ -419,6 +498,7 @@ namespace MphRead.Mods.Network
                         int length = socket.ReceiveFrom(data, 0,
                             NetConfig.MaxPacketSize + 1, SocketFlags.None, ref remote);
                         Telemetry.Received(length);
+                        PacketKindDiagnostics?.Received(data.AsSpan(0, length));
                         if (length == 0 || length > NetConfig.MaxPacketSize
                             || remote is not IPEndPoint sender)
                         {
@@ -670,7 +750,7 @@ namespace MphRead.Mods.Network
                     if (!_connections.TryGetValue(target, out var queueConnection)
                         || queueConnection.RetiredAt.HasValue)
                     {
-                        if (_connections.Count >= MaximumConnections) return;
+                        if (!_connections.ContainsKey(target) && _connections.Count >= MaximumConnections) return;
                         _connections[target] = new NetConnection(target,
                             NetConnection.NewId(), queueWelcome.ClientId)
                             { QueueOnly = true, QueueServerSide = true };
@@ -692,8 +772,8 @@ namespace MphRead.Mods.Network
                     if (!_connections.TryGetValue(target, out var existing)
                         || existing.ClientId != clientId || existing.RetiredAt.HasValue)
                     {
-                        if (_connections.Count >= MaximumConnections)
-                            throw new InvalidOperationException("Connection capacity exceeded");
+                        if (!_connections.ContainsKey(target) && _connections.Count >= MaximumConnections)
+                        { Telemetry.Drop(); return; }
                         _connections[target] = new NetConnection(target,
                             NetConnection.NewId(), clientId);
                     }
@@ -702,10 +782,12 @@ namespace MphRead.Mods.Network
 
                 if (!Unsequenced(type) && _connections.TryGetValue(target, out var connection))
                 {
+                    if (connection.RetiredAt.HasValue && !NetReliableChannel.IsTerminal(type)) return;
                     if (payload.Length > NetConfig.MaxPayloadSize)
                         throw new ArgumentOutOfRangeException(nameof(payload));
                     if (NetReliableChannel.IsReliable(type))
                     {
+                        if (NetReliableChannel.IsTerminal(type)) connection.Reliable.BeginTerminalDrain();
                         // Queue/sequence state is serialized here. The actual
                         // kernel send happens after this monitor is released.
                         if (!connection.Reliable.TryQueue(type, payload, now,
@@ -769,6 +851,7 @@ namespace MphRead.Mods.Network
                 {
                     var type = (PacketType)data[0];
                     if (Unsequenced(type) || type == PacketType.Refused && !_connections.ContainsKey(sender)
+                        || _directoryFarewells && type == PacketType.Bye && length == 3
                         || type is PacketType.Ping or PacketType.Pong && !_connections.ContainsKey(sender))
                     {
                         if (_discoveryBudget.Take(NowMilliseconds, 300, 128)) return true;
@@ -824,7 +907,8 @@ namespace MphRead.Mods.Network
                     eventId = BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(NetHeader.Size));
                     // Do not ACK delivery unless a first application can enter
                     // the bounded inbox. A new attempt will retry with a new sequence.
-                    if (!connection.Reliable.AlreadyReceived(eventId) && !_liveInbox.CanAccept(header.Type))
+                    if (!connection.RetiredAt.HasValue && !connection.Reliable.AlreadyReceived(eventId)
+                        && !_liveInbox.CanAccept(header.Type))
                     { Telemetry.Drop(); return false; }
                 }
                 var result = connection.Receive(header, NowMilliseconds);
@@ -852,7 +936,6 @@ namespace MphRead.Mods.Network
                 try
                 {
                     if (!_connections.TryGetValue(endpoint, out source)
-                        || source.RetiredAt.HasValue
                         || !source.Reliable.TrySend(now, out eventPacket)) return;
                 }
                 finally { ExitConnectionLock(stamp); }
@@ -867,7 +950,7 @@ namespace MphRead.Mods.Network
                     {
                         if (!_connections.TryGetValue(endpoint, out var current)
                             || !ReferenceEquals(current, source)
-                            || current.RetiredAt.HasValue) return;
+                            || current.RetiredAt.HasValue && !NetReliableChannel.IsTerminal(eventPacket.Type)) return;
                         current.Send(eventPacket.Type, now, NetHeaderFlags.Reliable,
                             eventPacket.EventId).Write(bytes);
                         BinaryPrimitives.WriteUInt32LittleEndian(
@@ -921,9 +1004,7 @@ namespace MphRead.Mods.Network
                     {
                         if (!_connections.TryGetValue(endpoint, out var connection)) continue;
                         if (connection.RetiredAt.HasValue
-                            && (connection.Reliable.Capture(now).Pending == 0
-                                || now - connection.RetiredAt.Value
-                                    >= NetReliableChannel.LifetimeMilliseconds))
+                            && now - connection.RetiredAt.Value >= TerminalDrainMilliseconds)
                         {
                             _connections.Remove(endpoint);
                             expired = true;
@@ -981,8 +1062,9 @@ namespace MphRead.Mods.Network
                 long lockStamp = EnterConnectionLock();
                 try { address = _connections.TryGetValue(target, out var connection) ? connection.SendAddress : target.Serialize(); }
                 finally { ExitConnectionLock(lockStamp); }
-                socket.SendTo(datagram, SocketFlags.None, address);
-                Telemetry.Sent(datagram.Length);
+                int sent = socket.SendTo(datagram, SocketFlags.None, address);
+                Telemetry.Sent(sent);
+                PacketKindDiagnostics?.Sent(datagram[..sent]);
                 Interlocked.Increment(ref TotalPacketsSent);
             }
             catch (SocketException)
@@ -1005,7 +1087,9 @@ namespace MphRead.Mods.Network
             try
             {
                 int count = 0;
-                foreach (var connection in _connections.Values) if (connection.Reliable.HasPending(PacketType.Bye)) count++;
+                foreach (var connection in _connections.Values)
+                    if (connection.Reliable.HasPending(PacketType.Bye)
+                        || connection.Reliable.HasPending(PacketType.Refused)) count++;
                 return count;
             }
             finally { ExitConnectionLock(stamp); }

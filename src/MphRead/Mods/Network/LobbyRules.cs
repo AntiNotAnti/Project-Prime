@@ -54,7 +54,9 @@ namespace MphRead.Mods.Network
             int required = match.Mode == GameMode.OneInTheChamber || layout.TeamCount > 0
                 ? 2
                 : match.Format == MatchFormat.FreeForAll ? 2 : 1;
-            if (roster.Count < required)
+            int combatants = 0;
+            for (int i = 0; i < roster.Count; i++) if (!roster.IsSpectator(i)) combatants++;
+            if (combatants < required)
             {
                 reason = $"At least {required} players must join.";
                 return LobbyResultCode.NotEnoughPlayers;
@@ -64,6 +66,7 @@ namespace MphRead.Mods.Network
             counts.Clear();
             for (int i = 0; i < roster.Count; i++)
             {
+                if (roster.IsSpectator(i)) continue;
                 if (layout.TeamCount > 0)
                 {
                     int team = roster.Teams[i];

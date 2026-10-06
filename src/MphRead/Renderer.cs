@@ -9449,7 +9449,9 @@ localCenter *= _profileHudScale;
                 Mods.Input.GamepadInput.InvalidatePresentationAim();
                 _scene?.ModSetLateAim(0, 0);
                 Mods.Input.GamepadHaptics.Stop();
+                if (_scene is { } scene) Mods.Network.NetSession.SuspendClient(scene);
             }
+            else if (_scene is { } resumedScene) Mods.Network.NetSession.ResumeClient(resumedScene);
             base.OnFocusedChanged(e);
         }
 

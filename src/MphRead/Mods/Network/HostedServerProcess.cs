@@ -32,6 +32,7 @@ namespace MphRead.Mods.Network
         public int Port { get; }
         public bool EverOccupied { get; private set; }
         public bool Responsive => _everResponsive;
+        public bool Loading => OwnedServerControl.Loading(_process);
         public long ResidentBytes
         {
             get
@@ -55,7 +56,8 @@ namespace MphRead.Mods.Network
         /// longer than a probe timeout before the listener reaches its loop.
         /// </summary>
         public bool Unresponsive(double now) =>
-            _everResponsive && now - _lastResponsiveAt >= UnresponsiveSeconds;
+            _everResponsive && !OwnedServerControl.LoadingProbeGrace(_process)
+                && now - _lastResponsiveAt >= UnresponsiveSeconds;
 
         private HostedServerProcess(Process process, int port)
         {
@@ -198,12 +200,7 @@ namespace MphRead.Mods.Network
             bool stopped = false;
             try
             {
-                if (!_process.HasExited)
-                {
-                    _process.Kill(entireProcessTree: true);
-                    _process.WaitForExit(2000);
-                }
-                stopped = _process.HasExited;
+                stopped = OwnedServerControl.Stop(_process);
             }
             catch (Exception)
             {

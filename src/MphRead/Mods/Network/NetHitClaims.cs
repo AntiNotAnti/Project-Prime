@@ -193,14 +193,6 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static int GraceFrames => GraceFor(NetSession.LocalSlot);
 
-        /// <summary>
-        /// How old a claim may be when it arrives. Past this the history
-        /// cannot serve the frame it names, so there is nothing to check it
-        /// against -- and a claim that cannot be checked is refused rather
-        /// than believed.
-        /// </summary>
-        private const int MaxClaimAge = NetUnlagged.HistoryFrames - 4;
-
         // ---------------------------------------------------------------
         // The shooter's side
         // ---------------------------------------------------------------
@@ -219,6 +211,7 @@ namespace MphRead.Mods.Network
             public ushort Id;
             public uint Frame;
             public uint AckFrame;
+            public byte AckSubFrame;
             public uint LaunchFrame;
             public uint ShotId;
             public byte VictimSlot;
@@ -410,7 +403,8 @@ namespace MphRead.Mods.Network
             // the wrong picture. When the playout clock is running, the read
             // point is what the screen was showing -- NetSmoothing -- and the
             // applied snapshot is a frame or more newer than it.
-            uint ack = NetSmoothing.AckPoint(out uint readFrame, out _)
+            byte subFrame = 0;
+            uint ack = NetSmoothing.AckPoint(out uint readFrame, out subFrame)
                 ? readFrame
                 : NetSession.AppliedSnapshotFrame;
             _outbox[index] = new Outgoing
@@ -424,6 +418,7 @@ namespace MphRead.Mods.Network
                 Id = _nextId,
                 Frame = continuousPhase != 0 ? continuousPhase : NetSession.NetFrame,
                 AckFrame = ack,
+                AckSubFrame = subFrame,
                 LaunchFrame = launchFrame,
                 ShotId = shotId,
                 VictimSlot = (byte)slot,
@@ -494,6 +489,7 @@ namespace MphRead.Mods.Network
                     ClaimId = entry.Id,
                     Frame = entry.Frame,
                     AckFrame = entry.AckFrame,
+                    AckSubFrame = entry.AckSubFrame,
                     LaunchFrame = entry.LaunchFrame,
                     ShotId = entry.ShotId,
                     VictimSlot = entry.VictimSlot,
@@ -686,6 +682,7 @@ namespace MphRead.Mods.Network
             public ushort Damage;
             public byte Flags;
             public uint AckFrame;
+            public byte AckSubFrame;
             public uint LaunchFrame;
             public uint ShotId;
             public Vector3 HitPoint;
@@ -702,6 +699,8 @@ namespace MphRead.Mods.Network
             public int Grace;
             public bool Live;
             public bool RequireAttackEvidence;
+            public bool EvidenceReserved;
+            public Vector3 WitnessPoint, WitnessDirection;
         }
 
         private static readonly Pending[] _pending = new Pending[PendingCapacity];
@@ -1336,7 +1335,7 @@ namespace MphRead.Mods.Network
             int victimSlot = claim.VictimSlot;
             if (Telemetry.ProductionTelemetry.Enabled)
                 LagCompensationPolicy.Study(shooterSlot, victimSlot, NetShotDiagnostics.Bucket((BeamType)claim.Beam),
-                    LagCompensationPolicy.Evaluate(shooterSlot, NetSession.NetFrame, claim.AckFrame, 0, 0), -1);
+                    LagCompensationPolicy.Evaluate(shooterSlot, NetSession.NetFrame, claim.AckFrame, claim.AckSubFrame, 0), -1);
             if (shooterSlot < 0 || shooterSlot >= Slots || shooterSlot >= PlayerEntity.Players.Count
                 || victimSlot < 0 || victimSlot >= Slots || victimSlot == shooterSlot
                 || victimSlot >= PlayerEntity.Players.Count)
@@ -1345,7 +1344,7 @@ namespace MphRead.Mods.Network
                 return HitVerdictPacket.ResultRefused;
             }
             uint now = NetSession.NetFrame;
-            if (claim.AckFrame == 0 || claim.AckFrame > now || now - claim.AckFrame > MaxClaimAge)
+            if (!LagCompensationPolicy.TryAdmitTime(now, claim.AckFrame, claim.AckSubFrame, out double claimTime))
             {
                 TooOldHere++;
                 return HitVerdictPacket.ResultTooOld;
@@ -1381,9 +1380,9 @@ namespace MphRead.Mods.Network
             // proof before a production claim can apply damage.
             bool turretClaim = (claim.Flags & HitClaimPacket.FlagHalfturret) != 0;
             bool historicalAvailable = turretClaim
-                ? NetUnlagged.TryHistoricalHalfturretPosition(victimSlot, claim.AckFrame,
+                ? NetUnlagged.TryHistoricalHalfturretPosition(victimSlot, claimTime,
                     claim.VictimGeneration, claim.VictimLifeId, out Vector3 was)
-                : NetUnlagged.PositionAt(victimSlot, claim.AckFrame, claim.VictimGeneration,
+                : NetUnlagged.PositionAt(victimSlot, claimTime, claim.VictimGeneration,
                     claim.VictimLifeId, out was);
             if (!historicalAvailable)
             {
@@ -1393,11 +1392,11 @@ namespace MphRead.Mods.Network
                 TooOldHere++;
                 return HitVerdictPacket.ResultTooOld;
             }
-            // Protocol41 prediction reports the player's Position even for
+            // Prediction reports the player's Position even for
             // turret damage. Keep that payload compatible while the independent
             // attack proof must intersect the explicitly declared turret body.
             if (requireAttackEvidence && turretClaim
-                && NetUnlagged.PositionAt(victimSlot, claim.AckFrame, claim.VictimGeneration,
+                && NetUnlagged.PositionAt(victimSlot, claimTime, claim.VictimGeneration,
                     claim.VictimLifeId, out Vector3 ownerPosition)) was = ownerPosition;
             if (!WithinClaimRadius(was, claim.HitPoint, claim.Beam))
             {
@@ -1599,7 +1598,7 @@ namespace MphRead.Mods.Network
             ApplyingClaimLaunch = entry.LaunchFrame;
             ApplyingClaimShotId = entry.ShotId;
             ApplyingClaimHitPoint = entry.RequireAttackEvidence
-                ? NetAcceptedAttacks.LastResolvedImpact : entry.HitPoint;
+                ? entry.WitnessPoint : entry.HitPoint;
             ApplyingClaimFlags = entry.Flags;
             _applyingContinuousPhase = entry.ContinuousPhase;
             try
@@ -1655,7 +1654,7 @@ namespace MphRead.Mods.Network
                 RescueStudy = Telemetry.ProductionTelemetry.Enabled
                     ? LagCompensationPolicy.CreateStudyEvent(shooterSlot, claim.VictimSlot,
                         NetShotDiagnostics.Bucket((BeamType)claim.Beam),
-                        LagCompensationPolicy.Evaluate(shooterSlot, NetSession.NetFrame, claim.AckFrame, 0, 0), 2)
+                        LagCompensationPolicy.Evaluate(shooterSlot, NetSession.NetFrame, claim.AckFrame, claim.AckSubFrame, 0), 2)
                     : default,
                 MatchId = claim.MatchId,
                 RequireAttackEvidence = requireAttackEvidence,
@@ -1673,6 +1672,7 @@ namespace MphRead.Mods.Network
                 Damage = claim.Damage,
                 Flags = claim.Flags,
                 AckFrame = claim.AckFrame,
+                AckSubFrame = claim.AckSubFrame,
                 LaunchFrame = claim.LaunchFrame,
                 ShotId = claim.ShotId,
                 HitPoint = claim.HitPoint,
@@ -1681,6 +1681,7 @@ namespace MphRead.Mods.Network
                 Grace = GraceFor(shooterSlot),
             };
             ActivatePending(ref _pending[index]);
+            TryRetainEvidence(ref _pending[index]);
             ClaimsPendingHighWater = Math.Max(ClaimsPendingHighWater, ClaimsPendingCurrent);
         }
 
@@ -1826,8 +1827,7 @@ namespace MphRead.Mods.Network
                         continue;
                     }
                     int resolved;
-                    bool evidence = !entry.RequireAttackEvidence
-                        || NetAcceptedAttacks.ValidateClaim(entry.ShooterSlot, ClaimFor(entry));
+                    bool evidence = TryRetainEvidence(ref entry);
                     bool trustedAnonymousPair = entry.Beam == HitClaimPacket.NoBeam
                         && (entry.Flags & HitClaimPacket.FlagHeadshot) == 0;
                     if ((evidence || trustedAnonymousPair) && (entry.ContinuousPhase != 0
@@ -1840,8 +1840,6 @@ namespace MphRead.Mods.Network
                         // only the narrow head band. "Duplicate" used to throw
                         // away the missing 128 damage and leave the target
                         // alive after the shooter had been told HEADSHOT.
-                        if (entry.RequireAttackEvidence)
-                            NetAcceptedAttacks.ConsumeClaim(entry.ShooterSlot, ClaimFor(entry));
                         ReconcileImperialistHeadshot(ref entry, resolved);
                         DeactivatePending(ref entry);
                         DuplicateHere++;
@@ -1965,10 +1963,21 @@ namespace MphRead.Mods.Network
             VictimGeneration = entry.VictimGeneration, VictimLifeId = entry.VictimLifeId,
             ClaimId = entry.Id, VictimSlot = entry.VictimSlot, Beam = entry.Beam,
             Damage = entry.Damage, Flags = entry.Flags, AckFrame = entry.AckFrame,
+            AckSubFrame = entry.AckSubFrame,
             LaunchFrame = entry.LaunchFrame, ShotId = entry.ShotId,
             HitPoint = entry.HitPoint, Direction = entry.Direction,
             Frame = entry.ContinuousPhase != 0 ? entry.ContinuousPhase : entry.SourceFrame
         };
+
+        private static bool TryRetainEvidence(ref Pending entry)
+        {
+            if (!entry.RequireAttackEvidence || entry.EvidenceReserved) return true;
+            if (!NetAcceptedAttacks.TryReserveClaim(entry.ShooterSlot, ClaimFor(entry),
+                out Vector3 point, out Vector3 direction)) return false;
+            entry.WitnessPoint = point; entry.WitnessDirection = direction;
+            entry.EvidenceReserved = true;
+            return true;
+        }
 
         private static void ApplyOne(ref Pending entry)
         {
@@ -2015,7 +2024,7 @@ namespace MphRead.Mods.Network
                 Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultClaimCapacity);
                 return;
             }
-            if (entry.RequireAttackEvidence && !NetAcceptedAttacks.ConsumeClaim(shooterSlot, ClaimFor(entry)))
+            if (!TryRetainEvidence(ref entry))
             {
                 RefusedHere++;
                 Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultInvalidLaunch);
@@ -2044,7 +2053,7 @@ namespace MphRead.Mods.Network
             ApplyingClaimLaunch = entry.LaunchFrame;
             ApplyingClaimShotId = entry.ShotId;
             ApplyingClaimHitPoint = entry.RequireAttackEvidence
-                ? NetAcceptedAttacks.LastResolvedImpact : entry.HitPoint;
+                ? entry.WitnessPoint : entry.HitPoint;
             ApplyingClaimFlags = entry.Flags;
             _applyingContinuousPhase = entry.ContinuousPhase;
             bool lethal = victim.Health <= entry.Damage;
@@ -2063,7 +2072,7 @@ namespace MphRead.Mods.Network
             // It is bounded against the named weapon in Judge before reaching
             // here. Zero remains null so non-knockback hits retain the damage
             // indicator's existing attacker-position fallback.
-            Vector3 claimDirection = entry.RequireAttackEvidence ? NetAcceptedAttacks.LastResolvedDirection : entry.Direction;
+            Vector3 claimDirection = entry.RequireAttackEvidence ? entry.WitnessDirection : entry.Direction;
             Vector3? impact = claimDirection == Vector3.Zero ? null : claimDirection;
             try
             {
@@ -2195,8 +2204,8 @@ namespace MphRead.Mods.Network
                 if (NetLog.Enabled) NetShotDiagnostics.Trace("authority-verdict", _seenKeys[slot, at],
                     _seenBeams[slot, at], $"claim={id} result={HitVerdictPacket.Describe(result)}");
             }
-            // Remember even when this datagram's answer queue is full: a retry
-            // must repeat the verdict, never park the already applied hit again.
+            // Remember before delivery: a retry must repeat the verdict,
+            // never park the already applied hit again.
             CombatAckEntry answer = outcome ?? (_seenIds[slot, at] == id ? _seenOutcomes[slot, at] : new CombatAckEntry { VictimSlot = 255 });
             answer.ClaimId = id; answer.Result = result;
             if (!outcome.HasValue && _seenIds[slot, at] == id) answer.ShotId = _seenKeys[slot, at].ShotId;
@@ -2204,7 +2213,10 @@ namespace MphRead.Mods.Network
                 Player: (byte)slot, Victim: answer.VictimSlot, Id: id, Result: result, Flags: (int)answer.Flags,
                 A: answer.DamageApplied, B: answer.HealthAfter, ShotId: answer.ShotId));
             if (remember) { Remember(slot, id, result); _seenOutcomes[slot, at] = answer; }
-            if (_verdictCount[slot] >= VerdictCapacity) return;
+            // A catch-up pump can consume every bounded retry for an ordinary
+            // claim before Tick. Flush the full fixed-size batch rather than
+            // discarding its only remaining delivery opportunity.
+            if (_verdictCount[slot] >= VerdictCapacity) FlushVerdicts();
             _verdicts[slot, _verdictCount[slot]++] = answer;
         }
 

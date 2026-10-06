@@ -252,6 +252,8 @@ namespace MphRead.Mods.Network
             Stop();
             try
             {
+                // Resolve and validate before acquiring a socket/worker.
+                var endpoint = new IPEndPoint(ResolveIPv4(address), port);
                 _ownerToken = ownerToken;
                 _lastServerPacket = Clock;
                 _transport = new NetTransport(0);
@@ -260,11 +262,7 @@ namespace MphRead.Mods.Network
                 // so the reply must not wait for a frame boundary: see
                 // NetTransport.AnswerPingsImmediately.
                 _transport.AnswerPingsImmediately();
-                // Resolve rather than Parse: IPAddress.Parse only accepts a
-                // literal, so a hostname threw here and the join silently
-                // failed -- the session stayed offline while the launcher
-                // reported nothing wrong.
-                _hostEndPoint = new IPEndPoint(ResolveIPv4(address), port);
+                _hostEndPoint = endpoint;
                 Role = NetRole.Client;
                 LocalSlot = -1; // assigned by the host's Welcome
                 NetFrame = 0;
@@ -278,9 +276,9 @@ namespace MphRead.Mods.Network
             }
             catch (Exception ex)
             {
+                Stop();
                 LastError = ex.Message;
                 Console.WriteLine($"[net] join failed: {ex.Message}");
-                Role = NetRole.Offline;
             }
         }
 
@@ -393,6 +391,8 @@ namespace MphRead.Mods.Network
 
         private static void Stop(bool preserveRoomPrewarm)
         {
+            _clientSuspended = false;
+            NetObjectiveSync.Reset();
             NetTelemetry.FullSessionReset();
             ResetLobbySession();
             if (!preserveRoomPrewarm) Mods.RoomPrewarm.Clear();
@@ -455,6 +455,7 @@ namespace MphRead.Mods.Network
             _reAnnounced = false;
             Array.Clear(SlotOccupied);
             Array.Clear(SlotIsBot);
+            Array.Clear(SlotSpectating);
             Array.Clear(SlotBotLevel);
             Array.Clear(SlotDamageReduction);
             SnapshotsReceived = 0;
@@ -496,8 +497,8 @@ namespace MphRead.Mods.Network
             }
             if (!PlayerNameCodec.TryEncode(PlayerNameCodec.Clamp(PlayerName),
                 _scratch.AsSpan(2, PlayerNameCodec.MaxWireBytes), out int count)) return;
-            _scratch[0] = (byte)LocalHunter;
-            _scratch[1] = (byte)PlayerColors.Clamp(LocalColor);
+            _scratch[0] = (byte)RespawnChoice.IdentifyHunter;
+            _scratch[1] = (byte)PlayerColors.Clamp(RespawnChoice.IdentifyColor);
             _transport.Send(_hostEndPoint, PacketType.Identify, _scratch.AsSpan(0, count + 2));
             SendCosmetics();
 #if MPHREAD_AVALONIA
@@ -681,7 +682,7 @@ namespace MphRead.Mods.Network
             // Reconnect/liveness is wall-clock work, including while scene
             // simulation is parked. Never key it to a frozen NetFrame modulo.
             bool serviceClientConnection = Role == NetRole.Client && !_playback
-                && time - _lastClientMaintenance >= 1;
+                && !Refused && time - _lastClientMaintenance >= 1;
             if (serviceClientConnection) _lastClientMaintenance = time;
             if (Role == NetRole.Host)
             {
@@ -798,6 +799,15 @@ namespace MphRead.Mods.Network
 
         /// <summary>What it said. Only meaningful while <see cref="Refused"/>.</summary>
         public static RefusedPacket RefusedReason { get; private set; }
+
+        private static void AcceptRefusal(RefusedPacket reason)
+        {
+            RefusedReason = reason;
+            Refused = true;
+            _reAnnounced = false;
+            ConnectionLost = false;
+            if (_hostEndPoint != null) _transport?.RetireConnection(_hostEndPoint);
+        }
 
         private static void Handle(ReceivedPacket packet, double time)
         {
@@ -916,15 +926,19 @@ namespace MphRead.Mods.Network
                     }
                     break;
                 case PacketType.Refused when Role == NetRole.Client:
-                    if (packet.Payload.Length >= 1 && (LocalSlot < 0 || packet.Payload[0] == RefusedPacket.ReasonKicked))
+                    if (LoadFailurePacket.TryRead(packet.Payload, out var loadFailure))
                     {
-                        // Only while still waiting to be let in. A refusal
-                        // arriving mid-match would be a stale datagram from
-                        // the join, and acting on one of those would throw a
-                        // player out of a match they are already in.
-                        RefusedReason = RefusedPacket.Read(packet.Payload);
-                        Refused = true;
+                        // A hard load timeout occurs after Welcome. Fence it
+                        // to this start and occupant so an old refusal cannot
+                        // terminate a replacement connection or later match.
+                        if (LocalSlot >= 0 && ServerSession is { } loading
+                            && loadFailure.Identity == StartIdentity(loading)
+                            && loadFailure.RecipientSlotGeneration == NetPlayerLifecycle.Generation(LocalSlot))
+                            AcceptRefusal(new RefusedPacket { Reason = loadFailure.Reason });
                     }
+                    else if (packet.Payload.Length is >= 1 and <= RefusedPacket.Size
+                        && (LocalSlot < 0 || packet.Payload[0] == RefusedPacket.ReasonKicked))
+                        AcceptRefusal(RefusedPacket.Read(packet.Payload));
                     break;
                 case PacketType.CosmeticState when Role == NetRole.Client:
                     if (ServerMatch is { } cosmeticMatch && packet.Payload.Length > 0
@@ -1241,7 +1255,7 @@ namespace MphRead.Mods.Network
 
         private static void HandleIntent(ReceivedPacket packet, double time)
         {
-            if (packet.Payload.Length < IntentPacket.FullSize)
+            if (!IntentPacket.TryReadNetwork(packet.Payload, out IntentPacket intent))
             {
                 return;
             }
@@ -1250,7 +1264,6 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            IntentPacket intent = IntentPacket.Read(packet.Payload);
             if (!NetFireEvents.Validate(intent)) return;
             if (!NetPlayerLifecycle.AcceptIntent(peer.SlotIndex, intent)) return;
             // UDP reorders; an older frame must not overwrite a newer one --
@@ -1281,7 +1294,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         private static void HandleSlotIntent(ReceivedPacket packet)
         {
-            if (packet.Payload.Length < 1 + IntentPacket.FullSize)
+            if (packet.Payload.Length < 1 || !IntentPacket.TryReadNetwork(packet.Payload[1..], out IntentPacket intent))
             {
                 return;
             }
@@ -1290,7 +1303,6 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            var intent = IntentPacket.Read(packet.Payload[1..]);
             if (!NetFireEvents.Validate(intent)) return;
             AcceptSlotIntent(slot, intent);
         }
@@ -1496,6 +1508,7 @@ namespace MphRead.Mods.Network
             Array.Clear(SlotBotLevel);
             Array.Clear(SlotDamageReduction);
             Array.Clear(SlotLobbyReady);
+            Array.Clear(SlotSpectating);
             Array.Fill(SlotTeamIndex, (sbyte)-1);
             for (int i = 0; i < roster.Count; i++)
             {
@@ -1511,6 +1524,7 @@ namespace MphRead.Mods.Network
                 NetPlayerLifecycle.SetOccupant(slot, roster.Generations[i]);
                 SlotOccupied[slot] = true;
                 SlotIsBot[slot] = roster.IsBot(i);
+                SlotSpectating[slot] = roster.IsSpectator(i);
                 SlotBotLevel[slot] = roster.BotLevels?[i] ?? 0;
                 MatchContainsBots |= SlotIsBot[slot];
                 SlotTeamIndex[slot] = roster.Teams[i];
@@ -1527,6 +1541,11 @@ namespace MphRead.Mods.Network
                 // What they asked for. PlayerColors decides what they get,
                 // every frame, from every slot's answer at once.
                 PlayerColors.Choice[slot] = PlayerColors.Clamp(roster.Colors[i]);
+                if (slot == LocalSlot)
+                {
+                    LocalColor = PlayerColors.Choice[slot];
+                    RespawnChoice.ObserveAuthorityRoster(LocalHunter, LocalColor);
+                }
                 SlotPing[slot] = roster.Pings[i];
             }
             for (int slot = 0; slot < SlotOccupied.Length; slot++)
@@ -1892,8 +1911,8 @@ namespace MphRead.Mods.Network
             intent.AuthorityEpoch = AuthorityEpoch;
             intent.SlotGeneration = NetPlayerLifecycle.Generation(LocalSlot);
             intent.LifeId = NetPlayerLifecycle.Get(LocalSlot);
-            intent.Write(_scratch);
-            _transport.Send(_hostEndPoint, PacketType.Intent, _scratch.AsSpan(0, IntentPacket.FullSize));
+            int intentLength = intent.WriteNetwork(_scratch);
+            _transport.Send(_hostEndPoint, PacketType.Intent, _scratch.AsSpan(0, intentLength));
             // A demo only ever contains what this client *received* -- and
             // this client never receives its own SlotIntent back, since it
             // already knows what it pressed. Without this, playback shows
@@ -1989,6 +2008,7 @@ namespace MphRead.Mods.Network
                     CurrentWeapon = (byte)player.CurrentWeapon,
                     Team = (byte)player.Team
                 };
+                player.OwningScene.PlayerReplication.CaptureMovementState(player, ref state);
                 state.Points = (short)Math.Clamp(GameState.Points[i], Int16.MinValue, Int16.MaxValue);
                 state.Kills = (ushort)Math.Clamp(GameState.Kills[i], 0, UInt16.MaxValue);
                 state.Deaths = (ushort)Math.Clamp(GameState.Deaths[i], 0, UInt16.MaxValue);

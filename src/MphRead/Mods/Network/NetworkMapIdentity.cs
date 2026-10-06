@@ -37,6 +37,7 @@ public readonly record struct NetworkMapIdentity(Guid MapId, MapHash256 ContentH
             throw new InvalidDataException("Community address is too long to advertise.");
         return address;
     }
+    public static MapHash256 StockGameplayHash(string room) => StockGameplayIdentity.ForRoom(room);
 
     public static void StageRoom(string room)
     {

@@ -66,5 +66,12 @@ namespace MphRead.Mods.Network
             value = default!;
             return false;
         }
+
+        /// <summary>Cancel held items and their FIFO timing lower bound.</summary>
+        public void Clear(Action<T>? release = null)
+        {
+            while (_queue.TryDequeue(out var value, out _)) release?.Invoke(value);
+            _lastDue = 0;
+        }
     }
 }

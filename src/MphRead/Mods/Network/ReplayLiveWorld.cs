@@ -76,7 +76,9 @@ internal sealed class ReplayLiveWorld : IDisposable
                 bool any = false;
                 for (int slot = 0; slot < 8; slot++) any |= _bootstrap.TryGetPlayer(slot, out _);
                 if (_bootstrap.Match is not { } match || !any) { ClearPending(); return; }
-                ulong mapHash = ReplayMapIdentity.Compute(match.RoomKey);
+                ulong mapHash = NetSession.IsServer && ServerReplayRecorder.TryGetMapHash(
+                    match.MatchId, match.AuthorityEpoch, match.RoomKey, out ulong preparedHash)
+                    ? preparedHash : ReplayMapIdentity.Compute(match.RoomKey);
                 if (mapHash == 0) throw new InvalidDataException("The capture room has no content identity.");
                 _world = new PassiveReplayScene(_bootstrap.CaptureCheckpoint(), frame, mapHash, size);
                 _world.Scene.ReplayPoses = ReplayPoseStream.Live(_world, _pending);

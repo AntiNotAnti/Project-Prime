@@ -58,6 +58,18 @@ public static class LagCompensationPolicy
             decision.WouldClamp, now - Math.Min(decision.HardAppliedFrames, decision.ShadowAllowedFrames ?? decision.HardAppliedFrames), decision);
     }
 
+    /// <summary>Admission uses the same fractional hard budget for launches,
+    /// impacts and alternate contacts. Arbitration grace is a later deadline,
+    /// not permission to request an older world. Exact events are refused,
+    /// rather than silently validating their claim against a different frame.</summary>
+    internal static bool TryAdmitTime(uint now, uint ackFrame, byte subFrame, out double target)
+    {
+        target = ackFrame + subFrame / 256.0;
+        if (ackFrame == 0 || target > now) return false;
+        double depth = now - target;
+        return depth <= NetUnlagged.MaxRewindFrames && depth < NetUnlagged.HistoryFrames;
+    }
+
     public static void Study(int shooter, int victim, int weapon, in LagCompensationDecision decision, int outcome, bool timingSample = false)
     {
         if (!Telemetry.ProductionTelemetry.Enabled) return;

@@ -1178,25 +1178,27 @@ try
     var packageResult=await realScheduler.BuildAsync(MapBuildSnapshot.Capture(importedPackage));
     Check(packageResult.Succeeded,"existing ppmap package compiles through scheduler");
     string stagedLibrary = Path.Combine(root,"staged-library");
-    using(var prepared = await MapPackageInstaller.PrepareAsync(package,exactIdentity))
+    string oldRuntime = MphRead.Paths.AllPaths[MphRead.Paths.MphKey];
+    try
     {
-        Check(!Directory.Exists(stagedLibrary),"preparation builds privately without publishing a package");
+        MphRead.Paths.SetPath(MphRead.Paths.MphKey,Path.Combine(root,"staged-runtime"));
+        using var prepared = await MapPackageInstaller.PrepareAsync(package,exactIdentity,library:stagedLibrary);
+        Check(!Directory.EnumerateFiles(stagedLibrary,"*.ppmap").Any(),"preparation stages privately without publishing a package");
         var acquire = typeof(MapRuntimeUsage).GetMethod("AcquirePreparation",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic)!;
         using(var reader = (IDisposable)acquire.Invoke(null,new object[] {exactIdentity.RoomKey})!)
         {
             bool refused=false; try { prepared.Commit(stagedLibrary); } catch(IOException) {refused=true;}
-            Check(refused && !Directory.Exists(stagedLibrary),"active prewarm blocks package publication");
+            Check(refused && !Directory.EnumerateFiles(stagedLibrary,"*.ppmap").Any(),"active prewarm blocks package publication");
         }
-        string oldRuntime = MphRead.Paths.AllPaths[MphRead.Paths.MphKey];
-        try
-        {
-            MphRead.Paths.SetPath(MphRead.Paths.MphKey,Path.Combine(root,"staged-runtime"));
-            var installed = prepared.Commit(stagedLibrary);
-            Check(InstalledMapRegistry.Create(new[] {installed}).HasExact(exactIdentity),"prepared package publishes exact immutable bytes");
-            Check(!CustomRooms.NeedsGenerating(installed),"staged installation publishes validated runtime outputs");
-        }
-        finally { MphRead.Paths.SetPath(MphRead.Paths.MphKey,oldRuntime); }
+        MphRead.Paths.SetPath(MphRead.Paths.MphKey,Path.Combine(root,"other-runtime"));
+        bool targetChanged=false; try { prepared.Commit(stagedLibrary); } catch(IOException) {targetChanged=true;}
+        Check(targetChanged&&!Directory.EnumerateFiles(stagedLibrary,"*.ppmap").Any(),"owner refuses a changed runtime target without publishing");
+        MphRead.Paths.SetPath(MphRead.Paths.MphKey,Path.Combine(root,"staged-runtime"));
+        var installed = prepared.Commit(stagedLibrary);
+        Check(InstalledMapRegistry.Create(new[] {installed}).HasExact(exactIdentity),"prepared package publishes exact immutable bytes");
+        Check(!CustomRooms.NeedsGenerating(installed),"staged installation publishes validated runtime outputs");
     }
+    finally { MphRead.Paths.SetPath(MphRead.Paths.MphKey,oldRuntime); }
     using(var cancelled = new CancellationTokenSource())
     {
         cancelled.Cancel(); bool stopped=false;

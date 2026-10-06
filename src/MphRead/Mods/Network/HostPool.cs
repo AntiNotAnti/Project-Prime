@@ -217,6 +217,7 @@ namespace MphRead.Mods.Network
                     Stop(entry, "server stopped answering status probes", now);
                     continue;
                 }
+                if (entry.Process.Loading) continue;
                 if (players > 0)
                 {
                     entry.LastOccupied = now;

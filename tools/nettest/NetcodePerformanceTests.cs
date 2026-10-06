@@ -43,6 +43,10 @@ internal static class NetcodePerformanceTests
     private static object? Call(string name, params object[] args)
     {
         var method = typeof(NetHitClaims).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static)!;
+        // These tests exercise the bounded ledger itself. Native attack/resource
+        // authorization has separate asset-backed authority-combat coverage.
+        if (name == "Park" && args.Length == 2)
+            return method.Invoke(null, new object[] { args[0], args[1], false });
         if (name is "NoteLedger" or "TakeLedger" && args.Length + 1 == method.GetParameters().Length)
         {
             object[] expanded = new object[args.Length + 1]; args.CopyTo(expanded, 0); expanded[^1] = args[3];
@@ -84,17 +88,25 @@ internal static class NetcodePerformanceTests
             OpenTK.Mathematics.Vector3.UnitZ,
             new OpenTK.Mathematics.Vector3(.1f, .2f, .97f).Normalized(),
             new OpenTK.Mathematics.Vector3(.05f, .1f, .99f).Normalized(),
-            new OpenTK.Mathematics.Vector2(.4f, .6f));
+            new OpenTK.Mathematics.Vector2(.4f, .6f),
+            new OpenTK.Mathematics.Vector3(1, 0, 3), OpenTK.Mathematics.Vector3.UnitY,
+            FireEvent.FlagSourcePose);
         intent.FireEvents[1] = new(6, 101, 100, 240, FireEventKind.ReleaseFire, 2, 90, 0);
         byte[] wire = new byte[IntentPacket.FullSize]; intent.Write(wire);
         var read = IntentPacket.Read(wire);
-        Check(read.HasFireEvents && NetFireEvents.Validate(read) && read.FireEvents[0] == intent.FireEvents[0]
-            && read.FireEvents[1] == intent.FireEvents[1], "lost press/release fire history round trip independently of carrier ACK");
+        // View, reticle and source up have intentionally quantized wire encodings.
+        // Verify event identity here and those values with tolerances below.
+        Check(read.HasFireEvents && NetFireEvents.Validate(read)
+            && read.FireEvents[0].ShotId == 5 && read.FireEvents[0].Kind == FireEventKind.PressFire
+            && read.FireEvents[1].ShotId == 6 && read.FireEvents[1].Kind == FireEventKind.ReleaseFire
+            && read.FireEvents[1].Charge == 90, "lost press/release fire history round trip independently of carrier ACK");
         Check(!IntentPacket.Read(wire.AsSpan(0, IntentPacket.LegacyFullSize)).HasFireEvents, "legacy offline intent is explicit");
         Check(read.FireEvents[0].HasPose && read.FireEvents[0].HasReticle
             && read.FireEvents[0].Origin == intent.FireEvents[0].Origin
             && read.FireEvents[0].Direction == intent.FireEvents[0].Direction
             && read.FireEvents[0].Aim == intent.FireEvents[0].Aim
+            && read.FireEvents[0].SourcePosition == intent.FireEvents[0].SourcePosition
+            && OpenTK.Mathematics.Vector3.Dot(read.FireEvents[0].SourceUp, intent.FireEvents[0].SourceUp) > .9999f
             && OpenTK.Mathematics.Vector3.Dot(read.FireEvents[0].View,
                 intent.FireEvents[0].View) > .9999f
             && OpenTK.Mathematics.Vector2.Distance(read.FireEvents[0].Reticle,

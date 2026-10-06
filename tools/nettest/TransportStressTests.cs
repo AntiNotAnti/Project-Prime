@@ -67,7 +67,7 @@ internal static class TransportStressTests
                 server.Send(endpoints[i], PacketType.SessionState, BitConverter.GetBytes(control));
             server.ResetContentionStats();
             clock.Restart(); uint frame = 0; double nextTick = 0;
-            byte[] intentBytes = NetArchitectureTests.IntentFixture();
+            byte[] intentBytes = NetArchitectureTests.CurrentIntentFixture();
             byte[] snapshotBytes = new byte[SnapshotHeader.Size + 8 * PlayerState.Size];
             while (clock.Elapsed.TotalSeconds < 8)
             {

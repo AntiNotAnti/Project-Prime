@@ -218,23 +218,12 @@ namespace MphRead.Mods.Network
             // a reordered stale packet has a deliberately wrong transit time.
             if (_running && !NetLifecycleTracker.Newer(frame, _newest)) return;
 
-            if (_running)
-            {
-                uint advanced = unchecked(frame - _newest);
-                if (advanced > 1 && advanced < HistoryFrames)
-                {
-                    // Jitter alone cannot see a datagram that never arrived.
-                    // A gap in authority frame numbers is explicit loss (or
-                    // deliberate latest-state coalescing after a local hitch),
-                    // so immediately buy enough temporary buffer to cover it.
-                    double missing = advanced - 1;
-                    _starveBoost = Math.Min(MaxDelayFrames - MinDelayFrames,
-                        _starveBoost + missing * StarveBoostPerEvent);
-                    Delay = Math.Min(MaxDelayFrames,
-                        Math.Max(Delay, MinDelayFrames + _starveBoost));
-                }
-            }
-
+            // Frame gaps alone do not identify network loss: the receiver
+            // deliberately coalesces the stream between render/pump frames.
+            // Regular 30 Hz records from a 60 Hz authority have zero transit
+            // jitter and need no accumulating loss penalty. Actual late/bursty
+            // arrival still raises NoteArrival's jitter, and an exhausted
+            // playout clock still buys emergency buffer in Tick.
             NoteArrival(frame, arrivedAt == 0 ? Stopwatch.GetTimestamp() : arrivedAt);
             int index = (int)(frame % HistoryFrames);
             _stamp[index] = frame;
@@ -258,10 +247,7 @@ namespace MphRead.Mods.Network
                 _position[slot, index] = states[i].Position;
                 _altForm[slot, index] = (states[i].Flags & PlayerState.FlagAltForm) != 0;
             }
-            if (!_running || frame > _newest)
-            {
-                _newest = frame;
-            }
+            _newest = frame; // Record's modular ordering guard already admitted it.
             if (!_running)
             {
                 _running = true;

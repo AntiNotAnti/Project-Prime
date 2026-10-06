@@ -61,6 +61,18 @@ public static class NetContinuousTargeting
         trace.Authority = replication.IsAuthority || replication.IsHost;
         if (!replication.TryGetIntent(owner.SlotIndex, out var intent))
         { trace.Rejection = ContinuousTargetRejection.MissingDecision; return true; }
+        if (!scene.Services.IsReplica && NetSession.IsAuthority
+            && NetFireEvents.TryTiming(owner, out FireEvent fire) && fire.Kind == FireEventKind.ContinuousTick
+            && NetAcceptedAttacks.TryAcceptedContext(owner.SlotIndex, fire.ShotId, out fire, out NetTargetIdentity targetAtFire))
+        {
+            // A recovered pulse owns its original decision and viewed time,
+            // just as the deferred emission path does. Keep current target
+            // eligibility/lifecycle checks below; this grants no target hit.
+            intent.Frame = fire.SourceFrame; intent.AckFrame = fire.AckFrame; intent.AckSubFrame = fire.AckSubFrame;
+            intent.Target = targetAtFire; intent.HasState = true; intent.WeaponSelect = fire.Weapon;
+            intent.Buttons |= IntentButtons.Shoot;
+            intent.ContinuousFireTick = fire.ContinuousPhase; intent.HasContinuousFireTick = true;
+        }
         trace.Reported = intent.Target; trace.ReportFrame = intent.Frame;
         if (!scene.Services.IsReplica && !NetPlayerLifecycle.AcceptIntent(owner.SlotIndex, intent))
         { trace.Rejection = ContinuousTargetRejection.Stream; return true; }

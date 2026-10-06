@@ -42,6 +42,21 @@ public sealed class NetReliableChannel
     }
     public bool HasPending(PacketType type)
     { foreach (var pending in _pending) if (pending?.Type == type) return true; return false; }
+    public static bool IsTerminal(PacketType type) => type is PacketType.Bye or PacketType.Refused;
+    internal void BeginTerminalDrain()
+    {
+        // Closing a connection must not wait behind obsolete world/control
+        // traffic, or inherit its exhausted retry queue. Keep final event IDs
+        // intact so an ACK for any attempt still completes that event.
+        for (int i = 0; i < _pending.Length; i++)
+            if (_pending[i] is { } pending && !IsTerminal(pending.Type))
+            {
+                if (!pending.Critical) _ordinary--;
+                _pending[i] = null;
+                _count--;
+            }
+        Failed = false;
+    }
     public static bool IsReliable(PacketType type) => type is PacketType.QueueWelcome or PacketType.QueueJoin or PacketType.QueueLeave
         or PacketType.QueueState or PacketType.QueueSeatOffer or PacketType.QueueAccept or PacketType.QueueDecline
         or PacketType.Welcome or PacketType.SessionState

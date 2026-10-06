@@ -54,7 +54,8 @@ namespace MphRead.Mods.Network
                 shadowFreeze: GameState.ShadowFreeze,
                 affinityWeapons: GameState.AffinityWeapons,
                 enhancedHunters: GameState.EnhancedHunters,
-                spawnProtection: GameState.SpawnProtection);
+                spawnProtection: GameState.SpawnProtection,
+                ownedProcess: true);
             if (started < 0 || LocalServer.Running == null)
             {
                 LastError = LocalServer.LastError ?? "the local server would not start";
@@ -80,11 +81,7 @@ namespace MphRead.Mods.Network
             }
             try
             {
-                if (!process.HasExited)
-                {
-                    process.Kill(entireProcessTree: true);
-                    process.WaitForExit(2000);
-                }
+                OwnedServerControl.Stop(process);
             }
             catch (Exception)
             {

@@ -24,23 +24,55 @@ internal static class ReplayLiveCaptureCheck
             using var reader = DemoReader.Open(path, out var result) ?? throw new InvalidDataException(result.ToString());
             if (reader.Metadata is { } metadata)
                 foreach (var packet in metadata.Bootstrap.Packets.OrderBy(p => p[0] == (byte)PacketType.MatchState ? 0 : 1))
-                    Accept(recorder, packet, 0);
+                    Accept(recorder, ReplayIdentityCompatibility.Convert(packet, metadata.ProtocolVersion), 0);
             DemoRecord? pending = reader.ReadNext();
             var reference = new Dictionary<uint, (string Gameplay, string Presentation)>();
             uint frame = 0;
+            uint sourceDuration = reader.Metadata?.DurationFrames ?? 0;
+            uint toggleAfter = Math.Min(600u, sourceDuration > 251 ? sourceDuration - 251 : 0u);
+            uint? resumeFrame = null, resumedAt = null;
+            bool toggleCovered = false;
             while (pending != null)
             {
                 while (pending is DemoRecord record && record.Frame <= frame)
-                { Accept(recorder, record.Data, frame); pending = reader.ReadNext(); }
+                {
+                    // DemoReader exposes the original recorded wire widths.
+                    // Apply the same historical boundary used by playback
+                    // before feeding a current-protocol live recorder.
+                    Accept(recorder, ReplayIdentityCompatibility.Convert(record.Data, reader.Metadata!.ProtocolVersion), frame);
+                    pending = reader.ReadNext();
+                }
+                bool resuming = resumeFrame == frame;
+                if (resuming) capture.SetEnabled(true);
                 capture.Advance(frame, new Vector2i(256, 192));
                 if (capture.LastError != null) throw new InvalidDataException(capture.LastError);
+                if (resuming)
+                {
+                    if (capture.World == null || recorder.Timeline.FirstRecordingFrame != frame)
+                        throw new InvalidDataException("Re-enabled replay reconstruction did not seed a fresh boundary.");
+                    toggleCovered = true; resumedAt = frame; resumeFrame = null;
+                }
                 if (capture.World is { } world)
                     reference[frame] = (ReplayStateHash.Compute(world.Scene, frame), world.Scene.ReplayPresentationHash(frame));
                 if (ReplayStateHash.Compute(live, 0) != sentinel || !ReferenceEquals(GameState.Current, live.GameState))
                     throw new InvalidDataException("Live capture changed its foreground owner.");
+                // A server recording may end with an empty teardown roster. A
+                // fresh replica correctly waits for a current occupant there;
+                // exercise settings toggles while accepted gameplay is active.
+                if (!toggleCovered && resumeFrame == null && frame >= toggleAfter && pending != null
+                    && capture.World is { } active
+                    && Enumerable.Range(0, 8).Any(slot => active.State.Occupant(slot).Generation != 0
+                        && active.State.TryGetPlayer(slot, out _)))
+                {
+                    capture.SetEnabled(false); capture.Advance(frame, live.Size);
+                    if (capture.World != null || recorder.Timeline.RecordCount != 0)
+                        throw new InvalidDataException("Disabled replay reconstruction retained a world/history.");
+                    resumeFrame = checked(frame + 1);
+                }
                 frame++;
             }
             if (reference.Count < 600) throw new InvalidDataException("Coverage needs at least ten seconds of accepted facts.");
+            if (!toggleCovered) throw new InvalidDataException("Coverage needs an active accepted-fact replay toggle.");
             using (var bound = Replay.ReplayWorldCheckpoint.Capture(capture.World!))
             using (var fallback = Replay.ReplayWorldCheckpoint.Capture(capture.World!, boundAccessors: false))
                 if (!bound.Bytes.SequenceEqual(fallback.Bytes)) throw new InvalidDataException("Bound capture changed checkpoint bytes.");
@@ -51,18 +83,14 @@ internal static class ReplayLiveCaptureCheck
             for (int sample = 0; sample < 100; sample++) { using var checkpoint = Replay.ReplayWorldCheckpoint.Capture(capture.World!); }
             Console.WriteLine($"[replayperf-warm] checkpoint={System.Diagnostics.Stopwatch.GetElapsedTime(captureStart).TotalMilliseconds / 100:F3}ms allocation={(GC.GetAllocatedBytesForCurrentThread() - captureAllocations) / 100}B");
             uint end = frame - 1;
+            if (resumedAt is not uint boundary || end < boundary || end - boundary < 250)
+                throw new InvalidDataException("Coverage needs at least 250 accepted-fact frames after replay resumes.");
             uint start = end - 250;
             if (!recorder.Timeline.TryFreeze(start, end, out var clip) || clip == null
                 || clip.RestorePoint.Kind != ReplayRestoreKind.ReplicaCheckpoint)
                 throw new InvalidDataException("Live world did not produce a restorable clip.");
             long bytes = recorder.Timeline.PayloadBytes;
             Console.WriteLine(ReplayPerfTelemetry.Summary(recorder.Timeline));
-            capture.SetEnabled(false); capture.Advance(frame, live.Size);
-            if (capture.World != null || recorder.Timeline.RecordCount != 0)
-                throw new InvalidDataException("Disabled replay reconstruction retained a world/history.");
-            capture.SetEnabled(true); capture.Advance(frame + 1, live.Size);
-            if (capture.World == null || capture.LastError != null || recorder.Timeline.FirstRecordingFrame != frame + 1)
-                throw new InvalidDataException("Re-enabled replay reconstruction did not seed a fresh boundary.");
             recorder.Reset(); // the playing clip must outlive a live match transition
             using var frozenLease = clip;
             using var player = new PassiveReplayPlayer(clip, new Vector2i(256, 192));
@@ -112,11 +140,23 @@ internal static class ReplayLiveCaptureCheck
                     || ReplayClipFidelity.Run(path, legacyRange, 400) != 0)
                     throw new InvalidDataException("V3 source extraction changed its world.");
                 string v2 = Path.Combine(directory, "legacy-v2.ppdemo");
+                byte sourceProtocol;
                 using (var original = DemoReader.Open(path)!)
                 using (var writer = new DemoWriter(v2))
                 {
+                    sourceProtocol = original.ProtocolVersion;
                     foreach (var packet in original.Metadata!.Bootstrap.Packets) writer.WriteRecord(0, packet);
                     while (original.ReadNext() is { } record) writer.WriteRecord(record.Frame, record.Data);
+                }
+                // DemoWriter declares the current protocol. This diagnostic
+                // copies historical wire facts, so label their actual source
+                // protocol after the writer has finalized its v2 container.
+                using (var header = new FileStream(v2, FileMode.Open, FileAccess.Write))
+                {
+                    if (header.Length < DemoFile.HeaderSize || !ReplayIdentityCompatibility.Supports(sourceProtocol))
+                        throw new InvalidDataException("Legacy fixture has no valid source protocol header.");
+                    header.Position = DemoFile.HeaderSize - 1;
+                    header.WriteByte(sourceProtocol);
                 }
                 foreach (uint begin in new uint[] { 0, 400 })
                 {
