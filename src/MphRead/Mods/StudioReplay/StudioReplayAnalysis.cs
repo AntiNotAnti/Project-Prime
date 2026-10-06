@@ -39,8 +39,13 @@ public sealed partial class StudioReplayPlayer
             else if (entity is ItemSpawnEntity spawn) pickups[(short)spawn.Id] = Public(spawn.Position);
         }
         string path = _playbackPath ?? LogicalPath;
+        string sourceHash = _playbackContentHash ?? throw new InvalidOperationException("The immutable recording identity is unavailable.");
+        var jobResources = RetainJobResources();
+        // Always admit the cleanup delegate, including an already-canceled job.
         return Task.Run(() =>
         {
+            using var ownedResources = jobResources;
+            cancellation.ThrowIfCancellationRequested();
             var host = new PassiveReplaySessionHost();
             using var reader = new ReplayPlaybackSession(host);
             if (!reader.JoinDetached(path, cancellation)) throw new IOException(reader.LastError ?? "Cannot analyze replay.");
@@ -130,10 +135,9 @@ public sealed partial class StudioReplayPlayer
                     }
                 if (samples.Count > 500_000) throw new InvalidDataException("Replay analytics exceeds the bounded sample budget. Analyze a shorter clip.");
             }
-            using var input = File.OpenRead(path);
             return new StudioReplayAnalysis(reader.LastFrame, samples.ToArray(), reader.Events.Select(e => new StudioReplayEvent(e.Frame, e.Type.ToString(), e.ActorSlot, e.TargetSlot, e.Value)).ToArray(),
-                Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(input)).ToLowerInvariant());
-        }, cancellation);
+                sourceHash);
+        });
     }
     public static StudioReplayComparison Compare(StudioReplayWorldSnapshot left, StudioReplayWorldSnapshot right)
     {

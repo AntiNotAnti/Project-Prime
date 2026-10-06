@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Linq;
 using System.Numerics;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using MphRead.Mods.MapEditor;
@@ -11,7 +12,7 @@ namespace MphRead.Mods.Launcher.Gui;
 
 internal sealed partial class MapStudioScreen
 {
-    private void ApplyMeshEnhancement(MapMesh mesh,string label,Func<Func<MapMesh,MapMesh>> prepare)
+    private void ApplyMeshEnhancement(MapMesh mesh,string label,Func<Func<MapMesh,CancellationToken,MapMesh>> prepare)
     {
         try
         {
@@ -24,7 +25,7 @@ internal sealed partial class MapStudioScreen
                 {
                     token.ThrowIfCancellationRequested();
                     var source=snapshot.CreateDefinition().Geometry.OfType<MapMesh>().Single(item=>item.Id==mesh.Id);
-                    var result=operation(source);token.ThrowIfCancellationRequested();return result;
+                    var result=operation(source,token);token.ThrowIfCancellationRequested();return result;
                 },token);
                 GuardJob(token);
                 document.EditObjects(label,new[]{mesh.Id},definition=>
@@ -46,7 +47,7 @@ internal sealed partial class MapStudioScreen
         _inspector.Children.Add(Text("MODIFIER STACK"));
         _inspector.Children.Add(Text("Mirror and array remain editable until baked. Bake the stack before changing vertices, faces, UVs or face materials."));
         var modifiers=(mesh.ModifierSource?.Modifiers ?? new()).ToArray();
-        void Stack(string label,MapModelModifier[] values)=>ApplyMeshEnhancement(mesh,label,()=>source=>MapModelingEnhancements.WithModifierStack(source,values));
+        void Stack(string label,MapModelModifier[] values)=>ApplyMeshEnhancement(mesh,label,()=>(source,token)=>MapModelingEnhancements.WithModifierStack(source,values,cancellation:token));
         for(int i=0;i<modifiers.Length;i++)
         {
             int index=i;var modifier=modifiers[i];
@@ -96,30 +97,30 @@ internal sealed partial class MapStudioScreen
         {
             int[] vertices=_viewport?.SubSelection.VertexIndices(mesh,_viewport.ElementMode).ToArray()??Array.Empty<int>();
             var movement=ModelingVector(delta);float distance=Number(radius.Text??"2");var curve=(MapProportionalFalloff)(falloff.SelectedItem??MapProportionalFalloff.Smooth);bool linked=connected.IsChecked==true;
-            return source=>MapModelingEnhancements.ProportionalMove(source,vertices,movement,distance,curve,linked);
+            return (source,token)=>MapModelingEnhancements.ProportionalMove(source,vertices,movement,distance,curve,linked,cancellation:token);
         }));
         var inset=new TextBox {Text="0.25"};_inspector.Children.Add(Text("Inset constant world width"));_inspector.Children.Add(inset);
         AddButton(_inspector,"Inset selected region with constant width",()=>ApplyMeshEnhancement(mesh,"Constant-width inset",()=>
-        {int[] faces=_viewport?.SelectedFaceIndices.ToArray()??Array.Empty<int>();float width=Number(inset.Text??".25");return source=>MapModelingEnhancements.InsetRegionWidth(source,faces,width);}));
+        {int[] faces=_viewport?.SelectedFaceIndices.ToArray()??Array.Empty<int>();float width=Number(inset.Text??".25");return (source,token)=>MapModelingEnhancements.InsetRegionWidth(source,faces,width,cancellation:token);}));
         var bevelWidth=new TextBox {Text="0.1"};var bevelSegments=new TextBox {Text="1"};
         _inspector.Children.Add(Text("Bevel selected edge · width / segments"));_inspector.Children.Add(bevelWidth);_inspector.Children.Add(bevelSegments);
         AddButton(_inspector,"Bevel closed mesh edge",()=>ApplyMeshEnhancement(mesh,"Bevel mesh edge",()=>
-        {var edge=_viewport?.SubSelection.ActiveEdge??throw new InvalidOperationException("Select one mesh edge.");float width=Number(bevelWidth.Text??".1");int count=int.Parse(bevelSegments.Text??"1",CultureInfo.InvariantCulture);return source=>MapModelingEnhancements.BevelEdge(source,edge,width,count);}));
+        {var edge=_viewport?.SubSelection.ActiveEdge??throw new InvalidOperationException("Select one mesh edge.");float width=Number(bevelWidth.Text??".1");int count=int.Parse(bevelSegments.Text??"1",CultureInfo.InvariantCulture);return (source,token)=>MapModelingEnhancements.BevelEdge(source,edge,width,count,cancellation:token);}));
         var percentage=new TextBox {Text="0.5"};var cuts=new TextBox {Text="1"};
         _inspector.Children.Add(Text("Loop cut percentage (0–1) / count"));_inspector.Children.Add(percentage);_inspector.Children.Add(cuts);
         AddButton(_inspector,"Cut quad loop",()=>ApplyMeshEnhancement(mesh,"Loop cut",()=>
-        {var edge=_viewport?.SubSelection.ActiveEdge??throw new InvalidOperationException("Select a starting edge on a quad strip.");float fraction=Number(percentage.Text??".5");int count=int.Parse(cuts.Text??"1",CultureInfo.InvariantCulture);return source=>MapModelingEnhancements.LoopCut(source,edge,fraction,count);}));
+        {var edge=_viewport?.SubSelection.ActiveEdge??throw new InvalidOperationException("Select a starting edge on a quad strip.");float fraction=Number(percentage.Text??".5");int count=int.Parse(cuts.Text??"1",CultureInfo.InvariantCulture);return (source,token)=>MapModelingEnhancements.LoopCut(source,edge,fraction,count,cancellation:token);}));
         var normal=new TextBox {Text="1,0,0"};var plane=new TextBox {Text="0"};
         _inspector.Children.Add(Text("Knife plane world normal X,Y,Z / distance"));_inspector.Children.Add(normal);_inspector.Children.Add(plane);
         AddButton(_inspector,"Cut with plane",()=>ApplyMeshEnhancement(mesh,"Knife plane cut",()=>
-        {var direction=ModelingVector(normal);float distance=Number(plane.Text??"0");return source=>MapModelingEnhancements.KnifeCut(source,direction,distance);}));
+        {var direction=ModelingVector(normal);float distance=Number(plane.Text??"0");return (source,token)=>MapModelingEnhancements.KnifeCut(source,direction,distance,cancellation:token);}));
         var segments=new TextBox {Text="1"};var twist=new TextBox {Text="0"};
         _inspector.Children.Add(Text("Bridge complete boundary loops · segments / twist"));_inspector.Children.Add(segments);_inspector.Children.Add(twist);
         AddButton(_inspector,"Bridge boundary loops",()=>ApplyMeshEnhancement(mesh,"Bridge loops",()=>
-        {var edges=_viewport?.SubSelection.Edges.ToArray()??throw new InvalidOperationException("Select boundary edges.");int count=int.Parse(segments.Text??"1",CultureInfo.InvariantCulture),rotation=int.Parse(twist.Text??"0",CultureInfo.InvariantCulture);return source=>MapModelingEnhancements.Bridge(source,edges,count,rotation);}));
+        {var edges=_viewport?.SubSelection.Edges.ToArray()??throw new InvalidOperationException("Select boundary edges.");int count=int.Parse(segments.Text??"1",CultureInfo.InvariantCulture),rotation=int.Parse(twist.Text??"0",CultureInfo.InvariantCulture);return (source,token)=>MapModelingEnhancements.Bridge(source,edges,count,rotation,cancellation:token);}));
         var columns=new TextBox {Text="1"};_inspector.Children.Add(Text("Grid fill planar convex boundary · columns"));_inspector.Children.Add(columns);
         AddButton(_inspector,"Fill boundary with quads",()=>ApplyMeshEnhancement(mesh,"Grid fill",()=>
-        {var edges=_viewport?.SubSelection.Edges.ToArray()??throw new InvalidOperationException("Select boundary edges.");int count=int.Parse(columns.Text??"1",CultureInfo.InvariantCulture);return source=>MapModelingEnhancements.GridFill(source,edges,count);}));
+        {var edges=_viewport?.SubSelection.Edges.ToArray()??throw new InvalidOperationException("Select boundary edges.");int count=int.Parse(columns.Text??"1",CultureInfo.InvariantCulture);return (source,token)=>MapModelingEnhancements.GridFill(source,edges,count,cancellation:token);}));
         _inspector.Children.Add(Text("Operations prepare and validate a detached mesh in a background job. Cancellation, invalid topology or an intervening document edit leave the map unchanged."));
     }
 }

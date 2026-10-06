@@ -247,7 +247,7 @@ internal static partial class Program
             "malformed map returns rejection while retaining previous workspaces and source bytes");
     }
 
-    private static void CheckControlBounds(StudioWindow window, Control control, double minimumWidth, double minimumHeight, string message)
+    private static void CheckControlBounds(Window window, Control control, double minimumWidth, double minimumHeight, string message)
     {
         Point? origin = control.TranslatePoint(default, window);
         Check(origin is { } point && control.Bounds.Width >= minimumWidth && control.Bounds.Height >= minimumHeight

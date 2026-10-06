@@ -25,21 +25,33 @@ public sealed unsafe class StudioNativeSurface : IDisposable
     { Owner = owner; _handle = handle; _kind = kind; _display = display; Create(); }
     private void Create()
     {
-        Surface = ModernGraphicsSurface.CreateNativeHost(_handle, _kind, _display, Owner.Api, Owner.Device.Instance, Owner.Device.Backend);
-        if (Surface == null) throw new InvalidOperationException("Studio native surface creation failed.");
-        SurfaceCapabilities caps = default;
-        Owner.Api.SurfaceGetCapabilities(Surface, Owner.Device.Adapter, &caps);
         try
         {
-            if (caps.FormatCount == 0) throw new InvalidOperationException("Studio native surface has no supported presentation format.");
-            Format = caps.Formats[0];
-            for (nuint i = 0; i < caps.FormatCount; i++)
-                if (caps.Formats[i] == GpuTextureFormat.Rgba8Unorm) { Format = GpuTextureFormat.Rgba8Unorm; break; }
-            if (Format != GpuTextureFormat.Rgba8Unorm)
+            Surface = ModernGraphicsSurface.CreateNativeHost(_handle, _kind, _display, Owner.Api, Owner.Device.Instance, Owner.Device.Backend);
+            if (Surface == null) throw new InvalidOperationException("Studio native surface creation failed.");
+            Owner.NativeSurfaceHandleCreated();
+            SurfaceCapabilities caps = default;
+            try
+            {
+                Owner.Api.SurfaceGetCapabilities(Surface, Owner.Device.Adapter, &caps);
+                bool injectedFailure = Owner.ConsumeNativeSurfaceAdmissionFailureForDiagnostics();
+                if (caps.FormatCount == 0 || injectedFailure)
+                    throw new InvalidOperationException("Studio native surface has no supported presentation format.");
+                Format = caps.Formats[0];
                 for (nuint i = 0; i < caps.FormatCount; i++)
-                    if (caps.Formats[i] == GpuTextureFormat.Bgra8Unorm) { Format = GpuTextureFormat.Bgra8Unorm; break; }
+                    if (caps.Formats[i] == GpuTextureFormat.Rgba8Unorm) { Format = GpuTextureFormat.Rgba8Unorm; break; }
+                if (Format != GpuTextureFormat.Rgba8Unorm)
+                    for (nuint i = 0; i < caps.FormatCount; i++)
+                        if (caps.Formats[i] == GpuTextureFormat.Bgra8Unorm) { Format = GpuTextureFormat.Bgra8Unorm; break; }
+            }
+            finally { Owner.Api.SurfaceCapabilitiesFreeMembers(caps); }
         }
-        finally { Owner.Api.SurfaceCapabilitiesFreeMembers(caps); }
+        catch
+        {
+            // Constructor failures have not entered the device's surface set.
+            // Release the actual handle here; later document teardown cannot find it.
+            ReleaseSurfaceHandle(); _configured = false; throw;
+        }
     }
     internal TextureView* Acquire(MapViewportLayout layout)
     {
@@ -72,8 +84,15 @@ public sealed unsafe class StudioNativeSurface : IDisposable
     internal void ReleaseNative()
     {
         ReleaseFrame();
-        if (Surface != null) { Owner.Api.SurfaceUnconfigure(Surface); Owner.Api.SurfaceRelease(Surface); Surface = null; }
+        if (Surface != null) Owner.Api.SurfaceUnconfigure(Surface);
+        ReleaseSurfaceHandle();
         _configured = false;
+    }
+    private void ReleaseSurfaceHandle()
+    {
+        if (Surface == null) return;
+        Owner.Api.SurfaceRelease(Surface); Surface = null;
+        Owner.NativeSurfaceHandleReleased();
     }
     internal void Recreate() { ReleaseNative(); Create(); }
     public void Dispose()

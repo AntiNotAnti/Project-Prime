@@ -106,6 +106,8 @@ internal static class Program
     private static async Task Run(string root)
     {
         Configure(root);
+        AliasResolutionChecks.Run(root, Check);
+        PrivateRuntimeOwnershipChecks.Run(root, Check);
         string oldPackage = CreatePackage(root, "old", 1), rebuiltPackage = CreatePackage(root, "rebuilt", 2);
         string rebuiltHash = Hash(rebuiltPackage);
         Check(Hash(oldPackage) != rebuiltHash, "rebuilt same-name immutable package has a new exact hash");

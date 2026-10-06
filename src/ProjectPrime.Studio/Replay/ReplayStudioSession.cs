@@ -7,7 +7,7 @@ using ProjectPrime.Studio.Settings;
 namespace ProjectPrime.Studio.Replay;
 
 /// <summary>One document's transport, authoring, diagnostics, export and views.</summary>
-public sealed class ReplayStudioSession : IStudioReplayGraphicsSession, IDisposable
+public sealed partial class ReplayStudioSession : IStudioReplayGraphicsSession, IDisposable
 {
     public StudioReplayPlayer Player { get; }
     public StudioReplayPlayer? ComparisonPlayer { get; private set; }
@@ -28,12 +28,14 @@ public sealed class ReplayStudioSession : IStudioReplayGraphicsSession, IDisposa
     private bool _disposed;
     private readonly string _presentationPath;
     private readonly StudioPaths _paths;
+    public Func<string,Func<CancellationToken,Task>,CancellationToken,Task>? JobRunner { get; }
     private bool _comparisonInitialized;
     private int? _graphicsGeneration;
     public event Action? Changed;
-    public ReplayStudioSession(string path, StudioPaths paths, IEnumerable<string>? packageDirectories = null, Func<string, Task>? exportWorkerLauncher = null)
+    public ReplayStudioSession(string path, StudioPaths paths, IEnumerable<string>? packageDirectories = null, Func<string, Task>? exportWorkerLauncher = null,
+        Func<string,Func<CancellationToken,Task>,CancellationToken,Task>? jobRunner=null)
     {
-        _paths = paths;
+        _paths = paths;JobRunner=jobRunner;
         Player = new(path, Path.Combine(paths.BuildCacheDirectory, "replay"),
             new[] { Path.Combine(paths.InstallationDirectory, "maps") }.Concat(packageDirectories ?? []));
         ExportDirectory = Path.Combine(paths.UserDataDirectory, "replay-exports");
@@ -148,6 +150,7 @@ public sealed class ReplayStudioSession : IStudioReplayGraphicsSession, IDisposa
     public void Dispose()
     {
         if (_disposed) return; _disposed = true;
+        DisposeTransportJobs();
         Player.Changed -= OnChanged; Player.Dispose(); ComparisonPlayer?.Dispose();
     }
 }

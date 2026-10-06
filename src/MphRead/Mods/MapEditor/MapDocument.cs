@@ -62,7 +62,7 @@ namespace MphRead.Mods.MapEditor
         private readonly HashSet<string> _recoveryAssets = new(StringComparer.Ordinal);
         private readonly Dictionary<string, (string Root,string CanonicalRoot)> _generatedAssets = new(StringComparer.Ordinal);
         public void RegisterGeneratedAsset(string relative, string root,string? canonicalRoot=null)
-            => _generatedAssets[relative] = (Path.GetFullPath(root),canonicalRoot??MapPublicationLease.CanonicalizeRuntimeDirectory(root));
+            => _generatedAssets[relative] = (Path.GetFullPath(root),canonicalRoot??MapPublicationLease.ResolveRuntimeDirectoryAliases(root));
         public int CleanupGeneratedAssets()
         {
             var retained = Project.Definition.Assets.Select(a => a.Path).Concat(History.RetainedAssets).Concat(_recoveryAssets).ToHashSet(StringComparer.Ordinal);

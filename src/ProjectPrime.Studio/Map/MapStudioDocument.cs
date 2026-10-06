@@ -25,6 +25,7 @@ public sealed class MapStudioDocument : IStudioDocument, IStudioDocumentNotifica
     private readonly NativeMapStudioHostServices _services;
     public StudioDockHost? DockHost => _services.DockHost;
     public Window? AssetBrowserWindow => _services.AssetBrowserWindow;
+    public Window? ModalWindow => _services.ModalWindow;
     public MapBuildScheduler BuildScheduler => (MapBuildScheduler)_services.BuildScheduler;
     public event Action? LayoutChanged;
 
@@ -34,6 +35,7 @@ public sealed class MapStudioDocument : IStudioDocument, IStudioDocumentNotifica
         _services=new NativeMapStudioHostServices(paths,window,jobs,integration,layout);
         _services.LayoutChanged+=()=>LayoutChanged?.Invoke();
         Host = new(_services);
+        _services.ReportError=message=>Host.ShowStatus(message);
         bool restoredAssets=false;
         Host.AttachedToVisualTree+=(_,_)=> { if(!restoredAssets){restoredAssets=true;if(layout?.AssetsWindow.Visible==true)Host.OpenAssetBrowser();} };
         Host.Changed += OnChanged;
@@ -57,12 +59,19 @@ public sealed class MapStudioDocument : IStudioDocument, IStudioDocumentNotifica
     public async Task CloseAsync(CancellationToken cancellation)
     {
         cancellation.ThrowIfCancellationRequested();
-        await Host.CancelPendingJobsAsync(cancellation);
-        if (Dirty && !_discarded) await Host.PreserveRecoveryAsync(cancellation);
-        State = StudioDocumentState.Closed;
+        try
+        {
+            await Host.CancelPendingJobsAsync(cancellation);
+            if (Dirty && !_discarded) await Host.PreserveRecoveryAsync(cancellation);
+            State = StudioDocumentState.Closed;
+        }
+        catch { Host.ResumeAssetThumbnails();throw; }
     }
     public async Task DiscardChangesAsync(CancellationToken cancellation)
-    { await Host.CancelPendingJobsAsync(cancellation);await Host.DiscardRecoveryAsync(cancellation);_discarded=true; }
+    {
+        try { await Host.CancelPendingJobsAsync(cancellation);await Host.DiscardRecoveryAsync(cancellation);_discarded=true; }
+        catch { Host.ResumeAssetThumbnails();throw; }
+    }
     public async ValueTask DisposeAsync()
     {
         if (_disposed) return;

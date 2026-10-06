@@ -25,13 +25,15 @@ public sealed class ReplayExportWorkerCoordinator(StudioJobManager jobs, Func<st
     {
         if (!Directory.Exists(exportsDirectory)) return;
         var pending = new List<(string Path, bool Launch)>();
-        foreach (string path in Directory.EnumerateFiles(exportsDirectory, "ticket.json", SearchOption.AllDirectories).Take(256))
+        foreach (string path in Directory.EnumerateDirectories(exportsDirectory).Take(4096).OrderBy(directory => directory, StringComparer.Ordinal)
+            .Select(directory => Path.Combine(directory, "ticket.json")).Where(File.Exists))
         {
             try
             {
                 var ticket = ReadTicket(path);
                 var state = ReadStatus(ticket);
                 if (state?.State is "Complete" or "Failed" or "Cancelled" && !IsRetainedWorkerAlive(state)) continue;
+                if (pending.Count == 256) break;
                 pending.Add((path, state == null || state.State == "Queued"));
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or JsonException or UnauthorizedAccessException or ArgumentException) { }

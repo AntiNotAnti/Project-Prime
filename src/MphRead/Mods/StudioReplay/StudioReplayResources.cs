@@ -10,7 +10,7 @@ namespace MphRead.Mods.StudioReplay;
 
 /// <summary>One replay's immutable package and generated-room resolution. The
 /// thread scope changes lookup context; no shared catalog or asset root changes.</summary>
-internal sealed class StudioReplayResources
+internal sealed class StudioReplayResources : IDisposable
 {
     [ThreadStatic] private static StudioReplayResources? _current;
     internal static StudioReplayResources? Current => _current;
@@ -18,6 +18,9 @@ internal sealed class StudioReplayResources
     private readonly string[] _packageDirectories;
     private readonly Dictionary<string, Model> _models = new(StringComparer.Ordinal);
     private readonly object _prepareGate = new();
+    private readonly object _pinGate = new();
+    private IDisposable? _packagePin;
+    private bool _disposed;
     private RoomMetadata? _room;
     private MapContentIdentity? _identity;
     internal string? CustomMapRoot { get; private set; }
@@ -52,6 +55,7 @@ internal sealed class StudioReplayResources
         var required = session.Match.MapIdentity.Content(metadata.RoomKey);
         lock (_prepareGate)
         {
+            lock (_pinGate) ObjectDisposedException.ThrowIf(_disposed, this);
             cancellation.ThrowIfCancellationRequested();
             if (_identity is { } existing)
             {
@@ -59,8 +63,8 @@ internal sealed class StudioReplayResources
                 return;
             }
             string directory = Path.Combine(_root, "packages", required.PackageHash.ToString());
-            Directory.CreateDirectory(directory);
             using var packageLease = MapDiskCache.Acquire(Path.Combine(_root, "packages"), required.PackageHash.ToString(), cancellation);
+            Directory.CreateDirectory(directory);
             string package = Path.Combine(directory, "source.ppmap");
             if (!Exact(package, required))
             {
@@ -94,8 +98,18 @@ internal sealed class StudioReplayResources
             cancellation.ThrowIfCancellationRequested();
             // Publish to this resolver only after all exact bytes are verified.
             // Failed preparation leaves any currently presented world untouched.
-            _room = CustomRooms.MakeMetadata(definition, 128).WithPrivateResources(build.Outputs);
-            _identity = required; CustomMapRoot = Path.GetDirectoryName(build.Outputs.Model);
+            var room = CustomRooms.MakeMetadata(definition, 128).WithPrivateResources(build.Outputs);
+            var pin = MapDiskCache.Pin(Path.Combine(_root, "packages"), required.PackageHash.ToString(), cancellation);
+            try
+            {
+                lock (_pinGate)
+                {
+                    ObjectDisposedException.ThrowIf(_disposed, this);
+                    _room = room; _identity = required; CustomMapRoot = Path.GetDirectoryName(build.Outputs.Model);
+                    _packagePin = pin; pin = null!;
+                }
+            }
+            finally { pin?.Dispose(); }
         }
     }
     private string? FindLocal(MapContentIdentity required)
@@ -114,5 +128,20 @@ internal sealed class StudioReplayResources
     {
         try { return File.Exists(path) && MapContentIdentity.FromPackage(path).Matches(required); }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { return false; }
+    }
+    internal IDisposable? RetainPackagePin()
+    {
+        lock (_pinGate)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            return _packagePin == null ? null : MapDiskCache.Retain(_packagePin);
+        }
+    }
+    public void Dispose()
+    {
+        IDisposable? pin;
+        lock (_pinGate) { if (_disposed) return; _disposed = true; pin = _packagePin; _packagePin = null; }
+        // Never wait for detached package/build preparation on the scene owner.
+        pin?.Dispose(); _models.Clear();
     }
 }

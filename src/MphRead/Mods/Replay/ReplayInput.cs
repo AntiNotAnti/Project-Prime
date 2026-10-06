@@ -67,14 +67,10 @@ namespace MphRead.Mods.Replay
                     (ulong)ReplayController.CurrentFrame + 300,
                     ReplayController.DurationFrames));
             else if (Hit(key, InputSettings.ReplayCameraTrackKey)) ReplayCamera.ToggleTrackPlayback();
-            else if (Hit(key, InputSettings.ReplayConstantSpeedKey)) ReplayCamera.ToggleConstantSpeed();
-            else if (Hit(key, InputSettings.ReplayInterpolationKey)) ReplayCamera.CycleInterpolation();
-            else if (Hit(key, InputSettings.ReplayEasingKey)) ReplayCamera.CycleEase();
             else
             {
                 switch (key)
                 {
-                    case Keys.Delete: ReplayCamera.RemoveKeyframe(); break;
                     case Keys.Minus: ReplayCamera.AdjustLens(-5, 0); break;
                     case Keys.Equal: ReplayCamera.AdjustLens(5, 0); break;
                     case Keys.Semicolon: ReplayCamera.AdjustLens(0, -5); break;
@@ -83,7 +79,6 @@ namespace MphRead.Mods.Replay
                     case Keys.C: ReplayCamera.SetMode(ReplayCamera.Mode == ReplayCameraMode.Chase
                         ? ReplayCameraMode.FirstPerson : ReplayCameraMode.Chase); break;
                     case Keys.O: ReplayCamera.SetMode(ReplayCameraMode.Orbit); break;
-                    case Keys.B: ReplayCamera.Bookmark(); break;
                     case Keys.N: ReplayCamera.RestoreBookmark(); break;
                     case >= Keys.D1 and <= Keys.D8: SpectatorMode.Watch(key - Keys.D1); break;
                     default: handled = false; break;

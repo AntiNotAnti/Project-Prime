@@ -29,17 +29,20 @@ internal static partial class Program
     private sealed record NativeViewport(double Width,double Height,double RenderScale,int PixelWidth,int PixelHeight);
     private sealed record NativeSnapshot(int ProcessId, NativeDocument[] Documents, int MapViewports, StudioRenderMetrics? MapMetrics,
         int Worlds, int NativeSurfaces, int ViewportTargets,NativeReplay? Replay,NativeMap? Map,long MetricsRevision,NativeViewport[] MapBounds,long Timestamp,int? Generation);
-    private sealed record NativeStartup(int ProcessId,double UsableHomeMilliseconds,long WorkingSetBytes,double Width,double Height,double RenderScale,int PixelWidth,int PixelHeight);
+    private sealed record NativeStartup(int ProcessId,double UsableHomeMilliseconds,long WorkingSetBytes,double Width,double Height,double RenderScale,int PixelWidth,int PixelHeight,
+        string Kind="Home",string? SourceHash=null,long SourceBytes=0,int AuthoredObjects=0,uint? Frame=null,string? GameplayHash=null,
+        string? PresentationHash=null,string? FullGraphHash=null,NativeViewport? Viewport=null);
     private static readonly Dictionary<int,NativeStartup> NativeStartups=[];
     private static long _nativeMetricsRevision;
 
     private static int RunNativeProbe(string[] args)
     {
-        if (args.Length != 2 || !Path.IsPathFullyQualified(args[1])) return 2;
+        if ((args.Length != 2&&args.Length!=4) || !Path.IsPathFullyQualified(args[1])) return 2;
         var paths = new StudioPaths(AppContext.BaseDirectory, args[1]);
         var startup=Stopwatch.StartNew();
         StudioGraphicsHost.DiagnosticsChanged+=_=>Interlocked.Increment(ref _nativeMetricsRevision);
         var request = new StudioOpenRequest(Guid.NewGuid(), StudioOpenKind.Home, Recover: true);
+        if(args.Length==4&&!StudioLaunchRequest.TryParse(args[2..],out request,out _))return 2;
         var ready = new TaskCompletionSource<StudioWindow>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var lifetime = new CancellationTokenSource();
         StudioInstanceGuard? guard = null;
@@ -55,7 +58,7 @@ internal static partial class Program
             App.Configure(paths, request, window =>
             {
                 ready.TrySetResult(window);
-                _ = RunNativeCommandsAsync(window,startup);
+                _ = RunNativeCommandsAsync(window,startup,paths);
             });
             return ProjectPrime.Studio.Program.BuildAvaloniaApp().StartWithClassicDesktopLifetime([], ShutdownMode.OnMainWindowClose);
         }
@@ -68,19 +71,43 @@ internal static partial class Program
         }
     }
 
-    private static async Task RunNativeCommandsAsync(StudioWindow window,Stopwatch startup)
+    private static async Task RunNativeCommandsAsync(StudioWindow window,Stopwatch startup,StudioPaths paths)
     {
         try
         {
             await window.InitializeAsync();
             await Dispatcher.UIThread.InvokeAsync(()=>window.UpdateLayout(),DispatcherPriority.Render);
+            if(window.Documents.ActiveDocument is MapStudioDocument or ReplayStudioDocument)
+            {
+                var viewportDeadline=Stopwatch.StartNew();
+                while(viewportDeadline.Elapsed<TimeSpan.FromSeconds(20))
+                {
+                    bool usable=await Dispatcher.UIThread.InvokeAsync(()=>window.Documents.ActiveDocument switch
+                    {
+                        MapStudioDocument=>StudioGraphicsHost.LastMetrics is {DrawCalls:>0}&&StudioGraphicsHost.NativeSurfaceCount>0,
+                        ReplayStudioDocument {Session:{ } replay}=>replay.Player.Status.Ready&&replay.Player.Performance.RenderMilliseconds is >0&&StudioGraphicsHost.NativeSurfaceCount>0,
+                        _=>false
+                    });
+                    if(usable)break;
+                    if(viewportDeadline.Elapsed>TimeSpan.FromSeconds(19))throw new TimeoutException("Initial source did not reach a usable native viewport.");
+                    await Task.Delay(10);
+                }
+            }
             var home=window.GetVisualDescendants().OfType<TextBlock>().FirstOrDefault(block=>block.Name=="StudioHomeHeading");
             if(window.Documents.Documents.Count==0&&(home is null||home.Bounds.Width<=0||home.Bounds.Height<=0))
                 throw new InvalidOperationException("Native Home did not allocate visible heading before ready.");
             double scale=window.RenderScaling;
-            Console.WriteLine("READY "+JsonSerializer.Serialize(new NativeStartup(Environment.ProcessId,startup.Elapsed.TotalMilliseconds,
-                Process.GetCurrentProcess().WorkingSet64,window.ClientSize.Width,window.ClientSize.Height,scale,
-                (int)Math.Round(window.ClientSize.Width*scale),(int)Math.Round(window.ClientSize.Height*scale))));
+            double usableMilliseconds=startup.Elapsed.TotalMilliseconds;long workingSet=Process.GetCurrentProcess().WorkingSet64;
+            var active=window.Documents.ActiveDocument;
+            string? sourceHash=active?.Path is { } startupSourcePath?Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(startupSourcePath))):null;
+            var world=active is ReplayStudioDocument {Session:{ } activeReplay}?activeReplay.Player.Snapshot():null;
+            var startupViewport=window.GetVisualDescendants().OfType<Control>().FirstOrDefault(control=>control.IsEffectivelyVisible&&(control.GetType().Name=="MapViewport"||control is ReplayViewportHost));
+            Console.WriteLine("READY "+JsonSerializer.Serialize(new NativeStartup(Environment.ProcessId,usableMilliseconds,
+                workingSet,window.ClientSize.Width,window.ClientSize.Height,scale,
+                (int)Math.Round(window.ClientSize.Width*scale),(int)Math.Round(window.ClientSize.Height*scale),active?.Kind.ToString()??"Home",sourceHash,
+                active?.Path is {} sourcePath?new FileInfo(sourcePath).Length:0,active is MapStudioDocument {Host.Document:{ } initialMap}?initialMap.Project.Definition.Geometry.Count:0,
+                world?.Frame,world?.GameplayHash,world?.PresentationHash,world?.FullGraphHash,
+                startupViewport is null?null:new(startupViewport.Bounds.Width,startupViewport.Bounds.Height,scale,(int)Math.Round(startupViewport.Bounds.Width*scale),(int)Math.Round(startupViewport.Bounds.Height*scale)))));
             Console.Out.Flush();
             while (await Task.Run(Console.ReadLine) is { } command)
             {
@@ -285,6 +312,14 @@ internal static partial class Program
                     var capture=viewport.Capture(640,360)??throw new InvalidOperationException("Native Replay did not capture its real GPU target.");
                     StudioReplayPlayer.SavePng(command[15..],capture);Console.WriteLine("CAPTURED");Console.Out.Flush();
                 }
+                else if(command.StartsWith("capture-replay-state ",StringComparison.Ordinal))
+                {
+                    var document=(ReplayStudioDocument)window.Documents.ActiveDocument!;
+                    var viewport=document.Host.GetVisualDescendants().OfType<ReplayViewportHost>().First(view=>view.IsEffectivelyVisible);
+                    var capture=viewport.Capture(640,360)??throw new InvalidOperationException("Native Replay did not capture its real GPU target.");
+                    StudioReplayPlayer.SavePng(command[21..],capture);
+                    Console.WriteLine("CAPTURE-STATE "+JsonSerializer.Serialize(document.Session!.Player.Snapshot(),new JsonSerializerOptions{IncludeFields=true}));Console.Out.Flush();
+                }
                 else if(command.StartsWith("capture-replay-view ",StringComparison.Ordinal))
                 {
                     int separator=command.IndexOf(' ',20);int index=int.Parse(command[20..separator]);
@@ -339,7 +374,7 @@ internal static partial class Program
                     Console.Out.Flush();
                     if (accepted) { window.Close(); return; }
                 }
-                else throw new InvalidOperationException("Unexpected native test command.");
+                else if(!await TryHandleNativeExtraCommandAsync(window,paths,command))throw new InvalidOperationException("Unexpected native test command.");
             }
         }
         catch (Exception ex) { Console.WriteLine("ERROR " + JsonSerializer.Serialize(ex.ToString())); Console.Out.Flush(); }
@@ -399,6 +434,7 @@ internal static partial class Program
             NativeSnapshot released = await NativeStatusAsync(primary);
             Check(released.Documents.Length == 0 && released.Worlds == 0 && released.NativeSurfaces == 0 && released.ViewportTargets == 0,
                 "actual final Map document close releases shared GPU world and all native viewport targets");
+            await CheckNativeAdmissionFailureAsync(primary,Path.Combine(directory,"native-admission-cpu-fallback.png"));
             using (Process reopened = StartStudioExecutable(primaryData, ["--map", source]))
             {
                 await reopened.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
@@ -459,9 +495,9 @@ internal static partial class Program
 
     private static Process StartStudioExecutable(string userData, string[] args) => StartChild(args, userData, studioExecutable: true);
 
-    private static async Task<Process> StartNativeProbeAsync(string data)
+    private static async Task<Process> StartNativeProbeAsync(string data,string[]? initialRequest=null)
     {
-        Process process = StartChild(["--native-probe", data], data);
+        Process process = StartChild(["--native-probe", data,..initialRequest??[]], data);
         try
         {
             string ready=await ReadNativeLineAsync(process,"READY ");

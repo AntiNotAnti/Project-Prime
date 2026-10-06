@@ -37,6 +37,10 @@ namespace MphRead.Mods.Launcher.Gui
             _status.Text=(_document?.IsDirty==true?"Unsaved changes · ":"")
                 +"RMB orbit · MMB pan · WASD/QE fly · 1–4 modes · G/R/S transforms · E/I/B model · M merge · F fill (object mode: F focus, M measure) · Ctrl+Shift+P commands";
         }
+        private void SelectionInvalidated(MapDocumentChange change)
+        {
+            if(change.Domains==MapChangeDomain.Selection)RefreshHierarchy();
+        }
         private void RefreshHierarchy(bool force=false)
         {
             if(_document==null)return;_refreshing=true;
@@ -102,7 +106,8 @@ namespace MphRead.Mods.Launcher.Gui
                     _hierarchy.ItemsSource=rows;
                 }
                 _hierarchy.SelectedItems?.Clear();
-                foreach(var row in rows.Where(row=>row.Object!=null&&_document.Selection.Contains(row.Object.Id)))
+                var hostedRows=_hierarchy.ItemsSource as IEnumerable<HierarchyRow> ?? rows;
+                foreach(var row in hostedRows.Where(row=>row.Object!=null&&_document.Selection.Contains(row.Object.Id)))
                     _hierarchy.SelectedItems?.Add(row);
             }
             finally{_refreshing=false;}

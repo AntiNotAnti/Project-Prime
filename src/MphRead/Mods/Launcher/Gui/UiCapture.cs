@@ -167,9 +167,11 @@ namespace MphRead.Mods.Launcher.Gui
                 new PlayWorkspace(HubBrowserSample()), _phonePortrait);
             yield return ("multiplayer-phone-landscape",
                 new PlayWorkspace(HubBrowserSample()), _phoneLandscape);
+#if !ANDROID
             yield return ("map-editor",
                 new MapStudioScreen(),
                 _windowSize);
+#endif
             // Every face of the one screen that replaced seven. They share a
             // layout and nothing else -- the list, the settings beside it and
             // the word on the tick are different on each -- so one picture of

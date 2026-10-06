@@ -9,7 +9,7 @@ namespace MphRead.Mods.MapGen;
 public static class MapRuntimeUsage
 {
     internal static readonly object Gate = new();
-    private static readonly List<(WeakReference<Scene> Scene, string Room, MapPublicationLease Lease)> Readers = new();
+    private static readonly List<(WeakReference<Scene> Scene, string Room, string Identity, MapPublicationLease Lease)> Readers = new();
     private static readonly Dictionary<string, int> Preparations = new(StringComparer.OrdinalIgnoreCase);
     // Policy-only tools can exercise ownership before extracted game paths exist.
     // Actual publication still requires its configured runtime root.
@@ -48,10 +48,19 @@ public static class MapRuntimeUsage
     {
         lock (Gate)
         {
-            Release(scene);
-            if (StudioReplay.StudioReplayResources.Current?.Room(room) != null) return;
-            var lease = MapPublicationLease.AcquireReader(LeaseRuntimeRoot, CustomRooms.RuntimeNamespace, room);
-            Readers.Add((new(scene), room, lease));
+            if (StudioReplay.StudioReplayResources.Current?.Room(room) != null) { RemoveReaders(scene); return; }
+            string root = LeaseRuntimeRoot, runtimeNamespace = CustomRooms.RuntimeNamespace;
+            string identity = MapPublicationLease.CanonicalizeRuntimeDirectory(root) + "\0" + runtimeNamespace.ToUpperInvariant();
+            RemoveReaders();
+            foreach (var reader in Readers)
+                if (reader.Scene.TryGetTarget(out var existing) && ReferenceEquals(existing, scene)
+                    && reader.Room.Equals(room, StringComparison.OrdinalIgnoreCase) && reader.Identity == identity) return;
+            // A scene transition first owns its new source. Failed admission
+            // leaves the current room's lease intact; repeated same-room Setup
+            // never opens a release/reacquire gap between collision and model.
+            var lease = MapPublicationLease.AcquireReader(root, runtimeNamespace, room);
+            try { RemoveReaders(scene); Readers.Add((new(scene), room, identity, lease)); }
+            catch { lease.Dispose(); throw; }
         }
     }
     internal static void Release(Scene scene)

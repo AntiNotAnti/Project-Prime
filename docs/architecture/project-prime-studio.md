@@ -1,267 +1,356 @@
 # Project Prime Studio architecture and migration
 
 Reviewed baseline: `fcf311ccfc2031a07598860295db03eea330ff6e` (`main`),
-October 6, 2026. The checkout was clean before this work. The source tree and
-executable checks remain authoritative over this plan and older audits.
+October 6, 2026. The checkout was clean before migration. Current source and
+executable checks take precedence over historical architecture plans.
 
-## Current migration status
+## Current status and acceptance
 
-The independent desktop application is implemented and editor/service extraction
-is underway. Existing embedded editors remain available until standalone
-acceptance gates pass. Source-inspection placeholders identify their incomplete
-host and expose `CanSave=false`; real authoring hosts derive save/dirty state from
-the canonical document. Opening a path alone is not evidence of replay playback
-or full authoring parity.
+`ProjectPrimeStudio` is an independent Avalonia Desktop executable using the same
+canonical engine, map compiler/package implementation and private replay player
+as `ProjectPrime`. Normal game creator routes launch Studio. The game retains
+Theatre and a lightweight quick replay viewer. The original embedded Map host
+remains only for the explicitly retained viewport/UI diagnostic oracles.
 
-| Phase | Scope | Acceptance gate | Current status |
-| --- | --- | --- | --- |
-| 0 | Baseline and architecture contracts | Original map/replay checks, recorded captures/hashes/measurements, source contracts | Source inspection and contracts added; executable evidence recorded below |
-| 1 | Independent desktop executable | Start game/Studio in either order; duplicate game rejected; duplicate Studio forwards; independent shutdown | 118 native macOS game/editor integration checks passed; remaining desktop platform acceptance pending |
-| 2 | Shared shell | Asset-free home, recent paths, workspace documents, commands, dock layout, jobs, clean shutdown | 682 headless shell/Map/Replay, native Home and full default native Replay 139 checks passed; remaining enhanced workflows and platform acceptance pending |
-| 3 | Map extraction and decomposition | Same `MapDocument`, open/save/recovery/history/import/modeling/UV/materials/build/package/Community/four-view parity | Canonical document UI workflows, 114 native Map lifecycle/render and 118 native game/editor integration checks passed; Community and remaining enhanced editor acceptance pending |
-| 4 | Cross-process publication | Game holds a map lease; Studio install cannot change files; retry after release installs exact package hash | 53 independent-process fixtures pass, including isolated private Replay readers; native game/editor 118 also proves live-scene publication rejection, unchanged runtime bytes and exact stop/rebuild/restart |
-| 5 | Game/Studio IPC | Versioned authenticated current-user endpoint; failure/reconnect/cancellation/duplicate-ID checks | 60 authenticated IPC, 34 canonical broker and 118 native game/editor integration assertions passed; remaining platform acceptance pending |
-| 6 | External map playtest | Unsaved map packaged privately; exact identity verified; Studio selection/history/layout survive; stale response rejected | 118 native game/editor integration checks passed, including dirty canonical document retention, exact new-package restart, stale stop rejection and independent crashes |
-| 7 | Replay extraction | Private `PassiveReplayPlayer`, deterministic seeks, clips, cameras, diagnostics, export, historical custom-map identity | 94 headless and full default native 139 assertions passed; camera/source binding, v5 persistence and final bounded private-cache retention acceptance pending |
-| 8 | Replay presentation host | Explicit update/render/resize/dispose lifecycle; unpublished failure leaves current document/world intact | Native 139 proves HUD, one-clock multiview, three-hash retry and continuing Save As viewport; additional stale-fourth-view cleanup/resource edge pending |
-| 9 | Dedicated Studio renderer | Shared modern backend, retained editor resources, DPI contract, resource release and picking parity | 34 retained GPU/M2/picking/device-loss, 114 native Map lifecycle and 97 dense-redraw checks passed; complete native 1440p frame timing acceptance pending |
-| 10 | Map enhancements | Reviewed panels/workflows, GPU picking, import/build diagnostics and measured dense-map behavior | Canonical panels, native ID picking and retained metrics implemented; dense-map and native parity acceptance pending |
-| 11 | Replay enhancements | Synchronized multiview, camera curve graph, annotations, export queue and audio ownership | Session-owned views, camera/annotation/export facade and tools implemented; feature/export/audio acceptance pending |
-| 12 | Shared creator enhancements | Multiple documents, layouts, asset/source browser, command palette, recovery and diagnostics | Source-backed search, configurable commands and measured diagnostic HUD implemented; native modes/HUD 116 passed; final document-scoped diagnostics and editor acceptance pending |
-| Release | Packaging/updater/associations | Windows/Linux/macOS packages and compatibility checks; Android excludes Studio | Paired metadata/lifetime guards and 85 updater checks pass locally; earlier Android Release APK passed, final source/APK rerun pending; desktop platform CI/release acceptance pending |
-| Cleanup | Remove legacy embedded routes | All standalone map/replay acceptance gates proven first | Deferred |
-| Later | Optional selective shared assembly extraction | Small compiler-enforced boundaries without namespace/engine rewrite | Optional follow-up after migration acceptance |
+Local macOS acceptance proves native Map rendering, real external playtests,
+private Replay playback and synchronized presentation, native modal ownership,
+loaded creator controls and detached native video export. The entire migration
+is not yet declared complete: Windows/Linux/macOS CI must finish against the final source checkpoint. Central jobs, cancellation, curve selection, Android APK exclusion/signature
+and paired macOS publish/sign/extract acceptance now pass.
+Assembly extraction and file associations are optional.
 
-## Product and process boundaries
+| Phase | Implemented boundary | Recorded acceptance and remaining gate |
+| --- | --- | --- |
+| 0 | Frozen baseline, captures/hashes, measurements and executable contracts | Original map/replay suites, five exact-baseline native Game startup/memory samples and five matching final-jobs Game samples recorded. Original Retina viewport assertion failure retained; corrected production oracle passes 48 on current source. |
+| 1 | Independent executable, installation/user single instance, request forwarding and lifetime | Native game/Studio integration 118, IPC 60 and real client-guard process checks 11 pass on macOS. Paired macOS publish/sign/extract passes; final three-OS CI pending. |
+| 2 | Asset-free Home, documents, commands, docking/floating panels, persistence and jobs | Loaded headless UI 824 and native owned dialogs 122 pass, including central expensive-action jobs, true cancellation/drain, source-wait ownership and adoption guards. |
+| 3 | Canonical Map document and decomposed shared panels behind native host services | Map lifecycle/render 114, loaded UI 824, native modals 122 and real game/editor 118 pass. Actual failed native surface admission releases the unregistered handle and keeps canonical CPU editing available. |
+| 4 | Private Studio builds and game-owned exact package publication; all game runtime generation fenced | Canonical independent-process real-scene generation 114, publication/path 83 (86 on a case-sensitive filesystem), physical alias 17 and native game/editor 118 pass. |
+| 5 | Framework-only authenticated local protocol and bounded owner-thread game broker | IPC 60 and canonical broker 34 pass, including aliases, reconnect, rotated capabilities, cancellation, exact identity and narrow tickets. Remaining platform acceptance pending. |
+| 6 | Unsaved private package → exact external playtest → stop/edit/rebuild/restart | Native game/editor 118 passes with live-byte preservation, selection/history/layout retention, independent crashes and stale stop rejection. |
+| 7 | Per-document canonical private player, frozen sources, exact historical map resources, sidecars and lifetime pins | Standalone canonical Replay worker 72,624 plus parent lifecycle 94 pass; full native Replay 158 passes, including central seek cancellation and exact checkpoint/scene preservation. |
+| 8 | Explicit native presentation host, one session clock, view/device generation lifetime and retry | Native Replay 158 proves default HUD, two POVs, four cameras, 1×/2× timing, retry hashes, continuing clip Save As and stale-fourth-view recovery/cleanup. Full-graph hashes compare the same explicitly presented phase. |
+| 9 | Direct retained creator render world/graph, native surfaces, integer ID/depth picking and shared backend | Metal renderer 42 with evidence output, native Map 114 and dense redraw 97 pass. Exact 1440p offscreen renderer submission measured; end-to-end 1440p frame/GPU timing remains unmeasured. |
+| 10 | Map workspace, viewport modes, modeling, prefabs, assets, analysis, structural diff and restart authoring loop | Canonical modeling 121, prefab/diff 70, renderer 42 and loaded UI 824 pass. Cooperative topology/modifier cancellation preserves source, history and failed adoption. |
+| 11 | Replay tracks/curves, multiview, combat/analytics/comparison, offline audio, exports and portable/diagnostic bundles | Canonical Replay 72,624, native Replay 158 and export components 1,142 pass. Loaded UI 824 proves true two-dimensional key box selection, Speed-channel gestures and central action jobs. |
+| 12 | Studio Home/session recovery, search, configurable hotkeys and measured diagnostic HUD | Loaded UI 824, collector 18 and native modes/owned HUD 119 pass, including second/released/lost document attribution. GPU time is explicitly unavailable. |
+| Cleanup | External game creator routes; full in-game Replay editor and editor-only UiSurface sizing removed | Source contracts and original player UI regression pass. Retained diagnostic Map adapter is intentional; normal routes launch Studio. |
+| Release | Paired desktop metadata, installation leases and updater compatibility; Android runtime only | Updater 85, final server Release and actual paired macOS publish/sign/extract pass. Final signed Android development APK passes both ABI/native payload/extracted assembly exclusion checks. Final three-OS CI pending. |
+| Later | Selective shared assembly extraction and optional file associations | Optional follow-up; no giant namespace/engine rewrite is required. |
 
-`ProjectPrime` owns gameplay, network sessions, lobby/Community browsing, Theatre
-and quick replay viewing. `ProjectPrimeStudio` owns the Avalonia Desktop creator
-window, authoring workspaces, timeline/camera tools, background jobs and recovery.
-Both consume one authoritative engine, map compiler/package implementation,
-replay format and simulation. The `MphRead` root namespace remains unchanged.
+## Product and process ownership
 
 ```text
 ProjectPrime                          ProjectPrimeStudio
-  game shell                           Avalonia Desktop lifetime
-  live sessions                        creator documents and jobs
-  lightweight Theatre                  map/replay presentation owners
-  runtime map publication              private build/cache/staging
-          |                                   |
-          +--- authenticated local IPC -------+
-                        |
-             immutable package + exact hashes
+  player shell                          Avalonia Desktop lifetime
+  gameplay/network sessions             creator documents and jobs
+  Theatre / quick replay viewer          Map / Replay native viewports
+  runtime map publication                private build/cache/staging
+          |                                    |
+          +---- authenticated local IPC -------+
+                  immutable files + exact hashes
 ```
 
-Studio may consume the canonical `MphRead` project while the process boundary is
-established. A game assembly reference is not permission to acquire the game shell
-or a live session. The small `ProjectPrime.Studio.Protocol` project remains
-framework-only and can be shared without introducing UI, engine ownership or a
-gameplay socket. Its one external source link compiles the same internal,
-BCL-only `DesktopInstallationIdentity.cs` helper into both assemblies; it does
-not introduce an engine assembly dependency. Host/service extraction exposes existing implementations through
-reviewed contracts; it must not copy the engine into Studio or add the game
-launcher as the creator application shell. Selective assembly extraction is an
-optional follow-up after process and host boundaries, feature parity, renderer
-separation and reduction of static ownership.
+The `MphRead` root namespace and one authoritative implementation remain intact.
+Studio references the canonical `MphRead` project and the small
+`ProjectPrime.Studio.Protocol` project. This follows the requested process-first
+sequence; it does not grant Studio game-window or live-session ownership.
 
-The Studio application starts through `StartWithClassicDesktopLifetime`; its
-window belongs to Avalonia. It may later host native GPU viewport surfaces with
-explicit owners. It must never call `Shell.Run`, embed `UiSurface`/`UiTopLevel`,
-use `RenderWindow` as its application shell or start a live `NetSession`.
+Studio starts through `StartWithClassicDesktopLifetime`. Avalonia owns its
+application window and child graphics surfaces. Studio cannot use `Shell.Run`,
+`UiSurface`, `UiTopLevel`, `PrimeShell`, `StartScreen`, `RenderWindow` as an
+application shell, `DemoPlayback`, `ReplayController`, `NetSession` or
+`NetHostSession`. The game cannot reference the Studio executable/presentation.
 
-The map presentation contract distinguishes native `Present` from explicit
-offscreen image rendering. The normal `IStudioNativeMapPresentation` path draws
-retained meshes into the Studio-owned native surface and uploads CPU-authoritative
-editor overlays; it does not read the GPU world back into Avalonia's bitmap.
-Image-returning `Render` remains available for captures/fallback hosts. Runtime
-acceptance must verify normal-frame `ReadbackBytes=0`, mesh reuse for camera/
-selection changes, pixel/DPI agreement, picking parity and explicit resource
-release; source presence alone does not establish those results.
+The protocol remains framework-only, with no engine/UI assembly or package
+references. Its one external source link is the exact internal BCL-only
+`MphRead/Mods/Update/DesktopInstallationIdentity.cs`. Both assemblies compile the
+same canonical directory-alias and paired macOS installation rules from that
+file. Roles remain distinct, so game and Studio endpoints cannot collide.
+Independent fixture tools may link exact production sources without adding those
+links to either application; fixture substitutes establish only their explicitly
+stated contract.
 
-## Existing ownership that must be preserved
+Gameplay remains fixed at 60 Hz and independent of rendering. Studio IPC version
+1 is separate from the existing gameplay protocol 42. Studio migration does not
+change network protocol, combat authority, replay format compatibility, killcam
+ownership or immutable package identity.
 
-### Map authoring and compilation
+## Map authoring, jobs and publication
 
-The authoring source of truth is the existing
-[`MapDocument`](../../src/MphRead/Mods/MapEditor/MapDocument.cs). Dirty state uses
-saved/current state IDs; common edits retain bounded delta/coalesced history.
-Selection/camera/entity invalidation and retained viewport meshes are already
-implemented. Extraction must preserve these behaviors instead of reviving older
-serialization-based history or whole-map rebuild designs.
+[`MapDocument`](../../src/MphRead/Mods/MapEditor/MapDocument.cs) remains the
+source of truth. Dirty state uses saved/current state IDs; common edits preserve
+bounded delta/coalesced history, fine-grained invalidation and retained viewport
+caches. All preparation receives detached canonical snapshots. Failed operations
+leave document state, history, selection and the published world intact.
 
-[`MapBuildScheduler`](../../src/MphRead/Mods/MapGen/Build/MapBuildScheduler.cs)
-already accepts detached `MapBuildSnapshot` values, deduplicates bounded work,
-shares private compiled geometry, validates dependency fingerprints and publishes
-immutable disk cache entries under a cross-process `FileShare.None` cache lease.
-That cache lease is not a game runtime lease.
+The shared `MapStudio*` and `MapViewport*` controls are decomposed into hierarchy,
+inspector, geometry/modeling, UV, material, asset/source, navigation/gameplay,
+problems/build, prefab/diff and Community partials. `IMapStudioHostServices`
+injects native dialogs, immediate local file-drop paths, Community tickets,
+private output ownership, jobs, installation and playtests.
+`AvaloniaMapStudioHost` owns the canonical control/document lifecycle;
+`MapStudioDocument` exposes it to the desktop document host. Native dialogs are
+owned by the Avalonia application and preserve their scope through cancellation
+and shutdown. Source workers capture owner/document/revision/path context and
+reject stale or physically escaped adoption before history mutation.
 
-At the reviewed baseline, the embedded editor called `MapBuildScheduler.Publish`, which entered
-[`MapRuntimeUsage.Gate`](../../src/MphRead/Mods/MapGen/Project/MapRuntimeUsage.cs),
-requires installation to be allowed, invalidates prewarm and then installs.
-`MapRuntimeUsage` then tracked scenes/preparations in process memory and checked the live
-network session. A Studio process could not see those readers. Moving the same call
-into Studio would therefore create an unsafe publication path even though its
-current use inside ProjectPrime is correct.
+Studio builds under `<UserData>/studio/{build-cache,staging,playtest}`.
+`MapBuildScheduler` still deduplicates bounded detached builds, validates
+fingerprints and publishes immutable caches. `StudioPrivateMapRuntime` can
+publish canonical outputs only inside its physically resolved private root;
+constructor and immediate pre-publication checks reject game-root overlap,
+symlink escape and case-sensitive sibling escape. The renderer/compiler is not
+forked. Runtime packages preserve the exact `MapId`, `ContentHash`, `PackageHash`
+tuple; same-name replacement is forbidden.
 
-Studio builds under `<UserData>/studio/{build-cache,staging,playtest}` and produces
-portable immutable `.ppmap` archives. ProjectPrime alone validates and publishes
-archives into runtime directories used by ProjectPrime. Preserve the exact tuple
-`MapId`, `ContentHash`, `PackageHash`; a matching map name is insufficient. An
-OS-level publication lock keyed to installation/user complements the game's
-existing in-process usage fence. Broker regression checks must verify byte-for-
-byte unchanged active runtime files on rejected/deferred publication.
+ProjectPrime's `GameStudioBroker` prepares immutable packages off-thread and
+queues commit/launch on the bounded game-owner dispatcher. It verifies the
+prepared and installed exact identity. Studio does not publish game runtime
+files. Busy map ownership returns a deferred result. Playtest supports default,
+selected and team spawns and the current camera, without requiring Save or
+closing Studio. Restart builds a new package and scene; it does not patch a live
+collision/world simulation.
 
-Map presentation currently lives in `MapStudioScreen` partials, `MapViewport`
-partials and launcher controls. Their dependencies include overlays, foreground
-file-drop events, viewport GPU scheduling, launcher file dialogs and in-process
-playtest transitions. Extraction requires coherent workspace/panel owners and
-ordinary Avalonia dialogs/storage; copying the large screen unchanged does not
-satisfy the gate. Autosave/recovery must survive game, Studio, OS, playtest and
-renderer failures.
+`MapPublicationLease` complements the existing process-local `MapRuntimeUsage`
+gate. Keys include physical runtime root, runtime namespace and room. Scene and
+preparation owners acquire shared kernel leases; package commit and runtime
+publish require an immediate exclusive lease before any output changes. Unix
+uses `flock`, Windows uses `LockFileEx`; crash releases ownership. Acquisition
+precedes the first resource read. A failed runtime root/namespace switch retains
+the existing shared owner rather than exposing an already-live room.
 
-`IMapStudioHostServices` now separates the authoring control from modal/file-drop,
-Community-ticket, build publication, package installation, job and playtest
-services. `AvaloniaMapStudioHost` receives that service explicitly and owns the
-canonical control/document lifecycle; `MapStudioDocument` exposes it to the
-desktop shell. The embedded constructor and game services live in the exact
-legacy adapter listed below. This establishes a host boundary; reuse of the
-shared screen does not itself complete the requested panel decomposition or
-standalone feature-parity acceptance.
+Every generation entry point obeys this rule, including public `Install`,
+`Publish`, recipe/CLI generation, `GenerateMissing`/`GenerateIfNeeded` and raw
+`MapPacker` commits. `MapRuntimePublication` recognizes complete canonical game
+room/namespace output sets, rejects partial/mixed/cross-namespace/file-alias
+outputs and permits genuinely private compile destinations. Fenced public
+scheduler methods alone call private `InstallOwned`. Prewarm generates before
+acquiring its own shared lease, then revalidates the fingerprint and all output
+hashes under that lease before reading. This avoids attempting a writer upgrade
+under its own reader.
 
-### Replay playback and presentation
+The 114-check canonical generation fixture creates a real `SceneSetup.SetUpRoom`
+with generated fixture assets and decodes `RoomEntity` collision, models, entities
+and navigation. A separate writer exercises every generation route while the
+scene is alive: all six runtime files remain byte-identical. Release/retry matches
+privately compiled outputs; kill releases ownership; a poisoned collision barrier
+proves admission precedes reading. Ten thousand reader tracking operations against
+ten thousand exclusive attempts admit zero writers. Its before-fix run proves
+the actual bypass, rather than only a synthetic lock failure.
 
-[`PassiveReplayPlayer`](../../src/MphRead/Mods/Network/PassiveReplayPlayer.cs) is
-the canonical private playback owner. Its instance-owned reader/session/transport,
-replica scene, player/match/RNG state, mutable resources and checkpoint cache
-already exist. Production Studio playback and killcams already use it. There is
-no justification for replacing this architecture or adding live session ownership
-to creator UI. The standalone `MphRead.Mods.StudioReplay.StudioReplayPlayer`
-facade now owns this same player; `ReplayStudioSession` and
-`ReplayStudioDocument` own presentation and disposal per document. The facade
-does not use the foreground `DemoPlayback` or game shell.
+The separate publication fixture passes 83 checks on the ordinary filesystem and
+86 when repeated on an owned case-sensitive APFS volume. It covers exact-hash
+retry, crash release, private Replay room independence, canonical directory
+aliases and exact private runtime ownership. These are two runs of the same
+fixture, not additive totals. Its earlier ZIP/runtime fixture is not itself a
+decoded game scene. Seventeen additional physical alias helper assertions cover
+real case-variant sibling escape and alias cycles.
 
-[`ReplayPlaybackSession`](../../src/MphRead/Mods/Network/ReplayPlaybackSession.cs)
-belongs to a player/session instance. Foreground `DemoPlayback`, static analytics
-caches and the current global export queue are migration seams, not APIs for the
-new workspace to depend on. `ReplayStudioSession` owns one private player,
-camera/sidecar/annotations, presentation resources and cancellation/disposal path
-per document. Bounded reconstruction publishes a new scene only after success.
+Community publication retains the existing short-lived narrow `ppm1` ticket.
+Only a validated ticket crosses IPC. Studio cannot read stored Hunter License /
+Supabase access or refresh tokens. Without an authenticated game, Studio directs
+the user to sign in through ProjectPrime. Existing canonical Community service
+fixtures and injected dashboard/modal routes establish the local workflow; no
+live production credential or publication is required by these tests.
 
-Export uses the canonical player/sampler/encoder through persisted native worker
-processes. Each worker owns its private replay copy, Avalonia lifetime, graphics
-device and installation lease through graphics shutdown. The window coordinator
-observes at most two workers, exposes central job progress and sends an explicit
-persisted cancellation signal. Window shutdown detaches observers without
-cancelling export children; restart observes live statuses and resumes queued
-tickets without starting duplicate writers. The reduced native worker gate now
-proves actual encoder/cancellation and document/window-close behavior; the full
-default native Replay gate now also proves HUD pixels, synchronized multiview and
-continuing clip presentation. Later camera/source binding and cache retention
-acceptance remains separate.
-The focused component checker uses FFmpeg testsrc fixture pixels, separately
-from native replay viewport captures.
+## Replay ownership, camera state and caches
 
-`StudioReplayBundles` materializes the canonical replay and records its exact
-SHA-256, historical map/room/content/package identity, camera keys, reel and
-annotations. Import checks the frozen identity before rebinding sidecars. A
-same-name room is not a replacement for the recorded package identity.
+[`PassiveReplayPlayer`](../../src/MphRead/Mods/Network/PassiveReplayPlayer.cs)
+remains the canonical private player. Reader/session/transport, replica scene,
+players/match/RNG, mutable resources and checkpoint caches belong to the player.
+`StudioReplayPlayer` owns this implementation; `ReplayStudioSession` and
+`ReplayStudioDocument` own presentation, authoring and disposal per document.
+They do not use the game foreground facade or open a live gameplay socket.
 
-Keep existing supported replay adapters, durable checkpoint fallback, frozen clip
-leases, killcam isolation and exact custom-map identity. Gameplay remains fixed at
-60 Hz. Export at 120/144 FPS samples fractional presentation time; it must not
-increase gameplay stepping frequency or advance authoritative combat.
+Seeking uses the existing bounded canonical reconstruction and publishes a new
+candidate scene only after successful preparation. Owner updates remain bounded
+to 120 fixed steps and a time budget. All four native views render the same
+simulation/presentation frame from one session clock; individual viewport timers
+do not advance simulation. The presentation host receives camera/output/HUD
+policy explicitly, binds the correct native generation and retains document,
+camera/annotation state and hashes across recoverable presentation failure.
 
-## Local integration contracts
+Source preparation captures immutable exact bytes and a retained SHA-256 off the
+UI thread. Evidence/report UI uses that frozen hash. Nested evidence DTOs are
+validated for nulls, counts, identities/enums and finite data before adoption.
+Portable bundles carry exact replay and historical custom-map package identity;
+import verifies it before rebinding sidecars. Same room/name/latest package is
+never substituted. Private historical resources are scoped and do not register
+a game-global reader lease for the same room.
 
-Studio single-instance coordination is distinct from the game's existing
-interactive-client guard. Scope it to installation/user, hold ownership through
-shutdown, and forward map/replay/clip/recovery requests to the owning Studio. A
-second process must receive an acknowledgment or a useful error; it may not
-silently discard the requested document. Game and Studio windows have independent
-lifetimes and crashes.
+Camera v5 persists the canonical window evaluator and bounded opaque state,
+preserving exact fractional crop/nested-window paths and subsequent key edits.
+Clip/project descriptors retain durable original source references with optional
+exact `SourceContentHash`; worker preparation rejects replaced bytes. Save As
+does not introduce an ephemeral snapshot dependency. Sidecar writes are queued,
+immutable and cancellation-aware, with guarded owner adoption, explicit Discard
+and awaited Save/Close. The replay recording remains immutable.
 
-The game updater's installation lease and local IPC endpoint use the same
-canonical installation identity helper. It resolves directory aliases and
-paired macOS bundle parent directories before platform case normalization.
-The Protocol project compiles only that exact BCL path helper; role-specific
-game and Studio endpoints remain separate. The current IPC fixture passes 60
-checks, including real symlink forwarding, paired bundle identity, delayed
-startup, stale endpoints and capability rotation.
+Source and exact-package shared cache pins are acquired before writer exclusivity
+ends, transferred to session ownership and released only on final disposal.
+Device deinitialization retains them. Preparation/disposal races release local
+pins/candidates instead of adopting a dead document. Managed retained owners let
+queued jobs survive document close without UI filesystem waits. Production
+`MapDiskCache.Pin/Prune` excludes active/queued owners, and process crash releases
+kernel pins. Pruning is detached and cancellation-aware: source budget 512 MiB /
+7 days, package/runtime 2 GiB / 30 days, descriptors 64 MiB / 7 days. Active owners
+may exceed nominal budgets; they cannot be evicted to satisfy a byte target.
 
-The game/Studio IPC version is separate from `NetConfig.ProtocolVersion`. Use a
-current-user named pipe or equivalent Unix local endpoint, bounded length-prefixed
-messages, a cryptographically random launch secret, explicit version handshake,
-request IDs and cancellation. Do not add localhost HTTP/TCP listeners. Large
-content moves as immutable files plus identity hashes. Reconnect/disappearance,
-duplicate IDs, oversized/malformed messages and stale playtest results must have
-tests before the game broker is accepted.
+## Creator rendering and diagnostics
 
-The game-owned `GameStudioBroker` prepares packages on workers and dispatches
-commit/launch mutations to `GameStudioIntegration`'s bounded game-owner queue.
-It verifies prepared identity and the installed exact identity, reports busy
-publication as deferred and validates `ppm1.` before returning a Community
-ticket. Game/Studio sources share the framework-only local pipe implementation;
-Studio cannot instantiate the privileged game broker in its own process.
+The Map path uses `StudioRenderDevice`, `StudioRenderSurface`, retained
+`EditorRenderWorld` resources, `ViewportRenderGraph` and integer ID/depth picking,
+reusing the existing modern backend/material/PBR/device recovery. Geometry
+changes upload the affected retained resources. Camera/selection changes reuse
+those resources, including across four viewports. CPU triangle picking remains
+a fallback and parity oracle. GPU click picking reads one pixel.
 
-`MapPublicationLease` keys durable lock files to canonical runtime root,
-runtime namespace and room identity. Preparation/live scene owners hold shared
-OS leases; `MapPackageInstaller.Commit` and `MapBuildScheduler.Publish` acquire
-an immediate exclusive lease before replacing package/runtime outputs. Unix uses
-`flock`, Windows uses `LockFileEx`; owner crash releases kernel leases. Existing
-`MapRuntimeUsage.Gate` and installation checks remain. The
-`tools/map-publication-check` fixture exercises independent readers/publishers,
-unchanged rejected outputs, release/retry, crash release, case/symlink identity
-and runtime namespaces. Its 53 passing assertions use deterministic ZIP/runtime
-fixture files and the actual fence/file publication implementation. The added
-private Replay scope fixture opens and hashes historical payload bytes in a
-separate process while same-room game publication succeeds. Ordinary game reader
-deferral and exact-hash retry remain covered. The fixture does not claim decoded
-game `.ppmap` or live-scene acceptance; its log is
-`/tmp/project-prime-map-publication-private.log`.
+Normal `IStudioNativeMapPresentation.Present` renders into an Avalonia-owned
+native child surface and uploads canonical CPU overlay pixels. It performs no
+world GPU readback (`ReadbackBytes=0`). Image-returning capture APIs are explicit
+separate operations. Source contracts prohibit readback in the normal native
+Map graph, and actual native tests assert counters and final-close release.
 
-Community publication continues using the existing narrow, short-lived `ppm1`
-ticket. Raw Hunter License/Supabase refresh/access credentials do not cross Studio
-IPC or go to the Community map service. Studio IPC changes do not justify a
-gameplay network protocol bump.
+M2 implements PBR, lighting/shadows/fog, collision modes/heat/terrain, navigation,
+spawn/pickup/jump, kill-plane/partition, overdraw, wireframe, texel-density and
+material-ID views. The native modal proof includes a GPU preview beside a short,
+scrolled native dialog; headless blank viewports are not native pixel evidence.
 
-## Executable source contracts
+The performance HUD reads document-scoped immutable renderer reports, canonical
+Replay timing/checkpoint state, the selected map scheduler and actual Studio jobs.
+It samples only while visible, never allocates a device just to display metrics,
+and releases providers/timers. Its owned native window does not shrink a viewport.
+Map metrics become unavailable after world release, generation loss or before
+that document renders. Replay timing belongs to that document's player.
+
+“Renderer CPU submission” measures retained graph preparation, uploads, queue
+submission and native surface presentation. It excludes preceding canonical CPU
+overlay rasterization and GPU completion. “Submitted primitives” counts main-pass
+triangles/lines and the native overlay triangle; it excludes shadow passes and
+does not count final visible pixels. Draw/batch counts are submitted material
+parts. Geometry upload bytes are cumulative actual retained vertex writes;
+resident geometry includes uniform storage. Pick readback and normal frame
+readback are distinct. GPU timestamp timing, Replay GPU counts and checkpoint
+capture timing remain explicitly unavailable where not measured.
+
+## Map and Replay enhancements
+
+The existing CSG/topology/UV/material compiler remains authoritative.
+`MapModelingEnhancements` creates detached validated proposals for proportional
+falloff, quad ring cuts, shared-vertex plane knife cuts, segmented boundary bridges,
+Coons grid caps, constant-width planar inset, manifold endpoint-fan bevel and
+ordered mirror/array evaluation. Closed inputs remain closed and consistently
+wound. Explicit geometry limits remain: loops cannot cross poles; bridges need
+equal corner counts; grid fill/inset require convex planar boundaries; mirror
+source lies on one side of its plane. Unsupported topology rejects before mutation.
+
+`MapMesh.ModifierSource` retains one self-contained original and at most 32 typed
+modifiers, bounded by the canonical 65,535 mesh limits. Repeated stack edits reuse
+the original, preserve the current object's ID/transform and cannot recurse.
+Project/build snapshots retain provenance; runtime geometry is the evaluated
+canonical mesh. Raw topology/UV/face painting requires explicit Bake.
+
+Canonical prefabs have stable source/member/material identity, revision, transform,
+overrides, update and detach. Prepared adoption captures state and Save As context,
+stages assets privately and rejects stale/type-incompatible edits before mutation.
+Runtime packages resolve objects/resources without requiring external prefab
+sources. Structural diff compares typed objects, materials, gameplay resources,
+navigation, environment and prefab state. Asset/source panels provide previews,
+search/tags/usage, physical source context, drag/import/reimport/reference changes.
+Gameplay diagnostics and navigation/spawn actions leave authored state/history
+unchanged. The live authoring loop packages changed content and restarts externally.
+
+Replay has tracks/ranges/markers/annotations, camera curves/tangents/FOV/roll/path
+visualization, synchronized POV/free/target/overview views, recorded combat facts
+and shooter/authority comparison, world/projection heatmaps with filters, and
+build/replay evidence comparison. Diagnostic output redacts secrets. Review found that key box selection filtered time/X only. The owning UI batch
+now adds vertical bounds and must pass actual gesture/cancellation tests before
+its integration is accepted.
+
+All expensive creator operations must be observable and cancellable through
+`StudioJobManager`. Builds, opens/preparation, exports and existing canonical jobs
+already use it. Review identified private thumbnail/Q3 preparation and direct
+Replay analysis/extract/portable/diagnostic/report actions, plus bounded seek
+observation, outside that central presentation. Their central-job integration is implemented and awaits final workflow acceptance;
+canonical simulation remains on its bounded owner update. Modeling proposals accept
+the central job cancellation token and check it throughout topology/modifier loops,
+in addition to guarded adoption. The 121-assertion canonical gate includes deterministic in-progress cancellation
+after the first complete modifier, matching token, byte-exact source preservation
+and unchanged live document/history; cancelled work cannot publish a late proposal. Completed/cancelled jobs have bounded history and shutdown
+drains owners.
+
+## Export process and update ownership
+
+The window owns `ReplayExportWorkerCoordinator`; canonical player/sampler/audio/
+encoder jobs run in child Studio worker processes. Each child owns its private
+replay source/resources, Avalonia/native device and installation lifetime through
+graphics shutdown. At most two actual live workers are admitted using PID plus
+kernel process start time. Persisted queued tickets and statuses survive restart;
+live statuses reserve capacity before new queued work launches, even after 256
+completed history entries. Deep malformed/null/oversized tickets fail closed.
+
+Cancel uses a persisted explicit signal. Closing a document or the entire editor
+detaches observers and leaves admitted exports running; a new Studio observes
+status/resumes queued tickets without duplicate writers. Workers hold exact
+source/package/runtime pins and their installation lease until terminal cleanup.
+Encoder cleanup is idempotent. Bounded durable worker diagnostics survive parent
+pipe closure/exit. Final scratch directories are removed after ownership ends.
+
+Offline audio uses replay events and deterministic PCM/WAV mixing, including
+combat/game audio and optional music/volumes, without desktop audio capture.
+24/30/48/60/90/120/144 FPS and 720p/1080p/1440p/4K remain. Fractional sampling over
+60 Hz gameplay is canonical; extra exported frames do not advance simulation.
+
+`DesktopReleasePair` verifies paired compatible versions and owned release
+metadata. `InstallationLifetime` uses the same physical installation identity as
+IPC and holds a shared kernel lease for Game, Studio and export children. The
+updater needs exclusivity before changing any installed byte, reports both
+versions and rejects unpaired downgrades. Windows/Linux/macOS release jobs package
+both applications; Android retains compatible runtime/map/replay code and excludes
+Studio UI. Its shared-source glob explicitly removes desktop `MapStudio*`,
+`MapViewport*` and the exact native Map host services/facade. General Android
+capture helpers remain; only their embedded Map diagnostic is guarded out.
+Untrimmed assembly metadata, trimmed ABI assemblies and the actual APK are checked
+separately. Pure canonical MapEditor/MapGen and passive Replay code remain shared.
+Platform build/publish/sign/extract checks remain release gates.
+
+## Executable architecture contracts
 
 ```sh
 dotnet run --project tools/studio-architecture-check -c Release
 dotnet run --project tools/studio-architecture-check -c Release -- --self-test
 ```
 
-The [architecture checker](../../tools/studio-architecture-check/README.md)
-checks Studio and protocol sources and project dependencies. It blocks direct
-game shell/session owners, foreground replay facades, game runtime publication,
-Android targets/code, linked game presentation sources and game-to-Studio
-executable dependencies. Studio may reference only the canonical engine and
-protocol projects; the protocol cannot reference engine/UI projects or packages.
-There are no direct Studio-source exceptions for prohibited owners. Any
-engine-side migration adapter exception must record its exact source file,
-permitted symbol, purpose and removal gate, and cannot transfer game shell or
-live-session ownership into Studio.
+The [checker](../../tools/studio-architecture-check/README.md) scans Studio,
+Protocol and public engine facade/shared authoring sources. It rejects game shell,
+live session, foreground replay and direct game publication owners; Android code;
+external source links other than the exact BCL Protocol helper; and game-to-Studio
+presentation dependencies. Current source scan passes 8,121 contracts; 66 lexical/
+protocol self-tests include aliases, escaped names, comments/interpolation,
+constructor route negatives, exact identities, bounded frames and challenge/
+version/role-bound authentication. Android project negatives reject missing, commented
+or later reintroduced creator exclusions; capture negatives require the desktop
+Map diagnostic to be omitted while preserving general Android captures. Counts
+increase with source additions.
 
-| Exact compatibility source | Permitted dependency | Purpose and removal gate |
+Game source contracts reject normal embedded Map construction, the removed full
+`ReplayControlsView` and `StudioWindow`, and editor-only `UiSurface` factors.
+Legacy Studio dispatch precedes ordinary game-file setup. Publication contracts
+require writer acquisition before install/raw commits and generation-before-reader
+followed by validated prewarm. Normal Map present cannot read GPU world pixels.
+
+| Exact adapter/service | Permitted ownership | Reason and retention |
 | --- | --- | --- |
-| `src/MphRead/Mods/Launcher/Gui/MapStudioLegacyHost.cs` | `Shell`, `PrimeOverlayHost`, `LegacyMapStudioHostServices`, `CustomRooms`, `MapPackageInstaller`, `MapRuntimeUsage`, `MapBuildScheduler.Publish`, narrow `HunterLicenseClient` ticket methods | Embedded game editor drop events, overlay dialogs, narrow Community ticket acquisition and existing fenced publication. Standalone supplies `IMapStudioHostServices` through the native adapter and cannot instantiate this service. Remove after standalone parity and external creator-route acceptance. |
-| `src/MphRead/Mods/Launcher/Gui/MapViewportGpu.cs` | `UiSurface` | Existing embedded viewport invalidation/composition during renderer transition. Standalone owns its native graphics surface. Remove after replacement of embedded creator presentation is accepted; current runtime GPU diagnostics remain independent. |
-| `src/MphRead/AvaloniaShared/StudioPrivateMapRuntime.cs` | `MapBuildScheduler.Publish` with explicit private output directories | Publish canonical build outputs only under the Studio runtime root. Canonical/symlink-aware destination guards reject root equality, ancestor/descendant overlap, case aliases and escaped destination links; guards rerun before each publish. Studio UI cannot invoke publication directly. Retain the isolated-output service or extract it into the eventual map-core boundary after path-isolation regression acceptance. |
-| `src/MphRead/AvaloniaShared/StudioGameAssets.cs` | `CustomRooms.DeferInitialRegistration` only | Suppress inherited metadata static registration when initializing the authoring process. This does not grant catalog registration, installed-package mutation or publication; exact member access is checked. Replace this switch when metadata initialization becomes explicitly scoped. |
+| `MphRead/Mods/Launcher/Gui/MapStudioLegacyHost.cs` | Game overlays/drop, narrow ticket, existing fenced game publication | Diagnostic-only compatibility for `MapViewportCheck`, `UiCapture` and `-mapstudioshot`. Normal game routes cannot construct it; standalone native facade injects its own services. Retain while these original diagnostic oracles run. |
+| `MphRead/Mods/Launcher/Gui/MapViewportGpu.cs` | `UiSurface` | Original embedded viewport/composition diagnostic path. Standalone uses native retained presentation; this exception does not allow game-surface ownership in Studio. |
+| `MphRead/AvaloniaShared/StudioPrivateMapRuntime.cs` | Canonical `MapBuildScheduler.Publish` with private destinations | Exact physical-root and immediate destination guards; no game runtime output or low-level install permission. |
+| `MphRead/AvaloniaShared/StudioGameAssets.cs` | `CustomRooms.DeferInitialRegistration` only | Avoid inherited global catalog initialization in authoring process; no installed catalog mutation/publication permission. |
 
-All other shared `MapStudio*` and `MapViewport*` production files are audited,
-along with public `MphRead/AvaloniaShared`, `MphRead/Mods/StudioReplay` and
-`MphRead/Mods/StudioRendering` facades and exact modern renderer Studio extensions.
-The existing `MapViewportCheck.cs` is an in-game diagnostic, not a standalone host,
-and is retained as the baseline oracle. A new helper filename does not inherit
-an adapter exception. `StudioReplayPlayer` must directly own the canonical private
-player; foreground `DemoPlayback`/`ReplayController` cannot enter that facade.
-
-The checker is a lexical/project-source contract, not a C# semantic or IL audit;
-it does not evaluate arbitrary imported MSBuild targets. Runtime/editor parity
-and security still require their own tests. A passing empty Replay workspace
-does not prove private playback. Extend the adapter ownership contracts and
-deterministic fixture checks as actual editor hosts replace the placeholders.
+No Studio-source exceptions permit prohibited owners. New filenames do not
+inherit adapter permission. The checker is a lexical/project-source contract,
+not a semantic/IL audit or arbitrary MSBuild target evaluator. Runtime, security,
+UI, deterministic and platform tests remain independent gates.
 
 ## Baseline command inventory
 
@@ -328,295 +417,188 @@ the image or use the existing pixel checks rather than assume cross-driver byte
 identity. See the [replay command inventory](../../.claude/multiplayer/NETWORK-DEMOS.md)
 and [map authoring inventory](../../.claude/mapgen/MAP-STUDIO.md).
 
-## Measurement and evidence status
+## Recorded verification and measurements
 
-Historical measurements in
-[`replay-map-performance.md`](replay-map-performance.md) are prior engineering
-evidence, not fresh results at this baseline. The five measured native Home starts
-are below the requested 1.5 seconds. Loaded-editor startup and 60+ FPS at 1440p
-remain targets until measured.
+Native lifecycle totals include the shared 91 base assertions; optional native,
+Replay, Game and measurement branches run only when explicitly requested.
+A reduced worker-only run never certifies omitted HUD/camera/clip branches.
 
-Existing component measurement commands are:
-
-```sh
-dotnet run --project tools/map-editor-check -c Release -- --benchmark
-dotnet run --project tools/map-editor-check -c Release -- --map-benchmark
-dotnet run --project tools/map-editor-check -c Release -- --large-model-benchmark
-dotnet run --project src/MphRead/MphRead.csproj -c Release -- -replaybenchmark RECORDING.ppdemo -output /tmp/prime-replay-benchmark
-```
-
-`map-benchmark` reports strict package allocation/GC/RSS, catalog list latency and
-disk-cache cold/warm behavior. Replay benchmark writes inspectable JSON and
-indexed/unindexed local copies, checks equivalent gameplay hashes and measures
-seek work, CPU/allocation, timeline retention and private world memory. These are
-component costs, not end-to-end FPS or native/GPU memory totals.
-
-For the new application record cold/warm launch-to-usable-shell time, process RSS,
-managed retained memory, document-open/close deltas and GPU resource counters with
-OS, SDK/runtime, hardware, display scale, revision, fixture identity and warmup
-method. Use multiple runs and report median/tail values. Viewport acceptance
-tracks CPU/GPU frame time, draw calls, mesh/texture uploads and picking cost.
-Closing documents must release their resources; closing Studio must release all
-native owners on the correct thread.
-
-`StudioPerformanceHud` reads immutable renderer reports, canonical replay player
-performance/status, the selected map scheduler and the actual Studio job manager.
-Its optional owned native window does not resize a viewport. It samples every
-500 ms while attached and visible, releases providers on disposal and does not
-initialize a graphics device. Map reports belong to the selected document and
-return unavailable after resource release or device loss; Replay timings belong
-to that document's player. Map counters distinguish cumulative vertex upload bytes from
-resident vertex/uniform storage, frame readback from accumulated one-pixel picking
-readback, and submitted draw/batch/primitive counts. Map renderer CPU submission
-timing covers retained graph preparation, GPU uploads, submission and surface
-presentation; it excludes the preceding canonical CPU overlay rasterization and
-is labelled as a component measurement. Replay exposes actual nullable
-seek/advance/render times and checkpoint cache count/bytes. GPU timestamp timing,
-replay GPU counters and checkpoint capture timing remain explicitly unavailable
-where their canonical implementations do not measure them.
-
-The new canonical `MapModelingEnhancements` module proposes detached meshes for
-proportional falloff, uninterrupted quad-ring cuts, shared-vertex world-plane
-knife cuts, segmented boundary bridging, Coons grid caps, constant-width planar
-region inset, manifold endpoint-fan bevel and ordered mirror/array evaluation.
-The existing topology, validator, world transforms and geometry compiler remain
-authoritative. Closed input must remain closed and consistently wound; invalid
-input/output never commits a document history command. Restrictions are explicit:
-quad loops cannot cross poles, bridge loops need equal corner counts, grid caps
-and constant-width inset need convex planar boundaries, and mirror source must
-lie on one side of its local plane.
-
-Prefab authoring uses `MapPrefabMetadata`, `MapPrefabInstances` and the same
-`MapDocument` history/snapshot path. Source updates retain member/material identity
-and explicit overrides; incompatible local type changes require detaching before
-update. Worker preparation freezes document state plus file/base/source/bundle
-context, stages generated assets privately, and owner-thread adoption rejects
-stale state or Save As races before mutation. Runtime packages contain resolved
-objects/resources and remove external prefab provenance; compilation does not
-require the source prefab file. `MapStructuralDiff` compares typed canonical
-objects, materials, gameplay resources, navigation, environment and prefab state.
-The focused canonical fixtures pass 46 checks, including Save As context races,
-local type-conversion preservation and compiler/package independence after the
-prefab source disappears. Native prefab panel integration remains separate.
-
-`MapMesh.ModifierSource` stores resolved runtime geometry together with one
-self-contained original source and an ordered, typed modifier list. Repeated
-stack edits reevaluate that original and cannot form recursive provenance chains.
-The stack is bounded to 32 modifiers and the existing 65,535 vertex/face limits.
-Canonical project/build snapshots retain provenance; no parallel package identity
-or runtime compiler is introduced. Raw topology edits require an explicit bake.
-The fixture tool `tools/studio-modeling-check` tests actual compiler acceptance,
-closed winding, area/volume, corner UVs, source byte immutability, editable JSON
-provenance and real document undo/redo. Its 115 assertions pass against the actual
-canonical engine. They include convex and concave plane cuts, closed quad rings,
-bridging and grid caps, nonuniform-transform inset width, trivalent and
-four-valence bevel fans, pinched-vertex rejection, ordered/toggled/repeated
-modifier JSON, current object transform retention, snapshot provenance, failed
-operation history preservation and canonical face-paint rejection before stacked
-geometry/history changes. Native modeling UI acceptance remains separate.
-
-Loop, knife and bevel operations split all affected shared edges in one polygon
-pass. On this host, a measured 128-cube workload (1,024 source vertices, 1,536
-output vertices and 1,280 output faces) took 37.203 ms in the headless run and
-118.373 ms in the subsequent desktop-engine run, with 25,691,296 allocated bytes
-in both, after replacing repeated whole-mesh edge splits. The same fixture before
-that optimization took 302.227 ms and allocated 469,127,848 bytes. The fixture
-asserts its closed output volume and a 64 MiB allocation ceiling. This measures
-one detached modeling proposal; dense geometry and UI responsiveness require
-their own measurements and bounded, cancellable background adoption.
-
-The framework-only `tools/studio-diagnostics-check` compiles the actual collector,
-formatter and job manager. Its 18 assertions cover provider release over 1,000
-registration cycles, cancellation, immutable samples, bounded job history over
-80 real jobs and unknown timing values. On this host, 120 collection samples
-averaged 0.030 ms CPU and 7,264 allocated bytes per sample, with measured working
-set 48,758,784 bytes (`/tmp/project-prime-studio-diagnostics-final-labels.log`).
-This is collector overhead; it is not GPU or viewport FPS.
-Native rendering and UI tests must separately prove resource release and the
-reported renderer counters.
-
-| Evidence | Current verification status |
+| Evidence | Accepted scope and location |
 | --- | --- |
-| Baseline revision and initial clean checkout | Recorded above |
-| Architecture scanner | Current source scan passed; 46 scanner/protocol self-tests cover alias/static/method-group publication, nested interpolation, exact map identity, bounded paths/frames, challenge/version-bound authentication and the exact BCL-only Protocol source link; full scan rerun after each new host/broker boundary |
-| Original map/replay suites | Map editor 442; next pass 47; model import 65; collision 86; Community 84; runtime pass; renderer retention 12; replay timeline 43; replay format 2,962; replay controls pass |
-| Isolated map multiplayer acceptance | Passed after test HTTP-peer retry/cancellation harness repair; original timeout log retained separately |
-| Baseline map/replay UI captures | 35 original `-uishot` captures, including map/replay editor layouts; asset-backed replay presentation captures pending |
-| Baseline GPU viewport captures | 30 assertions passed and captures produced; original check fails at the toolbar composite assertion on macOS Retina (`MapViewportCheck.cs:181`); baseline gate remains failed |
-| Current game GPU viewport regression | 48 assertions passed after repairing the diagnostic's toolbar/overlay oracles against actual production composition; original failed baseline evidence remains retained |
-| Asset-backed deterministic reference hashes | Existing local fixture: 1,801 frames, 14 seeks, five rates and EOF/divergence checks passed; enriched reference recording saved |
-| End-to-end startup/memory/frame measurements | Five native Home samples: median 490.1517 ms, maximum 1,163.267 ms, median working set 182,403,072 bytes at logical 1280×800/native 2×; 20 distinct dense Map submissions have renderer CPU median 10.2702 ms/p95 11.8727 ms at actual 2560×1019 pixels; full 1440p CPU/GPU frame and loaded-editor startup distributions pending |
-| Studio desktop UI/lifecycle acceptance | 682 headless assertions pass, including the 462 shell/Map gates plus Replay marker/key search, Save As tab adoption, camera preferences, read-only world state, late cancellation, visible transport status and Map gameplay analysis/selection; 55 Replay-suite manifest captures and three additional gameplay captures reviewed; full default native Replay139 passed; remaining enhanced workflow/outliner acceptance pending |
-| Diagnostic collection ownership | 18 actual collector/job checks passed; native modes/owned HUD suite passed 116, including native ownership, measured counters, unchanged viewport allocation and sampling/provider release; new document-scoped/released metrics acceptance pending |
-| Retained Studio renderer | 34 real Metal/Apple M4 Pro checks passed including M2 modes; native Map114 proves one/four-view shared resources, zero normal readback and final-close resource counts zero; dense97 proves 20 distinct native submissions without geometry reuploads; offscreen 2560×1440 submission costs measured separately |
-| Current game replay regressions | Immutable current game snapshot passes 2,962 format checks, all replay-control groups, and the exact baseline reference's 1,801 frames/14 cold-cached seeks/five rates/EOF/divergence; full default standalone native Replay139 also passed |
-| Standalone Replay simulation | 94 headless assertions pass with two historical recordings, two isolated custom-map versions and portable identity; this does not prove native GPU presentation/export |
-| Enhanced canonical mesh modeling | 115 actual canonical-engine fixtures passed; two detached proposal runs measured 37.203/118.373 ms and 25,691,296 allocated bytes each; native modeling UI acceptance pending |
-| Replay export components | 1,130 assertions pass with actual FFmpeg 9 H.264/AAC child encoding, canonical sampler/PCM/WAV/portable ZIP, bounded worker cancellation/detach/restart/parent-exit logs, deep ticket validation and cross-process cache-pin/pruning fixtures; full default native Replay139 passes actual PNG/MP4, positive PCM, cancellation, document/window-close, renamed-source and installation-lease gates; final session retention acceptance pending |
-| Canonical prefab/diff and game broker components | 46 prefab/diff and 34 game-owner broker assertions passed; live native playtest acceptance remains separate |
-| Native game/editor integration | 118 checks passed with actual unsaved canonical Map, real game scene, exact package restart, unchanged active runtime bytes, dirty-close Cancel and independent crash/reconnect ownership |
-| Headless server build | M5 plus critical Replay repair Release `MphReadServer=true` build passed, zero errors and 38 existing warnings; Studio presentation remains excluded; final camera/retention source rerun pending |
-| Android build | Earlier Release APK passed with zero errors/140 warnings and signature verification; current arm64/x86_64 patched runtimes rebuilt and managed source exclusions repaired; final source/APK rerun pending latest Replay batch; device runtime acceptance remains separate |
-| Paired release/updater ownership | 85 updater assertions passed on macOS with net10 target override, including profile-independent coordination, IPC version labels, child Studio lifetime, unchanged blocked install bytes, crash release, exact paired versions and unpaired downgrade rejection |
+| Original canonical regressions | Map 442, next 47, model 65, collision 86, Community 84, runtime pass, renderer retention 12; complete multiplayer retry/cancellation/rotation; Replay timeline 43, format 2,962, control groups pass. Fresh immutable M5 logs `/tmp/project-prime-{map,replay}-*-m5.log`. |
+| Original native viewport oracle | Corrected current source 48 passes `/tmp/project-prime-mapviewport-m5.log`; original baseline toolbar/overlay failure and captures retained. |
+| Deterministic baseline recording | Exact local reference 1,801 frames, 14 cold/cached seeks, five rates and frozen EOF/divergence passes. Reference SHA/hash schema and exact historical identity retained. |
+| Current architecture | 66 self-tests and 8,121 source contracts; `/tmp/project-prime-studio-architecture-android-{self,scan,build}.log`, tool-only build zero warnings/errors. |
+| IPC / broker / updater | 60 IPC, 34 canonical broker, 85 paired update/lifetime assertions. Real endpoint aliases, capability rotation and owner cancellation covered. |
+| Real game/editor | Native 118 `/tmp/project-prime-host-native-game-final-lifetime.log`: dirty canonical map, real scene, both launch orders, exact restart, deferred publication, crash isolation and retained history/selection/layout. |
+| Canonical map generation | 114 `/tmp/project-prime-map-generation-live.log`; real decoded active scene, all generation routes, reader-before-read barrier, concurrent tracking and crash/retry. Failed original admission retained `/tmp/project-prime-map-generation-before-fix.log`. |
+| Publication / paths | 83 `/tmp/project-prime-private-runtime-ownership.log`; the same suite passes 86 on case-sensitive APFS `/tmp/project-prime-private-runtime-case-sensitive.log`. Separate physical alias checks 17 `/tmp/project-prime-raw-alias-case-sensitive.log`. Private history and active game ownership remain independent. |
+| Loaded creator UI | 824 `/tmp/project-prime-host-ui-final-lifetime.log`, captures `/tmp/project-prime-studio-ui-final-lifetime/`: all prior loaded texture/WAV/model/prefab/source/build/recovery/Replay assertions, independent animation owners, central action jobs, held-thumbnail cancel/drain/renewal, source waits, 2D curve selection and Speed gesture preservation. Headless viewports intentionally do not prove GPU pixels. |
+| Native owned dialogs | 122 `/tmp/project-prime-host-native-dialog-v5-scrolled-gpu.log`, `/tmp/project-prime-native-dialog-v5-scrolled-gpu-evidence/`: parent/child ownership, active viewport, owned cancellation, 300-DIP scrolled actions and explicit GPU preview. |
+| Canonical modeling / prefab | 121 `/tmp/project-prime-studio-modeling-cancellation.log`; prefab/diff 70 `/tmp/project-prime-map-prefab-v6.log`. Actual compiler/topology/provenance/history/Save As races are covered; broad native gesture claims require their own workflows. |
+| Canonical Replay | Worker 72,624 plus parent lifecycle 94 `/tmp/project-prime-final-seek-replay.log`. Two historical recordings and two isolated custom-map versions; cancellation/supersession retains exact scene, checkpoint payload hashes/count/bytes and original transport, and disposes abandoned allocated candidates. |
+| Full native Replay | 158 `/tmp/project-prime-host-native-replay-final-presented.log`, captures/JSON `/tmp/project-prime-native-replay-final-presented-evidence/`: default HUD/two POVs, one-clock four views at 1×/2×, seek/retry hashes, clip continuation, stale fourth generation, exact frozen v5 crop, pixel-equal worker frame, native PNG/MP4/PCM exports and central jobs. |
+| Export components | 1,142 `/tmp/project-prime-export-final-contract.log`: canonical sampling/audio/encoder/cache, actual FFmpeg 9/FFprobe, bounded children, cancellation/restart/parent exit, refcount pins and malformed ticket pruning. Fixture testsrc pixels are separate from native Replay pixels. |
+| Map native renderer | Retained Metal 42 `/tmp/project-prime-studio-gpu-picking-final-evidence.log` (41 without output), native Map 114, dense redraw 97. Real one/four-view shared uploads, ID/depth CPU parity, loss/recovery, final resource zero counts and bounded winning-triangle CPU refinement. |
+| Diagnostics | Collector/job 18 `/tmp/project-prime-studio-diagnostics-final-labels.log`; owned native modes/HUD 119 `/tmp/project-prime-host-native-map-final-scoped.log`, captures `/tmp/project-prime-native-map-final-scoped-evidence/`; second unrendered/released map and lost-generation metrics are unavailable, then current-generation presentation restores them. |
+| Native failed admission | Generic native lifecycle 118 `/tmp/project-prime-host-native-admission-final-lifetime.log`: eight actual C API rejection checks, created/released handle counts, zero live surfaces/worlds/targets, retained error and CPU edit/Undo/Discard. |
+| Native RmlUi overlay | 27 `/tmp/project-prime-rmlui-durable-native.log`: three physical layouts, native DOM keyboard/mouse exactly once, visible pixels and shutdown. This macOS GL overlay gate is distinct from the whole game menu. |
+| Server / Android | Final server Release zero errors/38 existing warnings `/tmp/project-prime-studio-server-final.log`. Final Android APK zero errors/137 warnings `/tmp/project-prime-studio-android-final-creator-excluded.log`; actual signed APK assembly-store extraction, creator exclusion, both pinned native ABIs and v2/v3 development signatures pass. |
+| Paired macOS package | Actual SDK self-contained osx-arm64 publish, strict ad hoc signatures, extraction, both executable versions 1.2.3/IPC 1 and extracted native smoke pass `/tmp/project-prime-paired-final-package.log`; archive 162,415,713 bytes, SHA-256 `33a28da60f4f16a829d9db74b688200aa5531d5470855f62776fcd2e9eeb0d72`. |
 
-Native lifecycle suite totals include the shared 91 CLI/persistence/document/job/
-process assertions. The additional native gates depend on the run's explicit
-arguments; a worker-only result does not include omitted HUD/multiview/clip gates.
+Native Replay 158 includes seven PNG frames, immediate prelaunch cancellation, an
+actual 25-frame FFmpeg video with measured stereo PCM and FFprobe, and document/
+whole-app closure while a child completes 121 frames after source rename. The
+child retains the installation lease until terminal state; scratch cleanup and
+durable bounded diagnostics pass. Stale fourth-view loss/recovery at frame 17
+preserves gameplay/presentation/full-graph hashes and releases surfaces 4→0,
+renderbuffers 1→0 and textures 94→2, where two textures are host baseline.
+Canonical/headless acceptance covers the exact fractional/nested camera matrix,
+source replacement refusal, session adoption/disposal pins and cancellation.
+The final return-to-frame-17 full-graph oracle explicitly draws both reference and
+returned scenes at 640×360 before comparing. The earlier unpresented/presented
+mismatch is retained and explained by named model matrices, animation and room
+render mode; simulation frame, RNG, decoder and cosmetics were unchanged. The
+matched presented phase has equal full-graph hashes and an empty field/component
+diff, without filtering fields or changing production code.
 
-The GPU toolbar assertion failed before gameplay/editor source changes in this
-work. Its capture shows the toolbar, but visual presence does not make the failed
-pixel assertion pass. The test's assumption that every RGB channel of the theme
-must exceed 20 was replaced by comparison against the actual Avalonia CPU
-raster: opaque flat toolbar pixels must contrast with the underlying geometry
-and match after composition. The corrected current-source check now passes all
-48 assertions; its log is `/tmp/project-prime-studio-mapviewport-final.log` and
-captures are in `/tmp/project-prime-studio-mapviewport-final/`. The original
-failure/capture remains a failed baseline gate.
+Earlier native invalid-uniform/default-HUD failures remain in
+`/tmp/project-prime-host-native-replay.log` and
+`/tmp/project-prime-host-native-replay-m5.log`. Their later full repaired gates
+replace those results; reduced native worker 113 is not substituted for them.
+Likewise the first 694×73 Map layout capture and repeated stale dense metric
+samples are retained failures, superseded by repaired current UI and twenty
+actual distinct rendered revisions.
 
-The fresh immutable M5 regression snapshot in
-`/tmp/project-prime-original-regressions-m5/` again passes Map editor 442, next
-pass 47, model import 65, collision 86, Community 84, portable runtime, complete
-map multiplayer acceptance, Replay timeline 43, format 2,962 and all replay
-control groups. Its map logs use `/tmp/project-prime-map-*-m5.log`, and Replay
-logs use `/tmp/project-prime-replay-*-m5.log`. Original native
-OpenGL viewport acceptance also passes 48 in `/tmp/project-prime-mapviewport-m5.log`.
-These original-domain gates remain distinct from the full standalone native
-Replay139 result and later camera/final cache-retention acceptance.
+Five native asset-free Studio Home starts have usable-shell median 490.1517 ms,
+maximum 1,163.267 ms and median working set 182,403,072 bytes at logical
+1280×800/native 2× (`/tmp/project-prime-native-startup.json`). The measured
+warm-cache process distribution is below the 1.5-second target. Loaded-editor
+startup and controlled cold-cache distributions remain unmeasured.
 
-The earlier integrated Map capture exposed a 694×73 viewport at logical
-1280×800 (`/tmp/project-prime-studio-ui-actual/map-studio-default-current.png`).
-The repaired current layout/UI suite now passes 462 assertions and native Map
-passes 114. Current UI captures are in `/tmp/project-prime-studio-ui-current/`;
-the expanded Replay UI suite passes 680 assertions with 55 manifest captures in
-`/tmp/project-prime-studio-ui-replay/`, recorded by
-`/tmp/project-prime-host-ui-replay.log`. Its replay viewport is intentionally
-blank in headless mode; these captures establish panel layout, not GPU pixels.
-Native Map output is `/tmp/project-prime-host-native-map.log`. The corrected
-dense gate passes 97 checks and samples 20 distinct rendered revisions (10–29),
-recorded in `/tmp/project-prime-native-dense-redraw.json` and
-`/tmp/project-prime-host-native-dense-redraw.log`. Its actual 2560×1019-pixel
-viewport at 2× contains 1,024 resident meshes and 1,025 draws. Renderer CPU
-submission has median 10.2702 ms, p95 11.8727 ms and maximum 19.7944 ms;
-cumulative geometry uploads remain 15,237,120 bytes and normal readback is zero.
-GPU time is unavailable. The window manager limited the requested 2560×1440
-viewport, and this component timing excludes preceding CPU overlay rasterization.
-It does not establish full-frame 1440p FPS. Earlier repeated samples of one
-cached submission remain invalid evidence.
+The corrected dense native Map sample contains 20 distinct revisions (10–29),
+1,024 resident meshes and 1,025 draws. Actual target is 2560×1019 pixels at 2×;
+the window manager clamped the requested 1440-pixel height. Renderer CPU submission
+median is 10.2702 ms, p95 11.8727 ms, maximum 19.7944 ms, with stable 15,237,120
+geometry upload bytes and zero normal readback (`/tmp/project-prime-native-dense-redraw.json`).
 
-The native Map modes/owned HUD suite passes 116 checks, recorded in
-`/tmp/project-prime-host-native-map-modes-hud.log`. The HUD has its own native
-window and owner, remains readable with the Inspector/Hierarchy hidden, and
-does not alter viewport bounds. Its capture and measured device/CPU/memory
-snapshot are in `/tmp/project-prime-native-map-modes-hud/`; hiding it releases
-sampling and providers. The HUD capture renders the actual owned Avalonia
-window separately from GPU viewport captures; it does not claim an OS composite
-screenshot. Document-scoped metrics and released/lost resource cases require
-the next coherent Studio snapshot.
+The separate 1,024-object exact 2560×1440 offscreen Metal test measures renderer
+CPU submission median 7.4885 ms, p95 9.3272 ms, maximum 13.0159 ms, 1,024 draws /
+12,288 triangles, resident geometry 18,792,448 bytes and cumulative vertex uploads
+16,760,832 bytes (`/tmp/project-prime-studio-final-picking-evidence/dense-1440p.json`).
+Eager retained wire/ID geometry explains upload size; it remains stable through
+camera changes. Neither submission distribution includes CPU overlay raster/GPU
+completion or establishes end-to-end 60+ FPS at 1440p. GPU timing is unavailable.
 
-Primitive counters describe CPU-visible triangles/lines submitted in the main
-pass, including the native fullscreen overlay triangle. They exclude shadow
-passes and do not count the final depth-tested visible pixels. Batch counts are
-actual draw submissions/material parts.
+A real detached modeling proposal on 128 cubes transforms 1,024 source vertices
+into 1,536 vertices / 1,280 faces with closed volume 1,024. Replacing repeated
+whole-mesh edge splitting reduced allocation from 469,127,848 to 25,691,296 bytes;
+measured proposal CPU was 37.203 ms headless and 118.373 ms desktop, compared with
+302.227 ms before optimization. The fixture asserts compiler/topology/volume and
+a 64 MiB allocation ceiling. This does not claim dense interactive modeling.
+Collector-only overhead is 0.030 ms / 7,264 allocated bytes per sample over 120
+samples; it is not a viewport/GPU measurement.
 
-The current retained renderer's 34-check gate includes a separate 1,024-object,
-2560×1440 offscreen target workload on Metal/Apple M4 Pro. Renderer CPU submission
-is median 7.829 ms, p95 12.5427 ms and maximum 19.7572 ms, recorded in
-`/tmp/project-prime-studio-render-evidence/dense-1440p.json`. Its normal readback
-remains zero; GPU time is unmeasured. This offscreen component test does not
-include native window presentation or canonical CPU overlay rasterization and
-does not establish end-to-end 1440p FPS.
+The original Game startup distribution was measured later by rebuilding an
+isolated exact Git archive of `fcf311ccfc2031a07598860295db03eea330ff6e`.
+All 2,005 tracked source blobs match the baseline; its resulting assembly has
+SHA-256 `f6c19ec15a71093497dceea30add566f45118939b850b0ab58794c76b5c9e9e6`.
+The unmodified production executable uses an external `DOTNET_STARTUP_HOOKS`
+observer. Five initially empty, independently owned profiles read existing AMHE1
+assets and close through normal Game Quit. At the first native presented frame,
+the observer submits Enter through production input; usable means a later
+post-presentation callback with the startup gate removed, a visible/enabled shell
+and closed overlays. Its stopwatch median is 1,244.7097 ms (range
+1,228.3426–1,279.3976 ms); first presented frame median is 838.53 ms. Parent
+process-launch observation, using 2 ms polling, has median 1,280.2915 ms (range
+1,269.4802–1,326.0576 ms). Working set, sampled before explicit pixel capture,
+has median 310,935,552 bytes (range 309,805,056–311,951,360 bytes). This measures
+OpenGL on Apple M4 Pro at logical 1280×768/native 2560×1536. It includes the
+24-frame reveal animation, excludes human reaction delay, disables the updater
+and does not flush filesystem/GPU caches. These are fresh processes rather than
+a controlled cold-cache distribution. Five actual GPU shell PNGs, observer
+source, source verification and build/process logs are retained under
+`artifacts/studio-baseline/fcf311c/startup/`; the baseline JSON records individual
+sample/capture hashes. The Studio Home and dense-render measurements use
+different workloads and are not a comparative game GPU-performance result.
 
-Standalone Replay94 is a headless canonical simulation gate, recorded in
-`/tmp/project-prime-host-replay-current.log`. The earlier native Replay snapshot
-failed with an invalid uniform location; the M5 default HUD check then failed
-its positive health/reticle-region pixel assertion. Those failures remain
-recorded in `/tmp/project-prime-host-native-replay.log` and
-`/tmp/project-prime-host-native-replay-m5.log`. A reduced native worker diagnostic
-passes 113 checks in `/tmp/project-prime-host-native-replay-m5-workers.log`,
-including actual MP4 encoding and document/whole-window closure. Its explicit
-Game HUD, four-view and clip omissions do not certify those default paths.
-The repaired full default native gate now passes 139 checks in
-`/tmp/project-prime-host-native-replay-cancel-fixed.log`, with GPU captures and
-clock/encoder evidence in `/tmp/project-prime-native-replay-cancel-fixed-evidence/`.
-It verifies positive default HUD health/reticle pixels, a second player POV,
-four camera views sharing one clock at two rates, read-only timer flags,
-nonzero-frame retry preserving all three semantic hashes and a continuing clip
-viewport after Save As. Native PNG/MP4 workers, positive PCM, actual FFprobe,
-explicit cancellation, document closure, whole-window closure,
-source rename and installation ownership also pass. The critical repair binds
-the scene shader before camera uniforms, composes the private replica's HUD
-without advancing gameplay and coordinates native generations and the single
-workspace clock. These results do not certify later v5 camera persistence,
-exact source binding, final cache-retention or stale-fourth-view cleanup cases.
-The replay owner repaired repeated `.ppclip`
-materialization through unique temporary extraction and retained immutable
-snapshots; reopen/retry/two-session tests must prove that change. Evidence now
-uses the retained source hash, avoiding a full source-file hash on the UI thread,
-and validates nested comparison DTOs before adoption. A further review found
-that Save As clips still reference the mutable logical source instead of the
-prepared immutable recording; source-replacement acceptance remains pending.
-The immutable recording snapshots and historical runtime directories require
-bounded age/byte retention with active session/export owners excluded. Shared
-cache pins and age/byte pruning primitives have been added; session adoption,
-queued/detached export handoff and independent-process eviction fixtures remain
-pending. Export's actual cache pin/prune and deep-descriptor fixtures now pass
-within the 1,130-check component suite in `/tmp/project-prime-export-retention.log`.
-Its contention fixture holds the real owner gate while UI job submission returns
-within 500 ms and queued cancellation interrupts within two seconds before a
-worker launches. Preparation-only cache locks do not establish session lifetime.
-These remain pending gates. Native game/editor integration now passes 118 checks
-in `/tmp/project-prime-host-native-game-expanded.log`, extending the earlier
-empty-Studio lifecycle check with real dirty canonical Map state/history/
-selection/layout retention, live-scene publication deferral and exact stop/edit/
-rebuild/restart identities. The five Home startup samples are
-in `/tmp/project-prime-native-startup.json`.
+Five matching Game samples now pass against the immutable final-jobs working tree
+graph, engine SHA-256
+`3823d127d2490a049383faf682b802e7e13a60bcc1f71372adddc82612d4aabf`.
+All children exit normally and reach the same interactivity/metadata gates at
+frame 25, with the same Enter input, assets, 1280×768/2560×1536 OpenGL window and pre-capture
+memory sampling. Builds and other native/headless fixtures were paused. A temporary
+owned display-awake assertion avoids the macOS idle-monitor GLFW failure without
+changing OS preferences. Filesystem/GPU caches remain warm and uncontrolled.
 
-Local output is retained under `artifacts/studio-baseline/fcf311c/`, with a
-`manifest.json` recording artifact SHA-256 and size. It includes suite logs,
-`ui/{map-editor,replay-studio}.png`, GPU viewport/preview/composite images and
-`reference-hashes.ppdemo`. These local artifacts are ignored by Git; durable
-review/CI evidence must archive them explicitly. The fresh measurement host was
-macOS 27.0 arm64, .NET SDK 10.0.100/runtime 10.0.0. Missing Block Fort import/texture
-inputs were reported during the local UI/replay commands; synthetic authoring
-fixtures and the selected replay determinism fixture completed independently.
-The tracked [baseline record](project-prime-studio-baseline.json) retains the
-revision, actual statuses, command log locations, reference replay hash and
-unmeasured items. It marks release acceptance false.
+| Same Game workload | Exact baseline median | Final-jobs median |
+| --- | ---: | ---: |
+| Observer start → usable presented shell | 1,244.7097 ms | 940.0855 ms |
+| Process spawn → observed measurement file (2 ms polling) | 1,280.2915 ms | 970.9797 ms |
+| First presented frame | 838.5300 ms | 749.1938 ms |
+| Pre-capture process working set | 310,935,552 bytes | 305,496,064 bytes |
 
-Current additional logs are `/tmp/project-prime-studio-modeling-optimized.log`,
-`/tmp/project-prime-studio-modeling-final.log`,
-`/tmp/project-prime-studio-server-m5-repaired.log`,
-`/tmp/project-prime-studio-server-build.log` and
-`/tmp/project-prime-studio-android-build-final.log`. The Android build produced
-`src/MphRead.Android/bin/Release/net10.0-android36.0/com.projectprime.game-Signed.apk`;
-APK inspection confirms both renderer ABIs and no separate Studio executable,
-`Avalonia.Desktop` or `Avalonia.Headless` entries. The evaluated Android source/
-project graph also excludes Studio presentation and desktop package references.
-The development APK signature passes `apksigner verify`; this is not a signed
-production release or an on-device graphics/gameplay acceptance result.
+The first accepted frame can retain the last cached startup-reveal raster; these
+measurements do not claim completed visual fade. A separate post-measurement
+calibration proves fully faded native Home at the next presented frame 26 and
+retained clean Home at frame 30. Production `UiSurface.KeyDown/KeyUp` Q then changes
+the actual route from News to Settings; frame 35 captures its selected native
+Settings page. The calibration exits normally and is excluded from timing samples.
 
-Update this evidence table with actual output locations and failures as checks
-finish. Unavailable assets or graphics contexts are recorded limitations, not
-passing gates. Phase 0 is incomplete until the required evidence exists.
+The final-jobs usable-shell range is 937.9679–960.2527 ms and working-set range is
+305,250,304–305,807,360 bytes. These five-run distributions show the measured
+startup/working-set result; they are not a controlled cold-cache, gameplay or GPU
+FPS experiment. Subsequent thumbnail cancellation and failed native-surface
+admission cleanup change the complete engine binary hash without changing this
+Game Home path. The measurements remain attributed to the exact final-jobs graph,
+not a later assembly. Captures, per-process logs, external observer source/binary,
+native staging and SHA-256 manifest are retained under
+`artifacts/studio-acceptance/final-jobs/game-startup/`. The tracked baseline JSON
+records individual samples, capture hashes and comparison definitions. Excluded
+setup/idle-display calibrations are separate from the five accepted samples.
+Studio Home is a different workload and cannot replace this comparison.
 
-## Release and deletion gates
+Baseline evidence is retained under `artifacts/studio-baseline/fcf311c/` with
+SHA-256/size manifest; the tracked [baseline record](project-prime-studio-baseline.json)
+records exact revision, fixture/build/capture identities, statuses and definitions.
+These large local logs/screenshots/reference recordings are ignored by Git and
+must be archived explicitly for durable review. Hardware: macOS 27.0 arm64,
+Apple M4 Pro, .NET SDK 10.0.100/runtime 10.0.0. Missing local import textures are
+recorded fixture limitations, not passing acceptance. GPU images use pixel/
+semantic/visual oracles rather than cross-driver PNG byte identity.
 
-Build Studio for Windows, Linux and macOS, never Android. Desktop packaging and
-the updater must deliver compatible game/Studio versions and report mismatches
-explicitly. Avoid generic `.json` associations; optional `.ppdemo`, `.ppclip` and
-`.ppmap` associations belong to the explicit desktop packaging slice.
+## Remaining completion gates
 
-`DesktopReleasePair` validates owned compatibility metadata and matching game/
-Studio versions. `InstallationLifetime` holds a shared kernel lease throughout
-either application's lifetime; the updater requires an exclusive lease before
-any installed byte changes. A running Studio therefore blocks a paired update,
-and process crash releases its lease. The updater refuses a game-only downgrade
-that would silently leave an incompatible newer Studio. These local checks do
-not substitute for signed/notarized desktop bundle and platform association tests.
+Final local desktop acceptance passes against the immutable lifetime graph:
+engine `5789c339739fa809c0d6dec09aec52a025efc5720a01f2837df832e0cbbf834e`
+and Studio `9167e7a4133d97cef40a4b3822b1433a6ad2e2265f4c94b9fa700a82ef362aa2`.
+The later paired publish adds only the authorized generated GLFW diagnostic
+fixture repair; its separate source/binary identities are retained in
+`artifacts/studio-acceptance/final-release/osx-arm64/release-evidence.json`.
+Actual paired macOS publish/sign/extract/version and native smoke pass with ad
+hoc signatures; this does not claim Developer ID signing or notarization.
 
-Only redirect legacy `ProjectPrime -mapstudio` and creator buttons after the new
-host can open the requested document with meaningful feature parity. Remove
-embedded routes, `Shell.StudioWindow`, editor sizing hacks and old popout lifecycle
-only after the standalone map/replay suites, Studio captures at 1280×800,
-1920×1080/HiDPI, IPC tests and game/Studio lifecycle tests pass. Preserve the
-game's lightweight Theatre and independent existing killcams.
+Final server compilation and the Android development APK pass. The APK is
+118,102,268 bytes, SHA-256
+`ea91e76407ac6bdacd95356e4a8976fa12d839b34107447b5935194461d6ecfd`.
+Both actual APK ELF assembly stores were extracted and their XALZ/LZ4 payloads
+decoded; each canonical assembly exactly matches the inspected linked DLL
+(`875abfa5e73812c1ed33abada9462cdadbf42a6ad4f81b9917c50918b64493a7`).
+Independent metadata confirms absent desktop creator/native host/full Replay
+editor types and Studio/Avalonia Desktop/Headless references, while preserving
+247 canonical Map types and the passive Replay player. Both packaged renderer
+ABIs match their pinned fingerprint-verified builds. APK v2/v3 signatures verify
+with the Android Debug development certificate. The exact 1,175-source compile
+manifest, logs, probes, metadata and APK are retained in
+`artifacts/studio-acceptance/final-platform/android/`.
+Android compilation/package verification does not establish on-device graphics
+or gameplay acceptance. Final Windows/Linux/macOS CI remains pending against the
+same source checkpoint. No required authoring capability is being deferred to
+optional assembly extraction or file associations; do not associate generic
+`.json` files.
+
+Preserve the diagnostic-only legacy Map adapter while original viewport/UI checks
+need it. Normal creator routes and the full in-game Replay authoring UI are
+removed; this exception must not reopen embedded application ownership. Keep
+Theatre quick watch and independent existing killcams. Optional small shared
+assembly extraction follows proven boundaries and must not fork the engine.

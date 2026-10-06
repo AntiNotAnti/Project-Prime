@@ -46,6 +46,36 @@ namespace MphRead.Mods
                 return true;
             }
 #endif
+            if (HasFlag(args, "mapstudio"))
+            {
+#if MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                try
+                {
+                    string? project = ValueAfter(args, "studioproject");
+                    if (HasFlag(args, "studioproject") && (String.IsNullOrWhiteSpace(project)
+                        || project.StartsWith("-", StringComparison.Ordinal)))
+                        throw new ArgumentException("Supply a map project path after -studioproject.");
+                    if (project != null) project = System.IO.Path.GetFullPath(
+                        System.IO.Path.Combine(ConsoleSetup.LaunchDirectory, project));
+                    if (!StudioIntegration.StudioApplicationLauncher.TryOpen(project,
+                        HasFlag(args, "recover") || HasFlag(args, "studiorecover"), out string? error))
+                    {
+                        Console.Error.WriteLine("[studio] " + error);
+                        Environment.ExitCode = 1;
+                    }
+                }
+                catch (Exception error) when (error is ArgumentException or System.IO.IOException
+                    or UnauthorizedAccessException)
+                {
+                    Console.Error.WriteLine("[studio] " + error.Message);
+                    Environment.ExitCode = 1;
+                }
+#else
+                Console.Error.WriteLine("[studio] Project Prime Studio requires a desktop release.");
+                Environment.ExitCode = 1;
+#endif
+                return true;
+            }
             bool serverInvocation = HasFlag(args, "server")
                 || HasFlag(args, "dedicated") || HasFlag(args, "masterserver");
             bool hostedChild = HasFlag(args, "hostedchild");
@@ -432,8 +462,7 @@ namespace MphRead.Mods
             bool deferStartupMaintenance = false;
 #if MPHREAD_SHELL
             deferStartupMaintenance = !HasFlag(args, "text")
-                && (args.Length == 0 || HasFlag(args, "launcher")
-                    || HasFlag(args, "mapstudio"));
+                && (args.Length == 0 || HasFlag(args, "launcher"));
 #endif
             if (!HasFlag(args, "spireposecheck") && !HasFlag(args, "formcheck")
                 && !deferStartupMaintenance && !hostedChild)
@@ -675,26 +704,6 @@ namespace MphRead.Mods
                 }
             }
 
-            if (HasFlag(args, "mapstudio"))
-            {
-#if MPHREAD_SHELL
-                MapGen.CustomRooms.DeferInitialRegistration = true;
-                Launcher.Gui.Shell.OpenStudioOnStart = true;
-                Launcher.Gui.Shell.StudioWindow = true;
-                WindowMode.ForceStartup(WindowStartMode.Windowed);
-                Launcher.Gui.Shell.StudioProjectPath = ValueAfter(args, "studioproject");
-                if (Launcher.ClientInstanceGuard.TryAcquireForProcess(
-                    TimeSpan.FromSeconds(5)))
-                {
-                    StudioIntegration.GameStudioIntegration.Start();
-                    Launcher.Gui.Shell.Run();
-                }
-#else
-                Console.WriteLine("[mapeditor] Map Studio requires a desktop game build.");
-                Environment.ExitCode = 1;
-#endif
-                return true;
-            }
 #if MPHREAD_SHELL
             if(ValueAfter(args,"mapstudioshot") is {} studioShots)
             {

@@ -5,6 +5,7 @@
     <Compile Include="../../src/MphRead/Mods/StudioReplay/StudioDiagnosticRedaction.cs" Link="StudioDiagnosticRedaction.cs" />
     <Compile Include="../../src/MphRead/Mods/StudioReplay/StudioPortableArchive.cs" Link="StudioPortableArchive.cs" />
     <Compile Include="../../src/MphRead/Mods/StudioReplay/StudioReplaySnapshotCache.cs" Link="StudioReplaySnapshotCache.cs" />
+    <Compile Include="../../src/MphRead/Mods/Replay/ReplaySourceHash.cs" Link="ReplaySourceHash.cs" />
     <Compile Include="../../src/MphRead/Mods/StudioReplay/StudioReplayCachePins.cs" Link="StudioReplayCachePins.cs" />
     <Compile Include="../../src/MphRead/Mods/MapGen/Build/MapDiskCache.cs" Link="MapDiskCache.cs" />
     <Compile Include="../../src/MphRead/Mods/StudioReplay/StudioReplayContracts.cs" Link="StudioReplayContracts.cs" />

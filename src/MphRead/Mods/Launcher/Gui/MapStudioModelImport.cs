@@ -12,13 +12,25 @@ internal sealed partial class MapStudioScreen
 {
     private void ImportModel() => Browse("Import OBJ / glTF / GLB model", false, path => ModelImportOptions(path), ".obj", ".gltf", ".glb");
 
+    internal void ShowModelImportDialog(string path,Guid? sourceId=null)
+    {
+        if(_document is null || _detached)throw new InvalidOperationException("Open a map before importing a model.");
+        if(_work!=null)throw new InvalidOperationException("Wait for the current map operation or cancel it first.");
+        path=Path.GetFullPath(path);
+        if(!File.Exists(path))throw new FileNotFoundException("Model source was not found.",path);
+        if(Path.GetExtension(path).ToLowerInvariant() is not (".obj" or ".gltf" or ".glb"))throw new ArgumentException("Choose an OBJ, glTF, or GLB model.",nameof(path));
+        var source=sourceId is null?null:_document.Project.Definition.ModelSources.FirstOrDefault(value=>value.Id==sourceId);
+        if(sourceId is not null && source is null)throw new ArgumentException("The imported model source is no longer in this map.",nameof(sourceId));
+        ModelImportOptions(path,source);
+    }
+
     private void ModelImportOptions(string path, MapModelSource? source = null)
     {
         var panel = new StackPanel { Spacing = 8 };
         panel.Children.Add(Text("3D MODEL · " + Path.GetFileName(path)));
         panel.Children.Add(Text("OBJ, glTF and GLB dependencies are resolved inside the model folder. Static geometry retains materials and UV0."));
         var settings = source?.Settings ?? new();
-        var scale = new TextBox { Text = settings.Scale.ToString(System.Globalization.CultureInfo.InvariantCulture) };
+        var scale = new TextBox { Name="ModelImportScale",Text = settings.Scale.ToString(System.Globalization.CultureInfo.InvariantCulture) };
         panel.Children.Add(Text("Scale")); panel.Children.Add(scale);
         var reverse = new CheckBox { Content = "Reverse face winding", IsChecked = settings.FlipWinding }; panel.Children.Add(reverse);
         var zUp = new CheckBox { Content = "Z-up source (Blender / 3ds Max)", IsChecked = settings.ZUp }; panel.Children.Add(zUp);
@@ -29,6 +41,7 @@ internal sealed partial class MapStudioScreen
         string? companion = ModelCollisionImport.FindCompanion(path);
         if (companion != null) panel.Children.Add(Text("Companion detected: " + Path.GetFileName(companion)));
         panel.Children.Add(Text("Collision proxies remain editable in the Collision layer and are invisible in play. Bounding boxes can block openings; inspect before applying."));
+        var error=Text("");error.Name="ModelImportError";panel.Children.Add(error);
         AddButton(panel, "Preview changes", () =>
         {
             try
@@ -36,7 +49,7 @@ internal sealed partial class MapStudioScreen
                 var options = new ModelImportSettings(Number(scale.Text ?? "1"), reverse.IsChecked == true, false, zUp.IsChecked == true, flipUv.IsChecked == true, (ModelCollisionMode)(collision.SelectedItem ?? ModelCollisionMode.None));
                 Dismiss(); AnalyzeModel(path, options, source?.Id);
             }
-            catch (Exception ex) { Failure(ex); }
+            catch (Exception ex) { error.Text=ex.Message; }
         });
         AddButton(panel, "Cancel", Dismiss); Modal(panel);
     }

@@ -11,13 +11,14 @@ public static class MapAssetDestination
     {
         MapPackageReader.CanonicalName(relative);
         string fullRoot=Path.GetFullPath(root);
-        string canonicalRoot=MapPublicationLease.CanonicalizeRuntimeDirectory(fullRoot);
-        if(expectedCanonicalRoot is not null && canonicalRoot!=expectedCanonicalRoot)
+        var comparison=OperatingSystem.IsWindows()?StringComparison.OrdinalIgnoreCase:StringComparison.Ordinal;
+        string canonicalRoot=MapPublicationLease.ResolveRuntimeDirectoryAliases(fullRoot);
+        if(expectedCanonicalRoot is not null && !canonicalRoot.Equals(expectedCanonicalRoot,comparison))
             throw new InvalidDataException("The map asset folder changed during import. Choose the current project folder and retry.");
         string destination=Path.GetFullPath(Path.Combine(fullRoot,relative));
-        string parent=MapPublicationLease.CanonicalizeRuntimeDirectory(Path.GetDirectoryName(destination)!);
+        string parent=MapPublicationLease.ResolveRuntimeDirectoryAliases(Path.GetDirectoryName(destination)!);
         string prefix=Path.EndsInDirectorySeparator(canonicalRoot)?canonicalRoot:canonicalRoot+Path.DirectorySeparatorChar;
-        if(parent!=canonicalRoot && !parent.StartsWith(prefix,StringComparison.Ordinal))
+        if(!parent.Equals(canonicalRoot,comparison) && !parent.StartsWith(prefix,comparison))
             throw new InvalidDataException("The imported asset folder resolves outside its map project.");
         // Reusing an existing content-addressed file must not follow a link to
         // another owner's bytes. The same check protects failed-import cleanup.

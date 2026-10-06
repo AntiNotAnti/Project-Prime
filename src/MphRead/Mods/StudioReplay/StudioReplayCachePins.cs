@@ -112,9 +112,9 @@ public static class StudioReplayCachePins
                 string path = Path.Combine(job, "ticket.json");
                 if (!File.Exists(path)) continue;
                 using var input = File.OpenRead(path);
-                if (input.Length > 1024 * 1024) continue;
+                if (input.Length > 1024 * 1024) throw new InvalidDataException("Persisted export ticket exceeds its size limit.");
                 StudioReplayExportTicket? ticket = JsonSerializer.Deserialize<StudioReplayExportTicket>(input, new JsonSerializerOptions { IncludeFields = true });
-                if (ticket == null) continue;
+                if (ticket == null) throw new InvalidDataException("Persisted export ticket is empty.");
                 ValidateTicket(ticket);
                 StudioReplayExportStatus? status = null;
                 if (File.Exists(ticket.StatusFile) && new FileInfo(ticket.StatusFile).Length <= 65536)

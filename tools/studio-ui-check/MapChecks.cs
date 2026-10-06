@@ -67,13 +67,17 @@ internal static partial class Program
                 Check(community.Requests > 0 && !window.Jobs.Jobs.Any(job => job.State == ProjectPrime.Studio.Jobs.StudioJobState.Running),
                     "native Community dashboard uses completed cancellable discovery job against isolated fixture service");
                 await CaptureMapVariantsAsync(window, document, output, "map-studio-community", fourViews: false);
-                Control close = document.Host.GetVisualDescendants().OfType<Control>().Single(control => control.GetType().Name == "PrimeButton"
+                Window communityWindow=document.ModalWindow??window;
+                if(document.ModalWindow is {})await CaptureOwnedMapDialogAsync(communityWindow,output,"community-dialog");
+                Control close = communityWindow.GetVisualDescendants().OfType<Control>().Single(control => control.GetType().Name == "PrimeButton"
                     && control.GetType().GetProperty("Label")?.GetValue(control)?.ToString() == "CLOSE" && control.IsEffectivelyVisible);
-                Point point = close.TranslatePoint(new Point(close.Bounds.Width / 2, close.Bounds.Height / 2), window) ?? throw new InvalidOperationException("Community close button has no window origin.");
-                window.MouseDown(point, MouseButton.Left); window.MouseUp(point, MouseButton.Left);
+                Point point = close.TranslatePoint(new Point(close.Bounds.Width / 2, close.Bounds.Height / 2), communityWindow) ?? throw new InvalidOperationException("Community close button has no window origin.");
+                communityWindow.MouseDown(point, MouseButton.Left); communityWindow.MouseUp(point, MouseButton.Left);
                 PumpLayout(window);
+                Check(document.ModalWindow is null,"Community close pointer action releases actual owned dialog");
             }
             document.Host.ShowPanel("Inspector");
+            Console.WriteLine("Loaded Map UI and owned Community captures complete; canonical save/build/recovery acceptance next.");
             await CheckCanonicalMapLifecycleAsync(window, document, canonical, paths);
         }
         catch(Exception error){Console.Error.WriteLine("Map editor acceptance failed before cleanup: "+error);throw;}
@@ -83,6 +87,18 @@ internal static partial class Program
             await window.TryCloseAsync();
             window.Close();
             await window.DisposeResourcesAsync();
+        }
+    }
+
+    private static async Task CaptureOwnedMapDialogAsync(Window dialog,string output,string route)
+    {
+        foreach((int width,int height,double scale) in new[]{(820,680,1d),(1100,800,1d),(820,680,2d)})
+        {
+            dialog.Width=width;dialog.Height=height;dialog.SetRenderScaling(scale);PumpLayout(dialog);await Task.Delay(10);PumpLayout(dialog);
+            using var bitmap=dialog.CaptureRenderedFrame()??throw new InvalidOperationException("Owned Map dialog did not render.");
+            CheckImageContent(bitmap,route);string file="map-studio-"+route+"-"+width+"x"+height+(scale==1?"":"-2x")+".png";
+            bitmap.Save(Path.Combine(output,file),new Avalonia.Media.Imaging.PngBitmapEncoderOptions());
+            Captures.Add(new{route,logicalWidth=width,logicalHeight=height,scale,file,pixelWidth=bitmap.PixelSize.Width,pixelHeight=bitmap.PixelSize.Height});
         }
     }
 

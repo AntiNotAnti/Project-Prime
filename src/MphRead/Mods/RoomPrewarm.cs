@@ -124,6 +124,17 @@ namespace MphRead.Mods
 
         public static void Invalidate(string roomName) => Release(roomName);
 
+        // A pending prewarm may be the generator itself, before acquiring its
+        // shared reader. It validates all outputs under that reader before
+        // adoption. Completed in-memory caches must be dropped after a legacy
+        // install; retaining them could load the previous runtime version.
+        internal static void InvalidateCompleted(string roomName)
+        {
+            lock (Gate)
+                if (String.Equals(_room, roomName, StringComparison.OrdinalIgnoreCase)
+                    && _prepared?.Task.IsCompleted == true) ClearLocked();
+        }
+
         public static void Clear()
         {
             lock (Gate)
@@ -268,7 +279,6 @@ namespace MphRead.Mods
                     Console.WriteLine($"[prewarm] {metadata.Name} skipped: host prewarm lane busy");
                     return;
                 }
-                using var mapLease = MapGen.MapRuntimeUsage.AcquirePreparation(metadata.Name);
                 lock (Gate)
                 {
                     if (generation != _generation) { prepared.TrySetResult(false); return; }
@@ -277,6 +287,14 @@ namespace MphRead.Mods
                 // instead of making Start Match pay that cost.
                 var phase=Stopwatch.StartNew();
                 MapGen.CustomRooms.GenerateMissing(metadata.Name);
+                // Generation publishes under an exclusive writer before this
+                // reader is acquired. Revalidate after the handoff: another
+                // process may have installed a different version in the gap.
+                // A stale or deferred build must never feed partial/old outputs
+                // to the prewarm loader. The bounded worker reports/retries it.
+                using var mapLease = MapGen.MapRuntimeUsage.AcquirePreparation(metadata.Name);
+                string? unavailable = MapGen.CustomRooms.WhyUnplayable(metadata.Name);
+                if (unavailable != null) throw new IOException(unavailable);
                 DebugLog.Line("prewarm",$"{metadata.Name}: runtime generation {phase.Elapsed.TotalMilliseconds:0.0} ms");
                 phase.Restart();
 

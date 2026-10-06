@@ -14,26 +14,36 @@ public sealed class StudioPrivateMapRuntime
     {
         if (!Path.IsPathFullyQualified(studioDataDirectory)) throw new ArgumentException("Studio data root must be absolute.");
         _root = Path.Combine(Path.GetFullPath(studioDataDirectory),"runtime");
-        _canonicalRoot = MapPublicationLease.CanonicalizeRuntimeDirectory(_root);
+        _canonicalRoot = MapPublicationLease.ResolveRuntimeDirectoryAliases(_root);
         RequirePrivateDestinations();
     }
     private string[] RequirePrivateDestinations(string? room = null)
     {
-        string currentRoot = MapPublicationLease.CanonicalizeRuntimeDirectory(_root);
-        if (!string.Equals(currentRoot,_canonicalRoot,StringComparison.Ordinal)) throw new IOException("Studio runtime directory changed through a filesystem link.");
+        StringComparison comparison=OperatingSystem.IsWindows()?StringComparison.OrdinalIgnoreCase:StringComparison.Ordinal;
+        string currentRoot = MapPublicationLease.ResolveRuntimeDirectoryAliases(_root);
+        if (!string.Equals(currentRoot,_canonicalRoot,comparison)) throw new IOException("Studio runtime directory changed through a filesystem link.");
         string[] destinations = { room is null ? Path.Combine(_root,"_archives") : Path.Combine(_root,"_archives",room),Path.Combine(_root,"levels","entities"),Path.Combine(_root,"levels","nodes") };
         string game = Paths.FileSystem;
         string? gameRoot = string.IsNullOrWhiteSpace(game) ? null : MapPublicationLease.CanonicalizeRuntimeDirectory(game);
         foreach (string destination in destinations)
         {
-            string canonical = MapPublicationLease.CanonicalizeRuntimeDirectory(destination);
-            if (!canonical.StartsWith(_canonicalRoot + Path.DirectorySeparatorChar,StringComparison.Ordinal)) throw new IOException("Studio runtime destination escapes its private root.");
-            if (gameRoot is not null && (canonical==gameRoot || canonical.StartsWith(gameRoot + Path.DirectorySeparatorChar,StringComparison.Ordinal) || gameRoot.StartsWith(canonical + Path.DirectorySeparatorChar,StringComparison.Ordinal)))
+            string physical = MapPublicationLease.ResolveRuntimeDirectoryAliases(destination);
+            if (!physical.StartsWith(_canonicalRoot + Path.DirectorySeparatorChar,comparison)) throw new IOException("Studio runtime destination escapes its private root.");
+            // Game-root exclusion is deliberately conservative on macOS, while
+            // positive private-root containment preserves physical path casing.
+            string canonical = MapPublicationLease.CanonicalizeRuntimeDirectory(physical);
+            if (gameRoot is not null && Overlaps(canonical,gameRoot))
                 throw new IOException("Studio runtime output aliases extracted game data.");
         }
-        if (gameRoot is not null && (currentRoot==gameRoot || currentRoot.StartsWith(gameRoot + Path.DirectorySeparatorChar,StringComparison.Ordinal) || gameRoot.StartsWith(currentRoot + Path.DirectorySeparatorChar,StringComparison.Ordinal)))
+        string exclusionRoot=MapPublicationLease.CanonicalizeRuntimeDirectory(currentRoot);
+        if (gameRoot is not null && Overlaps(exclusionRoot,gameRoot))
             throw new IOException("Studio runtime root overlaps extracted game data.");
         return destinations;
+    }
+    private static bool Overlaps(string first,string second)
+    {
+        string Prefix(string path)=>Path.EndsInDirectorySeparator(path)?path:path+Path.DirectorySeparatorChar;
+        return first==second || first.StartsWith(Prefix(second),StringComparison.Ordinal) || second.StartsWith(Prefix(first),StringComparison.Ordinal);
     }
     public void PublishPrivate(MapBuildResult result, MapDefinition definition, CancellationToken cancellation)
     {

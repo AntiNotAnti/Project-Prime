@@ -14,13 +14,11 @@ namespace MphRead.Mods.MapGen
         private static MemoryStream? _stream;
         private static int _room = -1;
         private static float _gain;
-        public static MapDefinition? PreviewDefinition { get; set; }
 
         public static bool TryPlay(int roomId)
         {
             var metadata = Metadata.GetRoomById(roomId, noThrow:true);
-            var definition = PreviewDefinition?.Name == metadata?.Name ? PreviewDefinition
-                : CustomRooms.Definitions.FirstOrDefault(d => d.Name == metadata?.Name);
+            var definition = CustomRooms.Definitions.FirstOrDefault(d => d.Name == metadata?.Name);
             if (definition?.Audio is not {} settings) return false;
             if (_room == roomId && _player != null) return true;
             if (settings.GameMusic != null && Enum.TryParse<MusicId>(settings.GameMusic,true,out var music))

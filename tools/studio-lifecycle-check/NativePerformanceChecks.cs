@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using MphRead.Mods.MapEditor;
 using MphRead.Mods.MapGen;
+using ProjectPrime.Studio.Settings;
 
 internal static partial class Program
 {
@@ -26,6 +27,51 @@ internal static partial class Program
         File.WriteAllText(path,JsonSerializer.Serialize(new{Scope="Five owned fresh native processes after earlier binaries warmed the OS cache; each stops at usable Home layout",Samples=samples,
             MedianMilliseconds=ordered[2],TailMilliseconds=ordered[^1],MedianWorkingSetBytes=samples.Select(sample=>sample.WorkingSetBytes).Order().ElementAt(2)},new JsonSerializerOptions{WriteIndented=true}));
         Console.WriteLine("Native startup evidence: "+path);
+    }
+
+    private static async Task CheckNativeLoadedStartupAsync(string directory,string assets,string fixture,string output)
+    {
+        var project=MapTemplates.Create("LOADED_STARTUP_ACCEPTANCE",true);
+        string mapSource=Path.Combine(directory,"loaded-startup-map.json");MapProjectSerializer.Save(project,mapSource);
+        string replaySource=Path.Combine(directory,"loaded-startup-replay.ppdemo");File.Copy(fixture,replaySource);
+        var evidence=new List<object>();
+        foreach((string kind,string option,string source) in new[]{("Map","--map",mapSource),("Replay","--replay",replaySource)})
+        {
+            byte[] immutable=File.ReadAllBytes(source);
+            string hash=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(immutable));
+            var samples=new List<NativeStartup>();var roundTrips=new List<double>();
+            for(int index=0;index<5;index++)
+            {
+                string profile=Path.Combine(directory,"loaded-startup-"+kind.ToLowerInvariant()+"-"+index);
+                Directory.CreateDirectory(profile);
+                new StudioSettingsStore(new(AppContext.BaseDirectory,profile)).SaveSettings(new(){GamePathsFile=Path.GetFullPath(assets)});
+                var launched=Stopwatch.StartNew();using Process process=await StartNativeProbeAsync(profile,[option,source]);
+                roundTrips.Add(launched.Elapsed.TotalMilliseconds);
+                try
+                {
+                    var sample=NativeStartups[process.Id];samples.Add(sample);
+                    Check(sample.Kind==kind&&sample.SourceHash==hash&&sample.SourceBytes==immutable.Length&&sample.UsableHomeMilliseconds>0
+                        &&sample.WorkingSetBytes>0&&sample.Viewport is {PixelWidth:>0,PixelHeight:>0} viewport
+                        &&viewport.PixelWidth==(int)Math.Round(viewport.Width*viewport.RenderScale)
+                        &&viewport.PixelHeight==(int)Math.Round(viewport.Height*viewport.RenderScale),
+                        "fresh native loaded "+kind+" sample records first rendered viewport, immutable exact source, memory and physical dimensions "+index);
+                    Check(kind=="Map"?sample.AuthoredObjects==project.Definition.Geometry.Count:sample.Frame==0&&sample.GameplayHash is not null
+                        &&sample.PresentationHash is not null&&sample.FullGraphHash is not null,
+                        "first usable native "+kind+" retains canonical authored objects or paused frame-zero world "+index);
+                    await CloseNativeProbeAsync(process);
+                    Check(immutable.SequenceEqual(File.ReadAllBytes(source)),"loaded startup and clean shutdown preserve source bytes "+kind+" "+index);
+                }
+                finally{if(!process.HasExited){process.Kill(entireProcessTree:true);await process.WaitForExitAsync();}}
+            }
+            double[] ordered=samples.Select(sample=>sample.UsableHomeMilliseconds).Order().ToArray();
+            evidence.Add(new{Kind=kind,SourceHash=hash,SourceBytes=immutable.Length,AuthoredObjects=kind=="Map"?project.Definition.Geometry.Count:(int?)null,
+                MedianUsableViewportMilliseconds=ordered[2],TailUsableViewportMilliseconds=ordered[^1],
+                MedianWorkingSetBytes=samples.Select(sample=>sample.WorkingSetBytes).Order().ElementAt(2),
+                ParentLaunchToReadyMilliseconds=roundTrips,Samples=samples});
+        }
+        string path=Path.GetFullPath(output);Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path,JsonSerializer.Serialize(new{Scope="Five fresh owned native processes per loaded editor, isolated profiles and canonical source files; warm OS cache, first actual GPU viewport present. UsableHomeMilliseconds in legacy sample DTO is the first usable viewport time for these loaded samples. GPU elapsed timestamps are unavailable.",Editors=evidence},new JsonSerializerOptions{WriteIndented=true}));
+        Console.WriteLine("Native loaded startup evidence: "+path);
     }
 
     private static async Task CheckNativeDenseMapAsync(string directory,string output)

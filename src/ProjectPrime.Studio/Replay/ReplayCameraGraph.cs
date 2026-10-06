@@ -30,7 +30,7 @@ public sealed class ReplayCameraGraph : Control
         _player = player; Height = 180; MinWidth = 220; ClipToBounds = true;
         PointerPressed += (_, e) =>
         {
-            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
+            if (Channel == ReplayCameraGraphChannel.Speed || !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
             Point point = e.GetPosition(this); _dragStart = point; e.Pointer.Capture(this);
             var nearest = _player.CameraKeys.OrderBy(k => Math.Abs(X(k.Frame) - point.X)).FirstOrDefault();
             if (!e.KeyModifiers.HasFlag(KeyModifiers.Shift) && nearest != null && Math.Abs(X(nearest.Frame) - point.X) < 30)
@@ -38,6 +38,11 @@ public sealed class ReplayCameraGraph : Control
         };
         PointerReleased += (_, e) =>
         {
+            if (Channel == ReplayCameraGraphChannel.Speed)
+            {
+                _dragStart = null; _tangentKey = null; e.Pointer.Capture(null);
+                return;
+            }
             if (_dragStart is { } start)
             {
                 Point end = e.GetPosition(this);
@@ -59,7 +64,8 @@ public sealed class ReplayCameraGraph : Control
                 {
                     _selected.Clear();
                     foreach (var candidate in _player.CameraKeys)
-                        if (X(candidate.Frame) >= Math.Min(start.X, end.X) && X(candidate.Frame) <= Math.Max(start.X, end.X)) _selected.Add(candidate.Frame);
+                        if (X(candidate.Frame) >= Math.Min(start.X, end.X) && X(candidate.Frame) <= Math.Max(start.X, end.X)
+                            && Y(Value(candidate)) >= Math.Min(start.Y,end.Y) && Y(Value(candidate)) <= Math.Max(start.Y,end.Y)) _selected.Add(candidate.Frame);
                     SelectionChanged?.Invoke();
                 }
             }

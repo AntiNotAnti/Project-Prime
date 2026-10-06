@@ -232,6 +232,7 @@ jobs:
           dotnet run --project tools/studio-ipc-check -c Release
           dotnet run --project tools/map-publication-check -c Release
           dotnet run --project tools/game-studio-broker-check -c Release
+          dotnet run --project tools/map-generation-check -c Release
       - name: Studio authoring, lifecycle, diagnostics and launcher regressions
         run: |
           dotnet run --project tools/map-prefab-check -c Release

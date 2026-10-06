@@ -33,15 +33,15 @@ internal static partial class Program
         await OneAssetUndoAsync(map,()=>MapFacadeAsync(document,"ImportAssetAsync",music,CancellationToken.None),"actual audio import and music assignment");
         Check(map.Project.Definition.Audio?.Music is { } audio&&MapAssets.Read(map.Project.Definition,audio).SequenceEqual(immutable[music]),
             "actual music import retains exact source WAV bytes");
-        await OneAssetUndoAsync(map,()=>MapFacadeAsync(document,"ImportModelAsync",model,new ModelImportSettings(Collision:ModelCollisionMode.Visual),null,CancellationToken.None),"actual model import with material dependencies");
+        await OneAssetUndoAsync(map,()=>MapFacadeAsync(document,"ImportModelAsync",model,new ModelImportSettings(Collision:ModelCollisionMode.None),null,CancellationToken.None),"actual model import with material dependencies");
         var importedSource=map.Project.Definition.ModelSources.Single(source=>source.Source==model);Guid sourceId=importedSource.Id;
         var importedIds=importedSource.Objects.Select(item=>item.Id).Order().ToArray();string sourceHash=importedSource.SourceHash;
         File.WriteAllText(model,originalObj.Replace("v 1 0 1","v 1 1 1",StringComparison.Ordinal));immutable[model]=File.ReadAllBytes(model);
-        await OneAssetUndoAsync(map,()=>MapFacadeAsync(document,"ImportModelAsync",model,new ModelImportSettings(Collision:ModelCollisionMode.Visual),sourceId,CancellationToken.None),"actual source model reimport");
+        await OneAssetUndoAsync(map,()=>MapFacadeAsync(document,"ImportModelAsync",model,new ModelImportSettings(Collision:ModelCollisionMode.None),sourceId,CancellationToken.None),"actual source model reimport");
         importedSource=map.Project.Definition.ModelSources.Single(source=>source.Id==sourceId);
         Check(importedSource.Objects.Select(item=>item.Id).Order().SequenceEqual(importedIds)&&importedSource.SourceHash!=sourceHash,
             "model reimport preserves canonical object identities and updates captured source identity");
-        int unchanged=map.History.CommandCount;await MapFacadeAsync(document,"ImportModelAsync",model,new ModelImportSettings(Collision:ModelCollisionMode.Visual),sourceId,CancellationToken.None);
+        int unchanged=map.History.CommandCount;await MapFacadeAsync(document,"ImportModelAsync",model,new ModelImportSettings(Collision:ModelCollisionMode.None),sourceId,CancellationToken.None);
         Check(map.History.CommandCount==unchanged,"unchanged actual model reimport creates no redundant authored history");
         var material=map.Project.Definition.Materials.Single(material=>material.Name=="AcceptanceTexture");string modern=material.Albedo!,fallback=material.Texture!;
         Guid materialId=material.Id;
@@ -78,6 +78,24 @@ internal static partial class Program
         MapPrefabService.Save(map.Project.Definition,new HashSet<Guid>{importedIds[0]},prefab);
         await OneAssetUndoAsync(map,()=>ApplyAssetDropFacadeAsync(document,"Prefab",prefab,drop),"actual typed prefab placement");
         Check(map.Project.Definition.PrefabInstances.Any(instance=>instance.SourcePath==prefab),"typed prefab drop retains a canonical linked instance");
+        materialId=map.Project.Definition.Materials.Single(value=>value.Name=="AcceptanceTexture").Id;
+        int animatedMaterialIndex=map.Project.Definition.Materials.FindIndex(value=>value.Id==materialId);
+        Check(animatedMaterialIndex>=0&&map.Project.Definition.Materials[animatedMaterialIndex].Animation is not null,
+            "animated prefab fixture resolves its real canonical material before the selected-object scratch edit");
+        map.EditObjects("Prepare small animated prefab source",[importedIds[0]],definition=>
+        {
+            var sourceMesh=(MapMesh)definition.Geometry.Single(geometry=>geometry.Id==importedIds[0]);
+            sourceMesh.Material=animatedMaterialIndex;
+            sourceMesh.FaceMaterials=Enumerable.Repeat(animatedMaterialIndex,sourceMesh.Faces.Count).ToList();
+        });
+        string animatedPrefab=Path.Combine(paths.UserDataDirectory,"map-projects",".prefabs","AnimatedAcceptancePrefab.json");
+        MapPrefabService.Save(map.Project.Definition,new HashSet<Guid>{importedIds[0]},animatedPrefab);
+        foreach(int copy in new[]{1,2})
+            await OneAssetUndoAsync(map,()=>ApplyAssetDropFacadeAsync(document,"Prefab",animatedPrefab,drop),"actual animated material prefab insertion "+copy);
+        Check(map.Project.Definition.PrefabInstances.Count(instance=>instance.SourcePath==animatedPrefab)==2
+            &&map.Project.Definition.Materials.Where(value=>value.Animation is not null).Select(value=>value.Name).Distinct(StringComparer.Ordinal).Count()
+                ==map.Project.Definition.Materials.Count(value=>value.Animation is not null),
+            "two actual prefab inserts into their animated source owner retain independent materials with unique native animation names");
         await CheckAssetDragContextsAsync(window,document,paths,materialId,prefab,drop);
         document.Host.OpenAssetBrowser();Window browser=document.AssetBrowserWindow!;
         try
@@ -89,13 +107,15 @@ internal static partial class Program
             Check(map.Project.Definition.Assets.Single(asset=>asset.Path==replacedModern).Tags.SequenceEqual(["acceptance","vivid"]),
                 "actual Asset Browser tags action edits canonical asset metadata");
             SetAssetSearch(browser,"vivid");await CaptureLoadedAssetVariantsAsync(document,browser,output,"tagged-texture");
-            Check(browser.GetVisualDescendants().OfType<TextBlock>().Any(block=>block.Text?.StartsWith("1 matching assets",StringComparison.Ordinal)==true),
+            Check(browser.GetVisualDescendants().OfType<TextBlock>().Any(block=>block.Text?.StartsWith("1 matching file assets",StringComparison.Ordinal)==true),
                 "tagged browser search filters actual loaded texture references");
             var unused=browser.GetVisualDescendants().OfType<CheckBox>().Single(box=>box.Content?.ToString()=="Only unused assets");unused.IsChecked=true;
-            Check(browser.GetVisualDescendants().OfType<TextBlock>().Any(block=>block.Text?.StartsWith("0 matching assets",StringComparison.Ordinal)==true),
+            Check(browser.GetVisualDescendants().OfType<TextBlock>().Any(block=>block.Text?.StartsWith("0 matching file assets",StringComparison.Ordinal)==true),
                 "used modern texture is excluded by actual unused filter");unused.IsChecked=false;
-            foreach((string query,string route) in new[]{("AcceptanceMusic","audio"),("model AcceptanceModel","model-source"),("prefab AcceptancePrefab","prefab")})
-            {SetAssetSearch(browser,query);await CaptureLoadedAssetVariantsAsync(document,browser,output,route);}
+            foreach((string query,string route) in new[]{("AcceptanceMusic","audio"),("AcceptanceModel.obj","model-source"),("prefab AcceptancePrefab","prefab")})
+            {SetAssetSearch(browser,query);await CaptureLoadedAssetVariantsAsync(document,browser,output,route);
+                Check(route!="prefab"||browser.GetVisualDescendants().OfType<TextBlock>().Any(block=>block.Text?.StartsWith("Prefab · AcceptancePrefab",StringComparison.Ordinal)==true),
+                    "prefab query retains its actual library row independently of the file-asset count");}
         }
         finally{browser.Close();}
         Check(immutable.All(pair=>pair.Value.SequenceEqual(File.ReadAllBytes(pair.Key))),"real import, replacement, reimport and browser operations preserve external source bytes");
@@ -103,6 +123,7 @@ internal static partial class Program
             "all declared imported canonical asset files exist after Undo/Redo and replacement");
         await CheckAssetDestinationOwnershipAsync(window,document,sources,texture);
         await CheckMissingAssetLifecycleAsync(window,paths,texture,output);
+        await CheckHeldAssetThumbnailLifecycleAsync(window,paths,texture,output);
     }
 
     private static async Task CheckMissingAssetLifecycleAsync(StudioWindow window,StudioPaths paths,string texture,string output)

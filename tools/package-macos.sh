@@ -43,11 +43,24 @@ for executable in ProjectPrime ProjectPrimeStudio; do
     # .NET/native dependencies probe beside each own apphost. Apple treats
     # non-code subdirectories in MacOS as nested code, so move data to Resources.
     ditto "$root" "$contents/MacOS"
-    for resource in maps fidelity-baselines gamecontrollerdb.txt gamecontrollerdb.LICENSE; do
+    for resource in maps fidelity-baselines gamecontrollerdb.txt gamecontrollerdb.LICENSE PRIME-WGPU.json; do
         if [[ -e "$contents/MacOS/$resource" ]]; then
             mv "$contents/MacOS/$resource" "$contents/Resources/$resource"
         fi
     done
+    # Portable PDBs are data. Keeping them in the executable directory makes
+    # strict bundle verification classify them as unsigned nested code.
+    for symbols in "$contents/MacOS"/*.pdb; do
+        [[ -f "$symbols" ]] || continue
+        mkdir -p "$contents/Resources/DebugSymbols"
+        mv "$symbols" "$contents/Resources/DebugSymbols/"
+    done
+    # Studio's single-file runtime configuration is embedded. The SDK also
+    # copies its referenced engine's configuration, which is diagnostic data
+    # because this app has no ProjectPrime apphost.
+    if [[ "$executable" == ProjectPrimeStudio && -f "$contents/MacOS/ProjectPrime.runtimeconfig.json" ]]; then
+        mv "$contents/MacOS/ProjectPrime.runtimeconfig.json" "$contents/Resources/"
+    fi
     if [[ -f "$contents/MacOS/MoltenVK_icd.json" ]]; then
         mv "$contents/MacOS/MoltenVK_icd.json" "$contents/Resources/MoltenVK_icd.json"
         /usr/bin/python3 - "$contents/Resources/MoltenVK_icd.json" <<'PY'

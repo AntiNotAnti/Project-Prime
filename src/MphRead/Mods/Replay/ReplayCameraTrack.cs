@@ -52,7 +52,7 @@ namespace MphRead.Mods.Replay
     /// A bounded, presentation-only track. Version 3 binds authored keys to the
     /// durable replay identity and clip range, while retaining v1/v2 readers.
     /// </summary>
-    internal sealed class ReplayCameraTrack
+    internal sealed partial class ReplayCameraTrack
     {
         internal const int MaxKeys = 64;
         private const uint Magic = 0x4D435046; // FPCM
@@ -69,6 +69,7 @@ namespace MphRead.Mods.Replay
         public void Clear()
         {
             _keys.Clear();
+            _windowSource = null; _windowStart = _windowEnd = 0;
             LastError = null;
         }
 
@@ -79,6 +80,7 @@ namespace MphRead.Mods.Replay
                 LastError = "Camera keyframe contains an invalid position, rotation, FOV, roll, interpolation or target.";
                 return false;
             }
+            if (_windowSource != null) return PutWindowKey(key);
             int index = _keys.FindIndex(k => k.Frame >= key.Frame);
             if (index >= 0 && _keys[index].Frame == key.Frame)
                 _keys[index] = key;
@@ -97,6 +99,7 @@ namespace MphRead.Mods.Replay
 
         public bool Remove(uint frame)
         {
+            if (_windowSource != null) return RemoveWindowKeys([frame]);
             int index = _keys.FindIndex(k => k.Frame == frame);
             if (index < 0) return false;
             _keys.RemoveAt(index);
@@ -105,6 +108,7 @@ namespace MphRead.Mods.Replay
 
         public bool RemoveMany(IEnumerable<uint> frames)
         {
+            if (_windowSource != null) return RemoveWindowKeys(frames);
             var targets = new HashSet<uint>(frames);
             if (targets.Count == 0 || targets.Any(frame => !_keys.Any(key => key.Frame == frame)))
                 return false;
@@ -114,7 +118,7 @@ namespace MphRead.Mods.Replay
 
         internal bool EditAndSave(string replay, Func<ReplayCameraTrack, bool> edit)
         {
-            ReplayCameraKeyframe[] before = _keys.ToArray();
+            ReplayCameraTrack before = CloneTrack();
             bool committed = false;
             try
             {
@@ -125,8 +129,7 @@ namespace MphRead.Mods.Replay
             {
                 if (!committed)
                 {
-                    _keys.Clear();
-                    _keys.AddRange(before);
+                    RestoreTrack(before);
                 }
             }
         }
@@ -135,6 +138,7 @@ namespace MphRead.Mods.Replay
             bool constantSpeed = false)
         {
             sample = default;
+            if (_windowSource != null) return SampleWindow(frame, out sample, constantSpeed);
             if (_keys.Count == 0) return false;
             if (frame <= _keys[0].Frame)
             {
@@ -351,7 +355,10 @@ namespace MphRead.Mods.Replay
                 && Enum.IsDefined(key.Ease);
         }
 
-        public bool Load(string replay)
+        public bool Load(string replay) => LoadCore(replay, null, null);
+        internal bool LoadBound(string replay, ReplayCameraTrackIdentity identity, (long Length, long LastWriteTicks)? stamp = null)
+            => LoadCore(replay, identity, stamp);
+        private bool LoadCore(string replay, ReplayCameraTrackIdentity? suppliedIdentity, (long Length, long LastWriteTicks)? stamp)
         {
             Clear();
             string sidecar = replay + ".camera";
@@ -360,7 +367,7 @@ namespace MphRead.Mods.Replay
                 if (!File.Exists(sidecar)) return true;
                 using var input = new FileStream(sidecar, FileMode.Open, FileAccess.Read, FileShare.Read);
                 if (input.Length < HeaderSize + 32
-                    || input.Length > MaxIdentityBytes + MaxKeys * KeySizeV4 + 64)
+                    || input.Length > MaxIdentityBytes + MaxKeys * KeySizeV4 + 128)
                     throw new InvalidDataException("Camera track has an invalid size.");
 
                 byte[] bytes = new byte[(int)input.Length];
@@ -377,12 +384,14 @@ namespace MphRead.Mods.Replay
                 if (reader.ReadUInt32() != Magic)
                     throw new InvalidDataException("Unsupported camera track.");
                 byte version = reader.ReadByte();
-                if (version is not (1 or 2 or 3 or 4))
+                if (version is not (1 or 2 or 3 or 4 or 5))
                     throw new InvalidDataException("Unsupported camera track.");
 
+                ReplayCameraTrackIdentity? trackIdentity = null;
                 if (version >= 3)
                 {
-                    ReplayCameraTrackIdentity expected = ReplayCameraTrackIdentity.Create(replay);
+                    ReplayCameraTrackIdentity expected = suppliedIdentity ?? ReplayCameraTrackIdentity.Create(replay);
+                    trackIdentity = expected;
                     string logicalId = reader.ReadString();
                     byte[] sourceHash = reader.ReadBytes(32);
                     uint startFrame = reader.ReadUInt32(), endFrame = reader.ReadUInt32();
@@ -396,13 +405,21 @@ namespace MphRead.Mods.Replay
                 {
                     var source = new FileInfo(replay);
                     if (!source.Exists
-                        || reader.ReadInt64() != source.Length
-                        || reader.ReadInt64() != source.LastWriteTimeUtc.Ticks)
+                        || reader.ReadInt64() != (stamp?.Length ?? source.Length)
+                        || reader.ReadInt64() != (stamp?.LastWriteTicks ?? source.LastWriteTimeUtc.Ticks))
                         throw new InvalidDataException("Camera track belongs to a different version of this replay.");
                 }
 
+                uint windowStart = 0, windowEnd = 0;
+                if (version == 5)
+                {
+                    windowStart = reader.ReadUInt32(); windowEnd = reader.ReadUInt32();
+                    if (windowStart >= windowEnd || trackIdentity is { } bound && bound.EndFrame > bound.StartFrame
+                        && windowEnd - windowStart != bound.EndFrame - bound.StartFrame)
+                        throw new InvalidDataException("Invalid camera sample window or clip duration.");
+                }
                 int count = reader.ReadUInt16();
-                int keySize = version == 1 ? KeySizeV1 : version == 4 ? KeySizeV4 : KeySizeV2;
+                int keySize = version == 1 ? KeySizeV1 : version >= 4 ? KeySizeV4 : KeySizeV2;
                 long expectedLength = version >= 3
                     ? stream.Position + count * keySize + 32
                     : HeaderSize + count * keySize + 32;
@@ -429,7 +446,7 @@ namespace MphRead.Mods.Replay
                     }
 
                     Vector3? incoming = null, outgoing = null; float fovIn = 0, fovOut = 0, rollIn = 0, rollOut = 0;
-                    if (version == 4)
+                    if (version >= 4)
                     {
                         bool hasIn = reader.ReadBoolean(); var inputTangent = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
                         bool hasOut = reader.ReadBoolean(); var outputTangent = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
@@ -442,7 +459,12 @@ namespace MphRead.Mods.Replay
                         throw new InvalidDataException("Invalid camera keyframe.");
                     parsed.Add(key);
                 }
-                _keys.AddRange(parsed);
+                if (version == 5)
+                {
+                    _windowSource = new ReplayCameraTrack(); _windowSource._keys.AddRange(parsed);
+                    _windowStart = windowStart; _windowEnd = windowEnd; RebuildWindowKeys();
+                }
+                else _keys.AddRange(parsed);
                 return true;
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException
@@ -453,24 +475,28 @@ namespace MphRead.Mods.Replay
             }
         }
 
-        public bool Save(string replay)
+        public bool Save(string replay) => SaveCore(replay, null);
+        internal bool SaveBound(string replay, ReplayCameraTrackIdentity identity, Func<Action, bool>? publish = null) => SaveCore(replay, identity, publish);
+        private bool SaveCore(string replay, ReplayCameraTrackIdentity? suppliedIdentity, Func<Action, bool>? publish = null)
         {
             string? temporary = null;
             try
             {
-                ReplayCameraTrackIdentity identity = ReplayCameraTrackIdentity.Create(replay);
-                bool tangents = _keys.Any(k => k.Interpolation == ReplayCameraInterpolation.Bezier || k.IncomingTangent.HasValue || k.OutgoingTangent.HasValue
+                ReplayCameraTrackIdentity identity = suppliedIdentity ?? ReplayCameraTrackIdentity.Create(replay);
+                var savedKeys = _windowSource?._keys ?? _keys;
+                bool tangents = _windowSource != null || savedKeys.Any(k => k.Interpolation == ReplayCameraInterpolation.Bezier || k.IncomingTangent.HasValue || k.OutgoingTangent.HasValue
                     || k.FovIncomingTangent != 0 || k.FovOutgoingTangent != 0 || k.RollIncomingTangent != 0 || k.RollOutgoingTangent != 0);
                 using var stream = new MemoryStream(HeaderSize + MaxKeys * KeySizeV4 + 32);
                 using var writer = new BinaryWriter(stream);
                 writer.Write(Magic);
-                writer.Write((byte)(tangents ? 4 : 3));
+                writer.Write((byte)(_windowSource != null ? 5 : tangents ? 4 : 3));
                 writer.Write(identity.LogicalReplayId);
                 writer.Write(identity.SourceContentHash);
                 writer.Write(identity.StartFrame);
                 writer.Write(identity.EndFrame);
-                writer.Write((ushort)_keys.Count);
-                foreach (ReplayCameraKeyframe key in _keys)
+                if (_windowSource != null) { writer.Write(_windowStart); writer.Write(_windowEnd); }
+                writer.Write((ushort)savedKeys.Count);
+                foreach (ReplayCameraKeyframe key in savedKeys)
                 {
                     writer.Write(key.Frame);
                     writer.Write(key.Position.X);
@@ -505,7 +531,12 @@ namespace MphRead.Mods.Replay
                     output.Write(SHA256.HashData(body));
                     output.Flush(flushToDisk: true);
                 }
-                File.Move(temporary, replay + ".camera", overwrite: true);
+                if (publish != null)
+                {
+                    if (!publish(() => File.Move(temporary, replay + ".camera", overwrite: true)))
+                    { LastError = "The unsaved camera edit was discarded."; return false; }
+                }
+                else File.Move(temporary, replay + ".camera", overwrite: true);
                 LastError = null;
                 return true;
             }
@@ -544,7 +575,12 @@ namespace MphRead.Mods.Replay
                 end = clip.EndFrame;
             }
             using var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-            return new ReplayCameraTrackIdentity(fullPath, SHA256.HashData(source), start, end);
+            byte[] hash = SHA256.HashData(source);
+            if (fullPath.EndsWith(ReplayVirtualClips.Extension, StringComparison.OrdinalIgnoreCase)
+                && ReplayVirtualClips.TryLoad(fullPath, out var bound) && bound?.SourceContentHash is { } expected
+                && !StringComparer.OrdinalIgnoreCase.Equals(Convert.ToHexString(hash), expected))
+                throw new InvalidDataException("The source recording was replaced or changed. This replay project requires its original exact recording.");
+            return new ReplayCameraTrackIdentity(fullPath, hash, start, end);
         }
     }
 }

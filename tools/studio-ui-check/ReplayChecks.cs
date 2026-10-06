@@ -26,6 +26,7 @@ internal static partial class Program
             var survivor=(ProjectPrime.Studio.Map.MapStudioDocument)window.Documents.ActiveDocument!;
             string survivorDefinition=survivor.Host.Document!.Project.Definition.Serialize();
             var survivorState=survivor.Host.Document.CurrentStateId;
+            await CheckReplayPreparationWaitAsync(window,source,paths);
             using(var cancellation=new CancellationTokenSource())
             {
                 void CancelAtPrepared()
@@ -59,6 +60,8 @@ internal static partial class Program
             }
             Check(session.Player.Status.Ready&&document.CanSave&&!document.Dirty,"actual headless replay inspection adopts passive canonical scene with native editing controls");
             await CaptureReplayVariantsAsync(window,document,output,"replay-studio-camera",1);
+            await CheckReplayGraphPointerAsync(window,document,output);
+            await CheckReplayJobsAsync(window,document,output);
             Button four=document.Host.GetVisualDescendants().OfType<Button>().Single(button=>button.Content?.ToString()=="Four Views");
             Click(window,four);await CaptureReplayVariantsAsync(window,document,output,"replay-studio-four-view",4);Click(window,four);
             TabControl inspector=document.Host.GetVisualDescendants().OfType<TabControl>().Single(control=>control.Items.OfType<TabItem>().Any(tab=>tab.Header?.ToString()=="Camera"));
@@ -102,8 +105,14 @@ internal static partial class Program
                 "native Replay controls retain immutable recording and construct no network session");
             Check(await window.Documents.RequestCloseAsync(document,_=>Task.FromResult(StudioCloseDecision.Cancel),_=>Task.FromResult<string?>(null))
                 &&document.State==StudioDocumentState.Closed,"clean replay document closes and releases passive decoder ownership");
+            await CheckReplaySaveContinuationCloseAsync(source,paths,data);
         }
-        finally{await window.TryCloseAsync();window.Close();await window.DisposeResourcesAsync();}
+        catch(Exception error){Console.Error.WriteLine("Replay editor acceptance failed before cleanup: "+error);throw;}
+        finally
+        {
+            await window.Documents.RequestCloseAllAsync(_=>Task.FromResult(StudioCloseDecision.Discard),_=>Task.FromResult<string?>(null));
+            await window.TryCloseAsync();window.Close();await window.DisposeResourcesAsync();
+        }
     }
 
     private static async Task CaptureReplayVariantsAsync(StudioWindow window,ReplayStudioDocument document,string output,string route,int views)

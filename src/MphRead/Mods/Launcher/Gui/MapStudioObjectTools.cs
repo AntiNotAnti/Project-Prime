@@ -22,7 +22,45 @@ namespace MphRead.Mods.Launcher.Gui
 {
     internal sealed partial class MapStudioScreen
     {
-        private void AddObject(string kind)
+        internal void ShowPrimitiveDialog(string kind)
+        {
+            if(kind is not ("Box" or "Wedge" or "Prism" or "Convex" or "Mesh"))throw new ArgumentException("Choose Box, Wedge, Prism, Convex, or Mesh.",nameof(kind));
+            if(_document is not {} document || _detached)throw new InvalidOperationException("Open a map before creating geometry.");
+            if(_work!=null)throw new InvalidOperationException("Wait for the current map operation or cancel it first.");
+            var state=document.CurrentStateId;long generation=_editorGeneration;
+            var point=_viewport?.GetPlacementPoint()??System.Numerics.Vector3.Zero;
+            float y=point.Y+(kind is "Box" or "Wedge" or "Prism"?1:0);
+            float[] initialScale=kind switch {"Box"=>new[]{4f,2,4},"Wedge"=>new[]{4f,2,6},"Prism"=>new[]{3f,2,3},_=>new[]{1f,1,1}};
+            var panel=new StackPanel {Spacing=8,MinWidth=400};panel.Children.Add(Text("CREATE "+kind.ToUpperInvariant()));
+            var name=new TextBox {Name="PrimitiveName",Text=kind=="Wedge"?"Ramp":kind=="Mesh"?"Editable mesh":kind};
+            var position=new TextBox {Name="PrimitivePosition",Text=string.Join(", ",new[]{point.X,y,point.Z}.Select(value=>value.ToString("R",CultureInfo.InvariantCulture)))};
+            var scale=new TextBox {Name="PrimitiveScale",Text=string.Join(", ",initialScale.Select(value=>value.ToString("R",CultureInfo.InvariantCulture)))};
+            panel.Children.Add(Text("Name"));panel.Children.Add(name);
+            panel.Children.Add(Text("Position · X, Y, Z"));panel.Children.Add(position);
+            panel.Children.Add(Text("Scale · X, Y, Z"));panel.Children.Add(scale);
+            var error=Text("");error.Name="PrimitiveError";panel.Children.Add(error);
+            AddButton(panel,"Create",()=>
+            {
+                try
+                {
+                    if(_detached || _document!=document || generation!=_editorGeneration || document.CurrentStateId!=state || _work!=null)
+                        throw new InvalidOperationException("This map changed while the dialog was open. Cancel and open Create again.");
+                    string label=(name.Text??"").Trim();if(label.Length==0||label.Length>128)throw new ArgumentException("Enter a name between 1 and 128 characters.");
+                    float[] Parse(string? text,bool positive)
+                    {
+                        var values=(text??"").Split(',',StringSplitOptions.TrimEntries);
+                        if(values.Length!=3)throw new ArgumentException("Enter three comma-separated coordinates.");
+                        var result=values.Select(value=>float.Parse(value,CultureInfo.InvariantCulture)).ToArray();
+                        if(result.Any(value=>!float.IsFinite(value)||(positive&&value<=0)))throw new ArgumentException(positive?"Scale must contain three finite positive numbers.":"Position must contain three finite numbers.");
+                        return result;
+                    }
+                    AddObject(kind,new MapTransform {Position=Parse(position.Text,false),Scale=Parse(scale.Text,true)},label);Dismiss();
+                }
+                catch(Exception failure){error.Text=failure.Message;}
+            });
+            AddButton(panel,"Cancel",Dismiss);Modal(panel,fitContent:true);
+        }
+        private void AddObject(string kind,MapTransform? transform=null,string? label=null)
         {
             if(_document==null)return;
             System.Numerics.Vector3 place=_viewport?.GetPlacementPoint()??System.Numerics.Vector3.Zero;
@@ -81,6 +119,11 @@ namespace MphRead.Mods.Launcher.Gui
                         var value=new MapNavigationLink{From=new[]{place.X,place.Y+.1f,place.Z},To=new[]{place.X+6,place.Y+.1f,place.Z}};
                         created=value.Id;d.NavigationLinks.Add(value);break;
                     }
+                }
+                if(created!=Guid.Empty && d.Geometry.FirstOrDefault(value=>value.Id==created) is {} geometry)
+                {
+                    if(transform!=null)geometry.Transform=transform;
+                    if(label!=null)geometry.Label=label;
                 }
             });
             if(created!=Guid.Empty)

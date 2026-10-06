@@ -20,7 +20,7 @@ using MphRead.Mods.Replay;
 namespace MphRead.Mods.Launcher.Gui
 {
     /// <summary>
-    /// First-class Replay Studio library.
+    /// Game Theatre replay library.
     ///
     /// Playback/editor state remains in DemoPlayback/ReplayStudio. This view
     /// only owns library presentation and file-management actions.
@@ -110,11 +110,11 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (EditorActive) return;
             _libraryRoot = Content as Control;
-            var editor = new ReplayControlsView(shell: true);
+            var editor = new ReplayQuickControlsView();
             editor.Closed += (_, _) => close();
             editor.ResumeRequested += (_, _) => fullscreen();
             var viewport = new Grid { RowDefinitions = new("Auto,*,Auto") };
-            viewport.Children.Add(new PrimeBadge("CLICK PREVIEW TO CONTROL · DRAG TO LOOK · B ADD KEY · ESC RELEASE"));
+            viewport.Children.Add(new PrimeBadge("CLICK PREVIEW TO CONTROL · DRAG TO LOOK · ESC RELEASE"));
             var picture = new ReplayViewport();
             Grid.SetRow(picture, 1); viewport.Children.Add(picture);
             var actions = PrimeChrome.Columns("*,*", new PrimeButton("BACK TO ARCHIVE", close),
@@ -553,7 +553,7 @@ namespace MphRead.Mods.Launcher.Gui
                     _libraryState.Set(
                         PrimeStateKind.Error,
                         "REPLAY LIBRARY UNAVAILABLE",
-                        ex.Message + " Import remains available, or reopen Replay Studio to retry the scan.",
+                        ex.Message + " Import remains available, or reopen Theatre to retry the scan.",
                         showActions: true);
                 }
             }

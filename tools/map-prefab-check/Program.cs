@@ -11,6 +11,7 @@ int checks = 0;
 try
 {
     Headless.Enter();
+    AnimatedPrefabChecks.Run(root, Check);
     string sourceRoot = Path.Combine(root, "source"), targetRoot = Path.Combine(root, "target");
     Directory.CreateDirectory(sourceRoot); Directory.CreateDirectory(targetRoot);
     using (var writer = new BinaryWriter(File.Create(Path.Combine(sourceRoot, "tile.tex"))))

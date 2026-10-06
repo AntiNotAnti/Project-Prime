@@ -110,8 +110,110 @@
     "fixture": "local v134 replay; original immutable file retained"
   },
   "measurements": {
-    "gameStartupToUsableShell": "not measured",
-    "gameMemory": "not measured",
+    "gameStartupToUsableShell": {
+      "status": "measured",
+      "sampleCount": 5,
+      "definition": "Five fresh production Game processes with independent initially empty owned profiles. External startup hook observes the unmodified entry point. Automatic production Enter input immediately follows first presented frame; usable means a native presented frame after gate removal with visible/enabled shell and closed overlays. Includes24-frame production reveal animation; human reaction delay excluded. Stopwatch interval begins in external observer hook, process-launch interval additionally recorded with2ms file polling. OS filesystem/GPU caches were not flushed. Assets read from existing extracted AMHE1 data; no gameplay scene. Updater disabled for isolated reproducibility.",
+      "milliseconds": {
+        "minimum": 1228.3426,
+        "median": 1244.7097,
+        "maximum": 1279.3976
+      },
+      "firstPresentedFrameMilliseconds": {
+        "minimum": 832.4745,
+        "median": 838.53,
+        "maximum": 876.3568
+      },
+      "processLaunchToUsableObservedMilliseconds": {
+        "minimum": 1269.4801669999993,
+        "median": 1280.2914580000001,
+        "maximum": 1326.057583
+      },
+      "processLaunchObservationPollingMilliseconds": 2,
+      "renderer": "OpenGL compatibility, Apple M4 Pro",
+      "logicalSize": [
+        1280,
+        768
+      ],
+      "nativeScale": 2,
+      "physicalSize": [
+        2560,
+        1536
+      ],
+      "updaterDisabled": true,
+      "filesystemAndGpuCachesFlushed": false,
+      "processesAndProfiles": "fresh independent Game processes and initially empty owned profiles",
+      "baselineAssemblySha256": "f6c19ec15a71093497dceea30add566f45118939b850b0ab58794c76b5c9e9e6",
+      "observerAssemblySha256": "2c960d7897e6e664d65ca519d797ebe902fff0ca1cda083dd18fd73224bf940e",
+      "sourceVerification": {
+        "trackedBlobs": 2005,
+        "mismatchedSourceFiles": []
+      },
+      "artifact": "artifacts/studio-baseline/fcf311c/startup/measurements.json",
+      "samples": [
+        {
+          "sample": 1,
+          "milliseconds": 1279.3976,
+          "firstPresentedFrameMilliseconds": 876.3568,
+          "processLaunchToUsableObservedMilliseconds": 1326.057583,
+          "workingSetBytes": 309805056,
+          "exitCode": 0,
+          "capture": "artifacts/studio-baseline/fcf311c/startup/sample-1/usable-shell.png",
+          "captureSha256": "d6eb79d8666fa49c948b3f70e3eb41ba1cb24d7dc29903ba8959beb1d185cf60"
+        },
+        {
+          "sample": 2,
+          "milliseconds": 1259.3934,
+          "firstPresentedFrameMilliseconds": 832.4745,
+          "processLaunchToUsableObservedMilliseconds": 1295.9409580000001,
+          "workingSetBytes": 310411264,
+          "exitCode": 0,
+          "capture": "artifacts/studio-baseline/fcf311c/startup/sample-2/usable-shell.png",
+          "captureSha256": "bcdd10d910238b13fdd300747f0448f02b11194cf6e47acc0d3cab4703e682e1"
+        },
+        {
+          "sample": 3,
+          "milliseconds": 1244.7097,
+          "firstPresentedFrameMilliseconds": 838.53,
+          "processLaunchToUsableObservedMilliseconds": 1280.2914580000001,
+          "workingSetBytes": 311951360,
+          "exitCode": 0,
+          "capture": "artifacts/studio-baseline/fcf311c/startup/sample-3/usable-shell.png",
+          "captureSha256": "2934fcae092babfbc14f335a4ead53d5e8751eba600dff8326f346c278085d44"
+        },
+        {
+          "sample": 4,
+          "milliseconds": 1228.3426,
+          "firstPresentedFrameMilliseconds": 837.1531,
+          "processLaunchToUsableObservedMilliseconds": 1269.4801669999993,
+          "workingSetBytes": 310935552,
+          "exitCode": 0,
+          "capture": "artifacts/studio-baseline/fcf311c/startup/sample-4/usable-shell.png",
+          "captureSha256": "bcdd10d910238b13fdd300747f0448f02b11194cf6e47acc0d3cab4703e682e1"
+        },
+        {
+          "sample": 5,
+          "milliseconds": 1243.8957,
+          "firstPresentedFrameMilliseconds": 840.805,
+          "processLaunchToUsableObservedMilliseconds": 1279.2292920000002,
+          "workingSetBytes": 311820288,
+          "exitCode": 0,
+          "capture": "artifacts/studio-baseline/fcf311c/startup/sample-5/usable-shell.png",
+          "captureSha256": "bcdd10d910238b13fdd300747f0448f02b11194cf6e47acc0d3cab4703e682e1"
+        }
+      ]
+    },
+    "gameMemory": {
+      "status": "measured",
+      "sampleCount": 5,
+      "workingSetBytes": {
+        "minimum": 309805056,
+        "median": 310935552,
+        "maximum": 311951360
+      },
+      "definition": "Process WorkingSet64 at the first post-presentation usable-shell callback, before explicit GPU pixel capture; OS working set, not managed heap or peak memory.",
+      "artifact": "artifacts/studio-baseline/fcf311c/startup/measurements.json"
+    },
     "uiRedraw": "Measured by existing -uibench, see log for resolution/scale/workload medians. These are CPU UI redraw measurements, not gameplay/GPU FPS.",
     "studioStartup": {
       "milliseconds": 997.4,
@@ -120,6 +222,131 @@
     "studioMemory": {
       "workingSetBytes": 155189248,
       "definition": "Process working set at that Opened event."
+    },
+    "gameStartupComparison": {
+      "status": "measured",
+      "sampleCount": 5,
+      "sourceIdentity": "final-jobs-working-tree-at-9d5e6851915e431b9fb9623e0b894b1081897deb",
+      "engineAssemblySha256": "3823d127d2490a049383faf682b802e7e13a60bcc1f71372adddc82612d4aabf",
+      "observerAssemblySha256": "49a7daaccb2d85db3062a31ef0f280b1fcf2eb803a54e2cfaeaafa4ace0a4097",
+      "definition": "Same original-baseline production Game entry point, external observer, Enter input after first presented frame, native presented usable-shell gates, 1280x768 logical / 2560x1536 physical OpenGL Apple M4 Pro. Fresh independent processes and initially empty owned profiles, existing AMHE1 assets, updater disabled, no gameplay, working set sampled before pixel capture. Filesystem/GPU caches were not flushed. Temporary owned display-awake assertion avoids idle-monitor native failure; no OS preference changes. Sampling occurred with other builds/native/headless tests paused. The first accepted frame uses interactivity/metadata gates and can retain the last cached reveal raster; it does not claim visual fade completion.",
+      "scope": "Measured immutable final-jobs graph engine SHA3823d127. Subsequent thumbnail cancellation and failed native surface-admission cleanup change the full engine binary hash; they do not change the measured Game Home path. Preserve this graph identity rather than attributing samples to a later assembly.",
+      "summary": {
+        "UsableShellMilliseconds": {
+          "originalMedian": 1244.7097,
+          "finalJobsMedian": 940.0855,
+          "medianDelta": -304.6242000000001,
+          "medianPercentChange": -24.473513783977108,
+          "finalJobsRange": {
+            "minimum": 937.9679,
+            "maximum": 960.2527
+          }
+        },
+        "FirstPresentedFrameMilliseconds": {
+          "originalMedian": 838.53,
+          "finalJobsMedian": 749.1938,
+          "medianDelta": -89.33619999999996,
+          "medianPercentChange": -10.653906240683098,
+          "finalJobsRange": {
+            "minimum": 744.7736,
+            "maximum": 754.6918
+          }
+        },
+        "ProcessLaunchToUsableObservedMilliseconds": {
+          "originalMedian": 1280.2914580000001,
+          "finalJobsMedian": 970.979708,
+          "medianDelta": -309.3117500000002,
+          "medianPercentChange": -24.15947931756022,
+          "finalJobsRange": {
+            "minimum": 970.578209,
+            "maximum": 990.938541
+          }
+        },
+        "WorkingSetBytes": {
+          "originalMedian": 310935552,
+          "finalJobsMedian": 305496064,
+          "medianDelta": -5439488,
+          "medianPercentChange": -1.7493940351986481,
+          "finalJobsRange": {
+            "minimum": 305250304,
+            "maximum": 305807360
+          }
+        }
+      },
+      "artifact": "artifacts/studio-acceptance/final-jobs/game-startup/measurements.json",
+      "artifactManifest": "artifacts/studio-acceptance/final-jobs/game-startup/manifest.json",
+      "samples": [
+        {
+          "sample": 1,
+          "milliseconds": 956.3097,
+          "firstPresentedFrameMilliseconds": 754.6918,
+          "processLaunchToUsableObservedMilliseconds": 990.153333,
+          "workingSetBytes": 305709056,
+          "presentedFrameCount": 25,
+          "exitCode": 0,
+          "capture": "artifacts/studio-acceptance/final-jobs/game-startup/sample-1/usable-shell.png",
+          "captureSha256": "9b59ea5bd07b0fdce98a1c3519d18725dc08bb505f6083202c4d361122afa5d2"
+        },
+        {
+          "sample": 2,
+          "milliseconds": 940.0855,
+          "firstPresentedFrameMilliseconds": 747.6818,
+          "processLaunchToUsableObservedMilliseconds": 970.979708,
+          "workingSetBytes": 305250304,
+          "presentedFrameCount": 25,
+          "exitCode": 0,
+          "capture": "artifacts/studio-acceptance/final-jobs/game-startup/sample-2/usable-shell.png",
+          "captureSha256": "e5a38f00d8ffbb691b2687add97a46b9aee9c109e567625447906a58489159bb"
+        },
+        {
+          "sample": 3,
+          "milliseconds": 937.9679,
+          "firstPresentedFrameMilliseconds": 744.7736,
+          "processLaunchToUsableObservedMilliseconds": 970.578209,
+          "workingSetBytes": 305496064,
+          "presentedFrameCount": 25,
+          "exitCode": 0,
+          "capture": "artifacts/studio-acceptance/final-jobs/game-startup/sample-3/usable-shell.png",
+          "captureSha256": "17f71b7cd03e8871bed1d9d8757d12a5970e04b14e2e8862e98f112d286462de"
+        },
+        {
+          "sample": 4,
+          "milliseconds": 960.2527,
+          "firstPresentedFrameMilliseconds": 752.5008,
+          "processLaunchToUsableObservedMilliseconds": 990.938541,
+          "workingSetBytes": 305266688,
+          "presentedFrameCount": 25,
+          "exitCode": 0,
+          "capture": "artifacts/studio-acceptance/final-jobs/game-startup/sample-4/usable-shell.png",
+          "captureSha256": "4c6f787d4da32fde2ae41c2aa395b056ca0883e289f9c92b1ce4a2e0997afbb8"
+        },
+        {
+          "sample": 5,
+          "milliseconds": 939.6366,
+          "firstPresentedFrameMilliseconds": 749.1938,
+          "processLaunchToUsableObservedMilliseconds": 970.652209,
+          "workingSetBytes": 305807360,
+          "presentedFrameCount": 25,
+          "exitCode": 0,
+          "capture": "artifacts/studio-acceptance/final-jobs/game-startup/sample-5/usable-shell.png",
+          "captureSha256": "872eb0997a8a4e4e23b3511011c31da92fbf8127971cb6be2efe2586a87c3599"
+        }
+      ],
+      "excludedCalibrations": "Failed /tmp alias/Python hash helpers were external runner setup issues. Native idle-display calibrations exitedSIGSEGV in _glfwGetVideoModeCocoa before a window; staged runtime/wake calibration succeeded but was excluded under concurrent work. Five accepted samples are a separate quiet run.",
+      "postMeasurementUsability": {
+        "status": "passed",
+        "timingSampleIncluded": false,
+        "sourceIdentity": "same measured engineSHA3823d127",
+        "initialAcceptedFrame": 25,
+        "fullyFadedHomePresent": 26,
+        "cleanHomeRetainedAtFrame": 30,
+        "productionInput": "UiSurface.KeyDown/KeyUp Q through actual top-level input",
+        "routeBefore": "News",
+        "routeAfter": "Settings",
+        "selectedSettingsGpuCaptureFrame": 35,
+        "exitCode": 0,
+        "artifact": "artifacts/studio-acceptance/final-jobs/game-startup/post-measurement-usability/usability.json"
+      }
     }
   },
   "captureManifest": "artifacts/studio-baseline/fcf311c/manifest.json",
@@ -133,5 +360,153 @@
     "uiCaptures": 9,
     "capturePath": "artifacts/studio-ui/foundation",
     "scope": "Phase1/2 foundation only"
+  },
+  "recordScope": "Frozen original baseline and explicitly identified later migration acceptance. Historical coreCodeChanged/releaseAcceptance/studioChecks fields describe the original/foundation snapshot, not the completed source migration.",
+  "finalAcceptance": {
+    "sourceIdentity": "final-lifetime working tree at 9d5e6851915e431b9fb9623e0b894b1081897deb; final Android-only exclusion and generated GLFW diagnostic fixture separately recorded",
+    "desktopGraph": {
+      "engineAssemblySha256": "5789c339739fa809c0d6dec09aec52a025efc5720a01f2837df832e0cbbf834e",
+      "studioAssemblySha256": "9167e7a4133d97cef40a4b3822b1433a6ad2e2265f4c94b9fa700a82ef362aa2",
+      "buildErrors": 0,
+      "buildWarnings": 133,
+      "log": "/tmp/project-prime-studio-final-lifetime-repaired-build.log"
+    },
+    "architecture": {
+      "status": "passed",
+      "sourceContracts": 8121,
+      "selfTests": 66,
+      "logs": [
+        "/tmp/project-prime-studio-architecture-android-scan.log",
+        "/tmp/project-prime-studio-architecture-android-self.log"
+      ]
+    },
+    "headlessLoadedUi": {
+      "status": "passed",
+      "checks": 824,
+      "log": "/tmp/project-prime-host-ui-final-lifetime.log",
+      "captures": "/tmp/project-prime-studio-ui-final-lifetime",
+      "scope": "Loaded Map/Replay controls, native-independent authoring/history/recovery, central jobs/cancellation/thumbnail drain, source waits, true 2D graph selection and Speed gesture preservation; headless pixels do not certify GPU rendering"
+    },
+    "canonicalReplay": {
+      "status": "passed",
+      "workerChecks": 72624,
+      "parentChecks": 94,
+      "log": "/tmp/project-prime-final-seek-replay.log",
+      "scope": "Two historical recordings and isolated map versions; exact source/camera/pin/seek/cancellation/checkpoint/scene contracts"
+    },
+    "nativeReplay": {
+      "status": "passed",
+      "checks": 158,
+      "log": "/tmp/project-prime-host-native-replay-final-presented.log",
+      "captures": "/tmp/project-prime-native-replay-final-presented-evidence",
+      "scope": "Full default HUD/two POVs/four views single clock/rates/seek/retry/clips/camera/native PNG MP4 PCM/close/export/cache lifetime; full-graph hashes compare the same explicit presented phase"
+    },
+    "nativeGame": {
+      "status": "passed",
+      "checks": 118,
+      "log": "/tmp/project-prime-host-native-game-final-lifetime.log"
+    },
+    "nativeAdmission": {
+      "status": "passed",
+      "checks": 118,
+      "log": "/tmp/project-prime-host-native-admission-final-lifetime.log",
+      "scope": "Generic lifecycle plus eight actual C API failed-surface admission cleanup and canonical CPU-edit fallback assertions; distinct from nativeGame118"
+    },
+    "modeling": {
+      "status": "passed",
+      "checks": 121,
+      "log": "/tmp/project-prime-studio-modeling-cancellation.log"
+    },
+    "prefab": {
+      "status": "passed",
+      "checks": 70,
+      "log": "/tmp/project-prime-map-prefab-v6.log"
+    },
+    "renderer": {
+      "status": "passed",
+      "checks": 42,
+      "log": "/tmp/project-prime-studio-gpu-picking-final-evidence.log",
+      "scope": "Actual Metal native retained rendering/picking; 41 without output evidence assertion, GPU timing unmeasured"
+    },
+    "rmlUiOverlay": {
+      "status": "passed",
+      "checks": 27,
+      "log": "/tmp/project-prime-rmlui-durable-native.log",
+      "scope": "Three physical layouts, native DOM input/pixels/shutdown on macOS OpenTK GL overlay; not whole-engine game menu proof"
+    },
+    "exportComponents": {
+      "status": "passed",
+      "checks": 1142,
+      "log": "/tmp/project-prime-export-final-contract.log",
+      "scope": "Actual production-linked FFmpeg/FFprobe/process/cache contracts; fixture pixels separate from nativeReplay proof"
+    },
+    "server": {
+      "status": "passed",
+      "errors": 0,
+      "warnings": 38,
+      "elapsedSeconds": 24.5,
+      "log": "/tmp/project-prime-studio-server-final.log",
+      "metadata": "/tmp/project-prime-studio-server-final-metadata.json",
+      "assemblySha256": "f5e5585e605bc689d39024ddb223882fc07b7a615594cad0f07cbcd077e431da",
+      "artifact": "artifacts/studio-acceptance/final-platform/server/acceptance.json"
+    },
+    "android": {
+      "status": "passed",
+      "buildErrors": 0,
+      "buildWarnings": 137,
+      "buildSeconds": 95.73,
+      "apkBytes": 118102268,
+      "apkSha256": "ea91e76407ac6bdacd95356e4a8976fa12d839b34107447b5935194461d6ecfd",
+      "abis": [
+        "arm64-v8a",
+        "x86_64"
+      ],
+      "canonicalAssemblySha256": "875abfa5e73812c1ed33abada9462cdadbf42a6ad4f81b9917c50918b64493a7",
+      "canonicalMapTypes": 247,
+      "passiveReplayPreserved": true,
+      "forbiddenCreatorTypes": [],
+      "forbiddenDesktopAssemblyReferences": [],
+      "signature": "Android Debug certificate; APK v2 and v3 verified",
+      "compileSourceCount": 1175,
+      "compileSourceIdentitySha256": "76b3e9449b9fa1b52905d355732687f62227dfeab6a8f54d42afa5545112177f",
+      "artifact": "artifacts/studio-acceptance/final-platform/android/acceptance.json",
+      "manifest": "artifacts/studio-acceptance/final-platform/android/manifest.json",
+      "scope": "Actual final APK ELF assembly-store extraction + XALZ/LZ4 decode matches linked canonical DLL bytes for both ABIs. Independent PE metadata finds no desktop creator GUI/native host/full Replay editor/Studio references; shared canonical Map and passive Replay preserved. Both packaged native wgpu payloads match fingerprint-verified pinned outputs.",
+      "onDeviceAcceptance": false
+    },
+    "pairedMacPackage": {
+      "status": "passed",
+      "version": "1.2.3",
+      "ipcVersion": 1,
+      "rid": "osx-arm64",
+      "selfContained": true,
+      "signingIdentity": "ad hoc; strict verified for both bundled and extracted apps",
+      "archive": "artifacts/studio-acceptance/final-release/osx-arm64/ProjectPrime-v1.2.3-osx-arm64.tar.gz",
+      "archiveBytes": 162415713,
+      "archiveSha256": "33a28da60f4f16a829d9db74b688200aa5531d5470855f62776fcd2e9eeb0d72",
+      "evidence": "artifacts/studio-acceptance/final-release/osx-arm64/release-evidence.json",
+      "log": "/tmp/project-prime-paired-final-package.log",
+      "scope": "Actual SDK publish, sibling apps, strict signatures, arm64/native/JIT checks, paired executable versions and extracted native launcher/thumbnail smoke; no Developer ID/notarization claim"
+    },
+    "threeOsCi": {
+      "status": "pending",
+      "scope": "Final source Windows/Linux/macOS build and platform acceptance"
+    },
+    "migrationComplete": false,
+    "publication": {
+      "status": "passed",
+      "ordinaryFilesystemChecks": 83,
+      "caseSensitiveFilesystemChecks": 86,
+      "sameFixtureRepeated": true,
+      "physicalAliasChecks": 17,
+      "logs": [
+        "/tmp/project-prime-private-runtime-ownership.log",
+        "/tmp/project-prime-private-runtime-case-sensitive.log",
+        "/tmp/project-prime-raw-alias-case-sensitive.log"
+      ]
+    },
+    "remainingRequiredGates": [
+      "Final Windows/Linux/macOS CI for the final source checkpoint"
+    ]
   }
 }

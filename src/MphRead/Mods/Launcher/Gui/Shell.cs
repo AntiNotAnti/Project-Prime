@@ -107,9 +107,6 @@ namespace MphRead.Mods.Launcher.Gui
         private static LaunchPlan? _pending;
         private static bool _endMatch;
         private static bool _quit;
-        internal static bool OpenStudioOnStart { get; set; }
-        private static MapGen.MapDefinition? _studioPreview;
-        internal static void PrepareStudioPreview(MapGen.MapDefinition definition) => _studioPreview = definition;
         // While a persistent-lobby client has finished its local room build but
         // the server is still waiting for the other participants, keep the
         // lobby/loading surface over the scene. Reveal on the committed
@@ -128,9 +125,6 @@ namespace MphRead.Mods.Launcher.Gui
         /// toolkit that will not start on this machine. The text launcher
         /// plays the same matches and is what the caller falls back to.
         /// </summary>
-        internal static string? StudioProjectPath { get; set; }
-        internal static bool StudioWindow { get; set; }
-
         public static bool Run()
         {
             bool result = RunSession();
@@ -194,7 +188,6 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 window = RenderWindow.Create(shell: true);
                 LifecycleTiming.Startup("native window created");
-                if (StudioWindow) { window.Title = "Project Prime · Map Studio"; window.WindowState = OpenTK.Windowing.Common.WindowState.Maximized; }
                 window.FileDrop += OnFilesDropped;
                 PublishNativeHandle(window);
                 _window = window;
@@ -254,8 +247,6 @@ namespace MphRead.Mods.Launcher.Gui
                 _endMatch = false;
                 _quit = false;
                 _matchLoading = false;
-                _studioPreview = null;
-                OpenStudioOnStart = false;
                 // Both own a worker thread and a bound socket; leaving the
                 // program must not leave either behind.
                 Mods.DebugLog.Line("shutdown", "stopping network session");
@@ -335,6 +326,21 @@ namespace MphRead.Mods.Launcher.Gui
                 if (rmlCommand == "quit")
                 {
                     RequestQuit();
+                    break;
+                }
+
+                if (rmlCommand == "studio:open")
+                {
+                    if (Mods.StudioIntegration.StudioApplicationLauncher.TryOpen(null, false, out string? error))
+                        continue;
+                    RmlUiPrototype.Shutdown();
+                    if (!GuiLauncher.EnsureSetup() || UiSurface.Ensure() == null)
+                    {
+                        RequestQuit();
+                        break;
+                    }
+                    ShowFrontScreen();
+                    _front?.ShowStudioLaunchFailure(error ?? "Project Prime Studio could not start.");
                     break;
                 }
 
@@ -600,7 +606,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             if (_window != null)
             {
-                _window.Title = StudioWindow ? "Project Prime · Map Studio" : Mods.Branding.Name;
+                _window.Title = Mods.Branding.Name;
             }
             if (_front == null)
             {
@@ -621,11 +627,6 @@ namespace MphRead.Mods.Launcher.Gui
                 _front.Reset(_settings);
             }
             surface.Show(_front);
-            if (OpenStudioOnStart)
-            {
-                OpenStudioOnStart = false;
-                _front.OpenMapStudio();
-            }
         }
 
         private static void Decided(LaunchPlan plan)
@@ -686,12 +687,6 @@ namespace MphRead.Mods.Launcher.Gui
             _matchLoading = false;
             try
             {
-                MapGen.MapDefinition? preview = _studioPreview;
-                _studioPreview = null;
-                if (preview != null)
-                {
-                    Metadata.RegisterStudioPreview(preview);
-                }
                 if (!MatchStart.Begin(window, _settings, plan))
                 {
                     string failure = MatchStart.LastError ?? "The map could not be loaded.";
@@ -751,7 +746,7 @@ namespace MphRead.Mods.Launcher.Gui
         private static void FullscreenReplay(RenderWindow window)
         {
             UiSurface.Current?.Hide();
-            // The Replay Studio button owns toolkit focus. Hiding the toolkit
+            // The replay controls own toolkit focus. Hiding the toolkit
             // does not reliably return keyboard focus to GLFW on every window
             // manager, which makes fullscreen playback appear frozen because
             // Space/Escape and the replay keyboard bindings stop arriving.
@@ -793,8 +788,6 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         /// <summary>Leave the program.</summary>
-        internal static bool PreserveForgeRecovery() => _front?.PreserveForgeRecovery() ?? true;
-
         public static void RequestQuit()
         {
             LifecycleTiming.BeginShutdown("quit requested");
@@ -1452,7 +1445,7 @@ namespace MphRead.Mods.Launcher.Gui
                 steps.Add(w =>
                 {
                     RequireLifecycle(_front!.Prime.Router.Current == PrimeRoute.Forge
-                        && _front.GetVisualDescendants().OfType<MapStudioScreen>().Any(), "Map Studio opened");
+                        && _front.GetVisualDescendants().OfType<ForgeWorkspace>().Any(), "external Studio launch surface opened");
                     Shot(w, $"lifecycle-{pass}-forge"); _front.Prime.Overlays.Clear();
                     _front.Prime.Router.Navigate(PrimeRoute.Play); Wait(30);
                 });

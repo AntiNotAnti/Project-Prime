@@ -23,7 +23,6 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly LobbySessionCoordinator _session = new();
         private LobbyScreen? _lobby;
         private bool _finished, _updating, _bypassGuard;
-        private bool _returnToMapStudio;
         private bool _spectateNextMatch;
         private readonly PrimeUiPulse _updateWatcher;
         private UpdateInfo? _pendingUpdatePrompt;
@@ -162,33 +161,9 @@ namespace MphRead.Mods.Launcher.Gui
                     offline.Launched += (_, plan) => LaunchLocal(plan);
                     return offline;
                 case PrimeRoute.Forge:
-#if MPHREAD_SHELL
-                    var forge = new MapStudioScreen(_prime.Overlays);
+                    var forge = new ForgeWorkspace();
                     forge.Closed += (_, _) => _prime.Back();
-                    forge.HostRequested += (_, definition) => { RefreshRooms(); OpenCreateServer(definition.Name); };
-                    if (Shell.StudioProjectPath is { } projectPath) { Shell.StudioProjectPath=null; forge.Open(projectPath); }
-                    forge.PlayRequested += (_, definition) =>
-                    {
-                        if (!CanLaunchLocal()) return;
-                        _returnToMapStudio = true;
-                        Shell.PrepareStudioPreview(definition);
-                        Finish(new LaunchPlan { Kind = LaunchKind.Offline, RoomKey = definition.Name, IsPlaytest = true,
-                            Hunter = Hunter.Samus, Mode = GameMode.Battle, Bots = 0, BotLevel = 5, PlayerName = "Map author" });
-                    };
-                    // During parity verification the embedded route remains available.
-                    // The paired desktop app owns new independent creator windows.
-                    forge.AddExternalStudioLaunch(() =>
-                    {
-                        if (!Mods.StudioIntegration.StudioApplicationLauncher.TryOpen(null, false, out string? error))
-                            _prime.Overlays.Show(new PrimePanel(PrimeChrome.Stack(
-                                PrimeChrome.Title("STUDIO COULD NOT START"), PrimeChrome.Text(error ?? "Studio is unavailable."),
-                                new PrimeButton("CLOSE", Pop))), PrimeModalSize.Small);
-                    });
                     return forge;
-#else
-                    return new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("FORGE"),
-                        PrimeChrome.Text("Map Studio requires the desktop renderer.")));
-#endif
                 case PrimeRoute.Lobby:
                     return _lobby ?? (Control)new PrimePanel(PrimeChrome.Text("No active lobby."));
                 default: throw new ArgumentOutOfRangeException(nameof(route));
@@ -267,7 +242,6 @@ namespace MphRead.Mods.Launcher.Gui
             if (rebuildCurrent) _prime.Workspaces.Show(_prime.Router.Current);
             if (_lobby != null && NetSession.Active) { ResumeLobby(); return; }
             if (_lobby != null) { _session.Screen = null; _lobby = null; _prime.Workspaces.Remove(PrimeRoute.Lobby); _prime.Router.Forget(PrimeRoute.Lobby); }
-            if (_returnToMapStudio) { _returnToMapStudio = false; RefreshRooms(); }
             Hunters.Reroll(); LauncherPrefs.Load(); RefreshRooms(); _prime.Refresh(); RefreshVersionLine();
             if (_prime.Router.Current == PrimeRoute.Lobby) _prime.Router.Navigate(PrimeRoute.Play);
             if (!GameFiles.Ready) OpenSetup();
@@ -303,10 +277,17 @@ namespace MphRead.Mods.Launcher.Gui
         }
         internal void OpenMapStudio()
         {
-            // An explicit editor launch bypasses the ordinary startup gate.
+            // The external creator launch surface remains reachable during setup.
             if (_startup != null) { _layers.Children.Remove(_startup); _startup.Dispose(); _startup = null; }
             _prime.IsVisible = true; _prime.IsEnabled = true;
             _prime.Router.Navigate(PrimeRoute.Forge);
+        }
+        internal void ShowStudioLaunchFailure(string error)
+        {
+            _prime.Overlays.Clear();
+            OpenMapStudio();
+            if (_prime.Workspaces.Get(PrimeRoute.Forge) is ForgeWorkspace forge)
+                forge.ShowLaunchFailure(error);
         }
         internal void OpenStudioHosting(string roomKey) => OpenCreateServer(roomKey);
         private void OpenCreateServer(string? firstMap = null)
@@ -378,29 +359,12 @@ namespace MphRead.Mods.Launcher.Gui
                     new PrimeButton("DISCARD", () => { settings.DiscardDraft(); Pop(); continuation(); }),
                     new PrimeButton("CANCEL", Pop)))), PrimeModalSize.Medium);
         }
-        internal bool PreserveForgeRecovery() => (_prime.Workspaces.TryGet(PrimeRoute.Forge) as MapStudioScreen)?.SaveRecovery() ?? true;
-
         private void AskToQuit()
         {
             if (_prime.Workspaces.TryGet(PrimeRoute.Settings) is SettingsView { IsDirty: true } settings)
             { ShowUnsaved(settings, AskToQuit); return; }
-#if MPHREAD_SHELL
-            var forge = _prime.Workspaces.TryGet(PrimeRoute.Forge) as MapStudioScreen;
-            string prompt = forge?.IsDirty == true
-                ? "Quit Project Prime? Unsaved Forge edits will be kept as a recovery copy."
-                : "Quit Project Prime?";
-#else
-            const string prompt = "Quit Project Prime?";
-#endif
-            var view = new ConfirmScreen(prompt, yes: "exit game", no: "cancel");
-            view.Answered += (_, yes) =>
-            {
-                Pop(); if (!yes) return;
-#if MPHREAD_SHELL
-                if (forge != null && !forge.SaveRecovery()) { _prime.Router.Navigate(PrimeRoute.Forge); return; }
-#endif
-                Finish(default);
-            };
+            var view = new ConfirmScreen("Quit Project Prime?", yes: "exit game", no: "cancel");
+            view.Answered += (_, yes) => { Pop(); if (yes) Finish(default); };
             Push(view);
         }
         public void ShowPauseMenu(Action onResume, Action onLeave, Action onQuit,
@@ -455,7 +419,7 @@ namespace MphRead.Mods.Launcher.Gui
             view.VoteMapRequested += (_, _) => OpenVote();
             view.ReplayControlsRequested += (_, _) =>
             {
-                var controls = new ReplayControlsView();
+                var controls = new ReplayQuickControlsView();
                 controls.Closed += (_, _) => Pop();
                 controls.ResumeRequested += (_, _) =>
                 {

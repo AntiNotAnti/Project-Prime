@@ -11,7 +11,7 @@ Coons quad grid filling, constant-width planar region inset, general closed
 endpoint-fan bevel, connected/spatial proportional falloff, ordered mirror/
 array evaluation, channel preservation, source byte immutability and transactional
 undo/redo/rejection. The 128-island workload reports actual CPU and allocation.
-The suite currently has 115 assertions. Its measured workload must stay below
+The suite currently has 121 assertions. Its measured workload must stay below
 64 MiB of allocated managed memory while producing a validated closed mesh;
 reported timing is a measurement, not a fixed pass threshold. The same tool can
 run with `-p:MphReadServer=true` to verify the canonical module in the headless
@@ -30,5 +30,11 @@ is changed. `WithModifierStack` stores resolved runtime geometry and one origina
 source with an ordered JSON-polymorphic modifier list. Editing the stack
 reevaluates that source. Raw topology editing requires an explicit bake, so
 provenance cannot silently become inconsistent with the evaluated mesh.
+All ten proposal APIs accept the central job cancellation token. A deterministic
+worker fixture cancels only after its first real 128-copy modifier completes;
+it verifies the matching cancellation exception, no late adoption, byte-exact
+source preservation and unchanged canonical document/history. A pre-cancelled
+token is also checked at every public proposal entry point.
+
 The actual `MapDocument.PaintFaces` boundary rejects unbaked stacked geometry
 before changing either serialized document content or history state.

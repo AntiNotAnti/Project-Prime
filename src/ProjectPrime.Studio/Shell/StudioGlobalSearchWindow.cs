@@ -88,18 +88,18 @@ public sealed class StudioGlobalSearchWindow : Window
                         { documents.Select(document);replay.PlayerSlot=player.Slot;replay.Camera=MphRead.Mods.StudioReplay.StudioReplayCameraMode.Player;replay.SavePresentation(); });
                 foreach(var marker in replay.Player.Markers)
                     if(Match(marker.Name+" "+marker.Track))yield return new("Replay marker",marker.Name,document.Title+" · frame "+marker.StartFrame,
-                        ()=>{documents.Select(document);replay.Player.Seek(marker.StartFrame);});
+                        ()=>{documents.Select(document);replay.Seek(marker.StartFrame);});
                 foreach(var key in replay.Player.CameraKeys)
                 {
                     string label="Camera key "+key.Frame;
-                    if(Match(label))yield return new("Camera",label,document.Title,()=>{documents.Select(document);replay.Player.Seek(key.Frame);});
+                    if(Match(label))yield return new("Camera",label,document.Title,()=>{documents.Select(document);replay.Seek(key.Frame);});
                 }
                 if(query.Length<2)continue;
                 foreach(var item in replay.Player.Events)
                 {
                     string label=item.Type+" · frame "+item.Frame;
                     if(Match(label))yield return new("Replay event",label,document.Title+" · actor "+item.Actor,
-                        ()=>{documents.Select(document);replay.Player.Seek(item.Frame);});
+                        ()=>{documents.Select(document);replay.Seek(item.Frame);});
                 }
             }
         }

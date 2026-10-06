@@ -3,6 +3,9 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.LogicalTree;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using MphRead.AvaloniaShared;
 using MphRead.Mods.MapEditor;
 using MphRead.Mods.MapGen;
@@ -12,7 +15,7 @@ using ProjectPrime.Studio.Shell;
 
 namespace ProjectPrime.Studio.Map;
 
-public sealed class NativeMapStudioHostServices : IMapStudioHostServices, IDisposable
+public sealed class NativeMapStudioHostServices : IMapStudioHostServices, IDisposable, IAsyncDisposable
 {
     private readonly Window _window;
     private readonly StudioJobManager _jobs;
@@ -22,6 +25,10 @@ public sealed class NativeMapStudioHostServices : IMapStudioHostServices, IDispo
     private readonly StudioDockLayout _layout;
     private Window? _assetWindow;
     public Window? AssetBrowserWindow => _assetWindow;
+    private Window? _modalWindow;
+    private readonly List<Task> _modalObservers=[];
+    public Window? ModalWindow => _modalWindow;
+    internal Action<string>? ReportError { get; set; }
     private bool _disposing;
     public StudioDockHost? DockHost { get; private set; }
     public event Action? LayoutChanged;
@@ -43,6 +50,7 @@ public sealed class NativeMapStudioHostServices : IMapStudioHostServices, IDispo
         _layout=layout ?? new() { LeftWidth=260,RightWidth=340,BottomHeight=100,BottomVisible=false };
         Directory.CreateDirectory(MapLibraryDirectory);
         Directory.CreateDirectory(StagingDirectory);
+        _window.Closed+=OwnerClosed;
     }
     public MapContentIdentity? GetInstalledIdentity(Guid mapId) => _installed.TryGetValue(mapId,out var identity) ? identity : null;
     public async Task<string?> PickFileAsync(string title, bool save, IReadOnlyList<string> extensions, CancellationToken cancellation)
@@ -62,7 +70,79 @@ public sealed class NativeMapStudioHostServices : IMapStudioHostServices, IDispo
         cancellation.ThrowIfCancellationRequested();
         return opened?.TryGetLocalPath();
     }
-    public bool ShowModal(Control content, bool fitContent, Action dismiss) => false;
+    public bool ShowModal(Control content, bool fitContent, Action dismiss)
+    {
+        ObjectDisposedException.ThrowIf(_disposing,this);
+        DismissModal();
+        var scroll=new ScrollViewer
+        {
+            Content=content,MaxWidth=1068,MaxHeight=788,
+            HorizontalScrollBarVisibility=Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+            VerticalScrollBarVisibility=Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
+        };
+        var body=new Border {Padding=new Thickness(16),Child=scroll};
+        var window=new Window
+        {
+            Title="Project Prime Studio · Map dialog",Width=820,Height=680,MinWidth=360,MinHeight=220,
+            MaxWidth=1100,MaxHeight=820,Background=_window.Background,Content=body,ShowInTaskbar=false,
+            WindowStartupLocation=WindowStartupLocation.CenterOwner,
+            SizeToContent=fitContent?SizeToContent.WidthAndHeight:SizeToContent.Manual
+        };
+        _modalWindow=window;
+        window.AddHandler(InputElement.KeyDownEvent,(_,args)=>
+        {
+            if(args.Key==Key.Escape){args.Handled=true;dismiss();}
+        },RoutingStrategies.Tunnel);
+        window.AddHandler(InputElement.KeyDownEvent,(_,args)=>
+        {
+            if(args.Handled || args.Key!=Key.Enter || args.KeyModifiers!=KeyModifiers.None
+                ||args.Source is TextBox {AcceptsReturn:true})return;
+            var action=content.GetLogicalDescendants().Prepend(content).OfType<Control>()
+                .Where(control=>control.IsEffectivelyVisible&&control.IsEffectivelyEnabled)
+                .Select(control=>control.Tag as MapStudioDialogAction).FirstOrDefault(action=>action?.IsDefault==true);
+            if(action is not null){args.Handled=true;action.Invoke();}
+        },RoutingStrategies.Bubble);
+        window.Opened+=(_,_)=>Dispatcher.UIThread.Post(()=>
+        {
+            if(!ReferenceEquals(_modalWindow,window))return;
+            if(window.FocusManager?.GetFocusedElement() is Control focused && focused!=window && focused!=content && TopLevel.GetTopLevel(focused)==window)return;
+            var controls=content.GetVisualDescendants().Prepend(content).OfType<Control>()
+                .Where(control=>control.Focusable&&control.IsEffectivelyVisible&&control.IsEffectivelyEnabled).ToArray();
+            (controls.FirstOrDefault(control=>control is TextBox)??controls.FirstOrDefault())?.Focus();
+        },DispatcherPriority.Background);
+        window.Closing+=(_,_)=>{scroll.Content=null;body.Child=null;};
+        window.Closed+=(_,_)=>
+        {
+            bool current=ReferenceEquals(_modalWindow,window);
+            if(current)_modalWindow=null;
+            scroll.Content=null;window.Content=null;body.Child=null;
+            if(current&&!_disposing)dismiss();
+        };
+        try
+        {
+            _modalObservers.RemoveAll(task=>task.IsCompleted);
+            _modalObservers.Add(ObserveModalAsync(window.ShowDialog(_window),window,dismiss));
+            return true;
+        }
+        catch
+        {
+            if(ReferenceEquals(_modalWindow,window))_modalWindow=null;
+            scroll.Content=null;window.Content=null;body.Child=null;throw;
+        }
+    }
+    private async Task ObserveModalAsync(Task completion,Window window,Action dismiss)
+    {
+        try { await completion; }
+        catch(Exception error)
+        {
+            if(ReferenceEquals(_modalWindow,window)){DismissModal();dismiss();}
+            if(!_disposing)
+            {
+                try{ReportError?.Invoke("Map dialog could not open: "+error.Message);}
+                catch{ /* An observer must not prevent native dialog teardown. */ }
+            }
+        }
+    }
     public Control? CreateDockLayout(Control hierarchy, Control viewport, Control inspector, Control problems)
     {
         DockHost=new(_window,_layout,hierarchy,inspector,problems,
@@ -96,7 +176,18 @@ public sealed class NativeMapStudioHostServices : IMapStudioHostServices, IDispo
         window.Closed+=(_,_)=> { Capture();window.Content=null;(content as IDisposable)?.Dispose();_assetWindow=null;if(!_disposing){state.Visible=false;LayoutChanged?.Invoke();} };
         state.Visible=true;window.Show(_window);LayoutChanged?.Invoke();return true;
     }
-    public void DismissModal() { }
+    public void DismissModal()
+    {
+        var window=_modalWindow;_modalWindow=null;
+        if(window is null)return;
+        // Detach preview viewports before destroying their native window.
+        if(window.Content is Border body)
+        {
+            if(body.Child is ScrollViewer scroll)scroll.Content=null;
+            body.Child=null;
+        }
+        window.Content=null;window.Close();
+    }
     public IDisposable SubscribeFilesDropped(Action<IReadOnlyList<string>> handler)
     {
         DragDrop.SetAllowDrop(_window,true);
@@ -140,5 +231,12 @@ public sealed class NativeMapStudioHostServices : IMapStudioHostServices, IDispo
     public Task RunJobAsync(string label, Func<CancellationToken, Task> work, CancellationToken cancellation)
         => _jobs.RunAsync(label,async (progress,token) => { progress.Report(new(0)); await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() => work(token)); progress.Report(new(1)); return true; },cancellation);
     public Task OpenDetachedEditorAsync(string? project, CancellationToken cancellation) => Task.FromException(new InvalidOperationException("This map is already in desktop Studio. Detach an editor panel using its window button."));
-    public void Dispose() { _disposing=true;_assetWindow?.Close();_assetWindow=null;DockHost?.Dispose(); }
+    private void OwnerClosed(object? sender,EventArgs args)=>Dispose();
+    public void Dispose()
+    {
+        if(_disposing)return;_disposing=true;_window.Closed-=OwnerClosed;
+        DismissModal();_assetWindow?.Close();_assetWindow=null;DockHost?.Dispose();ReportError=null;
+    }
+    public async ValueTask DisposeAsync()
+    {Dispose();await Task.WhenAll(_modalObservers.ToArray());_modalObservers.Clear();}
 }

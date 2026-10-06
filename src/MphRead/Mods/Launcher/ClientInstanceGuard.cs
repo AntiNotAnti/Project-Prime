@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -45,16 +44,10 @@ internal static class ClientInstanceGuard
             try
             {
                 using var sha = SHA256.Create();
-                string root = Path.GetFullPath(AppContext.BaseDirectory)
-                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                    .ToUpperInvariant();
+                string root = ProjectPrime.DesktopShared.DesktopInstallationIdentity.CanonicalInstallation(AppContext.BaseDirectory);
                 string suffix = Convert.ToHexString(
                     sha.ComputeHash(Encoding.UTF8.GetBytes(root))).Substring(0, 16);
-                // A deliberate standalone editor is a separate interactive role.
-                // Fence duplicate editors without suppressing the parent's Pop Out.
-                bool editor = Environment.GetCommandLineArgs().Any(argument =>
-                    argument.TrimStart('-').Equals("mapstudio", StringComparison.OrdinalIgnoreCase));
-                var mutex = new Mutex(false, "ProjectPrime." + (editor ? "InteractiveEditor." : "InteractiveClient.") + suffix);
+                var mutex = new Mutex(false, "ProjectPrime.InteractiveClient." + suffix);
                 bool owned;
                 try { owned = mutex.WaitOne(timeout); }
                 catch (AbandonedMutexException) { owned = true; }

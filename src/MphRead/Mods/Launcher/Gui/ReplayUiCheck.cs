@@ -33,6 +33,23 @@ internal static class ReplayUiCheck
             if (!task.IsCompleted) throw new Exception("Replay launch did not complete.");
             task.GetAwaiter().GetResult();
         }
+        // Initial control binding can queue a search debounce while the empty
+        // fixture library attaches. Observe its completion before synthetic
+        // selection, so it cannot legitimately clear that later selection.
+        window.UpdateLayout();
+        Dispatcher.UIThread.RunJobs();
+        var startupSearch = (DispatcherTimer)typeof(TheatreWorkspace).GetField("_searchTimer", flags)!.GetValue(theatre)!;
+        if (startupSearch.IsEnabled)
+        {
+            var frame = new DispatcherFrame();
+            EventHandler settled = (_, _) => frame.Continue = false;
+            startupSearch.Tick += settled;
+            using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            using var watchdog = deadline.Token.Register(() => Dispatcher.UIThread.Post(() => frame.Continue = false));
+            try { Dispatcher.UIThread.PushFrame(frame); }
+            finally { startupSearch.Tick -= settled; }
+        }
+        if (startupSearch.IsEnabled) throw new Exception("Replay library startup search did not settle.");
         string missing = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid() + ".ppdemo");
         Select(missing);
         Pump(Watch());
@@ -86,6 +103,12 @@ internal static class ReplayUiCheck
             if (!GuiLauncher.EnsureSetup(requireDisplay: false)) throw new InvalidOperationException("UI initialization failed.");
             Dispatcher.UIThread.Invoke(() =>
             {
+                static void Require(bool value, string message)
+                { if (!value) throw new InvalidOperationException(message); }
+                GameStudioRouteChecks.QuickReplayControls(Require);
+                GameStudioRouteChecks.ReplayInputOwnership(Require);
+                GameStudioRouteChecks.ReplayViewportNavigation(Require);
+                GameStudioRouteChecks.TheatreQuickSurface(Require);
                 using var theatre = new TheatreWorkspace(manageStorage: false);
                 var window = new Window { Width = 1280, Height = 720, Content = theatre };
                 window.Show();
@@ -97,8 +120,10 @@ internal static class ReplayUiCheck
                         theatre.ShowEditor(() => { }, () => { });
                         window.UpdateLayout();
                         Dispatcher.UIThread.RunJobs();
-                        if (!theatre.EditorActive || !theatre.GetVisualDescendants().OfType<ReplayViewport>().Any(v => v.Bounds.Width > 0 && v.Bounds.Height > 0))
-                            throw new InvalidOperationException("Replay editor did not attach a visible viewport.");
+                        if (!theatre.EditorActive || !theatre.GetVisualDescendants().OfType<ReplayViewport>().Any(v => v.Bounds.Width > 0 && v.Bounds.Height > 0)
+                            || !theatre.GetVisualDescendants().OfType<ReplayQuickControlsView>().Any()
+                            || theatre.GetVisualDescendants().Any(view => view.GetType().Name == "ReplayControlsView"))
+                            throw new InvalidOperationException("Game replay did not attach a visible viewport with quick transport controls.");
                         theatre.CloseEditor();
                         window.UpdateLayout();
                         if (theatre.EditorActive) throw new InvalidOperationException("Replay editor did not close.");
@@ -106,7 +131,7 @@ internal static class ReplayUiCheck
                 }
                 finally { window.Close(); }
             });
-            Console.WriteLine("[replayuicheck] PASS: launch failure recovery, duplicate activation, selection/navigation races; studio opens, lays out, closes and reopens.");
+            Console.WriteLine("[replayuicheck] PASS: launch failure recovery, duplicate activation, selection/navigation races; quick viewing controls and viewport open, lay out, close and reopen; viewport input precedes game navigation; camera authoring remains in Studio.");
             return 0;
         }
         catch (Exception ex) { Console.WriteLine("[replayuicheck] FAIL: " + ex); return 1; }

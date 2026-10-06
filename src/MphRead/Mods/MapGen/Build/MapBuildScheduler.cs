@@ -270,40 +270,51 @@ public sealed class MapBuildScheduler : IMapBuildScheduler
         }
     }
 
-    /// <summary>Publish authored outputs on the caller's owner, after all live readers release.</summary>
+    /// <summary>Publish authored outputs after every live reader of the actual destination releases.</summary>
     public static void Publish(MapBuildResult result, MapDefinition definition, string archive, string entities,
         string nodes, CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
-        lock (MapRuntimeUsage.Gate)
-        {
-            cancellation.ThrowIfCancellationRequested();
-            MapRuntimeUsage.RequireInstallationAllowed(definition.Name);
-            using var runtimeLease = MapPublicationLease.AcquirePublication(CustomRooms.RuntimePublicationRoot,
-                CustomRooms.RuntimeNamespace, definition.Name, cancellation: cancellation);
-            RoomPrewarm.Invalidate(definition.Name);
-            Install(result, definition, archive, entities, nodes);
-        }
+        var destination = MapOutputSet.Create(definition, archive, entities, nodes);
+        using var runtimeLease = MapRuntimePublication.Acquire(definition, destination, cancellation);
+        if (runtimeLease != null) RoomPrewarm.Invalidate(definition.Name);
+        InstallOwned(result, definition, destination, cancellation);
     }
 
-    // Owned runtime generation may already hold a preparation lease. Keep this
-    // low-level path separate from authored/public package publication.
-    public static void Install(MapBuildResult result, MapDefinition definition, string archive, string entities, string nodes)
+    /// <summary>Legacy generation and command-line installation use the same installed-runtime fence.</summary>
+    public static void Install(MapBuildResult result, MapDefinition definition, string archive, string entities,
+        string nodes, CancellationToken cancellation = default)
+    {
+        cancellation.ThrowIfCancellationRequested();
+        var destination = MapOutputSet.Create(definition, archive, entities, nodes);
+        using var runtimeLease = MapRuntimePublication.Acquire(definition, destination, cancellation);
+        if (runtimeLease != null) RoomPrewarm.InvalidateCompleted(definition.Name);
+        InstallOwned(result, definition, destination, cancellation);
+    }
+
+    // The caller already owns the destination's OS publication lease. Never
+    // reacquire it while publishing; shared preparation leases cannot upgrade.
+    private static void InstallOwned(MapBuildResult result, MapDefinition definition, MapOutputSet destination,
+        CancellationToken cancellation)
     {
         if (!result.Succeeded || result.Outputs == null) throw new InvalidOperationException("Cannot install a failed map build.");
-        // A build requested before an external source edit must not install stale binaries.
         var fingerprint = MapBuildFingerprint.Create(definition);
         if (fingerprint.ContentKey != result.Fingerprint)
             throw new IOException("Map inputs changed after the build. Build again before installing.");
         string cacheDirectory=Path.GetDirectoryName(result.Outputs.Model)!;
-        using var cacheLease=MapDiskCache.Acquire(Path.GetDirectoryName(cacheDirectory)!,result.Fingerprint);
+        using var cacheLease=MapDiskCache.Acquire(Path.GetDirectoryName(cacheDirectory)!,result.Fingerprint,cancellation);
         if (ReadCache(Path.Combine(cacheDirectory, "cache.json"), result.Fingerprint, result.Outputs) == null)
             throw new IOException("Cached map outputs failed integrity validation. Build again.");
-        var destination = MapOutputSet.Create(definition, archive, entities, nodes);
         Directory.CreateDirectory(Path.GetDirectoryName(destination.Manifest)!);
-        using var lease = AcquireLease(destination.Manifest + ".lock");
+        using var lease = AcquireLease(destination.Manifest + ".lock", cancellation);
+        cancellation.ThrowIfCancellationRequested();
         if (File.Exists(destination.Manifest)) File.Delete(destination.Manifest);
-        foreach (var pair in result.Outputs.Files.Zip(destination.Files)) AtomicFile.Write(pair.Second, File.ReadAllBytes(pair.First));
+        foreach (var pair in result.Outputs.Files.Zip(destination.Files))
+        {
+            cancellation.ThrowIfCancellationRequested();
+            AtomicFile.Write(pair.Second, File.ReadAllBytes(pair.First));
+        }
+        cancellation.ThrowIfCancellationRequested();
         MapBuildManifest.Write(definition, destination, fingerprint);
     }
 

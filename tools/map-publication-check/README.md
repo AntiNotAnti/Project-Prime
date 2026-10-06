@@ -13,3 +13,17 @@ The small game type fixtures isolate the ownership policy from game assets and g
 The fixture package contains deterministic runtime payloads; actual game package parsing,
 compilation and model decoding remain covered by `map-editor-check --runtime-only`.
 Lock files deliberately persist to prevent old-inode/new-inode ownership races.
+
+Physical containment checks also link the shared BCL directory-alias resolver. They
+preserve path casing and app bundle roles while the existing cooperative installation
+identities retain their platform casing rules. Real ancestor/escape links, missing
+destinations and alias cycles are covered; distinct case-variant sibling escapes are
+exercised whenever the test filesystem supports them.
+
+The same executable source-links `StudioPrivateMapRuntime` for private destination
+ownership checks. A narrow build-call recorder proves rejected roots never cross the
+publication boundary; it does not replace actual compiler/publication tests. The guard
+rejects equal/ancestor/descendant game roots (including a filesystem root), physical game
+aliases, swapped runtime and destination links, and distinct case-sensitive sibling
+escapes. An initial runtime alias to the filesystem root remains rejected with no game
+data configured, and cancellation reaches no publisher.

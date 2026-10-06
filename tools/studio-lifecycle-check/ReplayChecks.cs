@@ -51,6 +51,8 @@ internal static partial class Program
             string root = args[2];
             Environment.SetEnvironmentVariable("PROJECT_PRIME_USER_DATA", Path.Combine(root, "game-user"));
             Headless.Enter(); Paths.UpdatePaths(args[1]); Paths.ChooseMphPath();
+            CheckCanonicalCameraWindowsAsync(root).GetAwaiter().GetResult();
+            CheckReplaySnapshotPins(root);
             string stockRoot = Paths.FileSystem;
             CustomRooms.UserMapDirectory = Path.Combine(root, "installed");
             CustomRooms.MapDirectory = Path.Combine(root, "packages");
@@ -144,6 +146,7 @@ internal static partial class Program
         player.AddBookmark(checkpoint, "Acceptance bookmark"); player.AddHighlight(30, 60, "Acceptance annotation");
         player.AddReel(30, 60, "Acceptance reel"); player.SetOrganization(["acceptance"], ["historical"]);
         Check(player.PutCameraKey(new(checkpoint, new(1, 5, 8), System.Numerics.Quaternion.Identity)), "canonical camera key sidecar edits save");
+        player.FlushCameraEditsAsync().GetAwaiter().GetResult();
         Check(player.Markers.Count >= 3 && player.CameraKeys.Any(key => key.Frame == checkpoint)
             && SameReplayWorld(before, player.Snapshot()) && recording.SequenceEqual(File.ReadAllBytes(path)),
             "annotations, camera keys and reels preserve recording bytes and authoritative world");
@@ -154,6 +157,7 @@ internal static partial class Program
         var right = new StudioReplayCameraKey(80, new(2,5,8), System.Numerics.Quaternion.Identity,
             Ease:StudioReplayCameraEase.None, IncomingTangent:new(0,12,0), FovIncomingTangent:20, RollIncomingTangent:15);
         Check(player.PutCameraKey(left) && player.PutCameraKey(right), "standalone camera authoring saves explicit Bezier handles");
+        player.FlushCameraEditsAsync().GetAwaiter().GetResult();
         Check(player.SampleCamera(20)!.Position == left.Position && player.SampleCamera(80)!.Position == right.Position
             && player.SampleCamera(50)!.Position.Y > 10 && player.SampleCamera(50)!.Fov > 78,
             "Bezier camera curve is continuous at endpoints and differs from straight position/FOV interpolation");
@@ -162,14 +166,17 @@ internal static partial class Program
         Check(lengths.Max()/lengths.Min() < 1.2, "Bezier constant-speed sampling bounds travel-distance scatter");
         Check(File.ReadAllBytes(path+".camera")[4] == 4, "explicit camera handles select canonical version 4 format");
         using (var roundTrip = new StudioReplayPlayer(path,Path.Combine(root,"camera-roundtrip")))
-            Check(roundTrip.CameraKeys.SequenceEqual(player.CameraKeys), "camera version 4 round trip preserves exact key/tangent values");
+        {roundTrip.OnGraphicsInitialize(256,192);WaitReplayReady(roundTrip);
+            Check(roundTrip.CameraKeys.SequenceEqual(player.CameraKeys), "camera version 4 round trip preserves exact key/tangent values");}
         player.TransformCameraKeys([20,80],new(3,0,0),System.Numerics.Quaternion.Identity);
+        player.FlushCameraEditsAsync().GetAwaiter().GetResult();
         Check(player.CameraKeys.Single(key=>key.Frame==20).Position == left.Position+new System.Numerics.Vector3(3,0,0)
             && SameReplayWorld(before,player.Snapshot()) && recording.SequenceEqual(File.ReadAllBytes(path)),
             "multiple camera-key transforms preserve recording and authoritative gameplay graph");
         byte[] validCamera = File.ReadAllBytes(path+".camera"); byte[] camera = (byte[])validCamera.Clone(); camera[25]^=1; File.WriteAllBytes(path+".camera",camera);
         using (var corrupt = new StudioReplayPlayer(path,Path.Combine(root,"camera-corrupt")))
-            Check(corrupt.CameraKeys.Count==0, "camera sidecar checksum rejects corrupted authored track without changing recording");
+        {corrupt.OnGraphicsInitialize(256,192);WaitReplayReady(corrupt);
+            Check(corrupt.CameraKeys.Count==0, "camera sidecar checksum rejects corrupted authored track without changing recording");}
         File.WriteAllBytes(path+".camera",validCamera);
         CheckReplayEvidence(player,path,root,before);
         StudioReplayAnalysis analysis=player.AnalyzeAsync().GetAwaiter().GetResult();
@@ -219,6 +226,9 @@ internal static partial class Program
             Check(rejected&&savedClipFiles.All(pair=>pair.Value.SequenceEqual(File.ReadAllBytes(pair.Key))),
                 "cancelled clip Save As preserves existing descriptor and every authored sidecar atomically");
         }
+        CheckFrozenReplaySource(player,path,clip,recording,savedClipFiles,before,root);
+        CheckCameraSourceRetry(player,path,recording,before,root);
+        CheckReplaySeekCancellation(player,reference);
         string detachedSource=Path.Combine(root,"detached-analytics-"+Path.GetFileName(path));File.WriteAllBytes(detachedSource,recording);
         Task<StudioReplayAnalysis> detached;
         using(var analyticsOwner=new StudioReplayPlayer(detachedSource,Path.Combine(root,"detached-analytics-cache-"+Path.GetFileNameWithoutExtension(path))))
@@ -227,6 +237,8 @@ internal static partial class Program
         Check(detachedResult.SourceHash.Equals(Convert.ToHexString(SHA256.HashData(recording)),StringComparison.OrdinalIgnoreCase)
             &&detachedResult.DurationFrames==duration&&!NetSession.Active&&!MphRead.Mods.Launcher.Gui.Shell.Active,
             "detached recorded-packet analytics completes with immutable source after owner disposal and original-path rename");
+        CheckDeferredReplayJobPins(path,recording,root,cancelled:false);
+        CheckDeferredReplayJobPins(path,recording,root,cancelled:true);
         Check(player.Performance.SeekSimulationSteps <= PassiveReplayPlayer.MaximumStepsPerUpdate && player.Status.CheckpointBytes <= 64L * 1024 * 1024,
             "standalone checkpoint ownership remains bounded");
         player.OnGraphicsDeinitialize(false);

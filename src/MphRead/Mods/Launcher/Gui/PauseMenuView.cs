@@ -89,7 +89,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             if (DemoPlayback.IsActive)
             {
-                Add(menu, "REPLAY STUDIO",
+                Add(menu, "REPLAY CONTROLS",
                     () => ReplayControlsRequested?.Invoke(this, EventArgs.Empty),
                     HubTheme.Accent);
             }
@@ -175,7 +175,7 @@ namespace MphRead.Mods.Launcher.Gui
             string detail = live
                 ? "The match continues behind this menu. Resume immediately or manage the current session."
                 : DemoPlayback.IsActive
-                    ? "Playback is paused while Replay Studio and presentation controls remain available."
+                    ? "Playback is paused while replay and presentation controls remain available."
                     : "Resume the match or adjust this local session.";
 
             var context = PrimeChrome.Stack(

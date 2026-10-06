@@ -30,8 +30,8 @@ namespace MphRead.Mods.Launcher.Gui
                     PrimeRoute.News => "HOME",
                     PrimeRoute.Play => "PLAY",
                     PrimeRoute.HunterLicense => "HUNTER LICENSE",
-                    PrimeRoute.Theatre => "REPLAY STUDIO",
-                    PrimeRoute.Forge => "MAP STUDIO",
+                    PrimeRoute.Theatre => "THEATRE",
+                    PrimeRoute.Forge => "FORGE",
                     PrimeRoute.Offline => "OFFLINE",
                     PrimeRoute.Settings => "SETTINGS",
                     _ => route.ToString().ToUpperInvariant()

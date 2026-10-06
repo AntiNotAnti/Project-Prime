@@ -231,7 +231,8 @@ internal sealed class ReplayExportWorkerWindow : Window
             {
                 ReplayExportWorkerHost.OriginCaptured = true;
                 ReplayExportWorkerHost.ReleaseOriginPins();
-                foreach (var key in _ticket.CameraKeys) _player.PutCameraKey(key);
+                if (_ticket.CameraState is { } cameraState) _player.ImportCameraSidecarState(cameraState, persist: false);
+                else foreach (var key in _ticket.CameraKeys) _player.PutCameraKey(key);
                 _job = _player.QueueExport(_ticket.Request);
             }
             var state = _job is { } id ? _player.Exports.First(j => j.Id == id)

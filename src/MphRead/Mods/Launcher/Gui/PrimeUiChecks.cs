@@ -41,7 +41,7 @@ namespace MphRead.Mods.Launcher.Gui
                 PrimeRoute.Settings => new SettingsView(settings, shell: true),
                 PrimeRoute.Offline => new OfflineWorkspace(settings, rooms, shell!.Overlays),
                 PrimeRoute.Theatre => new TheatreWorkspace(manageStorage: false),
-                PrimeRoute.Forge => new MapStudioScreen(shell!.Overlays, preview: true),
+                PrimeRoute.Forge => new ForgeWorkspace((_, _) => null),
                 PrimeRoute.Lobby => LobbyFixture(rooms, shell!.Overlays),
                 _ => throw new ArgumentOutOfRangeException(nameof(route))
             };
@@ -556,6 +556,9 @@ namespace MphRead.Mods.Launcher.Gui
                     CheckSavedLobbyLimits();
                     CheckAdvancedRules();
                     CheckInProgressAdmission();
+                    GameStudioRouteChecks.ForgeSurface(Check);
+                    GameStudioRouteChecks.ForgeNavigation(Check);
+                    GameStudioRouteChecks.GameSurfaceSizing(Check);
                     CheckWorkspaceTransitionReentry();
                     CheckPlayDiscoveryReentry();
                     var shell = Create();
@@ -565,9 +568,9 @@ namespace MphRead.Mods.Launcher.Gui
                     var header = shell.Header; var footer = shell.Footer;
                     var shellTabs = header.GetVisualDescendants().OfType<PrimeTabButton>()
                         .Select(button => button.Label).ToArray();
-                    Check(shellTabs.Contains("HOME") && shellTabs.Contains("REPLAY STUDIO")
-                        && shellTabs.Contains("MAP STUDIO"),
-                        "shell uses player-facing Home and studio destination labels");
+                    Check(shellTabs.Contains("HOME") && shellTabs.Contains("THEATRE")
+                        && shellTabs.Contains("FORGE"),
+                        "shell uses player-facing Home, Theatre and Forge destination labels");
                     shell.Router.Navigate(PrimeRoute.News); Drain(window);
                     Check(shell.Workspaces.Get(PrimeRoute.News)
                         .GetVisualDescendants().OfType<PrimeHeroPanel>().Any(),
@@ -588,28 +591,13 @@ namespace MphRead.Mods.Launcher.Gui
 
                     shell.Router.Navigate(PrimeRoute.Forge); Drain(window);
                     var mapStudio = shell.Workspaces.Get(PrimeRoute.Forge);
-                    Check(ControllerNav.Find(mapStudio, "studio.back") != null
-                        && ControllerNav.Find(mapStudio, "studio.save") != null
-                        && ControllerNav.Find(mapStudio, "studio.validate") != null
-                        && ControllerNav.Find(mapStudio, "studio.build") != null
-                        && ControllerNav.Find(mapStudio, "studio.playtest") != null,
-                        "Map Studio exposes persistent authoring and project actions");
-                    string[] studioHeadings = mapStudio.GetVisualDescendants().OfType<TextBlock>()
-                        .Select(block => block.Text ?? "").ToArray();
-                    Check(studioHeadings.Contains("SCENE HIERARCHY")
-                        && studioHeadings.Contains("VIEWPORT")
-                        && studioHeadings.Contains("INSPECTOR"),
-                        "Map Studio separates hierarchy viewport and inspector workspaces");
-                    var assetsQuick = ControllerNav.Find(mapStudio, "studio.assets")!;
-                    assetsQuick.Focus(); FocusNavigator.Key(assetsQuick, Key.Enter); Drain(window);
-                    Check(mapStudio.GetVisualDescendants().OfType<TextBlock>()
-                        .Any(block => block.Text == "ASSETS & MUSIC"),
-                        "Map Studio contextual Assets workspace is directly reachable");
-                    var healthQuick = ControllerNav.Find(mapStudio, "studio.health")!;
-                    healthQuick.Focus(); FocusNavigator.Key(healthQuick, Key.Enter); Drain(window);
-                    Check(mapStudio.GetVisualDescendants().OfType<TextBlock>()
-                        .Any(block => block.Text == "MAP HEALTH"),
-                        "Map Studio contextual health workspace is directly reachable");
+                    Check(ControllerNav.Find(mapStudio, "forge.open") != null
+                        && ControllerNav.Find(mapStudio, "forge.project") != null
+                        && ControllerNav.Find(mapStudio, "forge.recover") != null
+                        && ControllerNav.Find(mapStudio, "forge.back") != null,
+                        "game Forge exposes external launch, project, recovery and Back actions");
+                    Check(shell.Header.IsEffectivelyVisible && shell.Footer.IsEffectivelyVisible,
+                        "game Forge retains ordinary persistent navigation chrome");
 
                     shell.Router.Navigate(PrimeRoute.Lobby); Drain(window);
                     var lobbyPresentation = shell.Workspaces.Get(PrimeRoute.Lobby);

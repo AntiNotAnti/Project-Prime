@@ -28,9 +28,13 @@ public sealed partial class StudioReplayPlayer
         string? exactPackage = identity is { } required
             ? Path.Combine(_cacheRoot, "packages", required.PackageHash.ToString(), "source.ppmap") : null;
         var keys = CameraKeys;
+        byte[] cameraState = ExportCameraSidecarState();
         var reels = ReplayReels.Segments(logical).ToArray();
+        cancellation.ThrowIfCancellationRequested();
+        IDisposable resources = RetainJobResources();
         return Task.Run(() =>
         {
+            using var retainedResources = resources;
             string staging = Path.GetFullPath(destination) + "." + Guid.NewGuid().ToString("N") + ".staging";
             string work = Path.Combine(_cacheRoot, "portable", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(work);
@@ -65,7 +69,7 @@ public sealed partial class StudioReplayPlayer
                     Map = includeCustomMap && identity.HasValue ? "map.ppmap" : null,
                     RequiredMapId = identity?.MapId, RequiredRoom = identity?.RoomKey,
                     RequiredContentHash = identity?.ContentHash.ToString(), RequiredPackageHash = mapHash,
-                    CameraKeys = keys
+                    CameraKeys = keys, CameraState = cameraState
                 }, new JsonSerializerOptions { IncludeFields = true }));
                 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(destination))!);
                 using (var zip = ZipFile.Open(staging, ZipArchiveMode.Create))
@@ -74,7 +78,7 @@ public sealed partial class StudioReplayPlayer
                 cancellation.ThrowIfCancellationRequested(); File.Move(staging, destination, overwrite: true); return destination;
             }
             finally { if (File.Exists(staging)) File.Delete(staging); if (Directory.Exists(work)) Directory.Delete(work, recursive: true); }
-        }, cancellation);
+        });
     }
 
     /// <summary>Validates an immutable portable recording and exact custom identity in a new private cache directory.</summary>
@@ -109,7 +113,16 @@ public sealed partial class StudioReplayPlayer
             }
             else if (member != null || expected != null) throw new InvalidDataException("Portable replay declares an unrecorded custom map.");
             if (File.Exists(Path.Combine(root, "map.ppmap")) && member == null) throw new InvalidDataException("Portable replay carries an undeclared custom map.");
-            if (data.TryGetProperty("CameraKeys", out var cameraData))
+            if (data.TryGetProperty("CameraState", out var stateData) && stateData.ValueKind != JsonValueKind.Null)
+            {
+                byte[] state = stateData.Deserialize<byte[]>() ?? throw new InvalidDataException("Portable camera state is missing.");
+                var camera = new ReplayCameraTrack();
+                if (!camera.ImportState(state)) throw new InvalidDataException(camera.LastError);
+                if (camera.WindowDuration is { } duration && duration != parsed.Session.LastFrame)
+                    throw new InvalidDataException("Portable camera window differs from the exact recording duration.");
+                if (!camera.Save(replay)) throw new IOException(camera.LastError);
+            }
+            else if (data.TryGetProperty("CameraKeys", out var cameraData))
             {
                 var keys = cameraData.Deserialize<StudioReplayCameraKey[]>(new JsonSerializerOptions { IncludeFields = true }) ?? Array.Empty<StudioReplayCameraKey>();
                 if (keys.Length > ReplayCameraTrack.MaxKeys) throw new InvalidDataException("Portable replay camera keys exceed the canonical limit.");

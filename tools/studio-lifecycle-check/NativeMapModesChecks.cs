@@ -44,6 +44,22 @@ internal static partial class Program
             await process.StandardInput.WriteLineAsync("focus-map");await process.StandardInput.FlushAsync();await ReadNativeLineAsync(process,"MAP-FOCUSED");
             measured=await RedrawNativeMapAsync(process,measured.MetricsRevision);
             await CheckNativeHudAsync(process,Path.Combine(output,"native-map-performance-hud.png"),measured);
+            using(var scoped=JsonDocument.Parse((await NativeCommandAsync(process,"map-metrics-scope","MAP-METRICS-SCOPE "))[18..]))
+            {
+                var value=scoped.RootElement;
+                Check(value.GetProperty("Measured").GetBoolean()&&value.GetProperty("UnrenderedUnknown").GetBoolean()
+                    &&value.GetProperty("ReleasedUnknown").GetBoolean()&&value.GetProperty("LostUnknown").GetBoolean(),
+                    "native scoped Map HUD metrics never inherit another document and become unavailable after unrendered/released/lost ownership");
+            }
+            measured=await RedrawNativeMapAsync(process,measured.MetricsRevision);
+            using(var restored=JsonDocument.Parse((await NativeCommandAsync(process,"map-metrics-current","MAP-METRICS-CURRENT "))[20..]))
+                Check(restored.RootElement.GetProperty("Metrics").ValueKind==JsonValueKind.Object
+                    &&restored.RootElement.GetProperty("Metrics").GetProperty("DeviceGeneration").GetInt32()==restored.RootElement.GetProperty("Generation").GetInt32(),
+                    "actual native presentation restores only current-generation canonical document metrics after loss");
+            await NativeCommandAsync(process,"close-document","DOCUMENT-CLOSED");
+            using(var released=JsonDocument.Parse((await NativeCommandAsync(process,"map-metrics-current","MAP-METRICS-CURRENT "))[20..]))
+                Check(released.RootElement.GetProperty("Metrics").ValueKind==JsonValueKind.Null,
+                    "closing final native Map releases its scoped metrics provider");
             await CloseNativeProbeAsync(process);
         }
         finally{if(!process.HasExited){process.Kill(entireProcessTree:true);await process.WaitForExitAsync();}}

@@ -42,13 +42,36 @@ if (args is ["--stdio-parent", var loggingDirectoryForParent])
     File.WriteAllText(Path.Combine(loggingDirectoryForParent, "parent-pid"), Environment.ProcessId.ToString());
     Console.WriteLine("frame=1"); return;
 }
-if (args is ["--coordinator-child", var stateFile, var cancelFile, var jobId])
+if (args is ["--coordinator-child", var stateFile, var cancelFile, var jobId, var peerDirectory])
 {
     Guid id = Guid.Parse(jobId);
     void Publish(string state) { string staging = stateFile + ".fixture"; using var process = Process.GetCurrentProcess(); File.WriteAllText(staging, JsonSerializer.Serialize(new StudioReplayExportStatus(id, state, state == "Complete" ? 2 : 0, 2, null, Path.GetDirectoryName(stateFile)!, process.Id, process.StartTime.ToUniversalTime().Ticks))); File.Move(staging, stateFile, true); }
+    int maximum = 0;
+    void ObserveChildren()
+    {
+        int live = 0;
+        foreach (string peer in Directory.EnumerateFiles(peerDirectory, "status.json", SearchOption.AllDirectories))
+        {
+            try
+            {
+                var status = JsonSerializer.Deserialize<StudioReplayExportStatus>(File.ReadAllText(peer));
+                if (status is not { WorkerProcessId: { } processId, WorkerStartUtcTicks: { } start }) continue;
+                using var process = Process.GetProcessById(processId);
+                if (!process.HasExited && process.StartTime.ToUniversalTime().Ticks == start) live++;
+            }
+            catch (Exception ex) when (ex is IOException or JsonException or ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { }
+        }
+        if (live <= maximum) return;
+        maximum = live;
+        string destination = Path.Combine(Path.GetDirectoryName(stateFile)!, "maximum-live-children");
+        File.WriteAllText(destination + ".staging", maximum.ToString());
+        File.Move(destination + ".staging", destination, true);
+    }
     Publish("Rendering");
-    for (int i = 0; i < 100; i++) { if (File.Exists(cancelFile)) { Publish("Cancelled"); return; } await Task.Delay(20); }
-    Publish("Complete"); await Task.Delay(150); return;
+    for (int i = 0; i < 100; i++) { ObserveChildren(); if (File.Exists(cancelFile)) { Publish("Cancelled"); return; } await Task.Delay(20); }
+    Publish("Complete");
+    for (int i = 0; i < 8; i++) { ObserveChildren(); await Task.Delay(20); }
+    return;
 }
 
 if (args.Contains("--encoder-child"))
@@ -169,10 +192,13 @@ try
     string snapshotPrefix = Path.GetFileNameWithoutExtension(executable).Equals("dotnet", StringComparison.OrdinalIgnoreCase)
         ? "\"" + Assembly.GetExecutingAssembly().Location + "\" " : "";
     string sharedSources = Path.Combine(root, "cross-process sources"), firstResult = Path.Combine(root, "first-snapshot"), secondResult = Path.Combine(root, "second-snapshot");
-    using (var firstCapture = new ReplayEncoderJob(executable, snapshotPrefix + "--snapshot-child \"" + stableRecording + "\" \"" + sharedSources + "\" \"" + firstResult + "\"", root))
-    using (var secondCapture = new ReplayEncoderJob(executable, snapshotPrefix + "--snapshot-child \"" + stableRecording + "\" \"" + sharedSources + "\" \"" + secondResult + "\"", root))
+    string firstCaptureDirectory = Path.Combine(root, "first-capture"), secondCaptureDirectory = Path.Combine(root, "second-capture");
+    Directory.CreateDirectory(firstCaptureDirectory); Directory.CreateDirectory(secondCaptureDirectory);
+    using (var firstCapture = new ReplayEncoderJob(executable, snapshotPrefix + "--snapshot-child \"" + stableRecording + "\" \"" + sharedSources + "\" \"" + firstResult + "\"", firstCaptureDirectory))
+    using (var secondCapture = new ReplayEncoderJob(executable, snapshotPrefix + "--snapshot-child \"" + stableRecording + "\" \"" + sharedSources + "\" \"" + secondResult + "\"", secondCaptureDirectory))
     {
         var results = await Task.WhenAll(firstCapture.Completion, secondCapture.Completion).WaitAsync(TimeSpan.FromSeconds(10));
+        Check(results.All(result => result.ExitCode == 0), "both snapshot children exit successfully: " + string.Join(" | ", results.Select(result => result.Error + " " + result.Stderr)));
         string first = File.ReadAllText(firstResult), second = File.ReadAllText(secondResult);
         Check(results.All(result => result.ExitCode == 0) && first == second && Directory.GetDirectories(sharedSources).Length == 1
             && File.ReadAllBytes(first).AsSpan().SequenceEqual(sourceBytes), "two actual preparation processes share one exactly hashed immutable recording through the production cache lease");
@@ -218,19 +244,15 @@ try
     string retainedLog = Path.Combine(loggingDirectory, "worker.log");
     Check(new FileInfo(retainedLog).Length <= 65536 && File.ReadAllText(retainedLog).Contains("teardown progress 99"), "worker diagnostics retain a bounded durable tail without parent-owned console pipes");
     string coordinatorRoot = Path.Combine(root, "workers"); Directory.CreateDirectory(coordinatorRoot);
-    int active = 0, maximumActive = 0;
+    int MaximumLiveChildren() => Directory.EnumerateFiles(coordinatorRoot, "maximum-live-children", SearchOption.AllDirectories)
+        .Select(path => int.Parse(File.ReadAllText(path))).DefaultIfEmpty(0).Max();
     async Task LaunchFixture(string path)
     {
         var ticket = JsonSerializer.Deserialize<StudioReplayExportTicket>(File.ReadAllText(path), new JsonSerializerOptions { IncludeFields = true })!;
-        int current = Interlocked.Increment(ref active), previous;
-        do { previous = maximumActive; if (current <= previous) break; } while (Interlocked.CompareExchange(ref maximumActive, current, previous) != previous);
-        try
-        {
-            string prefix = Path.GetFileNameWithoutExtension(executable).Equals("dotnet", StringComparison.OrdinalIgnoreCase) ? "\"" + Assembly.GetExecutingAssembly().Location + "\" " : "";
-            using var job = new ReplayEncoderJob(executable, prefix + "--coordinator-child \"" + ticket.StatusFile + "\" \"" + ticket.CancelFile + "\" " + ticket.Id, root);
-            var result = await job.Completion; if (result.ExitCode != 0) throw new IOException(result.Error);
-        }
-        finally { Interlocked.Decrement(ref active); }
+        string prefix = Path.GetFileNameWithoutExtension(executable).Equals("dotnet", StringComparison.OrdinalIgnoreCase) ? "\"" + Assembly.GetExecutingAssembly().Location + "\" " : "";
+        string peers = Path.GetDirectoryName(Path.GetDirectoryName(path)!)!;
+        using var job = new ReplayEncoderJob(executable, prefix + "--coordinator-child \"" + ticket.StatusFile + "\" \"" + ticket.CancelFile + "\" " + ticket.Id + " \"" + peers + "\"", Path.GetDirectoryName(path)!);
+        var result = await job.Completion; if (result.ExitCode != 0) throw new IOException(result.Error);
     }
     string Ticket(int index)
     {
@@ -246,9 +268,9 @@ try
         var paths = Enumerable.Range(0, 5).Select(Ticket).ToArray();
         var pending = paths.Select(coordinator.LaunchAsync).ToArray();
         await Task.Delay(300);
-        Check(jobs.Jobs.Count == 5 && jobs.Jobs.Count(j => j.Progress.Detail?.StartsWith("Queued") == true) >= 3 && maximumActive == 2, "central jobs retain observable queued exports and bound actual child concurrency to two");
+        Check(jobs.Jobs.Count == 5 && jobs.Jobs.Count(j => j.Progress.Detail?.StartsWith("Queued") == true) >= 3 && MaximumLiveChildren() == 2, "central jobs retain observable queued exports and bound actual child concurrency to two");
         await Task.WhenAll(pending).WaitAsync(TimeSpan.FromSeconds(15));
-        Check(maximumActive == 2 && paths.All(p => State(p) == "Complete") && jobs.Jobs.All(j => j.State == StudioJobState.Completed), "all queued actual child workers finish independently with central immutable progress history");
+        Check(MaximumLiveChildren() == 2 && paths.All(p => State(p) == "Complete") && jobs.Jobs.All(j => j.State == StudioJobState.Completed), "all queued actual child workers finish independently with central immutable progress history");
         string cancelled = Ticket(10); var stoppedTask = coordinator.LaunchAsync(cancelled);
         await Task.Delay(150); jobs.Jobs.Last().Cancel();
         try { await stoppedTask; } catch (OperationCanceledException) { }
@@ -273,11 +295,33 @@ try
         var restored = new ReplayExportWorkerCoordinator(restoredJobs, LaunchFixture);
         restored.RestorePersisted(coordinatorRoot);
         await Task.Delay(100);
-        Check(restoredJobs.Jobs.Count == 4 && State(queued) == "Queued" && State(queuedSecond) == "Queued" && maximumActive == 2,
+        Check(restoredJobs.Jobs.Count == 4 && State(queued) == "Queued" && State(queuedSecond) == "Queued" && MaximumLiveChildren() == 2,
             "immediate Studio restart reserves both still-running child slots before resuming pending tickets");
         var deadline = Stopwatch.StartNew(); while (restoredJobs.Jobs.Any(j => j.State == StudioJobState.Running) && deadline.Elapsed < TimeSpan.FromSeconds(10)) await Task.Delay(50);
         Check(State(continued) == "Complete" && State(continuedSecond) == "Complete", "actual children persist terminal output after the original parent job manager has shut down");
-        Check(State(queued) == "Complete" && State(queuedSecond) == "Complete" && maximumActive == 2, "new Studio coordinator rediscovers and resumes all persisted pending tickets without exceeding two actual children");
+        Check(State(queued) == "Complete" && State(queuedSecond) == "Complete" && MaximumLiveChildren() == 2, "new Studio coordinator rediscovers and resumes all persisted pending tickets without exceeding two actual children");
+    }
+    string historyRoot = Path.Combine(root, "finished-history"); Directory.CreateDirectory(historyRoot);
+    string? laterQueued = null;
+    for (int index = 0; index <= 256; index++)
+    {
+        string directory = Path.Combine(historyRoot, index.ToString("D4")); Directory.CreateDirectory(directory);
+        Guid id = Guid.NewGuid();
+        var ticket = new StudioReplayExportTicket(id, "fixture.ppdemo", directory, new(directory, 0, 1),
+            Path.Combine(directory, "status.json"), Path.Combine(directory, "cancel"), new Dictionary<string, string>(), [], [], "AMHE1", "AMFE0");
+        string ticketPath = Path.Combine(directory, "ticket.json"); File.WriteAllText(ticketPath, JsonSerializer.Serialize(ticket, new JsonSerializerOptions { IncludeFields = true }));
+        File.WriteAllText(ticket.StatusFile, JsonSerializer.Serialize(new StudioReplayExportStatus(id, index == 256 ? "Queued" : "Complete", 0, 1, null, directory)));
+        if (index == 256) laterQueued = ticketPath;
+    }
+    await using (var historyJobs = new StudioJobManager())
+    {
+        var historyCoordinator = new ReplayExportWorkerCoordinator(historyJobs, LaunchFixture);
+        historyCoordinator.RestorePersisted(historyRoot);
+        Check(historyJobs.Jobs.Count == 1, "256 completed historical exports do not consume the pending restoration budget");
+        var deadline = Stopwatch.StartNew();
+        while (historyJobs.Jobs.Any(job => job.State == StudioJobState.Running) && deadline.Elapsed < TimeSpan.FromSeconds(5)) await Task.Delay(20);
+        Check(State(laterQueued!) == "Complete" && historyJobs.Jobs.Single().State == StudioJobState.Completed,
+            "the later queued ticket resumes a real child after 256 terminal jobs are skipped");
     }
     int ffmpegAt = Array.IndexOf(args, "--ffmpeg"), ffprobeAt = Array.IndexOf(args, "--ffprobe");
     if (ffmpegAt >= 0 && ffprobeAt >= 0)

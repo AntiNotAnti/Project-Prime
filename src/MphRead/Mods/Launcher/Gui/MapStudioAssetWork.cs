@@ -36,7 +36,7 @@ internal sealed partial class MapStudioScreen
         if(definition.BundlePath is not null) throw new IOException("Save this package as an editable project before importing assets.");
         string root=Path.GetFullPath(definition.BaseDirectory ?? (document.FilePath is { } file ? Path.GetDirectoryName(file)! : _services.MapLibraryDirectory));
         return new(document,document.CurrentStateId,document.FilePath,definition.BaseDirectory,definition.SourcePath,definition.BundlePath,root,
-            MapPublicationLease.CanonicalizeRuntimeDirectory(root));
+            MapPublicationLease.ResolveRuntimeDirectoryAliases(root));
     }
     private void GuardAssetContext(AssetEditContext context,CancellationToken cancellation)
     {
@@ -45,7 +45,8 @@ internal sealed partial class MapStudioScreen
         if(context.Document.CurrentStateId!=context.State || context.Document.FilePath!=context.FilePath
             || definition.BaseDirectory!=context.BaseDirectory || definition.SourcePath!=context.SourcePath || definition.BundlePath!=context.BundlePath)
             throw new OperationCanceledException("The map or its asset location changed. Import again in the current project.",cancellation);
-        if(MapPublicationLease.CanonicalizeRuntimeDirectory(context.Root)!=context.CanonicalRoot)
+        if(!MapPublicationLease.ResolveRuntimeDirectoryAliases(context.Root).Equals(context.CanonicalRoot,
+            OperatingSystem.IsWindows()?StringComparison.OrdinalIgnoreCase:StringComparison.Ordinal))
             throw new OperationCanceledException("The map asset folder changed during import. Retry in the current project.",cancellation);
     }
     private static byte[] ReadImportBytes(string path,long maximum,CancellationToken cancellation)

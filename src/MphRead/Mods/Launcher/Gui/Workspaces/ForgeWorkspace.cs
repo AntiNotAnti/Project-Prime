@@ -55,6 +55,12 @@ internal sealed class ForgeWorkspace : UserControl
         _status.Foreground = error == null ? PrimeTheme.TextSecondaryBrush : Brushes.Orange;
     }
 
+    internal void ShowLaunchFailure(string error)
+    {
+        _status.Text = error;
+        _status.Foreground = Brushes.Orange;
+    }
+
     private async Task BrowseAsync()
     {
         if (_browsing) return;

@@ -34,10 +34,14 @@ internal static partial class Program
             if (args.Contains("--native")) await CheckNativeProcessLifecycleAsync(directory);
             if(Array.IndexOf(args,"--native-startup") is int startupIndex&&startupIndex>=0)
                 await CheckNativeStartupAsync(directory,args[startupIndex+1]);
+            if(Array.IndexOf(args,"--native-loaded-startup") is int loadedStartupIndex&&loadedStartupIndex>=0)
+                await CheckNativeLoadedStartupAsync(directory,args[loadedStartupIndex+1],args[loadedStartupIndex+2],args[loadedStartupIndex+3]);
             if(Array.IndexOf(args,"--native-dense") is int denseIndex&&denseIndex>=0)
                 await CheckNativeDenseMapAsync(directory,args[denseIndex+1]);
             if(Array.IndexOf(args,"--native-map-modes") is int modeIndex&&modeIndex>=0)
                 await CheckNativeMapModesAsync(directory,args[modeIndex+1]);
+            if(Array.IndexOf(args,"--native-modals") is int modalIndex&&modalIndex>=0)
+                await CheckNativeMapDialogsAsync(directory,args[modalIndex+1]);
             if (Array.IndexOf(args,"--native-game") is int gameIndex && gameIndex >= 0)
                 await CheckNativeGameLifecycleAsync(directory, args.Length > gameIndex + 1 ? args[gameIndex + 1]
                     : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Application Support", "Project Prime", "paths.txt"));

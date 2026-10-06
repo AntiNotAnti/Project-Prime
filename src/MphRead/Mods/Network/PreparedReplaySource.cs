@@ -202,6 +202,7 @@ internal sealed class ReplayPreparationJob : IDisposable
     private readonly Task<PreparedReplaySource> _task;
     private bool _taken, _disposed, _cleaned;
     internal bool Completed => _task.IsCompleted;
+    internal Task Completion => _task;
 
     private ReplayPreparationJob(Func<CancellationToken, PreparedReplaySource> prepare, Action? release = null)
     {

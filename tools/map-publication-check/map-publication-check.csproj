@@ -11,5 +11,6 @@
     <Compile Include="../../src/MphRead/Mods/MapGen/Project/MapRuntimeUsage.cs" Link="MapRuntimeUsage.cs" />
     <Compile Include="../../src/MphRead/Mods/MapGen/Packaging/MapFilePublication.cs" Link="MapFilePublication.cs" />
     <Compile Include="../../src/MphRead/Mods/MapGen/Packaging/MapPublicationFileIdentity.cs" Link="MapPublicationFileIdentity.cs" />
+    <Compile Include="../../src/MphRead/AvaloniaShared/StudioPrivateMapRuntime.cs" Link="StudioPrivateMapRuntime.cs" />
   </ItemGroup>
 </Project>

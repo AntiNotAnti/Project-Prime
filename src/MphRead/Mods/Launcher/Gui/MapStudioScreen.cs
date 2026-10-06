@@ -306,7 +306,12 @@ namespace MphRead.Mods.Launcher.Gui
                     _=>"Cursor"
                 };
             });
-            Choice(new[]{"Add object","Box","Wedge","Prism","Convex","Mesh","Spawn","Pickup","Jump pad","Navigation link"},name=>{if(name!="Add object")AddObject(name);});
+            Choice(new[]{"Add object","Box","Wedge","Prism","Convex","Mesh","Spawn","Pickup","Jump pad","Navigation link"},name=>
+            {
+                if(name=="Add object")return;
+                if(_services.IsStandalone && name is "Box" or "Wedge" or "Prism" or "Convex" or "Mesh")ShowPrimitiveDialog(name);
+                else AddObject(name);
+            });
             Choice(ViewportModes,SetViewportMode);
             Choice(new[]{"Inspector","Modeling","Partitioning","Collision repairs","Environment","Materials","UV","Assets & music","Snapping","Arrange","Layers","Map health","Navigation path","Gameplay analysis","Structural diff","Prefabs","Statistics"},name=>ShowInspectorPage(name));
             AddButton(tools,"Four views",ToggleFourViews);
@@ -493,9 +498,10 @@ _dropSubscription?.Dispose(); _dropSubscription = null;
         }
         public void Dispose()
         {
+            CancelDialogWork();Dismiss();
             DisposeAssetThumbnails();
             _detached=true; _editorGeneration++; _idle.Stop(); _work?.Cancel(); _dropSubscription?.Dispose(); _dropSubscription=null; _autosave.Dispose(); _sourceWatch?.Dispose(); _sourceWatch=null;
-            if (_document != null) _document.Changed -= Changed;
+            if (_document != null) { _document.Changed -= Changed; _document.Invalidated -= SelectionInvalidated; }
             ReleaseViews();
             DisposePreviewCaches();
         }
@@ -533,7 +539,13 @@ _dropSubscription?.Dispose(); _dropSubscription = null;
         internal void ShowStatus(string message)=>_status.Text=message;
         private static TextBlock Text(string text)=>new(){Text=text,Foreground=GuiTheme.TextBrush,TextWrapping=TextWrapping.Wrap};
         private static void AddButton(Panel panel,string title,Action action)
-        {var button=new PrimeButton(title.ToUpperInvariant(), action) {Margin=new Thickness(2),MinHeight=28,Height=28,MinWidth=60};panel.Children.Add(button);}
+        {
+            bool accept=title.ToUpperInvariant() is "CREATE" or "CREATE / CONTINUE" or "CREATE REMIX" or "PREVIEW CHANGES"
+                or "IMPORT" or "APPLY REIMPORT" or "SAVE" or "INSERT" or "OPEN" or "LOAD" or "RECOVER" or "RUN";
+            var button=new PrimeButton(title.ToUpperInvariant(), action)
+                {Margin=new Thickness(2),MinHeight=28,Height=28,MinWidth=60,Tag=new MapStudioDialogAction(action,accept)};
+            panel.Children.Add(button);
+        }
         private void Modal(Control control, bool fitContent = false)
         {
             if (_services.ShowModal(control, fitContent, Dismiss)) return;
@@ -575,12 +587,13 @@ _dropSubscription?.Dispose(); _dropSubscription = null;
         }
         internal void Load(MapProject project,string? path=null, bool promptRecovery=true)
         {
+            CancelDialogWork();
             _editorGeneration++; _work?.Cancel(); _autosave.Dispose(); _autosave=new(); _validatedState=null; _validationSignature=null; _autosaved=DateTime.MinValue;
             _lastBuild = null; _hierarchySignature = ""; _pickedMaterialHit=null;
             foreach(var preview in _materialPreviewCache.Values)preview.Bitmap.Dispose();_materialPreviewCache.Clear();
-            if(_document!=null)_document.Changed-=Changed;
+            if(_document!=null){_document.Changed-=Changed;_document.Invalidated-=SelectionInvalidated;}
             _sourceWatch?.Dispose();_sourceWatch=null;_sourceWatchSignature="";_changedSources.Clear();
-            _document=new(project,path);_document.Changed+=Changed;
+            _document=new(project,path);_document.Changed+=Changed;_document.Invalidated+=SelectionInvalidated;
             _importWarnings = project.Definition.Import != null && project.Definition.BaseDirectory is {} importRoot
                 ? Q3ImportManifest.Load(importRoot)?.GameplayWarnings?.ToArray() ?? Array.Empty<MapDiagnostic>()
                 : Array.Empty<MapDiagnostic>();

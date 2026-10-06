@@ -39,6 +39,10 @@ public sealed partial class StudioReplayPlayer : IStudioReplayGraphicsSession, I
     private string? _playbackPath;
     private double _advanceMilliseconds, _renderMilliseconds;
     private bool _hasAdvance, _hasRender, _hasSeek;
+    private long _seekRequestId, _appliedSeekRequestId, _settledSeekRequestId;
+    public long SeekRequestId => _seekRequestId;
+    public long AppliedSeekRequestId => _appliedSeekRequestId;
+    public long SettledSeekRequestId => _settledSeekRequestId;
     private StudioReplayHeatSample[] _heatmapOverlay = Array.Empty<StudioReplayHeatSample>();
     private bool _cameraPathOverlay;
     public string LogicalPath { get; }
@@ -59,13 +63,20 @@ public sealed partial class StudioReplayPlayer : IStudioReplayGraphicsSession, I
         LogicalPath = Path.GetFullPath(path);
         _cacheRoot = Path.GetFullPath(privateCacheRoot);
         _resources = new(privateCacheRoot, packageDirectories);
-        _camera.Load(LogicalPath);
+        _cameraWrites = new(PersistCameraState);
         BeginPreparation();
     }
     private void BeginPreparation()
     {
         using var scope = _resources.Enter();
         _preparation = ReplayPreparationJob.Start(PrepareImmutablePlaybackSource);
+    }
+    /// <summary>Await detached source work without taking or adopting its result.</summary>
+    public async Task WaitForPreparationAsync(CancellationToken cancellation = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_preparation is { } preparation) await preparation.Completion.WaitAsync(cancellation);
+        cancellation.ThrowIfCancellationRequested();
     }
     public void OnGraphicsInitialize(int width, int height)
     {
@@ -85,6 +96,12 @@ public sealed partial class StudioReplayPlayer : IStudioReplayGraphicsSession, I
             var candidate = new PassiveReplayPlayer(source, _size, new(EnableAsyncPreparation: true));
             _sceneGraphicsGeneration = ModernGraphicsCompat.Active ? ModernGraphicsCompat.DeviceGeneration : null;
             _player = candidate; _playbackPath = source.Path;
+            if (_preparedCameraState is { } cameraState)
+            {
+                if (!_camera.ImportState(cameraState) || _camera.WindowDuration is { } duration && duration != candidate.Transport.DurationFrames)
+                { _cameraLoadError = _camera.LastError ?? "The camera sample window differs from the recording duration."; _camera.Clear(); }
+                _preparedCameraState = null;
+            }
             candidate.Transport.Pause();
             candidate.Transport.SetPlaybackRate(_resumeRate);
             if (_resumeIn is { } start) candidate.Transport.SetMarkIn(start);
@@ -119,6 +136,7 @@ public sealed partial class StudioReplayPlayer : IStudioReplayGraphicsSession, I
                 { player.Update(120); _fixedAccumulator -= 1d / 60; }
             }
         }
+        if (_player is { Ready: true }) _settledSeekRequestId = _appliedSeekRequestId;
         AdvanceExports();
         _advanceMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
         _hasAdvance = true;
@@ -134,8 +152,9 @@ public sealed partial class StudioReplayPlayer : IStudioReplayGraphicsSession, I
         _renderMilliseconds = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMilliseconds;
         _hasRender = true;
     }
-    private void RenderPlayer(PassiveReplayPlayer player, StudioReplayView view, double hostAlpha)
+    private void RenderPlayer(PassiveReplayPlayer player, StudioReplayView view, double hostAlpha, ReplayCameraTrack? camera = null, bool editorOverlays = true)
     {
+        ReplayCameraTrack track = camera ?? _camera;
         Scene scene = player.Current.Scene;
         Vector2i output = new(Math.Max(1, view.Width), Math.Max(1, view.Height));
         if (scene.Size != output) { scene.Size = output; scene.OnResize(); }
@@ -149,16 +168,16 @@ public sealed partial class StudioReplayPlayer : IStudioReplayGraphicsSession, I
         scene.StudioReplayOverlayProgress = player.Transport.DurationFrames == 0 ? 0 : (float)player.Transport.CurrentFrame / player.Transport.DurationFrames;
         scene.StudioReplayCombat = null;
         var overlay = new List<(TkVector, TkVector, float)>();
-        foreach (var point in _heatmapOverlay.Take(64)) overlay.Add((Tk(point.Position), new(1, .4f, .15f), Math.Clamp(point.Weight / 10, .1f, .7f)));
-        if (_cameraPathOverlay && _camera.Keys.Count > 1)
+        foreach (var point in (editorOverlays ? _heatmapOverlay : Array.Empty<StudioReplayHeatSample>()).Take(64)) overlay.Add((Tk(point.Position), new(1, .4f, .15f), Math.Clamp(point.Weight / 10, .1f, .7f)));
+        if (editorOverlays && _cameraPathOverlay && track.Keys.Count > 1)
         {
-            uint start = _camera.Keys[0].Frame, end = _camera.Keys[^1].Frame;
+            uint start = track.Keys[0].Frame, end = track.Keys[^1].Frame;
             for (int i = 0; i < 48; i++)
-                if (_camera.Sample(start + (end - start) * i / 47d, out var pathKey, view.ConstantSpeed))
+                if (track.Sample(start + (end - start) * i / 47d, out var pathKey, view.ConstantSpeed))
                 {
                     TkVector adjusted = pathKey.Position;
                     if (view.CollisionAvoidance)
-                    { var anchor = _camera.Keys.LastOrDefault(k => k.Frame <= pathKey.Frame); adjusted = scene.AdjustStudioCameraPosition(anchor.Position, adjusted); }
+                    { var anchor = track.Keys.LastOrDefault(k => k.Frame <= pathKey.Frame); adjusted = scene.AdjustStudioCameraPosition(anchor.Position, adjusted); }
                     overlay.Add((pathKey.Position, new(.7f, .3f, 1), .08f));
                     if (adjusted != pathKey.Position) overlay.Add((adjusted, new(.2f, 1, .4f), .09f));
                 }
@@ -179,12 +198,12 @@ public sealed partial class StudioReplayPlayer : IStudioReplayGraphicsSession, I
             float fov = view.Fov;
             TkVector up = TkVector.Transform(TkVector.UnitY, rotation);
             TkVector facing = TkVector.Transform(-TkVector.UnitZ, rotation);
-            if (view.Camera == StudioReplayCameraMode.Authored && _camera.Sample(scene.ReplayPresentationFrame, out var key, view.ConstantSpeed))
+            if (view.Camera == StudioReplayCameraMode.Authored && track.Sample(scene.ReplayPresentationFrame, out var key, view.ConstantSpeed))
             {
                 position = key.Position; rotation = key.Rotation; fov = key.Fov * 180 / MathF.PI;
                 if (view.CollisionAvoidance)
                 {
-                    var anchor = _camera.Keys.LastOrDefault(k => k.Frame <= scene.ReplayPresentationFrame);
+                    var anchor = track.Keys.LastOrDefault(k => k.Frame <= scene.ReplayPresentationFrame);
                     position = scene.AdjustStudioCameraPosition(anchor.Position, position);
                 }
                 up = TkVector.Transform(TkVector.UnitY, rotation);
@@ -256,7 +275,21 @@ public sealed partial class StudioReplayPlayer : IStudioReplayGraphicsSession, I
     public void TogglePause() => Queue(p => p.Transport.TogglePause());
     public void Pause() => Queue(p => p.Transport.Pause());
     public void StepForward() => Queue(p => p.Transport.StepForward());
-    public void Seek(uint frame, bool resume = false) => Queue(p => { _hasSeek = true; p.Seek(frame, resume); });
+    public void Seek(uint frame, bool resume = false) => RequestSeek(frame, resume);
+    public long RequestSeek(uint frame, bool resume = false)
+    {
+        long request = checked(_seekRequestId + 1);
+        Queue(p => { _appliedSeekRequestId = request; _hasSeek = true; p.Seek(frame, resume); });
+        _seekRequestId = request;
+        return request;
+    }
+    // Cancellation is processed by the same owner-frame queue as seek commands.
+    // An old observer cannot cancel a newer scrub, including one still queued.
+    public void CancelSeek(long request) => Queue(p =>
+    {
+        if (request != _seekRequestId || request != _appliedSeekRequestId || request <= _settledSeekRequestId) return;
+        if (p.CancelPendingSeek()) _fixedAccumulator = 0;
+    });
     public StudioReplayWorldSnapshot Snapshot()
     {
         RequireOwner(); using var scope = _resources.Enter();
@@ -302,26 +335,36 @@ public sealed partial class StudioReplayPlayer : IStudioReplayGraphicsSession, I
     public void SetOrganization(IEnumerable<string> tags, IEnumerable<string> collections) { ReplayAnnotations.SetOrganization(LogicalPath, tags, collections); Changed?.Invoke(); }
     public bool PutCameraKey(StudioReplayCameraKey key)
     {
-        bool changed = _camera.EditAndSave(LogicalPath, track => track.Put(new(key.Frame, Tk(key.Position), Tk(key.Rotation),
+        RequireCameraAuthoring();
+        bool changed = _camera.Edit(track => track.Put(new(key.Frame, Tk(key.Position), Tk(key.Rotation),
             key.Fov * MathF.PI / 180, (sbyte)key.LookAtSlot, key.Roll * MathF.PI / 180,
             (ReplayCameraInterpolation)key.Interpolation, (ReplayCameraEase)key.Ease,
             key.IncomingTangent is { } incoming ? Tk(incoming) : null, key.OutgoingTangent is { } outgoing ? Tk(outgoing) : null,
             key.FovIncomingTangent * MathF.PI / 180, key.FovOutgoingTangent * MathF.PI / 180,
             key.RollIncomingTangent * MathF.PI / 180, key.RollOutgoingTangent * MathF.PI / 180)));
         if (!changed && _camera.LastError != null) throw new IOException(_camera.LastError);
+        if (changed) QueueCameraSave();
         Changed?.Invoke(); return changed;
     }
-    public void RemoveCameraKeys(IEnumerable<uint> frames) { _camera.EditAndSave(LogicalPath, track => track.RemoveMany(frames)); Changed?.Invoke(); }
+    public void RemoveCameraKeys(IEnumerable<uint> frames)
+    {
+        RequireCameraAuthoring();
+        bool changed = _camera.Edit(track => track.RemoveMany(frames));
+        if (!changed && _camera.LastError != null) throw new ArgumentException(_camera.LastError);
+        if (changed) QueueCameraSave();
+        Changed?.Invoke();
+    }
     public StudioReplayCameraKey? SampleCamera(double frame, bool constantSpeed = false)
         => _camera.Sample(frame, out var sample, constantSpeed) ? PublicKey(sample) : null;
     public void TransformCameraKeys(IEnumerable<uint> frames, Vector3 translation, Quaternion rotation, int frameOffset = 0)
     {
+        RequireCameraAuthoring();
         var selection = frames.ToHashSet(); var selected = _camera.Keys.Where(k => selection.Contains(k.Frame)).ToArray();
         var occupied = _camera.Keys.Where(k => !selection.Contains(k.Frame)).Select(k => k.Frame).ToHashSet();
         if (selected.Any(k => (long)k.Frame + frameOffset < 0 || (long)k.Frame + frameOffset > uint.MaxValue
             || occupied.Contains((uint)((long)k.Frame + frameOffset)))) throw new ArgumentException("The transform would overlap another camera key.");
         TkQuaternion turn = Tk(Quaternion.Normalize(rotation));
-        if (!_camera.EditAndSave(LogicalPath, track =>
+        bool changed = _camera.Edit(track =>
         {
             if (!track.RemoveMany(selection)) return false;
             foreach (var key in selected)
@@ -329,18 +372,24 @@ public sealed partial class StudioReplayPlayer : IStudioReplayGraphicsSession, I
                     Rotation = (turn * key.Rotation).Normalized(), IncomingTangent = key.IncomingTangent is { } input ? TkVector.Transform(input, turn) : null,
                     OutgoingTangent = key.OutgoingTangent is { } output ? TkVector.Transform(output, turn) : null })) throw new ArgumentException(track.LastError);
             return true;
-        }) && _camera.LastError != null) throw new IOException(_camera.LastError);
+        });
+        if (!changed && _camera.LastError != null) throw new ArgumentException(_camera.LastError);
+        if (changed) QueueCameraSave();
         Changed?.Invoke();
     }
     public Task<string> ExtractClipAsync(uint start, uint end, string destination, CancellationToken cancellation = default)
     {
-        string source = _playbackPath ?? LogicalPath;
+        if (!Status.Ready || _playbackPath == null) throw new InvalidOperationException("Wait for replay preparation before extracting a clip.");
+        string source = _playbackPath;
+        var jobResources = RetainJobResources();
         return Task.Run(() =>
         {
+            using var ownedResources = jobResources;
+            cancellation.ThrowIfCancellationRequested();
             var result = ReplayArchive.Extract(source, start, end, destination, cancellation);
             if (result != ReplayOpenResult.Success) throw new IOException("Clip extraction failed: " + result);
             return destination;
-        }, cancellation);
+        });
     }
     public IReadOnlyList<StudioReplayCombat> CombatAt(uint frame)
     {
@@ -373,10 +422,12 @@ public sealed partial class StudioReplayPlayer : IStudioReplayGraphicsSession, I
     public void Dispose()
     {
         if (_disposed) return;
+        IDisposable? sourcePin = StopSnapshotOwnership();
         _preparation?.Dispose(); _preparation = null;
         using var scope = _resources.Enter();
         RenderResourceLifetime.WithNativeReleaseEligibility(false, () => { _player?.Dispose(); _player = null; foreach (var job in _exports) { job.Cancel(); job.ReleasePlayer(); job.Encoder?.Dispose(); } });
         _commands.Clear(); _disposed = true;
+        sourcePin?.Dispose(); _resources.Dispose();
     }
 }
 

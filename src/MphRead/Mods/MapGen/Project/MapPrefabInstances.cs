@@ -151,8 +151,26 @@ public static partial class MapPrefabService
             Copy(material.Emissive, x => material.Emissive = x);
             if (material.Animation != null)
                 for (int i = 0; i < material.Animation.FlipbookFrames.Count; i++) { int frame = i; Copy(material.Animation.FlipbookFrames[i], x => material.Animation.FlipbookFrames[frame] = x); }
+            // Native animation tracks bind by material name. A prefab owns independent
+            // materials, so preserve its allocated name across revisions and avoid names
+            // already used by the owner document or another instance.
+            if (MapUvAnimation.IsAnimated(material))
+            {
+                string preferred = binding.Baseline.Length == 0 ? material.Name
+                    : DecodeMaterial(binding.Baseline).Name;
+                material.Name = UniqueAnimatedMaterialName(candidate, material, preferred);
+            }
             binding.Baseline = Encode(material);
             if (binding.Overrides != null) { material = (MapMaterial)Merge(typeof(MapMaterial), binding.Baseline, binding.Overrides); preserved++; }
+            if (MapUvAnimation.IsAnimated(material))
+            {
+                string unique = UniqueAnimatedMaterialName(candidate, material, material.Name);
+                if (unique != material.Name)
+                {
+                    material.Name = unique;
+                    binding.Overrides = Patch(binding.Baseline, Encode(material));
+                }
+            }
             int slot = candidate.Materials.FindIndex(m => m.Id == binding.MaterialId);
             if (slot < 0) { slot = candidate.Materials.Count; candidate.Materials.Add(material); } else candidate.Materials[slot] = material;
             materialSlots[pair.index] = slot;
@@ -218,6 +236,25 @@ public static partial class MapPrefabService
             var current = definition.Materials.SingleOrDefault(m => m.Id == material.MaterialId);
             if (current != null) material.Overrides = Patch(material.Baseline, Encode(current));
         }
+    }
+    private static MapMaterial DecodeMaterial(string json)
+        => JsonSerializer.Deserialize<MapMaterial>(json, PrefabJson)
+            ?? throw new InvalidDataException("Invalid prefab material baseline.");
+
+    private static string UniqueAnimatedMaterialName(MapDefinition definition, MapMaterial material, string preferred)
+    {
+        var occupied = definition.Materials.Where(m => m.Id != material.Id)
+            .Select(m => m.Name).ToHashSet(StringComparer.Ordinal);
+        if (MapUvAnimation.NativeNameFits(preferred) && !occupied.Contains(preferred)) return preferred;
+        string prefix = new((preferred ?? "").Where(c => c is >= ' ' and <= '~').Take(20).ToArray());
+        if (prefix.Length == 0) prefix = "prefab";
+        for (int attempt = 0; attempt < 1024; attempt++)
+        {
+            byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(material.Id.ToString("N") + "|" + attempt));
+            string name = prefix + "_" + Convert.ToHexString(hash).ToLowerInvariant()[..10];
+            if (!occupied.Contains(name)) return name;
+        }
+        throw new InvalidDataException("Prefab cannot allocate a unique native animation material name.");
     }
     private static string ResolveSource(MapDefinition definition, string path) => Path.IsPathFullyQualified(path) ? path : Path.GetFullPath(Path.Combine(definition.BaseDirectory ?? ".", path));
     private static MapPrefabInstance RequireInstance(MapDefinition d, Guid id) => d.PrefabInstances.SingleOrDefault(i => i.Id == id) ?? throw new InvalidDataException("Prefab instance no longer exists.");

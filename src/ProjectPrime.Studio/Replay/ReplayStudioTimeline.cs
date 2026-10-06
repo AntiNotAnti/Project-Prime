@@ -12,19 +12,20 @@ public sealed class ReplayStudioTimeline : Control
 {
     private static readonly string[] Tracks = ["Camera", "Cuts", "Events", "Kills", "Damage", "Shots", "Spawns", "Objectives", "Bookmarks", "Annotations", "Audio", "Export range"];
     private readonly StudioReplayPlayer _player;
+    private readonly Action<uint> _seek;
     private readonly HashSet<string> _hidden = new();
     private double _zoom = 1, _start;
     private uint? _rangeStart;
     private uint _contextFrame;
     private StudioReplayMarker? _contextMarker;
-    public ReplayStudioTimeline(StudioReplayPlayer player)
+    public ReplayStudioTimeline(StudioReplayPlayer player, Action<uint>? seek = null)
     {
-        _player = player; Height = 244; Focusable = true; ClipToBounds = true;
+        _player = player; _seek = seek ?? (frame => player.Seek(frame)); Height = 244; Focusable = true; ClipToBounds = true;
         var tracks = new MenuItem { Header = "Visible tracks", ItemsSource = Tracks.Select(track =>
         { var item = new MenuItem { Header = track, ToggleType = MenuItemToggleType.CheckBox, IsChecked = true }; item.Click += (_, _) => { if (item.IsChecked) _hidden.Remove(track); else _hidden.Add(track); InvalidateVisual(); }; return item; }).ToArray() };
         MenuItem Item(string label, Action action) { var item = new MenuItem { Header = label }; item.Click += (_, _) => action(); return item; }
         ContextMenu = new ContextMenu { ItemsSource = new object[] { tracks,
-            Item("Seek here", () => _player.Seek(_contextFrame)),
+            Item("Seek here", () => _seek(_contextFrame)),
             Item("Mark In here", () => _player.SetRange(_contextFrame, Math.Max(_contextFrame, _player.Status.ClipOut ?? _player.Status.DurationFrames))),
             Item("Mark Out here", () => _player.SetRange(Math.Min(_contextFrame, _player.Status.ClipIn ?? 0), _contextFrame)),
             Item("Add bookmark here", () => _player.AddBookmark(_contextFrame, "Bookmark " + _contextFrame)),
@@ -41,10 +42,10 @@ public sealed class ReplayStudioTimeline : Control
                 return;
             }
             if (e.KeyModifiers.HasFlag(KeyModifiers.Shift)) _rangeStart = frame;
-            else _player.Seek(frame);
+            else _seek(frame);
             e.Pointer.Capture(this); e.Handled = true;
         };
-        PointerMoved += (_, e) => { if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && !_rangeStart.HasValue) _player.Seek(Frame(e.GetPosition(this).X)); };
+        PointerMoved += (_, e) => { if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed && !_rangeStart.HasValue) _seek(Frame(e.GetPosition(this).X)); };
         PointerReleased += (_, e) =>
         {
             if (_rangeStart is { } start) { uint end = Frame(e.GetPosition(this).X); _player.SetRange(Math.Min(start, end), Math.Max(start, end)); _rangeStart = null; }
@@ -60,9 +61,9 @@ public sealed class ReplayStudioTimeline : Control
         KeyDown += (_, e) =>
         {
             var status = _player.Status; uint step = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 60u : 1u;
-            if (e.Key == Key.Left) _player.Seek(status.Frame > step ? status.Frame - step : 0);
-            else if (e.Key == Key.Right) _player.Seek(Math.Min(status.DurationFrames, status.Frame + step));
-            else if (e.Key == Key.Home) _player.Seek(0); else if (e.Key == Key.End) _player.Seek(status.DurationFrames);
+            if (e.Key == Key.Left) _seek(status.Frame > step ? status.Frame - step : 0);
+            else if (e.Key == Key.Right) _seek(Math.Min(status.DurationFrames, status.Frame + step));
+            else if (e.Key == Key.Home) _seek(0); else if (e.Key == Key.End) _seek(status.DurationFrames);
             else if (e.Key == Key.Space) _player.TogglePause(); else return; e.Handled = true;
         };
     }

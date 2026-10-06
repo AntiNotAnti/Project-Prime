@@ -216,4 +216,70 @@ Closed(workloadCut, "128-island knife workload");
 Check(workloadCut.Vertices.Count == 1536 && Near(Volume(workloadCut), 1024), "larger detached workload keeps exact shared topology and all enclosed volume");
 Console.WriteLine($"MODELING MEASURE sourceVertices={workload.Vertices.Count} resultVertices={workloadCut.Vertices.Count} resultFaces={workloadCut.Faces.Count} cpuMs={stopwatch.Elapsed.TotalMilliseconds:0.###} allocatedBytes={allocation}");
 Check(allocation < 64 * 1024 * 1024, "bulk knife edge splitting stays below a measured 64 MiB allocation budget for the 1024-vertex fixture");
+// Cancellation is triggered by the modifier enumerator only after the first real
+// 128-copy modifier returned. There is no timer or caller-side cancellation check
+// which could make this pass before canonical computation actually started.
+using (var cancellation = new CancellationTokenSource())
+{
+    var cancelSource = Cube(); string cancelSourceBefore = Bytes(cancelSource);
+    string cancelDocumentBefore = document.Project.Definition.Serialize(); var cancelState = document.CurrentStateId;
+    bool firstCompleted = false, published = false, cancelled = false, matchedToken = false;
+    var interruptedStack = new CancelAfterFirstModifier(
+        new MapModelModifier[] { new MapArrayModifier(128, new(4, 0, 0)), new MapArrayModifier(2, new(0, 4, 0)) },
+        () => { firstCompleted = true; cancellation.Cancel(); });
+    try
+    {
+        var proposal = await Task.Run(() => MapModelingEnhancements.EvaluateModifiers(cancelSource,
+            interruptedStack, cancellation: cancellation.Token));
+        // This is the real adoption boundary; cancellation must prevent reaching it.
+        document.Edit("Cancelled modifier proposal", value => value.Geometry[0] = proposal, MapChangeDomain.Geometry);
+        published = true;
+    }
+    catch (OperationCanceledException exception)
+    {
+        cancelled = true; matchedToken = exception.CancellationToken == cancellation.Token;
+    }
+    Check(firstCompleted, "in-progress cancellation starts only after canonical first modifier completion");
+    Check(cancelled && matchedToken, "modifier worker cooperatively interrupts with the requested cancellation token");
+    Check(!published, "cancelled detached modifier work cannot publish a late proposal");
+    Check(Bytes(cancelSource) == cancelSourceBefore, "in-progress cancellation preserves every serialized source byte");
+    Check(document.CurrentStateId == cancelState && document.Project.Definition.Serialize() == cancelDocumentBefore,
+        "in-progress cancellation leaves live document and history unchanged");
+}
+using (var cancellation = new CancellationTokenSource())
+{
+    cancellation.Cancel();
+    Func<MapMesh>[] operations =
+    {
+        () => MapModelingEnhancements.ProportionalMove(cube, new[] { 0 }, Vector3.UnitY, 3, cancellation: cancellation.Token),
+        () => MapModelingEnhancements.LoopCut(cube, new(0, 1), cancellation: cancellation.Token),
+        () => MapModelingEnhancements.KnifeCut(cube, Vector3.UnitX, 0, cancellation: cancellation.Token),
+        () => MapModelingEnhancements.Bridge(ends, new MapMeshTopology(ends).BoundaryEdges(), cancellation: cancellation.Token),
+        () => MapModelingEnhancements.GridFill(hole, new MapMeshTopology(hole).BoundaryEdges(), columns: 2, cancellation: cancellation.Token),
+        () => MapModelingEnhancements.InsetRegionWidth(cube, new[] { 1 }, .25f, cancellation: cancellation.Token),
+        () => MapModelingEnhancements.BevelEdge(cube, new(0, 1), .2f, cancellation: cancellation.Token),
+        () => MapModelingEnhancements.EvaluateModifiers(cube, System.Array.Empty<MapModelModifier>(), cancellation: cancellation.Token),
+        () => MapModelingEnhancements.WithModifierStack(half, modifiers, cancellation: cancellation.Token),
+        () => MapModelingEnhancements.BakeModifierStack(persistent, cancellation: cancellation.Token)
+    };
+    int stopped = 0;
+    foreach (var operation in operations)
+        try { operation(); }
+        catch (OperationCanceledException exception) when (exception.CancellationToken == cancellation.Token) { stopped++; }
+    Check(stopped == operations.Length && Bytes(cube) == original,
+        "all ten modeling proposal APIs reject a pre-cancelled token without source mutation");
+}
 Console.WriteLine($"Studio modeling checks passed: {checks}.");
+
+sealed class CancelAfterFirstModifier(MapModelModifier[] modifiers, Action cancel) : IReadOnlyList<MapModelModifier>
+{
+    public int Count => modifiers.Length;
+    public MapModelModifier this[int index] => modifiers[index];
+    public IEnumerator<MapModelModifier> GetEnumerator()
+    {
+        yield return modifiers[0];
+        cancel();
+        for (int index = 1; index < modifiers.Length; index++) yield return modifiers[index];
+    }
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+}

@@ -38,17 +38,95 @@ if(args.Contains("--gpu"))
         long uploads=world.MeshUploads;
         views[0].Render(world,frame with {Camera=new(new(1,1,8),Vector3.Zero,true),Selection=new HashSet<Guid>{front}});
         Check(world.MeshUploads==uploads,"camera and selection changes retain uploaded geometry");
-        var hit=views[0].Pick(world,frame,64,64);
-        Check(hit.GpuUsed && hit.MatchesCpu && hit.Surface?.ObjectId==front,"one-pixel R32Uint depth pick agrees with CPU oracle");
+        var hit=views[0].Pick(world,frame,64,64,verifyCpuParity:true);
+        Check(hit.GpuUsed && hit.MatchesCpu && hit.CpuParityChecked && hit.Surface?.ObjectId==front,"one-pixel R32Uint depth pick agrees with CPU oracle");
         long pickPasses=views[0].PickPassSubmissions;
-        var repeated=views[0].Pick(world,frame with {Selection=new HashSet<Guid>{front}},64,64);
-        Check(repeated.GpuUsed && repeated.MatchesCpu && views[0].PickPassSubmissions==pickPasses,"unchanged geometry and camera reuse the integer pick target across selection changes");
+        var repeated=views[0].Pick(world,frame with {Selection=new HashSet<Guid>{front}},64,64,verifyCpuParity:true);
+        Check(repeated.GpuUsed && repeated.MatchesCpu && repeated.CpuParityChecked && views[0].PickPassSubmissions==pickPasses,"unchanged geometry and camera reuse the integer pick target across selection changes");
         views[0].Pick(world,frame with {Camera=new(new(1,1,8),Vector3.Zero,true)},64,64);
         Check(views[0].PickPassSubmissions==pickPasses+1,"camera changes invalidate the cached integer pick target");
-        var vertex=views[0].Pick(world,frame,36,92,StudioPickKind.Vertex);
-        Check(vertex.GpuUsed && vertex.MatchesCpu && vertex.Element is {Kind:StudioPickKind.Vertex,A:0},"GPU vertex ID quads preserve CPU element parity");
-        var edge=views[0].Pick(world,frame,64,90,StudioPickKind.Edge);
-        Check(edge.GpuUsed && edge.MatchesCpu && edge.Element is {Kind:StudioPickKind.Edge,A:0,B:1},"GPU edge ID quads preserve CPU element parity");
+        var vertex=views[0].Pick(world,frame,36,92,StudioPickKind.Vertex,verifyCpuParity:true);
+        Check(vertex.GpuUsed && vertex.MatchesCpu && vertex.CpuParityChecked && vertex.Element is {Kind:StudioPickKind.Vertex,A:0}
+            && vertex.GpuElement is {Kind:StudioPickKind.Vertex,A:0},"GPU vertex ID quads preserve CPU element parity");
+        var edge=views[0].Pick(world,frame,64,90,StudioPickKind.Edge,verifyCpuParity:true);
+        Check(edge.GpuUsed && edge.MatchesCpu && edge.CpuParityChecked && edge.Element is {Kind:StudioPickKind.Edge,A:0,B:1}
+            && edge.GpuElement is {Kind:StudioPickKind.Edge,A:0,B:1},"GPU edge ID quads preserve CPU element parity");
+        var beforeNormal=views[0].PickDiagnostics;
+        var normal=views[0].Pick(world,frame,64,64);
+        var afterNormal=views[0].PickDiagnostics;
+        Check(normal.GpuUsed && !normal.CpuParityChecked && normal.Surface?.ObjectId==front
+            && afterNormal.FullSceneCpuQueries==beforeNormal.FullSceneCpuQueries
+            && afterNormal.WinningFaceQueries==beforeNormal.WinningFaceQueries+1
+            && afterNormal.WinningFaceTriangleTests==beforeNormal.WinningFaceTriangleTests+1
+            && afterNormal.ReadbackBytes==beforeNormal.ReadbackBytes+4,
+            "normal GPU hover reconstructs one winning triangle with one pixel and no full-scene CPU query");
+        var background=views[0].Pick(world,frame,3,3);
+        Check(background.GpuUsed && background.Element==null && background.Surface==null
+            && views[0].PickDiagnostics.FullSceneCpuQueries==afterNormal.FullSceneCpuQueries,
+            "valid GPU background hover returns a miss without a full-scene CPU query");
+        var beforeFault=views[0].PickDiagnostics;
+        views[0].FailNextPickReadbackForDiagnostics();
+        var fallback=views[0].Pick(world,frame,64,64);
+        Check(!fallback.GpuUsed && fallback.Surface?.ObjectId==front
+            && views[0].PickDiagnostics.FullSceneCpuQueries==beforeFault.FullSceneCpuQueries+1
+            && views[0].PickDiagnostics.FallbackQueries==beforeFault.FallbackQueries+1
+            && views[0].PickDiagnostics.ReadbackBytes==beforeFault.ReadbackBytes,
+            "injected readback failure takes the real canonical CPU fallback without reading another target");
+        var recoveredPick=views[0].Pick(world,frame,64,64);
+        Check(recoveredPick.GpuUsed && recoveredPick.Surface?.ObjectId==front
+            && views[0].PickDiagnostics.FullSceneCpuQueries==beforeFault.FullSceneCpuQueries+1,
+            "normal GPU picking resumes after the one-shot readback fault");
+        var beforeInvalid=views[0].PickDiagnostics;
+        var invalid=views[0].Pick(world,frame with {Layout=new(0,0)},64,64);
+        var nonfinite=views[0].Pick(world,frame,double.NaN,64);
+        Check(!invalid.GpuUsed && invalid.Surface==null && !nonfinite.GpuUsed && nonfinite.Surface==null
+            && views[0].PickDiagnostics.FallbackQueries==beforeInvalid.FallbackQueries+2,
+            "invalid viewport bounds and coordinates take a safe CPU fallback");
+        using(var collisionWorld=device.CreateWorld())
+        {
+            var collisionMesh=meshes[0] with {CollisionFaces=Mesh(front,2).Faces};
+            var collisionFrame=frame with {Meshes=new[]{collisionMesh},ResidentMeshes=new[]{collisionMesh},Collision=true};
+            var collisionHit=views[0].Pick(collisionWorld,collisionFrame,64,64,verifyCpuParity:true);
+            Check(collisionHit.GpuUsed && collisionHit.MatchesCpu && collisionHit.CpuParityChecked
+                && collisionHit.Surface is {Point.Z:2,Distance:6},
+                "collision GPU ID and CPU oracle reconstruct the dedicated canonical collision face");
+        }
+        var densePickDefinition=new MapDefinition {Geometry=Enumerable.Range(0,1024).Select(i=>(MapGeometry)new MapBox
+            {Transform=new() {Position=new[]{(i%32-16)*2f,0f,(i/32-16)*2f},Scale=new[]{1f,1f,1f}}}).ToList()};
+        var densePickCache=new MapViewportCache();densePickCache.Invalidate(densePickDefinition,new(MapChangeDomain.All));
+        var densePickFrame=new MapRenderFrame(new(640,360),new(new(60,45,70),Vector3.Zero,true),densePickCache.Meshes,
+            new HashSet<Guid>(),new Dictionary<Guid,Matrix4x4>(),false,false) {ResidentMeshes=densePickCache.Meshes};
+        using(var densePickWorld=device.CreateWorld())
+        {
+            var beforeDenseParity=views[0].PickDiagnostics;
+            // Match the rasterizer's physical sample centres: half a pixel can cross the
+            // silhouette of a unit box projected to only a few pixels in this dense fixture.
+            var denseParity=views[0].Pick(densePickWorld,densePickFrame,320.5,180.5,verifyCpuParity:true);
+            Console.WriteLine("Dense parity result: "+System.Text.Json.JsonSerializer.Serialize(new {Result=denseParity,
+                Before=beforeDenseParity,After=views[0].PickDiagnostics,Camera=densePickFrame.Camera},
+                new System.Text.Json.JsonSerializerOptions {IncludeFields=true}));
+            Check(denseParity.GpuUsed && denseParity.CpuParityChecked && denseParity.MatchesCpu && denseParity.Surface!=null
+                && views[0].PickDiagnostics.FullSceneCpuQueries==beforeDenseParity.FullSceneCpuQueries+1,
+                "dense GPU pick retains explicit full-scene CPU parity verification");
+            views[0].SubmitForDiagnostics(densePickWorld,densePickFrame);
+            var beforeDense=views[0].PickDiagnostics;
+            long denseMeshUploads=densePickWorld.MeshUploads;
+            long densePickSubmissions=views[0].PickPassSubmissions;
+            var densePicks=Enumerable.Range(0,20).Select(i=>views[0].Pick(densePickWorld,densePickFrame,
+                320.5+(i%2),180.5+((i/2)%2))).ToArray();
+            var afterDense=views[0].PickDiagnostics;
+            Check(densePicks.All(pick=>pick.GpuUsed && !pick.CpuParityChecked && pick.Surface!=null)
+                && afterDense.FullSceneCpuQueries==beforeDense.FullSceneCpuQueries
+                && afterDense.FallbackQueries==beforeDense.FallbackQueries
+                && afterDense.WinningFaceQueries==beforeDense.WinningFaceQueries+20
+                && afterDense.WinningFaceTriangleTests==beforeDense.WinningFaceTriangleTests+40
+                && afterDense.ReadbackBytes==beforeDense.ReadbackBytes+80
+                && densePickWorld.MeshUploads==denseMeshUploads && densePickWorld.ResidentMeshes==1024
+                && views[0].PickPassSubmissions==densePickSubmissions && views[0].Metrics?.ReadbackBytes==0
+                && views[0].Metrics?.PickReadbackBytes==80,
+                "twenty dense hovers test forty winning-face triangles instead of all 12288 scene triangles and read only twenty pixels");
+            Console.WriteLine("Dense pick counters: "+System.Text.Json.JsonSerializer.Serialize(afterDense));
+        }
         views[0].Render(world,frame with {Meshes=new[] {meshes[1]},ResidentMeshes=new[] {meshes[1]}});
         Check(world.ResidentMeshes==1,"removed document mesh releases retained resources");
         device.SimulateDeviceLossForDiagnostics();

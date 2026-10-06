@@ -33,7 +33,6 @@ namespace MphRead.Mods.Launcher.Gui
             _canvas = new LayoutTransformControl { Child = layers };
             Content = _canvas;
             Router.Changed += route => { Workspaces.Show(route); Header.SetRoute(route);
-                Header.IsVisible = Footer.IsVisible = route != PrimeRoute.Forge;
                 InvalidateMeasure(); Refresh(); };
             AddHandler(KeyDownEvent, HandleKey, RoutingStrategies.Tunnel);
             AddHandler(KeyDownEvent, HandleDirection, RoutingStrategies.Bubble);
@@ -54,17 +53,11 @@ namespace MphRead.Mods.Launcher.Gui
         private void HandleKey(object? sender, KeyEventArgs e)
         {
             if (Mods.Input.GamepadContexts.Capturing || e.Source is KeyRow { Listening: true }) return;
-#if MPHREAD_SHELL
-            // Editor controls and menus own Escape and modeling/navigation keys.
-            if (Router.Current == PrimeRoute.Forge && !Overlays.IsOpen) return;
-#endif
+            // The replay viewport owns camera movement and Escape releases its input.
+            if (e.Source is ReplayViewport) return;
             if (e.Key == Key.Escape) { Back(); e.Handled = true; return; }
             // Text entry and binding capture own letter keys.
             if (e.Source is TextBox || Mods.Input.GamepadContexts.Capturing || e.Source is KeyRow { Listening: true }) return;
-#if MPHREAD_SHELL
-            // Q/E move the editor camera while its viewport owns keyboard input.
-            if (e.Source is MapViewport) return;
-#endif
             if (Overlays.IsOpen || e.KeyModifiers != KeyModifiers.None) return;
             if (e.Key == Key.Q)
             {
@@ -85,7 +78,6 @@ namespace MphRead.Mods.Launcher.Gui
         }
         private void HandleDirection(object? sender, KeyEventArgs e)
         {
-            if (Router.Current == PrimeRoute.Forge && !Overlays.IsOpen) return;
             if (e.Handled || e.Source is TextBox || Mods.Input.GamepadContexts.Capturing) return;
             Mods.Input.UiAction? direction = e.Key switch
             {
@@ -110,9 +102,7 @@ namespace MphRead.Mods.Launcher.Gui
                 // Below the safe tactical layout, scale the entire canvas including
                 // focus rings and modals; never clip a primary action off-screen.
                 double factor = Math.Min(availableSize.Width / 1440, availableSize.Height / 810);
-                factor = Router.Current == PrimeRoute.Forge
-                    ? Math.Min(1, Math.Min(availableSize.Width / 960, availableSize.Height / 600))
-                    : Math.Min(1.5, factor);
+                factor = Math.Min(1.5, factor);
                 if (Math.Abs(factor - _scale) > .001)
                 { _scale = factor; _canvas.LayoutTransform = new ScaleTransform(factor, factor); }
             }

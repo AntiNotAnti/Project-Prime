@@ -94,6 +94,19 @@ internal sealed class PassiveReplayPlayer : IDisposable
         Transport.Seek(frame, resume);
     }
 
+    internal bool CancelPendingSeek()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        PreparedReplaySource.RequireOwner(_ownerThreadId);
+        if (!Current.Session.HasSimulatedFrame || (!Preparing && !Transport.IsSeeking && !Transport.RequestedSeekTarget.HasValue)) return false;
+        // Detached preparation cleanup is nonblocking; its completion owns any
+        // abandoned source. Current and retained checkpoints are unchanged.
+        CancelPreparation();
+        bool cancelled = Transport.CancelPendingSeek();
+        if (_seekTime.IsRunning) { _seekTime.Stop(); SeekMilliseconds = _seekTime.Elapsed.TotalMilliseconds; }
+        return cancelled;
+    }
+
     /// <summary>One host update. Seeking never exceeds 120 fixed steps, and leaves
     /// the target pending for the next update. No intermediate frame is presented.</summary>
     public int Update(int maximumSteps = MaximumStepsPerUpdate, double maximumMilliseconds = double.PositiveInfinity)

@@ -8746,9 +8746,6 @@ localCenter *= _profileHudScale;
 
         protected override void OnClosing(CancelEventArgs e)
         {
-#if MPHREAD_SHELL
-            if (_shell && !Mods.Launcher.Gui.Shell.PreserveForgeRecovery()) { e.Cancel = true; return; }
-#endif
             // Before the cleanup, and before the window is gone: the geometry
             // has to be read off a window that still exists.
             if (_shell)

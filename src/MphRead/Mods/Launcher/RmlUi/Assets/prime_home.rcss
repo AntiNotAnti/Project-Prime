@@ -1,5 +1,10 @@
 * { box-sizing: border-box; }
 
+/* RmlUi defaults every tag to inline. The authored layout uses div blocks,
+   and the deploy button is a full-width block outside a flex container. */
+div { display: block; }
+#deploy { display: block; }
+
 @keyframes enter-top {
     from { opacity: 0; transform: translateY(-10dp); }
     to   { opacity: 1; transform: translateY(0dp); }
@@ -44,7 +49,7 @@ body {
     top: 92dp;
     width: 100%;
     height: 1dp;
-    background-color: rgba(97,182,246,0.25);
+    background-color: rgba(97,182,246,25%);
 }
 
 #topbar {
@@ -57,8 +62,8 @@ body {
     align-items: center;
     padding-left: 46dp;
     padding-right: 46dp;
-    background-color: rgba(2,8,15,0.82);
-    border-bottom: 1dp rgba(97,182,246,0.10);
+    background-color: rgba(2,8,15,82%);
+    border-bottom: 1dp rgba(97,182,246,10%);
 }
 
 .enter_top { animation: 0.16s quadratic-out 1 enter-top; }
@@ -138,13 +143,13 @@ button {
 }
 .nav:hover, .nav:focus {
     color: #ffffff;
-    background-color: rgba(43,158,247,0.10);
+    background-color: rgba(43,158,247,10%);
     border-bottom-color: #2b9ef7;
     transform: translateY(-1dp);
 }
 .nav.active {
     color: #ffffff;
-    background-color: rgba(28,114,225,0.12);
+    background-color: rgba(28,114,225,12%);
     border-bottom-color: #72c7ff;
 }
 
@@ -184,8 +189,8 @@ button {
 
 .utility, .footer_button {
     padding: 10dp 15dp;
-    border: 1dp rgba(97,182,246,0.28);
-    background-color: rgba(7,18,31,0.72);
+    border: 1dp rgba(97,182,246,28%);
+    background-color: rgba(7,18,31,72%);
     font-size: 12dp;
     font-weight: bold;
     letter-spacing: 0.8dp;
@@ -195,7 +200,7 @@ button {
 .footer_button:hover, .footer_button:focus {
     color: #ffffff;
     border-color: #61b6f6;
-    background-color: rgba(28,114,225,0.31);
+    background-color: rgba(28,114,225,31%);
     transform: translateY(-1dp);
 }
 
@@ -254,22 +259,22 @@ button {
     margin-bottom: 5dp;
     padding: 9dp 14dp;
     color: #91a6b8;
-    background-color: rgba(5,16,29,0.80);
-    border-left: 3dp rgba(97,182,246,0.18);
-    border-top: 1dp rgba(97,182,246,0.12);
-    border-right: 1dp rgba(97,182,246,0.09);
-    border-bottom: 1dp rgba(97,182,246,0.09);
+    background-color: rgba(5,16,29,80%);
+    border-left: 3dp rgba(97,182,246,18%);
+    border-top: 1dp rgba(97,182,246,12%);
+    border-right: 1dp rgba(97,182,246,9%);
+    border-bottom: 1dp rgba(97,182,246,9%);
     transition: color background-color border-left-color padding-left transform 0.13s quadratic-out;
 }
 .activity:hover, .activity:focus, .activity.selected {
     color: #ffffff;
-    background-color: rgba(15,55,92,0.92);
+    background-color: rgba(15,55,92,92%);
     border-left-color: #72c7ff;
     padding-left: 19dp;
     transform: translateX(3dp);
 }
 .activity.selected {
-    background-color: rgba(18,72,120,0.94);
+    background-color: rgba(18,72,120,94%);
 }
 
 .activity_code {
@@ -328,10 +333,10 @@ button {
     color: #7a8fa2;
     font-size: 9dp;
     letter-spacing: 1dp;
-    background-color: rgba(3,10,18,0.86);
-    border-left: 1dp rgba(97,182,246,0.16);
-    border-right: 1dp rgba(97,182,246,0.16);
-    border-top: 1dp rgba(97,182,246,0.10);
+    background-color: rgba(3,10,18,86%);
+    border-left: 1dp rgba(97,182,246,16%);
+    border-right: 1dp rgba(97,182,246,16%);
+    border-top: 1dp rgba(97,182,246,10%);
 }
 .ready { color: #55e18c; }
 
@@ -388,7 +393,7 @@ button {
     width: 58dp;
     height: 1dp;
     margin-right: 12dp;
-    background-color: rgba(114,199,255,0.72);
+    background-color: rgba(114,199,255,72%);
 }
 #hunter_name {
     color: #ffffff;
@@ -411,9 +416,9 @@ button {
     top: 38dp;
     width: 304dp;
     padding: 15dp;
-    background-color: rgba(4,14,25,0.68);
-    border: 1dp rgba(97,182,246,0.14);
-    border-left: 2dp rgba(114,199,255,0.45);
+    background-color: rgba(4,14,25,68%);
+    border: 1dp rgba(97,182,246,14%);
+    border-left: 2dp rgba(114,199,255,45%);
 }
 .session_header {
     display: flex;
@@ -432,8 +437,8 @@ button {
     display: flex;
     align-items: center;
     padding: 12dp;
-    background-color: rgba(12,40,65,0.80);
-    border: 1dp rgba(97,182,246,0.14);
+    background-color: rgba(12,40,65,80%);
+    border: 1dp rgba(97,182,246,14%);
 }
 .session_badge {
     width: 40dp;
@@ -467,8 +472,8 @@ button {
     color: #72899c;
     font-size: 10dp;
     letter-spacing: 0.8dp;
-    background-color: rgba(5,16,29,0.58);
-    border: 1dp rgba(97,182,246,0.09);
+    background-color: rgba(5,16,29,58%);
+    border: 1dp rgba(97,182,246,9%);
 }
 .plus {
     width: 28dp;
@@ -490,8 +495,8 @@ button {
     width: 330dp;
     padding: 13dp;
     color: #91a6b8;
-    background-color: rgba(2,10,18,0.93);
-    border: 1dp rgba(114,199,255,0.28);
+    background-color: rgba(2,10,18,93%);
+    border: 1dp rgba(114,199,255,28%);
     border-left: 3dp #2b9ef7;
 }
 #diagnostics_panel.open { display: block; }
@@ -510,7 +515,7 @@ button {
     justify-content: space-between;
     padding-top: 5dp;
     padding-bottom: 5dp;
-    border-bottom: 1dp rgba(114,199,255,0.09);
+    border-bottom: 1dp rgba(114,199,255,9%);
     font-size: 9dp;
     letter-spacing: 0.6dp;
 }
@@ -532,8 +537,8 @@ button {
     justify-content: space-between;
     padding-left: 46dp;
     padding-right: 46dp;
-    background-color: rgba(2,8,15,0.88);
-    border-top: 1dp rgba(97,182,246,0.13);
+    background-color: rgba(2,8,15,88%);
+    border-top: 1dp rgba(97,182,246,13%);
 }
 #build_info {
     color: #60788d;
@@ -554,7 +559,7 @@ button {
 .footer_button.danger:hover,
 .footer_button.danger:focus {
     border-color: #ef6870;
-    background-color: rgba(178,47,58,0.28);
+    background-color: rgba(178,47,58,28%);
 }
 
 @media (max-width: 1500px) {
@@ -656,6 +661,6 @@ button {
     #deploy,
     .utility,
     .footer_button {
-        border-color: rgba(114,199,255,0.22);
+        border-color: rgba(114,199,255,22%);
     }
 }

@@ -253,7 +253,7 @@ public sealed class StudioWindow : Window
                 document=await Jobs.RunAsync("Prepare replay " + Path.GetFileName(path),async(progress,token)=>
                 {
                     progress.Report(new(0));
-                    preparedReplay=await Dispatcher.UIThread.InvokeAsync(()=>ReplayStudioDocument.OpenAsync(kind,path,_paths,token,id,packageDirectories,ExportWorkers.LaunchAsync));
+                    preparedReplay=await Dispatcher.UIThread.InvokeAsync(()=>ReplayStudioDocument.OpenAsync(kind,path,_paths,token,id,packageDirectories,ExportWorkers.LaunchAsync,RunReplayJobAsync));
                     progress.Report(new(1));return preparedReplay;
                 },cancellationToken);
             }
@@ -273,6 +273,13 @@ public sealed class StudioWindow : Window
         _status.Text = "Opened " + document.Title;
         _shell.Refresh();
     }
+    private Task RunReplayJobAsync(string label,Func<CancellationToken,Task> work,CancellationToken cancellation)
+        =>Jobs.RunAsync(label,async(progress,token)=>
+        {
+            progress.Report(new(0));
+            await Dispatcher.UIThread.InvokeAsync(()=>work(token));
+            progress.Report(new(1));return true;
+        },cancellation);
     private MapStudioDocument CreateMapDocument(StudioDocumentId? id = null)
     {
         MapStudioDocument map = new(_paths,this,Jobs,id,MapIntegration,_settings.MapLayout);
@@ -288,7 +295,7 @@ public sealed class StudioWindow : Window
     public void NewReplayWorkspace()
     {
         if (_closing) return;
-        Documents.Add(new ProjectPrime.Studio.Replay.ReplayStudioDocument(StudioDocumentKind.Replay,null,_paths,exportWorkerLauncher:ExportWorkers.LaunchAsync));
+        Documents.Add(new ProjectPrime.Studio.Replay.ReplayStudioDocument(StudioDocumentKind.Replay,null,_paths,exportWorkerLauncher:ExportWorkers.LaunchAsync,jobRunner:RunReplayJobAsync));
     }
     private async Task OpenRecentAsync(StudioRecentDocument recent)
     {
@@ -422,7 +429,7 @@ public sealed class StudioWindow : Window
                 if (snapshot.Kind == StudioDocumentKind.Map && snapshot.RecoveryPath is { } recovery && File.Exists(recovery))
                 { var map=CreateMapDocument(new(snapshot.Id)); try { await map.OpenRecoveryAsync(recovery,cancellationToken); Documents.Add(map); } catch { await map.DisposeAsync(); throw; } }
                 else if (snapshot.Path is null) Documents.Add(snapshot.Kind is StudioDocumentKind.Replay or StudioDocumentKind.ReplayClip
-                    ? new ProjectPrime.Studio.Replay.ReplayStudioDocument(snapshot.Kind,null,_paths,new(snapshot.Id),exportWorkerLauncher:ExportWorkers.LaunchAsync) : StudioSourceDocument.Empty(snapshot.Kind,new(snapshot.Id)));
+                    ? new ProjectPrime.Studio.Replay.ReplayStudioDocument(snapshot.Kind,null,_paths,new(snapshot.Id),exportWorkerLauncher:ExportWorkers.LaunchAsync,jobRunner:RunReplayJobAsync) : StudioSourceDocument.Empty(snapshot.Kind,new(snapshot.Id)));
                 else await OpenSourceCoreAsync(snapshot.Kind, snapshot.Path, cancellationToken, new(snapshot.Id), snapshot.PackageDirectories?.Where(path=>path is not null && Path.IsPathFullyQualified(path)).Take(16));
             }
             catch (OperationCanceledException) when(cancellationToken.IsCancellationRequested) { throw; }

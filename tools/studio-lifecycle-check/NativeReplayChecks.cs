@@ -53,6 +53,7 @@ internal static partial class Program
                 &&beforeRetry.GameplayHash==afterRetry.GameplayHash&&beforeRetry.PresentationHash==afterRetry.PresentationHash
                 &&beforeRetry.FullGraphHash==afterRetry.FullGraphHash,
                 "actual native viewport retry preserves nonzero world, semantic graph and paused transport preferences");
+            await CheckNativeReplaySeekJobsAsync(studio,output);
             if(staleView)
             {
                 await CheckNativeReplayStaleViewAsync(studio,output);
@@ -73,6 +74,19 @@ internal static partial class Program
             image=Path.Combine(output,"native-replay-saved-clip.png");
             await studio.StandardInput.WriteLineAsync("capture-replay "+image);await studio.StandardInput.FlushAsync();await ReadNativeLineAsync(studio,"CAPTURED");
             CheckNativePng(image,640,360,"native replacement clip viewport continues rendering after Save As");
+            string cameraReference=Path.Combine(output,"native-replay-clip-camera-reference.png");
+            byte[] frozenCamera=Convert.FromBase64String((await NativeCommandAsync(studio,"replay-camera-reference "+cameraReference,"REPLAY-CAMERA-REFERENCE "))[24..]);
+            Guid clipExport=await NativeQueueExportAsync(studio,new(Path.Combine(output,"clip-camera-export"),0,6,320,180,60,Encoder:null,
+                Camera:StudioReplayCameraMode.Authored,Audio:new(Enabled:false),View:new(320,180,StudioReplayCameraMode.Authored,Fov:65)));
+            exports.Add(clipExport);
+            await NativeCommandAsync(studio,"replay-mutate-camera","REPLAY-CAMERA-MUTATED");
+            var cameraTicket=JsonSerializer.Deserialize<StudioReplayExportTicket>(File.ReadAllText(Path.Combine(NativeExportRoot(profile,clipExport),"ticket.json")),new JsonSerializerOptions{IncludeFields=true})!;
+            Check(cameraTicket.CameraState is not null&&cameraTicket.CameraState.SequenceEqual(frozenCamera),
+                "actual queued native worker freezes exact v5 cropped camera state before later editor key changes");
+            var clipExportStatus=await WaitNativeExportAsync(profile,clipExport);
+            Check(clipExportStatus.State=="Complete"&&clipExportStatus.Frames==7,"actual native worker renders cropped authored-camera export with immutable queued state");
+            using(var referencePixels=SKBitmap.Decode(cameraReference))using(var workerPixels=SKBitmap.Decode(Path.Combine(clipExportStatus.Directory,"frame_00000000.png")))
+                Check(referencePixels.Bytes.SequenceEqual(workerPixels.Bytes),"native worker first frame is pixel-exact with owned cropped camera at same frame, view and frozen authoring state");
             await studio.StandardInput.WriteLineAsync("close-document");await studio.StandardInput.FlushAsync();await ReadNativeLineAsync(studio,"DOCUMENT-CLOSED");
             using(Process reopened=StartStudioExecutable(profile,["--replay",source]))
             {await reopened.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));Check(reopened.ExitCode==0,"original recording reopens after native Save As clip lifecycle");}
@@ -140,6 +154,13 @@ internal static partial class Program
             CheckNativePng(Path.Combine(completedAfterClose.Directory,"frame_00000120.png"),320,180,
                 "worker preserves final native GPU frame after editing application shutdown");
             await WaitNativeWorkerLeaseReleaseAsync();
+            foreach(Guid id in exports.Where(id=>id!=cancelled))
+            {
+                string durable=NativeExportRoot(profile,id),log=Path.Combine(durable,"worker.log");
+                Check(!Directory.Exists(Path.Combine(durable,"cache"))&&File.Exists(Path.Combine(durable,"status.json"))
+                    &&File.Exists(log)&&new FileInfo(log).Length is >0 and <=65_539,
+                    "terminal native worker releases private decoder/asset scratch after shutdown while durable status and bounded independent log survive "+id);
+            }
             Check(original.SequenceEqual(File.ReadAllBytes(hiddenSource)),"queued native worker retains immutable playback after original path is renamed and Studio exits");
             File.Move(hiddenSource,source);
             if(timingFailure is not null)throw timingFailure;
@@ -162,7 +183,8 @@ internal static partial class Program
     private static async Task CheckNativeReplayStaleViewAsync(Process studio,string output)
     {
         await studio.StandardInput.WriteLineAsync("replay-four");await studio.StandardInput.FlushAsync();await ReadNativeLineAsync(studio,"REPLAY-FOUR");
-        var live=await WaitForNativeReplayAsync(studio,4);var world=await NativeReplayWorldAsync(studio);
+        var live=await WaitForNativeReplayAsync(studio,4);
+        var world=await CaptureNativeReplayWorldAsync(studio,Path.Combine(output,"native-replay-stale-fourth-before.png"));
         await studio.StandardInput.WriteLineAsync("replay-fail-last-and-loss");await studio.StandardInput.FlushAsync();await ReadNativeLineAsync(studio,"REPLAY-LOST ");
         var timer=Stopwatch.StartNew();NativeSnapshot restored;
         do{restored=await NativeStatusAsync(studio);if(restored.Generation>live.Generation&&restored.Replay is {Ready:true,Frame:17,State:"Paused"})break;await Task.Delay(25);}
@@ -170,11 +192,11 @@ internal static partial class Program
         Check(restored.Generation>live.Generation&&restored.Replay is {Ready:true,Frame:17,Rate:2,ClipIn:5,ClipOut:45},
             "three healthy native Replay views recover one shared paused transport while the fourth remains stale and failed");
         string capture=Path.Combine(output,"native-replay-stale-fourth-recovered.png");
-        await studio.StandardInput.WriteLineAsync("capture-replay "+capture);await studio.StandardInput.FlushAsync();await ReadNativeLineAsync(studio,"CAPTURED");
+        var after=await CaptureNativeReplayWorldAsync(studio,capture);
         CheckNativePng(capture,640,360,"healthy native primary presents recovered scene while fourth-view error retains its lease");
-        var after=await NativeReplayWorldAsync(studio);
+        File.WriteAllText(Path.Combine(output,"native-replay-stale-fourth-state.json"),JsonSerializer.Serialize(new{Before=world,After=after},new JsonSerializerOptions{WriteIndented=true,IncludeFields=true}));
         Check(world.Frame==after.Frame&&world.GameplayHash==after.GameplayHash&&world.PresentationHash==after.PresentationHash&&world.FullGraphHash==after.FullGraphHash,
-            "shared-generation recovery preserves canonical gameplay, presentation and semantic full graph");
+            "shared-generation recovery preserves canonical gameplay, presentation and semantic full graph; before="+JsonSerializer.Serialize(world)+",after="+JsonSerializer.Serialize(after));
         await studio.StandardInput.WriteLineAsync("replay-resources");await studio.StandardInput.FlushAsync();
         using var before=JsonDocument.Parse((await ReadNativeLineAsync(studio,"REPLAY-RESOURCES "))[17..]);
         Check(before.RootElement.GetProperty("Counts").GetProperty("Renderbuffers").GetInt32()>0,
@@ -187,6 +209,12 @@ internal static partial class Program
             &&counts.GetProperty("Textures").GetInt32()<before.RootElement.GetProperty("Counts").GetProperty("Textures").GetInt32(),
             "disposing healthy views first and stale fourth last releases actual scene renderbuffers/textures and all native surfaces");
         File.WriteAllText(Path.Combine(output,"native-replay-stale-fourth-resources.json"),JsonSerializer.Serialize(new{Before=before.RootElement,After=released.RootElement},new JsonSerializerOptions{WriteIndented=true}));
+    }
+    private static async Task<StudioReplayWorldSnapshot> CaptureNativeReplayWorldAsync(Process studio,string path)
+    {
+        await studio.StandardInput.WriteLineAsync("capture-replay-state "+path);await studio.StandardInput.FlushAsync();
+        return JsonSerializer.Deserialize<StudioReplayWorldSnapshot>((await ReadNativeLineAsync(studio,"CAPTURE-STATE "))[14..],new JsonSerializerOptions{IncludeFields=true})
+            ??throw new InvalidDataException("Native owner did not return atomic post-capture world state.");
     }
 
     private static async Task CheckNativeReplayClockAsync(Process studio,string output)
@@ -202,11 +230,24 @@ internal static partial class Program
             double seconds=(double)(endSnapshot.Timestamp-beginSnapshot.Timestamp)/Stopwatch.Frequency;
             double expected=seconds*60*rate;
             long advanced=transport.Frame-begin.Frame;
-            clocks.Add(new{Rate=rate,ElapsedSeconds=seconds,ParentElapsedSeconds=parentSeconds,ExpectedAdvancedFrames=expected,BeginFrame=begin.Frame,AdvancedFrames=advanced,Begin=begin,Transport=transport});
+            // Status can arrive between a workspace callback and the completion of its
+            // four GPU submissions. Compare simulation against the callback clock and
+            // retained fractional tick, then bound the wallclock difference by that
+            // measured phase instead of a fixed six-frame scheduling allowance.
+            double acceptedSeconds=transport.Clock.LastViewSeconds-begin.Clock.LastViewSeconds;
+            double acceptedExpected=(acceptedSeconds+begin.Clock.AccumulatorSeconds-transport.Clock.AccumulatorSeconds)*60*rate;
+            double phaseSeconds=Math.Abs(begin.Clock.WorkspaceSeconds-begin.Clock.LastViewSeconds)
+                +Math.Abs(transport.Clock.WorkspaceSeconds-transport.Clock.LastViewSeconds);
+            double wallAllowance=phaseSeconds*60*rate+2;
+            clocks.Add(new{Rate=rate,ElapsedSeconds=seconds,ParentElapsedSeconds=parentSeconds,ExpectedAdvancedFrames=expected,
+                AcceptedCallbackSeconds=acceptedSeconds,ExpectedAcceptedFrames=acceptedExpected,MeasuredPhaseAllowanceFrames=wallAllowance,
+                BeginFrame=begin.Frame,AdvancedFrames=advanced,Begin=begin,Transport=transport});
             File.WriteAllText(Path.Combine(output,"native-replay-four-clock.json"),JsonSerializer.Serialize(clocks,new JsonSerializerOptions{WriteIndented=true}));
-            Check(transport is {Ready:true,State:"Paused",Views:4}&&transport.Rate==rate&&advanced>=expected*.25&&advanced<=Math.Ceiling(expected)+6,
+            Check(transport is {Ready:true,State:"Paused",Views:4}&&transport.Rate==rate&&advanced>=expected*.25
+                &&Math.Abs(advanced-acceptedExpected)<=2&&Math.Abs(advanced-expected)<=wallAllowance,
                 "actual four-view loop retains one bounded wallclock transport at "+rate+"x without multiplying simulation steps per viewport; elapsed="+seconds
-                +",expectedAdvance="+expected+",beginFrame="+begin.Frame+",advanced="+advanced+",transport="+JsonSerializer.Serialize(transport));
+                +",expectedAdvance="+expected+",acceptedExpected="+acceptedExpected+",measuredPhaseAllowance="+wallAllowance
+                +",beginFrame="+begin.Frame+",advanced="+advanced+",transport="+JsonSerializer.Serialize(transport));
             Check(transport.Clock is {SharedTimerEnabled:true}&&transport.Clock.TimerEnabled.All(enabled=>!enabled)&&transport.Clock.AutomaticRendering.All(enabled=>!enabled),
                 "actual four-view presentation owns one workspace timer and disables every viewport's separate timer");
         }

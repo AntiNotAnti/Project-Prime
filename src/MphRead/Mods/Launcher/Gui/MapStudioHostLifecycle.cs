@@ -11,13 +11,6 @@ internal sealed partial class MapStudioScreen
     internal MapDocument? Document => _document;
     internal event Action? DocumentChanged;
     private TaskCompletionSource? _jobCompletion;
-    internal void AddExternalStudioLaunch(Action launch)
-    {
-        if (_services.IsStandalone || _hostToolbar is null) return;
-        var button = new PrimeButton("OPEN MAP STUDIO",launch,primary:true,compact:true);
-        _hostToolbar.Children.Insert(1,button);
-        _editingControls.Add(button);
-    }
     private async Task BrowseNativeAsync(string title, bool save, Action<string> selected, string[] extensions)
     {
         try
@@ -85,10 +78,17 @@ internal sealed partial class MapStudioScreen
     }
     internal async Task CancelPendingJobsAsync(CancellationToken cancellation)
     {
-        _work?.Cancel();
-        if(_jobCompletion is {} completion)await completion.Task;
-        try { await WaitForAssetThumbnailsAsync().WaitAsync(cancellation); }catch(OperationCanceledException){throw;}catch(Exception){}
         cancellation.ThrowIfCancellationRequested();
+        PauseAssetThumbnails();
+        try
+        {
+            await DrainDialogWorkAsync().WaitAsync(cancellation);
+            _work?.Cancel();
+            if(_jobCompletion is {} completion)await completion.Task.WaitAsync(cancellation);
+            try { await WaitForAssetThumbnailsAsync().WaitAsync(cancellation); }catch(OperationCanceledException){throw;}catch(Exception){}
+            cancellation.ThrowIfCancellationRequested();
+        }
+        catch { ResumeAssetThumbnails();throw; }
     }
     internal async Task ShutdownAsync(bool preserveRecovery)
     {
@@ -96,6 +96,7 @@ internal sealed partial class MapStudioScreen
         _work?.Cancel();
         try
         {
+            await DrainDialogWorkAsync();
             if (_jobCompletion is { } completion) await completion.Task;
             await StopAssetThumbnailsAsync();
             if (preserveRecovery) await PreserveRecoveryAsync(CancellationToken.None);

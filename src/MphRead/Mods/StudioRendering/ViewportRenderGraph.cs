@@ -163,32 +163,65 @@ struct Output { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f3
             BatchCount:draws,VisiblePrimitives:_lastVisiblePrimitives,GeometryUploadBytes:world.GeometryUploadBytes,PixelWidth:(int)target.Width,PixelHeight:(int)target.Height);
         return target.Metrics;
     }
-    internal StudioPickResult Pick(StudioRenderSurface target, EditorRenderWorld world, MapRenderFrame frame, double x, double y,StudioPickKind kind)
+    internal StudioPickResult Pick(StudioRenderSurface target, EditorRenderWorld world, MapRenderFrame frame,
+        double x, double y, StudioPickKind kind, bool verifyCpuParity)
     {
-        var cpu = EditorPickPass.Cpu(frame, x, y,kind);
+        StudioPickResult Fallback()
+        {
+            target.PickDiagnostics = target.PickDiagnostics with {
+                FullSceneCpuQueries = target.PickDiagnostics.FullSceneCpuQueries + 1,
+                FallbackQueries = target.PickDiagnostics.FallbackQueries + 1 };
+            return EditorPickPass.Cpu(frame, x, y, kind);
+        }
+        if (!frame.Layout.IsValid || !double.IsFinite(x) || !double.IsFinite(y)
+            || x < 0 || y < 0 || x >= frame.Layout.Width || y >= frame.Layout.Height)
+            return Fallback();
         try
         {
             Prepare(target, world, frame);
-            if(target.PickFrame?.Matches(world,frame,kind)!=true)
+            if (target.PickFrame?.Matches(world, frame, kind) != true)
             {
-                Draw(target, world, frame, true,kind);target.PickPassSubmissions++;
-                target.PickFrame=new(world,frame,kind);
+                Draw(target, world, frame, true, kind); target.PickPassSubmissions++;
+                target.PickFrame = new(world, frame, kind);
             }
-            uint px = (uint)Math.Clamp((int)Math.Floor(x * frame.Layout.RenderScale), 0, (int)target.Width-1);
-            uint py = (uint)Math.Clamp((int)Math.Floor(y * frame.Layout.RenderScale), 0, (int)target.Height-1);
+            uint px = (uint)Math.Clamp((int)Math.Floor(x * frame.Layout.RenderScale), 0, (int)target.Width - 1);
+            uint py = (uint)Math.Clamp((int)Math.Floor(y * frame.Layout.RenderScale), 0, (int)target.Height - 1);
+            target.CheckPickReadbackForDiagnostics();
             byte[] pixel = ReadTexture(target.Ids, px, py, 1, 1);
-            if(target.Metrics is { } metrics)target.Metrics=metrics with {PickReadbackBytes=metrics.PickReadbackBytes+4};
+            if (pixel.Length != 4) throw new InvalidOperationException("Invalid Studio pick pixel payload.");
+            target.PickDiagnostics = target.PickDiagnostics with {
+                GpuPixelReads = target.PickDiagnostics.GpuPixelReads + 1,
+                ReadbackBytes = target.PickDiagnostics.ReadbackBytes + 4 };
+            if (target.Metrics is { } metrics)
+                target.Metrics = metrics with { PickReadbackBytes = metrics.PickReadbackBytes + 4 };
             uint id = BitConverter.ToUInt32(pixel);
-            StudioPickElement? element = world.Picks.TryGetValue(id, out var found) ? found : null;
-            if(kind==StudioPickKind.Object && element is { } objectElement)element=objectElement with {Kind=StudioPickKind.Object};
-            bool parity = element?.ObjectId == cpu.Element?.ObjectId && element?.Face == cpu.Element?.Face
-                && element?.Kind == cpu.Element?.Kind && (kind is StudioPickKind.Face or StudioPickKind.Object || element?.A==cpu.Element?.A);
-            // CPU oracle wins disagreements, preserving near-plane and editor
-            // modeling semantics instead of silently selecting a wrong object.
-            return parity ? new(element, cpu.Surface, true, true) : cpu with { GpuUsed = true, MatchesCpu = false };
+            StudioPickResult gpu;
+            if (id == 0) gpu = new(null, null, true, false);
+            else
+            {
+                if (!world.Picks.TryGetValue(id, out var found)) return Fallback();
+                var candidate = EditorPickPass.FromGpu(found, frame, x, y, kind, out int trianglesTested);
+                target.PickDiagnostics = target.PickDiagnostics with {
+                    WinningFaceQueries = target.PickDiagnostics.WinningFaceQueries + 1,
+                    WinningFaceTriangleTests = target.PickDiagnostics.WinningFaceTriangleTests + trianglesTested };
+                if (candidate == null) return Fallback();
+                gpu = candidate;
+            }
+            if (!verifyCpuParity) return gpu;
+            target.PickDiagnostics = target.PickDiagnostics with {
+                FullSceneCpuQueries = target.PickDiagnostics.FullSceneCpuQueries + 1,
+                ParityQueries = target.PickDiagnostics.ParityQueries + 1 };
+            var cpu = EditorPickPass.Cpu(frame, x, y, kind);
+            bool parity = gpu.GpuElement?.ObjectId == cpu.Element?.ObjectId && gpu.GpuElement?.Face == cpu.Element?.Face
+                && gpu.GpuElement?.Kind == cpu.Element?.Kind
+                && (kind is StudioPickKind.Face or StudioPickKind.Object || gpu.GpuElement?.A == cpu.Element?.A);
+            // Full-scene CPU comparison is opt-in. Preserve the original oracle
+            // behavior for diagnostics without imposing it on every hover.
+            return parity ? gpu with { MatchesCpu = true, CpuParityChecked = true }
+                : cpu with { GpuUsed = true, MatchesCpu = false, CpuParityChecked = true, GpuElement = gpu.GpuElement };
         }
         catch (Exception ex) when (ex is InvalidOperationException or NotSupportedException)
-        { return cpu; }
+        { return Fallback(); }
     }
     private void Prepare(StudioRenderSurface target, EditorRenderWorld world, MapRenderFrame frame)
     {

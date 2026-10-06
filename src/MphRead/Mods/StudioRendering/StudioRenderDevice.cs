@@ -28,6 +28,21 @@ public sealed unsafe partial class StudioRenderDevice : IDisposable
     public int ResidentWorldCount => _worlds.Count;
     public int ViewportSurfaceCount => _surfaces.Count;
     public int NativeSurfaceCount => _nativeSurfaces.Count;
+    /// <summary>Actual native-handle lifetime, including constructors which fail before registration.</summary>
+    public long NativeSurfaceHandlesCreated { get; private set; }
+    public long NativeSurfaceHandlesReleased { get; private set; }
+    public long LiveNativeSurfaceHandles => NativeSurfaceHandlesCreated - NativeSurfaceHandlesReleased;
+    private bool _failNextNativeSurfaceAdmission;
+    internal void NativeSurfaceHandleCreated() => NativeSurfaceHandlesCreated++;
+    internal void NativeSurfaceHandleReleased() => NativeSurfaceHandlesReleased++;
+    /// <summary>Reject one admission after creating and querying a real native surface.</summary>
+    public void FailNextNativeSurfaceAdmissionForDiagnostics()
+    { RequireOwner(); _failNextNativeSurfaceAdmission = true; }
+    internal bool ConsumeNativeSurfaceAdmissionFailureForDiagnostics()
+    {
+        if (!_failNextNativeSurfaceAdmission) return false;
+        _failNextNativeSurfaceAdmission = false; return true;
+    }
     public bool NativeResourcesAvailable => !_disposed && !_device.IsLost;
     public long GeometryMemoryBudgetBytes { get; set; } = 512L * 1024 * 1024;
     internal void RequireGeometryAdmission(long bytes)
@@ -187,8 +202,22 @@ public sealed unsafe class StudioRenderSurface : IDisposable
     /// <summary>Diagnostic frame submission without GPU readback or a native window. CPU timing measures submission, not GPU completion.</summary>
     public StudioRenderMetrics SubmitForDiagnostics(EditorRenderWorld world, MapRenderFrame frame)
     { ObjectDisposedException.ThrowIf(_disposed,this);return Owner.SubmitForDiagnostics(this,world,frame); }
-    public StudioPickResult Pick(EditorRenderWorld world, MapRenderFrame frame, double x, double y, StudioPickKind kind = StudioPickKind.Face)
-    { ObjectDisposedException.ThrowIf(_disposed, this); return Owner.Pick(this, world, frame, x, y, kind); }
+    /// <summary>Counts actual GPU pixel reads and full-scene CPU queries separately.
+    /// Winning-face triangle tests never include unrelated document geometry.</summary>
+    public StudioPickDiagnostics PickDiagnostics { get; internal set; }
+    private bool _failNextPickReadback;
+    /// <summary>One-shot diagnostic fault injection through the normal read-error fallback.</summary>
+    public void FailNextPickReadbackForDiagnostics()
+    { ObjectDisposedException.ThrowIf(_disposed, this); Owner.RequireOwner(); _failNextPickReadback = true; }
+    internal void CheckPickReadbackForDiagnostics()
+    {
+        if (!_failNextPickReadback) return;
+        _failNextPickReadback = false;
+        throw new InvalidOperationException("Injected Studio pick readback failure.");
+    }
+    public StudioPickResult Pick(EditorRenderWorld world, MapRenderFrame frame, double x, double y,
+        StudioPickKind kind = StudioPickKind.Face, bool verifyCpuParity = false)
+    { ObjectDisposedException.ThrowIf(_disposed, this); return Owner.Pick(this, world, frame, x, y, kind, verifyCpuParity); }
     public void Present(StudioNativeSurface native, EditorRenderWorld world, MapRenderFrame frame, StudioViewportImage overlay)
     { ObjectDisposedException.ThrowIf(_disposed, this); Owner.Present(this, native, world, frame, overlay); }
     public void Dispose()

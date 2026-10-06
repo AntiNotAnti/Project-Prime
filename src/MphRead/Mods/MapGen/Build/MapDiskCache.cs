@@ -26,12 +26,34 @@ internal static class MapDiskCache
         try { cancellation.ThrowIfCancellationRequested(); return new CachePin(root, key, stream); }
         catch { stream.Dispose(); throw; }
     }
+    /// <summary>Retain an already owned shared kernel lease without reopening a
+    /// file or waiting on the cross-process owners gate.</summary>
+    internal static IDisposable Retain(IDisposable pin) => pin switch
+    {
+        CachePin owner => owner.Retain(),
+        RetainedPin lease => lease.Retain(),
+        _ => throw new ArgumentException("The resource is not a shared cache pin.", nameof(pin))
+    };
     private sealed class CachePin(string root, string key, FileStream stream) : IDisposable
     {
+        private readonly object _gate = new();
         private FileStream? _stream = stream;
-        public void Dispose()
+        private int _references = 1, _ownerDisposed;
+        internal IDisposable Retain()
         {
-            var owned = Interlocked.Exchange(ref _stream, null);
+            lock (_gate)
+            {
+                ObjectDisposedException.ThrowIf(_stream == null, this);
+                _references++; return new RetainedPin(this);
+            }
+        }
+        public void Dispose()
+        { if (Interlocked.Exchange(ref _ownerDisposed, 1) == 0) Release(); }
+        internal void Release()
+        {
+            FileStream? owned;
+            lock (_gate)
+            { if (--_references != 0) return; owned = _stream; _stream = null; }
             if (owned == null) return;
             try
             {
@@ -41,6 +63,18 @@ internal static class MapDiskCache
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
             finally { owned.Dispose(); }
         }
+    }
+    private sealed class RetainedPin(CachePin owner) : IDisposable
+    {
+        private readonly object _gate = new();
+        private CachePin? _owner = owner;
+        internal IDisposable Retain()
+        {
+            lock (_gate)
+            { ObjectDisposedException.ThrowIf(_owner == null, this); return _owner.Retain(); }
+        }
+        public void Dispose()
+        { CachePin? owned; lock (_gate) { owned = _owner; _owner = null; } owned?.Release(); }
     }
     internal static FileStream Acquire(string root,string key,CancellationToken cancellation=default)
     {
@@ -138,10 +172,15 @@ internal static class MapDiskCache
             }
             // Failed builds leave no immutable directory. Reclaim their idle key
             // files too, with the same inode ownership rule.
-            foreach(string path in Directory.EnumerateFiles(root,"*.lock"))
+            var orphanKeys=Directory.EnumerateFiles(root,"*.lock").Select(path=>
+            {
+                string name=Path.GetFileName(path);
+                return name.EndsWith(".pins.lock",StringComparison.Ordinal) ? name[..^10] : name[..^5];
+            }).Where(MapCommunityClient.ValidHash).Distinct(StringComparer.Ordinal).ToArray();
+            foreach(string key in orphanKeys)
             {
                 cancellation.ThrowIfCancellationRequested();
-                string key=Path.GetFileNameWithoutExtension(path);
+                string path=Path.Combine(root,key+".lock");
                 if(!MapCommunityClient.ValidHash(key)||key==protectedKey||Directory.Exists(Path.Combine(root,key))
                     || protectedDirectory?.Invoke(Path.Combine(root,key))==true)continue;
                 string pinPath=Path.Combine(root,key+".pins.lock");FileStream lease;FileStream? pins=null;

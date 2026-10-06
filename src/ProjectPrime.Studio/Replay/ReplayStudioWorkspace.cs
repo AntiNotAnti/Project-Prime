@@ -10,7 +10,7 @@ using System.Numerics;
 
 namespace ProjectPrime.Studio.Replay;
 
-public sealed class ReplayStudioWorkspace : UserControl, IDisposable
+public sealed partial class ReplayStudioWorkspace : UserControl, IDisposable
 {
     private readonly ReplayStudioSession? _session;
     private readonly List<ReplayViewportHost> _viewports = new();
@@ -61,12 +61,12 @@ public sealed class ReplayStudioWorkspace : UserControl, IDisposable
             Content = new ScrollViewer { Content = guidance };
             return;
         }
-        _timeline = new(_session.Player);
+        _timeline = new(_session.Player, frame => _session.Seek(frame));
         var root = new DockPanel();
         var toolbar = new WrapPanel { Margin = new Thickness(8), Orientation = Orientation.Horizontal };
         toolbar.Children.Add(Button("Play / Pause", () => _session.Player.TogglePause()));
         toolbar.Children.Add(Button("Step", () => _session.Player.StepForward()));
-        toolbar.Children.Add(Button("Restart", () => _session.Player.Seek(0)));
+        toolbar.Children.Add(Button("Restart", () => _session.Seek(0)));
         var rate = new ComboBox { ItemsSource = new[] { .25f, .5f, 1, 2, 4 }, SelectedItem = 1f, Width = 90, Margin = new Thickness(4) };
         rate.SelectionChanged += (_, _) => { if (rate.SelectedItem is float value) _session.Player.SetRate(value); }; toolbar.Children.Add(rate);
         toolbar.Children.Add(Button("Mark In", () => _session.Player.MarkIn())); toolbar.Children.Add(Button("Mark Out", () => _session.Player.MarkOut()));
@@ -122,7 +122,7 @@ public sealed class ReplayStudioWorkspace : UserControl, IDisposable
         _keys.SelectionChanged += (_, _) =>
         {
             if (_keys.SelectedItem is KeyItem key)
-            { _session.Player.Seek(key.Key.Frame); _position.Text = VectorText(key.Key.Position); var angles = Angles(key.Key.Rotation); angles.Z = key.Key.Roll; _angles.Text = VectorText(angles); _fov.Value = (decimal)key.Key.Fov; }
+            { _session.Seek(key.Key.Frame); _position.Text = VectorText(key.Key.Position); var angles = Angles(key.Key.Rotation); angles.Z = key.Key.Roll; _angles.Text = VectorText(angles); _fov.Value = (decimal)key.Key.Fov; }
         };
         panel.Children.Add(_keys);
         panel.Children.Add(Button("Delete Selected Keys", () =>
@@ -182,7 +182,7 @@ public sealed class ReplayStudioWorkspace : UserControl, IDisposable
         panel.Children.Add(Button("Save Range Annotation", () => { var range = Range(); _session!.Player.AddHighlight(range.Start, range.End, _label.Text ?? "Highlight"); RefreshMarkers(); }));
         panel.Children.Add(Button("Add Range to Reel", () => { var range = Range(); _session!.Player.AddReel(range.Start, range.End, _label.Text ?? "Segment"); RefreshMarkers(); }));
         panel.Children.Add(_tags); panel.Children.Add(Button("Save Tags", () => _session!.Player.SetOrganization((_tags.Text ?? "").Split(','), [])));
-        _markers.Height = 150; _markers.SelectionChanged += (_, _) => { if (_markers.SelectedItem is MarkerItem marker) _session!.Player.Seek(marker.Marker.StartFrame); };
+        _markers.Height = 150; _markers.SelectionChanged += (_, _) => { if (_markers.SelectedItem is MarkerItem marker) _session!.Seek(marker.Marker.StartFrame); };
         panel.Children.Add(_markers);
         panel.Children.Add(Button("Delete Marker", () => { if (_markers.SelectedItem is MarkerItem marker) _session!.Player.RemoveMarker(marker.Marker); RefreshMarkers(); }));
         panel.Children.Add(Button("Trim Selected Reel to Marked Range", () =>
@@ -194,7 +194,7 @@ public sealed class ReplayStudioWorkspace : UserControl, IDisposable
         var filter = new TextBox { Watermark = "Filter event tracks (kills, damage, shots…)" };
         filter.TextChanged += (_, _) => { _events.ItemsSource = _session!.Player.Events.Where(e => string.IsNullOrWhiteSpace(filter.Text) || e.Type.Contains(filter.Text, StringComparison.OrdinalIgnoreCase)).Select(e => new EventItem(e)); };
         panel.Children.Add(filter); _events.Height = 190;
-        _events.SelectionChanged += (_, _) => { if (_events.SelectedItem is EventItem marker) _session!.Player.Seek(marker.Event.Frame); };
+        _events.SelectionChanged += (_, _) => { if (_events.SelectedItem is EventItem marker) _session!.Seek(marker.Event.Frame); };
         panel.Children.Add(_events);
         return new ScrollViewer { Content = panel };
     }
@@ -212,12 +212,12 @@ public sealed class ReplayStudioWorkspace : UserControl, IDisposable
             _session.PlayerSlot = fact.Shooter;
             _session.Camera = value ? StudioReplayCameraMode.Player : StudioReplayCameraMode.Free;
             if (!value) _session.Position = fact.Impact + new Vector3(0, 3, 8);
-            _session.Player.Seek(value ? fact.FireFrame : fact.RecordingFrame);
+            _session.Seek(value ? fact.FireFrame : fact.RecordingFrame);
         }));
         panel.Children.Add(Check("Show rays / accepted impact / rewind volumes", false, value => _session!.CombatRays = value));
         panel.Children.Add(_combat);
-        panel.Children.Add(Button("Show Shooter POV", () => { if (_session!.CombatSelection is { } fact) { _session.PlayerSlot = fact.Shooter; _session.Camera = StudioReplayCameraMode.Player; _session.Player.Seek(fact.FireFrame); } }));
-        panel.Children.Add(Button("Show Authority Resolution", () => { if (_session!.CombatSelection is { } fact) { _session.Camera = StudioReplayCameraMode.Free; _session.Position = fact.Impact + new Vector3(0, 3, 8); _session.Player.Seek(fact.RecordingFrame); } }));
+        panel.Children.Add(Button("Show Shooter POV", () => { if (_session!.CombatSelection is { } fact) { _session.PlayerSlot = fact.Shooter; _session.Camera = StudioReplayCameraMode.Player; _session.Seek(fact.FireFrame); } }));
+        panel.Children.Add(Button("Show Authority Resolution", () => { if (_session!.CombatSelection is { } fact) { _session.Camera = StudioReplayCameraMode.Free; _session.Position = fact.Impact + new Vector3(0, 3, 8); _session.Seek(fact.RecordingFrame); } }));
         panel.Children.Add(Button("Player Analytics", () => _combat.Text = string.Join("\n", _session!.Player.Analytics().Select(p => $"{p.Name}: {p.Kills} kills · {p.Deaths} deaths · {p.Damage} damage"))));
         return new ScrollViewer { Content = panel };
     }
@@ -238,7 +238,8 @@ public sealed class ReplayStudioWorkspace : UserControl, IDisposable
             _session.Player.SetHeatmapOverlay(world.IsChecked == true ? filtered.OrderByDescending(s => s.Weight).Take(64) : []);
         }
         kind.SelectionChanged += (_, _) => Filter(); actor.ValueChanged += (_, _) => Filter(); rangeOnly.IsCheckedChanged += (_, _) => Filter(); world.IsCheckedChanged += (_, _) => Filter();
-        panel.Children.Add(Button("Analyze Recorded Movement / Combat", async () => { _analysis = await _session!.Player.AnalyzeAsync(); Filter(); }));
+        _applyAnalysisFilter=Filter;
+        panel.Children.Add(Button("Analyze Recorded Movement / Combat", AnalyzeAsync));
         panel.Children.Add(kind); panel.Children.Add(new TextBlock { Text = "Player filter (-1 = all slots)" }); panel.Children.Add(actor); panel.Children.Add(rangeOnly); panel.Children.Add(world); panel.Children.Add(heatmap);
         panel.Children.Add(new TextBlock { Text = "Spawn pressure counts damage/death within three seconds of a recorded spawn. Objective presence samples recorded actor centers in map volumes or as carriers/Prime. Sightlines include zoomed Imperialist poses. Pickup routes follow recorded pickups and resource gains for ten seconds.", TextWrapping = TextWrapping.Wrap });
         var preview = new ContentControl { MinHeight = 200 };
@@ -251,11 +252,13 @@ public sealed class ReplayStudioWorkspace : UserControl, IDisposable
             {
                 if (files.FirstOrDefault()?.TryGetLocalPath() is { } path)
                 {
-                    await StudioReplayPlayer.ValidateSourceAsync(path);
-                    if (_session!.ComparisonPlayer is { } previous) _comparisonViewport?.ReleaseGraphicsSession(previous);
-                    _comparisonViewport?.Dispose(); _session!.LoadComparison(path);
-                    _comparisonViewport = new ReplayViewportHost(_session.ComparisonView()) { Height = 200, ViewFactory = _session.View };
-                    preview.Content = _comparisonViewport;
+                    await RunDocumentJobAsync("Validate comparison replay",token=>StudioReplayPlayer.ValidateSourceAsync(path,token),()=>
+                    {
+                        if (_session!.ComparisonPlayer is { } previous) _comparisonViewport?.ReleaseGraphicsSession(previous);
+                        _comparisonViewport?.Dispose(); _session!.LoadComparison(path);
+                        _comparisonViewport = new ReplayViewportHost(_session.ComparisonView()) { Height = 200, ViewFactory = _session.View };
+                        preview.Content = _comparisonViewport;
+                    });
                 }
             }
             finally { foreach (var file in files) file.Dispose(); }
@@ -290,7 +293,11 @@ public sealed class ReplayStudioWorkspace : UserControl, IDisposable
             var top = TopLevel.GetTopLevel(this); if(top == null)return;
             using var file = await top.StorageProvider.SaveFilePickerAsync(new() { Title="Save Replay Build Report",SuggestedFileName="replay-build.json",DefaultExtension="json",ShowOverwritePrompt=true,
                 FileTypeChoices=[new FilePickerFileType("Replay build report") { Patterns=["*.json"] }] });
-            if(file?.TryGetLocalPath() is { } path)await StudioReplayPlayer.SaveEvidenceAsync(CurrentEvidence(_session!.Player,_viewports.FirstOrDefault()),path);
+            if(file?.TryGetLocalPath() is { } path)
+            {
+                var evidence = CurrentEvidence(_session!.Player,_viewports.FirstOrDefault());
+                await RunDocumentJobAsync("Save replay build comparison report",token=>Task.Run(()=>StudioReplayPlayer.SaveEvidenceAsync(evidence,path,token),token));
+            }
         }));
         panel.Children.Add(Button("Compare Old / New Build Report…",async () =>
         {
@@ -299,9 +306,14 @@ public sealed class ReplayStudioWorkspace : UserControl, IDisposable
             try
             {
                 if(files.FirstOrDefault()?.TryGetLocalPath() is not { } path)return;
-                var saved = await StudioReplayPlayer.LoadEvidenceAsync(path);
-                if(saved.World.Frame != _session!.Player.Status.Frame)throw new InvalidOperationException($"Seek to report frame {saved.World.Frame} before comparing.");
-                comparison.Text = Description(StudioReplayPlayer.CompareEvidence(saved,CurrentEvidence(_session.Player,_viewports.FirstOrDefault())));
+                var current = CurrentEvidence(_session!.Player,_viewports.FirstOrDefault());
+                string? result = null;
+                await RunDocumentJobAsync("Compare replay build report",async token=>result=await Task.Run(async ()=>
+                {
+                    var saved = await StudioReplayPlayer.LoadEvidenceAsync(path,token);
+                    if(saved.World.Frame != current.World.Frame)throw new InvalidOperationException($"Seek to report frame {saved.World.Frame} before comparing.");
+                    return Description(StudioReplayPlayer.CompareEvidence(saved,current));
+                },token),()=>comparison.Text=result);
             }
             finally { foreach(var file in files)file.Dispose(); }
         }));
@@ -346,19 +358,19 @@ public sealed class ReplayStudioWorkspace : UserControl, IDisposable
             using var file = await top.StorageProvider.SaveFilePickerAsync(new() { Title = "Extract Replay Clip", SuggestedFileName = "clip.ppdemo", DefaultExtension = "ppdemo", ShowOverwritePrompt = true,
                 FileTypeChoices = [new FilePickerFileType("Project Prime Replay") { Patterns = ["*.ppdemo"] }] });
             string? path = file?.TryGetLocalPath(); if (path == null) return;
-            var range = Range(); await _session!.Player.ExtractClipAsync(range.Start, range.End, path);
+            await ExtractClipAsync(path);
         }));
         _exports.Height = 240; panel.Children.Add(_exports);
         panel.Children.Add(Button("Cancel Selected Export", () => { if (_exports.SelectedItem is ExportItem export) _session!.Player.CancelExport(export.Job.Id); }));
         panel.Children.Add(Button("Export Portable Replay Bundle…", async () =>
         {
             if (await ChooseBundlePath("Portable Replay Bundle", "replay.ppreplay.zip") is { } path)
-                await _session!.Player.ExportPortableAsync(path);
+                await ExportPortableAsync(path);
         }));
         panel.Children.Add(Button("Export Diagnostic Bundle…", async () =>
         {
             if (await ChooseBundlePath("Replay Diagnostic Bundle", "replay-diagnostics.zip") is { } path)
-                await _session!.Player.ExportDiagnosticBundleAsync(path, ProjectPrime.Studio.Rendering.StudioGraphicsHost.Backend ?? "unavailable");
+                await ExportDiagnosticBundleAsync(path);
         }));
         panel.Children.Add(new TextBlock { Text = "Exports run in a separate Studio worker with its own passive player, native surface and offline PCM mix. Closing this document leaves the worker running; explicit Cancel stops that export.", TextWrapping = TextWrapping.Wrap });
         return new ScrollViewer { Content = panel };
@@ -430,8 +442,9 @@ public sealed class ReplayStudioWorkspace : UserControl, IDisposable
     private void Refresh()
     {
         if (_session == null) return; var status = _session.Player.Status;
-        _status.Text = $"{status.State} · Frame {status.Frame:N0} / {status.DurationFrames:N0} · {status.Rate:0.##}× · {status.CheckpointCount} checkpoints ({status.CheckpointBytes / 1024:N0} KiB)";
-        _error.Text = status.Error ?? _actionError; _error.IsVisible = _error.Text != null;
+        _status.Text = $"{status.State} · Frame {status.Frame:N0} / {status.DurationFrames:N0} · {status.Rate:0.##}× · {status.CheckpointCount} checkpoints ({status.CheckpointBytes / 1024:N0} KiB)" +
+            (_session.Player.CameraEditsPending ? _session.Player.CameraEditsWriting ? " · Camera edits saving…" : " · Camera edits unsaved" : "");
+        _error.Text = status.Error ?? _session.Player.CameraSaveError ?? _session.TransportJobError ?? _actionError; _error.IsVisible = _error.Text != null;
         if (_eventCount != _session.Player.Events.Count) { _eventCount = _session.Player.Events.Count; _events.ItemsSource = _session.Player.Events.Select(e => new EventItem(e)).ToArray(); }
         if (_keyCount != _session.Player.CameraKeys.Count) RefreshKeys();
         string signature = string.Join("|", _session.Player.Markers.Select(m => $"{m.Id}:{m.StartFrame}:{m.EndFrame}"));
@@ -449,7 +462,7 @@ public sealed class ReplayStudioWorkspace : UserControl, IDisposable
     private Button Button(string text, Func<Task> action)
     {
         var button = new Button { Content = text, Margin = new Thickness(3), HorizontalAlignment = HorizontalAlignment.Stretch };
-        button.Click += async (_, _) => { try { _actionError = null; await action(); } catch (Exception ex) { _actionError = ex.Message; _error.Text = ex.Message; _error.IsVisible = true; } }; return button;
+        button.Click += async (_, _) => { try { _actionError = null; await action(); } catch (OperationCanceledException) { } catch (Exception ex) { if(!_disposed){_actionError = ex.Message; _error.Text = ex.Message; _error.IsVisible = true;} } }; return button;
     }
     private static CheckBox Check(string text, bool value, Action<bool> changed)
     { var box = new CheckBox { Content = text, IsChecked = value }; box.IsCheckedChanged += (_, _) => changed(box.IsChecked == true); return box; }
@@ -460,6 +473,6 @@ public sealed class ReplayStudioWorkspace : UserControl, IDisposable
     private sealed record ExportItem(StudioReplayExportStatus Job) { public override string ToString() => $"{Job.State} · {Job.Frames}/{Job.TotalFrames}\n{Job.Error ?? Job.Directory}"; }
     public void Dispose()
     {
-        if (_disposed) return; _disposed = true; _refresh?.Stop(); _viewTimer.Stop(); _comparisonViewport?.Dispose(); foreach (var viewport in _viewports) viewport.Dispose(); _viewports.Clear();
+        if (_disposed) return; _disposed = true;DisposeJobScope(); _refresh?.Stop(); _viewTimer.Stop(); _comparisonViewport?.Dispose(); foreach (var viewport in _viewports) viewport.Dispose(); _viewports.Clear();
     }
 }

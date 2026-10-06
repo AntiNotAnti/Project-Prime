@@ -41,6 +41,38 @@ internal static class CacheRetentionChecks
         MapDiskCache.Prune(shared, 0, TimeSpan.Zero);
         check(!Directory.Exists(live), "an unpinned entry becomes eligible for byte-budget eviction");
 
+        string retainedRoot = Path.Combine(root, "retained"), retainedDirectory = Entry(retainedRoot, 'e', 100, DateTime.UtcNow.AddDays(-3));
+        IDisposable ownerPin = MapDiskCache.Pin(retainedRoot, Path.GetFileName(retainedDirectory));
+        IDisposable taskPin;
+        using (var ownersGate = new FileStream(Path.Combine(retainedRoot, ".owners.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+        {
+            var timing = Stopwatch.StartNew(); taskPin = MapDiskCache.Retain(ownerPin);
+            check(timing.Elapsed < TimeSpan.FromMilliseconds(500), "task admission retains an existing shared kernel lease without waiting for the disk-cache owner gate");
+        }
+        ownerPin.Dispose(); MapDiskCache.Prune(retainedRoot, 0, TimeSpan.Zero);
+        check(Directory.Exists(retainedDirectory), "an admitted task retains immutable bytes after its parent document pin closes");
+        using (var cancelled = new CancellationTokenSource())
+        {
+            cancelled.Cancel(); bool released = false;
+            try
+            {
+                await Task.Run(() =>
+                {
+                    using var lease = taskPin;
+                    try { cancelled.Token.ThrowIfCancellationRequested(); }
+                    finally { released = true; }
+                });
+            }
+            catch (OperationCanceledException) { }
+            MapDiskCache.Prune(retainedRoot, 0, TimeSpan.Zero);
+            check(released && !Directory.Exists(retainedDirectory), "already-cancelled task work still executes its retained-pin finally and leaves idle bytes reclaimable");
+        }
+        string orphanRoot = Path.Combine(root, "orphan"); Directory.CreateDirectory(orphanRoot);
+        string orphanPin = Path.Combine(orphanRoot, new string('f', 64) + ".pins.lock"); File.WriteAllText(orphanPin, "");
+        File.SetLastWriteTimeUtc(orphanPin, DateTime.UtcNow.AddDays(-3));
+        MapDiskCache.Prune(orphanRoot, 0, TimeSpan.FromDays(1));
+        check(!File.Exists(orphanPin), "unowned orphan shared-pin lock files are reclaimed after retention");
+
         string crashed = Path.Combine(root, "crash"), held = Entry(crashed, 'd', 100, DateTime.UtcNow.AddDays(-3)), ready = Path.Combine(root, "pin-ready");
         var start = new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false, RedirectStandardError = true };
         if (Path.GetFileNameWithoutExtension(start.FileName).Equals("dotnet", StringComparison.OrdinalIgnoreCase)) start.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);
@@ -91,16 +123,37 @@ internal static class CacheRetentionChecks
             string directory = Path.Combine(malformedRoot, (++malformedIndex).ToString()); Directory.CreateDirectory(directory);
             File.WriteAllText(Path.Combine(directory, "ticket.json"), JsonSerializer.Serialize(invalid, Json));
         }
+        foreach (string invalidJson in new[] { "null", new string(' ', 1024 * 1024 + 1) })
+        {
+            string directory = Path.Combine(malformedRoot, (++malformedIndex).ToString()); Directory.CreateDirectory(directory);
+            File.WriteAllText(Path.Combine(directory, "ticket.json"), invalidJson);
+        }
         await using (var badJobs = new StudioJobManager())
         {
             var badCoordinator = new ReplayExportWorkerCoordinator(badJobs, _ => throw new InvalidOperationException("Malformed job must not launch."));
             badCoordinator.RestorePersisted(malformedRoot);
-            check(badJobs.Jobs.Count == 0, "restart skips malformed nested export descriptors without crashing or launching a worker");
+            check(badJobs.Jobs.Count == 0, "restart skips deep-null, empty and oversized export descriptors without crashing or launching a worker");
         }
         string corrupt = Path.Combine(cache, "exports", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(corrupt);
         File.WriteAllText(Path.Combine(corrupt, "ticket.json"), JsonSerializer.Serialize(persistedTicket with { PackageDirectories = null! }, Json));
         check(protect(Path.Combine(sources, new string('f', 64))), "a malformed persisted reference fails pruning closed instead of throwing a null-reference exception");
         Directory.Delete(corrupt, recursive: true);
+        foreach (string invalidJson in new[] { "null", new string(' ', 1024 * 1024 + 1) })
+        {
+            string untrusted = Path.Combine(cache, "exports", Guid.NewGuid().ToString("N")); Directory.CreateDirectory(untrusted);
+            File.WriteAllText(Path.Combine(untrusted, "ticket.json"), invalidJson);
+            string failClosed = Entry(sources, 'f', 100, DateTime.UtcNow.AddDays(-3));
+            MapDiskCache.Prune(sources, 0, TimeSpan.Zero, protectedDirectory: protect);
+            check(Directory.Exists(failClosed), "null or oversized persisted descriptors defer idle pruning instead of guessing away possibly queued sources");
+            Directory.Delete(untrusted, recursive: true);
+            MapDiskCache.Prune(sources, 0, TimeSpan.Zero, protectedDirectory: protect);
+            check(!Directory.Exists(failClosed), "correcting the untrusted persisted descriptor restores normal idle pruning");
+        }
+        // The deliberate zero-budget pruning also reclaimed the earlier
+        // completed fixture's source. Restore those exact bytes for the next
+        // independent queued ownership scenario.
+        File.WriteAllBytes(external, [1, 4, 9, 16]);
+        source = StudioReplaySnapshotCache.Capture(external, sources, default);
 
         var completions = new Dictionary<Guid, TaskCompletionSource>();
         var childPins = new List<IDisposable>(); var childSources = new List<string>();

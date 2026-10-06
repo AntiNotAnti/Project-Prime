@@ -52,7 +52,7 @@ public sealed unsafe class MeshResource : IDisposable
     public long ResidentBytes => Parts.Concat(Edges).Concat(PickVertices).Concat(PickEdges).Sum(part => (long)part.Count * VertexStride + UniformBytes);
     public long GeometryUploadBytes => Parts.Concat(Edges).Concat(PickVertices).Concat(PickEdges).Sum(part => (long)part.Count * VertexStride);
     internal MeshResource(StudioRenderDevice owner, MapViewportMesh source, ref uint id,
-        Dictionary<uint, StudioPickElement> picks)
+        Dictionary<uint, StudioPickTarget> picks)
     {
         _owner = owner; ObjectId = source.ObjectId;
         var admissionFaces=source.Faces.Concat(source.CollisionFaces ?? Array.Empty<MapViewportFace>());
@@ -70,7 +70,7 @@ public sealed unsafe class MeshResource : IDisposable
                     if (face.Points.Length < 3) continue;
                     uint faceId = ++id;
                     if (faceId == 0) throw new InvalidOperationException("Studio pick ID space is exhausted.");
-                    picks[faceId] = new(source.ObjectId, f, StudioPickKind.Face, -1, -1);
+                    picks[faceId] = new(new(source.ObjectId, f, StudioPickKind.Face, -1, -1), face);
                     var key = (face.ObjectId == Guid.Empty, face.Material, face.Solid);
                     if (!groups.TryGetValue(key, out var group)) groups[key] = group = (new(), new(), new(), new());
                     var normal = Vector3.Cross(face.Points[1] - face.Points[0], face.Points[2] - face.Points[0]);
@@ -85,8 +85,8 @@ public sealed unsafe class MeshResource : IDisposable
                         int next=(i+1)%face.Points.Length;
                         group.Edge.Add(Vertex(i)); group.Edge.Add(Vertex(next));
                         uint vertexId=++id,edgeId=++id;
-                        picks[vertexId]=new(source.ObjectId,f,StudioPickKind.Vertex,i,-1);
-                        picks[edgeId]=new(source.ObjectId,f,StudioPickKind.Edge,i,next);
+                        picks[vertexId]=new(new(source.ObjectId,f,StudioPickKind.Vertex,i,-1),face);
+                        picks[edgeId]=new(new(source.ObjectId,f,StudioPickKind.Edge,i,next),face);
                         foreach(var offset in new[] {new Vector2(-1,-1),new Vector2(1,-1),new Vector2(1,1),new Vector2(-1,-1),new Vector2(1,1),new Vector2(-1,1)})
                         {var v=Vertex(i);v.FaceId=vertexId;v.Uv=offset;group.VertexPick.Add(v);}
                         foreach(var offset in new[] {new Vector2(0,-1),new Vector2(1,-1),new Vector2(1,1),new Vector2(0,-1),new Vector2(1,1),new Vector2(0,1)})
@@ -149,7 +149,7 @@ public sealed unsafe class EditorRenderWorld : IDisposable
 {
     internal readonly StudioRenderDevice Owner;
     internal readonly MapViewportMeshResources<MeshResource> Meshes = new();
-    internal readonly Dictionary<uint, StudioPickElement> Picks = new();
+    internal readonly Dictionary<uint, StudioPickTarget> Picks = new();
     internal readonly Dictionary<string, int> MaterialBindings = new(StringComparer.Ordinal);
     internal readonly Dictionary<int, MaterialResource> Textures = new();
     private sealed record MeshIdentity(string Hash);
@@ -190,7 +190,7 @@ public sealed unsafe class EditorRenderWorld : IDisposable
         var retainedFrame=frame with {Meshes=visible,ResidentMeshes=residents};
         Meshes.Synchronize(retainedFrame, mesh => { var resource=new MeshResource(Owner, mesh, ref _nextPick, Picks);MeshUploads++;GeometryBytes+=resource.ResidentBytes;GeometryUploadBytes+=resource.GeometryUploadBytes;return resource; }, mesh =>
         {
-            foreach (uint id in Picks.Where(p => p.Value.ObjectId == mesh.ObjectId).Select(p => p.Key).ToArray()) Picks.Remove(id);
+            foreach (uint id in Picks.Where(p => p.Value.Element.ObjectId == mesh.ObjectId).Select(p => p.Key).ToArray()) Picks.Remove(id);
             GeometryBytes-=mesh.ResidentBytes;mesh.Dispose();
         });
         var used = frame.Materials.Values.Select(m => Identity(m).Key).ToHashSet();

@@ -74,6 +74,7 @@ namespace MphRead.Mods.Launcher.Gui
             view.Children.Add(Text("Collision heal tolerance"));view.Children.Add(healTolerance);
             var dependencies=new List<string>();
             var report=Text("Preflight has not run yet.");report.MaxHeight=120;view.Children.Add(report);
+            var preflight=CreateDialogWorkScope(view);
 
             float? SelectedScale()
             {
@@ -81,14 +82,17 @@ namespace MphRead.Mods.Launcher.Gui
                 if(scaleMode.SelectedIndex==1)return 35f;
                 return Number(customScale.Text??"");
             }
-            async Task AnalyzeWizard()
+            Task AnalyzeWizard()=>preflight.RunAsync(AnalyzeWizardCore);
+            async Task AnalyzeWizardCore(CancellationToken token)
             {
                 try
                 {
                     report.Text="Scanning BSP, shaders and sibling PK3s…";
                     string? map=maps.SelectedItem as string;
                     float? scale=SelectedScale();
-                    var analysis=await Task.Run(()=>Q3ImportService.Analyze(source,map,dependencies,scale));
+                    var capturedDependencies=dependencies.ToArray();
+                    var analysis=await Task.Run(()=>Q3ImportService.Analyze(source,map,capturedDependencies,scale,token),token);
+                    token.ThrowIfCancellationRequested();
                     string missing=analysis.Textures.Missing.Count==0?"all resolved":
                         $"{analysis.Textures.Missing.Count} fallback · "+string.Join(", ",analysis.Textures.Missing.Take(5))
                         +(analysis.Textures.Missing.Count>5?" …":"");
@@ -98,17 +102,24 @@ namespace MphRead.Mods.Launcher.Gui
                         +$"Archives: {string.Join(", ",analysis.Textures.Archives.Select(Path.GetFileName))}"
                         +(analysis.GameplayWarnings.Count==0?"":"\n\nPrime gameplay review:\n"+string.Join("\n",analysis.GameplayWarnings.Select(d=>"• "+d.Message)));
                 }
-                catch(Exception ex){report.Text="Preflight failed: "+ex.Message;}
+                catch(OperationCanceledException)when(token.IsCancellationRequested){}
+                catch(Exception ex){if(!token.IsCancellationRequested)report.Text="Preflight failed: "+ex.Message;}
             }
 #if !ANDROID
-            async Task AddDependency()
+            Task AddDependency()=>preflight.RunAsync(async token=>
             {
-                string? dep=_services.NativeFileDialogs
-                    ? await _services.PickFileAsync("Add texture dependency PK3",false,new[]{".pk3"},CancellationToken.None)
-                    : null;
-                if(dep!=null&&!dependencies.Contains(dep,StringComparer.OrdinalIgnoreCase))dependencies.Add(dep);
-                await AnalyzeWizard();
-            }
+                try
+                {
+                    string? dep=_services.NativeFileDialogs
+                        ? await _services.PickFileAsync("Add texture dependency PK3",false,new[]{".pk3"},token)
+                        : null;
+                    token.ThrowIfCancellationRequested();
+                    if(dep!=null&&!dependencies.Contains(dep,StringComparer.OrdinalIgnoreCase))dependencies.Add(dep);
+                    await AnalyzeWizardCore(token);
+                }
+                catch(OperationCanceledException)when(token.IsCancellationRequested){}
+                catch(Exception error){if(!token.IsCancellationRequested)report.Text="Dependency could not open: "+error.Message;}
+            });
             AddButton(view,"Add dependency PK3",()=>_=AddDependency());
 #endif
             AddButton(view,"Analyze",()=>_=AnalyzeWizard());
@@ -224,7 +235,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void RunReimport(string source)=>_=PreviewReimport(source);
 
-        private async Task PreviewReimport(string source)
+        private Task PreviewReimport(string source)=>Job("Comparing Q3 source",async token=>
         {
             if(_document?.Project.Definition.Import is not {} import)return;
             string projectPath=_document.FilePath??_path.Text??"";
@@ -236,15 +247,17 @@ namespace MphRead.Mods.Launcher.Gui
                 var maps=Q3Bsp.ListMaps(source);
                 if(selectedMap==null||!maps.Contains(selectedMap,StringComparer.OrdinalIgnoreCase))selectedMap=maps.FirstOrDefault();
                 _status.Text="Comparing Q3 source…";
-                var diff=await Task.Run(()=>Q3ImportService.PreviewReimport(existing,source,selectedMap));
+                var diff=await Task.Run(()=>Q3ImportService.PreviewReimport(existing,source,selectedMap,cancellation:token),token);
+                GuardJob(token);
                 var panel=new StackPanel{Spacing=8,MinWidth=560};
                 var summary=Text(diff.Summary());summary.TextWrapping=TextWrapping.Wrap;panel.Children.Add(summary);
                 string map=selectedMap??diff.Next.MapName;
                 AddButton(panel,"Apply reimport",()=>{Dismiss();StartReimport(source,map,existing,projectPath,import);});
                 AddButton(panel,"Cancel",Dismiss);Modal(panel);
             }
+            catch(OperationCanceledException){throw;}
             catch(Exception ex){Failure(ex);}
-        }
+        });
 
         private void StartReimport(string source,string selectedMap,MapDefinition existing,string projectPath,MapImport import)
         {

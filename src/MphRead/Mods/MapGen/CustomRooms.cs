@@ -321,12 +321,12 @@ namespace MphRead.Mods.MapGen
 
         private static void GenerateIfNeeded(MapDefinition def)
         {
-            // Lobby prewarm, Android preview workers and the real match can ask
-            // for the same runtime outputs concurrently. Fence publication across
-            // threads/processes, then re-check after acquiring the lease so every
-            // waiter except the first becomes a cache hit.
+            // Current outputs never need a writer lease. Missing/stale outputs
+            // are prepared privately, then Install acquires the same OS writer
+            // fence used by package publication before changing runtime bytes.
             try
             {
+                if (!NeedsGenerating(def)) return;
                 using var lease = AcquireGenerationLease(def);
                 if (!NeedsGenerating(def))
                     return;
@@ -345,7 +345,7 @@ namespace MphRead.Mods.MapGen
             // calls MapBuildScheduler.Install, which acquires the manifest's
             // .lock itself; holding that same non-reentrant lease here makes
             // every missing/stale map time out while trying to install itself.
-            // The install lease still fences editor and runtime publication.
+            // The install boundary separately requires the live reader OS fence.
             string path = OutputsFor(def).Manifest + ".generation.lock";
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             var timeout = Stopwatch.StartNew();

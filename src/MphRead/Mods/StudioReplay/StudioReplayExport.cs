@@ -25,7 +25,8 @@ public sealed partial class StudioReplayPlayer
         if (request.StartFrame > request.EndFrame || request.EndFrame > Status.DurationFrames) throw new ArgumentOutOfRangeException(nameof(request.EndFrame));
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_exports.Count(j => !j.Terminal) >= 32) throw new InvalidOperationException("Replay export queue is full.");
-        var job = new ExportJob(request with { Directory = Path.GetFullPath(request.Directory) });
+        byte[] cameraState = ExportCameraSidecarState();
+        var job = new ExportJob(request with { Directory = Path.GetFullPath(request.Directory) }, cameraState);
         if (ExportWorkerLauncher is { } launch)
         {
             if (_playbackPath == null) throw new InvalidOperationException("Prepare the replay before starting its detached export.");
@@ -36,7 +37,7 @@ public sealed partial class StudioReplayPlayer
                 job.Request with { Directory = Path.Combine(job.Request.Directory, job.Id.ToString("N")) },
                 job.StatusFile, job.CancelFile, Paths.AllPaths.ToDictionary(p => p.Key, p => p.Value),
                 CameraKeys, new[] { Path.Combine(_cacheRoot, "packages") }, Paths.MphKey, Paths.FhKey,
-                _player?.Current.Session.Metadata?.CustomMapIdentity?.PackageHash.ToString());
+                _player?.Current.Session.Metadata?.CustomMapIdentity?.PackageHash.ToString(), cameraState);
             job.PublishedDirectory = ticket.Request.Directory;
             string path = Path.Combine(directory, "ticket.json");
             File.WriteAllText(path, JsonSerializer.Serialize(ticket, new JsonSerializerOptions { IncludeFields = true }));
@@ -78,7 +79,7 @@ public sealed partial class StudioReplayPlayer
                 var view = job.Request.View ?? new(job.Request.Width, job.Request.Height, job.Request.Camera);
                 RenderPlayer(player, view with { Width = job.Request.Width, Height = job.Request.Height,
                     GameHud = job.Request.GameHud, ReplayOverlay = job.Request.ReplayOverlay,
-                    PresentationFrame = sample.Frame, PresentationAlpha = sample.Alpha }, 0);
+                    PresentationFrame = sample.Frame, PresentationAlpha = sample.Alpha }, 0, job.Camera, editorOverlays: false);
                 var capture = CaptureScene(player.Current.Scene);
                 string file = Path.Combine(job.Request.Directory, $"frame_{job.Frames:D08}.png");
                 job.Write = Task.Run(() => SavePng(file, capture)); job.Frames++;
@@ -119,10 +120,16 @@ public sealed partial class StudioReplayPlayer
         using var image = SKImage.FromBitmap(bitmap); using var png = image.Encode(SKEncodedImageFormat.Png, 100);
         using var stream = File.Create(path); png.SaveTo(stream);
     }
-    private sealed class ExportJob(StudioReplayExportRequest request)
+    private sealed class ExportJob
     {
-        internal Guid Id { get; } = Guid.NewGuid(); internal StudioReplayExportRequest Request { get; } = request;
-        internal ReplayExportSampler Sampler { get; } = new(request.StartFrame, request.EndFrame, request.Fps);
+        internal ExportJob(StudioReplayExportRequest request, byte[] cameraState)
+        {
+            Request = request; Sampler = new(request.StartFrame, request.EndFrame, request.Fps);
+            if (!Camera.ImportState(cameraState)) throw new InvalidDataException(Camera.LastError);
+        }
+        internal Guid Id { get; } = Guid.NewGuid(); internal StudioReplayExportRequest Request { get; }
+        internal ReplayExportSampler Sampler { get; }
+        internal ReplayCameraTrack Camera { get; } = new();
         internal string State = "Queued"; internal string? Error; internal long Frames; internal bool Cancelled;
         internal PassiveReplayPlayer? Player; internal ReplayPreparationJob? Preparation; internal ReplayEncoderJob? Encoder; internal Task? Write;
         internal Task? AudioWrite; internal CancellationTokenSource Stop { get; } = new();

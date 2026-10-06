@@ -10,6 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.VisualTree;
 using MphRead.Mods.MapEditor;
 using MphRead.Mods.MapGen;
 using MphRead.Mods.Render;
@@ -24,12 +25,12 @@ internal sealed class MapBrowserThumbnail : UserControl
 {
     private readonly Func<CancellationToken,Task<MapBrowserThumbnailPixels>> _load;
     private readonly Action<Task> _track;
-    private readonly CancellationToken _owner;
+    private readonly Func<CancellationToken> _owner;
     private readonly Image _image=new(){Width=128,Height=80,Stretch=Avalonia.Media.Stretch.Uniform,HorizontalAlignment=HorizontalAlignment.Left};
     private readonly TextBlock _description=new(){Text="Loading thumbnail…",FontSize=11,TextWrapping=Avalonia.Media.TextWrapping.Wrap};
     private CancellationTokenSource? _request;
     private WriteableBitmap? _bitmap;
-    public MapBrowserThumbnail(Func<CancellationToken,Task<MapBrowserThumbnailPixels>> load,Action<Task> track,CancellationToken owner)
+    public MapBrowserThumbnail(Func<CancellationToken,Task<MapBrowserThumbnailPixels>> load,Action<Task> track,Func<CancellationToken> owner)
     {
         _load=load;_track=track;_owner=owner;
         Content=new StackPanel {Spacing=4,Children={_image,_description}};
@@ -43,9 +44,14 @@ internal sealed class MapBrowserThumbnail : UserControl
         _request?.Cancel();_image.Source=null;_bitmap?.Dispose();_bitmap=null;
         base.OnDetachedFromVisualTree(args);
     }
+    internal void ResumePendingPreview()
+    {
+        if(_image.Source is null && this.IsAttachedToVisualTree()) _track(LoadAsync());
+    }
     private async Task LoadAsync()
     {
-        _request?.Cancel();var request=CancellationTokenSource.CreateLinkedTokenSource(_owner);_request=request;
+        _request?.Cancel();var request=CancellationTokenSource.CreateLinkedTokenSource(_owner());_request=request;
+        _description.Text="Loading thumbnail…";
         try
         {
             var pixels=await _load(request.Token);request.Token.ThrowIfCancellationRequested();
@@ -70,23 +76,46 @@ internal sealed class MapBrowserThumbnail : UserControl
 
 internal sealed partial class MapStudioScreen
 {
-    private readonly CancellationTokenSource _thumbnailLifetime=new();
+    private CancellationTokenSource _thumbnailLifetime=new();
     private readonly SemaphoreSlim _thumbnailGate=new(2);
     private readonly List<Task> _thumbnailTasks=new();
-    private bool _thumbnailClosing,_thumbnailResourcesDisposed;
+    private readonly List<WeakReference<MapBrowserThumbnail>> _thumbnailControls=new();
+    private bool _thumbnailClosing,_thumbnailResourcesDisposed,_thumbnailPaused;
     private MapBrowserThumbnail NewBrowserThumbnail(Func<CancellationToken,Task<MapBrowserThumbnailPixels>> load)
-        =>new(load,TrackBrowserThumbnailTask,_thumbnailLifetime.Token);
+    {
+        _thumbnailControls.RemoveAll(reference=>!reference.TryGetTarget(out _));
+        var control=new MapBrowserThumbnail(load,TrackBrowserThumbnailTask,()=>_thumbnailLifetime.Token);
+        _thumbnailControls.Add(new(control));return control;
+    }
+    private void PauseAssetThumbnails()
+    {
+        if(_thumbnailResourcesDisposed || _thumbnailClosing || _thumbnailPaused)return;
+        _thumbnailPaused=true;_thumbnailLifetime.Cancel();
+    }
+    internal void ResumeAssetThumbnails()
+    {
+        if(_thumbnailResourcesDisposed || _thumbnailClosing || !_thumbnailPaused)return;
+        _thumbnailLifetime.Dispose();_thumbnailLifetime=new();_thumbnailPaused=false;
+        foreach(var reference in _thumbnailControls.ToArray())
+            if(reference.TryGetTarget(out var control))control.ResumePendingPreview();
+    }
     private void TrackBrowserThumbnailTask(Task task)
     {_thumbnailTasks.RemoveAll(task=>task.IsCompleted);_thumbnailTasks.Add(task);}
     private Task<MapBrowserThumbnailPixels> LoadBrowserThumbnailAsync(Func<CancellationToken,MapBrowserThumbnailPixels> prepare,CancellationToken cancellation)
     {
-        if(_thumbnailClosing) return Task.FromCanceled<MapBrowserThumbnailPixels>(new CancellationToken(true));
+        if(_thumbnailClosing || _thumbnailPaused) return Task.FromCanceled<MapBrowserThumbnailPixels>(new CancellationToken(true));
         async Task<MapBrowserThumbnailPixels> Run()
         {
             using var linked=CancellationTokenSource.CreateLinkedTokenSource(cancellation,_thumbnailLifetime.Token);
-            await _thumbnailGate.WaitAsync(linked.Token);
-            try{return await Task.Run(()=>prepare(linked.Token),linked.Token);}
-            finally{_thumbnailGate.Release();}
+            MapBrowserThumbnailPixels? pixels=null;
+            await _services.RunJobAsync("Prepare map asset thumbnail",async token=>
+            {
+                await _thumbnailGate.WaitAsync(token);
+                try{pixels=await Task.Run(()=>prepare(token),token);}
+                finally{_thumbnailGate.Release();}
+            },linked.Token);
+            linked.Token.ThrowIfCancellationRequested();
+            return pixels??throw new InvalidOperationException("Thumbnail preparation returned no pixels.");
         }
         var task=Run();_thumbnailTasks.RemoveAll(task=>task.IsCompleted);_thumbnailTasks.Add(task);return task;
     }

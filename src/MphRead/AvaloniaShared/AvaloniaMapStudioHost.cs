@@ -73,14 +73,18 @@ public sealed class AvaloniaMapStudioHost : UserControl, IAsyncDisposable
     public Task WaitForAssetThumbnailsAsync() => _screen.WaitForAssetThumbnailsAsync();
     public Task ReplaceAssetAsync(string assetPath,string sourcePath,CancellationToken cancellation=default) => _screen.ReplaceAssetAsync(assetPath,sourcePath,cancellation);
     public Task ImportModelAsync(string path,ModelImportSettings? settings=null,Guid? sourceId=null,CancellationToken cancellation=default) => _screen.ImportModelAsync(path,settings,sourceId,cancellation);
+    public void ShowPrimitiveDialog(string kind) => _screen.ShowPrimitiveDialog(kind);
+    public void ShowModelImportDialog(string path,Guid? sourceId=null) => _screen.ShowModelImportDialog(path,sourceId);
     public static Avalonia.Input.DataFormat<MapAssetDragData> AssetDragFormat => MapStudioScreen.AssetDragFormat;
     public Task ApplyAssetDropAsync(MapAssetDragData data,Avalonia.Point position) => _screen.ApplyAssetDropAsync(data,position);
     public MapAssetDragData CreateAssetDragData(MapAssetDragKind kind,string key) => _screen.CreateAssetDragData(kind,key);
+    public void ShowStatus(string message) => _screen.ShowStatus(message);
     public void SetViewportMode(string mode) => _screen.SetViewportMode(mode);
     public MphRead.Mods.StudioRendering.StudioViewportImage? CaptureViewport() => _screen.CaptureViewport();
     public ValueTask DisposeAsync() => DisposeAsync(true);
     public Task DiscardRecoveryAsync(CancellationToken cancellation = default) => _screen.DiscardRecoveryAsync(cancellation);
     public Task CancelPendingJobsAsync(CancellationToken cancellation = default) => _screen.CancelPendingJobsAsync(cancellation);
+    public void ResumeAssetThumbnails() => _screen.ResumeAssetThumbnails();
     public async ValueTask DisposeAsync(bool preserveRecovery)
     {
         if (_disposed) return;
@@ -90,7 +94,11 @@ public sealed class AvaloniaMapStudioHost : UserControl, IAsyncDisposable
         try { await _screen.ShutdownAsync(preserveRecovery); }
         finally
         {
-            try { if (_services is IDisposable disposable) disposable.Dispose(); }
+            try
+            {
+                if(_services is IAsyncDisposable asynchronous)await asynchronous.DisposeAsync();
+                else if (_services is IDisposable disposable) disposable.Dispose();
+            }
             finally { Content = null; }
         }
     }

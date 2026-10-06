@@ -26,8 +26,6 @@ namespace MphRead.Mods.MapGen
             MapBudgetValidator.Analyze(map, validation);
             MapCompiler.ThrowIfInvalid(validation);
             MapOutputSet outputs = MapOutputSet.Create(def, archiveDir, entityDir, nodeDir);
-            Directory.CreateDirectory(archiveDir);
-            Directory.CreateDirectory(entityDir);
             byte[] model; int vertices;
             var flipbooks = new Dictionary<string, MapFlipbookBinding>(StringComparer.Ordinal);
             lock (MapCompiler.ContentReadLock) (model, vertices) = BuildModel(map, flipbooks);
@@ -41,6 +39,10 @@ namespace MphRead.Mods.MapGen
             // Build every byte before replacing any output. The manifest is the
             // commit marker: an interrupted publication is rebuilt next launch.
             cancellation.ThrowIfCancellationRequested();
+            using var runtimeLease = MapRuntimePublication.Acquire(def, outputs, cancellation);
+            if (runtimeLease != null) RoomPrewarm.InvalidateCompleted(def.Name);
+            Directory.CreateDirectory(archiveDir);
+            Directory.CreateDirectory(entityDir);
             if (File.Exists(outputs.Manifest)) File.Delete(outputs.Manifest);
             AtomicFile.Write(outputs.Model, model);
             AtomicFile.Write(outputs.Animation, animation);

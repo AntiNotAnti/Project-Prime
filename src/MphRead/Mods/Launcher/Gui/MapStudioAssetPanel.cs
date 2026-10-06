@@ -28,7 +28,7 @@ namespace MphRead.Mods.Launcher.Gui
             if(bytes.LongLength>MapPackageReader.MaxEntryBytes)throw new IOException("Asset exceeds the 256 MiB package entry limit.");
             string root=_document.Project.Definition.BaseDirectory??_services.MapLibraryDirectory;
             string relative=kind+"/"+Guid.NewGuid().ToString("N")+extension;
-            string canonicalRoot=MapPublicationLease.CanonicalizeRuntimeDirectory(root);
+            string canonicalRoot=MapPublicationLease.ResolveRuntimeDirectoryAliases(root);
             string destination=MapAssetDestination.Resolve(root,relative,canonicalRoot);
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             AtomicFile.Write(MapAssetDestination.Resolve(root,relative,canonicalRoot),bytes);
@@ -81,7 +81,7 @@ namespace MphRead.Mods.Launcher.Gui
             var matches=_document.Project.Definition.Assets.Where(asset=>MapAssetCatalog.Matches(asset,query))
                 .Where(asset=>!unused || MapAssetCatalog.Usages(_document.Project.Definition,asset.Path).Count==0).ToArray();
             const int pageSize=32;_assetPage=Math.Clamp(_assetPage,0,Math.Max(0,(matches.Length-1)/pageSize));
-            rows.Children.Add(Text($"{matches.Length} matching assets · page {_assetPage+1}/{Math.Max(1,(matches.Length+pageSize-1)/pageSize)}"));
+            rows.Children.Add(Text($"{matches.Length} matching file assets · page {_assetPage+1}/{Math.Max(1,(matches.Length+pageSize-1)/pageSize)}"));
             void Page(int page){_assetPage=page;rows.Children.Clear();AppendAssetRows(rows,query,unused);}
             if(_assetPage>0)AddButton(rows,"Previous assets",()=>Page(_assetPage-1));
             if((_assetPage+1)*pageSize<matches.Length)AddButton(rows,"Next assets",()=>Page(_assetPage+1));

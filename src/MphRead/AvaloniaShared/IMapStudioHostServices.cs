@@ -9,6 +9,9 @@ using MphRead.Mods.MapGen;
 
 namespace MphRead.AvaloniaShared;
 
+/// <summary>Optional keyboard semantics for a canonical editor dialog action.</summary>
+public sealed record MapStudioDialogAction(Action Invoke,bool IsDefault=false);
+
 /// <summary>Explicit desktop host boundary. No gameplay owner or authentication store belongs to an editor control.</summary>
 public interface IMapStudioHostServices
 {

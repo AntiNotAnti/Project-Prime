@@ -64,6 +64,28 @@ Require(HasRuntimePublication("var publisher = MapBuildScheduler.Publish;"),
     "publication scanner misses a publishing method group");
 Require(!HasRuntimePublication("// MapBuildScheduler.Publish(result)\nvar label = \"MapBuildScheduler.Install\";"),
     "publication scanner treats explanatory comments or labels as runtime writes");
+Require(HasCallsInOrder("CustomRooms.GenerateMissing(room); /* handoff */ using var read = MapRuntimeUsage.AcquirePreparation(room); CustomRooms.WhyUnplayable(room); AssetPaths(room);",
+    "CustomRooms.GenerateMissing", "MapRuntimeUsage.AcquirePreparation", "CustomRooms.WhyUnplayable", "AssetPaths"),
+    "publication contract rejects generation followed by validated shared preparation");
+Require(!HasCallsInOrder("using var read = MapRuntimeUsage.AcquirePreparation(room); CustomRooms.GenerateMissing(room); CustomRooms.WhyUnplayable(room); AssetPaths(room);",
+    "CustomRooms.GenerateMissing", "MapRuntimeUsage.AcquirePreparation", "CustomRooms.WhyUnplayable", "AssetPaths"),
+    "publication contract permits generating under its own shared reader lease");
+Require(!HasCallsInOrder("CustomRooms.GenerateMissing(room); using var read = MapRuntimeUsage.AcquirePreparation(room); AssetPaths(room);",
+    "CustomRooms.GenerateMissing", "MapRuntimeUsage.AcquirePreparation", "CustomRooms.WhyUnplayable", "AssetPaths"),
+    "publication contract permits runtime consumption without validating the writer-reader handoff");
+Require(!HasCallsInOrder("// MapRuntimePublication.Acquire(def, outputs);\nInstallOwned(result);",
+    "MapRuntimePublication.Acquire", "InstallOwned"), "publication contract accepts a commented-out writer lease");
+Require(ConstructsType("new MapStudioScreen();", "MapStudioScreen"), "route scanner misses a direct embedded editor construction");
+Require(ConstructsType("using Editor = MphRead.Mods.Launcher.Gui.MapStudioScreen; new Editor();", "MapStudioScreen"),
+    "route scanner misses an aliased embedded editor construction");
+Require(ConstructsType("new global::MphRead.Mods.Launcher.Gui.@MapStudioScreen();", "MapStudioScreen"),
+    "route scanner misses a qualified or escaped embedded editor construction");
+Require(!ConstructsType("// new MapStudioScreen();\nvar label = \"new MapStudioScreen()\";", "MapStudioScreen"),
+    "route scanner mistakes a diagnostic label for an embedded editor construction");
+Require(HasCallsInOrder("if (ModEntry.TryHandleHeadless(args)) return; if (CheckSetup(args)) return;",
+    "ModEntry.TryHandleHeadless", "CheckSetup"), "early dispatch contract rejects asset-free Studio forwarding");
+Require(!HasCallsInOrder("if (CheckSetup(args)) return; if (ModEntry.TryHandleHeadless(args)) return;",
+    "ModEntry.TryHandleHeadless", "CheckSetup"), "early dispatch contract permits game setup before Studio forwarding");
 string linkFixture = Path.Combine(Path.GetTempPath(), "studio-source-contract");
 string protocolFixture = Path.Combine(linkFixture, "src", "ProjectPrime.Studio.Protocol", "ProjectPrime.Studio.Protocol.csproj");
 Require(IsSharedProtocolSource(linkFixture, protocolFixture, "../MphRead/Mods/Update/DesktopInstallationIdentity.cs"),
@@ -78,6 +100,32 @@ Require(!IsSharedProtocolSource(linkFixture, Path.Combine(linkFixture, "src", "P
     "../MphRead/Mods/Update/DesktopInstallationIdentity.cs"), "source contract grants the Protocol-only link to Studio");
 Require(!IsSharedProtocolSource(linkFixture, protocolFixture, "$(EngineRoot)/Mods/Update/DesktopInstallationIdentity.cs"),
     "source contract permits an unevaluated shared source path");
+
+string androidCreatorRemoval = "../MphRead/Mods/Launcher/Gui/MapStudio*.cs;../MphRead/Mods/Launcher/Gui/MapViewport*.cs;../MphRead/AvaloniaShared/IMapStudioHostServices.cs;../MphRead/AvaloniaShared/AvaloniaMapStudioHost.cs";
+XDocument AndroidFixture(string removal, string suffix = "") => XDocument.Parse(
+    $"<Project><ItemGroup><Compile Include='../MphRead/**/*.cs'/><Compile Remove='{removal}'/>{suffix}</ItemGroup></Project>");
+Require(ExcludesAndroidCreatorPresentation(AndroidFixture(androidCreatorRemoval)),
+    "Android contract rejects canonical runtime inclusion followed by explicit creator presentation removal");
+Require(ExcludesAndroidCreatorPresentation(AndroidFixture(androidCreatorRemoval.Replace('/', '\\'))),
+    "Android contract rejects Windows-separated creator presentation removal");
+Require(!ExcludesAndroidCreatorPresentation(AndroidFixture(androidCreatorRemoval.Replace("../MphRead/Mods/Launcher/Gui/MapViewport*.cs;", ""))),
+    "Android contract permits creator viewports when only editor panels are removed");
+Require(!ExcludesAndroidCreatorPresentation(AndroidFixture("../MphRead/Mods/MapEditor/**/*.cs")),
+    "Android contract mistakes removal of shared canonical runtime models for creator presentation exclusion");
+Require(!ExcludesAndroidCreatorPresentation(XDocument.Parse($"<Project><!-- <Compile Remove='{androidCreatorRemoval}'/> --></Project>")),
+    "Android contract accepts a commented-out creator presentation removal");
+Require(!ExcludesAndroidCreatorPresentation(AndroidFixture(androidCreatorRemoval,
+    "<Compile Include='../MphRead/Mods/Launcher/Gui/MapStudioScreen.cs'/>")),
+    "Android contract permits a later source include to restore excluded creator presentation");
+
+Require(OmitsAndroidMapCapture("#if !ANDROID\nyield return (\"map-editor\", new MapStudioScreen(), size);\n#endif"),
+    "Android capture guard rejects a desktop-only canonical diagnostic");
+Require(!OmitsAndroidMapCapture("yield return (\"map-editor\", new MapStudioScreen(), size);"),
+    "Android capture guard permits an unconditional creator diagnostic");
+Require(!OmitsAndroidMapCapture("// #if !ANDROID\nnew MapStudioScreen();\n// #endif"),
+    "Android capture guard accepts a commented-out preprocessor guard");
+Require(!OmitsAndroidMapCapture("#if !ANDROID\nnew MapStudioScreen();\n#endif\nnew MapStudioScreen();"),
+    "Android capture guard permits an additional unguarded creator diagnostic");
 
 // Exercise the actual framework-only protocol validators. A lexical graph check
 // cannot establish exact identity, path, message bounds or authentication meaning.
@@ -179,9 +227,9 @@ if (!args.Contains("--self-test"))
         var identifiers = Identifiers(source);
         string[] exceptions = relative switch
         {
-            // Embedded game integration only: foreground drop events, game
-            // overlays and safe in-process publication. Remove after standalone
-            // parity and all creator routes launch the external application.
+            // Diagnostic compatibility only: MapViewportCheck, UiCapture and
+            // -mapstudioshot retain the original embedded presentation oracle.
+            // Normal game creator routes launch the independent application.
             "src/MphRead/Mods/Launcher/Gui/MapStudioLegacyHost.cs" =>
                 ["Shell", "PrimeOverlayHost", "LegacyMapStudioHostServices", "CustomRooms", "MapPackageInstaller", "MapRuntimeUsage", "HunterLicenseClient"],
             // Existing embedded GPU presentation only. The standalone renderer
@@ -219,6 +267,49 @@ if (!args.Contains("--self-test"))
                     $"{relative} accesses global custom-map state instead of only deferring static registration: {access.Groups[1].Value}");
     }
 
+    // The old renderer remains an independent diagnostic oracle. Normal game
+    // routes must not reintroduce its embedded editor or the full replay UI.
+    string engineDirectory = Path.Combine(root, "src", "MphRead");
+    if (Directory.Exists(engineDirectory))
+        foreach (string file in Sources(engineDirectory, "*.cs"))
+        {
+            string relative = Path.GetRelativePath(root, file).Replace('\\', '/');
+            string source = File.ReadAllText(file);
+            var identifiers = Identifiers(source);
+            Require(!identifiers.Contains("ReplayControlsView"), $"{relative} restores the removed full in-game Replay Studio editor");
+            Require(!identifiers.Contains("StudioWindow"), $"{relative} restores the game-owned standalone editor window");
+            if (relative == "src/MphRead/Mods/Launcher/Gui/UiCapture.cs")
+                Require(OmitsAndroidMapCapture(source), "UiCapture must omit its Map creator diagnostic from Android while retaining general captures");
+            bool diagnosticOrFacade = relative is "src/MphRead/Mods/Launcher/Gui/MapViewportCheck.cs"
+                or "src/MphRead/Mods/Launcher/Gui/UiCapture.cs"
+                or "src/MphRead/AvaloniaShared/AvaloniaMapStudioHost.cs";
+            string code = Code(source);
+            if (relative == "src/MphRead/Mods/Launcher/Gui/MapStudioScreen.cs")
+            {
+                string capture = MethodBody(source, "internal static int Capture");
+                if (capture.Length != 0) code = code.Replace(capture, "", StringComparison.Ordinal);
+            }
+            Require(diagnosticOrFacade || !ConstructsType(code, "MapStudioScreen"),
+                $"{relative} constructs the embedded Map Studio outside its retained diagnostics or injected standalone facade");
+            Require(relative == "src/MphRead/Mods/Launcher/Gui/MapStudioLegacyHost.cs"
+                || !ConstructsType(source, "LegacyMapStudioHostServices"),
+                $"{relative} constructs diagnostic game services outside the exact compatibility adapter");
+        }
+    string surfacePath = Path.Combine(engineDirectory, "Mods", "Launcher", "Gui", "UiSurface.cs");
+    if (File.Exists(surfacePath))
+        foreach (string owner in new[] { "MapStudioScreen", "MapStudioState", "EditorFactor", "StudioWindow" })
+            Require(!Identifiers(File.ReadAllText(surfacePath)).Contains(owner),
+                $"UiSurface restores editor-specific application sizing/ownership: {owner}");
+    string programPath = Path.Combine(engineDirectory, "Program.cs");
+    if (File.Exists(programPath))
+        Require(HasCallsInOrder(MethodBody(File.ReadAllText(programPath), "private static void Run"),
+            "ModEntry.TryHandleHeadless", "CheckSetup"), "Studio legacy forwarding must dispatch before ordinary game-file setup");
+    string entryPath = Path.Combine(engineDirectory, "Mods", "ModEntry.cs");
+    if (File.Exists(entryPath))
+        Require(HasCallsInOrder(MethodBody(File.ReadAllText(entryPath), "public static bool TryHandleHeadless"),
+            "StudioApplicationLauncher.TryOpen", "SettingsArchiveCommand.Run"),
+            "The early mod dispatcher must retain the external Studio launcher before ordinary commands");
+
     // This privileged adapter belongs only to the game. Its existence is not
     // permission for a standalone host to instantiate it in the Studio process.
     string brokerPath = Path.Combine(root, "src", "MphRead", "Mods", "StudioIntegration", "GameStudioBroker.cs");
@@ -232,6 +323,27 @@ if (!args.Contains("--self-test"))
         Require(!Regex.IsMatch(source, @"\b(?:access_token|refresh_token)\b", RegexOptions.IgnoreCase),
             "GameStudioBroker.cs must never return account access or refresh credentials");
     }
+    // CLI/startup generation is privileged too: the broker cannot be the only
+    // writer which observes another process's live scene. These source contracts
+    // complement the actual independent-process map-generation regression.
+    string schedulerPath = Path.Combine(root, "src", "MphRead", "Mods", "MapGen", "Build", "MapBuildScheduler.cs");
+    if (File.Exists(schedulerPath))
+    {
+        string source = File.ReadAllText(schedulerPath);
+        foreach (string method in new[] { "Publish", "Install" })
+            Require(HasCallsInOrder(MethodBody(source, "public static void " + method), "MapRuntimePublication.Acquire", "InstallOwned"),
+                $"MapBuildScheduler.{method} must acquire the destination's live-reader publication fence before installing");
+        Require(Regex.IsMatch(Code(source), @"\bprivate\s+static\s+void\s+InstallOwned\s*\("),
+            "MapBuildScheduler.InstallOwned must remain private to the already-fenced entry points");
+    }
+    string packerPath = Path.Combine(root, "src", "MphRead", "Mods", "MapGen", "MapPacker.cs");
+    if (File.Exists(packerPath))
+        Require(HasCallsInOrder(File.ReadAllText(packerPath), "MapRuntimePublication.Acquire", "Directory.CreateDirectory", "File.Delete"),
+            "Raw MapPacker output commits must acquire the game runtime fence before changing destination files");
+    string prewarmPath = Path.Combine(root, "src", "MphRead", "Mods", "RoomPrewarm.cs");
+    if (File.Exists(prewarmPath))
+        Require(HasCallsInOrder(File.ReadAllText(prewarmPath), "CustomRooms.GenerateMissing", "MapRuntimeUsage.AcquirePreparation", "CustomRooms.WhyUnplayable", "AssetPaths"),
+            "RoomPrewarm must generate before its reader lease and validate exact outputs under that lease before loading");
     string nativeMapPath = Path.Combine(root, "src", "MphRead", "Mods", "StudioRendering", "ViewportRenderGraph.Native.cs");
     if (File.Exists(nativeMapPath))
     {
@@ -270,6 +382,9 @@ if (!args.Contains("--self-test"))
         foreach (string project in Sources(directory, "*.csproj"))
         {
             var document = XDocument.Load(project);
+            if (gameDirectory == "MphRead.Android")
+                Require(ExcludesAndroidCreatorPresentation(document),
+                    $"{Path.GetRelativePath(root, project)} must exclude desktop Map panels/viewports and host adapters");
             foreach (var element in document.Descendants().Where(element =>
                 element.Name.LocalName is "ProjectReference" or "Reference" or "Compile"))
             {
@@ -408,6 +523,46 @@ static bool HasRuntimePublication(string source)
     return qualified || imported;
 }
 
+static bool ConstructsType(string source, string type)
+{
+    string code = Code(source);
+    string qualified = @"(?:global\s*::\s*)?(?:@?[A-Za-z_][A-Za-z0-9_]*\s*\.\s*)*@?" + Regex.Escape(type);
+    var names = new List<string> { "@?" + Regex.Escape(type) };
+    foreach (Match alias in Regex.Matches(code, @"\busing\s+(@?[A-Za-z_][A-Za-z0-9_]*)\s*=\s*" + qualified + @"\s*;"))
+        names.Add(Regex.Escape(alias.Groups[1].Value));
+    return Regex.IsMatch(code, @"\bnew\s+(?:" + qualified + "|" + string.Join('|', names) + @")\s*\(");
+}
+
+static bool HasCallsInOrder(string source, params string[] calls)
+{
+    string code = Code(source); int next = 0;
+    foreach (string call in calls)
+    {
+        string pattern = @"\b" + string.Join(@"\s*\.\s*", call.Split('.').Select(Regex.Escape)) + @"\s*\(";
+        Match match = Regex.Match(code[next..], pattern);
+        if (!match.Success) return false;
+        next += match.Index + match.Length;
+    }
+    return true;
+}
+
+static string MethodBody(string source, string declaration)
+{
+    string code = Code(source);
+    string pattern = @"\b" + string.Join(@"\s+", declaration.Split(' ').Select(Regex.Escape)) + @"\s*\(";
+    Match method = Regex.Match(code, pattern);
+    if (!method.Success) return "";
+    int start = code.IndexOf('{', method.Index + method.Length);
+    if (start < 0) return "";
+    int depth = 1;
+    for (int index = start + 1; index < code.Length; index++)
+    {
+        if (code[index] == '{') depth++;
+        else if (code[index] == '}' && --depth == 0) return code[(start + 1)..index];
+    }
+    return "";
+}
+
 static string Code(string source)
 {
     // Preserve interpolation contents conservatively: dependencies in an
@@ -492,4 +647,44 @@ static string Code(string source)
         else code.Append(' ', index - start);
     }
     return Regex.Replace(code.ToString(), @"\bProjectPrime\s*\.\s*Studio\s*\.\s*Shell\b", "StudioCreatorShellNamespace");
+}
+
+// The Android head intentionally compiles shared canonical engine sources. Keep
+// creator presentation out of that glob, and reject explicit later reintroduction.
+static bool ExcludesAndroidCreatorPresentation(XDocument project)
+{
+    string[] required =
+    [
+        "../MphRead/Mods/Launcher/Gui/MapStudio*.cs",
+        "../MphRead/Mods/Launcher/Gui/MapViewport*.cs",
+        "../MphRead/AvaloniaShared/IMapStudioHostServices.cs",
+        "../MphRead/AvaloniaShared/AvaloniaMapStudioHost.cs"
+    ];
+    var items = project.Descendants().Where(element => element.Name.LocalName == "Compile").ToArray();
+    foreach (string pattern in required)
+    {
+        int removal = Array.FindLastIndex(items, item => ((string?)item.Attribute("Remove") ?? "")
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Any(value => value.Replace('\\', '/') == pattern));
+        if (removal < 0) return false;
+        string example = pattern.Replace("MapStudio*.cs", "MapStudioScreen.cs").Replace("MapViewport*.cs", "MapViewport.cs");
+        foreach (var item in items.Skip(removal + 1))
+            foreach (string include in ((string?)item.Attribute("Include") ?? "")
+                .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                string expression = Regex.Escape(include.Replace('\\', '/'))
+                    .Replace(@"\*\*", ".*").Replace(@"\*", "[^/]*").Replace(@"\?", "[^/]");
+                if (Regex.IsMatch(example, "^" + expression + "$", RegexOptions.CultureInvariant)) return false;
+            }
+    }
+    return true;
+}
+
+// Retain the general Android diagnostic capture helpers, but omit the one
+// desktop Map creator construction. Comments cannot manufacture a guard.
+static bool OmitsAndroidMapCapture(string source)
+{
+    string remaining = Regex.Replace(Code(source), @"^\s*#if\s+!ANDROID\s*$.*?^\s*#endif\s*$", "",
+        RegexOptions.Multiline | RegexOptions.Singleline | RegexOptions.CultureInvariant);
+    return !Identifiers(remaining).Contains("MapStudioScreen");
 }

@@ -101,10 +101,15 @@ printf '# Controller mapping packaging fixture\n' > "$fixture/gamecontrollerdb.t
 printf 'Controller mapping license fixture\n' > "$fixture/gamecontrollerdb.LICENSE"
 printf '{"Name":"PACKAGING TEST"}\n' > "$fixture/maps/fixture.json"
 printf '{"fixture":true}\n' > "$fixture/fidelity-baselines/fixture.json"
+printf 'BSJB portable debug symbol fixture\n' > "$fixture/ProjectPrime.Studio.Protocol.pdb"
+printf '{"fixture":"native build provenance"}\n' > "$fixture/PRIME-WGPU.json"
 studio="$temp/studio package input"
 mkdir -p "$studio"
 clang "$temp/main.c" -o "$studio/ProjectPrimeStudio"
 cp "$root/libopenal.1.dylib" "$root/libwgpu_native.dylib" "$root/libktx.dylib" "$studio/"
+printf 'BSJB Studio debug symbol fixture\n' > "$studio/ProjectPrimeStudio.pdb"
+cp "$fixture/PRIME-WGPU.json" "$studio/PRIME-WGPU.json"
+printf '{"runtimeOptions":{}}\n' > "$studio/ProjectPrime.runtimeconfig.json"
 "$repo/tools/sign-macos.sh" "$studio" ProjectPrimeStudio
 "$repo/tools/check-macos-build.sh" "$studio" "$rid" ProjectPrimeStudio
 # The paired archive must reject a missing Studio, mismatched version, and a
@@ -128,6 +133,15 @@ studio_app="$temp/unpacked/Project Prime Studio.app"
 [[ $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$studio_app/Contents/Info.plist") == 1.2.3 ]] || exit 1
 cmp "$temp/unpacked/.project-prime-desktop.json" "$app/Contents/Resources/.project-prime-desktop.json"
 cmp "$temp/unpacked/.project-prime-desktop.json" "$studio_app/Contents/Resources/.project-prime-desktop.json"
+cmp "$fixture/ProjectPrime.Studio.Protocol.pdb" "$app/Contents/Resources/DebugSymbols/ProjectPrime.Studio.Protocol.pdb"
+cmp "$studio/ProjectPrimeStudio.pdb" "$studio_app/Contents/Resources/DebugSymbols/ProjectPrimeStudio.pdb"
+[[ ! -e "$app/Contents/MacOS/ProjectPrime.Studio.Protocol.pdb" && ! -e "$studio_app/Contents/MacOS/ProjectPrimeStudio.pdb" ]] || exit 1
+for bundled in "$app" "$studio_app"; do
+    cmp "$fixture/PRIME-WGPU.json" "$bundled/Contents/Resources/PRIME-WGPU.json"
+    [[ ! -e "$bundled/Contents/MacOS/PRIME-WGPU.json" ]] || exit 1
+done
+cmp "$studio/ProjectPrime.runtimeconfig.json" "$studio_app/Contents/Resources/ProjectPrime.runtimeconfig.json"
+[[ ! -e "$studio_app/Contents/MacOS/ProjectPrime.runtimeconfig.json" ]] || exit 1
 codesign --verify --deep --strict "$studio_app"
 python3 "$repo/tools/studio-pair.py" smoke "$app/Contents/MacOS/ProjectPrime" "$studio_app/Contents/MacOS/ProjectPrimeStudio" 1.2.3
 [[ -f "$app/Contents/Resources/maps/fixture.json" ]] || exit 1
