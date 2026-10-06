@@ -61,6 +61,8 @@ internal static class HalfturretAcceptanceCheck
         int eligibleFrames=0,submittedFrames=0,fallbackFrames=0,suppressedFrames=0,disabledNodeFrames=0;
         int materialOnFrames=0,materialOffFrames=0,brightFrames=0,outlineFrames=0,damageFrames=0;
         int doubleDamageFrames=0,freezeFrames=0,ownerStatusFrames=0,teamFrames=0,shotFrames=0,projectiles=0;
+        int ownerFreezeFrames=0,ownerDamageFrames=0,ownerAlphaFrames=0,ownerCloakFrames=0,turretAlphaFrames=0;
+        var suitRecolors=new HashSet<int>();
         int poseFrames=0,fallFrames=0,groundedFrames=0,entryEdges=0,exitEdges=0;
         float maximumBindError=0,maximumWeightError=0,maximumPoseError=0,maximumProjectileOriginError=0,maximumAimChange=0;
         bool morph=false,unmorph=false,turretDied=false,ownerDied=false,respawned=false;
@@ -88,6 +90,7 @@ internal static class HalfturretAcceptanceCheck
             Require(packIssue == null,"Character pack rejected: "+packIssue);
             Require(pack.TryResolve(Hunter.Weavel,CharacterModelPart.Halfturret,out var asset),"Reviewed turret entry is missing.");
             string shippingHash=Sha(asset.ModelPath);
+            string manifestPath=Path.Combine(CharacterModelPack.DefaultDirectory,"characters.json"),manifestHash=Sha(manifestPath);
             Require(expectedHash.Length == 64 && shippingHash.Equals(expectedHash,StringComparison.OrdinalIgnoreCase),
                 "Installed turret differs from the audited shipping GLB.");
             if (asset.Skinning == CharacterSkinningMode.Weighted4) weightedData=CharacterWeightedModelLoader.Load(asset);
@@ -181,7 +184,7 @@ internal static class HalfturretAcceptanceCheck
                         scene.GameState.Teams=false;owner.Team=Team.None;owner.Recolor=0;
                         RenderOptions.BrightSkins=false;RenderOptions.PlayerOutline=PlayerOutlineStyle.Off;
                         Set(owner,"_doubleDmgTimer",(ushort)0);owner.ModSetFrozen(false);turret.Alpha=1;
-                        owner.Flags2 &= ~PlayerFlags2.Cloaking;Set(owner,"_curAlpha",1f);Set(owner,"_targetAlpha",1f);
+                        owner.Flags2 &= ~PlayerFlags2.Cloaking;Set(owner,"_cloakTimer",(ushort)0);Set(owner,"_curAlpha",1f);Set(owner,"_targetAlpha",1f);
                     }
                     if (stage.Name is "materials-on" or "materials-restored") RenderOptions.AdvancedMaterials=true;
                     if (stage.Name == "materials-off") RenderOptions.AdvancedMaterials=false;
@@ -213,8 +216,8 @@ internal static class HalfturretAcceptanceCheck
                     if (stage.Name == "owner-damage") owner.TakeDamage(10,DamageFlags.IgnoreInvuln|DamageFlags.NoDmgInvuln,null,opponent);
                     if (stage.Name == "owner-freeze") owner.ModSetFrozen(true);
                     if (stage.Name == "owner-thaw") owner.ModSetFrozen(false);
-                    if (stage.Name == "owner-cloak") owner.Flags2 |= PlayerFlags2.Cloaking;
-                    if (stage.Name == "owner-visible") owner.Flags2 &= ~PlayerFlags2.Cloaking;
+                    if (stage.Name == "owner-cloak") {Set(owner,"_cloakTimer",(ushort)240);owner.Flags2 |= PlayerFlags2.Cloaking;}
+                    if (stage.Name == "owner-visible") {owner.Flags2 &= ~PlayerFlags2.Cloaking;Set(owner,"_cloakTimer",(ushort)0);}
                     if (stage.Name == "owner-alpha") {Set(owner,"_curAlpha",.7f);Set(owner,"_targetAlpha",.7f);}
                     if (stage.Name == "fall-collision") {turret.Position=turret.Position.AddY(1.2f);turret.ResetGroundedState();}
                     if (stage.Name == "turret-death") turret.Die();
@@ -225,9 +228,15 @@ internal static class HalfturretAcceptanceCheck
                         object input=typeof(PlayerEntity).GetProperty("Input",Private)!.GetValue(owner)!;
                         input.GetType().GetProperty("HasInput")!.SetValue(input,true);
                         if (stage.Name != "owner-death-respawn") owner.Health=999;
+                        if (stage.Name != "owner-death-respawn" && turret.Health > 0
+                            && owner.Flags2.TestFlag(PlayerFlags2.Halfturret)) turret.Health=999;
                         if ((stage.Name is "split" or "unmorph" or "resplit" or "unmorph-after-turret-death" or "third-split") && age == 0) Hold(owner.Controls.Morph);
                         if (stage.Name is "bright" or "outline-red" or "team-orange" or "team-green") Set(owner,"_timeSinceDamage",(ushort)255);
                         bool activeBefore=turret.Health > 0 && owner.Flags2.TestFlag(PlayerFlags2.Halfturret) && scene.Entities.Contains(turret);
+                        // Deployment may insert and process the turret in this
+                        // same native tick. Start its cooldown at zero so firing
+                        // begins only once a pre-tick turret pose is observable.
+                        if (!activeBefore) owner.TimeSinceShot=0;
                         Vector3 previousPosition=turret.Position;
                         // Beam Age is seconds, not ticks. Snapshot the reused pool
                         // so a previous shot cannot be mistaken for this spawn.
@@ -305,6 +314,11 @@ internal static class HalfturretAcceptanceCheck
                                         s.MaterialMaps,s.WrapS,s.WrapT,s.DoubleSided,s.Transparent,rigidData!.Primitives[i].MaterialMaps);
                                 }
                             }
+                            if (teamRequired && (stage.Name is "team-orange" or "team-green"))
+                                Require(weighted != null
+                                    ? weighted.Segments.Any(s=>s.GetAlbedo(scene,turret.Recolor) != s.AlbedoBinding)
+                                    : rigid!.Segments.Any(s=>s.GetAlbedo(scene,turret.Recolor) != s.AlbedoBinding),
+                                    "Required native team turret variant failed to upload/select.");
                             animations.Add(native.AnimInfo.Index[0]);
                             if (eligible)
                             {
@@ -316,6 +330,12 @@ internal static class HalfturretAcceptanceCheck
                                 if (owner.DoubleDamage) doubleDamageFrames++;
                                 if (scene.GameState.Teams) teamFrames++;
                                 if (owner.BrightSkinStatusOverride || owner.BrightSkinFrozenOverlay || owner.Flags2.TestFlag(PlayerFlags2.Cloaking)) ownerStatusFrames++;
+                                if (owner.ModFrozen) ownerFreezeFrames++;
+                                if (Field<ushort>(owner,"_timeSinceDamage") < owner.Values.DamageFlashTime*2) ownerDamageFrames++;
+                                if (owner.CurAlpha < 1) ownerAlphaFrames++;
+                                if (owner.Flags2.TestFlag(PlayerFlags2.Cloaking)) ownerCloakFrames++;
+                                if (turret.Alpha < 1) turretAlphaFrames++;
+                                if (stage.Name.StartsWith("suit-",StringComparison.Ordinal)) suitRecolors.Add(turret.Recolor);
                             }
                             else if (expected == 0) disabledNodeFrames++;
                             if (Field<ushort>(turret,"_freezeTimer") > 0)
@@ -346,6 +366,8 @@ internal static class HalfturretAcceptanceCheck
                 Require(materialOnFrames > 0 && materialOffFrames > 0 && brightFrames > 0 && outlineFrames > 0
                     && damageFrames > 0 && doubleDamageFrames > 0 && freezeFrames > 0 && ownerStatusFrames > 0 && teamFrames > 0,
                     "Turret owner/material/status/outline coverage incomplete.");
+                Require(ownerFreezeFrames > 0 && ownerDamageFrames > 0 && ownerAlphaFrames > 0 && ownerCloakFrames > 0
+                    && turretAlphaFrames > 0 && suitRecolors.Count == 6,"Turret independent owner freeze/damage/alpha/cloak and suit coverage incomplete.");
                 Require(morph && unmorph && entryEdges >= 3 && exitEdges >= 3 && !owner.IsAltForm,
                     "Native split/unmorph/turret-death/owner-death transitions incomplete.");
                 Require(turretDied && ownerDied && respawned,"Native turret destruction and owner death/respawn were not observed.");
@@ -355,15 +377,18 @@ internal static class HalfturretAcceptanceCheck
                 if (rigid != null) Require(disabledNodeFrames > 0,"Native enabled-node/parent suppression was not exercised.");
                 Require(Sha(asset.ModelPath) == shippingHash && Sha(sourcePath) == sourceHash && Sha(auditPath).Equals(sourceAuditSha256,StringComparison.OrdinalIgnoreCase),
                     "Tested turret/source/audit changed during acceptance.");
+                Require(Sha(manifestPath) == manifestHash,"Installed turret manifest changed during acceptance.");
                 scene.DoCleanup();scene.UnloadGl();scene=null;
                 Require(Preview(preview,window,pack,directory,"launcher-after") == bipedHash,"Preexisting biped changed between launcher previews.");
                 File.WriteAllText(Path.Combine(directory,"frames.json"),JsonSerializer.Serialize(frames,Json));
                 File.WriteAllText(Path.Combine(directory,"acceptance.json"),JsonSerializer.Serialize(new {pass=true,hunter="Weavel",part="halfturret",room,
                     backend=GraphicsBackendPolicy.Resolved.ToString(),mobileTextureTier=mobile,skinning=asset.Skinning.ToString(),
                     testedModelPath=asset.ModelPath,testedModelSha256=shippingHash,sourceAuditPath=auditPath,sourceAuditSha256=sourceAuditSha256.ToLowerInvariant(),
+                    manifestSha256=manifestHash,boneMap=asset.BoneMap,
                     sourceGlb=sourcePath,sourceGlbSha256=sourceHash,usedNativeNodes,maximumBindError,maximumWeightError,maximumPoseError,maximumProjectileOriginError,
                     eligibleFrames,submittedFrames,fallbackFrames,suppressedFrames,disabledNodeFrames,materialOnFrames,materialOffFrames,brightFrames,outlineFrames,
                     damageFrames,doubleDamageFrames,freezeFrames,ownerStatusFrames,teamFrames,shotFrames,projectiles,poseFrames,maximumAimChange,
+                    ownerFreezeFrames,ownerDamageFrames,ownerAlphaFrames,ownerCloakFrames,turretAlphaFrames,suitRecolors,
                     fallFrames,groundedFrames,entryEdges,exitEdges,morph,unmorph,turretDied,ownerDied,respawned,animations,cases,
                     scope="Separate native Weavel halfturret entity in real scene simulation/render with a bot opponent. Source/audit/shipping hashes are bound exactly. Native lower-body and ballistic-aim barrel transform domains, two-pass node poses, complete skin palettes/inverse binds/normalized loaded weights or enabled rigid node hierarchy, Source samplers/alpha/culling/maps, all owner suits/team/bright/outline/status transitions and native ice overlay are checked. Native team emission remains absent, as authored. Gameplay projectile SpawnPosition is checked against pre-simulation native Position.AddY(0.4), before that tick's turret gravity; TurretTip is a visual joint, not a gameplay muzzle. Falling/collision, turret death, owner death/respawn and launcher biped return are exercised. Statuses/target positions are diagnostic inputs. Companion-map bytes and Source-fit fidelity remain offline-audit responsibilities; visible clipping/resemblance require capture review. No physical Android/display/memory or exhaustive combat-balance claim. The turret itself has no launcher preview."
                 },Json));
