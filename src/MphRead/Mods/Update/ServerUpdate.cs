@@ -136,6 +136,7 @@ namespace MphRead.Mods.Update
             // sweeps was left by an update that has already happened, and a
             // server switched to -noautoupdate afterwards should not keep the
             // debris for ever.
+            ReleaseInstallation.Recover(AppContext.BaseDirectory);
             SweepOld(AppContext.BaseDirectory);
             if (!Enabled || Updater.Disabled)
             {
@@ -290,13 +291,8 @@ namespace MphRead.Mods.Update
             }
             catch (Exception ex)
             {
-                // Loud, because the installation may now be a mix of two
-                // builds and the staged one is still on disk to finish by
-                // hand. The server keeps running on what it has loaded, which
-                // is the old build in memory -- correct until it restarts.
-                Console.WriteLine($"[update] the copy failed: {ex.Message}");
-                Console.WriteLine($"[update] the new build is in {staged} -- "
-                    + $"copy it over {target} by hand");
+                Console.WriteLine($"[update] installation was not committed: {ex.Message}");
+                Console.WriteLine($"[update] the staged build remains in {staged}; retry after resolving the error.");
                 Staged = false;
                 return false;
             }
@@ -321,90 +317,12 @@ namespace MphRead.Mods.Update
             return true;
         }
 
-        /// <summary>
-        /// Copy <paramref name="source"/> over <paramref name="target"/> while
-        /// the target is in use.
-        ///
-        /// Getting the running program out of the way is the whole problem,
-        /// and the two platforms solve it differently.
-        ///
-        /// **Unix**: the delete is what makes this legal. Writing into a file
-        /// this process has mapped would corrupt the running program;
-        /// unlinking it and creating a new one at the same path does not touch
-        /// what is mapped at all -- the old inode stays alive, unnamed, until
-        /// the process exits. A POSIX guarantee.
-        ///
-        /// **Windows**: deleting a running image is refused, and this used to
-        /// stop there -- the copy failed, the operator was told to finish it
-        /// by hand, and the installation was left as a mix of two builds,
-        /// since every file enumerated before the executable had already been
-        /// replaced. A Windows server therefore never updated itself, which
-        /// stopped being cosmetic the moment a protocol bump made a stale
-        /// server one that refuses every client in the world.
-        ///
-        /// But Windows *does* allow a running image to be **renamed**: the
-        /// mapping follows the file, not the name, so moving it aside and
-        /// putting the new build at the old name is legal and atomic. The
-        /// leftover is deleted by the next start (<see cref="SweepOld"/>) --
-        /// it cannot be deleted by this one, which is still running out of it.
-        ///
-        /// So: delete where deleting works, rename aside where it does not,
-        /// and rename the new file into place either way.
-        /// </summary>
+        // Moving originals into the transaction backup preserves mapped images
+        // on Unix and Windows; every file is restored if publication fails.
         private static void ReplaceInPlace(string source, string target)
         {
-            // Client and server packages use the same ownership manifest. Any
-            // release-owned file removed by the new build is deleted before
-            // replacement, while settings/game data/replays remain outside the
-            // manifest and are never inferred as disposable.
-            DesktopUpdate.RemoveObsoleteReleaseFiles(source, target);
-            foreach (string path in Directory.EnumerateFiles(source, "*",
-                SearchOption.AllDirectories))
-            {
-                string relative = Path.GetRelativePath(source, path);
-                string destination = Path.Combine(target, relative);
-                string? directory = Path.GetDirectoryName(destination);
-                if (!String.IsNullOrEmpty(directory))
-                {
-                    Directory.CreateDirectory(directory);
-                }
-                string incoming = destination + IncomingSuffix;
-                File.Copy(path, incoming, overwrite: true);
-                if (File.Exists(destination))
-                {
-                    Displace(destination);
-                }
-                File.Move(incoming, destination);
-                MakeExecutable(destination);
-            }
-        }
-
-        /// <summary>
-        /// Get one file out of the way: deleted if this machine will delete
-        /// it, renamed aside if it will not.
-        ///
-        /// The rename is tried second rather than first because a delete
-        /// leaves nothing behind and a rename leaves something for the next
-        /// start to tidy. On Unix the delete always works; on Windows it works
-        /// for every file except the ones this process is running out of,
-        /// which is exactly the set that has to be renamed.
-        /// </summary>
-        private static void Displace(string destination)
-        {
-            try
-            {
-                File.Delete(destination);
-                return;
-            }
-            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
-            {
-                // In use. Fall through to the rename, and let *that* throw if
-                // this is a file nothing can do anything with -- a genuine
-                // permission problem should still reach the operator.
-            }
-            string aside = destination + OldSuffix;
-            File.Delete(aside); // no-op when it is not there; a stale one otherwise
-            File.Move(destination, aside);
+            ReleaseInstallation.Apply(source, target);
+            MakeExecutable(Path.Combine(target, UpdateCheck.BinaryName()));
         }
 
         /// <summary>
