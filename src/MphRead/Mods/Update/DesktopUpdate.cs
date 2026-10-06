@@ -225,22 +225,16 @@ namespace MphRead.Mods.Update
             IReadOnlyList<string>? relaunchArgs = null)
         {
             Console.WriteLine($"[update] applying to {target}");
-            WaitForExit(waitFor);
             string source = AppContext.BaseDirectory;
             try
             {
-                EnsureReleaseManifest(source);
-                RemoveObsoleteReleaseFiles(source, target);
-                Copy(source, target);
+                ReleaseInstallation.WaitForExit(waitFor);
+                ReleaseInstallation.Apply(source, target);
             }
             catch (Exception ex)
             {
-                // Half a copy is the one outcome worth being loud about: the
-                // installation may be a mix of two builds, and the staged one
-                // is still on disk to finish by hand.
-                Console.WriteLine($"[update] the copy failed: {ex.Message}");
-                Console.WriteLine($"[update] the new build is in {source} -- "
-                    + $"copy it over {target} by hand");
+                Console.WriteLine($"[update] installation was not committed: {ex.Message}");
+                Console.WriteLine($"[update] the staged build remains in {source}; retry after resolving the error.");
                 return 1;
             }
             try
@@ -268,76 +262,6 @@ namespace MphRead.Mods.Update
         }
 
         /// <summary>
-        /// Wait for the old process to be gone, and give up rather than hang.
-        ///
-        /// Thirty seconds is far longer than a launcher takes to close and
-        /// short enough that a process which is never going to exit -- one
-        /// stuck on a dialog, one already replaced by something else with the
-        /// same id -- does not leave this waiting for ever with nothing on
-        /// screen.
-        /// </summary>
-        private static void WaitForExit(int pid)
-        {
-            try
-            {
-                using Process old = Process.GetProcessById(pid);
-                if (!old.WaitForExit(30_000))
-                {
-                    Console.WriteLine($"[update] process {pid} is still running; carrying on");
-                }
-            }
-            catch (ArgumentException)
-            {
-                // Already gone, which is the normal case: it exits the moment
-                // it has started this one.
-            }
-            // Windows keeps a file handle a moment past exit, and virus
-            // scanners keep it longer. The copy retries anyway; this is the
-            // cheap part of not needing to.
-            Thread.Sleep(400);
-        }
-
-        private static void Copy(string source, string target)
-        {
-            foreach (string path in Directory.EnumerateFiles(source, "*",
-                SearchOption.AllDirectories))
-            {
-                string relative = Path.GetRelativePath(source, path);
-                string destination = Path.Combine(target, relative);
-                string? directory = Path.GetDirectoryName(destination);
-                if (!String.IsNullOrEmpty(directory))
-                {
-                    Directory.CreateDirectory(directory);
-                }
-                CopyWithRetries(path, destination);
-            }
-        }
-
-        /// <summary>
-        /// A file that is still held is a file that will be free in a moment,
-        /// not a failed update. The binary itself is the one this happens to.
-        /// </summary>
-        private static void CopyWithRetries(string from, string to)
-        {
-            for (int attempt = 0; ; attempt++)
-            {
-                try
-                {
-                    File.Copy(from, to, overwrite: true);
-                    return;
-                }
-                catch (IOException) when (attempt < 20)
-                {
-                    Thread.Sleep(250);
-                }
-                catch (UnauthorizedAccessException) when (attempt < 20)
-                {
-                    Thread.Sleep(250);
-                }
-            }
-        }
-
-        /// <summary>
         /// Remove what a previous update left behind.
         ///
         /// Called at startup, because the copying process cannot delete the
@@ -347,6 +271,9 @@ namespace MphRead.Mods.Update
         public static void Clean()
         {
             if (OperatingSystem.IsMacOS()) { return; }
+            // Recovery must precede staging cleanup. A failed rollback keeps its
+            // journal and stops startup instead of silently accepting mixed files.
+            ReleaseInstallation.Recover(AppContext.BaseDirectory);
             try
             {
                 if (Directory.Exists(Staging))
@@ -360,142 +287,14 @@ namespace MphRead.Mods.Update
             }
         }
 
-        public const string ReleaseManifestName = ".project-prime-files.json";
-        private const int ReleaseManifestVersion = 1;
-
-        private sealed record ReleaseManifest(
-            int Version,
-            string[] Files,
-            Dictionary<string, string>? Hashes = null);
-
-        /// <summary>
-        /// Make staged/fresh packages self-describing. New release archives
-        /// already contain this file, but generating it here keeps upgrades
-        /// from older packages safe too.
-        /// </summary>
-        private static void EnsureReleaseManifest(string root)
-        {
-            string path = Path.Combine(root, ReleaseManifestName);
-            if (File.Exists(path)) return;
-            var files = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
-                .Select(file => Path.GetRelativePath(root, file).Replace('\\', '/'))
-                .Where(file => !String.Equals(file, ReleaseManifestName,
-                    StringComparison.OrdinalIgnoreCase))
-                .OrderBy(file => file, StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-            var hashes = files.ToDictionary(
-                relative => relative,
-                relative => HashFile(Path.Combine(root,
-                    relative.Replace('/', Path.DirectorySeparatorChar))),
-                StringComparer.OrdinalIgnoreCase);
-            File.WriteAllText(path, JsonSerializer.Serialize(
-                new ReleaseManifest(ReleaseManifestVersion, files, hashes)));
-        }
-
-        private static ReleaseManifest? ReadReleaseManifest(string root)
-        {
-            try
-            {
-                string path = Path.Combine(root, ReleaseManifestName);
-                if (!File.Exists(path)) return null;
-                ReleaseManifest? manifest = JsonSerializer.Deserialize<ReleaseManifest>(
-                    File.ReadAllText(path));
-                return manifest?.Version == ReleaseManifestVersion ? manifest : null;
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
-                or JsonException)
-            {
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Delete only files the previous release explicitly owned. Player
-        /// data is never inferred from absence in the new archive.
-        /// </summary>
-        internal static void RemoveObsoleteReleaseFiles(string source, string target)
-        {
-            ReleaseManifest? next = ReadReleaseManifest(source);
-            if (next == null) return;
-            var keep = next.Files.ToHashSet(StringComparer.OrdinalIgnoreCase);
-            ReleaseManifest? previous = ReadReleaseManifest(target);
-            if (previous != null)
-            {
-                foreach (string relative in previous.Files)
-                {
-                    if (keep.Contains(relative)) continue;
-                    DeleteOwnedFile(target, relative);
-                }
-                RemoveEmptyReleaseDirectories(target, previous.Files, keep);
-                return;
-            }
-
-            // Pre-manifest installs: remove only old executable/runtime names
-            // Project Prime itself has used. Never sweep arbitrary files.
-            foreach (string path in Directory.EnumerateFiles(target, "*",
-                SearchOption.TopDirectoryOnly))
-            {
-                string name = Path.GetFileName(path);
-                string relative = Path.GetRelativePath(target, path).Replace('\\', '/');
-                if (keep.Contains(relative)) continue;
-                bool legacy = name.Equals("MphRead", StringComparison.OrdinalIgnoreCase)
-                    || name.Equals("MphRead.exe", StringComparison.OrdinalIgnoreCase)
-                    || name.Equals("FruityPrime", StringComparison.OrdinalIgnoreCase)
-                    || name.Equals("FruityPrime.exe", StringComparison.OrdinalIgnoreCase)
-                    || name.Equals("PrimeHuntersOnline", StringComparison.OrdinalIgnoreCase)
-                    || name.Equals("PrimeHuntersOnline.exe", StringComparison.OrdinalIgnoreCase)
-                    || name.StartsWith("MphRead.", StringComparison.OrdinalIgnoreCase)
-                    || name.StartsWith("FruityPrime.", StringComparison.OrdinalIgnoreCase)
-                    || name.StartsWith("PrimeHuntersOnline.", StringComparison.OrdinalIgnoreCase);
-                if (legacy)
-                {
-                    try { File.Delete(path); }
-                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-                }
-            }
-        }
-
-        private static void DeleteOwnedFile(string root, string relative)
-        {
-            try
-            {
-                string fullRoot = Path.GetFullPath(root);
-                string path = Path.GetFullPath(Path.Combine(root,
-                    relative.Replace('/', Path.DirectorySeparatorChar)));
-                if (!path.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase)) return;
-                if (File.Exists(path)) File.Delete(path);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
-                or ArgumentException) { }
-        }
-
-        private static void RemoveEmptyReleaseDirectories(string target,
-            IEnumerable<string> previous, HashSet<string> keep)
-        {
-            var directories = previous.Where(path => !keep.Contains(path))
-                .Select(path => Path.GetDirectoryName(path.Replace('/',
-                    Path.DirectorySeparatorChar)))
-                .Where(path => !String.IsNullOrEmpty(path))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderByDescending(path => path!.Length);
-            foreach (string? relative in directories)
-            {
-                try
-                {
-                    string directory = Path.Combine(target, relative!);
-                    if (Directory.Exists(directory)
-                        && !Directory.EnumerateFileSystemEntries(directory).Any())
-                    {
-                        Directory.Delete(directory);
-                    }
-                }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
-            }
-        }
+        public const string ReleaseManifestName = ReleaseInstallation.ManifestName;
 
         public static string VerifyInstallation()
         {
-            ReleaseManifest? manifest = ReadReleaseManifest(AppContext.BaseDirectory);
+            ReleaseInstallation.Manifest? manifest;
+            try { manifest = ReleaseInstallation.ReadManifest(AppContext.BaseDirectory); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+            { return "Invalid release manifest: " + ex.Message; }
             if (manifest == null)
             {
                 return "No release manifest yet. The next in-app update will create one.";
@@ -503,8 +302,7 @@ namespace MphRead.Mods.Update
             int missing = 0, changed = 0;
             foreach (string relative in manifest.Files)
             {
-                string path = Path.Combine(AppContext.BaseDirectory,
-                    relative.Replace('/', Path.DirectorySeparatorChar));
+                string path = ReleaseInstallation.OwnedPath(AppContext.BaseDirectory, relative);
                 if (!File.Exists(path))
                 {
                     missing++;
@@ -515,7 +313,7 @@ namespace MphRead.Mods.Update
                 {
                     try
                     {
-                        if (!String.Equals(HashFile(path), expected,
+                        if (!String.Equals(ReleaseInstallation.Hash(path), expected,
                             StringComparison.OrdinalIgnoreCase))
                         {
                             changed++;
@@ -534,12 +332,6 @@ namespace MphRead.Mods.Update
                     : $"Release files verified ({manifest.Files.Length} SHA-256 checks passed).";
             }
             return $"{missing} release file(s) missing; {changed} file(s) failed SHA-256 verification.";
-        }
-
-        private static string HashFile(string path)
-        {
-            using var stream = File.OpenRead(path);
-            return Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
         }
 
         private static void MakeExecutable(string path)
