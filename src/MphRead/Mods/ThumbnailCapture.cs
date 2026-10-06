@@ -82,7 +82,8 @@ namespace MphRead.Mods
 #endif
             _asked = new Vector2i(width, height);
             _roomKey = roomKey;
-            _settleFrames = SettleFrames;
+            _settleFrames = Math.Max(SettleFrames,
+                Launcher.LauncherMenuStage.ForRoom(roomKey).IntroFrame);
             Scene = new Scene(Size, KeyboardState, MouseState, _ => { }, Close);
             // A player must exist for the multiplayer intro path to run:
             // GameState sets the sequence up against PlayerEntity.Main's
@@ -288,7 +289,7 @@ namespace MphRead.Mods
         {
             try
             {
-                ThumbnailMode.Enter();
+                ThumbnailMode.Enter(roomKey);
                 // The world a room is photographed in has to be the same world
                 // every time, and it is static: the player roster, the match
                 // state and the RNG all outlive a Scene. That cost nothing
