@@ -129,7 +129,7 @@
                 </div>
                 <div class="session_empty" data-if="home_friends.size == 0">NO FRIENDS ONLINE</div>
                 <button id="home_social" class="session_social" data-event-click="open_social">OPEN SOCIAL</button>
-                <div class="session_hint">INVITES AND JOIN FRIEND ARRIVE IN SOCIAL SLICE 4.</div>
+                <div class="session_hint">SOCIAL JOINS VERIFY THE LIVE SERVER BEFORE DEPLOYMENT.</div>
             </div>
         </div>
 
@@ -160,7 +160,14 @@
                             data-event-click="social_requests">
                         REQUESTS <span class="social_tab_count">{{social_request_count}}</span>
                     </button>
+                    <button id="social_tab_invites" class="social_tab"
+                            data-class-selected="social_tab == 3"
+                            data-event-click="social_invites">
+                        INVITES <span class="social_tab_count">{{social_invite_count}}</span>
+                    </button>
                 </div>
+
+                <div class="social_notice" data-if="social_notice != ''">{{social_notice}}</div>
 
                 <div class="social_search_row">
                     <input id="social_search" type="text" maxlength="48"
@@ -199,7 +206,7 @@
 
                 <div class="social_footer">
                     <button id="social_blocks" class="social_footer_button"
-                            data-class-selected="social_tab == 3"
+                            data-class-selected="social_tab == 4"
                             data-event-click="social_blocks">MANAGE BLOCKS</button>
                     <button id="social_refresh" class="social_footer_button"
                             data-event-click="social_refresh">REFRESH</button>
@@ -216,6 +223,11 @@
                     </div>
                     <div class="social_context_state">{{selected_activity}}<span data-if="selected_detail != ''"> // {{selected_detail}}</span></div>
                     <div class="social_context_actions">
+                        <button class="social_action primary" data-if="selected_can_join" data-event-click="social_join_friend">JOIN FRIEND</button>
+                        <button class="social_action primary" data-if="selected_can_invite" data-event-click="social_invite_friend">INVITE TO LOBBY</button>
+                        <button class="social_action primary" data-if="selected_can_accept_invite" data-event-click="social_accept_invite">ACCEPT GAME INVITE</button>
+                        <button class="social_action" data-if="selected_can_decline_invite" data-event-click="social_decline_invite">DECLINE GAME INVITE</button>
+                        <button class="social_action" data-if="selected_can_cancel_invite" data-event-click="social_cancel_invite">CANCEL GAME INVITE</button>
                         <button class="social_action primary" data-if="selected_can_add" data-event-click="social_add">ADD FRIEND</button>
                         <button class="social_action primary" data-if="selected_can_accept" data-event-click="social_accept">ACCEPT REQUEST</button>
                         <button class="social_action" data-if="selected_can_decline" data-event-click="social_decline">DECLINE</button>
@@ -224,7 +236,7 @@
                         <button class="social_action danger" data-if="selected_can_block" data-event-click="social_block">BLOCK PLAYER</button>
                         <button class="social_action primary" data-if="selected_can_unblock" data-event-click="social_unblock">UNBLOCK PLAYER</button>
                     </div>
-                    <div class="social_context_note">JOIN FRIEND AND GAME INVITES ARE RESERVED FOR SLICE 4'S AUTHENTICATED LOBBY RESOLVER.</div>
+                    <div class="social_context_note">JOIN TARGETS ARE RE-VERIFIED AGAINST THE PUBLIC DIRECTORY AND LIVE SERVER AUTHORITY BEFORE CONNECTION.</div>
                 </div>
             </div>
         </div>
