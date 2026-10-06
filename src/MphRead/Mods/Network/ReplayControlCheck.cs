@@ -90,6 +90,7 @@ namespace MphRead.Mods.Network
 
                 Console.WriteLine("[replaycheck] timing: rates, presentation independence and deterministic receive clock passed");
                 Replay.ReplayCameraTrackCheck.Run();
+                Diagnostics.CollisionCandidatePoolCheck.Run(Require);
                 Replay.ReplayReviewCheck.Run(Require);
                 Replay.ReplayHardeningCheck.Run(Require);
                 var poseA = new PlayerState { SlotGeneration = 1, LifeId = 1, Health = 99,

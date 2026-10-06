@@ -16,6 +16,8 @@ static class CustomCollisionChecks
     public static void Run(Action<bool, string> check)
     {
         CollisionDetection.Init();
+        // This asset-free Scene skips the normal runtime/player volume setup.
+        PlayerEntity.GeneratePlayerVolumes();
         var scene = new Scene(new Vector2i(256, 192), SyntheticInput.CreateKeyboard(),
             SyntheticInput.CreateMouse(), _ => { }, () => { }, initializeRuntime: false);
         var room = new RoomEntity(scene);
@@ -124,8 +126,11 @@ static class CustomCollisionChecks
         int outerEdgeCount = CollisionDetection.CheckSphereBetweenPointsRobust(seamCandidates,
             outerEdgePoint + Vector3.UnitY, outerEdgePoint - Vector3.UnitY, 0.5f, seamResults.Length,
             includeOffset: true, TestFlags.Players, scene, seamResults);
+        // At first contact (t=.3), center=(-.3,.4,2), closest edge=(0,0,2).
+        // Dividing their displacement by radius .5 gives normal=(-.6,.8,0).
+        Vector3 expectedEdgeNormal=new(-.6f,.8f,0);
         check(outerEdgeCount > 0 && seamResults.Take(outerEdgeCount).Any(result =>
-                result.Field0 == 1 && result.Plane.X < -0.9f && MathF.Abs(result.Plane.Y) < 0.1f),
+                result.Field0 == 1 && Vector3.Distance(new(result.Plane.X,result.Plane.Y,result.Plane.Z),expectedEdgeNormal)<.001f),
             "robust outer-edge contact exposes a radial slide normal");
         float outerEdgeImpact = seamResults.Take(outerEdgeCount)
             .Where(result => result.Field0 == 1).Min(result => result.Distance);

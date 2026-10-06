@@ -361,8 +361,9 @@ internal static class AltFormAcceptanceCheck
                             Require(!all.Any(p=>p.Type == RenderItemType.Mesh && supplementLists.Contains(p.ListId)),
                                 "Native alternate overlay remained after the form switch.");
                         }
-                        foreach (var bomb in scene.Entities.OfType<BombEntity>().Where(b=>b.Owner == target))
+                        foreach (var entity in scene.Entities)
                         {
+                            if (entity is not BombEntity bomb || bomb.Owner != target) continue;
                             bombs=true; bombFrames++; bombTypes.Add(bomb.BombType.ToString());
                             if (bomb.Effect != null && !bomb.Effect.IsFinished)
                             { bombEffectFrames++; nativeEffectIds.Add(bomb.Effect.EffectId); }

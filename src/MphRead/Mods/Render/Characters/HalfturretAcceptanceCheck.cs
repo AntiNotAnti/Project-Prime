@@ -24,6 +24,9 @@ internal static class HalfturretAcceptanceCheck
     private static readonly JsonSerializerOptions Json=new() { WriteIndented=true };
     private static T Field<T>(object owner,string name)=>(T)owner.GetType().GetField(name,Private)!.GetValue(owner)!;
     private static void Set(object owner,string name,object value)=>owner.GetType().GetField(name,Private)!.SetValue(owner,value);
+    private static void SetFlags(PlayerEntity owner,PlayerFlags2 flags)=>typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(owner,flags);
+    private static bool Present(Scene scene,EntityBase target)
+    { foreach (var entity in scene.Entities) if (ReferenceEquals(entity,target)) return true;return false; }
     private static void Require(bool value,string message) { if (!value) throw new InvalidOperationException(message); }
     private static string Sha(string path)=>Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
     private static void Hold(Keybind key) { key.IsDown=true; key.IsPressed=true; }
@@ -184,7 +187,7 @@ internal static class HalfturretAcceptanceCheck
                         scene.GameState.Teams=false;owner.Team=Team.None;owner.Recolor=0;
                         RenderOptions.BrightSkins=false;RenderOptions.PlayerOutline=PlayerOutlineStyle.Off;
                         Set(owner,"_doubleDmgTimer",(ushort)0);owner.ModSetFrozen(false);turret.Alpha=1;
-                        owner.Flags2 &= ~PlayerFlags2.Cloaking;Set(owner,"_cloakTimer",(ushort)0);Set(owner,"_curAlpha",1f);Set(owner,"_targetAlpha",1f);
+                        SetFlags(owner,owner.Flags2 & ~PlayerFlags2.Cloaking);Set(owner,"_cloakTimer",(ushort)0);Set(owner,"_curAlpha",1f);Set(owner,"_targetAlpha",1f);
                     }
                     if (stage.Name is "materials-on" or "materials-restored") RenderOptions.AdvancedMaterials=true;
                     if (stage.Name == "materials-off") RenderOptions.AdvancedMaterials=false;
@@ -216,8 +219,8 @@ internal static class HalfturretAcceptanceCheck
                     if (stage.Name == "owner-damage") owner.TakeDamage(10,DamageFlags.IgnoreInvuln|DamageFlags.NoDmgInvuln,null,opponent);
                     if (stage.Name == "owner-freeze") owner.ModSetFrozen(true);
                     if (stage.Name == "owner-thaw") owner.ModSetFrozen(false);
-                    if (stage.Name == "owner-cloak") {Set(owner,"_cloakTimer",(ushort)240);owner.Flags2 |= PlayerFlags2.Cloaking;}
-                    if (stage.Name == "owner-visible") {owner.Flags2 &= ~PlayerFlags2.Cloaking;Set(owner,"_cloakTimer",(ushort)0);}
+                    if (stage.Name == "owner-cloak") {Set(owner,"_cloakTimer",(ushort)240);SetFlags(owner,owner.Flags2 | PlayerFlags2.Cloaking);}
+                    if (stage.Name == "owner-visible") {SetFlags(owner,owner.Flags2 & ~PlayerFlags2.Cloaking);Set(owner,"_cloakTimer",(ushort)0);}
                     if (stage.Name == "owner-alpha") {Set(owner,"_curAlpha",.7f);Set(owner,"_targetAlpha",.7f);}
                     if (stage.Name == "fall-collision") {turret.Position=turret.Position.AddY(1.2f);turret.ResetGroundedState();}
                     if (stage.Name == "turret-death") turret.Die();
@@ -232,7 +235,7 @@ internal static class HalfturretAcceptanceCheck
                             && owner.Flags2.TestFlag(PlayerFlags2.Halfturret)) turret.Health=999;
                         if ((stage.Name is "split" or "unmorph" or "resplit" or "unmorph-after-turret-death" or "third-split") && age == 0) Hold(owner.Controls.Morph);
                         if (stage.Name is "bright" or "outline-red" or "team-orange" or "team-green") Set(owner,"_timeSinceDamage",(ushort)255);
-                        bool activeBefore=turret.Health > 0 && owner.Flags2.TestFlag(PlayerFlags2.Halfturret) && scene.Entities.Contains(turret);
+                        bool activeBefore=turret.Health > 0 && owner.Flags2.TestFlag(PlayerFlags2.Halfturret) && Present(scene,turret);
                         // Deployment may insert and process the turret in this
                         // same native tick. Start its cooldown at zero so firing
                         // begins only once a pre-tick turret pose is observable.
@@ -247,7 +250,7 @@ internal static class HalfturretAcceptanceCheck
                         else opponent.Position=(activeBefore ? turret.Position : owner.Position)+new Vector3(7,0,7);
                         if (opponent.Health > 0) opponent.Health=999;
                         scene.OnSimulationFrame();
-                        bool active=turret.Health > 0 && owner.Flags2.TestFlag(PlayerFlags2.Halfturret) && scene.Entities.Contains(turret);
+                        bool active=turret.Health > 0 && owner.Flags2.TestFlag(PlayerFlags2.Halfturret) && Present(scene,turret);
                         if (!observedActive && active) entryEdges++;if (observedActive && !active) exitEdges++;
                         observedActive=active;
                         morph |= owner.IsMorphing;unmorph |= owner.IsUnmorphing;
