@@ -344,6 +344,20 @@ namespace MphRead.Mods.Launcher.Gui
                 else
                     RequestQuit();
             }
+            if (RmlUiPrototype.Active
+                && RmlUiPrototype.TryTakeSocialJoin(out SocialJoinResolution socialJoin))
+            {
+                RmlUiPrototype.Shutdown();
+                if (!GuiLauncher.EnsureSetup() || UiSurface.Ensure() == null)
+                {
+                    RequestQuit();
+                }
+                else
+                {
+                    ShowFrontScreen();
+                    _front?.JoinVerifiedSocialLobby(socialJoin.Host, socialJoin.Port);
+                }
+            }
             while (RmlUiPrototype.Active && RmlUiPrototype.TryTakeCommand(out string rmlCommand))
             {
                 if (rmlCommand == "quit")
