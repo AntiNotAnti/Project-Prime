@@ -134,6 +134,7 @@ namespace MphRead.Mods.Render
             Wanted = false;
             CanPresent = null;
             TransparentBackground = false;
+            Scene.LauncherPreviewTransparent = false;
             Drawn = false;
             _failureCount = 0;
             _retryAfter = 0;
