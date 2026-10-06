@@ -413,6 +413,12 @@ namespace MphRead.Mods.Launcher.Gui
             finally
             {
                 completedCancel?.Dispose();
+                // The player may have selected another activity while this
+                // worker was rendering. Chain the current room now that the
+                // single preview-worker slot is free.
+                if (_active && !String.Equals(room, LauncherBackdrop.RoomKey,
+                    StringComparison.OrdinalIgnoreCase))
+                    BeginMenuStageRefresh(HubState.Capture());
             }
         }
 
