@@ -616,6 +616,41 @@ namespace MphRead.Mods.Launcher
         }
 
         /// <summary>
+        /// Borrow the current verified Supabase session for a scoped transport
+        /// such as Realtime. The identity gate is held only while refreshing
+        /// credentials; the caller never blocks ordinary Hunter License/social
+        /// requests for the lifetime of a WebSocket.
+        /// </summary>
+        internal static async Task<T> WithAuthenticatedSessionAsync<T>(
+            Func<AuthenticatedSessionContext, CancellationToken, Task<T>> action,
+            CancellationToken cancellationToken = default)
+        {
+            AuthenticatedSessionContext context;
+            await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                AuthSession session = await AuthenticateAsync(cancellationToken).ConfigureAwait(false);
+                string userId = session.User?.Id ?? "";
+                if (userId.Length == 0)
+                {
+                    AuthUser user = await GetUserAsync(
+                        session.AccessToken, cancellationToken).ConfigureAwait(false);
+                    userId = user.Id;
+                }
+                if (!Guid.TryParse(userId, out _))
+                    throw new InvalidOperationException("Supabase Auth returned no stable user ID.");
+                context = new AuthenticatedSessionContext(
+                    Url, Key, session.AccessToken, userId, session.ExpiresAt);
+            }
+            finally
+            {
+                Gate.Release();
+            }
+
+            return await action(context, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// Invoke another first-party Supabase Edge Function through the same
         /// authenticated session used by Hunter License without exposing the
         /// access token to callers.
