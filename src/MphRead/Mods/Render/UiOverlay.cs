@@ -192,6 +192,19 @@ namespace MphRead.Mods.Render
             // overlay blends premultiplied, which is the same "over" Avalonia
             // applied when it owned both layers.
             LauncherPhoto.Draw(width, height);
+#if MPHREAD_RMLUI_POC
+            if (Mods.Launcher.Gui.RmlUiPrototype.Active)
+            {
+                // The proof is a real game overlay: cinematic backdrop, engine
+                // Hunter, then vector UI. No CPU-rasterized full-window texture.
+                LauncherHunter.Draw(window, width, height);
+                // The fixed-function RmlUi renderer samples unit 0. The scene
+                // and preview are free to leave a different unit active.
+                GL.ActiveTexture(TextureUnit.Texture0);
+                Mods.Launcher.Gui.RmlUiPrototype.Render(width, height);
+                return;
+            }
+#endif
 #if MPHREAD_SHELL
             Mods.Launcher.Gui.UiSurface.Current?.DrawMapViewport(width, height);
 #endif
