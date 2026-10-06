@@ -133,25 +133,65 @@ jobs:
       - run: dotnet run --project tools/android-pacing-check -c Release
 
   rmlui-home-poc:
-    name: RmlUi home POC compile gate
+    name: RmlUi home POC Linux render gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
-      - name: install native build dependencies
+      - name: install native and window dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y build-essential cmake libgl1-mesa-dev
+          sudo apt-get install -y build-essential cmake libgl1-mesa-dev \
+            xvfb xauth libgl1 libglx-mesa0 libxinerama1 libxcursor1 libxi6
       - name: build pinned RmlUi 6.3 bridge
         run: bash tools/rmlui/build-native.sh linux-x64
+      - name: publish opt-in Project Prime host
+        run: >
+          dotnet publish src/MphRead/MphRead.csproj
+          -c Release -r linux-x64
+          -p:MphReadRmlUiPoc=true
+          --self-contained true -p:PublishSingleFile=true
+          -o publish/rmlui-linux
+      - name: open the real RmlUi shell and capture the final composite
+        run: |
+          chmod +x publish/rmlui-linux/ProjectPrime
+          xvfb-run -a --server-args="-screen 0 1920x1080x24" \
+            publish/rmlui-linux/ProjectPrime \
+            -rmluipocshot "$RUNNER_TEMP/rmlui-proof" -renderer opengl -noupdate
+          test -s "$RUNNER_TEMP/rmlui-proof/rmlui-home.png"
+      - name: RmlUi proof capture
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-home-proof
+          path: ${{ runner.temp }}/rmlui-proof
+          if-no-files-found: warn
+
+  rmlui-home-poc-macos:
+    name: RmlUi home POC macOS ${{ matrix.rid }} compile gate
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: osx-arm64
+            runner: macos-latest
+          - rid: osx-x64
+            runner: macos-15-intel
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: build pinned RmlUi 6.3 bridge
+        run: bash tools/rmlui/build-native.sh "${{ matrix.rid }}"
       - name: compile opt-in Project Prime host
         run: >
           dotnet build src/MphRead/MphRead.csproj
-          -c Release -r linux-x64
+          -c Release -r "${{ matrix.rid }}"
           -p:MphReadRmlUiPoc=true
-
   desktop-pacing-policy:
     name: Desktop frame pacing policy
     runs-on: ubuntu-latest
