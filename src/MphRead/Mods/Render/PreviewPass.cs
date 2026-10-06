@@ -69,6 +69,12 @@ namespace MphRead
 
         public static int LauncherSuit { get; set; }
 
+        /// <summary>
+        /// When true the launcher preview keeps the already-drawn cinematic
+        /// color buffer and clears only depth inside its scissor rectangle.
+        /// </summary>
+        public static bool LauncherPreviewTransparent { get; set; }
+
         /// <summary>Did anybody ask for a preview this frame?</summary>
         private static bool PreviewAsked => Mods.EndScreen.Available || LauncherPreview;
 
@@ -404,13 +410,23 @@ namespace MphRead
             }
             GL.Enable(EnableCap.ScissorTest);
             GL.Scissor(x, y, width, height);
-            GL.ClearColor(_previewBack);
-            // Depth as well as colour, and this is the point of the whole
-            // pass: the world's depth buffer is full of a level the model is
-            // nowhere near, and without clearing it the hunter would be behind
-            // a wall it is not standing near.
-            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
-            GL.ClearColor(0, 0, 0, 0);
+            // Direct game-UI overlays already have their cinematic color
+            // behind this model, so keep it. The old preview-card path still
+            // clears to its opaque background exactly as before.
+            if (LauncherPreview && LauncherPreviewTransparent)
+            {
+                GL.Clear(ClearBufferMask.DepthBufferBit);
+            }
+            else
+            {
+                GL.ClearColor(_previewBack);
+                // Depth as well as colour, and this is the point of the whole
+                // pass: the world's depth buffer is full of a level the model
+                // is nowhere near, and without clearing it the hunter would be
+                // behind a wall it is not standing near.
+                GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+                GL.ClearColor(0, 0, 0, 0);
+            }
             GL.Viewport(x, y, width, height);
             Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView(
                 MathHelper.DegreesToRadians(PreviewFov),

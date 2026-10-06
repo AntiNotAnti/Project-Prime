@@ -60,6 +60,13 @@ namespace MphRead.Mods.Render
         public static int Suit { get; set; }
 
         /// <summary>
+        /// Leave the cinematic launcher color intact and clear only depth in
+        /// the preview rectangle. The current Avalonia stand keeps the opaque
+        /// preview background; direct game-UI overlays can opt into this.
+        /// </summary>
+        public static bool TransparentBackground { get; set; }
+
+        /// <summary>
         /// Where it goes, in fractions of the window: left, top, right,
         /// bottom, measured down from the top the way a screen's own
         /// coordinates are.
@@ -126,10 +133,12 @@ namespace MphRead.Mods.Render
         {
             Wanted = false;
             CanPresent = null;
+            TransparentBackground = false;
             Drawn = false;
             _failureCount = 0;
             _retryAfter = 0;
             Scene.LauncherPreview = false;
+            Scene.LauncherPreviewTransparent = false;
             Scene.PreviewDrawnLastFrame = false;
         }
 
@@ -187,6 +196,7 @@ namespace MphRead.Mods.Render
                 Scene.LauncherPreview = true;
                 Scene.LauncherHunter = Hunter;
                 Scene.LauncherSuit = Math.Clamp(Suit, 0, 3);
+                Scene.LauncherPreviewTransparent = TransparentBackground;
                 Scene.PreviewWanted = true;
                 Scene.PreviewLeft = Left;
                 Scene.PreviewTop = Top;

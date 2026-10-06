@@ -47,7 +47,16 @@ namespace MphRead.Mods.Launcher.Gui
         public static bool Active { get; private set; }
 
         /// <summary>Is a screen up and taking the input?</summary>
-        public static bool UiVisible => UiSurface.Current?.Visible == true;
+        public static bool UiVisible
+        {
+            get
+            {
+#if MPHREAD_RMLUI_POC
+                if (RmlUiPrototype.Active) return true;
+#endif
+                return UiSurface.Current?.Visible == true;
+            }
+        }
 
         /// <summary>The one window, for anything that needs to own a dialog.</summary>
         internal static RenderWindow? Window => _window;
@@ -136,11 +145,23 @@ namespace MphRead.Mods.Launcher.Gui
         private static bool RunSession()
         {
             LifecycleTiming.Startup("shell session begin");
-            if (UiSurface.Ensure() == null)
+#if MPHREAD_RMLUI_POC
+            bool rmlUiOnlyStartup = RmlUiPrototype.Requested;
+#else
+            bool rmlUiOnlyStartup = false;
+#endif
+            if (!rmlUiOnlyStartup)
             {
-                return false;
+                if (UiSurface.Ensure() == null)
+                {
+                    return false;
+                }
+                LifecycleTiming.Startup("UI surface ready");
             }
-            LifecycleTiming.Startup("UI surface ready");
+            else
+            {
+                LifecycleTiming.Startup("RmlUi proof requested; Avalonia surface deferred");
+            }
             LauncherPrefs.Load();
             LifecycleTiming.Startup("launcher preferences loaded");
             Interlocked.Exchange(ref _firstFrameStarted, 0);
@@ -179,7 +200,24 @@ namespace MphRead.Mods.Launcher.Gui
                 _window = window;
                 Active = true;
                 OfflineRematch.StartNext = PlayAnother;
-                ShowFrontScreen();
+                bool showClassicFront = true;
+#if MPHREAD_RMLUI_POC
+                if (RmlUiPrototype.Requested)
+                {
+                    bool rmlUiActivated = RmlUiPrototype.TryActivate(window);
+                    if (!rmlUiActivated && RmlUiPrototype.CaptureRequested)
+                        return false;
+                    showClassicFront = !rmlUiActivated;
+                }
+#endif
+                if (showClassicFront)
+                {
+#if MPHREAD_RMLUI_POC
+                    if (!GuiLauncher.EnsureSetup() || UiSurface.Ensure() == null)
+                        return false;
+#endif
+                    ShowFrontScreen();
+                }
                 LifecycleTiming.Startup("front screen ready");
                 window.Run();
                 sessionCompleted = true;
@@ -231,6 +269,11 @@ namespace MphRead.Mods.Launcher.Gui
                     if (!Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested)
                     {
                         window.Context.MakeCurrent();
+#if MPHREAD_RMLUI_POC
+                        // The RmlUi bridge owns GL resources and must be torn
+                        // down while this compatibility context is still current.
+                        RmlUiPrototype.Shutdown();
+#endif
                         // Program names are context-local. Any desktop
                         // compatibility-context handoff invalidates the legacy
                         // uniform cache before GL work resumes on this window.
@@ -267,6 +310,58 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 return;
             }
+#if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.Active && !window.HasScene
+                && _deferredCustomRoomsPending is { } rmlPending)
+            {
+                PublishDeferredCustomRooms(rmlPending, _deferredCustomRoomsToken);
+            }
+#endif
+#if MPHREAD_RMLUI_POC
+            // The proof owns only the front screen. If it fails after startup,
+            // or if one of its buttons selects a destination, restore the
+            // existing authoritative shell and continue from there.
+            if (RmlUiPrototype.Requested && RmlUiPrototype.Failed && !window.HasScene
+                && UiSurface.Current?.Visible != true)
+            {
+                if (GuiLauncher.EnsureSetup() && UiSurface.Ensure() != null)
+                    ShowFrontScreen();
+                else
+                    RequestQuit();
+            }
+            while (RmlUiPrototype.Active && RmlUiPrototype.TryTakeCommand(out string rmlCommand))
+            {
+                if (rmlCommand == "quit")
+                {
+                    RequestQuit();
+                    break;
+                }
+
+                PrimeRoute? rmlRoute = rmlCommand switch
+                {
+                    "route:play" => PrimeRoute.Play,
+                    "route:offline" => PrimeRoute.Offline,
+                    "route:hunter" => PrimeRoute.HunterLicense,
+                    "route:forge" => PrimeRoute.Forge,
+                    "route:theatre" => PrimeRoute.Theatre,
+                    "route:settings" => PrimeRoute.Settings,
+                    "route:news" => PrimeRoute.News,
+                    _ => null
+                };
+                if (rmlRoute is { } target)
+                {
+                    RmlUiPrototype.Shutdown();
+                    if (!GuiLauncher.EnsureSetup() || UiSurface.Ensure() == null)
+                    {
+                        RequestQuit();
+                        break;
+                    }
+                    ShowFrontScreen();
+                    _front?.Prime.Router.Navigate(target);
+                    break;
+                }
+            }
+#endif
             if (window.HasScene && window.Scene.AimTrainer is { Completed: true, ResultsShown: false } training
                 && UiSurface.Ensure() is { } trainingSurface)
             {
@@ -345,6 +440,17 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal static void TickUi(RenderWindow window)
         {
+#if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.Active)
+            {
+                // RmlUi renders itself later in UiOverlay.DrawAlone. Nothing
+                // here rasterizes an Avalonia surface or uploads a UI bitmap.
+                NotePointerBasis(window);
+                UiOverlay.Visible = false;
+                RmlUiPrototype.Tick(window);
+                return;
+            }
+#endif
             UiSurface? surface = UiSurface.Current;
             if (surface == null)
             {
@@ -832,6 +938,9 @@ namespace MphRead.Mods.Launcher.Gui
                 StartBackgroundStartupWork();
             }
             Diagnostics.LauncherWindowCheck.AfterDraw(window);
+#if MPHREAD_RMLUI_POC
+            RmlUiPrototype.AfterDraw(window);
+#endif
             ObserveSamusReturn(window);
             if (_shotDirectory == null)
             {
@@ -874,9 +983,22 @@ namespace MphRead.Mods.Launcher.Gui
                     token.ThrowIfCancellationRequested();
                     if (deferred.Length > 0)
                     {
-                        Avalonia.Threading.Dispatcher.UIThread.Post(
-                            () => PublishDeferredCustomRooms(deferred, token),
-                            Avalonia.Threading.DispatcherPriority.Background);
+#if MPHREAD_RMLUI_POC
+                        if (RmlUiPrototype.Active)
+                        {
+                            // Keep the RmlUi-only front screen free of an
+                            // Avalonia dispatcher dependency. The next game
+                            // frame publishes this snapshot on the owner thread.
+                            _deferredCustomRoomsPending = deferred;
+                            _deferredCustomRoomsToken = token;
+                        }
+                        else
+#endif
+                        {
+                            Avalonia.Threading.Dispatcher.UIThread.Post(
+                                () => PublishDeferredCustomRooms(deferred, token),
+                                Avalonia.Threading.DispatcherPriority.Background);
+                        }
                     }
 
                     Maintenance.RunStartup();
@@ -884,9 +1006,14 @@ namespace MphRead.Mods.Launcher.Gui
                     ThumbnailGenerator.EnsureCustomPreviews(
                         line => DebugLog.Line("thumbnails", line), token);
                     token.ThrowIfCancellationRequested();
-                    Avalonia.Threading.Dispatcher.UIThread.Post(
-                        () => _front?.BeginDeferredPreviewCatchup(token),
-                        Avalonia.Threading.DispatcherPriority.Background);
+#if MPHREAD_RMLUI_POC
+                    if (!RmlUiPrototype.Active)
+#endif
+                    {
+                        Avalonia.Threading.Dispatcher.UIThread.Post(
+                            () => _front?.BeginDeferredPreviewCatchup(token),
+                            Avalonia.Threading.DispatcherPriority.Background);
+                    }
                     DebugLog.Line("startup", "post-first-frame work complete");
                 }
                 catch (OperationCanceledException)
@@ -1599,11 +1726,17 @@ namespace MphRead.Mods.Launcher.Gui
 
         public static void PointerMoved(double x, double y)
         {
+#if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.Active) { RmlUiPrototype.PointerMoved(x, y); return; }
+#endif
             UiSurface.Current?.PointerMoved(x, y);
         }
 
         public static void PointerButton(MouseButton button, double x, double y, bool down)
         {
+#if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.Active) { RmlUiPrototype.PointerButton(button, x, y, down); return; }
+#endif
             UiSurface? surface = UiSurface.Current;
             if (surface == null)
             {
@@ -1619,21 +1752,33 @@ namespace MphRead.Mods.Launcher.Gui
 
         public static void PointerWheel(double deltaX, double deltaY)
         {
+#if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.Active) { RmlUiPrototype.PointerWheel(deltaX, deltaY); return; }
+#endif
             UiSurface.Current?.PointerWheel(deltaX, deltaY);
         }
 
         public static void KeyDown(KeyboardKeyEventArgs e)
         {
+#if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.Active) { RmlUiPrototype.KeyDown(e); return; }
+#endif
             UiSurface.Current?.KeyDown(e.Key, Modifiers(e));
         }
 
         public static void KeyUp(KeyboardKeyEventArgs e)
         {
+#if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.Active) { RmlUiPrototype.KeyUp(e); return; }
+#endif
             UiSurface.Current?.KeyUp(e.Key, Modifiers(e));
         }
 
         public static void TextInput(string text)
         {
+#if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.Active) { RmlUiPrototype.TextInput(text); return; }
+#endif
             UiSurface.Current?.TextInput(text);
         }
 
