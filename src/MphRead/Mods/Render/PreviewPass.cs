@@ -78,6 +78,12 @@ namespace MphRead
         /// <summary>Presentation-only launcher preview camera distance.</summary>
         public static float LauncherPreviewDistanceScale { get; set; } = 1f;
 
+        /// <summary>
+        /// Presentation-only menu-stage lighting. This is never read by
+        /// gameplay players or the results-screen preview.
+        /// </summary>
+        public static bool LauncherPreviewCinematicLighting { get; set; }
+
         /// <summary>Did anybody ask for a preview this frame?</summary>
         private static bool PreviewAsked => Mods.EndScreen.Available || LauncherPreview;
 
