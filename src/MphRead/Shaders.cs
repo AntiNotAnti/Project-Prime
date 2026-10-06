@@ -401,6 +401,8 @@ uniform float stage_left_scrim;
 uniform float stage_right_scrim;
 uniform float stage_floor_fade;
 uniform float stage_highlight_glow;
+uniform vec4 stage_hunter_field;
+uniform float stage_hunter_haze;
 varying vec2 photocoord;
 varying vec2 noisecoord;
 
@@ -428,10 +430,22 @@ void main()
         // architecture readable around the Hunter, then progressively soften
         // the busier outer field where chrome sits.
         vec3 blur = soft_photo(photocoord);
-        float focus_distance = distance(noisecoord, vec2(0.61, 0.47));
+        float focus_distance = distance(noisecoord, stage_hunter_field.xy);
         float softness_shape = mix(0.55, 1.25,
             smoothstep(0.16, 0.76, focus_distance));
         b = mix(b, blur, clamp(stage_softness * softness_shape, 0.0, 0.62));
+
+        // A second, elliptical veil sits directly behind the character. It
+        // creates local atmospheric perspective instead of blurring the whole
+        // room equally, which is the cue that makes the Hunter feel *inside*
+        // the set instead of pasted over a flat photograph.
+        vec2 hunter_delta = (noisecoord - stage_hunter_field.xy)
+            / max(stage_hunter_field.zw, vec2(0.01));
+        float hunter_field = 1.0 - smoothstep(0.28, 1.0, length(hunter_delta));
+        float hunter_haze = clamp(stage_hunter_haze * hunter_field, 0.0, 0.55);
+        b = mix(b, blur, hunter_haze);
+        vec3 haze_tint = vec3(0.11, 0.17, 0.21);
+        b = mix(b, haze_tint, hunter_haze * 0.14);
 
         // Room-independent shader, room-specific recipe. The profile controls
         // how far the locally rendered stage is pushed behind the Hunter.
