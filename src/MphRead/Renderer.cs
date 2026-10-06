@@ -2528,7 +2528,9 @@ namespace MphRead
                     this.Players.Main.ModForgetInputDeltas();
                 }
                 Mods.Network.DemoPlayback.PumpFrame();
-                Mods.Network.NetSession.Update(_globalElapsedTime);
+                long networkTrace = Mods.Render.ProductionFrameTrace.StartOperation();
+                try { Mods.Network.NetSession.Update(_globalElapsedTime); }
+                finally { Mods.Render.ProductionFrameTrace.NetworkEnd(networkTrace); }
                 if (Mods.Network.NetSession.FreezeGameplay) return;
                 if (Mods.Network.DemoPlayback.IsActive && !Mods.Headless.Active
                     && !Mods.SpectatorMode.IsSpectating)
@@ -8779,6 +8781,7 @@ localCenter *= _profileHudScale;
 #endif
                 Mods.Render.ModernGraphicsCompat.Shutdown();
 #endif
+                Mods.Render.ProductionFrameTrace.Flush();
                 base.OnUnload();
             }
         }
@@ -9179,7 +9182,9 @@ localCenter *= _profileHudScale;
 
             Mods.Render.LowLatencyController.Mark(
                 latencyFrame, Mods.Render.LowLatencyMarker.RenderSubmitStart);
+            Mods.Render.ProductionFrameTrace.PreparationStart();
             Scene.OnDrawFrame();
+            Mods.Render.ProductionFrameTrace.PreparationEnd();
             if (!Scene.OnRenderFrame())
             {
                 Mods.Render.LowLatencyController.CancelFrame(latencyFrame);

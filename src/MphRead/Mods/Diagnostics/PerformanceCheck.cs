@@ -9,8 +9,8 @@ namespace MphRead.Mods.Diagnostics
     /// <summary>
     /// Deterministic rendered client workload for before/after comparisons.
     /// It uses MapAudit's real Scene, bots and GL renderer, but disables its
-    /// glReadPixels sampling so the benchmark measures gameplay rather than
-    /// the diagnostic itself.
+    /// glReadPixels sampling. Repeated fixed-state draws measure throughput;
+    /// production frame pacing is recorded separately by ProductionFrameTrace.
     /// </summary>
     public static class PerformanceCheck
     {

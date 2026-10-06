@@ -57,6 +57,7 @@ internal static class ModernRenderBenchmark
                     scene.Size = window.FramebufferSize;
                     scene.OnResize();
                     var frames = new List<double>();
+                    var completedWork = new List<double>();
                     var submissions = new List<double>();
                     var presents = new List<double>();
                     ModernGraphicsCompat.PerformanceSample? warmup = null;
@@ -176,7 +177,8 @@ internal static class ModernRenderBenchmark
                         DesktopGraphicsSession.Present(window);
                         double presentMs = Stopwatch.GetElapsedTime(presentStart).TotalMilliseconds;
                         scene.AfterRenderFrame();
-                        if (i >= 20) { frames.Add(completed); submissions.Add(submit); presents.Add(presentMs); }
+                        double endToEnd = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+                        if (i >= 20) { frames.Add(endToEnd); completedWork.Add(completed); submissions.Add(submit); presents.Add(presentMs); }
                     }
                     ModernGraphicsCompat.PerformanceSample? measurement = ModernGraphicsCompat.Active
                         ? ModernGraphicsCompat.EndPerformanceSample() : null;
@@ -239,6 +241,7 @@ internal static class ModernRenderBenchmark
                         frameTransientTextureMisses = scene.FrameTransientTextureMisses - transientMissesStart,
                         frameTransientTextureAliases = scene.FrameTransientTextureAliases - transientAliasesStart,
                         gpuVisibilityEnabled = ModernGraphicsCompat.GpuVisibilityEnabled,
+                        gpuTemporalOcclusionEnabled = ModernGraphicsCompat.GpuTemporalOcclusionEnabled,
                         gpuVisibilityRefused = ModernGraphicsCompat.GpuVisibilityRefused,
                         gpuVisibilityDispatches = ModernGraphicsCompat.GpuVisibilityDispatches - gpuVisibilityDispatchStart,
                         gpuVisibilityCandidates = ModernGraphicsCompat.GpuVisibilityCandidates - gpuVisibilityCandidatesStart,
@@ -255,19 +258,20 @@ internal static class ModernRenderBenchmark
                         retainedDenseMultiDrawCandidates = ModernGraphicsCompat.RetainedDenseMultiDrawCandidates - denseMultiDrawCandidatesStart,
                         commandBatchOperationLimit = ModernGraphicsCompat.ActiveCommandBatchOperationLimit,
                         stagedTextureUploadLimitBytes = ModernGraphicsCompat.ActiveStagedTextureUploadLimitBytes,
-                        averageCompletedMs = frames.Average(), cpuSubmissionMs = submissions.Average(),
+                        timingContract = "Forced-finish repeated-state throughput; CPU timestamps include driver waits and are not displayed-frame FPS",
+                        averageWorkCompletedMs = completedWork.Average(), averageEndToEndMs = frames.Average(), cpuSubmissionMs = submissions.Average(),
                         averagePresentMs = presents.Average(),
                         averageSurfaceAcquireMs = measurement.HasValue && measurement.Value.SurfaceAcquisitions > 0
                             ? measurement.Value.SurfaceAcquireMs / measurement.Value.SurfaceAcquisitions : (double?)null,
-                        p99CompletedMs = sorted[(int)Math.Ceiling(sorted.Length * .99) - 1],
-                        p999CompletedMs = sorted[(int)Math.Ceiling(sorted.Length * .999) - 1],
-                        onePercentLowFps = 1000 / sorted.Skip((int)(sorted.Length * .99)).Average(),
-                        pointOnePercentLowFps = 1000 / sorted.Skip((int)(sorted.Length * .999)).Average(),
+                        p99EndToEndMs = sorted[(int)Math.Ceiling(sorted.Length * .99) - 1],
+                        p999EndToEndMs = sorted[(int)Math.Ceiling(sorted.Length * .999) - 1],
+                        slowestOnePercentEquivalentThroughputFps = 1000 / sorted.Skip((int)(sorted.Length * .99)).Average(),
+                        slowestPointOnePercentEquivalentThroughputFps = 1000 / sorted.Skip((int)(sorted.Length * .999)).Average(),
                         resources = ModernGraphicsCompat.Active ? ModernGraphicsCompat.LiveResources.ToString() : "OpenGL" });
                     string uniformNote = legacyUniforms is { } gl
                         ? $" glUniform={gl.Submitted}/{gl.Requested} ({gl.SkipPercent:F1}% skipped)"
                         : "";
-                    Console.WriteLine($"RENDERBENCH {scene.Size.X}x{scene.Size.Y} scale={scale} completed={frames.Average():F2}ms submit={submissions.Average():F2}ms{uniformNote}");
+                    Console.WriteLine($"RENDERBENCH {scene.Size.X}x{scene.Size.Y} scale={scale} endToEnd={frames.Average():F2}ms submit={submissions.Average():F2}ms{uniformNote}");
                 }
             }
             finally { scene.DoCleanup(); scene.UnloadGl(); }

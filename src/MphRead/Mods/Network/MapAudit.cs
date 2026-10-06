@@ -1630,13 +1630,14 @@ namespace MphRead.Mods.Network
             Console.WriteLine($"PERF {_room} | draws {_perfDrawMs.Count} | rate {DrawRate}x60 presentation"
                 + $" | draw avg {avg:0.000} ms p50 {p50:0.000} p95 {p95:0.000}"
                 + $" p99 {p99:0.000} p99.9 {p999:0.000}"
-                + $" | 1% low {oneLow:0.0} fps 0.1% low {pointOneLow:0.0} fps"
+                + $" | p99 draw-equivalent throughput {oneLow:0.0}/s p99.9 {pointOneLow:0.0}/s"
                 + $" | sim p99 {simP99:0.000} ms | allocated {allocated:0} B/draw"
                 + $" | GC {gen0}/{gen1}/{gen2}");
 
             var document = new
             {
-                Version = 1,
+                Version = 2,
+                TimingContract = "Repeated fixed-state draw throughput; excludes presentation/idle and is not frame-pacing FPS",
                 Build = Update.BuildVersion.Display,
                 Room = _room,
                 Players = _players,
@@ -1652,8 +1653,8 @@ namespace MphRead.Mods.Network
                 DrawP95Ms = p95,
                 DrawP99Ms = p99,
                 DrawP999Ms = p999,
-                OnePercentLowFps = oneLow,
-                PointOnePercentLowFps = pointOneLow,
+                DrawP99EquivalentThroughputFps = oneLow,
+                DrawP999EquivalentThroughputFps = pointOneLow,
                 SimulationP99Ms = simP99,
                 AllocatedBytesPerDraw = allocated,
                 Gen0Collections = gen0,

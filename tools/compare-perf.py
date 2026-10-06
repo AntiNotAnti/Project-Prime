@@ -13,6 +13,11 @@ no_fail = "--no-fail" in sys.argv[3:]
 baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
 current = json.loads(current_path.read_text(encoding="utf-8"))
 
+# Version1 mislabeled draw throughput as presented FPS. Refuse mixed schemas
+# rather than silently treating missing/new fields as zero and passing.
+if baseline.get("Version") != 2 or current.get("Version") != 2:
+    raise SystemExit("PERF COMPARE REFUSED: regenerate both throughput reports with schema2")
+
 identity = ("Room", "Players", "Width", "Height", "RenderScale", "PresentationHz")
 mismatch = [key for key in identity if baseline.get(key) != current.get(key)]
 if mismatch:
@@ -28,8 +33,8 @@ checks = [
     ("DrawP999Ms", 1.20, "lower"),
     ("SimulationP99Ms", 1.15, "lower"),
     ("AllocatedBytesPerDraw", 1.25, "lower"),
-    ("OnePercentLowFps", 0.85, "higher"),
-    ("PointOnePercentLowFps", 0.80, "higher"),
+    ("DrawP99EquivalentThroughputFps", 0.85, "higher"),
+    ("DrawP999EquivalentThroughputFps", 0.80, "higher"),
 ]
 
 failed = []
