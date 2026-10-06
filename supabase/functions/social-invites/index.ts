@@ -23,6 +23,17 @@ const primeIdPattern = /^PP-(?:[0-9A-F]{4}-){4}[0-9A-F]{4}$/;
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const epochPattern = /^[1-9][0-9]{0,19}$/;
+const maxUint64 = 18446744073709551615n;
+
+function validEpoch(value: string) {
+  if (!epochPattern.test(value)) return false;
+  try {
+    const parsed = BigInt(value);
+    return parsed > 0n && parsed <= maxUint64;
+  } catch {
+    return false;
+  }
+}
 
 function json(status: number, value: unknown) {
   return new Response(JSON.stringify(value), {
@@ -132,7 +143,7 @@ Deno.serve(async (req: Request) => {
 
     if (!validIpv4(host)
       || port < 1 || port > 65535
-      || !epochPattern.test(epoch)
+      || !validEpoch(epoch)
       || protocol < 1 || protocol > 255
       || roomKey.length < 1 || roomKey.length > 128
       || serverName.length > 96) {
