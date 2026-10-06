@@ -111,7 +111,17 @@ namespace MphRead.Mods.Network
             // This is also how a legacy packet recording gets a faithful range:
             // reconstruct from its original bootstrap, not a mid-flight snapshot.
             if (reader.Metadata != null && (metadata.FormatVersion == 4 || metadata.MapHash != 0))
+            {
+                if (metadata.WorldCheckpoint.Length == 0 && ReplayMapIdentity.PacketOrigin(metadata) == null)
+                {
+                    using var probe = new ReplayPlaybackSession(new PassiveReplaySessionHost());
+                    if (!probe.JoinDetached(source, cancellation)) return probe.LastResult;
+                    var construction = ((PassiveReplaySessionHost)probe.Host).State;
+                    metadata = Copy(metadata, new ReplayBootstrap { Packets = [ReplayTimelineArchive.Construction(construction)] },
+                        metadata.RoomKey, metadata.Mode, metadata.Players, metadata.MapHash, metadata.Type, metadata.Recovered);
+                }
                 return ExtractRange(reader, metadata, start, end, output, cancellation: cancellation);
+            }
             var bootstrap = new Dictionary<PacketType, byte[]>();
             foreach (byte[] packet in metadata.Bootstrap.Packets) Remember(bootstrap, packet);
             ReplayWriterV3? writer = null;

@@ -301,11 +301,12 @@ namespace MphRead.Mods.Launcher
         private static bool BeginDemo(RenderWindow window, LaunchPlan plan)
         {
             PlayerEntity.MaxPlayers = PlayerEntity.SlotCapacity;
-            if (!DemoPlayback.Join(plan.DemoPath))
+            if (!DemoPlayback.Join(plan.DemoPath) || !DemoPlayback.CommitPreparedMap())
             {
                 LastError = DemoPlayback.LastError
                     ?? $"The replay could not be opened: {DemoPlayback.LastResult}.";
                 Console.WriteLine("[demo] could not open replay: " + LastError);
+                DemoPlayback.Stop();
                 return false;
             }
             (string RoomKey, GameMode Mode)? room = NetLaunch.ServerRoom();

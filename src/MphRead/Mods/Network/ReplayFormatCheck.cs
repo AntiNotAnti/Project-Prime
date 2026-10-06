@@ -28,6 +28,209 @@ namespace MphRead.Mods.Network
             public void SeekTo(uint frame) { }
         }
 
+        internal static void CheckLateFireTimeline(Action<bool, string> require)
+        {
+            ReplayTimelineRecord Fact(uint frame, byte value, ReplayFactKind kind = ReplayFactKind.Snapshot)
+                => new(frame, frame + 100, kind, new byte[] { value });
+            ReplayRestorePoint Capsule(uint frame, byte value, out ReplayTimelineRecord world)
+            {
+                world = Fact(frame, value, ReplayFactKind.World);
+                var restore = new ReplayRestorePoint(frame, frame + 100,
+                    ReplayRestoreKind.ReplicaCheckpoint, new[] { world });
+                world.Release(); // the capsule owns its reference
+                return restore;
+            }
+            void AppendOwned(RollingReplayTimeline target, ReplayTimelineRecord record)
+            {
+                bool accepted;
+                try { accepted = target.Append(record); }
+                finally { record.Release(); }
+                require(accepted, "late-fire fixture retains its ordered accepted fact");
+            }
+            bool Released(ReplayTimelineRecord record)
+            {
+                try { _ = record.Payload[0]; return false; }
+                catch (ObjectDisposedException) { return true; }
+            }
+
+            var timeline = new RollingReplayTimeline(1000, 8192);
+            ReplayTimelineClip? priorLease = null, correctedLease = null;
+            try
+            {
+                var earliestCapsule = Capsule(5, 99, out var earliest);
+                require(timeline.AppendRestorePoint(earliestCapsule), "earlier valid capsule accepted");
+                require(timeline.AppendRestorePoint(Capsule(10, 10, out var origin)), "late-fire origin capsule accepted");
+                var a = Fact(12, 1); AppendOwned(timeline, a);
+                require(timeline.AppendRestorePoint(Capsule(20, 20, out var atSource)), "source-frame capsule accepted");
+                var b = Fact(20, 2); AppendOwned(timeline, b);
+                var c = Fact(21, 3); AppendOwned(timeline, c);
+                require(timeline.AppendRestorePoint(Capsule(30, 30, out var later)), "later capsule accepted");
+                var d = Fact(30, 4); AppendOwned(timeline, d);
+                var e = Fact(30, 5); AppendOwned(timeline, e);
+                var f = Fact(35, 6); AppendOwned(timeline, f);
+                require(timeline.TryFreeze(30, 35, out priorLease), "prior frozen lease owns the later capsule");
+                long bytesBefore = timeline.PayloadBytes;
+                int countBefore = timeline.RecordCount;
+                require(!timeline.InvalidateWorldRestorePointsFrom(0) && !timeline.InvalidateWorldRestorePointsFrom(5)
+                    && timeline.PayloadBytes == bytesBefore && timeline.RecordCount == countBefore
+                    && timeline.RestorePointCount == 4,
+                    "invalidation without a strict predecessor leaves history untouched");
+                require(timeline.InvalidateWorldRestorePointsFrom(20), "late shot invalidates source-frame and later capsules");
+                require(timeline.TryGetRestorePoint(20, out var selected) && selected!.RecordingFrame == 10
+                    && timeline.RestorePointCount == 2,
+                    "new restoration selects the nearest capsule strictly before the source frame");
+                require(timeline.LastRecordingFrame == 35 && timeline.LastServerTick == 135,
+                    "invalidation preserves the accepted frontier and server clock");
+                require(timeline.RecordCount == 8
+                    && timeline.PayloadBytes == earliestCapsule.PayloadBytes + selected!.PayloadBytes
+                        + new[] { a, b, c, d, e, f }.Sum(record => record.PayloadBytes),
+                    "invalidation removes capsule accounting and preserves sequential ownership");
+                require(Released(atSource), "unleased invalid source capsule returns its pooled payload");
+                require(priorLease!.RestorePoint.Records[0].Payload[0] == 30
+                    && priorLease.Records.Select(record => record.Payload[0]).SequenceEqual(new byte[] { 4, 5, 6 }),
+                    "invalidation leaves already frozen capsule and fact leases alive");
+                long beforeMarkerBytes = timeline.PayloadBytes;
+                int beforeMarkerCount = timeline.RecordCount;
+                require(timeline.RecordRecoveredWeaponMarker(20, 120, 3, 7), "native repair inserts the absent source-frame marker");
+                require(!timeline.RecordRecoveredWeaponMarker(20, 120, 3, 7)
+                    && timeline.PayloadBytes == beforeMarkerBytes + 128 && timeline.RecordCount == beforeMarkerCount + 1,
+                    "recovered marker is retained exactly once");
+                require(timeline.LastRecordingFrame == 35 && timeline.LastServerTick == 135,
+                    "recovered marker never moves the accepted frontier backwards");
+                // The rejected probe was not retained by the timeline.
+                var rejected = Fact(34, 99);
+                try { require(!timeline.Append(rejected), "ordinary historical append remains rejected"); }
+                finally { rejected.Release(); }
+                require(!timeline.RecordRecoveredWeaponMarker(4, 104, 3, 7)
+                    && !timeline.RecordRecoveredWeaponMarker(36, 136, 3, 7),
+                    "recovered markers cannot precede retained history or exceed its frontier");
+                AppendOwned(timeline, new(35, 135, ReplayFactKind.Event, ReadOnlySpan<byte>.Empty,
+                    new(ReplayMarkerKind.WeaponFired, 1, byte.MaxValue, 5)));
+                int originalMarkerCount = timeline.RecordCount;
+                require(!timeline.RecordRecoveredWeaponMarker(35, 135, 1, 5)
+                    && timeline.RecordCount == originalMarkerCount,
+                    "native repair does not duplicate an originally published weapon marker");
+                require(timeline.TryFreeze(20, 35, out correctedLease), "new frozen history selects the strict predecessor");
+                require(correctedLease!.RestorePoint.RecordingFrame == 10
+                    && correctedLease.Records.Select(record => record.RecordingFrame)
+                        .SequenceEqual(new uint[] { 12, 20, 20, 21, 30, 30, 35, 35 })
+                    && correctedLease.Records.Where(record => record.Kind == ReplayFactKind.Snapshot)
+                        .Select(record => record.Payload[0]).SequenceEqual(new byte[] { 1, 2, 3, 4, 5, 6 }),
+                    "marker insertion remains sorted and preserves same-frame accepted fact order");
+                timeline.Reset();
+                require(timeline.PayloadBytes == 0 && timeline.RecordCount == 0 && timeline.NeedsRestorePoint,
+                    "reset clears corrected timeline ownership and accounting");
+                require(Released(earliest), "reset returns an older capsule unowned by either frozen lease");
+                require(correctedLease.Records[0].Payload[0] == 1 && priorLease.RestorePoint.Records[0].Payload[0] == 30,
+                    "both frozen leases survive corrected timeline reset");
+                correctedLease.Dispose(); correctedLease.Dispose(); correctedLease = null;
+                require(Released(origin) && Released(a) && Released(b) && Released(c)
+                    && !Released(d) && !Released(e) && !Released(f) && !Released(later),
+                    "only payloads still owned by the earlier frozen lease survive final corrected release");
+                priorLease.Dispose(); priorLease.Dispose(); priorLease = null;
+                require(Released(d) && Released(e) && Released(f) && Released(later),
+                    "final frozen release returns the remaining transferred payloads exactly once");
+            }
+            finally { timeline.Reset(); correctedLease?.Dispose(); priorLease?.Dispose(); }
+
+            var boundedCapsule = Capsule(10, 10, out _);
+            var boundedFact = Fact(11, 1);
+            long byteLimit = boundedCapsule.PayloadBytes + boundedFact.PayloadBytes + 128;
+            var bounded = new RollingReplayTimeline(1000, byteLimit);
+            try
+            {
+                require(bounded.AppendRestorePoint(boundedCapsule), "bounded recovered-marker capsule accepted");
+                AppendOwned(bounded, boundedFact);
+                require(bounded.PayloadBytes == byteLimit - 128 && bounded.RecordRecoveredWeaponMarker(11, 111, 0, 1)
+                    && bounded.PayloadBytes == byteLimit, "recovered marker fits the exact descriptor byte ceiling");
+                require(!bounded.RecordRecoveredWeaponMarker(11, 111, 1, 1)
+                    && bounded.PayloadBytes == byteLimit && bounded.RecordCount == 3
+                    && bounded.RestorePointCount == 1 && bounded.LastRecordingFrame == 11,
+                    "over-budget recovered marker cannot evict or corrupt retained history");
+            }
+            finally { bounded.Reset(); }
+        }
+
+        internal static void CheckPacketOrigins(Action<bool, string> require, string directory,
+            MatchStatePacket match, SessionStatePacket configuration, byte[] matchPacket, byte[] configurationPacket)
+        {
+            var construction = new ReplayReplicaState();
+            construction.Accept(matchPacket, 0); construction.Accept(configurationPacket, 0);
+            byte[] origin = ReplayTimelineArchive.Construction(construction);
+            ReplayMetadata Metadata(string? room = null, GameMode mode = GameMode.Battle,
+                ReplayType type = ReplayType.Clip, uint originFrame = 0, IReadOnlyList<byte[]>? packets = null)
+                => new() { FormatVersion = 4, Type = type, RoomKey = room ?? match.RoomKey, Mode = mode,
+                    OriginRecordingFrame = originFrame, LeadInFrames = 10,
+                    Bootstrap = new() { Packets = packets ?? new[] { origin } } };
+            void Write(string path, ReplayMetadata metadata)
+            {
+                using var writer = new ReplayWriterV3(path, metadata);
+                for (uint frame = 0; frame <= 24; frame++) ReplayTimelineArchive.EndFrame(writer, frame);
+            }
+            string valid = Path.Combine(directory, "packet-origin-valid.ppdemo");
+            Write(valid, Metadata());
+            using (var session = new ReplayPlaybackSession(new PassiveReplaySessionHost()))
+            {
+                require(session.JoinDetached(valid, default) && session.IsActive
+                    && session.LastResult == ReplayOpenResult.Success,
+                    "exact v4 packet-origin clip joins its detached construction without world assets");
+                var state = ((PassiveReplaySessionHost)session.Host).State;
+                require(state.Match?.MatchId == match.MatchId && state.Match?.RoomKey == match.RoomKey
+                    && state.Configuration?.Match == configuration.Match,
+                    "packet-origin preflight preserves its exact match and configuration");
+                require(session.IsWarming && !session.HasSimulatedFrame && session.CurrentFrame == 0,
+                    "packet-origin clip retains hidden lead-in before its first completed frame");
+                for (uint frame = 0; frame <= 10; frame++)
+                {
+                    session.PumpFrame();
+                    require(session.SourceFrame == frame && session.CurrentFrame == 0
+                        && session.IsWarming == (frame < 10) && session.HasSimulatedFrame == (frame >= 10),
+                        "packet-origin hidden lead-in advances every source frame before visible frame zero");
+                }
+                session.PumpFrame();
+                require(session.SourceFrame == 11 && session.CurrentFrame == 1 && !session.IsWarming,
+                    "packet-origin visible playback follows its complete hidden lead-in");
+            }
+            using (var prepared = PreparedReplaySource.File(valid, useLeadInCheckpoint: false, prepareMap: false))
+                require(prepared.Checkpoint == null && prepared.Session.IsActive && prepared.Session.IsWarming
+                    && ((PassiveReplaySessionHost)prepared.Session.Host).State.Match?.MatchId == match.MatchId,
+                    "staged packet-origin opening retains the detached session and hidden lead-in");
+
+            var mismatched = new ReplayReplicaState(); mismatched.Accept(matchPacket, 0);
+            var wrongConfiguration = configuration;
+            wrongConfiguration.Match = configuration.Match with { RoomKey = "MP2 HIGHGROUND" };
+            byte[] wrongPacket = new byte[1 + SessionStatePacket.Size];
+            wrongPacket[0] = (byte)PacketType.SessionState; wrongConfiguration.Write(wrongPacket.AsSpan(1));
+            mismatched.Accept(wrongPacket, 0);
+            var cases = new (string Name, ReplayMetadata Metadata)[]
+            {
+                ("room", Metadata(room: "MP2 HIGHGROUND")),
+                ("mode", Metadata(mode: GameMode.BattleTeams)),
+                ("configuration", Metadata(packets: new[] { ReplayTimelineArchive.Construction(mismatched) })),
+                ("missing-match", Metadata(packets: new[] { ReplayTimelineArchive.Construction(new ReplayReplicaState()) })),
+                ("extra-bootstrap", Metadata(packets: new[] { origin, matchPacket })),
+                ("nonzero-origin", Metadata(originFrame: 1)),
+                ("missing-packet", Metadata(packets: Array.Empty<byte[]>())),
+                ("ordinary-missing-world", Metadata(type: ReplayType.FullMatch, packets: new[] { configurationPacket, matchPacket }))
+            };
+            foreach (var test in cases)
+            {
+                string path = Path.Combine(directory, "packet-origin-invalid-" + test.Name + ".ppdemo");
+                Write(path, test.Metadata);
+                using var session = new ReplayPlaybackSession(new PassiveReplaySessionHost());
+                require(!session.JoinDetached(path, default) && !session.IsActive
+                    && session.LastResult == ReplayOpenResult.StateMismatch
+                    && ((PassiveReplaySessionHost)session.Host).State.Match == null,
+                    "invalid " + test.Name + " packet origin is rejected before detached session publication");
+            }
+            string corrupt = Path.Combine(directory, "packet-origin-corrupt.ppdemo");
+            bool corruptRejected = false;
+            try { Write(corrupt, Metadata(packets: new[] { new byte[] { 253, 255 } })); }
+            catch (Exception ex) when (ex is InvalidDataException or EndOfStreamException) { corruptRejected = true; }
+            require(corruptRejected && !File.Exists(corrupt) && !File.Exists(corrupt + ".part"),
+                "corrupt compressed construction bootstrap is refused by the envelope before writer publication");
+        }
+
         public static int Run()
         {
             string directory = Path.Combine(Path.GetTempPath(), "fruity-replay-check-" + Guid.NewGuid().ToString("N"));
@@ -43,6 +246,26 @@ namespace MphRead.Mods.Network
                 ReplayReplicaProjectionChecks.Run(Require);
                 Mods.MatchEvents.MatchSemanticWireChecks.Run(Require);
                 ReplayAuthorityChecks.Run(Require);
+                CheckLateFireTimeline(Require);
+                bool previousTelemetry = ReplayPerfTelemetry.Enabled;
+                try
+                {
+                    ReplayPerfTelemetry.Enabled = true; ReplayPerfTelemetry.BeginFrame();
+                    long beforeScopes = ReplayPerfTelemetry.Snapshot()[(int)ReplayPerfOperation.DecodeChunk].Count;
+                    System.Threading.Tasks.Task.Run(() => System.Threading.Tasks.Parallel.For(0, 4096, _ =>
+                    {
+                        using var scope = ReplayPerfTelemetry.Measure(ReplayPerfOperation.DecodeChunk);
+                        System.Threading.Thread.SpinWait(1);
+                    })).GetAwaiter().GetResult();
+                    Require(ReplayPerfTelemetry.Snapshot()[(int)ReplayPerfOperation.DecodeChunk].Count == beforeScopes + 4096,
+                        "detached decode operation totals do not lose concurrent updates");
+                    Require(ReplayPerfTelemetry.OwnerFrameTicks(ReplayPerfOperation.DecodeChunk) == 0,
+                        "detached decoder work is excluded from owner frame timing");
+                    using (ReplayPerfTelemetry.Measure(ReplayPerfOperation.DecodeChunk)) System.Threading.Thread.SpinWait(100);
+                    Require(ReplayPerfTelemetry.OwnerFrameTicks(ReplayPerfOperation.DecodeChunk) > 0,
+                        "owner decoder work remains attributed to its frame");
+                }
+                finally { ReplayPerfTelemetry.Enabled = previousTelemetry; }
                 var match = new MatchStatePacket { RoomKey = "MP1 SANCTORUS", NextRoomKey = "",
                     Mode = (byte)GameMode.Battle, TimeRemaining = 300, Flags = MatchStatePacket.FlagInProgress,
                     MatchId = 1, AuthorityEpoch = 1 };
@@ -64,6 +287,7 @@ namespace MphRead.Mods.Network
                 sessionBytes[0] = (byte)PacketType.SessionState; session.Write(sessionBytes.AsSpan(1));
                 var metadata = new ReplayMetadata { RoomKey = match.RoomKey, Mode = GameMode.Battle,
                     Bootstrap = new ReplayBootstrap { Packets = new[] { sessionBytes, matchBytes } } };
+                CheckPacketOrigins(Require, directory, match, session, matchBytes, sessionBytes);
 
                 var customSession = session;
                 var customIdentity = new NetworkMapIdentity(Guid.NewGuid(),
@@ -75,6 +299,12 @@ namespace MphRead.Mods.Network
                 customBytes[0] = (byte)PacketType.SessionState; customSession.Write(customBytes.AsSpan(1));
                 var customMetadata = new ReplayMetadata { RoomKey = match.RoomKey,
                     Bootstrap = new ReplayBootstrap { Packets = new[] { customBytes } } };
+                var customState = new ReplayReplicaState();
+                customState.Accept(matchBytes, 0); customState.Accept(customBytes, 0);
+                var customBootstrap = ReplayBootstrap.FromConstruction(customState.CaptureCheckpoint());
+                Require(ReplayMapIdentity.CustomSession(new ReplayMetadata { RoomKey = match.RoomKey,
+                        Bootstrap = customBootstrap })?.Match.MapIdentity == customIdentity,
+                    "detached v4 origin bootstrap preserves exact package identity before scene construction");
                 var restoredCustom = ReplayFormatV3.DecodeMetadata(NetConfig.ProtocolVersion, ReplayFormatV3.EncodeMetadata(customMetadata));
                 Require(restoredCustom.CustomMapIdentity == customIdentity.Content(match.RoomKey), "replay retains immutable custom package identity");
                 Require(ReplayMapIdentity.CustomSession(restoredCustom)?.MapDownloadSource == customSession.MapDownloadSource,
@@ -550,6 +780,69 @@ namespace MphRead.Mods.Network
                     && !File.Exists(quotaOldest) && !File.Exists(quotaOlder)
                     && File.Exists(quotaRecent) && File.Exists(quotaNewest),
                     "server replay byte quota preserves newest");
+
+                string stalePartial = Path.Combine(quotaDir, "crashed.ppdemo.part");
+                File.WriteAllBytes(stalePartial, new byte[4096]);
+                File.SetLastWriteTimeUtc(stalePartial, retentionNow.AddDays(-40));
+                string freshPartial = Path.Combine(quotaDir, "fresh.ppdemo.part");
+                File.WriteAllBytes(freshPartial, new byte[2048]);
+                File.SetLastWriteTimeUtc(freshPartial, retentionNow.AddHours(-2));
+                string activePartial = Path.Combine(quotaDir, "active.ppdemo");
+                using (var activeWriter = new ReplayWriterV3(activePartial, metadata))
+                {
+                    File.SetLastWriteTimeUtc(activePartial + ".part", retentionNow.AddDays(-40));
+                    var partialResult = ServerReplayRetention.Apply(quotaDir, new ServerReplayPolicy(true, 0, 14, 1),
+                        nowUtc: retentionNow, storageLimitBytes: 1024);
+                    Require(!File.Exists(stalePartial) && File.Exists(freshPartial)
+                        && File.Exists(activePartial + ".part") && partialResult.BeforeBytes >= 8192
+                        && !partialResult.LimitSatisfied,
+                        "partial retention accounts quota, reclaims orphan, protects active writer and recovery grace");
+                    activeWriter.Abort();
+                }
+                byte[] wrongWorld;
+                using (var worldBytes = new MemoryStream())
+                {
+                    using var worldWriter = new BinaryWriter(worldBytes, System.Text.Encoding.UTF8, true);
+                    worldWriter.Write(0x43575050U); worldWriter.Write((ushort)3);
+                    worldWriter.Write(new string('0', 64)); worldWriter.Write(match.RoomKey);
+                    worldWriter.Write((int)GameMode.Battle); worldWriter.Write(0UL); worldWriter.Write(0U);
+                    wrongWorld = worldBytes.ToArray();
+                }
+                string requiredWorld = Path.Combine(directory, "required-world.ppdemo");
+                using (var worldWriter = new ReplayWriterV3(requiredWorld, new ReplayMetadata { FormatVersion = 4,
+                    RoomKey = match.RoomKey, Mode = GameMode.Battle, WorldCheckpoint = wrongWorld }))
+                    worldWriter.WriteRecord(0, new byte[] { 255 });
+                using (var rejectedWorld = new ReplayPlaybackSession(new PassiveReplaySessionHost()))
+                    Require(!rejectedWorld.Join(requiredWorld) && !rejectedWorld.IsActive
+                        && rejectedWorld.LastResult == ReplayOpenResult.StateMismatch,
+                        "unknown required world is rejected before map or scene construction; no bootstrap fallback");
+
+                // A recognized capsule header is insufficient: its detached
+                // construction state must contain the metadata's matching match.
+                foreach (bool absentMatch in new[] { true, false })
+                {
+                    var malformedState = new ReplayReplicaState();
+                    if (!absentMatch) malformedState.Accept(matchBytes, 0);
+                    byte[] construction = malformedState.CaptureCheckpoint().Bytes.ToArray();
+                    using var capsule = new MemoryStream();
+                    using (var capsuleWriter = new BinaryWriter(capsule, System.Text.Encoding.UTF8, true))
+                    {
+                        capsuleWriter.Write(0x43575050U); capsuleWriter.Write((ushort)3);
+                        capsuleWriter.Write((string)typeof(Mods.Replay.ReplayWorldCheckpoint)
+                            .GetField("Contract", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.GetValue(null)!);
+                        capsuleWriter.Write(match.RoomKey); capsuleWriter.Write((int)GameMode.Battle);
+                        capsuleWriter.Write(0UL); capsuleWriter.Write(0U); capsuleWriter.Write(0U); capsuleWriter.Write(0U);
+                        capsuleWriter.Write(construction.Length); capsuleWriter.Write(construction);
+                    }
+                    string malformedOrigin = Path.Combine(directory, "malformed-origin-" + absentMatch + ".ppdemo");
+                    using (var malformedWriter = new ReplayWriterV3(malformedOrigin, new ReplayMetadata { FormatVersion = 4,
+                        RoomKey = absentMatch ? match.RoomKey : "MP2 HIGHGROUND", Mode = GameMode.Battle, WorldCheckpoint = capsule.ToArray() }))
+                        malformedWriter.WriteRecord(0, new byte[] { 255 });
+                    using var rejectedOrigin = new ReplayPlaybackSession(new PassiveReplaySessionHost());
+                    Require(!rejectedOrigin.Join(malformedOrigin) && !rejectedOrigin.IsActive
+                        && rejectedOrigin.LastResult == ReplayOpenResult.StateMismatch,
+                        "missing or mismatched origin match is rejected before reader/scene publication");
+                }
 
                 // Mutate packet/chunk/footer/header bytes without trusting any unverified length.
                 var random = new Random(173);

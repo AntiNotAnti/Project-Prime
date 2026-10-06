@@ -23,6 +23,23 @@ if(args.Contains("--runtime-only"))
     finally{if(Directory.Exists(folder))Directory.Delete(folder,true);}return;
 }
 int checks = 0;
+if(args.Contains("--replay-frozen-compare"))
+{
+    int argument = Array.IndexOf(args, "--replay-frozen-compare") + 1;
+    ReplayFrozenCompare.Run(args[argument]); return;
+}
+if(args.Contains("--replay-coverage-fixture"))
+{
+    int argument = Array.IndexOf(args, "--replay-coverage-fixture") + 1;
+    ReplayPreparationChecks.WriteCoverageFixture(args[argument], args[argument + 1]); return;
+}
+if(args.Contains("--replay-preparation-only"))
+{
+    int argument = Array.IndexOf(args, "--replay-preparation-only") + 1;
+    string? source = argument < args.Length ? args[argument] : null;
+    ReplayPreparationChecks.Run((value, label) => { if (!value) throw new Exception(label); checks++; }, source);
+    Console.WriteLine($"Replay preparation: {checks} checks passed."); return;
+}
 MapStorageChecks.Run();
 if (args.Contains("--map-storage-only")) return;
 if(args.Contains("--map-benchmark")){string fixture=Path.Combine(Path.GetTempPath(),"prime-map-performance-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(fixture);try{MapPerformanceChecks.Run(fixture);}finally{Directory.Delete(fixture,true);}return;}

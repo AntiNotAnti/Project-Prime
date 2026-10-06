@@ -11,6 +11,12 @@ namespace MphRead.Mods.Network;
 internal sealed class ReplayWritePump
 {
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<ReplayWritePump, byte> Active = new();
+    private readonly string _path;
+    internal static bool IsWriting(string path)
+    {
+        string full = Path.GetFullPath(path);
+        return System.Linq.Enumerable.Any(Active.Keys, p => String.Equals(p._path + ".part", full, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal));
+    }
     private static int _activeCount;
     private static int _shutdownSignaled;
     static ReplayWritePump()
@@ -68,6 +74,7 @@ internal sealed class ReplayWritePump
     {
         if (Volatile.Read(ref _shutdownSignaled) != 0)
             throw new IOException("The process is shutting down; no new replay writer can start.");
+        _path = Path.GetFullPath(path);
         _origin = origin; _maximumBytes = maximumBytes;
         _queue = Channel.CreateBounded<Command>(new BoundedChannelOptions(capacity)
         { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait, AllowSynchronousContinuations = false });

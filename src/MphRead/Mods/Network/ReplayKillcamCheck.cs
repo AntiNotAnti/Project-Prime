@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Diagnostics;
+using System.Threading;
 using MphRead.Entities;
 using MphRead.Mods.Input;
 using MphRead.Mods.Replay;
@@ -85,6 +87,20 @@ internal static class ReplayKillcamCheck
             var marker = new ReplayMarker(ReplayMarkerKind.Kill, 1, 0, Kill: identity, Weapon: 1, DamageFlags: (byte)DamageFlags.Headshot);
             var context = new KillcamContext(match.MatchId, match.AuthorityEpoch, death, 0,
                 identity.VictimGeneration, 1, false, true, true, true);
+            void Prepare(KillcamController pendingController, KillcamContext pendingContext)
+            {
+                var timeout = Stopwatch.StartNew();
+                while (!pendingController.Visible)
+                {
+                    pendingController.Update(live, pendingContext);
+                    if (pendingController.EndReason == KillcamEndReason.Failed)
+                        throw new InvalidDataException(pendingController.LastError);
+                    if (timeout.Elapsed > TimeSpan.FromSeconds(30)) throw new TimeoutException("Killcam preparation did not finish.");
+                    // Detached decoding is scheduled independently. Keep the
+                    // authoritative context fixed so startup cannot consume footage.
+                    if (!pendingController.Visible) Thread.Sleep(1);
+                }
+            }
             var missingPlayer = live.Players.Values[1]; live.Players.Values[1] = null!;
             Require(!KillcamController.IsValidIdentity(identity, context, live), "Incomplete scene collection admitted for team lookup.");
             live.Players.Values[1] = missingPlayer;
@@ -99,7 +115,7 @@ internal static class ReplayKillcamCheck
                     Require(!delayed.Active, "Killcam started before the full post-roll arrived.");
                 }
                 delayedTimeline.Frontier = death + KillcamController.PostRollFrames;
-                for (int i = 0; i < 8 && !delayed.Visible; i++) delayed.Update(live, context);
+                Prepare(delayed, context);
                 Require(delayed.Visible && delayed.Frame == death - KillcamController.PreRollFrames,
                     "Delayed kill notification shifted the replay away from the actual kill.");
                 bool rejectedSeek = false;
@@ -110,12 +126,12 @@ internal static class ReplayKillcamCheck
             void Begin()
             {
                 controller.NoteKill(marker, death, context);
-                for (int warm = 0; warm < 8 && !controller.Visible; warm++) controller.Update(live, context);
+                Prepare(controller, context);
                 Require(controller.Visible && controller.Kind == KillCamKind.Personal, "Personal killcam did not become visible.");
             }
             var shortContext = context with { Frame = 120 };
             controller.NoteKill(marker with { Kill = identity with { ServerTick = 120 } }, 120, shortContext);
-            for (int i = 0; i < 8 && !controller.Visible; i++) controller.Update(live, shortContext);
+            Prepare(controller, shortContext);
             Require(controller.Visible && controller.Frame <= 1, "Short history did not clamp its start to the available boundary.");
             controller.Reset(KillcamEndReason.Completed);
             Begin();
@@ -210,7 +226,7 @@ internal static class ReplayKillcamCheck
             Require(!KillcamController.FinalEligible(101, 100, true, true), "Future kill admitted.");
             controller.NoteKill(marker, death, context);
             Require(controller.BeginFinal(live, context, death, timedEnd: false, causalEnd: true), "Eligible final did not start.");
-            for (int i = 0; i < 8 && !controller.Visible; i++) controller.Update(live, context);
+            Prepare(controller, context);
             Require(controller.Visible && controller.Kind == KillCamKind.Final, "Final did not become visible.");
             recorder.Reset(); // the final clip was frozen before room/lobby handoff
             Require(controller.Frame == death - 210 && controller.Progress == 0, "Final range is not 300 frames.");

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Diagnostics;
+using System.Threading;
 
 namespace MphRead.Mods.Network
 {
@@ -24,10 +25,12 @@ namespace MphRead.Mods.Network
         private ReplayTimelineClip? _clip;
         private int _clipIndex;
         private bool _live;
+        internal bool IsLive => _live;
         private ReplayMetadata? _liveMetadata;
         /// <summary>The frame of the recording about to be replayed.</summary>
         private uint _frame;
         private bool _started;
+        private uint? _preparedPosition;
 
         public bool IsActive { get; private set; }
         public string? CurrentPath { get; private set; }
@@ -75,6 +78,21 @@ namespace MphRead.Mods.Network
                 if (record.Kind is ReplayFactKind.Match or ReplayFactKind.Roster or ReplayFactKind.Snapshot or ReplayFactKind.Intent or ReplayFactKind.AuthorityWorld or ReplayFactKind.Presentation)
                     _host.Inject(record.Payload, record.RecordingFrame);
             _frame = LastFrame = frame; _started = true;
+        }
+
+        // A privately reconstructed correction keeps the fully simulated
+        // decoder/world and adopts only its clock source. The caller owns the
+        // frozen clip lease; clearing this borrowed cursor must not reset state.
+        internal void ContinueLive(ulong mapHash)
+        {
+            if (_host is not PassiveReplaySessionHost passive || !IsActive || !_started
+                || _reader != null || _clip == null || Transport.IsSeeking || IsWarming)
+                throw new InvalidOperationException("Only a completed private frozen correction can continue live.");
+            _clip = null; _clipIndex = 0; _pending = null; _preparedPosition = null;
+            _live = true; LastFrame = _frame; CurrentPath = null;
+            _liveMetadata = new ReplayMetadata { MapHash = mapHash, RoomKey = passive.State.Match?.RoomKey ?? "",
+                Mode = (GameMode)(passive.State.Match?.Mode ?? 0) };
+            Transport.Begin();
         }
 
         internal void Join(ReplayTimelineClip clip, ReplayReplicaCheckpoint construction)
@@ -145,8 +163,12 @@ namespace MphRead.Mods.Network
         /// eight seconds the wall-clock version could spend.
         /// </summary>
         public bool Join(string path, int timeoutMs = 8000)
+            => JoinCore(path, timeoutMs, prepareMap: true, default);
+        internal bool JoinDetached(string path, CancellationToken cancellation)
+            => JoinCore(path, 8000, prepareMap: false, cancellation);
+        private bool JoinCore(string path, int timeoutMs, bool prepareMap, CancellationToken cancellation)
         {
-            try { return OpenFile(path, timeoutMs); }
+            try { return OpenFile(path, timeoutMs, prepareMap, cancellation); }
             catch (Exception ex) when (ex is InvalidDataException or IOException
                 or UnauthorizedAccessException or ArgumentException or System.Net.Http.HttpRequestException or System.Threading.Tasks.TaskCanceledException)
             {
@@ -157,14 +179,16 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private bool OpenFile(string path, int timeoutMs)
+        private bool OpenFile(string path, int timeoutMs, bool prepareMap, CancellationToken cancellation)
         {
+            using var archivePerf = ReplayPerfTelemetry.Measure(ReplayPerfOperation.ArchiveOpen);
             _ = timeoutMs; // kept for the call site; nothing here waits on a clock
             Stop();
             LastError = null;
             LastWarning = null;
             CompatibilityDrops = 0;
             _reader = DemoReader.Open(path, out ReplayOpenResult result);
+            cancellation.ThrowIfCancellationRequested();
             LastResult = result;
             if (_reader == null)
             {
@@ -182,7 +206,34 @@ namespace MphRead.Mods.Network
                 _reader = null;
                 return false;
             }
-            if (_reader.Metadata is { } packageMetadata) ReplayMapIdentity.PrepareExactPackage(packageMetadata);
+            ReplayReplicaCheckpoint? originConstruction = null;
+            if (_reader.Metadata is { } packageMetadata)
+            {
+                try
+                {
+                    if (packageMetadata.FormatVersion >= 4 && packageMetadata.WorldCheckpoint.Length == 0)
+                    {
+                        originConstruction = ReplayMapIdentity.PacketOrigin(packageMetadata);
+                        if (originConstruction == null) throw new InvalidDataException("The replay has no required origin world.");
+                    }
+                    if (packageMetadata.WorldCheckpoint.Length > 0)
+                    {
+                        using var world = Replay.ReplayWorldCheckpoint.FromBytes(packageMetadata.WorldCheckpoint, packageMetadata.BuildId);
+                        if (world.Frame != packageMetadata.OriginRecordingFrame)
+                            throw new InvalidDataException("Replay origin differs from its initial world.");
+                        originConstruction = world.ConstructionState();
+                        ReplayMapIdentity.ValidateOriginConstruction(packageMetadata, originConstruction);
+                    }
+                }
+                catch (Exception ex) when (ex is InvalidDataException or EndOfStreamException)
+                {
+                    LastResult = ReplayOpenResult.StateMismatch;
+                    LastError = "Cannot restore the required replay origin: " + ex.Message;
+                    Stop();
+                    return false;
+                }
+                if (prepareMap) ReplayMapIdentity.PrepareExactPackage(packageMetadata);
+            }
             bool pathChanged = CurrentPath != path;
             if (pathChanged) Transport.ClearSelection();
             CurrentPath = path;
@@ -197,7 +248,7 @@ namespace MphRead.Mods.Network
             {
                 if (metadata.ExpectedHashes.Count > 0 && (metadata.HashSchema != ReplayStateHash.Schema || metadata.HashBuildId != ReplayStateHash.BuildId))
                     Console.WriteLine("[replay] Expected state hashes belong to a different engine build/schema; packet playback remains available, hash verification is skipped.");
-                LastResult = ReplayMapIdentity.Validate(metadata);
+                LastResult = prepareMap ? ReplayMapIdentity.Validate(metadata) : ReplayOpenResult.Success;
                 if (LastResult == ReplayOpenResult.MapHashMismatch
                     && metadata.CustomMapIdentity == null
                     && _reader.ProtocolVersion < NetConfig.ProtocolVersion)
@@ -212,32 +263,20 @@ namespace MphRead.Mods.Network
                     Stop();
                     return false;
                 }
-                if (metadata.WorldCheckpoint.Length > 0)
+                if (originConstruction != null)
                 {
-                    try
+                    if (_host is not PassiveReplaySessionHost passive)
                     {
-                        if (_host is not PassiveReplaySessionHost passive)
-                            throw new InvalidDataException("This replay requires the isolated world player.");
-                        using var world = Replay.ReplayWorldCheckpoint.FromBytes(metadata.WorldCheckpoint, metadata.BuildId);
-                        if (world.Frame != metadata.OriginRecordingFrame)
-                            throw new InvalidDataException("Replay origin differs from its initial world.");
-                        passive.State.RestoreCheckpoint(world.ConstructionState());
-                        _pending = _reader.ReadNext();
-                        if (_pending == null) throw new InvalidDataException("Replay contains no completed frames.");
-                        Transport.Begin();
-                        return true;
+                        LastResult = ReplayOpenResult.StateMismatch;
+                        LastError = "This replay requires the isolated world player.";
+                        Stop();
+                        return false;
                     }
-                    catch (InvalidDataException ex)
-                    {
-                        // Checkpoints are accelerators, not the replay itself. A schema from
-                        // an older build falls back to bootstrap/linear reconstruction.
-                        LastWarning = "Initial replay checkpoint was skipped: " + ex.Message;
-                        Console.WriteLine("[replay] " + LastWarning);
-                        _host.Start();
-                        _host.ResetDiagnostics();
-                        _frame = 0;
-                        _started = false;
-                    }
+                    passive.State.RestoreCheckpoint(originConstruction);
+                    _pending = _reader.ReadNext();
+                    if (_pending == null) throw new InvalidDataException("Replay contains no completed frames.");
+                    Transport.Begin();
+                    return true;
                 }
                 if (metadata.Bootstrap.Packets.Count > 0)
                 {
@@ -280,6 +319,7 @@ namespace MphRead.Mods.Network
             long knownAt = -1;
             while (_frame < JoinSearchFrames)
             {
+                cancellation.ThrowIfCancellationRequested();
                 PumpFrame();
                 _host.Advance(_frame / 60.0);
                 if (_host.Match?.RoomKey.Length > 0)
@@ -306,6 +346,21 @@ namespace MphRead.Mods.Network
             Console.WriteLine($"[demo] \"{path}\": {LastError}");
             Stop();
             return false;
+        }
+
+        internal void ValidatePreparedMap(bool preparePackage = true, ReplayMetadata? mapMetadata = null)
+        {
+            using var validationPerf = ReplayPerfTelemetry.Measure(ReplayPerfOperation.MapValidation);
+            if ((mapMetadata ?? Metadata) is not { } metadata) return;
+            try { if (preparePackage) ReplayMapIdentity.PrepareExactPackage(metadata); }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or System.Net.Http.HttpRequestException or OperationCanceledException)
+            { throw new ReplayPreparationException(ReplayOpenResult.MapMissing, "Cannot prepare replay map: " + ex.Message); }
+            var result = ReplayMapIdentity.Validate(metadata);
+            if (result == ReplayOpenResult.MapHashMismatch && metadata.CustomMapIdentity == null
+                && _reader?.ProtocolVersion < NetConfig.ProtocolVersion)
+            { LastWarning = "Built-in map data differs from the recording; using the installed map for best-effort playback."; return; }
+            if (result != ReplayOpenResult.Success)
+                throw new ReplayPreparationException(result, $"Cannot load replay map: {result}.");
         }
 
         /// <summary>
@@ -362,6 +417,13 @@ namespace MphRead.Mods.Network
                 return true;
             }
             if (!IsActive || CurrentPath == null) return false;
+            uint sourceFrame = sourceClock ? frame : checked(frame + LeadInFrames);
+            if (_preparedPosition == sourceFrame)
+            {
+                _preparedPosition = null; _frame = sourceFrame; _started = true;
+                _host.ResetDiagnostics(); _host.RestoreClock(netFrame); _host.SeekTo(frame);
+                return true;
+            }
             DemoReader? next = DemoReader.Open(CurrentPath, out ReplayOpenResult result);
             if (next == null || !ReplayIdentityCompatibility.Supports(next.ProtocolVersion))
             {
@@ -370,7 +432,6 @@ namespace MphRead.Mods.Network
                 return false;
             }
 
-            uint sourceFrame = sourceClock ? frame : checked(frame + LeadInFrames);
             DemoRecord? pending = next.SeekAfter(sourceFrame);
             if (pending == null && next.LastResult != ReplayOpenResult.Success && frame < LastFrame)
             {
@@ -390,6 +451,12 @@ namespace MphRead.Mods.Network
             _host.RestoreClock(netFrame);
             _host.SeekTo(frame);
             return true;
+        }
+
+        internal void PrepareReposition(uint frame, bool sourceClock)
+        {
+            if (!Reposition(frame, 0, sourceClock)) throw new InvalidDataException(LastError ?? "Cannot prepare replay cursor.");
+            _preparedPosition = sourceClock ? frame : checked(frame + LeadInFrames);
         }
 
         /// <summary>
@@ -473,20 +540,21 @@ namespace MphRead.Mods.Network
         public void Stop()
         {
             _clip = null; _clipIndex = 0;
+            _preparedPosition = null;
             _live = false; _liveMetadata = null;
-            _host.Stop();
-            Transport.Stop();
-            CloseReader();
+            try { _host.Stop(); }
+            finally { try { Transport.Stop(); } finally { CloseReader(); } }
         }
 
         private void CloseReader()
         {
             IsActive = false;
-            _reader?.Dispose();
+            var reader = _reader;
             _reader = null;
             _pending = null;
             _frame = 0;
             _started = false;
+            reader?.Dispose();
         }
 
         internal void FailVerification(string error)

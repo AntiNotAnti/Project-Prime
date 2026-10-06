@@ -12,19 +12,27 @@ namespace MphRead.Mods.Network;
 public static class DemoPlayback
 {
     private static ReplayPlaybackSession _prepared = new(new PassiveReplaySessionHost());
+    private static readonly object _joinGate = new();
+    private static ReplayPreparationJob? _joinJob;
+    private static PreparedReplaySource? _pendingSource;
+    private static PassiveReplayPlayer? _openingPlayer;
+    private static long _joinGeneration;
+    private static long _pendingGeneration, _openingGeneration;
+    private static string? _joinError;
+    private static ReplayOpenResult _joinResult;
     private static PassiveReplayPlayer? _player;
     private static Scene? _shell;
     private static Scene? _lab;
     private static ulong _audio;
     private static bool _failed;
     private static bool _presentationFailed;
-    internal static ReplayPlaybackSession Session => _player?.Current.Session ?? _prepared;
+    internal static ReplayPlaybackSession Session => _pendingSource?.Session ?? _openingPlayer?.Current.Session ?? _player?.Current.Session ?? _prepared;
     internal static Scene? ReplicaScene => _player?.Current.Scene;
     // A failed private replay remains alive long enough to accept restart controls,
     // but must not stay attached to foreground rendering. It may have faulted before
     // HUD/presentation setup completed, so drawing it can turn the original replay
     // error into a second NullReferenceException in PlayerHud.
-    internal static Scene? PresentationScene => _lab ?? (_player?.Ready == true && !_failed ? _player.Current.Scene : null);
+    internal static Scene? PresentationScene => _lab ?? (_player?.CanPresent == true && !_failed ? _player.Current.Scene : null);
     internal static bool Owns(Scene scene) => ReferenceEquals(_player?.Current.Scene, scene);
     internal static Scene? Presentation(Scene shell) => ReferenceEquals(_shell, shell) ? PresentationScene : null;
     public static bool IsActive => Session.IsActive;
@@ -38,24 +46,51 @@ public static class DemoPlayback
     internal static ReplayMetadata? Metadata => Session.Metadata;
     public static uint CurrentFrame => Session.CurrentFrame;
     public static uint LastFrame => Session.LastFrame;
-    public static ReplayOpenResult LastResult => Session.LastResult;
+    public static ReplayOpenResult LastResult => _joinError != null ? _joinResult : Session.LastResult;
     public static double CurrentSeconds => Session.CurrentSeconds;
     public static double DurationSeconds => Session.DurationSeconds;
     public static bool AtEnd => Session.AtEnd;
-    public static string? LastError => Session.LastError;
+    public static string? LastError => _joinError ?? Session.LastError;
     public static string? LastWarning => Session.LastWarning;
     public static bool Join(string path, int timeoutMs = 8000)
     {
-        Stop();
-        _prepared = new(new PassiveReplaySessionHost());
-        _failed = false; _presentationFailed = false;
-        bool opened = _prepared.Join(path, timeoutMs);
-        if (opened)
+        _ = timeoutMs;
+        using var job = ReplayPreparationJob.File(path);
+        long generation;
+        lock (_joinGate)
         {
-            ReplayInput.CancelScrub(); ReplayCamera.ClearBookmarks(); ReplayCamera.Reset();
-            ReplayHud.Reset(); ReplayStudio.ResetCache(); ReplayKillMessagePresenter.Reset();
+            generation = ++_joinGeneration;
+            _joinJob?.Dispose(); _joinJob = job;
+            _pendingSource?.Dispose(); _pendingSource = null;
         }
-        return opened;
+        try
+        {
+            var prepared = job.WaitCompleted();
+            lock (_joinGate)
+            {
+                if (generation != _joinGeneration) { prepared.Dispose(); return false; }
+                _pendingSource = prepared; _pendingGeneration = generation; _joinJob = null; _joinError = null;
+                return true;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException or ArgumentException or OperationCanceledException)
+        {
+            lock (_joinGate)
+            {
+                if (generation == _joinGeneration)
+                { _joinError = ex.Message; _joinResult = ex is ReplayPreparationException failed ? failed.Result : ReplayOpenResult.Corrupt; }
+            }
+            return false;
+        }
+        finally { lock (_joinGate) { if (ReferenceEquals(_joinJob, job)) _joinJob = null; } }
+    }
+    // Portable launch needs the exact package before it constructs its shell room.
+    // GUI Join only prepares detached data and never publishes or disposes a Scene.
+    internal static bool CommitPreparedMap()
+    {
+        try { lock (_joinGate) { _pendingSource?.CommitPreparedMap(Environment.CurrentManagedThreadId); } return true; }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException or ArgumentException)
+        { _joinError = ex.Message; _joinResult = ex is ReplayPreparationException failed ? failed.Result : ReplayOpenResult.Corrupt; return false; }
     }
     internal static int CheckpointCount => _player?.CheckpointCount ?? 0;
     internal static string SeekDiagnostics => _player == null ? "" :
@@ -63,7 +98,7 @@ public static class DemoPlayback
     internal static void Update(Scene shell)
     {
         if (!IsActive) return;
-        if (_failed)
+        if (_failed && _pendingSource == null && _openingPlayer == null)
         {
             PollFailedControls(shell);
             return;
@@ -108,11 +143,74 @@ public static class DemoPlayback
     private static void UpdateCore(Scene shell)
     {
         _shell ??= shell;
-        if (_player == null)
+        PreparedReplaySource? source;
+        long sourceGeneration;
+        lock (_joinGate) { source = _pendingSource; sourceGeneration = _pendingGeneration; _pendingSource = null; }
+        if (source != null)
         {
-            var transport = _prepared.Transport;
-            uint? seek = transport.SeekTarget;
-            _player = new PassiveReplayPlayer(_prepared.CurrentPath!, _shell.Size);
+            try
+            {
+                using (source)
+                {
+                    lock (_joinGate)
+                    {
+                        if (sourceGeneration != _joinGeneration) return;
+                        // Exact-map publication and join-generation changes share
+                        // this gate; a superseded worker cannot install its package.
+                        source.CommitPreparedMap(Environment.CurrentManagedThreadId);
+                    }
+                    var candidate = new PassiveReplayPlayer(source, _shell.Size, new(EnableAsyncPreparation: true));
+                    bool superseded;
+                    PassiveReplayPlayer? priorCandidate = null;
+                    lock (_joinGate)
+                    {
+                        superseded = sourceGeneration != _joinGeneration;
+                        if (!superseded)
+                        { priorCandidate = _openingPlayer; _openingPlayer = candidate; _openingGeneration = sourceGeneration; }
+                    }
+                    if (superseded) { candidate.Dispose(); return; }
+                    priorCandidate?.Dispose();
+                    ReplayAudioOwner.Release(_audio); _audio = 0;
+                }
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException or ArgumentException)
+            { _joinError = ex.Message; _joinResult = ex is ReplayPreparationException failed ? failed.Result : ReplayOpenResult.Corrupt;
+              if (_player != null) return; throw; }
+        }
+        if (_openingPlayer != null)
+        {
+            PassiveReplayPlayer? superseded = null;
+            lock (_joinGate)
+            {
+                if (_openingGeneration != _joinGeneration)
+                { superseded = _openingPlayer; _openingPlayer = null; }
+            }
+            if (superseded != null) { superseded.Dispose(); return; }
+            try
+            {
+                if (!_openingPlayer.Ready)
+                { _openingPlayer.Update(maximumSteps: 24, maximumMilliseconds: 1); if (!_openingPlayer.Ready) return; }
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException or ArgumentException)
+            {
+                var rejected = _openingPlayer; _openingPlayer = null;
+                try { rejected.Dispose(); }
+                finally { _joinError = ex.Message; _joinResult = ReplayOpenResult.Corrupt; }
+                if (_player != null) return;
+                throw;
+            }
+            PassiveReplayPlayer? previous = null;
+            lock (_joinGate)
+            {
+                if (_openingGeneration != _joinGeneration)
+                { superseded = _openingPlayer; _openingPlayer = null; }
+                else { previous = _player; _player = _openingPlayer; _openingPlayer = null; }
+            }
+            if (superseded != null) { superseded.Dispose(); return; }
+            ReplayAudioOwner.Release(_audio); _audio = 0;
+            previous?.Dispose(); _prepared.Stop(); _failed = false; _presentationFailed = false;
+            ReplayInput.CancelScrub(); ReplayCamera.ClearBookmarks(); ReplayCamera.Reset();
+            ReplayHud.Reset(); ReplayStudio.ResetCache(); ReplayKillMessagePresenter.Reset();
             _player.Current.Session.FactRead += ReplayNetworkDiagnostics.OnPacketArray;
             _player.Stepped += ReplayVerification.AfterFrame;
             _player.Replaced += (previous, replacement) =>
@@ -124,12 +222,9 @@ public static class DemoPlayback
                 ReplayNetworkDiagnostics.Reset(); ReplayVerification.SeekTo(CurrentFrame);
             };
             ReplayVerification.Reset(); ReplayNetworkDiagnostics.Reset();
-            _player.Transport.CopyPreferences(transport);
-            if (seek.HasValue) _player.Transport.ContinueSeek(seek.Value, transport.ResumeAfterSeek);
-            else if (transport.IsPaused) _player.Transport.Pause();
-            _prepared.Dispose();
             if (_player.Current.Session.HasSimulatedFrame) ReplayVerification.AfterFrame(_player.Current.Scene);
         }
+        if (_player == null) return;
         Scene before = _player.Current.Scene;
         before.UseReplayInput(_shell);
         before.PollReplayControls();
@@ -172,25 +267,65 @@ public static class DemoPlayback
         var size = ReplayVideoExporter.OutputSize ?? viewportSize;
         if (scene.Size != size) { scene.Size = size; scene.OnResize(); }
         double hostAlpha = Render.FrameTiming.Active ? Render.FrameTiming.PresentationAlpha : 1;
+        // An opening candidate has its own clock. While it prepares, rendering
+        // still belongs to the published player's unchanged world and cursor.
+        var presentedSession = _player?.Current.Session ?? Session;
         scene.ReplayRenderAlpha = ReplayVideoExporter.Rendering ? ReplayVideoExporter.PresentationAlpha
-            : Render.FrameTiming.Active ? Session.Transport.PresentationAlpha(hostAlpha) : 1;
+            : Render.FrameTiming.Active ? presentedSession.Transport.PresentationAlpha(hostAlpha) : 1;
         scene.ReplayPresentationFrame = ReplayVideoExporter.Rendering
             ? ReplayVideoExporter.PresentationFrame
-            : Render.FrameTiming.Active ? Session.Transport.PresentationFrame(hostAlpha) : CurrentFrame;
+            : Render.FrameTiming.Active ? presentedSession.Transport.PresentationFrame(hostAlpha) : presentedSession.CurrentFrame;
         return ReferenceEquals(scene, shell) ? null : scene;
     }
     internal static void Release(Scene shell)
-    { if (ReferenceEquals(_shell, shell)) Stop(); }
+    {
+        if (!ReferenceEquals(_shell, shell)) return;
+        lock (_joinGate)
+        {
+            if (_pendingSource == null && _joinJob == null) { Stop(); return; }
+            // Closing a previous shell during a successful join releases native
+            // ownership here while retaining only the newly prepared source.
+            var player = _player; _player = null; var opening = _openingPlayer; _openingPlayer = null; _shell = null;
+            var audio = _audio; _audio = 0;
+            try { ReplayAudioOwner.Release(audio); }
+            finally { try { player?.Dispose(); } finally { opening?.Dispose(); } }
+        }
+    }
     public static void PumpFrame() => Session.PumpFrame();
     public static void Stop()
     {
-        ReplayInput.CancelScrub();
-        ReplayAudioOwner.Release(_audio); _audio = 0;
-        ReplayKillMessagePresenter.Reset();
-        _player?.Dispose(); _player = null;
+        ReplayPreparationJob? job; PreparedReplaySource? pending;
+        lock (_joinGate)
+        {
+            _joinGeneration++; job = _joinJob; _joinJob = null;
+            pending = _pendingSource; _pendingSource = null;
+        }
+        var player = _player; _player = null; var opening = _openingPlayer; _openingPlayer = null;
         Scene? lab = _lab; _lab = null;
-        lab?.DoCleanup(); lab?.UnloadGl(); _shell = null;
-        _prepared.Stop(); _failed = false; _presentationFailed = false;
+        var audio = _audio; _audio = 0;
+        _shell = null; _failed = false; _presentationFailed = false; _joinError = null;
+        try { ReplayInput.CancelScrub(); ReplayAudioOwner.Release(audio); ReplayKillMessagePresenter.Reset(); }
+        finally
+        {
+            try { job?.Dispose(); }
+            finally
+            {
+                try { pending?.Dispose(); }
+                finally
+                {
+                    try { player?.Dispose(); }
+                    finally
+                    {
+                        try { opening?.Dispose(); }
+                        finally
+                        {
+                            try { if (lab != null) try { lab.DoCleanup(); } finally { lab.UnloadGl(); } }
+                            finally { _prepared.Stop(); }
+                        }
+                    }
+                }
+            }
+        }
     }
     public static bool TakeControl(int slot, out string? branchPath)
     {

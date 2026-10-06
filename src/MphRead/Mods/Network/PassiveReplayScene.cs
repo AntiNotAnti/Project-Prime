@@ -13,13 +13,14 @@ namespace MphRead.Mods.Network
     {
         public ReplayPlaybackSession Session { get; }
         public ReplayReplicaState State { get; }
-        public Scene Scene { get; }
+        public Scene Scene { get; } = null!;
         internal Replay.ReplayWorldCheckpoint.Bindings CheckpointBindings { get; private set; } = null!;
         internal ReplayReplicaCheckpoint InitialState { get; }
         internal ulong MapHash { get; }
         internal bool HasStepped { get; private set; }
         private bool _disposed;
         private bool _ownsScene = true;
+        private ReplayTimelineClip? _ownedClip;
         internal Scene DetachScene() { _ownsScene = false; return Scene; }
         public PassiveReplayScene(string path, Vector2i size) : this(Open(path), size)
         {
@@ -27,23 +28,37 @@ namespace MphRead.Mods.Network
             {
                 if (Session.Metadata?.WorldCheckpoint is { Length: > 0 } bytes)
                 {
-                    try
-                    {
-                        using var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(bytes, Session.Metadata?.BuildId);
-                        checkpoint.Restore(this, playbackFrame: 0);
-                    }
-                    catch (InvalidDataException ex)
-                    {
-                        // The session has already reconstructed a usable decoder from
-                        // bootstrap/packets. An old world capsule is only an acceleration
-                        // hint and must not make the replay unwatchable.
-                        Session.WarnVerification("World checkpoint compatibility fallback: " + ex.Message);
-                    }
+                    using var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(bytes, Session.Metadata?.BuildId);
+                    // The origin world is required state. Any failed restore disposes
+                    // this unpublished scene in the outer catch before it can be used.
+                    checkpoint.Restore(this, playbackFrame: 0);
                 }
                 Scene.ReplayPoses = new(this, path);
             }
             catch { Dispose(); throw; }
         }
+        internal PassiveReplayScene(PreparedReplaySource prepared, Vector2i size, int ownerThreadId,
+            Replay.ReplayWorldCheckpoint? memoryCheckpoint = null)
+            : this(AdoptPrepared(prepared, size, ownerThreadId), size)
+        {
+            try
+            {
+                _ownedClip = prepared.TakeClip();
+                using var checkpoint = prepared.TakeCheckpoint();
+                if (memoryCheckpoint != null) memoryCheckpoint.Restore(this);
+                else checkpoint?.Restore(this, prepared.PlaybackFrame);
+                if (_ownedClip != null)
+                {
+                    Session.Transport.ContinueSeek(_ownedClip.StartRecordingFrame, resume: true);
+                    Session.Transport.AfterFrame();
+                    Scene.ReplayPoses = new(this, _ownedClip);
+                }
+                else Scene.ReplayPoses = new(this, prepared.Path!);
+            }
+            catch { Dispose(); throw; }
+        }
+        private static ReplayPlaybackSession AdoptPrepared(PreparedReplaySource prepared, Vector2i size, int ownerThreadId)
+        { prepared.ValidateRequiredOrigin(size, ownerThreadId); return prepared.AdoptSession(ownerThreadId); }
         internal PassiveReplayScene(ReplayReplicaCheckpoint initial, uint frame, ulong mapHash, Vector2i size)
             : this(OpenLive(initial, frame, mapHash), size) { }
         public PassiveReplayScene(ReplayTimelineClip clip, Vector2i size) : this(Open(clip), size)
@@ -89,19 +104,22 @@ namespace MphRead.Mods.Network
         }
         private PassiveReplayScene(ReplayPlaybackSession session, Vector2i size)
         {
+            using var constructionPerf = ReplayPerfTelemetry.Measure(ReplayPerfOperation.WorldConstruction);
             Session = session;
-            State = ((PassiveReplaySessionHost)session.Host).State;
-            MatchStatePacket match = State.Match ?? throw new InvalidDataException("Replay has no room.");
-            InitialState = State.CaptureCheckpoint();
-            MapHash = Session.Metadata?.MapHash is > 0 ? Session.Metadata.MapHash : ReplayMapIdentity.Compute(match.RoomKey);
-            Scene = new Scene(size, SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(), _ => { }, () => { },
-                new ReplaySceneServices(Session, State));
-            // Replay worlds use the network slot contract, not the retail four-player cap.
-            // Every placeholder must exist before AddRoom/OnLoad so later roster activation
-            // cannot turn an unregistered PlayerEntity into a half-constructed actor.
-            Scene.Players.MaxPlayers = PlayerEntity.SlotCapacity;
             try
             {
+                if (PreparedReplaySource.IsWorker)
+                    throw new InvalidOperationException("Replay construction must run on its scene owner.");
+                State = ((PassiveReplaySessionHost)session.Host).State;
+                MatchStatePacket match = State.Match ?? throw new InvalidDataException("Replay has no room.");
+                InitialState = State.CaptureCheckpoint();
+                MapHash = Session.Metadata?.MapHash is > 0 ? Session.Metadata.MapHash : ReplayMapIdentity.Compute(match.RoomKey);
+                Scene = new Scene(size, SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(), _ => { }, () => { },
+                    new ReplaySceneServices(Session, State));
+                // Replay worlds use the network slot contract, not the retail four-player cap.
+                // Every placeholder must exist before AddRoom/OnLoad so later roster activation
+                // cannot turn an unregistered PlayerEntity into a half-constructed actor.
+                Scene.Players.MaxPlayers = PlayerEntity.SlotCapacity;
                 Scene.GameState.Mode = (GameMode)match.Mode;
                 if (Scene.GameState.SinglePlayer) throw new InvalidDataException("Passive reconstruction requires a recorded multiplayer world.");
                 ((ReplaySceneServices)Scene.Services).ApplyRules(Scene, 0);
@@ -142,9 +160,19 @@ namespace MphRead.Mods.Network
         {
             if (_disposed) return;
             _disposed = true;
-            Scene.ReplayPoses?.Dispose(); Scene.ReplayPoses = null;
-            if (_ownsScene) { Scene.DoCleanup(); Scene.UnloadGl(); }
-            Session.Dispose();
+            try
+            {
+                try { Scene?.ReplayPoses?.Dispose(); }
+                finally
+                {
+                    if (Scene != null)
+                    {
+                        Scene.ReplayPoses = null;
+                        if (_ownsScene) try { Scene.DoCleanup(); } finally { Scene.UnloadGl(); }
+                    }
+                }
+            }
+            finally { try { Session.Dispose(); } finally { _ownedClip?.Dispose(); _ownedClip = null; } }
         }
     }
 }

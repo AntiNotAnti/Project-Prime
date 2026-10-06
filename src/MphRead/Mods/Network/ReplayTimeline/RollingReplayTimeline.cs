@@ -101,6 +101,51 @@ public sealed class RollingReplayTimeline : IReplayTimeline
         return restorePoint != null;
     }
 
+    // A first-seen repeated fire can reveal that a later world capsule omitted
+    // a source-frame shot. Keep the accepted sequential facts, but never let a
+    // future freeze restore one of those invalid later worlds.
+    internal bool InvalidateWorldRestorePointsFrom(uint frame)
+    {
+        LinkedListNode<Segment>? valid = null;
+        for (var node = _segments.First; node != null && node.Value.Restore.RecordingFrame < frame; node = node.Next)
+            valid = node;
+        if (valid == null) return false;
+        while (valid.Next is { } stale)
+        {
+            var removed = stale.Value;
+            valid.Value.Records.AddRange(removed.Records);
+            valid.Value.Bytes += removed.Bytes - removed.Restore.PayloadBytes;
+            PayloadBytes -= removed.Restore.PayloadBytes;
+            RecordCount -= removed.Restore.Records.Count;
+            removed.Records.Clear(); // ownership moved, not retained or released
+            removed.Restore.Dispose();
+            _segments.Remove(stale);
+        }
+        return true;
+    }
+
+    // Only native fire actually reconstructed by a private correction may fill
+    // an absent source-frame marker. Do not announce it again to live subscribers
+    // or move the accepted-fact frontier backwards.
+    internal bool RecordRecoveredWeaponMarker(uint frame, uint tick, byte slot, int weapon)
+    {
+        if (LastRecordingFrame is not uint last || frame > last || PayloadBytes + 128 > _maximumBytes) return false;
+        Segment? owner = null;
+        foreach (var segment in _segments)
+        { if (segment.Restore.RecordingFrame > frame) break; owner = segment; }
+        if (owner == null) return false;
+        int at = 0;
+        while (at < owner.Records.Count && owner.Records[at].RecordingFrame < frame) at++;
+        for (int i = at; i < owner.Records.Count && owner.Records[i].RecordingFrame == frame; i++)
+            if (owner.Records[i].Marker is { Kind: ReplayMarkerKind.WeaponFired } marker
+                && marker.Actor == slot && marker.Value == weapon) return false;
+        var record = new ReplayTimelineRecord(frame, tick, ReplayFactKind.Event, ReadOnlySpan<byte>.Empty,
+            new(ReplayMarkerKind.WeaponFired, slot, byte.MaxValue, weapon));
+        owner.Records.Insert(at, record); owner.Bytes += record.PayloadBytes;
+        PayloadBytes += record.PayloadBytes; RecordCount++;
+        return true;
+    }
+
     public bool TryFreeze(uint startFrame, uint endFrame, out ReplayTimelineClip? clip)
     {
         clip = null;

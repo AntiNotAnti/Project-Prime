@@ -5,6 +5,7 @@ using System.IO;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Buffers.Binary;
+using System.Threading;
 
 namespace MphRead.Mods.Network
 {
@@ -40,6 +41,20 @@ namespace MphRead.Mods.Network
     internal sealed class ReplayBootstrap
     {
         public IReadOnlyList<byte[]> Packets { get; init; } = Array.Empty<byte[]>();
+        internal static ReplayBootstrap FromState(ReplayReplicaState state)
+        {
+            if (state.Configuration is not { } session) return new();
+            byte[] packet = new byte[1 + SessionStatePacket.Size];
+            packet[0] = (byte)PacketType.SessionState;
+            session.Write(packet.AsSpan(1));
+            return new() { Packets = new[] { packet } };
+        }
+        internal static ReplayBootstrap FromConstruction(ReplayReplicaCheckpoint checkpoint)
+        {
+            var state = new ReplayReplicaState();
+            state.RestoreCheckpoint(checkpoint);
+            return FromState(state);
+        }
     }
 
     internal sealed class ReplayMetadata
@@ -77,31 +92,90 @@ namespace MphRead.Mods.Network
 
     internal static class ReplayMapIdentity
     {
+        // Legacy packet recordings have no world graph to restore. Extracted
+        // ranges explicitly preserve their original detached construction and
+        // every hidden lead-in fact; this is never a replacement for a missing
+        // world-origin capsule in an ordinary v4 recording.
+        internal static ReplayReplicaCheckpoint? PacketOrigin(ReplayMetadata metadata)
+        {
+            if (metadata.FormatVersion != 4 || metadata.Type != ReplayType.Clip
+                || metadata.WorldCheckpoint.Length != 0 || metadata.OriginRecordingFrame != 0
+                || metadata.Bootstrap.Packets.Count != 1) return null;
+            byte[] packet = metadata.Bootstrap.Packets[0];
+            if (packet.Length < 2 || packet[0] != 253) return null;
+            var construction = ReplayTimelineArchive.ReadConstruction(packet);
+            ValidateOriginConstruction(metadata, construction);
+            return construction;
+        }
+        internal static void ValidateOriginConstruction(ReplayMetadata metadata, ReplayReplicaCheckpoint construction)
+        {
+            var detached = new ReplayReplicaState();
+            detached.RestoreCheckpoint(construction);
+            if (detached.Match is not { } match || match.RoomKey != metadata.RoomKey || match.Mode != (byte)metadata.Mode)
+                throw new InvalidDataException("Replay origin has no matching room and mode.");
+            if (detached.Configuration is { } config
+                && (config.Match.RoomKey != match.RoomKey || config.Match.Mode != (GameMode)match.Mode
+                    || config.MatchId != match.MatchId || config.AuthorityEpoch != match.AuthorityEpoch))
+                throw new InvalidDataException("Replay origin configuration differs from its match.");
+        }
         internal static SessionStatePacket? CustomSession(ReplayMetadata metadata)
         {
             foreach (byte[] packet in metadata.Bootstrap.Packets)
                 if (packet.Length == 1 + SessionStatePacket.Size && packet[0] == (byte)PacketType.SessionState
                     && SessionStatePacket.TryRead(packet.AsSpan(1), out var session)
                     && session.Match.MapIdentity.IsCustom && session.Match.RoomKey == metadata.RoomKey) return session;
+            if (PacketOrigin(metadata) is { } packetOrigin)
+            {
+                var state = new ReplayReplicaState(); state.RestoreCheckpoint(packetOrigin);
+                if (state.Configuration is { } config && config.Match.MapIdentity.IsCustom
+                    && config.Match.RoomKey == metadata.RoomKey) return config;
+            }
+            // Early v4 writers omitted bootstrap. Read the detached construction
+            // capsule to recover immutable package identity before loading a Scene.
+            if (metadata.WorldCheckpoint.Length > 0)
+            {
+                using var world = Replay.ReplayWorldCheckpoint.FromBytes(metadata.WorldCheckpoint, metadata.BuildId);
+                var state = new ReplayReplicaState();
+                state.RestoreCheckpoint(world.ConstructionState());
+                if (state.Configuration is { } rules && rules.Match.MapIdentity.IsCustom
+                    && rules.Match.RoomKey == metadata.RoomKey) return rules;
+            }
             return null;
         }
 
         internal static void PrepareExactPackage(ReplayMetadata metadata)
         {
-            if (CustomSession(metadata) is not { } session) return;
+            using var prepared = PrepareExactPackageDetached(metadata);
+            CommitExactPackage(prepared);
+        }
+
+        // Detached archive download/verification/build is safe on a bounded
+        // preparation worker. Runtime registry and generated-file publication
+        // remain an explicit operation on the scene owner.
+        internal static PreparedMapInstallation? PrepareExactPackageDetached(ReplayMetadata metadata,
+            CancellationToken cancellation = default)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            if (CustomSession(metadata) is not { } session) return null;
             var identity = session.Match.MapIdentity.Content(metadata.RoomKey);
             bool haveArchive = CustomRooms.Installed.HasExact(identity);
-            if (haveArchive && Validate(metadata) == ReplayOpenResult.Success) return;
+            if (haveArchive && Validate(metadata) == ReplayOpenResult.Success) return null;
             MapRuntimeUsage.RequireInstallationAllowed(identity.RoomKey);
             string configured = NetworkMapIdentity.ConfiguredDownloadSource();
             string address = haveArchive || string.IsNullOrWhiteSpace(session.MapDownloadSource) ? configured : session.MapDownloadSource;
             if (new Uri(address).IsLoopback && new Uri(address) != new Uri(configured))
                 throw new InvalidDataException("The replay's local Community address differs from your configured service.");
             using var client = new MapCommunityClient(address);
-            using var prepared = haveArchive && CustomRooms.Installed.TryGet(identity.MapId,out var local)
-                ? MapPackageInstaller.PrepareAsync(local.PackagePath,identity).GetAwaiter().GetResult()
-                : client.PrepareExactAsync(identity, default).GetAwaiter().GetResult();
-            var installed = prepared.Commit(CustomRooms.UserMapDirectory);
+            return haveArchive && CustomRooms.Installed.TryGet(identity.MapId,out var local)
+                ? MapPackageInstaller.PrepareAsync(local.PackagePath,identity,cancellation).GetAwaiter().GetResult()
+                : client.PrepareExactAsync(identity, cancellation).GetAwaiter().GetResult();
+        }
+
+        internal static void CommitExactPackage(PreparedMapInstallation? prepared,
+            CancellationToken cancellation = default)
+        {
+            if (prepared == null) return;
+            var installed = prepared.Commit(CustomRooms.UserMapDirectory, cancellation: cancellation);
             Metadata.RegisterDownloadedMap(installed);
         }
 

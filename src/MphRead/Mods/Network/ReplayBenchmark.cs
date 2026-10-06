@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using MphRead.Mods.Replay;
 using OpenTK.Mathematics;
 
@@ -16,12 +17,20 @@ internal static class ReplayBenchmark
     private static readonly Vector2i Size = new(256, 192);
     private sealed record Sample(string Operation, string Source, double WallMs, double CpuMs,
         long AllocatedBytes, int Steps, uint RestoreFrame, string Hash);
+    private sealed record StagedSample(string Operation, double WallMs, double CpuMs,
+        long ProcessAllocatedBytes, double? DetachedPreparationMs, double OwnerCommitMs,
+        double MaximumOwnerCallbackMs, double OwnerWorkMs, int OwnerCallbacks,
+        int Steps, uint RestoreFrame, string Hash);
     internal static int Run(string source, string output)
     {
         Headless.Enter(); Directory.CreateDirectory(output);
         var samples = new List<Sample>();
+        var stagedSamples = new List<StagedSample>();
         string indexed = Path.Combine(output, "indexed.ppdemo"), baseline = Path.Combine(output, "unindexed.ppdemo");
         var timeline = new RollingReplayTimeline();
+        ReplayTimelineClip? frozenClip = null;
+        bool previousTelemetry = ReplayPerfTelemetry.Enabled;
+        ReplayPerfTelemetry.Enabled = true;
         try
         {
             // Upgrade only the local benchmark copy. Both variants start from
@@ -51,7 +60,7 @@ internal static class ReplayBenchmark
                     timeline.Append(new(frame + metadata.OriginRecordingFrame, frame, ReplayFactKind.Event, ReadOnlySpan<byte>.Empty));
                     if (frame % 300 == 0)
                     {
-                        var checkpoint = ReplayWorldCheckpoint.Capture(world, world.Session.RecordingFrame);
+                        using var checkpoint = ReplayWorldCheckpoint.Capture(world, world.Session.RecordingFrame);
                         if (frame != 0) withIndex.WriteCheckpoint(frame, checkpoint.Bytes);
                         timeline.AppendRestorePoint(new(checkpoint.Frame, frame, ReplayRestoreKind.ReplicaCheckpoint,
                             [new(checkpoint.Frame, frame, ReplayFactKind.World, checkpoint.Bytes)]));
@@ -94,8 +103,46 @@ internal static class ReplayBenchmark
             }
             foreach (var group in samples.Where(s => s.Operation != "startup").GroupBy(s => s.Operation))
                 if (group.Select(s => s.Hash).Distinct().Count() != 1) throw new InvalidDataException("Benchmark paths diverged: " + group.Key);
+            for (int trial = 0; trial < 3; trial++)
+            {
+                PassiveReplayPlayer? staged = null;
+                try
+                {
+                    MeasureStaged("startup", stagedSamples, () =>
+                    {
+                        var detached = Stopwatch.StartNew();
+                        using var job = ReplayPreparationJob.File(indexed);
+                        using var prepared = job.WaitCompleted();
+                        detached.Stop();
+                        var owner = Stopwatch.StartNew();
+                        staged = new PassiveReplayPlayer(prepared, Size, new(EnableAsyncPreparation: true));
+                        owner.Stop();
+                        var callbacks = CompleteStaged(staged);
+                        return (staged, (double?)detached.Elapsed.TotalMilliseconds,
+                            owner.Elapsed.TotalMilliseconds, callbacks);
+                    });
+                    foreach (uint target in new uint[] { 1800, 18000, 1800 })
+                    {
+                        string operation = target == 1800 && staged!.Current.Session.CurrentFrame > target
+                            ? "backward seek 1800" : "cold seek " + target;
+                        MeasureStaged(operation, stagedSamples, () =>
+                        {
+                            staged!.Seek(target);
+                            return (staged, (double?)null, 0d, CompleteStaged(staged));
+                        });
+                    }
+                }
+                finally { staged?.Dispose(); }
+            }
+            foreach (var staged in stagedSamples)
+            {
+                var reference = samples.First(s => s.Operation == staged.Operation);
+                if (staged.Hash != reference.Hash)
+                    throw new InvalidDataException("Staged replay diverged: " + staged.Operation);
+            }
             uint end = timeline.LastRecordingFrame!.Value;
             if (!timeline.TryFreeze(end - 120, end, out var clip) || clip == null) throw new InvalidDataException("Benchmark history unavailable.");
+            frozenClip = clip;
             long retainedBefore = GC.GetTotalMemory(forceFullCollection: true);
             PassiveReplayPlayer? killcam = null;
             long retainedPlayer;
@@ -118,7 +165,10 @@ internal static class ReplayBenchmark
                 TimelineBytes = timeline.PayloadBytes, timeline.RecordCount, timeline.RestorePointCount,
                 ClipBytes = clip.RestorePoint.PayloadBytes + clip.Records.Sum(r => r.PayloadBytes), KillcamManagedBytes = retainedPlayer,
                 IndexedBytes = new FileInfo(indexed).Length, BaselineBytes = new FileInfo(baseline).Length,
-                Samples = samples
+                Samples = samples,
+                StagedSamples = stagedSamples,
+                StagedNotes = "Production detached preparation and owner adoption, followed by staged seeks on the same player. Synchronous cold-seek samples create a fresh player, so these warm staged samples are correctness and owner-work observations, not a controlled speed comparison. Worker waits yield 1 ms in this headless driver. Process-wide allocations include workers and runtime activity; owner callback time excludes the wait. Scene/load/restore and exact-map publication remain monolithic owner operations, so the 1 ms step budget is not a construction deadline.",
+                ProcessReplayOperations = ReplayPerfTelemetry.Snapshot()
             };
             File.WriteAllText(Path.Combine(output, "benchmark.json"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
             foreach (var group in samples.GroupBy(s => (s.Operation, s.Source)))
@@ -126,13 +176,56 @@ internal static class ReplayBenchmark
                 var median = group.OrderBy(s => s.WallMs).ElementAt(group.Count() / 2);
                 Console.WriteLine($"[replaybench] {median.Source} {median.Operation}: {median.WallMs:F2} ms, {median.CpuMs:F2} CPU ms, {median.AllocatedBytes} B, {median.Steps} steps from {median.RestoreFrame}");
             }
+            foreach (var group in stagedSamples.GroupBy(s => s.Operation))
+            {
+                var median = group.OrderBy(s => s.WallMs).ElementAt(group.Count() / 2);
+                Console.WriteLine($"[replaybench] staged {median.Operation}: {median.WallMs:F2} ms, max owner callback {median.MaximumOwnerCallbackMs:F2} ms, {median.ProcessAllocatedBytes} process B, {median.Steps} steps from {median.RestoreFrame}");
+            }
             Console.WriteLine($"[replaybench] PASS: identical seek/linear hashes; timeline {timeline.PayloadBytes} B, {timeline.RestorePointCount} restore points; clip {report.ClipBytes} B, private world {retainedPlayer} managed B.");
             return 0;
         }
         catch (Exception ex) { Console.WriteLine("[replaybench] FAIL: " + ex); return 1; }
+        finally
+        {
+            try { frozenClip?.Dispose(); }
+            finally { timeline.Reset(); ReplayPerfTelemetry.Enabled = previousTelemetry; }
+        }
     }
     private static void Complete(PassiveReplayPlayer player)
     { while (!player.Ready) if (player.Update() > 120) throw new InvalidDataException("Seek exceeded its update budget."); }
+    private readonly record struct OwnerCallbacks(double MaximumMs, double TotalMs, int Count);
+    private static OwnerCallbacks CompleteStaged(PassiveReplayPlayer player)
+    {
+        double maximum = 0, total = 0;
+        int count = 0;
+        var timeout = Stopwatch.StartNew();
+        while (!player.Ready)
+        {
+            if (timeout.Elapsed.TotalSeconds > 30) throw new InvalidDataException("Staged replay did not complete.");
+            long start = Stopwatch.GetTimestamp();
+            int steps = player.Update(maximumSteps: 24, maximumMilliseconds: 1);
+            double elapsed = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+            maximum = Math.Max(maximum, elapsed); total += elapsed; count++;
+            if (steps > 24) throw new InvalidDataException("Staged seek exceeded its step budget.");
+            if (steps == 0 && !player.Ready) Thread.Sleep(1);
+        }
+        return new(maximum, total, count);
+    }
+    private static void MeasureStaged(string operation, List<StagedSample> output,
+        Func<(PassiveReplayPlayer Player, double? DetachedMs, double CommitMs, OwnerCallbacks Callbacks)> action)
+    {
+        using var process = Process.GetCurrentProcess();
+        TimeSpan cpu = process.TotalProcessorTime;
+        long allocated = GC.GetTotalAllocatedBytes(precise: true);
+        var timer = Stopwatch.StartNew(); var result = action(); timer.Stop();
+        var player = result.Player;
+        output.Add(new(operation, timer.Elapsed.TotalMilliseconds,
+            (process.TotalProcessorTime - cpu).TotalMilliseconds,
+            GC.GetTotalAllocatedBytes(precise: true) - allocated, result.DetachedMs, result.CommitMs,
+            Math.Max(result.CommitMs, result.Callbacks.MaximumMs), result.CommitMs + result.Callbacks.TotalMs,
+            result.Callbacks.Count + (result.CommitMs > 0 ? 1 : 0), player.SeekSimulationSteps,
+            player.SeekRestoreFrame, ReplayStateHash.Compute(player.Current.Scene, player.Current.Session.CurrentFrame)));
+    }
     private static void Measure(string operation, string file, List<Sample> output, Func<(int Steps, uint Restore, string Hash)> action)
     {
         using var process = Process.GetCurrentProcess();

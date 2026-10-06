@@ -235,6 +235,9 @@ namespace MphRead.Mods.Network
     /// <summary>Each completed chunk is durable; only a successfully closed file gets its final name.</summary>
     internal sealed class ReplayWriterV3 : IDisposable
     {
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> ActivePaths = new(
+            OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+        internal static bool IsWriting(string path) => ActivePaths.ContainsKey(Path.GetFullPath(path));
         private readonly string _path;
         private readonly FileStream _stream;
         private readonly BinaryWriter _writer;
@@ -270,6 +273,7 @@ namespace MphRead.Mods.Network
             _records = new BinaryWriter(_chunk, Encoding.UTF8, true);
             try
             {
+                ActivePaths.TryAdd(PartialPath, 0);
                 _writer.Write(DemoFile.Magic); _writer.Write(metadata.FormatVersion); _writer.Write(metadata.ProtocolVersion);
                 _writer.Write(header.Length); _writer.Write(ReplayFormatV3.Crc(header)); _writer.Write(header);
                 _stream.Flush(true);
@@ -354,6 +358,7 @@ namespace MphRead.Mods.Network
             _faulted = true;
             if (_disposed) return;
             _disposed = true;
+            ActivePaths.TryRemove(PartialPath, out _);
             _records.Dispose(); _chunk.Dispose(); _writer.Dispose(); _stream.Dispose(); _checkpointSpool?.Dispose();
         }
 
@@ -416,6 +421,7 @@ namespace MphRead.Mods.Network
             finally
             {
                 _disposed = true;
+                ActivePaths.TryRemove(PartialPath, out _);
                 _records.Dispose(); _chunk.Dispose(); _writer.Dispose(); _stream.Dispose(); _checkpointSpool?.Dispose();
             }
             if (!_faulted) File.Move(PartialPath, _path);
@@ -648,6 +654,7 @@ namespace MphRead.Mods.Network
 
         private bool ReadChunk()
         {
+            using var decodePerf = ReplayPerfTelemetry.Measure(ReplayPerfOperation.DecodeChunk);
             _chunk?.Dispose(); _chunk = null;
             if (_stream.Position == _dataEnd)
             {

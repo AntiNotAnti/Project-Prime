@@ -166,6 +166,11 @@ internal static class ReplayWorldCoverageCheck
                 if (fire && frame % 30 == 0) presses[0] = InputEdgeHistory.Encode((byte)(frame / 30), alt ? IntentButtons.AltAttack : IntentButtons.Shoot, 0);
                 var intent = new IntentPacket { MatchId = matchId, AuthorityEpoch = epoch, SlotGeneration = 1, LifeId = life,
                     Frame = frame, Buttons = buttons, Presses = presses, HasState = true, AmmoUa = 999, AmmoMissiles = 99,
+                    // FullSize is the modern event-capable wire contract. This
+                    // fixture deliberately has no successfully authored shots;
+                    // held buttons/presses must not invent fire events. Separate
+                    // accepted-fire fixtures exercise actual current/recovered shots.
+                    HasFireEvents = true,
                     WeaponSelect = slot, Aim = slot < 4 ? Vector3.UnitZ : -Vector3.UnitZ, Position = Position(slot),
                     AckFrame = slot == 0 ? frame : 0,
                     ChargeLevel = (byte)(frame % 90 == 0 ? 60 : 0), HomingTarget = IntentPacket.HomingTargetValid };
