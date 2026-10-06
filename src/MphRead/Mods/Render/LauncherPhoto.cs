@@ -91,6 +91,7 @@ namespace MphRead.Mods.Render
         private static int _stageCoolShiftUniform = -1, _stageVignetteUniform = -1;
         private static int _stageLeftScrimUniform = -1, _stageRightScrimUniform = -1;
         private static int _stageFloorFadeUniform = -1, _stageHighlightGlowUniform = -1;
+        private static int _stageHunterFieldUniform = -1, _stageHunterHazeUniform = -1;
 
         /// <summary>`#backdrop { opacity: .62 }`.</summary>
         private const float Strength = 0.16f;
@@ -157,6 +158,8 @@ namespace MphRead.Mods.Render
                 _stageRightScrimUniform = GL.GetUniformLocation(program, "stage_right_scrim");
                 _stageFloorFadeUniform = GL.GetUniformLocation(program, "stage_floor_fade");
                 _stageHighlightGlowUniform = GL.GetUniformLocation(program, "stage_highlight_glow");
+                _stageHunterFieldUniform = GL.GetUniformLocation(program, "stage_hunter_field");
+                _stageHunterHazeUniform = GL.GetUniformLocation(program, "stage_hunter_haze");
                 Mods.DebugLog.Line("ui", "the moving backdrop is on");
                 return true;
             }
@@ -283,6 +286,15 @@ namespace MphRead.Mods.Render
                 GL.Uniform1(_stageRightScrimUniform, stage.RightScrim);
                 GL.Uniform1(_stageFloorFadeUniform, stage.FloorFade);
                 GL.Uniform1(_stageHighlightGlowUniform, stage.HighlightGlow);
+                float hunterCenterX = (stage.HunterLeft + stage.HunterRight) * 0.5f;
+                float hunterCenterY = (stage.HunterTop + stage.HunterBottom) * 0.5f;
+                float hunterExtentX = Math.Max(0.08f,
+                    (stage.HunterRight - stage.HunterLeft) * 0.60f);
+                float hunterExtentY = Math.Max(0.12f,
+                    (stage.HunterBottom - stage.HunterTop) * 0.56f);
+                GL.Uniform4(_stageHunterFieldUniform,
+                    hunterCenterX, hunterCenterY, hunterExtentX, hunterExtentY);
+                GL.Uniform1(_stageHunterHazeUniform, stage.HunterBackdropHaze);
             }
             GL.MatrixMode(MatrixMode.Projection);
             GL.PushMatrix();
