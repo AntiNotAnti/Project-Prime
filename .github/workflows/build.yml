@@ -219,6 +219,10 @@ jobs:
             --self-contained true -p:PublishSingleFile=true -o "publish/modern-${{ matrix.rid }}"
           chmod +x "publish/modern-${{ matrix.rid }}/ProjectPrime"
       - name: OpenGL texture-update compatibility reference
+        # GitHub's Apple-Silicon hosted runner may expose no NSGL pixel format
+        # at all. Keep one real macOS OpenGL reference on the Intel runner;
+        # Metal and MoltenVK remain exercised on both architectures below.
+        if: matrix.rid == 'osx-x64'
         run: '"publish/modern-${{ matrix.rid }}/ProjectPrime" -textureupdatecheck -renderer opengl'
       - name: Metal device, draw and window present
         run: |
@@ -379,7 +383,14 @@ jobs:
       # the .pk3 it was cooked from is a source and is kept out of the output
       # by CopyToPublishDirectory. It is not committed, so it is cooked here.
       - name: cook the map bundles
-        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
+        env:
+          PROJECT_PRIME_USER_DATA: ${{ runner.temp }}/map-bundle-user-data
+        run: |
+          set -euo pipefail
+          rm -rf "$PROJECT_PRIME_USER_DATA"
+          mkdir -p "$PROJECT_PRIME_USER_DATA/user-maps"
+          dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
+          find "$PROJECT_PRIME_USER_DATA/user-maps" -type f -name '*.ppmap' -exec cp {} maps/ \;
 
       - name: netcode lifecycle and health/shot regressions
         if: matrix.id == 'linux-x64'
@@ -588,7 +599,14 @@ jobs:
       - name: signing gate regressions
         run: tools/test-macos-tools.sh
       - name: cook the map bundles
-        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
+        env:
+          PROJECT_PRIME_USER_DATA: ${{ runner.temp }}/map-bundle-user-data
+        run: |
+          set -euo pipefail
+          rm -rf "$PROJECT_PRIME_USER_DATA"
+          mkdir -p "$PROJECT_PRIME_USER_DATA/user-maps"
+          dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
+          find "$PROJECT_PRIME_USER_DATA/user-maps" -type f -name '*.ppmap' -exec cp {} maps/ \;
 
       - name: build modern renderer and KTX runtimes
         env:
@@ -665,7 +683,14 @@ jobs:
       # the .pk3 it was cooked from is a source and is kept out of the output
       # by CopyToPublishDirectory. It is not committed, so it is cooked here.
       - name: cook the map bundles
-        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
+        env:
+          PROJECT_PRIME_USER_DATA: ${{ runner.temp }}/map-bundle-user-data
+        run: |
+          set -euo pipefail
+          rm -rf "$PROJECT_PRIME_USER_DATA"
+          mkdir -p "$PROJECT_PRIME_USER_DATA/user-maps"
+          dotnet run --project src/MphRead/MphRead.csproj -c Release -- -mapdir maps -mapbundle
+          find "$PROJECT_PRIME_USER_DATA/user-maps" -type f -name '*.ppmap' -exec cp {} maps/ \;
 
       # net10.0-android36.0 wants platform 36 and its build tools, which a
       # runner image does not necessarily carry. This target asks for exactly
