@@ -599,6 +599,7 @@ namespace MphRead.Entities
 
         public override void GetDrawInfo()
         {
+            if (Mods.ThumbnailMode.SuppressCombatPresentation) return;
             uint rngBefore = ModAuditLockjawDrawRng && BombType == BombType.Lockjaw
                 ? _scene.Random.Rng1 : 0;
             if (BombType == BombType.Lockjaw)
