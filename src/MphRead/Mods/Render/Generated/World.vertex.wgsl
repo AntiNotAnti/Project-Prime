@@ -350,7 +350,7 @@ fn light_calc(light_vec: vec3<f32>, light_col: vec3<f32>, normal_vec: vec3<f32>,
 
 fn prime_original_main() {
     var stack_mtx: mat4x4<f32>;
-    var packed: f32;
+    var packedJoints: f32;
     var j0_: i32;
     var j1_: i32;
     var j2_: i32;
@@ -384,23 +384,23 @@ fn prime_original_main() {
         {
             let _e353: vec3<f32> = prime_uv_1;
             let _e362: vec3<f32> = prime_uv_1;
-            packed = floor((vec4<f32>(_e362.x, _e362.y, _e362.z, 0f).z + 0.5f));
-            let _e375: f32 = packed;
+            packedJoints = floor((vec4<f32>(_e362.x, _e362.y, _e362.z, 0f).z + 0.5f));
+            let _e375: f32 = packedJoints;
             j0_ = i32((_e375 - (floor((_e375 / 32f)) * 32f)));
-            let _e383: f32 = packed;
-            let _e386: f32 = packed;
-            packed = floor((_e386 / 32f));
-            let _e392: f32 = packed;
+            let _e383: f32 = packedJoints;
+            let _e386: f32 = packedJoints;
+            packedJoints = floor((_e386 / 32f));
+            let _e392: f32 = packedJoints;
             j1_ = i32((_e392 - (floor((_e392 / 32f)) * 32f)));
-            let _e400: f32 = packed;
-            let _e403: f32 = packed;
-            packed = floor((_e403 / 32f));
-            let _e409: f32 = packed;
+            let _e400: f32 = packedJoints;
+            let _e403: f32 = packedJoints;
+            packedJoints = floor((_e403 / 32f));
+            let _e409: f32 = packedJoints;
             j2_ = i32((_e409 - (floor((_e409 / 32f)) * 32f)));
-            let _e417: f32 = packed;
-            let _e420: f32 = packed;
-            packed = floor((_e420 / 32f));
-            let _e426: f32 = packed;
+            let _e417: f32 = packedJoints;
+            let _e420: f32 = packedJoints;
+            packedJoints = floor((_e420 / 32f));
+            let _e426: f32 = packedJoints;
             j3_ = i32((_e426 - (floor((_e426 / 32f)) * 32f)));
             let _e434: f32 = prime_color_set_1;
             if (_e434 > 0.5f) {
