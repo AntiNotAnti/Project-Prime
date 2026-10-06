@@ -14,10 +14,12 @@ public sealed class PreparedMapInstallation : IDisposable
     public MapContentIdentity Identity { get; }
     internal PreparedMapInstallation(string snapshot, MapBuildResult build, MapContentIdentity identity)
     { _snapshot = snapshot; _build = build; Identity = identity; }
-    public MapDefinition Commit(string library, bool initialJoin = false)
+    public MapDefinition Commit(string library, bool initialJoin = false, CancellationToken cancellation = default)
     {
+        cancellation.ThrowIfCancellationRequested();
         lock (MapRuntimeUsage.Gate)
         {
+            cancellation.ThrowIfCancellationRequested();
             MapRuntimeUsage.RequireInstallationAllowed(Identity.RoomKey, initialJoin);
             MapPackageInstaller.RequireNoConflict(Identity);
             if (!MapContentIdentity.FromPackage(_snapshot).Matches(Identity)) throw new InvalidDataException("Prepared map changed before installation.");
@@ -77,12 +79,12 @@ public static class MapPackageInstaller
         }
         catch { if (File.Exists(snapshot)) File.Delete(snapshot); throw; }
     }
-    public static MapDefinition Install(string download, Guid id, string contentHash, string archiveHash, string library)
+    public static MapDefinition Install(string download, Guid id, string contentHash, string archiveHash, string library, CancellationToken cancellation = default)
     {
         var identity = MapContentIdentity.FromPackage(download);
         if (identity.MapId != id || identity.ContentHash != MapHash256.Parse(contentHash) || identity.PackageHash != MapHash256.Parse(archiveHash))
             throw new InvalidDataException("Downloaded map identity does not match the server.");
-        using var prepared = PrepareAsync(download, identity).GetAwaiter().GetResult();
-        return prepared.Commit(library);
+        using var prepared = PrepareAsync(download, identity, cancellation).GetAwaiter().GetResult();
+        return prepared.Commit(library, cancellation: cancellation);
     }
 }

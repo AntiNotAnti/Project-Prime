@@ -58,6 +58,8 @@ public static class MapProjectFolder
                 if(material.Normal is {} normal)material.Normal=paths[normal];
                 if(material.SpecularRoughness is {} specular)material.SpecularRoughness=paths[specular];
                 if(material.Emissive is {} emissive)material.Emissive=paths[emissive];
+                if(material.Animation is {} animation)
+                    animation.FlipbookFrames=animation.FlipbookFrames.Select(frame=>paths[frame]).ToList();
             }
             if(copy.Import is { } imported && imported.ModernTextures.Count > 0)
                 imported.ModernTextures = imported.ModernTextures.ToDictionary(p=>p.Key,p=>paths[p.Value]);
@@ -89,7 +91,11 @@ public static class MapProjectFolder
                 if(!string.IsNullOrEmpty(import.Textures)){byte[] texture=source.BundlePath==null?File.ReadAllBytes(source.Import.ResolveTextures()!):MapBundle.ReadEntry(source.BundlePath,import.Textures)??throw new IOException("Imported textures are missing.");AtomicFile.Write(Path.Combine(stage,"textures/import.tex"),texture);import.Textures="textures/import.tex";}
                 import.BundlePath=null;import.BaseDirectory=stage;
             }
-            copy.BundlePath=null;copy.BaseDirectory=stage;copy.SourcePath=Path.Combine(stage,"map.json");copy.Save(copy.SourcePath);
+            copy.BundlePath=null;copy.BaseDirectory=stage;copy.SourcePath=Path.Combine(stage,"map.json");
+            copy.Save(copy.SourcePath);
+            var exported=MapDefinition.Load(copy.SourcePath);
+            var assets=new MapValidationResult();MapAssets.Validate(exported,assets,checkFiles:true);
+            MapCompiler.ThrowIfInvalid(assets);
             Directory.Move(stage,destination);return Path.Combine(destination,"map.json");
         }
         finally{if(Directory.Exists(stage))Directory.Delete(stage,true);}

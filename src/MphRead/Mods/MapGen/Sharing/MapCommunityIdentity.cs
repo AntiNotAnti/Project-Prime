@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -24,6 +25,11 @@ internal sealed class MapCommunityIdentityVerifier : IDisposable
     private readonly HttpClient _http;
     private readonly object _gate = new();
     private readonly Dictionary<string, CachedIdentity> _cache = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Task<MapCreatorCredential?>> _pending = new(StringComparer.Ordinal);
+    private readonly SemaphoreSlim _verificationSlots = new(4, 4);
+    private readonly CancellationTokenSource _stop = new();
+    private const int CacheCapacity = 1024;
+    private long _access;
 
     public MapCommunityIdentityVerifier()
     {
@@ -57,28 +63,52 @@ internal sealed class MapCommunityIdentityVerifier : IDisposable
 
         string cacheKey = Convert.ToHexString(
             SHA256.HashData(Encoding.UTF8.GetBytes(ticket))).ToLowerInvariant();
+        Task<MapCreatorCredential?> verification;
         lock (_gate)
         {
             if (_cache.TryGetValue(cacheKey, out CachedIdentity? cached)
                 && cached.ExpiresAt > DateTimeOffset.UtcNow.AddSeconds(20))
             {
+                _cache[cacheKey] = cached with { Access = ++_access };
                 return cached.Credential;
             }
             _cache.Remove(cacheKey);
+            if (!_pending.TryGetValue(cacheKey, out verification!))
+            {
+                if (_pending.Count >= CacheCapacity)
+                    throw new HttpRequestException("Community identity verification is busy.", null, HttpStatusCode.ServiceUnavailable);
+                // Each caller cancels only its wait. Verification is bounded by
+                // HttpClient's timeout and can still serve another waiter.
+                verification = Task.Run(() => VerifyAsync(ticket, cacheKey));
+                _pending.Add(cacheKey, verification);
+                _ = verification.ContinueWith(task => { _ = task.Exception; },
+                    CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            }
         }
+        return await verification.WaitAsync(token).ConfigureAwait(false);
+    }
 
+    private async Task<MapCreatorCredential?> VerifyAsync(string ticket, string cacheKey)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
+        deadline.CancelAfter(TimeSpan.FromSeconds(10));
+        bool entered = false;
+        try
+        {
+        await _verificationSlots.WaitAsync(deadline.Token).ConfigureAwait(false);
+        entered = true;
         using var content = new StringContent(
             JsonSerializer.Serialize(new { action = "verify", ticket }),
             Encoding.UTF8, "application/json");
         using HttpResponseMessage response = await _http.PostAsync(
-            "functions/v1/community-map-ticket", content, token).ConfigureAwait(false);
+            "functions/v1/community-map-ticket", content, deadline.Token).ConfigureAwait(false);
         if (response.StatusCode is HttpStatusCode.BadRequest
             or HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
         {
             return null;
         }
         response.EnsureSuccessStatusCode();
-        string body = await response.Content.ReadAsStringAsync(token).ConfigureAwait(false);
+        string body = await response.Content.ReadAsStringAsync(deadline.Token).ConfigureAwait(false);
         VerifiedTicket? verified = JsonSerializer.Deserialize<VerifiedTicket>(
             body, MapPackageReader.JsonOptions);
         if (verified == null
@@ -93,23 +123,38 @@ internal sealed class MapCommunityIdentityVerifier : IDisposable
             verified.CreatorId, new string('0', 64), verified.Moderator);
         lock (_gate)
         {
-            _cache[cacheKey] = new(credential, verified.ExpiresAt);
-            if (_cache.Count > 1024)
-            {
-                DateTimeOffset now = DateTimeOffset.UtcNow;
-                foreach (string expired in new List<string>(_cache.Keys))
-                {
-                    if (_cache[expired].ExpiresAt <= now) _cache.Remove(expired);
-                }
-            }
+            DateTimeOffset now = DateTimeOffset.UtcNow.AddSeconds(20);
+            foreach (string expired in _cache.Where(pair => pair.Value.ExpiresAt <= now).Select(pair => pair.Key).ToArray())
+                _cache.Remove(expired);
+            while (_cache.Count >= CacheCapacity)
+                _cache.Remove(_cache.MinBy(pair => pair.Value.Access).Key);
+            _cache[cacheKey] = new(credential, verified.ExpiresAt, ++_access);
         }
         return credential;
+        }
+        finally
+        {
+            if (entered) _verificationSlots.Release();
+            lock (_gate) _pending.Remove(cacheKey);
+        }
     }
 
-    public void Dispose() => _http.Dispose();
+    public void Dispose()
+    {
+        _stop.Cancel();
+        _http.Dispose();
+        Task[] pending;
+        lock (_gate) pending = _pending.Values.Cast<Task>().ToArray();
+        _ = Task.WhenAll(pending).ContinueWith(task =>
+        {
+            _ = task.Exception;
+            _stop.Dispose();
+            _verificationSlots.Dispose();
+        }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+    }
 
     private sealed record CachedIdentity(
-        MapCreatorCredential Credential, DateTimeOffset ExpiresAt);
+        MapCreatorCredential Credential, DateTimeOffset ExpiresAt, long Access);
 
     private sealed class VerifiedTicket
     {

@@ -45,6 +45,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBlock _summary;
         private readonly PrimeStatePanel _browserState;
         private readonly IReadOnlyList<ServerBrowserEntry>? _sample;
+        private readonly Func<Action<ServerBrowserEntry>,CancellationToken,Task<ServerDiscoveryResult>> _discoverServers;
         private readonly HubNavButton _quick;
         private readonly HubNavButton _refresh;
         private readonly HubNavButton _join;
@@ -64,9 +65,11 @@ namespace MphRead.Mods.Launcher.Gui
         public event EventHandler? CreateLobbyRequested;
         public event EventHandler<LaunchPlan>? Launched;
 
-        public PlayWorkspace(IReadOnlyList<ServerBrowserEntry>? sample = null)
+        public PlayWorkspace(IReadOnlyList<ServerBrowserEntry>? sample = null,
+            Func<Action<ServerBrowserEntry>,CancellationToken,Task<ServerDiscoveryResult>>? discoverServers=null)
         {
             _sample = sample;
+            _discoverServers=discoverServers??((entry,token)=>ServerBrowserService.DiscoverAsync(entry,token));
             Focusable = true;
             Background = Brushes.Transparent;
 
@@ -292,7 +295,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 LauncherBackdrop.Set(LauncherBackdropScene.Multiplayer,
                     _backdropRoom.Length > 0 ? _backdropRoom : null);
-                if (!_loaded)
+                if (!_loaded || !_discoveryComplete)
                 {
                     _loaded = true;
                     RefreshServers();
@@ -460,6 +463,7 @@ namespace MphRead.Mods.Launcher.Gui
             _discover?.Cancel();
             _discover?.Dispose();
             _discover = null;
+            _discovering = false;
         }
 
         private void CancelQuickSearch()
@@ -512,17 +516,19 @@ namespace MphRead.Mods.Launcher.Gui
             var cancel = new CancellationTokenSource();
             _discover = cancel;
 
-            ServerDiscoveryResult result = await ServerBrowserService.DiscoverAsync(entry =>
+            ServerDiscoveryResult result;
+            try{result = await _discoverServers(entry =>
             {
                 Dispatcher.UIThread.Post(() =>
                 {
-                    if (cancel.IsCancellationRequested || TopLevel.GetTopLevel(this) == null)
+                    if (cancel.IsCancellationRequested || !ReferenceEquals(_discover,cancel) || TopLevel.GetTopLevel(this) == null)
                         return;
                     AddEntry(entry);
                 });
-            }, cancel.Token);
+            }, cancel.Token);}
+            catch(OperationCanceledException){return;}
 
-            if (cancel.IsCancellationRequested || TopLevel.GetTopLevel(this) == null)
+            if (cancel.IsCancellationRequested || !ReferenceEquals(_discover,cancel) || TopLevel.GetTopLevel(this) == null)
                 return;
             _discovering = false;
             _discoveryComplete = true;

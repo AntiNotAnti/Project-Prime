@@ -1,4 +1,6 @@
 using System;
+using System.Buffers;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -60,8 +62,7 @@ namespace MphRead.Mods.MapGen
                     ValidateManifest(Manifest);
                     ProjectEntry = Manifest.Project;
                     RequireProjectShape(_entries);
-                    string hash = ContentHash(_entries.Keys.Where(n => n != "manifest.json"),
-                        n => ReadRequired(_entries, n));
+                    string hash = ContentHashEntries(_entries.Keys.Where(n => n != "manifest.json"));
                     if (!hash.Equals(Manifest.ContentHash, StringComparison.OrdinalIgnoreCase))
                         throw new InvalidDataException("Package content hash does not match.");
                     MapDefinition definition = ReadDefinition(_entries, ProjectEntry, legacy: false);
@@ -333,20 +334,46 @@ namespace MphRead.Mods.MapGen
             if (entry.Length < 0 || entry.Length > limit)
                 throw new InvalidDataException($"Package entry '{entry.FullName}' is oversized: {entry.Length:N0} bytes uncompressed, "
                     + $"{entry.CompressedLength:N0} bytes compressed; limit is {limit:N0} bytes.");
-            using Stream input = entry.Open();
-            using var output = new MemoryStream(
-                entry.Length <= Int32.MaxValue ? (int)entry.Length : 0);
-            byte[] buffer = new byte[65536];
-            int count;
-            while ((count = input.Read(buffer)) > 0)
+            // Exactly one payload allocation; enforce both declared and actual
+            // sizes, including a final EOF check rather than trusting ZIP metadata.
+            byte[] bytes=new byte[checked((int)entry.Length)];
+            using Stream input=entry.Open();int offset=0;
+            while(offset<bytes.Length)
             {
-                if (output.Length + count > limit || output.Length + count > entry.Length)
-                    throw new InvalidDataException("Entry exceeds declared size.");
-                output.Write(buffer, 0, count);
+                int count=input.Read(bytes.AsSpan(offset,Math.Min(65536,bytes.Length-offset)));
+                if(count==0)throw new InvalidDataException("Truncated package entry.");
+                offset+=count;
             }
-            if (output.Length != entry.Length)
-                throw new InvalidDataException("Truncated package entry.");
-            return output.ToArray();
+            if(input.ReadByte()!=-1)throw new InvalidDataException("Entry exceeds declared size.");
+            return bytes;
+        }
+
+        private static void HashHeader(IncrementalHash hash,string name,long length)
+        {
+            byte[] path=Encoding.UTF8.GetBytes(name);Span<byte> header=stackalloc byte[8];
+            BinaryPrimitives.WriteInt32LittleEndian(header,path.Length);hash.AppendData(header[..4]);hash.AppendData(path);
+            BinaryPrimitives.WriteInt64LittleEndian(header,length);hash.AppendData(header);
+        }
+        private string ContentHashEntries(IEnumerable<string> names)
+        {
+            using var hash=IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            byte[] buffer=ArrayPool<byte>.Shared.Rent(65536);
+            try
+            {
+                foreach(string name in names.OrderBy(value=>value,StringComparer.Ordinal))
+                {
+                    ZipArchiveEntry entry=_entries[name];HashHeader(hash,name,entry.Length);
+                    using Stream input=entry.Open();long read=0;int count;
+                    while((count=input.Read(buffer,0,65536))>0)
+                    {
+                        read+=count;if(read>entry.Length||read>MaxEntryBytes)throw new InvalidDataException("Entry exceeds declared size.");
+                        hash.AppendData(buffer,0,count);
+                    }
+                    if(read!=entry.Length)throw new InvalidDataException("Truncated package entry.");
+                }
+                return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
+            }
+            finally{ArrayPool<byte>.Shared.Return(buffer);}
         }
 
         public static string ContentHash(IEnumerable<string> names, Func<string, byte[]> read)
@@ -354,15 +381,7 @@ namespace MphRead.Mods.MapGen
             using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             foreach (string name in names.OrderBy(n => n, StringComparer.Ordinal))
             {
-                byte[] path = Encoding.UTF8.GetBytes(name), data = read(name);
-                using var buffer = new MemoryStream();
-                using (var writer = new BinaryWriter(buffer, Encoding.UTF8, true))
-                {
-                    writer.Write(path.Length);
-                    writer.Write(path);
-                    writer.Write((long)data.Length);
-                }
-                hash.AppendData(buffer.ToArray());
+                byte[] data=read(name);HashHeader(hash,name,data.LongLength);
                 hash.AppendData(data);
             }
             return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();

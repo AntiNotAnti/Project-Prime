@@ -16,14 +16,18 @@ public sealed record MapReportRequest(string? Version,string Reason,string Detai
 /// <summary>Small service catalog, persisted atomically independently from immutable archives.</summary>
 public sealed class MapCreatorCatalog
 {
+    public const int MaxCatalogBytes=32*1024*1024;
     public const string ServiceOwner="service-owner";
     public static readonly string[] ReportReasons={"Broken map","Offensive content","Stolen content","Malicious package","Misleading metadata","Other"};
     private readonly string _storage;
     private readonly object _gate=new();
     private readonly MapCreatorCredential[] _creators;
     private readonly List<MapFavorite> _favorites;
+    private readonly Dictionary<Guid,int> _favoriteCounts=new();
+    private readonly Dictionary<string,HashSet<Guid>> _userFavorites=new(StringComparer.Ordinal);
     private readonly List<CommunityMapReport> _reports;
     private readonly Dictionary<Guid,string[]> _collaborators;
+    private readonly string? _moderationError;
     public MapCreatorCatalog(string storage,string secret)
     {
         _storage=storage;
@@ -32,11 +36,26 @@ public sealed class MapCreatorCatalog
             ||_creators.Select(c=>c.CreatorId).Distinct(StringComparer.Ordinal).Count()!=_creators.Length||_creators.Select(c=>c.TokenHash).Distinct(StringComparer.OrdinalIgnoreCase).Count()!=_creators.Length)
             throw new InvalidDataException("Invalid creator registry.");
         _creators=_creators.Append(new(ServiceOwner,Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(secret))).ToLowerInvariant(),true)).ToArray();
-        _favorites=Load<List<MapFavorite>>("map_favorites.json")??new();_reports=Load<List<CommunityMapReport>>("map_reports.json")??new();_collaborators=Load<Dictionary<Guid,string[]>>("map_collaborators.json")??new();
+        _favorites=Load<List<MapFavorite>>("map_favorites.json")??new();
+        ReindexFavorites();
+        try { _reports=Load<List<CommunityMapReport>>("map_reports.json")??new(); }
+        catch(Exception ex) when(ex is IOException or InvalidDataException or JsonException or UnauthorizedAccessException)
+        {
+            // Preserve the original history for operator repair. An old oversized
+            // moderation file must not make immutable package delivery unavailable.
+            _reports=new();_moderationError=ex.Message;
+            Console.Error.WriteLine("[maphub] Moderation unavailable; preserved map_reports.json: "+ex.Message);
+        }
+        _collaborators=Load<Dictionary<Guid,string[]>>("map_collaborators.json")??new();
     }
     private T? Load<T>(string name)
-    {string path=Path.Combine(_storage,name);if(!File.Exists(path))return default;if(new FileInfo(path).Length>32*1024*1024)throw new InvalidDataException("Creator catalog exceeds storage budget.");return JsonSerializer.Deserialize<T>(File.ReadAllBytes(path),MapPackageReader.JsonOptions);}
-    private void Save<T>(string name,T value)=>AtomicFile.Write(Path.Combine(_storage,name),JsonSerializer.SerializeToUtf8Bytes(value,MapPackageReader.JsonOptions));
+    {string path=Path.Combine(_storage,name);if(!File.Exists(path))return default;if(new FileInfo(path).Length>MaxCatalogBytes)throw new InvalidDataException("Creator catalog exceeds storage budget.");return JsonSerializer.Deserialize<T>(File.ReadAllBytes(path),MapPackageReader.JsonOptions);}
+    private void Save<T>(string name,T value)
+    {
+        byte[] bytes=JsonSerializer.SerializeToUtf8Bytes(value,MapPackageReader.JsonOptions);
+        if(bytes.Length>MaxCatalogBytes)throw new InvalidDataException("Creator catalog storage budget reached. Archive moderation history before adding more data.");
+        AtomicFile.Write(Path.Combine(_storage,name),bytes);
+    }
     public MapCreatorCredential? Authenticate(string? authorization)
     {
         if(authorization==null||!authorization.StartsWith("Bearer ",StringComparison.Ordinal)||authorization.Length>4096)return null;
@@ -47,19 +66,30 @@ public sealed class MapCreatorCatalog
     {lock(_gate)return creator==map.OwnerId||_collaborators.GetValueOrDefault(map.MapId,Array.Empty<string>()).Contains(creator,StringComparer.Ordinal);}
     public void SetCollaborators(Guid map,string[] creators)
     {lock(_gate){if(creators.Length>32||creators.Any(id=>!_creators.Any(c=>c.CreatorId==id)))throw new InvalidDataException("Use up to 32 registered creator IDs.");var copy=new Dictionary<Guid,string[]>(_collaborators){[map]=creators.Distinct(StringComparer.Ordinal).ToArray()};Save("map_collaborators.json",copy);_collaborators[map]=copy[map];}}
+    private void ReindexFavorites()
+    {
+        _favoriteCounts.Clear();_userFavorites.Clear();
+        foreach(var favorite in _favorites)
+        {
+            _favoriteCounts[favorite.MapId]=_favoriteCounts.GetValueOrDefault(favorite.MapId)+1;
+            if(!_userFavorites.TryGetValue(favorite.UserId,out var maps))_userFavorites.Add(favorite.UserId,maps=new());
+            maps.Add(favorite.MapId);
+        }
+    }
     public CommunityMap Decorate(CommunityMap map,string? viewer)
-    {lock(_gate)return map with{FavoriteCount=_favorites.Count(f=>f.MapId==map.MapId),Favorited=viewer!=null&&_favorites.Any(f=>f.MapId==map.MapId&&f.UserId==viewer)};}
+    {lock(_gate)return map with{FavoriteCount=_favoriteCounts.GetValueOrDefault(map.MapId),Favorited=viewer!=null&&_userFavorites.TryGetValue(viewer,out var favorites)&&favorites.Contains(map.MapId)};}
     public void Favorite(string creator,Guid map,bool value)
     {
         lock(_gate)
         {
             var next=_favorites.Where(f=>f.UserId!=creator||f.MapId!=map).ToList();
-            if(value){if(next.Count>=100000||next.Count(f=>f.UserId==creator)>=5000)throw new InvalidDataException("Favorite limit reached.");next.Add(new(creator,map,DateTimeOffset.UtcNow));}
-            Save("map_favorites.json",next);_favorites.Clear();_favorites.AddRange(next);
+            if(value){if(next.Count>=100000||(_userFavorites.TryGetValue(creator,out var favorites)?favorites.Count-(favorites.Contains(map)?1:0):0)>=5000)throw new InvalidDataException("Favorite limit reached.");next.Add(new(creator,map,DateTimeOffset.UtcNow));}
+            Save("map_favorites.json",next);_favorites.Clear();_favorites.AddRange(next);ReindexFavorites();
         }
     }
     public CommunityMapReport Report(string creator,Guid map,MapReportRequest request)
     {
+        RequireModeration();
         if(!ReportReasons.Contains(request.Reason,StringComparer.Ordinal)||request.Details==null||request.Details.Length>4000||request.Version?.Length>64)throw new InvalidDataException("Invalid report reason or details.");
         lock(_gate)
         {
@@ -78,10 +108,11 @@ public sealed class MapCreatorCatalog
             var collaborators = new Dictionary<Guid, string[]>(_collaborators);
             collaborators.Remove(map);
             Save("map_favorites.json", favorites);
-            Save("map_reports.json", reports);
+            if(_moderationError==null)Save("map_reports.json", reports);
             Save("map_collaborators.json", collaborators);
             _favorites.Clear();
             _favorites.AddRange(favorites);
+            ReindexFavorites();
             _reports.Clear();
             _reports.AddRange(reports);
             _collaborators.Clear();
@@ -89,9 +120,11 @@ public sealed class MapCreatorCatalog
         }
     }
 
-    public CommunityMapReport[] Reports(){lock(_gate)return _reports.OrderByDescending(r=>r.CreatedAt).ToArray();}
+    private void RequireModeration(){if(_moderationError!=null)throw new IOException("Moderation history needs operator repair: "+_moderationError);}
+    public CommunityMapReport[] Reports(){RequireModeration();lock(_gate)return _reports.OrderByDescending(r=>r.CreatedAt).ToArray();}
     public void SetReportStatus(Guid id,string status)
     {
+        RequireModeration();
         if(status is not ("Open" or "Reviewed" or "Resolved" or "Dismissed"))throw new InvalidDataException("Invalid moderation status.");
         lock(_gate){int index=_reports.FindIndex(r=>r.Id==id);if(index<0)throw new InvalidDataException("Unknown report.");var copy=_reports.ToArray();copy[index]=copy[index] with{Status=status};Save("map_reports.json",copy);_reports[index]=copy[index];}
     }

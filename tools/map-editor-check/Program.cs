@@ -7,6 +7,15 @@ using System.Threading.Tasks;
 using MphRead.Mods.MapEditor;
 using MphRead.Mods.MapGen;
 
+if(args.Contains("--guard-child"))
+{
+    var guard=typeof(MapCreatorCatalog).Assembly.GetType("MphRead.Mods.Launcher.ClientInstanceGuard")!;
+    var flags=System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic;
+    bool owned=(bool)guard.GetMethod("TryAcquireForProcess",flags)!.Invoke(null,new object[]{TimeSpan.FromMilliseconds(100)})!;
+    Console.WriteLine(owned?"READY":"REFUSED");
+    if(owned){Console.ReadLine();guard.GetMethod("ReleaseProcess",flags)!.Invoke(null,null);}
+    return;
+}
 if(args.Contains("--runtime-only"))
 {
     string folder=Path.Combine(Path.GetTempPath(),"prime-runtime-check-"+Guid.NewGuid().ToString("N"));
@@ -16,8 +25,15 @@ if(args.Contains("--runtime-only"))
 int checks = 0;
 MapStorageChecks.Run();
 if (args.Contains("--map-storage-only")) return;
+if(args.Contains("--map-benchmark")){string fixture=Path.Combine(Path.GetTempPath(),"prime-map-performance-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(fixture);try{MapPerformanceChecks.Run(fixture);}finally{Directory.Delete(fixture,true);}return;}
 if (args.Contains("--large-model-benchmark")) { Benchmarks.LargeModels(); return; }
 void Check(bool condition, string label) { if (!condition) throw new Exception(label); checks++; }
+if(args.Contains("--roadmap-only"))
+{
+    string fixture=Path.Combine(Path.GetTempPath(),"prime-roadmap-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(fixture);
+    try{await RoadmapChecks.Run(Check,fixture);}finally{Directory.Delete(fixture,true);}
+    Console.WriteLine($"Roadmap: {checks} checks passed.");return;
+}
 if(args.Contains("--next-pass-only"))
 {
     string fixture=Path.Combine(Path.GetTempPath(),"prime-next-pass-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(fixture);

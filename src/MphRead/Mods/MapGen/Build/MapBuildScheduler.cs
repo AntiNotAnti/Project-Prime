@@ -29,21 +29,32 @@ public sealed record MapBuildResult(string Fingerprint, MapOutputSet? Outputs,
 public sealed class MapBuildScheduler : IMapBuildScheduler
 {
     private readonly MapWorkQueue _queue;
+    private readonly SemaphoreSlim _preparationSlots;
     private readonly MapCompilationCache _compilations = new();
     private readonly string _cacheRoot;
+    private readonly long _cacheBudget;
+    private readonly TimeSpan _cacheRetention;
+    private int _preparing,_preparationPeak;
+    private long _preparationTicks;
+    public int PreparationPeak=>Volatile.Read(ref _preparationPeak);
+    public double PreparationMilliseconds=>TimeSpan.FromTicks(Interlocked.Read(ref _preparationTicks)).TotalMilliseconds;
     private readonly Func<MapDefinition, string, MapValidationResult>? _build;
     public static MapBuildScheduler Shared { get; } = new(Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ProjectPrime", "map-cache"));
+        Platform.AppPaths.UserDataDirectory, "map-cache"));
     public long SharedRequests => _queue.Shared;
     public int PendingCount => _queue.Count;
     public int CompiledCacheCount => _compilations.Count;
     public long CompiledCacheBytes => _compilations.Bytes;
     public long CompilationCount => _compilations.Compilations;
     public MapBuildScheduler(string cacheRoot, int concurrency = 2, int maximumPending = 32,
-        Func<MapDefinition, string, MapValidationResult>? build = null)
+        Func<MapDefinition, string, MapValidationResult>? build = null,
+        long cacheBudgetBytes=1024L*1024*1024,TimeSpan? cacheRetention=null)
     {
         _queue = new(concurrency, maximumPending);
+        _preparationSlots=new(concurrency,concurrency);
         _cacheRoot = Path.GetFullPath(cacheRoot);
+        if(cacheBudgetBytes<1)throw new ArgumentOutOfRangeException(nameof(cacheBudgetBytes));
+        _cacheBudget=cacheBudgetBytes;_cacheRetention=cacheRetention??TimeSpan.FromDays(30);
         _build = build;
     }
     public async Task<MapBuildResult> BuildAsync(MapBuildSnapshot snapshot, CancellationToken cancellation = default)
@@ -118,10 +129,18 @@ public sealed class MapBuildScheduler : IMapBuildScheduler
     private async Task<(MapDefinition Definition, MapBuildFingerprint Fingerprint)> Prepare(
         MapBuildSnapshot snapshot, CancellationToken cancellation)
     {
+        await _preparationSlots.WaitAsync(cancellation).ConfigureAwait(false);
+        try
+        {
         var input = await Task.Run(() =>
         {
-            var definition = snapshot.CreateDefinition();
-            return (Definition: definition, Fingerprint: MapBuildFingerprint.Create(definition));
+            int active=Interlocked.Increment(ref _preparing);
+            int peak;while(active>(peak=Volatile.Read(ref _preparationPeak)))
+                if(Interlocked.CompareExchange(ref _preparationPeak,active,peak)==peak)break;
+            var clock=Stopwatch.StartNew();
+            try{var definition = snapshot.CreateDefinition();
+                return (Definition: definition, Fingerprint: MapBuildFingerprint.Create(definition));}
+            finally{Interlocked.Decrement(ref _preparing);Interlocked.Add(ref _preparationTicks,clock.Elapsed.Ticks);}
         }, cancellation).ConfigureAwait(false);
         if (input.Definition.BundlePath == null && input.Definition.Import is { Textures.Length: > 0 } import
             && import.ResolveTextures() == null && import.Resolve() != null)
@@ -147,6 +166,8 @@ public sealed class MapBuildScheduler : IMapBuildScheduler
                 .ConfigureAwait(false);
         }
         return input;
+        }
+        finally{_preparationSlots.Release();}
     }
 
     private void RequireUnchanged(MapDefinition definition, MapBuildFingerprint fingerprint)
@@ -165,13 +186,18 @@ public sealed class MapBuildScheduler : IMapBuildScheduler
         Directory.CreateDirectory(_cacheRoot);
         // FileShare.None fences cache publication across independent application
         // processes as well as this scheduler's single-flight dictionary.
-        using var lease = AcquireLease(Path.Combine(_cacheRoot, key + ".lock"), cancellation);
+        using var lease = MapDiskCache.Acquire(_cacheRoot,key,cancellation);
         var outputs = MapOutputSet.Create(definition, directory, directory, directory);
         string manifest = Path.Combine(directory, "cache.json");
         var cached = ReadCache(manifest, key, outputs);
-        if (cached != null) return new(key, outputs, Array.AsReadOnly(cached.Diagnostics), Array.AsReadOnly(cached.Budgets), true, watch.Elapsed.TotalMilliseconds);
+        if (cached != null)
+        {
+            File.SetLastWriteTimeUtc(manifest,DateTime.UtcNow);
+            MapDiskCache.Prune(_cacheRoot,_cacheBudget,_cacheRetention,key);
+            return new(key, outputs, Array.AsReadOnly(cached.Diagnostics), Array.AsReadOnly(cached.Budgets), true, watch.Elapsed.TotalMilliseconds);
+        }
         Directory.CreateDirectory(_cacheRoot);
-        string staging = Path.Combine(_cacheRoot, ".build-" + Guid.NewGuid().ToString("N"));
+        string staging = Path.Combine(_cacheRoot, ".build-" + key + "-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(staging);
         try
         {
@@ -199,7 +225,11 @@ public sealed class MapBuildScheduler : IMapBuildScheduler
             catch (IOException) when (ReadCache(manifest, key, outputs) != null) { }
             return new(key, outputs, Array.AsReadOnly(cache.Diagnostics), Array.AsReadOnly(cache.Budgets), false, watch.Elapsed.TotalMilliseconds);
         }
-        finally { if (Directory.Exists(staging)) Directory.Delete(staging, true); }
+        finally
+        {
+            if (Directory.Exists(staging)) Directory.Delete(staging, true);
+            MapDiskCache.Prune(_cacheRoot,_cacheBudget,_cacheRetention,key);
+        }
     }
     private sealed record CacheManifest(string Fingerprint, string[] Hashes, MapDiagnostic[] Diagnostics, MapBudget[] Budgets);
     private static CacheManifest? ReadCache(string path, string key, MapOutputSet outputs)
@@ -240,6 +270,22 @@ public sealed class MapBuildScheduler : IMapBuildScheduler
         }
     }
 
+    /// <summary>Publish authored outputs on the caller's owner, after all live readers release.</summary>
+    public static void Publish(MapBuildResult result, MapDefinition definition, string archive, string entities,
+        string nodes, CancellationToken cancellation = default)
+    {
+        cancellation.ThrowIfCancellationRequested();
+        lock (MapRuntimeUsage.Gate)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            MapRuntimeUsage.RequireInstallationAllowed(definition.Name);
+            RoomPrewarm.Invalidate(definition.Name);
+            Install(result, definition, archive, entities, nodes);
+        }
+    }
+
+    // Owned runtime generation may already hold a preparation lease. Keep this
+    // low-level path separate from authored/public package publication.
     public static void Install(MapBuildResult result, MapDefinition definition, string archive, string entities, string nodes)
     {
         if (!result.Succeeded || result.Outputs == null) throw new InvalidOperationException("Cannot install a failed map build.");
@@ -247,7 +293,9 @@ public sealed class MapBuildScheduler : IMapBuildScheduler
         var fingerprint = MapBuildFingerprint.Create(definition);
         if (fingerprint.ContentKey != result.Fingerprint)
             throw new IOException("Map inputs changed after the build. Build again before installing.");
-        if (ReadCache(Path.Combine(Path.GetDirectoryName(result.Outputs.Model)!, "cache.json"), result.Fingerprint, result.Outputs) == null)
+        string cacheDirectory=Path.GetDirectoryName(result.Outputs.Model)!;
+        using var cacheLease=MapDiskCache.Acquire(Path.GetDirectoryName(cacheDirectory)!,result.Fingerprint);
+        if (ReadCache(Path.Combine(cacheDirectory, "cache.json"), result.Fingerprint, result.Outputs) == null)
             throw new IOException("Cached map outputs failed integrity validation. Build again.");
         var destination = MapOutputSet.Create(definition, archive, entities, nodes);
         Directory.CreateDirectory(Path.GetDirectoryName(destination.Manifest)!);
