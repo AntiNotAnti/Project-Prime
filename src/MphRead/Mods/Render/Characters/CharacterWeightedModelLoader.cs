@@ -27,7 +27,7 @@ namespace MphRead.Mods.Render.Characters
         CharacterEmbeddedAlbedo? Normal, CharacterEmbeddedAlbedo? MetallicRoughness,
         CharacterEmbeddedAlbedo? Emissive, float NormalScale,
         float MetallicFactor, float RoughnessFactor, NVector3 EmissiveFactor,
-        bool RuntimeEncoded = false);
+        bool RuntimeEncoded = false, bool PhysicalOrm = false);
 
     internal sealed record CharacterWeightedPrimitive(
         string? MaterialName,

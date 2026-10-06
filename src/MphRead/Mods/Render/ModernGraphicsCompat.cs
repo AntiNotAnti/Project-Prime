@@ -23,8 +23,8 @@ namespace MphRead.Mods.Render
     /// It owns the selected DX12/Vulkan/Metal surface and implements enough of
     /// the historical GL state machine to draw the launcher/Avalonia surface
     /// through the same Begin/Vertex/TexImage calls the OpenGL path uses.
-    /// World/display-list state is recorded too; its full material pipeline is
-    /// layered onto this executor in the next pass.
+    /// World/display-list state, retained draws, material pipelines, and frame
+    /// passes execute through this facade on the selected native backend.
     /// </summary>
     internal sealed unsafe partial class ModernGraphicsCompat : IDisposable
     {
@@ -218,15 +218,17 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             if (!ModernSurfaceLifecyclePolicy.CanConfigure(
                     (int)_width, (int)_height, _device.Surface != null))
                 return;
-            Mods.DebugLog.Checkpoint("render",
+            Mods.DebugLog.Line("render",
                 $"configuring {_device.Backend} surface: {_width}x{_height} "
                 + $"format={_surfaceFormat} alpha={_alphaMode} present={_presentMode}");
-            _api.SurfaceConfigure(_device.Surface, new SurfaceConfiguration
+            NativeGraphicsResult result = ModernGraphicsNativeBridge.Configure(_device.Surface, new SurfaceConfiguration
             {
                 Device = _device.Device, Format = _surfaceFormat,
                 Usage = TextureUsage.RenderAttachment | TextureUsage.CopySrc,
                 AlphaMode = _alphaMode, Width = _width, Height = _height, PresentMode = _presentMode
             });
+            _surfaceConfigured = _device.ObserveNativeResult(result, "configure surface");
+            RecordSurfaceRecovery(result.Outcome);
         }
 
         private bool _disposed;
@@ -328,6 +330,14 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             return (native.Width, native.Height);
         }
 
+        internal static int QueryEnabledTextureLimitForCheck()
+        {
+            var self = Current;
+            SupportedLimits limits = default;
+            self._api.DeviceGetLimits(self._device.Device, &limits);
+            return GraphicsResourceLimits.ToCompatibilityTextureLimit(limits.Limits.MaxTextureDimension2D);
+        }
+
 #if !ANDROID
         internal static void Initialize(NativeWindow window, GraphicsBackend backend)
         {
@@ -350,9 +360,20 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             }
             else
             {
-                var self = Current;
+                var self = _current;
                 self.ReleaseSurfaceTexture();
                 self._device.SetAndroidWindow(window);
+                self._surfaceConfigured = self._surfaceNeedsRecreation = false;
+                // A lost device with a detached surface cannot reconstruct in
+                // Current. Attach the new native window first, then recover
+                // before querying/configuring it against the dead device.
+                if (self._device.IsLost)
+                {
+                    self._width = (uint)Math.Max(0, width);
+                    self._height = (uint)Math.Max(0, height);
+                    _ = Current;
+                    return;
+                }
                 self.QuerySurfaceFormat();
                 self._width = self._height = 0;
                 self.ResizeCore(width, height);
@@ -369,6 +390,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             finally
             {
                 current._device.SetAndroidWindow(0);
+                current._surfaceConfigured = current._surfaceNeedsRecreation = false;
                 current._width = current._height = 0;
             }
         }
@@ -399,6 +421,9 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         private static int _deviceRecoveryAttempts;
         private static Exception? _deviceRecoveryFailure;
         internal static Exception? RecoveryFailure => _deviceRecoveryFailure;
+        // Teardown must not reconstruct a lost device through the Current getter.
+        internal static bool CanReleaseNativeResources => _current != null
+            && !_current._disposed && !_current._device.IsLost && _deviceRecoveryFailure == null;
         private static ModernGraphicsCompat Current
         {
             get
@@ -642,7 +667,9 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         {
             var self = Current;
             int id = self._resources.BoundTexture(self._resources.ActiveTextureUnit);
-            var native = self.EnsureTexture(id);
+            // A mutable UI/video update must target the current allocation and
+            // cannot leave an older progressive snapshot waiting to replace it.
+            var native = self.EnsureTexture(id, allowProgressive: false);
             self._resources.TexSubImage2D(target, x, y, width, height, format, type, pixels);
             self.UploadSubImage(id, native, x, y, width, height);
         }
@@ -652,7 +679,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         {
             var self = Current;
             int id = self._resources.BoundTexture(self._resources.ActiveTextureUnit);
-            var native = self.EnsureTexture(id);
+            var native = self.EnsureTexture(id, allowProgressive: false);
             self._resources.TexSubImage2D(target, x, y, width, height, format, type, pixels);
             self.UploadSubImage(id, native, x, y, width, height);
         }
@@ -828,8 +855,8 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 GetPName.TextureBinding2D => self._resources.BoundTexture(self._resources.ActiveTextureUnit),
                 GetPName.PackAlignment => 4,
                 GetPName.UnpackAlignment => 4,
-                GetPName.MaxTextureSize => 8192,
-                GetPName.MaxRenderbufferSize => 8192,
+                GetPName.MaxTextureSize => self._device.MaxTextureDimension2D,
+                GetPName.MaxRenderbufferSize => self._device.MaxTextureDimension2D,
                 GetPName.DepthWritemask => self._depthWrite ? 1 : 0,
                 GetPName.BlendSrcRgb => (int)self._blendSource,
                 GetPName.BlendDstRgb => (int)self._blendDestination,
@@ -922,6 +949,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             if (_disposed) return;
             _disposed = true;
             DiscardCommands();
+            DisposeGpuTiming();
             DisposeFrameBindGroups();
             ReleaseSurfaceTexture();
             foreach (PendingTextureUpload pending in _pendingTextureUploads.Values)
@@ -953,15 +981,13 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private void LogCapabilities()
         {
-            SupportedLimits limits = default;
-            _api.DeviceGetLimits(_device.Device, &limits);
             bool timestamp = _api.AdapterHasFeature(_device.Adapter, FeatureName.TimestampQuery);
             string capabilities = $"backend={_device.Backend} adapter=\"{_device.AdapterName}\" "
                 + $"driver=\"{_device.DriverDescription}\" wgpu=0x{_device.NativeVersion:x8} "
-                + $"surface={_surfaceFormat} maxTexture2D={limits.Limits.MaxTextureDimension2D} "
+                + $"surface={_surfaceFormat} maxTexture2D={_device.MaxTextureDimension2D} "
                 + $"anisotropy=16 presentModes={string.Join(',', _presentModes)} "
                 + $"internalHdr=RGBA16Float outputHdr=false depth=Depth24Plus,Depth24PlusStencil8 "
-                + $"adapterTimestampQuery={timestamp} gpuTimingEnabled=false "
+                + $"adapterTimestampQuery={timestamp} gpuTimingEnabled={_device.SupportsTimestampQueries} "
                 + $"textureCompression=BC:{_device.SupportsTextureCompressionBc},"
                 + $"ETC2:{_device.SupportsTextureCompressionEtc2},"
                 + $"ASTC:{_device.SupportsTextureCompressionAstc} "
@@ -1003,6 +1029,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             {
                 ReleaseSurfaceTexture();
                 _width = _height = 0;
+                _surfaceConfigured = false;
                 return;
             }
             uint newWidth = (uint)width;
@@ -1025,6 +1052,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private bool AcquireSurfaceTexture()
         {
+            if (_device.IsLost) return false;
             _device.ThrowIfFailed();
             if (_surfaceAcquired) return true;
             if (!ModernSurfaceLifecyclePolicy.CanConfigure(
@@ -1033,10 +1061,12 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
             for (int attempt = 0; attempt < 2; attempt++)
             {
-                SurfaceTexture acquired = default;
+                if (!PrepareSurfaceForAcquire()) return false;
                 long acquireStart = PerformanceStart();
+                NativeGraphicsResult result;
+                SurfaceTexture acquired;
                 long traceAcquire = ProductionFrameTrace.StartOperation();
-                try { _api.SurfaceGetCurrentTexture(_device.Surface, &acquired); }
+                try { result = ModernGraphicsNativeBridge.Acquire(_device.Surface, out acquired); }
                 finally { ProductionFrameTrace.AcquireEnd(traceAcquire); }
                 if (acquireStart != 0)
                 {
@@ -1045,12 +1075,13 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                     _longestSurfaceAcquireMs = Math.Max(_longestSurfaceAcquireMs, acquireMs);
                 }
                 _surfaceTexture = acquired;
-                SurfaceAcquireCondition condition = acquired.Status switch
+                _device.ObserveNativeResult(result, "acquire surface texture");
+                SurfaceAcquireCondition condition = result.Outcome switch
                 {
-                    SurfaceGetCurrentTextureStatus.Success => SurfaceAcquireCondition.Success,
-                    SurfaceGetCurrentTextureStatus.Timeout => SurfaceAcquireCondition.Timeout,
-                    SurfaceGetCurrentTextureStatus.Outdated => SurfaceAcquireCondition.Outdated,
-                    SurfaceGetCurrentTextureStatus.Lost => SurfaceAcquireCondition.Lost,
+                    NativeGraphicsOutcome.Success => SurfaceAcquireCondition.Success,
+                    NativeGraphicsOutcome.Timeout => SurfaceAcquireCondition.Timeout,
+                    NativeGraphicsOutcome.Outdated => SurfaceAcquireCondition.Outdated,
+                    NativeGraphicsOutcome.SurfaceLost => SurfaceAcquireCondition.Lost,
                     _ => SurfaceAcquireCondition.Fatal
                 };
                 SurfaceAcquireAction action = ModernSurfaceLifecyclePolicy.AcquireAction(
@@ -1065,22 +1096,23 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 }
 
                 ReleaseSurfaceTexture();
+                if (_device.IsLost) return false;
                 if (action == SurfaceAcquireAction.SkipFrame)
                     return false;
                 if (action is SurfaceAcquireAction.Reconfigure
                     or SurfaceAcquireAction.RecreateSurface)
                 {
-                    if (action == SurfaceAcquireAction.RecreateSurface)
-                        _device.RecreateSurface();
-                    QuerySurfaceFormat();
-                    ConfigureSurface();
+                    RecordSurfaceRecovery(result.Outcome);
                     continue;
                 }
                 if (condition is SurfaceAcquireCondition.Outdated or SurfaceAcquireCondition.Lost)
-                    break;
+                {
+                    RecordSurfaceRecovery(result.Outcome);
+                    return false;
+                }
                 throw new InvalidOperationException($"WebGPU presentation failed: {acquired.Status}.");
             }
-            throw new InvalidOperationException("WebGPU surface could not be recovered after reconfiguration.");
+            return false;
         }
 
         private void PresentCore()
@@ -1091,23 +1123,35 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             // completes, joins the same submission. The live texture is swapped
             // only after that submission is queued.
             PumpPendingTextureUpload();
+            EndGpuFrameTimingBeforeSubmit();
             FlushCommands();
+            QueueGpuFrameTimingReadback();
+            if (_device.IsLost) { ReleaseSurfaceTexture(); return; }
             FinalizePendingTextureUploads();
+            TrimUnusedFrameBindGroups();
             ResetFrameBuffers();
             if (!_surfaceAcquired) return;
-            _api.SurfacePresent(_device.Surface);
-            ReleaseSurfaceTexture();
+            bool presented;
+            long presentStart = PerformanceStart();
+            try
+            {
+                NativeGraphicsResult result = ModernGraphicsNativeBridge.Present(_device.Surface);
+                presented = _device.ObserveNativeResult(result, "present surface");
+                RecordSurfaceRecovery(result.Outcome);
+            }
+            finally { RecordPresentTime(presentStart); ReleaseSurfaceTexture(); }
 #if !ANDROID
             // Startup is only considered healthy once a modern frame reaches
             // the presentation surface. This also covers failures that occur
             // after device creation but before the first visible frame.
-            GraphicsBackendPolicy.CompleteStartupAttempt(_device.Backend);
+            if (presented) GraphicsBackendPolicy.CompleteStartupAttempt(_device.Backend);
 #endif
         }
 
         private void ReleaseSurfaceTexture()
         {
-            if (!_disposed) FlushCommands();
+            if (!_disposed && !_device.IsLost) FlushCommands();
+            else DiscardCommands();
             if (_surfaceView != null)
             {
                 _api.TextureViewRelease(_surfaceView);
@@ -1115,8 +1159,18 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             }
             if (_surfaceTexture.Texture != null)
             {
-                _api.TextureRelease(_surfaceTexture.Texture);
-                _surfaceTexture = default;
+                try
+                {
+                    NativeGraphicsResult result = ModernGraphicsNativeBridge.Discard(_surfaceTexture.Texture);
+                    _device.ObserveNativeResult(result, "discard surface texture", teardown: _disposed || _device.IsLost);
+                    RecordSurfaceRecovery(result.Outcome);
+                }
+                finally
+                {
+                    _api.TextureRelease(_surfaceTexture.Texture);
+                    _surfaceTexture = default;
+                    _surfaceAcquired = false;
+                }
             }
             _surfaceAcquired = false;
         }
@@ -1180,7 +1234,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             _api.QueueWriteTexture(_queue, destination, &white, (nuint)sizeof(uint), layout, extent);
         }
 
-        private NativeTexture EnsureTexture(int id)
+        private NativeTexture EnsureTexture(int id, bool allowProgressive = true)
         {
             if (id == 0) throw new InvalidOperationException("Texture zero is the default object.");
             ModernGraphicsResourceState.TextureRecord record = _resources.Texture(id);
@@ -1201,7 +1255,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
             if (_pendingTextureUploads.TryGetValue(id, out PendingTextureUpload? pending))
             {
-                if (!ReferenceEquals(pending.SourcePixels, record.Pixels)
+                if (!allowProgressive || !ReferenceEquals(pending.SourcePixels, record.Pixels)
                     || pending.Native.Width != width || pending.Native.Height != height
                     || pending.Native.Format != format || pending.Native.MipCount != mipCount)
                 {
@@ -1215,7 +1269,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 }
             }
 
-            if (existing != null && record.Dirty && !compressed && !authoredRgba && !depth
+            if (allowProgressive && existing != null && record.Dirty && !compressed && !authoredRgba && !depth
                 && !record.FramebufferOrigin && data.Length > ProgressiveTextureUploadThresholdBytes)
             {
                 BeginPendingTextureUpload(id, record, format, width, height, mipCount, data);
@@ -1884,11 +1938,23 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private void ClearCore(ClearBufferMask mask)
         {
-            if (_enabled.Contains(EnableCap.ScissorTest) || CurrentWriteMask() != ColorWriteMask.All
-                || !_depthWrite || _stencilWriteMask != -1)
+            if (NeedsPartialClear(mask,
+                _enabled.Contains(EnableCap.ScissorTest),
+                CurrentWriteMask() == ColorWriteMask.All,
+                _depthWrite, _stencilWriteMask))
                 ClearPartial(mask);
             else ClearOffscreenCore(mask);
         }
+
+        internal static bool NeedsPartialClear(ClearBufferMask mask,
+            bool scissorEnabled, bool colorWriteAll,
+            bool depthWrite, int stencilWriteMask) =>
+            scissorEnabled
+            || ((mask & ClearBufferMask.ColorBufferBit) != 0 && !colorWriteAll)
+            || ((mask & ClearBufferMask.DepthBufferBit) != 0 && !depthWrite)
+            // The native renderer's stencil attachments have eight bits.
+            || ((mask & ClearBufferMask.StencilBufferBit) != 0
+                && (stencilWriteMask & 0xFF) != 0xFF);
 
         private void ReadPixelsCore<T>(int x, int y, int width, int height,
             PixelFormat format, PixelType type, T[] pixels) where T : struct

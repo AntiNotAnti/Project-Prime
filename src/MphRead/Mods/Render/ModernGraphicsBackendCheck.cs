@@ -42,6 +42,9 @@ namespace MphRead.Mods.Render
                 "startup recovery fence matches only the failed modern backend", ref failures);
             CheckGeometry(ref failures);
             CheckSurfaceLifecycle(ref failures);
+            CheckFrameResourceCache(ref failures);
+            CheckCompressedTextureLayout(ref failures);
+            CheckResourceLimits(ref failures);
             CheckLowLatencyFoundation(ref failures);
 #if !MPHREAD_SERVER
             CheckUniformCompatibility(ref failures);
@@ -53,6 +56,45 @@ namespace MphRead.Mods.Render
                 ? "RENDERBACKENDS all policy cases pass"
                 : $"RENDERBACKENDS {failures} case(s) FAILED");
             return failures;
+        }
+
+        private static void CheckFrameResourceCache(ref int failures)
+        {
+            var entries = new List<int> { 10, 20, 30, 40 };
+            var released = new List<int>();
+            int removed = FrameResourceCache.TrimUnused(entries, 2, released,
+                static (log, entry) => log.Add(entry));
+            Check(removed == 2 && entries.Count == 2 && entries[0] == 10 && entries[1] == 20
+                && released.Count == 2 && released[0] == 30 && released[1] == 40,
+                "completed sparse frame releases only unused resource cache slots", ref failures);
+            removed = FrameResourceCache.TrimUnused(entries, 2, released,
+                static (log, entry) => log.Add(entry));
+            Check(removed == 0 && released.Count == 2,
+                "unchanged frame retains reusable resource cache slots", ref failures);
+            removed = FrameResourceCache.TrimUnused(entries, 0, released,
+                static (log, entry) => log.Add(entry));
+            Check(removed == 2 && entries.Count == 0 && released.Count == 4,
+                "empty frame releases the remaining cached resource owners", ref failures);
+            removed = FrameResourceCache.TrimUnused(entries, 3, released,
+                static (log, entry) => log.Add(entry));
+            Check(removed == 0 && released.Count == 4,
+                "frame cursor beyond empty cache does not release resources twice", ref failures);
+        }
+
+        private static void CheckCompressedTextureLayout(ref int failures)
+        {
+            Check(CompressedTextureLayout.HasAlignedBaseExtent(4096, 4096)
+                && CompressedTextureLayout.HasAlignedBaseExtent(8192, 8192)
+                && CompressedTextureLayout.HasAlignedBaseExtent(12, 20),
+                "compressed 4K/8K and aligned NPOT base extents retain native compression", ref failures);
+            Check(!CompressedTextureLayout.HasAlignedBaseExtent(513, 257)
+                && !CompressedTextureLayout.HasAlignedBaseExtent(512, 257)
+                && !CompressedTextureLayout.HasAlignedBaseExtent(513, 256)
+                && !CompressedTextureLayout.HasAlignedBaseExtent(1, 1),
+                "unaligned portable KTX2 bases require RGBA fallback on every asset class", ref failures);
+            Check(!CompressedTextureLayout.HasAlignedBaseExtent(0, 4)
+                && !CompressedTextureLayout.HasAlignedBaseExtent(4, -4),
+                "invalid compressed base dimensions cannot enter native allocation", ref failures);
         }
 
         private static void CheckDefault(GraphicsPlatform platform, GraphicsBackend expected, ref int failures)
@@ -127,6 +169,18 @@ namespace MphRead.Mods.Render
             batch.End();
             Check(batch.LineIndices.Count == 4 && batch.LineIndices[3] == 3,
                 "independent lines ignore incomplete trailing vertex", ref failures);
+        }
+
+        private static void CheckResourceLimits(ref int failures)
+        {
+            Check(GraphicsResourceLimits.ToCompatibilityTextureLimit(4096) == 4096
+                    && GraphicsResourceLimits.ToCompatibilityTextureLimit(8192) == 8192
+                    && GraphicsResourceLimits.ToCompatibilityTextureLimit(16384) == 16384,
+                "compatibility resource limits preserve the enabled device limit", ref failures);
+            bool invalidRejected = false;
+            try { GraphicsResourceLimits.ToCompatibilityTextureLimit(0); }
+            catch (InvalidOperationException) { invalidRejected = true; }
+            Check(invalidRejected, "invalid device limits cannot advertise an unsafe fallback", ref failures);
         }
 
         private static void CheckSurfaceLifecycle(ref int failures)

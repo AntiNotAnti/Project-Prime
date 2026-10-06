@@ -1,5 +1,6 @@
 #if !MPHREAD_SERVER
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 using Silk.NET.Core.Native;
@@ -13,9 +14,9 @@ namespace MphRead.Mods.Render
 {
     /// <summary>
     /// Owns a wgpu-native instance/adapter/device selected through the Project
-    /// Prime backend policy. The gameplay renderer still uses the legacy GL
-    /// facade while it is being ported; this object is the native-device seam
-    /// the compatibility renderer will consume.
+    /// Prime backend policy. The active modern gameplay renderer uses this
+    /// device through the shared GL-compatible facade; wgpu owns native backend
+    /// command submission, synchronization, and resource allocation.
     /// </summary>
     public sealed unsafe class ModernGraphicsDevice : IDisposable
     {
@@ -45,6 +46,7 @@ namespace MphRead.Mods.Render
         private bool _disposed;
         private SurfaceFactory? _surfaceFactory;
         private readonly DeviceErrors _errors;
+        private readonly HashSet<(string Operation, NativeGraphicsOutcome Outcome)> _reportedNativeOutcomes = new();
 
         // Native callbacks cannot throw into Rust/C. Keep delegates rooted for
         // the device lifetime and surface errors at managed submission boundaries.
@@ -85,6 +87,37 @@ namespace MphRead.Mods.Render
 
         internal void ThrowIfFailed() => _errors.ThrowIfFailed();
         internal bool IsLost => _errors.DeviceLost;
+        internal bool ObserveNativeResult(NativeGraphicsResult result, string operation, bool teardown = false)
+        {
+            if (result.Succeeded) return true;
+            if (result.Outcome == NativeGraphicsOutcome.DeviceLost)
+                _errors.DeviceLost = true;
+            string next = result.Outcome switch
+            {
+                NativeGraphicsOutcome.DeviceLost => "reconstruct the device at the next frame boundary",
+                NativeGraphicsOutcome.Timeout => "skip this frame",
+                NativeGraphicsOutcome.Outdated => "reconfigure the surface before the next acquire",
+                NativeGraphicsOutcome.SurfaceLost => "recreate the surface before the next acquire",
+                _ => "stop rendering and inspect the native diagnostic"
+            };
+            string message = $"{Backend} on {AdapterName}: {operation} returned {result.Outcome}; "
+                + $"next action: {next}. {result.Detail}";
+            try
+            {
+                if (_reportedNativeOutcomes.Add((operation, result.Outcome)))
+                    Mods.DebugLog.Line("render", message);
+            }
+            catch { /* Diagnostics must not interrupt recovery or teardown. */ }
+            if (result.Outcome is NativeGraphicsOutcome.Timeout or NativeGraphicsOutcome.Outdated
+                or NativeGraphicsOutcome.SurfaceLost or NativeGraphicsOutcome.DeviceLost)
+                return false;
+            if (teardown)
+            {
+                try { Console.Error.WriteLine($"[render] {message}"); } catch { }
+                return false;
+            }
+            throw new InvalidOperationException(message);
+        }
         internal void DestroyForCheck()
         {
             _api.DeviceDestroy(_device);
@@ -100,7 +133,7 @@ namespace MphRead.Mods.Render
             Surface* surface, GraphicsBackend backend, uint nativeVersion, string adapterName,
             string driverDescription, DeviceErrors errors, bool compressionBc,
             bool compressionEtc2, bool compressionAstc, bool multiDrawIndirect,
-            bool multiDrawIndirectCount)
+            bool multiDrawIndirectCount, bool timestampQueries)
         {
             _errors = errors;
             _api = api;
@@ -118,17 +151,24 @@ namespace MphRead.Mods.Render
             SupportsTextureCompressionAstc = compressionAstc;
             SupportsMultiDrawIndirect = multiDrawIndirect;
             SupportsMultiDrawIndirectCount = multiDrawIndirectCount;
+            SupportsTimestampQueries = timestampQueries;
+            SupportedLimits limits = default;
+            _api.DeviceGetLimits(_device, &limits);
+            MaxTextureDimension2D = GraphicsResourceLimits.ToCompatibilityTextureLimit(
+                limits.Limits.MaxTextureDimension2D);
         }
 
         public GraphicsBackend Backend { get; }
         public uint NativeVersion { get; }
         public string AdapterName { get; }
         public string DriverDescription { get; }
+        internal int MaxTextureDimension2D { get; }
         internal bool SupportsTextureCompressionBc { get; }
         internal bool SupportsTextureCompressionEtc2 { get; }
         internal bool SupportsTextureCompressionAstc { get; }
         internal bool SupportsMultiDrawIndirect { get; }
         internal bool SupportsMultiDrawIndirectCount { get; }
+        internal bool SupportsTimestampQueries { get; }
 
         internal WebGPU Api => _api;
         internal Wgpu Native => _native;
@@ -194,6 +234,7 @@ namespace MphRead.Mods.Render
                 Surface* surface = null;
                 try
                 {
+                    ModernGraphicsNativeBridge.Initialize(api);
                     if (!api.TryGetDeviceExtension(null, out Wgpu nativeExtension))
                     {
                         throw new DllNotFoundException(
@@ -286,7 +327,9 @@ namespace MphRead.Mods.Render
                         && api.AdapterHasFeature(adapter, multiDrawFeature);
                     bool multiDrawIndirectCount = multiDrawIndirect
                         && api.AdapterHasFeature(adapter, multiDrawCountFeature);
-                    FeatureName* requiredFeatures = stackalloc FeatureName[5];
+                    bool timestampQueries = GraphicsTimingPolicy.Enabled
+                        && api.AdapterHasFeature(adapter, FeatureName.TimestampQuery);
+                    FeatureName* requiredFeatures = stackalloc FeatureName[6];
                     int requiredFeatureCount = 0;
                     if (compressionBc) requiredFeatures[requiredFeatureCount++] = FeatureName.TextureCompressionBC;
                     if (compressionEtc2) requiredFeatures[requiredFeatureCount++] = FeatureName.TextureCompressionEtc2;
@@ -295,6 +338,8 @@ namespace MphRead.Mods.Render
                         requiredFeatures[requiredFeatureCount++] = multiDrawFeature;
                     if (multiDrawIndirectCount)
                         requiredFeatures[requiredFeatureCount++] = multiDrawCountFeature;
+                    if (timestampQueries)
+                        requiredFeatures[requiredFeatureCount++] = FeatureName.TimestampQuery;
                     var errors = new DeviceErrors();
                     var deviceDescriptor = new DeviceDescriptor
                     {
@@ -330,7 +375,7 @@ namespace MphRead.Mods.Render
                     return new ModernGraphicsDevice(api, native, instance, adapter, device, surface, backend,
                         native.GetVersion(), name, driver, errors, compressionBc,
                         compressionEtc2, compressionAstc, multiDrawIndirect,
-                        multiDrawIndirectCount)
+                        multiDrawIndirectCount, timestampQueries)
                         { _surfaceFactory = surfaceFactory };
                 }
                 catch

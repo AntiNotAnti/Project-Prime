@@ -23,7 +23,8 @@ internal static class ViewModelAcceptanceCheck
     private static void Require(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
     private static List<RenderItem> Items(Scene scene, string field) =>
         (List<RenderItem>)typeof(Scene).GetField(field, Private)!.GetValue(scene)!;
-    internal static int Run(string room, string output, Hunter hunter = Hunter.Samus, bool poseOnly = false)
+    internal static int Run(string room, string output, Hunter hunter = Hunter.Samus, bool poseOnly = false,
+        bool pbrLitAllStages = false)
     {
         var directory = Path.GetFullPath(output); Directory.CreateDirectory(directory);
         var cases = new List<object>();
@@ -37,6 +38,7 @@ internal static class ViewModelAcceptanceCheck
         Action? restoreBindings = null;
         Scene? scene = null;
         int submitted = 0, lateFrames = 0, effectFrames = 0; bool fired = false, zoomed = false, muzzleAligned = false;
+        int materialOnFrames = 0, materialOffFrames = 0;
         try
         {
             Require(oldHd, "HD character models must be enabled."); DebugLog.Force();
@@ -52,7 +54,7 @@ internal static class ViewModelAcceptanceCheck
             try
             {
                 Features.ProHud = false; Features.FixedCrosshair = true; Features.FixedWeapon = true;
-                RenderOptions.BrightSkins = false; RenderOptions.AdvancedMaterials = false; RenderOptions.ShowFps = false;
+                RenderOptions.BrightSkins = false; RenderOptions.AdvancedMaterials = pbrLitAllStages; RenderOptions.ShowFps = false;
                 var keyboard = SyntheticInput.CreateKeyboard();
                 var setKey = typeof(KeyboardState).GetMethod("SetKeyState", Private | BindingFlags.Public)!
                     .CreateDelegate<Action<KeyboardState, Keys, bool>>();
@@ -133,7 +135,11 @@ internal static class ViewModelAcceptanceCheck
                             && packet.CosmeticMaterial.EmissiveBinding == (RenderOptions.AdvancedMaterials ? segment.MaterialMaps.Emissive : 0),
                             $"{label}: material toggle failed.");
                     }
-                    if (expected > 0) submitted++;
+                    if (expected > 0)
+                    {
+                        submitted++;
+                        if (RenderOptions.AdvancedMaterials) materialOnFrames++; else materialOffFrames++;
+                    }
                     if (hunter != Hunter.Samus && label.StartsWith("suit-",StringComparison.Ordinal) && target.Recolor >= 4)
                         Require(replacement.Segments.Any(s=>s.AlbedoBinding.HasValue && s.GetAlbedo(scene,target.Recolor)!=s.AlbedoBinding), "Native team weapon palette did not resolve.");
                 }
@@ -145,6 +151,7 @@ internal static class ViewModelAcceptanceCheck
                 foreach (var stage in poseOnly ? Array.Empty<(string Name,int Count)>() : stages)
                 {
                     int before = submitted, beforeEffects = effectFrames;
+                    int beforeMaterialsOn = materialOnFrames, beforeMaterialsOff = materialOffFrames;
                     if (stage.Name is "fov-60" or "charge-fov-60") RenderOptions.FieldOfView = 60;
                     if (stage.Name is "fov-120" or "charge-fov-120") RenderOptions.FieldOfView = 120;
                     if (stage.Name == "materials-on") { RenderOptions.FieldOfView = 78; RenderOptions.AdvancedMaterials = true; }
@@ -160,8 +167,15 @@ internal static class ViewModelAcceptanceCheck
                         target.Recolor=int.Parse(stage.Name[5..]); scene.GameState.Teams=false;
                         RenderOptions.FieldOfView=78; RenderOptions.AdvancedMaterials=true;
                     }
+                    // Optional material acceptance extends the lit coverage to
+                    // every native action. Retain the explicit off stage as a
+                    // control; the default diagnostic schedule stays unchanged.
+                    if (pbrLitAllStages && stage.Name != "materials-off") RenderOptions.AdvancedMaterials=true;
+                    bool stageAdvancedMaterials = RenderOptions.AdvancedMaterials;
                     for (int age=0;age<stage.Count;age++)
                     {
+                        Require(RenderOptions.AdvancedMaterials == stageAdvancedMaterials,
+                            stage.Name+": material mode changed during the stage.");
                         Input();
                         if (stage.Name == "run-strafe") Press(age<60 ? target.Controls.MoveUp : target.Controls.MoveLeft);
                         if (stage.Name == "jump" && age<12) Press(target.Controls.Jump);
@@ -191,7 +205,8 @@ internal static class ViewModelAcceptanceCheck
                         DesktopGraphicsSession.Present(window); scene.AfterRenderFrame();
                     }
                     if (stage.Name.StartsWith("charge",StringComparison.Ordinal)) Require(effectFrames>beforeEffects,"No cannon-projected charge particles observed.");
-                    cases.Add(new {stage.Name,stage.Count,submitted=submitted-before,effectFrames=effectFrames-beforeEffects, fov=RenderOptions.FieldOfView});
+                    cases.Add(new {stage.Name,stage.Count,submitted=submitted-before,effectFrames=effectFrames-beforeEffects, fov=RenderOptions.FieldOfView,
+                        advancedMaterials=stageAdvancedMaterials,materialOnFrames=materialOnFrames-beforeMaterialsOn,materialOffFrames=materialOffFrames-beforeMaterialsOff});
                 }
                 target.Recolor=0; Equip(BeamType.PowerBeam); target.UpdateZoom(false); target.ModSetAim(Vector3.UnitZ); RenderOptions.FieldOfView = 78;
                 for (int i=0;i<60;i++) {
@@ -221,9 +236,14 @@ internal static class ViewModelAcceptanceCheck
                 if (poseOnly) { Console.WriteLine("VIEWMODEL NATIVE IDLE POSE EXPORTED " + directory); return 0; }
                 foreach (int rate in new[] {90,120,240,540})
                 {
+                    if (pbrLitAllStages) RenderOptions.AdvancedMaterials=true;
+                    bool stageAdvancedMaterials = RenderOptions.AdvancedMaterials;
+                    int beforeMaterialsOn = materialOnFrames, beforeMaterialsOff = materialOffFrames;
                     FrameTiming.FrameRateCap=rate>FrameTiming.MaxCap ? FrameTiming.Unlimited : rate; FrameTiming.Reset(); FrameTiming.ResetDiagnostics(); int before=lateFrames;
                     for (int picture=0;picture<rate;picture++)
                     {
+                        Require(RenderOptions.AdvancedMaterials == stageAdvancedMaterials,
+                            rate+"Hz: material mode changed during the stage.");
                         int steps=FrameTiming.Advance(1.0/rate);
                         for (int step=0;step<steps;step++) { Input(); Press(target.Controls.MoveRight); scene.OnSimulationFrame(); }
                         scene.ModSetLateAim((picture%7-3)*.2f,(picture%5-2)*.1f);
@@ -236,7 +256,8 @@ internal static class ViewModelAcceptanceCheck
                         if (picture==rate-1) Require(ScreenCapture.Save(scene,Path.Combine(directory,$"late-{rate}.png")),"Capture failed.");
                         DesktopGraphicsSession.Present(window); scene.AfterRenderFrame(); lateFrames++;
                     }
-                    cases.Add(new {rate,lateFrames=lateFrames-before, simulationSteps=FrameTiming.TotalSteps});
+                    cases.Add(new {rate,lateFrames=lateFrames-before, simulationSteps=FrameTiming.TotalSteps,
+                        advancedMaterials=stageAdvancedMaterials,materialOnFrames=materialOnFrames-beforeMaterialsOn,materialOffFrames=materialOffFrames-beforeMaterialsOff});
 
                 }
                 Require(fired && zoomed && muzzleAligned,$"Fire={fired}, zoom={zoomed}, muzzle={muzzleAligned}; required states must occur.");
@@ -245,8 +266,9 @@ internal static class ViewModelAcceptanceCheck
                 File.WriteAllText(Path.Combine(directory,"acceptance.json"),JsonSerializer.Serialize(new {
                     pass=true, hunter=hunter.ToString(), testedModelSha256=Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(replacement.Asset.ModelPath))).ToLowerInvariant(), backend=GraphicsBackendPolicy.Resolved.ToString(), room,submitted,lateFrames,effectFrames,fired,zoomed,muzzleAligned, animations,
                     mobileTextureTier=CharacterModelPack.ForceMobileTierForCheck,textureCompression=ModernGraphicsCompat.PreferredCharacterTextureCompression.ToString(),
+                    pbrLitAllStages,materialOnFrames,materialOffFrames,
                     nodes=replacement.Segments.Select(s=>gun.Model.Nodes[s.NativeNodeIndex].Name), cases,
-                    scope="Real bot scene and native gun animation. Scripted focus-independent input. Native rigid packet transforms, embedded atlas bindings, material toggles, FOV 60/78/120 and Imperialist zoom. Draw scheduling simulated at 90/120/240/540 Hz; not physical display latency measurements. Visual review is separate."
+                    scope="Real bot scene and native gun animation. Scripted focus-independent input. Native rigid packet transforms, embedded atlas bindings, material toggles, FOV 60/78/120 and Imperialist zoom. With pbrLitAllStages, all action and high-refresh stages use advanced materials except the explicit materials-off control. Draw scheduling simulated at 90/120/240/540 Hz; not physical display latency measurements. Visual review is separate."
                 },json));
                 Console.WriteLine($"VIEWMODEL ACCEPTANCE PASS {submitted} frames, {lateFrames} high-refresh pictures: {directory}"); return 0;
             }

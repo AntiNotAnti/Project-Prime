@@ -11,12 +11,18 @@ namespace MphRead.Mods.Render
         None = 0,
         Color = 1,
         Depth = 2,
-        Stencil = 4
+        Stencil = 4,
+        ShadowDepth = 8,
+        PbrAlbedo = 16,
+        PbrNormal = 32,
+        PbrMaterial = 64
     }
 
     internal enum WorldRenderPassKind
     {
         Opaque,
+        DeferredPbr,
+        ForwardOpaque,
         Decal,
         MarkTranslucent,
         RebuildDepth,
@@ -68,6 +74,7 @@ namespace MphRead.Mods.Render
         Vector3 Ambient,
         Vector3 Specular,
         Vector3 Emission,
+        float EmissiveIntensity,
         float Alpha,
         TexgenMode TexgenMode,
         RepeatMode XRepeat,
@@ -83,7 +90,8 @@ namespace MphRead.Mods.Render
     {
         internal static RetainedMaterialDescriptor From(RenderItem item) =>
             new(item.PolygonMode, item.Lighting, item.Diffuse, item.Ambient,
-                item.Specular, item.Emission, item.Alpha, item.TexgenMode,
+                item.Specular, item.Emission, item.EmissiveIntensity,
+                item.Alpha, item.TexgenMode,
                 item.XRepeat, item.YRepeat, item.HasTexture, item.TextureBindingId,
                 item.TexcoordMatrix, item.Cosmetics, item.CosmeticMaterial,
                 item.TexturedPlayerSkin, item.OverrideColor, item.PaletteOverride);
@@ -188,6 +196,7 @@ namespace MphRead.Mods.Render
                 MixVector3(item.Ambient);
                 MixVector3(item.Specular);
                 MixVector3(item.Emission);
+                MixFloat(item.EmissiveIntensity);
                 MixFloat(item.Alpha);
                 Mix((uint)item.TexgenMode);
                 Mix((uint)item.XRepeat);
@@ -390,6 +399,13 @@ namespace MphRead.Mods.Render
             new(WorldRenderPassKind.Opaque, "world.opaque",
                 WorldRenderResource.Depth,
                 WorldRenderResource.Color | WorldRenderResource.Depth | WorldRenderResource.Stencil),
+            new(WorldRenderPassKind.DeferredPbr, "world.opaque-pbr",
+                WorldRenderResource.Color | WorldRenderResource.Depth | WorldRenderResource.ShadowDepth,
+                WorldRenderResource.Color | WorldRenderResource.PbrAlbedo
+                    | WorldRenderResource.PbrNormal | WorldRenderResource.PbrMaterial),
+            new(WorldRenderPassKind.ForwardOpaque, "world.forward-opaque",
+                WorldRenderResource.Depth,
+                WorldRenderResource.Color | WorldRenderResource.Depth | WorldRenderResource.Stencil),
             new(WorldRenderPassKind.Decal, "world.decals",
                 WorldRenderResource.Color | WorldRenderResource.Depth,
                 WorldRenderResource.Color | WorldRenderResource.Depth),
@@ -414,6 +430,8 @@ namespace MphRead.Mods.Render
             WorldRenderPassKind[] expected =
             {
                 WorldRenderPassKind.Opaque,
+                WorldRenderPassKind.DeferredPbr,
+                WorldRenderPassKind.ForwardOpaque,
                 WorldRenderPassKind.Decal,
                 WorldRenderPassKind.MarkTranslucent,
                 WorldRenderPassKind.RebuildDepth,
@@ -543,7 +561,8 @@ namespace MphRead
             _ => _retainedRenderWorld.OpaqueBatches
         };
 
-        private void DrawRenderGraphPackets(Mods.Render.WorldRenderPassKind kind)
+        private void DrawRenderGraphPackets(Mods.Render.WorldRenderPassKind kind,
+            bool? pbrSurface = null, bool staticOcclusionOnly = false)
         {
             IReadOnlyList<Mods.Render.RetainedDrawPacket> packets = PacketsFor(kind);
             IReadOnlyList<Mods.Render.RetainedDrawBatch> batches = BatchesFor(kind);
@@ -555,7 +574,15 @@ namespace MphRead
             {
                 Mods.Render.RetainedDrawBatch batch = batches[batchIndex];
 #if !MPHREAD_SERVER
+                bool batchMatchesFilter = !staticOcclusionOnly;
+                if (pbrSurface.HasValue)
+                {
+                    for (int offset = 0; offset < batch.Count; offset++)
+                        batchMatchesFilter &= IsDeferredPbrOpaqueSurface(
+                            packets[batch.Start + offset].Item) == pbrSurface.Value;
+                }
                 if (directSceneState
+                    && batchMatchesFilter
                     && Mods.Render.ModernGraphicsCompat.Active
                     && batch.Count > 1
                     && kind is Mods.Render.WorldRenderPassKind.Opaque
@@ -592,8 +619,14 @@ namespace MphRead
                     Mods.Render.RetainedDrawPacket packet =
                         packets[batch.Start + offset];
                     RenderItem item = packet.Item;
+                    if (pbrSurface.HasValue
+                        && IsDeferredPbrOpaqueSurface(item) != pbrSurface.Value)
+                        continue;
 
 #if !MPHREAD_SERVER
+                    if (staticOcclusionOnly
+                        && !Mods.Render.ModernGraphicsCompat.IsRetainedGpuOccluder(packet))
+                        continue;
                     if (Mods.Render.ModernGraphicsCompat.Active)
                     {
                         if (kind is Mods.Render.WorldRenderPassKind.MarkTranslucent
@@ -730,12 +763,46 @@ namespace MphRead
         }
 
         /// <summary>
-        /// Execute the established six-pass MPH world renderer through an explicit
+        /// Execute the MPH world renderer, resolving opaque PBR before forward layers,
         /// graph. State transitions intentionally match the prior inline code.
         /// Adjacent compatible mesh packets may share state, but are never sorted.
         /// </summary>
+        private bool RenderRetainedStaticOcclusionDepth()
+        {
+#if !MPHREAD_SERVER
+            if (!Mods.Render.ModernGraphicsCompat.Active
+                || !Mods.Render.ModernGraphicsCompat.GpuVisibilityEnabled
+                || _depthTexture == 0
+                || !Mods.Render.ModernGraphicsCompat.HasRetainedGpuVisibilityCandidates(
+                    _retainedRenderWorld.Opaque))
+                return false;
+
+            Mods.Render.ModernGraphicsCompat.BeginRetainedPreVisibilityPass();
+            ConfigureOpaqueWorldPassState();
+            GL.Clear(ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
+            GL.ColorMask(false, false, false, false);
+            Mods.Render.ModernGraphicsCompat.ConfigureRetainedWorldPass(
+                Mods.Render.WorldRenderPassKind.RebuildDepth);
+            Mods.Render.ModernGraphicsCompat.BeginRetainedWorldFrame();
+            DrawRenderGraphPackets(Mods.Render.WorldRenderPassKind.RebuildDepth,
+                staticOcclusionOnly: true);
+            return true;
+#else
+            return false;
+#endif
+        }
+
+        private void RestoreWorldAfterStaticOcclusionDepth()
+        {
+            ConfigureOpaqueWorldPassState();
+            GL.Clear(ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
+        }
+
         private void ExecuteWorldRenderGraph()
         {
+            _pbrReady = _pbrResolvedToScene = false;
+            bool splitPbrOpaque = Mods.RenderOptions.DeferredPbr
+                && !_pbrRefused && !_graphicsPipelineRefused;
 #if !MPHREAD_SERVER
             bool modernGraph = Mods.Render.ModernGraphicsCompat.Active;
             bool directWorldEnabled = modernGraph
@@ -750,28 +817,47 @@ namespace MphRead
 
             foreach (Mods.Render.WorldRenderGraphPass pass in _worldRenderGraph.Passes)
             {
+                if (pass.Kind == Mods.Render.WorldRenderPassKind.DeferredPbr)
+                {
+                    if (splitPbrOpaque)
+                    {
+                        RenderDeferredPbrGBuffer();
+                        _pbrResolvedToScene = ResolveDeferredPbrOpaqueScene();
+                    }
+                    continue;
+                }
+                if (pass.Kind == Mods.Render.WorldRenderPassKind.ForwardOpaque)
+                {
+                    if (splitPbrOpaque)
+                    {
+                        ConfigureOpaqueWorldPassState();
+#if !MPHREAD_SERVER
+                        if (directWorldEnabled)
+                            Mods.Render.ModernGraphicsCompat.BeginRetainedWorldFrame();
+#endif
+                        DrawRenderGraphPackets(Mods.Render.WorldRenderPassKind.Opaque,
+                            pbrSurface: false);
+                        if (!modernGraph) GL.Disable(EnableCap.AlphaTest);
+                    }
+                    continue;
+                }
 #if !MPHREAD_SERVER
                 if (modernGraph)
                 {
                     Mods.Render.ModernGraphicsCompat.ConfigureRetainedWorldPass(
                         pass.Kind);
-                    DrawRenderGraphPackets(pass.Kind);
+                    DrawRenderGraphPackets(pass.Kind,
+                        pass.Kind == Mods.Render.WorldRenderPassKind.Opaque
+                            && splitPbrOpaque ? true : null);
                     continue;
                 }
 #endif
                 switch (pass.Kind)
                 {
                 case Mods.Render.WorldRenderPassKind.Opaque:
-                    GL.ColorMask(true, true, true, true);
-                    GL.Enable(EnableCap.AlphaTest);
-                    GL.AlphaFunc(AlphaFunction.Equal, 1.0f);
-                    GL.DepthFunc(DepthFunction.Less);
-                    GL.DepthMask(true);
-                    GL.Enable(EnableCap.StencilTest);
-                    GL.StencilMask(0xFF);
-                    GL.StencilOp(StencilOp.Zero, StencilOp.Zero, StencilOp.Zero);
-                    GL.StencilFunc(StencilFunction.Always, 0, 0xFF);
-                    DrawRenderGraphPackets(pass.Kind);
+                    ConfigureOpaqueWorldPassState();
+                    DrawRenderGraphPackets(pass.Kind,
+                        splitPbrOpaque ? true : null);
                     GL.Disable(EnableCap.AlphaTest);
                     break;
 
@@ -835,6 +921,30 @@ namespace MphRead
             GL.Disable(EnableCap.StencilTest);
             GL.PolygonMode(TriangleFace.FrontAndBack,
                 OpenTK.Graphics.OpenGL.PolygonMode.Fill);
+        }
+
+        private void ConfigureOpaqueWorldPassState()
+        {
+#if !MPHREAD_SERVER
+            if (Mods.Render.ModernGraphicsCompat.Active)
+            {
+                Mods.Render.ModernGraphicsCompat.ConfigureRetainedWorldPass(
+                    Mods.Render.WorldRenderPassKind.Opaque);
+                return;
+            }
+#endif
+            GL.ColorMask(true, true, true, true);
+            GL.Enable(EnableCap.DepthTest);
+            GL.Enable(EnableCap.AlphaTest);
+            GL.AlphaFunc(AlphaFunction.Equal, 1.0f);
+            GL.DepthFunc(DepthFunction.Less);
+            GL.DepthMask(true);
+            GL.Disable(EnableCap.Blend);
+            GL.Disable(EnableCap.PolygonOffsetFill);
+            GL.Enable(EnableCap.StencilTest);
+            GL.StencilMask(0xFF);
+            GL.StencilOp(StencilOp.Zero, StencilOp.Zero, StencilOp.Zero);
+            GL.StencilFunc(StencilFunction.Always, 0, 0xFF);
         }
     }
 }

@@ -1232,104 +1232,106 @@ fn deferred_pbr(uv_30: vec2<f32>, worldPos_2: vec3<f32>) -> vec3<f32> {
     v_2 = normalize((_e334 - _e335));
     let _e339: vec4<f32> = a_4;
     let _e344: f32 = metallic_2;
-    result_1 = (_e339.xyz * (0.1f + (0.08f * (1f - _e344))));
-    let _e350: vec3<f32> = result_1;
-    let _e351: vec4<f32> = a_4;
-    let _e355: vec3<f32> = global.pbr_light1_dir;
-    let _e357: vec3<f32> = global.pbr_light1_dir;
-    let _e363: vec4<f32> = a_4;
-    let _e365: vec3<f32> = n_7;
-    let _e366: vec3<f32> = v_2;
+    let _e349: vec4<f32> = m_2;
+    let _e353: vec4<f32> = m_2;
+    result_1 = ((_e339.xyz * (0.1f + (0.08f * (1f - _e344)))) * clamp(_e353.w, 0f, 1f));
+    let _e360: vec3<f32> = result_1;
+    let _e361: vec4<f32> = a_4;
+    let _e365: vec3<f32> = global.pbr_light1_dir;
     let _e367: vec3<f32> = global.pbr_light1_dir;
-    let _e369: vec3<f32> = global.pbr_light1_dir;
-    let _e372: vec3<f32> = global.pbr_light1_color;
-    let _e373: f32 = metallic_2;
-    let _e374: f32 = roughness_6;
-    let _e375: vec3<f32> = pbr_direct(_e363.xyz, _e365, _e366, normalize(-(_e369)), _e372, _e373, _e374);
-    result_1 = (_e350 + _e375);
-    let _e377: vec3<f32> = result_1;
-    let _e378: vec4<f32> = a_4;
-    let _e382: vec3<f32> = global.pbr_light2_dir;
-    let _e384: vec3<f32> = global.pbr_light2_dir;
-    let _e390: vec4<f32> = a_4;
-    let _e392: vec3<f32> = n_7;
-    let _e393: vec3<f32> = v_2;
+    let _e373: vec4<f32> = a_4;
+    let _e375: vec3<f32> = n_7;
+    let _e376: vec3<f32> = v_2;
+    let _e377: vec3<f32> = global.pbr_light1_dir;
+    let _e379: vec3<f32> = global.pbr_light1_dir;
+    let _e382: vec3<f32> = global.pbr_light1_color;
+    let _e383: f32 = metallic_2;
+    let _e384: f32 = roughness_6;
+    let _e385: vec3<f32> = pbr_direct(_e373.xyz, _e375, _e376, normalize(-(_e379)), _e382, _e383, _e384);
+    result_1 = (_e360 + _e385);
+    let _e387: vec3<f32> = result_1;
+    let _e388: vec4<f32> = a_4;
+    let _e392: vec3<f32> = global.pbr_light2_dir;
     let _e394: vec3<f32> = global.pbr_light2_dir;
-    let _e396: vec3<f32> = global.pbr_light2_dir;
-    let _e399: vec3<f32> = global.pbr_light2_color;
-    let _e400: f32 = metallic_2;
-    let _e401: f32 = roughness_6;
-    let _e402: vec3<f32> = pbr_direct(_e390.xyz, _e392, _e393, normalize(-(_e396)), _e399, _e400, _e401);
-    result_1 = (_e377 + _e402);
+    let _e400: vec4<f32> = a_4;
+    let _e402: vec3<f32> = n_7;
+    let _e403: vec3<f32> = v_2;
+    let _e404: vec3<f32> = global.pbr_light2_dir;
+    let _e406: vec3<f32> = global.pbr_light2_dir;
+    let _e409: vec3<f32> = global.pbr_light2_color;
+    let _e410: f32 = metallic_2;
+    let _e411: f32 = roughness_6;
+    let _e412: vec3<f32> = pbr_direct(_e400.xyz, _e402, _e403, normalize(-(_e406)), _e409, _e410, _e411);
+    result_1 = (_e387 + _e412);
     loop {
-        let _e406: i32 = i_1;
-        if !((_e406 < 8i)) {
+        let _e416: i32 = i_1;
+        if !((_e416 < 8i)) {
             break;
         }
         {
-            let _e413: i32 = i_1;
-            let _e414: i32 = global.dynamic_light_count;
-            if (_e413 >= _e414) {
+            let _e423: i32 = i_1;
+            let _e424: i32 = global.dynamic_light_count;
+            if (_e423 >= _e424) {
                 break;
             }
-            let _e416: i32 = i_1;
-            let _e418: vec4<f32> = global.dynamic_light_pos[_e416];
-            let _e420: vec3<f32> = worldPos_3;
-            delta_1 = (_e418.xyz - _e420);
-            let _e424: vec3<f32> = delta_1;
-            dist = length(_e424);
-            let _e427: i32 = i_1;
-            let _e429: vec4<f32> = global.dynamic_light_pos[_e427];
-            let _e432: i32 = i_1;
-            let _e434: vec4<f32> = global.dynamic_light_pos[_e432];
-            radius_1 = max(_e434.w, 0.01f);
-            let _e439: f32 = dist;
-            let _e440: f32 = radius_1;
-            if (_e439 < _e440) {
+            let _e426: i32 = i_1;
+            let _e428: vec4<f32> = global.dynamic_light_pos[_e426];
+            let _e430: vec3<f32> = worldPos_3;
+            delta_1 = (_e428.xyz - _e430);
+            let _e434: vec3<f32> = delta_1;
+            dist = length(_e434);
+            let _e437: i32 = i_1;
+            let _e439: vec4<f32> = global.dynamic_light_pos[_e437];
+            let _e442: i32 = i_1;
+            let _e444: vec4<f32> = global.dynamic_light_pos[_e442];
+            radius_1 = max(_e444.w, 0.01f);
+            let _e449: f32 = dist;
+            let _e450: f32 = radius_1;
+            if (_e449 < _e450) {
                 {
-                    let _e443: f32 = radius_1;
-                    let _e448: f32 = radius_1;
-                    let _e451: f32 = radius_1;
-                    let _e452: f32 = dist;
-                    attenuation = (1f - smoothstep((_e448 * 0.1f), _e451, _e452));
-                    let _e456: f32 = attenuation;
-                    let _e457: f32 = attenuation;
-                    attenuation = (_e456 * _e457);
-                    let _e459: vec3<f32> = result_1;
-                    let _e460: vec4<f32> = a_4;
-                    let _e465: vec3<f32> = delta_1;
-                    let _e467: i32 = i_1;
-                    let _e469: vec4<f32> = global.dynamic_light_color[_e467];
-                    let _e471: i32 = i_1;
-                    let _e473: vec4<f32> = global.dynamic_light_color[_e471];
-                    let _e476: f32 = attenuation;
-                    let _e480: vec4<f32> = a_4;
-                    let _e482: vec3<f32> = n_7;
-                    let _e483: vec3<f32> = v_2;
-                    let _e485: vec3<f32> = delta_1;
-                    let _e487: i32 = i_1;
-                    let _e489: vec4<f32> = global.dynamic_light_color[_e487];
-                    let _e491: i32 = i_1;
-                    let _e493: vec4<f32> = global.dynamic_light_color[_e491];
-                    let _e496: f32 = attenuation;
-                    let _e498: f32 = metallic_2;
-                    let _e499: f32 = roughness_6;
-                    let _e500: vec3<f32> = pbr_direct(_e480.xyz, _e482, _e483, normalize(_e485), ((_e489.xyz * _e493.w) * _e496), _e498, _e499);
-                    result_1 = (_e459 + _e500);
+                    let _e453: f32 = radius_1;
+                    let _e458: f32 = radius_1;
+                    let _e461: f32 = radius_1;
+                    let _e462: f32 = dist;
+                    attenuation = (1f - smoothstep((_e458 * 0.1f), _e461, _e462));
+                    let _e466: f32 = attenuation;
+                    let _e467: f32 = attenuation;
+                    attenuation = (_e466 * _e467);
+                    let _e469: vec3<f32> = result_1;
+                    let _e470: vec4<f32> = a_4;
+                    let _e475: vec3<f32> = delta_1;
+                    let _e477: i32 = i_1;
+                    let _e479: vec4<f32> = global.dynamic_light_color[_e477];
+                    let _e481: i32 = i_1;
+                    let _e483: vec4<f32> = global.dynamic_light_color[_e481];
+                    let _e486: f32 = attenuation;
+                    let _e490: vec4<f32> = a_4;
+                    let _e492: vec3<f32> = n_7;
+                    let _e493: vec3<f32> = v_2;
+                    let _e495: vec3<f32> = delta_1;
+                    let _e497: i32 = i_1;
+                    let _e499: vec4<f32> = global.dynamic_light_color[_e497];
+                    let _e501: i32 = i_1;
+                    let _e503: vec4<f32> = global.dynamic_light_color[_e501];
+                    let _e506: f32 = attenuation;
+                    let _e508: f32 = metallic_2;
+                    let _e509: f32 = roughness_6;
+                    let _e510: vec3<f32> = pbr_direct(_e490.xyz, _e492, _e493, normalize(_e495), ((_e499.xyz * _e503.w) * _e506), _e508, _e509);
+                    result_1 = (_e469 + _e510);
                 }
             }
         }
         continuing {
-            let _e410: i32 = i_1;
-            i_1 = (_e410 + 1i);
+            let _e420: i32 = i_1;
+            i_1 = (_e420 + 1i);
         }
     }
-    let _e502: vec3<f32> = result_1;
-    let _e503: vec4<f32> = a_4;
-    let _e505: vec4<f32> = m_2;
-    result_1 = (_e502 + ((_e503.xyz * _e505.z) * 1.4f));
-    let _e511: vec3<f32> = result_1;
-    return _e511;
+    let _e512: vec3<f32> = result_1;
+    let _e513: vec4<f32> = a_4;
+    let _e515: vec4<f32> = m_2;
+    result_1 = (_e512 + ((_e513.xyz * _e515.z) * 1.4f));
+    let _e521: vec3<f32> = result_1;
+    return _e521;
 }
 
 fn depth_normal(uv_32: vec2<f32>, centerDepth: f32) -> vec3<f32> {
@@ -2867,43 +2869,51 @@ fn main_1() {
             }
         }
     }
-    let _e955: vec3<f32> = color;
-    let _e957: vec2<f32> = uv_44;
-    let _e958: vec3<f32> = bloom_value(_e957);
-    color = (_e955 + _e958);
-    let _e961: vec3<f32> = color;
-    let _e962: vec3<f32> = grade(_e961);
-    color = _e962;
-    let _e964: vec3<f32> = color;
-    let _e965: f32 = luma(_e964);
-    y_3 = _e965;
-    let _e967: f32 = y_3;
-    let _e973: f32 = global.saturation_value;
-    let _e975: f32 = y_3;
-    let _e977: vec3<f32> = color;
-    let _e981: f32 = global.saturation_value;
-    color = mix(vec3(_e975), _e977, vec3(max(0f, _e981)));
-    let _e985: vec3<f32> = color;
-    let _e989: f32 = global.contrast_value;
-    color = (((_e985 - vec3(0.5f)) * _e989) + vec3(0.5f));
-    let _e997: vec3<f32> = color;
-    let _e1005: f32 = global.gamma_value;
-    let _e1012: vec3<f32> = color;
-    let _e1020: f32 = global.gamma_value;
-    color = pow(max(_e1012, vec3(0f)), vec3((1f / max(0.25f, _e1020))));
-    let _e1025: i32 = global.hdr_mode;
-    if (_e1025 != 0i) {
+    let _e955: i32 = global.pbr_enabled;
+    if (_e955 == 2i) {
         {
-            let _e1031: vec3<f32> = color;
-            let _e1034: vec3<f32> = max(_e1031, vec3(0f));
-            prime_output = vec4<f32>(_e1034.x, _e1034.y, _e1034.z, 1f);
+            let _e958: vec3<f32> = color;
+            prime_output = vec4<f32>(_e958.x, _e958.y, _e958.z, 1f);
+            return;
+        }
+    }
+    let _e964: vec3<f32> = color;
+    let _e966: vec2<f32> = uv_44;
+    let _e967: vec3<f32> = bloom_value(_e966);
+    color = (_e964 + _e967);
+    let _e970: vec3<f32> = color;
+    let _e971: vec3<f32> = grade(_e970);
+    color = _e971;
+    let _e973: vec3<f32> = color;
+    let _e974: f32 = luma(_e973);
+    y_3 = _e974;
+    let _e976: f32 = y_3;
+    let _e982: f32 = global.saturation_value;
+    let _e984: f32 = y_3;
+    let _e986: vec3<f32> = color;
+    let _e990: f32 = global.saturation_value;
+    color = mix(vec3(_e984), _e986, vec3(max(0f, _e990)));
+    let _e994: vec3<f32> = color;
+    let _e998: f32 = global.contrast_value;
+    color = (((_e994 - vec3(0.5f)) * _e998) + vec3(0.5f));
+    let _e1006: vec3<f32> = color;
+    let _e1014: f32 = global.gamma_value;
+    let _e1021: vec3<f32> = color;
+    let _e1029: f32 = global.gamma_value;
+    color = pow(max(_e1021, vec3(0f)), vec3((1f / max(0.25f, _e1029))));
+    let _e1034: i32 = global.hdr_mode;
+    if (_e1034 != 0i) {
+        {
+            let _e1040: vec3<f32> = color;
+            let _e1043: vec3<f32> = max(_e1040, vec3(0f));
+            prime_output = vec4<f32>(_e1043.x, _e1043.y, _e1043.z, 1f);
             return;
         }
     } else {
         {
-            let _e1043: vec3<f32> = color;
-            let _e1048: vec3<f32> = clamp(_e1043, vec3(0f), vec3(1f));
-            prime_output = vec4<f32>(_e1048.x, _e1048.y, _e1048.z, 1f);
+            let _e1052: vec3<f32> = color;
+            let _e1057: vec3<f32> = clamp(_e1052, vec3(0f), vec3(1f));
+            prime_output = vec4<f32>(_e1057.x, _e1057.y, _e1057.z, 1f);
             return;
         }
     }

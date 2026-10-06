@@ -238,19 +238,17 @@
 
   <!-- Modern renderer bindings. Silk 2.23.0 and wgpu-native commit
        33133da4ec5a0174cb21539ef2d3346f75200411 are an ABI pair; update them
-       together. Windows/Linux use Silk's matching native package. macOS uses
-       the repository-built native below so Vulkan portability is compiled in. -->
+       together. Every client uses the repository-built additive recovery bridge;
+       upstream runtimes abort on recoverable device/surface failures. -->
   <ItemGroup Condition="'$(MphReadServer)' != 'true'">
     <PackageReference Include="Silk.NET.WebGPU" Version="2.23.0" />
     <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" Version="2.23.0" />
-    <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" Version="2.23.0"
-                      Condition="!$(RuntimeIdentifier.StartsWith('osx')) or !Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-macos\$(RuntimeIdentifier)\libwgpu_native.dylib')" />
     <!-- MoltenVK itself exports the Vulkan loader ABI. Ship it under its
          canonical name and libvulkan.dylib so arm64 does not depend on the
          old x64-only Silk Vulkan-loader package. -->
     <PackageReference Include="Silk.NET.MoltenVK.Native" Version="2.23.0"
                       GeneratePathProperty="true" ExcludeAssets="all"
-                      Condition="$(RuntimeIdentifier.StartsWith('osx'))" />
+                      Condition="$(PrimeWgpuRid.StartsWith('osx'))" />
   </ItemGroup>
 
   <!-- Same alias trick Android already uses. From this point desktop renderer
@@ -261,11 +259,29 @@
     <Using Include="MphRead.Mods.Render.GraphicsApi" Alias="GL" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(MphReadServer)' != 'true' and $(RuntimeIdentifier.StartsWith('osx')) and Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-macos\$(RuntimeIdentifier)\libwgpu_native.dylib')">
-    <None Include="$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-macos\$(RuntimeIdentifier)\libwgpu_native.dylib"
-          Link="libwgpu_native.dylib" CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  <PropertyGroup>
+    <PrimeWgpuRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</PrimeWgpuRid>
+    <PrimeWgpuRid Condition="'$(RuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</PrimeWgpuRid>
+    <PrimeWgpuName Condition="$(PrimeWgpuRid.StartsWith('win'))">wgpu_native.dll</PrimeWgpuName>
+    <PrimeWgpuName Condition="$(PrimeWgpuRid.StartsWith('linux'))">libwgpu_native.so</PrimeWgpuName>
+    <PrimeWgpuName Condition="$(PrimeWgpuRid.StartsWith('osx'))">libwgpu_native.dylib</PrimeWgpuName>
+    <PrimeWgpuDirectory>$(MSBuildProjectDirectory)/../../artifacts/wgpu-native-desktop/$(PrimeWgpuRid)</PrimeWgpuDirectory>
+    <PrimeWgpuDirectory Condition="$(PrimeWgpuRid.StartsWith('osx'))">$(MSBuildProjectDirectory)/../../artifacts/wgpu-native-macos/$(PrimeWgpuRid)</PrimeWgpuDirectory>
+    <PrimeWgpuPath>$(PrimeWgpuDirectory)/$(PrimeWgpuName)</PrimeWgpuPath>
+    <PrimeWgpuPython Condition="$([MSBuild]::IsOSPlatform('Windows'))">python</PrimeWgpuPython>
+    <PrimeWgpuPython Condition="'$(PrimeWgpuPython)' == ''">python3</PrimeWgpuPython>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MphReadServer)' != 'true' and Exists('$(PrimeWgpuPath)') and Exists('$(PrimeWgpuDirectory)/PRIME-WGPU.json')">
+    <None Include="$(PrimeWgpuPath)" Link="$(PrimeWgpuName)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" />
+    <None Include="$(PrimeWgpuDirectory)/PRIME-WGPU.json" Link="PRIME-WGPU.json"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
+  <Target Name="VerifyPrimeWgpuRuntime" BeforeTargets="ComputeFilesToPublish" Condition="'$(MphReadServer)' != 'true'">
+    <Error Condition="'$(PrimeWgpuName)' == '' or !Exists('$(PrimeWgpuPath)') or !Exists('$(PrimeWgpuDirectory)/PRIME-WGPU.json')"
+           Text="Patched wgpu-native runtime missing for $(PrimeWgpuRid). Run tools/wgpu/build-native.sh $(PrimeWgpuRid) before publishing." />
+    <Exec Command="$(PrimeWgpuPython) &quot;$(MSBuildProjectDirectory)/../../tools/wgpu/verify-runtime.py&quot; &quot;$(PrimeWgpuPath)&quot;" />
+  </Target>
 
   <PropertyGroup>
     <MphReadKtxRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</MphReadKtxRid>
@@ -277,7 +293,7 @@
           CopyToPublishDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(MphReadServer)' != 'true' and $(RuntimeIdentifier.StartsWith('osx'))">
+  <ItemGroup Condition="'$(MphReadServer)' != 'true' and $(PrimeWgpuRid.StartsWith('osx'))">
     <None Include="$(PkgSilk_NET_MoltenVK_Native)\runtimes\osx\native\libMoltenVK.dylib"
           Link="libMoltenVK.dylib" CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest" Visible="false" />
@@ -293,7 +309,7 @@
        does not identify that alias, even after an absolute-path preload.
        Set the copied loader's identity so packaged apps need no DYLD override. -->
   <Target Name="IdentifyMacVulkanLoader" AfterTargets="CopyFilesToOutputDirectory;Publish"
-          Condition="'$(MphReadServer)' != 'true' and $(RuntimeIdentifier.StartsWith('osx')) and $([MSBuild]::IsOSPlatform('OSX'))">
+          Condition="'$(MphReadServer)' != 'true' and $(PrimeWgpuRid.StartsWith('osx')) and $([MSBuild]::IsOSPlatform('OSX'))">
     <ItemGroup>
       <_PrimeVulkanLoader Include="$(TargetDir)libvulkan.dylib" Condition="Exists('$(TargetDir)libvulkan.dylib')" />
       <_PrimeVulkanLoader Include="$(PublishDir)libvulkan.dylib" Condition="'$(PublishDir)' != '' and Exists('$(PublishDir)libvulkan.dylib')" />

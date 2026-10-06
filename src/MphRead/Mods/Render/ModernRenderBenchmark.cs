@@ -253,6 +253,9 @@ internal static class ModernRenderBenchmark
                         retainedMultiDrawLogicalDraws = ModernGraphicsCompat.RetainedMultiDrawLogicalDraws - multiDrawLogicalStart,
                         retainedMultiDrawFallbackBatches = ModernGraphicsCompat.RetainedMultiDrawFallbackBatches - multiDrawFallbackStart,
                         retainedMultiDrawAtlasBytes = ModernGraphicsCompat.RetainedMultiDrawAtlasBytes,
+                        retainedMultiDrawAtlasLiveBytes = ModernGraphicsCompat.RetainedMultiDrawAtlasLiveBytes,
+                        retainedMultiDrawAtlasReservedBytes = ModernGraphicsCompat.RetainedMultiDrawAtlasReservedBytes,
+                        retainedMultiDrawAtlasPages = ModernGraphicsCompat.RetainedMultiDrawAtlasPages,
                         retainedDenseMultiDrawEnabled = ModernGraphicsCompat.RetainedDenseMultiDrawEnabled,
                         retainedDenseMultiDrawCalls = ModernGraphicsCompat.RetainedDenseMultiDrawCalls - denseMultiDrawCallsStart,
                         retainedDenseMultiDrawCandidates = ModernGraphicsCompat.RetainedDenseMultiDrawCandidates - denseMultiDrawCandidatesStart,
@@ -283,7 +286,7 @@ internal static class ModernRenderBenchmark
                 adapter = identity.Item2, driver = identity.Item3,
                 platform = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
                 room, preset = "Extreme",
-                notes = $"Frozen scene; 20 warmup + {sampleCount} samples. Completed time includes synchronous GPU completion and any surface-acquire pacing; present is measured separately. VSync is requested off on both backends, but modern actual PresentMode may fall back to Fifo. Upload submission time includes flushing preceding draws, not GPU transfer duration. Storage estimates cover tracked textures and pooled buffers, not driver VRAM. GPU timestamps unavailable: the pinned native C ABI does not expose timestamp-period conversion. Short runs are smoke checks; longer hardware runs required for release acceptance.",
+                notes = $"Frozen scene; 20 warmup + {sampleCount} samples. Completed time includes synchronous GPU completion and any surface-acquire pacing; present is measured separately. VSync is requested off on both backends, but modern actual PresentMode may fall back to Fifo. Upload submission time includes flushing preceding draws, not GPU transfer duration. Storage estimates cover tracked textures and pooled buffers, not driver VRAM. AtlasBytes is cumulative uploads; live/reserved atlas bytes are separate. This serialized mode does not collect GPU timestamps. Use -queued for live simulation and asynchronous GPU timings. Short runs are smoke checks; longer hardware runs required for release acceptance.",
                 startup, results
             }, new JsonSerializerOptions { WriteIndented = true }));
             Console.WriteLine("RENDERBENCH PASS " + path);

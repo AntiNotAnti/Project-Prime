@@ -32,19 +32,25 @@ def restore(path,triangles):
             for ti,t in enumerate(ts):buckets[key(t['positions'],t['uvs'])].append(ti);cells[tuple(math.floor(float(v)/3e-5) for v in t['positions'].mean(0))].append(ti)
             consumed=set();pos=np.array(read(doc,binary,pr['attributes']['POSITION']));uv=np.array(read(doc,binary,pr['attributes']['TEXCOORD_0']));norm=np.array(read(doc,binary,pr['attributes']['NORMAL']));indices=np.array(read(doc,binary,pr['indices'])).reshape(-1);outp=[];outu=[];outn=[];outc=[]
             for face in indices.reshape(-1,3):
-                kp=key(pos[face],uv[face]);near=[i for i in buckets.get(kp,[]) if i not in consumed]
-                if not near:
-                    center=pos[face].mean(0);cell=tuple(math.floor(float(v)/3e-5) for v in center)
-                    for x in [-1,0,1]:
-                        for y in [-1,0,1]:
-                            for z in [-1,0,1]:near.extend(i for i in cells.get((cell[0]+x,cell[1]+y,cell[2]+z),[]) if i not in consumed)
+                kp=key(pos[face],uv[face]);near=[]
+                # Rounded exact keys may contain an opposite-side coating but
+                # omit the correct orientation just across a rounding boundary.
+                center=pos[face].mean(0);cell=tuple(math.floor(float(v)/3e-5) for v in center)
+                for x in [-1,0,1]:
+                    for y in [-1,0,1]:
+                        for z in [-1,0,1]:near.extend(i for i in cells.get((cell[0]+x,cell[1]+y,cell[2]+z),[]) if i not in consumed)
                 scored=[]
                 for ti in near:
-                    t=ts[ti];score=max(min(np.linalg.norm(p-q)+np.linalg.norm(u-v) for q,v in zip(t['positions'],t['uvs'])) for p,u in zip(pos[face],uv[face]));scored.append((score,ti))
+                    t=ts[ti]
+                    # Preserve oriented triangle correspondence. Opposite-side
+                    # glow layers can share every position and UV while keeping
+                    # opposite normals; unordered matching swaps those layers.
+                    for shift in range(3):
+                        order=np.roll(np.arange(3),shift);pe=float(np.max(np.linalg.norm(pos[face]-t['positions'][order],axis=1)));ue=float(np.max(np.abs(uv[face]-t['uvs'][order])));ne=float(np.max(np.linalg.norm(norm[face]-t.get('normals',norm[face])[order],axis=1)));scored.append((pe+ue,ne,ti,order,pe,ue))
                 assert scored,('No original rigid triangle',pair,kp)
-                score,ti=min(scored);assert score<3e-5,('Generated Source/effect triangle changed',pair,score);consumed.add(ti);t=ts[ti]
-                for i in face:
-                    corner=min(range(3),key=lambda k:np.linalg.norm(pos[i]-t['positions'][k])+np.linalg.norm(uv[i]-t['uvs'][k]));maximum=max(maximum,float(np.linalg.norm(pos[i]-t['positions'][corner])));outp.append(pos[i]);outu.append(uv[i]);outn.append(t.get('normals',norm[face])[corner]);outc.append(t.get('colors',np.ones((3,3)))[corner])
+                valid=[s for s in scored if s[4]<1e-5 and s[5]<2e-6];assert valid,('Generated Source/effect oriented triangle changed',pair,min(s[0] for s in scored));score,ne,ti,order,pe,ue=min(valid,key=lambda s:(s[0],s[1],s[2]));consumed.add(ti);t=ts[ti]
+                for i,corner in zip(face,order):
+                    maximum=max(maximum,float(np.linalg.norm(pos[i]-t['positions'][corner])));outp.append(pos[i]);outu.append(uv[i]);outn.append(t.get('normals',norm[face])[corner]);outc.append(t.get('colors',np.ones((3,3)))[corner])
                 if t['nativeEffect']:effect_corners+=3
                 else:source_corners+=3
             assert len(consumed)==len(ts),('Generated helper dropped rigid triangles',pair,len(consumed),len(ts));pr['attributes']={'POSITION':add(outp,'VEC3','f'),'TEXCOORD_0':add(outu,'VEC2','f'),'NORMAL':add(outn,'VEC3','f')};pr['indices']=add(np.arange(len(outp)).reshape(-1,1),'SCALAR','I')

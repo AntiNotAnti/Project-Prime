@@ -516,7 +516,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
             FlushRetainedPbrUniformWrites();
             FlushRetainedIndirectWrites();
             long start = PerformanceStart();
-            _api.QueueSubmit(_queue, 1, &commands);
+            NativeGraphicsResult result = ModernGraphicsNativeBridge.Submit(_queue, 1, &commands);
+            _device.ObserveNativeResult(result, "submit command buffer");
             if (start != 0)
             {
                 _queueSubmissions++;

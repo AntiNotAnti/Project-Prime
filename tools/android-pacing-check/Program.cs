@@ -56,8 +56,44 @@ foreach (int cap in new[] { 60, 90, 120, 144 })
     pacer.Reset(0);
     pacer.Deadline(0, 120, presentationPaced: true);
     pacer.BeginFrame(0);
-    Check(pacer.Deadline(.008, 120, presentationPaced: true) <= .008,
-        "native 120Hz cap follows compositor timing rather than an 8.33ms sleep phase");
+    Check(Math.Abs(pacer.Deadline(.008, 120, presentationPaced: true) - 1.0 / 120) < 1e-9,
+        "numeric 120Hz cap preserves its remaining budget when presentation returns early");
+}
+
+// Surface.SetFrameRate is advisory and FIFO can be the only supported Vulkan
+// present mode. Model actual display boundaries, rather than assuming that the
+// requested numeric cap became the panel rate. Presentation time consumes the
+// same absolute budget as the limiter.
+foreach (int cap in new[] { 30, 60, 90, 100, 120, 144 })
+{
+    foreach (int displayHz in new[] { 60, 90, 120, 144 })
+    {
+        var pacer = new AndroidFramePacer(500);
+        pacer.Reset(0);
+        double now = 0, lastStart = 0, addedWait = 0;
+        const int frameCount = 1201;
+        for (int frame = 0; frame < frameCount; frame++)
+        {
+            double deadline = pacer.Deadline(now, cap, presentationPaced: true);
+            double wait = Math.Max(0, deadline - now);
+            addedWait += wait;
+            now += wait;
+            lastStart = now;
+            pacer.BeginFrame(now);
+            // A small CPU workload followed by presentation at the next
+            // actual display boundary. Exact multiples never double-wait.
+            now = Math.Ceiling((now + 0.0001) * displayHz) / displayHz;
+        }
+        double deliveredHz = (frameCount - 1) / lastStart;
+        double expectedHz = Math.Min(cap, displayHz);
+        Check(Math.Abs(deliveredHz - expectedHz) < 0.1,
+            $"FIFO {displayHz}Hz respects numeric {cap} cap without cadence drift ({deliveredHz:0.00}Hz)");
+        if (cap >= displayHz)
+        {
+            Check(addedWait < 1e-8,
+                $"FIFO {displayHz}Hz adds no limiter wait for cap {cap}");
+        }
+    }
 }
 
 foreach (int cap in new[] { 30, 60, 90, 120, 144, 500 })

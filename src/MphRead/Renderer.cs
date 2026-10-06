@@ -755,17 +755,24 @@ namespace MphRead
         public bool SideScene { get; set; }
 
         private PixelInternalFormat _sceneColorFormat;
-        private static PixelInternalFormat SceneColorFormat
+        private PixelInternalFormat SceneColorFormat
         {
             get
             {
 #if !MPHREAD_SERVER
-                if (Mods.Render.ModernGraphicsCompat.Active && Mods.RenderOptions.InternalHdr)
-                    return PixelInternalFormat.Rgba16f;
+                bool modern = Mods.Render.ModernGraphicsCompat.Active;
+#else
+                const bool modern = false;
 #endif
-                return PixelInternalFormat.Rgb;
+                return SelectSceneColorFormat(modern, Mods.RenderOptions.InternalHdr,
+                    _graphicsOutputHdr, _graphicsHdrRefused);
             }
         }
+
+        internal static PixelInternalFormat SelectSceneColorFormat(bool modern,
+            bool hdrRequested, bool hdrTargetValidated, bool hdrRefused) =>
+            hdrRequested && !hdrRefused && (modern || hdrTargetValidated)
+                ? PixelInternalFormat.Rgba16f : PixelInternalFormat.Rgb;
 
         public void OnResize()
         {
@@ -1592,7 +1599,8 @@ namespace MphRead
                 if (maps.Specular != 0) ReleaseTexture(maps.Specular);
                 if (maps.Emissive != 0) ReleaseTexture(maps.Emissive);
             }
-            if (_ownedTextures.Remove(texture)) GL.DeleteTexture(texture);
+            if (_ownedTextures.Remove(texture) && Mods.Render.RenderResourceLifetime.CanReleaseNativeInCurrentScope)
+                GL.DeleteTexture(texture);
         }
 
         private void ReleaseWorldMaterialResidency(int texture)
@@ -2769,11 +2777,14 @@ namespace MphRead
 #endif
         public void OnDrawFrame()
         {
+            using var extractionTiming = Mods.Render.FrameRenderTelemetry.Measure(
+                Mods.Render.FrameRenderTelemetry.Phase.Extraction);
 #if !MPHREAD_SERVER
             if (_modernDeviceGeneration != Mods.Render.ModernGraphicsCompat.DeviceGeneration)
             {
                 _modernDeviceGeneration = Mods.Render.ModernGraphicsCompat.DeviceGeneration;
                 _graphicsHistoryValid = false;
+                _maxRenderTargetSize = 0;
             }
 #endif
             if (Mods.Network.DemoPlayback.PreparePresentation(this) is { } theatre)
@@ -2817,6 +2828,7 @@ namespace MphRead
             // -netcheck while the ballot beside them was correct.
             if (!Services.IsReplica) Mods.EndScreen.Tick(_room?.Meta.Name ?? "", _globalElapsedTime);
             if (!Services.IsReplica) Mods.Render.MapThumbnail.BeginFrame();
+            PrepareGraphicsSceneFormat();
             GL.ActiveTexture(TextureUnit.Texture0);
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
             // The scene's own target, which the resolution scale may have made
@@ -2825,7 +2837,6 @@ namespace MphRead
             Vector2i target = RenderSize;
             if (target != _targetSize || _sceneColorFormat != SceneColorFormat)
             {
-                _retainedDepthHistoryValid = false;
                 OnResize();
                 target = _targetSize;
             }
@@ -2875,7 +2886,8 @@ namespace MphRead
                 GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref _viewMatrix);
             UpdateProjection();
             GetDrawItems();
-            CaptureRetainedRenderWorld();
+            using (Mods.Render.FrameRenderTelemetry.Measure(Mods.Render.FrameRenderTelemetry.Phase.RetainedExtraction))
+                CaptureRetainedRenderWorld();
         }
 
         public Matrix4 GetPerspectiveMatrix(float fov)
@@ -3102,7 +3114,6 @@ namespace MphRead
             {
                 return;
             }
-            _retainedDepthHistoryValid = false;
             _playerOutlineDepth = -1;
             if (!want)
             {
@@ -3519,6 +3530,8 @@ namespace MphRead
 
         public bool OnRenderFrame()
         {
+            using var commandTiming = Mods.Render.FrameRenderTelemetry.Measure(
+                Mods.Render.FrameRenderTelemetry.Phase.CommandRecording);
             if (Mods.Network.DemoPlayback.PreparePresentation(this) is { } theatre)
                 return theatre.OnRenderFrame();
             if (Mods.KillCam.Presentation(this) is { } historical)
@@ -5491,48 +5504,31 @@ namespace MphRead
         /// </summary>
         public void UnloadGl()
         {
+#if MPHREAD_SERVER
+            ReleaseRenderResources(canReleaseNativeResources: false);
+#else
+            ReleaseRenderResources(canReleaseNativeResources:
+                Mods.Render.ModernGraphicsCompat.Active || Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested
+                    ? Mods.Render.ModernGraphicsCompat.CanReleaseNativeResources : true);
+#endif
+        }
+
+        private void ReleaseNativeRenderResources()
+        {
             ReleaseReplayOutput();
-            if (Mods.Headless.Active)
-            {
-                return;
-            }
 #if MPHREAD_SHELL
-            DisposeEditorMeshes();
+            if (_editorTextures != null) DisposeEditorMeshes();
 #endif
             if (_ownedTextures != null)
             {
                 foreach (int texture in _ownedTextures) GL.DeleteTexture(texture);
                 _ownedTextures.Clear();
             }
-            _texPalMap.Clear();
-            _textureSources.Clear();
-            _streamingTextureVersions.Clear();
-            _streamingTextureQueue.Clear();
-            _streamingTextureDecodes.Clear();
-            _mipmappedTextures?.Clear();
-            _appliedTextureSampling.Clear();
-            _modernTextureSampling.Clear();
-            _worldMaterialTextureBytes.Clear();
-            _worldMaterialResidentBytes = 0;
-            _flatColors.Clear();
-            _cosmeticTextures.Clear();
-            ReleasePreviewItems();
-            _materialMaps.Clear();
-            try { Mods.Render.Materials.MaterialInventory.SaveObserved(); }
-            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
-            { Mods.DebugLog.Line("render", "Material inventory save failed: " + ex.Message); }
-            if (_modelLeases != null)
-            {
-                foreach (Model model in _modelLeases) Mods.Render.SharedModelResources.Release(model);
-                _modelLeases.Clear();
-            }
-            Mods.Render.Characters.CharacterModelRuntime.Release(this);
-            if (Services?.IsReplica != true) Read.ClearCache();
             DisposePlayerOutlines();
             DisposeGraphicsPipeline();
             DisposeDeferredPbr();
             DisposeShadowMap();
-            DisposeFrameTransientTextures();
+            if (_frameTransientTextures != null) DisposeFrameTransientTextures();
             // The cel target also owns a reference to _screenTexture. Release
             // it before deleting that texture in the shell's persistent context.
             if (_celFrameBuffer != 0)
@@ -5558,15 +5554,17 @@ namespace MphRead
             DeleteProgram(ref _rttShaderProgramId);
             DeleteProgram(ref _shiftShaderProgramId);
             DeleteProgram(ref _celShaderProgramId);
-            Mods.MapGen.MapRuntimeUsage.Release(this);
+            ReleaseModelLeases(canReleaseNativeResources: true);
+            Mods.Render.Characters.CharacterModelRuntime.Release(this, canReleaseNativeResources: true);
         }
 
         private static void DeleteTexture(ref int texture)
         {
             if (texture != 0)
             {
-                GL.DeleteTexture(texture);
+                int handle = texture;
                 texture = 0;
+                GL.DeleteTexture(handle);
             }
         }
 
@@ -5574,8 +5572,9 @@ namespace MphRead
         {
             if (program != 0)
             {
-                GL.DeleteProgram(program);
+                int handle = program;
                 program = 0;
+                GL.DeleteProgram(handle);
             }
         }
 
@@ -8356,6 +8355,8 @@ localCenter *= _profileHudScale;
         public bool HasScene => _scene != null;
 
         private Scene? _scene;
+        private readonly int _graphicsOwnerThreadId = Environment.CurrentManagedThreadId;
+        private int _windowRendererReleased;
 
         /// <summary>
         /// True when this window is the program's shell rather than one match's
@@ -8651,10 +8652,10 @@ localCenter *= _profileHudScale;
             {
                 return;
             }
-            _scene.DoCleanup();
-            _scene.UnloadGl();
+            Scene scene = _scene;
             _scene = null;
             _sceneLoaded = false;
+            scene.CleanupAndReleaseRenderResources(CanReleaseSceneNativeResources);
             // A scene is the largest thing this program allocates, and the
             // next screen the player sees is a menu: this is the one moment in
             // a session when a collection costs nothing anybody can see.
@@ -8766,24 +8767,110 @@ localCenter *= _profileHudScale;
             try
             {
                 Mods.DebugLog.Line("shutdown", "game loop stopped; cleaning up scene");
-                _scene?.DoCleanup();
+                _scene?.CleanupAndReleaseRenderResources(CanReleaseSceneNativeResources);
                 Mods.DebugLog.Line("shutdown", "scene cleanup complete");
             }
             finally
             {
-                if (_shell) Sound.AudioLifetime.Shutdown();
-#if !MPHREAD_SERVER
-#if MPHREAD_SHELL
-                // Map Studio owns GPU resources too. Release them before the
-                // modern facade is detached from this NoAPI window.
-                if (Mods.Render.ModernGraphicsCompat.RecoveryFailure == null)
-                    Mods.Launcher.Gui.UiSurface.Current?.ReleaseMapRenderer();
-#endif
-                Mods.Render.ModernGraphicsCompat.Shutdown();
-#endif
-                Mods.Render.ProductionFrameTrace.Flush();
-                base.OnUnload();
+                try
+                {
+                    try { ReleaseWindowRendererResources(); }
+                    finally { if (_shell) Sound.AudioLifetime.Shutdown(); }
+                }
+                finally
+                {
+                    try { Mods.Render.ProductionFrameTrace.Flush(); }
+                    finally { base.OnUnload(); }
+                }
             }
+        }
+
+        private void ReleaseWindowRendererResources()
+        {
+            if (System.Threading.Interlocked.Exchange(ref _windowRendererReleased, 1) != 0) return;
+            try { ReleaseWindowRenderResources(); }
+            finally
+            {
+#if !MPHREAD_SERVER
+                try
+                {
+#if MPHREAD_SHELL
+                    // Map Studio owns GPU resources too. Release them before the
+                    // modern facade is detached from this NoAPI window.
+                    Mods.Launcher.Gui.UiSurface.Current?.ReleaseMapRenderer(CanReleaseSceneNativeResources);
+#endif
+                }
+                finally
+                {
+                    try
+                    {
+#if !ANDROID
+                        if (CanReleaseSceneNativeResources)
+                            Mods.Render.UiOverlay.Release();
+#endif
+                    }
+                    finally
+                    {
+                        try
+                        {
+#if !ANDROID
+                            Mods.Render.UiOverlay.ForgetRendererResources();
+#endif
+                        }
+                        finally { Mods.Render.ModernGraphicsCompat.Shutdown(); }
+                    }
+                }
+#endif
+            }
+        }
+
+        private bool CanReleaseSceneNativeResources
+        {
+            get
+            {
+#if MPHREAD_SERVER
+                return false;
+#else
+                if (Environment.CurrentManagedThreadId != _graphicsOwnerThreadId) return false;
+                return Mods.Render.ModernGraphicsCompat.Active || Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested
+                    ? Mods.Render.ModernGraphicsCompat.CanReleaseNativeResources : Context?.IsCurrent == true;
+#endif
+            }
+        }
+
+        private void ReleaseWindowRenderResources()
+        {
+            Scene? scene = _scene;
+            _scene = null;
+            _sceneLoaded = false;
+            try { scene?.ReleaseRenderResources(CanReleaseSceneNativeResources); }
+            catch (Exception ex)
+            { Mods.DebugLog.Line("shutdown", "scene resource teardown failed; managed ownership released: " + ex); }
+            finally
+            {
+#if !ANDROID
+                Mods.Render.LauncherHunter.Shutdown(CanReleaseSceneNativeResources);
+#endif
+            }
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            try
+            {
+                // Load/Run can fail before OpenTK invokes OnUnload. Explicit
+                // disposal still ends every scene lease before the context dies.
+                if (disposing)
+                {
+                    try
+                    {
+                        try { _scene?.CleanupAndReleaseRenderResources(CanReleaseSceneNativeResources); }
+                        catch (Exception ex) { Mods.DebugLog.Line("shutdown", "scene cleanup failed during disposal: " + ex); }
+                    }
+                    finally { ReleaseWindowRendererResources(); }
+                }
+            }
+            finally { base.Dispose(disposing); }
         }
 
         public void AddRoom(int id, GameMode mode = GameMode.None, int playerCount = 0,
@@ -8923,6 +9010,7 @@ localCenter *= _profileHudScale;
                 bool blocks = Mods.Render.ModernGraphicsCompat.PresentationBlocks;
                 UpdateFrequency = Mods.Render.DesktopFramePacing.SoftwareFrequency(
                     cap, refreshRate, displayPaced, blocks, linuxVSyncFallback: false);
+                Mods.Render.FrameTiming.SetPresentationCadence(refreshRate, displayPaced || blocks);
                 if (!displayPaced && blocks && !_reportedModernBlockingFallback)
                 {
                     _reportedModernBlockingFallback = true;
@@ -8936,6 +9024,7 @@ localCenter *= _profileHudScale;
             }
 #endif
 
+            Mods.Render.FrameTiming.SetPresentationCadence(refreshRate, displayPaced || linuxFallback);
             if (linuxFallback)
             {
                 // The two-second measurement proved swap interval ineffective.
@@ -9326,13 +9415,16 @@ localCenter *= _profileHudScale;
         private void ResizeToFramebuffer()
         {
             Vector2i size = PixelSize;
+#if !MPHREAD_SERVER
+            // A zero-sized framebuffer suspends modern surface acquisition.
+            // Keep the scene's last usable dimensions while minimized, but
+            // still propagate that lifecycle edge to the presentation owner.
+            Mods.Render.ModernGraphicsCompat.Resize(size.X, size.Y);
+#endif
             if (size.X <= 0 || size.Y <= 0)
             {
                 return;
             }
-#if !MPHREAD_SERVER
-            Mods.Render.ModernGraphicsCompat.Resize(size.X, size.Y);
-#endif
             GL.Viewport(0, 0, size.X, size.Y);
             if (_scene != null && _scene.Size != size)
             {

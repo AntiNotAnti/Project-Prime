@@ -1034,6 +1034,8 @@ namespace MphRead.Entities
 
         private void UpdateRoomParts()
         {
+            using var visibilityTiming = Mods.Render.FrameRenderTelemetry.Measure(
+                Mods.Render.FrameRenderTelemetry.Phase.RoomVisibility);
             NodeRef curNodeRef = _scene.Players.Main.CameraInfo.NodeRef;
             if (_scene.CameraMode != CameraMode.Player || curNodeRef.PartIndex == -1)
             {

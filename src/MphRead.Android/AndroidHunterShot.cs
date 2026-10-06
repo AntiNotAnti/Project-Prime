@@ -46,6 +46,7 @@ namespace MphRead.Droid
 
         private readonly object _gate = new();
         private Thread? _thread;
+        private AndroidRenderLifetime? _lifetime;
         private readonly SemaphoreSlim _work = new(0);
         private Job? _next;
         private bool _failed;
@@ -57,8 +58,8 @@ namespace MphRead.Droid
         }
 
         /// <summary>
-        /// Let the scene and the context go, and wait for the thread to have
-        /// done it.
+        /// Request retirement and complete only after scene/context teardown.
+        /// The UI awaits this task; it never joins a thread rendering a model.
         ///
         /// One process holds one world, and more than that: the hunter's
         /// textures and display lists are cut in *this* context and their ids
@@ -66,25 +67,22 @@ namespace MphRead.Droid
         /// match then draws from in a context of its own. So they have to be
         /// given back before a match starts rather than merely left alone.
         /// </summary>
-        internal void Retire()
+        internal Task RetireAsync()
         {
-            Thread? thread;
+            Task completion;
             lock (_gate)
             {
-                thread = _thread;
-                if (thread == null)
+                if (_thread == null)
                 {
-                    return;
+                    return Task.CompletedTask;
                 }
                 _next?.Done.TrySetResult(null);
                 _next = null;
                 _retire = true;
+                completion = _lifetime!.RequestStop();
             }
             _work.Release();
-            // Short: what it is waiting for is one DoCleanup. A match that
-            // starts anyway is the same risk this is here to remove, so the
-            // wait is not optional -- only bounded.
-            thread.Join(TimeSpan.FromSeconds(4));
+            return completion;
         }
 
         private sealed class Job
@@ -99,7 +97,7 @@ namespace MphRead.Droid
 
         public Task<byte[]?> RenderAsync(Hunter hunter, int suit, int width, int height)
         {
-            if (_failed || width <= 0 || height <= 0 || MainActivity.Instance?.InMatch == true)
+            if (_failed || width <= 0 || height <= 0 || MainActivity.Instance?.HunterPreviewBlocked == true)
             {
                 return Task.FromResult<byte[]?>(null);
             }
@@ -113,6 +111,9 @@ namespace MphRead.Droid
             Job? dropped;
             lock (_gate)
             {
+                if ((_retire && _thread != null)
+                    || MainActivity.Instance?.HunterPreviewBlocked == true)
+                    return Task.FromResult<byte[]?>(null);
                 // Only the newest is worth rendering: the picker is turned
                 // faster than a render takes, and every intermediate hunter is
                 // one nobody was still looking at by the time it was ready.
@@ -121,6 +122,7 @@ namespace MphRead.Droid
                 _retire = false;
                 if (_thread == null)
                 {
+                    _lifetime = new AndroidRenderLifetime();
                     _thread = new Thread(Loop)
                     {
                         IsBackground = true,
@@ -136,14 +138,20 @@ namespace MphRead.Droid
 
         private void Loop()
         {
+            AndroidRenderLifetime lifetime = _lifetime!;
+            IDisposable? ownership = null;
             OffscreenGl? gl = null;
             Scene? scene = null;
+            Job? currentJob = null;
+            bool nativeAvailable = true;
+            Exception? retirementFailure = null;
             int width = 0, height = 0;
             try
             {
+                ownership = lifetime.Enter();
                 while (true)
                 {
-                    _work.Wait();
+                    _work.Wait(lifetime.Cancellation);
                     if (_retire)
                     {
                         break;
@@ -154,11 +162,12 @@ namespace MphRead.Droid
                         job = _next;
                         _next = null;
                     }
+                    currentJob = job;
                     if (job == null)
                     {
                         continue;
                     }
-                    if (MainActivity.Instance?.InMatch == true)
+                    if (MainActivity.Instance?.HunterPreviewBlocked == true)
                     {
                         job.Done.TrySetResult(null);
                         continue;
@@ -169,6 +178,7 @@ namespace MphRead.Droid
                         EsBindings.Load();
                         GlEs.Reset();
                     }
+                    lifetime.Cancellation.ThrowIfCancellationRequested();
                     if (scene == null || width != job.Width || height != job.Height)
                     {
                         // A pbuffer cannot be resized, and the scene's own
@@ -176,7 +186,8 @@ namespace MphRead.Droid
                         // enough to cut again on the rare size change -- the
                         // stand rounds its request, so this is the drawer
                         // opening and the screen turning, not every frame.
-                        scene?.DoCleanup();
+                        try { scene?.CleanupAndReleaseRenderResources(true); }
+                        catch (Exception ex) { throw new AndroidGraphicsTeardownException(ex); }
                         scene = null;
                         if (width != 0)
                         {
@@ -194,51 +205,67 @@ namespace MphRead.Droid
                             SideScene = true
                         };
                         scene.OnLoad();
+                        lifetime.Cancellation.ThrowIfCancellationRequested();
                         GL.Viewport(0, 0, width, height);
                         scene.OnResize();
                     }
                     job.Done.TrySetResult(Draw(scene, job, width, height));
+                    currentJob = null;
                 }
-                // Asked to go: everything cut in this context is handed back
-                // before the match's context is asked to draw the same models.
-                lock (_gate)
-                {
-                    _thread = null;
-                    _next?.Done.TrySetResult(null);
-                    _next = null;
-                }
-                try
-                {
-                    scene?.DoCleanup();
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[hunter] cleanup failed: {ex.Message}");
-                }
-                gl?.Dispose();
+            }
+            catch (OperationCanceledException) when (lifetime.StopRequested)
+            {
+                // Cancelled initialization/retirement is an ordinary handoff.
             }
             catch (Exception ex)
             {
                 // Every failure here is the launcher's boxes, which is what
                 // the stand draws when nothing hands it a picture.
                 _failed = true;
+                nativeAvailable = false;
+                if (ex is AndroidGraphicsTeardownException) retirementFailure = ex;
                 Console.WriteLine($"[hunter] the preview thread stopped: {ex}");
                 DebugLog.Line("ui", $"the hunter preview is off: {ex.Message}");
-                lock (_gate)
-                {
-                    _next?.Done.TrySetResult(null);
-                    _next = null;
-                    _thread = null;
-                }
+            }
+            finally
+            {
                 try
                 {
-                    scene?.DoCleanup();
+                    if (ownership != null)
+                    {
+                        scene?.CleanupAndReleaseRenderResources(nativeAvailable && gl != null);
+                    }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    // Going away either way.
+                    retirementFailure ??= ex;
+                    Console.WriteLine($"[hunter] cleanup failed: {ex}");
                 }
-                gl?.Dispose();
+                finally
+                {
+                    try { gl?.Dispose(); }
+                    catch (Exception ex)
+                    {
+                        retirementFailure = ex;
+                        Console.WriteLine($"[hunter] native context teardown failed: {ex}");
+                    }
+                    finally
+                    {
+                        if (ownership != null)
+                        {
+                            Scene.LauncherPreview = false;
+                            Scene.PreviewWanted = false;
+                        }
+                        currentJob?.Done.TrySetResult(null);
+                        lock (_gate)
+                        {
+                            _next?.Done.TrySetResult(null);
+                            _next = null;
+                            lifetime.Complete(ownership, retirementFailure);
+                            _thread = null;
+                        }
+                    }
+                }
             }
         }
 

@@ -79,7 +79,44 @@ jobs:
       - name: verify reviewed normalized baselines
         run: dotnet run --project tools/fidelity-oracle -c Release --no-build -- verify all -baselines tools/fidelity-oracle/baselines
 
+  patched-wgpu-native:
+    name: patched native ${{ matrix.rid }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            runner: windows-latest
+          - rid: linux-x64
+            runner: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: install native compiler headers
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y clang libclang-dev
+      - name: build production and fault-test runtimes
+        shell: bash
+        env:
+          PRIME_PYTHON: python
+          LIBCLANG_PATH: ${{ runner.os == 'Windows' && 'C:/Program Files/LLVM/bin' || '' }}
+        run: |
+          tools/wgpu/build-native.sh "${{ matrix.rid }}" --unit-tests
+          tools/wgpu/build-native.sh "${{ matrix.rid }}" --fault-test
+          python tools/wgpu/verify-runtime.py artifacts/wgpu-native-desktop/${{ matrix.rid }}/${{ matrix.rid == 'win-x64' && 'wgpu_native.dll' || 'libwgpu_native.so' }}
+          python tools/wgpu/test-runtime-packaging.py artifacts/wgpu-native-desktop/${{ matrix.rid }}/${{ matrix.rid == 'win-x64' && 'wgpu_native.dll' || 'libwgpu_native.so' }} artifacts/wgpu-native-fault-tests/${{ matrix.rid }}/${{ matrix.rid == 'win-x64' && 'wgpu_native.dll' || 'libwgpu_native.so' }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: patched-wgpu-${{ matrix.rid }}
+          path: artifacts/wgpu-native-desktop/${{ matrix.rid }}/
+          if-no-files-found: error
+
   modern-renderer-windows:
+    needs: patched-wgpu-native
     name: modern renderer Windows ${{ matrix.renderer }} smoke
     runs-on: windows-latest
     strategy:
@@ -91,6 +128,10 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      - uses: actions/download-artifact@v8
+        with:
+          name: patched-wgpu-win-x64
+          path: artifacts/wgpu-native-desktop/win-x64/
       - name: publish focused renderer build
         shell: pwsh
         run: >
@@ -104,6 +145,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   modern-renderer-linux:
+    needs: patched-wgpu-native
     name: modern renderer Vulkan smoke
     runs-on: ubuntu-latest
     steps:
@@ -115,6 +157,10 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y xvfb xauth mesa-vulkan-drivers libx11-6 libxrandr2 libxi6 libxcursor1 libxinerama1
+      - uses: actions/download-artifact@v8
+        with:
+          name: patched-wgpu-linux-x64
+          path: artifacts/wgpu-native-desktop/linux-x64/
       - name: publish focused renderer build
         run: >
           dotnet publish src/MphRead/MphRead.csproj
@@ -402,7 +448,7 @@ jobs:
 
   build:
     name: ${{ matrix.id }}
-    needs: assets
+    needs: [assets, patched-wgpu-native]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -485,6 +531,11 @@ jobs:
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --transport-stress
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --network-benchmark --smoke
 
+      - uses: actions/download-artifact@v8
+        if: matrix.extra == ''
+        with:
+          name: patched-wgpu-${{ matrix.rid }}
+          path: artifacts/wgpu-native-desktop/${{ matrix.rid }}/
       # Windows and Linux targets remain cross-published on Ubuntu.
       - name: publish ${{ matrix.summary }}
         run: >

@@ -9,7 +9,8 @@ namespace MphRead.Mods.Render;
 internal sealed unsafe partial class ModernGraphicsCompat
 {
     internal readonly record struct ResourceCounts(int Textures, int Renderbuffers, int Geometry,
-        int Pipelines, int Programs, int Lists, int Views, int Samplers, int Buffers, int ShaderModules, int BindGroups, int Surfaces);
+        int Pipelines, int Programs, int Lists, int Views, int Samplers, int Buffers, int ShaderModules, int BindGroups, int Surfaces,
+        int QuerySets = 0);
     private sealed class FrameBindGroupCacheEntry
     {
         internal BindGroup* Group;
@@ -84,6 +85,22 @@ internal sealed unsafe partial class ModernGraphicsCompat
         _frameBindGroupCursor = 0;
     }
 
+    // Run once after the public frame's final submission, before its cursors
+    // reset. Chunk submissions must preserve every slot used earlier in the
+    // same frame. wgpu retains submitted command resources until GPU completion.
+    private void TrimUnusedFrameBindGroups()
+    {
+        FrameResourceCache.TrimUnused(_frameBindGroups, _frameBindGroupCursor,
+            this, static (renderer, cached) => renderer.ReleaseTrackedBindGroup(cached.Group));
+        FrameResourceCache.TrimUnused(_retainedWorldBindGroups, _retainedUniformSlotCursor,
+            this, static (renderer, cached) => renderer.ReleaseTrackedBindGroup(cached.Group));
+        FrameResourceCache.TrimUnused(_retainedPbrBindGroups, _retainedPbrUniformSlotCursor,
+            this, static (renderer, cached) => renderer.ReleaseTrackedBindGroup(cached.Group));
+        foreach (GeneratedProgram program in _generatedPrograms.Values)
+            FrameResourceCache.TrimUnused(program.BindGroups, program.BindGroupCursor,
+                this, static (renderer, cached) => renderer.ReleaseTrackedBindGroup(cached.Group));
+    }
+
     internal static ResourceCounts LiveResources
     {
         get
@@ -108,6 +125,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
                 views += s._fallbackDepth.SampleView == s._fallbackDepth.View ? 1 : 2;
                 if (s._fallbackDepth.Sampler != null) samplers++;
             }
+            // Pending uploads, HiZ and retained/visibility pools are counted by
+            // the shared accounting helper; count only the remaining owners here.
             var additional = s.AdditionalResourceCounts();
             textures += additional.Textures; views += additional.Views; samplers += additional.Samplers;
             int buffers = additional.Buffers;
@@ -124,6 +143,14 @@ internal sealed unsafe partial class ModernGraphicsCompat
                 if (page.Vertex != 0) buffers++;
                 if (page.Index != 0) buffers++;
             }
+            int querySets = 0;
+            // Timestamp slots are owned separately from the shared pools.
+            foreach (var slot in s._gpuTimingSlots)
+            {
+                if (slot.Resolve != null) buffers++;
+                if (slot.Readback != null) buffers++;
+                if (slot.Queries != null) querySets++;
+            }
             int shaders = s._generatedPrograms.Count * 2 + (s._clearShader != null ? 1 : 0)
                 + (s._worldShader != null ? 1 : 0) + (s._rttShader != null ? 1 : 0)
                 + (s._shiftShader != null ? 1 : 0) + (s._celShader != null ? 1 : 0)
@@ -132,8 +159,71 @@ internal sealed unsafe partial class ModernGraphicsCompat
             return new(textures, s._nativeRenderbuffers.Count, s._geometryCache.Count,
                 s._pipelines.Count + s._corePipelines.Count + s._blitPipelines.Count + additional.Pipelines,
                 s._generatedPrograms.Count, s._lists.Count, views, samplers, buffers, shaders, s._liveBindGroups,
-                s._device.Surface != null ? 1 : 0);
+                s._device.Surface != null ? 1 : 0, querySets);
         }
+    }
+
+    // Content-free native regression: exercise the allocations introduced by
+    // retained indirect/multi-draw/visibility work, then return to the same state.
+    // Kept separate from the old mip/resize lifetime loop, which never uses them.
+    internal static void ValidateResourceAccountingForCheck()
+    {
+        var s = Current;
+        if (s._retainedIndirectArena.Count != 0 || s._retainedPbrUniformArena.Count != 0
+            || s._retainedMultiDrawPages.Count != 0 || s._gpuVisibilityPipeline != null
+            || s._gpuHiZTexture != null)
+            throw new InvalidOperationException("Resource accounting check requires fresh retained GPU pools.");
+        var before = LiveResources;
+        var storageBefore = EndPerformanceSample();
+        BeginPerformanceSample();
+        try
+        {
+            s.RentRetainedIndexedIndirect(3);
+            s.RentRetainedPbrUniformSlot((ulong)GeneratedShaderLayouts.Get(ModernProgramKind.DeferredPbrMrt).Size);
+            s.EnsureRetainedMultiDrawEntry(new GeometryList
+            {
+                Vertices = new float[LegacyGeometryBatch.FloatsPerVertex * 3],
+                Triangles = new[] { 0, 1, 2 }
+            });
+            s.EnsureGpuVisibilityPipelines();
+            s.GrowBuffer(ref s._gpuVisibilityCandidateBuffer, ref s._gpuVisibilityCandidateCapacity, 256, BufferUsage.Storage);
+            s.GrowBuffer(ref s._gpuVisibilityIndirectBuffer, ref s._gpuVisibilityIndirectCapacity, 256, BufferUsage.Storage | BufferUsage.Indirect);
+            s.GrowBuffer(ref s._gpuVisibilityDenseIndirectBuffer, ref s._gpuVisibilityDenseIndirectCapacity, 256, BufferUsage.Storage | BufferUsage.Indirect);
+            s.GrowBuffer(ref s._gpuVisibilityBucketCountBuffer, ref s._gpuVisibilityBucketCountCapacity, 256, BufferUsage.Storage | BufferUsage.Indirect);
+            s.GrowBuffer(ref s._gpuVisibilityCompactBuffer, ref s._gpuVisibilityCompactCapacity, 256, BufferUsage.Storage);
+            s.GrowBuffer(ref s._gpuVisibilityCountersBuffer, ref s._gpuVisibilityCountersCapacity, 256, BufferUsage.Storage);
+            s.GrowBuffer(ref s._gpuVisibilityUniformBuffer, ref s._gpuVisibilityUniformCapacity, 256, BufferUsage.Uniform);
+            s.EnsureGpuHiZ(4, 4);
+            s._device.ThrowIfFailed();
+            var after = LiveResources;
+            var storageAfter = EndPerformanceSample();
+            long expectedBufferBytes = (long)(RetainedIndirectPageBytes + UniformArenaPageBytes
+                + RetainedMultiDrawVertexPageBytes + RetainedMultiDrawIndexPageBytes) + 7 * 256;
+            if (after.Buffers - before.Buffers != 11 || after.Pipelines - before.Pipelines != 3
+                || after.Textures - before.Textures != 1 || after.Views - before.Views != 4
+                || storageAfter.PipelinesCreated != 3
+                || storageAfter.PooledBufferStorageBytes - storageBefore.PooledBufferStorageBytes != expectedBufferBytes
+                || storageAfter.TrackedTextureStorageBytes - storageBefore.TrackedTextureStorageBytes != 84)
+                throw new InvalidOperationException($"Retained GPU resource accounting failed: {before} -> {after}.");
+            if (EstimateTextureStorageBytes(WgpuTextureFormat.BC7RgbaUnorm, 5, 3, 3) != 64
+                || EstimateTextureStorageBytes(WgpuTextureFormat.Rgba16float, 4, 4, 3) != 168)
+                throw new InvalidOperationException("Nominal texture-storage format/mip accounting failed.");
+        }
+        finally
+        {
+            EndPerformanceSample();
+            s.DisposeGpuVisibility();
+            s.DisposeRetainedMultiDraw();
+            s.DisposeRetainedIndirectArena();
+            foreach (var page in s._retainedPbrUniformArena)
+                if (page.Buffer != 0) s._api.BufferRelease((Silk.NET.WebGPU.Buffer*)page.Buffer);
+            s._retainedPbrUniformArena.Clear();
+            s._retainedPbrUniformSlotCursor = s._retainedPbrUniformSlotHighWater = 0;
+            s._retainedPbrUniformSlotSize = 0;
+        }
+        if (LiveResources != before)
+            throw new InvalidOperationException($"Retained GPU resource-accounting check did not release its allocations: {before} -> {LiveResources}.");
+        Console.WriteLine("[renderwindowcheck] retained GPU resource counts/storage and compute pipeline timing PASS");
     }
 
     // Prewarm only common states, on the owning render thread. The target views

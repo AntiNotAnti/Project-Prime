@@ -52,7 +52,20 @@ public sealed class RendererAcceptanceActivity : Activity, ISurfaceHolderCallbac
             ModernGraphicsCompat.Present();
             if (pixel[0] < 220 || pixel[1] > 24 || pixel[2] > 24)
                 throw new InvalidOperationException($"Unexpected triangle pixel {string.Join(',', pixel)}");
-            File.WriteAllText(report, $"PASS Vulkan device/surface/acquire/draw/readback/present frames={++_frames}\n");
+            UiOverlayCompositeCheck.Run(width, height);
+            // Exercise the production Android dispatch too: Vulkan has no EGL
+            // context here, so a GLES-only overlay cannot satisfy this pixel.
+            AndroidUiOverlay.BeginRenderer(true, ModernGraphicsCompat.DeviceGeneration);
+            AndroidUiOverlay.Upload(new byte[] { 0, 255, 0, 255 }, 1, 1);
+            AndroidUiOverlay.Visible = true;
+            AndroidUiOverlay.Draw(width, height);
+            GraphicsApi.ReadPixels(width / 2, height / 2, 1, 1,
+                PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+            if (pixel[0] > 24 || pixel[1] < 220 || pixel[2] > 24)
+                throw new InvalidOperationException("Android Vulkan UI dispatch did not reach presentation.");
+            AndroidUiOverlay.Release(nativeResourcesAvailable: true);
+            ModernGraphicsCompat.Present();
+            File.WriteAllText(report, $"PASS Vulkan device/surface/acquire/draw/readback/present/ui-overlay frames={++_frames}\n");
         }
         catch (Exception ex) { File.WriteAllText(report, "FAIL " + ex + "\n"); }
     }
@@ -66,6 +79,7 @@ public sealed class RendererAcceptanceActivity : Activity, ISurfaceHolderCallbac
     }
     protected override void OnDestroy()
     {
+        AndroidUiOverlay.Release(ModernGraphicsCompat.UiNativeResourcesAvailable);
         ReleaseSurface();
         ModernGraphicsCompat.Shutdown();
         base.OnDestroy();

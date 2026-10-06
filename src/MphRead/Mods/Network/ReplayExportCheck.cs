@@ -55,6 +55,8 @@ internal static class ReplayExportCheck
                         $"-y -loglevel error -framerate {fps} -i \"{pattern}\" -c:v libx264 -pix_fmt yuv420p \"{movie}\"");
                     ReplayCamera.SetProfile(ReplayPresentationProfile.Presentation); ReplayCamera.SetMode(ReplayCameraMode.Orbit);
                     if (!ReplayVideoExporter.Start(job)) throw new InvalidDataException(ReplayVideoExporter.Status);
+                    if (!ReplayVideoExporter.SuppressGameHud)
+                        throw new InvalidDataException("Clean export did not suppress the game HUD while rendering.");
                     var deadline = DateTime.UtcNow.AddSeconds(30);
                     while (ReplayVideoExporter.Active && DateTime.UtcNow < deadline)
                     {
@@ -65,11 +67,17 @@ internal static class ReplayExportCheck
                         string before = ReplayStateHash.Compute(scene);
                         shell.OnDrawFrame(); shell.OnRenderFrame();
                         if (ReplayStateHash.Compute(scene) != before) throw new InvalidDataException("Rendering changed gameplay state.");
-                        ReplayVideoExporter.AfterSceneDraw(scene);
+                        // Match Android's foreground call shape: the shell has
+                        // delegated drawing, but has no replay sample timestamp.
+                        if (!double.IsNaN(shell.ReplayPresentationFrame))
+                            throw new InvalidDataException("The export regression requires an unstamped foreground shell.");
+                        ReplayVideoExporter.AfterSceneDraw(shell);
                         if (pass == 1) Thread.Sleep(3); // intentionally change wall-clock/render cadence
                     }
                     if (ReplayVideoExporter.State != ReplayExportState.Completed || !File.Exists(movie))
                         throw new InvalidDataException("Export did not complete: " + ReplayVideoExporter.Status);
+                    if (ReplayVideoExporter.SuppressGameHud)
+                        throw new InvalidDataException("Completed export retained game HUD suppression.");
                     if (ReplayCamera.Mode != ReplayCameraMode.Orbit || ReplayCamera.Profile != ReplayPresentationProfile.Presentation)
                         throw new InvalidDataException("Export did not restore the replay camera.");
                     int expected = checked((int)new ReplayExportSampler(start, end, fps).Count);
@@ -110,7 +118,7 @@ internal static class ReplayExportCheck
                 if (ReplayVideoExporter.State == ReplayExportState.Encoding)
                 { observedEncoding = true; if (ReplayVideoExporter.Rendering) throw new InvalidDataException("Renderer overlaps encoder."); Thread.Sleep(5); continue; }
                 shell.OnSimulationFrame(); if (ReplayController.IsSeeking) continue;
-                shell.OnDrawFrame(); shell.OnRenderFrame(); ReplayVideoExporter.AfterSceneDraw(DemoPlayback.PresentationScene!);
+                shell.OnDrawFrame(); shell.OnRenderFrame(); ReplayVideoExporter.AfterSceneDraw(shell);
             }
             if (!observedEncoding || queued.Any(job => !File.Exists(job.SuggestedOutput))
                 || ReplayVideoExporter.Active || ReplayExportQueue.PendingCount != 0 || ReplayVideoExporter.FramesWritten != 6)
@@ -119,7 +127,8 @@ internal static class ReplayExportCheck
             if (!ReplayVideoExporter.Start(queued[0])) throw new InvalidDataException(ReplayVideoExporter.Status);
             ReplayVideoExporter.Cancel();
             if (ReplayVideoExporter.Active || ReplayCamera.Mode != ReplayCameraMode.Orbit
-                || ReplayVideoExporter.State != ReplayExportState.Cancelled) throw new InvalidDataException("Cancelled rendering retained state.");
+                || ReplayVideoExporter.State != ReplayExportState.Cancelled || ReplayVideoExporter.SuppressGameHud)
+                throw new InvalidDataException("Cancelled rendering retained state.");
             // Native 4K composite includes HUD without a 4K window.
             ReplayCamera.SetProfile(ReplayPresentationProfile.Faithful); ReplayCamera.SetMode(ReplayCameraMode.FirstPerson);
             string hudDirectory = Path.Combine(output, "4k-hud");
@@ -127,19 +136,21 @@ internal static class ReplayExportCheck
                 false, false, false, Path.Combine(hudDirectory, "frame_%08d.png"), Path.Combine(hudDirectory, "replay.mp4"),
                 $"-y -loglevel error -framerate 60 -i \"{Path.Combine(hudDirectory, "frame_%08d.png")}\" -c:v libx264 -pix_fmt yuv420p \"{Path.Combine(hudDirectory, "replay.mp4")}\"");
             if (!ReplayVideoExporter.Start(hud)) throw new InvalidDataException(ReplayVideoExporter.Status);
+            if (ReplayVideoExporter.SuppressGameHud)
+                throw new InvalidDataException("HUD export unexpectedly suppressed the game HUD.");
             var hudDeadline = DateTime.UtcNow.AddSeconds(60);
             while (ReplayVideoExporter.Active && DateTime.UtcNow < hudDeadline)
             {
                 if (ReplayVideoExporter.State == ReplayExportState.Encoding) { Thread.Sleep(5); continue; }
                 shell.OnSimulationFrame(); if (ReplayController.IsSeeking) continue;
-                shell.OnDrawFrame(); shell.OnRenderFrame(); ReplayVideoExporter.AfterSceneDraw(DemoPlayback.PresentationScene!);
+                shell.OnDrawFrame(); shell.OnRenderFrame(); ReplayVideoExporter.AfterSceneDraw(shell);
             }
             if (ReplayVideoExporter.State != ReplayExportState.Completed) throw new InvalidDataException(ReplayVideoExporter.Status);
             byte[] composite = File.ReadAllBytes(Path.Combine(hudDirectory, "frame_00000000.png"));
             if (System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(composite.AsSpan(16)) != 3840
                 || System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(composite.AsSpan(20)) != 2160)
                 throw new InvalidDataException("HUD composite did not use the 4K offscreen target.");
-            Console.WriteLine("[replayexport] PASS: native 720p/4K HUD targets, repeated identical 24/30/48/60/90/120/144 FPS samples, fractional frames, gameplay invariance, seek/cadence independence, serialized three-job queue, multi-segment reel and render cancellation.");
+            Console.WriteLine("[replayexport] PASS: foreground-shell capture, native 720p/4K HUD targets, repeated identical 24/30/48/60/90/120/144 FPS samples, fractional frames, gameplay invariance, seek/cadence independence, serialized three-job queue, multi-segment reel and render cancellation.");
             return 0;
         }
         catch (Exception ex) { Console.WriteLine("[replayexport] FAIL: " + ex); return 1; }

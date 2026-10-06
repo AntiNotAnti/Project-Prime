@@ -1,9 +1,9 @@
 """Channel-aware bounded images and authored mips for character mobile tiers.
 
 Only accepted embedded image payloads are read. Atlas layout, UVs and material
-identities are not regenerated. Source gloss has already been recovered by the
-desktop material pipeline; this module converts its glTF B/G packing to the
-renderer R/G packing and applies the exact authored factors once.
+identities are not regenerated. Legacy Source gloss maps convert glTF B/G to
+the renderer R/G packing. Explicit ORM maps retain linear RGB and their A=0
+encoding marker. Authored companion factors are applied exactly once.
 """
 import io
 import math
@@ -11,7 +11,7 @@ import math
 import numpy as np
 from PIL import Image
 
-ALGORITHM = "sourceio-mobile-linear-area-mips-v1"
+ALGORITHM = "sourceio-mobile-linear-area-mips-orm-v2"
 CHANNELS = ("albedo", "normal", "material", "emissive")
 
 
@@ -37,6 +37,9 @@ def usages(material):
     runtime = material.get("extras", {}).get("projectPrimeRuntimeMaps", False)
     if not isinstance(runtime, bool):
         raise ValueError("projectPrimeRuntimeMaps must be boolean")
+    encoding = material.get("extras", {}).get("projectPrimeMaterialEncoding")
+    if encoding not in (None, "orm"):
+        raise ValueError("Unknown Project Prime character material encoding")
     opaque = material.get("alphaMode", "OPAQUE") == "OPAQUE"
     normal_scale = _factor(material.get("normalTexture", {}).get("scale", 1), 100)
     metallic = _factor(pbr.get("metallicFactor", 1))
@@ -71,6 +74,9 @@ def usages(material):
             meaning["normalScale"] = normal_scale
         elif channel == "material":
             meaning.update(runtimeEncoded=runtime, metallicFactor=metallic, roughnessFactor=roughness)
+            if encoding == "orm":
+                meaning.update(materialEncoding="orm", markerAlpha=0,
+                               colorSpace="linear data; RGB remains meaningful under A=0")
         elif channel == "emissive":
             meaning["emissiveFactor"] = emission
         yield info, meaning
@@ -128,7 +134,13 @@ def prepare(payload, meaning, maximum):
         working = _normalize(vectors)
     else:
         working = rgb.copy()
-        if not meaning["runtimeEncoded"]:
+        if meaning.get("materialEncoding") == "orm":
+            if np.any(rgba[..., 3] != 0):
+                raise ValueError("Canonical ORM source must carry A=0 at every texel")
+            if not meaning["runtimeEncoded"]:
+                working[..., 1] *= meaning["roughnessFactor"]
+                working[..., 2] *= meaning["metallicFactor"]
+        elif not meaning["runtimeEncoded"]:
             working[..., 0] = rgb[..., 2] * meaning["metallicFactor"]
             working[..., 1] = rgb[..., 1] * meaning["roughnessFactor"]
             working[..., 2] = 0
@@ -146,7 +158,8 @@ def prepare(payload, meaning, maximum):
             working = vectors
             data = np.concatenate([vectors * .5 + .5, np.ones((height, width, 1), dtype=np.float32)], axis=2)
         else:
-            data = np.concatenate([working, np.ones((height, width, 1), dtype=np.float32)], axis=2)
+            marker = 0 if meaning.get("materialEncoding") == "orm" else 1
+            data = np.concatenate([working, np.full((height, width, 1), marker, dtype=np.float32)], axis=2)
         levels.append(np.rint(np.clip(data, 0, 1) * 255).astype(np.uint8))
         if width == height == 1:
             break

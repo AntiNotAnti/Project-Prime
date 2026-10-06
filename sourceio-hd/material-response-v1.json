@@ -1,0 +1,24 @@
+{
+  "format": 1,
+  "id": "sourceio-authored-forward-response-v1",
+  "hunters": ["Kanden", "Noxus", "Spire", "Sylux", "Trace", "Weavel"],
+  "preserveHunters": ["Samus"],
+  "preserveSelfIllumMaterials": true,
+  "preserveChannels": ["albedo", "normal", "emissive", "recolor"],
+  "packing": "glTF G=forward roughness; B=bounded scalar specular; factors=1; runtime converts B to R once",
+  "materials": {
+    "Kanden_Body1": {"forwardExponent": 14, "specularStrength": 0.55, "reason": "Broad restrained organic-carapace response, reducing clipped original Phong boost while preserving painted highlights."},
+    "Kanden_Body2": {"forwardExponent": 10, "specularStrength": 0.32, "reason": "Softer secondary body plates with less uniform shine than the main shell."},
+    "Noxus_Body1": {"forwardExponent": 12, "specularStrength": 0.40, "reason": "Restrained broad body response retains Source painted shading."},
+    "Noxus_Body2": {"forwardExponent": 35, "specularStrength": 0.68, "reason": "Keep authored exponent35 shape while replacing clipped boost9 with a bounded highlight."},
+    "Spire_Body": {"forwardExponent": 8, "specularStrength": 0.045, "reason": "Matte rock surface retains authored broad lobe and reduces the residual uniform shine."},
+    "Spire_Torso": {"forwardExponent": 10, "specularStrength": 0.065, "reason": "Slightly distinct torso-rock response; crystal/glow regions are preserved."},
+    "Sylux_Body1": {"forwardExponent": 16, "specularStrength": 0.60, "reason": "Armor main panels get a narrower bounded lobe rather than clipped boost3."},
+    "Sylux_Body2": {"forwardExponent": 12, "specularStrength": 0.36, "reason": "Secondary armor is softer and less glossy, with identical original normals/artwork."},
+    "Trace_Body": {"forwardExponent": 10, "specularStrength": 0.20, "reason": "Subdued shell highlights retain silhouette and painted Source forms."},
+    "Weavel_Body": {"forwardExponent": 16, "specularStrength": 0.42, "reason": "Armor highlights narrow without amplifying already-painted bright contours."},
+    "Weavel_Handgun": {"forwardExponent": 24, "specularStrength": 0.22, "reason": "Weapon housing separates from body armor with a modest tighter response."},
+    "Weavel_Handgun2": {"forwardExponent": 32, "specularStrength": 0.65, "reason": "Original separately-authored weapon trim gets a tighter lobe than the housing."}
+  },
+  "scope": "Unaccepted authored forward-material response candidate. Scalars are art choices for GPU comparison, not measured physical roughness or metalness. Original Source Phong alpha-mask regions, albedo/recolors/normals/emission, native lighting/status, and geometry remain unchanged. No procedural de-lighting, 4K repaint, Fresnel reconstruction, or fabricated surface segmentation. Selfillum/glow source materials are unchanged. Mobile tiers must be rebuilt after desktop acceptance."
+}

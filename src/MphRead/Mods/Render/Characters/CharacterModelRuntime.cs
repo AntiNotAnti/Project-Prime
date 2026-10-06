@@ -62,7 +62,7 @@ namespace MphRead.Mods.Render.Characters
     internal sealed class CharacterRigidRenderModel
     {
         public CharacterModelAsset Asset { get; }
-        public IReadOnlyList<CharacterRigidRenderSegment> Segments { get; }
+        public IReadOnlyList<CharacterRigidRenderSegment> Segments { get; private set; }
         public int VertexCount { get; }
         public int IndexCount { get; }
 
@@ -75,11 +75,14 @@ namespace MphRead.Mods.Render.Characters
             IndexCount = indexCount;
         }
 
-        public void Release()
+        public void Release(bool canReleaseNativeResources = true)
         {
+            var segments = Segments;
+            Segments = Array.Empty<CharacterRigidRenderSegment>();
 #if !MPHREAD_SERVER
-            foreach (CharacterRigidRenderSegment segment in Segments)
-                if (segment.ListId != 0) GraphicsApi.DeleteLists(segment.ListId, 1);
+            if (canReleaseNativeResources)
+                foreach (CharacterRigidRenderSegment segment in segments)
+                    if (segment.ListId != 0) GraphicsApi.DeleteLists(segment.ListId, 1);
 #endif
         }
     }
@@ -87,7 +90,7 @@ namespace MphRead.Mods.Render.Characters
     internal sealed class CharacterWeightedRenderModel
     {
         public CharacterModelAsset Asset { get; }
-        public IReadOnlyList<CharacterWeightedRenderSegment> Segments { get; }
+        public IReadOnlyList<CharacterWeightedRenderSegment> Segments { get; private set; }
         public IReadOnlyList<CharacterWeightedRenderJoint> Joints { get; }
         public float[] MatrixPalette { get; }
         public int VertexCount { get; }
@@ -116,11 +119,14 @@ namespace MphRead.Mods.Render.Characters
             }
         }
 
-        public void Release()
+        public void Release(bool canReleaseNativeResources = true)
         {
+            var segments = Segments;
+            Segments = Array.Empty<CharacterWeightedRenderSegment>();
 #if !MPHREAD_SERVER
-            foreach (CharacterWeightedRenderSegment segment in Segments)
-                if (segment.ListId != 0) GraphicsApi.DeleteLists(segment.ListId, 1);
+            if (canReleaseNativeResources)
+                foreach (CharacterWeightedRenderSegment segment in segments)
+                    if (segment.ListId != 0) GraphicsApi.DeleteLists(segment.ListId, 1);
 #endif
         }
 
@@ -152,13 +158,23 @@ namespace MphRead.Mods.Render.Characters
             public readonly Dictionary<(string Path, int NativeModelId), CharacterWeightedRenderModel> WeightedModels = new();
             public readonly HashSet<(string Path, int NativeModelId)> Failed = new();
 
-            public void Release()
+            public void Release(bool canReleaseNativeResources)
             {
-                foreach (CharacterRigidRenderModel model in RigidModels.Values) model.Release();
-                foreach (CharacterWeightedRenderModel model in WeightedModels.Values) model.Release();
+                var rigid = RigidModels.Values.ToArray();
+                var weighted = WeightedModels.Values.ToArray();
                 RigidModels.Clear();
                 WeightedModels.Clear();
                 Failed.Clear();
+                try
+                {
+                    foreach (var model in rigid) model.Release(canReleaseNativeResources);
+                    foreach (var model in weighted) model.Release(canReleaseNativeResources);
+                }
+                finally
+                {
+                    foreach (var model in rigid) model.Release(canReleaseNativeResources: false);
+                    foreach (var model in weighted) model.Release(canReleaseNativeResources: false);
+                }
             }
         }
 
@@ -263,14 +279,17 @@ namespace MphRead.Mods.Render.Characters
             }
         }
 
-        public static void Release(Scene scene)
+        public static void Release(Scene scene, bool canReleaseNativeResources = true)
         {
-            if (_scenes.TryGetValue(scene, out SceneResources? resources))
+            try
             {
-                resources.Release();
-                _scenes.Remove(scene);
+                if (_scenes.TryGetValue(scene, out SceneResources? resources))
+                {
+                    _scenes.Remove(scene);
+                    resources.Release(canReleaseNativeResources);
+                }
             }
-            scene.ClearCharacterModelTextures();
+            finally { scene.ClearCharacterModelTextures(); }
         }
 
         internal static void ResetPackForCheck()

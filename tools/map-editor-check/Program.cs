@@ -23,6 +23,7 @@ if(args.Contains("--runtime-only"))
     finally{if(Directory.Exists(folder))Directory.Delete(folder,true);}return;
 }
 int checks = 0;
+void Check(bool condition, string label) { if (!condition) throw new Exception(label); checks++; }
 if(args.Contains("--replay-frozen-compare"))
 {
     int argument = Array.IndexOf(args, "--replay-frozen-compare") + 1;
@@ -40,11 +41,16 @@ if(args.Contains("--replay-preparation-only"))
     ReplayPreparationChecks.Run((value, label) => { if (!value) throw new Exception(label); checks++; }, source);
     Console.WriteLine($"Replay preparation: {checks} checks passed."); return;
 }
+EditorMeshRetentionChecks.Run(Check);
+if (args.Contains("--renderer-retention-only"))
+{
+    Console.WriteLine($"Editor renderer retention: {checks} checks passed.");
+    return;
+}
 MapStorageChecks.Run();
 if (args.Contains("--map-storage-only")) return;
 if(args.Contains("--map-benchmark")){string fixture=Path.Combine(Path.GetTempPath(),"prime-map-performance-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(fixture);try{MapPerformanceChecks.Run(fixture);}finally{Directory.Delete(fixture,true);}return;}
 if (args.Contains("--large-model-benchmark")) { Benchmarks.LargeModels(); return; }
-void Check(bool condition, string label) { if (!condition) throw new Exception(label); checks++; }
 if(args.Contains("--roadmap-only"))
 {
     string fixture=Path.Combine(Path.GetTempPath(),"prime-roadmap-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(fixture);

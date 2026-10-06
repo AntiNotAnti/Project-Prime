@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using MphRead.Entities;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Network;
@@ -24,14 +25,16 @@ namespace MphRead.Droid
     internal static class AndroidMatch
     {
         /// <summary>Runs on the GL thread: everything below it touches GL.</summary>
-        public static Scene Build(AndroidInput input, Vector2i size, LaunchPlan plan, Action close)
+        public static Scene Build(AndroidInput input, Vector2i size, LaunchPlan plan, Action close,
+            CancellationToken cancellation = default, Action<Scene>? sceneCreated = null)
         {
+            cancellation.ThrowIfCancellationRequested();
             GameFiles.ApplyPaths();
             if (NetSession.Active)
                 NetSession.ReportMatchLoadProgress(MatchLoadStage.Preflight);
             if (plan.Kind == LaunchKind.Demo)
             {
-                return BuildDemo(input, size, plan, close);
+                return BuildDemo(input, size, plan, close, cancellation, sceneCreated);
             }
             if (plan.Kind == LaunchKind.Adventure)
             {
@@ -41,7 +44,7 @@ namespace MphRead.Droid
                 // through the multiplayer path below is what this did before,
                 // and an adventure plan carries an empty room key on purpose
                 // -- so the story ended at "No room with this name is known."
-                return BuildAdventure(input, size, plan, close);
+                return BuildAdventure(input, size, plan, close, cancellation, sceneCreated);
             }
             // No slot means nothing can be written, which is what a match
             // needs -- the same reason MatchStart gives.
@@ -49,20 +52,24 @@ namespace MphRead.Droid
             var scene = new Scene(size, input.Keyboard, input.Mouse, _ => { }, close);
             try
             {
+                sceneCreated?.Invoke(scene);
+                cancellation.ThrowIfCancellationRequested();
                 if (NetSession.Active)
                 {
                     NetLaunch.DisableCheatsForMatch();
-                    BuildNetworkedMatch(scene, plan);
+                    BuildNetworkedMatch(scene, plan, cancellation);
                 }
                 else
                 {
                     AndroidMaps.EnsureBuilt(plan.RoomKey);
+                    cancellation.ThrowIfCancellationRequested();
                     // Offline the plan's mode is the match, so it is what decides
                     // teams. GameState's own list rather than the mode's name:
                     // Capture is a team mode that does not end in "Teams".
                     plan.MatchRules.ApplyModifiers(scene.GameState);
-                    AddLocalPlayers(scene, plan, GameState.IsTeamMode(plan.Mode));
+                    AddLocalPlayers(scene, plan, GameState.IsTeamMode(plan.Mode), cancellation);
                     scene.AddRoom(plan.RoomKey, plan.Mode);
+                    cancellation.ThrowIfCancellationRequested();
                     // Scene setup installs each mode's retail defaults. Apply the
                     // launcher's offline rules afterwards so custom point/time
                     // limits are not replaced by values such as Battle's 7/7:00.
@@ -75,7 +82,10 @@ namespace MphRead.Droid
             }
             catch
             {
-                ReleaseFailedBuild(scene);
+                // Once published, GameView owns terminal cleanup, including
+                // cancellation partway through a room build. Direct factory
+                // callers still need to release a scene they never received.
+                if (sceneCreated == null) ReleaseFailedBuild(scene);
                 throw;
             }
         }
@@ -99,8 +109,9 @@ namespace MphRead.Droid
         /// here is what re-winds the reader for the run about to start.
         /// </summary>
         private static Scene BuildDemo(AndroidInput input, Vector2i size,
-            LaunchPlan plan, Action close)
+            LaunchPlan plan, Action close, CancellationToken cancellation, Action<Scene>? sceneCreated)
         {
+            cancellation.ThrowIfCancellationRequested();
             PlayerEntity.MaxPlayers = PlayerEntity.SlotCapacity;
             if (!DemoPlayback.Join(plan.DemoPath) || !DemoPlayback.CommitPreparedMap())
             {
@@ -116,18 +127,24 @@ namespace MphRead.Droid
             }
             Menu.SaveSlot = 0;
             AndroidMaps.EnsureBuilt(room.Value.RoomKey);
+            cancellation.ThrowIfCancellationRequested();
             var scene = new Scene(size, input.Keyboard, input.Mouse, _ => { }, close);
             try
             {
+                sceneCreated?.Invoke(scene);
                 NetLaunch.BuildPlayers(scene, Hunter.Samus, localRecolor: 0,
                     teams: GameState.IsTeamMode(room.Value.Mode), localSlot: -1);
                 scene.AddRoom(room.Value.RoomKey, room.Value.Mode, playerCount: NetLaunch.RoomPlayerCount);
+                cancellation.ThrowIfCancellationRequested();
                 Console.WriteLine($"[match] demo, {room.Value.RoomKey}");
                 return scene;
             }
             catch
             {
-                ReleaseFailedBuild(scene);
+                // Once published, GameView owns terminal cleanup, including
+                // cancellation partway through a room build. Direct factory
+                // callers still need to release a scene they never received.
+                if (sceneCreated == null) ReleaseFailedBuild(scene);
                 throw;
             }
         }
@@ -150,7 +167,7 @@ namespace MphRead.Droid
         /// new game.
         /// </summary>
         private static Scene BuildAdventure(AndroidInput input, Vector2i size,
-            LaunchPlan plan, Action close)
+            LaunchPlan plan, Action close, CancellationToken cancellation, Action<Scene>? sceneCreated)
         {
             // Match the desktop ordering: the Adventure save belongs to the
             // scene that will run it. Preparing GameState before constructing
@@ -160,6 +177,8 @@ namespace MphRead.Droid
             var scene = new Scene(size, input.Keyboard, input.Mouse, _ => { }, close);
             try
             {
+                sceneCreated?.Invoke(scene);
+                cancellation.ThrowIfCancellationRequested();
                 scene.Players.MaxPlayers = 4;
 
                 string roomKey = AdventureSave.Begin(
@@ -172,19 +191,21 @@ namespace MphRead.Droid
                 scene.GameState.Mode = GameMode.SinglePlayer;
                 scene.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: 0, team: -1);
                 scene.AddRoom(roomKey, GameMode.SinglePlayer);
+                cancellation.ThrowIfCancellationRequested();
                 Console.WriteLine($"[match] adventure, slot {plan.SaveSlot}, "
                     + $"{(plan.NewGame ? "new game" : "continued")}, room {roomKey}");
                 return scene;
             }
             catch
             {
-                ReleaseFailedBuild(scene);
+                // Once published, GameView owns terminal cleanup, including
+                // cancellation partway through a room build. Direct factory
+                // callers still need to release a scene they never received.
+                if (sceneCreated == null) ReleaseFailedBuild(scene);
                 throw;
             }
         }
 
-        // Factories may throw after Scene acquired private/shared leases but
-        // before GameView receives it. Both release phases belong to this owner.
         private static void ReleaseFailedBuild(Scene scene)
         {
             OwnerCleanup.Release(scene.DoCleanup, () => scene.UnloadGl(),
@@ -215,7 +236,7 @@ namespace MphRead.Droid
         /// made joining fail with "No room with this name is known" -- the
         /// empty string is not a room.
         /// </summary>
-        private static void BuildNetworkedMatch(Scene scene, LaunchPlan plan)
+        private static void BuildNetworkedMatch(Scene scene, LaunchPlan plan, CancellationToken cancellation)
         {
             (string RoomKey, GameMode Mode)? room = NetLaunch.ServerRoom();
             string roomKey = room?.RoomKey ?? plan.RoomKey;
@@ -228,6 +249,7 @@ namespace MphRead.Droid
                 throw new ProgramException("The server did not say which map it is running.");
             }
             AndroidMaps.EnsureBuilt(roomKey);
+            cancellation.ThrowIfCancellationRequested();
             // The server's mode, not the plan's: online it is the only thing
             // that may decide who is on which team, for the reason MatchStart
             // gives -- a client splitting an FFA server's slots into two halves
@@ -238,10 +260,12 @@ namespace MphRead.Droid
             NetLaunch.BuildPlayers(scene, plan.Hunter, localRecolor: 0,
                 teams: GameState.IsTeamMode(mode));
             scene.AddRoom(roomKey, mode, playerCount: NetLaunch.RoomPlayerCount);
+            cancellation.ThrowIfCancellationRequested();
             NetSession.ReportMatchLoadProgress(MatchLoadStage.PresentationLoad);
         }
 
-        private static void AddLocalPlayers(Scene scene, LaunchPlan plan, bool teamPlay)
+        private static void AddLocalPlayers(Scene scene, LaunchPlan plan, bool teamPlay,
+            CancellationToken cancellation)
         {
             int bots = Math.Clamp(plan.Bots, 0, PlayerEntity.SlotCapacity - 1);
             // Set rather than raise, for MatchStart's reason: the launcher comes
@@ -251,6 +275,7 @@ namespace MphRead.Droid
             scene.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: 0, team: teamPlay ? 0 : -1);
             for (int i = 1; i <= bots; i++)
             {
+                cancellation.ThrowIfCancellationRequested();
                 var hunter = MphRead.Mods.Multiplayer.HunterRules.RandomAllowed((uint)((int)plan.Hunter + i), plan.MatchRules.LowTier);
                 scene.AddPlayer(hunter, recolor: 0, team: teamPlay ? i % 2 : -1);
             }

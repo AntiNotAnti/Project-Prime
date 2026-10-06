@@ -1,0 +1,98 @@
+--- a/wgpu-hal/src/dx12/instance.rs
++++ b/wgpu-hal/src/dx12/instance.rs
+@@ -72,7 +72,7 @@
+ 
+             match hr.into_result() {
+                 Err(err) => log::warn!("Unable to check for tearing support: {}", err),
+-                Ok(()) => supports_allow_tearing = true,
++                Ok(()) => supports_allow_tearing = super::prime_wsi::tearing_supported(true, allow_tearing),
+             }
+         }
+ 
+--- a/wgpu-hal/src/dx12/mod.rs
++++ b/wgpu-hal/src/dx12/mod.rs
+@@ -39,6 +39,7 @@
+ mod descriptor;
+ mod device;
+ mod instance;
++mod prime_wsi;
+ mod shader_compilation;
+ mod suballocation;
+ mod types;
+@@ -855,7 +856,11 @@
+         let mut swapchain = self.swap_chain.write();
+         let sc = swapchain.as_mut().unwrap();
+ 
+-        unsafe { sc.wait(timeout) }?;
++        if !unsafe { sc.wait(timeout) }? {
++            // A timeout did not acquire a back buffer. Preserve accounting and
++            // let core return SurfaceStatus::Timeout to the application.
++            return Ok(None);
++        }
+ 
+         let base_index = unsafe { sc.raw.GetCurrentBackBufferIndex() } as usize;
+         let index = (base_index + sc.acquired_count) % sc.resources.len();
+@@ -931,9 +936,22 @@
+         };
+ 
+         profiling::scope!("IDXGISwapchain3::Present");
+-        unsafe { sc.raw.Present(interval, flags) };
+-
+-        Ok(())
++        let result = unsafe { sc.raw.Present(interval, flags) };
++        use prime_wsi::PresentOutcome;
++        let outcome = prime_wsi::present_outcome(result);
++        if outcome != PresentOutcome::Success {
++            log::error!("IDXGISwapChain3::Present HRESULT=0x{:08X}: {:?}", result as u32, outcome);
++        }
++        match outcome {
++            PresentOutcome::Success => Ok(()),
++            PresentOutcome::Outdated => Err(crate::SurfaceError::Outdated),
++            PresentOutcome::SurfaceLost => Err(crate::SurfaceError::Lost),
++            PresentOutcome::DeviceLost => Err(crate::SurfaceError::Device(crate::DeviceError::Lost)),
++            PresentOutcome::OutOfMemory => Err(crate::SurfaceError::Device(crate::DeviceError::OutOfMemory)),
++            // Unknown/invalid-call failures are terminal validation failures,
++            // never reported as a healthy frame or retried as device loss.
++            PresentOutcome::Failure => Err(crate::SurfaceError::Device(crate::DeviceError::ResourceCreationFailed)),
++        }
+     }
+ 
+     unsafe fn get_timestamp_period(&self) -> f32 {
+@@ -954,3 +972,37 @@
+ 
+     Ok(())
+ }
++
++#[cfg(test)]
++mod prime_dx12_tests {
++    use super::*;
++    #[link(name = "kernel32")]
++    extern "system" {
++        fn CreateEventW(attributes: *mut std::ffi::c_void, manual_reset: i32,
++            initial_state: i32, name: *const u16) -> winnt::HANDLE;
++        fn CloseHandle(handle: winnt::HANDLE) -> i32;
++    }
++    #[test]
++    fn timed_out_acquire_does_not_touch_or_consume_back_buffer() {
++        // No DX12 device is needed: the unsignaled real Win32 event makes the
++        // wait time out before the deliberately null swapchain can be used.
++        let event = unsafe { CreateEventW(std::ptr::null_mut(), 0, 0, std::ptr::null()) };
++        assert!(!event.is_null());
++        let surface = Surface {
++            factory: d3d12::DxgiFactory::Factory1(d3d12::ComPtr::null()),
++            factory_media: None, target: SurfaceTarget::WndHandle(std::ptr::null_mut()),
++            supports_allow_tearing: false,
++            swap_chain: RwLock::new(Some(SwapChain {
++                raw: d3d12::ComPtr::null(), resources: Vec::new(), waitable: event,
++                acquired_count: 0, present_mode: wgt::PresentMode::Fifo,
++                format: wgt::TextureFormat::Rgba8Unorm,
++                size: wgt::Extent3d { width: 1, height: 1, depth_or_array_layers: 1 },
++            })),
++        };
++        let result = unsafe { <Surface as crate::Surface<Api>>::acquire_texture(
++            &surface, Some(std::time::Duration::ZERO)) };
++        unsafe { CloseHandle(event); }
++        assert!(matches!(result, Ok(None)));
++        assert_eq!(surface.swap_chain.read().as_ref().unwrap().acquired_count, 0);
++    }
++}

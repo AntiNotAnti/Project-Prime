@@ -94,6 +94,12 @@ namespace MphRead.Mods
                 Environment.ExitCode = Render.TextureUpdateCheck.Run(ValueAfter(args, "renderer"));
                 return true;
             }
+            if (HasFlag(args, "characterpbrresponsecheck"))
+            {
+                Environment.ExitCode=Render.Characters.CharacterPbrResponseCheck.Run(
+                    ValueAfter(args,"output")??"character-pbr-response");
+                return true;
+            }
             if (ValueAfter(args,"charactertextureprobe") is string texturePack)
             {
                 Environment.ExitCode=Render.Characters.CharacterTextureProbeDesktop.Run(texturePack,
@@ -1462,6 +1468,17 @@ namespace MphRead.Mods
             }
             if (ValueAfter(args, "renderbenchmark") is string benchmarkRoom)
             {
+                if (HasFlag(args, "queued"))
+                {
+                    Environment.ExitCode = Render.QueuedRenderBenchmark.Run(benchmarkRoom,
+                        ValueAfter(args, "output") ?? "render-queued-benchmark.json",
+                        int.TryParse(ValueAfter(args, "samples"), out int queuedSamples) ? queuedSamples : 30000,
+                        int.TryParse(ValueAfter(args, "width"), out int queuedWidth) ? queuedWidth : 1920,
+                        int.TryParse(ValueAfter(args, "height"), out int queuedHeight) ? queuedHeight : 1080,
+                        int.TryParse(ValueAfter(args, "scale"), out int queuedScale) ? queuedScale : 100,
+                        ValueAfter(args, "fps") ?? "display");
+                    return true;
+                }
                 Environment.ExitCode = Render.ModernRenderBenchmark.Run(benchmarkRoom,
                     ValueAfter(args, "output") ?? "render-benchmark.json",
                     int.TryParse(ValueAfter(args, "samples"), out int benchmarkSamples) ? benchmarkSamples : 1200);
@@ -1485,7 +1502,7 @@ namespace MphRead.Mods
                 Environment.ExitCode = Render.Characters.ViewModelAcceptanceCheck.Run(viewModelRoom,
                     ValueAfter(args, "output") ?? "viewmodel-acceptance",
                     Enum.TryParse(ValueAfter(args, "hunter"), true, out Hunter viewModelHunter) ? viewModelHunter : Hunter.Samus,
-                    HasFlag(args, "poseonly"));
+                    HasFlag(args, "poseonly"), HasFlag(args, "pbrlitallstages"));
                 return true;
             }
             if (HasFlag(args, "charactermaterialpalette"))

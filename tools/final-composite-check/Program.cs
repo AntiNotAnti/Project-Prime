@@ -38,5 +38,6 @@ finally { ScreenCapture.PngWriter = null; }
 try { FinalCompositeCapture.Read(8192, 8192); throw new Exception("readback budget ignored"); }
 catch (ArgumentOutOfRangeException) { Console.WriteLine("PASS bounded readback"); }
 Console.WriteLine($"FINALCOMPOSITE PASS actual={G.GetString(StringName.Renderer)} {G.GetString(StringName.Version)}");
+UiOverlayCompositeCheck.Run(width, height);
 return 0;
 static void Check(bool ok, string name) { if (!ok) throw new Exception(name); Console.WriteLine("PASS " + name); }

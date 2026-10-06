@@ -16,7 +16,9 @@ internal sealed unsafe partial class ModernGraphicsCompat
         int BindGroupsCreated, double BindGroupCreationMs,
         int CoreDraws, int CoreRenderPasses, int StagedTextureUploads,
         int RetainedGeometryPromotions, long RetainedGeometryBytes,
-        TrackedStorage Storage, string StorageCoverage, BufferUploadBreakdown BufferUploads);
+        TrackedStorage Storage, string StorageCoverage, BufferUploadBreakdown BufferUploads,
+        long AtlasCumulativeUploadedBytes, long AtlasLiveBytes, long AtlasReservedBytes, int AtlasPages,
+        int PresentCalls, double PresentCallMs);
 
     private bool _measurePerformance;
     private int _createdPipelines;
@@ -29,6 +31,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
     private long _bufferWriteBytes;
     private double _queueSubmitMs, _bufferWriteMs, _bindGroupCreationMs;
     private double _surfaceAcquireMs, _longestSurfaceAcquireMs;
+    private int _presentCalls;
+    private double _presentCallMs;
 
     internal static void BeginPerformanceSample()
     {
@@ -44,9 +48,17 @@ internal sealed unsafe partial class ModernGraphicsCompat
         s._bufferWriteBytes = 0; s._queueSubmitMs = s._bufferWriteMs = s._bindGroupCreationMs = 0;
         s._surfaceAcquisitions = 0; s._surfaceAcquireMs = s._longestSurfaceAcquireMs = 0;
         Array.Clear(s._bufferUploadCategoryBytes);
+        s._presentCalls = 0; s._presentCallMs = 0;
     }
 
     private long PerformanceStart() => _measurePerformance ? Stopwatch.GetTimestamp() : 0;
+
+    private void RecordPresentTime(long start)
+    {
+        if (start == 0) return;
+        _presentCalls++;
+        _presentCallMs += Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+    }
 
     private void RecordPipelineCreation(long start)
     {
@@ -67,11 +79,25 @@ internal sealed unsafe partial class ModernGraphicsCompat
         RecordBufferUpload((nint)buffer, checked((long)size));
     }
 
-    internal static PerformanceSample EndPerformanceSample()
+    internal static PerformanceSample EndPerformanceSample(bool includeResourceStorage = true)
     {
         var s = Current;
         s._measurePerformance = false;
-        TrackedStorage storage = s.Storage();
+        TrackedStorage storage = default;
+        if (includeResourceStorage)
+        {
+            storage = s.Storage();
+            // Timing slots own buffers outside Storage()'s retained pools.
+            long timingBufferBytes = 0;
+            foreach (var slot in s._gpuTimingSlots)
+            {
+                if (slot.Resolve != null)
+                    timingBufferBytes = checked(timingBufferBytes + (long)s._api.BufferGetSize(slot.Resolve));
+                if (slot.Readback != null)
+                    timingBufferBytes = checked(timingBufferBytes + (long)s._api.BufferGetSize(slot.Readback));
+            }
+            storage = storage with { BufferCapacityBytes = checked(storage.BufferCapacityBytes + timingBufferBytes) };
+        }
         return new(s._createdPipelines, s._pipelineCreationMs, s._longestPipelineCreationMs,
             s._textureUploadBytes, s._textureUploadMs, storage.TextureBytes, storage.BufferCapacityBytes,
             s._surfaceAcquisitions, s._surfaceAcquireMs, s._longestSurfaceAcquireMs, s._vsync, s._presentMode.ToString(),
@@ -79,8 +105,30 @@ internal sealed unsafe partial class ModernGraphicsCompat
             s._bindGroupsCreated, s._bindGroupCreationMs,
             s._coreDraws, s._coreRenderPasses, s._stagedTextureUploads,
             s._retainedGeometryPromotions, s._retainedGeometryBytes, storage,
-            "logical native texture capacity (depth24plus estimated 4B/pixel), native buffer capacity; excludes driver padding/private memory and managed staging",
-            s.BufferUploads());
+            includeResourceStorage
+                ? "logical native texture capacity (depth24plus estimated 4B/pixel), native buffer capacity including GPU timing buffers; excludes driver padding/private memory and managed staging"
+                : "not sampled (includeResourceStorage=false); zero storage fields do not indicate zero allocation",
+            s.BufferUploads(),
+            s._retainedMultiDrawAtlasBytes, s.RetainedAtlasLiveBytes, s.RetainedAtlasReservedBytes,
+            s._retainedMultiDrawPages.Count, s._presentCalls, s._presentCallMs);
+    }
+
+    // Nominal tracked allocation sizes, not driver residency/VRAM. Depth24Plus
+    // storage is implementation-defined; use a four-byte depth/stencil estimate.
+    // Only the currently acquired swapchain image is tracked, not the entire
+    // backend-owned swapchain or driver allocations.
+    internal static long EstimateTextureStorageBytes(Silk.NET.WebGPU.TextureFormat format,
+        int width, int height, int mipCount)
+    {
+        bool blockCompressed = format is
+            Silk.NET.WebGPU.TextureFormat.BC7RgbaUnorm
+            or Silk.NET.WebGPU.TextureFormat.BC7RgbaUnormSrgb
+            or Silk.NET.WebGPU.TextureFormat.Etc2Rgba8Unorm
+            or Silk.NET.WebGPU.TextureFormat.Etc2Rgba8UnormSrgb
+            or Silk.NET.WebGPU.TextureFormat.Astc4x4Unorm
+            or Silk.NET.WebGPU.TextureFormat.Astc4x4UnormSrgb;
+        int unitBytes = blockCompressed ? 16 : format == Silk.NET.WebGPU.TextureFormat.Rgba16float ? 8 : 4;
+        return TextureStorageMath.Bytes(width, height, mipCount, unitBytes, blockCompressed);
     }
 }
 #endif

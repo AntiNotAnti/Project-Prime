@@ -84,7 +84,7 @@ button {
     font-weight: bold;
     letter-spacing: 1px;
     border-bottom: 3px rgba(0,0,0,0);
-    transition: color background-color border-bottom-color 0.13s quad-out;
+    transition: color background-color border-bottom-color 0.13s quadratic-out;
 }
 .nav:hover, .nav:focus {
     color: #ffffff;
@@ -105,7 +105,7 @@ button {
     font-size: 11px;
     font-weight: bold;
     letter-spacing: 0.8px;
-    transition: color background-color border-color transform 0.12s quad-out;
+    transition: color background-color border-color transform 0.12s quadratic-out;
 }
 .utility:hover, .utility:focus, .footer_button:hover, .footer_button:focus {
     color: #ffffff;
@@ -135,7 +135,7 @@ button {
     border-top: 1px rgba(97,182,246,0.12);
     border-right: 1px rgba(97,182,246,0.08);
     border-bottom: 1px rgba(97,182,246,0.08);
-    transition: color background-color border-left-color padding-left transform 0.12s quad-out;
+    transition: color background-color border-left-color padding-left transform 0.12s quadratic-out;
 }
 .activity:hover, .activity:focus, .activity.selected {
     color: #ffffff;
@@ -147,7 +147,7 @@ button {
 .activity_code { width: 34px; color: #4e6b84; font-size: 10px; }
 .activity:hover .activity_code, .activity:focus .activity_code, .activity.selected .activity_code { color: #61b6f6; }
 .activity_copy { display: block; flex: 1; }
-.activity_name { display: block; color: inherit; font-size: 17px; font-weight: bold; letter-spacing: 0.7px; }
+.activity_name { display: block; font-size: 17px; font-weight: bold; letter-spacing: 0.7px; }
 .activity_meta { display: block; margin-top: 1px; color: #71869a; font-size: 9px; }
 .activity_arrow { width: 20px; text-align: right; color: #61b6f6; font-size: 24px; }
 
@@ -190,7 +190,7 @@ button {
     border-top: 1px #3a8ce4;
     border-right: 1px #104983;
     border-bottom: 1px #104983;
-    transition: background-color transform 0.11s quad-out;
+    transition: background-color transform 0.11s quadratic-out;
 }
 #deploy:hover, #deploy:focus { background-color: #1c72e1; transform: translateY(-2px); }
 .deploy_kicker { display: block; color: #b6dbf6; font-size: 8px; letter-spacing: 1.3px; }

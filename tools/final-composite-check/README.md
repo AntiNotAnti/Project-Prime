@@ -25,3 +25,11 @@ device reconstruction with resource restoration, fresh OpenGL fallback after
 repeated failure, texture/HDR updates, and 120 warm-cache resize/resource cycles
 on the same adapter. Its no-growth check includes bind groups. This bounded
 synthetic loop does not replace the full gameplay/replay/editor transition matrix.
+
+The October 6 renderer implementation adds a separate shared UI compositor
+fixture to this command. It checks premultiplied alpha over a known backdrop,
+CPU row origin, viewport/program/framebuffer/texture/depth/scissor restoration,
+and same-size upload after release. The previous October 1 results above do not
+cover this new fixture. Android's debug acceptance activity additionally routes
+an overlay through the production Vulkan-only dispatcher; physical execution
+is required to establish that platform's pixel and lifecycle acceptance.

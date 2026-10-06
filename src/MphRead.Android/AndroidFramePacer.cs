@@ -28,11 +28,13 @@ internal sealed class AndroidFramePacer(int maximumRate)
             return now;
         }
 
-        // Display-paced modes already wait in the presentation driver. This is
-        // true for Display and for explicit caps that map to a native panel
-        // refresh (for example 120 on a 120 Hz phone). Only impose the runaway
-        // safety floor in that case, never a second software display clock.
-        double interval = 1.0 / (presentationPaced || cap == 0
+        // A numeric cap remains a submission budget even when FIFO blocks.
+        // Presentation time has already advanced `now`, so an absolute
+        // deadline only waits for the unused part of that budget. Replacing a
+        // numeric cap with the safety floor silently ignored it on FIFO-only
+        // devices, or when Android declined an advisory refresh request.
+        // Display and Unlimited leave cadence to blocking presentation.
+        double interval = 1.0 / (cap <= 0
             ? maximumRate : Math.Clamp(cap, 1, maximumRate));
         if (interval != _interval)
         {
@@ -52,9 +54,9 @@ internal sealed class AndroidFramePacer(int maximumRate)
     }
 
     /// <summary>
-    /// True when an explicit numeric cap maps to a refresh mode the panel can
-    /// natively present. In that case SurfaceFlinger/presentation owns cadence;
-    /// adding a managed timer would double-pace the frame.
+    /// True when a numeric cap matches an advertised panel mode. This informs
+    /// the advisory surface-rate request; the pacer still enforces the numeric
+    /// budget when the compositor chooses a different active rate.
     /// </summary>
     internal static bool MatchesNativeRefresh(int requestedCap, double maximumRefreshRate,
         ReadOnlySpan<float> supportedRefreshRates)
@@ -74,9 +76,10 @@ internal sealed class AndroidFramePacer(int maximumRate)
     }
 
     /// <summary>
-    /// A blocking modern present mode (FIFO fallback) is a presentation clock
-    /// even when a non-native numeric cap originally asked for software pacing.
-    /// Never sleep to one cadence and then block on another.
+    /// A blocking modern present mode (FIFO fallback) is a presentation clock.
+    /// Numeric caps still constrain submission with an absolute deadline;
+    /// presentation time consumes that same budget rather than adding a second
+    /// elapsed-duration timer.
     /// </summary>
     internal static bool PresentationOwnsCadence(bool displayPaced, bool modernPresentationBlocks) =>
         displayPaced || modernPresentationBlocks;

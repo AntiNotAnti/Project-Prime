@@ -56,6 +56,148 @@ namespace MphRead
         private readonly record struct DynamicLightCandidate(float Distance, Vector3 Position,
             Vector3 Color, float Radius, float Intensity);
 
+        private void PrepareGraphicsSceneFormat()
+        {
+            if (!RenderOptions.InternalHdr || _graphicsPipelineRefused || _graphicsHdrRefused)
+                return;
+#if !MPHREAD_SERVER
+            if (Mods.Render.ModernGraphicsCompat.Active) return;
+#endif
+            if (_graphicsOutputHdr) return;
+            try
+            {
+                // Validate the existing HDR target before choosing float scene
+                // storage on compatibility GL. This runs before scene clear/draw,
+                // so a later opaque resolve never copies HDR into an RGB8 scene.
+                EnsureGraphicsPipeline(ResolveGraphicsProcessingSize(RenderSize, Size, taaActive: false));
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+            {
+                _graphicsPipelineRefused = true;
+                Console.WriteLine($"[render] HDR scene preparation unavailable: {ex.Message}");
+            }
+        }
+
+        // Resolve material detail while the scene contains only the opaque
+        // surfaces represented by the G-buffer. Forward layers are drawn later.
+        // pbr_enabled == 2 reuses the shared shader's world-space effects without
+        // running final AA/bloom/grade/HDR presentation operations twice.
+        private bool ResolveDeferredPbrOpaqueScene()
+        {
+            if (!_pbrReady || DeferredPbrDepth == 0 || _graphicsPipelineRefused)
+                return false;
+            try
+            {
+                EnsureGraphicsPipeline(_pbrSize);
+                bool hdr = RenderOptions.InternalHdr && _graphicsOutputHdr
+                    && !_graphicsHdrRefused && _graphicsHdrFramebuffer != 0;
+                int resolveFramebuffer = hdr
+                    ? _graphicsHdrFramebuffer : _graphicsOutputFramebuffer;
+                if (_graphicsProgram == 0 || resolveFramebuffer == 0)
+                    return false;
+
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer, resolveFramebuffer);
+                GL.Viewport(0, 0, _pbrSize.X, _pbrSize.Y);
+                SetScreenPassState();
+                GL.Disable(EnableCap.Blend);
+                GL.UseProgram(_graphicsProgram);
+                GL.ActiveTexture(TextureUnit.Texture0);
+                GL.BindTexture(TextureTarget.Texture2D, _screenTexture);
+                GL.Uniform1(_gfxSceneSampler, 0);
+                GL.ActiveTexture(TextureUnit.Texture1);
+                GL.BindTexture(TextureTarget.Texture2D, DeferredPbrDepth);
+                GL.Uniform1(_gfxDepthSampler, 1);
+                GL.Uniform1(_gfxDepthAvailable, 1);
+                GL.ActiveTexture(TextureUnit.Texture2);
+                bool shadowAvailable = ShadowMapReady
+                    && RenderOptions.Shadows != ShadowQuality.Off;
+                GL.BindTexture(TextureTarget.Texture2D, shadowAvailable ? _shadowDepthTexture : 0);
+                GL.Uniform1(_gfxShadowSampler, 2);
+                GL.Uniform1(_gfxShadowEnabled, shadowAvailable ? 1 : 0);
+                if (shadowAvailable)
+                {
+                    GL.UniformMatrix4(_gfxShadowView, false, ref _shadowView);
+                    GL.UniformMatrix4(_gfxShadowProjection, false, ref _shadowProjection);
+                    GL.Uniform2(_gfxShadowTexel, 1f / Math.Max(1, _shadowTargetSize),
+                        1f / Math.Max(1, _shadowTargetSize));
+                    Vector3 shadowDirection = _light1Vector;
+                    if (shadowDirection.LengthSquared < .0001f)
+                        shadowDirection = new Vector3(-.45f, -.82f, -.35f);
+                    GL.Uniform3(_gfxShadowLightDir, shadowDirection.Normalized());
+                }
+                GL.ActiveTexture(TextureUnit.Texture3);
+                GL.BindTexture(TextureTarget.Texture2D, 0);
+                GL.Uniform1(_gfxHistorySampler, 3);
+                GL.Uniform1(_gfxHistoryValid, 0);
+                GL.ActiveTexture(TextureUnit.Texture4);
+                GL.BindTexture(TextureTarget.Texture2D, DeferredPbrAlbedo);
+                GL.Uniform1(_gfxPbrAlbedo, 4);
+                GL.ActiveTexture(TextureUnit.Texture5);
+                GL.BindTexture(TextureTarget.Texture2D, DeferredPbrNormal);
+                GL.Uniform1(_gfxPbrNormal, 5);
+                GL.ActiveTexture(TextureUnit.Texture6);
+                GL.BindTexture(TextureTarget.Texture2D, DeferredPbrMaterial);
+                GL.Uniform1(_gfxPbrMaterial, 6);
+                GL.Uniform1(_gfxPbrEnabled, 2);
+                GL.Uniform3(_gfxPbrLight1Direction, _light1Vector);
+                GL.Uniform3(_gfxPbrLight1Color, _light1Color);
+                GL.Uniform3(_gfxPbrLight2Direction, _light2Vector);
+                GL.Uniform3(_gfxPbrLight2Color, _light2Color);
+                GL.Uniform2(_gfxTexel, 1f / Math.Max(1, _pbrSize.X),
+                    1f / Math.Max(1, _pbrSize.Y));
+                GL.Uniform1(_gfxNear, _nearClip);
+                GL.Uniform1(_gfxFar, _useClip ? Math.Max(_farClip, _nearClip + 1f) : 10000f);
+                GL.Uniform1(_gfxAa, 0);
+                GL.Uniform1(_gfxSharpen, 0f);
+                GL.Uniform1(_gfxLighting, RenderOptions.EnhancedLighting ? 1 : 0);
+                GL.Uniform1(_gfxAo, (int)RenderOptions.AmbientOcclusion);
+                GL.Uniform1(_gfxContactShadows, RenderOptions.ContactShadows ? 1 : 0);
+                GL.Uniform1(_gfxEnhancedFog, RenderOptions.EnhancedFog ? 1 : 0);
+                GL.Uniform1(_gfxVolumetricFog, RenderOptions.VolumetricFog ? 1 : 0);
+                GL.Uniform1(_gfxReflections, RenderOptions.Reflections ? 1 : 0);
+                GL.Uniform4(_gfxFogColor, _fogColor);
+                GL.Uniform1(_gfxTime, _globalElapsedTime);
+                Matrix4 invProjection = _perspectiveMatrix.Inverted();
+                Matrix4 invView = _viewMatrix.Inverted();
+                GL.UniformMatrix4(_gfxInvProjection, false, ref invProjection);
+                GL.UniformMatrix4(_gfxInvView, false, ref invView);
+                Matrix4 view = _viewMatrix;
+                Matrix4 projection = _perspectiveMatrix;
+                GL.UniformMatrix4(_gfxView, false, ref view);
+                GL.UniformMatrix4(_gfxProjection, false, ref projection);
+                GL.Uniform3(_gfxCameraPosition, _cameraPosition);
+                UploadDynamicLights();
+                DrawGraphicsFullscreenQuad();
+
+                // The source and destination are distinct attachments. Copy only
+                // color; MPH's depth/stencil remain authoritative for later passes.
+                GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, resolveFramebuffer);
+                GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _frameBuffer);
+                GL.BlitFramebuffer(0, 0, _pbrSize.X, _pbrSize.Y,
+                    0, 0, _targetSize.X, _targetSize.Y,
+                    ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear);
+                CheckGlError("OpaquePbrResolve");
+                return true;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+            {
+                _pbrRefused = true;
+                Console.WriteLine($"[render] opaque PBR resolve unavailable: {ex.Message}");
+                return false;
+            }
+            finally
+            {
+                for (int unit = 6; unit >= 0; unit--)
+                {
+                    GL.ActiveTexture((TextureUnit)((int)TextureUnit.Texture0 + unit));
+                    GL.BindTexture(TextureTarget.Texture2D, 0);
+                }
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
+                GL.Viewport(0, 0, _targetSize.X, _targetSize.Y);
+                GL.UseProgram(_shaderProgramId);
+            }
+        }
+
         private void ApplyGraphicsPostProcess()
         {
             _graphicsOutputReady = false;
@@ -66,7 +208,7 @@ namespace MphRead
             }
             try
             {
-                bool pbrAvailable = RenderOptions.DeferredPbr && DeferredPbrReady;
+                bool pbrAvailable = RenderOptions.DeferredPbr && _pbrResolvedToScene;
                 AntiAliasingMode effectiveAa = ResolvePostProcessAntiAliasing(
                     RenderOptions.AntiAliasing, RenderOptions.InternalHdr, pbrAvailable);
                 bool taa = effectiveAa == AntiAliasingMode.Taa;
@@ -91,7 +233,11 @@ namespace MphRead
                 GL.BindTexture(TextureTarget.Texture2D, _screenTexture);
                 GL.Uniform1(_gfxSceneSampler, 0);
 
-                bool depthAvailable = _depthTexture != 0 && RenderOptions.NeedsReadableDepth;
+                // The successful opaque resolve already consumed matching world
+                // depth. Foreground has another projection; do not relight it or
+                // apply the world effects a second time in final presentation.
+                bool depthAvailable = UseFinalSceneDepth(_depthTexture != 0,
+                    RenderOptions.NeedsReadableDepth, pbrAvailable);
                 GL.ActiveTexture(TextureUnit.Texture1);
                 GL.BindTexture(TextureTarget.Texture2D, depthAvailable ? _depthTexture : 0);
                 GL.Uniform1(_gfxDepthSampler, 1);
@@ -125,15 +271,17 @@ namespace MphRead
                 GL.UniformMatrix4(_gfxPreviousViewProjection, false, ref previousViewProjection);
 
                 GL.ActiveTexture(TextureUnit.Texture4);
-                GL.BindTexture(TextureTarget.Texture2D, pbrAvailable ? DeferredPbrAlbedo : 0);
+                GL.BindTexture(TextureTarget.Texture2D, 0);
                 GL.Uniform1(_gfxPbrAlbedo, 4);
                 GL.ActiveTexture(TextureUnit.Texture5);
-                GL.BindTexture(TextureTarget.Texture2D, pbrAvailable ? DeferredPbrNormal : 0);
+                GL.BindTexture(TextureTarget.Texture2D, 0);
                 GL.Uniform1(_gfxPbrNormal, 5);
                 GL.ActiveTexture(TextureUnit.Texture6);
-                GL.BindTexture(TextureTarget.Texture2D, pbrAvailable ? DeferredPbrMaterial : 0);
+                GL.BindTexture(TextureTarget.Texture2D, 0);
                 GL.Uniform1(_gfxPbrMaterial, 6);
-                GL.Uniform1(_gfxPbrEnabled, pbrAvailable ? 1 : 0);
+                // PBR is already in opaque scene color. Applying it after the
+                // foreground passes would light their pixels with background data.
+                GL.Uniform1(_gfxPbrEnabled, 0);
                 GL.Uniform3(_gfxPbrLight1Direction, _light1Vector);
                 GL.Uniform3(_gfxPbrLight1Color, _light1Color);
                 GL.Uniform3(_gfxPbrLight2Direction, _light2Vector);
@@ -173,7 +321,8 @@ namespace MphRead
                 Matrix4 projection = _perspectiveMatrix;
                 GL.UniformMatrix4(_gfxProjection, false, ref projection);
                 GL.Uniform3(_gfxCameraPosition, _cameraPosition);
-                UploadDynamicLights();
+                if (pbrAvailable) GL.Uniform1(_gfxDynamicLightCount, 0);
+                else UploadDynamicLights();
 
                 DrawGraphicsFullscreenQuad();
                 if (hdrActive)
@@ -214,6 +363,10 @@ namespace MphRead
                 GL.Viewport(0, 0, _targetSize.X, _targetSize.Y);
             }
         }
+
+        internal static bool UseFinalSceneDepth(bool hasReadableDepth,
+            bool needsDepth, bool opaqueWorldResolved) =>
+            hasReadableDepth && needsDepth && !opaqueWorldResolved;
 
         internal static AntiAliasingMode ResolvePostProcessAntiAliasing(
             AntiAliasingMode requested, bool hdrRequested, bool pbrAvailable)
@@ -912,7 +1065,9 @@ vec3 deferred_pbr(vec2 uv, vec3 worldPos) {
     float metallic = clamp(m.r, 0.0, 1.0);
     float roughness = clamp(m.g, 0.04, 1.0);
     vec3 v = normalize(camera_position - worldPos);
-    vec3 result = a.rgb * (0.10 + 0.08 * (1.0 - metallic));
+    // ORM AO is carried in material alpha; legacy materials write one.
+    // Occlusion belongs to ambient illumination, never the direct BRDF.
+    vec3 result = a.rgb * (0.10 + 0.08 * (1.0 - metallic)) * clamp(m.a, 0.0, 1.0);
     result += pbr_direct(a.rgb, n, v, normalize(-pbr_light1_dir), pbr_light1_color, metallic, roughness);
     result += pbr_direct(a.rgb, n, v, normalize(-pbr_light2_dir), pbr_light2_color, metallic, roughness);
     for (int i = 0; i < 8; i++) {
@@ -1230,6 +1385,14 @@ void main() {
             color = mix(color, fog_color.rgb, clamp(fog * amount, 0.0, 0.32));
             color += volumetric_scattering(worldPos);
         }
+    }
+
+    if (pbr_enabled == 2) {
+        // All world-space effects use this opaque layer's matching depth and
+        // projection. Foreground/transparency compose later; final presentation
+        // applies AA/bloom/grade/HDR once after those layers exist.
+        OUTPUT = vec4(color, 1.0);
+        return;
     }
 
     color += bloom_value(uv);

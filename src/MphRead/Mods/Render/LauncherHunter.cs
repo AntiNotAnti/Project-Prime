@@ -98,7 +98,7 @@ namespace MphRead.Mods.Render
             return Math.Min(250 << shift, 2000);
         }
 
-        private static void DropSideScene()
+        private static void DropSideScene(bool? canReleaseNativeResources = null)
         {
             Scene? scene = _scene;
             _scene = null;
@@ -108,7 +108,9 @@ namespace MphRead.Mods.Render
             }
             try
             {
-                scene.UnloadGl();
+                if (canReleaseNativeResources.HasValue)
+                    scene.ReleaseRenderResources(canReleaseNativeResources.Value);
+                else scene.UnloadGl();
             }
             catch (Exception cleanup)
             {
@@ -124,6 +126,12 @@ namespace MphRead.Mods.Render
         /// closed a dozen times in a sitting.
         /// </summary>
         private static Scene? _scene;
+
+        internal static void Shutdown(bool canReleaseNativeResources)
+        {
+            Reset();
+            DropSideScene(canReleaseNativeResources);
+        }
 
         /// <summary>
         /// Forget everything: a match is starting or has ended, and the scene

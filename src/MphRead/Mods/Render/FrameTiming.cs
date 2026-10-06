@@ -89,6 +89,12 @@ namespace MphRead.Mods.Render
         public static bool Active { get; private set; }
 
         private static double _accumulator;
+        private static long _presentationSteps;
+        private static double _lastPresentationStep;
+        private static double _presentationAlpha = 1.0;
+        private static double _hostPresentationHz = double.NaN;
+        private static double _hostDisplayHz = double.NaN;
+        private static int _hostPresentationCap;
 
         /// <summary>
         /// Fraction of the next 60 Hz simulation step already accumulated by
@@ -97,17 +103,57 @@ namespace MphRead.Mods.Render
         /// </summary>
         public static double Alpha => Math.Clamp(_accumulator / StepSeconds, 0.0, 1.0);
 
-        /// <summary>
-        /// Draw interpolation is useful only when the display actually shows
-        /// frames between simulation steps. At 60 Hz it would buy no smoothness
-        /// and merely draw the prior state, so presentation stays current.
-        /// </summary>
-        public static bool HighRefreshPresentation =>
-            FrameRateCap == Unlimited
-            || (FrameRateCap != DisplayRate && FrameRateCap > SimulationHz)
-            || MeasuredFrameHz > 75.0;
+        /// <summary>The selected host cadence; zero means no pacing deadline.</summary>
+        public static double PresentationCadenceHz =>
+            _hostPresentationCap == FrameRateCap && !double.IsNaN(_hostPresentationHz)
+                ? _hostPresentationHz
+                : FrameRateCap == DisplayRate ? SimulationHz
+                : FrameRateCap == Unlimited ? 0 : FrameRateCap;
 
-        public static double PresentationAlpha => HighRefreshPresentation ? Alpha : 1.0;
+        /// <summary>
+        /// Select interpolation from the clock the host configured, rather
+        /// than achieved FPS. Load/thermal spikes must not switch a 120 Hz
+        /// display between two different pose timelines every diagnostic window.
+        /// At 60 Hz presentation stays current without an extra step of latency.
+        /// </summary>
+        public static bool HighRefreshPresentation
+        {
+            get
+            {
+                double cadence = PresentationCadenceHz;
+                // 59.94/60 Hz probes can differ slightly. A real 72/75 Hz
+                // clock already has extra pictures and should interpolate.
+                return cadence == 0 || cadence > SimulationHz + 0.75;
+            }
+        }
+
+        public static double PresentationAlpha => _presentationAlpha;
+
+        /// <summary>
+        /// Called by the render owner after selecting its presentation clock.
+        /// Display/VSync or a FIFO fallback uses the active display frequency;
+        /// software pacing uses the selected cap; unlimited stays unpaced.
+        /// A host that also enforces a whole-frame numeric deadline must pass
+        /// numericBudget so its cadence is the slower of that cap and FIFO.
+        /// An unavailable display probe retains the last known clock. This
+        /// setting survives accumulator resets for loading and pause/resume.
+        /// </summary>
+        public static void SetPresentationCadence(double displayRefreshHz, bool presentationPaced,
+            bool numericBudget = false)
+        {
+            if (double.IsFinite(displayRefreshHz) && displayRefreshHz > 0)
+                _hostDisplayHz = displayRefreshHz;
+            double cadence = presentationPaced || FrameRateCap == DisplayRate
+                ? _hostDisplayHz : FrameRateCap == Unlimited ? 0 : FrameRateCap;
+            if (numericBudget && presentationPaced && FrameRateCap > 0)
+                cadence = double.IsFinite(cadence) && cadence > 0
+                    ? Math.Min(FrameRateCap, cadence) : FrameRateCap;
+            if (!double.IsFinite(cadence) || cadence < 0
+                || cadence == 0 && (presentationPaced || FrameRateCap == DisplayRate))
+                return;
+            _hostPresentationHz = cadence;
+            _hostPresentationCap = FrameRateCap;
+        }
 
         /// <summary>Steps run for the frame <see cref="Advance"/> last answered.</summary>
         public static int StepsThisFrame { get; private set; }
@@ -157,7 +203,9 @@ namespace MphRead.Mods.Render
                 + $"{TotalSteps} steps over {TotalFrames} frames, "
                 + $"{DroppedSteps} dropped, {Stalls} stalls, "
                 + $"steps per frame [{string.Join(", ", StepHistogram)}], "
-                + $"cap {CapString(FrameRateCap)}";
+                + $"cap {CapString(FrameRateCap)}, "
+                + $"presentation {(PresentationCadenceHz == 0 ? "unpaced" : $"{PresentationCadenceHz:0.#} Hz")}, "
+                + $"interpolation {(HighRefreshPresentation ? "on" : "off")}";
         }
 
         #endregion
@@ -167,6 +215,9 @@ namespace MphRead.Mods.Render
             _accumulator = 0;
             StepsThisFrame = 0;
             Active = false;
+            _presentationSteps = 0;
+            _lastPresentationStep = 0;
+            _presentationAlpha = 1;
         }
 
         /// <summary>
@@ -186,6 +237,7 @@ namespace MphRead.Mods.Render
                 StepsThisFrame = 1;
                 TotalSteps++;
                 StepHistogram[1]++;
+                UpdatePresentation(1);
                 Tally(StepSeconds, 1);
                 return 1;
             }
@@ -206,8 +258,23 @@ namespace MphRead.Mods.Render
             StepsThisFrame = steps;
             TotalSteps += steps;
             StepHistogram[steps]++;
+            UpdatePresentation(steps);
             Tally(elapsedSeconds, steps);
             return steps;
+        }
+
+        private static void UpdatePresentation(int steps)
+        {
+            _presentationSteps += steps;
+            double alpha = HighRefreshPresentation ? Alpha : 1;
+            double sample = _presentationSteps - 1d + alpha;
+            // Enabling interpolation cannot rewind the last current-state
+            // picture. Hold it until the delayed timeline catches up. Reset
+            // similarly presents current history until a new completed step,
+            // instead of redisplaying a pre-load/pre-pause previous pose.
+            _lastPresentationStep = Math.Max(_lastPresentationStep, sample);
+            _presentationAlpha = Math.Clamp(
+                _lastPresentationStep - (_presentationSteps - 1d), 0, 1);
         }
 
         private static void Tally(double elapsedSeconds, int steps)

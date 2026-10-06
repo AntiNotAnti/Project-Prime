@@ -1042,145 +1042,496 @@ fn apply_cosmetics(col: ptr<function, vec4<f32>>) {
     }
 }
 
+fn physical_to_linear(c: vec3<f32>) -> vec3<f32> {
+    var c_1: vec3<f32>;
+    var low: vec3<f32>;
+    var high: vec3<f32>;
+
+    c_1 = c;
+    let _e345: vec3<f32> = c_1;
+    low = (_e345 / vec3(12.92f));
+    let _e350: vec3<f32> = c_1;
+    let _e359: vec3<f32> = c_1;
+    let _e371: vec3<f32> = c_1;
+    let _e380: vec3<f32> = c_1;
+    high = pow(max(((_e380 + vec3(0.055f)) / vec3(1.055f)), vec3(0f)), vec3(2.4f));
+    let _e401: vec3<f32> = c_1;
+    let _e403: vec3<f32> = low;
+    let _e404: vec3<f32> = high;
+    let _e410: vec3<f32> = c_1;
+    return mix(_e403, _e404, step(vec3(0.04045f), _e410));
+}
+
+fn physical_to_srgb(c_2: vec3<f32>) -> vec3<f32> {
+    var c_3: vec3<f32>;
+    var low_1: vec3<f32>;
+    var high_1: vec3<f32>;
+
+    c_3 = c_2;
+    let _e348: vec3<f32> = c_3;
+    c_3 = max(_e348, vec3(0f));
+    let _e352: vec3<f32> = c_3;
+    low_1 = (_e352 * 12.92f);
+    let _e362: vec3<f32> = c_3;
+    high_1 = ((1.055f * pow(_e362, vec3(0.41666666f))) - vec3(0.055f));
+    let _e380: vec3<f32> = c_3;
+    let _e382: vec3<f32> = low_1;
+    let _e383: vec3<f32> = high_1;
+    let _e389: vec3<f32> = c_3;
+    return mix(_e382, _e383, step(vec3(0.0031308f), _e389));
+}
+
+fn physical_direct(albedo: vec3<f32>, n_3: vec3<f32>, v: vec3<f32>, l: vec3<f32>, radiance: vec3<f32>, metallic: f32, roughness: f32) -> vec3<f32> {
+    var albedo_1: vec3<f32>;
+    var n_4: vec3<f32>;
+    var v_1: vec3<f32>;
+    var l_1: vec3<f32>;
+    var radiance_1: vec3<f32>;
+    var metallic_1: f32;
+    var roughness_1: f32;
+    var nl: f32;
+    var nv: f32;
+    var halfSum: vec3<f32>;
+    var h: vec3<f32>;
+    var nh: f32;
+    var vh: f32;
+    var a: f32;
+    var a2_: f32;
+    var denominator: f32;
+    var distribution: f32;
+    var k: f32;
+    var geometry: f32;
+    var f0_: vec3<f32>;
+    var fresnel: vec3<f32>;
+    var spec: vec3<f32>;
+    var kd: vec3<f32>;
+
+    albedo_1 = albedo;
+    n_4 = n_3;
+    v_1 = v;
+    l_1 = l;
+    radiance_1 = radiance;
+    metallic_1 = metallic;
+    roughness_1 = roughness;
+    let _e359: vec3<f32> = n_4;
+    let _e360: vec3<f32> = l_1;
+    let _e365: vec3<f32> = n_4;
+    let _e366: vec3<f32> = l_1;
+    nl = max(dot(_e365, _e366), 0f);
+    let _e373: vec3<f32> = n_4;
+    let _e374: vec3<f32> = v_1;
+    let _e379: vec3<f32> = n_4;
+    let _e380: vec3<f32> = v_1;
+    nv = max(dot(_e379, _e380), 0f);
+    let _e385: f32 = nl;
+    let _e388: f32 = nv;
+    if ((_e385 <= 0f) || (_e388 <= 0f)) {
+        return vec3(0f);
+    }
+    let _e394: vec3<f32> = v_1;
+    let _e395: vec3<f32> = l_1;
+    halfSum = (_e394 + _e395);
+    let _e398: vec3<f32> = halfSum;
+    let _e401: vec3<f32> = halfSum;
+    let _e402: vec3<f32> = halfSum;
+    let _e407: vec3<f32> = halfSum;
+    let _e408: vec3<f32> = halfSum;
+    let _e414: vec3<f32> = halfSum;
+    let _e415: vec3<f32> = halfSum;
+    let _e420: vec3<f32> = halfSum;
+    let _e421: vec3<f32> = halfSum;
+    h = (_e398 * inverseSqrt(max(dot(_e420, _e421), 0.000001f)));
+    let _e430: vec3<f32> = n_4;
+    let _e431: vec3<f32> = h;
+    let _e437: vec3<f32> = n_4;
+    let _e438: vec3<f32> = h;
+    nh = clamp(dot(_e437, _e438), 0f, 1f);
+    let _e446: vec3<f32> = v_1;
+    let _e447: vec3<f32> = h;
+    let _e453: vec3<f32> = v_1;
+    let _e454: vec3<f32> = h;
+    vh = clamp(dot(_e453, _e454), 0f, 1f);
+    let _e460: f32 = roughness_1;
+    let _e461: f32 = roughness_1;
+    a = (_e460 * _e461);
+    let _e464: f32 = a;
+    let _e465: f32 = a;
+    a2_ = (_e464 * _e465);
+    let _e468: f32 = nh;
+    let _e469: f32 = nh;
+    let _e471: f32 = a2_;
+    denominator = (((_e468 * _e469) * (_e471 - 1f)) + 1f);
+    let _e478: f32 = a2_;
+    let _e480: f32 = denominator;
+    let _e482: f32 = denominator;
+    let _e486: f32 = denominator;
+    let _e488: f32 = denominator;
+    distribution = (_e478 / max(((3.1415927f * _e486) * _e488), 0.000001f));
+    let _e494: f32 = roughness_1;
+    let _e497: f32 = roughness_1;
+    k = (((_e494 + 1f) * (_e497 + 1f)) / 8f);
+    let _e504: f32 = nv;
+    let _e505: f32 = nv;
+    let _e507: f32 = k;
+    let _e510: f32 = k;
+    let _e513: f32 = nv;
+    let _e515: f32 = k;
+    let _e518: f32 = k;
+    let _e523: f32 = nl;
+    let _e524: f32 = nl;
+    let _e526: f32 = k;
+    let _e529: f32 = k;
+    let _e532: f32 = nl;
+    let _e534: f32 = k;
+    let _e537: f32 = k;
+    geometry = ((_e504 / max(((_e513 * (1f - _e515)) + _e518), 0.000001f)) * (_e523 / max(((_e532 * (1f - _e534)) + _e537), 0.000001f)));
+    let _e550: vec3<f32> = albedo_1;
+    let _e551: f32 = metallic_1;
+    f0_ = mix(vec3(0.04f), _e550, vec3(_e551));
+    let _e555: vec3<f32> = f0_;
+    let _e558: vec3<f32> = f0_;
+    let _e561: f32 = vh;
+    let _e565: f32 = vh;
+    fresnel = (_e555 + ((vec3(1f) - _e558) * pow((1f - _e565), 5f)));
+    let _e572: f32 = distribution;
+    let _e573: f32 = geometry;
+    let _e575: vec3<f32> = fresnel;
+    let _e578: f32 = nv;
+    let _e580: f32 = nl;
+    let _e584: f32 = nv;
+    let _e586: f32 = nl;
+    spec = (((_e572 * _e573) * _e575) / vec3(max(((4f * _e584) * _e586), 0.0001f)));
+    let _e595: vec3<f32> = fresnel;
+    let _e598: f32 = metallic_1;
+    kd = ((vec3(1f) - _e595) * (1f - _e598));
+    let _e602: vec3<f32> = kd;
+    let _e603: vec3<f32> = albedo_1;
+    let _e608: vec3<f32> = spec;
+    let _e610: vec3<f32> = radiance_1;
+    let _e612: f32 = nl;
+    return (((((_e602 * _e603) / vec3(3.1415927f)) + _e608) * _e610) * _e612);
+}
+
+fn physical_material(base: vec3<f32>, n_5: vec3<f32>, orm: vec4<f32>) -> vec3<f32> {
+    var base_1: vec3<f32>;
+    var n_6: vec3<f32>;
+    var orm_1: vec4<f32>;
+    var ao: f32;
+    var roughness_2: f32;
+    var metallic_2: f32;
+    var eye: vec3<f32>;
+    var v_2: vec3<f32>;
+    var albedo_2: vec3<f32>;
+    var ambientRadiance: vec3<f32>;
+    var f0_1: vec3<f32>;
+    var result: vec3<f32>;
+    var l1_: vec3<f32>;
+    var l2_: vec3<f32>;
+
+    base_1 = base;
+    n_6 = n_5;
+    orm_1 = orm;
+    let _e349: vec4<f32> = orm_1;
+    let _e353: vec4<f32> = orm_1;
+    ao = clamp(_e353.x, 0f, 1f);
+    let _e359: vec4<f32> = orm_1;
+    let _e363: vec4<f32> = orm_1;
+    roughness_2 = clamp(_e363.y, 0.08f, 1f);
+    let _e369: vec4<f32> = orm_1;
+    let _e373: vec4<f32> = orm_1;
+    metallic_2 = clamp(_e373.z, 0f, 1f);
+    let _e379: mat4x4<f32> = global.view_mtx;
+    let _e380: vec3<f32> = surface_position_1;
+    eye = -((_e379 * vec4<f32>(_e380.x, _e380.y, _e380.z, 1f)).xyz);
+    let _e390: vec3<f32> = eye;
+    let _e393: vec3<f32> = eye;
+    let _e394: vec3<f32> = eye;
+    let _e399: vec3<f32> = eye;
+    let _e400: vec3<f32> = eye;
+    let _e406: vec3<f32> = eye;
+    let _e407: vec3<f32> = eye;
+    let _e412: vec3<f32> = eye;
+    let _e413: vec3<f32> = eye;
+    eye = (_e390 * inverseSqrt(max(dot(_e412, _e413), 0.000001f)));
+    let _e419: mat4x4<f32> = global.view_mtx;
+    let _e429: mat4x4<f32> = global.view_mtx;
+    let _e440: vec3<f32> = eye;
+    v_2 = (transpose(mat3x3<f32>(_e429[0].xyz, _e429[1].xyz, _e429[2].xyz)) * _e440);
+    let _e443: vec3<f32> = base_1;
+    let _e444: vec3<f32> = global.diffuse;
+    let _e448: vec3<f32> = base_1;
+    let _e449: vec3<f32> = global.diffuse;
+    let _e456: vec3<f32> = base_1;
+    let _e457: vec3<f32> = global.diffuse;
+    let _e461: vec3<f32> = base_1;
+    let _e462: vec3<f32> = global.diffuse;
+    let _e469: vec3<f32> = physical_to_linear(clamp((_e461 * _e462), vec3(0f), vec3(1f)));
+    albedo_2 = _e469;
+    let _e471: vec3<f32> = global.ambient;
+    let _e472: vec3<f32> = global.light1col;
+    let _e473: vec3<f32> = global.light2col;
+    let _e478: vec3<f32> = global.ambient;
+    let _e479: vec3<f32> = global.light1col;
+    let _e480: vec3<f32> = global.light2col;
+    ambientRadiance = max((_e478 * (_e479 + _e480)), vec3(0f));
+    let _e493: vec3<f32> = albedo_2;
+    let _e494: f32 = metallic_2;
+    f0_1 = mix(vec3(0.04f), _e493, vec3(_e494));
+    let _e499: f32 = metallic_2;
+    let _e501: vec3<f32> = albedo_2;
+    let _e503: vec3<f32> = f0_1;
+    let _e507: vec3<f32> = ambientRadiance;
+    let _e509: f32 = ao;
+    result = (((((1f - _e499) * _e501) + (_e503 * 0.35f)) * _e507) * _e509);
+    let _e512: vec3<f32> = global.light1vec;
+    let _e516: vec3<f32> = global.light1vec;
+    let _e517: vec3<f32> = global.light1vec;
+    let _e522: vec3<f32> = global.light1vec;
+    let _e523: vec3<f32> = global.light1vec;
+    let _e529: vec3<f32> = global.light1vec;
+    let _e530: vec3<f32> = global.light1vec;
+    let _e535: vec3<f32> = global.light1vec;
+    let _e536: vec3<f32> = global.light1vec;
+    l1_ = (-(_e512) * inverseSqrt(max(dot(_e535, _e536), 0.000001f)));
+    let _e543: vec3<f32> = global.light2vec;
+    let _e547: vec3<f32> = global.light2vec;
+    let _e548: vec3<f32> = global.light2vec;
+    let _e553: vec3<f32> = global.light2vec;
+    let _e554: vec3<f32> = global.light2vec;
+    let _e560: vec3<f32> = global.light2vec;
+    let _e561: vec3<f32> = global.light2vec;
+    let _e566: vec3<f32> = global.light2vec;
+    let _e567: vec3<f32> = global.light2vec;
+    l2_ = (-(_e543) * inverseSqrt(max(dot(_e566, _e567), 0.000001f)));
+    let _e574: vec3<f32> = result;
+    let _e582: vec3<f32> = global.light1col;
+    let _e590: vec3<f32> = albedo_2;
+    let _e591: vec3<f32> = n_6;
+    let _e592: vec3<f32> = v_2;
+    let _e593: vec3<f32> = l1_;
+    let _e597: vec3<f32> = global.light1col;
+    let _e603: f32 = metallic_2;
+    let _e604: f32 = roughness_2;
+    let _e605: vec3<f32> = physical_direct(_e590, _e591, _e592, _e593, (max(_e597, vec3(0f)) * 3.1415927f), _e603, _e604);
+    result = (_e574 + _e605);
+    let _e607: vec3<f32> = result;
+    let _e615: vec3<f32> = global.light2col;
+    let _e623: vec3<f32> = albedo_2;
+    let _e624: vec3<f32> = n_6;
+    let _e625: vec3<f32> = v_2;
+    let _e626: vec3<f32> = l2_;
+    let _e630: vec3<f32> = global.light2col;
+    let _e636: f32 = metallic_2;
+    let _e637: f32 = roughness_2;
+    let _e638: vec3<f32> = physical_direct(_e623, _e624, _e625, _e626, (max(_e630, vec3(0f)) * 3.1415927f), _e636, _e637);
+    result = (_e607 + _e638);
+    let _e640: vec3<f32> = result;
+    let _e644: vec3<f32> = global.emission;
+    let _e651: vec3<f32> = global.emission;
+    let _e655: vec3<f32> = physical_to_linear(max(_e651, vec3(0f)));
+    result = (_e640 + _e655);
+    let _e658: vec3<f32> = result;
+    let _e659: vec3<f32> = physical_to_srgb(_e658);
+    return _e659;
+}
+
 fn apply_material_lighting(col_1: ptr<function, vec4<f32>>) {
-    var n_3: vec3<f32>;
+    var physicalActive: bool = false;
+    var n_7: vec3<f32>;
     var d1_: f32;
     var d2_: f32;
-    var l1_: f32;
-    var l2_: f32;
+    var l1_1: f32;
+    var l2_1: f32;
     var local_1: vec4<f32>;
     var sm: vec4<f32>;
-    var roughness: f32;
+    var roughness_3: f32;
     var viewDir: vec3<f32> = vec3<f32>(0f, 0f, 1f);
     var h1_: vec3<f32>;
     var h2_: vec3<f32>;
     var exponent: f32;
     var highlight: f32;
+    var e: vec3<f32>;
 
     let _e344: i32 = global._prime_advanced_materials;
     if !((_e344 != 0i)) {
         return;
     }
-    let _e348: i32 = global._prime_use_light;
-    if (_e348 != 0i) {
+    let _e350: i32 = global._prime_use_light;
+    if (_e350 != 0i) {
         {
-            let _e351: vec3<f32> = mapped_normal();
-            n_3 = _e351;
-            let _e356: vec3<f32> = global.light1vec;
-            let _e357: vec3<f32> = n_3;
-            let _e363: vec3<f32> = global.light1vec;
-            let _e364: vec3<f32> = n_3;
-            d1_ = max(0f, -(dot(_e363, _e364)));
-            let _e372: vec3<f32> = global.light2vec;
-            let _e373: vec3<f32> = n_3;
-            let _e379: vec3<f32> = global.light2vec;
-            let _e380: vec3<f32> = n_3;
-            d2_ = max(0f, -(dot(_e379, _e380)));
-            let _e390: vec3<f32> = global.light1col;
-            l1_ = dot(_e390, vec3<f32>(0.2126f, 0.7152f, 0.0722f));
-            let _e402: vec3<f32> = global.light2col;
-            l2_ = dot(_e402, vec3<f32>(0.2126f, 0.7152f, 0.0722f));
-            let _e409: vec4<f32> = (*col_1);
-            let _e411: vec4<f32> = (*col_1);
-            let _e415: f32 = d1_;
-            let _e416: f32 = l1_;
-            let _e418: f32 = d2_;
-            let _e419: f32 = l2_;
-            let _e426: f32 = d1_;
-            let _e427: f32 = l1_;
-            let _e429: f32 = d2_;
-            let _e430: f32 = l2_;
-            let _e440: f32 = d1_;
-            let _e441: f32 = l1_;
-            let _e443: f32 = d2_;
-            let _e444: f32 = l2_;
-            let _e451: f32 = d1_;
-            let _e452: f32 = l1_;
-            let _e454: f32 = d2_;
-            let _e455: f32 = l2_;
-            let _e464: vec3<f32> = (_e411.xyz * mix(0.92f, 1.1f, clamp((((_e451 * _e452) + (_e454 * _e455)) * 0.65f), 0f, 1f)));
-            (*col_1).x = _e464.x;
-            (*col_1).y = _e464.y;
-            (*col_1).z = _e464.z;
-            let _e471: i32 = global._prime_use_specular_map;
-            if (_e471 != 0i) {
-                let _e475: vec2<f32> = texcoord_1;
-                let _e476: vec4<f32> = prime_sample_specular_tex(_e475);
-                local_1 = _e476;
+            let _e353: vec3<f32> = mapped_normal();
+            n_7 = _e353;
+            let _e358: vec3<f32> = global.light1vec;
+            let _e359: vec3<f32> = n_7;
+            let _e365: vec3<f32> = global.light1vec;
+            let _e366: vec3<f32> = n_7;
+            d1_ = max(0f, -(dot(_e365, _e366)));
+            let _e374: vec3<f32> = global.light2vec;
+            let _e375: vec3<f32> = n_7;
+            let _e381: vec3<f32> = global.light2vec;
+            let _e382: vec3<f32> = n_7;
+            d2_ = max(0f, -(dot(_e381, _e382)));
+            let _e392: vec3<f32> = global.light1col;
+            l1_1 = dot(_e392, vec3<f32>(0.2126f, 0.7152f, 0.0722f));
+            let _e404: vec3<f32> = global.light2col;
+            l2_1 = dot(_e404, vec3<f32>(0.2126f, 0.7152f, 0.0722f));
+            let _e411: i32 = global._prime_use_specular_map;
+            if (_e411 != 0i) {
+                let _e415: vec2<f32> = texcoord_1;
+                let _e416: vec4<f32> = prime_sample_specular_tex(_e415);
+                local_1 = _e416;
             } else {
-                let _e477: vec3<f32> = global.specular;
-                let _e479: vec3<f32> = global.specular;
-                let _e481: vec3<f32> = global.specular;
-                let _e483: vec3<f32> = global.specular;
-                let _e486: vec3<f32> = global.specular;
-                let _e488: vec3<f32> = global.specular;
-                let _e490: vec3<f32> = global.specular;
-                let _e492: vec3<f32> = global.specular;
-                let _e494: vec3<f32> = global.specular;
-                let _e497: vec3<f32> = global.specular;
-                local_1 = vec4<f32>(max(max(_e492.x, _e494.y), _e497.z), 0.55f, 0f, 1f);
+                let _e417: vec3<f32> = global.specular;
+                let _e419: vec3<f32> = global.specular;
+                let _e421: vec3<f32> = global.specular;
+                let _e423: vec3<f32> = global.specular;
+                let _e426: vec3<f32> = global.specular;
+                let _e428: vec3<f32> = global.specular;
+                let _e430: vec3<f32> = global.specular;
+                let _e432: vec3<f32> = global.specular;
+                let _e434: vec3<f32> = global.specular;
+                let _e437: vec3<f32> = global.specular;
+                local_1 = vec4<f32>(max(max(_e432.x, _e434.y), _e437.z), 0.55f, 0f, 1f);
             }
-            let _e505: vec4<f32> = local_1;
-            sm = _e505;
-            let _e507: vec4<f32> = sm;
-            let _e511: vec4<f32> = sm;
-            roughness = clamp(_e511.y, 0.04f, 1f);
-            let _e522: vec3<f32> = global.light1vec;
-            let _e524: vec3<f32> = viewDir;
-            let _e526: vec3<f32> = global.light1vec;
-            let _e528: vec3<f32> = viewDir;
-            h1_ = normalize((-(_e526) + _e528));
-            let _e532: vec3<f32> = global.light2vec;
-            let _e534: vec3<f32> = viewDir;
-            let _e536: vec3<f32> = global.light2vec;
-            let _e538: vec3<f32> = viewDir;
-            h2_ = normalize((-(_e536) + _e538));
-            let _e547: f32 = roughness;
-            exponent = mix(72f, 4f, _e547);
-            let _e552: vec3<f32> = n_3;
-            let _e553: vec3<f32> = h1_;
-            let _e558: vec3<f32> = n_3;
-            let _e559: vec3<f32> = h1_;
-            let _e566: vec3<f32> = n_3;
-            let _e567: vec3<f32> = h1_;
-            let _e572: vec3<f32> = n_3;
-            let _e573: vec3<f32> = h1_;
-            let _e577: f32 = exponent;
-            let _e579: f32 = l1_;
-            let _e583: vec3<f32> = n_3;
-            let _e584: vec3<f32> = h2_;
-            let _e589: vec3<f32> = n_3;
-            let _e590: vec3<f32> = h2_;
-            let _e597: vec3<f32> = n_3;
-            let _e598: vec3<f32> = h2_;
-            let _e603: vec3<f32> = n_3;
-            let _e604: vec3<f32> = h2_;
-            let _e608: f32 = exponent;
-            let _e610: f32 = l2_;
-            highlight = ((pow(max(dot(_e572, _e573), 0f), _e577) * _e579) + (pow(max(dot(_e603, _e604), 0f), _e608) * _e610));
-            let _e614: vec4<f32> = (*col_1);
-            let _e616: vec4<f32> = (*col_1);
-            let _e618: f32 = highlight;
-            let _e619: vec4<f32> = sm;
-            let _e623: vec4<f32> = sm;
-            let _e632: vec3<f32> = (_e616.xyz + vec3(((_e618 * clamp(_e623.x, 0f, 1f)) * 0.16f)));
-            (*col_1).x = _e632.x;
-            (*col_1).y = _e632.y;
-            (*col_1).z = _e632.z;
+            let _e445: vec4<f32> = local_1;
+            sm = _e445;
+            let _e447: i32 = global._prime_use_specular_map;
+            let _e450: vec4<f32> = sm;
+            if ((_e447 != 0i) && (_e450.w < 0.5f)) {
+                {
+                    let _e455: i32 = global._prime_use_texture;
+                    let _e458: i32 = global.mat_mode;
+                    let _e462: i32 = global._prime_use_override;
+                    let _e467: i32 = global._prime_use_pal_override;
+                    let _e472: i32 = global._prime_use_flat;
+                    if (((((_e455 != 0i) && (_e458 == 0i)) && !((_e462 != 0i))) && !((_e467 != 0i))) && !((_e472 != 0i))) {
+                        {
+                            physicalActive = true;
+                            let _e478: vec4<f32> = (*col_1);
+                            let _e481: vec2<f32> = texcoord_1;
+                            let _e482: vec4<f32> = prime_sample_tex(_e481);
+                            let _e487: vec2<f32> = texcoord_1;
+                            let _e488: vec4<f32> = prime_sample_tex(_e487);
+                            let _e490: vec3<f32> = n_7;
+                            let _e491: vec4<f32> = sm;
+                            let _e492: vec3<f32> = physical_material(_e488.xyz, _e490, _e491);
+                            (*col_1).x = _e492.x;
+                            (*col_1).y = _e492.y;
+                            (*col_1).z = _e492.z;
+                        }
+                    }
+                }
+            } else {
+                {
+                    let _e499: vec4<f32> = (*col_1);
+                    let _e501: vec4<f32> = (*col_1);
+                    let _e505: f32 = d1_;
+                    let _e506: f32 = l1_1;
+                    let _e508: f32 = d2_;
+                    let _e509: f32 = l2_1;
+                    let _e516: f32 = d1_;
+                    let _e517: f32 = l1_1;
+                    let _e519: f32 = d2_;
+                    let _e520: f32 = l2_1;
+                    let _e530: f32 = d1_;
+                    let _e531: f32 = l1_1;
+                    let _e533: f32 = d2_;
+                    let _e534: f32 = l2_1;
+                    let _e541: f32 = d1_;
+                    let _e542: f32 = l1_1;
+                    let _e544: f32 = d2_;
+                    let _e545: f32 = l2_1;
+                    let _e554: vec3<f32> = (_e501.xyz * mix(0.92f, 1.1f, clamp((((_e541 * _e542) + (_e544 * _e545)) * 0.65f), 0f, 1f)));
+                    (*col_1).x = _e554.x;
+                    (*col_1).y = _e554.y;
+                    (*col_1).z = _e554.z;
+                    let _e561: vec4<f32> = sm;
+                    let _e565: vec4<f32> = sm;
+                    roughness_3 = clamp(_e565.y, 0.04f, 1f);
+                    let _e576: vec3<f32> = global.light1vec;
+                    let _e578: vec3<f32> = viewDir;
+                    let _e580: vec3<f32> = global.light1vec;
+                    let _e582: vec3<f32> = viewDir;
+                    h1_ = normalize((-(_e580) + _e582));
+                    let _e586: vec3<f32> = global.light2vec;
+                    let _e588: vec3<f32> = viewDir;
+                    let _e590: vec3<f32> = global.light2vec;
+                    let _e592: vec3<f32> = viewDir;
+                    h2_ = normalize((-(_e590) + _e592));
+                    let _e601: f32 = roughness_3;
+                    exponent = mix(72f, 4f, _e601);
+                    let _e606: vec3<f32> = n_7;
+                    let _e607: vec3<f32> = h1_;
+                    let _e612: vec3<f32> = n_7;
+                    let _e613: vec3<f32> = h1_;
+                    let _e620: vec3<f32> = n_7;
+                    let _e621: vec3<f32> = h1_;
+                    let _e626: vec3<f32> = n_7;
+                    let _e627: vec3<f32> = h1_;
+                    let _e631: f32 = exponent;
+                    let _e633: f32 = l1_1;
+                    let _e637: vec3<f32> = n_7;
+                    let _e638: vec3<f32> = h2_;
+                    let _e643: vec3<f32> = n_7;
+                    let _e644: vec3<f32> = h2_;
+                    let _e651: vec3<f32> = n_7;
+                    let _e652: vec3<f32> = h2_;
+                    let _e657: vec3<f32> = n_7;
+                    let _e658: vec3<f32> = h2_;
+                    let _e662: f32 = exponent;
+                    let _e664: f32 = l2_1;
+                    highlight = ((pow(max(dot(_e626, _e627), 0f), _e631) * _e633) + (pow(max(dot(_e657, _e658), 0f), _e662) * _e664));
+                    let _e668: vec4<f32> = (*col_1);
+                    let _e670: vec4<f32> = (*col_1);
+                    let _e672: f32 = highlight;
+                    let _e673: vec4<f32> = sm;
+                    let _e677: vec4<f32> = sm;
+                    let _e686: vec3<f32> = (_e670.xyz + vec3(((_e672 * clamp(_e677.x, 0f, 1f)) * 0.16f)));
+                    (*col_1).x = _e686.x;
+                    (*col_1).y = _e686.y;
+                    (*col_1).z = _e686.z;
+                }
+            }
         }
     }
-    let _e639: i32 = global._prime_use_emissive_map;
-    if (_e639 != 0i) {
-        let _e642: vec4<f32> = (*col_1);
-        let _e644: vec4<f32> = (*col_1);
-        let _e647: vec2<f32> = texcoord_1;
-        let _e648: vec4<f32> = prime_sample_emissive_tex(_e647);
-        let _e652: f32 = global.emissive_intensity;
-        let _e654: vec3<f32> = (_e644.xyz + ((_e648.xyz * 0.75f) * _e652));
-        (*col_1).x = _e654.x;
-        (*col_1).y = _e654.y;
-        (*col_1).z = _e654.z;
-        return;
+    let _e693: i32 = global._prime_use_emissive_map;
+    if (_e693 != 0i) {
+        {
+            let _e697: vec2<f32> = texcoord_1;
+            let _e698: vec4<f32> = prime_sample_emissive_tex(_e697);
+            e = _e698.xyz;
+            let _e701: bool = physicalActive;
+            if _e701 {
+                let _e702: vec4<f32> = (*col_1);
+                let _e704: vec4<f32> = (*col_1);
+                let _e706: vec4<f32> = (*col_1);
+                let _e708: vec3<f32> = physical_to_linear(_e706.xyz);
+                let _e710: vec3<f32> = e;
+                let _e711: vec3<f32> = physical_to_linear(_e710);
+                let _e714: f32 = global.emissive_intensity;
+                let _e717: vec4<f32> = (*col_1);
+                let _e719: vec4<f32> = (*col_1);
+                let _e721: vec3<f32> = physical_to_linear(_e719.xyz);
+                let _e723: vec3<f32> = e;
+                let _e724: vec3<f32> = physical_to_linear(_e723);
+                let _e727: f32 = global.emissive_intensity;
+                let _e730: vec3<f32> = physical_to_srgb((_e721 + ((_e724 * 0.75f) * _e727)));
+                (*col_1).x = _e730.x;
+                (*col_1).y = _e730.y;
+                (*col_1).z = _e730.z;
+                return;
+            } else {
+                let _e737: vec4<f32> = (*col_1);
+                let _e739: vec4<f32> = (*col_1);
+                let _e741: vec3<f32> = e;
+                let _e744: f32 = global.emissive_intensity;
+                let _e746: vec3<f32> = (_e739.xyz + ((_e741 * 0.75f) * _e744));
+                (*col_1).x = _e746.x;
+                (*col_1).y = _e746.y;
+                (*col_1).z = _e746.z;
+                return;
+            }
+        }
     } else {
         return;
     }
@@ -1197,8 +1548,8 @@ fn toon_color(vtx_color: vec4<f32>) -> vec4<f32> {
     return vec4<f32>(_e360.x, _e360.y, _e360.z, _e361.w);
 }
 
-fn cel_shade(c: vec3<f32>) -> vec3<f32> {
-    var c_1: vec3<f32>;
+fn cel_shade(c_4: vec3<f32>) -> vec3<f32> {
+    var c_5: vec3<f32>;
     var steps: f32;
     var lum_1: f32;
     var scaled: f32;
@@ -1207,24 +1558,24 @@ fn cel_shade(c: vec3<f32>) -> vec3<f32> {
     var banded: vec3<f32>;
     var grey: f32;
 
-    c_1 = c;
+    c_5 = c_4;
     let _e345: i32 = global.cel_bands;
     steps = f32(_e345);
-    let _e348: vec3<f32> = c_1;
-    let _e350: vec3<f32> = c_1;
-    let _e352: vec3<f32> = c_1;
-    let _e354: vec3<f32> = c_1;
-    let _e357: vec3<f32> = c_1;
-    let _e359: vec3<f32> = c_1;
-    let _e361: vec3<f32> = c_1;
-    let _e363: vec3<f32> = c_1;
-    let _e365: vec3<f32> = c_1;
-    let _e368: vec3<f32> = c_1;
+    let _e348: vec3<f32> = c_5;
+    let _e350: vec3<f32> = c_5;
+    let _e352: vec3<f32> = c_5;
+    let _e354: vec3<f32> = c_5;
+    let _e357: vec3<f32> = c_5;
+    let _e359: vec3<f32> = c_5;
+    let _e361: vec3<f32> = c_5;
+    let _e363: vec3<f32> = c_5;
+    let _e365: vec3<f32> = c_5;
+    let _e368: vec3<f32> = c_5;
     lum_1 = max(max(_e363.x, _e365.y), _e368.z);
     let _e372: f32 = lum_1;
     if (_e372 <= 0f) {
         {
-            let _e375: vec3<f32> = c_1;
+            let _e375: vec3<f32> = c_5;
             return _e375;
         }
     }
@@ -1240,7 +1591,7 @@ fn cel_shade(c: vec3<f32>) -> vec3<f32> {
     let _e397: f32 = lower;
     let _e401: f32 = steps;
     level = (((_e386 + 0.5f) + smoothstep(0.46f, 0.54f, (_e396 - _e397))) / _e401);
-    let _e404: vec3<f32> = c_1;
+    let _e404: vec3<f32> = c_5;
     let _e405: f32 = level;
     let _e406: f32 = lum_1;
     banded = (_e404 * (_e405 / _e406));
@@ -1496,33 +1847,33 @@ fn prime_original_main() {
 }
 
 fn main_1() {
-    var a: f32;
+    var a_1: f32;
     var r: f32;
     var keep: bool;
 
     prime_original_main();
     let _e344: vec4<f32> = prime_output;
-    a = _e344.w;
+    a_1 = _e344.w;
     let _e347: f32 = global.prime_alpha_ref;
     r = _e347;
     let _e349: i32 = global.prime_alpha_func;
     let _e352: i32 = global.prime_alpha_func;
-    let _e355: f32 = a;
+    let _e355: f32 = a_1;
     let _e356: f32 = r;
     let _e360: i32 = global.prime_alpha_func;
-    let _e363: f32 = a;
+    let _e363: f32 = a_1;
     let _e364: f32 = r;
     let _e368: i32 = global.prime_alpha_func;
-    let _e371: f32 = a;
+    let _e371: f32 = a_1;
     let _e372: f32 = r;
     let _e376: i32 = global.prime_alpha_func;
-    let _e379: f32 = a;
+    let _e379: f32 = a_1;
     let _e380: f32 = r;
     let _e384: i32 = global.prime_alpha_func;
-    let _e387: f32 = a;
+    let _e387: f32 = a_1;
     let _e388: f32 = r;
     let _e392: i32 = global.prime_alpha_func;
-    let _e395: f32 = a;
+    let _e395: f32 = a_1;
     let _e396: f32 = r;
     keep = (((((((_e349 == 519i) || ((_e352 == 513i) && (_e355 < _e356))) || ((_e360 == 514i) && (_e363 == _e364))) || ((_e368 == 515i) && (_e371 <= _e372))) || ((_e376 == 516i) && (_e379 > _e380))) || ((_e384 == 517i) && (_e387 != _e388))) || ((_e392 == 518i) && (_e395 >= _e396)));
     let _e401: bool = keep;

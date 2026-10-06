@@ -1,5 +1,7 @@
 using System;
+using System.Reflection;
 using MphRead.Entities;
+using MphRead.Mods.Input;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Render
@@ -116,6 +118,8 @@ namespace MphRead.Mods.Render
             }
             failures += RunStallCase() ? 0 : 1;
             failures += RunPresentationAlphaCase() ? 0 : 1;
+            failures += RunHostCadenceCase() ? 0 : 1;
+            failures += RunLiveReticleCadenceCase() ? 0 : 1;
             failures += RunDynamicCrosshairCameraPolicyCase() ? 0 : 1;
             failures += RunFirstPersonPresentationCase() ? 0 : 1;
             failures += HitReactionPresentationCheck.Run() ? 0 : 1;
@@ -224,6 +228,9 @@ namespace MphRead.Mods.Render
                 FrameTiming.FrameRateCap = 144;
                 FrameTiming.Reset();
                 FrameTiming.ResetDiagnostics();
+                // After reset, existing completed poses stay current until
+                // a new step supplies an interpolation interval.
+                FrameTiming.Advance(FrameTiming.StepSeconds);
                 FrameTiming.Advance(FrameTiming.StepSeconds * 0.4);
                 bool highRefreshFraction = Math.Abs(FrameTiming.PresentationAlpha - 0.4) < 0.000001;
 
@@ -236,6 +243,241 @@ namespace MphRead.Mods.Render
             finally
             {
                 FrameTiming.FrameRateCap = priorCap;
+                FrameTiming.Reset();
+                FrameTiming.ResetDiagnostics();
+            }
+        }
+
+        /// <summary>
+        /// Exercise the actual retained camera sampler with host clocks and
+        /// achieved frame rates changing independently. Configuration/reset
+        /// must not redisplay an older pose, and diagnostics cannot select it.
+        /// </summary>
+        private static bool RunHostCadenceCase()
+        {
+            int priorCap = FrameTiming.FrameRateCap;
+            double priorCadence = FrameTiming.PresentationCadenceHz;
+            try
+            {
+                FrameTiming.FrameRateCap = FrameTiming.DisplayRate;
+                FrameTiming.SetPresentationCadence(120, presentationPaced: true);
+                FrameTiming.Reset();
+                FrameTiming.ResetDiagnostics();
+                var camera = new CameraInfo
+                {
+                    Position = Vector3.Zero,
+                    Target = -Vector3.UnitZ,
+                    UpVector = Vector3.UnitY,
+                    Fov = 78
+                };
+                camera.ModResetDrawState();
+                camera.Position = Vector3.UnitX;
+                camera.Target = camera.Position - Vector3.UnitZ;
+                camera.ModCaptureDrawState();
+                float last = 1;
+                bool monotonic = true, bounded = true, immutable = true;
+                void Picture(double seconds, bool moving = true)
+                {
+                    int steps = FrameTiming.Advance(seconds);
+                    for (int i = 0; i < steps; i++)
+                    {
+                        if (moving) camera.Position += new Vector3(.1f, 0, 0);
+                        camera.Target = camera.Position - Vector3.UnitZ;
+                        camera.ModCaptureDrawState();
+                    }
+                    Vector3 before = camera.Position;
+                    Vector3 drawn = camera.ModGetDrawPosition(FrameTiming.PresentationAlpha);
+                    monotonic &= drawn.X >= last - .00001f;
+                    bounded &= drawn.X <= before.X + .00001f
+                        && FrameTiming.PresentationAlpha is >= 0 and <= 1;
+                    immutable &= camera.Position == before;
+                    last = drawn.X;
+                }
+                Picture(1 / 240d);
+                bool startup = FrameTiming.HighRefreshPresentation
+                    && FrameTiming.PresentationAlpha == 1 && last == 1;
+
+                // The old >75 Hz/two-second rule switched pose timelines in
+                // these exact windows. Both are pictures on the same 120 Hz host.
+                bool stable = true, fractional = false;
+                foreach (double achieved in new[] { 76d, 74d, 76d, 74d })
+                {
+                    for (int i = 0; i < (int)(achieved * 3); i++)
+                    {
+                        Picture(1 / achieved);
+                        stable &= FrameTiming.HighRefreshPresentation;
+                        fractional |= FrameTiming.PresentationAlpha < .99;
+                    }
+                }
+                double beforeDiagnosticsReset = FrameTiming.PresentationAlpha;
+                FrameTiming.ResetDiagnostics();
+                bool diagnosticsIndependent = FrameTiming.HighRefreshPresentation
+                    && FrameTiming.PresentationAlpha == beforeDiagnosticsReset;
+                FrameTiming.SetPresentationCadence(double.NaN, presentationPaced: true);
+                FrameTiming.SetPresentationCadence(0, presentationPaced: true);
+                bool unknownProbe = FrameTiming.PresentationCadenceHz == 120;
+
+                // A genuine display change may move to current state. Enabling
+                // the delayed timeline again must not move the camera backward.
+                FrameTiming.SetPresentationCadence(60, presentationPaced: true);
+                Picture(0);
+                bool sixty = !FrameTiming.HighRefreshPresentation
+                    && FrameTiming.PresentationAlpha == 1 && last == camera.Position.X;
+                FrameTiming.SetPresentationCadence(120, presentationPaced: true);
+                Picture(0);
+                bool transition = FrameTiming.HighRefreshPresentation
+                    && FrameTiming.PresentationAlpha == 1;
+                for (int i = 0; i < 12; i++) Picture(1 / 240d);
+                transition &= FrameTiming.PresentationAlpha < 1;
+
+                // Loading/lifecycle reset must not re-use the pre-reset previous
+                // history on draw-only frames. Resume smooths only new motion.
+                FrameTiming.Reset();
+                last = camera.Position.X;
+                Picture(1 / 240d);
+                bool resetCurrent = FrameTiming.PresentationAlpha == 1
+                    && last == camera.Position.X && FrameTiming.HighRefreshPresentation;
+                for (int i = 0; i < 12; i++) Picture(1 / 240d);
+                Picture(2); // bounded stall recovery: exactly one completed step
+                bool stall = FrameTiming.StepsThisFrame == 1;
+                Picture(1 / 240d);
+                FrameTiming.Reset();
+                last = camera.Position.X;
+                for (int i = 0; i < 12; i++) Picture(1 / 120d, moving: false);
+                bool paused = last == camera.Position.X && FrameTiming.HighRefreshPresentation;
+                FrameTiming.Reset();
+                Picture(1 / 240d);
+                bool resumed = last == camera.Position.X && FrameTiming.PresentationAlpha == 1;
+
+                // A numeric 60 software clock remains current on a fast panel.
+                // Desktop's FIFO-only fallback relinquishes its numeric clock
+                // and really draws at 120. Hosts retaining a numeric deadline
+                // instead declare the slower effective submission clock.
+                FrameTiming.FrameRateCap = 60;
+                FrameTiming.SetPresentationCadence(120, presentationPaced: false);
+                Picture(0);
+                bool software = FrameTiming.PresentationCadenceHz == 60
+                    && !FrameTiming.HighRefreshPresentation;
+                FrameTiming.ResetDiagnostics();
+                for (int i = 0; i < 228; i++)
+                {
+                    Picture(1 / 76d);
+                    software &= !FrameTiming.HighRefreshPresentation;
+                }
+                software &= FrameTiming.MeasuredFrameHz > 75 && FrameTiming.PresentationAlpha == 1;
+                FrameTiming.SetPresentationCadence(75, presentationPaced: true);
+                Picture(0);
+                bool native75 = FrameTiming.HighRefreshPresentation;
+                FrameTiming.SetPresentationCadence(120, presentationPaced: true);
+                Picture(0);
+                bool fifo = FrameTiming.PresentationCadenceHz == 120
+                    && FrameTiming.HighRefreshPresentation && FrameTiming.PresentationAlpha == 1;
+                FrameTiming.SetPresentationCadence(120, presentationPaced: true, numericBudget: true);
+                Picture(0);
+                bool fifoBudget = FrameTiming.PresentationCadenceHz == 60
+                    && !FrameTiming.HighRefreshPresentation && FrameTiming.PresentationAlpha == 1;
+                FrameTiming.SetPresentationCadence(double.NaN, presentationPaced: true, numericBudget: true);
+                fifoBudget &= FrameTiming.PresentationCadenceHz == 60;
+                FrameTiming.FrameRateCap = 120;
+                FrameTiming.SetPresentationCadence(0, presentationPaced: true, numericBudget: true);
+                Picture(0);
+                bool cachedDisplay = FrameTiming.PresentationCadenceHz == 120
+                    && FrameTiming.HighRefreshPresentation && FrameTiming.PresentationAlpha == 1;
+                FrameTiming.FrameRateCap = 144;
+                FrameTiming.SetPresentationCadence(0, presentationPaced: true, numericBudget: true);
+                cachedDisplay &= FrameTiming.PresentationCadenceHz == 120;
+                FrameTiming.FrameRateCap = FrameTiming.DisplayRate;
+                FrameTiming.SetPresentationCadence(0, presentationPaced: true, numericBudget: true);
+                cachedDisplay &= FrameTiming.PresentationCadenceHz == 120;
+                FrameTiming.FrameRateCap = 120;
+                FrameTiming.SetPresentationCadence(60, presentationPaced: true, numericBudget: true);
+                Picture(0);
+                fifoBudget &= FrameTiming.PresentationCadenceHz == 60
+                    && !FrameTiming.HighRefreshPresentation && FrameTiming.PresentationAlpha == 1;
+                bool ok = startup && stable && fractional && diagnosticsIndependent
+                    && unknownProbe && sixty && transition && resetCurrent && stall
+                    && paused && resumed && software && native75 && fifo && fifoBudget && cachedDisplay
+                    && monotonic && bounded && immutable;
+                Console.WriteLine($"FRAMETIMING {(ok ? "ok  " : "FAIL")} host cadence and retained pose continuity"
+                    + $" | startup={startup} windows={stable}/{fractional} diagnostics={diagnosticsIndependent}"
+                    + $" | display={sixty}/{transition} reset={resetCurrent} stall={stall} pause={paused}/{resumed}"
+                    + $" | software/native75/FIFO={software}/{native75}/{fifo} budget/cache={fifoBudget}/{cachedDisplay}"
+                    + $" monotonic={monotonic} bounded={bounded} immutable={immutable}");
+                return ok;
+            }
+            finally
+            {
+                FrameTiming.FrameRateCap = priorCap;
+                FrameTiming.SetPresentationCadence(priorCadence, presentationPaced: priorCadence > 0);
+                FrameTiming.Reset();
+                FrameTiming.ResetDiagnostics();
+            }
+        }
+
+        /// <summary>
+        /// The real live reticle sampler must use the same continuity phase as
+        /// the retained camera, including draw-only pictures after a reset.
+        /// No HUD setup, native context or game assets are needed to sample it.
+        /// </summary>
+        private static bool RunLiveReticleCadenceCase()
+        {
+            int priorCap = FrameTiming.FrameRateCap;
+            double priorCadence = FrameTiming.PresentationCadenceHz;
+            bool priorPro = Features.ProHud, priorWeapon = Features.ProHudFixedWeapon;
+            var priorGame = GameState.Current;
+            var priorPlayers = PlayerEntity.LegacyRegistry;
+            var priorRandom = Rng.Current;
+            try
+            {
+                Features.ProHud = true;
+                Features.ProHudFixedWeapon = false;
+                var scene = new Scene(new Vector2i(256, 192), SyntheticInput.CreateKeyboard(),
+                    SyntheticInput.CreateMouse(), _ => { }, () => { }, initializeRuntime: false);
+                var player = scene.Players.Main;
+                void Set(string name, object value) => typeof(PlayerEntity)
+                    .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(player, value);
+                Set("_reticlePresentationValid", true);
+                Set("_reticleHistoryFixedWeapon", false);
+                Set("_reticleOlderPosition", new Vector2(.4f, .5f));
+                Set("_reticlePreviousPosition", new Vector2(.4f, .5f));
+                Set("_reticleCurrentPosition", new Vector2(.6f, .5f));
+                MethodInfo sample = typeof(PlayerEntity).GetMethod("GetReticlePresentationPosition",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!;
+                var camera = new CameraInfo { Position = new Vector3(.4f, 0, 0), Target = -Vector3.UnitZ };
+                camera.ModResetDrawState();
+                camera.Position = new Vector3(.6f, 0, 0);
+                camera.ModCaptureDrawState();
+                bool SamePhase() => MathF.Abs(((Vector2)sample.Invoke(player, null)!).X
+                    - camera.ModGetDrawPosition(FrameTiming.PresentationAlpha).X) < .00001f;
+                FrameTiming.FrameRateCap = FrameTiming.DisplayRate;
+                FrameTiming.SetPresentationCadence(120, presentationPaced: true);
+                FrameTiming.Reset();
+                FrameTiming.Advance(FrameTiming.StepSeconds * .4);
+                bool startup = FrameTiming.Alpha < 1 && FrameTiming.PresentationAlpha == 1 && SamePhase();
+                FrameTiming.Advance(FrameTiming.StepSeconds);
+                bool fractional = FrameTiming.PresentationAlpha < 1 && SamePhase();
+                FrameTiming.SetPresentationCadence(60, presentationPaced: true);
+                FrameTiming.Advance(0);
+                FrameTiming.SetPresentationCadence(120, presentationPaced: true);
+                FrameTiming.Advance(0);
+                bool transition = FrameTiming.PresentationAlpha == 1 && SamePhase();
+                FrameTiming.Reset();
+                FrameTiming.Advance(FrameTiming.StepSeconds * .4);
+                bool resume = FrameTiming.PresentationAlpha == 1 && SamePhase();
+                bool ok = startup && fractional && transition && resume;
+                Console.WriteLine($"FRAMETIMING {(ok ? "ok  " : "FAIL")} live reticle/camera cadence"
+                    + $" | startup={startup} fractional={fractional} transition={transition} resume={resume}");
+                return ok;
+            }
+            finally
+            {
+                Features.ProHud = priorPro;
+                Features.ProHudFixedWeapon = priorWeapon;
+                GameState.Current = priorGame;
+                PlayerEntity.LegacyRegistry = priorPlayers;
+                Rng.Current = priorRandom;
+                FrameTiming.FrameRateCap = priorCap;
+                FrameTiming.SetPresentationCadence(priorCadence, presentationPaced: priorCadence > 0);
                 FrameTiming.Reset();
                 FrameTiming.ResetDiagnostics();
             }

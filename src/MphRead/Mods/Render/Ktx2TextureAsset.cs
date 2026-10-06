@@ -65,7 +65,7 @@ namespace MphRead.Mods.Render
                     // WebGPU requires base compressed extents to be block-aligned.
                     // Retain the authored NPOT UV/aspect/texels through RGBA rather
                     // than padding/rescaling the image or allocating an invalid texture.
-                    bool unalignedBlocks=PreserveRgbaMips(assetClass) && (width%4 != 0 || height%4 != 0);
+                    bool unalignedBlocks = !CompressedTextureLayout.HasAlignedBaseExtent(width, height);
                     bool basis = Ktx2.NeedsTranscoding(texture);
 
                     if (basis)
@@ -97,6 +97,11 @@ namespace MphRead.Mods.Render
                         return CopyCompressed(texture, key, assetClass, channel,
                             direct, width, height);
                     }
+
+                    if (direct != GpuTextureCompressionFormat.None && unalignedBlocks)
+                        throw new InvalidDataException(
+                            $"KTX2 fixed compressed base extent {width}x{height} is not aligned to 4x4 blocks. "
+                            + "Use Basis Universal KTX2 or RGBA8 so the authored dimensions can be preserved.");
 
                     if (texture->VkFormat is Ktx2.VkFormat.R8G8B8A8Unorm
                         or Ktx2.VkFormat.R8G8B8A8Srgb)

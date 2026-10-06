@@ -104,6 +104,13 @@ python3 tools/compare-perf.py baseline.json current.json
 
 The comparator fails on material regressions: 10% average, 12% p95, 15% p99 and
 simulation p99, 20% p99.9, 25% allocations, or equivalent low-FPS drops.
+Both reports must include the six workload fields and all eight compared metrics;
+metrics must be finite nonnegative JSON numbers. Missing or invalid fields and
+workload mismatches return exit code 2, including with `--no-fail`. Optional GC
+counts may be omitted, but present values must be nonnegative integers. An
+increase from a zero baseline in a lower-is-better metric is a regression.
+Run the content-free comparator checks with
+`python3 -m unittest discover -s tools -p test_compare_perf.py -v`.
 
 For renderer-level measurements, `-renderbenchmark` also works with explicit
 backend selection. On legacy desktop OpenGL it now reports a `legacyUniforms`

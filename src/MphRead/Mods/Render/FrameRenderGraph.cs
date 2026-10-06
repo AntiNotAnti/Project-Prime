@@ -24,13 +24,13 @@ namespace MphRead.Mods.Render
     internal enum FrameRenderPassKind
     {
         Shadow,
-        GpuVisibility,
         WorldSetup,
-        World,
+        StaticOcclusionDepth,
         GpuHiZBuild,
+        GpuVisibility,
+        World,
         Outlines,
         SceneOverlays,
-        DeferredPbr,
         PostProcess,
         Composite
     }
@@ -53,41 +53,40 @@ namespace MphRead.Mods.Render
         {
             new(FrameRenderPassKind.Shadow, "frame.shadow",
                 FrameRenderResource.None, FrameRenderResource.ShadowDepth),
-            new(FrameRenderPassKind.GpuVisibility, "frame.gpu-visibility",
-                FrameRenderResource.HiZ,
-                FrameRenderResource.Visibility),
             new(FrameRenderPassKind.WorldSetup, "frame.world-setup",
                 FrameRenderResource.None,
                 FrameRenderResource.SceneColor
                     | FrameRenderResource.SceneDepth
                     | FrameRenderResource.SceneStencil),
-            new(FrameRenderPassKind.World, "frame.world",
-                FrameRenderResource.SceneDepth | FrameRenderResource.SceneStencil
-                    | FrameRenderResource.Visibility,
-                FrameRenderResource.SceneColor
-                    | FrameRenderResource.SceneDepth
-                    | FrameRenderResource.SceneStencil),
+            new(FrameRenderPassKind.StaticOcclusionDepth, "frame.static-occlusion-depth",
+                FrameRenderResource.None,
+                FrameRenderResource.SceneDepth | FrameRenderResource.SceneStencil),
             new(FrameRenderPassKind.GpuHiZBuild, "frame.gpu-hiz-build",
                 FrameRenderResource.SceneDepth,
                 FrameRenderResource.HiZ),
+            new(FrameRenderPassKind.GpuVisibility, "frame.gpu-visibility",
+                FrameRenderResource.HiZ,
+                FrameRenderResource.Visibility | FrameRenderResource.SceneDepth
+                    | FrameRenderResource.SceneStencil),
+            new(FrameRenderPassKind.World, "frame.world",
+                FrameRenderResource.SceneDepth | FrameRenderResource.SceneStencil
+                    | FrameRenderResource.Visibility | FrameRenderResource.ShadowDepth,
+                FrameRenderResource.SceneColor
+                    | FrameRenderResource.SceneDepth
+                    | FrameRenderResource.SceneStencil
+                    | FrameRenderResource.PbrAlbedo
+                    | FrameRenderResource.PbrNormal
+                    | FrameRenderResource.PbrMaterial),
             new(FrameRenderPassKind.Outlines, "frame.outlines",
                 FrameRenderResource.SceneDepth,
                 FrameRenderResource.SceneColor),
             new(FrameRenderPassKind.SceneOverlays, "frame.scene-overlays",
                 FrameRenderResource.SceneColor | FrameRenderResource.SceneDepth,
                 FrameRenderResource.SceneColor | FrameRenderResource.SceneDepth),
-            new(FrameRenderPassKind.DeferredPbr, "frame.pbr",
-                FrameRenderResource.SceneDepth,
-                FrameRenderResource.PbrAlbedo
-                    | FrameRenderResource.PbrNormal
-                    | FrameRenderResource.PbrMaterial),
             new(FrameRenderPassKind.PostProcess, "frame.post",
                 FrameRenderResource.SceneColor
                     | FrameRenderResource.SceneDepth
-                    | FrameRenderResource.ShadowDepth
-                    | FrameRenderResource.PbrAlbedo
-                    | FrameRenderResource.PbrNormal
-                    | FrameRenderResource.PbrMaterial,
+                    | FrameRenderResource.ShadowDepth,
                 FrameRenderResource.ProcessedScene),
             new(FrameRenderPassKind.Composite, "frame.composite",
                 FrameRenderResource.SceneColor | FrameRenderResource.ProcessedScene,
@@ -101,13 +100,13 @@ namespace MphRead.Mods.Render
             FrameRenderPassKind[] expected =
             {
                 FrameRenderPassKind.Shadow,
-                FrameRenderPassKind.GpuVisibility,
                 FrameRenderPassKind.WorldSetup,
-                FrameRenderPassKind.World,
+                FrameRenderPassKind.StaticOcclusionDepth,
                 FrameRenderPassKind.GpuHiZBuild,
+                FrameRenderPassKind.GpuVisibility,
+                FrameRenderPassKind.World,
                 FrameRenderPassKind.Outlines,
                 FrameRenderPassKind.SceneOverlays,
-                FrameRenderPassKind.DeferredPbr,
                 FrameRenderPassKind.PostProcess,
                 FrameRenderPassKind.Composite
             };
@@ -129,7 +128,7 @@ namespace MphRead.Mods.Render
                     return false;
                 }
             }
-            if ((_passes[2].Writes & (FrameRenderResource.SceneColor
+            if ((_passes[1].Writes & (FrameRenderResource.SceneColor
                 | FrameRenderResource.SceneDepth
                 | FrameRenderResource.SceneStencil))
                 != (FrameRenderResource.SceneColor
@@ -155,10 +154,11 @@ namespace MphRead
     public partial class Scene
     {
         private readonly Mods.Render.FrameRenderGraph _frameRenderGraph = new();
-        private bool _retainedDepthHistoryValid;
 
         private bool ExecuteCoreFrameRenderGraph(bool drawGameHud)
         {
+            bool staticOcclusionDepthReady = false;
+            bool currentHiZReady = false;
             foreach (Mods.Render.FrameRenderGraphPass pass in _frameRenderGraph.Passes)
             {
                 switch (pass.Kind)
@@ -174,11 +174,14 @@ namespace MphRead
                     {
                         Mods.Render.ModernGraphicsCompat.PrepareRetainedGpuVisibility(
                             _retainedRenderWorld.Opaque,
+                            RetainedRenderFrameRevision,
                             _perspectiveMatrix, _viewMatrix,
                             _depthTexture, _targetSize.X, _targetSize.Y,
-                            _retainedDepthHistoryValid);
+                            currentHiZReady);
                     }
 #endif
+                    if (staticOcclusionDepthReady)
+                        RestoreWorldAfterStaticOcclusionDepth();
                     break;
 
                 case Mods.Render.FrameRenderPassKind.WorldSetup:
@@ -192,25 +195,25 @@ namespace MphRead
                         return false;
                     break;
 
-                case Mods.Render.FrameRenderPassKind.World:
-                    ExecuteWorldRenderGraph();
+                case Mods.Render.FrameRenderPassKind.StaticOcclusionDepth:
+                    staticOcclusionDepthReady = RenderRetainedStaticOcclusionDepth();
                     break;
 
                 case Mods.Render.FrameRenderPassKind.GpuHiZBuild:
 #if !MPHREAD_SERVER
-                    if (Mods.Render.ModernGraphicsCompat.Active
-                        && Mods.Render.ModernGraphicsCompat.GpuVisibilityEnabled)
+                    if (staticOcclusionDepthReady)
                     {
-                        _retainedDepthHistoryValid =
-                            Mods.Render.ModernGraphicsCompat.CaptureRetainedGpuVisibilityHistory(
+                        currentHiZReady =
+                            Mods.Render.ModernGraphicsCompat.CaptureRetainedGpuVisibilityDepth(
+                                _retainedRenderWorld.Opaque, RetainedRenderFrameRevision,
                                 _perspectiveMatrix, _viewMatrix,
                                 _depthTexture, _targetSize.X, _targetSize.Y);
                     }
-                    else
 #endif
-                    {
-                        _retainedDepthHistoryValid = false;
-                    }
+                    break;
+
+                case Mods.Render.FrameRenderPassKind.World:
+                    ExecuteWorldRenderGraph();
                     break;
 
                 case Mods.Render.FrameRenderPassKind.Outlines:
@@ -234,10 +237,6 @@ namespace MphRead
                         this.Players.Main.DrawHudModels();
                         UnsetHudLayerUniforms();
                     }
-                    break;
-
-                case Mods.Render.FrameRenderPassKind.DeferredPbr:
-                    RenderDeferredPbrGBuffer();
                     break;
 
                 case Mods.Render.FrameRenderPassKind.PostProcess:

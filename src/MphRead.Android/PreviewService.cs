@@ -31,7 +31,8 @@ namespace MphRead.Droid
     /// </summary>
     public abstract class PreviewService : Service
     {
-        private volatile bool _stopRequested;
+        private readonly object _lifetimeGate = new();
+        private AndroidRenderLifetime? _lifetime;
         internal const string RoomsExtra = "rooms";
         internal const string MarkerExtra = "marker";
         internal const string WidthExtra = "width";
@@ -41,36 +42,52 @@ namespace MphRead.Droid
 
         public override void OnDestroy()
         {
-            _stopRequested = true;
+            lock (_lifetimeGate) _lifetime?.RequestStop();
             base.OnDestroy();
         }
 
         public override StartCommandResult OnStartCommand(Intent? intent,
             StartCommandFlags flags, int startId)
         {
-            _stopRequested = false;
+            var lifetime = new AndroidRenderLifetime();
+            lock (_lifetimeGate)
+            {
+                _lifetime?.RequestStop();
+                _lifetime = lifetime;
+            }
             string[]? rooms = intent?.GetStringArrayExtra(RoomsExtra);
             string? marker = intent?.GetStringExtra(MarkerExtra);
             int width = intent?.GetIntExtra(WidthExtra, PreviewRun.Width) ?? PreviewRun.Width;
             int height = intent?.GetIntExtra(HeightExtra, PreviewRun.Height) ?? PreviewRun.Height;
             if (rooms == null || rooms.Length == 0)
             {
+                lifetime.Complete(null);
                 Finish(marker);
                 StopSelf(startId);
                 return StartCommandResult.NotSticky;
             }
             var thread = new Thread(() =>
             {
+                IDisposable? ownership = null;
+                Exception? retirementFailure = null;
                 try
                 {
-                    Run(rooms, width, height);
+                    ownership = lifetime.Enter();
+                    lifetime.Cancellation.ThrowIfCancellationRequested();
+                    Run(rooms, width, height, lifetime);
+                }
+                catch (System.OperationCanceledException) when (lifetime.StopRequested)
+                {
+                    // A new service command or destruction retired this job.
                 }
                 catch (Exception ex)
                 {
+                    if (ex is AndroidGraphicsTeardownException) retirementFailure = ex;
                     Console.WriteLine($"[preview worker] {GetType().Name} failed: {ex}");
                 }
                 finally
                 {
+                    lifetime.Complete(ownership, retirementFailure);
                     Finish(marker);
                     StopSelf(startId);
                 }
@@ -82,7 +99,7 @@ namespace MphRead.Droid
             return StartCommandResult.NotSticky;
         }
 
-        private void Run(string[] rooms, int width, int height)
+        private void Run(string[] rooms, int width, int height, AndroidRenderLifetime lifetime)
         {
             // This process did not go through MainActivity, so nothing has told
             // it where the game files are. Same answer, same reasons: the
@@ -101,15 +118,14 @@ namespace MphRead.Droid
                 return;
             }
             GameFiles.ApplyPaths();
-            AndroidMaps.EnsureBuilt(rooms, () => _stopRequested);
-            if (_stopRequested)
-                return;
+            AndroidMaps.EnsureBuilt(rooms, () => lifetime.StopRequested);
+            lifetime.Cancellation.ThrowIfCancellationRequested();
             ThumbnailGenerator.EnsureCacheDirectory();
             // STB ships no native for Android; the framework's encoder does.
             ScreenCapture.PngWriter = AndroidPng.Write;
             using var gl = OffscreenGl.Create(width, height);
             PreviewRun.Render(rooms, width, height,
-                line => Console.WriteLine(line), () => _stopRequested);
+                line => Console.WriteLine(line), () => lifetime.StopRequested);
         }
 
         private static void Finish(string? marker)

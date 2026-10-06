@@ -315,21 +315,33 @@ internal sealed class KillcamController : IDisposable
         // samples look like startup baselines. Release this ownership once.
         Scene? live = _live;
         _live = null;
-        ReplayAudioOwner.Release(_audio); _audio = 0;
-        var preparation = _preparation; _preparation = null;
-        _startup.Stop();
-        var player = _player; _player = null; var clip = _playingClip; _playingClip = null;
-        _hud = null; _lastKillerCamera = null; _killerName = null; _playing = null; State = KillcamState.None; Kind = KillCamKind.None;
+        ReplayPreparationJob? preparation = _preparation; _preparation = null;
+        PassiveReplayPlayer? player = _player; _player = null;
+        ReplayTimelineClip? clip = _playingClip; _playingClip = null;
+        ulong audio = _audio; _audio = 0;
+        _hud = null; _lastKillerCamera = null; _killerName = null;
+        _playing = null; State = KillcamState.None; Kind = KillCamKind.None;
         EndReason = reason;
-        try { preparation?.Dispose(); }
+        try { ReplayAudioOwner.Release(audio); }
         finally
         {
-            try { player?.Dispose(); }
+            try { _startup.Stop(); }
             finally
             {
-                try { clip?.Dispose(); }
-                finally { if (live != null && live.Players.Items.Count > 0)
-                    { live.Players.Main.Controls.ClearAll(); live.Players.Main.ModForgetInputDeltas(); } }
+                try { preparation?.Dispose(); }
+                finally
+                {
+                    try { player?.Dispose(); }
+                    finally
+                    {
+                        try { clip?.Dispose(); }
+                        finally
+                        {
+                            if (live != null && live.Players.Items.Count > 0)
+                            { live.Players.Main.Controls.ClearAll(); live.Players.Main.ModForgetInputDeltas(); }
+                        }
+                    }
+                }
             }
         }
     }

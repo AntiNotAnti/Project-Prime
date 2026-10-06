@@ -978,7 +978,11 @@ fn main_1() {
     var local_2: vec4<f32>;
     var sm: vec4<f32>;
     var roughness: f32;
+    var physicalOrm: bool;
+    var local_3: f32;
     var metallic: f32;
+    var local_4: f32;
+    var ambientOcclusion: f32;
     var emissive: f32;
     var e: vec3<f32>;
     var finish_1: vec2<f32>;
@@ -994,7 +998,7 @@ fn main_1() {
     let _e204: vec4<f32> = local_1;
     base = _e204;
     let _e206: vec4<f32> = base;
-    if (_e206.w < 0.99f) {
+    if (_e206.w < 1f) {
         discard;
     }
     let _e210: vec4<f32> = base;
@@ -1057,60 +1061,83 @@ fn main_1() {
     let _e307: vec4<f32> = sm;
     let _e311: vec4<f32> = sm;
     roughness = clamp(_e311.y, 0.04f, 1f);
-    let _e319: vec4<f32> = sm;
-    let _e323: vec4<f32> = sm;
-    let _e330: vec4<f32> = sm;
-    let _e334: vec4<f32> = sm;
-    metallic = (smoothstep(0.45f, 0.95f, clamp(_e334.x, 0f, 1f)) * 0.75f);
-    let _e343: vec3<f32> = global.material_emission;
-    let _e345: vec3<f32> = global.material_emission;
-    let _e347: vec3<f32> = global.material_emission;
-    let _e349: vec3<f32> = global.material_emission;
-    let _e352: vec3<f32> = global.material_emission;
-    let _e354: vec3<f32> = global.material_emission;
-    let _e356: vec3<f32> = global.material_emission;
-    let _e358: vec3<f32> = global.material_emission;
-    let _e360: vec3<f32> = global.material_emission;
-    let _e363: vec3<f32> = global.material_emission;
-    emissive = max(max(_e358.x, _e360.y), _e363.z);
-    let _e367: i32 = global._prime_use_emissive_map;
-    if (_e367 != 0i) {
+    let _e317: i32 = global._prime_use_specular_map;
+    let _e320: vec4<f32> = sm;
+    physicalOrm = ((_e317 != 0i) && (_e320.w < 0.5f));
+    let _e326: bool = physicalOrm;
+    if _e326 {
+        let _e327: vec4<f32> = sm;
+        let _e331: vec4<f32> = sm;
+        local_3 = clamp(_e331.z, 0f, 1f);
+    } else {
+        let _e338: vec4<f32> = sm;
+        let _e342: vec4<f32> = sm;
+        let _e349: vec4<f32> = sm;
+        let _e353: vec4<f32> = sm;
+        local_3 = (smoothstep(0.45f, 0.95f, clamp(_e353.x, 0f, 1f)) * 0.75f);
+    }
+    let _e362: f32 = local_3;
+    metallic = _e362;
+    let _e364: bool = physicalOrm;
+    if _e364 {
+        let _e365: vec4<f32> = sm;
+        let _e369: vec4<f32> = sm;
+        local_4 = clamp(_e369.x, 0f, 1f);
+    } else {
+        local_4 = 1f;
+    }
+    let _e376: f32 = local_4;
+    ambientOcclusion = _e376;
+    let _e378: vec3<f32> = global.material_emission;
+    let _e380: vec3<f32> = global.material_emission;
+    let _e382: vec3<f32> = global.material_emission;
+    let _e384: vec3<f32> = global.material_emission;
+    let _e387: vec3<f32> = global.material_emission;
+    let _e389: vec3<f32> = global.material_emission;
+    let _e391: vec3<f32> = global.material_emission;
+    let _e393: vec3<f32> = global.material_emission;
+    let _e395: vec3<f32> = global.material_emission;
+    let _e398: vec3<f32> = global.material_emission;
+    emissive = max(max(_e393.x, _e395.y), _e398.z);
+    let _e402: i32 = global._prime_use_emissive_map;
+    if (_e402 != 0i) {
         {
-            let _e371: vec2<f32> = texcoord_1;
-            let _e372: vec4<f32> = prime_sample_emissive_tex(_e371);
-            e = _e372.xyz;
-            let _e381: vec3<f32> = e;
-            let _e387: f32 = emissive;
-            let _e393: vec3<f32> = e;
-            emissive = max(_e387, dot(_e393, vec3<f32>(0.2126f, 0.7152f, 0.0722f)));
+            let _e406: vec2<f32> = texcoord_1;
+            let _e407: vec4<f32> = prime_sample_emissive_tex(_e406);
+            e = _e407.xyz;
+            let _e416: vec3<f32> = e;
+            let _e422: f32 = emissive;
+            let _e428: vec3<f32> = e;
+            emissive = max(_e422, dot(_e428, vec3<f32>(0.2126f, 0.7152f, 0.0722f)));
         }
     }
-    let _e400: f32 = emissive;
-    let _e401: f32 = global.emissive_intensity;
-    emissive = (_e400 * _e401);
-    let _e403: i32 = global.cosmetic_skin;
-    let _e406: i32 = global._prime_use_specular_map;
-    if ((_e403 != 0i) && !((_e406 != 0i))) {
+    let _e435: f32 = emissive;
+    let _e436: f32 = global.emissive_intensity;
+    emissive = (_e435 * _e436);
+    let _e438: i32 = global.cosmetic_skin;
+    let _e441: i32 = global._prime_use_specular_map;
+    if ((_e438 != 0i) && !((_e441 != 0i))) {
         {
-            let _e411: vec2<f32> = cosmetic_finish();
-            finish_1 = _e411;
-            let _e413: vec2<f32> = finish_1;
-            metallic = _e413.x;
-            let _e415: vec2<f32> = finish_1;
-            roughness = _e415.y;
+            let _e446: vec2<f32> = cosmetic_finish();
+            finish_1 = _e446;
+            let _e448: vec2<f32> = finish_1;
+            metallic = _e448.x;
+            let _e450: vec2<f32> = finish_1;
+            roughness = _e450.y;
         }
     }
-    let _e417: i32 = global.cosmetic_skin;
-    if (_e417 == 4i) {
-        let _e421: f32 = cosmetic_circuit();
-        let _e424: f32 = emissive;
-        let _e425: f32 = cosmetic_circuit();
-        emissive = max(_e424, (_e425 * 0.55f));
+    let _e452: i32 = global.cosmetic_skin;
+    if (_e452 == 4i) {
+        let _e456: f32 = cosmetic_circuit();
+        let _e459: f32 = emissive;
+        let _e460: f32 = cosmetic_circuit();
+        emissive = max(_e459, (_e460 * 0.55f));
     }
-    let _e429: f32 = metallic;
-    let _e430: f32 = roughness;
-    let _e434: f32 = emissive;
-    prime_output = vec4<f32>(_e429, _e430, clamp(_e434, 0f, 1f), 1f);
+    let _e464: f32 = metallic;
+    let _e465: f32 = roughness;
+    let _e469: f32 = emissive;
+    let _e473: f32 = ambientOcclusion;
+    prime_output = vec4<f32>(_e464, _e465, clamp(_e469, 0f, 1f), _e473);
     return;
 }
 

@@ -3,6 +3,12 @@ using Android.Opengl;
 
 namespace MphRead.Droid
 {
+    internal sealed class AndroidGraphicsTeardownException : InvalidOperationException
+    {
+        internal AndroidGraphicsTeardownException(Exception inner)
+            : base("Android graphics/world teardown did not complete; restart the app before rendering again.", inner) { }
+    }
+
     /// <summary>
     /// A GL ES context on an ordinary thread, drawing to nothing.
     ///
@@ -27,6 +33,7 @@ namespace MphRead.Droid
         private const int OpenGlEs3Bit = 0x40;
 
         private EGLDisplay? _display;
+        private bool _initialized;
         private EGLSurface? _surface;
         private EGLContext? _context;
 
@@ -57,6 +64,7 @@ namespace MphRead.Droid
             {
                 throw new InvalidOperationException($"eglInitialize failed (0x{EGL14.EglGetError():X})");
             }
+            _initialized = true;
             // The same 8/8/8 colour, 24-bit depth and 8-bit stencil GameView
             // asks for: the renderer's translucency passes mark faces in the
             // stencil buffer, and a config without one draws them wrong rather
@@ -105,31 +113,41 @@ namespace MphRead.Droid
 
         public void Dispose()
         {
-            if (_display == null)
+            if (_display == null || !_initialized)
             {
+                _display = null;
                 return;
+            }
+            Exception? failure = null;
+            void Attempt(Func<bool> operation, string name)
+            {
+                try
+                {
+                    if (!operation())
+                        failure ??= new InvalidOperationException($"{name} failed (0x{EGL14.EglGetError():X})");
+                }
+                catch (Exception ex) { failure ??= ex; }
             }
             try
             {
-                EGL14.EglMakeCurrent(_display, EGL14.EglNoSurface, EGL14.EglNoSurface,
-                    EGL14.EglNoContext);
-                if (_context != null)
+                Attempt(() => EGL14.EglMakeCurrent(_display, EGL14.EglNoSurface, EGL14.EglNoSurface,
+                    EGL14.EglNoContext), "eglMakeCurrent(unbind)");
+                if (_context != null && !_context.Equals(EGL14.EglNoContext))
+                    Attempt(() => EGL14.EglDestroyContext(_display, _context), "eglDestroyContext");
+                if (_surface != null && !_surface.Equals(EGL14.EglNoSurface))
                 {
-                    EGL14.EglDestroyContext(_display, _context);
+                    Attempt(() => EGL14.EglDestroySurface(_display, _surface), "eglDestroySurface");
                 }
-                if (_surface != null)
-                {
-                    EGL14.EglDestroySurface(_display, _surface);
-                }
-                EGL14.EglTerminate(_display);
+                Attempt(() => EGL14.EglTerminate(_display), "eglTerminate");
             }
-            catch (Exception ex)
+            finally
             {
-                Console.WriteLine($"[preview] tearing the offscreen context down failed: {ex.Message}");
+                _context = null;
+                _surface = null;
+                _display = null;
+                _initialized = false;
             }
-            _context = null;
-            _surface = null;
-            _display = null;
+            if (failure != null) throw new AndroidGraphicsTeardownException(failure);
         }
     }
 }

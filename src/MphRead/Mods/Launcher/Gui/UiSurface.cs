@@ -121,7 +121,13 @@ namespace MphRead.Mods.Launcher.Gui
             return right > left && bottom > top ? new(left, top, right - left, bottom - top) : null;
         }
         internal void DrawMapViewport(int width, int height) { foreach (var view in _mapViewports) view.DrawInWindow(this, width, height); }
-        internal void ReleaseMapRenderer() { foreach (var view in _mapViewports) view.ReleaseRenderer(); _mapViewports.Clear(); }
+        internal void ReleaseMapRenderer(bool canReleaseNativeResources = true)
+        {
+            var views = _mapViewports.ToArray();
+            _mapViewports.Clear();
+            try { foreach (var view in views) view.ReleaseRenderer(canReleaseNativeResources); }
+            finally { foreach (var view in views) view.ReleaseRenderer(canReleaseNativeResources: false); }
+        }
         private readonly GamepadNavigation _gamepad = new();
         private Point _pointer;
         private RawInputModifiers _modifiers;

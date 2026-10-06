@@ -130,11 +130,9 @@ namespace MphRead.Mods.Render
         }
 
         internal static bool RetainedDeferredPbrPacketEligible(RenderItem item) =>
-            item.Type == RenderItemType.Mesh
+            Scene.IsDeferredPbrOpaqueSurface(item)
             && !item.WeightedSkinning
-            && !item.ViewModel
             && item.RenderMode == RenderMode.Normal
-            && item.Alpha >= 0.999f
             && (uint)item.BillboardMode <= (uint)BillboardMode.Cylinder
             && item.MatrixStackCount >= 0
             && item.MatrixStackCount <= Math.Min(

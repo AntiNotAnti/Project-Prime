@@ -14,7 +14,8 @@ import struct
 from pathlib import Path, PurePosixPath
 
 from glb import image_bytes, load
-from mobile_encoder import KTX_REVISION, build as build_encoder, encode
+from mobile_encoder import (ENCODING_POLICY, KTX_REVISION, build as build_encoder,
+                            check_protocol, encode_guarded)
 from mobile_images import ALGORITHM, CHANNELS, identity_factors, prepare, usages
 
 
@@ -96,28 +97,49 @@ def check_lock(root, lock):
 
 
 def check_tier(tier):
-    if tier.get("format") != 1 or tier.get("ktxRevision") != KTX_REVISION or tier.get("uastcLevel") != 2 or tier.get("zstdLevel") != 9:
+    if (tier.get("format") != 1 or tier.get("ktxRevision") != KTX_REVISION
+            or tier.get("encodingPolicy") != ENCODING_POLICY or tier.get("uastcLevels") != [2, 4]
+            or tier.get("losslessFallback") != "rgba8-zstd" or tier.get("zstdLevel") != 9):
         raise ValueError("Unsupported tier/encoder contract")
+    if tier.get("compressionAcceptance") != {"minimumRgbPsnrDb": 35, "minimumAlphaPsnrDb": 35,
+            "maximumMeanNormalAngleDegrees": 1.5, "maximumP99NormalAngleDegrees": 6}:
+        raise ValueError("The guarded mobile fidelity budgets must remain unchanged")
     if set(tier.get("maximumDimensions", {})) != set(CHANNELS):
         raise ValueError("Tier requires caps for all four image channels")
     if any(not isinstance(value, int) or not 1 <= value <= 4096 for value in tier["maximumDimensions"].values()):
         raise ValueError("Mobile image caps must be integers in [1,4096]")
+    known = {"Samus", "Spire", "Noxus", "Kanden", "Sylux", "Trace", "Weavel"}
+    if any(not isinstance(tier.get(field),list) or any(not isinstance(name,str) for name in tier[field])
+           or len(set(tier[field])) != len(tier[field]) for field in ("preserveHunters","optimizeHunters")):
+        raise ValueError("Hunter policies must be explicit lists without duplicate names")
     preserved, optimized = set(tier["preserveHunters"]), set(tier["optimizeHunters"])
-    if preserved & optimized or not optimized or "Samus" not in preserved:
-        raise ValueError("Samus must remain preserved and hunter sets must be disjoint")
+    if preserved & optimized or not optimized or preserved | optimized != known:
+        raise ValueError("Hunter policies must be disjoint and cover the complete known roster")
     within(Path("/"), tier["mobilePrefix"])
 
 
-def ktx_shape(payload):
+def ktx_metadata(payload):
     if payload[:12] != bytes.fromhex("ab4b5458203230bb0d0a1a0a") or len(payload) < 80:
         raise ValueError("Encoder did not produce a KTX2 payload")
     fields = struct.unpack_from("<9I", payload, 12)
     vk, _, width, height, depth, layers, faces, levels, compression = fields
-    if vk != 0 or depth or layers or faces != 1 or compression != 2:
-        raise ValueError("Expected portable 2D UASTC with Zstd")
+    if vk not in (0, 37, 43) or not width or not height or depth or layers or faces != 1 or compression != 2:
+        raise ValueError("Expected 2D UASTC or lossless RGBA8 KTX2 with Zstd")
     if levels != max(width, height).bit_length():
         raise ValueError("KTX2 does not contain the complete authored mip chain")
-    return width, height, levels
+    return {"width": width, "height": height, "levels": levels, "vkFormat": vk,
+            "basis": vk == 0, "encoding": "uastc" if vk == 0 else "rgba8-zstd"}
+
+
+def ktx_shape(payload):
+    shape = ktx_metadata(payload)
+    return shape["width"], shape["height"], shape["levels"]
+
+
+def conversion_identity(payload, meaning, tier):
+    return {"sourceSha256": sha_bytes(payload), "meaning": meaning,
+            "maximum": tier["maximumDimensions"][meaning["channel"]], "algorithm": ALGORITHM,
+            "encodingPolicy": tier["encodingPolicy"], "compressionAcceptance": tier["compressionAcceptance"]}
 
 
 def write_glb(path, doc, blob):
@@ -152,7 +174,7 @@ class ImageCache:
 
     def convert(self, payload, meaning):
         maximum = self.tier["maximumDimensions"][meaning["channel"]]
-        identity = {"sourceSha256": sha_bytes(payload), "meaning": meaning, "maximum": maximum, "algorithm": ALGORITHM}
+        identity = conversion_identity(payload, meaning, self.tier)
         key = sha_bytes(json.dumps(identity, sort_keys=True, separators=(",", ":")).encode())
         if key not in self.records:
             levels, record = prepare(payload, meaning, maximum)
@@ -163,17 +185,20 @@ class ImageCache:
             raw = base.with_suffix(".mips")
             raw.write_bytes(b"".join(level.tobytes() for level in levels))
             target = base.with_suffix(".ktx2")
-            encode(self.encoder, levels, target, meaning["channel"] in ("albedo", "emissive"))
+            policy = encode_guarded(self.encoder, levels, target, meaning["channel"] in ("albedo", "emissive"),
+                                    meaning["channel"], self.tier["compressionAcceptance"])
             data = target.read_bytes()
             width, height, count = ktx_shape(data)
             if [width, height] != record["size"] or count != len(levels) or len(data) > 32 * 1024 * 1024:
                 raise ValueError("Encoded image shape/size differs from its channel contract")
             dimensions = [(level.shape[1], level.shape[0]) for level in levels]
-            record.update(identity, key=key, encodedSha256=sha_bytes(data), encodedBytes=len(data),
+            record.update(identity, **policy, key=key, encodedSha256=sha_bytes(data), encodedBytes=len(data),
                           referenceMipSha256=sha_file(raw), referencePngSha256=sha_file(base.with_suffix(".png")),
                           mipSizes=[list(size) for size in dimensions],
                           gpuAstc4x4Bytes=sum(((w + 3) // 4) * ((h + 3) // 4) * 16 for w, h in dimensions),
                           gpuRgbaBytes=sum(w * h * 4 for w, h in dimensions))
+            record["gpuSelectedAstcAdapterBytes"] = (record["gpuRgbaBytes"] if policy["encodingMode"] == "rgba8-zstd"
+                                                    else record["gpuAstc4x4Bytes"])
             self.records[key] = record
             self.contents[key] = data
         return key, self.contents[key]
@@ -211,7 +236,13 @@ def convert_glb(source, destination, cache):
             if texture_key not in texture_mapping:
                 replacement = copy.deepcopy(old_textures[index])
                 replacement.pop("source", None)
-                replacement["extensions"] = {"KHR_texture_basisu": {"source": image_indices[key]}}
+                replacement.pop("extensions", None)
+                if cache.records[key]["encodingMode"] == "rgba8-zstd":
+                    # Raw RGBA KTX2 is an existing Project Prime MIME path.
+                    # It is not Basis and must not claim KHR_texture_basisu.
+                    replacement["source"] = image_indices[key]
+                else:
+                    replacement["extensions"] = {"KHR_texture_basisu": {"source": image_indices[key]}}
                 texture_mapping[texture_key] = len(textures)
                 textures.append(replacement)
             info["index"] = texture_mapping[texture_key]
@@ -247,7 +278,13 @@ def convert_glb(source, destination, cache):
         image["bufferView"] = append(cache.contents[key])
     doc.update(images=images, textures=textures, bufferViews=views, buffers=[{"byteLength": len(binary)}])
     for field in ("extensionsUsed", "extensionsRequired"):
-        doc[field] = sorted(set(doc.get(field, [])) | {"KHR_texture_basisu"})
+        values = set(doc.get(field, [])) - {"KHR_texture_basisu"}
+        if any("KHR_texture_basisu" in texture.get("extensions", {}) for texture in textures):
+            values.add("KHR_texture_basisu")
+        if values:
+            doc[field] = sorted(values)
+        else:
+            doc.pop(field, None)
     write_glb(destination, doc, binary)
     return {"sourceSha256": sha_file(source), "mobileSha256": sha_file(destination),
             "sourceBytes": source.stat().st_size, "mobileBytes": destination.stat().st_size,
@@ -273,6 +310,7 @@ def build(source, lock_path, tier_path, output, encoder=None):
             encoder = Path(encoder).resolve()
             encoder_receipt = {"encoder": str(encoder), "encoderSha256": sha_file(encoder),
                                "sourceSha256": sha_bytes(__import__("mobile_encoder").SOURCE.encode()),
+                               "encodingPolicy": ENCODING_POLICY, "protocol": check_protocol(encoder),
                                "scope": "Caller-supplied rectangular encoder; verify it uses the pinned KTX runtime."}
         else:
             encoder, encoder_receipt = build_encoder(output / "encoder")
@@ -327,6 +365,7 @@ def build(source, lock_path, tier_path, output, encoder=None):
                   "tierConfigSha256": sha_bytes(tier_bytes), "encoder": encoder_receipt,
                   "pipelineInputs": code_inputs, "algorithm": ALGORITHM, "models": rows,
                   "uniqueImageConversions": list(cache.records.values()),
+                  "encodingPolicy": ENCODING_POLICY,
                   "mixedPackFiles": pack_files(mixed), "androidPackFiles": pack_files(android),
                   "physicalAndroidAcceptance": "pending", "gpuAcceptance": "pending",
                   "scope": "Offline texture-tier build only. Compression/geometry audit and real-render/device acceptance are separate. Existing rectangular atlases are resized, not repacked. Embedded payload repetition across GLBs remains; runtime interning handles identical images."}

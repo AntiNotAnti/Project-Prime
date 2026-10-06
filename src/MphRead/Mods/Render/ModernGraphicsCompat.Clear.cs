@@ -18,7 +18,11 @@ internal sealed unsafe partial class ModernGraphicsCompat
             Usage = TextureUsage.RenderAttachment, MipLevelCount = 1, SampleCount = 1,
             Dimension = TextureDimension.Dimension2D
         });
-        _surfaceDepth = new NativeRenderbuffer { Texture = texture, View = _api.TextureCreateView(texture, null) };
+        _surfaceDepth = new NativeRenderbuffer
+        {
+            Texture = texture, View = _api.TextureCreateView(texture, null),
+            Width = (int)_width, Height = (int)_height
+        };
         return _surfaceDepth.View;
     }
     private void ReleaseSurfaceDepth()

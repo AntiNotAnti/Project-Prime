@@ -85,6 +85,7 @@ namespace MphRead.Mods.Render.Characters
                     throw new InvalidDataException("Character emissiveFactor is outside [0,1].");
             }
             bool runtimeEncoded = false;
+            bool physicalOrm = false;
             if (material.TryGetProperty("extras", out var extras)
                 && extras.TryGetProperty("projectPrimeRuntimeMaps", out var encoded))
             {
@@ -92,11 +93,28 @@ namespace MphRead.Mods.Render.Characters
                     throw new InvalidDataException("Character runtime map encoding flag must be boolean.");
                 runtimeEncoded = encoded.GetBoolean();
             }
+            if (material.TryGetProperty("extras", out extras)
+                && extras.TryGetProperty("projectPrimeMaterialEncoding", out var encoding))
+            {
+                if (encoding.ValueKind != JsonValueKind.String || encoding.GetString() != "orm")
+                    throw new InvalidDataException("Character physical material encoding must be 'orm'.");
+                if (mr == null)
+                    throw new InvalidDataException("Character ORM encoding requires a metallicRoughnessTexture.");
+                physicalOrm = true;
+                // AO is packed into the material map's R channel. A separate
+                // occlusion texture would require another sampler and is not
+                // silently ignored by this bounded four-texture contract.
+                if (material.TryGetProperty("occlusionTexture", out var ao)
+                    && (Int(ao, "index", -1) != Int(pbr.GetProperty("metallicRoughnessTexture"), "index", -2)
+                        || Int(ao, "texCoord", 0) != 0 || ao.TryGetProperty("extensions", out _)
+                        || Factor(ao, "strength", 1, 1) != 1))
+                    throw new InvalidDataException("Character occlusionTexture must share the ORM texture at unit strength.");
+            }
             if (runtimeEncoded && ((normal != null && normalScale != 1)
                 || (mr != null && (metallic != 1 || roughness != 1))
                 || (emissive != null && ef != NVector3.One)))
                 throw new InvalidDataException("Preconverted runtime maps require identity channel factors.");
-            return new(normal, mr, emissive, normalScale, metallic, roughness, ef, runtimeEncoded);
+            return new(normal, mr, emissive, normalScale, metallic, roughness, ef, runtimeEncoded, physicalOrm);
         }
 
         private static float Factor(JsonElement element, string name, float fallback, float max)

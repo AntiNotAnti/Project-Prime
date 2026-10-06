@@ -564,14 +564,14 @@ namespace MphRead.Entities
                 && Mods.RenderOptions.BrightSkinStyle != Mods.PlayerSkinStyle.Solid;
 
         protected override Mods.Cosmetics.Skins.RenderMaterialOverride GetCosmeticMaterialOverride(ModelInstance inst, Material material, int index)
-            => Mods.RenderOptions.ShowCustomCosmetics && !_scene.GameState.Teams && _freezeTimer == 0 && PaletteOverride == null
+            => inst == _models[0] && Mods.RenderOptions.ShowCustomCosmetics && !_scene.GameState.Teams && _freezeTimer == 0 && PaletteOverride == null
                 && !Owner.BrightSkinStatusOverride && !Owner.ModMatchSpawnProtectionActive
                 ? _scene.GetCosmeticMaterial(Mods.Cosmetics.CosmeticRuntime.Get(_scene, Owner.SlotIndex, Owner.Hunter, Owner.IsMainPlayer).Skin,
                     inst.Model, index, Mods.Cosmetics.SkinContext.Halfturret) : default;
 
         protected override int? GetBindingOverride(ModelInstance inst, Material material, int index)
         {
-            if (Owner.DoubleDamage && material.Lighting > 0)
+            if (inst == _models[0] && Owner.DoubleDamage && material.Lighting > 0)
             {
                 return Owner.DoubleDmgBindingId;
             }
@@ -581,7 +581,7 @@ namespace MphRead.Entities
         protected override Vector3 GetEmission(ModelInstance inst, Material material, int index)
         {
             // todo?: it's kinda weird that this doesn't use the team emission color
-            if (Owner.DoubleDamage && material.Lighting > 0)
+            if (inst == _models[0] && Owner.DoubleDamage && material.Lighting > 0)
             {
                 return Metadata.EmissionGray;
             }
@@ -592,7 +592,11 @@ namespace MphRead.Entities
         protected override Matrix4 GetTexcoordMatrix(ModelInstance inst, Material material, int materialId,
             Node node, int recolor)
         {
-            if (Owner.DoubleDamage && material.Lighting > 0 && node.BillboardMode == BillboardMode.None)
+            // The ice model has one recolor. It was prepared with recolor 0 above;
+            // the owner's current suit/team recolor belongs only to the turret.
+            if (inst == _altIceModel)
+                return base.GetTexcoordMatrix(inst, material, materialId, node, recolor: 0);
+            if (inst == _models[0] && Owner.DoubleDamage && material.Lighting > 0 && node.BillboardMode == BillboardMode.None)
             {
                 Texture texture = Owner.DoubleDamageModel.Model.Recolors[0].Textures[0];
                 // product should start with the upper 3x3 of the node animation result,

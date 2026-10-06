@@ -1,6 +1,7 @@
 #if !MPHREAD_SERVER
 using System;
 using System.Collections.Generic;
+using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Render
@@ -21,19 +22,68 @@ namespace MphRead.Mods.Render
             }
 
             Check(WorldRenderGraph.Validate(out string error),
-                "six-pass graph validates" + (error.Length == 0 ? "" : ": " + error));
+                "world graph validates" + (error.Length == 0 ? "" : ": " + error));
             Check(FrameRenderGraph.Validate(out string frameError),
                 "top-level frame render graph validates"
                     + (frameError.Length == 0 ? "" : ": " + frameError));
             var frameGraph = new FrameRenderGraph();
-            Check(frameGraph.Passes.Count > 4
-                && frameGraph.Passes[1].Kind == FrameRenderPassKind.GpuVisibility
-                && (frameGraph.Passes[1].Reads & FrameRenderResource.HiZ) != 0
-                && (frameGraph.Passes[1].Writes & FrameRenderResource.Visibility) != 0
-                && frameGraph.Passes[4].Kind == FrameRenderPassKind.GpuHiZBuild
-                && (frameGraph.Passes[4].Reads & FrameRenderResource.SceneDepth) != 0
-                && (frameGraph.Passes[4].Writes & FrameRenderResource.HiZ) != 0,
-                "GPU visibility consumes prior Hi-Z before clear and rebuilds it after World");
+            Check(frameGraph.Passes.Count > 5
+                && frameGraph.Passes[1].Kind == FrameRenderPassKind.WorldSetup
+                && frameGraph.Passes[2].Kind == FrameRenderPassKind.StaticOcclusionDepth
+                && frameGraph.Passes[3].Kind == FrameRenderPassKind.GpuHiZBuild
+                && (frameGraph.Passes[3].Reads & FrameRenderResource.SceneDepth) != 0
+                && (frameGraph.Passes[3].Writes & FrameRenderResource.HiZ) != 0
+                && frameGraph.Passes[4].Kind == FrameRenderPassKind.GpuVisibility
+                && (frameGraph.Passes[4].Reads & FrameRenderResource.HiZ) != 0
+                && (frameGraph.Passes[4].Writes & FrameRenderResource.Visibility) != 0
+                && frameGraph.Passes[5].Kind == FrameRenderPassKind.World,
+                "GPU visibility consumes current static depth before final World");
+            FrameRenderResource depthStencil = FrameRenderResource.SceneDepth
+                | FrameRenderResource.SceneStencil;
+            Check((frameGraph.Passes[2].Writes & depthStencil) == depthStencil
+                && (frameGraph.Passes[2].Writes & FrameRenderResource.SceneColor) == 0,
+                "static occluder replay declares depth/stencil writes while preserving scene color");
+            Check((frameGraph.Passes[4].Writes & depthStencil) == depthStencil
+                && (frameGraph.Passes[4].Writes & FrameRenderResource.Visibility) != 0,
+                "visibility stage declares depth/stencil reset before final World");
+            var worldGraph = new WorldRenderGraph();
+            Check(worldGraph.Passes[0].Kind == WorldRenderPassKind.Opaque
+                && worldGraph.Passes[1].Kind == WorldRenderPassKind.DeferredPbr
+                && worldGraph.Passes[2].Kind == WorldRenderPassKind.ForwardOpaque
+                && worldGraph.Passes[3].Kind == WorldRenderPassKind.Decal
+                && worldGraph.Passes[6].Kind == WorldRenderPassKind.TranslucentBehind,
+                "opaque PBR resolves before foreground, decals and transparency");
+            Check((frameGraph.Passes[^2].Reads & (FrameRenderResource.PbrAlbedo
+                    | FrameRenderResource.PbrNormal | FrameRenderResource.PbrMaterial)) == 0,
+                "final post-process cannot apply background PBR over forward layers");
+            Check(Scene.SelectDeferredPbrDepthTexture(true, 17, 23) == 17
+                && Scene.SelectDeferredPbrDepthTexture(false, 17, 23) == 23
+                && Scene.SelectDeferredPbrDepthTexture(true, 0, 23) == 0,
+                "reduced G-buffer samples its owned depth and never substitutes forward depth");
+            Check(!Scene.UseFinalSceneDepth(true, true, true)
+                && Scene.UseFinalSceneDepth(true, true, false)
+                && !Scene.UseFinalSceneDepth(false, true, false)
+                && !Scene.UseFinalSceneDepth(true, false, false),
+                "resolved world depth effects cannot run again over foreground in final presentation");
+            Check(Scene.SelectSceneColorFormat(false, true, true, false) == PixelInternalFormat.Rgba16f
+                && Scene.SelectSceneColorFormat(true, true, false, false) == PixelInternalFormat.Rgba16f
+                && Scene.SelectSceneColorFormat(false, true, false, false) == PixelInternalFormat.Rgb
+                && Scene.SelectSceneColorFormat(false, true, true, true) == PixelInternalFormat.Rgb
+                && Scene.SelectSceneColorFormat(true, false, true, false) == PixelInternalFormat.Rgb,
+                "HDR scene storage preserves float values on validated GL and modern backends");
+            Check(Scene.IsDeferredPbrOpaqueSurface(new RenderItem
+                { Type = RenderItemType.Mesh, Alpha = 1 })
+                && !Scene.IsDeferredPbrOpaqueSurface(new RenderItem
+                    { Type = RenderItemType.Mesh, Alpha = 1, ViewModel = true })
+                && !Scene.IsDeferredPbrOpaqueSurface(new RenderItem
+                    { Type = RenderItemType.Mesh, Alpha = 0.5f })
+                && !Scene.IsDeferredPbrOpaqueSurface(new RenderItem
+                    { Type = RenderItemType.Mesh, Alpha = 0.999f })
+                && !Scene.IsDeferredPbrOpaqueSurface(new RenderItem
+                    { Type = RenderItemType.Mesh, Alpha = 1, RenderMode = RenderMode.Translucent })
+                && !Scene.IsDeferredPbrOpaqueSurface(new RenderItem
+                    { Type = RenderItemType.TrailSingle, Alpha = 1 }),
+                "G-buffer owns opaque world meshes, excluding foreground and effect layers");
             Check(ModernGraphicsCompat.ValidateRetainedWorldUniformLayout(
                     out string layoutError),
                 "retained World generated uniform layout validates"
@@ -42,6 +92,75 @@ namespace MphRead.Mods.Render
                     out string pbrLayoutError),
                 "retained DeferredPbrMrt generated uniform layout validates"
                     + (pbrLayoutError.Length == 0 ? "" : ": " + pbrLayoutError));
+            Check(ModernGraphicsCompat.ValidateGpuVisibilityResourceLayoutsForCheck(),
+                "Hi-Z compute layouts use unfilterable R32Float with matching depth/storage declarations");
+
+            // Every original texel must survive into the final max pyramid.
+            // In particular, a clear-depth final texel may never disappear:
+            // doing so can falsely classify a visible object as occluded.
+            bool hiZCoverage = true;
+            foreach (int size in new[] { 1, 2, 3, 5, 7, 15, 31, 63, 127, 255,
+                1080, 1440, 1920, 2560, 3840 })
+            {
+                int currentSize = size;
+                float[] current = new float[currentSize];
+                Array.Fill(current, 0.25f);
+                current[^1] = 1f;
+                do
+                {
+                    int nextSize = Math.Max(1, currentSize / 2);
+                    float[] next = new float[nextSize];
+                    int[] covered = new int[currentSize];
+                    for (int dst = 0; dst < nextSize; dst++)
+                    {
+                        (int start, int end) =
+                            ModernGraphicsCompat.GpuHiZReductionFootprint(
+                                currentSize, dst);
+                        for (int src = start; src < end; src++)
+                        {
+                            covered[src]++;
+                            next[dst] = Math.Max(next[dst], current[src]);
+                            // Same clamped pixel/2 lookup used in the shader.
+                            hiZCoverage &= Math.Min(src / 2, nextSize - 1) == dst;
+                        }
+                    }
+                    foreach (int count in covered)
+                        hiZCoverage &= count == 1;
+                    hiZCoverage &= next[^1] == 1f;
+                    current = next;
+                    currentSize = nextSize;
+                } while (currentSize > 1);
+                hiZCoverage &= current[0] == 1f;
+            }
+            Check(hiZCoverage,
+                "Hi-Z max pyramid preserves odd edges and clamped lookup coverage");
+
+            Check(!ModernGraphicsCompat.NeedsPartialClear(
+                    ClearBufferMask.DepthBufferBit, false, false, true, 0),
+                "depth rebuild uses attachment clear despite unrelated color/stencil masks");
+            Check(!ModernGraphicsCompat.NeedsPartialClear(
+                    ClearBufferMask.ColorBufferBit, false, true, false, 0),
+                "full color clear ignores unrelated depth/stencil write masks");
+            Check(!ModernGraphicsCompat.NeedsPartialClear(
+                    ClearBufferMask.StencilBufferBit, false, false, false, 0xFF)
+                && !ModernGraphicsCompat.NeedsPartialClear(
+                    ClearBufferMask.StencilBufferBit, false, false, false, -1),
+                "both 0xff and -1 fully clear an eight-bit stencil attachment");
+            Check(ModernGraphicsCompat.NeedsPartialClear(
+                    ClearBufferMask.ColorBufferBit, false, false, true, -1)
+                && ModernGraphicsCompat.NeedsPartialClear(
+                    ClearBufferMask.DepthBufferBit, false, true, false, -1)
+                && ModernGraphicsCompat.NeedsPartialClear(
+                    ClearBufferMask.StencilBufferBit, false, true, true, 0x0F),
+                "partial color, disabled depth and partial stencil clear preserve write masks");
+            Check(ModernGraphicsCompat.NeedsPartialClear(
+                    ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit,
+                    true, true, true, -1)
+                && ModernGraphicsCompat.NeedsPartialClear(
+                    ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit
+                        | ClearBufferMask.StencilBufferBit,
+                    false, true, true, 0x0F),
+                "scissor and a masked requested attachment retain draw-based clears");
 
             var opaqueA = new RenderItem
             {
@@ -125,6 +244,33 @@ namespace MphRead.Mods.Render
                 "compatible packets remain one adjacent batch next frame");
             Check(world.MeshDescriptorCount == descriptorCount,
                 "mesh descriptor table is retained rather than rebuilt per frame");
+
+            // DoMaterial uploads emissive intensity as shared material state.
+            // Distinct animated values must break a batch on every backend,
+            // including compatibility draws that skip the second DoMaterial.
+            opaqueA.EmissiveIntensity = 0.25f;
+            opaqueB.EmissiveIntensity = 2f;
+            world.Capture(new[] { opaqueA, opaqueB },
+                Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+            Check(world.OpaqueBatches.Count == 2
+                && world.Opaque[0].Material != world.Opaque[1].Material
+                && world.Opaque[0].StateKey != world.Opaque[1].StateKey,
+                "different emissive animation intensities split material batches");
+            RetainedMaterialDescriptor firstEmissive = world.Opaque[0].Material;
+            ulong firstEmissiveKey = world.Opaque[0].StateKey;
+            opaqueB.EmissiveIntensity = opaqueA.EmissiveIntensity;
+            world.Capture(new[] { opaqueA, opaqueB },
+                Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+            Check(world.OpaqueBatches.Count == 1
+                && world.OpaqueBatches[0].Count == 2,
+                "matching emissive animation intensities share material state");
+            opaqueA.EmissiveIntensity = 1f;
+            world.Capture(new[] { opaqueA, opaqueB },
+                Array.Empty<RenderItem>(), Array.Empty<RenderItem>());
+            Check(world.OpaqueBatches.Count == 2
+                && world.Opaque[0].Material != firstEmissive
+                && world.Opaque[0].StateKey != firstEmissiveKey,
+                "emissive animation changes refresh the next frame's batch identity");
 
             var sortableA = new RenderItem
             {
@@ -313,6 +459,9 @@ namespace MphRead.Mods.Render
             pbrDirect.Alpha = 0.5f;
             Check(!ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
                 "alpha-blended mesh stays off direct PBR MRT replay");
+            pbrDirect.Alpha = 0.999f;
+            Check(!ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
+                "near-opaque mesh cannot bypass the PBR surface filter in a multidraw batch");
 
             var baseOnly = new RetainedWorldTextureSet(
                 new RetainedTextureBinding(10, default, true),

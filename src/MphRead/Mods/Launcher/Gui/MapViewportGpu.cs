@@ -33,9 +33,13 @@ internal sealed partial class MapViewport
             Mods.DebugLog.Line("map", "Editor renderer unavailable: " + ex.Message);
         }
     }
-    internal void ReleaseRenderer()
+    internal void ReleaseRenderer(bool canReleaseNativeResources = true)
     {
-        _renderer?.UnloadGl(); _renderer = null;
+        Scene? renderer = _renderer;
+        _renderer = null;
+        renderer?.ReleaseRenderResources(canReleaseNativeResources
+            && (!(global::MphRead.Mods.Render.ModernGraphicsCompat.Active || global::MphRead.Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested)
+                || global::MphRead.Mods.Render.ModernGraphicsCompat.CanReleaseNativeResources));
         InvalidateVisual();
     }
     internal void DrawInWindow(UiSurface surface, int width, int height)

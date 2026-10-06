@@ -141,6 +141,11 @@ namespace MphRead.Mods.Replay
 
         public static void AfterSceneDraw(Scene scene)
         {
+            // Android's render loop owns the foreground shell; its draw calls
+            // delegate to the replay replica. Capture and sample validation must
+            // refer to that exact drawn scene, whose presentation clock and
+            // render targets were prepared by DemoPlayback.
+            scene = DemoPlayback.Presentation(scene) ?? scene;
             PollEncoder();
             CaptureReplayThumbnails(scene);
 

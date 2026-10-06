@@ -67,7 +67,7 @@ namespace MphRead.Droid
                     }
                     string room = rooms[i];
                     var clock = Stopwatch.StartNew();
-                    bool saved = RenderOne(room, input, width, height, report);
+                    bool saved = RenderOne(room, input, width, height, report, cancelled);
                     if (saved)
                     {
                         written++;
@@ -87,9 +87,10 @@ namespace MphRead.Droid
         }
 
         private static bool RenderOne(string room, AndroidInput input, int width, int height,
-            Action<string> report)
+            Action<string> report, Func<bool>? cancelled)
         {
             Scene? scene = null;
+            bool nativeAvailable = true;
             try
             {
                 // A player has to exist for the multiplayer intro camera to run
@@ -99,7 +100,9 @@ namespace MphRead.Droid
                     input.Keyboard, input.Mouse, _ => { }, () => { });
                 scene.AddPlayer(Hunter.Samus, recolor: 0, team: -1);
                 scene.AddRoom(room, GameMode.Battle, playerCount: 1);
+                if (cancelled?.Invoke() == true) return false;
                 scene.OnLoad();
+                if (cancelled?.Invoke() == true) return false;
                 Silence(report);
                 GL.Viewport(0, 0, width, height);
                 scene.OnResize();
@@ -111,11 +114,13 @@ namespace MphRead.Droid
                 // settle went from most of the room's time to 15 ms.
                 for (int frame = 0; frame < SettleFrames; frame++)
                 {
+                    if (cancelled?.Invoke() == true) return false;
                     GameState.ApplyPause();
                     scene.OnUpdateFrame();
                 }
                 GameState.ApplyPause();
                 scene.OnUpdateFrame();
+                if (cancelled?.Invoke() == true) return false;
                 if (!scene.OnRenderFrame())
                 {
                     return false;
@@ -125,6 +130,7 @@ namespace MphRead.Droid
             }
             catch (Exception ex)
             {
+                nativeAvailable = false;
                 // The whole exception, not just the message: a preview run that
                 // fails on every room fails for one reason, and the message
                 // alone rarely says which.
@@ -136,11 +142,12 @@ namespace MphRead.Droid
             {
                 try
                 {
-                    scene?.DoCleanup();
+                    scene?.CleanupAndReleaseRenderResources(nativeAvailable);
                 }
                 catch (Exception ex)
                 {
                     report($"[thumbnails] {room}: cleanup failed: {ex.Message}");
+                    throw new AndroidGraphicsTeardownException(ex);
                 }
             }
         }

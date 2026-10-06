@@ -33,7 +33,15 @@ for node in doc['nodes']:
                 for shift in range(3):
                     order=np.roll(np.arange(3),shift);pe=np.max(np.linalg.norm(points[face]-t['positions'][order],axis=1));ue=np.max(np.abs(uv[face]-t['uvs'][order]));scores.append((pe+ue,ti,order,pe,ue))
             assert scores,('No original Source/native effect triangle',pair,cell)
-            score,ti,order,pe,ue=min(scores,key=lambda s:s[0]);assert pe<1e-5 and ue<2e-6,('Source surface/UV/winding changed',pair,pe,ue);consumed.add(ti);t=ts[ti];maximum_pos=max(maximum_pos,float(pe));maximum_uv=max(maximum_uv,float(ue))
+            valid=[s for s in scores if s[3]<1e-5 and s[4]<2e-6];assert valid,('Source surface/UV/winding changed',pair,min(s[3] for s in scores),min(s[4] for s in scores))
+            # Source glow coatings include coincident geometry/UV triangles
+            # with opposite authored normals. Consume the complete attribute
+            # record, not an arbitrary geometry-only duplicate. Cyclic order
+            # only: reflected winding remains rejected.
+            def complete_error(s):
+                score,ti,order,pe,ue=s;t=ts[ti]
+                return float(np.max(np.linalg.norm((colors[face]-t['colors'][order]) if t['nativeEffect'] else (normal[face]-t['normals'][order]),axis=1)))
+            score,ti,order,pe,ue=min(valid,key=complete_error);consumed.add(ti);t=ts[ti];maximum_pos=max(maximum_pos,float(pe));maximum_uv=max(maximum_uv,float(ue))
             if t['nativeEffect']:
                 assert 'baseColorTexture' not in mat.get('pbrMetallicRoughness',{}),'Native billboard artwork binding overridden';ce=np.max(np.abs(colors[face]-t['colors'][order]));maximum_color=max(maximum_color,float(ce));effect_triangles+=1
             else:
@@ -41,7 +49,7 @@ for node in doc['nodes']:
                 normals=normal[face];length=np.linalg.norm(normals,axis=1);assert np.max(abs(length-1))<1e-4;dots=np.sum(normals/length[:,None]*t['normals'][order],axis=1);ne=float(np.degrees(np.arccos(np.clip(dots,-1,1))).max());maximum_norm=max(maximum_norm,ne);actual[t['sourceMaterial']]+=1
             checked+=3
         assert len(consumed)==len(ts)
-assert seen==set(groups) and sum(actual.values())==cfg['expectedTriangles'];assert maximum_norm<1.1 and maximum_color<1e-6
+assert seen==set(groups) and sum(actual.values())==cfg['expectedTriangles'];assert maximum_norm<1.1 and maximum_color<1e-6,('Source normal/native color fidelity failed',maximum_norm,maximum_color)
 for mat in doc['materials']:
     if mat['name'] in cfg.get('teamRecolorMaterials',[]) and 'baseColorTexture' in mat.get('pbrMetallicRoughness',{}):assert set(mat['extras']['projectPrimeRecolors'])=={'4','5'}
 assert all(v['albedoTexelsVerifiedLossless'] for v in json.loads((root/'atlas-layout.json').read_text())['groups'].values());assert json.loads((root/'source-alpha.json').read_text())['pass'];assert json.loads((root/'rigid-attribute-restoration.json').read_text())['pass'];report=json.loads((root/'retarget-report.json').read_text());assert report['sourceConversionMatrixGame']==fitproof['sourceConversionMatrixGame'];assert report['nativeNodesSourceTriangles']==fitproof['nativeNodesSourceTriangles']

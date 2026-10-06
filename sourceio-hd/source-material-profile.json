@@ -1,0 +1,38 @@
+{
+  "format": 1,
+  "id": "sourceio-source-faithful-materials-v1",
+  "hunters": ["Spire", "Noxus", "Kanden", "Sylux", "Trace", "Weavel"],
+  "preserveHunters": ["Samus"],
+  "requireExactLodImagePeers": true,
+  "channels": {
+    "albedo": "sRGB Source base plus recovered VMT detail; preserve artwork and alpha semantics",
+    "normal": "Original Source tangent normals; linear data; scale applies once to XY, then normalize",
+    "materialDesktop": "glTF G=forward roughness, B=bounded scalar Source Phong strength; R unused",
+    "materialRuntime": "R=scalar specular strength, G=forward roughness, B unused; identity factors",
+    "emissive": "sRGB encoded original base-alpha selfillum mask and bounded authored tint; factor applies in linear space once"
+  },
+  "renderer": {
+    "forwardExponent": "mix(72,4,roughness)",
+    "sourceExponentConversion": "clamp((72-sourcePhongExponent)/68,0.04,1)",
+    "sourceStrengthConversion": "mask*clamp(phongboost*Rec709(phongtint),0,1)",
+    "forwardSpecularGain": 0.16,
+    "forwardEmissiveGain": 0.75,
+    "lightingAuthority": "Native MPH material lighting; unlit groups do not become physically lit",
+    "priority": "Native double damage, damage/freeze/bright/team/cosmetic presentation remains authoritative",
+    "notPhysicalMetalness": true
+  },
+  "preservation": {
+    "sourceAlbedoAndNormalPayloads": "Lock accepted desktop payloads and factors; no procedural de-lighting or regeneration",
+    "sharedVariants": "Share identical image payloads across geometry variants; native identities may differ by tier",
+    "recolors": "Native suit/team albedo variants retain original normal/specular/emission companions",
+    "samus": "Keep baseline entries and all referenced desktop/mobile files byte-exact"
+  },
+  "remainingArtWork": [
+    "Artist-reviewed selective removal of painted highlights and cavity lighting from albedo",
+    "Material-region roughness/specular masks where constant Source Phong masks are insufficient",
+    "Controlled emission brightness/hue review, including bounded HDR Source tints",
+    "Retain Source normals and repaint only a demonstrated missing surface detail",
+    "Selective repaint at real texel density; repeated atlas width is not a genuine 4K repaint"
+  ],
+  "scope": "Source material fidelity contract and preservation audit, not a new artwork/PBR remaster, GPU acceptance, or Android display/performance proof. Compression/resize fidelity is audited separately by mobile tooling."
+}

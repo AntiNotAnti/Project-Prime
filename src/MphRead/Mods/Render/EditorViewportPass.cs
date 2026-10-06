@@ -13,13 +13,13 @@ namespace MphRead;
 /// <summary>Editor meshes use the game's shader, material and display-list path.</summary>
 public partial class Scene
 {
-    private readonly Dictionary<Guid, EditorMesh> _editorMeshes = new();
+    private readonly MapViewportMeshResources<EditorMesh> _editorMeshes = new();
     private readonly Dictionary<string, int> _editorTextures = new();
     private RenderItem? _editorGrid;
     private string _editorGridView = "";
     private float _editorGridStep;
     private sealed record EditorPart(bool Solid, bool CollisionOnly, bool SurfaceOnly, (bool Imported, int Index) Material, RenderItem Fill, RenderItem Edges);
-    private sealed record EditorMesh(MapViewportMesh Source, EditorPart[] Parts);
+    private sealed record EditorMesh(EditorPart[] Parts);
     public int EditorMeshUploads { get; private set; }
     public int EditorTextureUploads { get; private set; }
     public int EditorMeshCount => _editorMeshes.Count;
@@ -63,7 +63,7 @@ public partial class Scene
     public void DrawEditorFrame(MapRenderFrame frame, Vector2i targetSize, bool capture = false)
     {
         if (!frame.Layout.IsValid) return;
-        SynchronizeEditorMeshes(frame.Meshes);
+        _editorMeshes.Synchronize(frame, UploadEditorMesh, DeleteEditorMesh);
         var usedTextures = frame.Materials.Values.Select(t => t.Key).ToHashSet();
         if (frame.UvChecker) usedTextures.Add(MapViewportMaterials.Checker.Key);
         foreach (string key in _editorTextures.Keys.Where(k => !usedTextures.Contains(k)).ToArray())
@@ -184,40 +184,29 @@ public partial class Scene
             GL.PopAttrib();
         }
     }
-    private void SynchronizeEditorMeshes(IReadOnlyList<MapViewportMesh> meshes)
+    private EditorMesh UploadEditorMesh(MapViewportMesh mesh)
     {
-        var ids = meshes.Select(m => m.ObjectId).ToHashSet();
-        foreach (var id in _editorMeshes.Keys.Where(id => !ids.Contains(id)).ToArray())
-        { DeleteEditorMesh(_editorMeshes[id]); _editorMeshes.Remove(id); }
-        foreach (var mesh in meshes)
+        var parts = new List<EditorPart>();
+        try
         {
-            if (_editorMeshes.TryGetValue(mesh.ObjectId, out var previous))
+            foreach (var variant in mesh.CollisionFaces == null
+                ? new[] { (Faces: mesh.Faces, CollisionOnly: false, SurfaceOnly: false) }
+                : new[] { (Faces: mesh.Faces, CollisionOnly: false, SurfaceOnly: true),
+                    (Faces: mesh.CollisionFaces, CollisionOnly: true, SurfaceOnly: false) })
+            foreach (var group in variant.Faces.GroupBy(f => (f.Solid, Imported: f.ObjectId == Guid.Empty, f.Material)))
             {
-                if (ReferenceEquals(previous.Source, mesh)) continue;
-                DeleteEditorMesh(previous); _editorMeshes.Remove(mesh.ObjectId);
+                int fill = CompileEditorList(group, edges: false);
+                int edges;
+                try { edges = CompileEditorList(group, edges: true); }
+                catch { GL.DeleteLists(fill, 1); throw; }
+                var surface = EditorItem(fill);
+                surface.CullingMode = CullingMode.Back;
+                parts.Add(new(group.Key.Solid, variant.CollisionOnly, variant.SurfaceOnly, (group.Key.Imported, group.Key.Material), surface, EditorItem(edges)));
             }
-            var parts = new List<EditorPart>();
-            try
-            {
-                foreach (var variant in mesh.CollisionFaces == null
-                    ? new[] { (Faces: mesh.Faces, CollisionOnly: false, SurfaceOnly: false) }
-                    : new[] { (Faces: mesh.Faces, CollisionOnly: false, SurfaceOnly: true),
-                        (Faces: mesh.CollisionFaces, CollisionOnly: true, SurfaceOnly: false) })
-                foreach (var group in variant.Faces.GroupBy(f => (f.Solid, Imported: f.ObjectId == Guid.Empty, f.Material)))
-                {
-                    int fill = CompileEditorList(group, edges: false);
-                    int edges;
-                    try { edges = CompileEditorList(group, edges: true); }
-                    catch { GL.DeleteLists(fill, 1); throw; }
-                    var surface = EditorItem(fill);
-                    surface.CullingMode = CullingMode.Back;
-                    parts.Add(new(group.Key.Solid, variant.CollisionOnly, variant.SurfaceOnly, (group.Key.Imported, group.Key.Material), surface, EditorItem(edges)));
-                }
-                _editorMeshes.Add(mesh.ObjectId, new(mesh, parts.ToArray()));
-                EditorMeshUploads++;
-            }
-            catch { foreach (var part in parts) { GL.DeleteLists(part.Fill.ListId, 1); GL.DeleteLists(part.Edges.ListId, 1); } throw; }
+            EditorMeshUploads++;
+            return new(parts.ToArray());
         }
+        catch { foreach (var part in parts) { GL.DeleteLists(part.Fill.ListId, 1); GL.DeleteLists(part.Edges.ListId, 1); } throw; }
     }
     private static RenderItem EditorItem(int list) => new()
     {
@@ -267,8 +256,7 @@ public partial class Scene
         _editorTextures.Clear();
         if (_editorGrid != null) { GL.DeleteLists(_editorGrid.ListId, 1); _editorGrid = null; }
         if (_editorMeshes == null) return;
-        foreach (var mesh in _editorMeshes.Values) DeleteEditorMesh(mesh);
-        _editorMeshes.Clear();
+        _editorMeshes.Clear(DeleteEditorMesh);
     }
 }
 #endif

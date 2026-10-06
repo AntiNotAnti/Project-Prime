@@ -1,0 +1,238 @@
+{
+  "format": 1,
+  "hunter": "Weavel",
+  "part": "halfturret",
+  "skinning": "weighted4",
+  "sourceRelative": "models/weavel/weavel_c.glb",
+  "sourceSha256": "fe6005119928f71640a6684849b2e12d7967af88dc77650616105534f725db1c",
+  "sourceMeshes": [
+    "MPH/Weavel_C.mdl_Body_Halfturret.smd_MESH"
+  ],
+  "bodygroups": [
+    "Halfturret.smd.001"
+  ],
+  "expectedSourceBones": 8,
+  "expectedTriangles": 13558,
+  "excludedSourceMaterials": [
+    "v_saw_ballista",
+    "v_saw_ballista_grate"
+  ],
+  "excludedSourceMaterialTriangles": {
+    "v_saw_ballista": 49,
+    "v_saw_ballista_grate": 14
+  },
+  "nativeKit": "artifacts/sourceio-hd/material-weapon-review-v2/weavel/biped/kit",
+  "sourceMaterialRoot": "/Users/jarrett/Downloads/mph/gmpublisher/materials",
+  "sourceDecodedTextureRoot": "/Users/jarrett/Downloads/mph/converted-sourceio/decoded-vtf",
+  "sourceMaterialMaxDimension": 1024,
+  "reuseSingleMaterialTextures": true,
+  "compactPeriodicUVs": true,
+  "powerOfTwoAtlases": false,
+  "preserveSourceNormals": true,
+  "preserveSourceMaterialAlpha": true,
+  "recolorModelRelative": "weavel/halfturret_weighted4.glb",
+  "rootSource": "ValveBiped.Bip01_Pelvis",
+  "rootNative": "Thighs",
+  "yawDegrees": 0,
+  "globalAnchor": "root",
+  "sourceFitBodygroups": [
+    "Halfturret.smd.001"
+  ],
+  "boneMap": {
+    "ValveBiped.Bip01_Pelvis": "Root",
+    "ValveBiped.Bip01_L_Thigh": "Thighs",
+    "ValveBiped.Bip01_R_Thigh": "Thighs",
+    "ValveBiped.Bip01_L_Calf": "Calf",
+    "ValveBiped.Bip01_R_Calf": "Calf",
+    "ValveBiped.Bip01_L_Foot": "Foot",
+    "ValveBiped.Bip01_R_Foot": "Foot",
+    "ValveBiped.Bip01_Spine": "TurretMid"
+  },
+  "fit": {
+    "Root": {
+      "anchor": "ValveBiped.Bip01_Pelvis",
+      "preserveSourceShape": true
+    },
+    "Thighs": {
+      "sourcePoint": [
+        0.0018684155013571,
+        0.06284365776733909,
+        1.0370431233391173
+      ],
+      "endSourcePoint": [
+        0.005031685535443031,
+        0.02373044766587289,
+        0.6021725006379925
+      ],
+      "endNative": "Calf"
+    },
+    "Calf": {
+      "sourcePoint": [
+        0.005031685535443031,
+        0.02373044766587289,
+        0.6021725006379925
+      ],
+      "endSourcePoint": [
+        0.005687910715840738,
+        0.13831021559493503,
+        0.14610763363548712
+      ],
+      "endNative": "Foot"
+    },
+    "Foot": {
+      "sourcePoint": [
+        0.005687910715840738,
+        0.13831021559493503,
+        0.14610763363548712
+      ],
+      "orientFromSourcePoint": [
+        0.005031685535443031,
+        0.02373044766587289,
+        0.6021725006379925
+      ],
+      "orientNative": "Calf"
+    },
+    "TurretBase": {
+      "sourcePoint": [
+        -0.0003905555966257624,
+        0.0764933013915137,
+        1.1694278539914005
+      ],
+      "endSourcePoint": [
+        -0.03065978590239691,
+        0.11983369772835174,
+        1.2945392402735623
+      ],
+      "endNative": "TurretMid"
+    },
+    "TurretMid": {
+      "sourcePoint": [
+        -0.03065978590239691,
+        0.11983369772835174,
+        1.2945392402735623
+      ],
+      "muzzle": true,
+      "radialScale": 1.45
+    },
+    "TurretTip": {
+      "sourcePoint": [
+        -0.006314477500000004,
+        -0.2675244915,
+        1.325178068
+      ],
+      "inheritFitFrom": "TurretMid"
+    }
+  },
+  "muzzle": {
+    "sourcePoint": [
+      -0.006314477500000004,
+      -0.2675244915,
+      1.325178068
+    ],
+    "nativeBone": "TurretTip",
+    "nativeLocalPoint": [
+      -0.0004882777777781757,
+      -0.02374950000000009,
+      0.008979000000000001
+    ],
+    "method": "Original Source Weavel material indexed front-cap unique-position centroid (z within 0.0001 of maximum), exact native TurretTip reference geometry mean. Shared Mid/Tip rest fit preserves seam and native recoil delta."
+  },
+  "materialMap": {
+    "Weavel_Body": "WeavelLeg",
+    "Weavel_Light": "WeavelLegLit"
+  },
+  "nativeFitMaterials": [
+    "WeavelLeg",
+    "WeavelLegLit"
+  ],
+  "nativeSupplementMaterials": [],
+  "teamRecolorMaterials": [
+    "WeavelLeg"
+  ],
+  "geometryOverrides": [
+    {
+      "object": "Halfturret.smd.001",
+      "component": {
+        "triangles": 844,
+        "centerGame": [
+          -0.0003905555966257624,
+          1.1694278539914005,
+          -0.0764933013915137
+        ],
+        "centerTolerance": 1e-05
+      },
+      "nativeBone": "TurretBase"
+    },
+    {
+      "object": "Halfturret.smd.001",
+      "component": {
+        "triangles": 532,
+        "centerGame": [
+          -0.006270779108745046,
+          1.3247671975408282,
+          0.24300011192049298
+        ],
+        "centerTolerance": 1e-05
+      },
+      "nativeBone": "TurretTip"
+    }
+  ],
+  "fitNotes": [
+    "Both Source thigh/calf/foot chains collapse symmetrically using exact paired Source bone-head means, preserving bilateral geometry width.",
+    "Root geometry uses the pelvis-to-native-Thighs global shape fit while still driven by native Root. Native recoil receiver, base and muzzle pieces follow three distinct native nodes.",
+    "Cannon radial factor 1.45 multiplies only axes perpendicular to the exact muzzle constraint; it is part of the explicit baked conversion, not post-export scaling.",
+    "Native projectile origin Position.AddY(.4f) and draw Y offset -.45 remain unchanged. Runtime acceptance must compare native visual tip, actual projectile and effects."
+  ],
+  "muzzleSourceGeometryProof": {
+    "frontBandGameZ": 0.0001,
+    "frontUniquePositions": 20,
+    "sourcePointGame": [
+      -0.006314477500000004,
+      1.325178068,
+      0.2675244915
+    ],
+    "nativeTipMeanGame": [
+      -5.4204661016747725e-05,
+      0.8199853327075225,
+      0.269482018521759
+    ],
+    "nativeLocalPoint": [
+      -0.0004882777777781757,
+      -0.02374950000000009,
+      0.008979000000000001
+    ],
+    "sourceTipComponent": {
+      "triangles": 532,
+      "vertices": 350,
+      "bounds": [
+        [
+          -0.04511436074972153,
+          1.2858585119247437,
+          0.14924095571041107
+        ],
+        [
+          0.03248553350567818,
+          1.3644976615905762,
+          0.26757997274398804
+        ]
+      ],
+      "center": [
+        -0.006270779108745046,
+        1.3247671975408282,
+        0.24300011192049298
+      ],
+      "materials": {
+        "Weavel_Body": 271,
+        "Weavel_Light": 261
+      }
+    }
+  },
+  "acceptanceRequired": [
+    "Native aiming pitch/yaw on TurretBase",
+    "Shoot/recoil TurretMid and TurretTip independently",
+    "Morph deploy -> stationary autonomous target/fire -> unmorph despawn",
+    "Damage/freeze/thaw/death and owner team/bright/double damage",
+    "Exact native projectile/effect alignment with Source muzzle under aim/recoil",
+    "No native/HD fallback and no lower/upper mesh overlap"
+  ]
+}

@@ -7,6 +7,12 @@ positions remain authoritative. All seven hunters now have configurations.
 Generated assets are local, under `artifacts/sourceio-hd/`; source game assets,
 textures and Blender files are not shipped in this directory.
 
+Pass B extends the same contract to LOD1, alternate forms, the separate Weavel
+turret, authored forward material response and bounded mobile textures. See
+[the Pass B workflow](#pass-b-variants-materials-and-mobile-textures). Earlier
+sections describe the original milestone scopes; their native-only exclusions
+do not describe the completed variant pack.
+
 ## Dependencies
 
 - Current ProjectPrime desktop build with character kit/validator commands.
@@ -299,3 +305,140 @@ armed bodygroup. Alternate-form/scythe/halfturret work remains in Pass B.
 Accepted v2 builds freeze with `common/freeze.py --release-name lod0-v2`,
 preserving earlier readonly v1 releases. Local comparisons and exact signed app
 roster evidence are under `artifacts/sourceio-hd/fidelity-review/`.
+
+## Pass B: variants, materials and mobile textures
+
+The local final candidate is `artifacts/sourceio-hd/pass-b-alternates-v1/roster-v6-final/starter`.
+It contains 29 manifest entries: seven LOD0 bipeds, seven LOD1 bipeds, seven
+first-person weapons, seven alternate forms and Weavel's independent turret.
+Each entry selects separate desktop/mobile GLBs. The four existing Samus
+entries and their asset bytes are retained.
+
+### Native alternate presentation
+
+- `alternate_pipeline.py` converts the native-driven Weighted4 forms for
+  Noxus, Trace, Kanden and Weavel using `alternate-config.json`.
+- `alternate_rigid_pipeline.py` converts Sylux's rigid Lockjaw using its
+  `alternate-config.json`. Its explicitly declared native `WaveBeam_tga`
+  supplement preserves the animated beam; no general native mesh fallback is
+  permitted beside the Source replacement.
+- `alternate_cage_pipeline.py` uses Spire's `alternate-cage-config.json`.
+  Continuous weights from the native rock cage prevent cracks between pieces
+  of the connected Source shell. Split normal/UV records at identical positions
+  receive identical cage weights. The earlier rigid Spire attempt is rejected.
+- `turret_pipeline.py` uses Weavel's `halfturret-config.json`. Connected
+  components are selected from the original Source GLB, before Blender can weld
+  coincident vertices. The Source barrel fits the native visual tip while the
+  game's projectile origin remains authoritative. Tiny unrelated Source
+  accessory components are explicitly excluded in the configuration/audit.
+
+Each build uses a copied native kit, captures its inputs before conversion,
+refuses overwriting a completed/frozen output, runs the generated exporter
+unchanged, and independently audits the exported native bind/UV/topology/weight
+contract. For example:
+
+```bash
+python sourceio-hd/common/alternate_cage_pipeline.py build \
+  --config sourceio-hd/spire/alternate-cage-config.json \
+  --source-root /path/to/converted-sourceio \
+  --output /absolute/path/to/new-spire-alternate \
+  --exe /absolute/path/to/ProjectPrime
+
+python sourceio-hd/common/turret_pipeline.py build \
+  --config sourceio-hd/weavel/halfturret-config.json \
+  --source-root /path/to/converted-sourceio \
+  --output /absolute/path/to/new-weavel-turret \
+  --exe /absolute/path/to/ProjectPrime
+```
+
+Native freeze overlays, particles, bombs, trails and gameplay physics remain
+engine-owned. Kanden's Source LarvaBomb object is excluded from its moving
+Stinglarva body; the game's spawned native bomb presentation is retained.
+Weavel's upper alternate uses its conditional native sword material identity.
+
+### Material response and fresh acceptance
+
+`material_response.py` reads `material-response-v1.json` and the locked Source
+material profile. It changes only the existing roughness/specular channels in
+declared Source atlas regions, preserving geometry and Source albedo, normals,
+emissive artwork and recolors. Self-illuminating regions retain their original
+response. These are authored forward-renderer values, not measured physical
+PBR, a de-lighting operation or a 4K repaint.
+
+`material_audit_bridge.py` creates new hash-bound static audits for changed
+assets. Original audits/acceptance receipts retain their original model hashes.
+Fresh runtime and visual checks must name the changed shipping GLB. A maps-off
+first-person comparison cannot accept advanced materials; inspect the actual
+maps-on and suit/late-presentation captures separately. Action stages that
+disable advanced maps prove native pose/effects, not shader-on response.
+
+The final local release scripts are under
+`artifacts/sourceio-hd/pass-b-alternates-v1/`. They serialize GPU diagnostics,
+install only into isolated test data during acceptance, restore the whole prior
+pack and settings, and require exact final-manifest desktop/mobile receipts
+and manual image reviews before freezing or replacing the live pack/app.
+Installation snapshots the previous pack, app and preferences for rollback.
+
+### Mobile tiers and runtime fallback
+
+`mobile_pack.py`, `mobile_encoder.py` and `mobile_audit.py` apply
+`mobile-tier.json` to non-Samus entries. Geometry, rectangular aspect ratios,
+atlas/UV layout, native binds and weights remain unchanged. Maximum image
+dimensions are albedo 1024, normal 512, material/emissive 256.
+
+Every authored mip is checked against fixed quality limits. UASTC level 2 is
+tried first, then level 4; images still failing use lossless RGBA8/Zstd KTX2 with
+the complete authored mip chain. RGB/alpha require at least 35 dB PSNR; normal
+mean/p99 angular errors must not exceed 1.5/6 degrees. Quality guards are not
+relaxed to meet an encoding budget.
+
+Supported adapters transcode UASTC to ASTC. Unaligned compressed base extents
+and ETC2-only adapters use authored RGBA mips without altering aspect/UVs.
+Lossless exceptions also retain RGBA mips. The renderer uploads these levels
+explicitly, retains them across device recreation, and releases admitted
+texture bytes when assets are released. Texture probes check GPU sampling and
+byte-exact readback of every uploaded RGBA level.
+
+Desktop Metal acceptance of mobile assets establishes desktop asset/runtime
+behavior only. Physical Android Vulkan support, process/driver memory, frame
+pacing and device-specific LOD thresholds require a connected target device.
+
+### Authored PBR repaint pipeline
+
+The full repaint pipeline is separate from the earlier scalar material pass:
+`pbr_inventory.py` locks the accepted roster and extracts each Source material's
+registered texture ownership; `pbr_maps.py` builds authored surface tiles;
+`pbr_pack.py` applies those tiles to all 29 body, LOD, weapon, alternate and
+halfturret entries. New paint uses image-generation reference edits with saved
+prompts and hashes. Samus reuses its previously authored paint. Glow, hair,
+alpha, protected markings and native material identities retain their source
+contracts. The authored paint is blended under explicit registration guards;
+it is not a measured surface reconstruction or a genuine 4K repaint.
+
+`pbr_audit.py` and the independent `pbr_recipe_audit.py` replay tile and atlas
+recipes, check normal directions and recolor transfer, and require unchanged
+geometry, UVs, weights and bind transforms. `pbr_acceptance_bridge.py` carries
+only independently verified geometric and muzzle facts to the new model
+hashes. Prior rendering receipts remain historical. Fresh rendering and visual
+acceptance are required for the new pack. `pbr_evidence_audit.py` independently
+checks the final desktop/mobile suites, reviewed capture hashes and actual
+controlled-shader PNG samples before the release can be frozen or installed.
+
+The opt-in material encoding is `projectPrimeMaterialEncoding: "orm"`:
+R is ambient occlusion, G is perceptual roughness, B is metalness, and A is a
+zero-valued encoding marker. That alpha is independent of drawn transparency.
+Resizing filters the channels independently so zero alpha cannot erase the
+material data. The shader uses linear-color GGX, Schlick-Smith geometry and
+Schlick Fresnel with the actual camera view direction; AO affects ambient
+lighting only. Ambient lighting still uses the native room approximation.
+Environment reflections and image-based lighting are not implemented.
+Legacy A255 maps and native status/material overrides retain their old paths.
+
+The PBR mobile build uses its own tier configuration with no preserved hunters,
+rebuilding all seven hunters' companions. The existing dimension and compression
+quality limits apply, and every decoded ORM mip must retain A=0 exactly. The
+controlled shader response check is `-characterpbrresponsecheck`; the weapon
+harness's `-pbrlitallstages` covers action and high-refresh motion with advanced
+materials enabled while retaining a separate maps-off control. Release work,
+exact-hash receipts and rollback artifacts are under
+`artifacts/sourceio-hd/pbr-repaint-v1/`.

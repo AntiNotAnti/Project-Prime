@@ -9,6 +9,7 @@ import copy
 import json
 import math
 import tempfile
+from collections import Counter
 from pathlib import Path
 
 from glb import image_bytes, load
@@ -67,7 +68,9 @@ def _material_meanings(old, new):
 
 
 def audit(root):
-    from mobile_pack import check_lock, check_tier, ktx_shape, pack_files, sha_bytes, sha_file, texture_source, within
+    from mobile_pack import (check_lock, check_tier, conversion_identity, ktx_metadata,
+                             ktx_shape, pack_files, sha_bytes, sha_file, texture_source, within)
+    from mobile_encoder import ENCODING_POLICY, check_protocol
     root = Path(root).resolve()
     # An old PASS must not survive a failed replay of this independent audit.
     destination = root / "audit.json"
@@ -75,6 +78,7 @@ def audit(root):
     _require(not (root / "build-failure.json").exists(), "Candidate has a failed build receipt")
     result = json.loads((root / "build-result.json").read_text())
     _require(result.get("buildCompleted") is True, "Candidate build did not complete")
+    _require(result.get("encodingPolicy") == ENCODING_POLICY, "Candidate encoding policy differs")
     lock_path, tier_path = root / "source-lock.json", root / "tier.json"
     lock, tier = json.loads(lock_path.read_text()), json.loads(tier_path.read_text())
     check_tier(tier)
@@ -83,6 +87,7 @@ def audit(root):
     encoder_receipt = result["encoder"]
     encoder_path = Path(encoder_receipt.get("encoder", root / "encoder/mobile-encode-basis"))
     _require(sha_file(encoder_path) == encoder_receipt["encoderSha256"], "Encoder differs from executed build")
+    _require(check_protocol(encoder_path) == encoder_receipt["protocol"], "Encoder protocol differs from the build")
     if "ktxLibrary" in encoder_receipt:
         _require(sha_file(encoder_receipt["ktxLibrary"]) == encoder_receipt["ktxLibrarySha256"], "Pinned KTX library changed")
         _require(sha_file(root / "encoder/mobile-encode-basis.cpp") == encoder_receipt["encoderSourceSha256"], "Encoder source changed")
@@ -107,6 +112,42 @@ def audit(root):
         _require(sha_file(base.with_suffix(".mips")) == image["referenceMipSha256"], "Authored reference mips changed")
         _require(sha_file(base.with_suffix(".png")) == image["referencePngSha256"], "Visual reference PNG changed")
         width, height, levels = ktx_shape(base.with_suffix(".ktx2").read_bytes())
+        shape = ktx_metadata(base.with_suffix(".ktx2").read_bytes())
+        mode = image["encodingMode"]
+        _require(mode in ("uastc2", "uastc4", "rgba8-zstd"), "Unsupported per-image encoding")
+        _require(shape["basis"] == (mode != "rgba8-zstd"), "KTX format differs from its adaptive encoding receipt")
+        if mode == "rgba8-zstd":
+            srgb = image["meaning"]["channel"] in ("albedo", "emissive")
+            _require(shape["vkFormat"] == (43 if srgb else 37), "Lossless KTX color/data format differs")
+        _require(image["encodingPolicy"] == tier["encodingPolicy"] and image["compressionAcceptance"] == tier["compressionAcceptance"], "Image guards differ from the tier")
+        _require(image["uastcLevel"] == {"uastc2": 2, "uastc4": 4}.get(mode), "Image level differs from its encoding mode")
+        attempts = image["adaptiveAttempts"]
+        _require([attempt["mode"] for attempt in attempts] == ["uastc2", "uastc4", "rgba8-zstd"][:len(attempts)]
+                 and 1 <= len(attempts) <= 3 and attempts[-1]["mode"] == mode, "Adaptive encoding did not follow the fixed policy")
+        for i, attempt in enumerate(attempts):
+            quality = attempt["quality"]
+            _require(quality["pass"] == (i == len(attempts) - 1), "Adaptive encoding skipped the first accepted mode")
+            _require(len(quality["checks"]) == levels, "Adaptive quality guard omitted authored mips")
+            for level, check in enumerate(quality["checks"]):
+                _require(check["mip"] == level and check["size"] == image["mipSizes"][level], "Quality guard mip shape differs")
+                values = [check["rgbPsnrDb"], check["alphaPsnrDb"]]
+                failed = []
+                budget = tier["compressionAcceptance"]
+                if image["meaning"]["channel"] == "normal":
+                    values.extend([check["meanAngularErrorDegrees"], check["p99AngularErrorDegrees"]])
+                    if check["meanAngularErrorDegrees"] > budget["maximumMeanNormalAngleDegrees"]: failed.append("meanNormalAngle")
+                    if check["p99AngularErrorDegrees"] > budget["maximumP99NormalAngleDegrees"]: failed.append("p99NormalAngle")
+                if image["meaning"].get("materialEncoding") == "orm":
+                    _require(isinstance(check.get("ormZeroAlphaMarkerExact"),bool), "ORM guard omitted its exact alpha marker check")
+                    if not check["ormZeroAlphaMarkerExact"]: failed.append("ormZeroAlphaMarker")
+                if check["rgbPsnrDb"] < budget["minimumRgbPsnrDb"]: failed.append("rgbPsnr")
+                if check["alphaPsnrDb"] < budget["minimumAlphaPsnrDb"]: failed.append("alphaPsnr")
+                _require(all(math.isfinite(value) and value >= 0 for value in values) and check["failedBudgets"] == failed, "Adaptive quality record is invalid")
+            _require(quality["pass"] == all(not c["failedBudgets"] for c in quality["checks"]), "Adaptive quality PASS contradicts its mip checks")
+        _require(attempts[-1]["encodedSha256"] == image["encodedSha256"] and attempts[-1]["encodedBytes"] == image["encodedBytes"]
+                 and attempts[-1]["quality"] == image["compressionQuality"], "Selected adaptive payload differs from its receipt")
+        if mode == "rgba8-zstd":
+            _require(image["compressionQuality"]["allAuthoredRgbaMipBytesExact"], "Lossless fallback was not exact for every mip")
         _require([width, height] == image["size"] and levels == image["mips"], "Encoded image shape differs from reference")
         _require(max(width, height) <= tier["maximumDimensions"][image["meaning"]["channel"]], "Channel cap exceeded")
         ow, oh = image["originalSize"]
@@ -114,6 +155,10 @@ def audit(root):
         _require([width, height] == [max(1, round(ow * ratio)), max(1, round(oh * ratio))], "Rectangular atlas aspect fit changed")
         expected_sizes = [[max(1, width >> i), max(1, height >> i)] for i in range(levels)]
         _require(image["mipSizes"] == expected_sizes, "Authored mip shapes differ from KTX dimensions")
+        rgba_bytes = sum(w * h * 4 for w, h in expected_sizes)
+        astc_bytes = sum(((w + 3) // 4) * ((h + 3) // 4) * 16 for w, h in expected_sizes)
+        _require(image["gpuRgbaBytes"] == rgba_bytes and image["gpuAstc4x4Bytes"] == astc_bytes
+                 and image["gpuSelectedAstcAdapterBytes"] == (rgba_bytes if mode == "rgba8-zstd" else astc_bytes), "Image residency estimate differs from its actual encoding")
     rows, recomputed_images = [], set()
     for before, after, android_entry, receipt in zip(original["models"], current["models"], device["models"], result["models"]):
         expected_entry = copy.deepcopy(before)
@@ -141,15 +186,18 @@ def audit(root):
             expected_texture = copy.deepcopy(old_texture)
             old_source = texture_source(old_texture)
             expected_texture.pop("source", None)
-            expected_texture["extensions"] = {"KHR_texture_basisu": {"source": texture_source(new_texture)}}
+            expected_texture.pop("extensions", None)
+            cached = images[use["imageKey"]]
+            if cached["encodingMode"] == "rgba8-zstd":
+                expected_texture["source"] = texture_source(new_texture)
+            else:
+                expected_texture["extensions"] = {"KHR_texture_basisu": {"source": texture_source(new_texture)}}
             _require(expected_texture == new_texture, "Texture sampler/properties changed")
             _require(use["meaning"] == meaning and use["sourceTexture"] == old_index and use["mobileTexture"] == new_index and use["sourceImage"] == old_source,
                      "Image semantic mapping differs from receipt")
-            cached = images[use["imageKey"]]
             source_payload = image_bytes(old, old_blob, old_source)
             _require(cached["meaning"] == meaning and cached["sourceSha256"] == sha_bytes(source_payload), "Wrong source channel/factors supplied to conversion")
-            identity = {"sourceSha256": sha_bytes(source_payload), "meaning": meaning,
-                        "maximum": tier["maximumDimensions"][meaning["channel"]], "algorithm": ALGORITHM}
+            identity = conversion_identity(source_payload, meaning, tier)
             _require(use["imageKey"] == sha_bytes(json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()), "Conversion cache key differs from its exact semantics")
             if use["imageKey"] not in recomputed_images:
                 levels, metadata = prepare(source_payload, meaning, identity["maximum"])
@@ -166,12 +214,19 @@ def audit(root):
             _require(image["mimeType"] == "image/ktx2" and "uri" not in image, "Mobile image is not embedded KTX2")
             _require(sha_bytes(image_bytes(new, new_blob, mobile_index)) == cached["encodedSha256"], "Mobile material references the wrong encoded image")
         _require(used_images == set(range(len(new["images"]))), "Mobile GLB embeds unused images")
-        _require("KHR_texture_basisu" in new.get("extensionsRequired", []), "Mobile GLB is missing its required extension")
+        basis = any("KHR_texture_basisu" in texture.get("extensions", {}) for texture in new["textures"])
+        for field in ("extensionsRequired", "extensionsUsed"):
+            _require(("KHR_texture_basisu" in new.get(field, [])) == basis, "Raw KTX/Basis extension declaration differs from the actual textures")
+        per_model = {images[use["imageKey"]]["encodedSha256"]: images[use["imageKey"]] for use in receipt["imageUses"]}
         rows.append({"hunter": before["hunter"], "part": before["part"], "lod": before.get("lod", 0),
                      "geometryUVSkinAccessorBytesPreserved": True, "nativeTransformsPreserved": True,
                      "nativeMaterialSemanticsPreserved": True, "desktopBytesPreserved": True,
                      "runtimeMapsConvertedExactlyOnce": True, "imageUses": len(pairs),
-                     "mobileSha256": receipt["mobileSha256"]})
+                     "mobileSha256": receipt["mobileSha256"],
+                     "uniqueImagePayloads": len(per_model),
+                     "imageBytesOnAstcAdapter": sum(i["gpuSelectedAstcAdapterBytes"] for i in per_model.values()),
+                     "imageBytesOnRgbaAdapter": sum(i["gpuRgbaBytes"] for i in per_model.values()),
+                     "losslessExceptionPayloads": sum(i["encodingMode"] == "rgba8-zstd" for i in per_model.values())})
     expected_device_files = {"characters.json"} | {entry["model"] for entry in device["models"]}
     _require(set(result["androidPackFiles"]) == expected_device_files, "Device pack contains duplicate desktop assets or extra files")
     _require(recomputed_images == set(images), "Candidate has unused conversion-cache records")
@@ -181,8 +236,14 @@ def audit(root):
               "newImagesEncodedBytes": sum(image["encodedBytes"] for image in unique_encoded.values()),
               "newImagesAstc4x4Bytes": sum(image["gpuAstc4x4Bytes"] for image in unique_encoded.values()),
               "newImagesRgbaBytes": sum(image["gpuRgbaBytes"] for image in unique_encoded.values()),
+              "newImagesOnAstcAdapterBytes": sum(image["gpuSelectedAstcAdapterBytes"] for image in unique_encoded.values()),
+              "encodingCounts": dict(Counter(image["encodingMode"] for image in unique_encoded.values())),
+              "losslessExceptionsGpuExtraBytes": sum(image["gpuRgbaBytes"] - image["gpuAstc4x4Bytes"] for image in unique_encoded.values() if image["encodingMode"] == "rgba8-zstd"),
+              "fixedCompressionGuards": tier["compressionAcceptance"],
+              "preservedHunters": tier["preserveHunters"],
+              "ormConversionCount": sum(image["meaning"].get("materialEncoding") == "orm" for image in images.values()),
               "devicePackOnlySelectedModels": True, "gpuAcceptance": "pending", "physicalAndroidAcceptance": "pending",
-              "scope": "Exact offline image/geometry/native-contract audit only. Memory sums are deduplicated image-block/texel estimates for NEW conversions, excluding preserved Samus. They are not process/driver memory or scene residency. Color resize quality and real shader appearance require visual acceptance."}
+              "scope": "Exact offline image/geometry/native-contract audit only. Memory sums are deduplicated image-block/texel estimates for NEW conversions, excluding only explicitly preserved hunters in this tier. On ASTC adapters, lossless exceptions retain RGBA8 residency; the all-ASTC sum is a theoretical comparison. These are not process/driver memory or scene residency. Color resize quality and real shader appearance require visual acceptance."}
     destination.write_text(json.dumps(report, indent=2) + "\n")
     return report
 
@@ -209,18 +270,21 @@ def compression(root, encoder=None):
             offset = 0
             for level, (width, height) in enumerate(image["mipSizes"]):
                 count = width * height * 4
-                expected = np.frombuffer(reference[offset:offset + count], dtype=np.uint8).reshape(height, width, 4).astype(np.float32) / 255
+                expected_bytes = reference[offset:offset + count]
+                expected = np.frombuffer(expected_bytes, dtype=np.uint8).reshape(height, width, 4).astype(np.float64) / 255
                 offset += count
                 raw = Path(scratch) / "decoded.raw"
                 decode(encoder, base.with_suffix(".ktx2"), raw, level)
                 _require(raw.stat().st_size == count, "Decoder returned the wrong mip size")
-                actual = np.frombuffer(raw.read_bytes(), dtype=np.uint8).reshape(height, width, 4).astype(np.float32) / 255
+                actual_bytes = raw.read_bytes()
+                actual = np.frombuffer(actual_bytes, dtype=np.uint8).reshape(height, width, 4).astype(np.float64) / 255
                 mse = float(np.mean((expected[..., :3] - actual[..., :3]) ** 2))
                 alpha_mse = float(np.mean((expected[..., 3] - actual[..., 3]) ** 2))
                 rgb_psnr = -10 * math.log10(max(mse, 1e-12))
                 alpha_psnr = -10 * math.log10(max(alpha_mse, 1e-12))
                 check = {"imageKey": image["key"], "channel": image["meaning"]["channel"], "mip": level,
-                         "size": [width, height], "rgbPsnrDb": rgb_psnr, "alphaPsnrDb": alpha_psnr}
+                         "size": [width, height], "rgbPsnrDb": rgb_psnr, "alphaPsnrDb": alpha_psnr,
+                         "encodingMode": image["encodingMode"], "rgbaMipBytesExact": actual_bytes == expected_bytes}
                 if image["meaning"]["channel"] == "normal":
                     a, b = actual[..., :3] * 2 - 1, expected[..., :3] * 2 - 1
                     a /= np.maximum(np.linalg.norm(a, axis=2, keepdims=True), 1e-8)
@@ -228,8 +292,21 @@ def compression(root, encoder=None):
                     angles = np.degrees(np.arccos(np.clip(np.sum(a * b, axis=2), -1, 1)))
                     check.update(meanAngularErrorDegrees=float(np.mean(angles)), p99AngularErrorDegrees=float(np.percentile(angles, 99)))
                     _require(check["meanAngularErrorDegrees"] <= budget["maximumMeanNormalAngleDegrees"] and
-                             check["p99AngularErrorDegrees"] <= budget["maximumP99NormalAngleDegrees"], "UASTC normal error exceeded the configured budget")
-                _require(rgb_psnr >= budget["minimumRgbPsnrDb"] and alpha_psnr >= budget["minimumAlphaPsnrDb"], "UASTC image error exceeded the configured budget")
+                             check["p99AngularErrorDegrees"] <= budget["maximumP99NormalAngleDegrees"],
+                             f"Normal guard failed: image={image['key']} mip={level} values={check}")
+                if image["meaning"].get("materialEncoding") == "orm":
+                    _require(np.all(expected[...,3] == 0) and np.all(actual[...,3] == 0),
+                             f"ORM zero alpha marker changed: image={image['key']} mip={level}")
+                    check["ormZeroAlphaMarkerExact"] = True
+                _require(rgb_psnr >= budget["minimumRgbPsnrDb"] and alpha_psnr >= budget["minimumAlphaPsnrDb"],
+                         f"Image guard failed: image={image['key']} mip={level} values={check}")
+                if image["encodingMode"] == "rgba8-zstd":
+                    _require(actual_bytes == expected_bytes, f"Lossless authored mip changed: image={image['key']} mip={level}")
+                receipt = image["compressionQuality"]["checks"][level]
+                for field in ("rgbPsnrDb", "alphaPsnrDb", "meanAngularErrorDegrees", "p99AngularErrorDegrees"):
+                    if field in check:
+                        _require(math.isclose(check[field], receipt[field], abs_tol=1e-8, rel_tol=1e-8),
+                                 f"Replayed quality differs: image={image['key']} mip={level} field={field}")
                 checks.append(check)
             _require(offset == len(reference), "Authored mip reference has trailing data")
     audit(root)
@@ -238,7 +315,9 @@ def compression(root, encoder=None):
               "images": len(result["uniqueImageConversions"]), "mips": len(checks), "checks": checks,
               "worstRgbPsnrDb": min(check["rgbPsnrDb"] for check in checks),
               "worstAlphaPsnrDb": min(check["alphaPsnrDb"] for check in checks),
-              "scope": "All authored mip UASTC RGBA decode versus exact bounded reference texels. This proves compression error only; no GPU or Android measurements or original-resolution resize-quality claim."}
+              "encodingCounts": byte_audit["encodingCounts"], "fixedCompressionGuards": budget,
+              "losslessExceptionsAllAuthoredMipsExact": all(check["rgbaMipBytesExact"] for check in checks if check["encodingMode"] == "rgba8-zstd"),
+              "scope": "All authored mip UASTC or lossless RGBA/Zstd decode versus exact bounded reference texels. Selection follows unchanged guards; only failed compressed images use lossless payloads. This proves compression error only; no GPU or Android measurements or original-resolution resize-quality claim."}
     destination.write_text(json.dumps(report, indent=2) + "\n")
     return report
 

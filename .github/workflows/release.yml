@@ -236,9 +236,48 @@ jobs:
           path: maps/**/*.ppmap
           if-no-files-found: error
 
+  patched-wgpu-native:
+    name: patched native ${{ matrix.rid }}
+    needs: resolve
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            runner: windows-latest
+          - rid: linux-x64
+            runner: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@stable
+      - name: install native compiler headers
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y clang libclang-dev
+      - name: build production and fault-test runtimes
+        shell: bash
+        env:
+          PRIME_PYTHON: python
+          LIBCLANG_PATH: ${{ runner.os == 'Windows' && 'C:/Program Files/LLVM/bin' || '' }}
+        run: |
+          tools/wgpu/build-native.sh "${{ matrix.rid }}" --unit-tests
+          tools/wgpu/build-native.sh "${{ matrix.rid }}" --fault-test
+          python tools/wgpu/verify-runtime.py artifacts/wgpu-native-desktop/${{ matrix.rid }}/${{ matrix.rid == 'win-x64' && 'wgpu_native.dll' || 'libwgpu_native.so' }}
+          python tools/wgpu/test-runtime-packaging.py artifacts/wgpu-native-desktop/${{ matrix.rid }}/${{ matrix.rid == 'win-x64' && 'wgpu_native.dll' || 'libwgpu_native.so' }} artifacts/wgpu-native-fault-tests/${{ matrix.rid }}/${{ matrix.rid == 'win-x64' && 'wgpu_native.dll' || 'libwgpu_native.so' }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: patched-wgpu-${{ matrix.rid }}
+          path: artifacts/wgpu-native-desktop/${{ matrix.rid }}/
+          if-no-files-found: error
+
   release-linux:
     name: publish ${{ matrix.target }}
-    needs: [resolve, prepare-release]
+    needs: [resolve, prepare-release, patched-wgpu-native]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -276,6 +315,11 @@ jobs:
         with:
           name: prepared-maps
           path: maps
+      - uses: actions/download-artifact@v8
+        if: matrix.server == false
+        with:
+          name: patched-wgpu-${{ matrix.rid }}
+          path: artifacts/wgpu-native-desktop/${{ matrix.rid }}/
       - name: publish target
         env:
           TARGET: ${{ matrix.target }}

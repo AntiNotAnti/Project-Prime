@@ -189,11 +189,28 @@ internal static class AltFormAcceptanceCheck
                     Require(nativeJointNames.All(name=>native.Model.Nodes.Any(n=>n.Name == name)),"Rigid alternate contains a non-native target node.");
                 }
 
+                Vector3 transitionAnchor=target.Position;
+                var transitionNode=target.NodeRef;
+                int transitionRepositions=0;
+                Vector3 showcaseFacing=target.FacingVector.WithY(0).Normalized();
+                int traceShowcaseRepositions=0,traceClearCameraFrames=0;
+                void ReturnToTransitionAnchor()
+                {
+                    Vector3 offset=transitionAnchor-target.Position;
+                    target.Reposition(offset,transitionNode); target.Speed=Vector3.Zero;
+                    if (hunter == Hunter.Kanden)
+                    {
+                        var positions=Field<Vector3[]>(target,"_kandenSegPos");
+                        var matrices=Field<Matrix4[]>(target,"_kandenSegMtx");
+                        for (int i=0;i<positions.Length;i++)
+                        { positions[i]+=offset; matrices[i].Row3.Xyz+=offset; }
+                    }
+                }
                 int attackCount=hunter == Hunter.Noxus ? Math.Max(360,target.Values.AltAttackStartup*2+90) : 360;
                 var stages=new (string Name,int Count)[] { ("biped-idle",60), ("morph",120), ("alt-idle",60),
                     ("materials-on",60), ("materials-off",60), ("materials-restored",60),
-                    ("move",120), ("strafe",120), ("aim-turn",120), ("ability",attackCount),
-                    ("ability-settle",180), ("damage",60), ("freeze",90), ("thaw",60),
+                    ("move",120), ("strafe",120), ("aim-turn",120), ("ability-position",hunter == Hunter.Trace ? 60 : 0), ("ability",attackCount),
+                    ("ability-settle",180), ("damage-position",hunter == Hunter.Trace ? 60 : 0), ("damage",60), ("freeze",90), ("thaw",60),
                     ("bright",90), ("team-orange",60), ("team-green",60), ("double-damage",90),
                     ("neutral",60), ("unmorph",120), ("biped-return",60), ("reenter",120),
                     ("second-move",120), ("alt-death-respawn",420), ("respawn",60),
@@ -209,6 +226,36 @@ internal static class AltFormAcceptanceCheck
                         scene.GameState.Teams=false; target.Recolor=0; RenderOptions.BrightSkins=false;
                         Set(target,"_doubleDmgTimer",(ushort)0); target.ModSetFrozen(false);
                     }
+                    if (stage.Name == "alt-idle")
+                    {
+                        // The first native morph supplies the correctly grounded alternate-form height.
+                        transitionAnchor=target.Position; transitionNode=target.NodeRef;
+                        showcaseFacing=hunter == Hunter.Trace ? ClearTraceAttackFacing(scene,target) : target.FacingVector.WithY(0).Normalized();
+                    }
+                    if ((stage.Name is "ability-position" or "damage-position") && hunter == Hunter.Trace)
+                    {
+                        Require(!target.Flags2.TestFlag(PlayerFlags2.AltAttack),"Trace showcase placement must wait for the native lunge to finish.");
+                        ReturnToTransitionAnchor(); target.ModSetAim(showcaseFacing); target.ModSetFacing(showcaseFacing);
+                        traceShowcaseRepositions++;
+                    }
+                    if (stage.Name is "neutral" or "third-alt-idle")
+                    {
+                        // Movement/abilities may finish below low room geometry. Return to a spawn
+                        // already occupied by the biped, then allow normal collision to settle before
+                        // asking the native expansion check to unmorph. Do not force a form or clear
+                        // NoUnmorph: that would bypass the behavior being accepted.
+                        ReturnToTransitionAnchor();
+                        transitionRepositions++;
+                    }
+                    if (stage.Name is "unmorph" or "final-unmorph")
+                    {
+                        Require(target.IsAltForm && !target.IsMorphing && !target.IsUnmorphing,"Unmorph case did not start in a settled alternate form.");
+                        bool clear=(bool)typeof(PlayerEntity).GetMethod("CanOccupyCollisionForm",Private)!.Invoke(target,new object[] {false})!;
+                        Require(clear && !target.Flags1.TestFlag(PlayerFlags1.NoUnmorph),
+                            $"Native biped expansion remains blocked at transition anchor {target.Position}; clearance={clear}, flags1={target.Flags1}, flags2={target.Flags2}.");
+                    }
+                    if (stage.Name is "reenter" or "third-enter")
+                        Require(!target.IsAltForm && !target.IsMorphing && !target.IsUnmorphing,"Native biped return did not complete before reentry input.");
                     if (stage.Name is "materials-on" or "materials-restored") RenderOptions.AdvancedMaterials=true;
                     if (stage.Name == "materials-off") RenderOptions.AdvancedMaterials=false;
                     if (stage.Name == "damage") target.TakeDamage(10,DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln,null,scene.Players.Items[0]);
@@ -236,6 +283,16 @@ internal static class AltFormAcceptanceCheck
                         if (stage.Name == "strafe") Move(target,forward ? 2 : 3);
                         if (stage.Name == "aim-turn" && target.Values.AltFormStrafe != 0)
                             target.ModSetAim(new Vector3(MathF.Sin(age*.1f),MathF.Sin(age*.08f)*.5f,MathF.Cos(age*.1f)).Normalized());
+                        if (hunter == Hunter.Trace && (stage.Name is "ability-position" or "damage-position"))
+                        { target.ModSetAim(showcaseFacing); target.ModSetFacing(showcaseFacing); }
+                        if (hunter == Hunter.Trace && stage.Name == "ability" && age > 0 && age%90 == 80
+                            && !target.Flags2.TestFlag(PlayerFlags2.AltAttack))
+                        {
+                            // Reset only between finished attacks, then process ten ordinary native
+                            // input frames before the next pulse. Never teleport a live lunge.
+                            ReturnToTransitionAnchor(); target.ModSetAim(showcaseFacing); target.ModSetFacing(showcaseFacing);
+                            traceShowcaseRepositions++;
+                        }
                         if (stage.Name == "ability")
                         {
                             if (hunter == Hunter.Noxus) { if (age < stage.Item2-60) Hold(target.Controls.AltAttack,age == 0); }
@@ -255,7 +312,8 @@ internal static class AltFormAcceptanceCheck
                         if (stage.Name is "move" or "second-move") moveTravel+=(target.Position-previous).Length;
                         if (stage.Name == "strafe") strafeTravel+=(target.Position-previous).Length;
                         if (stage.Name is "bright" or "team-orange" or "team-green") Set(target,"_timeSinceDamage",(ushort)255);
-                        Follow(scene,target);
+                        bool cameraClear=Follow(scene,target);
+                        if (hunter == Hunter.Trace && cameraClear) traceClearCameraFrames++;
                         DesktopGraphicsSession.Resize(window); scene.OnDrawFrame();
                         var all=Items(scene);
                         int replacementPackets=0, expectedReplacementPackets=0, nativeFallbackPackets=0,supplementPackets=0,expectedSupplementPackets=0;
@@ -375,13 +433,19 @@ internal static class AltFormAcceptanceCheck
                         }
                         if (all.Any(p=>p.Type == RenderItemType.Particle)) nativeParticleFrames++;
                         Require(scene.OnRenderFrame(),"Alternate render stopped.");
-                        if (age is 0 or 15 or 40 || age == stage.Item2-1)
+                        bool capture=age is 0 or 15 or 40 || age == stage.Item2-1;
+                        if (capture && hunter == Hunter.Trace && (stage.Name is "ability" or "freeze" or "thaw"))
+                            Require(cameraClear,$"{stage.Name}/{age}: Trace showcase camera has no unobstructed model view.");
+                        if (capture)
                             Require(ScreenCapture.Save(scene,Path.Combine(directory,$"{stage.Name}-{age:D3}.png")),"Alternate capture failed.");
                         frames.Add(new {stage=stage.Name,age,frame=scene.FrameCount,health=target.Health,alt=target.IsAltForm,
                             morph=target.IsMorphing,unmorph=target.IsUnmorphing,frozen=target.ModFrozen,doubleDamage=target.DoubleDamage,
                             nativeAnimation=native.AnimInfo.Index[0],nativeAnimationFrame=native.AnimInfo.Frame[0],
                             altAttack=target.Flags2.TestFlag(PlayerFlags2.AltAttack),eligible,recolor=target.Recolor,
+                            noUnmorph=target.Flags1.TestFlag(PlayerFlags1.NoUnmorph),noFormSwitch=target.Flags2.TestFlag(PlayerFlags2.NoFormSwitch),
+                            nativeFlags1=target.Flags1.ToString(),nativeFlags2=target.Flags2.ToString(),
                             replacementPackets,expectedReplacementPackets,nativeFallbackPackets,supplementPackets,expectedSupplementPackets,
+                            cameraClear,traceShowcaseRepositions,
                             x=target.Position.X,y=target.Position.Y,z=target.Position.Z});
                         DesktopGraphicsSession.Present(window); scene.AfterRenderFrame();
                     }
@@ -426,10 +490,13 @@ internal static class AltFormAcceptanceCheck
                     nativeJointNames,maximumNativeBindError,maximumLoadedWeightSumError,maximumSpecialPoseError,
                     vertices=weightedData?.VertexCount ?? rigidData!.VertexCount,triangles=(weightedData?.IndexCount ?? rigidData!.IndexCount)/3,
                     morph,unmorph,altEntryEdges,altExitEdges,moveTravel,strafeTravel,died,respawned,frozen,
+                    transitionAnchor=new {x=transitionAnchor.X,y=transitionAnchor.Y,z=transitionAnchor.Z},transitionRepositions,
+                    traceShowcaseRepositions,traceClearCameraFrames,
+                    traceShowcaseFacing=new {x=showcaseFacing.X,y=showcaseFacing.Y,z=showcaseFacing.Z},
                     materialFrames,teamFrames,brightFrames,damageFrames,doubleDamageFrames,iceFrames,
                     attack,abilityFrames,nativePoseFrames,bombs,bombFrames,bombEffectFrames,bombTypes,
                     nativeParticleFrames,nativeEffectIds,animations,abilityAnimations,cases,
-                    scope="Native scene simulation and render with a bot opponent and scene-owned hunter controls. Only alternate-form LOD0 is accepted. Weighted4 checks normalized loaded weights, exact native inverse binds and every palette; RigidNodes checks each enabled native node transform and billboard. Explicit hash-bound native supplement mesh materials alone are allowed beside HD geometry and their original node poses, palette, animated material/UV/binding/alpha/culling/status are checked; other native alternate meshes remain prohibited. Raw authoring weights and Source-fit geometry fidelity remain exporter/offline-audit responsibilities. Native attack inputs vary by hunter; bombs are required only for Kanden/Sylux. Kanden segment matrices and Spire attacking rock collision positions are checked explicitly. Native freeze overlay, bombs/trails, particles and unrelated effects remain in the engine. Damage/freeze/double damage are injected. Weavel's native halfturret is retained and excluded from replacement acceptance. Preexisting biped launcher previews are checked separately. Visual clipping and Source resemblance require capture review; exhaustive ability balance/physics and Android display performance are not established."
+                    scope="Native scene simulation and render with a bot opponent and scene-owned hunter controls. Only alternate-form LOD0 is accepted. Weighted4 checks normalized loaded weights, exact native inverse binds and every palette; RigidNodes checks each enabled native node transform and billboard. Explicit hash-bound native supplement mesh materials alone are allowed beside HD geometry and their original node poses, palette, animated material/UV/binding/alpha/culling/status are checked; other native alternate meshes remain prohibited. Raw authoring weights and Source-fit geometry fidelity remain exporter/offline-audit responsibilities. Native attack inputs vary by hunter; bombs are required only for Kanden/Sylux. Kanden segment matrices and Spire attacking rock collision positions are checked explicitly. Native freeze overlay, bombs/trails, particles and unrelated effects remain in the engine. Damage/freeze/double damage are injected. Unmorph cases return to the initial clear alt spawn and settle under native collision before ordinary Morph input; no form/clearance flags are forced. The diagnostic translates Kanden segment positions with the reposition. Trace attack and damage showcases return to the initial clear alternate spawn only between finished native lunges, settle ordinary input/collision, retain native cloak, and use a wider collision-checked spectator camera; every requested ability/freeze/thaw capture requires clear camera rays. These injected placements do not prove unscripted arena traversal. Weavel's native halfturret is retained and excluded from replacement acceptance. Preexisting biped launcher previews are checked separately. Visual clipping and Source resemblance require capture review; exhaustive ability balance/physics and Android display performance are not established."
                 },Json));
                 File.WriteAllText(Path.Combine(directory,"frames.json"),JsonSerializer.Serialize(frames,Json));
                 Console.WriteLine($"ALT ACCEPTANCE PASS {hunter} {directory}");
@@ -467,20 +534,29 @@ internal static class AltFormAcceptanceCheck
         bool flash=Field<ushort>(target,"_timeSinceDamage") < target.Values.DamageFlashTime*2;
         bool buff=target.DoubleDamage && material.Lighting > 0;
         int? expected=buff ? target.DoubleDmgBindingId : albedo;
-        Require(expected.HasValue && packet.HasTexture && packet.TextureBindingId == expected,"Alternate albedo/status texture mismatch.");
+        if (expected.HasValue)
+            Require(packet.HasTexture && packet.TextureBindingId == expected,"Alternate authored/status texture mismatch.");
+        else
+            Require(packet.HasTexture == (material.TextureId != -1)
+                && (!packet.HasTexture || packet.TextureBindingId == material.TextureBindingId),
+                "Alternate native-bound/untextured effect material mismatch.");
         Require(packet.PaletteOverride == (flash ? Metadata.RedPalette : (Vector4?)null),"Alternate native damage palette mismatch.");
         Require(packet.Diffuse == material.CurrentDiffuse && packet.Ambient == material.CurrentAmbient
-            && packet.Specular == material.CurrentSpecular,"Alternate native material animation mismatch.");
+            && packet.Specular == material.CurrentSpecular && packet.Lighting == (material.Lighting != 0),"Alternate native material animation mismatch.");
         Require(MathF.Abs(packet.Alpha-material.CurrentAlpha*target.CurAlpha) < .00001f,
             "Alternate native material/player alpha mismatch.");
-        if (doubleSided) Require(packet.CullingMode == CullingMode.Neither,"Alternate Source double-sided surface was culled.");
-        bool source=packet.TextureBindingId == albedo;
+        Require(packet.CullingMode == (doubleSided ? CullingMode.Neither : material.Culling),"Alternate native/authored culling mismatch.");
+        bool source=albedo.HasValue && packet.HasTexture && packet.TextureBindingId == albedo && !buff;
+        Require(packet.RenderMode == (source && transparent ? RenderMode.Translucent : material.RenderMode),"Alternate native/authored alpha presentation mismatch.");
         if (source)
         {
             Require(packet.TexgenMode == TexgenMode.Texcoord && packet.TexcoordMatrix == Matrix4.Identity
                 && packet.XRepeat == wrapS && packet.YRepeat == wrapT,"Alternate authored UV/sampler state mismatch.");
             if (transparent) Require(packet.RenderMode == RenderMode.Translucent,"Alternate Source alpha surface was opaque.");
         }
+        else if (!buff)
+            Require(packet.TexgenMode == material.TexgenMode && packet.XRepeat == material.XRepeat && packet.YRepeat == material.YRepeat,
+                "Alternate native effect coordinate/sampler mode changed.");
         if (RenderOptions.AdvancedMaterials)
             Require((maps.Normal != 0) == (authoredMaps?.Normal != null)
                 && (maps.Specular != 0) == (authoredMaps?.MetallicRoughness != null)
@@ -535,23 +611,54 @@ internal static class AltFormAcceptanceCheck
             "Native supplement inherited an authored HD companion/cosmetic state.");
     }
 
-    private static void Follow(Scene scene, PlayerEntity target)
+    private static Vector3 ClearTraceAttackFacing(Scene scene,PlayerEntity target)
     {
-        Vector3 center=target.Position+new Vector3(0,.5f,0), camera=center+new Vector3(2,1,3);
+        float initial=MathF.Atan2(target.FacingVector.Z,target.FacingVector.X);
         for (int step=0;step<24;step++)
         {
-            float angle=.6f+step*MathF.PI/12;
-            Vector3 candidate=center+new Vector3(3.5f*MathF.Cos(angle),.7f,3.5f*MathF.Sin(angle));
+            float angle=initial+step*MathF.PI/12;
+            Vector3 facing=new(MathF.Cos(angle),0,MathF.Sin(angle)),right=new(-facing.Z,0,facing.X);
             bool clear=true;
-            foreach (float height in new[] {-.4f,0,.6f})
+            foreach (float width in new[] {-.75f,0,.75f})
+            foreach (float height in new[] {.35f,.8f})
             {
+                Vector3 start=target.Position+right*width+Vector3.UnitY*height;
                 CollisionResult hit=default;
-                if (CollisionDetection.CheckBetweenPoints(candidate,center+new Vector3(0,height,0),TestFlags.None,scene,ref hit)) { clear=false; break; }
+                if (CollisionDetection.CheckBetweenPoints(start,start+facing*12,TestFlags.None,scene,ref hit)) { clear=false; break; }
             }
-            if (clear) { camera=candidate; break; }
+            if (clear) return facing;
+        }
+        throw new InvalidOperationException("Trace's initial alternate spawn has no clear twelve-unit showcase lunge corridor.");
+    }
+
+    private static bool Follow(Scene scene, PlayerEntity target)
+    {
+        Vector3 center=target.Position+new Vector3(0,.5f,0), camera=center+new Vector3(2,1,3);
+        bool found=false;
+        float[] radii=target.Hunter == Hunter.Trace ? new[] {4.6f,3.5f,2.5f} : new[] {3.5f};
+        foreach (float radius in radii)
+        {
+            for (int step=0;step<24;step++)
+            {
+                float angle=.6f+step*MathF.PI/12;
+                Vector3 candidate=center+new Vector3(radius*MathF.Cos(angle),target.Hunter == Hunter.Trace ? 1.1f : .7f,radius*MathF.Sin(angle));
+                bool clear=true;
+                Vector3 right=Vector3.Cross((center-candidate).Normalized(),Vector3.UnitY).Normalized();
+                var points=target.Hunter == Hunter.Trace
+                    ? new[] {center+new Vector3(0,-.3f,0),center,center+new Vector3(0,.65f,0),center+right*.75f,center-right*.75f}
+                    : new[] {center+new Vector3(0,-.4f,0),center,center+new Vector3(0,.6f,0)};
+                foreach (Vector3 point in points)
+                {
+                    CollisionResult hit=default;
+                    if (CollisionDetection.CheckBetweenPoints(candidate,point,TestFlags.None,scene,ref hit)) { clear=false; break; }
+                }
+                if (clear) { camera=candidate; found=true; break; }
+            }
+            if (found) break;
         }
         Set(scene,"_cameraPosition",camera); Set(scene,"_cameraFacing",(center-camera).Normalized());
-        Set(scene,"_cameraUp",Vector3.UnitY); Set(scene,"_cameraFov",MathHelper.DegreesToRadians(55));
+        Set(scene,"_cameraUp",Vector3.UnitY); Set(scene,"_cameraFov",MathHelper.DegreesToRadians(target.Hunter == Hunter.Trace ? 65 : 55));
+        return found;
     }
 
     private static void Preview(Scene scene, NativeWindow window, CharacterModelPack pack, Hunter hunter, string directory, string label)

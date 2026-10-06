@@ -13,10 +13,68 @@ public sealed record MapRenderFrame(MapViewportLayout Layout, MapViewportCamera 
     IReadOnlyList<MapViewportMesh> Meshes, IReadOnlySet<Guid> Selection,
     IReadOnlyDictionary<Guid, Matrix4x4> PreviewTransforms, bool Wireframe, bool Collision)
 {
+    /// <summary>All current document meshes, including chunks culled from this picture.
+    /// Visibility controls drawing; document membership controls resource lifetime.</summary>
+    private IReadOnlyList<MapViewportMesh>? _residentMeshes;
+    public IReadOnlyList<MapViewportMesh> ResidentMeshes
+    {
+        get => _residentMeshes ?? Meshes;
+        init => _residentMeshes = value;
+    }
     public IReadOnlyDictionary<(bool Imported, int Index), MapViewportMaterial> Materials { get; init; } = new Dictionary<(bool, int), MapViewportMaterial>();
     public bool UvChecker { get; init; }
     public string GridView { get; init; } = "Perspective";
     public float GridStep { get; init; } = 4;
+}
+
+/// <summary>Retain uploaded editor meshes across visibility changes. Upload lazily,
+/// and release resources only when their document mesh is removed or replaced.</summary>
+public sealed class MapViewportMeshResources<TResource>
+{
+    private sealed record Entry(MapViewportMesh Source, TResource Resource);
+    private readonly Dictionary<Guid, Entry> _entries = new();
+    private readonly Dictionary<Guid, MapViewportMesh> _resident = new();
+    private readonly List<Guid> _stale = new();
+    public int Count => _entries.Count;
+    public TResource this[Guid id] => _entries[id].Resource;
+
+    public void Synchronize(MapRenderFrame frame, Func<MapViewportMesh, TResource> upload,
+        Action<TResource> release)
+    {
+        try
+        {
+            foreach (var mesh in frame.ResidentMeshes) _resident.Add(mesh.ObjectId, mesh);
+            foreach (var (id, entry) in _entries)
+                if (!_resident.TryGetValue(id, out var source) || !ReferenceEquals(entry.Source, source))
+                    _stale.Add(id);
+            foreach (var id in _stale)
+            {
+                release(_entries[id].Resource);
+                _entries.Remove(id);
+            }
+            foreach (var mesh in frame.Meshes)
+            {
+                if (!_resident.TryGetValue(mesh.ObjectId, out var source) || !ReferenceEquals(source, mesh))
+                    throw new ArgumentException("Visible editor mesh is absent from the resident document meshes.", nameof(frame));
+                if (!_entries.ContainsKey(mesh.ObjectId))
+                    _entries.Add(mesh.ObjectId, new(mesh, upload(mesh)));
+            }
+        }
+        finally
+        {
+            // Scratch collections must not keep replaced document geometry alive.
+            _resident.Clear();
+            _stale.Clear();
+        }
+    }
+
+    public void Clear(Action<TResource> release)
+    {
+        foreach (var entry in _entries.Values) release(entry.Resource);
+        _entries.Clear();
+        _resident.Clear();
+        _stale.Clear();
+    }
 }
 
 public static class MapViewportGrid

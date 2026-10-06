@@ -15,12 +15,12 @@ internal sealed unsafe partial class ModernGraphicsCompat
 {
     // The CPU portal walk remains authoritative. This compute stage receives
     // only room packets that already survived portal/frustum traversal and may
-    // conservatively reject more work with current-frustum and temporal Hi-Z.
+    // conservatively reject more work with current-frustum and current-frame Hi-Z.
+    // Every occlusion rejection is validated against an unoccluded room depth
+    // prepass from this extraction; temporal depth alone cannot hide geometry.
     private const int GpuVisibilityCandidateWords = 16; // 64 bytes
-    private const int GpuVisibilityUniformWords = 72;   // 288 bytes
+    private const int GpuVisibilityUniformWords = 40;   // 160 bytes
     private const float GpuVisibilityDepthBias = 0.0025f;
-    private const float GpuVisibilityMotionPixels = 2.0f;
-    private const float GpuVisibilityExtentPixels = 4.0f;
 
     private readonly Dictionary<RenderItem, int> _gpuVisibilitySlots = new();
     private uint[] _gpuVisibilityCandidateWords = Array.Empty<uint>();
@@ -61,12 +61,9 @@ internal sealed unsafe partial class ModernGraphicsCompat
     private int _gpuHiZHeight;
     private int _gpuHiZMipCount;
 
-    private Matrix4 _gpuVisibilityPreviousProjection = Matrix4.Identity;
-    private Matrix4 _gpuVisibilityPreviousView = Matrix4.Identity;
-    private bool _gpuVisibilityPreviousMatricesValid;
-    private int _gpuVisibilityPreviousDepthTexture;
-    private int _gpuVisibilityPreviousWidth;
-    private int _gpuVisibilityPreviousHeight;
+    private readonly GpuOcclusionDepthPolicy _gpuOcclusionDepth = new();
+    private Matrix4 _gpuVisibilityDepthProjection = Matrix4.Identity;
+    private Matrix4 _gpuVisibilityDepthView = Matrix4.Identity;
     private bool _gpuVisibilityPrepared;
     private bool _gpuVisibilityRefused;
     private long _gpuVisibilityIndirectDraws;
@@ -98,12 +95,46 @@ internal sealed unsafe partial class ModernGraphicsCompat
     internal static bool GpuVisibilityRefused =>
         _current?._gpuVisibilityRefused ?? false;
 
+    internal static bool IsRetainedGpuOccluder(RetainedDrawPacket packet) =>
+        _current?.IsRetainedGpuOccluderCore(packet) ?? false;
+
+    internal static bool HasRetainedGpuVisibilityCandidates(
+        IReadOnlyList<RetainedDrawPacket> packets)
+    {
+        if (_current == null || !Current.UseGpuVisibility)
+            return false;
+        for (int i = 0; i < packets.Count; i++)
+            if (Current.IsRetainedGpuOccluderCore(packets[i]))
+                return true;
+        return false;
+    }
+
+    private bool IsRetainedGpuOccluderCore(RetainedDrawPacket packet)
+    {
+        RenderItem item = packet.Item;
+        return packet.ReorderableOpaque && item.RetainedGpuVisibilityEligible
+            && RetainedWorldPacketEligibleForPass(item, WorldRenderPassKind.Opaque)
+            && ValidGpuBounds(item.RetainedBoundsMin, item.RetainedBoundsMax)
+            && _lists.TryGetValue(packet.Mesh.ListId, out GeometryList? geometry)
+            && geometry.Triangles.Length != 0 && geometry.Lines.Length == 0;
+    }
+
+    private static bool FiniteGpuMatrix(Matrix4 m) =>
+        float.IsFinite(m.M11) && float.IsFinite(m.M12)
+        && float.IsFinite(m.M13) && float.IsFinite(m.M14)
+        && float.IsFinite(m.M21) && float.IsFinite(m.M22)
+        && float.IsFinite(m.M23) && float.IsFinite(m.M24)
+        && float.IsFinite(m.M31) && float.IsFinite(m.M32)
+        && float.IsFinite(m.M33) && float.IsFinite(m.M34)
+        && float.IsFinite(m.M41) && float.IsFinite(m.M42)
+        && float.IsFinite(m.M43) && float.IsFinite(m.M44);
+
     private bool UseGpuVisibility
     {
         get
         {
 #if ANDROID
-            // Temporal Hi-Z forces readable depth and extra bandwidth on a tile
+            // Current-frame Hi-Z forces a depth prepass and bandwidth on a tile
             // renderer. Keep Android on the CPU portal path until physical-device
             // benchmarks show this wins there.
             return false;
@@ -119,37 +150,38 @@ internal sealed unsafe partial class ModernGraphicsCompat
     }
 
     internal static void PrepareRetainedGpuVisibility(
-        IReadOnlyList<RetainedDrawPacket> packets,
+        IReadOnlyList<RetainedDrawPacket> packets, ulong frameRevision,
         Matrix4 projection, Matrix4 view,
-        int depthTexture, int width, int height, bool historyValid)
+        int depthTexture, int width, int height, bool currentDepthReady)
     {
         if (_current == null)
             return;
         Current.PrepareRetainedGpuVisibilityCore(
-            packets, projection, view,
-            depthTexture, width, height, historyValid);
+            packets, frameRevision, projection, view,
+            depthTexture, width, height, currentDepthReady);
     }
 
-    internal static bool CaptureRetainedGpuVisibilityHistory(
+    internal static bool CaptureRetainedGpuVisibilityDepth(
+        IReadOnlyList<RetainedDrawPacket> packets, ulong frameRevision,
         Matrix4 projection, Matrix4 view,
         int depthTexture, int width, int height)
     {
         if (_current == null)
             return false;
-        return Current.CaptureRetainedGpuVisibilityHistoryCore(
-            projection, view, depthTexture, width, height);
+        return Current.CaptureRetainedGpuVisibilityDepthCore(
+            packets, frameRevision, projection, view, depthTexture, width, height);
     }
 
     private void PrepareRetainedGpuVisibilityCore(
-        IReadOnlyList<RetainedDrawPacket> packets,
+        IReadOnlyList<RetainedDrawPacket> packets, ulong frameRevision,
         Matrix4 projection, Matrix4 view,
-        int depthTexture, int width, int height, bool historyValid)
+        int depthTexture, int width, int height, bool currentDepthReady)
     {
         try
         {
             PrepareRetainedGpuVisibilityUnsafe(
-                packets, projection, view,
-                depthTexture, width, height, historyValid);
+                packets, frameRevision, projection, view,
+                depthTexture, width, height, currentDepthReady);
         }
         catch (Exception ex) when (
             ex is not OutOfMemoryException and not StackOverflowException)
@@ -163,9 +195,9 @@ internal sealed unsafe partial class ModernGraphicsCompat
     }
 
     private void PrepareRetainedGpuVisibilityUnsafe(
-        IReadOnlyList<RetainedDrawPacket> packets,
+        IReadOnlyList<RetainedDrawPacket> packets, ulong frameRevision,
         Matrix4 projection, Matrix4 view,
-        int depthTexture, int width, int height, bool historyValid)
+        int depthTexture, int width, int height, bool currentDepthReady)
     {
         _gpuVisibilitySlots.Clear();
         _gpuVisibilityPrepared = false;
@@ -180,14 +212,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
         {
             RetainedDrawPacket packet = packets[i];
             RenderItem item = packet.Item;
-            if (!packet.ReorderableOpaque
-                || !item.RetainedGpuVisibilityEligible
-                || !RetainedWorldPacketEligibleForPass(
-                    item, WorldRenderPassKind.Opaque)
-                || !ValidGpuBounds(item.RetainedBoundsMin, item.RetainedBoundsMax)
-                || !_lists.TryGetValue(packet.Mesh.ListId, out GeometryList? geometry)
-                || geometry.Triangles.Length == 0
-                || geometry.Lines.Length != 0)
+            if (!IsRetainedGpuOccluderCore(packet)
+                || !_lists.TryGetValue(packet.Mesh.ListId, out GeometryList? geometry))
             {
                 continue;
             }
@@ -212,14 +238,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
         {
             RetainedDrawPacket packet = packets[i];
             RenderItem item = packet.Item;
-            if (!packet.ReorderableOpaque
-                || !item.RetainedGpuVisibilityEligible
-                || !RetainedWorldPacketEligibleForPass(
-                    item, WorldRenderPassKind.Opaque)
-                || !ValidGpuBounds(item.RetainedBoundsMin, item.RetainedBoundsMax)
-                || !_lists.TryGetValue(packet.Mesh.ListId, out GeometryList? geometry)
-                || geometry.Triangles.Length == 0
-                || geometry.Lines.Length != 0)
+            if (!IsRetainedGpuOccluderCore(packet)
+                || !_lists.TryGetValue(packet.Mesh.ListId, out GeometryList? geometry))
             {
                 continue;
             }
@@ -315,33 +335,29 @@ internal sealed unsafe partial class ModernGraphicsCompat
                 checked((nuint)(bucketWords * sizeof(uint))));
         }
 
-        bool useHistory = ConservativeHiZ.TemporalOcclusionEnabled && historyValid
-            && _gpuVisibilityPreviousMatricesValid
+        bool useCurrentDepth = currentDepthReady
             && _gpuHiZFullView != 0
-            && depthTexture != 0
-            && depthTexture == _gpuVisibilityPreviousDepthTexture
-            && width == _gpuVisibilityPreviousWidth
-            && height == _gpuVisibilityPreviousHeight
-            && width == _gpuHiZWidth
-            && height == _gpuHiZHeight;
+            && width == _gpuHiZWidth && height == _gpuHiZHeight
+            && _gpuOcclusionDepth.CanReject(packets, frameRevision,
+                depthTexture, width, height,
+                FiniteGpuMatrix(projection) && FiniteGpuMatrix(view)
+                    && projection == _gpuVisibilityDepthProjection
+                    && view == _gpuVisibilityDepthView);
 
-        TextureView* hiZView = useHistory
+        TextureView* hiZView = useCurrentDepth
             ? (TextureView*)_gpuHiZFullView
             : _whiteView;
 
         uint[] uniforms = _gpuVisibilityUniformWords;
         WriteGpuMatrix(uniforms, 0, projection);
         WriteGpuMatrix(uniforms, 16, view);
-        WriteGpuMatrix(uniforms, 32, _gpuVisibilityPreviousProjection);
-        WriteGpuMatrix(uniforms, 48, _gpuVisibilityPreviousView);
-        WriteGpuFloat(uniforms, 64, width);
-        WriteGpuFloat(uniforms, 65, height);
-        WriteGpuFloat(uniforms, 66, useHistory ? _gpuHiZMipCount : 1);
-        WriteGpuFloat(uniforms, 67, useHistory ? 1 : 0);
-        WriteGpuFloat(uniforms, 68, candidateCount);
-        WriteGpuFloat(uniforms, 69, GpuVisibilityDepthBias);
-        WriteGpuFloat(uniforms, 70, GpuVisibilityMotionPixels);
-        WriteGpuFloat(uniforms, 71, GpuVisibilityExtentPixels);
+        WriteGpuFloat(uniforms, 32, width);
+        WriteGpuFloat(uniforms, 33, height);
+        WriteGpuFloat(uniforms, 34, useCurrentDepth ? _gpuHiZMipCount : 1);
+        WriteGpuFloat(uniforms, 35, useCurrentDepth ? 1 : 0);
+        WriteGpuFloat(uniforms, 36, candidateCount);
+        WriteGpuFloat(uniforms, 37, GpuVisibilityDepthBias);
+        uniforms[38] = uniforms[39] = 0;
         fixed (uint* uniformPtr = uniforms)
         {
             WriteProfiledBuffer(_gpuVisibilityUniformBuffer, 0,
@@ -357,17 +373,16 @@ internal sealed unsafe partial class ModernGraphicsCompat
         _gpuVisibilityCandidates += candidateCount;
     }
 
-    private bool CaptureRetainedGpuVisibilityHistoryCore(
+    private bool CaptureRetainedGpuVisibilityDepthCore(
+        IReadOnlyList<RetainedDrawPacket> packets, ulong frameRevision,
         Matrix4 projection, Matrix4 view,
         int depthTexture, int width, int height)
     {
-        if (!UseGpuVisibility || !ConservativeHiZ.TemporalOcclusionEnabled || depthTexture == 0
-            || width <= 0 || height <= 0)
-        {
-            _gpuVisibilityPreviousMatricesValid = false;
-            _gpuVisibilityPreviousDepthTexture = 0;
+        _gpuOcclusionDepth.Invalidate();
+        if (!UseGpuVisibility || depthTexture == 0
+            || width <= 0 || height <= 0 || frameRevision == 0
+            || !FiniteGpuMatrix(projection) || !FiniteGpuMatrix(view))
             return false;
-        }
 
         try
         {
@@ -375,23 +390,22 @@ internal sealed unsafe partial class ModernGraphicsCompat
             EnsureGpuVisibilityPipelines();
             EnsureGpuHiZ(width, height);
             NativeTexture depth = EnsureTexture(depthTexture);
+            if (depth.SampleView == null)
+                throw new InvalidOperationException("Current occlusion depth is not readable.");
             BuildGpuHiZ(depth.SampleView, width, height);
-            _gpuVisibilityPreviousProjection = projection;
-            _gpuVisibilityPreviousView = view;
-            _gpuVisibilityPreviousDepthTexture = depthTexture;
-            _gpuVisibilityPreviousWidth = width;
-            _gpuVisibilityPreviousHeight = height;
-            _gpuVisibilityPreviousMatricesValid = true;
+            _gpuVisibilityDepthProjection = projection;
+            _gpuVisibilityDepthView = view;
+            _gpuOcclusionDepth.Capture(packets, frameRevision,
+                depthTexture, width, height);
             return true;
         }
         catch (Exception ex) when (
             ex is not OutOfMemoryException and not StackOverflowException)
         {
             _gpuVisibilityRefused = true;
-            _gpuVisibilityPreviousMatricesValid = false;
-            _gpuVisibilityPreviousDepthTexture = 0;
+            _gpuOcclusionDepth.Invalidate();
             Console.WriteLine(
-                $"[render] Hi-Z history unavailable; disabling GPU visibility: {ex.Message}");
+                $"[render] Current-frame Hi-Z unavailable; disabling GPU visibility: {ex.Message}");
             return false;
         }
     }
@@ -422,31 +436,121 @@ internal sealed unsafe partial class ModernGraphicsCompat
     {
         if (_gpuVisibilityPipeline == null)
         {
-            CreateGpuComputePipeline(GpuVisibilityShader,
+            CreateGpuComputePipeline(GpuVisibilityShader, GpuComputeLayout.Visibility,
                 out _gpuVisibilityPipeline, out _gpuVisibilityLayout);
         }
         if (_gpuHiZDepthPipeline == null)
         {
-            CreateGpuComputePipeline(GpuHiZDepthShader,
+            CreateGpuComputePipeline(GpuHiZDepthShader, GpuComputeLayout.DepthCopy,
                 out _gpuHiZDepthPipeline, out _gpuHiZDepthLayout);
         }
         if (_gpuHiZReducePipeline == null)
         {
-            CreateGpuComputePipeline(GpuHiZReduceShader,
+            CreateGpuComputePipeline(GpuHiZReduceShader, GpuComputeLayout.Reduction,
                 out _gpuHiZReducePipeline, out _gpuHiZReduceLayout);
         }
     }
 
-    private void CreateGpuComputePipeline(string source,
+    private enum GpuComputeLayout { Visibility, DepthCopy, Reduction }
+
+    private static BindGroupLayoutEntry[] GpuComputeLayoutEntries(GpuComputeLayout kind)
+    {
+        static BindGroupLayoutEntry Buffer(uint binding, BufferBindingType type, ulong size) => new()
+        {
+            Binding = binding, Visibility = ShaderStage.Compute,
+            Buffer = new BufferBindingLayout { Type = type, MinBindingSize = size }
+        };
+        static BindGroupLayoutEntry Texture(uint binding, TextureSampleType type) => new()
+        {
+            Binding = binding, Visibility = ShaderStage.Compute,
+            Texture = new TextureBindingLayout
+            { SampleType = type, ViewDimension = TextureViewDimension.Dimension2D }
+        };
+        if (kind == GpuComputeLayout.Visibility)
+        {
+            return new[]
+            {
+                Buffer(0, BufferBindingType.ReadOnlyStorage, GpuVisibilityCandidateWords * 4),
+                Buffer(1, BufferBindingType.Storage, 20),
+                Buffer(2, BufferBindingType.Storage, 4),
+                Buffer(3, BufferBindingType.Storage, 16),
+                Buffer(4, BufferBindingType.Uniform, GpuVisibilityUniformWords * 4),
+                Texture(5, TextureSampleType.UnfilterableFloat),
+                Buffer(6, BufferBindingType.Storage, 20),
+                Buffer(7, BufferBindingType.Storage, 4)
+            };
+        }
+        return new[]
+        {
+            Texture(0, kind == GpuComputeLayout.DepthCopy
+                ? TextureSampleType.Depth : TextureSampleType.UnfilterableFloat),
+            new BindGroupLayoutEntry
+            {
+                Binding = 1, Visibility = ShaderStage.Compute,
+                StorageTexture = new StorageTextureBindingLayout
+                {
+                    Access = StorageTextureAccess.WriteOnly,
+                    Format = WgpuTextureFormat.R32float,
+                    ViewDimension = TextureViewDimension.Dimension2D
+                }
+            }
+        };
+    }
+
+    internal static bool ValidateGpuVisibilityResourceLayoutsForCheck()
+    {
+        // Use the actual production entries, without constructing a GPU device.
+        // Inferred texture_2d<f32> layouts require Float32Filterable even though
+        // these shaders only use textureLoad; R32Float must be unfilterable here.
+        var visibility = GpuComputeLayoutEntries(GpuComputeLayout.Visibility);
+        var depth = GpuComputeLayoutEntries(GpuComputeLayout.DepthCopy);
+        var reduction = GpuComputeLayoutEntries(GpuComputeLayout.Reduction);
+        return visibility.Length == 8
+            && visibility[0].Buffer.Type == BufferBindingType.ReadOnlyStorage
+            && visibility[4].Buffer.MinBindingSize == GpuVisibilityUniformWords * 4
+            && visibility[5].Texture.SampleType == TextureSampleType.UnfilterableFloat
+            && visibility[5].Texture.ViewDimension == TextureViewDimension.Dimension2D
+            && depth.Length == 2 && depth[0].Texture.SampleType == TextureSampleType.Depth
+            && reduction.Length == 2
+            && reduction[0].Texture.SampleType == TextureSampleType.UnfilterableFloat
+            && reduction[0].Texture.ViewDimension == TextureViewDimension.Dimension2D
+            && depth[1].StorageTexture.Access == StorageTextureAccess.WriteOnly
+            && reduction[1].StorageTexture.Access == StorageTextureAccess.WriteOnly
+            && depth[1].StorageTexture.Format == WgpuTextureFormat.R32float
+            && reduction[1].StorageTexture.Format == WgpuTextureFormat.R32float;
+    }
+
+    private void CreateGpuComputePipeline(string source, GpuComputeLayout kind,
         out ComputePipeline* pipeline, out BindGroupLayout* layout)
     {
-        ShaderModule* module = CreateWgslModule(source);
-        nint entry = SilkMarshal.StringToPtr("main");
+        long pipelineStart = PerformanceStart();
+        pipeline = null;
+        layout = null;
+        ShaderModule* module = null;
+        PipelineLayout* pipelineLayout = null;
+        nint entry = 0;
         try
         {
+            var entries = GpuComputeLayoutEntries(kind);
+            fixed (BindGroupLayoutEntry* p = entries)
+            {
+                var bindDescriptor = new BindGroupLayoutDescriptor
+                    { Entries = p, EntryCount = (nuint)entries.Length };
+                layout = _api.DeviceCreateBindGroupLayout(_device.Device, in bindDescriptor);
+            }
+            if (layout == null)
+                throw new InvalidOperationException($"Could not create {kind} GPU bind-group layout.");
+            BindGroupLayout* localLayout = layout;
+            var layoutDescriptor = new PipelineLayoutDescriptor
+                { BindGroupLayouts = &localLayout, BindGroupLayoutCount = 1 };
+            pipelineLayout = _api.DeviceCreatePipelineLayout(_device.Device, in layoutDescriptor);
+            if (pipelineLayout == null)
+                throw new InvalidOperationException($"Could not create {kind} GPU pipeline layout.");
+            module = CreateWgslModule(source);
+            entry = SilkMarshal.StringToPtr("main");
             var descriptor = new ComputePipelineDescriptor
             {
-                Layout = null,
+                Layout = pipelineLayout,
                 Compute = new ProgrammableStageDescriptor
                 {
                     Module = module,
@@ -458,15 +562,21 @@ internal sealed unsafe partial class ModernGraphicsCompat
             if (pipeline == null)
                 throw new InvalidOperationException(
                     "Could not create retained GPU visibility compute pipeline.");
-            layout = _api.ComputePipelineGetBindGroupLayout(pipeline, 0);
-            if (layout == null)
-                throw new InvalidOperationException(
-                    "GPU visibility compute pipeline has no bind-group layout.");
+            RecordPipelineCreation(pipelineStart);
+        }
+        catch
+        {
+            if (pipeline != null) _api.ComputePipelineRelease(pipeline);
+            if (layout != null) _api.BindGroupLayoutRelease(layout);
+            pipeline = null;
+            layout = null;
+            throw;
         }
         finally
         {
-            SilkMarshal.Free(entry);
-            _api.ShaderModuleRelease(module);
+            if (entry != 0) SilkMarshal.Free(entry);
+            if (module != null) _api.ShaderModuleRelease(module);
+            if (pipelineLayout != null) _api.PipelineLayoutRelease(pipelineLayout);
         }
     }
 
@@ -492,7 +602,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
                 checked((uint)width), checked((uint)height), 1),
             Format = WgpuTextureFormat.R32float,
             Usage = TextureUsage.TextureBinding
-                | TextureUsage.StorageBinding,
+                | TextureUsage.StorageBinding | TextureUsage.CopySrc,
             MipLevelCount = checked((uint)mipCount),
             SampleCount = 1,
             Dimension = TextureDimension.Dimension2D
@@ -598,6 +708,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
         int mipHeight = height;
         for (int mip = 1; mip < _gpuHiZMipCount; mip++)
         {
+            // Native texture mip extents round down, matching the shader views.
             mipWidth = Math.Max(1, mipWidth / 2);
             mipHeight = Math.Max(1, mipHeight / 2);
             DispatchGpuCompute(
@@ -733,6 +844,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
     {
         _gpuVisibilityPrepared = false;
         _gpuVisibilitySlots.Clear();
+        _gpuOcclusionDepth.Invalidate();
     }
 
     private void ReleaseGpuVisibilityBindGroup()
@@ -748,6 +860,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
 
     private void ReleaseGpuHiZResources()
     {
+        _gpuOcclusionDepth.Invalidate();
         ReleaseGpuVisibilityBindGroup();
         if (_gpuHiZDepthBindGroup != 0)
         {
@@ -871,6 +984,23 @@ internal sealed unsafe partial class ModernGraphicsCompat
         uint[] words, int at, float value) =>
         words[at] = BitConverter.SingleToUInt32Bits(value);
 
+    // CPU reference for the shader's edge footprint, also used by validation
+    // fixtures. Normalized footprints overlap at odd boundaries and cover every
+    // source texel, matching both the reduction shader and visibility lookup.
+    internal static (int Start, int End) GpuHiZReductionFootprint(
+        int sourceSize, int destinationIndex)
+    {
+        if (sourceSize < 1)
+            throw new ArgumentOutOfRangeException(nameof(sourceSize));
+        int destinationSize = Math.Max(1, sourceSize / 2);
+        if ((uint)destinationIndex >= (uint)destinationSize)
+            throw new ArgumentOutOfRangeException(nameof(destinationIndex));
+        return ConservativeHiZ.Footprint(destinationIndex, sourceSize, destinationSize);
+    }
+
+    internal static string GpuHiZReduceShaderForCheck => GpuHiZReduceShader;
+    internal static string GpuVisibilityShaderForCheck => GpuVisibilityShader;
+
     private const string GpuHiZDepthShader = @"
 @group(0) @binding(0) var source_depth: texture_depth_2d;
 @group(0) @binding(1) var destination: texture_storage_2d<r32float, write>;
@@ -943,8 +1073,6 @@ struct Counters {
 struct VisibilityUniforms {
     current_projection: mat4x4<f32>,
     current_view: mat4x4<f32>,
-    previous_projection: mat4x4<f32>,
-    previous_view: mat4x4<f32>,
     viewport: vec4<f32>,
     params: vec4<f32>,
 };
@@ -1007,6 +1135,7 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
     var current_min = vec2<f32>(1e30);
     var current_max = vec2<f32>(-1e30);
     var current_all_front = true;
+    var current_near_depth = 1.0;
 
     for (var i = 0u; i < 8u; i = i + 1u) {
         let clip = clip_point(
@@ -1024,6 +1153,8 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
             let pixel = pixel_from_clip(clip);
             current_min = min(current_min, pixel);
             current_max = max(current_max, pixel);
+            current_near_depth = min(current_near_depth,
+                clamp((clip.z / clip.w + 1.0) * 0.5, 0.0, 1.0));
         }
     }
 
@@ -1035,71 +1166,28 @@ fn main(@builtin(global_invocation_id) id: vec3<u32>) {
 
     var occluded = false;
     if (uniforms.viewport.w > 0.5 && current_all_front) {
-        var previous_min = vec2<f32>(1e30);
-        var previous_max = vec2<f32>(-1e30);
-        var previous_near_depth = 1.0;
-        var previous_all_front = true;
-
-        for (var i = 0u; i < 8u; i = i + 1u) {
-            let clip = clip_point(
-                uniforms.previous_projection, uniforms.previous_view,
-                corner(c, i));
-            if (clip.w <= 1e-5) {
-                previous_all_front = false;
-            } else {
-                let pixel = pixel_from_clip(clip);
-                previous_min = min(previous_min, pixel);
-                previous_max = max(previous_max, pixel);
-                let depth = clamp(
-                    (clip.z / clip.w + 1.0) * 0.5, 0.0, 1.0);
-                previous_near_depth =
-                    min(previous_near_depth, depth);
-            }
-        }
-
-        let fully_in_view = current_min.x >= 0.0
-            && current_min.y >= 0.0
-            && current_max.x < uniforms.viewport.x
-            && current_max.y < uniforms.viewport.y
-            && previous_min.x >= 0.0
-            && previous_min.y >= 0.0
-            && previous_max.x < uniforms.viewport.x
-            && previous_max.y < uniforms.viewport.y;
-
-        if (previous_all_front && fully_in_view) {
-            let current_center = (current_min + current_max) * 0.5;
-            let previous_center = (previous_min + previous_max) * 0.5;
-            let current_extent = max(
-                current_max - current_min, vec2<f32>(1.0));
-            let previous_extent = max(
-                previous_max - previous_min, vec2<f32>(1.0));
-            let center_motion = max(
-                abs(current_center.x - previous_center.x),
-                abs(current_center.y - previous_center.y));
-            let extent_motion = max(
-                abs(current_extent.x - previous_extent.x),
-                abs(current_extent.y - previous_extent.y));
-
-            if (center_motion <= uniforms.params.z
-                && extent_motion <= uniforms.params.w) {
-                let max_dimension = max(
-                    previous_extent.x, previous_extent.y);
-                let requested_mip = u32(max(
-                    0.0, ceil(log2(max(max_dimension, 1.0)))));
-                let mip_count = u32(uniforms.viewport.z);
-                let mip = min(requested_mip, mip_count - 1u);
-                let p0 = previous_min;
-                let p1 = vec2<f32>(previous_max.x, previous_min.y);
-                let p2 = vec2<f32>(previous_min.x, previous_max.y);
-                let p3 = previous_max;
-                let pc = (previous_min + previous_max) * 0.5;
-                let farthest = max(
-                    max(hiz_at(p0, mip), hiz_at(p1, mip)),
-                    max(max(hiz_at(p2, mip), hiz_at(p3, mip)),
-                        hiz_at(pc, mip)));
-                occluded = previous_near_depth
-                    > farthest + uniforms.params.y;
-            }
+        // Include rasterization at the projected edge. Any clipping or border
+        // overlap keeps the packet visible instead of sampling a smaller box.
+        let bounds_min = current_min - vec2<f32>(1.0);
+        let bounds_max = current_max + vec2<f32>(1.0);
+        let fully_in_view = bounds_min.x >= 0.0 && bounds_min.y >= 0.0
+            && bounds_max.x < uniforms.viewport.x
+            && bounds_max.y < uniforms.viewport.y;
+        if (fully_in_view) {
+            let extent = max(bounds_max - bounds_min, vec2<f32>(1.0));
+            let requested_mip = u32(max(0.0,
+                ceil(log2(max(extent.x, extent.y)))));
+            let mip = min(requested_mip, u32(uniforms.viewport.z) - 1u);
+            // At this mip the box overlaps at most two cells per dimension.
+            // The four corners cover every intersecting cell; the center is
+            // redundant but conservatively retained for the coarsest odd mip.
+            let farthest = max(
+                max(hiz_at(bounds_min, mip),
+                    hiz_at(vec2<f32>(bounds_max.x, bounds_min.y), mip)),
+                max(max(hiz_at(vec2<f32>(bounds_min.x, bounds_max.y), mip),
+                    hiz_at(bounds_max, mip)),
+                    hiz_at((bounds_min + bounds_max) * 0.5, mip)));
+            occluded = current_near_depth > farthest + uniforms.params.y;
         }
     }
 

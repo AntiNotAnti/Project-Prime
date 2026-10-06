@@ -20,6 +20,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
         internal RetainedAtlasRanges Vertices = null!;
         internal RetainedAtlasRanges Indices = null!;
         internal int LiveEntries;
+        internal RetainedAtlasPageOwnership Ownership = null!;
     }
 
     private readonly record struct RetainedMultiDrawEntry(
@@ -27,7 +28,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
         uint FirstIndex,
         int BaseVertex,
         uint IndexCount,
-        uint VertexCount);
+        uint VertexCount,
+        ulong AllocationBytes);
 
     private readonly record struct RetainedDenseMultiDrawBucket(
         int Id,
@@ -64,6 +66,34 @@ internal sealed unsafe partial class ModernGraphicsCompat
         _current?._retainedMultiDrawFallbackBatches ?? 0;
     internal static long RetainedMultiDrawAtlasBytes =>
         _current?._retainedMultiDrawAtlasBytes ?? 0;
+    // Keep the original counter as cumulative uploaded bytes. Reserved and live
+    // bytes answer different questions and must not be conflated with uploads.
+    internal static long RetainedMultiDrawAtlasReservedBytes =>
+        _current?.RetainedAtlasReservedBytes ?? 0;
+    internal static long RetainedMultiDrawAtlasLiveBytes =>
+        _current?.RetainedAtlasLiveBytes ?? 0;
+    internal static int RetainedMultiDrawAtlasPages =>
+        _current?._retainedMultiDrawPages.Count ?? 0;
+    private long RetainedAtlasReservedBytes
+    {
+        get
+        {
+            long bytes = 0;
+            foreach (var page in _retainedMultiDrawPages)
+                bytes = checked(bytes + (long)page.Ownership.ReservedBytes);
+            return bytes;
+        }
+    }
+    private long RetainedAtlasLiveBytes
+    {
+        get
+        {
+            long bytes = 0;
+            foreach (var page in _retainedMultiDrawPages)
+                bytes = checked(bytes + (long)page.Ownership.LiveBytes);
+            return bytes;
+        }
+    }
     internal static bool RetainedDenseMultiDrawEnabled =>
         _current?.UseRetainedDenseMultiDraw ?? false;
     internal static long RetainedDenseMultiDrawCalls =>
@@ -139,7 +169,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
                 VertexCapacityBytes = vertexCapacity,
                 IndexCapacityBytes = indexCapacity,
                 Vertices = new(checked((uint)(vertexCapacity / ((ulong)strideFloats * sizeof(float))))),
-                Indices = new(checked((uint)(indexCapacity / sizeof(int))))
+                Indices = new(checked((uint)(indexCapacity / sizeof(int)))),
+                Ownership = new(checked(vertexCapacity + indexCapacity))
             };
             page.Vertex = _api.DeviceCreateBuffer(
                 _device.Device, new BufferDescriptor
@@ -195,9 +226,11 @@ internal sealed unsafe partial class ModernGraphicsCompat
         }
         page.LiveEntries++;
 
+        ulong allocationBytes = checked(vertexBytes + indexBytes);
         var entry = new RetainedMultiDrawEntry(
-            page, firstIndex, checked((int)baseVertex), indexCount, vertexCount);
+            page, firstIndex, checked((int)baseVertex), indexCount, vertexCount, allocationBytes);
         _retainedMultiDrawEntries.Add(geometry, entry);
+        page.Ownership.Retain(allocationBytes);
         _retainedMultiDrawAtlasBytes += checked(
             (long)(vertexBytes + indexBytes));
         return entry;
@@ -830,13 +863,23 @@ internal sealed unsafe partial class ModernGraphicsCompat
             RetainedMultiDrawPage page = entry.Page;
             page.Vertices.Return(checked((uint)entry.BaseVertex), entry.VertexCount);
             page.Indices.Return(entry.FirstIndex, entry.IndexCount);
-            if (--page.LiveEntries == 0)
+            bool empty = page.Ownership.Release(entry.AllocationBytes);
+            if ((--page.LiveEntries == 0) != empty)
+                throw new InvalidOperationException("Retained atlas ranges and allocation ownership disagree.");
+            if (empty)
             {
+                // Release native reference ownership, never BufferDestroy.
+                // Submitted commands retain their native resource references.
                 _retainedMultiDrawPages.Remove(page);
                 if (page.Vertex != null) _api.BufferRelease(page.Vertex);
                 if (page.Index != null) _api.BufferRelease(page.Index);
                 page.Vertex = page.Index = null;
             }
+            // Prepared buckets are frame-local and can still refer to the
+            // returned span or a retired page. Rebuild them before future draws.
+            _retainedDenseMultiDrawBuckets.Clear();
+            _retainedDenseBucketCount = 0;
+            _retainedDenseRecordCount = 0;
         }
         _retainedMultiDrawExplicitNormals.Remove(geometry);
     }

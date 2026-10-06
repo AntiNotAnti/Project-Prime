@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/MphRead/Mods/Render/GpuTimingSamplePolicy.cs" Link="GpuTimingSamplePolicy.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/GpuTimingReadbackLease.cs" Link="GpuTimingReadbackLease.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/GpuTimingSampleQueue.cs" Link="GpuTimingSampleQueue.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/QueuedFramePacing.cs" Link="QueuedFramePacing.cs" />
+  </ItemGroup>
+</Project>

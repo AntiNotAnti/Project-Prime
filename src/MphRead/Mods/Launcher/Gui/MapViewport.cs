@@ -238,8 +238,13 @@ namespace MphRead.Mods.Launcher.Gui
                 foreach (var item in MapObjects.All(Document.Project.Definition))
                     if (Document.Selection.Contains(item.Id)) transforms[item.Id] = PreviewTransform(item);
             var meshes = Cache.VisibleMeshes(Camera,layout);
-            if (_subPreview != null) meshes = meshes.Select(m => m.ObjectId == _subPreview.ObjectId ? _subPreview.Present(m) : m).ToArray();
-            return new(layout, Camera, meshes, Document.Selection.ToHashSet(), transforms, Wireframe, Collision) { GridView=View, GridStep=VisibleGridStep, Materials=_viewportMaterials, UvChecker=UvChecker };
+            var resident = Cache.Meshes;
+            if (_subPreview != null)
+            {
+                resident = resident.Select(m => m.ObjectId == _subPreview.ObjectId ? _subPreview.Present(m) : m).ToArray();
+                meshes = meshes.Select(m => m.ObjectId == _subPreview.ObjectId ? _subPreview.Present(m) : m).ToArray();
+            }
+            return new(layout, Camera, meshes, Document.Selection.ToHashSet(), transforms, Wireframe, Collision) { ResidentMeshes=resident, GridView=View, GridStep=VisibleGridStep, Materials=_viewportMaterials, UvChecker=UvChecker };
         }
 #if !MPHREAD_SHELL
         private bool GpuActive => false;

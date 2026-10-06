@@ -36,10 +36,16 @@ namespace MphRead.Mods.Render
                 if (GLFW.GetError(out _) != OpenTK.Windowing.GraphicsLibraryFramework.ErrorCode.NoContext)
                     throw new InvalidOperationException("Expected GLFW NoContext callback was not delivered.");
                 Console.WriteLine("[renderwindowcheck] native GLFW error returns safely PASS");
+                GraphicsTimingPolicy.Enable();
                 ModernGraphicsCompat.Initialize(window, backend);
                 try
                 {
                     ModernGraphicsCompat.Resize(96, 64);
+                    int enabledTextureLimit = ModernGraphicsCompat.QueryEnabledTextureLimitForCheck();
+                    if (GraphicsApi.GetInteger(GetPName.MaxTextureSize) != enabledTextureLimit
+                        || GraphicsApi.GetInteger(GetPName.MaxRenderbufferSize) != enabledTextureLimit)
+                        throw new InvalidOperationException("Compatibility graphics limits disagree with the enabled device limits.");
+                    Console.WriteLine($"[renderwindowcheck] enabled texture/render-target limit {enabledTextureLimit} PASS");
                     ModernGraphicsCompat.ValidateGeneratedShaders();
                     ModernGraphicsCompat.ValidateVisibilityShadersForCheck();
                     GraphicsApi.Viewport(0, 0, 96, 64);
@@ -105,12 +111,17 @@ namespace MphRead.Mods.Render
                     if (uploads.TextureUploadBytes <= 0 || uploads.TextureUploadSubmissionMs < 0)
                         throw new InvalidOperationException("Texture upload performance counters failed.");
                     RunAdvancedShaderCheck();
+                    ModernPbrLayerCheck.Verify();
                     ModernGraphicsCompat.BeginPerformanceSample();
                     RunWireframeCheck();
                     var pipelines = ModernGraphicsCompat.EndPerformanceSample();
                     if (pipelines.PipelinesCreated <= 0 || pipelines.LongestPipelineCreationMs <= 0)
                         throw new InvalidOperationException("Pipeline performance counters failed.");
                     RunLifetimeCheck();
+                    ModernGraphicsCompat.VerifyRetainedAtlasLifetimeForCheck();
+                    ModernGraphicsCompat.ValidateResourceAccountingForCheck();
+                    ModernGraphicsCompat.VerifyGpuVisibilityForCheck();
+                    ModernGraphicsCompat.VerifyGpuFrameTimingForCheck();
                     byte[] worldPixels = RunWorldCompositeCheck();
                     bool topLeftGreen = worldPixels[0] <= 30 && worldPixels[1] >= 220
                         && worldPixels[2] <= 30 && worldPixels[3] >= 220;
@@ -144,6 +155,8 @@ namespace MphRead.Mods.Render
                         return 1;
                     }
 
+                    UiOverlayCompositeCheck.Run(96, 64);
+                    Console.WriteLine("[renderwindowcheck] fullscreen UI composite integration PASS");
                     RunFailedRecoveryFallbackCheck();
                     RunRendererRestartCheck(window, backend);
                     Console.WriteLine(
@@ -167,6 +180,15 @@ namespace MphRead.Mods.Render
             {
                 Console.Error.WriteLine(
                     $"[renderwindowcheck] FAIL {ex.GetType().Name}: {ex.Message}");
+                // Recoverable native surface outcomes are logged to the recent
+                // diagnostic ring. Include its tail so an unavailable drawable
+                // cannot be mistaken for a texture/readback pixel failure.
+                var diagnostics = new System.Text.StringBuilder();
+                DebugLog.AppendRecent(diagnostics);
+                const int maximumDiagnosticCharacters = 8192;
+                int start = Math.Max(0, diagnostics.Length - maximumDiagnosticCharacters);
+                if (diagnostics.Length != 0)
+                    Console.Error.WriteLine(diagnostics.ToString(start, diagnostics.Length - start));
                 return 1;
             }
         }
@@ -207,8 +229,14 @@ namespace MphRead.Mods.Render
                 + $"unpaced={unpacedMode} vsync={ModernGraphicsCompat.ActivePresentMode}");
         }
 
-        private static void RunRendererRestartCheck(NativeWindow window, GraphicsBackend backend)
+        private static unsafe void RunRendererRestartCheck(NativeWindow window, GraphicsBackend backend)
         {
+            byte[] overlay = { 255, 0, 0, 255 };
+            fixed (byte* pixels = overlay) UiOverlay.Upload((nint)pixels, 1, 1);
+            UiOverlay.Visible = true;
+            UiOverlay.Release();
+            if (UiOverlay.HasFrame || UiOverlay.Visible)
+                throw new InvalidOperationException("UI overlay retained state after renderer-owned release.");
             // Teardown may be reached after a context/surface has already gone.
             // Shutdown is intentionally idempotent, then the same host window
             // must be able to create a fresh renderer and present again.
@@ -227,6 +255,18 @@ namespace MphRead.Mods.Render
                 throw new InvalidOperationException(
                     $"Renderer restart did not recover a presentable surface: "
                     + $"rgba({pixel[0]},{pixel[1]},{pixel[2]},{pixel[3]}).");
+            // Same-size upload must allocate in the new renderer generation.
+            fixed (byte* pixels = overlay) UiOverlay.Upload((nint)pixels, 1, 1);
+            UiOverlay.Visible = true;
+            UiOverlay.Draw(96, 64);
+            GraphicsApi.ReadPixels(48, 32, 1, 1,
+                PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+            if (pixel[0] < 220 || pixel[1] > 24 || pixel[2] > 24)
+                throw new InvalidOperationException("UI overlay did not upload/draw after renderer restart.");
+            UiOverlay.Release();
+            // Terminal recovery failure must also be able to forget IDs without
+            // attempting any graphics operation on the failed facade.
+            UiOverlay.ForgetRendererResources();
             Console.WriteLine("[renderwindowcheck] idempotent shutdown and renderer restart PASS");
         }
 
@@ -513,12 +553,24 @@ namespace MphRead.Mods.Render
         private static void RunLifetimeCheck()
         {
             // Warm caches before measuring: bounded pipeline retention is intentional.
+            // Unlike GameWindow.Run, this hidden NativeWindow has no event
+            // loop. Pump nonblocking native events at each frame boundary so
+            // Cocoa/WSI can retire presented drawables during rapid resizes.
+            NativeWindow.ProcessWindowEvents(false);
             RunMipmapCheck();
+            NativeWindow.ProcessWindowEvents(false);
             var baseline = ModernGraphicsCompat.LiveResources;
             for (int i = 0; i < 120; i++)
             {
+                NativeWindow.ProcessWindowEvents(false);
                 ModernGraphicsCompat.Resize(96 + i % 12, 64 + i % 12);
-                RunMipmapCheck();
+                try { RunMipmapCheck(); }
+                catch (Exception ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Resize/resource lifetime iteration {i} at {96 + i % 12}x{64 + i % 12}: {ex.Message}", ex);
+                }
+                NativeWindow.ProcessWindowEvents(false);
                 var after = ModernGraphicsCompat.LiveResources;
                 if (after.Textures > baseline.Textures || after.Renderbuffers > baseline.Renderbuffers
                     || after.Geometry > baseline.Geometry || after.Pipelines > baseline.Pipelines
@@ -659,6 +711,20 @@ namespace MphRead.Mods.Render
 
         private static void RunMipmapCheck()
         {
+            // This check also runs after shader/foreground fixtures. Establish
+            // the sampled draw state instead of inheriting their texture mode.
+            GraphicsApi.UseProgram(0);
+            GraphicsApi.ActiveTexture(TextureUnit.Texture0);
+            GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+            GraphicsApi.Viewport(0, 0, 96, 64);
+            GraphicsApi.Enable(EnableCap.Texture2D);
+            foreach (var cap in new[] { EnableCap.DepthTest, EnableCap.CullFace,
+                EnableCap.Blend, EnableCap.ScissorTest, EnableCap.StencilTest,
+                EnableCap.AlphaTest })
+                GraphicsApi.Disable(cap);
+            GraphicsApi.ColorMask(true, true, true, true);
+            GraphicsApi.Color4(1f, 1f, 1f, 1f);
+            GraphicsApi.PolygonMode(TriangleFace.FrontAndBack, OpenTK.Graphics.OpenGL.PolygonMode.Fill);
             int texture = GraphicsApi.GenTexture();
             GraphicsApi.BindTexture(TextureTarget.Texture2D, texture);
             byte[] checker = new byte[8 * 8 * 4];

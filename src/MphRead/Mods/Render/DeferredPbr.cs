@@ -29,10 +29,11 @@ namespace MphRead
         private int _pbrNormalTexture;
         private int _pbrMaterialTexture;
         private int _pbrDepthTexture;
-        private int _pbrDepthRenderbuffer;
+        private int _pbrOwnedDepthTexture;
         private Vector2i _pbrSize;
         private bool _pbrIndependentDepth;
         private bool _pbrReady;
+        private bool _pbrResolvedToScene;
         private bool _pbrRefused;
 
         private int _pbrMode;
@@ -63,6 +64,16 @@ namespace MphRead
         internal int DeferredPbrAlbedo => _pbrAlbedoTexture;
         internal int DeferredPbrNormal => _pbrNormalTexture;
         internal int DeferredPbrMaterial => _pbrMaterialTexture;
+        private int DeferredPbrDepth => SelectDeferredPbrDepthTexture(
+            _pbrIndependentDepth, _pbrOwnedDepthTexture, _depthTexture);
+
+        internal static int SelectDeferredPbrDepthTexture(bool independentDepth,
+            int ownedDepthTexture, int sceneDepthTexture) =>
+            independentDepth ? ownedDepthTexture : sceneDepthTexture;
+
+        internal static bool IsDeferredPbrOpaqueSurface(RenderItem item) =>
+            item.Type == RenderItemType.Mesh && !item.ViewModel
+            && item.Alpha == 1f && item.RenderMode != RenderMode.Translucent;
         private long _retainedDirectPbrMrtDraws;
         private long _retainedCompatibilityPbrDraws;
         internal long RetainedDirectPbrMrtDraws => _retainedDirectPbrMrtDraws;
@@ -111,6 +122,8 @@ namespace MphRead
                 // cannot attach the larger forward depth texture, so its first
                 // albedo replay builds an equivalent local depth surface; the
                 // normal/material replays then use exact equality against it.
+                // The material resolve samples this same depth, before any
+                // viewmodel, translucent surface or scene overlay is drawn.
                 GL.DepthFunc(_pbrIndependentDepth ? DepthFunction.Less : DepthFunction.Equal);
                 GL.DepthMask(_pbrIndependentDepth);
                 GL.ColorMask(true, true, true, true);
@@ -243,10 +256,7 @@ namespace MphRead
                     Mods.Render.RetainedDrawPacket packet =
                         packets[batch.Start + offset];
                     RenderItem item = packet.Item;
-                    if (item.Type != RenderItemType.Mesh
-                        || item.ViewModel
-                        || item.Alpha < .999f
-                        || item.RenderMode == RenderMode.Translucent)
+                    if (!IsDeferredPbrOpaqueSurface(item))
                     {
                         continue;
                     }
@@ -353,7 +363,7 @@ namespace MphRead
             }
 
             bool depthChanged = independentDepth
-                ? resized || depthModeChanged || _pbrDepthRenderbuffer == 0
+                ? resized || depthModeChanged || _pbrOwnedDepthTexture == 0
                 : resized || depthModeChanged || _pbrDepthTexture != _depthTexture;
             if (depthChanged)
             {
@@ -372,15 +382,24 @@ namespace MphRead
                 }
                 if (independentDepth)
                 {
-                    if (_pbrDepthRenderbuffer == 0)
-                        _pbrDepthRenderbuffer = GL.GenRenderbuffer();
-                    GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, _pbrDepthRenderbuffer);
-                    GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer,
-                        RenderbufferStorage.Depth24Stencil8, target.X, target.Y);
-                    GL.FramebufferRenderbuffer(FramebufferTarget.Framebuffer,
+                    if (_pbrOwnedDepthTexture == 0)
+                        _pbrOwnedDepthTexture = GL.GenTexture();
+                    GL.BindTexture(TextureTarget.Texture2D, _pbrOwnedDepthTexture);
+                    GL.TexImage2D(TextureTarget.Texture2D, 0,
+                        PixelInternalFormat.Depth24Stencil8, target.X, target.Y, 0,
+                        PixelFormat.DepthStencil, PixelType.UnsignedInt248, IntPtr.Zero);
+                    GL.TexParameter(TextureTarget.Texture2D,
+                        TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+                    GL.TexParameter(TextureTarget.Texture2D,
+                        TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+                    GL.TexParameter(TextureTarget.Texture2D,
+                        TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+                    GL.TexParameter(TextureTarget.Texture2D,
+                        TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+                    GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
                         FramebufferAttachment.DepthStencilAttachment,
-                        RenderbufferTarget.Renderbuffer, _pbrDepthRenderbuffer);
-                    GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, 0);
+                        TextureTarget.Texture2D, _pbrOwnedDepthTexture, 0);
+                    GL.BindTexture(TextureTarget.Texture2D, 0);
                     _pbrDepthTexture = 0;
                 }
                 else
@@ -389,6 +408,7 @@ namespace MphRead
                         FramebufferAttachment.DepthStencilAttachment, TextureTarget.Texture2D,
                         _depthTexture, 0);
                     _pbrDepthTexture = _depthTexture;
+                    DeleteTexture(ref _pbrOwnedDepthTexture);
                 }
                 ValidateFramebuffer("Deferred PBR G-buffer");
             }
@@ -531,14 +551,10 @@ namespace MphRead
         private void DisposeDeferredPbr()
         {
             _pbrReady = false;
+            _pbrResolvedToScene = false;
             _pbrSize = default;
             _pbrDepthTexture = 0;
             _pbrIndependentDepth = false;
-            if (_pbrDepthRenderbuffer != 0)
-            {
-                GL.DeleteRenderbuffer(_pbrDepthRenderbuffer);
-                _pbrDepthRenderbuffer = 0;
-            }
             if (_pbrFramebuffer != 0)
             {
                 GL.DeleteFramebuffer(_pbrFramebuffer);
@@ -547,6 +563,7 @@ namespace MphRead
             DeleteTexture(ref _pbrAlbedoTexture);
             DeleteTexture(ref _pbrNormalTexture);
             DeleteTexture(ref _pbrMaterialTexture);
+            DeleteTexture(ref _pbrOwnedDepthTexture);
             DeleteProgram(ref _pbrProgram);
         }
     }
@@ -720,7 +737,9 @@ vec3 mapped_normal() {
 
 void main() {
     vec4 base = use_texture ? SAMPLE(tex, texcoord) : vec4(1.0);
-    if (base.a < 0.99) discard;
+    // Match the world opaque pass's Equal(1) alpha test. A filtered cutout
+    // texel belongs to the later translucent passes, including at reduced size.
+    if (base.a < 1.0) discard;
     vec3 albedo = base.rgb * vertex_color.rgb;
     if (use_pal_override) albedo = pal_override_color.rgb * vertex_color.rgb;
     if (use_override) albedo = override_color.rgb;
@@ -741,7 +760,10 @@ void main() {
         : vec4(max(max(material_specular.r, material_specular.g),
             material_specular.b), 0.62, 0.0, 1.0);
     float roughness = clamp(sm.g, 0.04, 1.0);
-    float metallic = smoothstep(0.45, 0.95, clamp(sm.r, 0.0, 1.0)) * 0.75;
+    bool physicalOrm = use_specular_map && sm.a < 0.5;
+    float metallic = physicalOrm ? clamp(sm.b, 0.0, 1.0)
+        : smoothstep(0.45, 0.95, clamp(sm.r, 0.0, 1.0)) * 0.75;
+    float ambientOcclusion = physicalOrm ? clamp(sm.r, 0.0, 1.0) : 1.0;
     float emissive = max(max(material_emission.r, material_emission.g),
         material_emission.b);
     if (use_emissive_map) {
@@ -755,7 +777,9 @@ void main() {
         metallic = finish.x; roughness = finish.y;
     }
     if (cosmetic_skin == 4) emissive = max(emissive, cosmetic_circuit() * 0.55);
-    OUTPUT = vec4(metallic, roughness, clamp(emissive, 0.0, 1.0), 1.0);
+    // The material target's alpha is unused by surface opacity; carry AO
+    // there for ORM materials without changing the legacy three RGB fields.
+    OUTPUT = vec4(metallic, roughness, clamp(emissive, 0.0, 1.0), ambientOcclusion);
 }
 ";
     }

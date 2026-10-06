@@ -18,6 +18,8 @@ namespace MphRead.Mods.Render
         {
             internal WgpuTexture* Texture;
             internal TextureView* View;
+            internal int Width;
+            internal int Height;
         }
 
         private readonly record struct CorePipelineKey(
@@ -456,7 +458,9 @@ namespace MphRead.Mods.Render
             };
             var native = new NativeRenderbuffer
             {
-                Texture = _api.DeviceCreateTexture(_device.Device, descriptor)
+                Texture = _api.DeviceCreateTexture(_device.Device, descriptor),
+                Width = Math.Max(1, record.Width),
+                Height = Math.Max(1, record.Height)
             };
             if (native.Texture == null)
                 throw new InvalidOperationException($"Could not allocate modern renderbuffer {id}.");

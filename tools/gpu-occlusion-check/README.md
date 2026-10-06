@@ -1,0 +1,9 @@
+# Current-frame GPU occlusion checks
+
+`dotnet run --project tools/gpu-occlusion-check` runs 20 production-linked depth-certificate checks without a GPU. The certificate rejects depth from another extraction, scene, camera pose, depth attachment or resolution. Invalid captures and lifecycle resets discard old evidence. These checks do not execute the shader.
+
+The native `-renderwindowcheck -renderer vulkan` (or `dx12`/`metal`) suite also calls `ModernGraphicsCompat.VerifyGpuVisibilityForCheck`. It executes the production depth-copy, max-reduction and visibility shaders, reads indirect instance counts and compacted IDs, then repeats after removing the occluder. Its 15×7 pyramid fixture proves the orphan final row and column survive reduction on the GPU. Metal runs this compute diagnostic even though gameplay visibility remains gated there.
+
+Gameplay uses CPU portal/frustum traversal to select eligible opaque room packets, an unoccluded current-frame room depth prepass, GPU max-pyramid construction, and GPU frustum/occlusion/compaction. The world depth is cleared before normal rendering. Dynamic entities, viewmodels, transparency and billboards do not supply occlusion evidence. Prior-frame depth never suppresses drawing.
+
+Offline WGSL validation proves shader syntax and translation; it does not establish GPU execution correctness. Native GPU fixtures and visual movement/door/camera-cut checks require a graphics device and are a separate acceptance gate. The additional depth pass must be benchmarked against frustum-only/direct submission on geometry and fill-rate stress scenes, recording p50/p99/p99.9 CPU/GPU frame times, draw/dispatch counts and bandwidth. Android and Metal retain their existing gameplay eligibility gates until physical-device measurements justify enabling this path.

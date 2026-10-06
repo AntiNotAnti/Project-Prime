@@ -188,6 +188,17 @@
                       Link="Assets\Geo\%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <Target Name="VerifyPrimeAndroidWgpuRuntime" BeforeTargets="_BuildApkEmbed;_BuildApkFastDev;ComputeFilesToPublish">
+    <ItemGroup>
+      <_PrimeAndroidWgpu Include="$(MSBuildProjectDirectory)/../../artifacts/wgpu-native-android/lib/arm64-v8a/libwgpu_native.so"
+                         Condition="'$(RuntimeIdentifier)' == '' or '$(RuntimeIdentifier)' == 'android-arm64'" />
+      <_PrimeAndroidWgpu Include="$(MSBuildProjectDirectory)/../../artifacts/wgpu-native-android/lib/x86_64/libwgpu_native.so"
+                         Condition="'$(RuntimeIdentifier)' == '' or '$(RuntimeIdentifier)' == 'android-x64'" />
+    </ItemGroup>
+    <Error Condition="!Exists('%(_PrimeAndroidWgpu.Identity)')" Text="Patched Android wgpu-native is missing: %(_PrimeAndroidWgpu.Identity). Run tools/wgpu/build-native.sh for the selected Android RID." />
+    <Exec Command="python3 &quot;$(MSBuildProjectDirectory)/../../tools/wgpu/verify-runtime.py&quot; &quot;%(_PrimeAndroidWgpu.Identity)&quot;" />
+  </Target>
+
   <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-android\lib\arm64-v8a\libwgpu_native.so')">
     <AndroidNativeLibrary Include="$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-android\lib\arm64-v8a\libwgpu_native.so"
                           Link="lib\arm64-v8a\libwgpu_native.so" />

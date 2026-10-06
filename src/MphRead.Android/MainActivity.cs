@@ -66,6 +66,10 @@ namespace MphRead.Droid
         private GameView? _gameView;
         private TouchOverlayView? _overlay;
         private TextView? _notice;
+        private volatile Task _rendererStop = Task.CompletedTask;
+        private Task _hunterStop = Task.CompletedTask;
+        private long _matchGeneration;
+        private volatile bool _destroyed;
         private volatile bool _renderingPreviews;
         private volatile bool _renderingHere;
 
@@ -88,6 +92,8 @@ namespace MphRead.Droid
         private ScreenOrientation _orientationBefore = ScreenOrientation.SensorLandscape;
 
         internal bool InMatch => _gameView != null;
+        internal bool GraphicsOwnedByMatch => InMatch || _pending != null || !_rendererStop.IsCompleted;
+        internal bool HunterPreviewBlocked => GraphicsOwnedByMatch || _renderingHere || _destroyed;
 
         protected override void OnCreate(Bundle? savedInstanceState)
         {
@@ -195,7 +201,7 @@ namespace MphRead.Droid
         /// </summary>
         private int RenderHere(IReadOnlyList<string> rooms, Action<string> report)
         {
-            if (InMatch || _pending != null)
+            if (GraphicsOwnedByMatch || _destroyed)
             {
                 // `_pending` as well as the match itself: a start that has been
                 // asked for and is waiting for the window is a match about to
@@ -208,23 +214,40 @@ namespace MphRead.Droid
             // Nothing has asked this run to stop yet; a request that arrived
             // while there was no run to receive it is not one against this.
             _stopPreviews = false;
+            var lifetime = new AndroidRenderLifetime();
+            IDisposable? ownership = null;
+            OffscreenGl? gl = null;
+            Exception? retirementFailure = null;
             try
             {
+                // All in-process preview contexts share the same world/facade.
+                // Retire the hunter owner first, without blocking Android's UI.
+                AndroidHunterShot.Current?.RetireAsync().GetAwaiter().GetResult();
+                ownership = lifetime.Enter();
+                if (_stopPreviews || GraphicsOwnedByMatch || _destroyed) return 0;
                 AndroidMaps.EnsureBuilt(rooms, () => _stopPreviews);
                 if (_stopPreviews)
                     return 0;
-                using var gl = OffscreenGl.Create(PreviewRun.Width, PreviewRun.Height);
+                gl = OffscreenGl.Create(PreviewRun.Width, PreviewRun.Height);
                 return PreviewRun.Render(rooms, PreviewRun.Width, PreviewRun.Height, report,
                     () => _stopPreviews);
             }
             catch (Exception ex)
             {
+                if (ex is AndroidGraphicsTeardownException) retirementFailure = ex;
                 Console.WriteLine($"[thumbnails] the offscreen context failed: {ex}");
                 report($"[thumbnails] {ex.Message}");
                 return 0;
             }
             finally
             {
+                try { gl?.Dispose(); }
+                catch (Exception ex)
+                {
+                    retirementFailure = ex;
+                    Console.WriteLine($"[thumbnails] native teardown failed; restart required: {ex}");
+                }
+                lifetime.Complete(ownership, retirementFailure);
                 _renderingHere = false;
                 _stopPreviews = false;
             }
@@ -475,6 +498,11 @@ namespace MphRead.Droid
 
         protected override void OnDestroy()
         {
+            _destroyed = true;
+            _matchGeneration++;
+            _pending = null;
+            _stopPreviews = true;
+            PreviewWorkers.Stop(this);
             DisposeSettingsArchiveServices();
             if (Instance == this)
             {
@@ -490,7 +518,8 @@ namespace MphRead.Droid
             // Sfx is not thread-safe and the GL thread owns it, so it is asked
             // to shut itself down on its own thread, which is what
             // Scene.DoCleanup does at the end of the loop.
-            _gameView?.Stop();
+            _gameView?.StopAsync();
+            _hunterStop = AndroidHunterShot.Current?.RetireAsync() ?? Task.CompletedTask;
             GamepadBridge.Stop();
             base.OnDestroy();
         }
@@ -541,10 +570,7 @@ namespace MphRead.Droid
         private bool _replayEditorOnLoad;
         internal void StartMatch(LaunchPlan plan)
         {
-            _spectateOnLoad = plan.Spectate;
-            _replayEditorOnLoad = plan.Kind == LaunchKind.Demo;
-            AndroidApp.Home?.SuspendLobby();
-            if (_content == null || InMatch)
+            if (_content == null || InMatch || _destroyed)
             {
                 return;
             }
@@ -558,6 +584,9 @@ namespace MphRead.Droid
                 Console.WriteLine("[android] a match is already starting; ignoring");
                 return;
             }
+            _spectateOnLoad = plan.Spectate;
+            _replayEditorOnLoad = plan.Kind == LaunchKind.Demo;
+            AndroidApp.Home?.SuspendLobby();
             if (_renderingPreviews)
             {
                 // Worker processes have separate GL contexts but still compete
@@ -592,7 +621,7 @@ namespace MphRead.Droid
             // is going: the launcher's hunter preview holds a scene and a GL
             // context of its own, and a display list cut in that context is
             // written onto the *shared* Model the match is about to draw from.
-            AndroidHunterShot.Current?.Retire();
+            _hunterStop = AndroidHunterShot.Current?.RetireAsync() ?? Task.CompletedTask;
             var input = new AndroidInput();
             _controls.ReleaseEverything();
             // TouchControls is created with the activity, before AndroidApp
@@ -690,7 +719,7 @@ namespace MphRead.Droid
         /// </summary>
         private void WaitForSteadyWindow()
         {
-            if (_pending == null || _content == null || InMatch)
+            if (_pending == null || _content == null || InMatch || _destroyed)
             {
                 return;
             }
@@ -700,11 +729,16 @@ namespace MphRead.Droid
             // are static and there is one of each per process. The clocks are
             // held back with it, so the deadlines below measure the window
             // rather than the wait for a picture of a map.
-            if (_renderingHere)
+            if (_renderingHere || !_rendererStop.IsCompleted || !_hunterStop.IsCompleted)
             {
                 _waitingSince = SystemClock.UptimeMillis();
                 _sizeSettledAt = _waitingSince;
                 _content.PostDelayed(WaitForSteadyWindow, 50);
+                return;
+            }
+            if (_rendererStop.IsFaulted || _hunterStop.IsFaulted)
+            {
+                CancelPending("the previous renderer could not finish shutting down");
                 return;
             }
             long now = SystemClock.UptimeMillis();
@@ -846,22 +880,40 @@ namespace MphRead.Droid
             {
                 return;
             }
+            long generation = ++_matchGeneration;
             AndroidPerformance.SetMatchActive(true);
             OfflineRematch.StartNext = selected =>
             {
                 if (NetSession.Active || !OfflineRematch.TryPlan(plan, selected, out var next)) return false;
                 // Queue onto Android's UI thread; never stop/join the render
                 // thread from the results update that is currently running on it.
-                RunOnUiThread(() => { EndMatch(); StartMatch(next); });
+                RunOnUiThread(() =>
+                {
+                    if (_matchGeneration != generation || _destroyed) return;
+                    EndMatch();
+                    StartMatch(next);
+                });
                 return true;
             };
             _gameView = new GameView(this, _controls, input,
-                (i, size) => AndroidMatch.Build(i, size, plan, () => RunOnUiThread(EndMatch)),
-                () => RunOnUiThread(EndMatch),
-                () => RunOnUiThread(MatchLoaded),
-                error => RunOnUiThread(() => FailMatch(error)),
-                () => RunOnUiThread(TogglePauseMenu),
-                show => RunOnUiThread(() => ShowSoftKeyboard(show)));
+                (i, size, sceneCreated, cancellation) => AndroidMatch.Build(i, size, plan,
+                    () => RunOnUiThread(() =>
+                    { if (_matchGeneration == generation && !_destroyed) EndMatch(); }),
+                    cancellation, sceneCreated),
+                keepSession => RunOnUiThread(() =>
+                {
+                    if (_matchGeneration != generation || _destroyed) return;
+                    if (keepSession) EndMatchToLobby();
+                    else EndMatch();
+                }),
+                () => RunOnUiThread(() =>
+                { if (_matchGeneration == generation && !_destroyed) MatchLoaded(); }),
+                error => RunOnUiThread(() =>
+                { if (_matchGeneration == generation && !_destroyed) FailMatch(error); }),
+                () => RunOnUiThread(() =>
+                { if (_matchGeneration == generation && !_destroyed) TogglePauseMenu(); }),
+                show => RunOnUiThread(() =>
+                { if (_matchGeneration == generation && !_destroyed) ShowSoftKeyboard(show); }));
             // The launcher is Avalonia, which draws on a surface of its own,
             // and two surfaces in one window have no z-order between them
             // unless one is asked for. Above the other surface and below the
@@ -1235,10 +1287,17 @@ namespace MphRead.Droid
         internal void EndMatchToLobby() => EndMatchCore(true);
         private void EndMatchCore(bool keepSession)
         {
+            if (!_rendererStop.IsCompleted && _gameView == null) return;
+            _rendererStop = EndMatchCoreAsync(keepSession);
+        }
+
+        private async Task EndMatchCoreAsync(bool keepSession)
+        {
             if (_content == null)
             {
                 return;
             }
+            _matchGeneration++;
             OfflineRematch.StartNext = null;
             _pending = null;
             _pauseMenuOpen = false;
@@ -1252,6 +1311,7 @@ namespace MphRead.Droid
                 _content.RemoveView(_overlay);
                 _overlay = null;
             }
+            bool retiredRenderer = _gameView != null;
             if (_gameView != null)
             {
                 // Stop the render loop *before* the view goes, and this is the
@@ -1265,10 +1325,52 @@ namespace MphRead.Droid
                 // SFX still going, which is exactly how it was reported. The
                 // stop is what breaks the loop, and breaking the loop is what
                 // reaches Scene.DoCleanup -> Sfx.ShutDown and OutputStop.
-                _gameView.Stop();
-                _content.RemoveView(_gameView);
+                GameView retiring = _gameView;
                 _gameView = null;
+                Task stopped = retiring.StopAsync(keepSession);
+                // Keep the surface alive until its owner has stopped. No UI
+                // wait/join: loading cancellation and teardown run independently.
+                try { await stopped.ConfigureAwait(false); }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[android] renderer retirement failed; restart required: {ex}");
+                    await CompleteOnUiThread(() =>
+                    {
+                        if (_destroyed) return;
+                        _content?.RemoveView(retiring);
+                        ShowNotice("Renderer shutdown failed. Restart Project Prime before starting another match.");
+                    });
+                    throw;
+                }
+                await CompleteOnUiThread(() =>
+                {
+                    if (_destroyed) return;
+                    _content?.RemoveView(retiring);
+                    RestoreAfterMatch(keepSession, retiredRenderer: true);
+                });
+                return;
             }
+            RestoreAfterMatch(keepSession, retiredRenderer);
+        }
+
+        private Task CompleteOnUiThread(Action action)
+        {
+            var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            try
+            {
+                RunOnUiThread(() =>
+                {
+                    try { action(); completion.TrySetResult(); }
+                    catch (Exception ex) { completion.TrySetException(ex); }
+                });
+            }
+            catch (Exception ex) { completion.TrySetException(ex); }
+            return completion.Task;
+        }
+
+        private void RestoreAfterMatch(bool keepSession, bool retiredRenderer)
+        {
+            if (_destroyed) return;
             AndroidPerformance.SetMatchActive(false);
             _controls.ReleaseEverything();
             _controls.SetSpectator(spectating: false, freeCamera: false);
@@ -1286,17 +1388,17 @@ namespace MphRead.Droid
             // match is over rather than left believing it already answered.
             if (keepSession)
             {
-                NetSession.ResetMatchState();
+                if (!retiredRenderer) NetSession.ResetMatchState();
                 AndroidApp.Home?.ResumeLobby();
             }
             else
             {
-                NetSession.Stop(); NetHostSession.Stop();
+                if (!retiredRenderer) { NetSession.Stop(); NetHostSession.Stop(); }
                 ResetLauncher();
             }
             // A demo feeds NetSession from a file rather than a socket, so
             // stopping the session is not what closes it.
-            DemoPlayback.Stop();
+            if (!retiredRenderer) DemoPlayback.Stop();
             Window?.ClearFlags(WindowManagerFlags.KeepScreenOn);
             GoImmersive(true);
             RequestedOrientation = _orientationBefore;

@@ -1,0 +1,16 @@
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -385,7 +385,12 @@
+                     let context = &self.context;
+                     match gfx_select!(self.id => context.surface_texture_discard(surface_id)) {
+                         Ok(_) => (),
+-                        Err(cause) => handle_error_fatal(context, cause, "wgpuTextureRelease"),
++                        Err(cause) => {
++                            // Drop cannot return an outcome. The explicit Prime
++                            // discard entry point reports it before release;
++                            // unexpected cleanup must never abort the process.
++                            log::error!("wgpuTextureRelease cleanup: {}", format_error(context, &cause));
++                        },
+                     }
+                 }
+             }

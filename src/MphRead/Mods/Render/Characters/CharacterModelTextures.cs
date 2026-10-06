@@ -89,8 +89,8 @@ namespace MphRead
         {
             _characterTextureAssets?.Dispose();
             _characterTextureAssets = null;
-            _characterImageBindings.Clear();
-            _characterImageKeys.Clear(); _characterVariantLastUsed.Clear(); _characterPinnedBindings.Clear();
+            _characterImageBindings?.Clear();
+            _characterImageKeys?.Clear(); _characterVariantLastUsed?.Clear(); _characterPinnedBindings?.Clear();
             _characterTexturePicture=0;
         }
 
@@ -112,7 +112,8 @@ namespace MphRead
             int UploadMap(CharacterEmbeddedAlbedo? image, TextureAssetChannel channel)
             {
                 if (image == null) return 0;
-                string mapKey = ImageKey(image.Image, assetClass, channel) + "|runtime=" + maps.RuntimeEncoded + (channel switch
+                string mapKey = ImageKey(image.Image, assetClass, channel) + "|runtime=" + maps.RuntimeEncoded
+                    + "|orm=" + maps.PhysicalOrm + (channel switch
                 {
                     TextureAssetChannel.Normal => "|scale=" + Bits(maps.NormalScale),
                     TextureAssetChannel.Material => "|factors=" + Bits(maps.MetallicFactor) + "," + Bits(maps.RoughnessFactor),
@@ -140,11 +141,21 @@ namespace MphRead
                 {
                     if (channel == TextureAssetChannel.Material)
                     {
-                        // glTF: roughness=G, metallic=B. Project Prime:
-                        // specular strength=R, roughness=G.
-                        pixels[i] = Quantize(pixels[i+2] / 255f * maps.MetallicFactor);
-                        pixels[i+1] = Quantize(pixels[i+1] / 255f * maps.RoughnessFactor);
-                        pixels[i+2] = 0;
+                        if (maps.PhysicalOrm)
+                        {
+                            // Explicit opt-in: AO=R, roughness=G, metalness=B.
+                            // The unused companion alpha is a shader encoding
+                            // marker; it never participates in surface alpha.
+                            pixels[i+1] = Quantize(pixels[i+1] / 255f * maps.RoughnessFactor);
+                            pixels[i+2] = Quantize(pixels[i+2] / 255f * maps.MetallicFactor);
+                        }
+                        else
+                        {
+                            // Preserve the original scalar specular contract.
+                            pixels[i] = Quantize(pixels[i+2] / 255f * maps.MetallicFactor);
+                            pixels[i+1] = Quantize(pixels[i+1] / 255f * maps.RoughnessFactor);
+                            pixels[i+2] = 0;
+                        }
                     }
                     else if (channel == TextureAssetChannel.Normal && maps.NormalScale != 1)
                     {
@@ -159,7 +170,7 @@ namespace MphRead
                         pixels[i+1] = ScaleSrgb(pixels[i+1], maps.EmissiveFactor.Y);
                         pixels[i+2] = ScaleSrgb(pixels[i+2], maps.EmissiveFactor.Z);
                     }
-                    pixels[i+3] = 255;
+                    pixels[i+3] = channel == TextureAssetChannel.Material && maps.PhysicalOrm ? (byte)0 : (byte)255;
                 }
                 int binding = CharacterTextureAssets.UploadRgba("character-model/"+mapKey,
                     assetClass, channel, decoded.Width, decoded.Height, pixels, repeat:false, out _, out _);
