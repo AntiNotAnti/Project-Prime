@@ -85,24 +85,24 @@ def prepare(offline):
     for item in inputs[:2]:
         (target/item.name).write_bytes(item.read_bytes())
     lib = target/'src/lib.rs'
-    with lib.open('a') as stream:
+    with lib.open('a', encoding='utf-8') as stream:
         for item in inputs[:2]:
             stream.write(f'\ninclude!(concat!(env!("CARGO_MANIFEST_DIR"), "/{item.name}"));\n')
     toml = target/'Cargo.toml'
-    text = toml.read_text().replace('[features]\n','[features]\nprime-fault-injection = []\n',1).replace('members = ["."]', 'members = ["."]\nexclude = ["_prime_wgpu"]', 1)
+    text = toml.read_text(encoding='utf-8').replace('[features]\n','[features]\nprime-fault-injection = []\n',1).replace('members = ["."]', 'members = ["."]\nexclude = ["_prime_wgpu"]', 1)
     text += '\n[patch."https://github.com/gfx-rs/wgpu"]\n'
     for crate in ('naga','wgpu-core','wgpu-hal','wgpu-types'):
         text += f'{crate} = {{ path = "../{fingerprint}-core/{crate}" }}\n'
-    toml.write_text(text)
+    toml.write_text(text, encoding='utf-8')
     # Only change source identity of the four pinned packages. All registry
     # versions/checksums remain exactly those in the upstream lockfile.
     lock = target/'Cargo.lock'
-    text = lock.read_text()
+    text = lock.read_text(encoding='utf-8')
     text = '\n'.join(line for line in text.split('\n')
                      if not line.startswith('source = "git+https://github.com/gfx-rs/wgpu?'))
-    lock.write_text(text)
+    lock.write_text(text, encoding='utf-8')
     manifest.write_text(json.dumps({'bridge_abi':1,'native_commit':NATIVE,'core_commit':CORE,
-                                    'patch_fingerprint':fingerprint}, indent=2)+'\n')
+                                    'patch_fingerprint':fingerprint}, indent=2)+'\n', encoding='utf-8')
     return target
 
 

@@ -80,6 +80,8 @@ jobs:
         run: dotnet run --project tools/map-prefab-check -c Release
       - name: canonical Studio geometry and gameplay analysis
         run: dotnet run --project tools/studio-modeling-check -c Release
+      - name: canonical gameplay trigger and analyzer parity
+        run: dotnet run --project tools/map-gameplay-check -c Release
       - name: measured Studio diagnostics and owned jobs
         run: dotnet run --project tools/studio-diagnostics-check -c Release
       - name: Studio launcher paths and file routes
@@ -203,8 +205,9 @@ jobs:
         shell: bash
         env:
           PRIME_PYTHON: python
-          LIBCLANG_PATH: ${{ runner.os == 'Windows' && 'C:/Program Files/LLVM/bin' || '' }}
+          PYTHONUTF8: '1'
         run: |
+          if [[ "${{ runner.os }}" == Windows ]]; then export LIBCLANG_PATH='C:/Program Files/LLVM/bin'; else unset LIBCLANG_PATH; fi
           tools/wgpu/build-native.sh "${{ matrix.rid }}" --unit-tests
           tools/wgpu/build-native.sh "${{ matrix.rid }}" --fault-test
           python tools/wgpu/verify-runtime.py artifacts/wgpu-native-desktop/${{ matrix.rid }}/${{ matrix.rid == 'win-x64' && 'wgpu_native.dll' || 'libwgpu_native.so' }}
