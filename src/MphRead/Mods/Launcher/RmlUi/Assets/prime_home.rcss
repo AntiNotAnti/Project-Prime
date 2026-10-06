@@ -678,6 +678,20 @@ button {
 }
 .social_tab.selected .social_tab_count { color: #8bd3ff; }
 
+.social_notice {
+    margin-bottom: 8dp;
+    padding: 8dp 10dp;
+    color: #dff5ff;
+    background-color: rgba(28,114,225,0.22);
+    border-left: 3dp #55e18c;
+    border-top: 1dp rgba(114,199,255,0.12);
+    border-right: 1dp rgba(114,199,255,0.08);
+    border-bottom: 1dp rgba(114,199,255,0.08);
+    font-size: 9dp;
+    font-weight: bold;
+    letter-spacing: 0.6dp;
+}
+
 .social_search_row {
     display: flex;
     margin-bottom: 8dp;
