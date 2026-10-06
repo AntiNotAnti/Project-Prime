@@ -399,13 +399,13 @@ private:
         data.selected_activity = row->activity;
         data.selected_detail = row->detail;
         data.selected_relation = row->relation;
-        data.selected_can_add = row->relation == "player";
-        data.selected_can_accept = row->relation == "incoming";
-        data.selected_can_decline = row->relation == "incoming";
-        data.selected_can_cancel = row->relation == "outgoing";
-        data.selected_can_remove = row->relation == "friend";
-        data.selected_can_block = row->relation != "blocked";
-        data.selected_can_unblock = row->relation == "blocked";
+        data.selected_can_add = row->relation == "PLAYER";
+        data.selected_can_accept = row->relation == "INCOMING";
+        data.selected_can_decline = row->relation == "INCOMING";
+        data.selected_can_cancel = row->relation == "OUTGOING";
+        data.selected_can_remove = row->relation == "FRIEND";
+        data.selected_can_block = row->relation != "BLOCKED";
+        data.selected_can_unblock = row->relation == "BLOCKED";
         data.social_context_open = true;
 
         handle.DirtyVariable("selected_prime_id");
@@ -681,7 +681,7 @@ PP_EXPORT void pp_rmlui_social_add_home_friend(const char* prime_id, const char*
     row.name = name ? name : "";
     row.activity = activity ? activity : "";
     row.detail = detail ? detail : "";
-    row.relation = "friend";
+    row.relation = "FRIEND";
     row.online = true;
     row.friend_online = true;
     g_model->AddHomeFriend(row);
