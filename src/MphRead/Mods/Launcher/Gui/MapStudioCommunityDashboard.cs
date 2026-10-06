@@ -279,12 +279,13 @@ internal sealed partial class MapStudioScreen
                     throw new IOException("Set up game files before installing playable maps.");
                 EnsureMapInstallationAllowed();
                 GameFiles.ApplyPaths();
-                MapDefinition installed = await WithClient(package.Draft, token,
-                    client => client.InstallAsync(package, UserMapLibrary, token,
+                using var prepared = await WithClient(package.Draft, token,
+                    client => client.PrepareAsync(package, token,
                         progress: (received, total) =>
                             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                                 status.Text = $"Downloading… {received / 1048576d:0.0}/{total / 1048576d:0.0} MiB · {(total > 0 ? received * 100d / total : 0):0}%")));
                 GuardJob(token);
+                MapDefinition installed = prepared.Commit(UserMapLibrary, cancellation: token);
                 Metadata.RegisterDownloadedMap(installed);
                 status.Text = "Installed " + (package.DisplayName ?? package.Name) + ".";
                 if (host)
@@ -1252,10 +1253,10 @@ internal sealed partial class MapStudioScreen
                 using var package = new MapPackageReader(path);
                 var manifest = package.Manifest
                     ?? throw new IOException("Rebuild this legacy package in Map Studio before sharing.");
-                var installed = await Task.Run(() => MapPackageInstaller.Install(
-                    path, manifest.MapId, manifest.ContentHash,
-                    MapBuildFingerprint.HashFile(path), UserMapLibrary), token);
+                var identity = MapContentIdentity.FromPackage(path);
+                using var prepared = await MapPackageInstaller.PrepareAsync(path, identity, token);
                 GuardJob(token);
+                var installed = prepared.Commit(UserMapLibrary, cancellation: token);
                 Metadata.RegisterDownloadedMap(installed);
                 status.Text = "Installed " + installed.Name + ".";
                 if (selectedProject != null) RenderProject(selectedProject);

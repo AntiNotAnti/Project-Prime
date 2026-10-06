@@ -1657,8 +1657,9 @@ namespace MphRead.Mods.Launcher.Gui
                     _note.Foreground = GuiTheme.TextDimBrush;
                     _note.Text = "Downloading and preparing " + (map.DisplayName ?? map.Name) + "...";
                     using var client = new MapCommunityClient(NetworkMapIdentity.ConfiguredDownloadSource());
-                    MapDefinition installed = await client.InstallAsync(
-                        map, CustomRooms.UserMapDirectory, _communityLifetime.Token);
+                    using var prepared = await client.PrepareAsync(map, _communityLifetime.Token);
+                    MapDefinition installed = prepared.Commit(CustomRooms.UserMapDirectory,
+                        cancellation: _communityLifetime.Token);
                     Metadata.RegisterDownloadedMap(installed);
                     room = installed.Name;
                     if (!_rooms.Contains(room, StringComparer.OrdinalIgnoreCase))

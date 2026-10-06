@@ -24,6 +24,9 @@ namespace MphRead.Mods
         private static Dictionary<string, Lazy<byte[]>> _files = new(PathComparer);
         private static Lazy<Model>? _roomModel;
         private static TaskCompletionSource<bool>? _prepared;
+        private static DateTimeOffset _retryAfter;
+        private static bool ReusePreparation(Task<bool>? task,DateTimeOffset retryAfter,DateTimeOffset now)
+            => task!=null&&(!task.IsCompleted || task.IsCompletedSuccessfully&&task.Result || now<retryAfter);
         private const string HostPrewarmMutexName = "ProjectPrime.RoomPrewarm";
 
         private sealed class HostPrewarmLease : IDisposable
@@ -58,7 +61,10 @@ namespace MphRead.Mods
             lock (Gate)
             {
                 if (String.Equals(_room, roomName, StringComparison.OrdinalIgnoreCase))
-                    return _prepared != null;
+                {
+                    if(ReusePreparation(_prepared?.Task,_retryAfter,DateTimeOffset.UtcNow))return true;
+                    _prepared=null;
+                }
             }
 
             RoomMetadata? metadata;
@@ -88,7 +94,10 @@ namespace MphRead.Mods
             lock (Gate)
             {
                 if (String.Equals(_room, metadata.Name, StringComparison.OrdinalIgnoreCase))
-                    return _prepared != null;
+                {
+                    if(ReusePreparation(_prepared?.Task,_retryAfter,DateTimeOffset.UtcNow))return true;
+                    _prepared=null;
+                }
                 _prepared?.TrySetResult(false);
                 _room = metadata.Name;
                 generation = ++_generation;
@@ -97,6 +106,7 @@ namespace MphRead.Mods
                 prepared = new TaskCompletionSource<bool>(
                     TaskCreationOptions.RunContinuationsAsynchronously);
                 _prepared = prepared;
+                _retryAfter=DateTimeOffset.MinValue;
             }
 
             _ = Task.Run(() => Warm(metadata, generation, prepared));
@@ -170,6 +180,7 @@ namespace MphRead.Mods
             try
             {
                 bool ready = task.GetAwaiter().GetResult();
+                DebugLog.Line("prewarm",$"join {roomName}: ready={ready}, wait={clock.Elapsed.TotalMilliseconds:0.0} ms");
                 if (ready && clock.Elapsed.TotalMilliseconds >= 5)
                     Console.WriteLine($"[prewarm] joined {roomName} after "
                         + $"{clock.Elapsed.TotalMilliseconds:0} ms");
@@ -251,7 +262,9 @@ namespace MphRead.Mods
                 using var hostLease = new HostPrewarmLease();
                 if (!hostLease.Acquired)
                 {
+                    lock(Gate)if(generation==_generation)_retryAfter=DateTimeOffset.UtcNow.AddSeconds(1);
                     prepared.TrySetResult(false);
+                    DebugLog.Line("prewarm",$"{metadata.Name}: host lane busy; retry in 1s");
                     Console.WriteLine($"[prewarm] {metadata.Name} skipped: host prewarm lane busy");
                     return;
                 }
@@ -262,7 +275,10 @@ namespace MphRead.Mods
                 }
                 // Custom maps can compile while players are choosing settings,
                 // instead of making Start Match pay that cost.
+                var phase=Stopwatch.StartNew();
                 MapGen.CustomRooms.GenerateMissing(metadata.Name);
+                DebugLog.Line("prewarm",$"{metadata.Name}: runtime generation {phase.Elapsed.TotalMilliseconds:0.0} ms");
+                phase.Restart();
 
                 List<string> paths = AssetPaths(metadata);
                 var files = new Dictionary<string, Lazy<byte[]>>(PathComparer);
@@ -316,8 +332,11 @@ namespace MphRead.Mods
                     }
                 }
 
+                DebugLog.Line("prewarm",$"{metadata.Name}: file reads {count} / {bytes} bytes in {phase.Elapsed.TotalMilliseconds:0.0} ms");
+                phase.Restart();
                 // Moves geometry, texture and animation decode off the Start path.
                 _ = model.Value;
+                DebugLog.Line("prewarm",$"{metadata.Name}: model decode {phase.Elapsed.TotalMilliseconds:0.0} ms");
 
                 lock (Gate)
                 {
@@ -337,7 +356,10 @@ namespace MphRead.Mods
                 lock (Gate)
                 {
                     if (generation == _generation)
-                        ClearLocked();
+                    {
+                        _files=new Dictionary<string,Lazy<byte[]>>(PathComparer);_roomModel=null;
+                        _retryAfter=DateTimeOffset.UtcNow.AddSeconds(5);
+                    }
                 }
                 Console.WriteLine($"[prewarm] {metadata.Name} skipped: {ex.Message}");
             }
@@ -373,6 +395,7 @@ namespace MphRead.Mods
             _generation++;
             _prepared?.TrySetResult(false);
             _prepared = null;
+            _retryAfter=DateTimeOffset.MinValue;
             _room = "";
             _files = new Dictionary<string, Lazy<byte[]>>(PathComparer);
             _roomModel = null;

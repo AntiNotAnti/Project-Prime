@@ -291,7 +291,18 @@ internal static class CommunityMapChecks
             {request.Headers.Authorization=new("Bearer",secret);using var response=await http.SendAsync(request);check(response.IsSuccessStatusCode,"owner can authorize a collaborator");}
             using var collaborator=new MapCommunityClient(address,collaboratorToken);
             check((await collaborator.UploadAsync(Package("5"),default,listed:false)).OwnerId==MapCreatorCatalog.ServiceOwner,"collaborator publication preserves original owner");
-            var reads = await Task.WhenAll(Enumerable.Range(0, 16).Select(_ => http.GetByteArrayAsync("packages/" + v1.Hash)));
+            async Task<byte[]> ReadWithBackpressure()
+            {
+                for(int attempt=0;attempt<4;attempt++)
+                {
+                    using var response=await http.GetAsync("packages/"+v1.Hash);
+                    if(response.StatusCode==HttpStatusCode.TooManyRequests)
+                    {await Task.Delay(response.Headers.RetryAfter?.Delta??TimeSpan.FromSeconds(1));continue;}
+                    response.EnsureSuccessStatusCode();return await response.Content.ReadAsByteArrayAsync();
+                }
+                throw new IOException("Community transfer lane did not become available.");
+            }
+            var reads = await Task.WhenAll(Enumerable.Range(0, 16).Select(_ => ReadWithBackpressure()));
             check(reads.All(b => b.SequenceEqual(bytes)), "concurrent downloads preserve package bytes");
             bool mismatch = false;
             try { using var prepared = await client.PrepareExactAsync(new(id, v1.Name, default, MapHash256.Parse(v1.Hash), true), default); }

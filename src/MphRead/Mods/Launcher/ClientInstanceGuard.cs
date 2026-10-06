@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -49,7 +50,11 @@ internal static class ClientInstanceGuard
                     .ToUpperInvariant();
                 string suffix = Convert.ToHexString(
                     sha.ComputeHash(Encoding.UTF8.GetBytes(root))).Substring(0, 16);
-                var mutex = new Mutex(false, "ProjectPrime.InteractiveClient." + suffix);
+                // A deliberate standalone editor is a separate interactive role.
+                // Fence duplicate editors without suppressing the parent's Pop Out.
+                bool editor = Environment.GetCommandLineArgs().Any(argument =>
+                    argument.TrimStart('-').Equals("mapstudio", StringComparison.OrdinalIgnoreCase));
+                var mutex = new Mutex(false, "ProjectPrime." + (editor ? "InteractiveEditor." : "InteractiveClient.") + suffix);
                 bool owned;
                 try { owned = mutex.WaitOne(timeout); }
                 catch (AbandonedMutexException) { owned = true; }
@@ -58,6 +63,7 @@ internal static class ClientInstanceGuard
                     mutex.Dispose();
                     DebugLog.Line("startup",
                         "another interactive Project Prime client is still running; duplicate launch suppressed");
+                    Environment.ExitCode = 1;
                     return false;
                 }
                 _processLease = new Lease(mutex);

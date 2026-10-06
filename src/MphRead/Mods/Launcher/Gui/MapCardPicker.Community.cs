@@ -167,7 +167,7 @@ internal sealed partial class MapCardPicker
         using var client = new MapCommunityClient(NetworkMapIdentity.ConfiguredDownloadSource());
         using var prepared = await client.PrepareExactAsync(identity, token);
         token.ThrowIfCancellationRequested();
-        MapDefinition installed = prepared.Commit(CustomRooms.UserMapDirectory);
+        MapDefinition installed = prepared.Commit(CustomRooms.UserMapDirectory, cancellation: token);
         Metadata.RegisterDownloadedMap(installed);
         return installed.Name;
     }

@@ -4,6 +4,8 @@ using Avalonia.LogicalTree;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -430,6 +432,8 @@ namespace MphRead.Mods.Launcher.Gui
             var administration = (Control)target.Parent!;
             typeof(LobbyScreen).GetMethod("ShowSheet", flags)!.Invoke(lobby,
                 new object[] { "PLAYER MANAGEMENT", administration });
+            // This focused composition fixture has no attached Window. Its
+            // ScrollViewer has not materialized a visual presenter yet.
             Check(overlays.GetLogicalDescendants().Contains(target)
                 && overlays.GetLogicalDescendants().OfType<HubNavButton>()
                     .Any(button => button.Label == "TRANSFER OWNER")
@@ -526,6 +530,7 @@ namespace MphRead.Mods.Launcher.Gui
                     CheckAdvancedRules();
                     CheckInProgressAdmission();
                     CheckWorkspaceTransitionReentry();
+                    CheckPlayDiscoveryReentry();
                     var shell = Create();
                     var window = new Window { Width = 1280, Height = 720, Content = shell, ShowInTaskbar = false,
                         Position = new PixelPoint(-4000,-4000), WindowStartupLocation = WindowStartupLocation.Manual };
@@ -822,6 +827,31 @@ namespace MphRead.Mods.Launcher.Gui
             catch (Exception ex) { Console.WriteLine("[primeuicheck] FAIL: " + ex); return 1; }
             finally { Deck.Still = previousStill; }
         }
+        private static void CheckPlayDiscoveryReentry()
+        {
+            var attempts=new List<(Action<ServerBrowserEntry> Entry,CancellationToken Token,TaskCompletionSource<ServerDiscoveryResult> Completion)>();
+            var play=new PlayWorkspace(discoverServers:(entry,token)=>
+            {
+                var completion=new TaskCompletionSource<ServerDiscoveryResult>();
+                attempts.Add((entry,token,completion));return completion.Task;
+            });
+            var window=new Window{Width=1280,Height=720,Content=play,ShowInTaskbar=false,Position=new PixelPoint(-4000,-4000)};
+            try
+            {
+                window.Show();Drain(window);Check(attempts.Count==1,"first Play attachment starts directory discovery");
+                window.Content=null;Drain(window);Check(attempts[0].Token.IsCancellationRequested,"leaving Play cancels its incomplete discovery");
+                window.Content=play;Drain(window);Check(attempts.Count==2,"cached Play restarts incomplete discovery on reentry");
+                ServerBrowserEntry Entry(string name)=>new(new MasterListing{Address="127.0.0.1",Port=27888,ServerName=name},new ServerStatus{Online=true,Protocol=NetConfig.ProtocolVersion,RoomKey="MP1 SANCTORUS",Players=1,MaxPlayers=8});
+                attempts[0].Entry(Entry("STALE FIRST DISCOVERY"));attempts[0].Completion.SetResult(new(true,1,1,"stale"));Drain(window);
+                Check(!play.GetVisualDescendants().OfType<ServerRow>().Any(row=>row.DisplayName.Contains("STALE FIRST")),"canceled generation cannot publish rows after reentry");
+                attempts[1].Entry(Entry("LIVE SECOND DISCOVERY"));attempts[1].Completion.SetResult(new(true,1,1,"second complete"));Drain(window);
+                Check(play.GetVisualDescendants().OfType<ServerRow>().Any(row=>row.DisplayName.Contains("LIVE SECOND")),"current Play discovery publishes its live rows");
+                window.Content=null;Drain(window);window.Content=play;Drain(window);
+                Check(attempts.Count==2,"completed cached Play discovery survives another navigation");
+            }
+            finally{window.Content=null;window.Close();foreach(var attempt in attempts)attempt.Completion.TrySetResult(new(false,0,0,"canceled"));}
+        }
+
         private static void CheckHeadlessFrameClock()
         {
             bool previousStill = Deck.Still;

@@ -131,9 +131,10 @@ internal sealed partial class MapStudioScreen
             GuardJob(token);
             Directory.CreateDirectory(LauncherPrefs.Directory);
             File.WriteAllText(CommunitySettingsPath, address.Trim());
-            var installed = await Task.Run(() => MapPackageInstaller.Install(path, manifest.MapId,
-                manifest.ContentHash, MapBuildFingerprint.HashFile(path), UserMapLibrary), token);
+            var identity = MapContentIdentity.FromPackage(path);
+            using var prepared = await MapPackageInstaller.PrepareAsync(path, identity, token);
             GuardJob(token);
+            var installed = prepared.Commit(UserMapLibrary, cancellation: token);
             Metadata.RegisterDownloadedMap(installed);
             _status.Text="Exact package published and installed. The lobby will advertise this Community service to joining players.";
             HostRequested?.Invoke(this, installed);

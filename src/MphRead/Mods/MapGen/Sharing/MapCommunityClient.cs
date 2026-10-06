@@ -784,7 +784,7 @@ public sealed class MapCommunityClient : IDisposable
             + $"Expected {expectedHash}, received {actualHash}. The download was discarded after a retry.");
     }
 
-    public async Task<MapDefinition> InstallAsync(CommunityMap map, string library, CancellationToken token,
+    public async Task<PreparedMapInstallation> PrepareAsync(CommunityMap map, CancellationToken token,
         Action<long, long>? progress = null)
     {
         if (map.MinimumProtocol > Network.NetConfig.ProtocolVersion) throw new InvalidDataException("Update Project Prime before installing this map.");
@@ -798,10 +798,19 @@ public sealed class MapCommunityClient : IDisposable
             token.ThrowIfCancellationRequested();
             using (var package = new MapPackageReader(temporary))
                 if (package.Manifest?.Name != map.Name) throw new InvalidDataException("Map name does not match the listing.");
-            return await Task.Run(() => MapPackageInstaller.Install(temporary, map.MapId,
-                map.ContentHash, map.Hash, library), token);
+            var required = new MapContentIdentity(map.MapId, map.Name,
+                MapHash256.Parse(map.ContentHash), MapHash256.Parse(map.Hash), true);
+            return await MapPackageInstaller.PrepareAsync(temporary, required, token).ConfigureAwait(false);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
+
+    // Retained for non-UI callers. UI adapters explicitly own the final commit.
+    public async Task<MapDefinition> InstallAsync(CommunityMap map, string library, CancellationToken token,
+        Action<long, long>? progress = null)
+    {
+        using var prepared = await PrepareAsync(map, token, progress);
+        return prepared.Commit(library, cancellation: token);
     }
 
     public async Task<PreparedMapInstallation> PrepareExactAsync(MapContentIdentity required, CancellationToken token,
