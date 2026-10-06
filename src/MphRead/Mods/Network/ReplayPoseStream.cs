@@ -73,12 +73,15 @@ internal sealed class ReplayPoseStream : IDisposable
 
     private readonly PassiveReplayScene _world;
     private readonly string? _path;
-    private readonly ReplayTimelineClip? _clip;
+    private ReplayTimelineClip? _clip;
+    private bool _live;
+    private uint? _lateFireFrame;
     private readonly ReplayReplicaState _decoder = new();
     private readonly List<PoseSample>[] _poses = new List<PoseSample>[8];
     private readonly List<IntentSample>[] _intents = new List<IntentSample>[8];
     private readonly FireIndex[] _fireIndex = CreateFireIndex();
-    private readonly HashSet<FireLife> _fireCapable = new();
+    private readonly Dictionary<FireLife, uint> _fireCapable = new();
+    private readonly List<FireLife> _lifePrune = new();
     private readonly Dictionary<uint, List<ScheduledFire>> _fires = new();
     private readonly List<uint> _firePrune = new();
     private readonly ScheduledFire?[] _activeFire = new ScheduledFire?[8];
@@ -86,7 +89,7 @@ internal sealed class ReplayPoseStream : IDisposable
     private readonly List<ServerClockSample> _serverClock = new(MaximumClockSamples);
     private readonly List<PendingShotFact> _pendingShotFacts = new();
     private readonly Dictionary<uint, List<ReplayShotFact>> _resolvedShotFacts = new();
-    private readonly HashSet<ShotFactIdentity> _seenShotFacts = new();
+    private readonly ReplayHistorySet<ShotFactIdentity> _seenShotFacts = new(PresentationHistoryFrames, 65536);
     private readonly uint[] _lastResolvedHitFrame = new uint[8];
     private readonly ushort[] _lastResolvedHitGeneration = new ushort[8];
     private readonly ushort[] _lastResolvedHitLife = new ushort[8];
@@ -104,6 +107,40 @@ internal sealed class ReplayPoseStream : IDisposable
     internal ReplayPoseStream(PassiveReplayScene world, string path) : this(world) { _path = path; }
     internal ReplayPoseStream(PassiveReplayScene world, ReplayTimelineClip clip) : this(world)
     { _clip = clip; _supportsFireEvents = true; _supportsShotFacts = true; }
+    internal static ReplayPoseStream Live(PassiveReplayScene world, IReadOnlyList<ReplayTimelineRecord> initial)
+    {
+        var cursor = new ReplayPoseStream(world);
+        cursor.ContinueLive();
+        cursor._decoder.RestoreCheckpoint(world.State.CaptureCheckpoint());
+        foreach (var record in initial)
+            if (record.Kind == ReplayFactKind.Intent && record.Payload.Length >= 2 + IntentPacket.Size
+                && record.Payload[1] < 8)
+                cursor.IndexFireEvents(record.RecordingFrame, record.Payload[1], IntentPacket.Read(record.Payload[2..]));
+        return cursor;
+    }
+    // A corrected frozen cursor keeps its per-life shot deduplication and
+    // historical poses while accepting new immutable live facts.
+    internal void ContinueLive()
+    {
+        if (_clip != null && (!_initialized || _index < _clip.Records.Count || _shotIndex < _clip.Records.Count))
+            throw new InvalidOperationException("Frozen correction has unread presentation facts.");
+        _clip = null; // retained rolling indices no longer borrow its large lease
+        _live = _initialized = _supportsFireEvents = _supportsShotFacts = true;
+    }
+    internal uint? ObserveLive(IReadOnlyList<ReplayTimelineRecord> records)
+    {
+        if (!_live) throw new InvalidOperationException("Only a live cursor accepts observed facts.");
+        foreach (var record in records)
+        {
+            if (record.Kind is ReplayFactKind.Match or ReplayFactKind.Roster
+                or ReplayFactKind.Snapshot or ReplayFactKind.Intent)
+                Accept(record.RecordingFrame, record.Payload);
+            AcceptShotFact(record.RecordingFrame, record.Payload);
+        }
+        uint? late = _lateFireFrame;
+        _lateFireFrame = null;
+        return late;
+    }
     private ReplayPoseStream(PassiveReplayScene world)
     {
         _world = world;
@@ -697,7 +734,7 @@ internal sealed class ReplayPoseStream : IDisposable
     {
         if ((uint)player.SlotIndex >= 8 || !Prepare() || !_supportsFireEvents) return false;
         if (!_world.State.TryGetPlayer(player.SlotIndex, out var state)) return false;
-        return _fireCapable.Contains(new(player.SlotIndex, state.SlotGeneration, state.LifeId));
+        return _fireCapable.ContainsKey(new(player.SlotIndex, state.SlotGeneration, state.LifeId));
     }
 
     internal bool HasPendingFire(PlayerEntity player)
@@ -941,11 +978,24 @@ internal sealed class ReplayPoseStream : IDisposable
 
     private void Advance()
     {
+        using var lookaheadPerf = ReplayPerfTelemetry.Measure(ReplayPerfOperation.Lookahead);
         uint frame = _world.Session.RecordingFrame;
         if (_advanced is uint prior && frame < prior)
             ResetPresentationCursor();
         if (_advanced == frame) return;
         _advanced = frame;
+        _seenShotFacts.Prune(frame);
+        if (frame % 120 == 0)
+        {
+            // Keep capability for the current life even while it is quiet.
+            // Older/future lives only need the retained lookahead window.
+            _lifePrune.Clear();
+            foreach (var pair in _fireCapable)
+                if ((ulong)pair.Value + PresentationHistoryFrames < frame
+                    && !_world.State.MatchesLife(pair.Key.Slot, pair.Key.Generation, pair.Key.Life))
+                    _lifePrune.Add(pair.Key);
+            foreach (var life in _lifePrune) _fireCapable.Remove(life);
+        }
         uint origin = _world.Session.Metadata?.OriginRecordingFrame ?? 0;
         if (!_initialized)
         {
@@ -1102,7 +1152,9 @@ internal sealed class ReplayPoseStream : IDisposable
     {
         if (!_supportsFireEvents || !intent.HasFireEvents || !NetFireEvents.Validate(intent)) return;
         var life = new FireLife(slot, intent.SlotGeneration, intent.LifeId);
-        _fireCapable.Add(life);
+        if (!_fireCapable.ContainsKey(life) && _fireCapable.Count >= 4096)
+            throw new InvalidDataException("Replay fire lives exceed their retained-window budget.");
+        _fireCapable[life] = carrierRecordingFrame;
 
         FireIndex index = _fireIndex[slot];
         if (index.Generation != intent.SlotGeneration || index.Life != intent.LifeId)
@@ -1121,6 +1173,11 @@ internal sealed class ReplayPoseStream : IDisposable
             index.LastShotId = fire.ShotId;
             uint scheduledFrame = FireSourceRecordingFrame(
                 carrierRecordingFrame, intent.Frame, fire.SourceFrame);
+            // A newly enabled capture has no earlier world. Prime deduplication
+            // for those old accepted events, but never invent a new origin shot.
+            if (_live && !_world.HasStepped && scheduledFrame < _world.Session.RecordingFrame) continue;
+            if (_live && _world.HasStepped && scheduledFrame <= _world.Session.RecordingFrame)
+                _lateFireFrame = _lateFireFrame is uint prior ? Math.Min(prior, scheduledFrame) : scheduledFrame;
             if (!_fires.TryGetValue(scheduledFrame, out var list))
             {
                 list = new();
@@ -1165,19 +1222,20 @@ internal sealed class ReplayPoseStream : IDisposable
             }
             else break;
 
-            if (!packet.IsEmpty && packet[0] == (byte)PacketType.ReplayShotFact
-                && ReplayShotFactPacket.TryRead(packet[1..], out var fact))
-            {
-                var identity = new ShotFactIdentity(fact.MatchId, fact.AuthorityEpoch,
-                    fact.ShooterSlot, fact.ShooterGeneration, fact.ShooterLifeId,
-                    fact.VictimSlot, fact.VictimGeneration, fact.VictimLifeId,
-                    fact.DamageEventId);
-                if (_seenShotFacts.Add(identity))
-                    _pendingShotFacts.Add(new(at, fact));
-            }
+            AcceptShotFact(at, packet);
             if (++read > 65536)
                 throw new InvalidDataException("Replay shot-fact lookahead exceeds its record bound.");
         }
+    }
+
+    private void AcceptShotFact(uint at, ReadOnlySpan<byte> packet)
+    {
+        if (!_supportsShotFacts || packet.IsEmpty || packet[0] != (byte)PacketType.ReplayShotFact
+            || !ReplayShotFactPacket.TryRead(packet[1..], out var fact)) return;
+        var identity = new ShotFactIdentity(fact.MatchId, fact.AuthorityEpoch,
+            fact.ShooterSlot, fact.ShooterGeneration, fact.ShooterLifeId,
+            fact.VictimSlot, fact.VictimGeneration, fact.VictimLifeId, fact.DamageEventId);
+        if (_seenShotFacts.Add(identity, at)) _pendingShotFacts.Add(new(at, fact));
     }
 
     private void ScheduleShotFacts(uint frame)
@@ -1252,8 +1310,9 @@ internal sealed class ReplayPoseStream : IDisposable
         _index = _shotIndex = 0;
         _advanced = _firePrepared = _impactPrepared = null;
         _initialized = _failed = false;
-        _supportsFireEvents = _clip != null;
-        _supportsShotFacts = _clip != null;
+        _supportsFireEvents = _clip != null || _live;
+        _supportsShotFacts = _clip != null || _live;
+        _lateFireFrame = null;
         LastError = null;
         _serverClock.Clear();
         _pendingShotFacts.Clear();

@@ -27,8 +27,9 @@ internal sealed class KillcamController : IDisposable
     internal const uint FinalReplayFrames = 5 * 60;
     internal const float PlaybackRate = 1f;
     private readonly IReplayTimeline _timeline;
-    private readonly Func<ReplayTimelineClip, Vector2i, PassiveReplayPlayer> _open;
+    private readonly Func<ReplayTimelineClip, Vector2i, PassiveReplayPlayer>? _open;
     private PassiveReplayPlayer? _player;
+    private ReplayPreparationJob? _preparation;
     private ReplayMarker? _candidate, _pending, _playing;
     private uint _candidateFrame, _pendingFrame, _start, _end;
     private ReplayTimelineClip? _playingClip;
@@ -49,7 +50,7 @@ internal sealed class KillcamController : IDisposable
     internal KillcamEndReason EndReason { get; private set; }
     internal KillCamKind Kind { get; private set; }
     internal string? LastError { get; private set; }
-    internal bool Active => _player != null;
+    internal bool Active => _player != null || _preparation != null;
     internal bool Visible => _player?.Ready == true && State is KillcamState.Replay or KillcamState.AwaitCompletion;
     internal Scene? Presentation => Visible ? _player!.Current.Scene : null;
     internal uint Frame => _player?.Current.Session.CurrentFrame ?? 0;
@@ -81,7 +82,7 @@ internal sealed class KillcamController : IDisposable
     internal PassiveReplayScene? Replica => _player?.Current;
 
     internal KillcamController(IReplayTimeline timeline, Func<ReplayTimelineClip, Vector2i, PassiveReplayPlayer>? open = null)
-    { _timeline = timeline; _open = open ?? ((clip, size) => new PassiveReplayPlayer(clip, size, ReplayPlayerOptions.Linear)); }
+    { _timeline = timeline; _open = open; }
 
     internal void NoteKill(ReplayMarker marker, uint frame, KillcamContext context, bool enemy = true)
     {
@@ -115,7 +116,7 @@ internal sealed class KillcamController : IDisposable
                     else if ((ulong)context.Frame > (ulong)_pendingFrame + PostRollFrames + 60) { _pending = null; EndReason = KillcamEndReason.Unavailable; }
                 }
             }
-            if (_player == null || _playing?.Kill is not { } playing) return;
+            if (!Active || _playing?.Kill is not { } playing) return;
             if (!Matches(playing, context)) { Stop(KillcamEndReason.MatchChanged); return; }
             if (Kind == KillCamKind.Personal)
             {
@@ -125,7 +126,17 @@ internal sealed class KillcamController : IDisposable
                 { Stop(KillcamEndReason.Respawn); return; }
             }
             else if (!context.FinalEnabled) { Stop(KillcamEndReason.Disabled); return; }
-            _player.Update();
+            if (_preparation != null)
+            {
+                if (!_preparation.Completed) { State = KillcamState.Preparing; return; }
+                using var prepared = _preparation.TakeCompleted();
+                _player = _open != null ? _open(_playingClip!, live.Size) : new(prepared, live.Size, ReplayPlayerOptions.Linear);
+                _preparation.Dispose(); _preparation = null;
+                _player.Current.Scene.ReplayPresentationHud = DrawHud;
+                _player.Transport.SetPlaybackRate(PlaybackRate);
+            }
+            _player!.Update(_player.Ready ? PassiveReplayPlayer.MaximumStepsPerUpdate : 24,
+                _player.Ready ? double.PositiveInfinity : 1);
             if (!_player.Ready) { State = KillcamState.Preparing; return; }
             if (_startup.IsRunning) { _startup.Stop(); StartupMilliseconds = _startup.Elapsed.TotalMilliseconds; }
             if (_audio == 0) _audio = ReplayAudioOwner.Acquire(_player.Current.Scene, live);
@@ -170,10 +181,8 @@ internal sealed class KillcamController : IDisposable
         ClipBytes = clip.RestorePoint.PayloadBytes + clip.Records.Sum(r => r.PayloadBytes);
         _playingClip = clip; // Transfer the single frozen lease to this playback.
         _killFrame = killFrame;
-        _player = _open(_playingClip, live.Size); _playing = marker; Kind = kind; _live = live;
-        _player.Current.Scene.ReplayPresentationHud = DrawHud;
+        _preparation = ReplayPreparationJob.Clip(_playingClip); _playing = marker; Kind = kind; _live = live;
         _start = clip.StartRecordingFrame; _end = clip.EndRecordingFrame; _hold = 0; _skipArmed = false;
-        _player.Transport.SetPlaybackRate(PlaybackRate);
         State = KillcamState.Preparing; EndReason = KillcamEndReason.None; LastError = null;
     }
 
@@ -307,11 +316,22 @@ internal sealed class KillcamController : IDisposable
         Scene? live = _live;
         _live = null;
         ReplayAudioOwner.Release(_audio); _audio = 0;
+        var preparation = _preparation; _preparation = null;
         _startup.Stop();
-        _hud = null; _lastKillerCamera = null; _killerName = null; _player?.Dispose(); _player = null; _playingClip?.Dispose(); _playingClip = null; _playing = null; State = KillcamState.None; Kind = KillCamKind.None;
+        var player = _player; _player = null; var clip = _playingClip; _playingClip = null;
+        _hud = null; _lastKillerCamera = null; _killerName = null; _playing = null; State = KillcamState.None; Kind = KillCamKind.None;
         EndReason = reason;
-        if (live != null && live.Players.Items.Count > 0)
-        { live.Players.Main.Controls.ClearAll(); live.Players.Main.ModForgetInputDeltas(); }
+        try { preparation?.Dispose(); }
+        finally
+        {
+            try { player?.Dispose(); }
+            finally
+            {
+                try { clip?.Dispose(); }
+                finally { if (live != null && live.Players.Items.Count > 0)
+                    { live.Players.Main.Controls.ClearAll(); live.Players.Main.ModForgetInputDeltas(); } }
+            }
+        }
     }
     internal void Reset(KillcamEndReason reason)
     { Stop(reason); _pending = _candidate = null; }

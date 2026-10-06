@@ -2,6 +2,7 @@ using System;
 using MphRead.Entities;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Network;
+using MphRead.Mods.Render;
 using OpenTK.Mathematics;
 
 namespace MphRead.Droid
@@ -46,29 +47,37 @@ namespace MphRead.Droid
             // needs -- the same reason MatchStart gives.
             Menu.SaveSlot = 0;
             var scene = new Scene(size, input.Keyboard, input.Mouse, _ => { }, close);
-            if (NetSession.Active)
+            try
             {
-                NetLaunch.DisableCheatsForMatch();
-                BuildNetworkedMatch(scene, plan);
+                if (NetSession.Active)
+                {
+                    NetLaunch.DisableCheatsForMatch();
+                    BuildNetworkedMatch(scene, plan);
+                }
+                else
+                {
+                    AndroidMaps.EnsureBuilt(plan.RoomKey);
+                    // Offline the plan's mode is the match, so it is what decides
+                    // teams. GameState's own list rather than the mode's name:
+                    // Capture is a team mode that does not end in "Teams".
+                    plan.MatchRules.ApplyModifiers(scene.GameState);
+                    AddLocalPlayers(scene, plan, GameState.IsTeamMode(plan.Mode));
+                    scene.AddRoom(plan.RoomKey, plan.Mode);
+                    // Scene setup installs each mode's retail defaults. Apply the
+                    // launcher's offline rules afterwards so custom point/time
+                    // limits are not replaced by values such as Battle's 7/7:00.
+                    MphRead.Mods.GameSettings.ApplyMatchRules(scene.GameState);
+                    plan.MatchRules.ApplyModifiers(scene.GameState);
+                }
+                if (plan.Kind == LaunchKind.AimTrainer)
+                    MphRead.Mods.Training.AimTrainerSession.Attach(scene, plan);
+                return scene;
             }
-            else
+            catch
             {
-                AndroidMaps.EnsureBuilt(plan.RoomKey);
-                // Offline the plan's mode is the match, so it is what decides
-                // teams. GameState's own list rather than the mode's name:
-                // Capture is a team mode that does not end in "Teams".
-                plan.MatchRules.ApplyModifiers(scene.GameState);
-                AddLocalPlayers(scene, plan, GameState.IsTeamMode(plan.Mode));
-                scene.AddRoom(plan.RoomKey, plan.Mode);
-                // Scene setup installs each mode's retail defaults. Apply the
-                // launcher's offline rules afterwards so custom point/time
-                // limits are not replaced by values such as Battle's 7/7:00.
-                MphRead.Mods.GameSettings.ApplyMatchRules(scene.GameState);
-                plan.MatchRules.ApplyModifiers(scene.GameState);
+                ReleaseFailedBuild(scene);
+                throw;
             }
-            if (plan.Kind == LaunchKind.AimTrainer)
-                MphRead.Mods.Training.AimTrainerSession.Attach(scene, plan);
-            return scene;
         }
 
         /// <summary>
@@ -93,10 +102,11 @@ namespace MphRead.Droid
             LaunchPlan plan, Action close)
         {
             PlayerEntity.MaxPlayers = PlayerEntity.SlotCapacity;
-            if (!DemoPlayback.Join(plan.DemoPath))
+            if (!DemoPlayback.Join(plan.DemoPath) || !DemoPlayback.CommitPreparedMap())
             {
-                throw new ProgramException(DemoPlayback.LastError
-                    ?? "That file could not be read as a demo.");
+                string error = DemoPlayback.LastError ?? "That file could not be read as a demo.";
+                DemoPlayback.Stop();
+                throw new ProgramException(error);
             }
             (string RoomKey, GameMode Mode)? room = NetLaunch.ServerRoom();
             if (room == null)
@@ -107,11 +117,19 @@ namespace MphRead.Droid
             Menu.SaveSlot = 0;
             AndroidMaps.EnsureBuilt(room.Value.RoomKey);
             var scene = new Scene(size, input.Keyboard, input.Mouse, _ => { }, close);
-            NetLaunch.BuildPlayers(scene, Hunter.Samus, localRecolor: 0,
-                teams: GameState.IsTeamMode(room.Value.Mode), localSlot: -1);
-            scene.AddRoom(room.Value.RoomKey, room.Value.Mode, playerCount: NetLaunch.RoomPlayerCount);
-            Console.WriteLine($"[match] demo, {room.Value.RoomKey}");
-            return scene;
+            try
+            {
+                NetLaunch.BuildPlayers(scene, Hunter.Samus, localRecolor: 0,
+                    teams: GameState.IsTeamMode(room.Value.Mode), localSlot: -1);
+                scene.AddRoom(room.Value.RoomKey, room.Value.Mode, playerCount: NetLaunch.RoomPlayerCount);
+                Console.WriteLine($"[match] demo, {room.Value.RoomKey}");
+                return scene;
+            }
+            catch
+            {
+                ReleaseFailedBuild(scene);
+                throw;
+            }
         }
 
         /// <summary>
@@ -140,21 +158,37 @@ namespace MphRead.Droid
             // loses a fresh save (or throws on stale/corrupt JSON).
             Menu.SaveSlot = 0;
             var scene = new Scene(size, input.Keyboard, input.Mouse, _ => { }, close);
-            scene.Players.MaxPlayers = 4;
-
-            string roomKey = AdventureSave.Begin(
-                scene.GameState, plan.SaveSlot, plan.NewGame);
-            if (roomKey.Length == 0)
+            try
             {
-                throw new ProgramException("That save slot does not name a room to load.");
-            }
+                scene.Players.MaxPlayers = 4;
 
-            scene.GameState.Mode = GameMode.SinglePlayer;
-            scene.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: 0, team: -1);
-            scene.AddRoom(roomKey, GameMode.SinglePlayer);
-            Console.WriteLine($"[match] adventure, slot {plan.SaveSlot}, "
-                + $"{(plan.NewGame ? "new game" : "continued")}, room {roomKey}");
-            return scene;
+                string roomKey = AdventureSave.Begin(
+                    scene.GameState, plan.SaveSlot, plan.NewGame);
+                if (roomKey.Length == 0)
+                {
+                    throw new ProgramException("That save slot does not name a room to load.");
+                }
+
+                scene.GameState.Mode = GameMode.SinglePlayer;
+                scene.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: 0, team: -1);
+                scene.AddRoom(roomKey, GameMode.SinglePlayer);
+                Console.WriteLine($"[match] adventure, slot {plan.SaveSlot}, "
+                    + $"{(plan.NewGame ? "new game" : "continued")}, room {roomKey}");
+                return scene;
+            }
+            catch
+            {
+                ReleaseFailedBuild(scene);
+                throw;
+            }
+        }
+
+        // Factories may throw after Scene acquired private/shared leases but
+        // before GameView receives it. Both release phases belong to this owner.
+        private static void ReleaseFailedBuild(Scene scene)
+        {
+            OwnerCleanup.Release(scene.DoCleanup, () => scene.UnloadGl(),
+                ex => Console.WriteLine($"[android] failed-build release: {ex.Message}"));
         }
 
         /// <summary>

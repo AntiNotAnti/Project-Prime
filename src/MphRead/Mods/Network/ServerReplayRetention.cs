@@ -47,7 +47,9 @@ namespace MphRead.Mods.Network
                 return new ServerReplayRetentionResult(0, 0, 0, 0, true);
 
             FileInfo[] files = new DirectoryInfo(directory)
-                .EnumerateFiles("*" + DemoFile.Extension, SearchOption.TopDirectoryOnly)
+                .EnumerateFiles("*", SearchOption.TopDirectoryOnly)
+                .Where(file => file.Name.EndsWith(DemoFile.Extension, StringComparison.OrdinalIgnoreCase)
+                    || file.Name.EndsWith(DemoFile.Extension + ".part", StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(file => file.LastWriteTimeUtc)
                 .ThenByDescending(file => file.Name, StringComparer.Ordinal)
                 .ToArray();
@@ -56,9 +58,19 @@ namespace MphRead.Mods.Network
             long total = before;
             int deleted = 0;
 
-            var protectedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            for (int i = 0; i < Math.Min(policy.KeepLast, files.Length); i++)
-                protectedPaths.Add(files[i].FullName);
+            DateTime now = nowUtc ?? DateTime.UtcNow;
+            var protectedPaths = new HashSet<string>(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+            var finalized = files.Where(file => !file.Name.EndsWith(".part", StringComparison.OrdinalIgnoreCase)).ToArray();
+            for (int i = 0; i < Math.Min(policy.KeepLast, finalized.Length); i++)
+                protectedPaths.Add(finalized[i].FullName);
+            foreach (var partial in files.Where(file => file.Name.EndsWith(".part", StringComparison.OrdinalIgnoreCase)))
+            {
+                // Leave a day for explicit completed-chunk recovery. Count these
+                // bytes in quota reporting even when they cannot yet be reclaimed.
+                if (partial.LastWriteTimeUtc >= now.AddDays(-1) || ReplayWriterV3.IsWriting(partial.FullName)
+                    || ReplayWritePump.IsWriting(partial.FullName) || InUse(partial.FullName))
+                    protectedPaths.Add(partial.FullName);
+            }
 
             foreach (FileInfo file in files)
             {
@@ -66,9 +78,11 @@ namespace MphRead.Mods.Network
                     protectedPaths.Add(file.FullName);
             }
             if (!String.IsNullOrWhiteSpace(activePath))
+            {
                 protectedPaths.Add(Path.GetFullPath(activePath));
+                protectedPaths.Add(Path.GetFullPath(activePath) + ".part");
+            }
 
-            DateTime now = nowUtc ?? DateTime.UtcNow;
             DateTime cutoff = policy.RetentionDays <= 0
                 ? DateTime.MinValue
                 : now.AddDays(-policy.RetentionDays);
@@ -119,6 +133,13 @@ namespace MphRead.Mods.Network
             bool satisfied = limit <= 0 || total <= limit;
             return new ServerReplayRetentionResult(
                 before, total, deleted, protectedPaths.Count, satisfied);
+        }
+
+        private static bool InUse(string path)
+        {
+            try { using var exclusive = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None); return false; }
+            catch (IOException) { return true; }
+            catch (UnauthorizedAccessException) { return true; }
         }
 
         private static void DeleteSidecars(string path)

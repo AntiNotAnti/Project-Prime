@@ -59,7 +59,8 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         uint origin = reader.ReadUInt32();
         return new ReplayMetadata { FormatVersion = 4, Type = ReplayType.Clip, RoomKey = room, Mode = mode,
             MapHash = map, OriginRecordingFrame = origin, LeadInFrames = leadIn,
-            WorldCheckpoint = Bytes.ToArray(), Players = players };
+            WorldCheckpoint = Bytes.ToArray(), Players = players,
+            Bootstrap = ReplayBootstrap.FromConstruction(ConstructionState()) };
     }
     internal ReplayReplicaCheckpoint ConstructionState()
     {
@@ -292,6 +293,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
 
     internal void Restore(PassiveReplayScene replay, uint? playbackFrame = null)
     {
+        using var restorePerf = ReplayPerfTelemetry.Measure(ReplayPerfOperation.WorldRestore);
         if (replay.HasStepped) throw new InvalidOperationException("Restore requires a new unpublished replica.");
         using var stream = _data.OpenRead(); using var reader = new BinaryReader(stream);
         if (Bytes.Length > MaximumBytes || reader.ReadUInt32() != Magic) throw new InvalidDataException("Invalid replay world capsule.");
