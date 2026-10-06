@@ -66,6 +66,8 @@ namespace MphRead.Mods.Launcher
         {
             SocialEnvelope envelope = await InvokeAsync(
                 action, primeId, cancellationToken).ConfigureAwait(false);
+            if (envelope.Ok)
+                SocialPresenceClient.RefreshNow();
             return new SocialMutationResult
             {
                 Success = envelope.Ok,
