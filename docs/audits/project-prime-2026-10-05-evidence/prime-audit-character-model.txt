@@ -1,0 +1,17 @@
+[debug] standard error is being written to /tmp/prime-audit-client-tests/logs/ProjectPrime-20261005-224956-66012-native.txt
+Project Prime a local build
+OS: macOS 27.0.0
+OS architecture: Arm64
+Process architecture: Arm64
+RID: osx-arm64
+Runtime: .NET 10.0.12
+Base directory: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/
+Launch directory: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online
+Current directory: /private/tmp/prime-audit-client-tests
+User data: /tmp/prime-audit-client-tests
+Native: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libopenal.1.dylib
+Native: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libglfw.3.dylib
+Native: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libSkiaSharp.dylib
+Native: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libAvaloniaNative.dylib
+Native: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libminiaudio.dylib
+[charactermodelcheck] pack safety, rigid/Weighted4 geometry and Blender helper generation passed

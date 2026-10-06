@@ -1,0 +1,2 @@
+[net] server map:  (None, 0 s left)
+PASS: claim retention, multiplicity, exact matching, shooter isolation and capacity refusal

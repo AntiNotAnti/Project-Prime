@@ -1,5 +1,6 @@
+/// <reference types="npm:@supabase/functions-js@2.117.2/src/edge-runtime.d.ts" />
+import { readObjectBounded, RequestBodyError } from "../_shared/request-body.ts";
 import { normalizePlayerName } from "../_shared/player-name.ts";
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import postgres from "npm:postgres@3.4.7";
 
 const enc = new TextEncoder();
@@ -119,16 +120,6 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  const raw = await req.text();
-  if (enc.encode(raw).length > MAX_BYTES) return json(413, { error: "report_too_large" });
-
-  let incoming: any;
-  try {
-    incoming = JSON.parse(raw);
-  } catch {
-    return json(400, { error: "invalid_json" });
-  }
-
   const serverHash = await sha256(serverKey);
   let reporter: { server_id: string; trust_class: number; enabled: boolean } | undefined;
   try {
@@ -144,6 +135,12 @@ Deno.serve(async (req: Request) => {
     return json(500, { error: "reporter_lookup_failed" });
   }
   if (!reporter?.enabled) return json(401, { error: "unknown_server" });
+
+  let incoming: any;
+  try { incoming = await readObjectBounded(req, MAX_BYTES); }
+  catch (error) {
+    return json(error instanceof RequestBodyError ? error.status : 400, { error: "invalid_report_body" });
+  }
 
   const mark = async (result: string, accepted = false) => {
     try {

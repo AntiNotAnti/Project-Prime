@@ -1,6 +1,7 @@
+/// <reference types="npm:@supabase/functions-js@2.117.2/src/edge-runtime.d.ts" />
+import { readObjectBounded, RequestBodyError } from "../_shared/request-body.ts";
 import { normalizePlayerName } from "../_shared/player-name.ts";
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.117.2";
 import postgres from "npm:postgres@3.4.7";
 
 const dbUrl = Deno.env.get("SUPABASE_DB_URL")!;
@@ -29,9 +30,9 @@ Deno.serve(async (req: Request) => {
 
   let body: { display_name?: string; favorite_hunter?: number };
   try {
-    body = await req.json();
-  } catch {
-    return json(400, { error: "invalid_json" });
+    body = await readObjectBounded(req, 4096) as typeof body;
+  } catch (error) {
+    return json(error instanceof RequestBodyError ? error.status : 400, { error: "invalid_json" });
   }
 
   const displayName = normalizePlayerName(body.display_name ?? "Hunter");

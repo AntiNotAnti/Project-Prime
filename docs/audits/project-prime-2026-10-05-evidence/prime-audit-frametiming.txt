@@ -1,0 +1,76 @@
+[debug] standard error is being written to /tmp/prime-audit-client-tests/logs/ProjectPrime-20261005-224750-65479-native.txt
+Project Prime a local build
+OS: macOS 27.0.0
+OS architecture: Arm64
+Process architecture: Arm64
+RID: osx-arm64
+Runtime: .NET 10.0.12
+Base directory: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/
+Launch directory: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online
+Current directory: /private/tmp/prime-audit-client-tests
+User data: /tmp/prime-audit-client-tests
+Native: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libopenal.1.dylib
+Native: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libglfw.3.dylib
+Native: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libSkiaSharp.dylib
+Native: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libAvaloniaNative.dylib
+Native: /Users/jarrett/.codex/worktrees/engineering-audit/Prime Hunters Online/src/MphRead/bin/Release/net10.0/libminiaudio.dylib
+FRAMETIMING ok   unlimited cap round-trip and legacy Settings migration
+FRAMETIMING ok   60 Hz display | 7201 frames over 120.0 s | 7201 steps = 60.000 Hz (drift 0.000%) | game ran 1.0000x real time | worst frame 1 step(s) | dropped 0
+FRAMETIMING ok   144 Hz display | 17281 frames over 120.0 s | 7200 steps = 59.997 Hz (drift 0.006%) | game ran 0.9999x real time | worst frame 1 step(s) | dropped 0
+FRAMETIMING ok   240 Hz display | 28801 frames over 120.0 s | 7200 steps = 59.998 Hz (drift 0.003%) | game ran 1.0000x real time | worst frame 1 step(s) | dropped 0
+FRAMETIMING ok   540 Hz display | 64800 frames over 120.0 s | 7199 steps = 59.992 Hz (drift 0.014%) | game ran 0.9999x real time | worst frame 1 step(s) | dropped 0
+FRAMETIMING ok   165 Hz display (not a multiple of 60) | 49501 frames over 300.0 s | 18000 steps = 59.999 Hz (drift 0.002%) | game ran 1.0000x real time | worst frame 1 step(s) | dropped 0
+FRAMETIMING ok   40 Hz, a machine that cannot keep up | 4800 frames over 120.0 s | 7200 steps = 60.000 Hz (drift 0.000%) | game ran 1.0000x real time | worst frame 2 step(s) | dropped 0
+FRAMETIMING ok   jittery 144 Hz | 43247 frames over 300.0 s | 18000 steps = 60.000 Hz (drift 0.000%) | game ran 1.0000x real time | worst frame 1 step(s) | dropped 0
+FRAMETIMING ok   vsync flipping between 144 and 72 | 37800 frames over 300.0 s | 17999 steps = 59.997 Hz (drift 0.006%) | game ran 0.9999x real time | worst frame 1 step(s) | dropped 0
+FRAMETIMING ok   1500 Hz unlimited drawing | 180001 frames over 120.0 s | 7200 steps = 60.000 Hz (drift 0.001%) | game ran 1.0000x real time | worst frame 1 step(s) | dropped 0
+FRAMETIMING ok   2 s stall | 1 step(s) on the stalled frame | 1 stall(s) seen | worst ordinary frame 1 step(s)
+FRAMETIMING ok   presentation alpha | 60 Hz=current | 144 Hz=0.400
+FRAMETIMING ok   Pro HUD dynamic crosshair camera | dynamic=responsive camera / moving reticle | static=responsive camera / fixed reticle
+FRAMETIMING ok   first-person shared pose | offset error 0.000000 | facing error 0.000000
+FRAMETIMING ok   hit presentation | initial POV request selects player camera even when free-camera flag is already false
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+FRAMETIMING ok   hit presentation | 120 Hz hit starts at previous cannon pose
+FRAMETIMING ok   hit presentation | 120 Hz cannon rotates between hit samples
+FRAMETIMING ok   hit presentation | 120 Hz tiny aim input preserves hit shake
+FRAMETIMING ok   hit presentation | 120 Hz hit recovery has no boundary snap
+FRAMETIMING ok   hit presentation | 120 Hz camera and cannon turn immediately together
+FRAMETIMING ok   hit presentation | 120 Hz Pro HUD Dynamic renders raw aim without legacy camera lag
+FRAMETIMING ok   hit presentation | 120 Hz Pro HUD Dynamic late-latches pending mouse aim
+FRAMETIMING ok   hit presentation | 120 Hz Pro HUD Dynamic leaves eased simulation camera untouched
+FRAMETIMING ok   hit presentation | 144 Hz hit starts at previous cannon pose
+FRAMETIMING ok   hit presentation | 144 Hz cannon rotates between hit samples
+FRAMETIMING ok   hit presentation | 144 Hz tiny aim input preserves hit shake
+FRAMETIMING ok   hit presentation | 144 Hz hit recovery has no boundary snap
+FRAMETIMING ok   hit presentation | 144 Hz camera and cannon turn immediately together
+FRAMETIMING ok   hit presentation | 144 Hz Pro HUD Dynamic renders raw aim without legacy camera lag
+FRAMETIMING ok   hit presentation | 144 Hz Pro HUD Dynamic late-latches pending mouse aim
+FRAMETIMING ok   hit presentation | 144 Hz Pro HUD Dynamic leaves eased simulation camera untouched
+FRAMETIMING ok   hit presentation | 240 Hz hit starts at previous cannon pose
+FRAMETIMING ok   hit presentation | 240 Hz cannon rotates between hit samples
+FRAMETIMING ok   hit presentation | 240 Hz tiny aim input preserves hit shake
+FRAMETIMING ok   hit presentation | 240 Hz hit recovery has no boundary snap
+FRAMETIMING ok   hit presentation | 240 Hz camera and cannon turn immediately together
+FRAMETIMING ok   hit presentation | 240 Hz Pro HUD Dynamic renders raw aim without legacy camera lag
+FRAMETIMING ok   hit presentation | 240 Hz Pro HUD Dynamic late-latches pending mouse aim
+FRAMETIMING ok   hit presentation | 240 Hz Pro HUD Dynamic leaves eased simulation camera untouched
+FRAMETIMING ok   hit presentation | 144 Hz observed POV prepares a fractional arm-cannon pose
+FRAMETIMING ok   hit presentation | observed POV camera and arm cannon share one presentation basis
+FRAMETIMING ok   hit presentation | 60 Hz keeps the current pose
+FRAMETIMING ok   hit presentation | 60 Hz observed slow motion interpolates cannon between recorded poses
+FRAMETIMING ok   hit presentation | observed cannon uses corrected camera endpoints instead of stale facing
+FRAMETIMING ok   hit presentation | remote yaw rebuild keeps cannon camera-local offset stable
+FRAMETIMING ok   hit presentation | replica position correction moves camera without changing its aim
+FRAMETIMING ok   hit presentation | draws preserve simulation aim, hit shake and RNG
+FRAMETIMING ok   fixed camera translation | steady 1.50000/0.15000 | decel 2.12500/0.15000 | reverse 2.12500/0.07500 | rebase 10.00000 | 60 Hz 11.00000
+FRAMETIMING ok   angular camera presentation | 90deg midpoint (-0.7071068, -0, -0.7071068) | 180deg midpoint length 1.00000 | pose direction length 1.00000
+FRAMETIMING ok   fast late aim | normal 4.00 | extreme 8.00/14.00/20.00 | 60 Hz 20.00
+FRAMETIMING ok   Lockjaw repeated samples at one tick
+FRAMETIMING ok   Lockjaw next tick changes sequence
+FRAMETIMING ok   Lockjaw different target changes sequence
+FRAMETIMING ok   Lockjaw different source changes sequence
+FRAMETIMING ok   Lockjaw different owner changes sequence
+FRAMETIMING ok   Lockjaw offsets stay in [-0.25, 0.25)
+FRAMETIMING ok   Lockjaw global Rng1 unchanged
+FRAMETIMING all cases pass

@@ -1,0 +1,49 @@
+[rendergraphcheck] PASS: six-pass graph validates
+[rendergraphcheck] PASS: top-level frame render graph validates
+[rendergraphcheck] PASS: GPU visibility consumes prior Hi-Z before clear and rebuilds it after World
+[rendergraphcheck] PASS: retained World generated uniform layout validates
+[rendergraphcheck] PASS: retained DeferredPbrMrt generated uniform layout validates
+[rendergraphcheck] PASS: packet classes preserve membership
+[rendergraphcheck] PASS: capture preserves submission order
+[rendergraphcheck] PASS: sequence is retained explicitly
+[rendergraphcheck] PASS: immutable mesh descriptors preserve geometry identity
+[rendergraphcheck] PASS: different display lists keep distinct mesh descriptors
+[rendergraphcheck] PASS: adjacent identical material state batches across mesh IDs
+[rendergraphcheck] PASS: override packet breaks batching
+[rendergraphcheck] PASS: batching records at least one shared state reuse
+[rendergraphcheck] PASS: opaque reuse is counted in both opaque and depth passes
+[rendergraphcheck] PASS: captured material descriptor is immutable for the frame
+[rendergraphcheck] PASS: frame revision advances
+[rendergraphcheck] PASS: state key is deterministic
+[rendergraphcheck] PASS: capture reuses and clears packet lists
+[rendergraphcheck] PASS: compatible packets remain one adjacent batch next frame
+[rendergraphcheck] PASS: mesh descriptor table is retained rather than rebuilt per frame
+[rendergraphcheck] PASS: room-owned opaque safe run sorts by retained state
+[rendergraphcheck] PASS: dynamic opaque packet is a hard sorting barrier
+[rendergraphcheck] PASS: dense multi-draw accepts bit-identical light/transform state
+[rendergraphcheck] PASS: dense multi-draw splits different room transforms
+[rendergraphcheck] PASS: dense multi-draw splits different room lighting
+[rendergraphcheck] PASS: plain opaque mesh is eligible for direct modern submission
+[rendergraphcheck] PASS: Weighted4 mesh stays on compatibility submission until direct parity is implemented
+[rendergraphcheck] PASS: plain viewmodel mesh is eligible for direct submission
+[rendergraphcheck] PASS: spherical billboard is eligible for direct submission
+[rendergraphcheck] PASS: cylindrical billboard is eligible for direct submission
+[rendergraphcheck] PASS: unknown billboard mode stays on compatibility executor
+[rendergraphcheck] PASS: explicit color override is eligible for direct submission
+[rendergraphcheck] PASS: palette override is eligible for direct submission
+[rendergraphcheck] PASS: textured-player skin is eligible for direct submission
+[rendergraphcheck] PASS: outlined player's normal world draw is direct eligible
+[rendergraphcheck] PASS: translucent mesh stays off opaque direct eligibility
+[rendergraphcheck] PASS: translucent mesh is direct eligible in all retained transparency passes
+[rendergraphcheck] PASS: decal mesh is direct eligible in retained decal pass
+[rendergraphcheck] PASS: full 32-matrix shader palette is eligible for ordinary direct submission
+[rendergraphcheck] PASS: out-of-range matrix stack stays on compatibility executor
+[rendergraphcheck] PASS: alpha-blended normal mesh skips the opaque direct path
+[rendergraphcheck] PASS: plain opaque mesh is eligible for direct retained PBR MRT
+[rendergraphcheck] PASS: Weighted4 mesh stays on compatibility PBR replay
+[rendergraphcheck] PASS: viewmodel stays off direct PBR MRT replay
+[rendergraphcheck] PASS: cosmetic surface stays on compatibility PBR replay
+[rendergraphcheck] PASS: alpha-blended mesh stays off direct PBR MRT replay
+[rendergraphcheck] PASS: base-only retained texture set stays non-advanced
+[rendergraphcheck] PASS: retained texture set preserves companion map units
+[rendergraphcheck] PASS

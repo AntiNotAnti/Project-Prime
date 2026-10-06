@@ -24,6 +24,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  engineering-contracts:
+    uses: ./.github/workflows/engineering-contracts.yml
+    with:
+      revision: ${{ github.event.pull_request.head.sha || github.sha }}
+
   assets:
     name: no game assets
     runs-on: ubuntu-latest

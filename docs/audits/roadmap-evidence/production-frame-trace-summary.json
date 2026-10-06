@@ -1,0 +1,50 @@
+{
+  "Version": 1,
+  "Build": "local+a68627d0f7299c873cce9ad8046afbc6af0c46d5",
+  "Platform": "Unix 27.0.0",
+  "TimingContract": "CPU and driver-return timestamps; not GPU durations or display scanout",
+  "MaximumFrames": 8192,
+  "CapacityReached": false,
+  "CancelledFrames": 0,
+  "PresentReturnIntervalP50Ms": 11.959833999999999,
+  "PresentReturnIntervalP95Ms": 28.884417,
+  "PresentReturnIntervalP99Ms": 396.570042,
+  "Workload": "Native Metal scripted shell lifecycle: loads, resizes, fullscreen, pause, rematches, screenshot work; one UI step missed; not steady-state FPS.",
+  "CompletedFrames": 562,
+  "CpuFrameSpanMs": {
+    "p50": 10.812415999999999,
+    "p95": 24.902167,
+    "p99": 158.016708,
+    "nonzero": 562
+  },
+  "SimulationMs": {
+    "p50": 0.128208,
+    "p95": 0.701542,
+    "p99": 1.9361249999999999,
+    "nonzero": 401
+  },
+  "PreparationMs": {
+    "p50": 0.398541,
+    "p95": 1.095,
+    "p99": 1.2605,
+    "nonzero": 562
+  },
+  "RenderMs": {
+    "p50": 8.357415999999999,
+    "p95": 20.868624999999998,
+    "p99": 157.683333,
+    "nonzero": 562
+  },
+  "DriverPresentCallMs": {
+    "p50": 1.219625,
+    "p95": 2.880792,
+    "p99": 3.8209579999999996,
+    "nonzero": 562
+  },
+  "SurfaceAcquireMs": {
+    "p50": 0.0333,
+    "p95": 4.2122,
+    "p99": 9.9017,
+    "nonzero": 562
+  }
+}

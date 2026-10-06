@@ -1,0 +1,28 @@
+ANDROIDPACING PASS display 59.94Hz adds no second wait and preserves elapsed time
+ANDROIDPACING PASS display 60Hz adds no second wait and preserves elapsed time
+ANDROIDPACING PASS display 90Hz adds no second wait and preserves elapsed time
+ANDROIDPACING PASS display 120Hz adds no second wait and preserves elapsed time
+ANDROIDPACING PASS display 144Hz adds no second wait and preserves elapsed time
+ANDROIDPACING PASS early presentation return does not wait for an unrelated 60Hz software phase
+ANDROIDPACING PASS native explicit 60 cap adds no second software wait
+ANDROIDPACING PASS native explicit 90 cap adds no second software wait
+ANDROIDPACING PASS native explicit 120 cap adds no second software wait
+ANDROIDPACING PASS native explicit 144 cap adds no second software wait
+ANDROIDPACING PASS native 120Hz cap follows compositor timing rather than an 8.33ms sleep phase
+ANDROIDPACING PASS explicit 30 cap retains its deadline cadence
+ANDROIDPACING PASS explicit 60 cap retains its deadline cadence
+ANDROIDPACING PASS explicit 90 cap retains its deadline cadence
+ANDROIDPACING PASS explicit 120 cap retains its deadline cadence
+ANDROIDPACING PASS explicit 144 cap retains its deadline cadence
+ANDROIDPACING PASS explicit 500 cap retains its deadline cadence
+ANDROIDPACING PASS Unlimited starts without a software deadline
+ANDROIDPACING PASS Unlimited does not inherit the old 500Hz safety ceiling
+ANDROIDPACING PASS nonblocking Display retains the 500Hz runaway safety ceiling
+ANDROIDPACING PASS cap changes discard the old render deadline
+ANDROIDPACING PASS stall preserves simulation elapsed but creates no render catch-up burst
+ANDROIDPACING PASS resume excludes background time
+ANDROIDPACING PASS explicit 120 cap maps to native 120 Hz presentation
+ANDROIDPACING PASS cap at panel maximum is presentation paced
+ANDROIDPACING PASS odd 100 cap stays software paced when no 100 Hz mode exists
+ANDROIDPACING PASS modern FIFO fallback owns cadence instead of stacking a software timer
+ANDROIDPACING PASS nonblocking modern presentation may use the software deadline

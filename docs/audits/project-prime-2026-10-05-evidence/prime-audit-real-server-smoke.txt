@@ -1,0 +1,10 @@
+checking the dedicated server in /var/folders/8x/m8p269sd5dl015jr01kkpzbr0000gn/T/prime-smoke-real-ulxfv9cp
+ok:   server replay retention flags reached the recorder policy
+ok:   the server explained that it cannot run without game files
+ok:   the refusal tells an operator how to fix the installation
+ok:   the server exited with status 1
+ok:   the directory answered a list query
+ok:   it listed no server that refused to start
+the dedicated-server startup contract and the directory both work in this build
+
+exit=0

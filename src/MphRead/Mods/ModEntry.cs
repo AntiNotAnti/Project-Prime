@@ -151,6 +151,21 @@ namespace MphRead.Mods
                 Environment.ExitCode = Network.GameModeCheck.Run();
                 return true;
             }
+            if (HasFlag(args, "networkpolicycheck"))
+            {
+                Environment.ExitCode = Network.NetworkAuthorityPolicyCheck.Run();
+                return true;
+            }
+            if (HasFlag(args, "replaydecodebenchmark"))
+            {
+                Environment.ExitCode = Network.ReplayDecodeBenchmark.Run((int.TryParse(ValueAfter(args, "minutes"), out int replayMinutes) ? replayMinutes : 30), ValueAfter(args, "fixtureoutput"));
+                return true;
+            }
+            if (HasFlag(args, "serverpacingbenchmark"))
+            {
+                Environment.ExitCode = Network.ServerPacingBenchmark.Run();
+                return true;
+            }
             if (HasFlag(args, "replayformatcheck"))
             {
                 Environment.ExitCode = Network.ReplayFormatCheck.Run();
@@ -1432,6 +1447,12 @@ namespace MphRead.Mods
 
         public static bool TryHandle(string[] args)
         {
+            if (HasFlag(args, "networkcombatpolicycheck"))
+            {
+                Environment.ExitCode = Network.NetworkAuthorityPolicyCheck.RunCombat(ValueAfter(args, "room") ?? "MP1 SANCTORUS");
+                return true;
+            }
+
 #if !ANDROID && !MPHREAD_SERVER
             if (ValueAfter(args, "renderparitycheck") is string parityRoom)
             {

@@ -1,0 +1,36 @@
+{
+  "minutes": 120,
+  "frames": 432000,
+  "archiveBytes": 58368967,
+  "cache": "warm filesystem; generated moving eight-player snapshots",
+  "streamOne": {
+    "cursors": 1,
+    "packets": 432000,
+    "payloadBytes": 540432000,
+    "elapsedMs": 1446.8195,
+    "allocatedBytes": 1156630184
+  },
+  "streamThree": {
+    "cursors": 3,
+    "packets": 1296000,
+    "payloadBytes": 1621296000,
+    "elapsedMs": 4137.5125,
+    "allocatedBytes": 3469884472
+  },
+  "seekOne": {
+    "cursors": 1,
+    "samples": 100,
+    "p50Ms": 0.3797,
+    "p99Ms": 0.8055,
+    "maximumMs": 0.8065,
+    "allocatedBytes": 25049352
+  },
+  "seekThree": {
+    "cursors": 3,
+    "samples": 100,
+    "p50Ms": 1.1359,
+    "p99Ms": 1.51,
+    "maximumMs": 1.5252,
+    "allocatedBytes": 75136520
+  }
+}

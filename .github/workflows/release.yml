@@ -43,11 +43,18 @@ on:
 permissions:
   contents: write
 
+# Serialize publication, including manually selected tags and automatic bumps.
+# Never cancel a release while assets are being assembled or published.
+concurrency:
+  group: project-prime-release-publication
+  cancel-in-progress: false
+
 jobs:
   resolve:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.name.outputs.tag }}
+      sha: ${{ steps.name.outputs.sha }}
       version: ${{ steps.name.outputs.version }}
       android_version_code: ${{ steps.name.outputs.android_version_code }}
     steps:
@@ -144,19 +151,13 @@ jobs:
             exit 1
           fi
 
-          # A failed workflow can leave the tag behind before the Release is
-          # published. That tag has never been offered to clients, so a retry may safely
-          # retarget it to the current dispatch SHA. Once a Release exists, the tag is
-          # immutable here and a new version must be chosen instead.
+          # A failed workflow can leave its tag behind. Rebuild that exact
+          # commit on retry; never force-move an existing tag. In particular,
+          # a failed Release API lookup must not be interpreted as permission
+          # to retarget something that may already be published.
           if [ "$CREATE_TAG" = true ]; then
             if gh api "repos/$REPO/git/ref/tags/$TAG" >/dev/null 2>&1; then
-              if gh api "repos/$REPO/releases/tags/$TAG" >/dev/null 2>&1; then
-                echo "::error::$TAG already has a GitHub Release; choose a later version."
-                exit 1
-              fi
-              gh api -X PATCH "repos/$REPO/git/refs/tags/$TAG" \
-                -f sha="$SHA" -F force=true >/dev/null
-              echo "Recovered unpublished $TAG at ${SHA:0:7}."
+              echo "Retrying existing $TAG without moving its commit."
             else
               gh api -X POST "repos/$REPO/git/refs" \
                 -f ref="refs/tags/$TAG" -f sha="$SHA" >/dev/null
@@ -165,6 +166,20 @@ jobs:
             echo "created=true" >> "$GITHUB_OUTPUT"
           fi
 
+          # Pin the resolved commit once; every gate/build/package checks this
+          # SHA so a subsequently moved tag cannot substitute untested code.
+          RELEASE_SHA=$(gh api "repos/$REPO/commits/$TAG" --jq .sha)
+          if [[ ! "$RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Could not resolve $TAG to a commit."
+            exit 1
+          fi
+          if gh release view "$TAG" --repo "$REPO" --json isDraft --jq .isDraft > release-draft.txt 2>/dev/null; then
+            if [ "$(cat release-draft.txt)" != "true" ]; then
+              echo "::error::$TAG is already published and immutable; choose a new version."
+              exit 1
+            fi
+          fi
+          echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           # All published packages consume this one release number. The
           # updater compares it against the tag on GitHub, so a build that is
@@ -175,13 +190,19 @@ jobs:
           echo "android_version_code=$ANDROID_VERSION_CODE" >> "$GITHUB_OUTPUT"
           echo "### Project Prime $TAG" >> "$GITHUB_STEP_SUMMARY"
 
-  prepare-release:
+  engineering-contracts:
     needs: resolve
+    uses: ./.github/workflows/engineering-contracts.yml
+    with:
+      revision: ${{ needs.resolve.outputs.sha }}
+
+  prepare-release:
+    needs: [resolve, engineering-contracts]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+          ref: ${{ needs.resolve.outputs.sha }}
       - uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
@@ -241,7 +262,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+          ref: ${{ needs.resolve.outputs.sha }}
       - uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
@@ -282,7 +303,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+          ref: ${{ needs.resolve.outputs.sha }}
       - uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
@@ -306,11 +327,16 @@ jobs:
         id: keystore
         env:
           KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          PUBLISH_NOW: ${{ github.event_name == 'push' || github.event.inputs.publish == 'true' }}
         run: |
           set -euo pipefail
           if [ -z "${KEYSTORE:-}" ]; then
             echo "have=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::no ANDROID_KEYSTORE secret; the APK gets a throwaway debug key and cannot update an existing install"
+            if [ "${PUBLISH_NOW:-false}" = "true" ]; then
+              echo "::error::Public Android releases require the stable ANDROID_KEYSTORE secret."
+              exit 1
+            fi
+            echo "::warning::Draft-only APK uses a throwaway debug key."
             exit 0
           fi
           printf '%s' "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/android.jks"
@@ -401,7 +427,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+          ref: ${{ needs.resolve.outputs.sha }}
       - uses: actions/download-artifact@v8
         with:
           pattern: build-linux-*
@@ -635,7 +661,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+          ref: ${{ needs.resolve.outputs.sha }}
       - uses: actions/cache@v4
         with:
           path: ~/.nuget/packages
@@ -688,7 +714,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+          ref: ${{ needs.resolve.outputs.sha }}
       - uses: actions/download-artifact@v8
         with:
           pattern: release-*
@@ -705,10 +731,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
+          RELEASE_SHA: ${{ needs.resolve.outputs.sha }}
           TAG: ${{ needs.resolve.outputs.tag }}
           PUBLISH_NOW: ${{ github.event_name == 'push' || github.event.inputs.publish == 'true' }}
         run: |
           set -euo pipefail
+          CURRENT_TAG_SHA=$(gh api "repos/$REPOSITORY/commits/$TAG" --jq .sha)
+          if [ "$CURRENT_TAG_SHA" != "$RELEASE_SHA" ]; then
+            echo "::error::$TAG moved after verification; refusing to publish assets from another commit."
+            exit 1
+          fi
           visibility=$(gh repo view "$REPOSITORY" --json visibility --jq .visibility)
           if [ "$visibility" != "PUBLIC" ]; then
             echo "::error::$REPOSITORY must remain public so clients can check releases without a GitHub credential."
@@ -744,6 +776,10 @@ jobs:
 
           if gh release view "$TAG" \
               --repo "$REPOSITORY" >/dev/null 2>&1; then
+            if [ "$(gh release view "$TAG" --repo "$REPOSITORY" --json isDraft --jq .isDraft)" != "true" ]; then
+              echo "::error::$TAG is already published; its assets cannot be replaced."
+              exit 1
+            fi
             gh release upload "$TAG" dist/* --clobber \
               --repo "$REPOSITORY"
             gh release edit "$TAG" \

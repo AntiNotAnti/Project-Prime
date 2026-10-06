@@ -128,6 +128,9 @@ one-time entry. CI uploads these as `prime-shell-layouts`.
 Captures may contain the user's locally extracted game imagery and are not
 committed. CI runs without proprietary assets. Local image review accompanies
 geometry checks; these are not pixel-equality tests against concept art.
+The asset-free `gamepadcheck` Offline launch uses temporary, production-packed
+spawn entities through the real map capability gate and restores configured
+asset paths afterward.
 
 Manual release acceptance still requires actual mouse/touch/controller sessions
 on target hardware, an Android landscape device, a live multi-client lobby

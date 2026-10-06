@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+import sys,socket,time,os
+args=sys.argv[1:];port=int(args[args.index('-port')+1])
+print('listening on UDP '+str(port),flush=True)
+if '-server' in args:
+ print('canonical server recording enabled; storage 7 GB, retention 3 days, keep newest 9',flush=True)
+ print('cannot run the match: Put the game files on this machine and paths.txt beside the binary',flush=True)
+ open('/tmp/prime-audit-smoke-child.pid','w').write(str(os.getpid()))
+ while True:time.sleep(1)
+else:
+ s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.bind(('127.0.0.1',port))
+ while True:
+  data,addr=s.recvfrom(2048);s.sendto(bytes([19,0,0]),addr)
