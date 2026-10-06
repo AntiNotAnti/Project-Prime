@@ -77,12 +77,12 @@ public static class NetProtocol19Check
                 VictimSlot = 1, VictimGeneration = NetPlayerLifecycle.Generation(1), VictimLifeId = NetPlayerLifecycle.Get(1),
                 AckFrame = frame, Damage = 11, Beam = (byte)BeamType.PowerBeam, Flags = HitClaimPacket.FlagHalfturret, HitPoint = victim.Position };
             byte[] packet = new byte[1 + HitClaimPacket.Size]; packet[0] = 1; claim.Write(packet.AsSpan(1));
-            NetHitClaims.Receive(0, packet); NetHitClaims.Tick();
+            NetHitClaims.Receive(0, packet, requireAttackEvidence: false); NetHitClaims.Tick();
             Check(answers == 1 && received.Result == (byte)CombatAckResult.AlreadyResolved && received.HealthAfter == bodyAfter
                 && received.HalfturretHealthAfter == turretAfter && received.DamageApplied == 5
                 && (received.Flags & CombatAckFlags.HalfturretAffected) != 0, $"AlreadyResolved preserves actual historical outcome after later damage: answers={answers}, result={received.Result}, health={received.HealthAfter}/{bodyAfter}, turret={received.HalfturretHealthAfter}/{turretAfter}, damage={received.DamageApplied}, flags={received.Flags}, received={NetHitClaims.Received}, pending={NetHitClaims.ClaimsPendingCurrent}, refused={NetHitClaims.RefusedHere}, oldlife={NetPlayerLifecycle.OldLifeClaims}, lives={claim.ShooterLifeId}/{claim.VictimLifeId}, ready={NetRoomChange.GameplayReady}");
             var first = received; victim.Health = 20; victim.Halfturret.Health = 1;
-            NetHitClaims.Receive(0, packet); NetHitClaims.Tick();
+            NetHitClaims.Receive(0, packet, requireAttackEvidence: false); NetHitClaims.Tick();
             Check(answers == 2 && first.Equals(received), "claim retry returns byte-identical terminal outcome");
             Prepare(100, 37); answers = 0;
             claim.ShooterLifeId = NetPlayerLifecycle.Get(0); claim.VictimLifeId = NetPlayerLifecycle.Get(1);
@@ -91,11 +91,11 @@ public static class NetProtocol19Check
             Telemetry.ProductionTelemetry.Configure(new Telemetry.NetTelemetryConfig { Directory = studyRoot, LocalRaw = false });
             Telemetry.ProductionTelemetry.Begin(room, "Battle", 2);
             LagCompensationPolicy.SetTiming(0, new LagTiming(100, 10, 80, 8));
-            NetHitClaims.Receive(0, packet);
+            NetHitClaims.Receive(0, packet, requireAttackEvidence: false);
             for (int i = 0; i <= NetHitClaims.MaxGraceFrames + 1; i++) { typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, NetSession.NetFrame + 1); NetHitClaims.Tick(); }
             Check(answers == 1 && received.Result == (byte)CombatAckResult.Applied && victim.Health == 95 && victim.Halfturret.Health == 31,
                 "rescued turret claim uses canonical pre-split damage once");
-            NetHitClaims.Receive(0, packet); NetHitClaims.Tick();
+            NetHitClaims.Receive(0, packet, requireAttackEvidence: false); NetHitClaims.Tick();
             Check(victim.Health == 95 && victim.Halfturret.Health == 31 && answers == 2, "rescued turret retry cannot pay twice");
             Telemetry.ProductionTelemetry.Shutdown();
             var studyFiles = System.IO.Directory.GetFiles(studyRoot, "*.summary.json", System.IO.SearchOption.AllDirectories);
@@ -121,11 +121,11 @@ public static class NetProtocol19Check
                 Frame = phase, AckFrame = NetSession.NetFrame, LaunchFrame = NetSession.NetFrame,
                 Damage = 10, Beam = (byte)BeamType.ShockCoil,
                 Flags = HitClaimPacket.FlagHalfturret | HitClaimPacket.FlagContinuousTick, HitPoint = victim.Position };
-            claim.Write(packet.AsSpan(1)); NetHitClaims.Receive(0, packet); NetHitClaims.Tick();
+            claim.Write(packet.AsSpan(1)); NetHitClaims.Receive(0, packet, requireAttackEvidence: false); NetHitClaims.Tick();
             Check(answers == 1 && received.Result == (byte)CombatAckResult.AlreadyResolved
                 && received.HealthAfter == continuousBody && received.HalfturretHealthAfter == continuousTurret,
                 $"same continuous tick settles despite different world ACK frames: answers={answers} result={received.Result} body={received.HealthAfter}/{continuousBody} turret={received.HalfturretHealthAfter}/{continuousTurret}");
-            claim.ClaimId++; claim.Write(packet.AsSpan(1)); NetHitClaims.Receive(0, packet); NetHitClaims.Tick();
+            claim.ClaimId++; claim.Write(packet.AsSpan(1)); NetHitClaims.Receive(0, packet, requireAttackEvidence: false); NetHitClaims.Tick();
             victim.TakeDamage(10, DamageFlags.Halfturret | DamageFlags.NoDmgInvuln, null, continuous);
             Check(answers == 2 && received.Result == (byte)CombatAckResult.AlreadyResolved
                 && victim.Health == continuousBody && victim.Halfturret.Health == continuousTurret,

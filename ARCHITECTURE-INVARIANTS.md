@@ -70,7 +70,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 - A predicted lethal hit on another player is currently held at 1 HP until the authority confirms the death. Self-damage/self-death may resolve locally because source, target and input are local.
 - `NetHitClaims` lets the shooter declare locally resolved hits the authority did not independently resolve. Claims are lifecycle-, time-, geometry-, launch- and damage-bounded and receive explicit verdicts.
 - Predictions never author the durable scoreboard or match result. Authoritative snapshots/state do.
-- Imperialist headshots are reconciled authoritatively: a validated shooter headshot paired with the authority's body hit applies only the missing damage difference, exactly once. The optional unscoped penalty does **not** halve Imperialist headshot damage.
+- Imperialist headshots are reconciled authoritatively: a validated shooter headshot paired with the authority's body hit applies only the missing damage difference, exactly once. The optional unscoped penalty halves both native body and headshot damage. The FireEvent's shot-time scope controls this penalty, independently of the newer carrier or camera FOV blend.
 - Headshot HUD feedback must not be emitted from an unconfirmed speculative client result.
 
 ## Lobby and match lifecycle

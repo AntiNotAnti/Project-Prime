@@ -418,66 +418,67 @@ namespace MphRead.Mods.Network
 
         public void Run(CancellationToken cancel = default)
         {
-            Telemetry.ProductionTelemetry.Configure(Telemetry.NetTelemetryConfig.Load());
-            InitializeWaitlist();
-            _transport = new NetTransport(_port);
-            _running = true;
-            Log($"listening on UDP {_transport.LocalPort}, up to {_maxPlayers} players");
-            if (!_controlPlaneOnlyForTests)
-            {
-                Mods.Headless.Enter();
-                // Continuous servers need combat immediately. Persistent
-                // lobbies defer this work until an owner actually claims the
-                // lobby, so abandoned allocations stay cheap.
-                if (SessionPolicy != ServerSessionPolicy.Lobby)
-                    BeginServerHotPathPrewarm(wait: true);
-                ServerReplayRecorder.Configure(ReplayPolicy);
-                string? gameFilesProblem = Mods.Launcher.GameFiles.Problem();
-                if (gameFilesProblem != null)
-                {
-                    throw new ProgramException(
-                        $"cannot run the match: {gameFilesProblem}. "
-                        + "Put the game files on this machine and paths.txt beside the binary; see SERVER.txt.");
-                }
-                CareerReportOutbox.Start();
-            }
-            if (!_controlPlaneOnlyForTests)
-                NetworkMapIdentity.StageRoom(_rotation.Current.RoomKey);
-            _lobbyMatch = DefinitionFor(_rotation.Current);
-            if (LobbyRules.ValidateDefinition(_lobbyMatch, out string ruleError) != LobbyResultCode.Ok)
-                throw new InvalidOperationException(ruleError);
-            if (_lobbyMatch.MapIdentity.IsCustom) _sessionPolicy = ServerSessionPolicy.Lobby;
-            _phase = SessionPolicy == ServerSessionPolicy.Lobby ? SessionPhase.Lobby : SessionPhase.InMatch;
-            if (_phase == SessionPhase.InMatch && !_controlPlaneOnlyForTests)
-            {
-                // A permanent Continuous server remains listed and responsive
-                // while empty, but does not spend 60 Hz on a world nobody is
-                // playing. Warm the room now and construct authority on the
-                // first admitted player instead.
-                Mods.RoomPrewarm.Begin(CurrentDefinition.RoomKey);
-            }
-            Log(_controlPlaneOnlyForTests
-                ? "control-plane test mode: gameplay simulation disabled"
-                : _phase == SessionPhase.Lobby
-                    ? "authoritative server ready; simulation starts when the lobby starts"
-                    : "authoritative server ready; simulation wakes on first player");
-            Log($"rotation: {_rotation.Entries.Count} map(s), starting on {_rotation.Current}");
-            Log(Hosts.Describe());
-
-            // The bound port, taken once: the heartbeat has to advertise the
-            // port players dial, which is not the requested one when the
-            // requested one was zero.
-            var listenPort = (ushort)_transport.LocalPort;
-            var clock = System.Diagnostics.Stopwatch.StartNew();
-            double lastReport = 0;
-            double lastStateBroadcast = 0;
-            double lastHostReap = double.NegativeInfinity;
-            double lastHostMapPump = double.NegativeInfinity;
-            double lastUpdateCheck = double.NegativeInfinity;
-            double hostedEmptySince = 0;
-            _matchStarted = 0;
+            ushort listenPort = 0;
             try
             {
+                Telemetry.ProductionTelemetry.Configure(Telemetry.NetTelemetryConfig.Load());
+                InitializeWaitlist();
+                _transport = new NetTransport(_port);
+                _running = true;
+                Log($"listening on UDP {_transport.LocalPort}, up to {_maxPlayers} players");
+                if (!_controlPlaneOnlyForTests)
+                {
+                    Mods.Headless.Enter();
+                    // Continuous servers need combat immediately. Persistent
+                    // lobbies defer this work until an owner actually claims the
+                    // lobby, so abandoned allocations stay cheap.
+                    if (SessionPolicy != ServerSessionPolicy.Lobby)
+                        BeginServerHotPathPrewarm(wait: true);
+                    ServerReplayRecorder.Configure(ReplayPolicy);
+                    string? gameFilesProblem = Mods.Launcher.GameFiles.Problem();
+                    if (gameFilesProblem != null)
+                    {
+                        throw new ProgramException(
+                            $"cannot run the match: {gameFilesProblem}. "
+                            + "Put the game files on this machine and paths.txt beside the binary; see SERVER.txt.");
+                    }
+                    CareerReportOutbox.Start();
+                }
+                if (!_controlPlaneOnlyForTests)
+                    NetworkMapIdentity.StageRoom(_rotation.Current.RoomKey);
+                _lobbyMatch = DefinitionFor(_rotation.Current);
+                if (LobbyRules.ValidateDefinition(_lobbyMatch, out string ruleError) != LobbyResultCode.Ok)
+                    throw new InvalidOperationException(ruleError);
+                if (_lobbyMatch.MapIdentity.IsCustom) _sessionPolicy = ServerSessionPolicy.Lobby;
+                _phase = SessionPolicy == ServerSessionPolicy.Lobby ? SessionPhase.Lobby : SessionPhase.InMatch;
+                if (_phase == SessionPhase.InMatch && !_controlPlaneOnlyForTests)
+                {
+                    // A permanent Continuous server remains listed and responsive
+                    // while empty, but does not spend 60 Hz on a world nobody is
+                    // playing. Warm the room now and construct authority on the
+                    // first admitted player instead.
+                    Mods.RoomPrewarm.Begin(CurrentDefinition.RoomKey);
+                }
+                Log(_controlPlaneOnlyForTests
+                    ? "control-plane test mode: gameplay simulation disabled"
+                    : _phase == SessionPhase.Lobby
+                        ? "authoritative server ready; simulation starts when the lobby starts"
+                        : "authoritative server ready; simulation wakes on first player");
+                Log($"rotation: {_rotation.Entries.Count} map(s), starting on {_rotation.Current}");
+                Log(Hosts.Describe());
+
+                // The bound port, taken once: the heartbeat has to advertise the
+                // port players dial, which is not the requested one when the
+                // requested one was zero.
+                listenPort = (ushort)_transport.LocalPort;
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                double lastReport = 0;
+                double lastStateBroadcast = 0;
+                double lastHostReap = double.NegativeInfinity;
+                double lastHostMapPump = double.NegativeInfinity;
+                double lastUpdateCheck = double.NegativeInfinity;
+                double hostedEmptySince = 0;
+                _matchStarted = 0;
                 while (_running && !cancel.IsCancellationRequested)
                 {
                     double now = clock.Elapsed.TotalSeconds;
@@ -657,6 +658,7 @@ namespace MphRead.Mods.Network
                             // host: a step is owed 16.7 ms and the worst one is
                             // what a stutter is made of.
                             Log($"sim: {_sim.Describe()}");
+                            Log($"sim: {PacingMetrics}, wake-p99={_sim.WakePercentile(.99):0.000}ms");
                             // And what the rewind is doing, which nothing else
                             // prints now that no client is the authority.
                             Log($"sim: {_sim.DescribeUnlagged()}");
@@ -687,7 +689,7 @@ namespace MphRead.Mods.Network
             }
             finally
             {
-                Shutdown(listenPort);
+                Shutdown(listenPort != 0 ? listenPort : (ushort)(_transport?.LocalPort ?? 0));
             }
         }
 
@@ -697,6 +699,8 @@ namespace MphRead.Mods.Network
         /// time, yield close to the deadline, and spin only for the final tiny
         /// fraction so scheduler granularity does not become server jitter.
         /// </summary>
+        public ServerPacingMetrics PacingMetrics { get; } = new();
+
         private void PaceLoop(System.Diagnostics.Stopwatch clock)
         {
             if (!Simulating)
@@ -713,33 +717,10 @@ namespace MphRead.Mods.Network
             if (_sim?.Running == true)
             {
                 double remaining = _sim.SecondsUntilNextStep(clock.Elapsed.TotalSeconds);
-                // Windows Sleep(1) can still inherit a coarse scheduler tick.
-                // Use it only when there is enough room for that worst case;
-                // Unix sleeps are fine much closer to the deadline.
-                double coarseSleepRoom = OperatingSystem.IsWindows() ? 0.012 : 0.002;
-                if (remaining > coarseSleepRoom)
-                {
-                    Thread.Sleep(1);
-                    return;
-                }
-                if (remaining > 0.00025)
-                {
-                    Thread.Yield();
-                    return;
-                }
-                if (remaining > 0)
-                {
-                    long deadline = System.Diagnostics.Stopwatch.GetTimestamp()
-                        + (long)(remaining * System.Diagnostics.Stopwatch.Frequency);
-                    while (System.Diagnostics.Stopwatch.GetTimestamp() < deadline)
-                    {
-                        Thread.SpinWait(32);
-                    }
-                    return;
-                }
+                ServerPacingMetrics.Pace(remaining, PacingMetrics);
+                return;
             }
-
-            Thread.Yield();
+            ServerPacingMetrics.Pace(0, PacingMetrics);
         }
 
         private void BeginServerHotPathPrewarm(bool wait = false)
@@ -770,38 +751,34 @@ namespace MphRead.Mods.Network
         /// </summary>
         private void Shutdown(ushort listenPort)
         {
-            foreach (var queued in _queuePeers.Values) _transport?.Send(queued.Endpoint, PacketType.Bye, ReadOnlySpan<byte>.Empty);
+            // Each owner is released even if a preceding cleanup operation fails.
+            void Release(string name, Action action)
+            {
+                try { action(); }
+                catch (Exception ex) { Log($"cleanup {name}: {ex.Message}"); }
+            }
+            _running = false;
+            Release("queue", () =>
+            {
+                foreach (var queued in _queuePeers.Values)
+                    _transport?.Send(queued.Endpoint, PacketType.Bye, ReadOnlySpan<byte>.Empty);
+            });
             _waitlist?.Clear();
             _queuePeers.Clear();
-            Telemetry.ProductionTelemetry.Shutdown();
+            Release("telemetry", Telemetry.ProductionTelemetry.Shutdown);
             Log("shutting down");
-            CancelLobbyMapPreparation();
-            _hostMapRequests.Dispose();
-            Hosts.StopAll("the server is shutting down");
-            _running = false;
-            try
-            {
-                // Say so, rather than letting the directory work it out from
-                // fifty seconds of silence. A server that has just been
-                // stopped is a server nobody should still be offered.
-                Reporter?.Farewell(listenPort);
-            }
-            catch (Exception)
-            {
-                // Nothing left to tell, and nothing left to do about it.
-            }
-            Reporter?.Dispose();
+            Release("map preparation", CancelLobbyMapPreparation);
+            Release("host map requests", _hostMapRequests.Dispose);
+            Release("hosted children", () => Hosts.StopAll("the server is shutting down"));
+            Release("directory farewell", () => Reporter?.Farewell(listenPort));
+            Release("directory reporter", () => Reporter?.Dispose());
             Reporter = null;
-            _transport?.Dispose();
+            Release("transport", () => _transport?.Dispose());
             _transport = null;
-            // After the socket, so nothing arrives for a world that is being
-            // torn down. Stop() also ends the NetSession this process held as
-            // the authority, which is what a restarting server has to have
-            // done before it starts another.
-            ServerReplayRecorder.Stop();
-            _sim?.Stop();
+            Release("replay recorder", () => ServerReplayRecorder.Stop());
+            Release("simulation", () => _sim?.Stop());
             _sim = null;
-            Mods.RoomPrewarm.Clear();
+            Release("room prewarm", () => Mods.RoomPrewarm.Clear());
             NetHitClaims.CombatAckSink = null;
         }
 
@@ -2435,7 +2412,7 @@ namespace MphRead.Mods.Network
             if (packet.Payload.Length >= IntentPacket.Size)
             {
                 IntentPacket intent = IntentPacket.Read(packet.Payload);
-                if (!NetFireEvents.Validate(intent)) return;
+                if (!NetIntentPolicy.Validate(intent)) return;
                 ushort life = NetPlayerLifecycle.Get(peer.SlotIndex);
                 var rejection = intent.MatchId != _matchId ? NetIntentRejection.WrongMatch
                     : intent.AuthorityEpoch != _authorityEpoch ? NetIntentRejection.WrongEpoch
@@ -2449,7 +2426,7 @@ namespace MphRead.Mods.Network
                     connection?.MinimumRttMilliseconds,
                     peer.TimingMatch == _matchId && peer.TimingEpoch == _authorityEpoch
                         && now - peer.TimingReportedAt <= 3 ? peer.PresentationDelay : null));
-                NetSession.AcceptSlotIntent(peer.SlotIndex, intent);
+                if (!NetSession.AcceptSlotIntent(peer.SlotIndex, intent)) return;
                 // UDP reorders; an older frame must not replace a newer one.
                 //
                 // Unless it is far enough behind to be a different session

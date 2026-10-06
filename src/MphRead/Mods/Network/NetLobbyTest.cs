@@ -476,7 +476,10 @@ namespace MphRead.Mods.Network
             try
             {
                 using var rig = new Rig(room: definition.Name);
-                Client owner = rig.Add(310), other = rig.Add(311);
+                // Deliberately lose the first unreliable admission datagram.
+                // The simulated client must retry within the existing deadline.
+                Client owner = rig.Add(310, dropInitialHello: true), other = rig.Add(311);
+                Check(owner.HelloSendCount > 0, "lost initial Hello is retried before the admission deadline");
                 NetworkMapIdentity identity = owner.State!.Value.Match.MapIdentity;
                 Check(identity.IsCustom && identity.Content(definition.Name).Matches(MapContentIdentity.FromPackage(path)), "server announces exact custom package");
                 var wire = new byte[NetworkMapIdentity.Size]; identity.Write(wire);
@@ -953,13 +956,20 @@ namespace MphRead.Mods.Network
             public readonly List<ChatPacket> Chats = new();
             public readonly Dictionary<uint, LobbyCommandResultPacket> Results = new();
             private uint _command;
-            public Client(int port, uint id, Guid token = default)
+            private readonly Guid _admissionToken;
+            private readonly Stopwatch _helloClock = Stopwatch.StartNew();
+            private long _lastHelloMilliseconds;
+            public int HelloSendCount { get; private set; }
+            public Client(int port, uint id, Guid token = default, bool dropInitialHello = false)
             {
-                Id = id; Server = new IPEndPoint(IPAddress.Loopback, port);
-                Transport.AnswerPingsImmediately(); Hello(token);
+                Id = id; Server = new IPEndPoint(IPAddress.Loopback, port); _admissionToken = token;
+                Transport.AnswerPingsImmediately();
+                if (!dropInitialHello) Hello(token);
             }
             public void Hello(Guid token = default)
             {
+                _lastHelloMilliseconds = _helloClock.ElapsedMilliseconds;
+                HelloSendCount++;
                 byte[] bytes = new byte[22]; bytes[0] = NetConfig.ProtocolVersion; bytes[1] = Slot < 0 ? (byte)255 : (byte)Slot;
                 BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(2), Id); token.TryWriteBytes(bytes.AsSpan(6));
                 Send(PacketType.Hello, bytes);
@@ -1011,6 +1021,11 @@ namespace MphRead.Mods.Network
                     if (packet.Type == PacketType.MapChoices && packet.Payload.Length >= MapChoicesPacket.Size
                         && MapChoicesPacket.Read(packet.Payload).Open != 0) OpenMapChoices++;
                 }
+                // Hello precedes the reliable channel. Match NetSession's
+                // one-second retry while awaiting Welcome; Rig.Wait still owns
+                // the bounded admission deadline and reports server failures.
+                if (Slot < 0 && !Refused && _helloClock.ElapsedMilliseconds - _lastHelloMilliseconds >= 1000)
+                    Hello(_admissionToken);
             }
             public void Rebind() { Hello(); }
             public void Dispose() { Send(PacketType.Bye, Array.Empty<byte>()); Transport.Dispose(); }
@@ -1036,9 +1051,9 @@ namespace MphRead.Mods.Network
                 _thread = new Thread(() => { try { Server.Run(); } catch (Exception ex) { _error = ex; } }) { IsBackground = true };
                 _thread.Start(); Wait(() => Server.Listening, "server listening");
             }
-            public Client Add(uint id, Guid token = default)
+            public Client Add(uint id, Guid token = default, bool dropInitialHello = false)
             {
-                var client = new Client(Server.BoundPort, id, token); Clients.Add(client);
+                var client = new Client(Server.BoundPort, id, token, dropInitialHello); Clients.Add(client);
                 Wait(() => client.Slot >= 0 && client.State != null, "client admitted"); client.Identify();
                 Stable(); return client;
             }

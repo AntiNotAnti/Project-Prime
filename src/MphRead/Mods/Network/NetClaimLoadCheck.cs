@@ -79,7 +79,7 @@ public static class NetClaimLoadCheck
                         while (queue.TryDequeue(now, out var delivery))
                         {
                             delivery.Claim.Write(wire.AsSpan(1));
-                            NetHitClaims.Receive(delivery.Shooter, wire);
+                            NetHitClaims.Receive(delivery.Shooter, wire, requireAttackEvidence: false);
                         }
                     NetHitClaims.Tick();
                     while (physical.TryPeek(out _, out int due) && due <= tick)

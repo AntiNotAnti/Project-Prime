@@ -267,7 +267,10 @@ namespace MphRead.Mods.Network
             {
                 return current;
             }
-            return current + NetSession.RemoteIntents[player.SlotIndex].Position - player.Position;
+            if (!NetSession.RemoteIntentValid[player.SlotIndex]) return current;
+            Vector3 reported = NetSession.RemoteIntents[player.SlotIndex].Position;
+            return NetIntentPolicy.Sane(reported) && reported != Vector3.Zero
+                ? current + reported - player.Position : current;
         }
 
         public static Vector3 RemoteShotDirection(PlayerEntity player, Vector3 current)

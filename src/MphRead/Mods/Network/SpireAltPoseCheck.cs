@@ -24,8 +24,14 @@ namespace MphRead.Mods.Network
             }
             try
             {
+                NetSession.ApplyMatchState(new MatchStatePacket { MatchId = 1, AuthorityEpoch = 1,
+                    RoomKey = room, Mode = (byte)GameMode.Battle }, false);
                 RosterPacket roster = RosterPacket.Create();
+                roster.MatchId = 1;
+                roster.AuthorityEpoch = 1;
+                roster.Revision = 1;
                 roster.Slots[0] = 0;
+                roster.Generations[0] = 1;
                 roster.Hunters[0] = (byte)Hunter.Spire;
                 roster.Colors[0] = 0;
                 roster.Pings[0] = 0;
@@ -71,6 +77,10 @@ namespace MphRead.Mods.Network
                     presses = edgeSender.Record(frame, buttons & (IntentButtons.Morph | IntentButtons.AltAttack));
                     NetSession.AcceptSlotIntent(0, new IntentPacket
                     {
+                        MatchId = 1,
+                        AuthorityEpoch = 1,
+                        SlotGeneration = NetPlayerLifecycle.Generation(0),
+                        LifeId = NetPlayerLifecycle.Get(0),
                         Frame = frame,
                         Buttons = buttons,
                         Presses = presses,
@@ -133,6 +143,7 @@ namespace MphRead.Mods.Network
             finally
             {
                 sim.Stop();
+                NetSession.Stop();
             }
         }
     }

@@ -116,6 +116,7 @@ public static class NetFireEvents
         public ShotKey Fence;
         public uint NextId, LastConsumed, SelectedAt;
         public bool Seen, Selected;
+        public bool AcceptedEmission, AcceptedPhaseConsumed;
         public FireEvent Active;
         public readonly FireEvent[] Events = new FireEvent[Capacity];
         public int Count;
@@ -126,11 +127,11 @@ public static class NetFireEvents
     {
         var state = _slots[slot]; var fence = ShotKey.For(slot, 0);
         if (state.Fence != fence)
-        { state.Fence = fence; state.Count = 0; state.NextId = state.LastConsumed = 0; state.Seen = state.Selected = false; state.Active = default; }
+        { state.Fence = fence; state.Count = 0; state.NextId = state.LastConsumed = 0; state.Seen = state.Selected = false; state.Active = default; state.AcceptedEmission = state.AcceptedPhaseConsumed = false; }
         return state;
     }
     public static void Reset()
-    { foreach (var slot in _slots) { slot.Fence = default; slot.Count = 0; slot.Selected = slot.Seen = false; slot.Active = default; slot.NextId = slot.LastConsumed = 0; } }
+    { NetAcceptedAttacks.Reset(); foreach (var slot in _slots) { slot.Fence = default; slot.Count = 0; slot.Selected = slot.Seen = false; slot.Active = default; slot.NextId = slot.LastConsumed = 0; slot.AcceptedEmission = slot.AcceptedPhaseConsumed = false; } }
     private static bool Finite(Vector3 value)
         => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
     public static bool Validate(in IntentPacket intent)
@@ -158,6 +159,7 @@ public static class NetFireEvents
     {
         if (player.SceneServices.IsReplica)
             return player.OwningScene.ReplayPoses?.UsesFireEvents(player) == true;
+        if ((uint)player.SlotIndex < 8 && For(player.SlotIndex).AcceptedEmission) return true;
         return NetSession.Active && !player.IsBot && player.SlotIndex != NetSession.LocalSlot
             && (uint)player.SlotIndex < 8 && NetSession.RemoteIntentValid[player.SlotIndex]
             && NetSession.RemoteIntents[player.SlotIndex].HasFireEvents;
@@ -222,6 +224,7 @@ public static class NetFireEvents
         {
             var e = intent.FireEvents[i];
             if (state.Seen && !NetLifecycleTracker.Newer(e.ShotId, state.LastConsumed)) continue;
+            if (NetSession.IsAuthority && !NetAcceptedAttacks.Authorized(player.SlotIndex, e.ShotId)) continue;
             if (e.Kind == FireEventKind.ContinuousTick && e.ContinuousPhase != intent.ContinuousFireTick)
             { state.Seen = true; state.LastConsumed = e.ShotId; continue; }
             state.Active = e; state.Selected = true; state.SelectedAt = NetSession.NetFrame;
@@ -237,6 +240,83 @@ public static class NetFireEvents
             }
             return;
         }
+    }
+    internal static void SelectAccepted(PlayerEntity player, in FireEvent fire)
+    {
+        var state = For(player.SlotIndex);
+        state.Active = fire; state.Selected = true; state.SelectedAt = NetSession.NetFrame;
+        state.LastConsumed = fire.ShotId; state.Seen = true;
+    }
+
+    /// <summary>
+    /// Temporarily expose one admitted authority event to native spawning and
+    /// rewind. Its continuous phase is independent of the newest carrier clock.
+    /// Restore presentation/selection state and the previous homing target even
+    /// when native spawning fails; consumed shot IDs only move forward.
+    /// </summary>
+    internal static AcceptedEmissionScope BeginAcceptedEmission(PlayerEntity player,
+        in FireEvent fire, NetTargetIdentity target)
+        => new(player, fire, target);
+
+    internal sealed class AcceptedEmissionScope : IDisposable
+    {
+        private PlayerEntity? _player;
+        private readonly Slot _state;
+        private readonly ShotKey _fence;
+        private readonly FireEvent _previousActive;
+        private readonly bool _previousSelected, _previousSeen;
+        private readonly uint _previousSelectedAt, _previousConsumed;
+        private readonly NetTargetIdentity _previousTarget;
+
+        internal AcceptedEmissionScope(PlayerEntity player, in FireEvent fire, NetTargetIdentity target)
+        {
+            if (!NetSession.IsAuthority || player.SceneServices.IsReplica || (uint)player.SlotIndex >= 8
+                || fire.ShotId == 0 || !NetAcceptedAttacks.Authorized(player.SlotIndex, fire.ShotId))
+                throw new InvalidOperationException("Native accepted emission requires an admitted authority event.");
+            _state = For(player.SlotIndex);
+            if (_state.AcceptedEmission) throw new InvalidOperationException("Accepted emission scopes cannot overlap.");
+            _fence = _state.Fence;
+            _previousActive = _state.Active; _previousSelected = _state.Selected;
+            _previousSeen = _state.Seen; _previousConsumed = _state.LastConsumed;
+            _previousSelectedAt = _state.SelectedAt;
+            _previousTarget = player.ModConsumePendingHomingTarget();
+            _player = player;
+            SelectAccepted(player, fire);
+            player.ModSetPendingHomingTarget(target);
+            _state.AcceptedEmission = true; _state.AcceptedPhaseConsumed = false;
+        }
+
+        public void Dispose()
+        {
+            PlayerEntity? player = _player;
+            if (player == null) return;
+            _player = null;
+            // A lifecycle reset owns its new slot; never restore old-life state.
+            if (For(player.SlotIndex).Fence != _fence) return;
+            uint consumed = _state.LastConsumed;
+            if (_previousSeen && !NetLifecycleTracker.Newer(consumed, _previousConsumed))
+                consumed = _previousConsumed;
+            _state.LastConsumed = consumed; _state.Seen |= _previousSeen;
+            _state.Active = _previousActive;
+            _state.Selected = _previousSelected && (!_state.Seen
+                || NetLifecycleTracker.Newer(_previousActive.ShotId, consumed));
+            _state.SelectedAt = _previousSelectedAt;
+            _state.AcceptedEmission = _state.AcceptedPhaseConsumed = false;
+            player.ModSetPendingHomingTarget(_previousTarget);
+        }
+    }
+
+    internal static bool TryAcceptedContinuousPhase(PlayerEntity player, out ulong phase, out bool fresh)
+    {
+        phase = 0; fresh = false;
+        if (player.SceneServices.IsReplica || !NetSession.IsAuthority || (uint)player.SlotIndex >= 8) return false;
+        Slot state = For(player.SlotIndex);
+        if (!state.AcceptedEmission || state.Active.Kind != FireEventKind.ContinuousTick
+            || state.Active.ContinuousPhase == 0 || state.Active.Weapon != (byte)player.EquipInfo.Weapon.Beam) return false;
+        phase = state.Active.ContinuousPhase;
+        fresh = !state.AcceptedPhaseConsumed;
+        state.AcceptedPhaseConsumed = true;
+        return true;
     }
     internal static void Begin(PlayerEntity player, Vector3 origin = default,
         Vector3 direction = default, Vector3 aim = default, Vector3 view = default,
@@ -273,8 +353,9 @@ public static class NetFireEvents
             && view.LengthSquared >= 0.000001f;
         byte poseFlags = poseValid ? FireEvent.FlagPose : (byte)0;
         if (poseValid && reticleValid) poseFlags |= FireEvent.FlagReticle;
-        state.Active = new(id, NetSession.NetFrame, ack, sub, kind, (byte)player.CurrentWeapon,
-            (byte)Math.Clamp((int)player.EquipInfo.ChargeLevel, 0, 255), shotState,
+        state.Active = new(id, NetSession.NetFrame, ack, sub, kind,
+            (byte)(turret ? player.ModTurretAttackWeapon.Beam : player.CurrentWeapon),
+            turret ? (byte)0 : (byte)Math.Clamp((int)player.EquipInfo.ChargeLevel, 0, 255), turret ? 0 : shotState,
             poseFlags,
             poseValid ? origin : default,
             poseValid ? direction.Normalized() : default,
@@ -284,7 +365,8 @@ public static class NetFireEvents
     }
     internal static void Commit(PlayerEntity player)
     {
-        if (!NetSession.Active || player.SceneServices.IsReplica || (uint)player.SlotIndex >= 8 || UsesEvents(player)) return;
+        if (!NetSession.Active || player.SceneServices.IsReplica || (uint)player.SlotIndex >= 8) return;
+        if (UsesEvents(player)) { NetAcceptedAttacks.Launched(player); return; }
         var state = For(player.SlotIndex);
         if (state.Active.ShotId == 0) return;
         if (state.Count == Capacity) { Array.Copy(state.Events, 1, state.Events, 0, Capacity - 1); state.Count--; }

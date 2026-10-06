@@ -330,16 +330,16 @@ namespace MphRead.NetTest
                     ShooterLifeId = 2, VictimSlot = 1, VictimGeneration = 10, VictimLifeId = 7, ClaimId = 20000 };
                 byte[] body = new byte[1 + HitClaimPacket.Size]; body[0] = 1;
                 claim.Write(body.AsSpan(1));
-                NetHitClaims.Receive(0, body);
+                NetHitClaims.Receive(0, body, requireAttackEvidence: false);
                 Check(NetPlayerLifecycle.OldLifeClaims == 1 && NetHitClaims.AppliedHere == 0,
                     "delayed claim cannot damage victim's next life");
                 claim.VictimLifeId = 8; claim.ShooterLifeId = 1;
-                claim.Write(body.AsSpan(1)); NetHitClaims.Receive(0, body);
+                claim.Write(body.AsSpan(1)); NetHitClaims.Receive(0, body, requireAttackEvidence: false);
                 Check(NetPlayerLifecycle.OldLifeClaims == 2, "claim from previous shooter life refused");
                 claim.ShooterLifeId = 2; claim.ClaimId = 1;
-                claim.Write(body.AsSpan(1)); NetHitClaims.Receive(0, body);
+                claim.Write(body.AsSpan(1)); NetHitClaims.Receive(0, body, requireAttackEvidence: false);
                 Check(NetHitClaims.RepeatsHere == 0, "stale-life claim does not poison current claim ordering");
-                NetHitClaims.Receive(0, body);
+                NetHitClaims.Receive(0, body, requireAttackEvidence: false);
                 Check(NetHitClaims.RepeatsHere == 1, "current claim retransmission is deduplicated");
             }
             finally { typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, false); }
