@@ -61,7 +61,7 @@ namespace MphRead.Mods
         // Custom-map authored previews do not need this marker; it is used by
         // the RmlUi menu stage to know whether a locally rendered room image
         // predates the clean no-player/no-pickup presentation pass.
-        public const int CinematicPresentationVersion = 2;
+        public const int CinematicPresentationVersion = 3;
 
         public static string CinematicMarkerFor(string roomKey)
             => PathFor(roomKey) + ".cinematic";
