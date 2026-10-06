@@ -862,6 +862,33 @@ namespace MphRead.Mods
             {
                 WindowMode.ForceStartup(WindowStartMode.Windowed);
             }
+#if MPHREAD_RMLUI_POC && MPHREAD_SHELL
+            bool rmlUiPrototypeLauncher = HasFlag(args, "rmluipoc")
+                || HasFlag(args, "rmluipocshot");
+            if (rmlUiPrototypeLauncher && !HasFlag(args, "menu"))
+            {
+                // Enter the shell directly so the proof can establish that its
+                // front screen does not require Avalonia to be initialized at
+                // all. Shell.Run lazily starts the classic surface only if the
+                // native RmlUi bridge refuses to start.
+                if (!Launcher.ClientInstanceGuard.TryAcquireForProcess(TimeSpan.FromSeconds(5)))
+                    return true;
+                MapGen.CustomRooms.DeferInitialRegistration = true;
+                bool ran = Launcher.Gui.Shell.Run();
+                if (!ran) MapGen.CustomRooms.RestoreDeferredRegistration();
+                if (ran) return true;
+
+                if (HasFlag(args, "rmluipocshot"))
+                {
+                    Environment.ExitCode = 1;
+                    return true;
+                }
+
+                if (OperatingSystem.IsWindows()) Mods.ConsoleWindow.Show();
+                Launcher.TextLauncher.Run();
+                return true;
+            }
+#endif
             if ((HasFlag(args, "launcher") || defaultLauncher) && !HasFlag(args, "menu"))
             {
 #if MPHREAD_AVALONIA
