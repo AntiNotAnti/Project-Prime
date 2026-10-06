@@ -576,6 +576,13 @@ button {
     border-color: #72c7ff;
 }
 
+.social-open #topbar button,
+.social-open #activity_panel button,
+.social-open #session_panel button,
+.social-open #footerbar button {
+    tab-index: none;
+}
+
 #social_backdrop {
     display: none;
     position: absolute;
