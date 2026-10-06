@@ -53,6 +53,9 @@ namespace MphRead.Mods.Launcher.Gui
         private static Task<SocialSnapshot>? _socialLoad;
         private static Task<SocialMutationResult>? _socialMutation;
         private static Task<SocialLookupResult>? _socialLookup;
+        private static Task<SocialInviteMutationResult>? _socialInviteMutation;
+        private static Task<SocialJoinResolution>? _socialJoin;
+        private static readonly Queue<SocialJoinResolution> _verifiedSocialJoins = new();
         private static string _socialLookupQuery = "";
         private static SocialSnapshot? _socialSnapshot;
         private static SocialPlayer? _socialLookupPlayer;
@@ -129,7 +132,13 @@ namespace MphRead.Mods.Launcher.Gui
                 _socialLoad = null;
                 _socialMutation = null;
                 _socialLookup = null;
-                _socialLookupQuery = "";
+                _socialInviteMutation = null;
+                _socialJoin = null;
+                _verifiedSocialJoins.Clear();
+                _socialInviteMutation = null;
+            _socialJoin = null;
+            _verifiedSocialJoins.Clear();
+            _socialLookupQuery = "";
                 _socialSnapshot = null;
                 _socialLookupPlayer = null;
                 _socialPendingAction = "";
@@ -279,6 +288,17 @@ namespace MphRead.Mods.Launcher.Gui
                 return true;
             }
             command = string.Empty;
+            return false;
+        }
+
+        public static bool TryTakeSocialJoin(out SocialJoinResolution resolution)
+        {
+            if (_verifiedSocialJoins.Count > 0)
+            {
+                resolution = _verifiedSocialJoins.Dequeue();
+                return true;
+            }
+            resolution = default;
             return false;
         }
 
