@@ -361,12 +361,14 @@ jobs:
         run: |
           set -euo pipefail
           apk=$(ls publish/android/*-Signed.apk | head -1)
+          entries="$RUNNER_TEMP/project-prime-apk-entries.txt"
+          unzip -Z1 "$apk" > "$entries"
           for native in \
             lib/arm64-v8a/libwgpu_native.so \
             lib/x86_64/libwgpu_native.so \
             lib/arm64-v8a/libktx.so \
             lib/x86_64/libktx.so; do
-            unzip -l "$apk" | grep -Fq "$native" || {
+            grep -Fxq "$native" "$entries" || {
               echo "::error::release APK is missing $native"
               exit 1
             }
