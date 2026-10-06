@@ -247,6 +247,12 @@ begin
         if exists (select 1 from prime.friendships where player_a = v_a and player_b = v_b) then
             return jsonb_build_object('ok', true, 'status', 'already_friends', 'snapshot', prime.social_snapshot(p_actor));
         end if;
+        if exists (
+            select 1 from prime.friend_requests
+            where sender_id = p_actor and recipient_id = v_target
+        ) then
+            return jsonb_build_object('ok', true, 'status', 'request_pending', 'snapshot', prime.social_snapshot(p_actor));
+        end if;
 
         if exists (
             select 1 from prime.friend_requests
@@ -260,7 +266,8 @@ begin
                 return jsonb_build_object('ok', false, 'status', 'friend_limit');
             end if;
             delete from prime.friend_requests
-            where sender_id = v_target and recipient_id = p_actor;
+            where (sender_id = v_target and recipient_id = p_actor)
+               or (sender_id = p_actor and recipient_id = v_target);
             insert into prime.friendships (player_a, player_b)
             values (v_a, v_b)
             on conflict do nothing;
@@ -270,6 +277,11 @@ begin
             from prime.friend_requests where sender_id = p_actor;
             if v_actor_count >= 50 then
                 return jsonb_build_object('ok', false, 'status', 'request_limit');
+            end if;
+            select count(*) into v_target_count
+            from prime.friend_requests where recipient_id = v_target;
+            if v_target_count >= 100 then
+                return jsonb_build_object('ok', false, 'status', 'recipient_request_limit');
             end if;
             insert into prime.friend_requests (sender_id, recipient_id)
             values (p_actor, v_target)
@@ -285,6 +297,12 @@ begin
         ) then
             return jsonb_build_object('ok', false, 'status', 'blocked');
         end if;
+        if exists (select 1 from prime.friendships where player_a = v_a and player_b = v_b) then
+            delete from prime.friend_requests
+            where (sender_id = v_target and recipient_id = p_actor)
+               or (sender_id = p_actor and recipient_id = v_target);
+            return jsonb_build_object('ok', true, 'status', 'already_friends', 'snapshot', prime.social_snapshot(p_actor));
+        end if;
         if not exists (
             select 1 from prime.friend_requests
             where sender_id = v_target and recipient_id = p_actor
@@ -299,7 +317,8 @@ begin
             return jsonb_build_object('ok', false, 'status', 'friend_limit');
         end if;
         delete from prime.friend_requests
-        where sender_id = v_target and recipient_id = p_actor;
+        where (sender_id = v_target and recipient_id = p_actor)
+           or (sender_id = p_actor and recipient_id = v_target);
         insert into prime.friendships (player_a, player_b)
         values (v_a, v_b)
         on conflict do nothing;
