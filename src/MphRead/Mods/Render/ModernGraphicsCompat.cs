@@ -1035,7 +1035,9 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             {
                 SurfaceTexture acquired = default;
                 long acquireStart = PerformanceStart();
-                _api.SurfaceGetCurrentTexture(_device.Surface, &acquired);
+                long traceAcquire = ProductionFrameTrace.StartOperation();
+                try { _api.SurfaceGetCurrentTexture(_device.Surface, &acquired); }
+                finally { ProductionFrameTrace.AcquireEnd(traceAcquire); }
                 if (acquireStart != 0)
                 {
                     double acquireMs = System.Diagnostics.Stopwatch.GetElapsedTime(acquireStart).TotalMilliseconds;

@@ -159,11 +159,20 @@ internal static class LowLatencyController
     // Disabled until a concrete backend provider and player-facing policy are
     // added. Marker plumbing is live now so provider integration is mechanical.
     internal static void Configure(LowLatencyMode mode) => _session.Configure(mode);
-    internal static ulong BeginFrame() => _session.BeginFrame();
-    internal static bool WaitForFrame(ulong frameId) => _session.WaitForFrame(frameId);
-    internal static bool Mark(ulong frameId, LowLatencyMarker marker) =>
-        _session.Mark(frameId, marker);
-    internal static void CancelFrame(ulong frameId) => _session.CancelFrame(frameId);
+    internal static ulong BeginFrame() { ProductionFrameTrace.Begin(); return _session.BeginFrame(); }
+    internal static bool WaitForFrame(ulong frameId)
+    {
+        long started = ProductionFrameTrace.StartOperation();
+        try { return _session.WaitForFrame(frameId); }
+        finally { ProductionFrameTrace.WaitEnd(started); }
+    }
+    internal static bool Mark(ulong frameId, LowLatencyMarker marker)
+    {
+        bool accepted = _session.Mark(frameId, marker);
+        if (accepted) ProductionFrameTrace.Mark(marker);
+        return accepted;
+    }
+    internal static void CancelFrame(ulong frameId) { ProductionFrameTrace.Cancel(); _session.CancelFrame(frameId); }
 
     internal static void InstallProvider(ILowLatencyProvider provider) =>
         _session.ReplaceProvider(provider);
