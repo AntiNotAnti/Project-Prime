@@ -23,7 +23,7 @@ namespace MphRead.Mods.Render
 
         public static void DrawUnderHunter(int width, int height)
         {
-            if (!Enabled || width <= 0 || height <= 0)
+            if (!Enabled || !LauncherHunter.Wanted || width <= 0 || height <= 0)
                 return;
 
             EnsureTexture();
