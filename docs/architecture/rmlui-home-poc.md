@@ -33,6 +33,19 @@ Slice 2 changes those contracts:
 
 Generated room images still come only from the player's locally extracted files. No cartridge-derived backdrop is added to the repository or release.
 
+## Slice A: cinematic integration pass
+
+The first real menu-stage captures still read as a sharp character composited over a flat room image. Slice A keeps the same renderer boundary and fixes the presentation cues without inventing a new gameplay scene:
+
+- the locally generated room photo receives a menu-only focal softening pass, with the center-right stage kept clearer than the chrome-heavy outer field;
+- the backdrop is slightly desaturated/cooled, with restrained highlight glow, left/right scrims, vignette and floor fade applied in the native GL photo shader rather than over the Hunter;
+- a procedural under-Hunter pass draws a broad cool light field, a subtle floor bounce and a soft contact shadow before the preview model;
+- the Hunter preview swaps from the neutral picker light to a warmer key plus stronger cool fill while the RmlUi stage owns the frame, creating silhouette/rim separation without changing gameplay lighting;
+- the old RmlUi wash/glow rectangles are removed so the vector layer no longer tints or flattens the character after it has been rendered;
+- every effect is presentation-only and disposable: no room state, gameplay light, collision, thumbnail source image or network state is modified.
+
+The background blur is intentionally a lightweight focal softening over the already-rendered room image, not a depth-buffer DOF effect. A true depth-aware menu scene remains a later Menu Stage renderer slice if the POC is promoted.
+
 ## macOS
 
 ```sh
