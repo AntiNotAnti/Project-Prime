@@ -29,7 +29,7 @@ namespace MphRead.Mods.Launcher.Gui
     internal static class RmlUiPrototype
     {
         private const string NativeLibraryName = "ProjectPrime.RmlUi.Native";
-        private const int ActionBufferSize = 128;
+        private const int ActionBufferSize = 512;
         private static readonly byte[] _actionBuffer = new byte[ActionBufferSize];
         private static readonly Queue<string> _commands = new();
         private static readonly GamepadUiRouter _gamepad = new();
