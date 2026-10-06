@@ -86,6 +86,10 @@ namespace MphRead.Mods.Render
         private static bool _programTried;
         private static int _photoUniform = -1, _noiseUniform = -1, _strengthUniform = -1;
         private static int _photoTexelUniform = -1, _noiseEnabledUniform = -1, _stageFxUniform = -1;
+        private static int _stageSoftnessUniform = -1, _stageSaturationUniform = -1;
+        private static int _stageCoolShiftUniform = -1, _stageVignetteUniform = -1;
+        private static int _stageLeftScrimUniform = -1, _stageRightScrimUniform = -1;
+        private static int _stageFloorFadeUniform = -1, _stageHighlightGlowUniform = -1;
 
         /// <summary>`#backdrop { opacity: .62 }`.</summary>
         private const float Strength = 0.16f;
@@ -144,6 +148,14 @@ namespace MphRead.Mods.Render
                 _photoTexelUniform = GL.GetUniformLocation(program, "photo_texel");
                 _noiseEnabledUniform = GL.GetUniformLocation(program, "noise_enabled");
                 _stageFxUniform = GL.GetUniformLocation(program, "stage_fx");
+                _stageSoftnessUniform = GL.GetUniformLocation(program, "stage_softness");
+                _stageSaturationUniform = GL.GetUniformLocation(program, "stage_saturation");
+                _stageCoolShiftUniform = GL.GetUniformLocation(program, "stage_cool_shift");
+                _stageVignetteUniform = GL.GetUniformLocation(program, "stage_vignette");
+                _stageLeftScrimUniform = GL.GetUniformLocation(program, "stage_left_scrim");
+                _stageRightScrimUniform = GL.GetUniformLocation(program, "stage_right_scrim");
+                _stageFloorFadeUniform = GL.GetUniformLocation(program, "stage_floor_fade");
+                _stageHighlightGlowUniform = GL.GetUniformLocation(program, "stage_highlight_glow");
                 Mods.DebugLog.Line("ui", "the moving backdrop is on");
                 return true;
             }
@@ -199,18 +211,21 @@ namespace MphRead.Mods.Render
             {
                 u = (float)(window / picture);
             }
-            // Keep a little image outside the viewport so the scene can
-            // breathe underneath the UI without ever exposing an edge.
-            float zoom = Math.Clamp(LauncherBackdrop.Zoom, 0.84f, 1f);
+            // Slice B: the menu stage owns an authored camera recipe per room.
+            // Non-RmlUi shell routes retain the established launcher crop.
+            Launcher.MenuStageProfile stage = Launcher.LauncherMenuStage.Current;
+            float zoom = Math.Clamp(StageFxEnabled ? stage.Zoom : LauncherBackdrop.Zoom, 0.82f, 1f);
             u *= zoom;
             v *= zoom;
-            float centreU = LauncherBackdrop.FocusX;
-            float centreV = LauncherBackdrop.FocusY;
+            float centreU = StageFxEnabled ? stage.FocusX : LauncherBackdrop.FocusX;
+            float centreV = StageFxEnabled ? stage.FocusY : LauncherBackdrop.FocusY;
             if (!LauncherPrefs.ReduceMotion)
             {
                 double seconds = Environment.TickCount64 / 1000.0;
-                centreU += (float)Math.Sin(seconds * 0.075) * (1 - u) * 0.20f;
-                centreV += (float)Math.Cos(seconds * 0.052) * (1 - v) * 0.14f;
+                float driftX = StageFxEnabled ? stage.DriftX : 0.20f;
+                float driftY = StageFxEnabled ? stage.DriftY : 0.14f;
+                centreU += (float)Math.Sin(seconds * 0.075) * (1 - u) * driftX;
+                centreV += (float)Math.Cos(seconds * 0.052) * (1 - v) * driftY;
             }
             float u0 = centreU - u / 2;
             float u1 = centreU + u / 2;
@@ -259,6 +274,14 @@ namespace MphRead.Mods.Render
                     1f / Math.Max(_width, 1), 1f / Math.Max(_height, 1));
                 GL.Uniform1(_noiseEnabledUniform, noiseReady ? 1 : 0);
                 GL.Uniform1(_stageFxUniform, StageFxEnabled ? 1 : 0);
+                GL.Uniform1(_stageSoftnessUniform, stage.Softness);
+                GL.Uniform1(_stageSaturationUniform, stage.Saturation);
+                GL.Uniform1(_stageCoolShiftUniform, stage.CoolShift);
+                GL.Uniform1(_stageVignetteUniform, stage.Vignette);
+                GL.Uniform1(_stageLeftScrimUniform, stage.LeftScrim);
+                GL.Uniform1(_stageRightScrimUniform, stage.RightScrim);
+                GL.Uniform1(_stageFloorFadeUniform, stage.FloorFade);
+                GL.Uniform1(_stageHighlightGlowUniform, stage.HighlightGlow);
             }
             GL.MatrixMode(MatrixMode.Projection);
             GL.PushMatrix();
