@@ -30,12 +30,30 @@ DIR="${1:-publish/linux-x64}"
 BIN=""
 for candidate in ProjectPrimeServer.exe ProjectPrimeServer ProjectPrime.exe ProjectPrime \
                  MphReadServer.exe MphReadServer MphRead.exe MphRead; do
-  if [ -x "$DIR/$candidate" ]; then
-    BIN="$DIR/$candidate"
-    break
+  if [ -f "$DIR/$candidate" ]; then
+    # actions/download-artifact does not guarantee preservation of the Unix
+    # executable bit. A release package may therefore contain the correct
+    # self-contained apphost but arrive in this assembly job as 0644. Restore
+    # that bit before testing it instead of falling back to a DLL that a
+    # single-file publish intentionally does not contain.
+    case "$candidate" in
+      *.exe) ;;
+      *) chmod +x "$DIR/$candidate" 2>/dev/null || true ;;
+    esac
+    if [ -x "$DIR/$candidate" ] || [[ "$candidate" == *.exe ]]; then
+      BIN="$DIR/$candidate"
+      break
+    fi
   fi
 done
-[ -n "$BIN" ] || BIN="dotnet $DIR/ProjectPrime.dll"
+if [ -z "$BIN" ]; then
+  if [ -f "$DIR/ProjectPrime.dll" ]; then
+    BIN="dotnet $DIR/ProjectPrime.dll"
+  else
+    echo "FAIL: no runnable Project Prime server binary found in $DIR"
+    exit 1
+  fi
+fi
 
 PYTHON="python3"
 command -v "$PYTHON" >/dev/null 2>&1 || PYTHON="python"
