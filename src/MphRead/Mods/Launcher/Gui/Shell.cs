@@ -163,7 +163,15 @@ namespace MphRead.Mods.Launcher.Gui
                 LifecycleTiming.Startup("RmlUi proof requested; Avalonia surface deferred");
             }
             LauncherPrefs.Load();
+#if MPHREAD_RMLUI_POC
+            // Deterministic RmlUi screenshot fixtures must not depend on Auth,
+            // Realtime or network availability. Interactive POC runs still use
+            // the normal social presence lifetime.
+            if (!RmlUiPrototype.CaptureRequested)
+                SocialPresenceClient.Start();
+#else
             SocialPresenceClient.Start();
+#endif
             LifecycleTiming.Startup("launcher preferences loaded");
             Interlocked.Exchange(ref _firstFrameStarted, 0);
             // The backdrop is GL's from here on: this is the one head with a
