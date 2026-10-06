@@ -191,6 +191,8 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      - name: validate authored menu-stage profiles
+        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -menustagecheck
       - name: install native and window dependencies
         run: |
           sudo apt-get update -qq
