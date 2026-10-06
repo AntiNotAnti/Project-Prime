@@ -826,9 +826,14 @@ fn mapped_normal() -> vec3<f32> {
     var dp2_: vec3<f32>;
     var duv1_: vec2<f32>;
     var duv2_: vec2<f32>;
+    var uvScale: f32;
     var det: f32;
     var tangent: vec3<f32>;
     var bitangent: vec3<f32>;
+    var tangentLength2_: f32;
+    var bitangentLength2_: f32;
+    var local: f32;
+    var orientation: f32;
     var nm: vec3<f32>;
 
     let _e196: vec3<f32> = surface_normal_1;
@@ -851,61 +856,123 @@ fn mapped_normal() -> vec3<f32> {
     let _e218: vec2<f32> = dpdy(_e217);
     duv2_ = _e218;
     let _e220: vec2<f32> = duv1_;
-    let _e222: vec2<f32> = duv2_;
+    let _e222: vec2<f32> = duv1_;
     let _e225: vec2<f32> = duv1_;
-    let _e227: vec2<f32> = duv2_;
-    det = ((_e220.x * _e222.y) - (_e225.y * _e227.x));
-    let _e233: f32 = det;
-    if (abs(_e233) < 0.000001f) {
-        let _e237: vec3<f32> = n_2;
-        return _e237;
-    }
-    let _e238: vec3<f32> = dp1_;
-    let _e239: vec2<f32> = duv2_;
-    let _e242: vec3<f32> = dp2_;
-    let _e243: vec2<f32> = duv1_;
-    let _e247: f32 = det;
-    let _e250: vec3<f32> = dp1_;
+    let _e227: vec2<f32> = duv1_;
+    let _e230: vec2<f32> = duv1_;
+    let _e232: vec2<f32> = duv1_;
+    let _e235: vec2<f32> = duv1_;
+    let _e237: vec2<f32> = duv1_;
+    let _e241: vec2<f32> = duv2_;
+    let _e243: vec2<f32> = duv2_;
+    let _e246: vec2<f32> = duv2_;
+    let _e248: vec2<f32> = duv2_;
     let _e251: vec2<f32> = duv2_;
-    let _e254: vec3<f32> = dp2_;
-    let _e255: vec2<f32> = duv1_;
-    let _e259: f32 = det;
-    tangent = normalize((((_e250 * _e251.y) - (_e254 * _e255.y)) / vec3(_e259)));
-    let _e264: vec3<f32> = dp1_;
-    let _e266: vec2<f32> = duv2_;
-    let _e269: vec3<f32> = dp2_;
-    let _e270: vec2<f32> = duv1_;
-    let _e274: f32 = det;
-    let _e277: vec3<f32> = dp1_;
-    let _e279: vec2<f32> = duv2_;
-    let _e282: vec3<f32> = dp2_;
-    let _e283: vec2<f32> = duv1_;
-    let _e287: f32 = det;
-    bitangent = normalize((((-(_e277) * _e279.x) + (_e282 * _e283.x)) / vec3(_e287)));
-    let _e293: vec2<f32> = texcoord_1;
-    let _e294: vec4<f32> = prime_sample_normal_tex(_e293);
-    nm = ((_e294.xyz * 2f) - vec3(1f));
-    let _e302: vec3<f32> = tangent;
-    let _e303: vec3<f32> = nm;
-    let _e306: vec3<f32> = bitangent;
-    let _e307: vec3<f32> = nm;
-    let _e311: vec3<f32> = n_2;
-    let _e312: vec3<f32> = nm;
-    let _e316: vec3<f32> = tangent;
-    let _e317: vec3<f32> = nm;
-    let _e320: vec3<f32> = bitangent;
-    let _e321: vec3<f32> = nm;
-    let _e325: vec3<f32> = n_2;
-    let _e326: vec3<f32> = nm;
-    return normalize((((_e316 * _e317.x) + (_e320 * _e321.y)) + (_e325 * _e326.z)));
+    let _e253: vec2<f32> = duv2_;
+    let _e256: vec2<f32> = duv2_;
+    let _e258: vec2<f32> = duv2_;
+    let _e262: vec2<f32> = duv1_;
+    let _e264: vec2<f32> = duv1_;
+    let _e267: vec2<f32> = duv1_;
+    let _e269: vec2<f32> = duv1_;
+    let _e272: vec2<f32> = duv1_;
+    let _e274: vec2<f32> = duv1_;
+    let _e277: vec2<f32> = duv1_;
+    let _e279: vec2<f32> = duv1_;
+    let _e283: vec2<f32> = duv2_;
+    let _e285: vec2<f32> = duv2_;
+    let _e288: vec2<f32> = duv2_;
+    let _e290: vec2<f32> = duv2_;
+    let _e293: vec2<f32> = duv2_;
+    let _e295: vec2<f32> = duv2_;
+    let _e298: vec2<f32> = duv2_;
+    let _e300: vec2<f32> = duv2_;
+    uvScale = max(max(abs(_e274.x), abs(_e279.y)), max(abs(_e295.x), abs(_e300.y)));
+    let _e306: f32 = uvScale;
+    if !((_e306 > 0f)) {
+        let _e310: vec3<f32> = n_2;
+        return _e310;
+    }
+    let _e311: vec2<f32> = duv1_;
+    let _e312: f32 = uvScale;
+    duv1_ = (_e311 / vec2(_e312));
+    let _e315: vec2<f32> = duv2_;
+    let _e316: f32 = uvScale;
+    duv2_ = (_e315 / vec2(_e316));
+    let _e319: vec2<f32> = duv1_;
+    let _e321: vec2<f32> = duv2_;
+    let _e324: vec2<f32> = duv1_;
+    let _e326: vec2<f32> = duv2_;
+    det = ((_e319.x * _e321.y) - (_e324.y * _e326.x));
+    let _e332: f32 = det;
+    let _e336: vec2<f32> = duv1_;
+    let _e340: vec2<f32> = duv2_;
+    if (abs(_e332) <= ((0.000001f * length(_e336)) * length(_e340))) {
+        let _e344: vec3<f32> = n_2;
+        return _e344;
+    }
+    let _e345: vec3<f32> = dp1_;
+    let _e346: vec2<f32> = duv2_;
+    let _e349: vec3<f32> = dp2_;
+    let _e350: vec2<f32> = duv1_;
+    tangent = ((_e345 * _e346.y) - (_e349 * _e350.y));
+    let _e355: vec3<f32> = dp1_;
+    let _e357: vec2<f32> = duv2_;
+    let _e360: vec3<f32> = dp2_;
+    let _e361: vec2<f32> = duv1_;
+    bitangent = ((-(_e355) * _e357.x) + (_e360 * _e361.x));
+    let _e368: vec3<f32> = tangent;
+    let _e369: vec3<f32> = tangent;
+    tangentLength2_ = dot(_e368, _e369);
+    let _e374: vec3<f32> = bitangent;
+    let _e375: vec3<f32> = bitangent;
+    bitangentLength2_ = dot(_e374, _e375);
+    let _e378: f32 = tangentLength2_;
+    let _e382: f32 = bitangentLength2_;
+    if (!((_e378 > 0f)) || !((_e382 > 0f))) {
+        let _e387: vec3<f32> = n_2;
+        return _e387;
+    }
+    let _e388: f32 = det;
+    if (_e388 < 0f) {
+        local = -1f;
+    } else {
+        local = 1f;
+    }
+    let _e395: f32 = local;
+    orientation = _e395;
+    let _e397: vec3<f32> = tangent;
+    let _e398: f32 = orientation;
+    let _e400: f32 = tangentLength2_;
+    tangent = (_e397 * (_e398 * inverseSqrt(_e400)));
+    let _e404: vec3<f32> = bitangent;
+    let _e405: f32 = orientation;
+    let _e407: f32 = bitangentLength2_;
+    bitangent = (_e404 * (_e405 * inverseSqrt(_e407)));
+    let _e412: vec2<f32> = texcoord_1;
+    let _e413: vec4<f32> = prime_sample_normal_tex(_e412);
+    nm = ((_e413.xyz * 2f) - vec3(1f));
+    let _e421: vec3<f32> = tangent;
+    let _e422: vec3<f32> = nm;
+    let _e425: vec3<f32> = bitangent;
+    let _e426: vec3<f32> = nm;
+    let _e430: vec3<f32> = n_2;
+    let _e431: vec3<f32> = nm;
+    let _e435: vec3<f32> = tangent;
+    let _e436: vec3<f32> = nm;
+    let _e439: vec3<f32> = bitangent;
+    let _e440: vec3<f32> = nm;
+    let _e444: vec3<f32> = n_2;
+    let _e445: vec3<f32> = nm;
+    return normalize((((_e435 * _e436.x) + (_e439 * _e440.y)) + (_e444 * _e445.z)));
 }
 
 fn main_1() {
-    var local: vec4<f32>;
+    var local_1: vec4<f32>;
     var base: vec4<f32>;
     var albedo: vec3<f32>;
     var cosmetic: vec4<f32>;
-    var local_1: vec4<f32>;
+    var local_2: vec4<f32>;
     var sm: vec4<f32>;
     var roughness: f32;
     var metallic: f32;
@@ -917,11 +984,11 @@ fn main_1() {
     if (_e195 != 0i) {
         let _e199: vec2<f32> = texcoord_1;
         let _e200: vec4<f32> = prime_sample_tex(_e199);
-        local = _e200;
+        local_1 = _e200;
     } else {
-        local = vec4(1f);
+        local_1 = vec4(1f);
     }
-    let _e204: vec4<f32> = local;
+    let _e204: vec4<f32> = local_1;
     base = _e204;
     let _e206: vec4<f32> = base;
     if (_e206.w < 0.99f) {
@@ -968,7 +1035,7 @@ fn main_1() {
     if (_e271 != 0i) {
         let _e275: vec2<f32> = texcoord_1;
         let _e276: vec4<f32> = prime_sample_specular_tex(_e275);
-        local_1 = _e276;
+        local_2 = _e276;
     } else {
         let _e277: vec3<f32> = global.material_specular;
         let _e279: vec3<f32> = global.material_specular;
@@ -980,9 +1047,9 @@ fn main_1() {
         let _e292: vec3<f32> = global.material_specular;
         let _e294: vec3<f32> = global.material_specular;
         let _e297: vec3<f32> = global.material_specular;
-        local_1 = vec4<f32>(max(max(_e292.x, _e294.y), _e297.z), 0.62f, 0f, 1f);
+        local_2 = vec4<f32>(max(max(_e292.x, _e294.y), _e297.z), 0.62f, 0f, 1f);
     }
-    let _e305: vec4<f32> = local_1;
+    let _e305: vec4<f32> = local_2;
     sm = _e305;
     let _e307: vec4<f32> = sm;
     let _e311: vec4<f32> = sm;

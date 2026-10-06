@@ -167,10 +167,21 @@ vec3 mapped_normal()
     if (!use_normal_map) return n;
     vec3 dp1 = dFdx(surface_position), dp2 = dFdy(surface_position);
     vec2 duv1 = dFdx(texcoord), duv2 = dFdy(texcoord);
+    // Atlas UVs can vary by less than one millionth per screen pixel.
+    // Test collinearity relative to their scale, rather than rejecting valid
+    // normal bases because an atlas is large or a surface is close to camera.
+    float uvScale = max(max(abs(duv1.x), abs(duv1.y)), max(abs(duv2.x), abs(duv2.y)));
+    if (!(uvScale > 0.0)) return n;
+    duv1 /= uvScale; duv2 /= uvScale;
     float det = duv1.x * duv2.y - duv1.y * duv2.x;
-    if (abs(det) < 0.000001) return n;
-    vec3 tangent = normalize((dp1 * duv2.y - dp2 * duv1.y) / det);
-    vec3 bitangent = normalize((-dp1 * duv2.x + dp2 * duv1.x) / det);
+    if (abs(det) <= 0.000001 * length(duv1) * length(duv2)) return n;
+    vec3 tangent = dp1 * duv2.y - dp2 * duv1.y;
+    vec3 bitangent = -dp1 * duv2.x + dp2 * duv1.x;
+    float tangentLength2 = dot(tangent, tangent), bitangentLength2 = dot(bitangent, bitangent);
+    if (!(tangentLength2 > 0.0) || !(bitangentLength2 > 0.0)) return n;
+    float orientation = det < 0.0 ? -1.0 : 1.0;
+    tangent *= orientation * inversesqrt(tangentLength2);
+    bitangent *= orientation * inversesqrt(bitangentLength2);
     vec3 mapNormal = texture2D(normal_tex, texcoord).xyz * 2.0 - 1.0;
     return normalize(tangent * mapNormal.x + bitangent * mapNormal.y + n * mapNormal.z);
 }
