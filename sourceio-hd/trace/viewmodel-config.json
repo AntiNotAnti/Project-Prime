@@ -24,7 +24,7 @@
     0.5432962450114164
   ],
   "idleAnimation": 3,
-  "partition": "native-surface-centroid Voronoi cuts",
+  "partition": "coherent whole Source weapon and hand on native presentation root",
   "expectedSourceFeaturePass": "all selected Source weapon triangles retained; no automatic remesh or decimation",
   "fitRadialEnvelope": "contain both native width and height; preserve Source cross-section aspect",
   "teamRecolorMaterials": [
@@ -36,6 +36,10 @@
   ],
   "firstPersonOrientation": "Source forearm principal axis with 270-degree baked wrist roll; broad blade silhouette extends from the lower-right and the physical tip meets native emitter.",
   "nativeEffectAllowedNodes": [],
-  "nativeEffectPreservation": "Use Source forearm surfaces; charge and beam particles remain engine driven. Omit overlapping native decorative glow shells.",
-  "sourceAxisDefinition": "Principal axis of all selected Source forearm corner positions, oriented toward the original Source muzzle; emitter fitted to the mean of the frontmost 0.005-unit tip band."
+  "nativeEffectPreservation": "Source shell stays intact; native charge, muzzle and affinity particle effects remain engine driven",
+  "sourceAxisDefinition": "Principal axis of all selected Source forearm corner positions, oriented toward the original Source muzzle; emitter fitted to the mean of the frontmost 0.005-unit tip band.",
+  "sourceMaterialRoot": "/Users/jarrett/Downloads/mph/gmpublisher/materials",
+  "sourceDecodedTextureRoot": "/Users/jarrett/Downloads/mph/converted-sourceio/decoded-vtf",
+  "sourceMaterialMaxDimension": 1024,
+  "sourceRigidNode": "Body"
 }

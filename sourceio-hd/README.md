@@ -12,7 +12,7 @@ textures and Blender files are not shipped in this directory.
 - Current ProjectPrime desktop build with character kit/validator commands.
 - Blender with glTF import/export; Blender 5 needs the COLLADA Support extension
   for the generated native reference (already installed in this workspace).
-- Python 3 with Pillow for texture assembly. No SourceIO addon is needed for
+- Python 3 with Pillow and NumPy for texture assembly. No SourceIO addon is needed for
   an already converted GLB.
 - Locally supplied `converted-sourceio/` assets, matching each config's SHA256.
 
@@ -95,6 +95,32 @@ agree. Use one acceptance process at a time.
   audited and validated. Team acceptance asserts the variant bindings on every
   team frame. This deterministic color conversion is not a final art repaint.
 
+### Original Source material layers
+
+The converted GLBs contain base and normal images but omit Source VMT detail
+node groups. `sourceMaterialRoot` and `sourceDecodedTextureRoot` enable
+`common/source_materials.py` to recover the original material settings and
+decoded detail images. Mode 0 detail is composited in linear color space with
+its authored UV frequency, tint and blend factor. Original self-illumination
+masks supply emissive images. Unsupported detail modes/transforms reject the
+build. Integer repeat folding preserves the detail phase; the default 1024
+dimension limit bounds the bake's sampling density. It is not a 4K repaint.
+
+Authored constant Source Phong boost, tint luminance, exponent and normal/base
+alpha mask also supply the existing specular/roughness map. The generated
+exporter validates first; `common/material_maps.py` then appends the companion
+image and binding while preserving all generated binary bytes. The runtime
+reads glTF roughness G and converts metallic B to its specular-strength R.
+This is a bounded approximation of Source's glossy response: RGB specular tint,
+view-dependent Fresnel and HDR boost are not reproduced. Native lighting and
+the renderer's highlight gain remain authoritative. The audit records these
+limits; no base artwork is brightened to imitate a reflection.
+
+`SOURCE-MATERIALS.json` records the original VMT/detail hashes, color spaces,
+formula, image dimensions and any bounded emissive/specular intensity. The untouched
+embedded source images remain under `source-original/`. Base, normal and
+emissive/specular atlas images are checked against their exported embedded texels.
+
 Bind fitting is baked into mesh positions before export. One global height,
 facing and root transform establishes units; each native joint then has an
 explicit translation/direction fit. The six reviewed configurations use
@@ -157,20 +183,25 @@ pose file. Frozen biped kits and releases are never edited.
 Configuration chooses the Source weapon/bodygroups, collapsed forearm weights
 or right-hand-only body selection, material mapping, roll angle and native
 effect exclusions. The selected Source geometry receives one baked axial/radial
-fit to the native emitter. Its cross-section aspect is preserved. Convex
-Voronoi cuts divide its surfaces among native mechanical nodes; these add
-triangle edges without dropping selected surface area. Source corner UVs and
-split normals are interpolated across the cuts. No subdivision, remesh or
-decimation is applied.
+fit to the native emitter. Its cross-section aspect is preserved. The six
+reviewed configs use `sourceRigidNode` to attach the complete Source weapon
+and selected hand to the native presentation root. This retains every Source
+triangle, corner UV and split normal. Cutting a continuous Source mesh across
+independently animated native mechanical nodes produced large artificial
+cracks, despite passing packet and rest-pose surface checks. Those cuts are
+no longer used by these configs. No subdivision, remesh or decimation is applied.
 
 The **unchanged generated rigid exporter** validates the native authoring rig,
 groups and material identities. The resulting positions and UVs are retained
-while authored Source corner normals and native effect RGB vertex colors are
-added. The runtime supports float VEC3 `COLOR_0` for these retained native
-details; absent color attributes remain white. Embedded Source albedo/normal
-images and orange/green team variants use the existing material contract.
-Native ammo, cores and charge effects retain their animation and texture
-bindings. Noxus/Kanden interior surfaces use the Source finish where needed.
+while authored Source corner normals are added. The generated helper accepts
+native roots even when they have no original mesh; it still requires native
+bone identities and rigid weights. Supplemental native gun meshes are excluded
+because they intersect the differently shaped Source shells. The complete
+Source gun follows native root motion and recoil; its shell does not reproduce
+the original DS gun's mechanical opening animation. Engine particle charge,
+muzzle and affinity effects retain native emitter transforms. Source lights
+come from restored emissive maps. Albedo/normal images and orange/green team
+variants use the existing material contract.
 
 `audit` independently reconstructs the exported surfaces through the native
 pose, checks normals, UVs, area, native effect colors and exact embedded image
@@ -182,6 +213,15 @@ material toggles, six suit palettes, FOV 60/78/120 and Imperialist zoom. The
 native and Source comparison explicitly selects the same raised native idle
 pose; the recorded live native frames must agree with the authoring frames.
 This is not a measurement of physical display latency.
+
+Packet submission is only one part of acceptance. The texture/weapon review
+also compares Source triangle corners independently, samples the generated
+native gun animation frames for artificial seam separation, verifies the
+physical weapon axis/tip, checks VMT detail composition against an independent
+pixel reference, and inspects actual gameplay captures. Evidence is under
+`artifacts/sourceio-hd/material-weapon-review-v2/`. The normal-map derivative
+guard is relative to UV scale in desktop, ES and generated Metal shaders, so
+small atlas UV regions do not incorrectly disable valid normal mapping.
 
 Inspect the captured states, then record `visual-review.json` with `pass: true`,
 the accepted `modelSha256` and specific observations. `merge` requires that

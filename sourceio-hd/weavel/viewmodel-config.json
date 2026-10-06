@@ -16,17 +16,17 @@
     "glass"
   ],
   "sourceAxis": [
-    -0.4010330246380048,
-    -0.46889383279584873,
-    -0.7869632054395631
+    -0.07692615,
+    -0.504029,
+    -0.86025411
   ],
   "sourceMuzzle": [
-    -0.5711098313331604,
-    -0.2989731729030609,
-    0.6572105288505554
+    -0.57057562,
+    -0.29518854,
+    0.65921064
   ],
   "idleAnimation": 3,
-  "partition": "native-surface-centroid Voronoi cuts",
+  "partition": "coherent whole Source weapon and hand on native presentation root",
   "expectedSourceFeaturePass": "all selected Source weapon triangles retained; no automatic remesh or decimation",
   "fitRadialEnvelope": "contain both native width and height; preserve Source cross-section aspect",
   "teamRecolorMaterials": [
@@ -38,5 +38,11 @@
   "nativeEffectExcludedMaterials": [
     "hilights"
   ],
-  "nativeEffectPreservation": "Retain core and glass animation; replace native decorative stripes with Source weapon artwork"
+  "nativeEffectPreservation": "Source shell stays intact; native charge, muzzle and affinity particle effects remain engine driven",
+  "sourceMaterialRoot": "/Users/jarrett/Downloads/mph/gmpublisher/materials",
+  "sourceDecodedTextureRoot": "/Users/jarrett/Downloads/mph/converted-sourceio/decoded-vtf",
+  "sourceMaterialMaxDimension": 1024,
+  "sourceRigidNode": "MasterNode",
+  "nativeEffectAllowedNodes": [],
+  "axisMethod": "Physical Handgun.smd principal axis, excluding Source hand; front 98 percent band centroid"
 }

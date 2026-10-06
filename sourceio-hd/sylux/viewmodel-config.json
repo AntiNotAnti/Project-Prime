@@ -28,7 +28,7 @@
     0.43664926290512085
   ],
   "idleAnimation": 3,
-  "partition": "native-surface-centroid Voronoi cuts",
+  "partition": "coherent whole Source weapon and hand on native presentation root",
   "expectedSourceFeaturePass": "all selected Source weapon triangles retained; no automatic remesh or decimation",
   "fitRadialEnvelope": "contain both native width and height; preserve Source cross-section aspect",
   "teamRecolorMaterials": [
@@ -37,14 +37,16 @@
   "handOnlyBodygroups": [
     "Sylux.smd"
   ],
-  "nativeEffectAllowedNodes": [
-    "Mag"
-  ],
+  "nativeEffectAllowedNodes": [],
   "nativeEffectNodes": [
     "Mag"
   ],
-  "nativeEffectPreservation": "Keep native ammo magazine. Source weapon artwork supplies the exterior lights and panels; omit the detached native Tube glow under the Source hand.",
+  "nativeEffectPreservation": "Source shell stays intact; native charge, muzzle and affinity particle effects remain engine driven",
   "partitionExcludedNodes": [
     "Mag"
-  ]
+  ],
+  "sourceMaterialRoot": "/Users/jarrett/Downloads/mph/gmpublisher/materials",
+  "sourceDecodedTextureRoot": "/Users/jarrett/Downloads/mph/converted-sourceio/decoded-vtf",
+  "sourceMaterialMaxDimension": 1024,
+  "sourceRigidNode": "MasterNode"
 }

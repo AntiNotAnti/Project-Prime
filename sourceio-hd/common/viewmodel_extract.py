@@ -30,7 +30,9 @@ for o in original:o.hide_render=True;o.hide_set(True)
 bpy.ops.object.select_all(action='DESELECT');obj.select_set(True);bpy.context.view_layer.objects.active=obj
 bpy.ops.export_scene.gltf(filepath=str(root/'source-weapon.glb'),export_format='GLB',use_selection=True,export_animations=False,export_yup=True)
 bpy.ops.wm.save_as_mainfile(filepath=str(root/'Source_Weapon_Selection.blend'))
-texture_cfg={'sourceMeshes':[mesh.name],'compactPeriodicUVs':True,'reuseSingleMaterialTextures':True,'powerOfTwoAtlases':False}
+texture_cfg={'hunter':cfg['hunter'],'sourceMeshes':[mesh.name],'compactPeriodicUVs':True,'reuseSingleMaterialTextures':True,'powerOfTwoAtlases':False}
+for key in ['sourceMaterialRoot','sourceDecodedTextureRoot','sourceMaterialMaxDimension']:
+ if key in cfg:texture_cfg[key]=cfg[key]
 (root/'atlas-config.json').write_text(json.dumps(texture_cfg,indent=2)+'\n');materialmap={m.name:cfg.get('sourceMaterialMap',{}).get(m.name,cfg['mainMaterial']) for m in materials};(root/'material-map.json').write_text(json.dumps(materialmap,indent=2)+'\n')
 (root/'selection.json').write_text(json.dumps({'sourceSha256':cfg['sourceSha256'],'triangles':len(faces),'objects':dict(triangles),'materials':list(materialmap),'sourceRecords':source_records},indent=2)+'\n')
 print('SOURCE WEAPON SELECTED',cfg['hunter'],dict(triangles),list(materialmap))

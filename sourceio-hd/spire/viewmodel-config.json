@@ -24,7 +24,7 @@
     0.5268601179122925
   ],
   "idleAnimation": 3,
-  "partition": "native-surface-centroid Voronoi cuts",
+  "partition": "coherent whole Source weapon and hand on native presentation root",
   "expectedSourceFeaturePass": "all selected Source weapon triangles retained; no automatic remesh or decimation",
   "partitionExcludedNodes": [
     "Mag",
@@ -48,5 +48,10 @@
   "nativeEffectExcludedNodes": [
     "Base"
   ],
-  "nativeEffectPreservation": "Keep native Mag/Bullet ammo animation; omit the native base glow shell overlapping Source rock surfaces."
+  "nativeEffectPreservation": "Source shell stays intact; native charge, muzzle and affinity particle effects remain engine driven",
+  "sourceMaterialRoot": "/Users/jarrett/Downloads/mph/gmpublisher/materials",
+  "sourceDecodedTextureRoot": "/Users/jarrett/Downloads/mph/converted-sourceio/decoded-vtf",
+  "sourceMaterialMaxDimension": 1024,
+  "sourceRigidNode": "Base",
+  "nativeEffectAllowedNodes": []
 }

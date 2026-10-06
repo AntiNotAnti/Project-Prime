@@ -106,7 +106,10 @@ for name in order:
  albedo=nodes.new('ShaderNodeTexImage');albedo.image=bpy.data.images.load(str(ROOT/'textures'/(name+'-albedo.png')));albedo.image.pack();links.new(albedo.outputs['Color'],bs.inputs['Base Color'])
  normal=nodes.new('ShaderNodeTexImage');normal.image=bpy.data.images.load(str(ROOT/'textures'/(name+'-normal.png')));normal.image.colorspace_settings.name='Non-Color';normal.image.pack()
  nm=nodes.new('ShaderNodeNormalMap');links.new(normal.outputs['Color'],nm.inputs['Color']);links.new(nm.outputs['Normal'],bs.inputs['Normal'])
- if name in cfg.get('emissiveMaterials',[]):links.new(albedo.outputs['Color'],bs.inputs['Emission Color']);bs.inputs['Emission Strength'].default_value=1.
+ emission_path=ROOT/'textures'/(name+'-emissive.png')
+ if emission_path.exists():
+  emission=nodes.new('ShaderNodeTexImage');emission.image=bpy.data.images.load(str(emission_path));emission.image.pack();links.new(emission.outputs['Color'],bs.inputs['Emission Color']);bs.inputs['Emission Strength'].default_value=1.
+ elif name in cfg.get('emissiveMaterials',[]):links.new(albedo.outputs['Color'],bs.inputs['Emission Color']);bs.inputs['Emission Strength'].default_value=1.
  materials[name]=mat
 verts=[];weights=[];faces=[];uvs=[];face_mats=[];authored_normals=[];normal_fallbacks=0;source_hist=Counter();target_hist=Counter();counts={}
 for o in meshes:

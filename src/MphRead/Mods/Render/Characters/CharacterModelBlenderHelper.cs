@@ -18,7 +18,14 @@ namespace MphRead.Mods.Render.Characters
             string relativeOutput)
         {
             return Generate($"{hunter}/{part}",
-                CharacterModelAuthoring.RigidNodeNames(nativeModel),
+                // A coherent replacement shell can follow the native root even
+                // when the original segmented model has no mesh on that root.
+                // The runtime already accepts these native node identities.
+                CharacterModelAuthoring.RigidNodeNames(nativeModel)
+                    .Concat(nativeModel.Nodes.Where(node => node.ParentIndex < 0)
+                        .Select(node => node.Name))
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray(),
                 nativeModel.Materials.Select(material => material.Name)
                     .Where(name => !String.IsNullOrWhiteSpace(name))
                     .Distinct(StringComparer.OrdinalIgnoreCase)

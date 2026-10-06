@@ -38,6 +38,8 @@ if a.stage=='build':
     (root/'generated-reference-hashes.json').write_text(json.dumps(references,indent=2)+'\n')
     with (root/'atlas.log').open('w') as log:subprocess.run([sys.executable,str(COMMON/'atlas.py'),'--config',str(cp),'--source',str(source),'--output',str(root)],stdout=log,stderr=subprocess.STDOUT,check=True)
     worker('convert',['--config',cp,'--source',source,'--output',root,'--repo',REPO])
+    from material_maps import add_material_maps
+    add_material_maps(root,pack/cfg['hunter'].lower()/'biped_weighted4.glb')
     from recolors import add_recolors
     add_recolors(cfg,root)
     from material_contract import preserve_alpha

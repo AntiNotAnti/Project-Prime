@@ -1,4 +1,4 @@
-"""Native mechanical Voronoi cuts of Source weapon surfaces; unchanged rigid helper."""
+"""Fit Source weapon surfaces to native nodes using the generated rigid helper."""
 import bpy,sys,argparse,json,math,runpy,hashlib,struct
 from pathlib import Path
 from collections import defaultdict,Counter
@@ -48,7 +48,14 @@ for tri in source.data.loop_triangles:
   if n.length<1e-6:n=nf@tri.normal
   poly.append((fit@source.data.vertices[vi].co,Vector([(uv[k]-shift[k])*spec['atlasUVScale'][k]+spec['atlasUVOffset'][k] for k in range(2)]),n.normalized()))
  source_area+=(poly[1][0]-poly[0][0]).cross(poly[2][0]-poly[0][0]).length/2;source_tris+=1
- candidates=material_seeds[runtime] if cfg.get('sourceMaterialMap') and material_seeds[runtime] else seeds
+ # Continuous Source shells cannot be cut onto unrelated moving native parts:
+ # coincident seam vertices separate as soon as those parts animate. A whole
+ # weapon/hand can instead follow one native presentation node coherently.
+ rigid_node=cfg.get('sourceRigidNode')
+ if rigid_node:
+  assert rigid_node in frames,('Unknown coherent Source attachment',rigid_node)
+  candidates={rigid_node:Vector()}
+ else:candidates=material_seeds[runtime] if cfg.get('sourceMaterialMap') and material_seeds[runtime] else seeds
  for node,center in candidates.items():
   piece=poly
   for other,point in candidates.items():
@@ -69,6 +76,9 @@ materials={}
 for name in sorted(set(s['runtimeMaterial'] for s in atlas.values())):
  mat=bpy.data.materials.new(name);mat.use_nodes=True;nodes=mat.node_tree.nodes;links=mat.node_tree.links;bs=nodes.get('Principled BSDF');bs.inputs['Roughness'].default_value=.6
  albedo=nodes.new('ShaderNodeTexImage');albedo.image=bpy.data.images.load(str(root/'textures'/(name+'-albedo.png')));albedo.image.pack();links.new(albedo.outputs['Color'],bs.inputs['Base Color']);normal=nodes.new('ShaderNodeTexImage');normal.image=bpy.data.images.load(str(root/'textures'/(name+'-normal.png')));normal.image.colorspace_settings.name='Non-Color';normal.image.pack();nm=nodes.new('ShaderNodeNormalMap');links.new(normal.outputs['Color'],nm.inputs['Color']);links.new(nm.outputs['Normal'],bs.inputs['Normal']);materials[name]=mat
+ emission_path=root/'textures'/(name+'-emissive.png')
+ if emission_path.exists():
+  emission=nodes.new('ShaderNodeTexImage');emission.image=bpy.data.images.load(str(emission_path));emission.image.pack();links.new(emission.outputs['Color'],bs.inputs['Emission Color']);bs.inputs['Emission Strength'].default_value=1.
 # Match the Source finish on retained interior mechanical surfaces. Their
 # animation/material identities remain native; artwork and UVs follow the
 # nearest Source shell instead of showing a contrasting DS filler texture.
@@ -193,4 +203,4 @@ for node in doc['nodes']:
 while len(binary)%4:binary.append(0)
 doc['buffers'][0]['byteLength']=len(binary);encoded=json.dumps(doc,separators=(',',':')).encode();encoded+=b' '*((-len(encoded))%4);path.write_bytes(struct.pack('<4sII',b'glTF',2,28+len(encoded)+len(binary))+struct.pack('<II',len(encoded),0x4e4f534a)+encoded+struct.pack('<II',len(binary),0x004e4942)+binary)
 manifest={'format':1,'id':'sourceio-'+hunter.lower()+'-viewmodel-v1','models':[{'hunter':hunter,'part':'viewModel','model':hunter.lower()+'/viewmodel.glb','skinning':'rigidNodes','boneMap':{n:n for n in sorted(set(parts)|effect_nodes)}}]};(root/'starter/characters.json').write_text(json.dumps(manifest,indent=2)+'\n')
-report={'pass':True,'hunter':hunter,'sourceSha256':cfg['sourceSha256'],'sourceSelectedTriangles':source_tris,'sourceCutTriangles':sum(len(p['faces']) for p in parts.values()),'nativeEffectTriangles':native_effect_count,'sourceMaterialNames':sorted(set(s['runtimeMaterial'] for s in atlas.values())),'internalMaterialSources':interior_sources,'totalTriangles':triangle_count,'sourceClosedSurfaceArea':source_area,'cutClosedSurfaceArea':cut_area,'sourceSurfaceAreaError':abs(source_area-cut_area),'rigidSourceNodes':{n:len(v['faces']) for n,v in parts.items()},'nativeEffectNodes':sorted(effect_nodes),'sourceToNativeFit':[list(r) for r in fit],'nativeClosedBounds':bounds,'nativeMuzzle':list(target),'sourceMuzzle':list(origin),'muzzleFitError':(fit@origin-target).length,'radialScale':radial,'axialScale':axial,'exportLocalPositionError':maximum,'authoredNormalsPatchedCorners':patched,'sourceUvAndGeneratedPositionsUnchanged':True,'nativeEffectColorCorners':color_corners,'nativeIdlePoseSha256':hashlib.sha256((kit/'viewmodel-native-idle.json').read_bytes()).hexdigest(),'nativeVisualFrontLandmark':list(visual_front),'nativeGameplayEmitter':list(target),'nativeGameplayEmitterOffsetUnchanged':True,'exporterUnchanged':True,'exporterSha256':helper_sha,'viewmodelSha256':hashlib.sha256(path.read_bytes()).hexdigest()};(root/'audit.json').write_text(json.dumps(report,indent=2)+'\n');print('VIEWMODEL BUILD PASS',hunter,report)
+report={'pass':True,'hunter':hunter,'sourceSha256':cfg['sourceSha256'],'sourceSelectedTriangles':source_tris,'sourceCutTriangles':sum(len(p['faces']) for p in parts.values()),'nativeEffectTriangles':native_effect_count,'sourceMaterialNames':sorted(set(s['runtimeMaterial'] for s in atlas.values())),'internalMaterialSources':interior_sources,'totalTriangles':triangle_count,'sourceClosedSurfaceArea':source_area,'cutClosedSurfaceArea':cut_area,'sourceSurfaceAreaError':abs(source_area-cut_area),'rigidSourceNodes':{n:len(v['faces']) for n,v in parts.items()},'coherentSourceAttachment':cfg.get('sourceRigidNode'),'nativeEffectNodes':sorted(effect_nodes),'sourceToNativeFit':[list(r) for r in fit],'nativeClosedBounds':bounds,'nativeMuzzle':list(target),'sourceMuzzle':list(origin),'muzzleFitError':(fit@origin-target).length,'radialScale':radial,'axialScale':axial,'exportLocalPositionError':maximum,'authoredNormalsPatchedCorners':patched,'sourceUvAndGeneratedPositionsUnchanged':True,'nativeEffectColorCorners':color_corners,'nativeIdlePoseSha256':hashlib.sha256((kit/'viewmodel-native-idle.json').read_bytes()).hexdigest(),'nativeVisualFrontLandmark':list(visual_front),'nativeGameplayEmitter':list(target),'nativeGameplayEmitterOffsetUnchanged':True,'exporterUnchanged':True,'exporterSha256':helper_sha,'viewmodelSha256':hashlib.sha256(path.read_bytes()).hexdigest()};(root/'audit.json').write_text(json.dumps(report,indent=2)+'\n');print('VIEWMODEL BUILD PASS',hunter,report)

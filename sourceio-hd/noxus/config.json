@@ -112,5 +112,8 @@
   "globalAnchor": "floor",
   "preserveSourceNormals": true,
   "sourceShapeChains": true,
-  "preserveSourceMaterialAlpha": true
+  "preserveSourceMaterialAlpha": true,
+  "sourceMaterialRoot": "/Users/jarrett/Downloads/mph/gmpublisher/materials",
+  "sourceDecodedTextureRoot": "/Users/jarrett/Downloads/mph/converted-sourceio/decoded-vtf",
+  "sourceMaterialMaxDimension": 1024
 }

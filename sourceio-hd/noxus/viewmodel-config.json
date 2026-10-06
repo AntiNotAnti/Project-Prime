@@ -24,14 +24,16 @@
     0.8156290054321289
   ],
   "idleAnimation": 3,
-  "partition": "native-surface-centroid Voronoi cuts",
+  "partition": "coherent whole Source weapon and hand on native presentation root",
   "expectedSourceFeaturePass": "all selected Source weapon triangles retained; no automatic remesh or decimation",
   "fitRadialEnvelope": "contain both native width and height; preserve Source cross-section aspect",
   "teamRecolorMaterials": [
-    "NoxGunMaterial",
-    "lambert3"
+    "NoxGunMaterial"
   ],
-  "internalMaterialSources": {
-    "lambert3": "NoxGunMaterial"
-  }
+  "sourceMaterialRoot": "/Users/jarrett/Downloads/mph/gmpublisher/materials",
+  "sourceDecodedTextureRoot": "/Users/jarrett/Downloads/mph/converted-sourceio/decoded-vtf",
+  "sourceMaterialMaxDimension": 1024,
+  "sourceRigidNode": "MasterNode",
+  "nativeEffectAllowedNodes": [],
+  "nativeEffectPreservation": "Source shell stays intact; native charge, muzzle and affinity particle effects remain engine driven"
 }

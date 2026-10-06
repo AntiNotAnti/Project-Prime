@@ -25,9 +25,10 @@ def audit_artwork(root):
     doc, blob = load(root / 'starter' / audit['hunter'].lower() / 'viewmodel.glb')
     sizes = {}
     for mat in doc['materials']:
-        for channel in ['albedo', 'normal']:
+        for channel in ['albedo', 'normal', 'emissive', 'material']:
             spec = (mat.get('pbrMetallicRoughness', {}).get('baseColorTexture')
-                    if channel == 'albedo' else mat.get('normalTexture'))
+                    if channel == 'albedo' else mat.get('pbrMetallicRoughness', {}).get('metallicRoughnessTexture')
+                    if channel == 'material' else mat.get(channel+'Texture'))
             if not spec:
                 continue
             actual = Image.open(io.BytesIO(image_bytes(doc, blob, doc['textures'][spec['index']]['source']))).convert('RGBA')
@@ -108,6 +109,8 @@ def main():
                                 str(root / 'atlas-config.json'), '--source', str(root / 'source-weapon.glb'),
                                 '--output', str(root)], stdout=log, stderr=subprocess.STDOUT, check=True)
             worker('viewmodel_convert', ['--config', cp, '--output', root, '--kit', kit])
+            from material_maps import add_material_maps
+            add_material_maps(root, pack / cfg['hunter'].lower() / 'viewmodel.glb')
             subprocess.run([sys.executable, str(COMMON / 'viewmodel_recolors.py'),
                             '--config', str(cp), '--output', str(root)], check=True)
         worker('viewmodel_audit', ['--config', cp, '--output', root, '--kit', kit])
