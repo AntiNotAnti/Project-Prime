@@ -51,8 +51,14 @@ struct SocialRow {
     Rml::String activity;
     Rml::String detail;
     Rml::String relation;
+    Rml::String invite_id;
     bool online = false;
     bool friend_online = false;
+    bool can_invite = false;
+    bool can_join = false;
+    bool can_accept_invite = false;
+    bool can_decline_invite = false;
+    bool can_cancel_invite = false;
 };
 
 struct PrimeMenuData {
@@ -82,6 +88,8 @@ struct PrimeMenuData {
     Rml::String social_online_count = "0 ONLINE";
     Rml::String social_friend_count = "0 ONLINE";
     Rml::String social_request_count = "0 REQUESTS";
+    Rml::String social_invite_count = "0 INVITES";
+    Rml::String social_notice;
     std::vector<SocialRow> social_rows;
     std::vector<SocialRow> home_friends;
 
@@ -90,6 +98,7 @@ struct PrimeMenuData {
     Rml::String selected_activity;
     Rml::String selected_detail;
     Rml::String selected_relation;
+    Rml::String selected_invite_id;
     bool selected_can_add = false;
     bool selected_can_accept = false;
     bool selected_can_decline = false;
@@ -97,6 +106,11 @@ struct PrimeMenuData {
     bool selected_can_remove = false;
     bool selected_can_block = false;
     bool selected_can_unblock = false;
+    bool selected_can_invite = false;
+    bool selected_can_join = false;
+    bool selected_can_accept_invite = false;
+    bool selected_can_decline_invite = false;
+    bool selected_can_cancel_invite = false;
 };
 
 class PrimeMenuModel {
@@ -128,8 +142,14 @@ public:
             row.RegisterMember("activity", &SocialRow::activity);
             row.RegisterMember("detail", &SocialRow::detail);
             row.RegisterMember("relation", &SocialRow::relation);
+            row.RegisterMember("invite_id", &SocialRow::invite_id);
             row.RegisterMember("online", &SocialRow::online);
             row.RegisterMember("friend_online", &SocialRow::friend_online);
+            row.RegisterMember("can_invite", &SocialRow::can_invite);
+            row.RegisterMember("can_join", &SocialRow::can_join);
+            row.RegisterMember("can_accept_invite", &SocialRow::can_accept_invite);
+            row.RegisterMember("can_decline_invite", &SocialRow::can_decline_invite);
+            row.RegisterMember("can_cancel_invite", &SocialRow::can_cancel_invite);
         }
         model.RegisterArray<std::vector<SocialRow>>();
         model.Bind("social_open", &data.social_open);
@@ -142,6 +162,8 @@ public:
         model.Bind("social_online_count", &data.social_online_count);
         model.Bind("social_friend_count", &data.social_friend_count);
         model.Bind("social_request_count", &data.social_request_count);
+        model.Bind("social_invite_count", &data.social_invite_count);
+        model.Bind("social_notice", &data.social_notice);
         model.Bind("social_rows", &data.social_rows);
         model.Bind("home_friends", &data.home_friends);
         model.Bind("selected_prime_id", &data.selected_prime_id);
@@ -149,6 +171,7 @@ public:
         model.Bind("selected_activity", &data.selected_activity);
         model.Bind("selected_detail", &data.selected_detail);
         model.Bind("selected_relation", &data.selected_relation);
+        model.Bind("selected_invite_id", &data.selected_invite_id);
         model.Bind("selected_can_add", &data.selected_can_add);
         model.Bind("selected_can_accept", &data.selected_can_accept);
         model.Bind("selected_can_decline", &data.selected_can_decline);
@@ -156,6 +179,11 @@ public:
         model.Bind("selected_can_remove", &data.selected_can_remove);
         model.Bind("selected_can_block", &data.selected_can_block);
         model.Bind("selected_can_unblock", &data.selected_can_unblock);
+        model.Bind("selected_can_invite", &data.selected_can_invite);
+        model.Bind("selected_can_join", &data.selected_can_join);
+        model.Bind("selected_can_accept_invite", &data.selected_can_accept_invite);
+        model.Bind("selected_can_decline_invite", &data.selected_can_decline_invite);
+        model.Bind("selected_can_cancel_invite", &data.selected_can_cancel_invite);
 
         model.BindEventCallback("select_quick", &PrimeMenuModel::SelectQuick, this);
         model.BindEventCallback("select_browser", &PrimeMenuModel::SelectBrowser, this);
@@ -174,6 +202,7 @@ public:
         model.BindEventCallback("social_friends", &PrimeMenuModel::SocialFriends, this);
         model.BindEventCallback("social_players", &PrimeMenuModel::SocialPlayers, this);
         model.BindEventCallback("social_requests", &PrimeMenuModel::SocialRequests, this);
+        model.BindEventCallback("social_invites", &PrimeMenuModel::SocialInvites, this);
         model.BindEventCallback("social_blocks", &PrimeMenuModel::SocialBlocks, this);
         model.BindEventCallback("social_refresh", &PrimeMenuModel::SocialRefresh, this);
         model.BindEventCallback("social_filter", &PrimeMenuModel::SocialFilter, this);
@@ -186,6 +215,11 @@ public:
         model.BindEventCallback("social_remove", &PrimeMenuModel::SocialRemove, this);
         model.BindEventCallback("social_block", &PrimeMenuModel::SocialBlock, this);
         model.BindEventCallback("social_unblock", &PrimeMenuModel::SocialUnblock, this);
+        model.BindEventCallback("social_invite_friend", &PrimeMenuModel::SocialInviteFriend, this);
+        model.BindEventCallback("social_join_friend", &PrimeMenuModel::SocialJoinFriend, this);
+        model.BindEventCallback("social_accept_invite", &PrimeMenuModel::SocialAcceptInvite, this);
+        model.BindEventCallback("social_decline_invite", &PrimeMenuModel::SocialDeclineInvite, this);
+        model.BindEventCallback("social_cancel_invite", &PrimeMenuModel::SocialCancelInvite, this);
         model.BindEventCallback("noop", &PrimeMenuModel::Noop, this);
 
         handle = model.GetModelHandle();
@@ -207,6 +241,8 @@ public:
         else if (name == "social_online_count") data.social_online_count = value;
         else if (name == "social_friend_count") data.social_friend_count = value;
         else if (name == "social_request_count") data.social_request_count = value;
+        else if (name == "social_invite_count") data.social_invite_count = value;
+        else if (name == "social_notice") data.social_notice = value;
         else return;
         handle.DirtyVariable(name);
     }
@@ -369,8 +405,10 @@ private:
         { SelectSocialTab(1, "social:tab:1"); }
     void SocialRequests(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
         { SelectSocialTab(2, "social:tab:2"); }
-    void SocialBlocks(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    void SocialInvites(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
         { SelectSocialTab(3, "social:tab:3"); }
+    void SocialBlocks(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+        { SelectSocialTab(4, "social:tab:4"); }
     void SocialRefresh(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
         { Emit("social:refresh"); }
 
@@ -399,13 +437,20 @@ private:
         data.selected_activity = row->activity;
         data.selected_detail = row->detail;
         data.selected_relation = row->relation;
+        data.selected_invite_id = row->invite_id;
         data.selected_can_add = row->relation == "PLAYER";
         data.selected_can_accept = row->relation == "INCOMING";
         data.selected_can_decline = row->relation == "INCOMING";
         data.selected_can_cancel = row->relation == "OUTGOING";
         data.selected_can_remove = row->relation == "FRIEND";
-        data.selected_can_block = row->relation != "BLOCKED";
+        data.selected_can_block = row->relation != "BLOCKED"
+            && row->relation != "GAME INVITE" && row->relation != "INVITE SENT";
         data.selected_can_unblock = row->relation == "BLOCKED";
+        data.selected_can_invite = row->can_invite;
+        data.selected_can_join = row->can_join;
+        data.selected_can_accept_invite = row->can_accept_invite;
+        data.selected_can_decline_invite = row->can_decline_invite;
+        data.selected_can_cancel_invite = row->can_cancel_invite;
         data.social_context_open = true;
 
         handle.DirtyVariable("selected_prime_id");
@@ -413,6 +458,7 @@ private:
         handle.DirtyVariable("selected_activity");
         handle.DirtyVariable("selected_detail");
         handle.DirtyVariable("selected_relation");
+        handle.DirtyVariable("selected_invite_id");
         handle.DirtyVariable("selected_can_add");
         handle.DirtyVariable("selected_can_accept");
         handle.DirtyVariable("selected_can_decline");
@@ -420,6 +466,11 @@ private:
         handle.DirtyVariable("selected_can_remove");
         handle.DirtyVariable("selected_can_block");
         handle.DirtyVariable("selected_can_unblock");
+        handle.DirtyVariable("selected_can_invite");
+        handle.DirtyVariable("selected_can_join");
+        handle.DirtyVariable("selected_can_accept_invite");
+        handle.DirtyVariable("selected_can_decline_invite");
+        handle.DirtyVariable("selected_can_cancel_invite");
         handle.DirtyVariable("social_context_open");
         Emit((std::string("social:context:") + data.selected_prime_id).c_str());
     }
@@ -446,6 +497,20 @@ private:
     void SocialRemove(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitSelected("remove"); }
     void SocialBlock(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitSelected("block"); }
     void SocialUnblock(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitSelected("unblock"); }
+    void SocialInviteFriend(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitSelected("invite-friend"); }
+    void SocialJoinFriend(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitSelected("join-friend"); }
+
+    void EmitInvite(const char* action)
+    {
+        if (data.selected_invite_id.empty()) return;
+        actions.emplace_back(std::string("social:") + action + ":" + data.selected_invite_id);
+        data.social_context_open = false;
+        handle.DirtyVariable("social_context_open");
+    }
+
+    void SocialAcceptInvite(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitInvite("invite-accept"); }
+    void SocialDeclineInvite(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitInvite("invite-decline"); }
+    void SocialCancelInvite(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitInvite("invite-cancel"); }
     void Noop(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) {}
 };
 
@@ -660,7 +725,9 @@ PP_EXPORT void pp_rmlui_social_clear()
 }
 
 PP_EXPORT void pp_rmlui_social_add_row(const char* prime_id, const char* name,
-    const char* activity, const char* detail, const char* relation, int online, int friend_online)
+    const char* activity, const char* detail, const char* relation, const char* invite_id,
+    int online, int friend_online, int can_invite, int can_join,
+    int can_accept_invite, int can_decline_invite, int can_cancel_invite)
 {
     if (!g_model) return;
     SocialRow row;
@@ -669,8 +736,14 @@ PP_EXPORT void pp_rmlui_social_add_row(const char* prime_id, const char* name,
     row.activity = activity ? activity : "";
     row.detail = detail ? detail : "";
     row.relation = relation ? relation : "";
+    row.invite_id = invite_id ? invite_id : "";
     row.online = online != 0;
     row.friend_online = friend_online != 0;
+    row.can_invite = can_invite != 0;
+    row.can_join = can_join != 0;
+    row.can_accept_invite = can_accept_invite != 0;
+    row.can_decline_invite = can_decline_invite != 0;
+    row.can_cancel_invite = can_cancel_invite != 0;
     g_model->AddSocialRow(row);
 }
 
@@ -705,7 +778,8 @@ PP_EXPORT int pp_rmlui_back()
             switch (g_model->SocialTab()) {
             case 1: id = "social_tab_players"; break;
             case 2: id = "social_tab_requests"; break;
-            case 3: id = "social_blocks"; break;
+            case 3: id = "social_tab_invites"; break;
+            case 4: id = "social_blocks"; break;
             default: id = "social_tab_friends"; break;
             }
         }
