@@ -53,6 +53,7 @@ namespace MphRead.Mods.Launcher.Gui
         private static Task<SocialSnapshot>? _socialLoad;
         private static Task<SocialMutationResult>? _socialMutation;
         private static Task<SocialLookupResult>? _socialLookup;
+        private static string _socialLookupQuery = "";
         private static SocialSnapshot? _socialSnapshot;
         private static SocialPlayer? _socialLookupPlayer;
         private static string _socialPendingAction = "";
@@ -128,6 +129,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _socialLoad = null;
                 _socialMutation = null;
                 _socialLookup = null;
+                _socialLookupQuery = "";
                 _socialSnapshot = null;
                 _socialLookupPlayer = null;
                 _socialPendingAction = "";
@@ -568,6 +570,7 @@ namespace MphRead.Mods.Launcher.Gui
                 || _socialLookup is { IsCompleted: false })
                 return;
             _socialLookupPlayer = null;
+            _socialLookupQuery = primeId;
             SetText("social_status", "LOOKING UP PRIME ID");
             SetBool("social_loading", true);
             _socialLookup = SocialClient.LookupAsync(primeId, _socialCancel.Token);
@@ -635,22 +638,36 @@ namespace MphRead.Mods.Launcher.Gui
 
             if (_socialLookup is { IsCompleted: true } lookup)
             {
+                string completedQuery = _socialLookupQuery;
                 _socialLookup = null;
+                _socialLookupQuery = "";
                 try
                 {
                     SocialLookupResult result = lookup.GetAwaiter().GetResult();
-                    _socialLookupPlayer = result.Found ? result.Player : null;
-                    SetText("social_status", result.Found ? "PRIME ID FOUND" : "PRIME ID NOT FOUND");
-                    _socialFingerprint = "";
+                    if (_socialTab == 1 && _socialSearch.Equals(
+                        completedQuery, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _socialLookupPlayer = result.Found ? result.Player : null;
+                        SetText("social_status",
+                            result.Found ? "PRIME ID FOUND" : "PRIME ID NOT FOUND");
+                        _socialFingerprint = "";
+                    }
                 }
                 catch (OperationCanceledException) when (_socialCancel?.IsCancellationRequested == true)
                 {
                 }
                 catch (Exception ex)
                 {
-                    _socialLookupPlayer = null;
-                    SetText("social_status", "LOOKUP FAILED // " + ShortSocialError(ex));
+                    if (_socialSearch.Equals(completedQuery, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _socialLookupPlayer = null;
+                        SetText("social_status", "LOOKUP FAILED // " + ShortSocialError(ex));
+                    }
                 }
+
+                if (_socialTab == 1 && LooksLikePrimeId(_socialSearch)
+                    && !_socialSearch.Equals(completedQuery, StringComparison.OrdinalIgnoreCase))
+                    BeginSocialLookup(_socialSearch.ToUpperInvariant());
             }
 
             if (_socialMutation is { IsCompleted: true } mutation)
