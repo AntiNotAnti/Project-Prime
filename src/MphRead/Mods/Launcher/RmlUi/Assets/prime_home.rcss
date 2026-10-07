@@ -64,8 +64,8 @@ body {
     height: 92dp;
     display: flex;
     align-items: center;
-    padding-left: 46dp;
-    padding-right: 46dp;
+    padding-left: 38dp;
+    padding-right: 38dp;
     background-color: rgba(2,8,15,82%);
     border-bottom: 1dp rgba(97,182,246,10%);
 }
@@ -85,9 +85,10 @@ body {
 }
 
 #brand {
-    width: 286dp;
+    width: 252dp;
     display: flex;
     align-items: center;
+    margin-right: 8dp;
 }
 #brand_mark {
     width: 54dp;
@@ -124,6 +125,7 @@ body {
     align-items: stretch;
     height: 100%;
     flex: 1;
+    justify-content: flex-start;
 }
 
 button {
@@ -136,9 +138,11 @@ button {
 }
 
 .nav {
-    min-width: 116dp;
-    padding-left: 20dp;
-    padding-right: 20dp;
+    width: 118dp;
+    min-width: 118dp;
+    padding-left: 0;
+    padding-right: 0;
+    text-align: center;
     font-size: 18dp;
     font-weight: bold;
     letter-spacing: 1dp;
@@ -158,28 +162,29 @@ button {
 }
 
 #account_cluster {
-    width: 312dp;
+    width: 270dp;
     display: flex;
     justify-content: flex-end;
     align-items: center;
+    margin-left: 20dp;
 }
 .online_dot {
     width: 9dp;
     height: 9dp;
     border-radius: 5dp;
-    margin-right: 10dp;
+    margin-right: 12dp;
     background-color: #55e18c;
 }
 .account_copy {
-    width: 188dp;
-    margin-right: 13dp;
+    width: 158dp;
+    margin-right: 12dp;
     text-align: right;
 }
 .account_name {
     display: block;
     color: #ffffff;
-    font-size: 17dp;
-    line-height: 19dp;
+    font-size: 18dp;
+    line-height: 20dp;
     font-weight: bold;
 }
 .account_meta {
@@ -708,13 +713,13 @@ button {
 }
 
 @media (max-width: 1500px) {
-    #topbar { padding-left: 28dp; padding-right: 28dp; }
-    #brand { width: 246dp; }
+    #topbar { padding-left: 24dp; padding-right: 24dp; }
+    #brand { width: 226dp; margin-right: 6dp; }
     #brand_mark { width: 48dp; height: 48dp; line-height: 48dp; font-size: 28dp; }
     .brand_title { font-size: 19dp; line-height: 21dp; }
-    .nav { min-width: 96dp; padding-left: 13dp; padding-right: 13dp; font-size: 16dp; }
-    #account_cluster { width: 235dp; }
-    .account_copy { width: 135dp; }
+    .nav { width: 106dp; min-width: 106dp; padding-left: 0; padding-right: 0; font-size: 16dp; }
+    #account_cluster { width: 246dp; margin-left: 14dp; }
+    .account_copy { width: 142dp; }
     #activity_panel { left: 32dp; width: 460dp; }
     #activity_compact { width: 380dp; }
     #activity_drawer { width: 460dp; }
@@ -724,7 +729,9 @@ button {
 
 @media (max-width: 1180px) {
     #session_panel { display: none; }
-    #account_cluster { width: 168dp; }
+    #brand { width: 210dp; }
+    .nav { width: 94dp; min-width: 94dp; }
+    #account_cluster { width: 104dp; margin-left: 8dp; }
     .account_copy { display: none; }
     #activity_panel { width: 430dp; }
     #activity_compact { width: 370dp; }
@@ -736,10 +743,10 @@ button {
     #topbar { height: 82dp; }
     #top_rule { top: 82dp; }
     #stage { top: 83dp; }
-    #brand { width: 190dp; }
+    #brand { width: 176dp; margin-right: 4dp; }
     .brand_subtitle { display: none; }
-    .nav { min-width: 78dp; padding-left: 8dp; padding-right: 8dp; font-size: 14dp; }
-    #account_cluster { width: 96dp; }
+    .nav { width: 76dp; min-width: 76dp; padding-left: 0; padding-right: 0; font-size: 14dp; }
+    #account_cluster { width: 90dp; margin-left: 4dp; }
     #activity_panel { left: 20dp; bottom: 24dp; width: 365dp; }
     #activity_compact { width: 345dp; }
     #activity_drawer { width: 365dp; padding: 13dp; }
