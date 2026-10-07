@@ -68,6 +68,7 @@ struct PrimeMenuData {
     bool lobby_mode = false;
     bool lobby_owner = false;
     bool lobby_local_ready = false;
+    bool lobby_require_ready = false;
     bool lobby_starting = false;
     bool lobby_rules_open = false;
     bool rules_owner = false;
@@ -139,6 +140,7 @@ public:
         model.Bind("lobby_mode", &data.lobby_mode);
         model.Bind("lobby_owner", &data.lobby_owner);
         model.Bind("lobby_local_ready", &data.lobby_local_ready);
+        model.Bind("lobby_require_ready", &data.lobby_require_ready);
         model.Bind("lobby_starting", &data.lobby_starting);
         model.Bind("lobby_name", &data.lobby_name);
         model.Bind("lobby_map", &data.lobby_map);
@@ -408,12 +410,21 @@ public:
             g_lobby_anchor_dirty = true;
             handle.DirtyVariable("lobby_mode");
             handle.DirtyVariable("home_mode");
-            RequestFocus(value ? "lobby_ready" : "activity_selector");
+            RequestFocus(value ? (data.lobby_require_ready ? "lobby_ready" : "lobby_hunter")
+                : "activity_selector");
             return;
         }
         else if (name == "home_mode") data.home_mode = value;
         else if (name == "lobby_owner") data.lobby_owner = value;
         else if (name == "lobby_local_ready") data.lobby_local_ready = value;
+        else if (name == "lobby_require_ready") {
+            if (data.lobby_require_ready == value) return;
+            data.lobby_require_ready = value;
+            handle.DirtyVariable("lobby_require_ready");
+            if (data.lobby_mode)
+                RequestFocus(value ? "lobby_ready" : "lobby_hunter");
+            return;
+        }
         else if (name == "lobby_starting") data.lobby_starting = value;
         else if (name == "lobby_rules_open") {
             data.lobby_rules_open = value;
