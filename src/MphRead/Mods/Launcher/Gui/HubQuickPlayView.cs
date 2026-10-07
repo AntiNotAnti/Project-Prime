@@ -145,7 +145,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             QuickPlaySearchResult search =
                 await ServerBrowserService.FindBestAsync(
-                    requiredSlots, lobbyOnly: partyQuickPlay, cancellationToken);
+                    requiredSlots, lobbyOnly: partyQuickPlay, cancellationToken: cancellationToken);
             if (cancellationToken.IsCancellationRequested)
                 return;
 
