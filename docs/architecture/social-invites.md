@@ -126,6 +126,14 @@ is due. Broadcast data is never trusted as invite state; it only tells
 
 A 15-second snapshot poll remains the fallback when Realtime is unavailable.
 
+Production rollout has one Supabase dashboard prerequisite: **Realtime Settings →
+Allow public access must be disabled**. Supabase's current private-channel
+authorization model applies the `realtime.messages` RLS policy when the channel
+is private, and their documentation explicitly requires public access to be
+disabled to enforce that boundary. The migration installs the per-user receive
+policy, but it deliberately does not pretend a project-level Realtime setting is
+a schema migration.
+
 ## RmlUi
 
 Slice 4 adds an INVITES tab and expands row actions:
