@@ -123,6 +123,7 @@ Deno.serve(async (req: Request) => {
     authority_epoch?: string;
     client_id?: number;
     career_ticket?: string;
+    lobby_eligible?: boolean;
   };
   try {
     body = await readObjectBounded(req, 4096) as typeof body;
@@ -137,6 +138,7 @@ Deno.serve(async (req: Request) => {
   const epoch = typeof body.authority_epoch === "string"
     ? body.authority_epoch.trim() : "";
   const clientId = Number.isInteger(body.client_id) ? body.client_id! : 0;
+  const lobbyEligible = body.lobby_eligible === true;
   if (!action || !validEpoch(epoch) || clientId < 1 || clientId > 0xffffffff)
     return json(400, { error: "invalid_membership" });
 
@@ -157,14 +159,16 @@ Deno.serve(async (req: Request) => {
 
     await sql`
       insert into prime.social_lobby_memberships (
-        player_id, authority_epoch, reporter_id, client_id, updated_at, expires_at
+        player_id, authority_epoch, reporter_id, client_id,
+        lobby_eligible, updated_at, expires_at
       )
       values (
         ${playerId}::uuid, ${epoch}::numeric, ${reporter.server_id}::uuid,
-        ${clientId}::bigint, now(), now() + interval '60 seconds'
+        ${clientId}::bigint, ${lobbyEligible}, now(), now() + interval '60 seconds'
       )
       on conflict (player_id, authority_epoch, reporter_id) do update
       set client_id = excluded.client_id,
+          lobby_eligible = excluded.lobby_eligible,
           updated_at = now(),
           expires_at = now() + interval '60 seconds'
     `;
