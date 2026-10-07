@@ -226,6 +226,9 @@ namespace MphRead.Mods.Launcher.Gui
                 _busy = false;
                 _pendingActivity = PendingActivity.None;
             }
+            RmlUiPrototype.SetFieldValue("play_create_player_name",
+                String.IsNullOrWhiteSpace(LauncherPrefs.PlayerName)
+                    ? "Player" : LauncherPrefs.PlayerName);
             Status("CONFIGURE YOUR LOBBY");
         }
 
@@ -250,7 +253,7 @@ namespace MphRead.Mods.Launcher.Gui
             RefreshStatic();
         }
 
-        public void Create(string desiredName)
+        public void Create(string desiredName, string desiredPlayer)
         {
             if (!_visible || _busy) return;
             if (!GameFiles.Ready || _rooms.Length == 0)
@@ -259,7 +262,9 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
 
-            string player = LocalPlayer();
+            string player = desiredPlayer.Trim();
+            if (player.Length == 0) player = LocalPlayer();
+            if (player.Length > 24) player = player[..24];
             string name = desiredName.Trim();
             if (name.Length == 0) name = $"{player}'s lobby";
             if (name.Length > 48) name = name[..48];
