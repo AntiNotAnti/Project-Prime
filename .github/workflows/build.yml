@@ -282,6 +282,20 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'Pinned software Vulkan loader/ICD admission failed' }
             Write-Host 'Vulkan acceptance uses the pinned Mesa lavapipe CPU adapter; no hardware GPU result is inferred.'
           }
+      - name: verify DirectX native validation prerequisite
+        if: matrix.renderer == 'dx12'
+        shell: pwsh
+        run: |
+          $capabilityName = 'Tools.Graphics.DirectX~~~~0.0.1.0'
+          $capability = Get-WindowsCapability -Online -Name $capabilityName
+          if ($capability.State -ne 'Installed') {
+            Add-WindowsCapability -Online -Name $capabilityName
+            $capability = Get-WindowsCapability -Online -Name $capabilityName
+          }
+          if ($capability.State -ne 'Installed') { throw 'DirectX Graphics Tools validation capability was not installed' }
+          $debugLayer = Join-Path $env:windir 'System32/D3D12SDKLayers.dll'
+          if (-not (Test-Path $debugLayer)) { throw 'Installed DirectX validation layer DLL is unavailable' }
+          Write-Host "DirectX validation prerequisite installed: $debugLayer"
       - name: backend policy, device, draw and window present
         shell: pwsh
         run: |
@@ -290,6 +304,9 @@ jobs:
           $negative = Start-Process -FilePath (Resolve-Path publish/modern-win/ProjectPrime.exe) -ArgumentList @('-renderbackendprobe', '-renderer', 'opengl') -Wait -PassThru -NoNewWindow -RedirectStandardOutput $negativeOut -RedirectStandardError $negativeErr
           if ($negative.ExitCode -ne 2) { throw "GUI process negative exit oracle expected 2, got $($negative.ExitCode)" }
           Write-Host 'Actual GUI process nonzero exit code preserved: 2.'
+          if ('${{ matrix.renderer }}' -eq 'dx12') {
+            $env:PRIME_WGPU_VALIDATION = '1'
+          }
           $stdout = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.stdout.log'
           $stderr = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.stderr.log'
           $process = Start-Process -FilePath (Resolve-Path publish/modern-win/ProjectPrime.exe) -ArgumentList @('-renderfullcheck', '-renderer', '${{ matrix.renderer }}') -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
@@ -299,8 +316,26 @@ jobs:
           if ($process.ExitCode -ne 0) { exit $process.ExitCode }
           $backend = if ('${{ matrix.renderer }}' -eq 'dx12') { 'DirectX 12' } else { 'Vulkan' }
           $proof = (Get-Content $stdout -Raw) + (Get-Content $stderr -Raw)
+          if ('${{ matrix.renderer }}' -eq 'dx12' -and -not $proof.Contains('native validation requested backend=DirectX 12 flags=Validation')) { throw 'Missing requested native DirectX validation evidence' }
           foreach ($phase in @('renderbackendprobe', 'renderwindowcheck')) {
             if (-not $proof.Contains("[$phase] PASS backend=$backend")) { throw "Missing actual $backend $phase native pass evidence" }
+          }
+      - name: DirectX production-default full window and lifetime check
+        if: matrix.renderer == 'dx12'
+        shell: pwsh
+        run: |
+          Remove-Item Env:PRIME_WGPU_VALIDATION -ErrorAction SilentlyContinue
+          $stdout = Join-Path $env:RUNNER_TEMP 'renderer-windows-dx12.default.stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'renderer-windows-dx12.default.stderr.log'
+          $process = Start-Process -FilePath (Resolve-Path publish/modern-win/ProjectPrime.exe) -ArgumentList @('-renderfullcheck', '-renderer', 'dx12') -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          Get-Content $stdout
+          Get-Content $stderr
+          Write-Host "Production-default DirectX process exit code: $($process.ExitCode)"
+          if ($process.ExitCode -ne 0) { exit $process.ExitCode }
+          $proof = (Get-Content $stdout -Raw) + (Get-Content $stderr -Raw)
+          if ($proof.Contains('native validation requested')) { throw 'Production-default renderer unexpectedly enabled diagnostic validation' }
+          foreach ($phase in @('renderbackendprobe', 'renderwindowcheck')) {
+            if (-not $proof.Contains("[$phase] PASS backend=DirectX 12")) { throw "Missing production-default DirectX $phase native pass evidence" }
           }
       - name: Windows native renderer proof logs
         if: always()
@@ -530,9 +565,16 @@ jobs:
         if: matrix.rid == 'osx-x64'
         run: '"publish/modern-${{ matrix.rid }}/ProjectPrime" -textureupdatecheck -renderer opengl'
       - name: Metal device, draw and window present
+        env:
+          # This permits only measured absence of accelerated legacy CGL formats
+          # on the hosted ARM Paravirtual device. Metal pixels/restart remain
+          # mandatory; capable hosts must pass the original GL fallback oracle.
+          PRIME_ACCEPTANCE_HOSTED_NSGL_UNAVAILABLE: ${{ matrix.rid == 'osx-arm64' && '1' || '0' }}
         run: |
           "publish/modern-${{ matrix.rid }}/ProjectPrime" -renderfullcheck -renderer metal
       - name: MoltenVK device, draw and window present
+        env:
+          PRIME_ACCEPTANCE_HOSTED_NSGL_UNAVAILABLE: ${{ matrix.rid == 'osx-arm64' && '1' || '0' }}
         run: tools/check-macos-modern-vulkan.sh "publish/modern-${{ matrix.rid }}/ProjectPrime" --window
 
   enhanced-hunter-checks:

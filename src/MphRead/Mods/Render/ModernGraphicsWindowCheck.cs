@@ -4,6 +4,7 @@ using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using GlfwErrorCode = OpenTK.Windowing.GraphicsLibraryFramework.ErrorCode;
 
 namespace MphRead.Mods.Render
 {
@@ -323,6 +324,7 @@ namespace MphRead.Mods.Render
 
         private static void RunFailedRecoveryFallbackCheck()
         {
+            var deviceIdentity = ModernGraphicsCompat.DeviceIdentity;
             // The successful-reconstruction case above has already used the
             // one retry. A second loss must stay controlled and permit GL.
             ModernGraphicsCompat.DestroyDeviceForCheck();
@@ -334,7 +336,41 @@ namespace MphRead.Mods.Render
             GraphicsBackendPolicy.UseCompatibilityFallback("forced repeated device loss acceptance check");
             var settings = DesktopGlContext.Settings(background: true);
             settings.ClientSize = new(96, 64);
-            using var window = new NativeWindow(settings);
+            NativeWindow window;
+            GlfwErrorCode? creationError = null;
+            string? creationDescription = null;
+            GLFWCallbacks.ErrorCallback creationCallback = (code, description) =>
+            {
+                creationError = code;
+                creationDescription = description;
+                // Never unwind through GLFW's native callback frames.
+                try { Console.Error.WriteLine($"[window] GLFW {code}: {description}"); }
+                catch { }
+            };
+            GLFW.SetErrorCallback(creationCallback);
+            try
+            {
+                window = new NativeWindow(settings);
+            }
+            catch (InvalidOperationException ex) when (
+                creationError == GlfwErrorCode.FormatUnavailable
+                && creationDescription == "NSGL: Failed to find a suitable pixel format"
+                && ex.Message == "GLFW Format unavailable: NSGL: Failed to find a suitable pixel format"
+                && HostedLegacyFormatUnavailable(deviceIdentity.Adapter))
+            {
+                if (ModernGraphicsCompat.Active
+                    || GraphicsBackendPolicy.Resolved != GraphicsBackend.OpenGL)
+                    throw new InvalidOperationException("Unsupported legacy handoff retained modern renderer state.");
+                Console.WriteLine("[renderwindowcheck] repeated device loss and controlled shutdown PASS");
+                Console.WriteLine("[renderwindowcheck] legacy OpenGL draw UNAVAILABLE: hosted Apple Paravirtual ARM has no accelerated legacy CGL format; modern restart remains required");
+                return;
+            }
+            finally
+            {
+                DesktopGlContext.InstallErrorCallback();
+                GC.KeepAlive(creationCallback);
+            }
+            using var legacyWindow = window;
             using var graphics = new DesktopGraphicsSession(window);
             GraphicsApi.ClearColor(0, 1, 0, 1);
             GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
@@ -346,6 +382,59 @@ namespace MphRead.Mods.Render
             DesktopGraphicsSession.Present(window);
             Console.WriteLine("[renderwindowcheck] failed recovery to fresh OpenGL context PASS");
         }
+
+        private static bool HostedLegacyFormatUnavailable(string adapter)
+        {
+            // This is an acceptance diagnostic only. Normal renderer fallback
+            // still attempts the original GL context and propagates failures.
+            if (Environment.GetEnvironmentVariable("PRIME_ACCEPTANCE_HOSTED_NSGL_UNAVAILABLE") != "1"
+                || Environment.GetEnvironmentVariable("GITHUB_ACTIONS") != "true"
+                || !OperatingSystem.IsMacOS()
+                || System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture
+                    != System.Runtime.InteropServices.Architecture.Arm64
+                || adapter != "Apple Paravirtual device")
+                return false;
+
+            // Independently check the CGL capability, rather than infer it from
+            // a GLFW error. The minimal/offline request also rules out a depth,
+            // stencil, color-size or automatic-switching hint mismatch.
+            int[] standard = { 99, 0x1000, 73, 74, 5, 8, 24, 11, 8, 12, 24, 13, 8, 0 };
+            int[] offline = { 99, 0x1000, 73, 74, 96, 101, 5, 8, 24, 11, 8, 12, 24, 13, 8, 0 };
+            int[] minimal = { 99, 0x1000, 73, 74, 96, 101, 0 };
+            int[] defaultProfile = { 73, 74, 96, 101, 0 };
+            bool standardAbsent = LegacyFormatAbsent("standard", standard);
+            bool offlineAbsent = LegacyFormatAbsent("offline", offline);
+            bool minimalAbsent = LegacyFormatAbsent("minimal-offline", minimal);
+            bool defaultAbsent = LegacyFormatAbsent("minimal-offline-default-profile", defaultProfile);
+            return standardAbsent && offlineAbsent && minimalAbsent && defaultAbsent;
+        }
+
+        private static bool LegacyFormatAbsent(string request, int[] attributes)
+        {
+            nint format = 0;
+            try
+            {
+                int error = CGLChoosePixelFormat(attributes, out format, out int count);
+                bool absent = (error == 0 || error == 10002) && format == 0 && count == 0;
+                Console.WriteLine($"[renderwindowcheck] CGL legacy format request={request} error={error} count={count} handle={(format != 0 ? "present" : "none")} unavailable={absent}");
+                return absent;
+            }
+            finally
+            {
+                if (format != 0)
+                {
+                    int releaseError = CGLDestroyPixelFormat(format);
+                    if (releaseError != 0)
+                        throw new InvalidOperationException($"CGL format census release failed: {releaseError}.");
+                }
+            }
+        }
+
+        [System.Runtime.InteropServices.DllImport("/System/Library/Frameworks/OpenGL.framework/OpenGL")]
+        private static extern int CGLChoosePixelFormat(int[] attributes, out nint format, out int count);
+
+        [System.Runtime.InteropServices.DllImport("/System/Library/Frameworks/OpenGL.framework/OpenGL")]
+        private static extern int CGLDestroyPixelFormat(nint format);
 
         private static void RunScissorBoundsCheck()
         {

@@ -200,7 +200,7 @@ public sealed class ReplayExportWorkerCoordinator(StudioJobManager jobs, Func<st
         try
         {
             if (!File.Exists(ticket.StatusFile) || new FileInfo(ticket.StatusFile).Length > 65536) return null;
-            var state = JsonSerializer.Deserialize<StudioReplayExportStatus>(File.ReadAllText(ticket.StatusFile));
+            var state = StudioReplayStatusFile.Read(ticket.StatusFile);
             return state?.Id == ticket.Id ? state : null;
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { return null; }

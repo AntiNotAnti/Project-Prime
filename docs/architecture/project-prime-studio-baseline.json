@@ -538,7 +538,7 @@
     },
     "evidencePolicy": "Existing desktopGraph, loaded/native acceptance, APK, package and measurement records retain their exact historical binary scopes. latestFixAcceptance records subsequent source/build/component evidence; pending reruns are not promoted to passes. Current PR required checks remain final-head authority.",
     "latestFixAcceptance": {
-      "sourceIdentity": "Coalesced fix working tree after 39ff92d44b3182048c20106bf8b65e15bb8fc497; not attributed to an earlier immutable desktop/APK/package graph",
+      "sourceIdentity": "Verified fix sources at f070c9324847ae1f9987fea957450e86b1af6cd6; desktop Replay uses preserved c06e5651/13f45952 binaries, Android preserves its actual local+39ff stamp, and paired publish uses explicit local test version1.2.3. Later CI fixture repair acceptance is not implied.",
       "desktopGraph": {
         "status": "passed",
         "snapshot": "/tmp/project-prime-studio-kernel-cache-final-snapshot",
@@ -548,7 +548,7 @@
         "buildWarnings": 133,
         "buildSeconds": 52.64,
         "log": "/tmp/project-prime-studio-kernel-cache-final-build.log",
-        "scope": "Fresh managed Release build with shared process identity, hosted-cache ownership and current 8d native payload; native Replay, APK and paired publish reruns remain separate pending gates."
+        "scope": "Fresh managed Release build with shared process identity, hosted-cache ownership and current 8d native payload. Full native Replay passed separately on these exact binaries; APK and paired publish have their own source/binary/version records below."
       },
       "architecture": {
         "status": "passed",
@@ -619,8 +619,9 @@
             "arm64-v8a",
             "x86_64"
           ],
-          "managedApkAcceptance": false,
-          "onDeviceAcceptance": false
+          "managedApkAcceptance": true,
+          "onDeviceAcceptance": false,
+          "managedApkEvidence": "artifacts/studio-acceptance/final-platform/android-kernel-native-f070/manifest.json"
         },
         "windowsFxc": {
           "status": "repair-landed-runtime-ci-pending",
@@ -629,10 +630,363 @@
         }
       },
       "pendingReruns": [
-        "Full native Replay 158 scope against c06e5651/13f45952 and the 8d native payload",
-        "Fresh Android managed APK/extracted assembly/native payload/signature verification",
-        "Fresh paired macOS publish/sign/extract/native smoke",
         "Actual Linux export 1162 and Windows FXC/native runtime CI",
+        "All required Windows/Linux/macOS and Android checks for the current PR head"
+      ],
+      "nativeReplay": {
+        "status": "passed",
+        "checks": 158,
+        "platform": "macOS",
+        "sourceCommit": "f070c9324847ae1f9987fea957450e86b1af6cd6",
+        "artifact": "artifacts/studio-acceptance/final-release/native-replay-kernel-cache/manifest.json",
+        "log": "/tmp/project-prime-host-native-replay-kernel-cache-final.log",
+        "sourceBytes": 2433255,
+        "sourceSha256": "cf2d6ce25e9679e2973652253077e4b313fb5d675c3b187958923a96709254e8",
+        "engineAssemblySha256": "c06e565170ce09582307fae355b1b7bbc00eb6fce3ce04ca14bcd0b6288bac11",
+        "studioAssemblySha256": "13f45952fee0ec3bc3ca50f53c95790098506c23605d1f20d344c07c707b5943",
+        "harnessSha256": "9aa3e69ba47fd708cf33661495bf5167548b1858585cec50dbf9e88f079b6546",
+        "nativeLibrarySha256": "66cea18944cc9ea1e662828f23697b4a27f54528e31892ab26d73dd19569ee30",
+        "coverage": [
+          "default game HUD positive pixels and second-player POV",
+          "single shared four-view clock at 1x and 2x",
+          "nonzero device retry and exact current world hashes",
+          "central seek cancellation/request-ID isolation and same-presented full graph oracle",
+          "stale final fourth-view cleanup",
+          "continued SaveAs clip and frozen cropped-camera worker transfer",
+          "inclusive PNG frames and actual FFmpeg/PCM/FFprobe",
+          "explicit export cancellation",
+          "document-close and entire-window-close worker continuation",
+          "installation lease until actual child exit",
+          "original source rename retention",
+          "terminal scratch cleanup and durable worker logs"
+        ],
+        "scope": "Actual native Avalonia Replay/worker acceptance on macOS. Complete world comparisons use the same explicitly presented phase within this recording; no old-run fixture equivalence or cross-platform success is claimed. Generated binary versions are preserved, not relabeled to the later commit; committed raw source identities are verified in the manifest."
+      },
+      "android": {
+        "status": "passed",
+        "artifact": "artifacts/studio-acceptance/final-platform/android-kernel-native-f070/manifest.json",
+        "acceptance": "artifacts/studio-acceptance/final-platform/android-kernel-native-f070/acceptance.json",
+        "sourceHead": "f070c9324847ae1f9987fea957450e86b1af6cd6",
+        "sourceTree": "a3df1b9129caa39ab05183d7be7c2c3b5ad19e53",
+        "compileSourceCount": 1176,
+        "compileSourceIdentitySha256": "8112762feed8ccf03628df4253fbc41b6c8e8a841e211568b354e1f4dc7068b7",
+        "allCompileSourcesMatchCommittedHead": true,
+        "buildErrors": 0,
+        "buildWarnings": 137,
+        "buildSeconds": 106.39,
+        "apkBytes": 118447180,
+        "apkSha256": "1cebdf0ed1fedcd9d64d8aa981fda80ca64d3c2d9b2517aca7bd791429a52c81",
+        "abis": [
+          "arm64-v8a",
+          "x86_64"
+        ],
+        "canonicalAssemblySha256": "10b300bf08513d2af3c387d2977fc90b47b8b9bd9cc88bd3623819d57b79dcb0",
+        "actualAssemblyVersion": "1.0.0.0",
+        "actualVersionAttributes": {
+          "AssemblyFileVersionAttribute": "1.0.0.0",
+          "AssemblyInformationalVersionAttribute": "local+39ff92d44b3182048c20106bf8b65e15bb8fc497"
+        },
+        "canonicalMapTypes": 247,
+        "passiveReplayPreserved": true,
+        "forbiddenCreatorTypes": [],
+        "forbiddenDesktopAssemblyReferences": [],
+        "nativePatchFingerprint": "8d0246408e9d8df823557ae2b613d784cd4bbc69f1979fcd791f9743a0316ebf",
+        "nativePayloads": [
+          {
+            "abi": "arm64-v8a",
+            "bytes": 7918128,
+            "sha256": "7aba41582550a3a3bc9008611d604cbe1e0838830d4ecd5d411477bb5226bc48",
+            "matchesVerifiedPinnedRuntime": true
+          },
+          {
+            "abi": "x86_64",
+            "bytes": 7571240,
+            "sha256": "3389d21be8ed53f2595ed328649c2b7cfd04989b30c89b164c08a943f92173a7",
+            "matchesVerifiedPinnedRuntime": true
+          }
+        ],
+        "signature": "Android Debug development certificate; v2/v3 signature verification passed",
+        "scope": "Actual current-source APK/native8d compile, signature, packaged ELF assembly-store extraction, independent untrimmed and both packaged ABI metadata checks. All1176 evaluated Compile source bytes equal committed f070 tree. Generated actual binary informational stamp is local+39ff because build began before commit; not relabeled f070. No emulator/on-device acceptance claimed.",
+        "onDeviceAcceptance": false
+      },
+      "pairedMacPackage": {
+        "status": "passed",
+        "evidence": "artifacts/studio-acceptance/final-release/osx-arm64-kernel-identity/release-evidence.json",
+        "sourceHead": "f070c9324847ae1f9987fea957450e86b1af6cd6",
+        "sourceTree": "a3df1b9129caa39ab05183d7be7c2c3b5ad19e53",
+        "rawTrackedFilesIdentity": "67f43eebb3cb3a9ba4f21b107f289ef43081332ca27397cfff7af0156fcb882d",
+        "rawSourceRevalidatedAtArchiveCompletion": true,
+        "version": "1.2.3",
+        "versionScope": "Local acceptance package at test version 1.2.3; not a published production release.",
+        "ipcVersion": 1,
+        "rid": "osx-arm64",
+        "selfContained": true,
+        "archiveBytes": 162431716,
+        "archiveSha256": "da1a787b9f76c46e956979cb69b2d5863edfc17234db82f15e57f9f8bf500f04",
+        "publishedEngineAssemblySha256": "c9abb713c92772f9f006fd8120ef5f088f98a1e03ef96619881febb0a04e3154",
+        "publishedStudioAssemblySha256": "856ea225ac4a65efb08ec73bd19d893df2dbf46df0a23e1f2cda2d6726b1f289",
+        "nativeLibrarySha256BeforeSigning": "66cea18944cc9ea1e662828f23697b4a27f54528e31892ab26d73dd19569ee30",
+        "signedNativeLibrarySha256": "b8455df4cb93c2c8faa9c3b54fd7c6cedc4d85f1c10cf8bb3050c3b32e540cee",
+        "nativePatchFingerprint": "8d0246408e9d8df823557ae2b613d784cd4bbc69f1979fcd791f9743a0316ebf",
+        "signingIdentity": "Ad hoc (-); both application bundles and their Mach-O payloads verified with --deep --strict after packaging and archive extraction. No Developer ID or notarization claimed.",
+        "extractedStudioHome": {
+          "status": "passed",
+          "scope": "Actual extracted Studio Home classic native window with a fresh isolated profile; no Map/Replay document or proprietary assets loaded.",
+          "captureSha256": "f6c17ac465f02cfe1dc7d64e2bdcf7cfc34b125f0e5cd834329d2e66ef715c51",
+          "cleanExit": true,
+          "ownedProcessExited": true
+        },
+        "scope": "Actual self-contained paired publish, ad hoc strict signatures, extraction, versions/native smoke and real extracted Studio Home at fresh isolated profile. Local test version1.2.3 is not a production release. Full Replay158 is separate c06e/13f harness evidence, not inferred from packaged Home."
+      }
+    },
+    "statusSharingAndValidation": {
+      "sourceIdentity": "Status publication and opt-in native validation fix working tree after f070c9324847ae1f9987fea957450e86b1af6cd6; fresh app/build identity recorded separately when accepted",
+      "statusSnapshot": {
+        "status": "implemented-and-component-tested",
+        "source": "src/MphRead/Mods/StudioReplay/StudioReplayStatusFile.cs",
+        "sourceSha256": "1aba005cef9003fc73ab051e7a9a7b5dbd3965550878ed94d3578713681b823e",
+        "maximumBytes": 65536,
+        "fileShare": "Read | Delete; Write denied",
+        "consumers": [
+          "src/ProjectPrime.Studio/Replay/ReplayExportWorkerCoordinator.cs",
+          "src/MphRead/Mods/StudioReplay/StudioReplayExport.cs",
+          "src/MphRead/Mods/StudioReplay/StudioReplayCachePins.cs"
+        ],
+        "scope": "Canonical reader bounds the opened immutable handle snapshot, allows worker atomic rename while a previous version remains open, and rejects oversized/changed/malformed data. Writers already close staging before rename; status format and max2 worker admission are unchanged."
+      },
+      "exportComponents": {
+        "status": "passed",
+        "platform": "macOS arm64",
+        "baseChecks": 1161,
+        "actualFfmpegFfprobeChecks": 1166,
+        "artifact": "artifacts/studio-acceptance/final-release/export-atomic-publication/summary.json",
+        "workerThreadPoolStress": {
+          "minimum": 1,
+          "maximum": 2
+        },
+        "atomicPublicationWitnesses": {
+          "actualChildHeldUnpublishedStaging": true,
+          "publishedPidReadAfterWriterClose": true,
+          "actualChildReplacedStatusWhileCanonicalReaderWasOpen": true,
+          "heldOldVersionAndFreshNewVersionWereComplete": true,
+          "openedSnapshotBoundBytes": 65536,
+          "malformedJsonRejected": true
+        },
+        "fixtureScope": "All cross-process PID/readiness/completion signals are staged then closed before publication; mutable fixture status/census readers allow deletion sharing.",
+        "windowsOldShareDenialNegative": {
+          "status": "pending-actual-ci",
+          "executedLocally": false
+        },
+        "scope": "Source-linked canonical and pure fixture checks with real child processes and actual FFmpeg/FFprobe. No new full application/native/APK/package acceptance is inferred from this component run."
+      },
+      "nativeValidation": {
+        "status": "implemented-contract-passed",
+        "source": "src/MphRead/Mods/Render/ModernGraphicsDevice.cs",
+        "environmentOptIn": "PRIME_WGPU_VALIDATION=1",
+        "flags": "(uint)InstanceFlag.Validation",
+        "nativeFlagsValue": 2,
+        "debugFlagSet": false,
+        "log": "/tmp/project-prime-native-validation-contract.log",
+        "scope": "Diagnostic opt-in enables native validation and info logging without the DEBUG flag or shader optimization changes. Windows first-window device-loss cause remains unresolved pending actual next-CI diagnostics.",
+        "metalInterop": {
+          "status": "passed",
+          "checks": 25,
+          "platform": "macOS physical Metal",
+          "engineAssemblySha256": "4d2ebe1bd955dd9d78d6d86144b659754b5cf39f00d28121607133ef0c0c1e04",
+          "log": "/tmp/project-prime-native-validation-metal-probe.log",
+          "scope": "Actual opt-in validation flags on repaired uint interop with physical Metal, positive offscreen red pixels and25 checks/exit0. This conditional interop proof does not certify full Replay/window acceptance or Windows DX12."
+        }
+      },
+      "historicalF070Ci": {
+        "sourceHead": "f070c9324847ae1f9987fea957450e86b1af6cd6",
+        "testedMerge": "e13716ea3459a3e31f861aaf3b7f816e686b21a5",
+        "sourceTree": "a3df1b9129caa39ab05183d7be7c2c3b5ad19e53",
+        "mergeTreeMatchesHead": true,
+        "workflowRun": 37553962101,
+        "evidence": "artifacts/studio-acceptance/final-ci/acceptance.json",
+        "overallAcceptance": false,
+        "linuxStudio": {
+          "status": "passed-historical-f070",
+          "job": 112577552084,
+          "pureExportChecks": 1157,
+          "actualFfmpegChecks": 1162,
+          "lifecycleChecks": 91,
+          "nativeXvfbChecks": 118,
+          "contentFreeUiChecks": 471,
+          "log": "artifacts/studio-acceptance/final-ci/current-f070/ubuntu-studio-112577552084.log",
+          "artifact": 11454363129,
+          "scope": "Actual Linux Studio publish1.0.0/IPC1, pure/process/real FFmpeg contracts, content-free headless UI and native failed-admission CPU fallback/lifetime. Pixel metrics are log evidence; no uploaded admission PNG or proprietary Replay fixture claim."
+        },
+        "androidRenderer": {
+          "status": "passed-historical-f070",
+          "job": 112576154085,
+          "frames": 2,
+          "artifact": "artifacts/studio-acceptance/final-ci/current-f070/android-renderer/manifest.json",
+          "scope": "Actual x64 emulator Vulkan device/surface/acquire/draw/readback/present/UI overlay, cold launch and foreground surface recreation. KVM with software SwiftShader; no physical-device or hardware-GPU claim."
+        },
+        "androidMapRuntime": {
+          "status": "passed-runtime-step-historical-f070",
+          "job": 112576310722,
+          "artifact": "artifacts/studio-acceptance/final-ci/current-f070/android-map/manifest.json",
+          "scope": "Actual emulator ppmap load/package verification/download/registration/runtime decode. Positive runtime step only; entire Android workflow/final publish outcome is not inferred."
+        },
+        "windowsFxc": {
+          "status": "passed-historical-f070",
+          "job": 112576154062,
+          "checks": 3,
+          "scope": "Actual named/unlabeled/invalid-source FXC compiler checks on patched native source; distinct from DX12 window acceptance."
+        },
+        "windowsDx12": {
+          "status": "offscreen-passed-window-failed-historical-f070",
+          "job": 112577552102,
+          "offscreenChecks": 25,
+          "firstWindowError": "DeviceLost 0x887A0005",
+          "wholeJobAccepted": false,
+          "scope": "Actual FXC/offscreen checks on Microsoft Basic Render Driver passed. First window/UI readback lost the device; cause remains unresolved. Opt-in native validation supplies diagnostics for next CI rather than certifying a fix."
+        },
+        "macOsRenderer": {
+          "status": "metal-draw-passed-forced-opengl-restore-failed-historical-f070",
+          "job": 112576153965,
+          "log": "/tmp/project-prime-ci-f070-modern-mac-arm64-112576153965.log",
+          "wholeJobAccepted": false,
+          "scope": "All actual Metal draw phases produced positive pixels. Forced OpenGL restore failed with NSGLFormatUnavailable on AppleParavirtual; investigation remains open. These positive Metal phases do not certify the whole failed job."
+        }
+      },
+      "remainingAcceptance": [
+        "New SDK paired-package publish after the final source push; existing f070 package remains accepted only for its recorded raw inputs",
+        "Actual Windows old-share-denial negative and diagnostic native runtime CI",
+        "All required Windows/Linux/macOS and Android checks for the current PR head"
+      ],
+      "desktopGraph": {
+        "status": "passed",
+        "snapshot": "/tmp/project-prime-studio-atomic-status-final-snapshot",
+        "engineAssemblySha256": "4d2ebe1bd955dd9d78d6d86144b659754b5cf39f00d28121607133ef0c0c1e04",
+        "studioAssemblySha256": "4fa9f2cc80868f5145a6d80d3e402ad31fb990b4de44013d0ade41a3a04fed57",
+        "nativeLibrarySha256": "66cea18944cc9ea1e662828f23697b4a27f54528e31892ab26d73dd19569ee30",
+        "nativePatchFingerprint": "8d0246408e9d8df823557ae2b613d784cd4bbc69f1979fcd791f9743a0316ebf",
+        "buildErrors": 0,
+        "buildWarnings": 133,
+        "buildSeconds": 49.96,
+        "log": "/tmp/project-prime-studio-atomic-status-final-build.log",
+        "rejectedFlagAssignmentBuildLog": "/tmp/project-prime-studio-atomic-status-rejected-flag-build.log",
+        "scope": "Fresh atomic-status/uint-validation managed build. Native Replay158 passed separately on exact4d2ebe/4fa9f binaries; atomic-status APK has its own exact1177 pre-Mac-diagnostic input scope. Later f51 diagnostics and paired SDK publish are separate records."
+      },
+      "architecture": {
+        "status": "passed",
+        "sourceContracts": 8179,
+        "sourceLog": "/tmp/project-prime-studio-architecture-atomic-status-final.log",
+        "priorSelfTests": 66,
+        "priorSelfTestLog": "/tmp/project-prime-studio-architecture-kernel-cache-self-final.log",
+        "scope": "Current atomic-status source scan passes8179. Earlier66 negative self-tests remain recorded for the unchanged checker; no new negative-suite rerun is claimed."
+      },
+      "nativeReplay": {
+        "status": "passed",
+        "checks": 158,
+        "artifact": "artifacts/studio-acceptance/final-release/native-replay-atomic-status/manifest.json",
+        "sourceBytes": 2433255,
+        "sourceSha256": "cf2d6ce25e9679e2973652253077e4b313fb5d675c3b187958923a96709254e8",
+        "engineAssemblySha256": "4d2ebe1bd955dd9d78d6d86144b659754b5cf39f00d28121607133ef0c0c1e04",
+        "studioAssemblySha256": "4fa9f2cc80868f5145a6d80d3e402ad31fb990b4de44013d0ade41a3a04fed57",
+        "harnessSha256": "459a1e659ae8a1204c0e7998e174e9ec388be0cd8a8fcdd2e6332c2935053b0e",
+        "nativeLibrarySha256": "66cea18944cc9ea1e662828f23697b4a27f54528e31892ab26d73dd19569ee30",
+        "coverage": [
+          "default game HUD positive pixels and second-player POV",
+          "single shared four-view clock at 1x and 2x",
+          "nonzero device retry and exact current world hashes",
+          "central seek cancellation/request-ID isolation and same-presented full graph oracle",
+          "stale final fourth-view cleanup",
+          "continued SaveAs clip and frozen cropped-camera worker transfer",
+          "inclusive PNG frames and actual FFmpeg/PCM/FFprobe",
+          "explicit export cancellation",
+          "document-close and entire-window-close worker continuation",
+          "installation lease until actual child exit",
+          "original source rename retention",
+          "terminal scratch cleanup and durable worker logs"
+        ],
+        "scope": "Actual native Avalonia Replay/worker acceptance on local macOS after the atomic status-reader repair. Complete world comparisons use the same explicitly presented phase within this recording. No later GL availability repair, cross-platform completion, or historical fixture equivalence is claimed. Generated versions remain as built; later Mac GL diagnostic changes are not included."
+      },
+      "android": {
+        "status": "passed-build-and-package",
+        "artifact": "artifacts/studio-acceptance/final-platform/android-atomic-status/manifest.json",
+        "acceptance": "artifacts/studio-acceptance/final-platform/android-atomic-status/acceptance.json",
+        "apkBytes": 118118652,
+        "apkSha256": "4200f0a54b43f2d09ecdf407f776b37074b57975ca631e93ab2b6673c7d4d4b2",
+        "buildErrors": 0,
+        "buildWarnings": 137,
+        "buildSeconds": 93.8,
+        "compileInputCount": 1177,
+        "compileInputsUnchangedDuringBuild": true,
+        "compileInputFilesSha256": "8b675e56fd47a21b5d2f6a943eac32111bc349fc83c5e052491990651a9bacba",
+        "actualInformationalVersion": "local+f070c9324847ae1f9987fea957450e86b1af6cd6",
+        "signature": "Verified APK v2/v3, Android Debug development certificate; not a release signing certificate.",
+        "nativePatchFingerprint": "8d0246408e9d8df823557ae2b613d784cd4bbc69f1979fcd791f9743a0316ebf",
+        "nativePayloadsMatchVerifiedRuntime": true,
+        "packagedAssembliesMatchLinkedDlls": true,
+        "canonicalMapTypes": 247,
+        "passiveReplayPreserved": true,
+        "forbiddenCreatorTypes": 0,
+        "forbiddenDesktopAssemblyReferences": 0,
+        "physicalDeviceAcceptance": false,
+        "futureHeadCiAcceptance": false,
+        "preDiagnosticInput": {
+          "source": "src/MphRead/Mods/Render/ModernGraphicsWindowCheck.cs",
+          "sha256": "a1b685de6eec93bde34bf70c7e1ddb42f921ec455bc14532fbe1e1de6b833a82",
+          "scope": "Retained exact pre-Mac-diagnostic-fix source is inactive on Android. All1177 before/after raw inputs match during this build; no later working-tree or future committed-head identity is inferred."
+        },
+        "scope": "Frozen working tree includes atomic status-file repair and diagnostic batch; does not equal committed f070 tree. Exact before/after 1177 Compile input hashes retained. Future commit identity pending; actual binary version is not relabeled."
+      }
+    },
+    "platformDiagnostics": {
+      "sourceScope": "Final diagnostic/status working tree after f070; not relabeled to previous native Replay/APK/publish graphs",
+      "desktopGraph": {
+        "status": "passed",
+        "snapshot": "/tmp/project-prime-studio-platform-diagnostics-final-snapshot",
+        "engineAssemblySha256": "f51b04109769927f75cce7c095f7898fb3a983cd5c1968970328f9d9b5feefcd",
+        "studioAssemblySha256": "5d0011e64b4207bb1fdaed706571a0ee87a9e606c8fd5f8325132107337f7406",
+        "nativeLibrarySha256": "66cea18944cc9ea1e662828f23697b4a27f54528e31892ab26d73dd19569ee30",
+        "nativePatchFingerprint": "8d0246408e9d8df823557ae2b613d784cd4bbc69f1979fcd791f9743a0316ebf",
+        "buildErrors": 0,
+        "buildWarnings": 133,
+        "buildSeconds": 53.76,
+        "log": "/tmp/project-prime-studio-platform-diagnostics-final-build.log"
+      },
+      "architecture": {
+        "status": "passed",
+        "sourceContracts": 8179,
+        "log": "/tmp/project-prime-studio-architecture-platform-diagnostics-final.log",
+        "scope": "Current full-source scan. Earlier66 unchanged-checker negative self-tests are retained without claiming a new negative-suite rerun."
+      },
+      "hostedMacLegacyDiagnostic": {
+        "status": "contracts-passed-runtime-ci-pending",
+        "extractedHelperChecks": 21,
+        "contractLog": "/tmp/project-prime-nsgl-contract.log",
+        "constructorLog": "/tmp/project-prime-nsgl-constructor-contract.log",
+        "source": "src/MphRead/Mods/Render/ModernGraphicsWindowCheck.cs",
+        "strictAllowance": [
+          "Explicit diagnostic opt-in PRIME_ACCEPTANCE_HOSTED_NSGL_UNAVAILABLE=1",
+          "GitHub Actions, macOS ARM64, exact Apple Paravirtual device",
+          "All four CGL requests independently return known absence with zero handle and count",
+          "Typed GLFW FormatUnavailable, exact suitable-pixel-format callback text and exact OpenTK InvalidOperationException constructor message"
+        ],
+        "scope": "Diagnostic-only allowance reports legacy OpenGL UNAVAILABLE, then still requires modern restart pixels. Unknown CGL errors, present/ambiguous formats, nonexact adapter/host and different typed constructor errors remain failures. All actual physical M4 requests return count2 and block allowance; stereo FormatUnavailable has different text and is not accepted. Normal renderer fallback is unchanged."
+      },
+      "physicalMetalAndGl": {
+        "status": "passed",
+        "artifact": "artifacts/studio-acceptance/final-release/physical-metal-gl-default/manifest.json",
+        "log": "/tmp/project-prime-physical-metal-gl-final-check.log",
+        "engineAssemblySha256": "f51b04109769927f75cce7c095f7898fb3a983cd5c1968970328f9d9b5feefcd",
+        "nativeValidationOptIn": false,
+        "hostedLegacyAllowanceOptIn": false,
+        "authoredMipLevels": 93,
+        "scope": "Actual physical Apple M4 Pro production-default full Metal pixels/mips/real GPU timestamps, forced fresh OpenGL green/mip draw, idempotent shutdown and Metal restart; actual exit0. Neither hosted Mac absence nor Windows results are inferred."
+      },
+      "windowsDx12": {
+        "status": "unresolved-next-ci-required",
+        "scope": "Next CI must pass validation-enabled full checks followed by production-default full checks. Historical offscreen/FXC passes do not resolve first-window DeviceLost cause or certify a full window pass."
+      },
+      "remainingAcceptance": [
+        "Actual restricted hosted macOS and Windows diagnostic/full-window CI for final current head",
+        "New paired SDK package after final source push; f070 package remains separate accepted historical scope",
         "All required Windows/Linux/macOS and Android checks for the current PR head"
       ]
     }

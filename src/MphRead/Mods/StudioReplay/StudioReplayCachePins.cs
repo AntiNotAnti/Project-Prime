@@ -119,7 +119,7 @@ public static class StudioReplayCachePins
                 StudioReplayExportStatus? status = null;
                 if (File.Exists(ticket.StatusFile) && new FileInfo(ticket.StatusFile).Length <= 65536)
                 {
-                    try { status = JsonSerializer.Deserialize<StudioReplayExportStatus>(File.ReadAllText(ticket.StatusFile)); }
+                    try { status = StudioReplayStatusFile.Read(ticket.StatusFile); }
                     catch (JsonException) { }
                 }
                 if (status?.Id != ticket.Id) status = null;

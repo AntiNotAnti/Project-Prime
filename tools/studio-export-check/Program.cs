@@ -7,28 +7,30 @@ using MphRead.Mods.StudioReplay;
 using ProjectPrime.Studio.Jobs;
 using ProjectPrime.Studio.Replay;
 
+if (await PublicationChecks.RunChildAsync(args)) return;
+
 if (args is ["--pin-child", var pinnedRoot, var pinnedKey, var pinReady])
 {
     using var pin = MphRead.Mods.MapGen.MapDiskCache.Pin(pinnedRoot, pinnedKey);
-    File.WriteAllText(pinReady, "ready"); await Task.Delay(TimeSpan.FromSeconds(30)); return;
+    FixturePublication.PublishText(pinReady, "ready"); await Task.Delay(TimeSpan.FromSeconds(30)); return;
 }
 
 if (args is ["--snapshot-child", var recordingToSnapshot, var sharedSnapshotRoot, var snapshotResult])
 {
-    File.WriteAllText(snapshotResult, StudioReplaySnapshotCache.Capture(recordingToSnapshot, sharedSnapshotRoot, default));
+    FixturePublication.PublishText(snapshotResult, StudioReplaySnapshotCache.Capture(recordingToSnapshot, sharedSnapshotRoot, default));
     Console.WriteLine("frame=1"); return;
 }
 if (args is ["--stdio-child", var childLoggingDirectory])
 {
     using var log = new ReplayExportWorkerLog(Path.Combine(childLoggingDirectory, "worker.log"));
     Console.SetOut(log); Console.SetError(log);
-    File.WriteAllText(Path.Combine(childLoggingDirectory, "ready"), "ready");
+    FixturePublication.PublishText(Path.Combine(childLoggingDirectory, "ready"), "ready");
     var parentExit = Stopwatch.StartNew();
     while (!File.Exists(Path.Combine(childLoggingDirectory, "parent-exited")) && parentExit.Elapsed < TimeSpan.FromSeconds(10))
     { Console.WriteLine("waiting independently for launcher exit"); await Task.Delay(10); }
     if (parentExit.Elapsed >= TimeSpan.FromSeconds(10)) throw new TimeoutException("Launcher exit was not observed.");
     for (int i = 0; i < 100; i++) { Console.WriteLine(new string('x', 500)); Console.Error.WriteLine("teardown progress " + i); await Task.Delay(10); }
-    File.WriteAllText(Path.Combine(childLoggingDirectory, "complete"), "complete"); return;
+    FixturePublication.PublishText(Path.Combine(childLoggingDirectory, "complete"), "complete"); return;
 }
 if (args is ["--stdio-parent", var loggingDirectoryForParent])
 {
@@ -39,13 +41,13 @@ if (args is ["--stdio-parent", var loggingDirectoryForParent])
     var ready = Stopwatch.StartNew();
     while (!File.Exists(Path.Combine(loggingDirectoryForParent, "ready")) && ready.Elapsed < TimeSpan.FromSeconds(5)) await Task.Delay(10);
     if (ready.Elapsed >= TimeSpan.FromSeconds(5)) throw new TimeoutException("Independent logging child did not start.");
-    File.WriteAllText(Path.Combine(loggingDirectoryForParent, "parent-pid"), Environment.ProcessId.ToString());
+    FixturePublication.PublishText(Path.Combine(loggingDirectoryForParent, "parent-pid"), Environment.ProcessId.ToString());
     Console.WriteLine("frame=1"); return;
 }
 if (args is ["--coordinator-child", var stateFile, var cancelFile, var jobId, var peerDirectory])
 {
     Guid id = Guid.Parse(jobId);
-    void Publish(string state) { string staging = stateFile + ".fixture"; using var process = Process.GetCurrentProcess(); File.WriteAllText(staging, JsonSerializer.Serialize(new StudioReplayExportStatus(id, state, state == "Complete" ? 2 : 0, 2, null, Path.GetDirectoryName(stateFile)!, process.Id, process.StartTime.ToUniversalTime().Ticks, WorkerIdentity: ReplayExportWorkerIdentity.Capture(process)))); File.Move(staging, stateFile, true); }
+    void Publish(string state) { using var process = Process.GetCurrentProcess(); FixturePublication.PublishText(stateFile, JsonSerializer.Serialize(new StudioReplayExportStatus(id, state, state == "Complete" ? 2 : 0, 2, null, Path.GetDirectoryName(stateFile)!, process.Id, process.StartTime.ToUniversalTime().Ticks, WorkerIdentity: ReplayExportWorkerIdentity.Capture(process)))); }
     int maximum = 0;
     void ObserveChildren()
     {
@@ -54,7 +56,7 @@ if (args is ["--coordinator-child", var stateFile, var cancelFile, var jobId, va
         {
             try
             {
-                var status = JsonSerializer.Deserialize<StudioReplayExportStatus>(File.ReadAllText(peer));
+                var status = StudioReplayStatusFile.Read(peer);
                 if (status is not { WorkerProcessId: { } processId }) continue;
                 using var process = Process.GetProcessById(processId);
                 if (ReplayExportWorkerIdentity.Matches(process, status.WorkerIdentity, status.WorkerStartUtcTicks)) live++;
@@ -64,8 +66,7 @@ if (args is ["--coordinator-child", var stateFile, var cancelFile, var jobId, va
         if (live <= maximum) return;
         maximum = live;
         string destination = Path.Combine(Path.GetDirectoryName(stateFile)!, "maximum-live-children");
-        File.WriteAllText(destination + ".staging", maximum.ToString());
-        File.Move(destination + ".staging", destination, true);
+        FixturePublication.PublishText(destination, maximum.ToString());
     }
     Publish("Rendering");
     string release = Path.Combine(Path.GetDirectoryName(stateFile)!, "fixture-complete");
@@ -121,6 +122,7 @@ try
     Check(corruptSnapshot && File.ReadAllBytes(changedRecording).AsSpan().SequenceEqual(new byte[] { 4 }), "a corrupted content-addressed snapshot is rejected without replacing bytes held by another owner");
     await CacheRetentionChecks.Run(root, Check);
     await WorkerIdentityChecks.Run(root, Check);
+    await PublicationChecks.RunAsync(root, Check, coordinatorEvidence);
     foreach (int fps in new[] { 24, 30, 48, 60, 90, 120, 144 })
     {
         var sampler = new ReplayExportSampler(120, 180, fps);
@@ -242,12 +244,12 @@ try
     {
         var started = Stopwatch.StartNew();
         while (!File.Exists(Path.Combine(loggingDirectory, "parent-pid")) && started.Elapsed < TimeSpan.FromSeconds(5)) await Task.Delay(10);
-        int parentId = int.Parse(File.ReadAllText(Path.Combine(loggingDirectory, "parent-pid")));
+        int parentId = int.Parse(FixturePublication.ReadText(Path.Combine(loggingDirectory, "parent-pid")));
         bool parentExited = false;
         try { using var parent = Process.GetProcessById(parentId); await parent.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5)); parentExited = parent.HasExited; }
         catch (ArgumentException) { parentExited = true; }
         Check(parentId != Environment.ProcessId && parentExited && !File.Exists(Path.Combine(loggingDirectory, "complete")), "actual intermediate launcher exits while its independently logging child remains alive");
-        File.WriteAllText(Path.Combine(loggingDirectory, "parent-exited"), "verified parent exit");
+        FixturePublication.PublishText(Path.Combine(loggingDirectory, "parent-exited"), "verified parent exit");
         var result = await loggingParent.Completion.WaitAsync(TimeSpan.FromSeconds(10));
         Check(result.ExitCode == 0, "launcher diagnostic pipe draining completes after descendant inherited handles close");
     }
@@ -258,7 +260,7 @@ try
     Check(new FileInfo(retainedLog).Length <= 65536 && File.ReadAllText(retainedLog).Contains("teardown progress 99"), "worker diagnostics retain a bounded durable tail without parent-owned console pipes");
     string coordinatorRoot = Path.Combine(root, "workers"); Directory.CreateDirectory(coordinatorRoot);
     int MaximumLiveChildren() => Directory.EnumerateFiles(coordinatorRoot, "maximum-live-children", SearchOption.AllDirectories)
-        .Select(path => int.Parse(File.ReadAllText(path))).DefaultIfEmpty(0).Max();
+        .Select(path => int.Parse(FixturePublication.ReadText(path))).DefaultIfEmpty(0).Max();
     async Task LaunchFixture(string path)
     {
         // A deliberately slow launch reproduces the cold-start case which a
@@ -277,10 +279,10 @@ try
             new Dictionary<string, string>(), [], [], "AMHE1", "AMFE0");
         string file = Path.Combine(directory, "ticket.json"); File.WriteAllText(file, JsonSerializer.Serialize(ticket, new JsonSerializerOptions { IncludeFields = true })); return file;
     }
-    static string State(string path) => JsonSerializer.Deserialize<StudioReplayExportStatus>(File.ReadAllText(Path.Combine(Path.GetDirectoryName(path)!, "status.json")))!.State;
+    static string State(string path) => StudioReplayStatusFile.Read(Path.Combine(Path.GetDirectoryName(path)!, "status.json"))!.State;
     static StudioReplayExportStatus? FixtureStatus(string path)
     {
-        try { return JsonSerializer.Deserialize<StudioReplayExportStatus>(File.ReadAllText(Path.Combine(Path.GetDirectoryName(path)!, "status.json"))); }
+        try { return StudioReplayStatusFile.Read(Path.Combine(Path.GetDirectoryName(path)!, "status.json")); }
         catch (Exception ex) when (ex is IOException or JsonException) { return null; }
     }
     static bool HasLiveRenderingChild(string path)
@@ -291,7 +293,7 @@ try
     }
     static void ReleaseFixtures(IEnumerable<string> paths)
     {
-        foreach (string path in paths) File.WriteAllText(Path.Combine(Path.GetDirectoryName(path)!, "fixture-complete"), "complete");
+        foreach (string path in paths) FixturePublication.PublishText(Path.Combine(Path.GetDirectoryName(path)!, "fixture-complete"), "complete");
     }
     async Task WaitForFixture(Func<bool> ready, StudioJobManager manager, string[] paths, string description)
     {
@@ -320,7 +322,7 @@ try
             Jobs = manager.Jobs.Select(job => new { job.Id, job.State, job.Progress, job.Error }).ToArray(),
             Workers = paths.Select(path => new { Ticket = Path.GetFileName(Path.GetDirectoryName(path)), Status = FixtureStatus(path), Live = HasLiveRenderingChild(path) }).ToArray(),
             ChildObservations = Directory.EnumerateFiles(coordinatorRoot, "maximum-live-children", SearchOption.AllDirectories)
-                .Select(path => new { Ticket = Path.GetFileName(Path.GetDirectoryName(path)), MaximumActualChildren = int.Parse(File.ReadAllText(path)) }).ToArray()
+                .Select(path => new { Ticket = Path.GetFileName(Path.GetDirectoryName(path)), MaximumActualChildren = int.Parse(FixturePublication.ReadText(path)) }).ToArray()
         };
         File.WriteAllText(Path.Combine(coordinatorEvidence, name + ".json"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true, IncludeFields = true }));
     }

@@ -247,8 +247,9 @@ namespace MphRead.Mods.Render
                             "Silk.NET loaded WebGPU without the wgpu-native extension.");
                     }
                     native = nativeExtension;
+                    bool nativeValidation = Environment.GetEnvironmentVariable("PRIME_WGPU_VALIDATION") == "1";
                     native.SetLogCallback(new PfnLogCallback(_nativeLog), null);
-                    native.SetLogLevel(Mods.DebugLog.Active ? LogLevel.Info : LogLevel.Error);
+                    native.SetLogLevel(nativeValidation || Mods.DebugLog.Active ? LogLevel.Info : LogLevel.Error);
                     Mods.DebugLog.Checkpoint("render",
                         $"{backend} startup: creating instance (wgpu=0x{native.GetVersion():x8})");
 
@@ -256,6 +257,13 @@ namespace MphRead.Mods.Render
                     extras.Chain.SType = (SType)NativeSType.STypeInstanceExtras;
                     extras.Chain.Next = null;
                     extras.Backends = ToInstanceBackend(backend);
+                    if (nativeValidation)
+                    {
+                        // Diagnostic opt-in: validate native commands without the
+                        // DEBUG flag's changes to shader compiler optimization.
+                        extras.Flags = (uint)InstanceFlag.Validation;
+                        Console.Error.WriteLine($"[render] native validation requested backend={GraphicsBackendPolicy.DisplayName(backend)} flags={(InstanceFlag)extras.Flags}");
+                    }
 
                     InstanceDescriptor instanceDescriptor = default;
                     instanceDescriptor.NextInChain = (ChainedStruct*)&extras;

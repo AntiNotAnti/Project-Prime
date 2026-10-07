@@ -143,7 +143,7 @@ public sealed partial class StudioReplayPlayer
             {
                 if (StatusFile != null && File.Exists(StatusFile) && new FileInfo(StatusFile).Length <= 65536)
                 {
-                    var status = JsonSerializer.Deserialize<StudioReplayExportStatus>(File.ReadAllText(StatusFile));
+                    var status = StudioReplayStatusFile.Read(StatusFile);
                     if (status != null && status.Id == Id) { State = status.State; Frames = status.Frames; Error = status.Error; PublishedDirectory = status.Directory; }
                 }
                 if (DetachedTask?.IsFaulted == true) { State = "Failed"; Error = DetachedTask.Exception?.GetBaseException().Message; }

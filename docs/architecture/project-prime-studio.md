@@ -22,9 +22,13 @@ failed or superseded run is not passing evidence. Central jobs, cancellation,
 curve selection, Android APK exclusion/signature and paired macOS
 publish/sign/extract have passed locally on the recorded historical graphs.
 The latest shared process-identity/cache fixes pass a fresh desktop build, 8,153
-source contracts, 26 real-process hosted-cache checks and 1,160 macOS export
-checks. Fresh native Replay, Android APK and paired macOS package reruns remain
-pending; the older results are not attributed to the new binaries.
+kernel-cache source contracts, 26 real-process hosted-cache checks and 1,160 macOS export
+checks. Fresh native Replay 158, Android APK inspection and paired macOS package
+plus extracted Studio Home also pass locally with their exact source/binary/version
+identities recorded below. The subsequent atomic status-sharing/validation batch
+passes macOS component checks, exact atomic-graph native Replay 158 and a fresh
+Android APK. The later diagnostic build also passes the full physical M4 Metal/GL
+check with production defaults. Each graph and current-head CI is recorded separately. Historical results are not attributed to newer binaries.
 `ProjectPrime.Studio.Protocol` already extracts the proven framework-only shared
 protocol boundary. Broader engine/UI assembly splitting and file associations
 remain optional follow-ups after the proven process separation.
@@ -325,6 +329,19 @@ source/package/runtime pins and their installation lease until terminal cleanup.
 Encoder cleanup is idempotent. Bounded durable worker diagnostics survive parent
 pipe closure/exit. Final scratch directories are removed after ownership ends.
 
+`StudioReplayStatusFile` provides one canonical reader for the coordinator,
+export facade and retained cache-reference scanner. It opens with
+`FileShare.Read | FileShare.Delete`, denies write sharing and bounds the opened
+handle snapshot to 64 KiB before parsing. A worker may atomically replace the
+path while a reader retains the complete previous version. Production writers
+already close staging before rename. Cross-process fixture PID/readiness/
+completion signals now follow the same closed-staging publication rule.
+Real child witnesses retain an unpublished staging file, then verify published
+PID and complete old/new status versions across replacement. Oversized and
+malformed status snapshots are rejected. The macOS source-linked suite passes
+1,161 base checks or 1,166 with actual FFmpeg/FFprobe; the Windows old-reader
+share-denial negative remains pending actual next CI.
+
 Offline audio uses replay events and deterministic PCM/WAV mixing, including
 combat/game audio and optional music/volumes, without desktop audio capture.
 24/30/48/60/90/120/144 FPS and 720p/1080p/1440p/4K remain. Fractional sampling over
@@ -354,9 +371,10 @@ The [checker](../../tools/studio-architecture-check/README.md) scans Studio,
 Protocol and public engine facade/shared authoring sources. It rejects game shell,
 live session, foreground replay and direct game publication owners; Android code;
 external source links other than the exact BCL Protocol helper; and game-to-Studio
-presentation dependencies. Current source scan passes 8,153 contracts and the
-freshly compiled self-test run passes 66 lexical/protocol/Android-exclusion
-contracts. The tests include aliases, escaped names, comments/interpolation,
+presentation dependencies. The current atomic-status source scan passes 8,179
+contracts. The preceding kernel-cache scan passes 8,153 and its freshly compiled
+self-test run passes 66 lexical/protocol/Android-exclusion contracts; those negative
+self-tests have not been rerun for the status batch, whose checker is unchanged. The tests include aliases, escaped names, comments/interpolation,
 constructor route negatives, exact identities, bounded frames and challenge/
 version/role-bound authentication. Android project negatives reject missing, commented
 or later reintroduced creator exclusions; capture negatives require the desktop
@@ -457,8 +475,9 @@ A reduced worker-only run never certifies omitted HUD/camera/clip branches.
 | Original canonical regressions | Map 442, next 47, model 65, collision 86, Community 84, runtime pass, renderer retention 12; complete multiplayer retry/cancellation/rotation; Replay timeline 43, format 2,962, control groups pass. Fresh immutable M5 logs `/tmp/project-prime-{map,replay}-*-m5.log`. |
 | Original native viewport oracle | Corrected current source 48 passes `/tmp/project-prime-mapviewport-m5.log`; original baseline toolbar/overlay failure and captures retained. |
 | Deterministic baseline recording | Exact local reference 1,801 frames, 14 cold/cached seeks, five rates and frozen EOF/divergence passes. Reference SHA/hash schema and exact historical identity retained. |
-| Current architecture | 8,153 source contracts `/tmp/project-prime-studio-architecture-kernel-cache-final.log`; 66 freshly compiled self-tests `/tmp/project-prime-studio-architecture-kernel-cache-self-final.log`. Historical Android-expanded 66 self-tests / 8,121 source contracts remain in `/tmp/project-prime-studio-architecture-android-{self,scan,build}.log`. |
-| Latest desktop build | Fresh shared-identity/cache graph passes zero errors / 133 existing warnings in 52.64 s, `/tmp/project-prime-studio-kernel-cache-final-build.log`; exact binaries are recorded below. Native Replay, APK and paired package reruns are separate pending gates. |
+| Current atomic-status architecture | 8,179 source contracts `/tmp/project-prime-studio-architecture-atomic-status-final.log`. The unchanged checker retains its preceding 66 negative self-test result; no new negative-suite rerun is claimed. |
+| Recorded kernel-cache architecture | 8,153 source contracts `/tmp/project-prime-studio-architecture-kernel-cache-final.log`; 66 freshly compiled self-tests `/tmp/project-prime-studio-architecture-kernel-cache-self-final.log`. Historical Android-expanded 66 self-tests / 8,121 source contracts remain in `/tmp/project-prime-studio-architecture-android-{self,scan,build}.log`. |
+| Latest desktop build | Fresh shared-identity/cache graph passes zero errors / 133 existing warnings in 52.64 s, `/tmp/project-prime-studio-kernel-cache-final-build.log`; exact binaries are recorded below. Native Replay passes on these exact binaries; fresh APK and paired-package acceptance retain their own source/binary/version identities below. |
 | IPC / broker / updater | 60 IPC, 34 canonical broker, 85 paired update/lifetime assertions. Real endpoint aliases, capability rotation and owner cancellation covered. |
 | Real game/editor | Native 118 `/tmp/project-prime-host-native-game-final-lifetime.log`: dirty canonical map, real scene, both launch orders, exact restart, deferred publication, crash isolation and retained history/selection/layout. |
 | Canonical map generation | 114 `/tmp/project-prime-map-generation-live.log`; real decoded active scene, all generation routes, reader-before-read barrier, concurrent tracking and crash/retry. Failed original admission retained `/tmp/project-prime-map-generation-before-fix.log`. |
@@ -469,14 +488,21 @@ A reduced worker-only run never certifies omitted HUD/camera/clip branches.
 | Native owned dialogs | 122 `/tmp/project-prime-host-native-dialog-v5-scrolled-gpu.log`, `/tmp/project-prime-native-dialog-v5-scrolled-gpu-evidence/`: parent/child ownership, active viewport, owned cancellation, 300-DIP scrolled actions and explicit GPU preview. |
 | Canonical modeling / prefab | 121 `/tmp/project-prime-studio-modeling-cancellation.log`; prefab/diff 70 `/tmp/project-prime-map-prefab-v6.log`. Actual compiler/topology/provenance/history/Save As races are covered; broad native gesture claims require their own workflows. |
 | Canonical Replay | Worker 72,624 plus parent lifecycle 94 `/tmp/project-prime-final-seek-replay.log`. Two historical recordings and two isolated custom-map versions; cancellation/supersession retains exact scene, checkpoint payload hashes/count/bytes and original transport, and disposes abandoned allocated candidates. |
+| Atomic-status native Replay | 158 `artifacts/studio-acceptance/final-release/native-replay-atomic-status/manifest.json`: full default HUD/four-view/seek/retry/clip/worker scope on exact 4d2ebe/4fa9f binaries and native 8d. Later Mac GL diagnostic source is not included. |
+| Atomic-status Android APK | 118,118,652 bytes, SHA-256 `4200f0a54b43f2d09ecdf407f776b37074b57975ca631e93ab2b6673c7d4d4b2`, `artifacts/studio-acceptance/final-platform/android-atomic-status/manifest.json`: exact unchanged 1,177 inputs, package/signatures/creator exclusion and native payloads pass. Pre-Mac diagnostic ModernGraphicsWindowCheck source is inactive on Android; no later-head or runtime relabeling. |
+| Physical production-default Metal/GL | Exact f51 graph passes full pixels/mips/GPU timestamps, fresh OpenGL recovery and Metal restart, `artifacts/studio-acceptance/final-release/physical-metal-gl-default/manifest.json`; both diagnostic opt-ins unset, actual process exit 0. |
+| Fresh full native Replay | 158 `artifacts/studio-acceptance/final-release/native-replay-kernel-cache/manifest.json`: default HUD/two POVs, four-view clock/rates, exact retry/seek/clip/camera, stale final-view cleanup and actual detached PNG/FFmpeg/PCM/close/cancel/lease/scratch checks. Engine c06e5651 / Studio 13f45952 / native 8d; one explicitly presented phase within the recorded source, without claiming old-fixture equivalence. |
 | Full native Replay, historical graph | 158 `/tmp/project-prime-host-native-replay-final-presented.log`, captures/JSON `/tmp/project-prime-native-replay-final-presented-evidence/`: default HUD/two POVs, one-clock four views at 1×/2×, seek/retry hashes, clip continuation, stale fourth generation, exact frozen v5 crop, pixel-equal worker frame, native PNG/MP4/PCM exports and central jobs. |
-| Export components | Current macOS 1,160 `/tmp/project-prime-export-shared-identity-final.log`: canonical sampling/PCM/encoder, actual FFmpeg/FFprobe, shared exact process identity, small-thread-pool ownership and cache contracts. Linux 1,162 is pending actual current-head CI. Historical 1,144 `/tmp/project-prime-export-acknowledged-evidence.log` retains delayed-child startup/queue/concurrency evidence; fixture pixels are separate from native Replay pixels. |
+| Shared-identity export components | macOS 1,160 `/tmp/project-prime-export-shared-identity-final.log`: canonical sampling/PCM/encoder, actual FFmpeg/FFprobe, shared exact process identity, small-thread-pool ownership and cache contracts. Historical f070 Linux real FFmpeg 1,162 also passes in job 112577552084; post-sharing current-head CI is separate. Historical 1,144 `/tmp/project-prime-export-acknowledged-evidence.log` retains delayed-child startup/queue/concurrency evidence; fixture pixels are separate from native Replay pixels. |
+| Atomic publication components | macOS base 1,161 / actual FFmpeg and FFprobe 1,166, `artifacts/studio-acceptance/final-release/export-atomic-publication/summary.json`: real child staging/PID/status-version witnesses and one bounded canonical Read/Delete-sharing status reader used by all three consumers. Windows old-share-denial negative is pending actual next CI. |
 | CI fixture synchronization and preparation | Fresh production-linked Gamepad 1,022 and Prime UI 201 pass `/tmp/project-prime-gamepad-ci-repairs.log` after committing a headless compositor frame before pointer input. Replay preparation 32 passes `/tmp/project-prime-ci-map-preparation-final.log`: exact private staging ownership/identity, existing archive/runtime bytes and cancellation cleanup, with unowned-file and mutation rejection. Production input, export coordination and map publication are unchanged by these fixture repairs. |
 | Map native renderer | Retained Metal 42 `/tmp/project-prime-studio-gpu-picking-final-evidence.log` (41 without output), native Map 114, dense redraw 97. Real one/four-view shared uploads, ID/depth CPU parity, loss/recovery, final resource zero counts and bounded winning-triangle CPU refinement. |
 | Diagnostics | Collector/job 18 `/tmp/project-prime-studio-diagnostics-final-labels.log`; owned native modes/HUD 119 `/tmp/project-prime-host-native-map-final-scoped.log`, captures `/tmp/project-prime-native-map-final-scoped-evidence/`; second unrendered/released map and lost-generation metrics are unavailable, then current-generation presentation restores them. |
 | Native failed admission | Generic native lifecycle 118 `/tmp/project-prime-host-native-admission-final-lifetime.log`: eight actual C API rejection checks, created/released handle counts, zero live surfaces/worlds/targets, retained error and CPU edit/Undo/Discard. |
 | Native RmlUi overlay | 27 `/tmp/project-prime-rmlui-durable-native.log`: three physical layouts, native DOM keyboard/mouse exactly once, visible pixels and shutdown. This macOS GL overlay gate is distinct from the whole game menu. |
 | Server / Android, historical graphs | Recorded server Release zero errors/38 existing warnings `/tmp/project-prime-studio-server-final.log`. Recorded Android APK zero errors/137 warnings `/tmp/project-prime-studio-android-final-creator-excluded.log`; actual signed APK assembly-store extraction, creator exclusion, both pinned native ABIs and v2/v3 development signatures pass. |
+| Fresh Android APK | Zero errors / 137 warnings, 1,176 raw compile sources match f070; actual packaged assembly extraction, creator exclusion, both native 8d ABIs and v2/v3 development signatures pass `artifacts/studio-acceptance/final-platform/android-kernel-native-f070/manifest.json`. Actual generated informational version remains local+39ff; no emulator/on-device pass is implied. |
+| Fresh paired macOS package | Publish/sign/extract/version/native smoke and real extracted Studio Home pass `artifacts/studio-acceptance/final-release/osx-arm64-kernel-identity/release-evidence.json`. Local test version 1.2.3 / IPC 1, ad hoc signatures, archive 162,431,716 bytes, SHA-256 `da1a787b9f76c46e956979cb69b2d5863edfc17234db82f15e57f9f8bf500f04`. Packaged GUI acceptance is Home; full Replay is the separate 158-check harness. |
 | Paired macOS package, historical graph | Actual SDK self-contained osx-arm64 publish, strict ad hoc signatures, extraction, both executable versions 1.2.3/IPC 1 and extracted native smoke pass `/tmp/project-prime-paired-final-package.log`; archive 162,415,713 bytes, SHA-256 `33a28da60f4f16a829d9db74b688200aa5531d5470855f62776fcd2e9eeb0d72`. |
 
 The recorded historical native Replay 158 gate includes seven PNG frames, immediate prelaunch cancellation, an
@@ -602,15 +628,111 @@ semantic/visual oracles rather than cross-driver PNG byte identity.
 
 ## Completion contract and evidence scopes
 
-The latest desktop Release build passes zero errors / 133 existing warnings in
+The final platform-diagnostic managed build passes zero errors / 133 existing
+warnings in 53.76 s (`/tmp/project-prime-studio-platform-diagnostics-final-build.log`).
+Its immutable snapshot is `/tmp/project-prime-studio-platform-diagnostics-final-snapshot`,
+engine `f51b04109769927f75cce7c095f7898fb3a983cd5c1968970328f9d9b5feefcd` and Studio
+`5d0011e64b4207bb1fdaed706571a0ee87a9e606c8fd5f8325132107337f7406`, retaining the
+verified native 8d payload. Current source scan passes 8,179
+(`/tmp/project-prime-studio-architecture-platform-diagnostics-final.log`).
+
+Its full physical Apple M4 Pro Metal check passes with native validation and
+hosted NSGL allowance both unset: full draw pixels, mip sampling, real GPU
+timestamps, forced fresh OpenGL green pixels / 93 mip levels, idempotent shutdown
+and Metal restart, with actual exit 0. Exact binary/source/log identity is retained
+in `artifacts/studio-acceptance/final-release/physical-metal-gl-default/manifest.json`.
+This production-default run does not infer Windows or hosted Mac capabilities.
+
+The hosted Mac exception is confined to the acceptance diagnostic: explicit opt-in,
+GitHub Actions, macOS ARM64 and exact `Apple Paravirtual device` must all match.
+Four independent CGL requests must prove known absence with zero format handle
+and count; the typed GLFW `FormatUnavailable`, callback description and exact
+OpenTK constructor message must also match the suitable-pixel-format failure.
+It reports legacy OpenGL `UNAVAILABLE` and still requires modern restart pixels.
+Unexpected errors, ambiguous/present formats and stereo’s different error remain
+failures; normal renderer fallback is unchanged. The unchanged extracted helper
+body passes 21 contracts (`/tmp/project-prime-nsgl-contract.log`), including actual
+M4 count 2 on all four requests, which blocks the exception. Actual constructor
+and stereo-negative evidence is retained in
+`/tmp/project-prime-nsgl-constructor-contract.log`. Restricted hosted runtime
+acceptance remains a next-CI gate. Windows DX12 must pass validated full checks
+and then production-default full checks; its first-window loss cause remains
+unresolved. No new SDK package is attributed to this diagnostic source; the
+accepted f070 package retains its exact historical raw inputs and test version.
+
+The subsequent atomic-status/validation desktop graph passes zero errors / 133
+existing warnings in 49.96 s, `/tmp/project-prime-studio-atomic-status-final-build.log`.
+Its immutable snapshot is `/tmp/project-prime-studio-atomic-status-final-snapshot`,
+engine `4d2ebe1bd955dd9d78d6d86144b659754b5cf39f00d28121607133ef0c0c1e04` and Studio
+`4fa9f2cc80868f5145a6d80d3e402ad31fb990b4de44013d0ade41a3a04fed57`, with the same
+verified 8d native payload. The rejected enum-to-uint flag-assignment build is
+preserved at `/tmp/project-prime-studio-atomic-status-rejected-flag-build.log`;
+the repaired build uses an explicit uint cast. The 1,161/1,166 macOS component
+checks cover this status-source batch. Full native Replay 158 now passes on the
+exact 4d2ebe/4fa9f graph, recorded in
+`artifacts/studio-acceptance/final-release/native-replay-atomic-status/manifest.json`.
+The 2,433,255-byte source retains SHA-256
+`cf2d6ce25e9679e2973652253077e4b313fb5d675c3b187958923a96709254e8`; all world hashes
+compare the same explicitly presented phase within the run. Later diagnostic
+source and older fixture equivalence are not inferred.
+
+The atomic-status Android APK also passes build/package/signature/metadata checks:
+118,118,652 bytes, SHA-256
+`4200f0a54b43f2d09ecdf407f776b37074b57975ca631e93ab2b6673c7d4d4b2`, recorded in
+`artifacts/studio-acceptance/final-platform/android-atomic-status/manifest.json`.
+All 1,177 evaluated inputs remain byte-identical before/after compilation.
+Its actual informational version remains `local+f070c9324847ae1f9987fea957450e86b1af6cd6`;
+the working tree differs from committed f070 and is not relabeled to a future head.
+The retained pre-Mac diagnostic `ModernGraphicsWindowCheck.cs` input is inactive
+on Android. Both native payloads, packaged/linked assembly identity, 247 canonical
+Map types/passive Replay and creator exclusion pass; v2/v3 signing uses the Android
+Debug development certificate. On-device/runtime acceptance is not claimed by
+this local package check. The later diagnostic graph and prior f070 SDK package
+remain separate records.
+
+The accepted kernel-cache desktop Release build passes zero errors / 133 existing warnings in
 52.64 s (`/tmp/project-prime-studio-kernel-cache-final-build.log`). Its immutable
 snapshot is `/tmp/project-prime-studio-kernel-cache-final-snapshot`, engine
 `c06e565170ce09582307fae355b1b7bbc00eb6fce3ce04ca14bcd0b6288bac11` and Studio
 `13f45952fee0ec3bc3ca50f53c95790098506c23605d1f20d344c07c707b5943`.
 This graph includes the canonical shared identity and hosted-cache ownership
-fixes. The prior full native Replay 158, signed APK and paired macOS package
-results below remain historical evidence; their fresh reruns have not yet been
-accepted for this graph.
+fixes. Full native Replay 158 now passes on those exact binaries and the 8d
+native payload. The durable manifest is
+`artifacts/studio-acceptance/final-release/native-replay-kernel-cache/manifest.json`.
+It records the 2,433,255-byte replay source SHA-256
+`cf2d6ce25e9679e2973652253077e4b313fb5d675c3b187958923a96709254e8`, full coverage,
+owned-child cleanup and raw source identities matching
+`f070c9324847ae1f9987fea957450e86b1af6cd6`. Generated binary versions remain as
+built. All world hashes use the same explicit presentation phase within this
+recording; equivalence with an older run’s fixture is not inferred.
+
+Fresh Android acceptance is retained in
+`artifacts/studio-acceptance/final-platform/android-kernel-native-f070/manifest.json`.
+The signed APK is 118,447,180 bytes, SHA-256
+`1cebdf0ed1fedcd9d64d8aa981fda80ca64d3c2d9b2517aca7bd791429a52c81`;
+both extracted canonical ABI assemblies match
+`10b300bf08513d2af3c387d2977fc90b47b8b9bd9cc88bd3623819d57b79dcb0`.
+All 1,176 evaluated raw compile sources match the f070 tree. Actual generated
+version 1.0.0.0 / informational `local+39ff92d44b3182048c20106bf8b65e15bb8fc497`
+is preserved because compilation started before that commit. Creator exclusion,
+247 canonical Map types/passive Replay, both packaged native 8d payloads and
+v2/v3 development signatures pass. This does not establish emulator/on-device
+acceptance.
+
+Fresh paired macOS publish/sign/extract/version/native smoke and an actual
+extracted Studio Home window pass at local test version 1.2.3 / IPC 1.
+`artifacts/studio-acceptance/final-release/osx-arm64-kernel-identity/release-evidence.json`
+retains f070 source tree/raw-file identity, revalidation at archive completion,
+strict ad hoc signatures, native payload and clean Home shutdown/capture.
+The archive is 162,431,716 bytes, SHA-256
+`da1a787b9f76c46e956979cb69b2d5863edfc17234db82f15e57f9f8bf500f04`.
+Published engine/Studio assembly hashes are respectively
+`c9abb713c92772f9f006fd8120ef5f088f98a1e03ef96619881febb0a04e3154` and
+`856ea225ac4a65efb08ec73bd19d893df2dbf46df0a23e1f2cda2d6726b1f289`.
+The packaged GUI scope is Home without documents; full Replay 158 belongs to
+the separate c06e/13f native harness. This local package is not a production
+release and does not claim Developer ID signing or notarization. Earlier
+lifetime/native/APK/package results remain historical records below.
 
 The native patch fingerprint is
 `8d0246408e9d8df823557ae2b613d784cd4bbc69f1979fcd791f9743a0316ebf`.
@@ -619,11 +741,24 @@ The actual macOS payload SHA-256 is
 `artifacts/wgpu-native-macos/osx-arm64/PRIME-WGPU.json`. Both Android native-only
 ABIs were built and fingerprint/bridge verified; their hashes and logs are in
 `artifacts/studio-acceptance/final-platform/android-native-8d024640/manifest.json`.
-These native builds do not establish a fresh managed APK or on-device pass.
+The separate native-only build records do not establish managed APK acceptance;
+the fresh packaged APK verification is recorded above. On-device acceptance
+remains outside these local gates.
 The Windows FXC repair in `tools/wgpu/patches/dx12-fxc-source-name.patch` supplies
 an owned NUL-terminated `CString` to `D3DCompile`, including an unlabeled module.
-Real named/unlabeled/invalid shader test cases are present; actual Windows FXC
-and native runtime execution remain pending current-head CI.
+Actual f070 Windows FXC named/unlabeled/invalid shader checks pass (three
+assertions, job 112576154062). Its DX12 job 112577552102 also passes 25 offscreen
+checks on Microsoft Basic Render Driver, then loses the device at first window
+UI readback (`0x887A0005`). The whole job failed; the cause remains unresolved.
+The subsequent diagnostic opt-in `PRIME_WGPU_VALIDATION=1` sets
+`(uint)InstanceFlag.Validation` (native value 2), with DEBUG unset, and enables
+native info logging without changing shader optimization. Its contract log is
+`/tmp/project-prime-native-validation-contract.log`. On the exact 4d2ebe graph,
+actual physical Metal passes all 25 offscreen/red-pixel checks with Validation
+flags and exit 0 (`/tmp/project-prime-native-validation-metal-probe.log`). This
+proves the conditional uint interop on Metal, rather than full Replay/window or
+Windows DX12 acceptance. Actual next-CI window diagnostics remain required; the
+option does not certify a device-loss repair.
 
 The Android Map/renderer boot scripts now require a finite positive deadline,
 bound adb waits and reap their owned child on every exit. Their fake-SDK harness
@@ -632,7 +767,29 @@ and a default 600-second boot deadline. Manifest, case timings, source hashes an
 log are retained in
 `artifacts/studio-acceptance/final-release/android-bootstrap/manifest.json`.
 This admission/cleanup fixture does not claim a real emulator or Android runtime
-pass. Actual current-head emulator/native gates remain required.
+pass. Separate actual f070 emulator evidence records Vulkan cold launch and
+surface recreation with two device/surface/acquire/draw/readback/present/UI
+frames (job 112576154085) and positive ppmap package verification/download/
+registration/runtime decode (job 112576310722). The renderer uses KVM and
+software SwiftShader on an x64 emulator; no physical-device or hardware-GPU
+acceptance is claimed. Durable records are
+`artifacts/studio-acceptance/final-ci/current-f070/android-{renderer,map}/manifest.json`.
+The Map runtime step alone does not certify its entire Android workflow.
+
+Historical f070 Linux Studio job 112577552084 passes pure export 1,157, actual
+FFmpeg 1,162, lifecycle 91, native Xvfb 118 and content-free headless UI 471,
+with paired publish 1.0.0 / IPC 1. Its native admission pixel metrics are retained
+log evidence; the workflow did not upload that CPU-fallback PNG. Exact log and
+artifact scopes are in `artifacts/studio-acceptance/final-ci/acceptance.json` and
+`current-f070/ubuntu-studio-112577552084.log`. These accepted job scopes belong
+to f070 / merge `e13716ea3459a3e31f861aaf3b7f816e686b21a5`, matching tree
+`a3df1b9129caa39ab05183d7be7c2c3b5ad19e53`, run 37553962101. They do not convert
+its failed or unfinished jobs into overall acceptance. The f070 macOS renderer
+job 112576153965 produced positive pixels through all Metal draw phases, then
+failed forced OpenGL restore with `NSGLFormatUnavailable` on AppleParavirtual.
+Its retained log is `/tmp/project-prime-ci-f070-modern-mac-arm64-112576153965.log`;
+that investigation remains open and the whole job is not accepted. Required
+checks must still pass for the final current head.
 
 Historical local desktop acceptance passes against the immutable lifetime graph:
 engine `5789c339739fa809c0d6dec09aec52a025efc5720a01f2837df832e0cbbf834e`
