@@ -23,6 +23,13 @@ internal static class Program
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int Take([Out] byte[] buffer, int capacity);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void SetBool([MarshalAs(UnmanagedType.LPUTF8Str)] string name, int value);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int Bounds(out float x, out float y, out float width, out float height);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int ElementBounds(
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string id, out float x, out float y, out float width, out float height);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void SetField(
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string id,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string value);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int ReadField(
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string id, [Out] byte[] buffer, int capacity);
     private static readonly GLFWCallbacks.ErrorCallback Error = (code, message) => Console.Error.WriteLine($"GLFW {code}: {message}");
 
     [STAThread]
@@ -73,11 +80,27 @@ internal static class Program
         var take = Load<Take>("pp_rmlui_take_action");
         var set = Load<SetBool>("pp_rmlui_set_bool");
         var bounds = Load<Bounds>("pp_rmlui_studio_bounds");
+        var elementBounds = Load<ElementBounds>("pp_rmlui_element_bounds");
+        var setField = Load<SetField>("pp_rmlui_set_field");
+        var readField = Load<ReadField>("pp_rmlui_read_field");
         byte[] actionBuffer = new byte[128];
         void Input(int code, int modifiers = 0)
         {
             key(code, 1, modifiers); key(code, 0, modifiers); update();
         }
+        void Click(string element, float density, string action)
+        {
+            Require(elementBounds(element, out float x, out float y,
+                out float width, out float height) == 1
+                && width > 0 && height > 0,
+                $"{element} is visible and has real native hit bounds");
+            move((int)(x + width / 2), (int)(y + height / 2), 0);
+            mouse(0, 1, 0);
+            mouse(0, 0, 0);
+            update();
+            Action($"{element} click", density, action);
+        }
+
         void Action(string gesture, float density, string expected)
         {
             Array.Clear(actionBuffer);
@@ -150,6 +173,31 @@ internal static class Program
                     "bounded actual STUDIO control fits the framebuffer");
                 move((int)(x + width / 2), (int)(y + height / 2), 0);
                 mouse(0, 1, 0); mouse(0, 0, 0); update(); Action("mouse click", test.Density, "studio:open");
+
+                // The migration must have real pointer-editable inputs and
+                // dispatched Create/Join actions in the native DOM. Network
+                // allocation is deliberately not performed by this pure UI gate.
+                set("multiplayer_mode", 1);
+                set("play_browser_mode", 1);
+                update();
+                Click("play_create_open", test.Density, "play:create-open");
+                setField("play_create_name", "RML Native Lobby");
+                update();
+                byte[] fieldBuffer = new byte[256];
+                int fieldLength = readField("play_create_name", fieldBuffer, fieldBuffer.Length);
+                Require(fieldLength > 0
+                    && Encoding.UTF8.GetString(fieldBuffer, 0, fieldLength) == "RML Native Lobby",
+                    "native Create Lobby text field retains user input");
+                Click("play_create_submit", test.Density, "play:create");
+                Click("play_create_cancel", test.Density, "play:browse");
+                setField("play_join_address", "127.0.0.1:27888");
+                update();
+                fieldLength = readField("play_join_address", fieldBuffer, fieldBuffer.Length);
+                Require(fieldLength > 0
+                    && Encoding.UTF8.GetString(fieldBuffer, 0, fieldLength) == "127.0.0.1:27888",
+                    "native Direct Connect field returns the edited endpoint");
+                Click("play_join", test.Density, "play:join");
+                Click("play_back", test.Density, "play:cancel");
                 shutdown(); Require(take(actionBuffer, actionBuffer.Length) == 0, "native shutdown clears pending action ownership");
             }
         }

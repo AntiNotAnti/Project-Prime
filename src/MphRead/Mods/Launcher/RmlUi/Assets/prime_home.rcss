@@ -644,6 +644,252 @@ button {
     line-height: 13dp;
 }
 
+/* ------------------------------------------------------- native multiplayer */
+
+#multiplayer_stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+}
+#play_header {
+    position: absolute;
+    left: 52dp;
+    top: 25dp;
+    width: 570dp;
+}
+.play_title {
+    font-size: 31dp;
+    line-height: 34dp;
+    font-weight: bold;
+    color: #ffffff;
+    letter-spacing: 0.8dp;
+}
+.play_status {
+    margin-top: 4dp;
+    color: #78caff;
+    font-family: "JetBrains Mono";
+    font-size: 10dp;
+    line-height: 14dp;
+}
+#play_browser {
+    position: absolute;
+    left: 52dp;
+    top: 128dp;
+    width: 57%;
+}
+.play_toolbar {
+    display: flex;
+    align-items: stretch;
+    min-height: 38dp;
+    margin-bottom: 9dp;
+}
+.play_action {
+    min-width: 95dp;
+    margin-right: 6dp;
+    padding: 8dp 13dp;
+    color: #b2cadc;
+    background-color: rgba(4,16,29,86%);
+    border: 1dp rgba(114,199,255,23%);
+    font-size: 11dp;
+    line-height: 15dp;
+    font-weight: bold;
+    letter-spacing: 0.6dp;
+}
+.play_action.primary {
+    color: #ffffff;
+    border-bottom: 3dp #2b9ef7;
+    background-color: rgba(20,83,142,80%);
+}
+.play_action:hover,
+.play_action:focus {
+    background-color: rgba(23,79,128,91%);
+    border-color: #72c7ff;
+    color: #ffffff;
+}
+.play_action.wide {
+    width: 100%;
+    margin-top: 10dp;
+    margin-right: 0;
+}
+.play_panel {
+    width: 100%;
+    max-height: 446dp;
+    padding: 10dp;
+    overflow-y: auto;
+    background-color: rgba(2,11,21,84%);
+    border: 1dp rgba(97,182,246,18%);
+    border-left: 2dp rgba(114,199,255,50%);
+}
+.play_panel_head {
+    display: flex;
+    justify-content: space-between;
+    padding: 2dp 5dp 8dp;
+    color: #72c7ff;
+    font-family: "JetBrains Mono";
+    font-size: 9dp;
+    letter-spacing: 0.8dp;
+}
+.play_server {
+    display: block;
+    width: 100%;
+    min-height: 49dp;
+    margin-bottom: 4dp;
+    padding: 7dp 11dp;
+    text-align: left;
+    color: #d6e7f4;
+    background-color: rgba(8,31,52,72%);
+    border-left: 2dp rgba(72,154,234,60%);
+    border-top: 1dp rgba(114,199,255,12%);
+}
+.play_server:hover,
+.play_server:focus {
+    color: #ffffff;
+    border-left-color: #72c7ff;
+    background-color: rgba(24,81,132,88%);
+}
+.play_server b {
+    display: block;
+    font-size: 13dp;
+    line-height: 16dp;
+    font-weight: bold;
+}
+.play_server span {
+    display: block;
+    margin-top: 2dp;
+    color: #80a2bc;
+    font-family: "JetBrains Mono";
+    font-size: 8dp;
+    line-height: 11dp;
+}
+.play_empty {
+    padding: 20dp 8dp;
+    color: #7892a9;
+    font-size: 11dp;
+    line-height: 15dp;
+}
+#play_connect {
+    position: absolute;
+    right: 52dp;
+    top: 128dp;
+    width: 270dp;
+    padding: 14dp;
+    background-color: rgba(3,13,23,78%);
+    border: 1dp rgba(97,182,246,17%);
+    border-left: 2dp rgba(114,199,255,40%);
+}
+.play_form_label {
+    margin-top: 13dp;
+    margin-bottom: 6dp;
+    color: #6999b7;
+    font-family: "JetBrains Mono";
+    font-size: 9dp;
+    line-height: 11dp;
+    letter-spacing: 0.7dp;
+}
+.play_input {
+    width: 100%;
+    height: 36dp;
+    padding: 6dp 9dp;
+    color: #ffffff;
+    background-color: rgba(9,33,55,93%);
+    border: 1dp rgba(114,199,255,33%);
+    font-family: "JetBrains Mono";
+    font-size: 12dp;
+}
+.play_input:focus {
+    border-color: #72c7ff;
+    background-color: rgba(14,48,78,95%);
+}
+.play_form_hint {
+    margin-top: 11dp;
+    color: #607f97;
+    font-family: "JetBrains Mono";
+    font-size: 8dp;
+    line-height: 12dp;
+}
+#play_create {
+    position: absolute;
+    left: 52dp;
+    top: 128dp;
+    width: 450dp;
+    padding: 18dp;
+    background-color: rgba(3,13,23,86%);
+    border: 1dp rgba(97,182,246,19%);
+    border-left: 3dp #2b9ef7;
+}
+.play_section_title {
+    color: #ffffff;
+    font-size: 25dp;
+    line-height: 28dp;
+    font-weight: bold;
+}
+.play_choice {
+    display: flex;
+    width: 100%;
+    min-height: 39dp;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8dp 10dp;
+    color: #d5eaff;
+    text-align: left;
+    background-color: rgba(10,35,59,83%);
+    border: 1dp rgba(114,199,255,25%);
+    font-size: 13dp;
+    line-height: 16dp;
+    font-weight: bold;
+}
+.play_choice span {
+    color: #63bbf0;
+    font-family: "JetBrains Mono";
+    font-size: 9dp;
+}
+.play_choice:hover,
+.play_choice:focus {
+    border-color: #72c7ff;
+    background-color: rgba(21,69,110,90%);
+}
+#play_create .play_toolbar {
+    margin-top: 14dp;
+    margin-bottom: 0;
+}
+
+#play_quick { nav-up: #nav_play; nav-right: #play_create_open; nav-down: #play_entry0; }
+#play_create_open { nav-left: #play_quick; nav-right: #play_refresh; }
+#play_refresh { nav-left: #play_create_open; nav-right: #play_back; }
+#play_back { nav-left: #play_refresh; }
+#play_join { nav-up: #play_join_address; }
+#play_next_map { nav-down: #play_next_mode; }
+#play_next_mode { nav-up: #play_next_map; nav-down: #play_toggle_host; }
+#play_toggle_host { nav-up: #play_next_mode; nav-down: #play_create_submit; }
+#play_create_submit { nav-up: #play_toggle_host; nav-right: #play_create_cancel; }
+#play_create_cancel { nav-left: #play_create_submit; }
+
+@media (max-width: 1500px) {
+    #play_header, #play_browser, #play_create { left: 28dp; }
+    #play_connect { right: 28dp; width: 240dp; }
+    #play_browser { width: 55%; }
+    #play_create { width: 415dp; }
+    .play_action { min-width: 82dp; padding-left: 9dp; padding-right: 9dp; }
+}
+@media (max-width: 900px) {
+    #play_header, #play_browser, #play_create { left: 18dp; }
+    #play_header { top: 15dp; width: 430dp; }
+    .play_title { font-size: 24dp; line-height: 27dp; }
+    #play_browser, #play_create { top: 92dp; }
+    #play_browser { width: 56%; }
+    #play_connect { top: 92dp; right: 15dp; width: 210dp; padding: 10dp; }
+    #play_create { width: 380dp; }
+    .play_action { min-width: 68dp; font-size: 9dp; padding-left: 7dp; padding-right: 7dp; }
+    .play_panel { max-height: 300dp; }
+}
+@media (max-height: 760px) {
+    #play_browser, #play_connect, #play_create { top: 98dp; }
+    .play_panel { max-height: 260dp; }
+    .play_server { min-height: 40dp; padding-top: 5dp; padding-bottom: 5dp; }
+}
+
 /* ---------------------------------------------------------------- live lobby */
 
 #lobby_stage {

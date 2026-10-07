@@ -159,6 +159,7 @@ namespace MphRead.Mods.Launcher.Gui
             PublishLobbyAnchors();
             LauncherBackdrop.Set(LauncherBackdropScene.Lobby,
                 NetSession.ActiveMatchDefinition?.RoomKey);
+            SetBool("multiplayer_mode", false);
             SetBool("lobby_mode", true);
             RefreshLobbyState(force: true);
             _nextStateRefresh = 0;
@@ -844,6 +845,26 @@ namespace MphRead.Mods.Launcher.Gui
             return 0;
         }
 
+        // Presentation-neutral services are only allowed to publish through
+        // these render-thread entry points. Their worker tasks never invoke
+        // native RmlUi or touch the OpenGL context directly.
+        internal static void SetMenuText(string name, string value) => SetText(name, value);
+        internal static void SetMenuBool(string name, bool value) => SetBool(name, value);
+
+        internal static void SetFieldValue(string id, string value)
+        {
+            if (_active) NativeSetField(id, value ?? string.Empty);
+        }
+
+        internal static string ReadFieldValue(string id)
+        {
+            if (!_active) return string.Empty;
+            byte[] buffer = new byte[256];
+            int length = NativeReadField(id, buffer, buffer.Length);
+            return length <= 0 ? string.Empty
+                : Encoding.UTF8.GetString(buffer, 0, Math.Min(length, buffer.Length - 1));
+        }
+
         private static void SetText(string name, string value)
         {
             if (_active) NativeSetText(name, value ?? string.Empty);
@@ -920,6 +941,16 @@ namespace MphRead.Mods.Launcher.Gui
 
         [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_set_lobby_anchor")]
         private static extern void NativeSetLobbyAnchor(int slot, float centerX, float centerY);
+
+        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_set_field")]
+        private static extern void NativeSetField(
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string id,
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string value);
+
+        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_read_field")]
+        private static extern int NativeReadField(
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string id,
+            [Out] byte[] buffer, int capacity);
 
         [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_back")]
         private static extern int NativeBack();

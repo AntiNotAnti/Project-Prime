@@ -1,6 +1,7 @@
 #include <RmlUi/Core.h>
 #include <RmlUi/Core/Input.h>
 #include <RmlUi/Core/StringUtilities.h>
+#include <RmlUi/Core/Elements/ElementFormControlInput.h>
 #include "RmlUi_Renderer_GL2.h"
 
 #include <algorithm>
@@ -11,6 +12,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <unordered_map>
 
 #if defined(_WIN32)
 #define NOMINMAX
@@ -33,6 +35,7 @@ PP_EXPORT void pp_rmlui_shutdown();
 namespace {
 
 void FocusElement(const char* id);
+Rml::Element* FindElementById(const char* id);
 bool g_lobby_anchor_dirty = true;
 struct LobbyAnchor { float x = 0.f; float y = 0.f; };
 std::array<LobbyAnchor, 8> g_lobby_anchors{};
@@ -66,6 +69,19 @@ struct PrimeMenuData {
     bool lobby_owner = false;
     bool lobby_local_ready = false;
     bool lobby_starting = false;
+    bool multiplayer_mode = false;
+    bool play_create_mode = false;
+    bool play_browser_mode = false;
+    bool play_busy = false;
+    bool play_no_servers = true;
+    Rml::String play_status = "CONTACTING DIRECTORY";
+    Rml::String play_create_map = "WAITING FOR MAPS";
+    Rml::String play_create_mode_name = "BATTLE";
+    Rml::String play_create_host = "HOSTED // ONLINE";
+    Rml::String play_server_count = "0 LIVE";
+    std::array<Rml::String, 8> play_server_name{};
+    std::array<Rml::String, 8> play_server_details{};
+    std::array<bool, 8> play_server_present{};
 
     Rml::String lobby_name = "MULTIPLAYER LOBBY";
     Rml::String lobby_map = "WAITING FOR MAP";
@@ -123,6 +139,40 @@ public:
         model.Bind("lobby_status", &data.lobby_status);
         model.Bind("lobby_ready_action", &data.lobby_ready_action);
         model.Bind("lobby_local_hunter", &data.lobby_local_hunter);
+        model.Bind("multiplayer_mode", &data.multiplayer_mode);
+        model.Bind("play_create_mode", &data.play_create_mode);
+        model.Bind("play_browser_mode", &data.play_browser_mode);
+        model.Bind("play_busy", &data.play_busy);
+        model.Bind("play_no_servers", &data.play_no_servers);
+        model.Bind("play_status", &data.play_status);
+        model.Bind("play_create_map", &data.play_create_map);
+        model.Bind("play_create_mode_name", &data.play_create_mode_name);
+        model.Bind("play_create_host", &data.play_create_host);
+        model.Bind("play_server_count", &data.play_server_count);
+        model.Bind("play_server0_present", &data.play_server_present[0]);
+        model.Bind("play_server0_name", &data.play_server_name[0]);
+        model.Bind("play_server0_details", &data.play_server_details[0]);
+        model.Bind("play_server1_present", &data.play_server_present[1]);
+        model.Bind("play_server1_name", &data.play_server_name[1]);
+        model.Bind("play_server1_details", &data.play_server_details[1]);
+        model.Bind("play_server2_present", &data.play_server_present[2]);
+        model.Bind("play_server2_name", &data.play_server_name[2]);
+        model.Bind("play_server2_details", &data.play_server_details[2]);
+        model.Bind("play_server3_present", &data.play_server_present[3]);
+        model.Bind("play_server3_name", &data.play_server_name[3]);
+        model.Bind("play_server3_details", &data.play_server_details[3]);
+        model.Bind("play_server4_present", &data.play_server_present[4]);
+        model.Bind("play_server4_name", &data.play_server_name[4]);
+        model.Bind("play_server4_details", &data.play_server_details[4]);
+        model.Bind("play_server5_present", &data.play_server_present[5]);
+        model.Bind("play_server5_name", &data.play_server_name[5]);
+        model.Bind("play_server5_details", &data.play_server_details[5]);
+        model.Bind("play_server6_present", &data.play_server_present[6]);
+        model.Bind("play_server6_name", &data.play_server_name[6]);
+        model.Bind("play_server6_details", &data.play_server_details[6]);
+        model.Bind("play_server7_present", &data.play_server_present[7]);
+        model.Bind("play_server7_name", &data.play_server_name[7]);
+        model.Bind("play_server7_details", &data.play_server_details[7]);
         model.Bind("slot0_name", &data.slot_name[0]);
         model.Bind("slot0_hunter", &data.slot_hunter[0]);
         model.Bind("slot0_state", &data.slot_state[0]);
@@ -202,6 +252,23 @@ public:
         model.BindEventCallback("lobby_next_hunter", &PrimeMenuModel::LobbyNextHunter, this);
         model.BindEventCallback("lobby_next_suit", &PrimeMenuModel::LobbyNextSuit, this);
         model.BindEventCallback("lobby_classic", &PrimeMenuModel::LobbyClassic, this);
+        model.BindEventCallback("play_quick", &PrimeMenuModel::PlayQuick, this);
+        model.BindEventCallback("play_browse", &PrimeMenuModel::PlayBrowse, this);
+        model.BindEventCallback("play_create_open", &PrimeMenuModel::PlayCreateOpen, this);
+        model.BindEventCallback("play_create_submit", &PrimeMenuModel::PlayCreateSubmit, this);
+        model.BindEventCallback("play_join", &PrimeMenuModel::PlayJoin, this);
+        model.BindEventCallback("play_back", &PrimeMenuModel::PlayBack, this);
+        model.BindEventCallback("play_next_map", &PrimeMenuModel::PlayNextMap, this);
+        model.BindEventCallback("play_next_mode", &PrimeMenuModel::PlayNextMode, this);
+        model.BindEventCallback("play_toggle_host", &PrimeMenuModel::PlayToggleHost, this);
+        model.BindEventCallback("play_server0", &PrimeMenuModel::PlayServer0, this);
+        model.BindEventCallback("play_server1", &PrimeMenuModel::PlayServer1, this);
+        model.BindEventCallback("play_server2", &PrimeMenuModel::PlayServer2, this);
+        model.BindEventCallback("play_server3", &PrimeMenuModel::PlayServer3, this);
+        model.BindEventCallback("play_server4", &PrimeMenuModel::PlayServer4, this);
+        model.BindEventCallback("play_server5", &PrimeMenuModel::PlayServer5, this);
+        model.BindEventCallback("play_server6", &PrimeMenuModel::PlayServer6, this);
+        model.BindEventCallback("play_server7", &PrimeMenuModel::PlayServer7, this);
         model.BindEventCallback("noop", &PrimeMenuModel::Noop, this);
 
         handle = model.GetModelHandle();
@@ -226,12 +293,21 @@ public:
         else if (name == "lobby_status") data.lobby_status = value;
         else if (name == "lobby_ready_action") data.lobby_ready_action = value;
         else if (name == "lobby_local_hunter") data.lobby_local_hunter = value;
+        else if (name == "play_status") data.play_status = value;
+        else if (name == "play_create_map") data.play_create_map = value;
+        else if (name == "play_create_mode_name") data.play_create_mode_name = value;
+        else if (name == "play_create_host") data.play_create_host = value;
+        else if (name == "play_server_count") data.play_server_count = value;
         else {
             for (int i = 0; i < 8; ++i) {
                 const std::string prefix = "slot" + std::to_string(i) + "_";
                 if (name == prefix + "name") data.slot_name[i] = value;
                 else if (name == prefix + "hunter") data.slot_hunter[i] = value;
                 else if (name == prefix + "state") data.slot_state[i] = value;
+                else if (name == "play_server" + std::to_string(i) + "_name")
+                    data.play_server_name[i] = value;
+                else if (name == "play_server" + std::to_string(i) + "_details")
+                    data.play_server_details[i] = value;
                 else continue;
                 handle.DirtyVariable(name);
                 return;
@@ -250,6 +326,14 @@ public:
             if (data.lobby_mode == value) return;
             data.lobby_mode = value;
             data.home_mode = !value;
+            if (value) {
+                data.multiplayer_mode = false;
+                data.play_create_mode = false;
+                data.play_browser_mode = false;
+                handle.DirtyVariable("multiplayer_mode");
+                handle.DirtyVariable("play_create_mode");
+                handle.DirtyVariable("play_browser_mode");
+            }
             g_lobby_anchor_dirty = true;
             handle.DirtyVariable("lobby_mode");
             handle.DirtyVariable("home_mode");
@@ -260,6 +344,17 @@ public:
         else if (name == "lobby_owner") data.lobby_owner = value;
         else if (name == "lobby_local_ready") data.lobby_local_ready = value;
         else if (name == "lobby_starting") data.lobby_starting = value;
+        else if (name == "multiplayer_mode") {
+            data.multiplayer_mode = value;
+            data.home_mode = !value && !data.lobby_mode;
+            handle.DirtyVariable("multiplayer_mode");
+            handle.DirtyVariable("home_mode");
+            return;
+        }
+        else if (name == "play_create_mode") data.play_create_mode = value;
+        else if (name == "play_browser_mode") data.play_browser_mode = value;
+        else if (name == "play_busy") data.play_busy = value;
+        else if (name == "play_no_servers") data.play_no_servers = value;
         else {
             for (int i = 0; i < 8; ++i) {
                 const std::string prefix = "slot" + std::to_string(i) + "_";
@@ -270,6 +365,12 @@ public:
                 }
                 else if (name == prefix + "ready") data.slot_ready[i] = value;
                 else if (name == prefix + "local") data.slot_local[i] = value;
+                else if (name == "play_server" + std::to_string(i) + "_present")
+                {
+                    data.play_server_present[i] = value;
+                    handle.DirtyVariable(name);
+                    return;
+                }
                 else continue;
                 handle.DirtyVariable(name);
                 return;
@@ -293,6 +394,26 @@ public:
             Emit("lobby:leave");
             return true;
         }
+        if (data.multiplayer_mode) {
+            if (data.play_create_mode) {
+                data.play_create_mode = false;
+                data.play_browser_mode = true;
+                handle.DirtyVariable("play_create_mode");
+                handle.DirtyVariable("play_browser_mode");
+                Emit("play:browse");
+                RequestFocus("play_quick");
+            } else {
+                data.multiplayer_mode = false;
+                data.home_mode = true;
+                data.play_browser_mode = false;
+                handle.DirtyVariable("multiplayer_mode");
+                handle.DirtyVariable("home_mode");
+                handle.DirtyVariable("play_browser_mode");
+                Emit("play:cancel");
+                RequestFocus("activity_selector");
+            }
+            return true;
+        }
         if (!data.activity_selector_open)
             return false;
         SetSelectorOpen(false);
@@ -301,8 +422,22 @@ public:
         return true;
     }
 
+    void SetInputText(const std::string& id, const std::string& value)
+    {
+        pending_inputs[id] = value;
+    }
+
     void ApplyPendingFocus()
     {
+        // Inputs are conditional data-if branches. Defer their initial values
+        // until after the multiplayer DOM is materialized by Context::Update.
+        for (auto it = pending_inputs.begin(); it != pending_inputs.end();) {
+            Rml::Element* element = FindElementById(it->first.c_str());
+            if (auto* input = dynamic_cast<Rml::ElementFormControlInput*>(element)) {
+                input->SetValue(it->second);
+                it = pending_inputs.erase(it);
+            } else ++it;
+        }
         if (pending_focus.empty())
             return;
         std::string id = std::move(pending_focus);
@@ -315,6 +450,7 @@ private:
     Rml::DataModelHandle handle;
     std::deque<std::string> actions;
     std::string pending_focus;
+    std::unordered_map<std::string, std::string> pending_inputs;
 
     void Emit(const char* action) { actions.emplace_back(action); }
     void RequestFocus(const char* id) { pending_focus = id ? id : ""; }
@@ -444,28 +580,85 @@ private:
     void Deploy(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
     {
         switch (data.activity_index) {
-        case 0: Emit("route:play"); break;
-        case 1: Emit("route:play"); break;
+        case 0: OpenMultiplayer(true); break;
+        case 1: OpenMultiplayer(false); break;
         case 2: Emit("route:offline"); break;
         case 3: Emit("route:offline"); break;
         default: break;
         }
     }
 
+    void OpenMultiplayer(bool quick)
+    {
+        if (data.lobby_mode || data.multiplayer_mode) return;
+        data.multiplayer_mode = true;
+        data.home_mode = false;
+        data.play_create_mode = false;
+        data.play_browser_mode = true;
+        SetSelectorOpen(false);
+        handle.DirtyVariable("home_mode");
+        handle.DirtyVariable("multiplayer_mode");
+        handle.DirtyVariable("play_browser_mode");
+        handle.DirtyVariable("play_create_mode");
+        Emit(quick ? "play:quick" : "play:browse");
+        RequestFocus("play_quick");
+    }
+    void PlayQuick(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { Emit("play:quick"); }
+    void PlayBrowse(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { Emit("play:browse"); }
+    void PlayCreateOpen(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    {
+        data.play_create_mode = true;
+        data.play_browser_mode = false;
+        handle.DirtyVariable("play_create_mode");
+        handle.DirtyVariable("play_browser_mode");
+        Emit("play:create-open");
+        RequestFocus("play_create_name");
+    }
+    void PlayCreateSubmit(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { Emit("play:create"); }
+    void PlayJoin(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { Emit("play:join"); }
+    void PlayBack(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { Back(); }
+    void PlayNextMap(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { Emit("play:next-map"); }
+    void PlayNextMode(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { Emit("play:next-mode"); }
+    void PlayToggleHost(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { Emit("play:toggle-host"); }
+    void PlayServer0(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { Emit("play:server:0"); }
+    void PlayServer1(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { Emit("play:server:1"); }
+    void PlayServer2(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { Emit("play:server:2"); }
+    void PlayServer3(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { Emit("play:server:3"); }
+    void PlayServer4(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { Emit("play:server:4"); }
+    void PlayServer5(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { Emit("play:server:5"); }
+    void PlayServer6(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { Emit("play:server:6"); }
+    void PlayServer7(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { Emit("play:server:7"); }
+
     void OpenHunters(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (!data.lobby_mode) Emit("route:hunter"); }
+    { if (!data.lobby_mode && !data.multiplayer_mode) Emit("route:hunter"); }
     void OpenCommunity(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (!data.lobby_mode) Emit("route:forge"); }
+    { if (!data.lobby_mode && !data.multiplayer_mode) Emit("route:forge"); }
     void OpenStudio(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (!data.lobby_mode) Emit("studio:open"); }
+    { if (!data.lobby_mode && !data.multiplayer_mode) Emit("studio:open"); }
     void OpenProfile(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (!data.lobby_mode) Emit("route:hunter"); }
+    { if (!data.lobby_mode && !data.multiplayer_mode) Emit("route:hunter"); }
     void OpenSettings(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (!data.lobby_mode) Emit("route:settings"); }
+    { if (!data.lobby_mode && !data.multiplayer_mode) Emit("route:settings"); }
     void OpenClassic(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (!data.lobby_mode) Emit("route:news"); }
+    { if (!data.lobby_mode && !data.multiplayer_mode) Emit("route:news"); }
     void Quit(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (!data.lobby_mode) Emit("quit"); }
+    { if (!data.lobby_mode && !data.multiplayer_mode) Emit("quit"); }
     void LobbyReady(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:ready"); }
     void LobbyStart(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:start"); }
     void LobbyLeave(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:leave"); }
@@ -513,10 +706,14 @@ void PositionLobbyNameplates()
     g_lobby_anchor_dirty = false;
 }
 
+Rml::Element* FindElementById(const char* id)
+{
+    return g_document && id ? g_document->GetElementById(id) : nullptr;
+}
+
 void FocusElement(const char* id)
 {
-    if (!g_document || !id) return;
-    if (Rml::Element* element = g_document->GetElementById(id))
+    if (Rml::Element* element = FindElementById(id))
         element->Focus();
 }
 
@@ -731,6 +928,24 @@ PP_EXPORT void pp_rmlui_set_bool(const char* name, int value)
     if (g_model && name) g_model->SetBool(name, value != 0);
 }
 
+PP_EXPORT void pp_rmlui_set_field(const char* id, const char* value)
+{
+    if (g_model && id)
+        g_model->SetInputText(id, value ? value : "");
+}
+
+PP_EXPORT int pp_rmlui_read_field(const char* id, unsigned char* buffer, int capacity)
+{
+    if (!id || !buffer || capacity <= 1) return 0;
+    auto* input = dynamic_cast<Rml::ElementFormControlInput*>(FindElementById(id));
+    if (!input) return 0;
+    const std::string value = input->GetValue();
+    const int length = std::min(int(value.size()), capacity - 1);
+    std::memcpy(buffer, value.data(), size_t(length));
+    buffer[length] = 0;
+    return length;
+}
+
 PP_EXPORT int pp_rmlui_back()
 {
     return g_model && g_model->Back() ? 1 : 0;
@@ -745,6 +960,26 @@ PP_EXPORT int pp_rmlui_take_action(unsigned char* buffer, int capacity)
     std::memcpy(buffer, action.data(), static_cast<size_t>(length));
     buffer[length] = 0;
     return length;
+}
+
+// Actual RmlUi element bounds are used by the native regression. This does
+// not synthesize an action or bypass the DOM's focus/click dispatch.
+PP_EXPORT int pp_rmlui_element_bounds(const char* id, float* x, float* y,
+    float* width, float* height)
+{
+    if (!g_context || !g_document || !id || !x || !y || !width || !height)
+        return 0;
+    g_context->Update();
+    Rml::Element* element = FindElementById(id);
+    if (!element) return 0;
+    const auto offset = element->GetAbsoluteOffset(Rml::BoxArea::Border);
+    const auto size = element->GetBox().GetSize(Rml::BoxArea::Border);
+    if (size.x <= 0 || size.y <= 0) return 0;
+    *x = offset.x;
+    *y = offset.y;
+    *width = size.x;
+    *height = size.y;
+    return 1;
 }
 
 // Bounded POC diagnostic for real native-input regression at each density.

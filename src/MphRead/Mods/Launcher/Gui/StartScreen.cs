@@ -302,6 +302,30 @@ namespace MphRead.Mods.Launcher.Gui
             view.Launched += (_, plan) => { Pop(); ConnectedOrFinished(plan); };
             _prime.Overlays.Show(view, cancel: view.RequestBack);
         }
+#if MPHREAD_RMLUI_POC
+        // Shell calls this only after an actual native Play flow has joined
+        // an authoritative session. Keep one source of truth for lobby
+        // creation, match loading, owner commands and round transitions.
+        internal void OpenConnectedFromRml(LaunchPlan plan)
+        {
+            // Native RmlUi already completed the setup/entry flow. The hidden
+            // Avalonia authority owner has not received its startup button,
+            // so bypass only that presentation gate before routing to Lobby.
+            // Without this, CanNavigate rejects the connected session because
+            // _startup is still non-null behind the RmlUi window.
+            if (_startup != null)
+            {
+                PrimeStartupScreen startup = _startup;
+                _startup = null;
+                _layers.Children.Remove(startup);
+                startup.Dispose();
+                _prime.IsVisible = true;
+                _prime.IsEnabled = true;
+            }
+            ConnectedOrFinished(plan);
+        }
+#endif
+
         private void ConnectedOrFinished(LaunchPlan plan)
         {
             if (NetSession.Active && NetSession.PersistentLobby)
