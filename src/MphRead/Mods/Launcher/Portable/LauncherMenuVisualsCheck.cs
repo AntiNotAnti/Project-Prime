@@ -27,6 +27,30 @@ namespace MphRead.Mods.Launcher
                 Check(placement.Valid, $"slot {slot} model, platform and nameplate are bounded");
             }
 
+            Check(LobbyRuleEditValues.TryDuration("7:00", allowZero: true, out ushort seven)
+                && seven == 420,
+                "lobby rule inputs keep the original m:ss time contract");
+            Check(LobbyRuleEditValues.TryDuration("1.5", allowZero: false, out ushort ninety)
+                && ninety == 90,
+                "decimal-minute hold goals are accepted");
+            Check(!LobbyRuleEditValues.TryDuration("2:60", allowZero: true, out _),
+                "invalid second components are rejected");
+            Check(!LobbyRuleEditValues.TryDuration("-1", allowZero: true, out _),
+                "negative match times are rejected");
+            Check(LobbyRuleEditValues.TryGoal(GameMode.Survival, "3",
+                    out ushort spareLives, out _) && spareLives == 2,
+                "survival UI lives convert to network spare lives");
+            Check(LobbyRuleEditValues.TryGoal(GameMode.Hardpoint, "1:30",
+                    out ushort holdGoal, out _) && holdGoal == 90,
+                "hardpoint hold goals are stored in seconds");
+            Check(!LobbyRuleEditValues.TryGoal(GameMode.Battle, "70000",
+                    out _, out _),
+                "lobby goal validation rejects out-of-range scores");
+            Check(LobbyRuleEditValues.TryGoal(GameMode.OneInTheChamber,
+                    "ignored", out ushort chamberLives, out _)
+                && chamberLives == 2,
+                "one-in-the-chamber retains its fixed stock goal");
+
             LauncherBackdropStyle style = LauncherMenuVisuals.Style;
             Check(style.Name == "deployment-chamber",
                 "universal deployment chamber is the default RmlUi backdrop");
