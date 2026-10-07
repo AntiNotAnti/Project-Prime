@@ -1446,7 +1446,7 @@ namespace MphRead.Mods.Launcher.Gui
                         recent.DisplayName.ToUpperInvariant(),
                         online == null ? "RECENT PLAYER" : ActivityLabel(online.Activity),
                         RecentDetail(recent, online),
-                        "RECENT",
+                        relationship == "FRIEND" ? "RECENT FRIEND" : "RECENT",
                         "",
                         online != null,
                         online?.IsFriend == true,
