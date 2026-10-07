@@ -89,7 +89,6 @@ body {
     display: flex;
     align-items: center;
     margin-right: 8dp;
-    flex-shrink: 0;
 }
 #brand_mark {
     width: 54dp;
@@ -145,7 +144,6 @@ button {
     padding-right: 0;
     text-align: center;
     font-size: 18dp;
-    flex-shrink: 0;
     font-weight: bold;
     letter-spacing: 1dp;
     border-bottom: 4dp rgba(0,0,0,0);
@@ -169,7 +167,6 @@ button {
     justify-content: flex-end;
     align-items: center;
     margin-left: 20dp;
-    flex-shrink: 0;
 }
 .online_dot {
     width: 9dp;
