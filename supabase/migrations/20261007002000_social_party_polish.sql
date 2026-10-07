@@ -344,6 +344,7 @@ declare
     v_target uuid;
     v_invite prime.social_party_invites%rowtype;
     v_members integer;
+    v_pending integer;
     v_new_leader uuid;
     v_created boolean := false;
 begin
@@ -441,6 +442,17 @@ begin
             return jsonb_build_object(
                 'ok', true, 'status', 'party_invite_pending',
                 'snapshot', prime.social_party_snapshot(p_actor)
+            );
+        end if;
+
+        select count(*) into v_pending
+        from prime.social_party_invites
+        where party_id = v_party
+          and status = 'pending'
+          and expires_at > now();
+        if v_pending >= 20 then
+            return jsonb_build_object(
+                'ok', false, 'status', 'party_invite_limit'
             );
         end if;
 
