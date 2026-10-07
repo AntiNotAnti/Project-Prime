@@ -141,7 +141,12 @@
                         <div class="eyebrow">PROJECT PRIME NETWORK</div>
                         <div class="social_title">SOCIAL</div>
                     </div>
-                    <button id="social_close" class="social_icon_button" data-event-click="close_social">×</button>
+                    <div class="social_header_actions">
+                        <button id="social_dnd" class="social_dnd_button"
+                                data-event-click="social_dnd">{{social_dnd_label}}</button>
+                        <button id="social_close" class="social_icon_button"
+                                data-event-click="close_social">×</button>
+                    </div>
                 </div>
 
                 <div class="social_tabs">
@@ -180,6 +185,9 @@
                 <div class="social_statebar">
                     <span class="social_state_dot" data-class-loading="social_loading"></span>
                     <span>{{social_status}}</span>
+                    <button id="social_party_game_invite" class="social_state_action"
+                            data-if="social_tab == 4"
+                            data-event-click="social_party_game_invite">INVITE PARTY TO LOBBY</button>
                     <span class="social_ttl">45S TTL</span>
                 </div>
 
@@ -205,9 +213,15 @@
                 </div>
 
                 <div class="social_footer">
-                    <button id="social_blocks" class="social_footer_button"
+                    <button id="social_party" class="social_footer_button"
                             data-class-selected="social_tab == 4"
-                            data-event-click="social_blocks">MANAGE BLOCKS</button>
+                            data-event-click="social_party">PARTY <span>{{social_party_count}}</span></button>
+                    <button id="social_recent" class="social_footer_button"
+                            data-class-selected="social_tab == 5"
+                            data-event-click="social_recent">RECENT <span>{{social_recent_count}}</span></button>
+                    <button id="social_blocks" class="social_footer_button"
+                            data-class-selected="social_tab == 6"
+                            data-event-click="social_blocks">BLOCKS</button>
                     <button id="social_refresh" class="social_footer_button"
                             data-event-click="social_refresh">REFRESH</button>
                 </div>
@@ -225,6 +239,14 @@
                     <div class="social_context_actions">
                         <button class="social_action primary" data-if="selected_can_join" data-event-click="social_join_friend">JOIN FRIEND</button>
                         <button class="social_action primary" data-if="selected_can_invite" data-event-click="social_invite_friend">INVITE TO LOBBY</button>
+                        <button class="social_action primary" data-if="selected_can_party_invite" data-event-click="social_party_invite">INVITE TO PARTY</button>
+                        <button class="social_action primary" data-if="selected_can_party_accept" data-event-click="social_party_accept">JOIN PARTY</button>
+                        <button class="social_action" data-if="selected_can_party_decline" data-event-click="social_party_decline">DECLINE PARTY</button>
+                        <button class="social_action" data-if="selected_can_party_cancel" data-event-click="social_party_cancel">CANCEL PARTY INVITE</button>
+                        <button class="social_action" data-if="selected_can_party_leave" data-event-click="social_party_leave">LEAVE PARTY</button>
+                        <button class="social_action danger" data-if="selected_can_party_disband" data-event-click="social_party_disband">DISBAND PARTY</button>
+                        <button class="social_action danger" data-if="selected_can_party_kick" data-event-click="social_party_kick">KICK FROM PARTY</button>
+                        <button class="social_action primary" data-if="selected_can_party_promote" data-event-click="social_party_promote">PROMOTE LEADER</button>
                         <button class="social_action primary" data-if="selected_can_accept_invite" data-event-click="social_accept_invite">JOIN GAME INVITE</button>
                         <button class="social_action" data-if="selected_can_decline_invite" data-event-click="social_decline_invite">DECLINE GAME INVITE</button>
                         <button class="social_action" data-if="selected_can_cancel_invite" data-event-click="social_cancel_invite">CANCEL GAME INVITE</button>
