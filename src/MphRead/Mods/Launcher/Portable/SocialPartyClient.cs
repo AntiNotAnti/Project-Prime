@@ -290,33 +290,55 @@ namespace MphRead.Mods.Launcher
             PartyReservedAdmission? partyAdmission = null;
 
             SocialPartyReservation? reservation = Current.Reservation;
-            if (reservation != null
-                && reservation.TryAuthorityEpoch(out ulong reservationEpoch)
-                && reservationEpoch == epoch
-                && Guid.TryParse(reservation.RequestId, out Guid requestId)
-                && requestId != Guid.Empty)
+            if (reservation == null
+                || !reservation.TryAuthorityEpoch(out ulong reservationEpoch)
+                || reservationEpoch != epoch
+                || reservation.ExpiresAt <= DateTimeOffset.UtcNow
+                || !Guid.TryParse(reservation.RequestId, out Guid requestId)
+                || requestId == Guid.Empty)
             {
-                PartyReservationClient? client =
-                    await PartyReservationClient.ConnectAsync(
-                        entry.Listing.Address,
-                        entry.Listing.Port,
-                        requestId,
-                        cancellationToken).ConfigureAwait(false);
-                if (client == null)
-                    return SocialJoinResolution.Fail(
-                        "party_reservation_unavailable");
-
                 try
                 {
-                    partyAdmission = client.TakeAdmission();
+                    SocialPartySnapshot refreshed =
+                        await LoadAsync(cancellationToken).ConfigureAwait(false);
+                    reservation = refreshed.Reservation;
                 }
-                catch
+                catch (Exception) when (!cancellationToken.IsCancellationRequested)
                 {
-                    client.Dispose();
-                    throw;
+                    reservation = null;
                 }
-                client.Dispose();
             }
+
+            if (reservation == null
+                || !reservation.TryAuthorityEpoch(out ulong refreshedEpoch)
+                || refreshedEpoch != epoch
+                || reservation.ExpiresAt <= DateTimeOffset.UtcNow
+                || !Guid.TryParse(reservation.RequestId, out Guid activeRequest)
+                || activeRequest == Guid.Empty)
+            {
+                return SocialJoinResolution.Fail("party_reservation_pending");
+            }
+
+            PartyReservationClient? client =
+                await PartyReservationClient.ConnectAsync(
+                    entry.Listing.Address,
+                    entry.Listing.Port,
+                    activeRequest,
+                    cancellationToken).ConfigureAwait(false);
+            if (client == null)
+                return SocialJoinResolution.Fail(
+                    "party_reservation_unavailable");
+
+            try
+            {
+                partyAdmission = client.TakeAdmission();
+            }
+            catch
+            {
+                client.Dispose();
+                throw;
+            }
+            client.Dispose();
 
             return new SocialJoinResolution(
                 true,
@@ -377,6 +399,7 @@ namespace MphRead.Mods.Launcher
             DateTimeOffset nextTravelRefresh = DateTimeOffset.MinValue;
             DateTimeOffset nextTravelAttempt = DateTimeOffset.MinValue;
             DateTimeOffset nextTravelAckAttempt = DateTimeOffset.MinValue;
+            DateTimeOffset nextReservationAttempt = DateTimeOffset.MinValue;
             bool sawPartyMatch = false;
             string publishedLobby = "";
 
@@ -403,6 +426,56 @@ namespace MphRead.Mods.Launcher
                         && NetSession.Active
                         && NetSession.PersistentLobby
                         && NetSession.IsInLobby;
+
+                    if (leaderInVerifiedLobby
+                        && now >= nextReservationAttempt
+                        && lobby!.TryAuthorityEpoch(out ulong reservationEpoch))
+                    {
+                        SocialPartyReservation? reservation = current.Reservation;
+                        bool matching = reservation != null
+                            && reservation.TryAuthorityEpoch(out ulong existingEpoch)
+                            && existingEpoch == reservationEpoch
+                            && reservation.ExpiresAt > now;
+
+                        if (!matching)
+                        {
+                            try
+                            {
+                                if (reservation != null)
+                                {
+                                    await CancelReservationAsync(token)
+                                        .ConfigureAwait(false);
+                                }
+
+                                SocialPartyMutationResult requested =
+                                    await RequestReservationAsync(
+                                        reservationEpoch,
+                                        includeLeader: false,
+                                        token).ConfigureAwait(false);
+                                if (!requested.Success)
+                                    NoteFailure(new InvalidOperationException(
+                                        requested.Status));
+                                nextReservationAttempt =
+                                    DateTimeOffset.UtcNow.AddSeconds(10);
+                            }
+                            catch (OperationCanceledException)
+                                when (token.IsCancellationRequested)
+                            {
+                                break;
+                            }
+                            catch (Exception ex)
+                            {
+                                NoteFailure(ex);
+                                nextReservationAttempt =
+                                    DateTimeOffset.UtcNow.AddSeconds(10);
+                            }
+                        }
+                        else
+                        {
+                            nextReservationAttempt =
+                                DateTimeOffset.UtcNow.AddSeconds(10);
+                        }
+                    }
 
                     string requestedReason;
                     lock (Sync) requestedReason = _nextTravelReason;
