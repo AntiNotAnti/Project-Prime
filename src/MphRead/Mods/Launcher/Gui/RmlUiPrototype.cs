@@ -1684,17 +1684,20 @@ namespace MphRead.Mods.Launcher.Gui
             SetText("social_friend_count", "2 ONLINE");
             SetText("social_request_count", "2 REQUESTS");
             SetText("social_invite_count", "1 ACTIVE");
+            SetText("social_party_count", "2/8 MEMBERS");
+            SetText("social_recent_count", "4 RECENT");
+            SetText("social_dnd_label", "DND OFF");
             SetText("social_badge", "3");
             SetText("social_notice", "GAME INVITE // SYLUX MAIN // SANCTORUS");
             NativeSocialClear();
             NativeSocialAddRow("PP-7A1C-5D91-44B2-8E31-9F20", "TRACE MAIN",
-                "IN LOBBY", "SANCTORUS", "FRIEND", "", 1, 1, 0, 1, 0, 0, 0);
+                "IN LOBBY", "SANCTORUS", "FRIEND", "", 1, 1, 0, 1, 0, 0, 0, 0);
             NativeSocialAddRow("PP-0D72-3F1A-4B8C-91E0-6A2B", "KANDEN",
-                "IN MATCH", "FUEL STACK", "FRIEND", "", 1, 1, 0, 0, 0, 0, 0);
+                "IN MATCH", "FUEL STACK", "FRIEND", "", 1, 1, 0, 0, 0, 0, 0, 0);
             NativeSocialAddRow("PP-991A-B732-4FD1-87C0-122E", "WEAVEL FAN",
-                "OFFLINE", "", "FRIEND", "", 0, 0, 0, 0, 0, 0, 0);
+                "OFFLINE", "", "FRIEND", "", 0, 0, 0, 0, 0, 0, 0, 0);
             NativeSocialAddRow("PP-AB22-01CE-4DA7-82E1-7F04", "NOXUS",
-                "OFFLINE", "", "FRIEND", "", 0, 0, 0, 0, 0, 0, 0);
+                "OFFLINE", "", "FRIEND", "", 0, 0, 0, 0, 0, 0, 0, 0);
             NativeSocialAddHomeFriend("PP-7A1C-5D91-44B2-8E31-9F20",
                 "TRACE MAIN", "IN LOBBY", "SANCTORUS");
             NativeSocialAddHomeFriend("PP-0D72-3F1A-4B8C-91E0-6A2B",
