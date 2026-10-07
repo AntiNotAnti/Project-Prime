@@ -66,7 +66,15 @@ begin
     where t.party_id = v_party
       and t.leader_id = v_leader
       and t.expires_at > now()
-      and l.expires_at > now();
+      and l.expires_at > now()
+      and exists (
+          select 1
+          from prime.social_lobby_memberships m
+          where m.player_id = v_leader
+            and m.authority_epoch = l.authority_epoch
+            and m.lobby_eligible
+            and m.expires_at > now()
+      );
 
     if not found then
         return null;
@@ -182,6 +190,14 @@ begin
         where l.lobby_id = p_lobby_id
           and l.owner_id = p_actor
           and l.expires_at > now()
+          and exists (
+              select 1
+              from prime.social_lobby_memberships m
+              where m.player_id = p_actor
+                and m.authority_epoch = l.authority_epoch
+                and m.lobby_eligible
+                and m.expires_at > now()
+          )
     ) then
         return jsonb_build_object('ok', false, 'status', 'lobby_unavailable');
     end if;
@@ -390,6 +406,20 @@ begin
 
     if p_action <> 'follow' then
         return jsonb_build_object('ok', false, 'status', 'invalid_action');
+    end if;
+
+    if not exists (
+        select 1
+        from prime.social_lobbies l
+        join prime.social_lobby_memberships m
+          on m.player_id = v_travel.leader_id
+         and m.authority_epoch = l.authority_epoch
+         and m.lobby_eligible
+         and m.expires_at > now()
+        where l.lobby_id = v_travel.lobby_id
+          and l.expires_at > now()
+    ) then
+        return jsonb_build_object('ok', false, 'status', 'lobby_unavailable');
     end if;
 
     v_locator := prime.social_lobby_locator(v_travel.lobby_id);
