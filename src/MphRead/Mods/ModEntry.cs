@@ -2510,6 +2510,14 @@ namespace MphRead.Mods
             {
                 RenderOptions.ApplyGraphicsPreset(preset);
             }
+            string? translucency = ValueAfter(args, "translucency");
+            if (translucency != null
+                && Enum.TryParse(translucency, ignoreCase: true,
+                    out TranslucencyMode translucencyMode)
+                && Enum.IsDefined(translucencyMode))
+            {
+                RenderOptions.Translucency = translucencyMode;
+            }
             string? cel = ValueAfter(args, "cel");
             if (cel != null && !cel.StartsWith('-'))
             {

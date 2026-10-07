@@ -36,6 +36,12 @@ namespace MphRead.Mods
         Taa
     }
 
+    public enum TranslucencyMode
+    {
+        Native,
+        Fast
+    }
+
     public enum TextureUpscaleMode
     {
         Off,
@@ -322,6 +328,13 @@ namespace MphRead.Mods
 
         public static AntiAliasingMode AntiAliasing { get; set; } = AntiAliasingMode.Off;
 
+        /// <summary>
+        /// Native reproduces MPH's stencil-ordered translucent pipeline.
+        /// Fast draws each translucent submission once over opaque depth,
+        /// trading only overlap ordering for substantially less world work.
+        /// </summary>
+        public static TranslucencyMode Translucency { get; set; } = TranslucencyMode.Native;
+
         /// <summary>Contrast-adaptive scene sharpening, 0..100 percent.</summary>
         public static int SharpenStrength
         {
@@ -427,6 +440,7 @@ namespace MphRead.Mods
             TextureAnisotropy = profile.TextureAnisotropy;
             TextureUpscale = profile.TextureUpscale;
             AntiAliasing = profile.AntiAliasing;
+            Translucency = profile.Translucency;
             SharpenStrength = profile.SharpenStrength;
             Bloom = profile.Bloom;
             BloomIntensity = profile.BloomIntensity;

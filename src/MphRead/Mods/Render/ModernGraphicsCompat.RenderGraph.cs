@@ -132,6 +132,24 @@ namespace MphRead.Mods.Render
                 _stencilFunction = StencilFunction.Equal;
                 _stencilReadMask = 0xFF;
                 break;
+
+            case WorldRenderPassKind.TranslucentSingle:
+                _enabled.Remove(EnableCap.PolygonOffsetFill);
+                _enabled.Add(EnableCap.AlphaTest);
+                _alphaFunction = AlphaFunction.Less;
+                _alphaReference = 1f;
+                _maskRed = _maskGreen = _maskBlue = _maskAlpha = true;
+                _enabled.Add(EnableCap.DepthTest);
+                _depthWrite = false;
+                _depthFunction = DepthFunction.Lequal;
+                _enabled.Remove(EnableCap.StencilTest);
+                _stencilWriteMask = 0;
+                _stencilFunction = StencilFunction.Always;
+                _enabled.Add(EnableCap.Blend);
+                _blendEquation = BlendEquationMode.FuncAdd;
+                _blendSource = BlendingFactor.SrcAlpha;
+                _blendDestination = BlendingFactor.OneMinusSrcAlpha;
+                break;
             }
         }
     }
