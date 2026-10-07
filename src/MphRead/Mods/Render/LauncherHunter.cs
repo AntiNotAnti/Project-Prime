@@ -80,6 +80,12 @@ namespace MphRead.Mods.Render
         public static bool CinematicLighting { get; set; }
 
         /// <summary>
+        /// Multi-Hunter launcher slot. -1 is the normal single-preview path;
+        /// 0-7 select persistent cached preview entities for the live lobby.
+        /// </summary>
+        public static int PreviewSlot { get; set; } = -1;
+
+        /// <summary>
         /// Where it goes, in fractions of the window: left, top, right,
         /// bottom, measured down from the top the way a screen's own
         /// coordinates are.
@@ -157,6 +163,8 @@ namespace MphRead.Mods.Render
             TransparentBackground = false;
             DistanceScale = 1f;
             CinematicLighting = false;
+            PreviewSlot = -1;
+            Scene.LauncherPreviewSlot = -1;
             Scene.LauncherPreviewTransparent = false;
             Scene.LauncherPreviewDistanceScale = 1f;
             Scene.LauncherPreviewCinematicLighting = false;
@@ -225,6 +233,7 @@ namespace MphRead.Mods.Render
                 Scene.LauncherPreviewTransparent = TransparentBackground;
                 Scene.LauncherPreviewDistanceScale = Math.Clamp(DistanceScale, 0.65f, 1.25f);
                 Scene.LauncherPreviewCinematicLighting = CinematicLighting;
+                Scene.LauncherPreviewSlot = PreviewSlot;
                 Scene.PreviewWanted = true;
                 Scene.PreviewLeft = Left;
                 Scene.PreviewTop = Top;
