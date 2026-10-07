@@ -12,7 +12,7 @@ namespace MphRead.Mods.Settings;
 /// <summary>Pure text grammar shared by runtime loading and detached archive validation.</summary>
 internal static class PreferenceText
 {
-    private static readonly HashSet<string> LauncherBool = Words("bright_skins host_on_master list_hosted window_maximized auto_update debug_logs reduce_motion combat_notifications_visible replay_auto_prune replay_delete_clips spectator_name_tags kill_cam final_kill_cam social_privacy_configured");
+    private static readonly HashSet<string> LauncherBool = Words("bright_skins host_on_master list_hosted window_maximized auto_update debug_logs reduce_motion combat_notifications_visible replay_auto_prune replay_delete_clips spectator_name_tags kill_cam final_kill_cam social_privacy_configured social_do_not_disturb");
     private static readonly HashSet<string> LauncherInt = Words("prefs_schema player_outline_width master_port server_port last_role color bots bot_level host_port lobby_time_limit_seconds lobby_goal replay_storage_gb kill_cam_camera last_kind");
     private static readonly HashSet<string> ControlBool = Words("invert_y invert_x mouse_movement_boost mouse_alt_form_movement stylus_movement_boost pointer_jump_guard stylus_mode stylus_zone stylus_native_ui scroll_all_weapons gamepad_invert_y");
     private static readonly HashSet<string> ControlFloat = Words("sensitivity imperialist_zoom_sensitivity imperialist_zoom_amount alt_swipe_sensitivity stylus_native_ui_opacity stylus_zone_opacity stylus_zone_outline_opacity stylus_zone_button_opacity stylus_cursor_opacity gamepad_deadzone gamepad_look");
