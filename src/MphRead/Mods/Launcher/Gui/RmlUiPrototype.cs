@@ -55,23 +55,6 @@ namespace MphRead.Mods.Launcher.Gui
             int NetSlot, Hunter Hunter, int Suit, string Name,
             bool Ready, bool Local, bool Spectator, bool Occupied);
 
-        private readonly record struct LobbyHunterPlacement(
-            float Left, float Top, float Right, float Bottom, float Distance);
-
-        // Presentation order mirrors the platform shader: local/front first,
-        // then near left/right, mid left/right, far left/right, rear center.
-        private static readonly LobbyHunterPlacement[] LobbyPlacements =
-        {
-            new(0.43f, 0.10f, 0.79f, 0.92f, 0.93f),
-            new(0.405f, 0.365f, 0.555f, 0.755f, 0.78f),
-            new(0.675f, 0.365f, 0.825f, 0.755f, 0.78f),
-            new(0.350f, 0.325f, 0.485f, 0.655f, 0.76f),
-            new(0.745f, 0.325f, 0.880f, 0.655f, 0.76f),
-            new(0.305f, 0.285f, 0.420f, 0.565f, 0.72f),
-            new(0.810f, 0.285f, 0.925f, 0.565f, 0.72f),
-            new(0.555f, 0.235f, 0.675f, 0.505f, 0.72f)
-        };
-
         static RmlUiPrototype()
         {
             _gamepad.Action += HandleGamepad;
@@ -173,6 +156,7 @@ namespace MphRead.Mods.Launcher.Gui
                 : lobbyName.Trim().ToUpperInvariant();
             _lobbyEndpoint = endpoint?.Trim() ?? "";
             LauncherLobbyVisuals.Active = true;
+            PublishLobbyAnchors();
             LauncherBackdrop.Set(LauncherBackdropScene.Lobby,
                 NetSession.ActiveMatchDefinition?.RoomKey);
             SetBool("lobby_mode", true);
@@ -218,23 +202,23 @@ namespace MphRead.Mods.Launcher.Gui
             ReadOnlySpan<int> drawOrder = stackalloc int[] { 7, 5, 6, 3, 4, 1, 2, 0 };
             foreach (int i in drawOrder)
             {
-                if (i >= _lobbyPlayerCount || i >= LobbyPlacements.Length)
+                if (i >= _lobbyPlayerCount || i >= LauncherLobbyFormation.Capacity)
                     continue;
                 LobbyDisplayPlayer player = _lobbyPlayers[i];
                 if (!player.Occupied)
                     continue;
 
-                LobbyHunterPlacement placement = LobbyPlacements[i];
+                LobbyFormationSlot placement = LauncherLobbyFormation.At(i);
                 LauncherHunter.Wanted = true;
                 LauncherHunter.CanPresent = () => _active && _lobbyMode;
                 LauncherHunter.PreviewSlot = i;
                 LauncherHunter.Hunter = player.Hunter;
                 LauncherHunter.Suit = player.Suit;
-                LauncherHunter.Left = placement.Left;
-                LauncherHunter.Top = placement.Top;
-                LauncherHunter.Right = placement.Right;
-                LauncherHunter.Bottom = placement.Bottom;
-                LauncherHunter.DistanceScale = placement.Distance;
+                LauncherHunter.Left = placement.HunterLeft;
+                LauncherHunter.Top = placement.HunterTop;
+                LauncherHunter.Right = placement.HunterRight;
+                LauncherHunter.Bottom = placement.HunterBottom;
+                LauncherHunter.DistanceScale = placement.HunterDistance;
                 LauncherHunter.TransparentBackground = true;
                 LauncherHunter.Draw(window, width, height);
             }
@@ -242,7 +226,7 @@ namespace MphRead.Mods.Launcher.Gui
             // Restore the local/front configuration because the chamber theme
             // and the under/over atmosphere passes read this shared preview state.
             if (_lobbyPlayerCount > 0 && _lobbyPlayers[0].Occupied)
-                ConfigureLobbyHunter(_lobbyPlayers[0], LobbyPlacements[0]);
+                ConfigureLobbyHunter(_lobbyPlayers[0], LauncherLobbyFormation.At(0));
         }
 
         public static void Tick(RenderWindow window)
@@ -258,6 +242,7 @@ namespace MphRead.Mods.Launcher.Gui
                     _height = height;
                     _density = density;
                     NativeResize(width, height, density);
+                    if (_lobbyMode) PublishLobbyAnchors();
                 }
 
                 long now = Environment.TickCount64;
@@ -606,19 +591,29 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         private static void ConfigureLobbyHunter(
-            LobbyDisplayPlayer player, LobbyHunterPlacement placement)
+            LobbyDisplayPlayer player, LobbyFormationSlot placement)
         {
             LauncherHunter.Wanted = GameFiles.Ready && player.Occupied;
             LauncherHunter.CanPresent = () => _active && _lobbyMode;
             LauncherHunter.PreviewSlot = 0;
             LauncherHunter.Hunter = player.Hunter;
             LauncherHunter.Suit = player.Suit;
-            LauncherHunter.Left = placement.Left;
-            LauncherHunter.Top = placement.Top;
-            LauncherHunter.Right = placement.Right;
-            LauncherHunter.Bottom = placement.Bottom;
-            LauncherHunter.DistanceScale = placement.Distance;
+            LauncherHunter.Left = placement.HunterLeft;
+            LauncherHunter.Top = placement.HunterTop;
+            LauncherHunter.Right = placement.HunterRight;
+            LauncherHunter.Bottom = placement.HunterBottom;
+            LauncherHunter.DistanceScale = placement.HunterDistance;
             LauncherHunter.TransparentBackground = true;
+        }
+
+        private static void PublishLobbyAnchors()
+        {
+            if (!_active) return;
+            for (int i = 0; i < LauncherLobbyFormation.Capacity; i++)
+            {
+                LobbyFormationSlot slot = LauncherLobbyFormation.At(i);
+                NativeSetLobbyAnchor(i, slot.LabelX, slot.LabelY);
+            }
         }
 
         private static void ConfigureHunter(HubSnapshot snapshot)
@@ -922,6 +917,9 @@ namespace MphRead.Mods.Launcher.Gui
         [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_set_bool")]
         private static extern void NativeSetBool(
             [MarshalAs(UnmanagedType.LPUTF8Str)] string name, int value);
+
+        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_set_lobby_anchor")]
+        private static extern void NativeSetLobbyAnchor(int slot, float centerX, float centerY);
 
         [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_back")]
         private static extern int NativeBack();
