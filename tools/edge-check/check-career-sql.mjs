@@ -56,19 +56,20 @@ try {
  await db.query(`select public.project_prime_hunter_license_for('${socialC}'::uuid,'Gamma',2)`);
  const socialProfiles=(await db.query(`select player_id,prime_id from prime.social_profiles where player_id in ('${socialA}'::uuid,'${socialB}'::uuid,'${socialC}'::uuid) order by player_id`)).rows;
  assert.deepEqual(socialProfiles.map(x=>x.prime_id),['PP-1111-1111-1111-4111-8111','PP-2222-2222-2222-4222-8222','PP-3333-3333-3333-4333-8333']);
- const socialRls=(await db.query(`select c.relname,c.relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='prime' and c.relname in ('social_profiles','friend_requests','friendships','player_blocks','social_settings','social_presence_sessions','social_lobbies','game_invites') order by c.relname`)).rows;
- assert.equal(socialRls.length,8); assert.ok(socialRls.every(x=>x.relrowsecurity===true));
+ const socialRls=(await db.query(`select c.relname,c.relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='prime' and c.relname in ('social_profiles','friend_requests','friendships','player_blocks','social_settings','social_presence_sessions','social_lobby_memberships','social_lobbies','game_invites') order by c.relname`)).rows;
+ assert.equal(socialRls.length,9); assert.ok(socialRls.every(x=>x.relrowsecurity===true));
  const socialPrivileges=(await db.query(`select
   has_table_privilege('authenticated','prime.social_profiles','select') as profile_select,
   has_table_privilege('authenticated','prime.friend_requests','select') as request_select,
   has_table_privilege('authenticated','prime.social_presence_sessions','select') as presence_select,
+  has_table_privilege('authenticated','prime.social_lobby_memberships','select') as membership_select,
   has_table_privilege('authenticated','prime.social_lobbies','select') as lobby_select,
   has_table_privilege('authenticated','prime.game_invites','select') as invite_select,
   has_function_privilege('authenticated','prime.social_mutate(uuid,text,text)','execute') as mutate,
   has_function_privilege('authenticated','prime.social_presence_heartbeat(uuid,uuid,text,text,boolean,uuid)','execute') as heartbeat,
   has_function_privilege('authenticated','prime.social_invite_send(uuid,text,uuid)','execute') as invite_send
  `)).rows[0];
- assert.deepEqual(socialPrivileges,{profile_select:false,request_select:false,presence_select:false,lobby_select:false,invite_select:false,mutate:false,heartbeat:false,invite_send:false});
+ assert.deepEqual(socialPrivileges,{profile_select:false,request_select:false,presence_select:false,membership_select:false,lobby_select:false,invite_select:false,mutate:false,heartbeat:false,invite_send:false});
 
  let socialResult=(await db.query(`select prime.social_mutate('${socialA}'::uuid,'PP-2222-2222-2222-4222-8222','send_request') as value`)).rows[0].value;
  assert.equal(socialResult.ok,true); assert.equal(socialResult.status,'request_sent');
@@ -83,6 +84,9 @@ try {
  const sessionB='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
  const sessionC='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
  let lobbyResult=(await db.query(`select prime.social_lobby_register('${socialA}'::uuid,'203.0.113.10'::inet,27891,638000000000000000::numeric,34,'MP1 SANCTORUS','Prime Lobby') as value`)).rows[0].value;
+ assert.equal(lobbyResult.ok,false); assert.equal(lobbyResult.status,'membership_unverified');
+ await db.query(`insert into prime.social_lobby_memberships(player_id,authority_epoch,reporter_id,client_id,expires_at) values ('${socialA}'::uuid,638000000000000000::numeric,'99999999-9999-4999-8999-999999999999'::uuid,12345,now()+interval '60 seconds')`);
+ lobbyResult=(await db.query(`select prime.social_lobby_register('${socialA}'::uuid,'203.0.113.10'::inet,27891,638000000000000000::numeric,34,'MP1 SANCTORUS','Prime Lobby') as value`)).rows[0].value;
  assert.equal(lobbyResult.ok,true); assert.equal(lobbyResult.status,'lobby_registered');
  assert.equal(lobbyResult.lobby.host,'203.0.113.10'); assert.equal(lobbyResult.lobby.port,27891);
  assert.equal(lobbyResult.lobby.authority_epoch,'638000000000000000');
