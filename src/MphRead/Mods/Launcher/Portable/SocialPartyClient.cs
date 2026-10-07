@@ -312,7 +312,6 @@ namespace MphRead.Mods.Launcher
                                 await InvokeAsync(body, token).ConfigureAwait(false);
                             if (envelope.Snapshot != null)
                                 PublishSnapshot(generation, envelope.Snapshot);
-                            nextTravelAckAttempt = DateTimeOffset.UtcNow.AddSeconds(30);
                             if (envelope.Ok)
                             {
                                 publishedLobby = lobby.LobbyId;
@@ -379,6 +378,8 @@ namespace MphRead.Mods.Launcher
                                 await InvokeAsync(body, token).ConfigureAwait(false);
                             if (envelope.Snapshot != null)
                                 PublishSnapshot(generation, envelope.Snapshot);
+                            nextTravelAckAttempt =
+                                DateTimeOffset.UtcNow.AddSeconds(30);
                         }
                         catch (OperationCanceledException) when (token.IsCancellationRequested)
                         {
