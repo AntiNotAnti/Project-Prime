@@ -98,7 +98,13 @@ internal static class Program
             mouse(0, 1, 0);
             mouse(0, 0, 0);
             update();
-            Action($"{element} click", density, action);
+            if (action.Length > 0)
+                Action($"{element} click", density, action);
+            else
+            {
+                Require(take(actionBuffer, actionBuffer.Length) == 0,
+                    $"{element} does not emit an owner-only action for guests");
+            }
         }
 
         void Action(string gesture, float density, string expected)
@@ -160,6 +166,38 @@ internal static class Program
                 update();
                 Input(2);
                 Action("live lobby READY Enter", test.Density, "lobby:ready");
+
+                // Advanced rules remain inside the same real RmlUi document.
+                // This verifies map/format buttons, native input roundtrip,
+                // owner-only command dispatch and the modal's close behavior
+                // without creating a fake server or bypassing the DOM.
+                Click("lobby_rules", test.Density, "lobby:rules-open");
+                set("rules_owner", 1);
+                set("lobby_rules_open", 1);
+                update();
+                Click("rules_mode_next", test.Density, "lobby:rules-mode");
+                Click("rules_toggle0", test.Density, "lobby:rules-toggle:0");
+                setField("rules_time", "9:30");
+                setField("rules_goal", "12");
+                update();
+                byte[] ruleBuffer = new byte[256];
+                int timeLength = readField("rules_time", ruleBuffer, ruleBuffer.Length);
+                Require(timeLength == 4
+                    && Encoding.UTF8.GetString(ruleBuffer, 0, timeLength) == "9:30",
+                    "native rules editor retains an edited m:ss time limit");
+                int goalLength = readField("rules_goal", ruleBuffer, ruleBuffer.Length);
+                Require(goalLength == 2
+                    && Encoding.UTF8.GetString(ruleBuffer, 0, goalLength) == "12",
+                    "native rules editor retains its score goal");
+                Click("rules_apply", test.Density, "lobby:rules-apply");
+                set("rules_owner", 0);
+                update();
+                Require(elementBounds("rules_apply", out _, out _, out _, out _) == 0,
+                    "non-owner cannot focus the apply control");
+                Click("rules_toggle1", test.Density, "");
+                set("rules_owner", 1);
+                update();
+                Click("rules_cancel", test.Density, "lobby:rules-close");
                 set("lobby_mode", 0);
                 update();
 
