@@ -192,6 +192,9 @@
                     <button id="social_party_game_invite" class="social_state_action"
                             data-if="social_tab == 4 && social_party_game_invite_ready"
                             data-event-click="social_party_game_invite">INVITE PARTY TO LOBBY</button>
+                    <button id="social_party_join_leader" class="social_state_action"
+                            data-if="social_tab == 4 && social_party_join_leader_ready"
+                            data-event-click="social_party_join_leader">JOIN LEADER</button>
                     <span class="social_ttl">45S TTL</span>
                 </div>
 
