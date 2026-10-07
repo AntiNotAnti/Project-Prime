@@ -241,19 +241,15 @@ public sealed partial class DedicatedServer
         unavailable |= _waitlist?.QueueReservedSlots ?? 0;
         unavailable |= PartyReservedSlotsMask();
 
-        var slots = new List<int>(validation.RequestedCount);
-        for (int slot = 0; slot < _maxPlayers
-            && slots.Count < validation.RequestedCount; slot++)
+        if (!PartySeatAllocator.TryAllocate(
+            _maxPlayers,
+            unavailable,
+            validation.RequestedCount,
+            out byte[] slots,
+            out _))
         {
-            if ((unavailable & (1 << slot)) == 0)
-            {
-                slots.Add(slot);
-                unavailable |= (ushort)(1 << slot);
-            }
-        }
-
-        if (slots.Count != validation.RequestedCount)
             return false;
+        }
 
         var group = new PartySeatReservation
         {
