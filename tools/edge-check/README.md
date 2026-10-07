@@ -7,7 +7,8 @@ bash tools/edge-check/check-deno.sh
 node --test tools/edge-check/*.test.ts
 ```
 
-Run the disposable SQL acceptance check with Node/npm on macOS or Linux:
+The engineering-contract CI also runs the disposable SQL acceptance check. To
+run that same gate directly with Node/npm on macOS or Linux:
 
 ```sh
 node tools/edge-check/check-career-sql.mjs
