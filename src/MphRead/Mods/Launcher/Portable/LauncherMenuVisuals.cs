@@ -192,6 +192,24 @@ namespace MphRead.Mods.Launcher
         };
     }
 
+    /// <summary>
+    /// Live RmlUi lobby presentation state shared by the renderer-neutral lobby
+    /// snapshot and the GL deployment-chamber compositor. The bit mask is in
+    /// presentation order: bit 0 is always the local/front Hunter, followed by
+    /// the seven chevron positions behind it.
+    /// </summary>
+    public static class LauncherLobbyVisuals
+    {
+        public static bool Active { get; set; }
+        public static byte OccupiedMask { get; set; }
+
+        public static void Reset()
+        {
+            Active = false;
+            OccupiedMask = 0;
+        }
+    }
+
     public static class LauncherMenuVisuals
     {
         public static LauncherBackdropStyle Style => LauncherBackdropStyle.DeploymentChamber;
