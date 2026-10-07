@@ -683,6 +683,12 @@ void PositionLobbyNameplates()
 
     const Rml::Vector2f stageOrigin = stage->GetAbsoluteOffset(Rml::BoxArea::Border);
     const Rml::Vector2i dimensions = g_context->GetDimensions();
+    // On 720p the foreground local pad is close to the action strip. Keep
+    // the player label above that strip without inventing per-DPI RCSS offsets.
+    const Rml::Element* actions = g_document->GetElementById("lobby_actions");
+    const float actionTop = actions
+        ? actions->GetAbsoluteOffset(Rml::BoxArea::Border).y
+        : float(dimensions.y);
     for (int index = 0; index < 8; ++index) {
         const std::string id = "lobby_slot" + std::to_string(index);
         Rml::Element* label = g_document->GetElementById(id);
@@ -690,8 +696,10 @@ void PositionLobbyNameplates()
         const Rml::Vector2f size = label->GetBox().GetSize(Rml::BoxArea::Border);
         const float left = g_lobby_anchors[index].x * float(dimensions.x)
             - stageOrigin.x - size.x * 0.5f;
-        const float top = g_lobby_anchors[index].y * float(dimensions.y)
+        const float desiredTop = g_lobby_anchors[index].y * float(dimensions.y)
             - stageOrigin.y - size.y * 0.5f;
+        const float maxTop = actionTop - stageOrigin.y - size.y - 8.f;
+        const float top = std::max(0.f, std::min(desiredTop, maxTop));
         label->SetProperty("left", std::to_string(left) + "px");
         label->SetProperty("top", std::to_string(top) + "px");
     }
