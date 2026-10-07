@@ -54,6 +54,8 @@ namespace MphRead.Mods.Launcher.Gui
         private static Task<SocialMutationResult>? _socialMutation;
         private static Task<SocialLookupResult>? _socialLookup;
         private static Task<SocialInviteMutationResult>? _socialInviteMutation;
+        private static Task<SocialPartyMutationResult>? _socialPartyMutation;
+        private static Task<PartyGameInviteResult>? _socialPartyGameInvite;
         private static Task<SocialJoinResolution>? _socialJoin;
         private static readonly Queue<SocialJoinResolution> _verifiedSocialJoins = new();
         private static string _socialLookupQuery = "";
@@ -565,7 +567,8 @@ namespace MphRead.Mods.Launcher.Gui
             string PrimeId, string Name, string Activity, string Detail,
             string Relation, string InviteId, bool Online, bool FriendOnline,
             bool CanInvite, bool CanJoin, bool CanAcceptInvite,
-            bool CanDeclineInvite, bool CanCancelInvite);
+            bool CanDeclineInvite, bool CanCancelInvite,
+            bool CanPartyInvite = false);
 
         private static void BeginSocialLoad(bool force)
         {
@@ -1064,7 +1067,7 @@ namespace MphRead.Mods.Launcher.Gui
                     row.Online ? 1 : 0, row.FriendOnline ? 1 : 0,
                     row.CanInvite ? 1 : 0, row.CanJoin ? 1 : 0,
                     row.CanAcceptInvite ? 1 : 0, row.CanDeclineInvite ? 1 : 0,
-                    row.CanCancelInvite ? 1 : 0);
+                    row.CanCancelInvite ? 1 : 0, row.CanPartyInvite ? 1 : 0);
             }
 
             for (int i = 0; i < onlineFriends.Count && i < 3; i++)
@@ -1615,7 +1618,8 @@ namespace MphRead.Mods.Launcher.Gui
             [MarshalAs(UnmanagedType.LPUTF8Str)] string relation,
             [MarshalAs(UnmanagedType.LPUTF8Str)] string inviteId,
             int online, int friendOnline, int canInvite, int canJoin,
-            int canAcceptInvite, int canDeclineInvite, int canCancelInvite);
+            int canAcceptInvite, int canDeclineInvite, int canCancelInvite,
+            int canPartyInvite);
 
         [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_social_add_home_friend")]
         private static extern void NativeSocialAddHomeFriend(
