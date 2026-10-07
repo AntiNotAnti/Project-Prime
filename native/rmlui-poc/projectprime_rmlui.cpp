@@ -444,13 +444,20 @@ private:
         }
     }
 
-    void OpenHunters(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:hunter"); }
-    void OpenCommunity(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:forge"); }
-    void OpenStudio(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("studio:open"); }
-    void OpenProfile(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:hunter"); }
-    void OpenSettings(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:settings"); }
-    void OpenClassic(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:news"); }
-    void Quit(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("quit"); }
+    void OpenHunters(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (!data.lobby_mode) Emit("route:hunter"); }
+    void OpenCommunity(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (!data.lobby_mode) Emit("route:forge"); }
+    void OpenStudio(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (!data.lobby_mode) Emit("studio:open"); }
+    void OpenProfile(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (!data.lobby_mode) Emit("route:hunter"); }
+    void OpenSettings(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (!data.lobby_mode) Emit("route:settings"); }
+    void OpenClassic(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (!data.lobby_mode) Emit("route:news"); }
+    void Quit(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (!data.lobby_mode) Emit("quit"); }
     void LobbyReady(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:ready"); }
     void LobbyStart(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:start"); }
     void LobbyLeave(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:leave"); }
