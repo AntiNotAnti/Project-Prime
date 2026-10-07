@@ -96,7 +96,8 @@ internal sealed class StdioFixtureObservation(string directory)
                 Scope = "pure export stdio fixture failure; no native/UI acceptance", CapturedUtc = DateTime.UtcNow,
                 ActualGithubSha = EnvironmentValue("GITHUB_SHA"), ActualGithubRunId = EnvironmentValue("GITHUB_RUN_ID"),
                 FailureType = failure.GetType().FullName, Failure = Limit(failure.ToString(), 8192),
-                OriginalCompletionDeadlineSeconds = 5, OriginalLogIterations = 100, OriginalIterationDelayMilliseconds = 10,
+                CompletionDeadlineSeconds = 5, LogIterations = 100,
+                TeardownScheduling = "synchronous durable writes; Thread.Yield every eight iterations",
                 ChildPresenceAtFailure = presence, ActualChildExitCode = (int?)null,
                 ActualChildExitCodeMeaning = "Unavailable; a self-reported child-finally marker is not an OS exit code.", Files = files
             });
