@@ -12,7 +12,13 @@ public partial class Scene
     private Vector2i _replayOutputSize;
     internal Vector2i ReplayPreviewSize { get; set; }
     internal Vector4i? ReplayPreviewBounds { get; set; }
-    private bool ExportingReplay => Mods.Network.DemoPlayback.Owns(this) && Mods.Replay.ReplayVideoExporter.Rendering;
+    // Studio exports render at the requested movie size even though their native
+    // worker viewport is deliberately much smaller. Keep that composite offscreen
+    // just like the in-game replay exporter instead of treating the worker
+    // swapchain as a movie-sized backbuffer.
+    internal bool StudioReplayExporting { get; set; }
+    private bool ExportingReplay => StudioReplayExporting
+        || Mods.Network.DemoPlayback.Owns(this) && Mods.Replay.ReplayVideoExporter.Rendering;
     private int ReplayOutputFramebuffer()
     {
         if (!ExportingReplay && !ReplayPreviewBounds.HasValue) { ReleaseReplayOutput(); return 0; }
@@ -36,6 +42,10 @@ public partial class Scene
     private void PreviewReplayOutput()
     {
         if ((!ExportingReplay && !ReplayPreviewBounds.HasValue) || _replayOutputFramebuffer == 0) return;
+        // Detached Studio exports have no movie-sized preview surface. Blitting
+        // the requested 1080p/4K output into the small worker swapchain is both
+        // unnecessary and invalid on WebGPU; capture reads the export FBO below.
+        if (StudioReplayExporting && !ReplayPreviewBounds.HasValue) return;
         GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _replayOutputFramebuffer);
         GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, 0);
         var bounds = ReplayPreviewBounds ?? new Vector4i(0, 0, ReplayPreviewSize.X, ReplayPreviewSize.Y);
