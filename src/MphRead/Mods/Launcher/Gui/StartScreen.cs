@@ -242,7 +242,7 @@ namespace MphRead.Mods.Launcher.Gui
             _prime.Workspaces.Remove(PrimeRoute.Offline);
             if (rebuildCurrent) _prime.Workspaces.Show(_prime.Router.Current);
             if (_lobby != null && NetSession.Active) { ResumeLobby(); return; }
-            if (_lobby != null) { _session.Screen = null; _lobby = null; _prime.Workspaces.Remove(PrimeRoute.Lobby); _prime.Router.Forget(PrimeRoute.Lobby); }
+            if (_lobby != null) { _session.Screen = null; _lobby = null; _lobbyContext = null; _prime.Workspaces.Remove(PrimeRoute.Lobby); _prime.Router.Forget(PrimeRoute.Lobby); }
             Hunters.Reroll(); LauncherPrefs.Load(); RefreshRooms(); _prime.Refresh(); RefreshVersionLine();
             if (_prime.Router.Current == PrimeRoute.Lobby) _prime.Router.Navigate(PrimeRoute.Play);
             if (!GameFiles.Ready) OpenSetup();
