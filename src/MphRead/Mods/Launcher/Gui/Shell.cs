@@ -343,7 +343,7 @@ namespace MphRead.Mods.Launcher.Gui
                             _front?.RmlLobbyStart();
                             break;
                         case "lobby:leave":
-                            _rmlLobbyRules?.Close();
+                            _rmlLobbyRules?.ResetSession();
                             _front?.RmlLobbyLeave();
                             break;
                         case "lobby:next-hunter":
@@ -353,7 +353,7 @@ namespace MphRead.Mods.Launcher.Gui
                             _front?.RmlLobbyNextSuit();
                             break;
                         case "lobby:classic":
-                            _rmlLobbyRules?.Close();
+                            _rmlLobbyRules?.ResetSession();
                             _front?.OpenClassicLobbyFromRml();
                             break;
                     }
@@ -507,7 +507,7 @@ namespace MphRead.Mods.Launcher.Gui
                     _rmlLobbyRules?.Tick();
                 }
                 else
-                    _rmlLobbyRules?.Close();
+                    _rmlLobbyRules?.ResetSession();
                 NotePointerBasis(window);
                 UiOverlay.Visible = false;
                 RmlUiPrototype.Tick(window);
