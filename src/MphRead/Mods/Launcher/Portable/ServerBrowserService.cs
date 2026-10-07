@@ -225,30 +225,31 @@ namespace MphRead.Mods.Launcher
             if (authorityEpoch == 0)
                 return new(false, default, "The current lobby has no authority identity.");
 
-            ServerBrowserEntry match = default;
-            int matches = 0;
+            var matches = new ConcurrentBag<ServerBrowserEntry>();
             ServerDiscoveryResult discovery = await DiscoverAsync(entry =>
             {
-                if (!entry.Live || !entry.Compatible
-                    || entry.Status.AuthorityEpoch != authorityEpoch
-                    || !entry.Status.LobbyEnabled
-                    || entry.Status.Phase != SessionPhase.Lobby)
-                    return;
-                Interlocked.Increment(ref matches);
-                match = entry;
+                if (entry.Live && entry.Compatible
+                    && entry.Status.AuthorityEpoch == authorityEpoch
+                    && entry.Status.LobbyEnabled
+                    && entry.Status.Phase == SessionPhase.Lobby)
+                {
+                    matches.Add(entry);
+                }
             }, cancellationToken);
 
             if (cancellationToken.IsCancellationRequested)
                 return new(false, default, "Lobby verification cancelled.");
             if (!discovery.DirectoryAnswered)
                 return new(false, default, "The public server directory did not answer.");
-            if (matches == 0)
+
+            ServerBrowserEntry[] found = matches.ToArray();
+            if (found.Length == 0)
                 return new(false, default,
                     "This lobby is not currently listed in the public server directory.");
-            if (matches > 1)
+            if (found.Length > 1)
                 return new(false, default,
                     "The directory returned more than one server with this authority identity.");
-            return new(true, match, "");
+            return new(true, found[0], "");
         }
 
         /// <summary>
