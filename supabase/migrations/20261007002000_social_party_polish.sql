@@ -180,8 +180,18 @@ begin
         + case when prime.social_recent_players.last_seen < v_now - interval '10 minutes'
                then 1 else 0 end),
         last_seen = v_now;
+
+    delete from prime.social_recent_players r
+    where r.actor_id = p_player
+      and r.other_id in (
+          select stale.other_id
+          from prime.social_recent_players stale
+          where stale.actor_id = p_player
+          order by stale.last_seen desc, stale.other_id
+          offset 200
+      );
 end;
-$$;
+$;
 
 create or replace function prime.social_party_expire(p_actor uuid)
 returns void
@@ -835,12 +845,21 @@ begin
     v_payload := jsonb_build_object('kind', 'party_changed');
 
     if tg_table_name = 'social_party_invites' then
-        execute 'select realtime.send($1,$2,$3,$4)'
-        using v_payload, 'social_changed',
-            'social:user:' || new.recipient_id::text, true;
-        execute 'select realtime.send($1,$2,$3,$4)'
-        using v_payload, 'social_changed',
-            'social:user:' || new.sender_id::text, true;
+        if tg_op = 'DELETE' then
+            execute 'select realtime.send($1,$2,$3,$4)'
+            using v_payload, 'social_changed',
+                'social:user:' || old.recipient_id::text, true;
+            execute 'select realtime.send($1,$2,$3,$4)'
+            using v_payload, 'social_changed',
+                'social:user:' || old.sender_id::text, true;
+        else
+            execute 'select realtime.send($1,$2,$3,$4)'
+            using v_payload, 'social_changed',
+                'social:user:' || new.recipient_id::text, true;
+            execute 'select realtime.send($1,$2,$3,$4)'
+            using v_payload, 'social_changed',
+                'social:user:' || new.sender_id::text, true;
+        end if;
 
     elsif tg_table_name = 'social_party_members' then
         if tg_op = 'DELETE' then
@@ -883,7 +902,7 @@ $$;
 
 drop trigger if exists project_prime_social_party_invite_notify on prime.social_party_invites;
 create trigger project_prime_social_party_invite_notify
-after insert or update of status on prime.social_party_invites
+after insert or update of status or delete on prime.social_party_invites
 for each row execute function prime.social_party_notify();
 
 drop trigger if exists project_prime_social_party_member_notify on prime.social_party_members;
