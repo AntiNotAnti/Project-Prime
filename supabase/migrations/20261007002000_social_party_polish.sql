@@ -19,7 +19,7 @@ returns jsonb
 language plpgsql
 security invoker
 set search_path = prime, pg_temp
-as $
+as $$
 declare
     v_lobby uuid;
 begin
@@ -86,7 +86,7 @@ begin
         'lobby', prime.social_lobby_locator(v_lobby)
     );
 end;
-$;
+$$;
 
 create table if not exists prime.social_recent_players (
     actor_id uuid not null references prime.social_profiles(player_id) on delete cascade,
@@ -202,7 +202,7 @@ begin
           offset 200
       );
 end;
-$;
+$$;
 
 create or replace function prime.social_party_expire(p_actor uuid)
 returns void
