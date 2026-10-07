@@ -29,6 +29,7 @@ namespace MphRead.Mods.Launcher
     public static class LauncherLobbyFormation
     {
         public const int Capacity = 8;
+        public const float CenterX = 0.5f;
 
         // Slot 0 belongs to the local player, always. The seven remaining
         // positions are filled in nearest-left/right, middle-left/right,
@@ -36,14 +37,14 @@ namespace MphRead.Mods.Launcher
         // Pad positions and camera rectangles share one authored frame.
         private static readonly LobbyFormationSlot[] _slots =
         {
-            new(.615f, .805f, .235f, .060f, .430f, .100f, .790f, .940f, .93f, .832f),
-            new(.495f, .690f, .130f, .038f, .405f, .365f, .555f, .755f, .78f, .723f),
-            new(.735f, .690f, .130f, .038f, .675f, .365f, .825f, .755f, .78f, .723f),
-            new(.435f, .590f, .115f, .033f, .350f, .325f, .485f, .655f, .76f, .620f),
-            new(.795f, .590f, .115f, .033f, .745f, .325f, .880f, .655f, .76f, .620f),
-            new(.385f, .505f, .100f, .029f, .305f, .285f, .420f, .565f, .72f, .534f),
-            new(.845f, .505f, .100f, .029f, .810f, .285f, .925f, .565f, .72f, .534f),
-            new(.615f, .430f, .090f, .026f, .555f, .235f, .675f, .505f, .72f, .458f)
+            new(.500f, .805f, .235f, .060f, .315f, .100f, .675f, .940f, .93f, .832f),
+            new(.380f, .690f, .130f, .038f, .290f, .365f, .440f, .755f, .78f, .723f),
+            new(.620f, .690f, .130f, .038f, .560f, .365f, .710f, .755f, .78f, .723f),
+            new(.320f, .590f, .115f, .033f, .235f, .325f, .370f, .655f, .76f, .620f),
+            new(.680f, .590f, .115f, .033f, .630f, .325f, .765f, .655f, .76f, .620f),
+            new(.270f, .505f, .100f, .029f, .190f, .285f, .305f, .565f, .72f, .534f),
+            new(.730f, .505f, .100f, .029f, .695f, .285f, .810f, .565f, .72f, .534f),
+            new(.500f, .430f, .090f, .026f, .440f, .235f, .560f, .505f, .72f, .458f)
         };
 
         public static LobbyFormationSlot At(int presentationSlot)
@@ -71,7 +72,8 @@ namespace MphRead.Mods.Launcher
 
         public static bool Validate()
         {
-            if (_slots.Length != Capacity || !(_slots[0].RadiusX > _slots[1].RadiusX))
+            if (_slots.Length != Capacity || !(_slots[0].RadiusX > _slots[1].RadiusX)
+                || Math.Abs(_slots[0].PadX - CenterX) > .001f)
                 return false;
             for (int i = 0; i < Capacity; i++)
             {
