@@ -28,6 +28,11 @@ namespace MphRead
     {
         private readonly List<RenderItem> _previewItems = new List<RenderItem>();
         private Mods.Render.HunterPreviewEntity? _preview;
+        private Mods.Render.HunterPreviewEntity? _activePreview;
+        private readonly Mods.Render.HunterPreviewEntity?[] _launcherSlotPreviews =
+            new Mods.Render.HunterPreviewEntity?[8];
+        private readonly Hunter[] _launcherSlotInited = new Hunter[8];
+        private readonly bool[] _launcherSlotInitialized = new bool[8];
 
         /// <summary>
         /// True while the preview's items are being built, so
@@ -84,6 +89,14 @@ namespace MphRead
         /// </summary>
         public static bool LauncherPreviewCinematicLighting { get; set; }
 
+        /// <summary>
+        /// Presentation slot used by the multi-Hunter RmlUi lobby. -1 keeps the
+        /// original single-preview path. Each non-negative slot owns its own
+        /// preview entity/model instance so eight Hunters do not thrash one
+        /// ModelInstance back and forth every display frame.
+        /// </summary>
+        public static int LauncherPreviewSlot { get; set; } = -1;
+
         /// <summary>Did anybody ask for a preview this frame?</summary>
         private static bool PreviewAsked => Mods.EndScreen.Available || LauncherPreview;
 
@@ -111,6 +124,11 @@ namespace MphRead
         private double _launcherPreviewNextStep;
         private Hunter _launcherPreviewClockHunter = Hunter.Random;
         private int _launcherPreviewClockSuit = -1;
+        private readonly double[] _launcherSlotNextStep = new double[8];
+        private readonly Hunter[] _launcherSlotClockHunter = new Hunter[8];
+        private readonly int[] _launcherSlotClockSuit =
+            { -1, -1, -1, -1, -1, -1, -1, -1 };
+        private readonly bool[] _launcherSlotClockSet = new bool[8];
         private const double LauncherPreviewStepSeconds = 1.0 / 60.0;
 
         /// <summary>
@@ -124,48 +142,109 @@ namespace MphRead
             if (!PreviewAsked)
             {
                 _preview?.Reset();
+                foreach (var preview in _launcherSlotPreviews)
+                    preview?.Reset();
+                _activePreview = null;
                 // So a rectangle from the last results screen cannot be used
                 // by the next one before the panel has published its own.
                 PreviewWanted = false;
                 PreviewLeft = PreviewRight = PreviewTop = PreviewBottom = 0;
                 return;
             }
-            _preview ??= new Mods.Render.HunterPreviewEntity(this);
-            Hunter want = LauncherPreview ? LauncherHunter : Mods.EndScreen.Hunter;
-            var mode = LauncherPreview && Mods.Cosmetics.CosmeticPreview.Loadout != null
-                ? Mods.Cosmetics.CosmeticPreview.Mode : Mods.Cosmetics.SkinContext.Biped;
-            bool modelChanged = !_preview.Ready || _preview.Shown != want || _preview.Mode != mode;
-            _preview.SetUp(want, LauncherPreview ? LauncherSuit : Mods.EndScreen.Suit, mode);
-            _preview.SetCosmetics(Mods.Cosmetics.CosmeticPreview.Loadout ?? Mods.Cosmetics.CosmeticPersistence.Get(want),
-                Mods.Cosmetics.CosmeticPreview.DeathRequest);
-            // Textures and display lists, which nobody else is going to make.
-            //
-            // In a match this is free and invisible: the player standing in
-            // the room is the same hunter model, `Read` caches the Model, and
-            // `GenerateLists` writes the list id onto that shared Model -- so
-            // the preview has always been reusing lists the player's own
-            // entity generated. On the launcher there is no player and no
-            // room, so nothing ever did, and the first draw died looking a
-            // palette up by an id that was never registered.
-            if (_previewInited != want || modelChanged)
+
+            int slot = LauncherPreview && LauncherPreviewSlot >= 0
+                && LauncherPreviewSlot < _launcherSlotPreviews.Length
+                ? LauncherPreviewSlot : -1;
+            Mods.Render.HunterPreviewEntity preview;
+            if (slot >= 0)
             {
-                if (_preview.Ready)
+                preview = _launcherSlotPreviews[slot]
+                    ??= new Mods.Render.HunterPreviewEntity(this);
+            }
+            else
+            {
+                preview = _preview ??= new Mods.Render.HunterPreviewEntity(this);
+            }
+            _activePreview = preview;
+
+            Hunter want = LauncherPreview ? LauncherHunter : Mods.EndScreen.Hunter;
+            // Multi-player lobby slots are always character bipeds. A stale
+            // cosmetic-preview request (viewmodel/alt/death demo) must not turn
+            // every remote roster entry into the local preview tool's form.
+            bool lobbySlot = LauncherPreview && slot >= 0;
+            var mode = LauncherPreview && !lobbySlot
+                && Mods.Cosmetics.CosmeticPreview.Loadout != null
+                ? Mods.Cosmetics.CosmeticPreview.Mode : Mods.Cosmetics.SkinContext.Biped;
+            bool modelChanged = !preview.Ready || preview.Shown != want || preview.Mode != mode;
+            preview.SetUp(want, LauncherPreview ? LauncherSuit : Mods.EndScreen.Suit, mode);
+            preview.SetCosmetics(lobbySlot
+                    ? Mods.Cosmetics.CosmeticPersistence.Get(want)
+                    : Mods.Cosmetics.CosmeticPreview.Loadout
+                        ?? Mods.Cosmetics.CosmeticPersistence.Get(want),
+                lobbySlot ? 0 : Mods.Cosmetics.CosmeticPreview.DeathRequest);
+
+            // Textures and display lists, which nobody else is going to make.
+            // Lobby slots keep their own initialization witness so switching
+            // draw order never reinitializes seven cached models every frame.
+            bool needsInit = slot >= 0
+                ? !_launcherSlotInitialized[slot]
+                    || _launcherSlotInited[slot] != want || modelChanged
+                : _previewInited != want || modelChanged;
+            if (needsInit && preview.Ready)
+            {
+                InitEntity(preview);
+                if (slot >= 0)
                 {
-                    // Publish the initialized hunter only after InitEntity
-                    // succeeds. Previously this assignment happened first, so
-                    // one transient display-list/texture failure poisoned the
-                    // preview: the next frame believed the model was already
-                    // initialized and HunterStand stayed on its block fallback.
-                    InitEntity(_preview);
+                    _launcherSlotInitialized[slot] = true;
+                    _launcherSlotInited[slot] = want;
+                }
+                else
+                {
                     _previewInited = want;
                 }
             }
-            _preview.Step();
+            preview.Step();
         }
 
         private void ModStepLauncherPreview()
         {
             double now = _launcherPreviewClock.Elapsed.TotalSeconds;
+            int slot = LauncherPreviewSlot >= 0
+                && LauncherPreviewSlot < _launcherSlotPreviews.Length
+                ? LauncherPreviewSlot : -1;
+
+            if (slot >= 0)
+            {
+                if (_launcherSlotPreviews[slot] is { } cached)
+                    _activePreview = cached;
+
+                bool changed = !_launcherSlotClockSet[slot]
+                    || _launcherSlotClockHunter[slot] != LauncherHunter
+                    || _launcherSlotClockSuit[slot] != LauncherSuit;
+                if (changed)
+                {
+                    _launcherSlotClockSet[slot] = true;
+                    _launcherSlotClockHunter[slot] = LauncherHunter;
+                    _launcherSlotClockSuit[slot] = LauncherSuit;
+                    _launcherSlotNextStep[slot] = now + LauncherPreviewStepSeconds;
+                    ModStepPreview();
+                    return;
+                }
+
+                if (now < _launcherSlotNextStep[slot])
+                    return;
+
+                int slotSteps = Math.Clamp(
+                    (int)((now - _launcherSlotNextStep[slot])
+                        / LauncherPreviewStepSeconds) + 1, 1, 3);
+                for (int i = 0; i < slotSteps; i++)
+                    ModStepPreview();
+                _launcherSlotNextStep[slot] += slotSteps * LauncherPreviewStepSeconds;
+                if (now - _launcherSlotNextStep[slot] > LauncherPreviewStepSeconds * 3)
+                    _launcherSlotNextStep[slot] = now + LauncherPreviewStepSeconds;
+                return;
+            }
+
             bool changed = _launcherPreviewClockHunter != LauncherHunter
                 || _launcherPreviewClockSuit != LauncherSuit;
 
@@ -182,6 +261,7 @@ namespace MphRead
 
             if (now < _launcherPreviewNextStep)
             {
+                _activePreview = _preview;
                 return;
             }
 
@@ -222,7 +302,7 @@ namespace MphRead
         private void ModCollectPreview()
         {
             ReleasePreviewItems();
-            if (!PreviewAsked || _preview == null || !_preview.Ready)
+            if (!PreviewAsked || _activePreview == null || !_activePreview.Ready)
             {
                 return;
             }
@@ -230,7 +310,7 @@ namespace MphRead
             int priorParticleCount = _singleParticleCount;
             try
             {
-                _preview.GetDrawInfo();
+                _activePreview.GetDrawInfo();
                 for (int i = priorParticleCount; i < _singleParticleCount; i++)
                 {
                     _singleParticles[i].Process();
@@ -441,8 +521,8 @@ namespace MphRead
             Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView(
                 MathHelper.DegreesToRadians(PreviewFov),
                 width / (float)height, 0.1f, 100f);
-            Matrix4 view = PreviewView(_preview?.Mode == Mods.Cosmetics.SkinContext.Biped
-                ? _preview.Shown : Hunter.Samus, width / (float)height,
+            Matrix4 view = PreviewView(_activePreview?.Mode == Mods.Cosmetics.SkinContext.Biped
+                ? _activePreview.Shown : Hunter.Samus, width / (float)height,
                 LauncherPreview ? LauncherPreviewDistanceScale : 1f);
             GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref projection);
             GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref view);
@@ -468,10 +548,13 @@ namespace MphRead
                 RenderItem(_previewItems[i]);
             }
             GL.DepthMask(true);
-            if (_preview != null && _preview.Mode == Mods.Cosmetics.SkinContext.Biped
-                && Mods.Cosmetics.CosmeticPreview.Loadout != null)
+            if (_activePreview != null
+                && _activePreview.Mode == Mods.Cosmetics.SkinContext.Biped
+                && Mods.Cosmetics.CosmeticPreview.Loadout != null
+                && LauncherPreviewSlot < 0)
                 Mods.ScreenCapture.QueueCosmeticThumbnail(x, y, width, height,
-                    Mods.Cosmetics.CosmeticThumbnail.PathFor(_preview.Shown, _preview.ThumbnailKey));
+                    Mods.Cosmetics.CosmeticThumbnail.PathFor(
+                        _activePreview.Shown, _activePreview.ThumbnailKey));
             // Everything back the way the HUD expects to find it.
             GL.Disable(EnableCap.ScissorTest);
             GL.Viewport(0, 0, target.X, target.Y);
@@ -482,8 +565,8 @@ namespace MphRead
             _viewInvRotMatrix = previousBillboard;
             GL.Uniform1(_shaderLocations.ShowColors, _showColors ? 1 : 0);
             PreviewDrawnLastFrame = true;
-            PreviewDrawnHunter = _preview?.Shown ?? Hunter.Random;
-            PreviewDrawnSuit = _preview?.ShownSuit ?? -1;
+            PreviewDrawnHunter = _activePreview?.Shown ?? Hunter.Random;
+            PreviewDrawnSuit = _activePreview?.ShownSuit ?? -1;
         }
     }
 }

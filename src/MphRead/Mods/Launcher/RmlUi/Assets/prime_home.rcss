@@ -160,6 +160,13 @@ button {
     background-color: rgba(28,114,225,12%);
     border-bottom-color: #72c7ff;
 }
+.lobby #nav_hunters,
+.lobby #nav_community,
+.lobby #nav_studio,
+.lobby #profile {
+    opacity: 0.34;
+    cursor: default;
+}
 
 #account_cluster {
     width: 270dp;
@@ -637,6 +644,265 @@ button {
     line-height: 13dp;
 }
 
+/* ---------------------------------------------------------------- live lobby */
+
+#lobby_stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#lobby_heading {
+    position: absolute;
+    left: 32dp;
+    top: 24dp;
+    width: 246dp;
+}
+.lobby_title {
+    color: #ffffff;
+    font-size: 22dp;
+    line-height: 24dp;
+    font-weight: bold;
+    letter-spacing: 0.7dp;
+}
+.lobby_status_line {
+    margin-top: 3dp;
+    color: #69879d;
+    font-family: "JetBrains Mono";
+    font-size: 8dp;
+    line-height: 11dp;
+    letter-spacing: 0.5dp;
+}
+
+.lobby_side_panel {
+    position: absolute;
+    width: 238dp;
+    padding: 12dp;
+    color: #b8cadd;
+    background-color: rgba(3,13,23,62%);
+    border: 1dp rgba(97,182,246,12%);
+    border-left: 2dp rgba(114,199,255,36%);
+}
+#lobby_match_panel {
+    left: 32dp;
+    top: 94dp;
+}
+#lobby_roster_panel {
+    right: 32dp;
+    top: 38dp;
+    width: 226dp;
+    padding: 10dp;
+}
+.lobby_panel_title {
+    margin-bottom: 8dp;
+    color: #ffffff;
+    font-size: 19dp;
+    line-height: 21dp;
+    font-weight: bold;
+}
+.lobby_data_row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 27dp;
+    padding-top: 4dp;
+    padding-bottom: 4dp;
+    color: #668198;
+    font-family: "JetBrains Mono";
+    font-size: 8dp;
+    line-height: 10dp;
+    border-bottom: 1dp rgba(114,199,255,8%);
+}
+.lobby_data_row b {
+    max-width: 145dp;
+    color: #c9dceb;
+    text-align: right;
+    font-weight: normal;
+}
+.lobby_small_button {
+    width: 100%;
+    margin-top: 9dp;
+    padding: 7dp 9dp;
+    color: #8eb2cc;
+    font-size: 9dp;
+    font-weight: bold;
+    letter-spacing: 0.8dp;
+    background-color: rgba(7,24,40,72%);
+    border: 1dp rgba(114,199,255,18%);
+}
+.lobby_small_button:hover,
+.lobby_small_button:focus {
+    color: #ffffff;
+    border-color: #61b6f6;
+    background-color: rgba(28,114,225,25%);
+}
+
+.lobby_roster_header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 7dp;
+}
+.lobby_roster_header .eyebrow { margin-bottom: 0; }
+.lobby_roster_count {
+    color: #61b6f6;
+    font-family: "JetBrains Mono";
+    font-size: 8dp;
+}
+.lobby_roster_row {
+    min-height: 34dp;
+    display: flex;
+    align-items: center;
+    margin-bottom: 3dp;
+    padding: 4dp 6dp;
+    color: #8298aa;
+    background-color: rgba(8,25,41,48%);
+    border-left: 2dp rgba(97,182,246,14%);
+}
+.lobby_roster_row.ready {
+    border-left-color: #55e18c;
+    background-color: rgba(22,73,65,30%);
+}
+.lobby_roster_row.local {
+    color: #d9efff;
+    border-left-color: #72c7ff;
+    background-color: rgba(28,114,225,18%);
+}
+.lobby_roster_index {
+    width: 20dp;
+    color: #54758e;
+    font-family: "JetBrains Mono";
+    font-size: 8dp;
+}
+.lobby_roster_copy {
+    display: block;
+    flex: 1;
+    min-width: 0;
+}
+.lobby_roster_copy b {
+    display: block;
+    color: #d9e7f3;
+    font-size: 11dp;
+    line-height: 12dp;
+    font-weight: bold;
+}
+.lobby_roster_hunter {
+    display: block;
+    margin-top: 1dp;
+    color: #627e94;
+    font-size: 7dp;
+    line-height: 8dp;
+}
+.lobby_roster_state {
+    margin-left: 5dp;
+    color: #668198;
+    font-family: "JetBrains Mono";
+    font-size: 7dp;
+}
+.lobby_roster_row.ready .lobby_roster_state { color: #55e18c; }
+
+.lobby_nameplate {
+    position: absolute;
+    width: 116dp;
+    padding: 4dp 6dp;
+    text-align: center;
+    color: #a9bfd1;
+    background-color: rgba(2,11,19,62%);
+    border-top: 1dp rgba(114,199,255,20%);
+}
+.lobby_nameplate b {
+    display: block;
+    color: #dcebf7;
+    font-size: 10dp;
+    line-height: 11dp;
+    font-weight: bold;
+}
+.lobby_nameplate span {
+    display: block;
+    margin-top: 1dp;
+    color: #607d94;
+    font-family: "JetBrains Mono";
+    font-size: 6dp;
+    line-height: 8dp;
+}
+.lobby_nameplate.local {
+    width: 158dp;
+    border-top-color: #72c7ff;
+}
+.lobby_nameplate.local b {
+    color: #ffffff;
+    font-size: 14dp;
+    line-height: 15dp;
+}
+
+#lobby_slot0 { left: 56.5%; bottom: 70dp; }
+#lobby_slot1 { left: 40.5%; bottom: 145dp; }
+#lobby_slot2 { left: 70.2%; bottom: 145dp; }
+#lobby_slot3 { left: 36.0%; bottom: 225dp; }
+#lobby_slot4 { left: 75.2%; bottom: 225dp; }
+#lobby_slot5 { left: 32.2%; bottom: 294dp; }
+#lobby_slot6 { left: 79.0%; bottom: 294dp; }
+#lobby_slot7 { left: 57.7%; bottom: 355dp; }
+
+#lobby_actions {
+    position: absolute;
+    left: 290dp;
+    right: 290dp;
+    bottom: 10dp;
+    height: 42dp;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+}
+.lobby_action {
+    min-width: 92dp;
+    margin-left: 3dp;
+    margin-right: 3dp;
+    padding-left: 10dp;
+    padding-right: 10dp;
+    color: #8da8bc;
+    font-size: 10dp;
+    font-weight: bold;
+    letter-spacing: 0.5dp;
+    background-color: rgba(5,18,31,86%);
+    border: 1dp rgba(97,182,246,20%);
+}
+.lobby_action:hover,
+.lobby_action:focus {
+    color: #ffffff;
+    border-color: #61b6f6;
+    background-color: rgba(28,114,225,28%);
+}
+.lobby_action.primary {
+    color: #dff6ff;
+    border-bottom: 3dp #2b9ef7;
+}
+.lobby_action.start {
+    color: #ffffff;
+    background-color: rgba(28,114,225,50%);
+    border-color: #72c7ff;
+}
+.lobby_action.danger:hover,
+.lobby_action.danger:focus {
+    border-color: #ef6870;
+    background-color: rgba(178,47,58,28%);
+}
+
+#lobby_ready { nav-up: #nav_play; nav-right: #lobby_hunter; }
+#lobby_hunter { nav-left: #lobby_ready; nav-right: #lobby_suit; }
+#lobby_suit { nav-left: #lobby_hunter; nav-right: #lobby_rules; }
+#lobby_rules { nav-left: #lobby_suit; nav-right: #lobby_leave; }
+#lobby_leave { nav-left: #lobby_rules; nav-right: #lobby_start; }
+#lobby_start { nav-left: #lobby_leave; }
+#lobby_footer_state {
+    color: #6b879c;
+    font-family: "JetBrains Mono";
+    font-size: 8dp;
+    letter-spacing: 0.6dp;
+}
+
 #diagnostics_panel {
     display: none;
     position: absolute;
@@ -724,6 +990,11 @@ button {
     #activity_compact { width: 380dp; }
     #activity_drawer { width: 460dp; }
     #session_panel { right: 28dp; width: 270dp; }
+    #lobby_heading, #lobby_match_panel { left: 24dp; }
+    #lobby_match_panel { width: 216dp; }
+    #lobby_roster_panel { right: 24dp; width: 204dp; }
+    #lobby_actions { left: 245dp; right: 235dp; }
+    .lobby_action { min-width: 82dp; font-size: 9dp; }
     #footerbar { padding-left: 28dp; padding-right: 28dp; }
 }
 
@@ -737,6 +1008,12 @@ button {
     #activity_compact { width: 370dp; }
     #activity_drawer { width: 430dp; }
     #hunter_caption { left: 62%; }
+    #lobby_heading { width: 190dp; }
+    #lobby_match_panel { width: 190dp; }
+    #lobby_roster_panel { width: 184dp; }
+    #lobby_actions { left: 198dp; right: 194dp; }
+    .lobby_action { min-width: 72dp; padding-left: 6dp; padding-right: 6dp; font-size: 8dp; }
+    .lobby_nameplate { display: none; }
 }
 
 @media (max-width: 900px) {
@@ -759,6 +1036,11 @@ button {
     #deploy { min-height: 72dp; }
     .deploy_label { font-size: 27dp; line-height: 29dp; }
     #hunter_caption { display: none; }
+    #lobby_heading { display: none; }
+    #lobby_match_panel { left: 14dp; top: 18dp; width: 170dp; }
+    #lobby_roster_panel { right: 14dp; top: 18dp; width: 170dp; }
+    #lobby_actions { left: 188dp; right: 188dp; height: 38dp; }
+    .lobby_action { min-width: 62dp; font-size: 7dp; }
     #footerbar { height: 58dp; }
     #stage { bottom: 58dp; }
 }

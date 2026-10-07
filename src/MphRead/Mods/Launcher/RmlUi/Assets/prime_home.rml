@@ -4,7 +4,7 @@
     <link type="text/rcss" href="prime_home.rcss" />
 </head>
 <body data-model="prime_menu">
-    <div id="screen" data-class-reduce-motion="reduce_motion">
+    <div id="screen" data-class-reduce-motion="reduce_motion" data-class-lobby="lobby_mode">
         <div id="top_rule"></div>
 
         <div id="topbar" class="enter_top">
@@ -34,7 +34,7 @@
         </div>
 
         <div id="stage">
-            <div id="activity_panel" class="enter_left">
+            <div id="activity_panel" class="enter_left" data-if="home_mode">
                 <div id="activity_compact" data-class-hidden="activity_selector_open">
                     <div class="eyebrow">{{activity_group}}</div>
 
@@ -139,7 +139,7 @@
                 </div>
             </div>
 
-            <div id="hunter_caption" class="enter_hunter">
+            <div id="hunter_caption" class="enter_hunter" data-if="home_mode">
                 <div class="hunter_rule"></div>
                 <div>
                     <div class="eyebrow">ACTIVE HUNTER</div>
@@ -148,7 +148,7 @@
                 </div>
             </div>
 
-            <div id="session_panel" class="enter_right">
+            <div id="session_panel" class="enter_right" data-if="home_mode">
                 <div class="session_header">
                     <div class="eyebrow">CURRENT SESSION</div>
                     <div class="session_state">SOLO</div>
@@ -165,6 +165,74 @@
                     <span>OPEN PARTY SLOT</span>
                 </div>
                 <div class="session_hint">PARTY CONTROLS APPEAR AFTER JOINING OR CREATING A LOBBY.</div>
+            </div>
+
+            <div id="lobby_stage" data-if="lobby_mode">
+                <div id="lobby_heading" class="enter_left">
+                    <div class="eyebrow">MULTIPLAYER // LIVE LOBBY</div>
+                    <div class="lobby_title">{{lobby_name}}</div>
+                    <div class="lobby_status_line">{{lobby_status}}</div>
+                </div>
+
+                <div id="lobby_match_panel" class="lobby_side_panel enter_left">
+                    <div class="eyebrow">NEXT MATCH</div>
+                    <div class="lobby_panel_title">{{lobby_mode_name}}</div>
+                    <div class="lobby_data_row"><span>ARENA</span><b>{{lobby_map}}</b></div>
+                    <div class="lobby_data_row"><span>FORMAT</span><b>{{lobby_format}}</b></div>
+                    <div class="lobby_data_row"><span>PLAYERS</span><b>{{lobby_player_count}}</b></div>
+                    <div class="lobby_data_row"><span>READY</span><b>{{lobby_ready_count}}</b></div>
+                    <button class="lobby_small_button" data-event-click="lobby_classic">MAP / RULES</button>
+                </div>
+
+                <div id="lobby_roster_panel" class="lobby_side_panel enter_right">
+                    <div class="lobby_roster_header">
+                        <div class="eyebrow">CONNECTED HUNTERS</div>
+                        <div class="lobby_roster_count">{{lobby_player_count}}</div>
+                    </div>
+
+                    <div class="lobby_roster_row" data-if="slot0_occupied" data-class-ready="slot0_ready" data-class-local="slot0_local">
+                        <span class="lobby_roster_index">1</span><span class="lobby_roster_copy"><b>{{slot0_name}}</b><span class="lobby_roster_hunter">{{slot0_hunter}}</span></span><span class="lobby_roster_state">{{slot0_state}}</span>
+                    </div>
+                    <div class="lobby_roster_row" data-if="slot1_occupied" data-class-ready="slot1_ready" data-class-local="slot1_local">
+                        <span class="lobby_roster_index">2</span><span class="lobby_roster_copy"><b>{{slot1_name}}</b><span class="lobby_roster_hunter">{{slot1_hunter}}</span></span><span class="lobby_roster_state">{{slot1_state}}</span>
+                    </div>
+                    <div class="lobby_roster_row" data-if="slot2_occupied" data-class-ready="slot2_ready" data-class-local="slot2_local">
+                        <span class="lobby_roster_index">3</span><span class="lobby_roster_copy"><b>{{slot2_name}}</b><span class="lobby_roster_hunter">{{slot2_hunter}}</span></span><span class="lobby_roster_state">{{slot2_state}}</span>
+                    </div>
+                    <div class="lobby_roster_row" data-if="slot3_occupied" data-class-ready="slot3_ready" data-class-local="slot3_local">
+                        <span class="lobby_roster_index">4</span><span class="lobby_roster_copy"><b>{{slot3_name}}</b><span class="lobby_roster_hunter">{{slot3_hunter}}</span></span><span class="lobby_roster_state">{{slot3_state}}</span>
+                    </div>
+                    <div class="lobby_roster_row" data-if="slot4_occupied" data-class-ready="slot4_ready" data-class-local="slot4_local">
+                        <span class="lobby_roster_index">5</span><span class="lobby_roster_copy"><b>{{slot4_name}}</b><span class="lobby_roster_hunter">{{slot4_hunter}}</span></span><span class="lobby_roster_state">{{slot4_state}}</span>
+                    </div>
+                    <div class="lobby_roster_row" data-if="slot5_occupied" data-class-ready="slot5_ready" data-class-local="slot5_local">
+                        <span class="lobby_roster_index">6</span><span class="lobby_roster_copy"><b>{{slot5_name}}</b><span class="lobby_roster_hunter">{{slot5_hunter}}</span></span><span class="lobby_roster_state">{{slot5_state}}</span>
+                    </div>
+                    <div class="lobby_roster_row" data-if="slot6_occupied" data-class-ready="slot6_ready" data-class-local="slot6_local">
+                        <span class="lobby_roster_index">7</span><span class="lobby_roster_copy"><b>{{slot6_name}}</b><span class="lobby_roster_hunter">{{slot6_hunter}}</span></span><span class="lobby_roster_state">{{slot6_state}}</span>
+                    </div>
+                    <div class="lobby_roster_row" data-if="slot7_occupied" data-class-ready="slot7_ready" data-class-local="slot7_local">
+                        <span class="lobby_roster_index">8</span><span class="lobby_roster_copy"><b>{{slot7_name}}</b><span class="lobby_roster_hunter">{{slot7_hunter}}</span></span><span class="lobby_roster_state">{{slot7_state}}</span>
+                    </div>
+                </div>
+
+                <div id="lobby_slot0" class="lobby_nameplate local" data-if="slot0_occupied"><b>{{slot0_name}}</b><span>{{slot0_hunter}} // {{slot0_state}}</span></div>
+                <div id="lobby_slot1" class="lobby_nameplate" data-if="slot1_occupied"><b>{{slot1_name}}</b><span>{{slot1_hunter}}</span></div>
+                <div id="lobby_slot2" class="lobby_nameplate" data-if="slot2_occupied"><b>{{slot2_name}}</b><span>{{slot2_hunter}}</span></div>
+                <div id="lobby_slot3" class="lobby_nameplate" data-if="slot3_occupied"><b>{{slot3_name}}</b><span>{{slot3_hunter}}</span></div>
+                <div id="lobby_slot4" class="lobby_nameplate" data-if="slot4_occupied"><b>{{slot4_name}}</b><span>{{slot4_hunter}}</span></div>
+                <div id="lobby_slot5" class="lobby_nameplate" data-if="slot5_occupied"><b>{{slot5_name}}</b><span>{{slot5_hunter}}</span></div>
+                <div id="lobby_slot6" class="lobby_nameplate" data-if="slot6_occupied"><b>{{slot6_name}}</b><span>{{slot6_hunter}}</span></div>
+                <div id="lobby_slot7" class="lobby_nameplate" data-if="slot7_occupied"><b>{{slot7_name}}</b><span>{{slot7_hunter}}</span></div>
+
+                <div id="lobby_actions" class="enter_bottom">
+                    <button id="lobby_ready" class="lobby_action primary" data-event-click="lobby_ready">{{lobby_ready_action}}</button>
+                    <button id="lobby_hunter" class="lobby_action" data-event-click="lobby_next_hunter">HUNTER // {{lobby_local_hunter}}</button>
+                    <button id="lobby_suit" class="lobby_action" data-event-click="lobby_next_suit">NEXT SUIT</button>
+                    <button id="lobby_rules" class="lobby_action" data-event-click="lobby_classic">LOBBY OPTIONS</button>
+                    <button id="lobby_leave" class="lobby_action danger" data-event-click="lobby_leave">LEAVE</button>
+                    <button id="lobby_start" class="lobby_action start" data-if="lobby_owner" data-event-click="lobby_start">START MATCH</button>
+                </div>
             </div>
         </div>
 
@@ -185,11 +253,12 @@
                 <span class="divider">//</span>
                 <span>PROJECT PRIME CLIENT</span>
             </div>
-            <div id="footer_actions">
+            <div id="footer_actions" data-if="home_mode">
                 <button class="footer_button" data-event-click="open_classic">NEWS</button>
                 <button class="footer_button" data-event-click="open_settings">SETTINGS</button>
                 <button class="footer_button danger" data-event-click="quit_game">QUIT</button>
             </div>
+            <div id="lobby_footer_state" data-if="lobby_mode">{{lobby_status}}</div>
         </div>
     </div>
 </body>

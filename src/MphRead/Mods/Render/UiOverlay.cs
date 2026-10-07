@@ -98,7 +98,10 @@ namespace MphRead.Mods.Render
                 LauncherHunter.CinematicLighting = true;
                 try
                 {
-                    LauncherHunter.Draw(window, width, height);
+                    // Home draws one hero. The live lobby reuses the same real
+                    // engine preview renderer for every occupied chevron slot,
+                    // with the local Hunter remaining the largest/front anchor.
+                    Mods.Launcher.Gui.RmlUiPrototype.DrawHunters(window, width, height);
                 }
                 finally
                 {

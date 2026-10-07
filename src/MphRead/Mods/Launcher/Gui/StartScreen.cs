@@ -22,6 +22,7 @@ namespace MphRead.Mods.Launcher.Gui
         private PrimeStartupScreen? _startup;
         private readonly LobbySessionCoordinator _session = new();
         private LobbyScreen? _lobby;
+        private LobbyContext? _lobbyContext;
         private bool _finished, _updating, _bypassGuard;
         private bool _spectateNextMatch;
         private readonly PrimeUiPulse _updateWatcher;
@@ -241,7 +242,7 @@ namespace MphRead.Mods.Launcher.Gui
             _prime.Workspaces.Remove(PrimeRoute.Offline);
             if (rebuildCurrent) _prime.Workspaces.Show(_prime.Router.Current);
             if (_lobby != null && NetSession.Active) { ResumeLobby(); return; }
-            if (_lobby != null) { _session.Screen = null; _lobby = null; _prime.Workspaces.Remove(PrimeRoute.Lobby); _prime.Router.Forget(PrimeRoute.Lobby); }
+            if (_lobby != null) { _session.Screen = null; _lobby = null; _lobbyContext = null; _prime.Workspaces.Remove(PrimeRoute.Lobby); _prime.Router.Forget(PrimeRoute.Lobby); }
             Hunters.Reroll(); LauncherPrefs.Load(); RefreshRooms(); _prime.Refresh(); RefreshVersionLine();
             if (_prime.Router.Current == PrimeRoute.Lobby) _prime.Router.Navigate(PrimeRoute.Play);
             if (!GameFiles.Ready) OpenSetup();
@@ -307,6 +308,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 SpectatorMode.SetSessionPreference(plan.Spectate);
                 _spectateNextMatch = plan.Spectate;
+                _lobbyContext = plan.Lobby;
                 _lobby = new LobbyScreen(_rooms, plan.Lobby) { Overlays = _prime.Overlays };
                 _lobby.HubRequested += (_, _) => _prime.Router.Navigate(PrimeRoute.News);
                 _lobby.MatchRequested += (_, match) =>
@@ -315,6 +317,12 @@ namespace MphRead.Mods.Launcher.Gui
                     // any configuration draft, close sheets and show the countdown.
                     _prime.Overlays.Clear(); _bypassGuard = true;
                     _prime.Router.Navigate(PrimeRoute.Lobby); _bypassGuard = false;
+#if MPHREAD_RMLUI_POC
+                    // Scene loading and its barrier still use the authoritative
+                    // lobby screen. Restore that surface before handing the launch
+                    // plan to Shell so RmlUi cannot remain over the loading scene.
+                    RestoreAvaloniaLobbyFromRml();
+#endif
                     _spectateNextMatch = SpectatorMode.PreferSpectator;
                     MatchRequested?.Invoke(this, match with { Spectate = _spectateNextMatch });
                 };
@@ -325,18 +333,91 @@ namespace MphRead.Mods.Launcher.Gui
                 // Screen assignment performs an immediate hydration tick, and an
                 // already-running match can request its scene during that tick.
                 _session.Screen = _lobby;
+#if MPHREAD_RMLUI_POC
+                if (RmlUiPrototype.Requested && Shell.Window is { } rmlWindow)
+                    TryShowRmlLobby(rmlWindow);
+#endif
             }
             else Finish(plan);
         }
         private void LobbyClosed(string reason)
         {
-            _session.Screen = null; _lobby = null;
+#if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.LobbyMode)
+                RmlUiPrototype.ExitLobby();
+#endif
+            _session.Screen = null; _lobby = null; _lobbyContext = null;
             _prime.Overlays.Clear();
             if (_prime.Router.Current == PrimeRoute.Lobby) _prime.Router.Navigate(PrimeRoute.Play);
             _prime.Router.Forget(PrimeRoute.Lobby); _prime.Workspaces.Remove(PrimeRoute.Lobby);
             if (_prime.Workspaces.Get(PrimeRoute.Play) is PlayWorkspace play) play.SessionEnded(reason);
             _prime.Refresh();
         }
+#if MPHREAD_RMLUI_POC
+        internal bool TryShowRmlLobby(RenderWindow window)
+        {
+            if (_lobby == null || !NetSession.Active || !NetSession.PersistentLobby)
+                return false;
+
+            if (!RmlUiPrototype.EnterLobby(window,
+                    _lobbyContext?.ServerName, _lobbyContext?.Endpoint))
+                return false;
+
+            // Detaching this view stops LobbySessionCoordinator; Shell's
+            // Rml lobby tick keeps the same authoritative pump alive.
+            UiSurface.Current?.Hide();
+            return true;
+        }
+
+        private void RestoreAvaloniaLobbyFromRml()
+        {
+            if (!RmlUiPrototype.LobbyMode || _lobby == null)
+                return;
+
+            RmlUiPrototype.Shutdown();
+            if (UiSurface.Ensure() is not { } surface)
+                return;
+
+            _bypassGuard = true;
+            try
+            {
+                _prime.Router.Navigate(PrimeRoute.Lobby);
+            }
+            finally
+            {
+                _bypassGuard = false;
+            }
+            // Show reattaches StartScreen; its visual-tree hook restarts
+            // LobbySessionCoordinator exactly once after this callback unwinds.
+            surface.Show(this);
+        }
+
+        internal void RmlLobbyTick()
+        {
+            if (!RmlUiPrototype.LobbyMode || _lobby == null)
+                return;
+
+            // LobbySessionCoordinator is detached while the Avalonia surface is
+            // hidden. Keep the exact same server control plane running under the
+            // RmlUi presentation instead of inventing a parallel network path.
+            NetSession.Pump();
+            _lobby.SessionTick(foreground: true);
+        }
+
+        internal void RmlLobbyReady() => _lobby?.RmlToggleReady();
+        internal void RmlLobbyStart() => _lobby?.RmlStartMatch();
+        internal void RmlLobbyLeave() => _lobby?.RmlLeave();
+        internal void RmlLobbyNextHunter() => _lobby?.RmlNextHunter();
+        internal void RmlLobbyNextSuit() => _lobby?.RmlNextSuit();
+
+        internal void OpenClassicLobbyFromRml()
+        {
+            if (_lobby == null)
+                return;
+            RestoreAvaloniaLobbyFromRml();
+        }
+#endif
+
         private void OpenSetup()
         {
             var view = new SetupScreen();

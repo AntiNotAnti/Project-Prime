@@ -4,6 +4,7 @@
 #include "RmlUi_Renderer_GL2.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstring>
 #include <deque>
@@ -57,6 +58,27 @@ struct PrimeMenuData {
     bool reduce_motion = false;
     bool diagnostics_visible = false;
     bool activity_selector_open = false;
+    bool home_mode = true;
+    bool lobby_mode = false;
+    bool lobby_owner = false;
+    bool lobby_local_ready = false;
+    bool lobby_starting = false;
+
+    Rml::String lobby_name = "MULTIPLAYER LOBBY";
+    Rml::String lobby_map = "WAITING FOR MAP";
+    Rml::String lobby_mode_name = "BATTLE";
+    Rml::String lobby_format = "FREE FOR ALL";
+    Rml::String lobby_player_count = "1 / 8";
+    Rml::String lobby_ready_count = "0 READY";
+    Rml::String lobby_status = "WAITING FOR PLAYERS";
+    Rml::String lobby_ready_action = "READY";
+    Rml::String lobby_local_hunter = "SAMUS";
+    std::array<Rml::String, 8> slot_name{};
+    std::array<Rml::String, 8> slot_hunter{};
+    std::array<Rml::String, 8> slot_state{};
+    std::array<bool, 8> slot_occupied{};
+    std::array<bool, 8> slot_ready{};
+    std::array<bool, 8> slot_local{};
 
     int activity_index = 0;
     Rml::String activity_group = "MULTIPLAYER";
@@ -84,6 +106,68 @@ public:
         model.Bind("reduce_motion", &data.reduce_motion);
         model.Bind("diagnostics_visible", &data.diagnostics_visible);
         model.Bind("activity_selector_open", &data.activity_selector_open);
+        model.Bind("home_mode", &data.home_mode);
+        model.Bind("lobby_mode", &data.lobby_mode);
+        model.Bind("lobby_owner", &data.lobby_owner);
+        model.Bind("lobby_local_ready", &data.lobby_local_ready);
+        model.Bind("lobby_starting", &data.lobby_starting);
+        model.Bind("lobby_name", &data.lobby_name);
+        model.Bind("lobby_map", &data.lobby_map);
+        model.Bind("lobby_mode_name", &data.lobby_mode_name);
+        model.Bind("lobby_format", &data.lobby_format);
+        model.Bind("lobby_player_count", &data.lobby_player_count);
+        model.Bind("lobby_ready_count", &data.lobby_ready_count);
+        model.Bind("lobby_status", &data.lobby_status);
+        model.Bind("lobby_ready_action", &data.lobby_ready_action);
+        model.Bind("lobby_local_hunter", &data.lobby_local_hunter);
+        model.Bind("slot0_name", &data.slot_name[0]);
+        model.Bind("slot0_hunter", &data.slot_hunter[0]);
+        model.Bind("slot0_state", &data.slot_state[0]);
+        model.Bind("slot0_occupied", &data.slot_occupied[0]);
+        model.Bind("slot0_ready", &data.slot_ready[0]);
+        model.Bind("slot0_local", &data.slot_local[0]);
+        model.Bind("slot1_name", &data.slot_name[1]);
+        model.Bind("slot1_hunter", &data.slot_hunter[1]);
+        model.Bind("slot1_state", &data.slot_state[1]);
+        model.Bind("slot1_occupied", &data.slot_occupied[1]);
+        model.Bind("slot1_ready", &data.slot_ready[1]);
+        model.Bind("slot1_local", &data.slot_local[1]);
+        model.Bind("slot2_name", &data.slot_name[2]);
+        model.Bind("slot2_hunter", &data.slot_hunter[2]);
+        model.Bind("slot2_state", &data.slot_state[2]);
+        model.Bind("slot2_occupied", &data.slot_occupied[2]);
+        model.Bind("slot2_ready", &data.slot_ready[2]);
+        model.Bind("slot2_local", &data.slot_local[2]);
+        model.Bind("slot3_name", &data.slot_name[3]);
+        model.Bind("slot3_hunter", &data.slot_hunter[3]);
+        model.Bind("slot3_state", &data.slot_state[3]);
+        model.Bind("slot3_occupied", &data.slot_occupied[3]);
+        model.Bind("slot3_ready", &data.slot_ready[3]);
+        model.Bind("slot3_local", &data.slot_local[3]);
+        model.Bind("slot4_name", &data.slot_name[4]);
+        model.Bind("slot4_hunter", &data.slot_hunter[4]);
+        model.Bind("slot4_state", &data.slot_state[4]);
+        model.Bind("slot4_occupied", &data.slot_occupied[4]);
+        model.Bind("slot4_ready", &data.slot_ready[4]);
+        model.Bind("slot4_local", &data.slot_local[4]);
+        model.Bind("slot5_name", &data.slot_name[5]);
+        model.Bind("slot5_hunter", &data.slot_hunter[5]);
+        model.Bind("slot5_state", &data.slot_state[5]);
+        model.Bind("slot5_occupied", &data.slot_occupied[5]);
+        model.Bind("slot5_ready", &data.slot_ready[5]);
+        model.Bind("slot5_local", &data.slot_local[5]);
+        model.Bind("slot6_name", &data.slot_name[6]);
+        model.Bind("slot6_hunter", &data.slot_hunter[6]);
+        model.Bind("slot6_state", &data.slot_state[6]);
+        model.Bind("slot6_occupied", &data.slot_occupied[6]);
+        model.Bind("slot6_ready", &data.slot_ready[6]);
+        model.Bind("slot6_local", &data.slot_local[6]);
+        model.Bind("slot7_name", &data.slot_name[7]);
+        model.Bind("slot7_hunter", &data.slot_hunter[7]);
+        model.Bind("slot7_state", &data.slot_state[7]);
+        model.Bind("slot7_occupied", &data.slot_occupied[7]);
+        model.Bind("slot7_ready", &data.slot_ready[7]);
+        model.Bind("slot7_local", &data.slot_local[7]);
         model.Bind("activity_index", &data.activity_index);
         model.Bind("activity_group", &data.activity_group);
         model.Bind("activity_title", &data.activity_title);
@@ -109,6 +193,12 @@ public:
         model.BindEventCallback("open_settings", &PrimeMenuModel::OpenSettings, this);
         model.BindEventCallback("open_classic", &PrimeMenuModel::OpenClassic, this);
         model.BindEventCallback("quit_game", &PrimeMenuModel::Quit, this);
+        model.BindEventCallback("lobby_ready", &PrimeMenuModel::LobbyReady, this);
+        model.BindEventCallback("lobby_start", &PrimeMenuModel::LobbyStart, this);
+        model.BindEventCallback("lobby_leave", &PrimeMenuModel::LobbyLeave, this);
+        model.BindEventCallback("lobby_next_hunter", &PrimeMenuModel::LobbyNextHunter, this);
+        model.BindEventCallback("lobby_next_suit", &PrimeMenuModel::LobbyNextSuit, this);
+        model.BindEventCallback("lobby_classic", &PrimeMenuModel::LobbyClassic, this);
         model.BindEventCallback("noop", &PrimeMenuModel::Noop, this);
 
         handle = model.GetModelHandle();
@@ -124,7 +214,27 @@ public:
         else if (name == "build_version") data.build_version = value;
         else if (name == "renderer_name") data.renderer_name = value;
         else if (name == "ui_cost") data.ui_cost = value;
-        else return;
+        else if (name == "lobby_name") data.lobby_name = value;
+        else if (name == "lobby_map") data.lobby_map = value;
+        else if (name == "lobby_mode_name") data.lobby_mode_name = value;
+        else if (name == "lobby_format") data.lobby_format = value;
+        else if (name == "lobby_player_count") data.lobby_player_count = value;
+        else if (name == "lobby_ready_count") data.lobby_ready_count = value;
+        else if (name == "lobby_status") data.lobby_status = value;
+        else if (name == "lobby_ready_action") data.lobby_ready_action = value;
+        else if (name == "lobby_local_hunter") data.lobby_local_hunter = value;
+        else {
+            for (int i = 0; i < 8; ++i) {
+                const std::string prefix = "slot" + std::to_string(i) + "_";
+                if (name == prefix + "name") data.slot_name[i] = value;
+                else if (name == prefix + "hunter") data.slot_hunter[i] = value;
+                else if (name == prefix + "state") data.slot_state[i] = value;
+                else continue;
+                handle.DirtyVariable(name);
+                return;
+            }
+            return;
+        }
         handle.DirtyVariable(name);
     }
 
@@ -133,7 +243,31 @@ public:
         if (name == "reduce_motion") data.reduce_motion = value;
         else if (name == "diagnostics_visible") data.diagnostics_visible = value;
         else if (name == "activity_selector_open") data.activity_selector_open = value;
-        else return;
+        else if (name == "lobby_mode") {
+            if (data.lobby_mode == value) return;
+            data.lobby_mode = value;
+            data.home_mode = !value;
+            handle.DirtyVariable("lobby_mode");
+            handle.DirtyVariable("home_mode");
+            RequestFocus(value ? "lobby_ready" : "activity_selector");
+            return;
+        }
+        else if (name == "home_mode") data.home_mode = value;
+        else if (name == "lobby_owner") data.lobby_owner = value;
+        else if (name == "lobby_local_ready") data.lobby_local_ready = value;
+        else if (name == "lobby_starting") data.lobby_starting = value;
+        else {
+            for (int i = 0; i < 8; ++i) {
+                const std::string prefix = "slot" + std::to_string(i) + "_";
+                if (name == prefix + "occupied") data.slot_occupied[i] = value;
+                else if (name == prefix + "ready") data.slot_ready[i] = value;
+                else if (name == prefix + "local") data.slot_local[i] = value;
+                else continue;
+                handle.DirtyVariable(name);
+                return;
+            }
+            return;
+        }
         handle.DirtyVariable(name);
     }
 
@@ -147,6 +281,10 @@ public:
 
     bool Back()
     {
+        if (data.lobby_mode) {
+            Emit("lobby:leave");
+            return true;
+        }
         if (!data.activity_selector_open)
             return false;
         SetSelectorOpen(false);
@@ -306,13 +444,26 @@ private:
         }
     }
 
-    void OpenHunters(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:hunter"); }
-    void OpenCommunity(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:forge"); }
-    void OpenStudio(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("studio:open"); }
-    void OpenProfile(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:hunter"); }
-    void OpenSettings(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:settings"); }
-    void OpenClassic(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:news"); }
-    void Quit(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("quit"); }
+    void OpenHunters(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (!data.lobby_mode) Emit("route:hunter"); }
+    void OpenCommunity(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (!data.lobby_mode) Emit("route:forge"); }
+    void OpenStudio(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (!data.lobby_mode) Emit("studio:open"); }
+    void OpenProfile(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (!data.lobby_mode) Emit("route:hunter"); }
+    void OpenSettings(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (!data.lobby_mode) Emit("route:settings"); }
+    void OpenClassic(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (!data.lobby_mode) Emit("route:news"); }
+    void Quit(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (!data.lobby_mode) Emit("quit"); }
+    void LobbyReady(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:ready"); }
+    void LobbyStart(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:start"); }
+    void LobbyLeave(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:leave"); }
+    void LobbyNextHunter(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:next-hunter"); }
+    void LobbyNextSuit(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:next-suit"); }
+    void LobbyClassic(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:classic"); }
     void Noop(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) {}
 };
 

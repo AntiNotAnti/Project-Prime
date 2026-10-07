@@ -43,6 +43,9 @@ namespace MphRead.Mods.Render
         private static int _rightDarken;
         private static int _beamIntensity;
         private static int _backgroundSoftness;
+        private static int _lobbyMode;
+        private static int _lobbyOccupancyA;
+        private static int _lobbyOccupancyB;
 
         private const string VertexSource = @"#version 120
 varying vec2 chamber_uv;
@@ -79,6 +82,9 @@ uniform float left_darken;
 uniform float right_darken;
 uniform float beam_intensity;
 uniform float background_softness;
+uniform float lobby_mode;
+uniform vec4 lobby_occupancy_a;
+uniform vec4 lobby_occupancy_b;
 
 float hash21(vec2 p)
 {
@@ -104,6 +110,20 @@ float ellipse_mask(vec2 uv, vec2 center, vec2 radius)
     vec2 d = (uv - center) / max(radius, vec2(0.001));
     float q = dot(d, d);
     return 1.0 - smoothstep(0.35, 1.0, q);
+}
+
+float platform_edge_mask(vec2 uv, vec2 center, vec2 radius)
+{
+    vec2 d = (uv - center) / max(radius, vec2(0.001));
+    float q = dot(d, d);
+    return smoothstep(0.60, 0.75, q) * (1.0 - smoothstep(0.86, 1.0, q));
+}
+
+float platform_fill_mask(vec2 uv, vec2 center, vec2 radius)
+{
+    vec2 d = (uv - center) / max(radius, vec2(0.001));
+    float q = dot(d, d);
+    return 1.0 - smoothstep(0.62, 1.0, q);
 }
 
 void main()
@@ -259,6 +279,62 @@ void main()
     col += mix(activity_secondary, hunter_halo, 0.22)
         * serviceRings * floor_glow * 0.11;
 
+    // In the live lobby the local/front pad stays the hero platform above.
+    // Seven additional pads recede in a chevron around it. Empty slots remain
+    // faintly visible so the room communicates its eight-player capacity while
+    // occupied slots gain the activity light.
+    if (lobby_mode > 0.5)
+    {
+        float occ1 = lobby_occupancy_a.y;
+        float occ2 = lobby_occupancy_a.z;
+        float occ3 = lobby_occupancy_a.w;
+        float occ4 = lobby_occupancy_b.x;
+        float occ5 = lobby_occupancy_b.y;
+        float occ6 = lobby_occupancy_b.z;
+        float occ7 = lobby_occupancy_b.w;
+
+        vec2 p1 = vec2(0.495, 0.690);
+        vec2 p2 = vec2(0.735, 0.690);
+        vec2 p3 = vec2(0.435, 0.590);
+        vec2 p4 = vec2(0.795, 0.590);
+        vec2 p5 = vec2(0.385, 0.505);
+        vec2 p6 = vec2(0.845, 0.505);
+        vec2 p7 = vec2(0.615, 0.430);
+
+        vec2 r1 = vec2(0.130, 0.038);
+        vec2 r2 = vec2(0.115, 0.033);
+        vec2 r3 = vec2(0.100, 0.029);
+        vec2 r4 = vec2(0.090, 0.026);
+
+        float e1 = platform_edge_mask(uv, p1, r1);
+        float e2 = platform_edge_mask(uv, p2, r1);
+        float e3 = platform_edge_mask(uv, p3, r2);
+        float e4 = platform_edge_mask(uv, p4, r2);
+        float e5 = platform_edge_mask(uv, p5, r3);
+        float e6 = platform_edge_mask(uv, p6, r3);
+        float e7 = platform_edge_mask(uv, p7, r4);
+        float f1 = platform_fill_mask(uv, p1, r1);
+        float f2 = platform_fill_mask(uv, p2, r1);
+        float f3 = platform_fill_mask(uv, p3, r2);
+        float f4 = platform_fill_mask(uv, p4, r2);
+        float f5 = platform_fill_mask(uv, p5, r3);
+        float f6 = platform_fill_mask(uv, p6, r3);
+        float f7 = platform_fill_mask(uv, p7, r4);
+
+        float allFill = min(1.0, f1 + f2 + f3 + f4 + f5 + f6 + f7);
+        col = mix(col, vec3(0.006, 0.014, 0.022), allFill * 0.36);
+
+        vec3 emptyPad = vec3(0.08, 0.18, 0.24);
+        vec3 livePad = mix(activity_secondary, hunter_halo, 0.18);
+        col += mix(emptyPad, livePad, occ1) * e1 * (0.030 + 0.080 * occ1);
+        col += mix(emptyPad, livePad, occ2) * e2 * (0.030 + 0.080 * occ2);
+        col += mix(emptyPad, livePad, occ3) * e3 * (0.026 + 0.070 * occ3);
+        col += mix(emptyPad, livePad, occ4) * e4 * (0.026 + 0.070 * occ4);
+        col += mix(emptyPad, livePad, occ5) * e5 * (0.022 + 0.060 * occ5);
+        col += mix(emptyPad, livePad, occ6) * e6 * (0.022 + 0.060 * occ6);
+        col += mix(emptyPad, livePad, occ7) * e7 * (0.020 + 0.055 * occ7);
+    }
+
     // Low chamber haze.
     float lowFog = smoothstep(0.52, 0.92, uv.y)
         * (1.0 - smoothstep(0.88, 1.0, uv.y));
@@ -354,6 +430,19 @@ void main()
             GL.Uniform1(_rightDarken, style.RightUiDarken);
             GL.Uniform1(_beamIntensity, style.BeamIntensity);
             GL.Uniform1(_backgroundSoftness, style.BackgroundSoftness);
+            bool lobby = LauncherLobbyVisuals.Active;
+            byte occupied = LauncherLobbyVisuals.OccupiedMask;
+            GL.Uniform1(_lobbyMode, lobby ? 1f : 0f);
+            GL.Uniform4(_lobbyOccupancyA, new Vector4(
+                (occupied & 0x01) != 0 ? 1f : 0f,
+                (occupied & 0x02) != 0 ? 1f : 0f,
+                (occupied & 0x04) != 0 ? 1f : 0f,
+                (occupied & 0x08) != 0 ? 1f : 0f));
+            GL.Uniform4(_lobbyOccupancyB, new Vector4(
+                (occupied & 0x10) != 0 ? 1f : 0f,
+                (occupied & 0x20) != 0 ? 1f : 0f,
+                (occupied & 0x40) != 0 ? 1f : 0f,
+                (occupied & 0x80) != 0 ? 1f : 0f));
 
             GL.Begin(PrimitiveType.TriangleStrip);
             GL.TexCoord2(0f, 0f); GL.Vertex2(-1f, 1f);
@@ -442,6 +531,9 @@ void main()
                 _rightDarken = GL.GetUniformLocation(program, "right_darken");
                 _beamIntensity = GL.GetUniformLocation(program, "beam_intensity");
                 _backgroundSoftness = GL.GetUniformLocation(program, "background_softness");
+                _lobbyMode = GL.GetUniformLocation(program, "lobby_mode");
+                _lobbyOccupancyA = GL.GetUniformLocation(program, "lobby_occupancy_a");
+                _lobbyOccupancyB = GL.GetUniformLocation(program, "lobby_occupancy_b");
                 Mods.DebugLog.Line("rmlui",
                     "deployment chamber renderer ready: procedural GL hero scene");
                 return true;
@@ -482,6 +574,7 @@ void main()
             _heroLight = _pulseSpeed = _warmth = _haloStrength = -1;
             _floorGlow = _leftDarken = _rightDarken = -1;
             _beamIntensity = _backgroundSoftness = -1;
+            _lobbyMode = _lobbyOccupancyA = _lobbyOccupancyB = -1;
         }
     }
 }

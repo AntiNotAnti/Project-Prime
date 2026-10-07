@@ -7,6 +7,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using MphRead.Mods.Input;
+using MphRead.Mods.Network;
 using MphRead.Mods.Render;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
@@ -44,6 +45,32 @@ namespace MphRead.Mods.Launcher.Gui
         private static int _captureFrames;
         private static string? _captureDirectory;
         private static bool _diagnosticsVisible;
+        private static bool _lobbyMode;
+        private static string _lobbyName = "MULTIPLAYER LOBBY";
+        private static string _lobbyEndpoint = "";
+        private static readonly LobbyDisplayPlayer[] _lobbyPlayers = new LobbyDisplayPlayer[8];
+        private static int _lobbyPlayerCount;
+
+        private readonly record struct LobbyDisplayPlayer(
+            int NetSlot, Hunter Hunter, int Suit, string Name,
+            bool Ready, bool Local, bool Spectator, bool Occupied);
+
+        private readonly record struct LobbyHunterPlacement(
+            float Left, float Top, float Right, float Bottom, float Distance);
+
+        // Presentation order mirrors the platform shader: local/front first,
+        // then near left/right, mid left/right, far left/right, rear center.
+        private static readonly LobbyHunterPlacement[] LobbyPlacements =
+        {
+            new(0.43f, 0.10f, 0.79f, 0.92f, 0.93f),
+            new(0.405f, 0.365f, 0.555f, 0.755f, 0.78f),
+            new(0.675f, 0.365f, 0.825f, 0.755f, 0.78f),
+            new(0.350f, 0.325f, 0.485f, 0.655f, 0.76f),
+            new(0.745f, 0.325f, 0.880f, 0.655f, 0.76f),
+            new(0.305f, 0.285f, 0.420f, 0.565f, 0.72f),
+            new(0.810f, 0.285f, 0.925f, 0.565f, 0.72f),
+            new(0.555f, 0.235f, 0.675f, 0.505f, 0.72f)
+        };
 
         static RmlUiPrototype()
         {
@@ -57,6 +84,7 @@ namespace MphRead.Mods.Launcher.Gui
         public static bool CaptureRequested => CaptureDirectory() != null;
         public static bool Active => _active;
         public static bool Failed => _failed;
+        public static bool LobbyMode => _active && _lobbyMode;
 
         public static bool TryActivate(RenderWindow window)
         {
@@ -132,6 +160,91 @@ namespace MphRead.Mods.Launcher.Gui
             return false;
         }
 
+        public static bool EnterLobby(RenderWindow window, string? lobbyName, string? endpoint)
+        {
+            if (!Requested)
+                return false;
+            if (!_active && !TryActivate(window))
+                return false;
+
+            _lobbyMode = true;
+            _lobbyName = String.IsNullOrWhiteSpace(lobbyName)
+                ? "MULTIPLAYER LOBBY"
+                : lobbyName.Trim().ToUpperInvariant();
+            _lobbyEndpoint = endpoint?.Trim() ?? "";
+            LauncherLobbyVisuals.Active = true;
+            LauncherBackdrop.Set(LauncherBackdropScene.Lobby,
+                NetSession.ActiveMatchDefinition?.RoomKey);
+            SetBool("lobby_mode", true);
+            RefreshLobbyState(force: true);
+            _nextStateRefresh = 0;
+            Mods.DebugLog.Line("rmlui",
+                $"live lobby chamber active // {_lobbyName} // {_lobbyPlayerCount}/8");
+            return true;
+        }
+
+        public static void ExitLobby()
+        {
+            if (!_active || !_lobbyMode)
+                return;
+
+            _lobbyMode = false;
+            _lobbyPlayerCount = 0;
+            Array.Clear(_lobbyPlayers);
+            LauncherLobbyVisuals.Reset();
+            SetBool("lobby_mode", false);
+            LauncherBackdrop.Set(LauncherBackdropScene.Multiplayer);
+            HubSnapshot snapshot = HubState.Capture();
+            ConfigureHunter(snapshot);
+            RefreshState(snapshot, force: true);
+            _nextStateRefresh = 0;
+            Mods.DebugLog.Line("rmlui", "live lobby chamber closed; home restored");
+        }
+
+        public static void DrawHunters(RenderWindow window, int width, int height)
+        {
+            if (!_active || width <= 0 || height <= 0)
+                return;
+
+            if (!_lobbyMode)
+            {
+                LauncherHunter.PreviewSlot = -1;
+                LauncherHunter.Draw(window, width, height);
+                return;
+            }
+
+            // Draw rear-to-front so a distant Hunter can never paint over
+            // the local/front hero where their preview rectangles overlap.
+            ReadOnlySpan<int> drawOrder = stackalloc int[] { 7, 5, 6, 3, 4, 1, 2, 0 };
+            foreach (int i in drawOrder)
+            {
+                if (i >= _lobbyPlayerCount || i >= LobbyPlacements.Length)
+                    continue;
+                LobbyDisplayPlayer player = _lobbyPlayers[i];
+                if (!player.Occupied)
+                    continue;
+
+                LobbyHunterPlacement placement = LobbyPlacements[i];
+                LauncherHunter.Wanted = true;
+                LauncherHunter.CanPresent = () => _active && _lobbyMode;
+                LauncherHunter.PreviewSlot = i;
+                LauncherHunter.Hunter = player.Hunter;
+                LauncherHunter.Suit = player.Suit;
+                LauncherHunter.Left = placement.Left;
+                LauncherHunter.Top = placement.Top;
+                LauncherHunter.Right = placement.Right;
+                LauncherHunter.Bottom = placement.Bottom;
+                LauncherHunter.DistanceScale = placement.Distance;
+                LauncherHunter.TransparentBackground = true;
+                LauncherHunter.Draw(window, width, height);
+            }
+
+            // Restore the local/front configuration because the chamber theme
+            // and the under/over atmosphere passes read this shared preview state.
+            if (_lobbyPlayerCount > 0 && _lobbyPlayers[0].Occupied)
+                ConfigureLobbyHunter(_lobbyPlayers[0], LobbyPlacements[0]);
+        }
+
         public static void Tick(RenderWindow window)
         {
             if (!_active)
@@ -150,10 +263,18 @@ namespace MphRead.Mods.Launcher.Gui
                 long now = Environment.TickCount64;
                 if (now >= _nextStateRefresh)
                 {
-                    HubSnapshot snapshot = HubState.Capture();
-                    ConfigureHunter(snapshot);
-                    RefreshState(snapshot, force: false);
-                    _nextStateRefresh = now + 1000;
+                    if (_lobbyMode)
+                    {
+                        RefreshLobbyState(force: false);
+                        _nextStateRefresh = now + 100;
+                    }
+                    else
+                    {
+                        HubSnapshot snapshot = HubState.Capture();
+                        ConfigureHunter(snapshot);
+                        RefreshState(snapshot, force: false);
+                        _nextStateRefresh = now + 1000;
+                    }
                 }
 
                 Mods.Input.GamepadDesktop.Poll();
@@ -312,6 +433,10 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepad.Reset();
             _captureDirectory = null;
             _captureFrames = 0;
+            _lobbyMode = false;
+            _lobbyPlayerCount = 0;
+            Array.Clear(_lobbyPlayers);
+            LauncherLobbyVisuals.Reset();
             LauncherHunter.Reset();
             GamepadContexts.MenuVisible = false;
             Mods.DebugLog.Line("rmlui", "RmlUi POC shut down");
@@ -333,10 +458,174 @@ namespace MphRead.Mods.Launcher.Gui
             }
         }
 
+        private static void RefreshLobbyState(bool force)
+        {
+            if (!_lobbyMode)
+                return;
+
+            RosterPacket roster = NetSession.LobbyRoster();
+            int localRosterIndex = -1;
+            for (int i = 0; i < roster.Count; i++)
+            {
+                if (roster.Slots[i] == NetSession.LocalSlot)
+                {
+                    localRosterIndex = i;
+                    break;
+                }
+            }
+
+            int display = 0;
+            void AddRosterPlayer(int rosterIndex)
+            {
+                if (display >= _lobbyPlayers.Length || rosterIndex < 0 || rosterIndex >= roster.Count)
+                    return;
+                int netSlot = roster.Slots[rosterIndex];
+                Hunter hunter = (Hunter)Math.Clamp((int)roster.Hunters[rosterIndex], 0, Hunters.Playable - 1);
+                int suit = Math.Clamp((int)roster.Colors[rosterIndex], 0, 3);
+                string name = roster.Names[rosterIndex];
+                if (String.IsNullOrWhiteSpace(name))
+                    name = $"PLAYER {netSlot + 1}";
+                bool ready = roster.LobbyReady[rosterIndex];
+                bool local = netSlot == NetSession.LocalSlot;
+                bool spectator = roster.Roles[rosterIndex] != 0;
+                _lobbyPlayers[display++] = new LobbyDisplayPlayer(
+                    netSlot, hunter, suit, name.Trim().ToUpperInvariant(),
+                    ready, local, spectator, Occupied: true);
+            }
+
+            if (localRosterIndex >= 0)
+            {
+                AddRosterPlayer(localRosterIndex);
+            }
+            else if (NetSession.LocalSlot >= 0)
+            {
+                // The authoritative roster may arrive one packet after the
+                // session. Always reserve the front position for the local
+                // player so another peer never temporarily becomes the hero.
+                string localName = String.IsNullOrWhiteSpace(NetSession.PlayerName)
+                    ? HubState.Capture().PlayerName
+                    : NetSession.PlayerName;
+                _lobbyPlayers[display++] = new LobbyDisplayPlayer(
+                    NetSession.LocalSlot, NetSession.LocalHunter,
+                    Math.Clamp(NetSession.LocalColor, 0, 3),
+                    localName.Trim().ToUpperInvariant(),
+                    NetSession.LocalSlot < NetSession.SlotLobbyReady.Length
+                        && NetSession.SlotLobbyReady[NetSession.LocalSlot],
+                    Local: true, SpectatorMode.PreferSpectator, Occupied: true);
+            }
+            for (int i = 0; i < roster.Count && display < _lobbyPlayers.Length; i++)
+            {
+                if (i != localRosterIndex)
+                    AddRosterPlayer(i);
+            }
+
+            for (int i = display; i < _lobbyPlayers.Length; i++)
+                _lobbyPlayers[i] = default;
+            _lobbyPlayerCount = display;
+
+            byte mask = 0;
+            int readyCount = 0;
+            for (int i = 0; i < _lobbyPlayers.Length; i++)
+            {
+                LobbyDisplayPlayer player = _lobbyPlayers[i];
+                bool occupied = player.Occupied;
+                if (occupied)
+                {
+                    mask |= (byte)(1 << i);
+                    if (player.Ready) readyCount++;
+                }
+                SetBool($"slot{i}_occupied", occupied);
+                SetBool($"slot{i}_ready", occupied && player.Ready);
+                SetBool($"slot{i}_local", occupied && player.Local);
+                SetText($"slot{i}_name", occupied ? player.Name : "");
+                SetText($"slot{i}_hunter", occupied ? player.Hunter.ToString().ToUpperInvariant() : "");
+                SetText($"slot{i}_state", occupied
+                    ? player.Spectator ? "SPECTATING" : player.Ready ? "READY" : "WAITING"
+                    : "");
+            }
+
+            LauncherLobbyVisuals.Active = true;
+            LauncherLobbyVisuals.OccupiedMask = mask;
+
+            MatchDefinition? match = NetSession.ActiveMatchDefinition;
+            if (match is { } definition)
+            {
+                LauncherBackdrop.Set(LauncherBackdropScene.Lobby, definition.RoomKey);
+                SetText("lobby_map", definition.RoomKey.ToUpperInvariant());
+                SetText("lobby_mode_name", definition.Mode.ToString().ToUpperInvariant());
+                SetText("lobby_format", definition.Format.ToString().ToUpperInvariant());
+            }
+            else
+            {
+                SetText("lobby_map", "WAITING FOR MAP");
+                SetText("lobby_mode_name", "MULTIPLAYER");
+                SetText("lobby_format", "PENDING");
+            }
+
+            SetText("lobby_name", _lobbyName);
+            SetText("lobby_player_count", $"{display} / 8");
+            SetText("lobby_ready_count", $"{readyCount} READY");
+            bool localReady = NetSession.LocalSlot >= 0
+                && NetSession.LocalSlot < NetSession.SlotLobbyReady.Length
+                && NetSession.SlotLobbyReady[NetSession.LocalSlot];
+            SetBool("lobby_local_ready", localReady);
+            SetBool("lobby_owner", NetSession.LocalIsLobbyOwner);
+            SetBool("lobby_starting", NetSession.IsStarting);
+            SetText("lobby_ready_action", localReady ? "UNREADY" : "READY");
+            SetText("lobby_local_hunter",
+                (display > 0 ? _lobbyPlayers[0].Hunter : NetSession.LocalHunter)
+                    .ToString().ToUpperInvariant());
+
+            string status = NetSession.LobbyMessage;
+            if (String.IsNullOrWhiteSpace(status))
+            {
+                if (NetSession.IsStarting)
+                {
+                    double remaining = NetSession.StartCountdownRemainingSeconds;
+                    status = remaining > 0
+                        ? $"MATCH STARTING // {Math.Max(1, (int)Math.Ceiling(remaining))}"
+                        : "SYNCHRONIZING MATCH";
+                }
+                else if (!String.IsNullOrWhiteSpace(_lobbyEndpoint))
+                    status = $"CONNECTED // {_lobbyEndpoint}";
+                else
+                    status = "CONNECTED // WAITING FOR PLAYERS";
+            }
+            SetText("lobby_status", status.ToUpperInvariant());
+
+            if (display > 0)
+                ConfigureLobbyHunter(_lobbyPlayers[0], LobbyPlacements[0]);
+            else
+                LauncherHunter.Wanted = false;
+
+            if (force)
+            {
+                SetText("renderer_name", "OPENGL // RMLUI 6.3 // LIVE LOBBY");
+                SetText("ui_cost", "RMLUI LIVE LOBBY // DIRECT GPU OVERLAY");
+            }
+        }
+
+        private static void ConfigureLobbyHunter(
+            LobbyDisplayPlayer player, LobbyHunterPlacement placement)
+        {
+            LauncherHunter.Wanted = GameFiles.Ready && player.Occupied;
+            LauncherHunter.CanPresent = () => _active && _lobbyMode;
+            LauncherHunter.PreviewSlot = 0;
+            LauncherHunter.Hunter = player.Hunter;
+            LauncherHunter.Suit = player.Suit;
+            LauncherHunter.Left = placement.Left;
+            LauncherHunter.Top = placement.Top;
+            LauncherHunter.Right = placement.Right;
+            LauncherHunter.Bottom = placement.Bottom;
+            LauncherHunter.DistanceScale = placement.Distance;
+            LauncherHunter.TransparentBackground = true;
+        }
+
         private static void ConfigureHunter(HubSnapshot snapshot)
         {
             LauncherHunter.Wanted = snapshot.GameFilesReady;
             LauncherHunter.CanPresent = () => _active;
+            LauncherHunter.PreviewSlot = -1;
             LauncherHunter.Hunter = snapshot.DisplayHunter;
             LauncherHunter.Suit = snapshot.Suit;
             // The room profile owns composition now, not the RML document.
@@ -584,6 +873,10 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepad.Reset();
             _captureDirectory = null;
             _captureFrames = 0;
+            _lobbyMode = false;
+            _lobbyPlayerCount = 0;
+            Array.Clear(_lobbyPlayers);
+            LauncherLobbyVisuals.Reset();
             LauncherHunter.Reset();
             GamepadContexts.MenuVisible = false;
             Mods.DebugLog.Line("rmlui", $"POC {message}: {ex.Message}; falling back to Avalonia");
