@@ -991,6 +991,7 @@ namespace MphRead.Entities
             }
             _boostCharge = 0;
             _boostAimLock = 0;
+            ResetNativeMorphTouch();
             _altAttackCooldown = 0;
             _field4E8 = Vector3.Zero;
             _modelTransform = Matrix4.Identity;
