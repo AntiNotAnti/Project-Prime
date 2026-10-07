@@ -437,41 +437,48 @@ namespace MphRead.Mods.Launcher
                             && existingEpoch == reservationEpoch
                             && reservation.ExpiresAt > now;
 
-                        if (!matching)
+                        try
                         {
-                            try
+                            if (!matching && reservation != null)
                             {
-                                if (reservation != null)
-                                {
-                                    await CancelReservationAsync(token)
-                                        .ConfigureAwait(false);
-                                }
+                                await CancelReservationAsync(token)
+                                    .ConfigureAwait(false);
+                            }
 
+                            // Refresh a pending request every ten seconds so
+                            // followers always have a live claim window. A
+                            // reserved request is server-owned and is never
+                            // extended by the social client.
+                            if (!matching
+                                || reservation?.Status.Equals(
+                                    "pending", StringComparison.OrdinalIgnoreCase) == true)
+                            {
                                 SocialPartyMutationResult requested =
                                     await RequestReservationAsync(
                                         reservationEpoch,
                                         includeLeader: false,
                                         token).ConfigureAwait(false);
-                                if (!requested.Success)
+                                if (!requested.Success
+                                    && !requested.Status.Equals(
+                                        "reservation_not_needed",
+                                        StringComparison.OrdinalIgnoreCase))
+                                {
                                     NoteFailure(new InvalidOperationException(
                                         requested.Status));
-                                nextReservationAttempt =
-                                    DateTimeOffset.UtcNow.AddSeconds(10);
+                                }
                             }
-                            catch (OperationCanceledException)
-                                when (token.IsCancellationRequested)
-                            {
-                                break;
-                            }
-                            catch (Exception ex)
-                            {
-                                NoteFailure(ex);
-                                nextReservationAttempt =
-                                    DateTimeOffset.UtcNow.AddSeconds(10);
-                            }
+
+                            nextReservationAttempt =
+                                DateTimeOffset.UtcNow.AddSeconds(10);
                         }
-                        else
+                        catch (OperationCanceledException)
+                            when (token.IsCancellationRequested)
                         {
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            NoteFailure(ex);
                             nextReservationAttempt =
                                 DateTimeOffset.UtcNow.AddSeconds(10);
                         }
