@@ -108,78 +108,91 @@ namespace MphRead.Mods.Launcher
             bool joined = false;
             DateTimeOffset nextHeartbeat = DateTimeOffset.UtcNow + HeartbeatInterval;
             Task<string?>? receive = null;
-            while (!token.IsCancellationRequested
-                && socket.State == WebSocketState.Open)
+            try
             {
-                receive ??= ReceiveTextAsync(socket, token);
-                TimeSpan wait = nextHeartbeat - DateTimeOffset.UtcNow;
-                if (wait < TimeSpan.Zero) wait = TimeSpan.Zero;
-                Task delay = Task.Delay(wait, token);
-                Task completed = await Task.WhenAny(receive, delay).ConfigureAwait(false);
-
-                if (completed == delay)
+                while (!token.IsCancellationRequested
+                    && socket.State == WebSocketState.Open)
                 {
-                    string heartbeatRef = (++reference).ToString(
-                        System.Globalization.CultureInfo.InvariantCulture);
-                    await SendAsync(socket, new
+                    receive ??= ReceiveTextAsync(socket, token);
+                    TimeSpan wait = nextHeartbeat - DateTimeOffset.UtcNow;
+                    if (wait < TimeSpan.Zero) wait = TimeSpan.Zero;
+                    Task delay = Task.Delay(wait, token);
+                    Task completed = await Task.WhenAny(receive, delay).ConfigureAwait(false);
+
+                    if (completed == delay)
                     {
-                        topic = "phoenix",
-                        @event = "heartbeat",
-                        payload = new { },
-                        @ref = heartbeatRef,
-                        join_ref = (string?)null
-                    }, token).ConfigureAwait(false);
-                    nextHeartbeat = DateTimeOffset.UtcNow + HeartbeatInterval;
-                    continue;
-                }
-
-                string? text = await receive.ConfigureAwait(false);
-                receive = null;
-                if (text == null)
-                    throw new InvalidOperationException("Supabase Realtime closed the social channel.");
-
-                using JsonDocument document = JsonDocument.Parse(text);
-                JsonElement root = document.RootElement;
-                if (root.ValueKind != JsonValueKind.Object)
-                    continue;
-
-                string @event = root.TryGetProperty("event", out JsonElement eventValue)
-                    && eventValue.ValueKind == JsonValueKind.String
-                        ? eventValue.GetString() ?? "" : "";
-                string messageTopic = root.TryGetProperty("topic", out JsonElement topicValue)
-                    && topicValue.ValueKind == JsonValueKind.String
-                        ? topicValue.GetString() ?? "" : "";
-                string messageRef = root.TryGetProperty("ref", out JsonElement refValue)
-                    && refValue.ValueKind == JsonValueKind.String
-                        ? refValue.GetString() ?? "" : "";
-
-                if (@event == "phx_reply" && messageRef == "1")
-                {
-                    if (!root.TryGetProperty("payload", out JsonElement payload)
-                        || !payload.TryGetProperty("status", out JsonElement status)
-                        || status.GetString() != "ok")
-                    {
-                        throw new InvalidOperationException(
-                            "Supabase Realtime rejected the private social channel.");
+                        string heartbeatRef = (++reference).ToString(
+                            System.Globalization.CultureInfo.InvariantCulture);
+                        await SendAsync(socket, new
+                        {
+                            topic = "phoenix",
+                            @event = "heartbeat",
+                            payload = new { },
+                            @ref = heartbeatRef,
+                            join_ref = (string?)null
+                        }, token).ConfigureAwait(false);
+                        nextHeartbeat = DateTimeOffset.UtcNow + HeartbeatInterval;
+                        continue;
                     }
-                    joined = true;
-                    continue;
-                }
-                if (@event is "phx_error" or "phx_close")
-                    throw new InvalidOperationException(
-                        "Supabase Realtime closed the private social channel.");
-                if (!joined || @event != "broadcast"
-                    || !String.Equals(messageTopic, topic, StringComparison.Ordinal))
-                    continue;
 
-                if (root.TryGetProperty("payload", out JsonElement broadcast)
-                    && broadcast.ValueKind == JsonValueKind.Object
-                    && broadcast.TryGetProperty("event", out JsonElement name)
-                    && name.ValueKind == JsonValueKind.String
-                    && name.GetString() == "social_changed")
-                {
-                    invalidated();
+                    string? text = await receive.ConfigureAwait(false);
+                    receive = null;
+                    if (text == null)
+                        throw new InvalidOperationException(
+                            "Supabase Realtime closed the social channel.");
+
+                    using JsonDocument document = JsonDocument.Parse(text);
+                    JsonElement root = document.RootElement;
+                    if (root.ValueKind != JsonValueKind.Object)
+                        continue;
+
+                    string @event = root.TryGetProperty("event", out JsonElement eventValue)
+                        && eventValue.ValueKind == JsonValueKind.String
+                            ? eventValue.GetString() ?? "" : "";
+                    string messageTopic = root.TryGetProperty("topic", out JsonElement topicValue)
+                        && topicValue.ValueKind == JsonValueKind.String
+                            ? topicValue.GetString() ?? "" : "";
+                    string messageRef = root.TryGetProperty("ref", out JsonElement refValue)
+                        && refValue.ValueKind == JsonValueKind.String
+                            ? refValue.GetString() ?? "" : "";
+
+                    if (@event == "phx_reply" && messageRef == "1")
+                    {
+                        if (!root.TryGetProperty("payload", out JsonElement payload)
+                            || !payload.TryGetProperty("status", out JsonElement status)
+                            || status.GetString() != "ok")
+                        {
+                            throw new InvalidOperationException(
+                                "Supabase Realtime rejected the private social channel.");
+                        }
+                        joined = true;
+                        continue;
+                    }
+                    if (@event is "phx_error" or "phx_close")
+                        throw new InvalidOperationException(
+                            "Supabase Realtime closed the private social channel.");
+                    if (!joined || @event != "broadcast"
+                        || !String.Equals(messageTopic, topic, StringComparison.Ordinal))
+                        continue;
+
+                    if (root.TryGetProperty("payload", out JsonElement broadcast)
+                        && broadcast.ValueKind == JsonValueKind.Object
+                        && broadcast.TryGetProperty("event", out JsonElement name)
+                        && name.ValueKind == JsonValueKind.String
+                        && name.GetString() == "social_changed")
+                    {
+                        invalidated();
+                    }
                 }
+            }
+            catch (OperationCanceledException)
+                when (sessionLifetime.IsCancellationRequested
+                    && !cancellationToken.IsCancellationRequested)
+            {
+                // The Auth token is nearing refresh. End this socket cleanly;
+                // the outer loop immediately borrows a refreshed session and
+                // rejoins the private channel without treating this as outage.
+                return;
             }
 
             if (!cancellationToken.IsCancellationRequested
