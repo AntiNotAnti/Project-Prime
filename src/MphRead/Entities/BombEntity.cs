@@ -7,6 +7,7 @@ using MphRead.Entities.Enemies;
 using MphRead.Formats;
 using MphRead.Formats.Culling;
 using MphRead.Mods.Render;
+using MphRead.Mods.Combat;
 using OpenTK.Mathematics;
 
 namespace MphRead.Entities
@@ -211,11 +212,21 @@ namespace MphRead.Entities
                 }
                 foreach (EnemyInstanceEntity enemy in _scene.GetEnemyInstanceEntities())
                 {
-                    if (enemy.Flags.TestFlag(EnemyFlags.CollideBeam) && (enemy.EnemyType != EnemyType.Temroid || enemy.StateA != 8)
-                        && enemy.CheckHitByBomb(this))
+                    if (!enemy.Flags.TestFlag(EnemyFlags.CollideBeam)
+                        || enemy.Health == 0
+                        || enemy.EnemyType == EnemyType.Temroid && enemy.StateA == 8)
+                    {
+                        continue;
+                    }
+                    if (enemy.CheckHitByBomb(this))
                     {
                         hitEntity = enemy;
                         Flags |= BombFlags.Exploding;
+                    }
+                    else if (BombType == BombType.Lockjaw && _target == null
+                        && !Flags.TestFlag(BombFlags.Exploding))
+                    {
+                        LockjawCheckTargeting(enemy, ref hitEntity);
                     }
                 }
                 foreach (EnemyInstanceEntity enemy in _scene.GetEnemyInstanceEntities())
@@ -499,6 +510,50 @@ namespace MphRead.Entities
             }
         }
 
+        private void LockjawCheckTargeting(EnemyInstanceEntity enemy, ref EntityBase? hitEntity)
+        {
+            if (enemy.Health == 0
+                || enemy.Flags.TestAny(EnemyFlags.Invincible | EnemyFlags.NoBombDamage)
+                || !enemy.Flags.TestFlag(EnemyFlags.CollideBeam))
+            {
+                return;
+            }
+
+            CollisionVolume volume = enemy.HurtVolume;
+            if (BombIndex == 0 && Owner.SyluxBombCount == 3)
+            {
+                BombEntity? zero = Owner.SyluxBombs[0];
+                BombEntity? one = Owner.SyluxBombs[1];
+                BombEntity? two = Owner.SyluxBombs[2];
+                if (zero == null || one == null || two == null
+                    || !LockjawCollision.SnareOverlapsVolume(
+                        zero.Position, one.Position, two.Position, volume))
+                {
+                    return;
+                }
+                for (int i = 0; i < Owner.SyluxBombCount; i++)
+                {
+                    BombEntity? bomb = Owner.SyluxBombs[i];
+                    if (bomb != null) bomb.Damage = bomb.EnemyDamage = 60;
+                }
+                hitEntity = enemy;
+                return;
+            }
+
+            for (int i = 0; i < BombIndex; i++)
+            {
+                BombEntity? other = Owner.SyluxBombs[i];
+                if (other != null
+                    && LockjawCollision.WireOverlapsVolume(volume, Position, other.Position))
+                {
+                    enemy.TakeDamage(20, this);
+                    _scene.SendMessage(Message.Impact, this, Owner, enemy, 0);
+                    hitEntity = enemy;
+                    return;
+                }
+            }
+        }
+
         internal bool ModLockjawConnectionsActive => BombType == BombType.Lockjaw && _target == null && !Flags.TestFlag(BombFlags.Exploded);
         private bool LockjawCheckSnare(Vector3 position)
         {
@@ -508,36 +563,12 @@ namespace MphRead.Entities
             Debug.Assert(bombZero != null);
             Debug.Assert(bombOne != null);
             Debug.Assert(bombTwo != null);
-            return ModLockjawSnareContains(bombZero.Position, bombOne.Position, bombTwo.Position, position);
+            return ModLockjawSnareContains(
+                bombZero.Position, bombOne.Position, bombTwo.Position, position);
         }
-        internal static bool ModLockjawSnareContains(Vector3 zero, Vector3 one, Vector3 two, Vector3 position)
-        {
-            Vector3 zeroToOne = one - zero;
-            Vector3 oneToTwo = two - one;
-            Vector3 cross1 = Vector3.Cross(oneToTwo, zeroToOne).Normalized();
-            Vector3 zeroToPosition = position - zero;
-            float dot = Vector3.Dot(cross1, zeroToPosition);
-            if (dot > -0.75f && dot < 0.75f)
-            {
-                var cross2 = Vector3.Cross(zeroToPosition, zeroToOne);
-                if (Vector3.Dot(cross2, cross1) > 0)
-                {
-                    Vector3 oneToPosition = position - one;
-                    var cross3 = Vector3.Cross(oneToPosition, oneToTwo);
-                    if (Vector3.Dot(cross3, cross1) > 0)
-                    {
-                        Vector3 twoToPosition = position - two;
-                        Vector3 twoToZero = zero - two;
-                        var cross4 = Vector3.Cross(twoToPosition, twoToZero);
-                        if (Vector3.Dot(cross4, cross1) > 0)
-                        {
-                            return true;
-                        }
-                    }
-                }
-            }
-            return false;
-        }
+        internal static bool ModLockjawSnareContains(
+            Vector3 zero, Vector3 one, Vector3 two, Vector3 position)
+            => LockjawCollision.SnareContainsPoint(zero, one, two, position);
 
         private void ProcessTargeting()
         {
@@ -715,6 +746,8 @@ namespace MphRead.Entities
                 _scene.UnlinkEffectEntry(Effect);
             }
             Effect = null;
+            _target = null;
+            _speed = Vector3.Zero;
             Owner = null!;
             _scene.UnlinkBomb(this);
             base.Destroy();
@@ -747,7 +780,10 @@ namespace MphRead.Entities
             }
             bomb.Owner = owner;
             bomb.BombType = type;
-            // Bomb entities are pooled; a new placement starts a new visual clock.
+            // Bomb entities are pooled; no target, homing velocity or visual
+            // phase from a previous placement may survive this spawn.
+            bomb._target = null;
+            bomb._speed = Vector3.Zero;
             bomb._lockjawVisualTick = 0;
             bomb.Transform = transform;
             bomb.Recolor = owner.Recolor;
