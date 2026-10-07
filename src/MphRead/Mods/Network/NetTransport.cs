@@ -152,8 +152,14 @@ namespace MphRead.Mods.Network
         private static bool QueueInboundAllowed(NetConnection connection, PacketType type)
             => type is 0 or PacketType.Ping or PacketType.Pong or PacketType.Bye
                 || (connection.QueueServerSide
-                    ? type is PacketType.QueueJoin or PacketType.QueueLeave or PacketType.QueueAccept or PacketType.QueueDecline
-                    : type is PacketType.QueueWelcome or PacketType.QueueState or PacketType.QueueSeatOffer or PacketType.Welcome or PacketType.Refused);
+                    ? type is PacketType.QueueJoin or PacketType.QueueLeave
+                        or PacketType.QueueAccept or PacketType.QueueDecline
+                        or PacketType.PartyReserveClaim
+                        or PacketType.PartyReserveAccept
+                    : type is PacketType.QueueWelcome or PacketType.QueueState
+                        or PacketType.QueueSeatOffer
+                        or PacketType.PartyReserveState
+                        or PacketType.Welcome or PacketType.Refused);
         public void RetireConnection(IPEndPoint endpoint)
         {
             long stamp = EnterConnectionLock();
