@@ -1530,6 +1530,39 @@ namespace MphRead.Mods.Network
         /// lifecycle fencing prevents an old-life report from touching a respawn.
         /// </summary>
         public const byte FlagSpawnProtectionReleased = 1 << 3;
+        /// <summary>
+        /// Protocol 43: while Samus is in alt form the target-identity bytes
+        /// carry Morph Ball touch instead. Bit 0/1 of Target.EncodedSlot are
+        /// Down/Continued and Target.Generation/LifeId carry signed Delta4 X/Y.
+        /// This semantic multiplex keeps the worst-case intent at the existing
+        /// 1472-byte UDP ceiling.
+        /// </summary>
+        public const byte FlagMorphTouch = 1 << 4;
+
+        public readonly bool HasMorphTouch
+            => HasState && (ShotFlags & FlagMorphTouch) != 0;
+
+        public readonly Mods.Input.MorphTouchReport MorphTouch
+        {
+            get
+            {
+                if (!HasMorphTouch) return default;
+                byte flags = Target.EncodedSlot;
+                return new Mods.Input.MorphTouchReport(
+                    (flags & 1) != 0, (flags & 2) != 0,
+                    unchecked((short)Target.Generation),
+                    unchecked((short)Target.LifeId));
+            }
+        }
+
+        public void SetMorphTouch(Mods.Input.MorphTouchReport report)
+        {
+            ShotFlags |= FlagMorphTouch;
+            byte flags = (byte)((report.Down ? 1 : 0) | (report.Continued ? 2 : 0));
+            Target = new NetTargetIdentity(flags,
+                unchecked((ushort)report.Delta4X),
+                unchecked((ushort)report.Delta4Y));
+        }
 
         /// <summary>
         /// Whether the sender included the block at all. False for a client
@@ -2523,7 +2556,9 @@ namespace MphRead.Mods.Network
         // not affect gameplay simulation, but protocol-40 transports would reject
         // the unknown reliable type without acknowledging it, so mixed v40/v41
         // peers must be refused rather than retrying replay evidence forever.
-        public const int ProtocolVersion = 42;
+        // Protocol 43 gives the existing intent target-state bytes Morph Ball
+        // touch meaning while Samus is transformed. Packet widths are unchanged.
+        public const int ProtocolVersion = 43;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///
@@ -2541,7 +2576,7 @@ namespace MphRead.Mods.Network
         /// that true was a transport whose send queue dropped the *newest*
         /// packets when it filled, which is the opposite of what a position
         /// stream wants and was fixed since (see NETWORK-DIAGNOSTICS). Doubled
-        /// traffic is the cost. A quiet protocol-42 intent has a 103-byte
+        /// traffic is the cost. A quiet protocol-43 intent has a 103-byte
         /// payload: 127 bytes with the connection header, or 128 bytes when
         /// relayed with the slot tag. Seven remote idle players at 60 Hz send
         /// 53,760 bytes/second to each player, before snapshots, replay world,
