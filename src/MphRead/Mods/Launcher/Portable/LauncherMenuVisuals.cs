@@ -44,15 +44,15 @@ namespace MphRead.Mods.Launcher
             Top: new MenuRgb(0.020f, 0.044f, 0.074f),
             Mid: new MenuRgb(0.036f, 0.098f, 0.148f),
             Bottom: new MenuRgb(0.010f, 0.024f, 0.043f),
-            StructureOpacity: 0.78f,
-            HeroHalo: 0.48f,
-            Fog: 0.18f,
+            StructureOpacity: 0.82f,
+            HeroHalo: 0.46f,
+            Fog: 0.19f,
             Particles: 0.15f,
-            FloorGlow: 0.42f,
+            FloorGlow: 0.44f,
             LeftUiDarken: 0.48f,
             RightUiDarken: 0.28f,
-            BeamIntensity: 0.24f,
-            BackgroundSoftness: 0.14f);
+            BeamIntensity: 0.27f,
+            BackgroundSoftness: 0.13f);
     }
 
     public readonly record struct LauncherActivityAmbience(
