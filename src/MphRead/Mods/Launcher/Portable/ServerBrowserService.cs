@@ -155,7 +155,9 @@ namespace MphRead.Mods.Launcher
             requiredSlots = Math.Max(1, requiredSlots);
             int available = entry.Status.MaxPlayers <= 0
                 ? Int32.MaxValue
-                : Math.Max(0, entry.Status.MaxPlayers - entry.Status.Players);
+                : Math.Max(0, entry.Status.MaxPlayers
+                    - entry.Status.Players
+                    - Math.Max(0, entry.Status.ReservedSlots));
             bool phase = lobbyOnly
                 ? !entry.Status.Legacy
                     && entry.Status.LobbyEnabled
