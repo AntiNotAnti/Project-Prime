@@ -1,4 +1,4 @@
-#if MPHREAD_AVALONIA
+#if !MPHREAD_SERVER
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -173,7 +173,7 @@ namespace MphRead.Mods.Launcher
                 verified.Entry.Listing.Port,
                 verified.Entry.Name,
                 verified.Entry.Status.RoomKey,
-                "");
+                "", AuthorityEpoch: epoch);
         }
 
         private static async Task<SocialInviteMutationResult> InviteMutationAsync(
@@ -498,7 +498,8 @@ namespace MphRead.Mods.Launcher
         string ServerName,
         string RoomKey,
         string Error,
-        PartyReservedAdmission? PartyAdmission = null)
+        PartyReservedAdmission? PartyAdmission = null,
+        ulong AuthorityEpoch = 0)
     {
         public static SocialJoinResolution Fail(string error)
             => new(false, "", 0, "", "", error, null);

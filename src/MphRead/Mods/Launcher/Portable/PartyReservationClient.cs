@@ -1,4 +1,4 @@
-#if MPHREAD_AVALONIA
+#if !MPHREAD_SERVER
 using System;
 using System.Diagnostics;
 using System.Linq;

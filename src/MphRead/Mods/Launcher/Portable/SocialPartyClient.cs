@@ -1,4 +1,4 @@
-#if MPHREAD_AVALONIA
+#if !MPHREAD_SERVER
 using System;
 using System.Collections.Generic;
 using System.Text.Json.Serialization;
@@ -347,7 +347,7 @@ namespace MphRead.Mods.Launcher
                 entry.Name,
                 entry.Status.RoomKey,
                 "",
-                partyAdmission);
+                partyAdmission, epoch);
         }
 
         internal static Task<SocialPartyMutationResult> DeclineTravelAsync(
