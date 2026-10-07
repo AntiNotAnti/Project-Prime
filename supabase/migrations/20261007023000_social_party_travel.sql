@@ -193,7 +193,8 @@ begin
 
     if found then
         v_travel_id := v_existing.travel_id;
-        if v_existing.lobby_id = p_lobby_id then
+        if v_existing.lobby_id = p_lobby_id
+           and v_existing.expires_at > now() then
             v_revision := v_existing.revision;
             update prime.social_party_travel
             set leader_id = p_actor,
@@ -202,9 +203,15 @@ begin
                 expires_at = now() + interval '90 seconds'
             where party_id = v_party;
         else
-            v_revision := least(1000000, v_existing.revision + 1);
+            if v_existing.revision >= 1000000 then
+                v_travel_id := gen_random_uuid();
+                v_revision := 1;
+            else
+                v_revision := v_existing.revision + 1;
+            end if;
             update prime.social_party_travel
-            set leader_id = p_actor,
+            set travel_id = v_travel_id,
+                leader_id = p_actor,
                 lobby_id = p_lobby_id,
                 revision = v_revision,
                 reason = p_reason,
@@ -344,12 +351,16 @@ begin
     end if;
 
     if p_action = 'decline' then
-        update prime.social_party_travel_responses
-        set status = 'declined', updated_at = now()
-        where party_id = v_party
-          and player_id = p_actor
-          and travel_id = p_travel_id
-          and revision = p_revision;
+        insert into prime.social_party_travel_responses(
+            party_id, player_id, travel_id, revision, status, updated_at
+        ) values (
+            v_party, p_actor, p_travel_id, p_revision, 'declined', now()
+        )
+        on conflict (party_id, player_id) do update
+        set travel_id = excluded.travel_id,
+            revision = excluded.revision,
+            status = excluded.status,
+            updated_at = now();
 
         return jsonb_build_object(
             'ok', true,
@@ -359,12 +370,16 @@ begin
     end if;
 
     if p_action = 'joined' then
-        update prime.social_party_travel_responses
-        set status = 'joined', updated_at = now()
-        where party_id = v_party
-          and player_id = p_actor
-          and travel_id = p_travel_id
-          and revision = p_revision;
+        insert into prime.social_party_travel_responses(
+            party_id, player_id, travel_id, revision, status, updated_at
+        ) values (
+            v_party, p_actor, p_travel_id, p_revision, 'joined', now()
+        )
+        on conflict (party_id, player_id) do update
+        set travel_id = excluded.travel_id,
+            revision = excluded.revision,
+            status = excluded.status,
+            updated_at = now();
 
         return jsonb_build_object(
             'ok', true,
@@ -382,12 +397,16 @@ begin
         return jsonb_build_object('ok', false, 'status', 'lobby_unavailable');
     end if;
 
-    update prime.social_party_travel_responses
-    set status = 'following', updated_at = now()
-    where party_id = v_party
-      and player_id = p_actor
-      and travel_id = p_travel_id
-      and revision = p_revision;
+    insert into prime.social_party_travel_responses(
+        party_id, player_id, travel_id, revision, status, updated_at
+    ) values (
+        v_party, p_actor, p_travel_id, p_revision, 'following', now()
+    )
+    on conflict (party_id, player_id) do update
+    set travel_id = excluded.travel_id,
+        revision = excluded.revision,
+        status = excluded.status,
+        updated_at = now();
 
     return jsonb_build_object(
         'ok', true,
