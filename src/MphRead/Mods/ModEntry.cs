@@ -925,7 +925,7 @@ namespace MphRead.Mods
             }
 #if MPHREAD_RMLUI_POC && MPHREAD_SHELL
             bool rmlUiPrototypeLauncher = HasFlag(args, "rmluipoc")
-                || HasFlag(args, "rmluipocshot");
+                || HasFlag(args, "rmluipocshot") || HasFlag(args, "rmlui");
             if (rmlUiPrototypeLauncher && !HasFlag(args, "menu"))
             {
                 // Enter the shell directly so the proof can establish that its

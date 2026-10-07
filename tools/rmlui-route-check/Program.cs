@@ -18,6 +18,7 @@ internal static class Program
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int Initialize(int width, int height, float density, [MarshalAs(UnmanagedType.LPUTF8Str)] string assets);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void Empty();
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void Render(int width, int height);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void Resize(int width, int height, float density);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int Key(int key, int down, int modifiers);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int Move(int x, int y, int modifiers);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int Mouse(int button, int down, int modifiers);
@@ -36,7 +37,7 @@ internal static class Program
     private static readonly GLFWCallbacks.ErrorCallback Error = (code, message) => Console.Error.WriteLine($"GLFW {code}: {message}");
 
     [STAThread]
-    private static int Main(string[] args)
+    private static unsafe int Main(string[] args)
     {
         if (args.Length == 0 || args.Length % 2 != 1)
             throw new ArgumentException("Usage: rmlui-route-check <native-bridge> [--assets <directory>] [--capture <directory>]");
@@ -77,6 +78,8 @@ internal static class Program
         var shutdown = Load<Empty>("pp_rmlui_shutdown");
         var update = Load<Empty>("pp_rmlui_update");
         var render = Load<Render>("pp_rmlui_render");
+        var resize = Load<Resize>("pp_rmlui_resize");
+        var focusLost = Load<Empty>("pp_rmlui_focus_lost");
         var key = Load<Key>("pp_rmlui_key");
         var move = Load<Move>("pp_rmlui_mouse_move");
         var mouse = Load<Mouse>("pp_rmlui_mouse_button");
@@ -126,7 +129,7 @@ internal static class Program
             int count = take(actionBuffer, actionBuffer.Length);
             Require(count > 0 && count <= actionBuffer.Length
                 && Encoding.UTF8.GetString(actionBuffer, 0, count) == expected,
-                $"{gesture} density={density} emits {expected} through the actual native DOM");
+                $"{gesture} density={density} emits {expected} through the actual native DOM (received {Encoding.UTF8.GetString(actionBuffer, 0, Math.Max(0, count))})");
             Require(take(actionBuffer, actionBuffer.Length) == 0,
                 $"{gesture} density={density} emits exactly one action");
         }
@@ -137,6 +140,8 @@ internal static class Program
             foreach (var test in new[]
             {
                 (Physical: new Vector2i(1280, 720), Density: 1f),
+                (Physical: new Vector2i(1600, 900), Density: 1.25f),
+                (Physical: new Vector2i(1920, 1080), Density: 1.5f),
                 (Physical: new Vector2i(2560, 1440), Density: 2f),
                 (Physical: new Vector2i(2560, 1440), Density: 1f)
             })
@@ -273,6 +278,39 @@ internal static class Program
                 Click("play_back", test.Density, "play:cancel");
                 shutdown(); Require(take(actionBuffer, actionBuffer.Length) == 0, "native shutdown clears pending action ownership");
             }
+
+            // Exercise a real GLFW fullscreen transition, then resize the same
+            // native context. This checks physical hit routing across viewport
+            // changes; the separate launcher test covers RenderWindow/Shell.
+            window.WindowState = WindowState.Fullscreen;
+            NativeWindow.ProcessWindowEvents(false);
+            Vector2i fullscreen = window.FramebufferSize;
+            GLFW.GetWindowSize(window.WindowPtr, out int fullscreenWidth, out int fullscreenHeight);
+            Require(fullscreen.X > 0 && fullscreen.Y > 0 && fullscreenWidth > 0 && fullscreenHeight > 0,
+                "fullscreen reports valid logical and physical dimensions");
+            pointerWindowScaleX = fullscreen.X / (float)fullscreenWidth;
+            pointerWindowScaleY = fullscreen.Y / (float)fullscreenHeight;
+            float fullscreenDensity = Math.Max(1f, Math.Max(pointerWindowScaleX, pointerWindowScaleY));
+            Require(initialize(fullscreen.X, fullscreen.Y, fullscreenDensity, assets) == 1,
+                "real native document initializes in fullscreen");
+            set("reduce_motion", 1); update();
+            Click("nav_studio", fullscreenDensity, "studio:open");
+            window.WindowState = WindowState.Normal;
+            window.ClientSize = new(640, 360);
+            NativeWindow.ProcessWindowEvents(false);
+            Vector2i resized = window.FramebufferSize;
+            GLFW.GetWindowSize(window.WindowPtr, out int resizedWidth, out int resizedHeight);
+            pointerWindowScaleX = resized.X / (float)resizedWidth;
+            pointerWindowScaleY = resized.Y / (float)resizedHeight;
+            resize(resized.X, resized.Y, fullscreenDensity); update();
+            Click("nav_studio", fullscreenDensity, "studio:open");
+            Require(bounds(out float releaseX, out float releaseY, out float releaseW, out float releaseH) == 1,
+                "resized native control supplies release-outside bounds");
+            move((int)(releaseX + releaseW / 2), (int)(releaseY + releaseH / 2), 0);
+            mouse(0, 1, 0); focusLost(); mouse(0, 0, 0); update();
+            Require(take(actionBuffer, actionBuffer.Length) == 0,
+                "focus loss releases pressed pointer without a stale click");
+            shutdown();
         }
         finally { shutdown(); NativeLibrary.Free(module); }
         Console.WriteLine($"Native RmlUi checks passed: {_checks}. OpenGL: {GL.GetString(StringName.Version)}.");

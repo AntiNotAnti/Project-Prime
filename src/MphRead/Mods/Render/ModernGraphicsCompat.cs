@@ -979,6 +979,9 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             if (_disposed) return;
             _disposed = true;
             DiscardCommands();
+#if MPHREAD_RMLUI_POC
+            DisposeRmlUiResources();
+#endif
             DisposeGpuTiming();
             DisposeFrameBindGroups();
             ReleaseSurfaceTexture();

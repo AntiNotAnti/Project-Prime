@@ -58,6 +58,10 @@ jobs:
         run: dotnet run --project tools/map-publication-check -c Release
       - name: hosted cache process ownership and live archive protection
         run: dotnet run --project tools/hosted-cache-check -c Release
+      - name: presentation-neutral launcher routes and lobby lifecycle
+        run: |
+          dotnet run --project tools/launcher-router-check -c Release
+          dotnet run --project tools/lobby-controller-check -c Release
       - name: fractional replay sampling, offline PCM, worker processes and diagnostic redaction
         run: dotnet run --project tools/studio-export-check -c Release
       - name: software Vulkan, X11 and replay encoder dependencies on Linux
@@ -460,6 +464,8 @@ jobs:
           -p:MphReadRmlUiPoc=true
           --self-contained true -p:PublishSingleFile=true
           -o publish/rmlui-linux
+      - name: verify the single-file RmlUi native and font payload
+        run: python3 tools/rmlui/verify-runtime.py --package publish/rmlui-linux linux-x64
       - name: open the real RmlUi shell across desktop and Retina layouts
         run: |
           set -euo pipefail
@@ -512,6 +518,109 @@ jobs:
           dotnet build src/MphRead/MphRead.csproj
           -c Release -r "${{ matrix.rid }}"
           -p:MphReadRmlUiPoc=true
+  rmlui-windows-package:
+    name: RmlUi Windows x64 bridge and opt-in package
+    needs: patched-wgpu-native
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v8
+        with:
+          name: patched-wgpu-win-x64
+          path: artifacts/wgpu-native-desktop/win-x64
+      - name: build pinned RmlUi and FreeType into the Windows DLL
+        shell: bash
+        run: tools/rmlui/build-native.sh win-x64
+      - name: publish the opt-in runtime feature as a single-file host
+        run: >
+          dotnet publish src/MphRead/MphRead.csproj
+          -c Release -r win-x64 -p:MphReadRmlUi=true
+          --self-contained true -p:PublishSingleFile=true
+          -o publish/rmlui-win-x64
+      - name: validate native architecture, version, sources, fonts and attributions
+        run: python tools/rmlui/verify-runtime.py --package publish/rmlui-win-x64 win-x64
+      - name: the opt-in client remains a GUI binary
+        shell: bash
+        run: tools/check-subsystem.sh gui publish/rmlui-win-x64/ProjectPrime.exe
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-opt-in-win-x64
+          path: publish/rmlui-win-x64
+          if-no-files-found: error
+
+  rmlui-neutral-native:
+    name: RmlUi without a desktop OpenGL dependency (${{ matrix.rid }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            runner: windows-latest
+          - rid: linux-x64
+            runner: ubuntu-latest
+          - rid: osx-arm64
+            runner: macos-latest
+          - rid: osx-x64
+            runner: macos-15-intel
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: build backend-neutral core and draw-list adapter
+        shell: bash
+        run: tools/rmlui/build-native.sh "${{ matrix.rid }}" draw-list
+      - name: portable host ownership and route regressions
+        run: dotnet run --project tools/rmlui-runtime-check -c Release
+      - name: real native DOM, Unicode, clipboard, generation and draw-list regressions
+        shell: bash
+        run: |
+          rid="${{ matrix.rid }}"
+          case "$rid" in
+            win-*) library=ProjectPrime.RmlUi.Native.dll ;;
+            osx-*) library=libProjectPrime.RmlUi.Native.dylib ;;
+            *) library=libProjectPrime.RmlUi.Native.so ;;
+          esac
+          dotnet run --project tools/rmlui-core-check -c Release -- \
+            "artifacts/rmlui-native/$rid/$library"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-neutral-${{ matrix.rid }}
+          path: artifacts/rmlui-native/${{ matrix.rid }}
+          if-no-files-found: error
+
+  rmlui-android-native:
+    name: RmlUi Android ${{ matrix.rid }} NDK compile gate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rid: [android-arm64, android-x64]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: install the pinned Android NDK
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.2.13676358"'
+      - name: build renderer-neutral Android RmlUi and static FreeType
+        run: ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/28.2.13676358" tools/rmlui/build-native.sh "${{ matrix.rid }}" draw-list
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-native-${{ matrix.rid }}
+          path: artifacts/rmlui-native-android
+          if-no-files-found: error
+
   desktop-pacing-policy:
     name: Desktop frame pacing policy
     runs-on: ubuntu-latest
@@ -1115,7 +1224,7 @@ jobs:
   # from tracked sources and NuGet packages and nothing else.
   android:
     name: android
-    needs: assets
+    needs: [assets, rmlui-android-native]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -1220,6 +1329,32 @@ jobs:
           -p:AndroidSdkDirectory="$ANDROID_HOME"
           -p:JavaSdkDirectory="$JAVA_HOME"
           -o publish/android
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: rmlui-native-android-*
+          path: artifacts/rmlui-native-android
+          merge-multiple: true
+      - name: publish Android RmlUi foundation APKs without changing UI selection
+        run: |
+          for rid in android-arm64 android-x64; do
+            dotnet publish src/MphRead.Android/MphRead.Android.csproj \
+              -c Release -r "$rid" -p:AndroidPackageFormat=apk -p:MphReadRmlUiNativeAssets=true \
+              -p:AndroidSdkDirectory="$ANDROID_HOME" -p:JavaSdkDirectory="$JAVA_HOME" \
+              -o "publish/rmlui-android/$rid"
+          done
+      - name: verify each native ABI, 16 KB ELF alignment, documents, fonts and licenses in its APK
+        run: |
+          for rid in android-arm64 android-x64; do
+            for apk in "publish/rmlui-android/$rid/"*-Signed.apk; do
+              python3 tools/rmlui/verify-runtime.py --apk "$apk" "$rid"
+            done
+          done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-foundation-android-apks
+          path: publish/rmlui-android/**/*-Signed.apk
+          if-no-files-found: error
 
       # One APK, the one people install. An untrimmed Debug build was
       # collected beside it, as a way of telling a crash on a device apart

@@ -67,6 +67,13 @@ namespace MphRead.Mods.Render
         /// </summary>
         public static void Draw(int width, int height)
         {
+#if MPHREAD_RMLUI_POC
+            if (Mods.Launcher.Gui.RmlUiPrototype.Visible)
+            {
+                Mods.Launcher.Gui.RmlUiPrototype.Render(width, height);
+                return;
+            }
+#endif
             if (Visible) _overlay.Draw(width, height);
         }
 
@@ -81,7 +88,7 @@ namespace MphRead.Mods.Render
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit
                 | ClearBufferMask.StencilBufferBit);
 #if MPHREAD_RMLUI_POC
-            bool rmlStage = Mods.Launcher.Gui.RmlUiPrototype.Active;
+            bool rmlStage = Mods.Launcher.Gui.RmlUiPrototype.Visible;
             if (rmlStage)
             {
                 // The RmlUi home now owns a purpose-built deployment chamber,
