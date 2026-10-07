@@ -149,10 +149,25 @@ namespace MphRead.Mods.Launcher
                 .Select(_ => Worker()));
         }
 
-        internal static bool CanQuickPlay(ServerBrowserEntry entry) => entry.Live && entry.Compatible
-            && (entry.Status.MaxPlayers <= 0 || entry.Status.Players < entry.Status.MaxPlayers)
-            && (entry.Status.Legacy || entry.Status.Phase == SessionPhase.Lobby
-                || (entry.Status.Phase == SessionPhase.InMatch && entry.Status.AllowJoinInProgress));
+        internal static bool CanQuickPlay(
+            ServerBrowserEntry entry, int requiredSlots = 1, bool lobbyOnly = false)
+        {
+            requiredSlots = Math.Max(1, requiredSlots);
+            int available = entry.Status.MaxPlayers <= 0
+                ? Int32.MaxValue
+                : Math.Max(0, entry.Status.MaxPlayers - entry.Status.Players);
+            bool phase = lobbyOnly
+                ? !entry.Status.Legacy
+                    && entry.Status.LobbyEnabled
+                    && entry.Status.AuthorityEpoch != 0
+                    && entry.Status.Phase == SessionPhase.Lobby
+                : entry.Status.Legacy || entry.Status.Phase == SessionPhase.Lobby
+                    || (entry.Status.Phase == SessionPhase.InMatch
+                        && entry.Status.AllowJoinInProgress);
+            return entry.Live && entry.Compatible
+                && available >= requiredSlots
+                && phase;
+        }
 
         public static async Task<OnlinePopulationResult> CountOnlinePlayersAsync(
             CancellationToken cancellationToken = default)
@@ -170,9 +185,16 @@ namespace MphRead.Mods.Launcher
                 live.Count);
         }
 
+        public static Task<QuickPlaySearchResult> FindBestAsync(
+            CancellationToken cancellationToken = default)
+            => FindBestAsync(1, lobbyOnly: false,
+                cancellationToken: cancellationToken);
+
         public static async Task<QuickPlaySearchResult> FindBestAsync(
+            int requiredSlots, bool lobbyOnly,
             CancellationToken cancellationToken = default)
         {
+            requiredSlots = Math.Max(1, requiredSlots);
             var found = new ConcurrentBag<ServerBrowserEntry>();
             ServerDiscoveryResult discovery = await DiscoverAsync(
                 entry => found.Add(entry), cancellationToken);
@@ -181,7 +203,7 @@ namespace MphRead.Mods.Launcher
                 return new(false, default, discovery, "Cancelled.");
 
             ServerBrowserEntry[] candidates = found
-                .Where(CanQuickPlay)
+                .Where(entry => CanQuickPlay(entry, requiredSlots, lobbyOnly))
                 .OrderBy(entry => entry.Status.Latency < 0
                     ? Int32.MaxValue : entry.Status.Latency)
                 .ThenByDescending(entry => entry.Status.Players)
@@ -189,9 +211,12 @@ namespace MphRead.Mods.Launcher
 
             if (candidates.Length == 0)
             {
+                string capacity = requiredSlots > 1
+                    ? $" with {requiredSlots} open party slots"
+                    : "";
                 return new(false, default, discovery,
                     discovery.DirectoryAnswered
-                        ? "No compatible open server answered."
+                        ? $"No compatible open lobby answered{capacity}."
                         : discovery.Message);
             }
 

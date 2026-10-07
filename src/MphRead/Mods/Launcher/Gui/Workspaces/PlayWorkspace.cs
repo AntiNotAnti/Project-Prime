@@ -560,19 +560,25 @@ namespace MphRead.Mods.Launcher.Gui
             if (_joining || _quickSearch != null || NetSession.Active)
                 return;
 
+            SocialParty? party = SocialPartyClient.Current.Party;
+            bool partyQuickPlay = party is { IsLeader: true }
+                && party.Members.Count > 1;
+            int requiredSlots = partyQuickPlay ? party!.Members.Count : 1;
+
             CancelDiscovery();
             _quick.IsEnabled = false;
             _refresh.IsEnabled = false;
             _join.IsEnabled = _spectate.IsEnabled = false;
-            _summary.Text = "QUICK PLAY  /  SEARCHING";
+            _summary.Text = partyQuickPlay
+                ? $"PARTY QUICK PLAY  /  SEARCHING {requiredSlots} SLOTS"
+                : "QUICK PLAY  /  SEARCHING";
             _summary.Foreground = HubTheme.AccentBrush;
 
             if (_sample != null)
             {
                 ServerBrowserEntry[] candidates = _sample
-                    .Where(entry => entry.Live && entry.Compatible
-                        && (entry.Status.MaxPlayers <= 0
-                            || entry.Status.Players < entry.Status.MaxPlayers))
+                    .Where(entry => ServerBrowserService.CanQuickPlay(
+                        entry, requiredSlots, lobbyOnly: partyQuickPlay))
                     .OrderBy(entry => entry.Status.Latency < 0
                         ? Int32.MaxValue : entry.Status.Latency)
                     .ToArray();
@@ -593,10 +599,13 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
 
-            ShowProgress("Searching for a compatible open server…");
+            ShowProgress(partyQuickPlay
+                ? $"Searching for a lobby with {requiredSlots} open party slots…"
+                : "Searching for a compatible open server…");
             var cancel = new CancellationTokenSource();
             _quickSearch = cancel;
-            QuickPlaySearchResult result = await ServerBrowserService.FindBestAsync(cancel.Token);
+            QuickPlaySearchResult result = await ServerBrowserService.FindBestAsync(
+                requiredSlots, lobbyOnly: partyQuickPlay, cancellationToken: cancel.Token);
             if (cancel.IsCancellationRequested || TopLevel.GetTopLevel(this) == null)
                 return;
             _quickSearch.Dispose();
@@ -613,9 +622,13 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             ShowEntry(result.Entry);
-            _summary.Text = $"QUICK PLAY  /  {result.Message}".ToUpperInvariant();
+            _summary.Text = partyQuickPlay
+                ? $"PARTY QUICK PLAY  /  {result.Message}".ToUpperInvariant()
+                : $"QUICK PLAY  /  {result.Message}".ToUpperInvariant();
             _summary.Foreground = HubTheme.GoodBrush;
             await JoinAsync();
+            if (partyQuickPlay && NetSession.Active)
+                SocialPartyClient.NoteQuickPlayTravel();
         }
 
         private void ShowEntry(ServerBrowserEntry entry)
