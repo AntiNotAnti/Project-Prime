@@ -463,6 +463,9 @@ namespace MphRead.Mods.Launcher.Gui
             RmlUiPrototype.SetMenuText("play_create_host",
                 _serverKind == 0 ? "HOSTED // ONLINE" : "DEDICATED // THIS DEVICE");
             RmlUiPrototype.SetMenuText("play_server_count", $"{_servers.Count} LIVE");
+            // Do not display "no public sessions" beneath real live rows.
+            // The screenshot showed this stale default alongside 2 LIVE.
+            RmlUiPrototype.SetMenuBool("play_no_servers", _servers.Count == 0);
             for (int i = 0; i < 8; i++)
             {
                 bool exists = i < _servers.Count;
