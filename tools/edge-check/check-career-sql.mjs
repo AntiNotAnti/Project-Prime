@@ -47,6 +47,37 @@ try {
  phase='account recovery bridge';
  await db.exec(await readFile(new URL('./sql-fixture/bridge.sql',import.meta.url),'utf8'));
  console.log('PASS actual service/session bridge and recovered profile preservation');
+ phase='social foundation';
+ const socialA='11111111-1111-4111-8111-111111111111';
+ const socialB='22222222-2222-4222-8222-222222222222';
+ await db.query(`select public.project_prime_hunter_license_for('${socialA}'::uuid,'Alpha',0)`);
+ await db.query(`select public.project_prime_hunter_license_for('${socialB}'::uuid,'Beta',1)`);
+ const socialProfiles=(await db.query(`select player_id,prime_id from prime.social_profiles where player_id in ('${socialA}'::uuid,'${socialB}'::uuid) order by player_id`)).rows;
+ assert.deepEqual(socialProfiles.map(x=>x.prime_id),['PP-1111-1111-1111-4111-8111','PP-2222-2222-2222-4222-8222']);
+ const socialRls=(await db.query(`select c.relname,c.relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='prime' and c.relname in ('social_profiles','friend_requests','friendships','player_blocks') order by c.relname`)).rows;
+ assert.equal(socialRls.length,4); assert.ok(socialRls.every(x=>x.relrowsecurity===true));
+ const socialPrivileges=(await db.query(`select
+  has_table_privilege('authenticated','prime.social_profiles','select') as profile_select,
+  has_table_privilege('authenticated','prime.friend_requests','select') as request_select,
+  has_function_privilege('authenticated','prime.social_mutate(uuid,text,text)','execute') as mutate
+ `)).rows[0];
+ assert.deepEqual(socialPrivileges,{profile_select:false,request_select:false,mutate:false});
+ let socialResult=(await db.query(`select prime.social_mutate('${socialA}'::uuid,'PP-2222-2222-2222-4222-8222','send_request') as value`)).rows[0].value;
+ assert.equal(socialResult.ok,true); assert.equal(socialResult.status,'request_sent');
+ socialResult=(await db.query(`select prime.social_mutate('${socialA}'::uuid,'PP-2222-2222-2222-4222-8222','send_request') as value`)).rows[0].value;
+ assert.equal(socialResult.ok,true); assert.equal(socialResult.status,'request_pending');
+ let socialSnapshot=(await db.query(`select prime.social_snapshot('${socialB}'::uuid) as value`)).rows[0].value;
+ assert.deepEqual(socialSnapshot.incoming_requests.map(x=>x.prime_id),['PP-1111-1111-1111-4111-8111']);
+ socialResult=(await db.query(`select prime.social_mutate('${socialB}'::uuid,'PP-1111-1111-1111-4111-8111','send_request') as value`)).rows[0].value;
+ assert.equal(socialResult.status,'friends'); assert.equal(socialResult.snapshot.friends.length,1);
+ socialResult=(await db.query(`select prime.social_mutate('${socialA}'::uuid,'PP-2222-2222-2222-4222-8222','block_player') as value`)).rows[0].value;
+ assert.equal(socialResult.status,'blocked'); assert.equal(socialResult.snapshot.friends.length,0); assert.equal(socialResult.snapshot.blocked.length,1);
+ const hidden=(await db.query(`select prime.social_lookup('${socialB}'::uuid,'PP-1111-1111-1111-4111-8111') as value`)).rows[0].value;
+ assert.equal(hidden,null);
+ await db.query(`delete from prime.hunter_licenses where "PlayerId" in ('${socialA}'::uuid,'${socialB}'::uuid)`);
+ await db.query(`delete from prime.player_profiles where "PlayerId" in ('${socialA}'::uuid,'${socialB}'::uuid)`);
+ await db.query(`delete from prime.players where "Id" in ('${socialA}'::uuid,'${socialB}'::uuid)`);
+ console.log('PASS social IDs, private grants/RLS, crossed-request friendship, blocking and cleanup');
  phase='service grant';
  const grants=(await db.query(`select rol,
   has_function_privilege(rol,'public.ingest_project_prime_career_match(jsonb,uuid,integer,text,text)','execute') as ingest,

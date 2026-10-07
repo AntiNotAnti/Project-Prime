@@ -615,6 +615,27 @@ namespace MphRead.Mods.Launcher
                 ?? throw new InvalidOperationException("Supabase Auth returned no user.");
         }
 
+        /// <summary>
+        /// Invoke another first-party Supabase Edge Function through the same
+        /// authenticated session used by Hunter License without exposing the
+        /// access token to callers.
+        /// </summary>
+        internal static async Task<T> InvokeAuthenticatedFunctionAsync<T>(
+            string function, object body, CancellationToken cancellationToken = default)
+        {
+            await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                AuthSession session = await AuthenticateAsync(cancellationToken).ConfigureAwait(false);
+                return await FunctionAsync<T>(
+                    session.AccessToken, function, body, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                Gate.Release();
+            }
+        }
+
         private static async Task<T> FunctionAsync<T>(
             string accessToken, string function, object body, CancellationToken cancellationToken)
         {
