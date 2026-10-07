@@ -88,6 +88,7 @@ namespace MphRead.Droid
             LauncherPrefs.Load();
             SocialPresenceClient.Start();
             SocialInviteClient.Start();
+            SocialPartyClient.Start();
             Mods.Input.ControllerBaselineState.Load();
             // Keys, mouse feel, pad bindings and the touch layout. The
             // desktop reads these from ModEntry.TryHandleHeadless, which the
