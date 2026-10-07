@@ -369,7 +369,6 @@ namespace MphRead.Mods.Launcher.Gui
                     if (Mods.StudioIntegration.StudioApplicationLauncher.TryOpen(null, false, out string? error))
                         continue;
                     _rmlMultiplayer?.Cancel();
-                    _rmlMultiplayer?.Cancel();
                     RmlUiPrototype.Shutdown();
                     if (!GuiLauncher.EnsureSetup() || UiSurface.Ensure() == null)
                     {
@@ -394,6 +393,7 @@ namespace MphRead.Mods.Launcher.Gui
                 };
                 if (rmlRoute is { } target)
                 {
+                    _rmlMultiplayer?.Cancel();
                     RmlUiPrototype.Shutdown();
                     if (!GuiLauncher.EnsureSetup() || UiSurface.Ensure() == null)
                     {
