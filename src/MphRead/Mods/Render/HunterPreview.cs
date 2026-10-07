@@ -52,20 +52,20 @@ namespace MphRead.Mods.Render
             new Vector3(0.60f, 0.20f, 0.77f), new Vector3(0.32f, 0.36f, 0.48f));
 
         /// <summary>
-        /// Menu-stage light: a slightly warmer key with a stronger cool fill.
-        /// It is still the preview renderer's own lighting, but the increased
-        /// blue-side response creates the rim separation the cinematic room
-        /// cannot provide because the Hunter is drawn in an isolated pass.
+        /// Menu-stage light stays intentionally close to neutral. Hunter identity
+        /// color belongs to the chamber halo, floor and particles, not multiplied
+        /// through the authored suit textures. The slightly cool fill is only for
+        /// silhouette separation.
         /// </summary>
         private static readonly LightInfo _cinematicLight = new LightInfo(
-            new Vector3(-0.28f, -0.38f, -0.88f), new Vector3(1f, 0.95f, 0.88f),
-            new Vector3(0.72f, 0.16f, 0.67f), new Vector3(0.32f, 0.50f, 0.72f));
+            new Vector3(-0.28f, -0.38f, -0.88f), new Vector3(1f, 0.99f, 0.96f),
+            new Vector3(0.72f, 0.16f, 0.67f), new Vector3(0.40f, 0.48f, 0.60f));
         private static readonly LightInfo _adventureLight = new LightInfo(
-            new Vector3(-0.34f, -0.42f, -0.84f), new Vector3(1f, 0.88f, 0.70f),
-            new Vector3(0.74f, 0.14f, 0.66f), new Vector3(0.32f, 0.43f, 0.63f));
+            new Vector3(-0.34f, -0.42f, -0.84f), new Vector3(1f, 0.95f, 0.86f),
+            new Vector3(0.74f, 0.14f, 0.66f), new Vector3(0.38f, 0.44f, 0.56f));
         private static readonly LightInfo _studioLight = new LightInfo(
-            new Vector3(-0.18f, -0.34f, -0.92f), new Vector3(0.88f, 0.95f, 1f),
-            new Vector3(0.78f, 0.12f, 0.61f), new Vector3(0.30f, 0.57f, 0.84f));
+            new Vector3(-0.18f, -0.34f, -0.92f), new Vector3(0.96f, 0.98f, 1f),
+            new Vector3(0.78f, 0.12f, 0.61f), new Vector3(0.38f, 0.50f, 0.64f));
 
         private static LightInfo PreviewLight
         {
