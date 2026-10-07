@@ -1683,6 +1683,9 @@ namespace MphRead.Entities
                 // when collision first locked the camera basis. The latter catches
                 // a fast analogue sweep made from several individually-small steps.
                 bool directionChanged = rollPressed
+                    || (Hunter == Hunter.Samus
+                        && (Input.MorphTouch.State.Delta4X != 0
+                            || Input.MorphTouch.State.Delta4Y != 0))
                     || Mods.Input.AltFormInputDirection.SignificantChange(
                         _altRollPrevInputX, _altRollPrevInputY,
                         controlInputX, controlInputY)
@@ -1916,25 +1919,16 @@ namespace MphRead.Entities
                     {
                         traction *= Fixed.ToFloat(Values.JumpPadSlideFactor);
                     }
-                    // A boost a flick aimed travels where it was aimed. See
-                    // _boostAimLock: the clamp below keeps the speed and lets
-                    // the direction go, so roll traction across a 0.6 dash
-                    // rotates it about three degrees a frame and a sideways
-                    // boost is pointing forwards again a quarter of a second
-                    // later. Short, and only after an aimed one, so the DS's
-                    // boost still steers exactly as it always did.
-                    if (_boostAimLock > 0)
-                    {
-                        traction = 0;
-                    }
+                    // Samus' stylus/mouse path is a separate native touch
+                    // contribution. Digital/controller roll remains additive.
+                    ApplyNativeMorphTouchRoll(ref speedDelta);
 
                     bool swipeRequested = Input.AltSwipeEngaged || Input.AltSwipeStopRequested;
                     bool swipeCanDrive = !explicitRoll
                         && IsAltForm && !IsMorphing && !IsUnmorphing
                         && _boostAimLock == 0
                         && _jumpPadControlLockMin == 0 && AttachedEnemy == null;
-                    bool stockSamusSwipe = swipeCanDrive && Hunter == Hunter.Samus
-                        && Input.AltSwipeEngaged;
+                    bool stockSamusSwipe = false;
                     bool preciseSwipe = swipeCanDrive && swipeRequested
                         && Mods.Input.AltFormGesture.UsesPrecisionSwipe(Hunter);
 
@@ -3250,6 +3244,7 @@ namespace MphRead.Entities
             public MouseState? MouseState { get; set; }
 
             public Mods.Input.PointerBindings Primary { get; } = new();
+            public Mods.Input.NativeTouchSample MorphTouch { get; } = new();
             public float MouseDeltaX { get; private set; }
             public float MouseDeltaY { get; private set; }
             public float PointerX => Mods.Input.PointerDevice.Active
@@ -3299,6 +3294,7 @@ namespace MphRead.Entities
                 ClickX = ClickY = -1;
                 StylusWeaponMenuDown = false;
                 ResetAltSwipe();
+                MorphTouch.Suspend();
                 HasInput = false;
             }
 
