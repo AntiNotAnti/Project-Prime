@@ -122,6 +122,11 @@ namespace MphRead.Mods
                 Environment.ExitCode = Launcher.LauncherMenuStageCheck.Run();
                 return true;
             }
+            if (HasFlag(args, "menubackdropcheck"))
+            {
+                Environment.ExitCode = Launcher.LauncherMenuVisualsCheck.Run();
+                return true;
+            }
 #if !MPHREAD_SERVER
             if (HasFlag(args, "rendergraphcheck"))
             {

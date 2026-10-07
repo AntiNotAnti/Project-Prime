@@ -27,6 +27,9 @@ namespace MphRead.Mods.Render
 
             EnsureTexture();
             MenuStageProfile stage = LauncherMenuStage.Current;
+            LauncherBackdropStyle style = LauncherMenuVisuals.Style;
+            LauncherActivityAmbience activity = LauncherMenuVisuals.Activity;
+            LauncherHunterTheme theme = LauncherMenuVisuals.Hunter(LauncherHunter.Hunter);
 
             float left = LauncherHunter.Left;
             float right = LauncherHunter.Right;
@@ -43,12 +46,17 @@ namespace MphRead.Mods.Render
             // remains crisp while the room immediately around it gains enough
             // luminance separation to read as an authored hero shot.
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
-            float atmosphere = Math.Clamp(stage.Atmosphere, 0f, 0.35f);
-            DrawRadial(centerX, centerY, spanX * 1.34f, spanY * 0.98f,
-                0.18f, 0.50f, 0.82f, 0.08f + atmosphere * 0.34f);
+            float atmosphere = Math.Clamp(
+                style.Fog * activity.FogBias + stage.Atmosphere * 0.20f,
+                0f, 0.42f);
+            DrawRadial(centerX, centerY,
+                spanX * 1.34f * theme.HaloScale, spanY * 0.98f,
+                theme.Halo.R, theme.Halo.G, theme.Halo.B,
+                (0.055f + atmosphere * 0.24f) * theme.AccentStrength);
             DrawRadial(centerX + spanX * 0.025f, centerY - spanY * 0.01f,
                 spanX * 0.84f, spanY * 0.66f,
-                0.32f, 0.66f, 0.88f, 0.035f + atmosphere * 0.16f);
+                theme.Rim.R, theme.Rim.G, theme.Rim.B,
+                (0.025f + atmosphere * 0.11f) * theme.AccentStrength);
 
             // Slow low fog stays behind the model. It is made from broad alpha
             // fields rather than gameplay particles, so it cannot affect room
@@ -56,14 +64,18 @@ namespace MphRead.Mods.Render
             double time = LauncherPrefs.ReduceMotion ? 0
                 : Environment.TickCount64 / 1000.0;
             float fogShift = (float)Math.Sin(time * 0.11) * 0.035f;
+            MenuRgb fogColor = MenuRgb.Lerp(activity.Accent,
+                new MenuRgb(0.15f, 0.23f, 0.31f), 0.62f);
             DrawRadial(0.50f + fogShift, 0.79f, 0.92f, 0.23f,
-                0.18f, 0.38f, 0.55f, atmosphere * 0.22f);
+                fogColor.R, fogColor.G, fogColor.B, atmosphere * 0.19f);
             DrawRadial(0.68f - fogShift * 0.7f, 0.68f, 0.62f, 0.17f,
-                0.20f, 0.45f, 0.66f, atmosphere * 0.12f);
+                fogColor.R, fogColor.G, fogColor.B, atmosphere * 0.10f);
 
             // Deterministic dust gives the stage a little life while keeping
             // screenshot comparison stable. Reduce Motion freezes it.
-            float dust = Math.Clamp(stage.Dust, 0f, 0.30f);
+            float dust = Math.Clamp(
+                style.Particles * activity.ParticleBias * theme.ParticleScale
+                + stage.Dust * 0.12f, 0f, 0.34f);
             for (int i = 0; i < 14; i++)
             {
                 float seedX = Hash01(i * 17 + 3);
@@ -76,9 +88,11 @@ namespace MphRead.Mods.Render
                 float moteX = 0.30f + seedX * 0.55f + dx;
                 float moteY = 0.18f + seedY * 0.58f + dy;
                 float size = 0.004f + Hash01(i * 61 + 5) * 0.009f;
+                MenuRgb mote = MenuRgb.Lerp(activity.Secondary,
+                    theme.Particle, 0.46f);
                 DrawRadial(moteX, moteY, size, size * 1.15f,
-                    0.62f, 0.84f, 1.00f,
-                    dust * (0.18f + Hash01(i * 13 + 2) * 0.36f));
+                    mote.R, mote.G, mote.B,
+                    dust * (0.16f + Hash01(i * 13 + 2) * 0.32f));
             }
 
             // Grounding is shaped around feet rather than one broad ellipse.
@@ -90,7 +104,8 @@ namespace MphRead.Mods.Render
 
             // Reflected floor light first.
             DrawRadial(centerX, floorY - 0.006f, spanX * 0.76f, 0.075f,
-                0.17f, 0.47f, 0.66f, 0.085f);
+                theme.Floor.R, theme.Floor.G, theme.Floor.B,
+                0.055f + style.FloorGlow * theme.AccentStrength * 0.075f);
 
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
@@ -122,7 +137,13 @@ namespace MphRead.Mods.Render
                 return;
 
             MenuStageProfile stage = LauncherMenuStage.Current;
-            float amount = Math.Clamp(stage.ForegroundHaze, 0f, 0.12f);
+            LauncherBackdropStyle style = LauncherMenuVisuals.Style;
+            LauncherActivityAmbience activity = LauncherMenuVisuals.Activity;
+            LauncherHunterTheme theme = LauncherMenuVisuals.Hunter(LauncherHunter.Hunter);
+            float amount = Math.Clamp(
+                stage.ForegroundHaze * 0.55f
+                + style.Fog * activity.FogBias * 0.10f,
+                0f, 0.10f);
             if (amount <= 0)
                 return;
 
@@ -137,12 +158,11 @@ namespace MphRead.Mods.Render
             float centerX = (left + right) * 0.5f;
             float centerY = (top + bottom) * 0.5f;
 
-            (float r, float g, float b) = LauncherBackdrop.Scene switch
-            {
-                LauncherBackdropScene.Adventure => (0.42f, 0.32f, 0.23f),
-                LauncherBackdropScene.ReplayStudio => (0.16f, 0.31f, 0.43f),
-                _ => (0.18f, 0.29f, 0.35f)
-            };
+            MenuRgb air = MenuRgb.Lerp(activity.Accent, theme.Halo,
+                LauncherBackdrop.Scene == LauncherBackdropScene.Adventure ? 0.18f : 0.28f);
+            float r = air.R;
+            float g = air.G;
+            float b = air.B;
 
             BeginScreenPass();
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);

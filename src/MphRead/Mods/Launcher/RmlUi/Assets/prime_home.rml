@@ -5,9 +5,6 @@
 </head>
 <body data-model="prime_menu">
     <div id="screen" data-class-reduce-motion="reduce_motion">
-        <!-- Background grading, vignette, halo and floor contact now live
-             below the Hunter in the native GL stage pass. Keeping them out of
-             RmlUi prevents a translucent wash from flattening the character. -->
         <div id="top_rule"></div>
 
         <div id="topbar" class="enter_top">
@@ -38,58 +35,108 @@
 
         <div id="stage">
             <div id="activity_panel" class="enter_left">
-                <div class="eyebrow">SELECT ACTIVITY</div>
-                <div id="activity_title">{{activity_title}}</div>
-                <div id="activity_description">{{activity_description}}</div>
+                <div id="activity_compact" data-class-hidden="activity_selector_open">
+                    <div class="eyebrow">{{activity_group}}</div>
 
-                <div id="activity_list">
-                    <button id="mode_quick" class="activity" data-class-selected="activity_index == 0"
+                    <button id="activity_selector" data-event-click="toggle_activity_selector">
+                        <span class="selector_art">
+                            <span class="selector_art_label">MODE</span>
+                        </span>
+                        <span class="selector_copy">
+                            <span class="selector_title">{{activity_title}}</span>
+                            <span class="selector_meta">{{activity_description}}</span>
+                            <span class="selector_hint">{{activity_hint}}</span>
+                        </span>
+                        <span class="selector_change">
+                            <span class="selector_change_label">CHANGE</span>
+                            <span class="selector_change_arrow">V</span>
+                        </span>
+                    </button>
+
+                    <div id="activity_status">
+                        <span>{{activity_hint}}</span>
+                        <span class="ready">READY</span>
+                    </div>
+
+                    <button id="deploy" data-event-click="deploy">
+                        <span class="deploy_kicker">{{activity_group}} ACTIVITY</span>
+                        <span class="deploy_label">{{activity_action}}</span>
+                        <span class="deploy_arrow">→</span>
+                    </button>
+                </div>
+
+                <div id="activity_drawer" data-class-open="activity_selector_open">
+                    <div class="drawer_header">
+                        <div>
+                            <div class="eyebrow">PLAY</div>
+                            <div class="drawer_title">CHOOSE ACTIVITY</div>
+                        </div>
+                        <button id="drawer_close" data-event-click="close_activity_selector">CLOSE</button>
+                    </div>
+
+                    <div class="drawer_section">MULTIPLAYER</div>
+                    <button id="drawer_quick" class="drawer_item"
+                            data-class-selected="activity_index == 0"
+                            data-event-mouseover="preview_quick"
+                            data-event-focus="preview_quick"
                             data-event-click="select_quick">
-                        <span class="activity_code">01</span>
-                        <span class="activity_copy">
-                            <span class="activity_name">QUICK PLAY</span>
-                            <span class="activity_meta">Find the best compatible public hunt</span>
+                        <span class="drawer_code">01</span>
+                        <span class="drawer_copy">
+                            <span class="drawer_name">QUICK PLAY</span>
+                            <span class="drawer_meta">Automatic public matchmaking</span>
                         </span>
-                        <span class="activity_arrow">›</span>
+                        <span class="drawer_state" data-if="activity_index == 0">ACTIVE</span>
+                        <span class="drawer_arrow">›</span>
                     </button>
-                    <button id="mode_browser" class="activity" data-class-selected="activity_index == 1"
-                            data-event-click="select_browser">
-                        <span class="activity_code">02</span>
-                        <span class="activity_copy">
-                            <span class="activity_name">SERVER BROWSER</span>
-                            <span class="activity_meta">Browse live lobbies and arenas</span>
-                        </span>
-                        <span class="activity_arrow">›</span>
-                    </button>
-                    <button id="mode_offline" class="activity" data-class-selected="activity_index == 2"
-                            data-event-click="select_offline">
-                        <span class="activity_code">03</span>
-                        <span class="activity_copy">
-                            <span class="activity_name">OFFLINE BATTLE</span>
-                            <span class="activity_meta">Bots, training and local rules</span>
-                        </span>
-                        <span class="activity_arrow">›</span>
-                    </button>
-                    <button id="mode_adventure" class="activity" data-class-selected="activity_index == 3"
-                            data-event-click="select_adventure">
-                        <span class="activity_code">04</span>
-                        <span class="activity_copy">
-                            <span class="activity_name">ADVENTURE</span>
-                            <span class="activity_meta">Continue a solo save</span>
-                        </span>
-                        <span class="activity_arrow">›</span>
-                    </button>
-                </div>
 
-                <div id="activity_status">
-                    <span>{{activity_hint}}</span>
-                    <span class="ready">READY</span>
+                    <button id="drawer_browser" class="drawer_item"
+                            data-class-selected="activity_index == 1"
+                            data-event-mouseover="preview_browser"
+                            data-event-focus="preview_browser"
+                            data-event-click="select_browser">
+                        <span class="drawer_code">02</span>
+                        <span class="drawer_copy">
+                            <span class="drawer_name">SERVER BROWSER</span>
+                            <span class="drawer_meta">Browse public and private sessions</span>
+                        </span>
+                        <span class="drawer_state" data-if="activity_index == 1">ACTIVE</span>
+                        <span class="drawer_arrow">›</span>
+                    </button>
+
+                    <div class="drawer_section">LOCAL</div>
+                    <button id="drawer_offline" class="drawer_item"
+                            data-class-selected="activity_index == 2"
+                            data-event-mouseover="preview_offline"
+                            data-event-focus="preview_offline"
+                            data-event-click="select_offline">
+                        <span class="drawer_code">03</span>
+                        <span class="drawer_copy">
+                            <span class="drawer_name">OFFLINE BATTLE</span>
+                            <span class="drawer_meta">Bots, training and custom rules</span>
+                        </span>
+                        <span class="drawer_state" data-if="activity_index == 2">ACTIVE</span>
+                        <span class="drawer_arrow">›</span>
+                    </button>
+
+                    <div class="drawer_section">SOLO</div>
+                    <button id="drawer_adventure" class="drawer_item"
+                            data-class-selected="activity_index == 3"
+                            data-event-mouseover="preview_adventure"
+                            data-event-focus="preview_adventure"
+                            data-event-click="select_adventure">
+                        <span class="drawer_code">04</span>
+                        <span class="drawer_copy">
+                            <span class="drawer_name">ADVENTURE</span>
+                            <span class="drawer_meta">Continue or load a solo save</span>
+                        </span>
+                        <span class="drawer_state" data-if="activity_index == 3">ACTIVE</span>
+                        <span class="drawer_arrow">›</span>
+                    </button>
+
+                    <div class="drawer_footer">
+                        HOVER OR FOCUS TO PREVIEW THE MENU STAGE // SELECT TO CONFIRM
+                    </div>
                 </div>
-                <button id="deploy" data-event-click="deploy">
-                    <span class="deploy_kicker">PROJECT PRIME ACTIVITY</span>
-                    <span class="deploy_label">{{activity_action}}</span>
-                    <span class="deploy_arrow">→</span>
-                </button>
             </div>
 
             <div id="hunter_caption" class="enter_hunter">
