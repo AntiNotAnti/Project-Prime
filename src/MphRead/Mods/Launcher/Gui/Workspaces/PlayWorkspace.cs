@@ -793,7 +793,8 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 var status = await ServerBrowserService.ProbeAsync(host, port, allowJoinProbe: false);
                 if (!_connect.IsCancellationRequested && status.Online && status.Protocol == NetConfig.ProtocolVersion && status.WaitlistSupported
-                    && (status.Players >= status.MaxPlayers || status.WaitlistCount > 0))
+                    && (status.Players + Math.Max(0, status.ReservedSlots)
+                        >= status.MaxPlayers || status.WaitlistCount > 0))
                 {
                     CloseProgress();
                     using var queued = await LobbyQueueDialog.ShowAsync(Overlays, host, port, _connect.Token,
