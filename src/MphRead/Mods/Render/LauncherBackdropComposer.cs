@@ -122,7 +122,24 @@ void main()
     // Distant central bay. It is intentionally broad and low-detail so Hunter
     // silhouettes remain the only detailed subject in the middle of the frame.
     float bay = box_mask(uv, vec2(0.305, 0.14), vec2(0.855, 0.72), 0.035);
-    col += mix(activity_accent, hunter_halo, 0.35) * bay * 0.038 * structure_amount;
+    col += mix(activity_accent, hunter_halo, 0.28) * bay * 0.040 * structure_amount;
+
+    // Neutral torso-level lift keeps the selected Hunter readable without
+    // painting Hunter identity color through the model itself. This is the
+    // brightest part of the room, but still reads as reflected chamber light.
+    float torsoLift = ellipse_mask(uv, vec2(0.615, 0.49), vec2(0.255, 0.335));
+    vec3 heroAmbient = mix(base_mid, vec3(0.105, 0.145, 0.185), 0.55);
+    col += heroAmbient * torsoLift * (0.15 + 0.05 * hero_light);
+
+    // Recessed inner wall panels add a second depth plane behind the hero.
+    float leftRecess = box_mask(uv, vec2(0.355, 0.30), vec2(0.455, 0.69), 0.014);
+    float rightRecess = box_mask(uv, vec2(0.775, 0.30), vec2(0.855, 0.69), 0.014);
+    float recess = min(1.0, leftRecess + rightRecess);
+    col *= 1.0 - recess * 0.10 * structure_amount;
+    float innerEdges = line(uv.x - 0.355, 0.0022) + line(uv.x - 0.455, 0.0022)
+        + line(uv.x - 0.775, 0.0022) + line(uv.x - 0.855, 0.0022);
+    float innerGate = smoothstep(0.27, 0.34, uv.y) * (1.0 - smoothstep(0.68, 0.74, uv.y));
+    col += activity_secondary * innerEdges * innerGate * 0.018 * structure_amount;
 
     // Vertical chamber ribs and recessed side panels.
     for (int i = 0; i < 7; i++)
@@ -189,9 +206,12 @@ void main()
     float platformFill = 1.0 - smoothstep(0.62, 1.0, platformQ);
     float platformEdge = smoothstep(0.62, 0.77, platformQ)
         * (1.0 - smoothstep(0.88, 1.0, platformQ));
-    col = mix(col, vec3(0.006, 0.012, 0.022), platformFill * 0.72);
-    col += hunter_halo * platformEdge * floor_glow * 0.16;
-    col += activity_secondary * platformEdge * floor_glow * 0.055;
+    col = mix(col, vec3(0.006, 0.012, 0.022), platformFill * 0.70);
+    float platformCore = 1.0 - smoothstep(0.08, 0.70, platformQ);
+    col += mix(activity_accent, hunter_halo, 0.30)
+        * platformCore * floor_glow * 0.045;
+    col += hunter_halo * platformEdge * floor_glow * 0.22;
+    col += activity_secondary * platformEdge * floor_glow * 0.075;
 
     // Low chamber haze.
     float lowFog = smoothstep(0.52, 0.92, uv.y)
