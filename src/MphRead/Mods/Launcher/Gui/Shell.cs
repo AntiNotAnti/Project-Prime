@@ -353,12 +353,16 @@ namespace MphRead.Mods.Launcher.Gui
                 RmlUiPrototype.Shutdown();
                 if (!GuiLauncher.EnsureSetup() || UiSurface.Ensure() == null)
                 {
+                    socialJoin.PartyAdmission?.Dispose();
                     RequestQuit();
                 }
                 else
                 {
                     ShowFrontScreen();
-                    _front?.JoinVerifiedSocialLobby(socialJoin);
+                    if (_front != null)
+                        _front.JoinVerifiedSocialLobby(socialJoin);
+                    else
+                        socialJoin.PartyAdmission?.Dispose();
                 }
             }
             while (RmlUiPrototype.Active && RmlUiPrototype.TryTakeCommand(out string rmlCommand))
