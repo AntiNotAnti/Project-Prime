@@ -508,7 +508,14 @@ namespace MphRead.Mods.Network
                         state.Pending = SocialLobbyMembershipReporter.LeaveAsync(
                             state.Epoch, state.ClientId, state.Ticket);
                     }
+                    // Clear the membership identity immediately so a completed
+                    // leave request cannot be mistaken for a fresh heartbeat
+                    // and re-sent once per server tick.
                     state.Verified = false;
+                    state.Epoch = 0;
+                    state.ClientId = 0;
+                    state.Ticket = "";
+                    state.LastStarted = Double.NegativeInfinity;
                     continue;
                 }
 
