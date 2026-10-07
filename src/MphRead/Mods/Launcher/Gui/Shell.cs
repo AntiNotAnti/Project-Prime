@@ -791,7 +791,15 @@ namespace MphRead.Mods.Launcher.Gui
             _matchLoading = false;
             CloseMenu(); window.EndScene(); MatchStart.AfterMatch();
             NetSession.ResetMatchState(); PauseMenu.Reset();
-            if (_front != null) { UiSurface.Current?.Show(_front); _front.ResumeLobby(); }
+            if (_front != null)
+            {
+                UiSurface.Current?.Show(_front);
+                _front.ResumeLobby();
+#if MPHREAD_RMLUI_POC
+                if (RmlUiPrototype.Requested)
+                    _front.TryShowRmlLobby(window);
+#endif
+            }
         }
 
         private static void EndMatch(RenderWindow window)
