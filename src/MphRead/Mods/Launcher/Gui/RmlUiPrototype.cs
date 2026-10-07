@@ -280,9 +280,11 @@ namespace MphRead.Mods.Launcher.Gui
             }
             if (e.Key == Keys.Escape)
             {
-                // The production shell owns its full back/quit semantics. A
-                // proof-screen Back cleanly hands control to that authority.
-                _commands.Enqueue("route:news");
+                // The selector is a modal layer inside this proof, so Escape
+                // closes it and restores the committed Menu Stage before
+                // falling through to the production shell on a second press.
+                if (NativeBack() == 0)
+                    _commands.Enqueue("route:news");
                 return;
             }
             int key = TranslateKey(e.Key);
@@ -438,7 +440,8 @@ namespace MphRead.Mods.Launcher.Gui
                 if (length <= 0) return;
                 string action = Encoding.UTF8.GetString(
                     _actionBuffer, 0, Math.Min(length, _actionBuffer.Length - 1));
-                if (action.StartsWith("stage:", StringComparison.Ordinal))
+                if (action.StartsWith("stage:", StringComparison.Ordinal)
+                    || action.StartsWith("stage-preview:", StringComparison.Ordinal))
                 {
                     ApplyStageAction(action);
                     continue;
@@ -449,21 +452,27 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static void ApplyStageAction(string action)
         {
-            switch (action)
+            int separator = action.IndexOf(':');
+            string stage = separator >= 0 && separator + 1 < action.Length
+                ? action[(separator + 1)..]
+                : "";
+            bool preview = action.StartsWith("stage-preview:", StringComparison.Ordinal);
+
+            switch (stage)
             {
-                case "stage:quick":
+                case "quick":
                     LauncherBackdrop.Set(LauncherBackdropScene.Multiplayer,
                         "MP3 PROVING GROUND");
                     break;
-                case "stage:browser":
+                case "browser":
                     LauncherBackdrop.Set(LauncherBackdropScene.Play,
                         "MP1 SANCTORUS");
                     break;
-                case "stage:offline":
+                case "offline":
                     LauncherBackdrop.Set(LauncherBackdropScene.Offline,
                         "MP3 PROVING GROUND");
                     break;
-                case "stage:adventure":
+                case "adventure":
                     LauncherBackdrop.Set(LauncherBackdropScene.Adventure,
                         "UNIT1 ALINOS LANDFALL");
                     break;
@@ -475,7 +484,8 @@ namespace MphRead.Mods.Launcher.Gui
             ConfigureHunter(snapshot);
             BeginMenuStageRefresh(snapshot);
             Mods.DebugLog.Line("rmlui",
-                $"menu stage -> {LauncherBackdrop.Scene}/{LauncherBackdrop.RoomKey} "
+                $"{(preview ? "menu stage preview" : "menu stage")} -> "
+                + $"{LauncherBackdrop.Scene}/{LauncherBackdrop.RoomKey} "
                 + $"profile={LauncherMenuStage.Current.Name}");
         }
 
@@ -484,7 +494,10 @@ namespace MphRead.Mods.Launcher.Gui
             if (!_active) return;
             if (action == UiAction.Back)
             {
-                _commands.Enqueue("route:news");
+                // Back closes an open activity drawer first. Only a second
+                // Back hands control to the production shell.
+                if (NativeBack() == 0)
+                    _commands.Enqueue("route:news");
                 return;
             }
             int key = action switch
@@ -701,6 +714,9 @@ namespace MphRead.Mods.Launcher.Gui
         [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_set_bool")]
         private static extern void NativeSetBool(
             [MarshalAs(UnmanagedType.LPUTF8Str)] string name, int value);
+
+        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_back")]
+        private static extern int NativeBack();
 
         [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_take_action")]
         private static extern int NativeTakeAction([Out] byte[] buffer, int capacity);
