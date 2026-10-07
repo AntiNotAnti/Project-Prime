@@ -580,6 +580,7 @@ namespace MphRead.Mods.Network
                         // measurement: ping first, publish second.
                         PingPeers(now);
                         BroadcastSessionState();
+                        PumpSocialLobbyMembership(now);
                         if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch)
                         {
                             BroadcastMatchState(now);

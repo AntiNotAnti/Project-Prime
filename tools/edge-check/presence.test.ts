@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 
 const actor = "11111111-1111-4111-8111-111111111111";
 const session = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const lobby = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 let handler: (req: Request) => Promise<Response>;
 let lastHeartbeat: unknown[] = [];
 let lastPrivacy: unknown[] = [];
@@ -129,12 +130,13 @@ test("heartbeat uses verified actor, process session, activity and room state", 
     activity: "lobby",
     room_key: "MP1 SANCTORUS",
     joinable: true,
+    lobby_id: lobby,
   }));
   assert.equal(response.status, 200);
   const data: any = await response.json();
   assert.equal(data.status, "online");
   assert.deepEqual(lastHeartbeat, [
-    actor, session, "lobby", "MP1 SANCTORUS", true,
+    actor, session, "lobby", "MP1 SANCTORUS", true, lobby,
   ]);
 
   assert.equal((await handler(request({
@@ -146,6 +148,12 @@ test("heartbeat uses verified actor, process session, activity and room state", 
     action: "heartbeat",
     session_id: session,
     activity: "warping",
+  }))).status, 400);
+  assert.equal((await handler(request({
+    action: "heartbeat",
+    session_id: session,
+    activity: "lobby",
+    lobby_id: "not-a-uuid",
   }))).status, 400);
 });
 

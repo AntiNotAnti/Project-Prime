@@ -301,6 +301,94 @@ namespace MphRead.Mods.Network
         }
     }
 
+    /// <summary>
+    /// Short-lived proof that a verified Hunter License is actually connected
+    /// to this dedicated authority. The social service uses this proof before
+    /// it will let that account advertise the lobby to friends.
+    /// </summary>
+    internal static class SocialLobbyMembershipReporter
+    {
+        private const string DefaultUrl =
+            "https://hwcjaygoistufktorbmf.supabase.co/functions/v1/social-lobby-membership";
+        private const string PublishableKey =
+            "sb_publishable_EVT45OPl638kA_j8vZ0ebg_sw3aWaVz";
+        private static readonly HttpClient Http = new()
+        {
+            Timeout = TimeSpan.FromSeconds(8)
+        };
+
+        private static string Url =>
+            Environment.GetEnvironmentVariable("PROJECT_PRIME_SOCIAL_LOBBY_MEMBERSHIP_URL")
+            ?? DefaultUrl;
+        private static string ServerKey =>
+            Environment.GetEnvironmentVariable("PROJECT_PRIME_CAREER_SERVER_KEY")
+            ?? "";
+
+        public static bool Enabled => ServerKey.Length >= 32;
+
+        public static Task<bool> HeartbeatAsync(
+            ulong authorityEpoch, uint clientId, string careerTicket,
+            CancellationToken cancellationToken = default)
+            => SendAsync("heartbeat", authorityEpoch, clientId, careerTicket, cancellationToken);
+
+        public static Task<bool> LeaveAsync(
+            ulong authorityEpoch, uint clientId, string careerTicket,
+            CancellationToken cancellationToken = default)
+            => SendAsync("leave", authorityEpoch, clientId, careerTicket, cancellationToken);
+
+        private static async Task<bool> SendAsync(
+            string action, ulong authorityEpoch, uint clientId, string careerTicket,
+            CancellationToken cancellationToken)
+        {
+            if (!Enabled || authorityEpoch == 0 || clientId == 0
+                || careerTicket.Length is < 20 or > 768)
+                return false;
+
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Post, Url);
+                request.Headers.TryAddWithoutValidation(
+                    "Authorization", "Bearer " + ServerKey);
+                request.Headers.TryAddWithoutValidation("apikey", PublishableKey);
+                request.Content = new StringContent(
+                    JsonSerializer.Serialize(new
+                    {
+                        action,
+                        authority_epoch = authorityEpoch.ToString(
+                            CultureInfo.InvariantCulture),
+                        client_id = clientId,
+                        career_ticket = careerTicket
+                    }),
+                    Encoding.UTF8, "application/json");
+
+                using HttpResponseMessage response =
+                    await Http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+                string text = await response.Content.ReadAsStringAsync(
+                    cancellationToken).ConfigureAwait(false);
+                if (response.IsSuccessStatusCode)
+                    return true;
+
+                Console.WriteLine($"[social] lobby membership {action} refused "
+                    + $"({(int)response.StatusCode}): {TrimMembership(text, 220)}");
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
+            catch (Exception ex) when (ex is HttpRequestException
+                or TaskCanceledException or IOException)
+            {
+                Console.WriteLine($"[social] lobby membership {action} deferred: {ex.Message}");
+            }
+            return false;
+        }
+
+        private static string TrimMembership(string text, int max)
+        {
+            text = text.Replace('\r', ' ').Replace('\n', ' ').Trim();
+            return text.Length <= max ? text : text[..max] + "...";
+        }
+    }
+
     internal sealed class CareerMatchReport
     {
         public int Version { get; set; } = 2;
@@ -364,6 +452,120 @@ namespace MphRead.Mods.Network
     {
         private readonly Guid _careerServerIncarnation = Guid.NewGuid();
         private CareerMatchState? _careerMatch;
+
+        private sealed class SocialLobbyMembershipState
+        {
+            public Task<bool>? Pending;
+            public double LastStarted = Double.NegativeInfinity;
+            public ulong Epoch;
+            public uint ClientId;
+            public string Ticket = "";
+            public bool Verified;
+        }
+
+        private readonly Dictionary<Peer, SocialLobbyMembershipState>
+            _socialLobbyMembership = new();
+        private const double SocialLobbyMembershipSeconds = 20;
+
+        private void PumpSocialLobbyMembership(double now)
+        {
+            bool lobby = SessionPolicy == ServerSessionPolicy.Lobby
+                && _phase == SessionPhase.Lobby
+                && _authorityEpoch != 0
+                && SocialLobbyMembershipReporter.Enabled;
+
+            var active = new HashSet<Peer>(_peers);
+            foreach (Peer peer in _socialLobbyMembership.Keys.ToArray())
+            {
+                if (!active.Contains(peer))
+                    _socialLobbyMembership.Remove(peer);
+            }
+
+            foreach (Peer peer in _peers)
+            {
+                if (!_socialLobbyMembership.TryGetValue(
+                    peer, out SocialLobbyMembershipState? state))
+                {
+                    state = new SocialLobbyMembershipState();
+                    _socialLobbyMembership.Add(peer, state);
+                }
+
+                if (state.Pending is { IsCompleted: true } completed)
+                {
+                    state.Pending = null;
+                    try { state.Verified = completed.GetAwaiter().GetResult(); }
+                    catch (Exception) { state.Verified = false; }
+                }
+
+                bool identityReady = peer.ClientId != 0
+                    && peer.CareerTicket.StartsWith("pp1.", StringComparison.Ordinal);
+                if (!lobby || !identityReady)
+                {
+                    if (state.Verified && state.Pending == null
+                        && state.Epoch != 0 && state.ClientId != 0
+                        && state.Ticket.Length > 0)
+                    {
+                        state.Pending = SocialLobbyMembershipReporter.LeaveAsync(
+                            state.Epoch, state.ClientId, state.Ticket);
+                    }
+                    // Clear the membership identity immediately so a completed
+                    // leave request cannot be mistaken for a fresh heartbeat
+                    // and re-sent once per server tick.
+                    state.Verified = false;
+                    state.Epoch = 0;
+                    state.ClientId = 0;
+                    state.Ticket = "";
+                    state.LastStarted = Double.NegativeInfinity;
+                    continue;
+                }
+
+                bool identityChanged = state.Epoch != _authorityEpoch
+                    || state.ClientId != peer.ClientId
+                    || !String.Equals(state.Ticket, peer.CareerTicket,
+                        StringComparison.Ordinal);
+                if (identityChanged)
+                {
+                    state.Epoch = _authorityEpoch;
+                    state.ClientId = peer.ClientId;
+                    state.Ticket = peer.CareerTicket;
+                    state.Verified = false;
+                    state.LastStarted = Double.NegativeInfinity;
+                }
+
+                if (state.Pending == null
+                    && now - state.LastStarted >= SocialLobbyMembershipSeconds)
+                {
+                    state.LastStarted = now;
+                    state.Pending = SocialLobbyMembershipReporter.HeartbeatAsync(
+                        _authorityEpoch, peer.ClientId, peer.CareerTicket);
+                }
+            }
+        }
+
+        private void SocialLobbyMembershipLeaving(Peer peer)
+        {
+            if (!_socialLobbyMembership.Remove(
+                peer, out SocialLobbyMembershipState? state))
+                return;
+
+            if (state.Epoch == 0 || state.ClientId == 0 || state.Ticket.Length == 0)
+                return;
+
+            _ = SocialLobbyMembershipReporter.LeaveAsync(
+                state.Epoch, state.ClientId, state.Ticket);
+        }
+
+        private void SocialLobbyMembershipIdentityChanged(Peer peer)
+        {
+            if (!_socialLobbyMembership.TryGetValue(
+                peer, out SocialLobbyMembershipState? state))
+            {
+                state = new SocialLobbyMembershipState();
+                _socialLobbyMembership.Add(peer, state);
+            }
+            state.LastStarted = Double.NegativeInfinity;
+            state.Verified = false;
+        }
 
         private sealed class CareerMatchState
         {
@@ -523,6 +725,7 @@ namespace MphRead.Mods.Network
 
         private void CareerTicketChanged(Peer peer)
         {
+            SocialLobbyMembershipIdentityChanged(peer);
             CareerMatchState? match = _careerMatch;
             if (match == null || !match.Active.TryGetValue(peer, out var p)
                 || p.CareerTicket == peer.CareerTicket && p.ClientId == CareerKey(peer)) return;
@@ -562,6 +765,7 @@ namespace MphRead.Mods.Network
 
         private void CareerPeerLeaving(Peer peer)
         {
+            SocialLobbyMembershipLeaving(peer);
             if (_careerMatch == null) return;
             if (_careerMatch.Active.Remove(peer, out var p))
             {
