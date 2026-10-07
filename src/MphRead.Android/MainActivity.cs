@@ -390,6 +390,7 @@ namespace MphRead.Droid
             _controls.ReleaseEverything();
             _overlay?.Invalidate();
             AndroidPerformance.SetForeground(false);
+            MphRead.Mods.Launcher.SocialPresenceClient.Suspend();
             GamepadBridge.Clear();
             _gameView?.OnPause();
             PauseNativeLauncher(true);
@@ -408,6 +409,7 @@ namespace MphRead.Droid
             // every resume rather than once at startup.
             GoImmersive(true);
             AndroidPerformance.SetForeground(true);
+            MphRead.Mods.Launcher.SocialPresenceClient.Resume();
             AndroidPerformance.RefreshDisplayRate();
             _lastRotation = CurrentRotation();
             if (_displays == null
@@ -506,6 +508,7 @@ namespace MphRead.Droid
             _pending = null;
             _stopPreviews = true;
             PreviewWorkers.Stop(this);
+            MphRead.Mods.Launcher.SocialPresenceClient.Stop();
             DisposeSettingsArchiveServices();
             if (Instance == this)
             {
