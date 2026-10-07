@@ -36,6 +36,13 @@ public static class Program
             StudioPaths paths = StudioPaths.CreateDefault();
             installation = MphRead.Mods.Update.InstallationLifetime.AcquireApplication(paths.InstallationDirectory);
             if (exportWorker) return ProjectPrime.Studio.Replay.ReplayExportWorkerHost.Run(args[1]);
+
+            // Studio is a separate process from the game, but replay presentation is
+            // expected to use the same local visual choices. Without applying the
+            // game's settings here, HD character/viewmodel replacements, cosmetics
+            // and other render options stay at their static defaults in Studio.
+            MphRead.Mods.GameSettings.Apply(MphRead.GameState.LoadSettings());
+
             guard = StudioInstanceGuard.TryAcquireAsync(paths.InstallationDirectory, paths.UserDataDirectory, request,
                 async (forwarded, token) =>
                 {
