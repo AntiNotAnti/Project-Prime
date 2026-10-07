@@ -28,6 +28,9 @@ namespace MphRead.Mods.Network
         QueueState = 61, QueueSeatOffer = 62, QueueAccept = 63, QueueDecline = 64,
         HostChallenge = 65, HostChallengeReply = 66,
         ReplayShotFact = 67, // authority -> recorders, optional accepted shot result
+        PartyReserveClaim = 68, // queue transport -> server, authenticated party seat claim
+        PartyReserveState = 69, // server -> reservation claimant, authoritative group state
+        PartyReserveAccept = 70, // claimant -> server, consume assigned reserved seat
         Hello = 1,          // client -> host, join request
         Welcome = 2,        // host -> client, assigns a slot
         Intent = 3,         // client -> host, one frame of input
