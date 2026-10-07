@@ -954,6 +954,26 @@ PP_EXPORT int pp_rmlui_take_action(unsigned char* buffer, int capacity)
     return length;
 }
 
+// Actual RmlUi element bounds are used by the native regression. This does
+// not synthesize an action or bypass the DOM's focus/click dispatch.
+PP_EXPORT int pp_rmlui_element_bounds(const char* id, float* x, float* y,
+    float* width, float* height)
+{
+    if (!g_context || !g_document || !id || !x || !y || !width || !height)
+        return 0;
+    g_context->Update();
+    Rml::Element* element = FindElementById(id);
+    if (!element) return 0;
+    const auto offset = element->GetAbsoluteOffset(Rml::BoxArea::Border);
+    const auto size = element->GetBox().GetSize(Rml::BoxArea::Border);
+    if (size.x <= 0 || size.y <= 0) return 0;
+    *x = offset.x;
+    *y = offset.y;
+    *width = size.x;
+    *height = size.y;
+    return 1;
+}
+
 // Bounded POC diagnostic for real native-input regression at each density.
 // This reads only the one shipped STUDIO control; no action is synthesized.
 PP_EXPORT int pp_rmlui_studio_bounds(float* x, float* y, float* width, float* height)
