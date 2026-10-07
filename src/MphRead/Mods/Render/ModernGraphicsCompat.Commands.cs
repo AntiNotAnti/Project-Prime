@@ -567,7 +567,13 @@ internal sealed unsafe partial class ModernGraphicsCompat
 #if !ANDROID
             ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("checked-submit", "START");
 #endif
+#if !ANDROID
+            NativeGraphicsResult result = ModernGraphicsDevice.TryCaptureNativeSubmitObservation(out var identity)
+                ? ModernGraphicsNativeBridge.SubmitObserved(_queue, 1, &commands, identity)
+                : ModernGraphicsNativeBridge.Submit(_queue, 1, &commands);
+#else
             NativeGraphicsResult result = ModernGraphicsNativeBridge.Submit(_queue, 1, &commands);
+#endif
 #if !ANDROID
             ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("checked-submit", "DONE");
 #endif

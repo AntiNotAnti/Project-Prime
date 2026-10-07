@@ -61,6 +61,19 @@ namespace MphRead.Mods.Render
             => _shaderReadbackObservation.BeginReadback(x, y, width, height);
         internal static void WriteNativeReadbackObservationForCheck(string phase, string edge)
             => _shaderReadbackObservation.Mark(phase, edge);
+        internal static bool TryCaptureNativeSubmitObservation(out NativeSubmitObservationIdentity identity)
+        {
+            identity = default;
+            if (!_shaderReadbackObservation.HasOwnedReadbackForNativeObservation) return false;
+            try
+            {
+                return _shaderReadbackObservation.TryCaptureNativeSubmitObservation(
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_SHADER_DIAGNOSTICS"),
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_VALIDATION"),
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_GPU_VALIDATION"), out identity);
+            }
+            catch { return false; }
+        }
 #endif
         private static bool _nativeValidationDiagnosticsEnabled;
         private static readonly object _nativeValidationDiagnosticLock = new();

@@ -3,9 +3,26 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 
 namespace MphRead.Mods.Render;
+
+
+// Paired little-endian repr(C) scalar ABI. The native observer copies this value;
+// its metadata never owns or stores a queue, command, callback or userdata.
+[StructLayout(LayoutKind.Sequential, Size = 32)]
+internal readonly struct NativeSubmitObservationIdentity
+{
+    internal const uint MagicValue = 0x3153424f; // OBS1
+    internal readonly ulong Fixture, Scope;
+    internal readonly uint ManagedThread;
+    internal readonly ushort Read, Submit;
+    internal readonly uint Magic, Reserved;
+    internal NativeSubmitObservationIdentity(ulong fixture, ulong scope, uint thread, ushort read, ushort submit)
+        => (Fixture, Scope, ManagedThread, Read, Submit, Magic, Reserved)
+            = (fixture, scope, thread, read, submit, MagicValue, 0);
+}
 
 // Check-owned CPU observations only. No graphics handle or callback is retained.
 internal sealed class ShaderDiagnosticReadbackObservation
@@ -17,6 +34,7 @@ internal sealed class ShaderDiagnosticReadbackObservation
     private Scope? _scope;
     private Readback? _readback;
     private long _scopeSequence;
+    private static long _nativeFixtureSequence;
     private int _processAttempts;
 
     private sealed class Empty : IDisposable
@@ -28,16 +46,16 @@ internal sealed class ShaderDiagnosticReadbackObservation
     private sealed class Scope : IDisposable
     {
         internal readonly ShaderDiagnosticReadbackObservation Owner;
-        internal readonly long Ordinal, Started;
+        internal readonly long Ordinal, Started, NativeFixture;
         internal readonly int Thread;
         internal readonly TextWriter Writer;
         internal readonly Func<long> Ticks;
         internal readonly Func<DateTimeOffset> Utc;
         internal int Attempts, Readbacks;
-        internal Scope(ShaderDiagnosticReadbackObservation owner, long ordinal, long started,
+        internal Scope(ShaderDiagnosticReadbackObservation owner, long ordinal, long started, long nativeFixture,
             TextWriter writer, Func<long> ticks, Func<DateTimeOffset> utc)
-            => (Owner, Ordinal, Started, Thread, Writer, Ticks, Utc)
-                = (owner, ordinal, started, Environment.CurrentManagedThreadId, writer, ticks, utc);
+            => (Owner, Ordinal, Started, NativeFixture, Thread, Writer, Ticks, Utc)
+                = (owner, ordinal, started, nativeFixture, Environment.CurrentManagedThreadId, writer, ticks, utc);
         public void Dispose()
         {
             try
@@ -59,7 +77,7 @@ internal sealed class ShaderDiagnosticReadbackObservation
         internal readonly Scope Scope;
         internal readonly int Ordinal, X, Y, Width, Height;
         internal readonly long Started;
-        internal int Attempts;
+        internal int Attempts, NativeSubmissions;
         internal Readback(ShaderDiagnosticReadbackObservation owner, Scope scope,
             int ordinal, long started, int x, int y, int width, int height)
             => (Owner, Scope, Ordinal, Started, X, Y, Width, Height)
@@ -109,7 +127,9 @@ internal sealed class ShaderDiagnosticReadbackObservation
                 if (_scope != null || _processAttempts >= MaximumProcessMarkers) return Empty.Instance;
                 ticks ??= Stopwatch.GetTimestamp;
                 utc ??= static () => DateTimeOffset.UtcNow;
-                return _scope = new Scope(this, ++_scopeSequence, ticks(), writer ?? Console.Out, ticks, utc);
+                long nativeFixture = NextNativeFixture();
+                if (nativeFixture == 0 || _scopeSequence == long.MaxValue) return Empty.Instance;
+                return _scope = new Scope(this, ++_scopeSequence, ticks(), nativeFixture, writer ?? Console.Out, ticks, utc);
             }
         }
         catch { return Empty.Instance; }
@@ -130,6 +150,53 @@ internal sealed class ShaderDiagnosticReadbackObservation
             }
         }
         catch { return Empty.Instance; }
+    }
+
+    // Fast default path performs no environment, clock, sink or native access.
+    internal bool HasOwnedReadbackForNativeObservation
+    {
+        get
+        {
+            Scope? scope = Volatile.Read(ref _scope);
+            Readback? readback = Volatile.Read(ref _readback);
+            return scope != null && readback != null && ReferenceEquals(readback.Scope, scope)
+                && scope.Thread == Environment.CurrentManagedThreadId;
+        }
+    }
+
+    private static long NextNativeFixture()
+    {
+        while (true)
+        {
+            long previous = Volatile.Read(ref _nativeFixtureSequence);
+            if (previous == long.MaxValue) return 0;
+            if (Interlocked.CompareExchange(ref _nativeFixtureSequence, previous + 1, previous) == previous)
+                return previous + 1;
+        }
+    }
+
+    internal bool TryCaptureNativeSubmitObservation(string? diagnostic, string? validation, string? gpuValidation,
+        out NativeSubmitObservationIdentity identity)
+    {
+        identity = default;
+        if (!HasOwnedReadbackForNativeObservation || !BitConverter.IsLittleEndian
+            || !ShaderDiagnosticPolicy.Enabled(diagnostic, validation, gpuValidation)) return false;
+        try
+        {
+            lock (_gate)
+            {
+                Scope? scope = _scope;
+                Readback? readback = _readback;
+                if (scope == null || readback == null || !ReferenceEquals(readback.Scope, scope)
+                    || scope.Thread != Environment.CurrentManagedThreadId || scope.NativeFixture <= 0
+                    || scope.Ordinal <= 0 || readback.Ordinal is < 1 or > 8 || readback.NativeSubmissions >= 8)
+                    return false;
+                identity = new((ulong)scope.NativeFixture, (ulong)scope.Ordinal, (uint)scope.Thread,
+                    (ushort)readback.Ordinal, (ushort)++readback.NativeSubmissions);
+                return true;
+            }
+        }
+        catch { identity = default; return false; }
     }
 
     internal bool Mark(string phase, string edge)

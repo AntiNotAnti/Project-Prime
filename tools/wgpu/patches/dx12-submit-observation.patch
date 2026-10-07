@@ -1,0 +1,122 @@
+--- a/wgpu-hal/src/lib.rs
++++ b/wgpu-hal/src/lib.rs
+@@ -66,6 +66,7 @@
+ #[cfg(vulkan)]
+ pub mod vulkan;
+ 
++pub mod prime_submit_observation;
+ pub mod auxil;
+ pub mod api {
+     #[cfg(dx12)]
+--- a/wgpu-core/src/lib.rs
++++ b/wgpu-core/src/lib.rs
+@@ -104,6 +104,7 @@
+ // made private again.
+ pub mod validation;
+ 
++pub use hal::prime_submit_observation;
+ pub use hal::{api, MAX_BIND_GROUPS, MAX_COLOR_ATTACHMENTS, MAX_VERTEX_BUFFERS};
+ pub use naga;
+ 
+--- a/wgpu-core/src/device/queue.rs
++++ b/wgpu-core/src/device/queue.rs
+@@ -1095,6 +1095,8 @@
+         queue_id: QueueId,
+         command_buffer_ids: &[id::CommandBufferId],
+     ) -> Result<WrappedSubmissionIndex, QueueSubmitError> {
++        let _prime_submission_depth = crate::prime_submit_observation::enter_core();
++        crate::prime_submit_observation::mark_core("core-preparation", "START");
+         profiling::scope!("Queue::submit");
+         api_log!("Queue::submit {queue_id:?}");
+ 
+@@ -1449,6 +1451,8 @@
+                         .flat_map(|pool_execution| pool_execution.cmd_buffers.iter()),
+                 )
+                 .collect::<Vec<_>>();
++            crate::prime_submit_observation::mark_core("core-preparation", "DONE");
++            crate::prime_submit_observation::mark_core("core-hal-submit", "START");
+             unsafe {
+                 queue
+                     .raw
+@@ -1458,7 +1462,9 @@
+                     .map_err(DeviceError::from)?;
+             }
+ 
++            crate::prime_submit_observation::mark_core("core-hal-submit", "DONE");
+             profiling::scope!("cleanup");
++            crate::prime_submit_observation::mark_core("core-post-submit", "START");
+             if let Some(pending_execution) = pending_writes.post_submit(
+                 device.command_allocator.lock().as_mut().unwrap(),
+                 device.raw(),
+@@ -1467,6 +1473,8 @@
+                 active_executions.push(pending_execution);
+             }
+ 
++            crate::prime_submit_observation::mark_core("core-post-submit", "DONE");
++            crate::prime_submit_observation::mark_core("core-life-tracker", "START");
+             // this will register the new submission to the life time tracker
+             let mut pending_write_resources = mem::take(&mut pending_writes.temp_resources);
+             device.lock_life().track_submission(
+@@ -1475,8 +1483,10 @@
+                 active_executions,
+             );
+ 
++            crate::prime_submit_observation::mark_core("core-life-tracker", "DONE");
+             // This will schedule destruction of all resources that are no longer needed
+             // by the user but used in the command stream, among other things.
++            crate::prime_submit_observation::mark_core("core-maintain-poll", "START");
+             let (closures, _) = match device.maintain(fence, wgt::Maintain::Poll) {
+                 Ok(closures) => closures,
+                 Err(WaitIdleError::Device(err)) => return Err(QueueSubmitError::Queue(err)),
+@@ -1484,16 +1494,21 @@
+                 Err(WaitIdleError::WrongSubmissionIndex(..)) => unreachable!(),
+             };
+ 
++            crate::prime_submit_observation::mark_core("core-maintain-poll", "DONE");
++            crate::prime_submit_observation::mark_core("core-post-life", "START");
+             // pending_write_resources has been drained, so it's empty, but we
+             // want to retain its heap allocation.
+             pending_writes.temp_resources = pending_write_resources;
+             device.lock_life().post_submit();
++            crate::prime_submit_observation::mark_core("core-post-life", "DONE");
+ 
+             (submit_index, closures)
+         };
+ 
+         // the closures should execute with nothing locked!
++        crate::prime_submit_observation::mark_core("core-callbacks", "START");
+         callbacks.fire();
++        crate::prime_submit_observation::mark_core("core-callbacks", "DONE");
+ 
+         Ok(WrappedSubmissionIndex {
+             queue_id,
+--- a/wgpu-hal/src/dx12/mod.rs
++++ b/wgpu-hal/src/dx12/mod.rs
+@@ -893,7 +893,9 @@
+         command_buffers: &[&CommandBuffer],
+         signal_fence: Option<(&mut Fence, crate::FenceValue)>,
+     ) -> Result<(), crate::DeviceError> {
++        crate::prime_submit_observation::mark_core("dx12-temp-lists-lock", "START");
+         let mut temp_lists = self.temp_lists.lock();
++        crate::prime_submit_observation::mark_core("dx12-temp-lists-lock", "DONE");
+         temp_lists.clear();
+         for cmd_buf in command_buffers {
+             temp_lists.push(cmd_buf.raw.as_list());
+@@ -901,13 +903,17 @@
+ 
+         {
+             profiling::scope!("ID3D12CommandQueue::ExecuteCommandLists");
++            crate::prime_submit_observation::mark_core("dx12-execute-command-lists", "START");
+             self.raw.execute_command_lists(&temp_lists);
++            crate::prime_submit_observation::mark_core("dx12-execute-command-lists", "DONE");
+         }
+ 
+         if let Some((fence, value)) = signal_fence {
++            crate::prime_submit_observation::mark_core("dx12-signal", "START");
+             self.raw
+                 .signal(&fence.raw, value)
+                 .into_device_result("Signal fence")?;
++            crate::prime_submit_observation::mark_core("dx12-signal", "DONE");
+         }
+ 
+         // Note the lack of synchronization here between the main Direct queue

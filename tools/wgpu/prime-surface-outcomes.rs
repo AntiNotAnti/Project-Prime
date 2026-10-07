@@ -305,6 +305,23 @@ pub unsafe extern "C" fn primeWgpuQueueSubmit(
     }
 }
 
+// Additive, explicitly check-owned observation ABI. Metadata is copied before
+// original submission; no native pointer is retained in its TLS scope. Invalid
+// metadata or a disabled observer still executes the original Submit once.
+#[no_mangle]
+pub unsafe extern "C" fn primeWgpuQueueSubmitObserved(
+    queue: native::WGPUQueue, count: usize, commands: *const native::WGPUCommandBuffer,
+    message: *mut u8, capacity: usize,
+    identity: *const wgc::prime_submit_observation::Identity,
+) -> u32 {
+    let identity = wgc::prime_submit_observation::copy_identity(identity);
+    let observation = wgc::prime_submit_observation::begin_submission(identity);
+    observation.mark("checked-abi", "START");
+    let result = primeWgpuQueueSubmit(queue, count, commands, message, capacity);
+    observation.mark("checked-abi", "DONE");
+    result
+}
+
 #[cfg(test)]
 mod prime_surface_tests {
     use super::*;

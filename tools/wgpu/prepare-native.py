@@ -47,7 +47,7 @@ def archive(source, commit, target):
 
 def patch_fingerprint():
     inputs = [ROOT/'tools/wgpu/prime-appkit-surface.rs', ROOT/'tools/wgpu/prime-surface-outcomes.rs',
-              ROOT/'tools/wgpu/prepare-native.py', ROOT/'tools/wgpu/prime-dx12-wsi-policy.rs', *sorted((ROOT/'tools/wgpu/patches').glob('*.patch'))]
+              ROOT/'tools/wgpu/prepare-native.py', ROOT/'tools/wgpu/prime-dx12-wsi-policy.rs', ROOT/'tools/wgpu/prime-submit-observation.rs', *sorted((ROOT/'tools/wgpu/patches').glob('*.patch'))]
     digest = hashlib.sha256((NATIVE + CORE).encode())
     for item in inputs:
         # Every input is checked-in UTF-8 source/patch text. Git's Windows
@@ -79,6 +79,7 @@ def prepare(offline):
     archive(headers, header_commit, target/'ffi/webgpu-headers')
     core_target = target.parent/(fingerprint + '-core')
     archive(core, CORE, core_target)
+    (core_target/'wgpu-hal/src/prime_submit_observation.rs').write_bytes((ROOT/'tools/wgpu/prime-submit-observation.rs').read_bytes())
     (core_target/'wgpu-hal/src/dx12/prime_wsi.rs').write_bytes((ROOT/'tools/wgpu/prime-dx12-wsi-policy.rs').read_bytes())
     for patch in sorted((ROOT/'tools/wgpu/patches').glob('*.patch')):
         where = core_target if patch.name.startswith('dx12-') else target
