@@ -63,10 +63,27 @@ Slice B turns the one-off visual treatment into a data-driven presentation layer
 
 The architecture deliberately keeps room simulation isolated in the preview worker for this POC. Loading a second full multiplayer `Scene` into the long-lived launcher process would currently share compatibility-era static match state with the player's next real match. Promoting Menu Stage to a continuously live 3D room should happen only after that state boundary is made explicitly scene-local, rather than hiding a second gameplay world behind the menu.
 
+## Slice C: grounding and depth hierarchy
+
+The authored stage system solved the broad composition, but the first real post-Slice-B capture still left one tell: the Hunter was lit more intensely than the room and its old single ellipse shadow sat too low, so the model could still read as a separate render layer.
+
+Slice C tunes the integration instead of adding more decoration:
+
+- Proving Ground's authored crop moves left and slightly down so the bridge/wall perspective leads toward the Hunter instead of cutting horizontally through the torso;
+- a localized elliptical haze field is applied to the room directly behind the Hunter. The surrounding architecture remains readable while the immediate background receives stronger softening and atmospheric perspective;
+- stage profiles now separately author `HunterBackdropHaze` and `ForegroundHaze`, with bounded acceptance checks;
+- the old single contact ellipse is replaced by a broad low-alpha penumbra plus two small foot cores. Ground position is adjusted per Hunter silhouette, including Trace's unusually tall/wide stance;
+- floor bounce is pulled up to the same contact plane instead of sitting below the model;
+- a very light post-Hunter atmospheric veil is drawn over the lower body so extreme suit saturation/contrast shares the room's air without modifying skins, recolors, or gameplay materials;
+- menu-stage Hunter lights use a more neutral fill. Adventure remains warmer and Studio remains cooler, but the default blue fill no longer makes red/orange suits look electrically detached from a muted room;
+- Reduce menu motion continues to freeze fog/dust drift. All grounding and haze remain presentation-only and deterministic.
+
+This is still not true depth-buffer DOF or a physically shared shadow map. Those belong to a later fully live Menu Stage renderer. Slice C is the POC-safe version: it improves depth cues without loading another gameplay world or changing the selected Hunter's real material.
+
 ## macOS
 
 ```sh
-git checkout feature/rmlui-poc-menu-stage-b
+git checkout feature/rmlui-poc-stage-c
 bash tools/rmlui/build-native.sh auto
 
 dotnet run --project src/MphRead/MphRead.csproj \

@@ -58,14 +58,14 @@ namespace MphRead.Mods.Render
         /// cannot provide because the Hunter is drawn in an isolated pass.
         /// </summary>
         private static readonly LightInfo _cinematicLight = new LightInfo(
-            new Vector3(-0.28f, -0.38f, -0.88f), new Vector3(1f, 0.93f, 0.82f),
-            new Vector3(0.72f, 0.16f, 0.67f), new Vector3(0.20f, 0.52f, 0.90f));
+            new Vector3(-0.28f, -0.38f, -0.88f), new Vector3(1f, 0.95f, 0.88f),
+            new Vector3(0.72f, 0.16f, 0.67f), new Vector3(0.32f, 0.50f, 0.72f));
         private static readonly LightInfo _adventureLight = new LightInfo(
-            new Vector3(-0.34f, -0.42f, -0.84f), new Vector3(1f, 0.82f, 0.62f),
-            new Vector3(0.74f, 0.14f, 0.66f), new Vector3(0.24f, 0.42f, 0.76f));
+            new Vector3(-0.34f, -0.42f, -0.84f), new Vector3(1f, 0.88f, 0.70f),
+            new Vector3(0.74f, 0.14f, 0.66f), new Vector3(0.32f, 0.43f, 0.63f));
         private static readonly LightInfo _studioLight = new LightInfo(
-            new Vector3(-0.18f, -0.34f, -0.92f), new Vector3(0.84f, 0.94f, 1f),
-            new Vector3(0.78f, 0.12f, 0.61f), new Vector3(0.24f, 0.62f, 1f));
+            new Vector3(-0.18f, -0.34f, -0.92f), new Vector3(0.88f, 0.95f, 1f),
+            new Vector3(0.78f, 0.12f, 0.61f), new Vector3(0.30f, 0.57f, 0.84f));
 
         private static LightInfo PreviewLight
         {
