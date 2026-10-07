@@ -163,6 +163,7 @@ internal static class Program
                 set("slot0_occupied", 1);
                 set("slot0_local", 1);
                 set("lobby_owner", 1);
+                set("lobby_require_ready", 1);
                 update();
                 Input(2);
                 Action("live lobby READY Enter", test.Density, "lobby:ready");
