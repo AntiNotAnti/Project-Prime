@@ -21,6 +21,8 @@ public sealed partial class DedicatedServer
         internal Task<PartyReservationValidation>? Validation;
         internal PartyReserveStatePacket? Published;
         internal double LastSeen;
+        internal Guid ExpectedReservationId;
+        internal bool AcceptRequested;
         internal bool Rejected;
     }
 
@@ -129,6 +131,7 @@ public sealed partial class DedicatedServer
 
             if (state.Validation is { IsCompleted: true } validationTask)
             {
+                bool accepting = state.AcceptRequested;
                 state.Validation = null;
                 PartyReservationValidation validation;
                 try { validation = validationTask.GetAwaiter().GetResult(); }
@@ -143,6 +146,7 @@ public sealed partial class DedicatedServer
                     || validation.PlayerId == Guid.Empty
                     || validation.AuthorityEpoch != _authorityEpoch)
                 {
+                    state.AcceptRequested = false;
                     state.Rejected = true;
                     PublishPartyReservationState(
                         endpoint, state.RequestId, Guid.Empty,
@@ -161,6 +165,7 @@ public sealed partial class DedicatedServer
                     // allocator state. Never reconstruct a reservation from DB.
                     if (validation.ExistingReservationId != Guid.Empty)
                     {
+                        state.AcceptRequested = false;
                         state.Rejected = true;
                         PublishPartyReservationState(
                             endpoint, state.RequestId,
@@ -175,9 +180,11 @@ public sealed partial class DedicatedServer
                         continue;
                     }
 
-                    if (!TryAllocatePartyReservation(
-                        validation, now, out group))
+                    if (accepting
+                        || !TryAllocatePartyReservation(
+                            validation, now, out group))
                     {
+                        state.AcceptRequested = false;
                         state.Rejected = true;
                         PublishPartyReservationState(
                             endpoint, state.RequestId, Guid.Empty,
@@ -190,8 +197,24 @@ public sealed partial class DedicatedServer
                     }
                 }
 
+                if (validation.ExistingReservationId != Guid.Empty
+                    && validation.ExistingReservationId != group.ReservationId)
+                {
+                    state.AcceptRequested = false;
+                    state.Rejected = true;
+                    PublishPartyReservationState(
+                        endpoint, state.RequestId,
+                        validation.ExistingReservationId,
+                        PartyReservationWireState.Rejected,
+                        PartyReserveStatePacket.NoSlot,
+                        (byte)group.Slots.Count,
+                        (byte)group.Admitted.Count, now);
+                    continue;
+                }
+
                 if (!group.Slots.ContainsKey(validation.PlayerId))
                 {
+                    state.AcceptRequested = false;
                     state.Rejected = true;
                     PublishPartyReservationState(
                         endpoint, state.RequestId, group.ReservationId,
@@ -199,6 +222,25 @@ public sealed partial class DedicatedServer
                         PartyReserveStatePacket.NoSlot,
                         (byte)group.Slots.Count,
                         (byte)group.Admitted.Count, now);
+                    continue;
+                }
+
+                if (accepting)
+                {
+                    state.AcceptRequested = false;
+                    if (state.ExpectedReservationId != group.ReservationId
+                        || !TryAdmitPartyReservationPeer(
+                            endpoint, state, group, now))
+                    {
+                        state.Rejected = true;
+                        PublishPartyReservationState(
+                            endpoint, state.RequestId,
+                            group.ReservationId,
+                            PartyReservationWireState.Rejected,
+                            PartyReserveStatePacket.NoSlot,
+                            (byte)group.Slots.Count,
+                            (byte)group.Admitted.Count, now);
+                    }
                 }
             }
 
@@ -218,6 +260,70 @@ public sealed partial class DedicatedServer
                     (byte)active.Admitted.Count, now);
             }
         }
+    }
+
+    private bool TryAdmitPartyReservationPeer(
+        IPEndPoint endpoint,
+        PartyReservationPeerState peerState,
+        PartySeatReservation group,
+        double now)
+    {
+        if (!group.Active
+            || now >= group.ExpiresAt
+            || group.Admitted.Contains(peerState.PlayerId)
+            || !group.Slots.TryGetValue(peerState.PlayerId, out int reservedSlot)
+            || !PhysicalSlotFree(reservedSlot)
+            || !_queuePeers.TryGetValue(endpoint, out QueuePeer? queuePeer))
+            return false;
+
+        ulong connectionId = _transport?.QueueConnectionId(endpoint) ?? 0;
+        if (connectionId == 0)
+            return false;
+
+        byte[] hello = new byte[7];
+        hello[0] = (byte)PacketType.Hello;
+        hello[1] = NetConfig.ProtocolVersion;
+        hello[2] = (byte)reservedSlot;
+        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(
+            hello.AsSpan(3), queuePeer.ClientId);
+
+        _partyReservationAdmittingSlot = reservedSlot;
+        _queueAdmitting = true;
+        try
+        {
+            HandleHello(new ReceivedPacket(
+                queuePeer.Endpoint,
+                hello,
+                hello.Length,
+                connectionId: connectionId),
+                now,
+                reservedSlot);
+        }
+        finally
+        {
+            _queueAdmitting = false;
+            _partyReservationAdmittingSlot = -1;
+        }
+
+        if (Find(queuePeer.Endpoint)?.SlotIndex != reservedSlot)
+            return false;
+
+        group.Admitted.Add(peerState.PlayerId);
+        _ = PartyReservationServerRelay.AdmittedAsync(
+            group.RequestId,
+            group.ReservationId,
+            peerState.PlayerId);
+
+        _partyReservationPeers.Remove(queuePeer.Endpoint);
+        _queuePeers.Remove(queuePeer.Endpoint);
+
+        if (group.Admitted.Count == group.Slots.Count)
+        {
+            Log($"party reservation {group.ReservationId} fully admitted");
+            _partyReservations.Remove(group.RequestId);
+        }
+
+        return true;
     }
 
     private bool TryAllocatePartyReservation(
@@ -354,53 +460,23 @@ public sealed partial class DedicatedServer
             || group.AuthorityEpoch != accept.AuthorityEpoch
             || now >= group.ExpiresAt
             || group.Admitted.Contains(peerState.PlayerId)
-            || !group.Slots.TryGetValue(peerState.PlayerId, out int reservedSlot)
-            || !PhysicalSlotFree(reservedSlot))
+            || !group.Slots.ContainsKey(peerState.PlayerId))
             return true;
 
-        byte[] hello = new byte[7];
-        hello[0] = (byte)PacketType.Hello;
-        hello[1] = NetConfig.ProtocolVersion;
-        hello[2] = (byte)reservedSlot;
-        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(
-            hello.AsSpan(3), queuePeer.ClientId);
-
-        _partyReservationAdmittingSlot = reservedSlot;
-        _queueAdmitting = true;
-        try
+        // Revalidate immediately before consuming the seat. Party membership,
+        // leadership, or the database request may have changed after the
+        // reservation was originally activated.
+        if (!peerState.AcceptRequested
+            && peerState.Validation == null)
         {
-            HandleHello(new ReceivedPacket(
-                queuePeer.Endpoint,
-                hello,
-                hello.Length,
-                connectionId: packet.ConnectionId),
-                now,
-                reservedSlot);
+            peerState.AcceptRequested = true;
+            peerState.ExpectedReservationId = accept.ReservationId;
+            peerState.Validation = PartyReservationServerRelay.ValidateAsync(
+                peerState.RequestId,
+                _authorityEpoch,
+                peerState.ClientId,
+                peerState.CareerTicket);
         }
-        finally
-        {
-            _queueAdmitting = false;
-            _partyReservationAdmittingSlot = -1;
-        }
-
-        if (Find(queuePeer.Endpoint)?.SlotIndex != reservedSlot)
-            return true;
-
-        group.Admitted.Add(peerState.PlayerId);
-        _ = PartyReservationServerRelay.AdmittedAsync(
-            group.RequestId,
-            group.ReservationId,
-            peerState.PlayerId);
-
-        _partyReservationPeers.Remove(queuePeer.Endpoint);
-        _queuePeers.Remove(queuePeer.Endpoint);
-
-        if (group.Admitted.Count == group.Slots.Count)
-        {
-            Log($"party reservation {group.ReservationId} fully admitted");
-            _partyReservations.Remove(group.RequestId);
-        }
-
         return true;
     }
 
