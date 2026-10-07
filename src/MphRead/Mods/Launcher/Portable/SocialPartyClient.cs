@@ -18,12 +18,14 @@ namespace MphRead.Mods.Launcher
     {
         private static readonly object Sync = new();
         private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(20);
+        private static readonly TimeSpan TravelRefreshInterval = TimeSpan.FromSeconds(30);
         private static CancellationTokenSource? _lifetime;
         private static Task? _loop;
         private static int _generation;
         private static int _forceRefresh;
         private static SocialPartySnapshot _current = new();
         private static string _lastFailure = "";
+        private static string _nextTravelReason = "leader_lobby";
 
         internal static event Action<SocialPartySnapshot>? Changed;
 
@@ -144,6 +146,10 @@ namespace MphRead.Mods.Launcher
         internal static async Task<SocialJoinResolution> PrepareLeaderJoinAsync(
             CancellationToken cancellationToken = default)
         {
+            SocialPartyTravel? travel = Current.Travel;
+            if (travel != null && !travel.IsLeader)
+                return await PrepareTravelJoinAsync(cancellationToken).ConfigureAwait(false);
+
             SocialParty? party = Current.Party;
             if (party == null)
                 return SocialJoinResolution.Fail("not_in_party");
@@ -155,6 +161,65 @@ namespace MphRead.Mods.Launcher
                 return SocialJoinResolution.Fail("party_leader_unavailable");
             return await SocialInviteClient.PrepareFriendJoinAsync(
                 leader, cancellationToken).ConfigureAwait(false);
+        }
+
+        internal static void NoteQuickPlayTravel()
+        {
+            lock (Sync) _nextTravelReason = "quick_play";
+            Interlocked.Exchange(ref _forceRefresh, 1);
+        }
+
+        internal static async Task<SocialJoinResolution> PrepareTravelJoinAsync(
+            CancellationToken cancellationToken = default)
+        {
+            SocialPartyTravel? travel = Current.Travel;
+            if (travel == null)
+                return SocialJoinResolution.Fail("party_travel_unavailable");
+            if (travel.IsLeader)
+                return SocialJoinResolution.Fail("leader_already_there");
+
+            var body = Body("follow_travel");
+            body["travel_id"] = travel.TravelId;
+            body["revision"] = travel.Revision;
+            SocialPartyEnvelope envelope =
+                await InvokeAsync(body, cancellationToken).ConfigureAwait(false);
+            if (envelope.Snapshot != null)
+                PublishSnapshot(envelope.Snapshot);
+            if (!envelope.Ok || envelope.Locator == null)
+                return SocialJoinResolution.Fail(envelope.Status);
+
+            SocialLobbyLocator locator = envelope.Locator;
+            if (!locator.TryAuthorityEpoch(out ulong epoch))
+                return SocialJoinResolution.Fail("invalid_authority_epoch");
+
+            SocialLobbyVerification verified =
+                await ServerBrowserService.VerifySocialLobbyAsync(
+                    locator.Host, locator.Port, epoch, locator.Protocol,
+                    locator.RoomKey, cancellationToken).ConfigureAwait(false);
+            if (!verified.Verified)
+                return SocialJoinResolution.Fail(verified.Error);
+
+            ServerBrowserEntry entry = verified.Entry;
+            return new SocialJoinResolution(
+                true,
+                entry.Listing.Address,
+                entry.Listing.Port,
+                entry.Name,
+                entry.Status.RoomKey,
+                "");
+        }
+
+        internal static Task<SocialPartyMutationResult> DeclineTravelAsync(
+            CancellationToken cancellationToken = default)
+        {
+            SocialPartyTravel? travel = Current.Travel;
+            if (travel == null)
+                return Task.FromResult(new SocialPartyMutationResult(
+                    false, "party_travel_unavailable", Current));
+            var body = Body("decline_travel");
+            body["travel_id"] = travel.TravelId;
+            body["revision"] = travel.Revision;
+            return MutateAsync(body, cancellationToken);
         }
 
         private static Task<SocialPartyMutationResult> TargetMutationAsync(
@@ -190,12 +255,127 @@ namespace MphRead.Mods.Launcher
         {
             CancellationToken token = lifetime.Token;
             DateTimeOffset nextPoll = DateTimeOffset.MinValue;
+            DateTimeOffset nextTravelRefresh = DateTimeOffset.MinValue;
+            bool sawPartyMatch = false;
+            string publishedLobby = "";
 
             try
             {
                 while (!token.IsCancellationRequested)
                 {
                     DateTimeOffset now = DateTimeOffset.UtcNow;
+                    SocialPartySnapshot current = Current;
+                    SocialParty? party = current.Party;
+
+                    if (party is { IsLeader: true }
+                        && NetSession.Active
+                        && (NetSession.IsPlaying || NetSession.IsPostMatch))
+                    {
+                        sawPartyMatch = true;
+                    }
+
+                    SocialLobbyLocator? lobby = SocialInviteClient.CurrentLobby;
+                    bool leaderInVerifiedLobby = party is { IsLeader: true }
+                        && party.Members.Count > 1
+                        && lobby != null
+                        && lobby.ExpiresAt > now
+                        && NetSession.Active
+                        && NetSession.PersistentLobby
+                        && NetSession.IsInLobby;
+
+                    if (leaderInVerifiedLobby
+                        && (lobby!.LobbyId != publishedLobby
+                            || now >= nextTravelRefresh
+                            || current.Travel == null))
+                    {
+                        try
+                        {
+                            string reason;
+                            lock (Sync)
+                            {
+                                reason = _nextTravelReason;
+                                if (reason == "leader_lobby" && sawPartyMatch)
+                                    reason = "regroup";
+                            }
+
+                            var body = Body("publish_travel");
+                            body["lobby_id"] = lobby.LobbyId;
+                            body["reason"] = reason;
+                            SocialPartyEnvelope envelope =
+                                await InvokeAsync(body, token).ConfigureAwait(false);
+                            if (envelope.Snapshot != null)
+                                PublishSnapshot(generation, envelope.Snapshot);
+                            if (envelope.Ok)
+                            {
+                                publishedLobby = lobby.LobbyId;
+                                nextTravelRefresh = DateTimeOffset.UtcNow
+                                    + TravelRefreshInterval;
+                                sawPartyMatch = false;
+                                lock (Sync) _nextTravelReason = "leader_lobby";
+                            }
+                        }
+                        catch (OperationCanceledException) when (token.IsCancellationRequested)
+                        {
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            NoteFailure(ex);
+                            nextTravelRefresh = DateTimeOffset.UtcNow.AddSeconds(10);
+                        }
+                    }
+                    else if (party is { IsLeader: true }
+                        && current.Travel != null
+                        && NetSession.Active
+                        && (!NetSession.PersistentLobby || !NetSession.IsInLobby))
+                    {
+                        try
+                        {
+                            SocialPartyEnvelope envelope = await InvokeAsync(
+                                Body("clear_travel"), token).ConfigureAwait(false);
+                            if (envelope.Snapshot != null)
+                                PublishSnapshot(generation, envelope.Snapshot);
+                            publishedLobby = "";
+                            nextTravelRefresh = DateTimeOffset.MinValue;
+                        }
+                        catch (OperationCanceledException) when (token.IsCancellationRequested)
+                        {
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            NoteFailure(ex);
+                        }
+                    }
+
+                    SocialPartyTravel? travel = Current.Travel;
+                    if (travel is { IsLeader: false }
+                        && !travel.SelfStatus.Equals(
+                            "joined", StringComparison.OrdinalIgnoreCase)
+                        && travel.TryAuthorityEpoch(out ulong travelEpoch)
+                        && NetSession.Active
+                        && NetSession.AuthorityEpoch == travelEpoch)
+                    {
+                        try
+                        {
+                            var body = Body("joined_travel");
+                            body["travel_id"] = travel.TravelId;
+                            body["revision"] = travel.Revision;
+                            SocialPartyEnvelope envelope =
+                                await InvokeAsync(body, token).ConfigureAwait(false);
+                            if (envelope.Snapshot != null)
+                                PublishSnapshot(generation, envelope.Snapshot);
+                        }
+                        catch (OperationCanceledException) when (token.IsCancellationRequested)
+                        {
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            NoteFailure(ex);
+                        }
+                    }
+
                     bool force = Interlocked.Exchange(ref _forceRefresh, 0) != 0;
                     if (force || now >= nextPoll)
                     {
@@ -300,6 +480,8 @@ namespace MphRead.Mods.Launcher
         public string Status { get; set; } = "";
         [JsonPropertyName("snapshot")]
         public SocialPartySnapshot? Snapshot { get; set; }
+        [JsonPropertyName("locator")]
+        public SocialLobbyLocator? Locator { get; set; }
     }
 
     internal sealed class SocialPartySnapshot
@@ -312,6 +494,8 @@ namespace MphRead.Mods.Launcher
         public List<SocialPartyInvite> OutgoingPartyInvites { get; set; } = new();
         [JsonPropertyName("recent_players")]
         public List<SocialRecentPlayer> RecentPlayers { get; set; } = new();
+        [JsonPropertyName("travel")]
+        public SocialPartyTravel? Travel { get; set; }
     }
 
     internal sealed class SocialParty
@@ -366,6 +550,56 @@ namespace MphRead.Mods.Launcher
         public DateTimeOffset LastSeen { get; set; }
         [JsonPropertyName("encounters")]
         public int Encounters { get; set; }
+    }
+
+    internal sealed class SocialPartyTravel
+    {
+        [JsonPropertyName("travel_id")]
+        public string TravelId { get; set; } = "";
+        [JsonPropertyName("revision")]
+        public int Revision { get; set; }
+        [JsonPropertyName("reason")]
+        public string Reason { get; set; } = "leader_lobby";
+        [JsonPropertyName("leader_prime_id")]
+        public string LeaderPrimeId { get; set; } = "";
+        [JsonPropertyName("leader_display_name")]
+        public string LeaderDisplayName { get; set; } = "Player";
+        [JsonPropertyName("lobby_id")]
+        public string LobbyId { get; set; } = "";
+        [JsonPropertyName("room_key")]
+        public string RoomKey { get; set; } = "";
+        [JsonPropertyName("server_name")]
+        public string ServerName { get; set; } = "";
+        [JsonPropertyName("authority_epoch")]
+        public string AuthorityEpoch { get; set; } = "";
+        [JsonPropertyName("expires_at")]
+        public DateTimeOffset ExpiresAt { get; set; }
+        [JsonPropertyName("is_leader")]
+        public bool IsLeader { get; set; }
+        [JsonPropertyName("self_status")]
+        public string SelfStatus { get; set; } = "pending";
+        [JsonPropertyName("members")]
+        public List<SocialPartyTravelMember> Members { get; set; } = new();
+
+        public bool TryAuthorityEpoch(out ulong epoch)
+            => UInt64.TryParse(AuthorityEpoch,
+                System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out epoch) && epoch != 0;
+    }
+
+    internal sealed class SocialPartyTravelMember
+    {
+        [JsonPropertyName("prime_id")]
+        public string PrimeId { get; set; } = "";
+        [JsonPropertyName("display_name")]
+        public string DisplayName { get; set; } = "Player";
+        [JsonPropertyName("is_leader")]
+        public bool IsLeader { get; set; }
+        [JsonPropertyName("is_self")]
+        public bool IsSelf { get; set; }
+        [JsonPropertyName("status")]
+        public string Status { get; set; } = "pending";
     }
 
     internal readonly record struct SocialPartyMutationResult(
