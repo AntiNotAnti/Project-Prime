@@ -202,7 +202,11 @@ namespace MphRead.Mods.Launcher
         {
             CancellationToken token = lifetime.Token;
             Task realtime = SocialRealtimeClient.RunAsync(
-                () => Interlocked.Exchange(ref _forceRefresh, 1), token);
+                () =>
+                {
+                    Interlocked.Exchange(ref _forceRefresh, 1);
+                    SocialPartyClient.RefreshNow();
+                }, token);
             DateTimeOffset nextPoll = DateTimeOffset.MinValue;
             DateTimeOffset nextLobbyRefresh = DateTimeOffset.MinValue;
             ulong registeredEpoch = 0;
