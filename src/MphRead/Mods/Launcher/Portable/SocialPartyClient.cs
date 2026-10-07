@@ -327,8 +327,9 @@ namespace MphRead.Mods.Launcher
                     }
                     else if (party is { IsLeader: true }
                         && current.Travel != null
-                        && NetSession.Active
-                        && (!NetSession.PersistentLobby || !NetSession.IsInLobby))
+                        && (!NetSession.Active
+                            || !NetSession.PersistentLobby
+                            || !NetSession.IsInLobby))
                     {
                         try
                         {
