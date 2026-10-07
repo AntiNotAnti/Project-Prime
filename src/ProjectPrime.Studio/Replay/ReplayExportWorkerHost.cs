@@ -87,6 +87,11 @@ public static class ReplayExportWorkerHost
             _originPins = StudioReplayCachePins.PinReferences(Ticket, startupCancellation.Token);
             foreach (var path in Ticket.RuntimePaths) MphRead.Paths.SetPath(path.Key, path.Value);
             MphRead.Paths.MphKey = Ticket.MphKey; MphRead.Paths.FhKey = Ticket.FhKey;
+            // The detached worker is another process, so it must adopt the same
+            // local presentation settings independently of the editor process.
+            // Do this after restoring the replay's runtime keys so language and
+            // render policy observe the same environment as normal playback.
+            MphRead.Mods.GameSettings.Apply(MphRead.GameState.LoadSettings());
             Directory.CreateDirectory(Ticket.CacheRoot);
             string snapshot = Path.Combine(Ticket.CacheRoot, "source.ppdemo");
             using (var source = new FileStream(Ticket.ReplayPath, FileMode.Open, FileAccess.Read, FileShare.Read))
