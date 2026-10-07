@@ -116,6 +116,10 @@
                         <div class="session_meta">{{hunter_name}} // READY</div>
                     </div>
                 </div>
+                <div class="session_party_line">
+                    <span>PARTY</span>
+                    <b>{{social_party_count}}</b>
+                </div>
                 <div class="session_friends_header">
                     <span>FRIENDS ONLINE</span>
                     <span class="session_online_count">{{social_friend_count}}</span>
