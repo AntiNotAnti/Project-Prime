@@ -83,6 +83,7 @@ struct PrimeMenuData {
     bool social_loading = false;
     bool social_context_open = false;
     bool social_party_game_invite_ready = false;
+    bool social_party_join_leader_ready = false;
     int social_tab = 0;
     Rml::String social_search;
     Rml::String social_status = "CONNECTING";
@@ -170,6 +171,7 @@ public:
         model.Bind("social_loading", &data.social_loading);
         model.Bind("social_context_open", &data.social_context_open);
         model.Bind("social_party_game_invite_ready", &data.social_party_game_invite_ready);
+        model.Bind("social_party_join_leader_ready", &data.social_party_join_leader_ready);
         model.Bind("social_tab", &data.social_tab);
         model.Bind("social_search", &data.social_search);
         model.Bind("social_status", &data.social_status);
@@ -235,6 +237,7 @@ public:
         model.BindEventCallback("social_refresh", &PrimeMenuModel::SocialRefresh, this);
         model.BindEventCallback("social_dnd", &PrimeMenuModel::SocialDnd, this);
         model.BindEventCallback("social_party_game_invite", &PrimeMenuModel::SocialPartyGameInvite, this);
+        model.BindEventCallback("social_party_join_leader", &PrimeMenuModel::SocialPartyJoinLeader, this);
         model.BindEventCallback("social_filter", &PrimeMenuModel::SocialFilter, this);
         model.BindEventCallback("social_select", &PrimeMenuModel::SocialSelect, this);
         model.BindEventCallback("social_context_close", &PrimeMenuModel::SocialContextClose, this);
@@ -296,6 +299,7 @@ public:
         else if (name == "social_loading") data.social_loading = value;
         else if (name == "social_context_open") data.social_context_open = value;
         else if (name == "social_party_game_invite_ready") data.social_party_game_invite_ready = value;
+        else if (name == "social_party_join_leader_ready") data.social_party_join_leader_ready = value;
         else return;
         handle.DirtyVariable(name);
     }
@@ -461,6 +465,8 @@ private:
         { Emit("social:dnd"); }
     void SocialPartyGameInvite(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
         { Emit("social:party-game-invite"); }
+    void SocialPartyJoinLeader(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+        { Emit("social:party-join-leader"); }
 
     void SocialFilter(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
     {
