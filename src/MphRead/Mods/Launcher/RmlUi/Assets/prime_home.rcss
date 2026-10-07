@@ -620,6 +620,27 @@ button {
     justify-content: space-between;
     margin-bottom: 12dp;
 }
+.social_header_actions {
+    display: flex;
+    align-items: center;
+}
+.social_dnd_button {
+    height: 38dp;
+    margin-right: 7dp;
+    padding-left: 11dp;
+    padding-right: 11dp;
+    color: #9bb2c4;
+    background-color: rgba(8,24,39,0.86);
+    border: 1dp rgba(114,199,255,0.16);
+    font-size: 8dp;
+    font-weight: bold;
+    letter-spacing: 0.8dp;
+}
+.social_dnd_button:hover, .social_dnd_button:focus {
+    color: #ffffff;
+    border-color: #72c7ff;
+    background-color: rgba(28,114,225,0.34);
+}
 .social_header .eyebrow { margin-bottom: 1dp; }
 .social_title {
     color: #ffffff;
@@ -745,6 +766,22 @@ button {
     background-color: #55e18c;
 }
 .social_state_dot.loading { background-color: #e1b55a; }
+.social_state_action {
+    margin-left: auto;
+    margin-right: 8dp;
+    padding: 4dp 7dp;
+    color: #9bd7ff;
+    background-color: rgba(24,83,132,0.42);
+    border: 1dp rgba(114,199,255,0.16);
+    font-size: 7dp;
+    font-weight: bold;
+    letter-spacing: 0.5dp;
+}
+.social_state_action:hover, .social_state_action:focus {
+    color: #ffffff;
+    border-color: #72c7ff;
+    background-color: rgba(28,114,225,0.50);
+}
 .social_ttl {
     margin-left: auto;
     color: #435c71;
@@ -848,7 +885,9 @@ button {
     padding-top: 9dp;
 }
 .social_footer_button {
-    padding: 8dp 11dp;
+    flex: 1;
+    margin-right: 4dp;
+    padding: 8dp 6dp;
     color: #718ba1;
     background-color: rgba(4,16,28,0.82);
     border: 1dp rgba(114,199,255,0.10);
