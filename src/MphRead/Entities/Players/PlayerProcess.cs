@@ -1992,14 +1992,49 @@ namespace MphRead.Entities
 
         private void UpdateSpireAltCollisionPose()
         {
-            // Keep collision pose advancing even when no draw pass runs.
+            // Visual rocks continue at 60 Hz. EU1.1 combat samples their pose
+            // on the native 30 Hz step and consumes that sample on the next
+            // native tick, independent of player processing order.
             AnimateSpireAltAttack();
             _spireRockPosL = _spireAltNodes[0]!.Animation.Row3.Xyz + Position;
             _spireRockPosR = _spireAltNodes[1]!.Animation.Row3.Xyz + Position;
+            ulong frame = _scene.FrameCount;
+            if (Mods.Combat.DialancheCollisionHistory.IsNativeCollisionStep(frame))
+            {
+                _dialancheCollision.Record(
+                    Mods.Combat.DialancheCollisionHistory.NativeTick(frame),
+                    _spireRockPosL, _spireRockPosR);
+            }
         }
 
         internal (Vector3 Left, Vector3 Right) ModSpireAltCollisionPose()
             => (_spireRockPosL, _spireRockPosR);
+
+        private bool DialancheCollisionStep(out Vector3 left, out Vector3 right)
+        {
+            ulong frame = _scene.FrameCount;
+            if (!Mods.Combat.DialancheCollisionHistory.IsNativeCollisionStep(frame))
+            {
+                left = right = Position;
+                return false;
+            }
+            var pose = _dialancheCollision.PoseForHit(
+                Mods.Combat.DialancheCollisionHistory.NativeTick(frame));
+            left = pose.Left;
+            right = pose.Right;
+            return true;
+        }
+
+        private bool DialancheHitsVolume(CollisionVolume volume)
+        {
+            if (!DialancheCollisionStep(out Vector3 left, out Vector3 right))
+                return false;
+            CollisionResult discard = default;
+            return CollisionDetection.CheckSphereOverlapVolume(
+                    volume, left, 0.5f, ref discard)
+                || CollisionDetection.CheckSphereOverlapVolume(
+                    volume, right, 0.5f, ref discard);
+        }
 
         private void UpdateStinglarvaSegments()
         {

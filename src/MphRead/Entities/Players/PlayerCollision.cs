@@ -155,6 +155,10 @@ namespace MphRead.Entities
         {
             bool active = LoadFlags.TestFlag(LoadFlags.Active) && ModIsInPlay && !Flags2.TestFlag(PlayerFlags2.Spectating) && !ModFrozen && !_scene.Services.IsReplica;
             ContactAttackKind kind = ContactAttackKind.None;
+            Vector3 leftRock = _spireRockPosL;
+            Vector3 rightRock = _spireRockPosR;
+            bool dialancheStep = Hunter != Hunter.Spire
+                || DialancheCollisionStep(out leftRock, out rightRock);
             if (active && IsAltForm)
             {
                 if (Hunter == Hunter.Samus && Flags1.TestFlag(PlayerFlags1.Boosting)) kind = ContactAttackKind.Boost;
@@ -162,11 +166,16 @@ namespace MphRead.Entities
                     ? BalancedHunterAbilityRules.NoxusStartupFrames(Values.AltAttackStartup * 2)
                     : Values.AltAttackStartup * 2)) kind = ContactAttackKind.Noxus;
                 else if (Flags2.TestFlag(PlayerFlags2.AltAttack))
-                    kind = Hunter switch { Hunter.Spire => ContactAttackKind.Spire, Hunter.Trace => ContactAttackKind.Trace,
-                        Hunter.Weavel => ContactAttackKind.Weavel, _ => ContactAttackKind.None };
+                    kind = Hunter switch
+                    {
+                        Hunter.Spire when dialancheStep => ContactAttackKind.Spire,
+                        Hunter.Trace => ContactAttackKind.Trace,
+                        Hunter.Weavel => ContactAttackKind.Weavel,
+                        _ => ContactAttackKind.None
+                    };
             }
             return new(kind, IsAltForm, _volume.SpherePosition, _volume.SpherePosition, _volume.SphereRadius,
-                _spireRockPosL, _spireRockPosR, NetPlayerLifecycle.Get(SlotIndex), NetPlayerLifecycle.Generation(SlotIndex), active);
+                leftRock, rightRock, NetPlayerLifecycle.Get(SlotIndex), NetPlayerLifecycle.Generation(SlotIndex), active);
         }
 
         internal void ModApplyContactHit(PlayerEntity target, ContactAttackKind kind)
@@ -195,19 +204,10 @@ namespace MphRead.Entities
             // the game assumes the hunter is noxus based on the alt attack timer
             if (attacker.Hunter == Hunter.Spire && attacker.Flags2.TestFlag(PlayerFlags2.AltAttack))
             {
-                CollisionResult unused = default;
-                bool hit = false;
-                if (halfturret)
-                {
-                    var otherVolume = new CollisionVolume(target.Halfturret.Position, 0.45f);
-                    hit = CollisionDetection.CheckSphereOverlapVolume(otherVolume, attacker._spireRockPosL, 0.5f, ref unused)
-                        || CollisionDetection.CheckSphereOverlapVolume(otherVolume, attacker._spireRockPosR, 0.5f, ref unused);
-                }
-                else
-                {
-                    hit = CollisionDetection.CheckSphereOverlapVolume(target.Volume, attacker._spireRockPosL, 0.5f, ref unused)
-                        || CollisionDetection.CheckSphereOverlapVolume(target.Volume, attacker._spireRockPosR, 0.5f, ref unused);
-                }
+                bool hit = halfturret
+                    ? attacker.DialancheHitsVolume(
+                        new CollisionVolume(target.Halfturret.Position, 0.45f))
+                    : attacker.DialancheHitsVolume(target.Volume);
                 if (validated || hit)
                 {
                     Vector3 dir = Vector3.Zero;
@@ -373,9 +373,7 @@ namespace MphRead.Entities
             // the game assumes the hunter is noxus based on the alt attack timer
             if (Hunter == Hunter.Spire && Flags2.TestFlag(PlayerFlags2.AltAttack))
             {
-                CollisionResult unused = default;
-                if (CollisionDetection.CheckSphereOverlapVolume(target.HurtVolume, _spireRockPosL, 0.5f, ref unused)
-                    || CollisionDetection.CheckSphereOverlapVolume(target.HurtVolume, _spireRockPosR, 0.5f, ref unused))
+                if (DialancheHitsVolume(target.HurtVolume))
                 {
                     target.TakeDamage(Values.AltAttackDamage, this);
                     _soundSource.PlaySfx(SfxId.SPIRE_ALT_ATTACK_HIT);
@@ -436,6 +434,13 @@ namespace MphRead.Entities
 
         private void AltAttackHitDoor(DoorEntity door)
         {
+            if (Hunter == Hunter.Spire && Flags2.TestFlag(PlayerFlags2.AltAttack))
+            {
+                Vector3 facing = door.FacingVector;
+                var volume = new CollisionVolume(facing,
+                    door.LockPosition - facing * 1.25f, door.Radius, 2.5f);
+                if (!DialancheHitsVolume(volume)) return;
+            }
             if ((Hunter == Hunter.Spire || Hunter == Hunter.Trace || Hunter == Hunter.Weavel) && Flags2.TestFlag(PlayerFlags2.AltAttack)
                 || Hunter == Hunter.Noxus && _altAttackTime >= Values.AltAttackStartup * 2 // todo: FPS stuff
                 || Features.BoostOpensDoors && Hunter == Hunter.Samus && Flags1.TestFlag(PlayerFlags1.Boosting))
@@ -925,6 +930,9 @@ namespace MphRead.Entities
                 {
                     continue;
                 }
+                bool dialanche = Hunter == Hunter.Spire
+                    && Flags2.TestFlag(PlayerFlags2.AltAttack);
+                if (dialanche) AltAttackHitDoor(door);
                 Vector3 lockPos = door.LockPosition;
                 Vector3 doorFacing = door.FacingVector;
                 Vector3 between = Position - lockPos;
@@ -947,7 +955,7 @@ namespace MphRead.Entities
                             + doorResult.Plane.Y * (lockPos.Y + 0.4f * doorResult.Plane.Y)
                             + doorResult.Plane.Z * (lockPos.Z + 0.4f * doorResult.Plane.Z);
                         HandleCollision(doorResult);
-                        AltAttackHitDoor(door);
+                        if (!dialanche) AltAttackHitDoor(door);
                     }
                 }
             }

@@ -1,4 +1,5 @@
 using MphRead.Mods.Multiplayer;
+using MphRead.Mods.Combat;
 using MphRead.Mods.Network;
 using System;
 using System.Collections.Generic;
@@ -191,8 +192,9 @@ namespace MphRead.Entities
 
         // todo?: could save space with a union
         private readonly Node?[] _spireAltNodes = new Node?[4];
-        private Vector3 _spireRockPosL; // positions after animation
+        private Vector3 _spireRockPosL; // visible positions after animation
         private Vector3 _spireRockPosR;
+        private readonly DialancheCollisionHistory _dialancheCollision = new();
         private Vector3 _spireAltFacing;
         private Vector3 _spireAltUp;
         private readonly Vector3[] _spireAltVecs = new Vector3[16];
@@ -781,6 +783,7 @@ namespace MphRead.Entities
                 _abilities |= AbilityFlags.SpireAltAttack;
                 _spireRockPosL = pos;
                 _spireRockPosR = pos;
+                _dialancheCollision.Reset(pos);
                 _spireAltFacing = Vector3.UnitY;
                 _spireAltUp = Vector3.UnitX;
                 for (int i = 0; i < _spireAltVecs.Length; i++)
