@@ -23,6 +23,8 @@ if (args is ["--snapshot-child", var recordingToSnapshot, var sharedSnapshotRoot
 if (args is ["--stdio-child", var childLoggingDirectory])
 {
     var observation = StdioFixtureObservation.TryCreate(childLoggingDirectory);
+    double writeMs=0,delayMs=0,maxWriteMs=0,maxDelayMs=0; int written=0,delayed=0;
+    LoopTiming Metrics()=>new(written,delayed,writeMs,delayMs,maxWriteMs,maxDelayMs);
     observation?.Record("Started");
     try
     {
@@ -37,15 +39,19 @@ if (args is ["--stdio-child", var childLoggingDirectory])
         observation?.Record("ParentExitSignalSeen");
         for (int i = 0; i < 100; i++)
         {
+            long beforeWrite=Stopwatch.GetTimestamp();
             Console.WriteLine(new string('x', 500)); Console.Error.WriteLine("teardown progress " + i);
-            if (i is 0 or 25 or 50 or 75 or 99) observation?.Record("TeardownProgress", i);
+            double currentWrite=Stopwatch.GetElapsedTime(beforeWrite).TotalMilliseconds; writeMs+=currentWrite; maxWriteMs=Math.Max(maxWriteMs,currentWrite);written++;
+            if (i is 0 or 25 or 50 or 75 or 99) observation?.Record("TeardownProgress", i, timing:Metrics());
+            long beforeDelay=Stopwatch.GetTimestamp();
             await Task.Delay(10);
+            double currentDelay=Stopwatch.GetElapsedTime(beforeDelay).TotalMilliseconds;delayMs+=currentDelay;maxDelayMs=Math.Max(maxDelayMs,currentDelay);delayed++;
         }
         FixturePublication.PublishText(Path.Combine(childLoggingDirectory, "complete"), "complete");
-        observation?.Record("CompletePublished"); return;
+        observation?.Record("CompletePublished", timing:Metrics()); return;
     }
-    catch (Exception ex) { observation?.Record("Threw", error: ex); throw; }
-    finally { observation?.Record("ManagedFinallyReached"); }
+    catch (Exception ex) { observation?.Record("Threw", error: ex, timing:Metrics()); throw; }
+    finally { observation?.Record("ManagedFinallyReached", timing:Metrics()); }
 }
 if (args is ["--stdio-parent", var loggingDirectoryForParent])
 {
@@ -283,7 +289,7 @@ try
         string retainedLog = Path.Combine(loggingDirectory, "worker.log");
         Check(new FileInfo(retainedLog).Length <= 65536 && File.ReadAllText(retainedLog).Contains("teardown progress 99"), "worker diagnostics retain a bounded durable tail without parent-owned console pipes");
     }
-    catch (Exception ex) { StdioFixtureObservation.RetainFailure(loggingDirectory, ex); throw; }
+    catch (Exception ex) { StdioFixtureObservation.RetainFailure(loggingDirectory, ex); await StdioFixtureObservation.ReapOwnedChildAsync(loggingDirectory); throw; }
     string coordinatorRoot = Path.Combine(root, "workers"); Directory.CreateDirectory(coordinatorRoot);
     int MaximumLiveChildren() => Directory.EnumerateFiles(coordinatorRoot, "maximum-live-children", SearchOption.AllDirectories)
         .Select(path => int.Parse(FixturePublication.ReadText(path))).DefaultIfEmpty(0).Max();

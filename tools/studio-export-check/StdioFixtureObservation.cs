@@ -14,6 +14,7 @@ internal sealed class StdioFixtureObservation(string directory)
     private int? _lastProgress;
     private string? _errorType;
     private string? _error;
+    private LoopTiming? _timing;
 
     internal static StdioFixtureObservation? TryCreate(string directory)
     {
@@ -21,19 +22,19 @@ internal sealed class StdioFixtureObservation(string directory)
         catch (Exception) { return null; }
     }
 
-    internal void Record(string phase, int? progress = null, Exception? error = null)
+    internal void Record(string phase, int? progress = null, Exception? error = null, LoopTiming? timing=null)
     {
         // Five progress checkpoints, not one extra synchronous publication per log write.
         try
         {
-            _lastPhase = phase; _lastProgress = progress ?? _lastProgress;
-            if (_events.Count < 12) _events.Add(new { Phase = phase, Progress = progress, ElapsedMilliseconds = _elapsed.Elapsed.TotalMilliseconds });
+            _lastPhase = phase; _lastProgress = progress ?? _lastProgress; _timing=timing??_timing;
+            if (_events.Count < 12) _events.Add(new { Phase = phase, Progress = progress, ElapsedMilliseconds = _elapsed.Elapsed.TotalMilliseconds, Timing=timing });
             if (error != null) { _errorType = error.GetType().FullName; _error = Limit(error.ToString(), 8192); }
             Publish(Path.Combine(directory, "child-observation.json"), JsonSerializer.Serialize(new
             {
                 Scope = "pure export stdio fixture observation only", ProcessId = _processId,
                 WorkerIdentity = _identity, StartedUtc = _started, ElapsedMilliseconds = _elapsed.Elapsed.TotalMilliseconds,
-                Phase = _lastPhase, LastProgress = _lastProgress, Events = _events, ErrorType = _errorType, Error = _error,
+                Phase = _lastPhase, LastProgress = _lastProgress, Events = _events, Timing=_timing, ErrorType = _errorType, Error = _error,
                 ExitMarkerMeaning = "Self-reported managed finally only; not an observed OS exit code."
             }));
         }
@@ -109,6 +110,51 @@ internal sealed class StdioFixtureObservation(string directory)
         }
     }
 
+    internal static async Task<StdioChildReapOutcome> ReapOwnedChildAsync(string directory)
+    {
+        // Failure-only cleanup follows retained evidence. It never changes the original assertion.
+        int? processId=null;string? initialPresence=null;bool signalSent=false,observedExit=false;string? error=null;
+        try
+        {
+            string observation=Path.Combine(directory,"child-observation.json");
+            if(!File.Exists(observation))initialPresence="Ownership observation absent; no signal";
+            else
+            {
+                using var value=JsonDocument.Parse(FixturePublication.ReadText(observation));
+                processId=value.RootElement.GetProperty("ProcessId").GetInt32();
+                string? identity=value.RootElement.GetProperty("WorkerIdentity").GetString();
+                if(processId<=0||processId==Environment.ProcessId)throw new InvalidDataException("Invalid owned descendant PID.");
+                try
+                {
+                    using var process=Process.GetProcessById(processId.Value);
+                    initialPresence=ReplayExportWorkerIdentity.Assess(process,identity).ToString();
+                    if(ReplayExportWorkerIdentity.Matches(process,identity))
+                    {
+                        // A missing/malformed/different-incarnation identity must never signal a PID.
+                        process.Kill();signalSent=true;
+                        await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                        observedExit=process.HasExited;
+                    }
+                }
+                catch(ArgumentException){initialPresence="Exited (PID absent)";observedExit=true;}
+            }
+        }
+        catch(Exception ex){error=Limit(ex.GetType().FullName+": "+ex.Message,2048);}
+        var result=new StdioChildReapOutcome(processId,initialPresence,signalSent,observedExit,error);
+        // One fixed small report; observations or routine path failures cannot mask the bare rethrow.
+        try
+        {
+            string? runnerTemporary=Environment.GetEnvironmentVariable("RUNNER_TEMP");
+            string destination=Path.Combine(string.IsNullOrWhiteSpace(runnerTemporary)?Path.GetTempPath():runnerTemporary,"studio-ui","export-logging");
+            Directory.CreateDirectory(destination);
+            string report=JsonSerializer.Serialize(new{Scope="Failure-only pure stdio fixture owned descendant cleanup, outside unchanged original5s/four predicates",Result=result,ActualChildExitCode=(int?)null,ActualChildExitCodeMeaning="Not collected for an orphan/non-child PID; observed process disappearance is not an exit status."});
+            Publish(Path.Combine(destination,"cleanup-observation.json"),report);
+            Console.Error.WriteLine("Stdio fixture failure cleanup: "+report);
+        }
+        catch(Exception){ }
+        return result;
+    }
+
     private static string? CurrentIdentity()
     {
         try { using var process = Process.GetCurrentProcess(); return ReplayExportWorkerIdentity.Capture(process); }
@@ -137,3 +183,7 @@ internal sealed class StdioFixtureObservation(string directory)
         }
     }
 }
+
+internal readonly record struct LoopTiming(int WrittenIterations,int CompletedDelays,double CumulativeWriteMilliseconds,double CumulativeDelayMilliseconds,double MaximumWriteMilliseconds,double MaximumDelayMilliseconds);
+
+internal readonly record struct StdioChildReapOutcome(int? ProcessId,string? InitialPresence,bool SignalSent,bool ObservedExit,string? Error);

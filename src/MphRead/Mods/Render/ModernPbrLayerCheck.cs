@@ -183,7 +183,10 @@ internal static class ModernPbrLayerCheck
                 throw new InvalidOperationException("Final opaque presentation did not close the transparent layer's alpha.");
             for (int c = 0; c < 3; c++)
                 if (Math.Abs(transparent[c] - expectedTransparent[c]) > 2)
+                {
+                    ReportTransparentMismatch(expectedTransparent, transparent, c);
                     throw new InvalidOperationException("Final presentation relit or attenuated a transparent layer after PBR.");
+                }
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(post, "gamma_value"), 2f);
             ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-06 START");
             Quad(-1, 1, 0);
@@ -395,6 +398,21 @@ internal static class ModernPbrLayerCheck
         if (GraphicsApi.CheckFramebufferStatus(FramebufferTarget.Framebuffer) != FramebufferErrorCode.FramebufferComplete)
             throw new InvalidOperationException("PBR pixel fixture framebuffer is incomplete.");
         return fbo;
+    }
+
+    private static void ReportTransparentMismatch(byte[] expected, byte[] actual, int channel)
+    {
+        try
+        {
+            if (!ShaderDiagnosticPolicy.Enabled(
+                Environment.GetEnvironmentVariable(ShaderDiagnosticPolicy.EnvironmentVariable),
+                Environment.GetEnvironmentVariable("PRIME_WGPU_VALIDATION"),
+                Environment.GetEnvironmentVariable("PRIME_WGPU_GPU_VALIDATION")))
+                return;
+            ShaderDiagnosticPolicy.Write(Console.Error,
+                $"DIAGNOSTIC renderwindowcheck layered-pbr transparent-comparison expectedRead=2 actualRead=4 channel={channel} absoluteDelta={Math.Abs(actual[channel] - expected[channel])} expectedRgba={expected[0]},{expected[1]},{expected[2]},{expected[3]} actualRgba={actual[0]},{actual[1]},{actual[2]},{actual[3]}");
+        }
+        catch { } // Observation cannot replace the unchanged strict pixel failure.
     }
 
     private static byte[] Pixel(int x, int y)
