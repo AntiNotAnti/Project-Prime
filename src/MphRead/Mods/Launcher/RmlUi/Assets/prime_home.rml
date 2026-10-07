@@ -167,6 +167,68 @@
                 <div class="session_hint">PARTY CONTROLS APPEAR AFTER JOINING OR CREATING A LOBBY.</div>
             </div>
 
+            <!-- New native multiplayer entry. The existing network services
+                 still own matching, server discovery and lobby creation. -->
+            <div id="multiplayer_stage" data-if="multiplayer_mode">
+                <div id="play_header" class="enter_left">
+                    <div class="eyebrow">PLAY // MULTIPLAYER</div>
+                    <div class="play_title">FIND YOUR NEXT HUNT</div>
+                    <div class="play_status">{{play_status}}</div>
+                </div>
+
+                <div id="play_browser" data-if="play_browser_mode" class="enter_left">
+                    <div class="play_toolbar">
+                        <button id="play_quick" class="play_action primary" data-event-click="play_quick">QUICK PLAY</button>
+                        <button id="play_create_open" class="play_action" data-event-click="play_create_open">CREATE LOBBY</button>
+                        <button id="play_refresh" class="play_action" data-event-click="play_browse">REFRESH</button>
+                        <button id="play_back" class="play_action" data-event-click="play_back">BACK</button>
+                    </div>
+                    <div class="play_panel">
+                        <div class="play_panel_head">
+                            <span>LIVE SERVER DIRECTORY</span>
+                            <span>{{play_server_count}}</span>
+                        </div>
+                        <button id="play_entry0" class="play_server" data-if="play_server0_present" data-event-click="play_server0"><b>{{play_server0_name}}</b><span>{{play_server0_details}}</span></button>
+                        <button id="play_entry1" class="play_server" data-if="play_server1_present" data-event-click="play_server1"><b>{{play_server1_name}}</b><span>{{play_server1_details}}</span></button>
+                        <button id="play_entry2" class="play_server" data-if="play_server2_present" data-event-click="play_server2"><b>{{play_server2_name}}</b><span>{{play_server2_details}}</span></button>
+                        <button id="play_entry3" class="play_server" data-if="play_server3_present" data-event-click="play_server3"><b>{{play_server3_name}}</b><span>{{play_server3_details}}</span></button>
+                        <button id="play_entry4" class="play_server" data-if="play_server4_present" data-event-click="play_server4"><b>{{play_server4_name}}</b><span>{{play_server4_details}}</span></button>
+                        <button id="play_entry5" class="play_server" data-if="play_server5_present" data-event-click="play_server5"><b>{{play_server5_name}}</b><span>{{play_server5_details}}</span></button>
+                        <button id="play_entry6" class="play_server" data-if="play_server6_present" data-event-click="play_server6"><b>{{play_server6_name}}</b><span>{{play_server6_details}}</span></button>
+                        <button id="play_entry7" class="play_server" data-if="play_server7_present" data-event-click="play_server7"><b>{{play_server7_name}}</b><span>{{play_server7_details}}</span></button>
+                        <div id="play_browser_empty" data-if="play_no_servers" class="play_empty">NO PUBLIC SESSIONS LISTED. CREATE YOUR OWN OR ENTER AN ADDRESS.</div>
+                    </div>
+                </div>
+
+                <div id="play_connect" class="enter_right" data-if="play_browser_mode">
+                    <div class="eyebrow">YOUR DEPLOYMENT</div>
+                    <div class="play_form_label">PLAYER NAME</div>
+                    <input id="play_player_name" class="play_input" type="text" maxlength="24" value="Player" />
+                    <div class="play_form_label">DIRECT CONNECT</div>
+                    <input id="play_join_address" class="play_input" type="text" maxlength="120" value="" />
+                    <button id="play_join" class="play_action primary wide" data-event-click="play_join">JOIN SERVER</button>
+                    <div class="play_form_hint">HOST OR HOST:PORT // SELECT A LIVE ROW TO JOIN INSTANTLY</div>
+                </div>
+
+                <div id="play_create" class="enter_left" data-if="play_create_mode">
+                    <div class="eyebrow">DEPLOYMENT // CREATE LOBBY</div>
+                    <div class="play_section_title">NEW MULTIPLAYER LOBBY</div>
+                    <div class="play_form_label">LOBBY NAME</div>
+                    <input id="play_create_name" class="play_input" type="text" maxlength="48" value="Project Prime lobby" />
+                    <div class="play_form_label">FIRST ARENA</div>
+                    <button id="play_next_map" class="play_choice" data-event-click="play_next_map">{{play_create_map}} <span>CHANGE &gt;</span></button>
+                    <div class="play_form_label">GAME TYPE</div>
+                    <button id="play_next_mode" class="play_choice" data-event-click="play_next_mode">{{play_create_mode_name}} <span>CHANGE &gt;</span></button>
+                    <div class="play_form_label">HOST LOCATION</div>
+                    <button id="play_toggle_host" class="play_choice" data-event-click="play_toggle_host">{{play_create_host}} <span>CHANGE &gt;</span></button>
+                    <div class="play_form_hint">DEFAULT 8 PLAYERS // ADVANCED RULES REMAIN AVAILABLE AFTER CREATION</div>
+                    <div class="play_toolbar">
+                        <button id="play_create_submit" class="play_action primary" data-event-click="play_create_submit">CREATE &amp; JOIN</button>
+                        <button id="play_create_cancel" class="play_action" data-event-click="play_back">BACK TO BROWSER</button>
+                    </div>
+                </div>
+            </div>
+
             <div id="lobby_stage" data-if="lobby_mode">
                 <div id="lobby_heading" class="enter_left">
                     <div class="eyebrow">MULTIPLAYER // LIVE LOBBY</div>
