@@ -136,6 +136,7 @@ try
         Check(StudioOfflineAudio.SampleCount(sampler.Count, fps) == (sampler.Count * 48000 + fps - 1) / fps, "PCM duration includes the final video frame without drift");
     }
     var constant = new StudioPcmAudio(48000, 1, Enumerable.Repeat(.5f, 48000).ToArray());
+    AudioAuthoringChecks.Run(root, Check);
     string mixed = Path.Combine(root, "mixed.wav");
     StudioOfflineAudio.WriteWave(mixed, 60, 60, 60,
         [new(60, StudioAudioBus.Game, constant), new(90, StudioAudioBus.Combat, constant)], new(Game: .5f, Combat: .5f));

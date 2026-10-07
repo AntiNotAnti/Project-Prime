@@ -306,6 +306,7 @@ jobs:
           Write-Host 'Actual GUI process nonzero exit code preserved: 2.'
           if ('${{ matrix.renderer }}' -eq 'dx12') {
             $env:PRIME_WGPU_VALIDATION = '1'
+            $env:PRIME_WGPU_GPU_VALIDATION = '1'
           }
           $stdout = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.stdout.log'
           $stderr = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.stderr.log'
@@ -317,6 +318,7 @@ jobs:
           $backend = if ('${{ matrix.renderer }}' -eq 'dx12') { 'DirectX 12' } else { 'Vulkan' }
           $proof = (Get-Content $stdout -Raw) + (Get-Content $stderr -Raw)
           if ('${{ matrix.renderer }}' -eq 'dx12' -and -not $proof.Contains('native validation requested backend=DirectX 12 flags=Validation')) { throw 'Missing requested native DirectX validation evidence' }
+          if ('${{ matrix.renderer }}' -eq 'dx12' -and -not $proof.Contains('DX12 GPU-based validation and synchronized command queue validation enabled')) { throw 'Missing actual ID3D12Debug1 GPU validation setter evidence' }
           foreach ($phase in @('renderbackendprobe', 'renderwindowcheck')) {
             if (-not $proof.Contains("[$phase] PASS backend=$backend")) { throw "Missing actual $backend $phase native pass evidence" }
           }
@@ -325,6 +327,7 @@ jobs:
         shell: pwsh
         run: |
           Remove-Item Env:PRIME_WGPU_VALIDATION -ErrorAction SilentlyContinue
+          Remove-Item Env:PRIME_WGPU_GPU_VALIDATION -ErrorAction SilentlyContinue
           $stdout = Join-Path $env:RUNNER_TEMP 'renderer-windows-dx12.default.stdout.log'
           $stderr = Join-Path $env:RUNNER_TEMP 'renderer-windows-dx12.default.stderr.log'
           $process = Start-Process -FilePath (Resolve-Path publish/modern-win/ProjectPrime.exe) -ArgumentList @('-renderfullcheck', '-renderer', 'dx12') -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
@@ -334,6 +337,7 @@ jobs:
           if ($process.ExitCode -ne 0) { exit $process.ExitCode }
           $proof = (Get-Content $stdout -Raw) + (Get-Content $stderr -Raw)
           if ($proof.Contains('native validation requested')) { throw 'Production-default renderer unexpectedly enabled diagnostic validation' }
+          if ($proof.Contains('GPU-based validation and synchronized command queue validation enabled')) { throw 'Production-default renderer unexpectedly enabled GPU diagnostics' }
           foreach ($phase in @('renderbackendprobe', 'renderwindowcheck')) {
             if (-not $proof.Contains("[$phase] PASS backend=DirectX 12")) { throw "Missing production-default DirectX $phase native pass evidence" }
           }
@@ -559,22 +563,23 @@ jobs:
             --self-contained true -p:PublishSingleFile=true -o "publish/modern-${{ matrix.rid }}"
           chmod +x "publish/modern-${{ matrix.rid }}/ProjectPrime"
       - name: OpenGL texture-update compatibility reference
-        # GitHub's Apple-Silicon hosted runner may expose no NSGL pixel format
-        # at all. Keep one real macOS OpenGL reference on the Intel runner;
-        # Metal and MoltenVK remain exercised on both architectures below.
-        if: matrix.rid == 'osx-x64'
+        # Hosted Paravirtual Macs may have no accelerated legacy CGL format.
+        # Exact typed construction failure plus an independent four-request
+        # census reports UNAVAILABLE; capable hosts must pass every GL pixel.
+        env:
+          PRIME_ACCEPTANCE_HOSTED_NSGL_UNAVAILABLE: '1'
         run: '"publish/modern-${{ matrix.rid }}/ProjectPrime" -textureupdatecheck -renderer opengl'
       - name: Metal device, draw and window present
         env:
           # This permits only measured absence of accelerated legacy CGL formats
-          # on the hosted ARM Paravirtual device. Metal pixels/restart remain
+          # on the measured hosted Paravirtual device. Metal pixels/restart stay
           # mandatory; capable hosts must pass the original GL fallback oracle.
-          PRIME_ACCEPTANCE_HOSTED_NSGL_UNAVAILABLE: ${{ matrix.rid == 'osx-arm64' && '1' || '0' }}
+          PRIME_ACCEPTANCE_HOSTED_NSGL_UNAVAILABLE: '1'
         run: |
           "publish/modern-${{ matrix.rid }}/ProjectPrime" -renderfullcheck -renderer metal
       - name: MoltenVK device, draw and window present
         env:
-          PRIME_ACCEPTANCE_HOSTED_NSGL_UNAVAILABLE: ${{ matrix.rid == 'osx-arm64' && '1' || '0' }}
+          PRIME_ACCEPTANCE_HOSTED_NSGL_UNAVAILABLE: '1'
         run: tools/check-macos-modern-vulkan.sh "publish/modern-${{ matrix.rid }}/ProjectPrime" --window
 
   enhanced-hunter-checks:

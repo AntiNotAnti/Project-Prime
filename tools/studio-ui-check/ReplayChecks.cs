@@ -15,8 +15,14 @@ internal static partial class Program
 {
     private static async Task CheckReplayEditorAsync(string output,string data,string fixture)
     {
-        Directory.CreateDirectory(data); string source=Path.Combine(data,"acceptance.ppdemo"); File.Copy(fixture,source);
+        Directory.CreateDirectory(data); string source=Path.Combine(data,"acceptance.ppdemo"); ReplayAudioFixture.Create(fixture,source);
         byte[] immutable=File.ReadAllBytes(source);
+        File.WriteAllText(Path.Combine(output,"replay-audio-fixture-identity.json"),System.Text.Json.JsonSerializer.Serialize(new
+        {
+            Scope="Owned canonical recorder copy adds explicit WeaponFired frame2/value7 and Damage frame3/value27 metadata events; original source bytes are preserved.",
+            InputPath=fixture,InputSha256=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(fixture))).ToLowerInvariant(),
+            AuthoredSha256=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(immutable)).ToLowerInvariant()
+        },new System.Text.Json.JsonSerializerOptions{WriteIndented=true}));
         var paths=new StudioPaths(AppContext.BaseDirectory,data);
         var window=new StudioWindow(paths,new StudioSettings(),new(Guid.NewGuid(),StudioOpenKind.Home));
         await window.InitializeAsync(promptForRecovery:false);window.Show();
@@ -62,6 +68,7 @@ internal static partial class Program
             await CaptureReplayVariantsAsync(window,document,output,"replay-studio-camera",1);
             await CheckReplayGraphPointerAsync(window,document,output);
             await CheckReplayJobsAsync(window,document,output);
+            var audioPreferences=await CheckReplayAudioControlsAsync(window,document,paths,output,data);
             Button four=document.Host.GetVisualDescendants().OfType<Button>().Single(button=>button.Content?.ToString()=="Four Views");
             Click(window,four);await CaptureReplayVariantsAsync(window,document,output,"replay-studio-four-view",4);Click(window,four);
             TabControl inspector=document.Host.GetVisualDescendants().OfType<TabControl>().Single(control=>control.Items.OfType<TabItem>().Any(tab=>tab.Header?.ToString()=="Camera"));
@@ -87,7 +94,7 @@ internal static partial class Program
             using(var restored=new ReplayStudioSession(source,paths))
                 Check(restored.Camera==session.Camera&&restored.Position==session.Position&&restored.Fov==90,
                     "actual Replay document saves private presentation settings without rewriting recording");
-            var oldHost=document.Host;session.Player.SetRange(30,60);session.Player.Advance(TimeSpan.Zero);
+            var oldHost=document.Host;session.SetAudioSettings(audioPreferences);session.Player.SetRange(30,60);session.Player.Advance(TimeSpan.Zero);
             string clip=Path.Combine(data,"acceptance.ppclip");await document.SaveAsync(clip,CancellationToken.None);
             Check(document.Kind==StudioDocumentKind.ReplayClip&&document.Path==clip&&!ReferenceEquals(oldHost,document.Host),
                 "native Replay Save As creates canonical clip project and replaces document presentation host");
@@ -100,6 +107,8 @@ internal static partial class Program
                 &&document.Host.IsEffectivelyVisible&&session.Camera==StudioReplayCameraMode.Free,
                 "saved clip continues in the actual native tab with selected range and presentation camera preserved: "
                 +System.Text.Json.JsonSerializer.Serialize(new{session.Player.Status,currentAttached,oldAttached,session.Camera}));
+            Check(System.Text.Json.JsonSerializer.Serialize(session.AudioSettings)==System.Text.Json.JsonSerializer.Serialize(audioPreferences),
+                "saved canonical clip copies validated source-bound audio preferences into its replacement session");
             await CaptureReplayVariantsAsync(window,document,output,"replay-studio-saved-clip",1);
             Check(immutable.SequenceEqual(File.ReadAllBytes(source))&&!MphRead.Mods.Network.NetSession.Active,
                 "native Replay controls retain immutable recording and construct no network session");

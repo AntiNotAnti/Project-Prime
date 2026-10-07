@@ -18,6 +18,9 @@ public sealed partial class ReplayStudioWorkspace : UserControl, IDisposable
     private readonly TextBlock _status = new() { Margin = new Thickness(8), TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _error = new() { Foreground = Brushes.Orange, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(8) };
     private readonly ListBox _events = new(), _markers = new(), _keys = new(), _exports = new();
+    private readonly TextBox _eventFilter = new() { PlaceholderText = "Filter event tracks (kills, damage, shots…)" };
+    private StudioReplayEvent[] _recordedEvents = [];
+    private string? _recordedEventsSourceHash;
     private readonly TextBox _label = new() { Watermark = "Marker name", Text = "Bookmark" };
     private readonly TextBox _tags = new() { Watermark = "Tags, separated by commas" };
     private readonly TextBox _position = new() { Text = "0, 5, 10", Watermark = "Position X, Y, Z" };
@@ -32,7 +35,7 @@ public sealed partial class ReplayStudioWorkspace : UserControl, IDisposable
     private readonly DispatcherTimer _viewTimer;
     private readonly System.Diagnostics.Stopwatch _viewClock = System.Diagnostics.Stopwatch.StartNew();
     private TimeSpan _lastViewTime;
-    private int _eventCount = -1, _keyCount = -1;
+    private int _keyCount = -1;
     private string _markerSignature = "";
     private string? _actionError;
     private StudioReplayAnalysis? _analysis;
@@ -84,6 +87,7 @@ public sealed partial class ReplayStudioWorkspace : UserControl, IDisposable
         inspector.Items.Add(new TabItem { Header = "Export", Content = ExportPanel() });
         DockPanel.SetDock(inspector, Dock.Right); root.Children.Add(inspector); root.Children.Add(_viewGrid);
         Content = root; SetViews(false);
+        _session.Changed += RefreshAudioControls;
         _refresh = new DispatcherTimer(TimeSpan.FromMilliseconds(100), DispatcherPriority.Background, (_, _) => Refresh());
         _refresh.Stop();
         AttachedToVisualTree += (_, _) => { _refresh.Start(); _lastViewTime = _viewClock.Elapsed; _viewTimer.Start(); };
@@ -191,9 +195,8 @@ public sealed partial class ReplayStudioWorkspace : UserControl, IDisposable
         reelOrder.Children.Add(Button("Reel ↑", () => { if (_markers.SelectedItem is MarkerItem { Marker.Track: "Reel" } marker) _session!.Player.MoveReel(marker.Marker.Id, -1); RefreshMarkers(); }));
         reelOrder.Children.Add(Button("Reel ↓", () => { if (_markers.SelectedItem is MarkerItem { Marker.Track: "Reel" } marker) _session!.Player.MoveReel(marker.Marker.Id, 1); RefreshMarkers(); }));
         panel.Children.Add(reelOrder);
-        var filter = new TextBox { Watermark = "Filter event tracks (kills, damage, shots…)" };
-        filter.TextChanged += (_, _) => { _events.ItemsSource = _session!.Player.Events.Where(e => string.IsNullOrWhiteSpace(filter.Text) || e.Type.Contains(filter.Text, StringComparison.OrdinalIgnoreCase)).Select(e => new EventItem(e)); };
-        panel.Children.Add(filter); _events.Height = 190;
+        _eventFilter.TextChanged += (_, _) => ApplyEventFilter();
+        panel.Children.Add(_eventFilter); _events.Height = 190;
         _events.SelectionChanged += (_, _) => { if (_events.SelectedItem is EventItem marker) _session!.Seek(marker.Event.Frame); };
         panel.Children.Add(_events);
         return new ScrollViewer { Content = panel };
@@ -322,36 +325,20 @@ public sealed partial class ReplayStudioWorkspace : UserControl, IDisposable
     private Control ExportPanel()
     {
         var panel = Panel();
-        var fps = new ComboBox { ItemsSource = new[] { 24, 30, 48, 60, 90, 120, 144 }, SelectedItem = 60 };
-        var resolution = new ComboBox { ItemsSource = new[] { "1280 × 720", "1920 × 1080", "2560 × 1440", "3840 × 2160" }, SelectedIndex = 1 };
-        var encoder = new TextBox { Text = "ffmpeg", Watermark = "Encoder executable (blank for PNG frames)" };
-        var offlineAudio = new CheckBox { Content = "Mix offline replay audio", IsChecked = true };
-        var gameVolume = new Slider { Minimum = 0, Maximum = 2, Value = 1 };
-        var combatVolume = new Slider { Minimum = 0, Maximum = 2, Value = 1 };
-        var replayVolume = new Slider { Minimum = 0, Maximum = 2, Value = 1 };
-        var musicVolume = new Slider { Minimum = 0, Maximum = 2, Value = .5 };
-        var music = new TextBox { Watermark = "Optional music PCM .wav" };
+        var fps = new ComboBox { Name = "ReplayExportFps", ItemsSource = new[] { 24, 30, 48, 60, 90, 120, 144 }, SelectedItem = 60 };
+        var resolution = new ComboBox { Name = "ReplayExportResolution", ItemsSource = new[] { "1280 × 720", "1920 × 1080", "2560 × 1440", "3840 × 2160" }, SelectedIndex = 1 };
+        var encoder = new TextBox { Name = "ReplayExportEncoder", Text = "ffmpeg", Watermark = "Encoder executable (blank for PNG frames)" };
         panel.Children.Add(new TextBlock { Text = "Output rate" }); panel.Children.Add(fps); panel.Children.Add(resolution); panel.Children.Add(encoder);
-        panel.Children.Add(offlineAudio);
-        panel.Children.Add(new TextBlock { Text = "Game volume" }); panel.Children.Add(gameVolume);
-        panel.Children.Add(new TextBlock { Text = "Combat feedback volume" }); panel.Children.Add(combatVolume);
-        panel.Children.Add(new TextBlock { Text = "Replay cues volume" }); panel.Children.Add(replayVolume);
-        panel.Children.Add(new TextBlock { Text = "Music volume" }); panel.Children.Add(musicVolume); panel.Children.Add(music);
-        panel.Children.Add(Button("Choose Music WAV…", async () =>
-        {
-            var top = TopLevel.GetTopLevel(this); if (top == null) return;
-            var files = await top.StorageProvider.OpenFilePickerAsync(new() { Title = "Offline Music", AllowMultiple = false,
-                FileTypeFilter = [new FilePickerFileType("PCM Wave") { Patterns = ["*.wav"] }] });
-            try { music.Text = files.FirstOrDefault()?.TryGetLocalPath(); } finally { foreach (var file in files) file.Dispose(); }
-        }));
-        panel.Children.Add(Button("Export Selection", () =>
+        panel.Children.Add(AudioPanel());
+        var export = Button("Export Selection", () =>
         {
             var range = Range(); (int w, int h) = resolution.SelectedIndex switch { 0 => (1280, 720), 2 => (2560, 1440), 3 => (3840, 2160), _ => (1920, 1080) };
             _session!.Player.QueueExport(new(Path.Combine(_session.ExportDirectory, Guid.NewGuid().ToString("N")), range.Start, range.End, w, h,
                 (int)fps.SelectedItem!, encoder.Text, Camera: _session.Camera, GameHud: _session.GameHud, ReplayOverlay: _session.ReplayOverlay,
-                Audio: new(offlineAudio.IsChecked == true, new((float)gameVolume.Value, (float)combatVolume.Value, (float)replayVolume.Value, (float)musicVolume.Value), music.Text),
+                Audio: SnapshotAudioFromControls(),
                 View: _session.View(w, h)));
-        }));
+        });
+        export.Name = "ReplayExportSelection"; panel.Children.Add(export);
         panel.Children.Add(Button("Extract Immutable Clip…", async () =>
         {
             var top = TopLevel.GetTopLevel(this); if (top == null) return;
@@ -442,15 +429,33 @@ public sealed partial class ReplayStudioWorkspace : UserControl, IDisposable
     private void Refresh()
     {
         if (_session == null) return; var status = _session.Player.Status;
+        RefreshAudioControls();
         _status.Text = $"{status.State} · Frame {status.Frame:N0} / {status.DurationFrames:N0} · {status.Rate:0.##}× · {status.CheckpointCount} checkpoints ({status.CheckpointBytes / 1024:N0} KiB)" +
             (_session.Player.CameraEditsPending ? _session.Player.CameraEditsWriting ? " · Camera edits saving…" : " · Camera edits unsaved" : "");
         _error.Text = status.Error ?? _session.Player.CameraSaveError ?? _session.TransportJobError ?? _actionError; _error.IsVisible = _error.Text != null;
-        if (_eventCount != _session.Player.Events.Count) { _eventCount = _session.Player.Events.Count; _events.ItemsSource = _session.Player.Events.Select(e => new EventItem(e)).ToArray(); }
+        CacheRecordedEvents();
         if (_keyCount != _session.Player.CameraKeys.Count) RefreshKeys();
         string signature = string.Join("|", _session.Player.Markers.Select(m => $"{m.Id}:{m.StartFrame}:{m.EndFrame}"));
         if (_markerSignature != signature) { _markerSignature = signature; RefreshMarkers(); }
         _exports.ItemsSource = _session.Player.Exports.Select(e => new ExportItem(e)).ToArray(); _timeline?.InvalidateVisual();
     }
+    private bool CacheRecordedEvents()
+    {
+        string? hash = _session?.Player.PresentationSourceHash;
+        if (hash == _recordedEventsSourceHash) return false;
+        bool cleared = _recordedEventsSourceHash != null;
+        if (cleared) { _recordedEvents = []; _recordedEventsSourceHash = null; ApplyEventFilter(); }
+        // Source identity is captured by preparation before owner adoption. Only
+        // adopted immutable metadata can finalize the shared event snapshot.
+        if (hash == null || _session?.Player.Status.Ready != true) return cleared;
+        _recordedEvents = _session.Player.Events.ToArray();
+        _recordedEventsSourceHash = hash;
+        ApplyEventFilter();
+        return true;
+    }
+    private void ApplyEventFilter() => _events.ItemsSource = _recordedEvents
+        .Where(item => string.IsNullOrWhiteSpace(_eventFilter.Text) || item.Type.Contains(_eventFilter.Text, StringComparison.OrdinalIgnoreCase))
+        .Select(item => new EventItem(item)).ToArray();
     private void RefreshKeys() { _keyCount = _session!.Player.CameraKeys.Count; _keys.ItemsSource = _session.Player.CameraKeys.Select(k => new KeyItem(k)).ToArray(); }
     private void RefreshMarkers() => _markers.ItemsSource = _session!.Player.Markers.Select(m => new MarkerItem(m)).ToArray();
     private static StackPanel Panel() => new() { Spacing = 8, Margin = new Thickness(8) };
@@ -473,6 +478,8 @@ public sealed partial class ReplayStudioWorkspace : UserControl, IDisposable
     private sealed record ExportItem(StudioReplayExportStatus Job) { public override string ToString() => $"{Job.State} · {Job.Frames}/{Job.TotalFrames}\n{Job.Error ?? Job.Directory}"; }
     public void Dispose()
     {
-        if (_disposed) return; _disposed = true;DisposeJobScope(); _refresh?.Stop(); _viewTimer.Stop(); _comparisonViewport?.Dispose(); foreach (var viewport in _viewports) viewport.Dispose(); _viewports.Clear();
+        if (_disposed) return; _disposed = true;
+        if (_session != null) _session.Changed -= RefreshAudioControls;
+        DisposeJobScope(); _refresh?.Stop(); _viewTimer.Stop(); _comparisonViewport?.Dispose(); foreach (var viewport in _viewports) viewport.Dispose(); _viewports.Clear();
     }
 }

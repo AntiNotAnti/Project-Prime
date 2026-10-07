@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="../studio-lifecycle-check/ReplayAudioFixture.cs" Link="ReplayAudioFixture.cs" />
     <ProjectReference Include="../../src/ProjectPrime.Studio/ProjectPrime.Studio.csproj" Condition="'$(StudioHostSnapshotPath)' == ''" />
     <PackageReference Include="Avalonia.Headless" Version="12.1.2" />
   </ItemGroup>

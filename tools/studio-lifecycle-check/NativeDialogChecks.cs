@@ -34,6 +34,7 @@ internal static partial class Program
             Console.WriteLine("REPLAY-CAPSULE-DUMPED");
         }
         else if(await TryHandleNativeAdmissionCommandAsync(window,command))return true;
+        else if(await TryHandleNativeAudioCommandAsync(window,paths,command))return true;
         else if(command.StartsWith("modal-primitive ",StringComparison.Ordinal))
         {
             ((MapStudioDocument)window.Documents.ActiveDocument!).Host.ShowPrimitiveDialog(command[16..]);

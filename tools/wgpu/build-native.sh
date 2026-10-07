@@ -76,6 +76,8 @@ if $unit_tests; then
     if [[ "$requested" == win-x64 ]]; then
         cargo test --manifest-path "${src}-core/wgpu-hal/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --features dx12 --lib prime_dx12_tests
         cargo test --manifest-path "${src}-core/wgpu-hal/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --features dx12 --lib prime_fxc_source_name_tests
+        cargo test --manifest-path "${src}-core/wgpu-hal/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --features dx12 --lib prime_dx12_device_removal_diagnostic_tests
+        cargo test --manifest-path "${src}-core/wgpu-hal/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --features dx12 --lib prime_dx12_gpu_validation_diagnostic_tests
     fi
 fi
 mkdir -p "$out"

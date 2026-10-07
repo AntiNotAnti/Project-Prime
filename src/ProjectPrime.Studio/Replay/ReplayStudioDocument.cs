@@ -76,7 +76,9 @@ public sealed class ReplayStudioDocument : IStudioDocument, IStudioDocumentNotif
                 { Camera = previous.Camera, PlayerSlot = previous.PlayerSlot, Position = previous.Position, Rotation = previous.Rotation,
                     Fov = previous.Fov, GameHud = previous.GameHud, ReplayOverlay = previous.ReplayOverlay, ConstantSpeed = previous.ConstantSpeed,
                     CollisionAvoidance = previous.CollisionAvoidance, WhatShooterSaw = previous.WhatShooterSaw };
-                replacement.SavePresentation();
+                await replacement.Player.WaitForPreparationAsync(cancellation);
+                EnsureOpen(cancellation);
+                replacement.SetAudioSettings(previous.SnapshotAudioOptions());
                 Host.Dispose(); previous.Changed -= OnChanged; previous.Dispose();
                 Path = saved; Kind = StudioDocumentKind.ReplayClip; Session = replacement; replacement.Changed += OnChanged;
                 Host = new(this); unadopted = null;

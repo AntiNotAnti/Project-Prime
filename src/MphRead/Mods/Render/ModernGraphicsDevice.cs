@@ -27,14 +27,61 @@ namespace MphRead.Mods.Render
         private static nint _macVulkanLoader;
         // wgpu stores this process-wide, including after a device is disposed.
         private static readonly LogCallback _nativeLog = OnNativeLog;
+        private static bool _nativeValidationDiagnosticsEnabled;
+        private static readonly object _nativeValidationDiagnosticLock = new();
+        private static readonly Queue<string> _nativeValidationErrors = new();
+        private static readonly Queue<string> _nativeValidationWarnings = new();
+        private static int _nativeValidationErrorsForwarded;
+        private static int _nativeValidationWarningsForwarded;
+        private const int NativeValidationErrorLimit = 64;
+        private const int NativeValidationWarningLimit = 32;
+        private const int NativeValidationMessageLimit = 4096;
 
         private static void OnNativeLog(LogLevel level, byte* message, void* userdata)
         {
             try
             {
-                Mods.DebugLog.Checkpoint("wgpu", $"{level}: {PtrString(message, "no detail")}");
+                string detail = PtrString(message, "no detail");
+                try { Mods.DebugLog.Checkpoint("wgpu", $"{level}: {detail}"); }
+                catch { /* An optional disk-log failure must not discard the priority lane. */ }
+                if (System.Threading.Volatile.Read(ref _nativeValidationDiagnosticsEnabled)
+                    && level is LogLevel.Error or LogLevel.Warn)
+                {
+                    // Info-level generated HLSL can fill the ordinary diagnostic
+                    // tail. Preserve native errors separately and forward them
+                    // before a later device-loss/map failure obscures their cause.
+                    string bounded = detail.Length <= NativeValidationMessageLimit
+                        ? detail : detail[..NativeValidationMessageLimit] + " [truncated]";
+                    string record = $"[wgpu-validation] {level}: {bounded}";
+                    bool error = level == LogLevel.Error;
+                    int limit = error ? NativeValidationErrorLimit : NativeValidationWarningLimit;
+                    lock (_nativeValidationDiagnosticLock)
+                    {
+                        Queue<string> records = error ? _nativeValidationErrors : _nativeValidationWarnings;
+                        records.Enqueue(record);
+                        while (records.Count > limit) records.Dequeue();
+                    }
+                    int forwarded = error
+                        ? System.Threading.Interlocked.Increment(ref _nativeValidationErrorsForwarded)
+                        : System.Threading.Interlocked.Increment(ref _nativeValidationWarningsForwarded);
+                    if (forwarded <= limit) Console.Error.WriteLine(record);
+                    else if (forwarded == limit + 1)
+                        Console.Error.WriteLine($"[wgpu-validation] {level}: immediate diagnostic limit reached; latest records remain retained");
+                }
             }
             catch { /* Never unwind a logging failure through native frames. */ }
+        }
+
+        internal static void AppendNativeValidationDiagnostics(System.Text.StringBuilder output)
+        {
+            if (!System.Threading.Volatile.Read(ref _nativeValidationDiagnosticsEnabled)) return;
+            lock (_nativeValidationDiagnosticLock)
+            {
+                if (_nativeValidationErrors.Count == 0 && _nativeValidationWarnings.Count == 0) return;
+                output.AppendLine("Prioritized native validation diagnostics:");
+                foreach (string warning in _nativeValidationWarnings) output.AppendLine(warning);
+                foreach (string error in _nativeValidationErrors) output.AppendLine(error);
+            }
         }
 
         private readonly WebGPU _api;
@@ -248,6 +295,7 @@ namespace MphRead.Mods.Render
                     }
                     native = nativeExtension;
                     bool nativeValidation = Environment.GetEnvironmentVariable("PRIME_WGPU_VALIDATION") == "1";
+                    System.Threading.Volatile.Write(ref _nativeValidationDiagnosticsEnabled, nativeValidation);
                     native.SetLogCallback(new PfnLogCallback(_nativeLog), null);
                     native.SetLogLevel(nativeValidation || Mods.DebugLog.Active ? LogLevel.Info : LogLevel.Error);
                     Mods.DebugLog.Checkpoint("render",

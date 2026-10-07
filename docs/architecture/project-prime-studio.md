@@ -628,6 +628,150 @@ semantic/visual oracles rather than cross-driver PNG byte identity.
 
 ## Completion contract and evidence scopes
 
+The working-tree batch after `b692ef6db2eea87f09d7545442d42b863310329c`
+completes the required R7 event-to-WAV authoring route. The Export inspector can
+add, update and remove at most 64 recorded-event bindings, choose an audio bus,
+set finite cue gain and an optional recorded integer value, and validate mono/
+stereo PCM16 or float32 WAV through a cancellable central document job. Source-bound
+presentation preferences retain bus volumes, audio switches, music and bindings;
+clip Save As transfers them only after the replacement source is prepared.
+Queued canonical exports independently copy the binding collection. Recorded
+event types/values are cached after the matching immutable recording is Ready,
+rather than rebuilding the full event list every graphics callback. These source
+changes are implemented. The separate source-linked suite passes 1,186 checks,
+including 26 cue-authoring preference/validation/freeze cases
+(`/tmp/project-prime-r7-audio-pure-check.log`). The final loaded UI passes 858
+checks with 87 actual retained captures. Focused native cue acceptance passes 110
+(91 base plus 19 cue checks) on engine `161ae5be6f96a721bba045d203f4fa5debc63aeee3383b70f36f6050dd73fa92`,
+Studio `30a5730d45b98d03714e924491bab49083aa906439abc3166e4a4d57641b47f7`
+and native d26. Actual Add Cue / Export Selection controls produce immutable
+worker tickets despite subsequent editor changes. Each independent terminal
+worker renders three PNGs and 2,400 stereo 48 kHz PCM frames: the audible Replay
+bus has RMS 0.1767625848345871 / 4,792 nonzero samples, while the muted bus is
+exactly 0 / 0. Logs/captures are `/tmp/project-prime-host-audio-ui-final-dispatch.log`,
+`/tmp/project-prime-studio-audio-ui-final-dispatch-evidence` and
+`/tmp/project-prime-native-replay-audio-final-evidence`. The owned event fixture
+has SHA-256 `a758177e90ba455a90e1c9dd20fdd6b08611cbaa88a4880671a3b6aa6ec03b10`;
+the earlier native Replay 158 recording has no metadata events and remains
+unchanged. The separate current full native Replay 158 also passes on the exact
+161ae5be/Studio30a573/d26 graph (`/tmp/project-prime-host-native-replay-audio-full.log`).
+Neither result is relabeled to the later 560cef8e/c392973f final build: production
+Replay/Studio source bodies are unchanged, while its additional CLI capability
+helper has a separate build/physical-renderer scope.
+
+The accepted b692 paired macOS SDK receipt is
+`artifacts/studio-acceptance/final-release/osx-arm64-atomic-status/release-evidence.json`:
+162,442,580 bytes, SHA-256
+`c58dd6ea2f899ab000af0453ce95c6d05d69259a490ff117901e663c4f6d3f2a`.
+Its exact tracked raw source identity is
+`17ea1d3588d6b5aa859fed195160dc788d0f4d7934d066906a6ec314297c092f`,
+matching b692 tree `82c37c850a3c54f4d864ac1db1093bb423252e0b`. This is a local
+self-contained `osx-arm64` acceptance package at test version 1.2.3 / IPC 1,
+with strict ad hoc signatures and actual extracted Game launcher/thumbnail and
+Studio Home/clean exit evidence. It is not a production release, Developer ID
+signature or notarized package. Published IL verifies the canonical immutable
+status reader and all three consumers. Packaged Home does not establish Map/
+Replay parity or accept newer cue/diagnostic sources; the full native Replay 158
+scope remains its separate 4d2ebe/4fa9f2 graph.
+
+The initial actual b692 workflow `37556696151` observation records 26 successful
+scoped jobs. Its later 38-row snapshot has 27 successes, five failures and six
+not done; overall acceptance remains false. Its tested merge
+`cb5b4490851e60f615db7231430e8e6fe9de2ad7` has the exact b692 source tree.
+Windows Studio job `112586714897` fails a negative fixture because denied rename
+returns `UnauthorizedAccessException` / HRESULT `0x80070005`, rather than the
+fixture's expected `IOException`. The repair accepts only the two denial exception
+types with native codes 5, 32 or 33; the canonical Read|Delete positive replacement
+and complete old/new snapshot oracles remain mandatory. Actual next-head Windows
+execution is pending. DX12 job `112586714751` still fails its validation-enabled
+full run; the causal trace is incomplete and the required production-default
+second full run is skipped, so neither is accepted. Linux package job
+`112586714885` fails the unchanged baseline `NetTransport.Send` allocation path,
+whose formatted result was `0.01 B/op`. The new fixture reports exact allocated
+bytes, successful sends, socket errors and connection-lock counters plus runtime/
+OS/architecture and GC diagnostics. The strict zero-allocation failure is
+intermittent and unclassified; the production transport and exact zero gate are
+unchanged. Actual Intel GL constructor capability and ARM restart test sequencing
+are the other recorded failures. The narrow helper repair remains a next-CI gate.
+
+The new native diagnostic source fingerprint is
+`d26e910ce2f23e5c90e885c927d47c22e6d3227ac4a3ce14e6380ed5e5835d84`.
+Managed diagnostics retain and forward bounded Warn/Error records ahead of noisy
+lower-priority logs. With `PRIME_WGPU_VALIDATION=1` and the additional exact
+`PRIME_WGPU_GPU_VALIDATION=1` opt-in, DX12 calls the actual GPU-based/synchronized
+command-queue validation setters before device creation. A failed opted-in Map
+queries `GetDeviceRemovedReason` and reports the actual operation/reason HRESULTs.
+Default rendering does not enable these diagnostics. The workflow must prove the
+actual setters and pass the validation-enabled full check, then run a second full
+check with both diagnostic variables unset. The actual macOS production/fault
+and both Android native builds now match d26 and bridge ABI 1, with 35 real fault
+subprocess cases and 10 packaging checks; their exact native hashes are retained
+in `artifacts/studio-acceptance/final-release/native-diagnostics-d26/current/all-native-receipts.json`.
+These component proofs do not establish Windows DX12 or hardware recovery.
+Historical f070/b692/8d binary results remain attributed to their exact
+inputs. Required final-head checks remain the authority; scoped greens do not
+accept the whole migration.
+
+The fresh coalesced Main build passes zero errors / 132 warnings in 52.92 s;
+all 1,412 tracked source inputs are unchanged before/after. The durable receipt is
+`artifacts/studio-acceptance/final-release/audio-diagnostics-main-build/manifest.json`:
+engine `161ae5be6f96a721bba045d203f4fa5debc63aeee3383b70f36f6050dd73fa92`,
+Studio `9d52dbb8b0b57fcea77692bf35404f6ac9a80c08bd9ffbc5b63212ce9aa3f6b2`,
+native `6b6a9f2b74ca3ea935c3b08be503dd84cecaac6d2a53b261ebbf24723ac83f44` / d26.
+The fresh architecture scan passes 8,235 source contracts and 66 negative cases;
+tracked asset guard and whitespace checks pass. These working inputs retain their
+actual precommit b692 version attribution; they are not relabeled to a future
+committed head. The later Studio-only cue graph and actual PCM proof above are
+separate from this original `9d52dbb8` build receipt.
+
+The Android SDK build also passes zero errors / 137 warnings in 91.29 s.
+All 1,177 evaluated raw source inputs match before/after, SHA-256
+`6f61ab9086a0b33019d27266aa7d09f18c9807cbd934e2ba6793dfb8c887eb90`.
+They differ from committed b692; the actual generated version remains
+`1.0.0.0` / `local+b692ef6db2eea87f09d7545442d42b863310329c`.
+Actual APK inspection now passes on those exact inputs:
+118,459,468 bytes, SHA-256
+`446a0ac0d1d2d7abb7b5d9e7fb37a0142fd3e758c2937ba130a3e2e580ccce8d`,
+recorded in `artifacts/studio-acceptance/final-platform/android-d26/manifest.json`
+and `acceptance.json`. Both packaged ABI canonical DLLs are identical, retaining
+247 Map types, the passive player and nine allowed pure Replay helpers, with
+zero creator GUI/Studio types or references. Both d26 native payloads match their
+verified builds; development APK v2/v3 signatures verify. The build includes
+b692 plus four frozen working deltas, rather than a future committed head.
+No local Android runtime or later helper/final-head CI result is inferred.
+
+The new shared `HostedLegacyGlCapabilityCheck` passes 54 exact-source diagnostic
+contracts (`/tmp/project-prime-hosted-legacy-contract.log`). Actual physical CGL
+returns two formats for all four requests, so the allowance is rejected and all
+handles are released. Explicit Actions/Mac ARM64 or X64 opt-in, exact typed NSGL
+constructor/callback, an actually measured exact Apple Paravirtual adapter and
+four independently known-absent CGL results are all required. Standalone GL probes
+a disposable offscreen Metal device only after that exact failure. `UNAVAILABLE`
+does not claim GL pixel success. The proven-unavailable restart branch initializes
+a real modern owner before the unchanged overlay release, double shutdown and
+fresh restart pixel/reupload oracle; capable GL checks remain unchanged. Actual
+hosted capability/Metal/MoltenVK and required final-head CI remain pending.
+
+The final Main build including this helper passes zero errors / 131 warnings in
+44.94 s. All 1,413 source inputs are unchanged before/after, SHA-256
+`782fc06f8178cd41cf628a4cf07435639f5f1d368346eb7aa39804e1d509ae26`.
+Its exact receipt is `artifacts/studio-acceptance/final-release/r7-platform-main-build/build-identity.json`,
+engine `560cef8e9dbf9197422e44d5719487846b9851a61a2a228db83e6f8ca80c8110`
+and Studio `c392973f43dd50ba25b6b56cb235024cf47d99e26b4766fbd4c1ac742cf8de94`,
+with the same verified 6b6a9f2b/d26 native payload. The source scan passes 8,239
+and negative self-tests 66, as retained in
+`/tmp/project-prime-studio-r7-platform-architecture.log` and
+`/tmp/project-prime-studio-r7-platform-architecture-self.log`. Generated precommit
+b692 version attribution is preserved; no future committed head is claimed.
+
+Actual physical M4 full Metal/fresh GL/modern restart also passes on this exact
+560cef8e/d26 graph with production defaults, exit 0 in 2.766493417 s. The durable
+receipt `artifacts/studio-acceptance/final-release/physical-metal-gl-r7-final/manifest.json`
+records clean exit of both the owned application and awake lease. This actual
+capable-device proof does not establish hosted CGL absence, Windows device-loss
+causality or final cross-platform acceptance. Overall migration acceptance remains
+false until required final-head checks succeed.
+
 The final platform-diagnostic managed build passes zero errors / 133 existing
 warnings in 53.76 s (`/tmp/project-prime-studio-platform-diagnostics-final-build.log`).
 Its immutable snapshot is `/tmp/project-prime-studio-platform-diagnostics-final-snapshot`,

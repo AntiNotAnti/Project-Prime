@@ -31,6 +31,9 @@ public sealed partial class ReplayStudioSession : IStudioReplayGraphicsSession, 
     public Func<string,Func<CancellationToken,Task>,CancellationToken,Task>? JobRunner { get; }
     private bool _comparisonInitialized;
     private int? _graphicsGeneration;
+    private StudioReplayAudioOptions _audioSettings = ReplayStudioAudioSettings.Freeze(new());
+    private (string SourceHash, StudioReplayAudioOptions Options)? _pendingAudioSettings;
+    public StudioReplayAudioOptions AudioSettings { get { RestoreBoundAudio(); return _audioSettings; } }
     public event Action? Changed;
     public ReplayStudioSession(string path, StudioPaths paths, IEnumerable<string>? packageDirectories = null, Func<string, Task>? exportWorkerLauncher = null,
         Func<string,Func<CancellationToken,Task>,CancellationToken,Task>? jobRunner=null)
@@ -44,7 +47,25 @@ public sealed partial class ReplayStudioSession : IStudioReplayGraphicsSession, 
         RestorePresentation(); Player.Changed += OnChanged;
         Player.ExportWorkerLauncher = exportWorkerLauncher ?? ReplayExportWorkerHost.LaunchAsync;
     }
-    private void OnChanged() => Changed?.Invoke();
+    private void OnChanged() { RestoreBoundAudio(); Changed?.Invoke(); }
+    private void RestoreBoundAudio()
+    {
+        if (_pendingAudioSettings is not { } saved || Player.PresentationSourceHash is not { } hash) return;
+        _pendingAudioSettings = null;
+        if (StringComparer.OrdinalIgnoreCase.Equals(hash, saved.SourceHash)) _audioSettings = saved.Options;
+    }
+    public void SetAudioSettings(StudioReplayAudioOptions options)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (Player.PresentationSourceHash == null) throw new InvalidOperationException("Wait for replay preparation before editing audio cues.");
+        var frozen = ReplayStudioAudioSettings.Freeze(options);
+        var previous = AudioSettings;
+        _audioSettings = frozen;
+        try { SavePresentation(); }
+        catch { _audioSettings = previous; throw; }
+        Changed?.Invoke();
+    }
+    public StudioReplayAudioOptions SnapshotAudioOptions() => ReplayStudioAudioSettings.Freeze(AudioSettings);
     public StudioReplayView View(int width, int height) => new(width, height, Camera, PlayerSlot,
         Position, Rotation, Fov, GameHud, ReplayOverlay, ConstantSpeed: ConstantSpeed,
         CollisionAvoidance: CollisionAvoidance, Combat: CombatSelection, CombatRays: CombatRays, ShooterView: WhatShooterSaw);
@@ -126,7 +147,10 @@ public sealed partial class ReplayStudioSession : IStudioReplayGraphicsSession, 
     {
         Directory.CreateDirectory(Path.GetDirectoryName(_presentationPath)!);
         string staging = _presentationPath + ".staging";
-        File.WriteAllText(staging, JsonSerializer.Serialize(new Presentation(Camera, PlayerSlot, Position, Rotation, Fov, GameHud, ReplayOverlay, ConstantSpeed, CollisionAvoidance, WhatShooterSaw),
+        string? audioHash = Player.PresentationSourceHash ?? _pendingAudioSettings?.SourceHash;
+        var audio = Player.PresentationSourceHash == null ? _pendingAudioSettings?.Options ?? AudioSettings : AudioSettings;
+        File.WriteAllText(staging, JsonSerializer.Serialize(new Presentation(Camera, PlayerSlot, Position, Rotation, Fov, GameHud, ReplayOverlay, ConstantSpeed, CollisionAvoidance, WhatShooterSaw,
+            audioHash, audio),
             new JsonSerializerOptions { IncludeFields = true, WriteIndented = true }));
         File.Move(staging, _presentationPath, true);
     }
@@ -135,6 +159,7 @@ public sealed partial class ReplayStudioSession : IStudioReplayGraphicsSession, 
         if (!File.Exists(_presentationPath)) return;
         try
         {
+            if (new FileInfo(_presentationPath).Length > 1024 * 1024) return;
             var value = JsonSerializer.Deserialize<Presentation>(File.ReadAllText(_presentationPath), new JsonSerializerOptions { IncludeFields = true });
             if (value == null) return;
             if (!Enum.IsDefined(value.Camera) || value.PlayerSlot is < 0 or > 7 || !float.IsFinite(value.Position.LengthSquared())
@@ -142,11 +167,17 @@ public sealed partial class ReplayStudioSession : IStudioReplayGraphicsSession, 
             Camera = value.Camera; PlayerSlot = value.PlayerSlot; Position = value.Position; Rotation = Quaternion.Normalize(value.Rotation);
             Fov = value.Fov; GameHud = value.GameHud; ReplayOverlay = value.ReplayOverlay; ConstantSpeed = value.ConstantSpeed;
             CollisionAvoidance = value.CollisionAvoidance; WhatShooterSaw = value.WhatShooterSaw;
+            if (value.AudioSourceHash is { Length: 64 } hash && hash.All(char.IsAsciiHexDigit) && value.Audio != null)
+            {
+                try { _pendingAudioSettings = (hash, ReplayStudioAudioSettings.Freeze(value.Audio)); }
+                catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { }
+            }
         }
         catch (Exception ex) when (ex is IOException or JsonException) { }
     }
     private sealed record Presentation(StudioReplayCameraMode Camera, int PlayerSlot, Vector3 Position,
-        Quaternion Rotation, float Fov, bool GameHud, bool ReplayOverlay, bool ConstantSpeed, bool CollisionAvoidance = true, bool WhatShooterSaw = true);
+        Quaternion Rotation, float Fov, bool GameHud, bool ReplayOverlay, bool ConstantSpeed, bool CollisionAvoidance = true, bool WhatShooterSaw = true,
+        string? AudioSourceHash = null, StudioReplayAudioOptions? Audio = null);
     public void Dispose()
     {
         if (_disposed) return; _disposed = true;

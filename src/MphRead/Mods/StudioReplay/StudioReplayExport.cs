@@ -25,8 +25,14 @@ public sealed partial class StudioReplayPlayer
         if (request.StartFrame > request.EndFrame || request.EndFrame > Status.DurationFrames) throw new ArgumentOutOfRangeException(nameof(request.EndFrame));
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_exports.Count(j => !j.Terminal) >= 32) throw new InvalidOperationException("Replay export queue is full.");
+        if (request.Audio?.Bindings is { Count: > 64 }) throw new InvalidDataException("Replay audio supports at most 64 event cue bindings.");
         byte[] cameraState = ExportCameraSidecarState();
-        var job = new ExportJob(request with { Directory = Path.GetFullPath(request.Directory) }, cameraState);
+        // Detached tickets serialize immediately; in-process exports need the same
+        // collection isolation when the editor changes its cue list afterwards.
+        var audio = request.Audio is { } options
+            ? options with { Bindings = options.Bindings == null ? null : Array.AsReadOnly(options.Bindings.ToArray()) }
+            : null;
+        var job = new ExportJob(request with { Directory = Path.GetFullPath(request.Directory), Audio = audio }, cameraState);
         if (ExportWorkerLauncher is { } launch)
         {
             if (_playbackPath == null) throw new InvalidOperationException("Prepare the replay before starting its detached export.");

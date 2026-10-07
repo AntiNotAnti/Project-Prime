@@ -12,6 +12,8 @@ public sealed partial class StudioReplayPlayer
 {
     private string? _playbackContentHash;
     private string? _preparedLogicalContentHash, _preparedSourceContentHash;
+    /// <summary>Exact immutable recording or clip descriptor identity captured by preparation.</summary>
+    public string? PresentationSourceHash => Volatile.Read(ref _preparedLogicalContentHash);
     private ReplayVirtualClipDocument? _preparedClipDescriptor;
     private ReplayCameraTrackIdentity? _preparedCameraIdentity;
     private byte[]? _preparedCameraState;

@@ -989,6 +989,317 @@
         "New paired SDK package after final source push; f070 package remains separate accepted historical scope",
         "All required Windows/Linux/macOS and Android checks for the current PR head"
       ]
+    },
+    "cueAuthoringAndDx12Diagnostics": {
+      "sourceScope": "Exact coalesced working-tree audio/diagnostics inputs after b692ef6db2eea87f09d7545442d42b863310329c. Generated version retains precommit metadata; no future committed-head identity or final CI acceptance is inferred.",
+      "acceptedOverall": false,
+      "replayCueAuthoring": {
+        "status": "passed-scoped-ui-native-cue-and-full-replay-final-ci-pending",
+        "sources": [
+          "src/ProjectPrime.Studio/Replay/ReplayStudioAudioSettings.cs",
+          "src/ProjectPrime.Studio/Replay/ReplayStudioAudioPanel.cs",
+          "src/ProjectPrime.Studio/Replay/ReplayStudioSession.cs",
+          "src/ProjectPrime.Studio/Replay/ReplayStudioDocument.cs",
+          "src/MphRead/Mods/StudioReplay/StudioReplayExport.cs"
+        ],
+        "maximumBindings": 64,
+        "scope": "Real add/update/remove recorded-event-to-WAV controls, selectable bus/gain/optional integer value and cancellable central PCM validation. Immutable source hash binds restored preferences; SaveAs transfers after replacement preparation. UI and canonical QueueExport independently freeze binding collections. Event choices cache only after the matching recording is Ready; no per-frame full event materialization.",
+        "isolatedChecks": {
+          "status": "passed-source-linked",
+          "checks": 1186,
+          "authoringChecks": 26,
+          "log": "/tmp/project-prime-r7-audio-pure-check.log",
+          "scope": "Pure canonical sampling/PCM/encoder and26 authored audio preference/freeze/validation cases. Separate source-linked component tool; does not establish actual UI-to-ticket-to-worker PCM or application acceptance."
+        },
+        "nativeControlToTicketToWorkerPcm": {
+          "status": "passed-local-macos-native-cue-route",
+          "checks": 110,
+          "baseChecks": 91,
+          "cueChecks": 19,
+          "log": "/tmp/project-prime-host-native-replay-audio-final.log",
+          "evidence": "/tmp/project-prime-native-replay-audio-final-evidence",
+          "engineAssemblySha256": "161ae5be6f96a721bba045d203f4fa5debc63aeee3383b70f36f6050dd73fa92",
+          "studioAssemblySha256": "30a5730d45b98d03714e924491bab49083aa906439abc3166e4a4d57641b47f7",
+          "nativeLibrarySha256": "6b6a9f2b74ca3ea935c3b08be503dd84cecaac6d2a53b261ebbf24723ac83f44",
+          "nativePatchFingerprint": "d26e910ce2f23e5c90e885c927d47c22e6d3227ac4a3ce14e6380ed5e5835d84",
+          "harnessSha256": "3aa0925d2e497c9f393d205d3d0cb167d5ec602c506d9b5a81031ad297a5970b",
+          "baselineSourceSha256": "cf2d6ce25e9679e2973652253077e4b313fb5d675c3b187958923a96709254e8",
+          "ownedEventFixtureSha256": "a758177e90ba455a90e1c9dd20fdd6b08611cbaa88a4880671a3b6aa6ec03b10",
+          "cueWaveSha256": "f3e20d3caa49d3ca7d1b833bf8004ae99b499842bd3fa1f7a59673039ca8feea",
+          "recordedEvent": {
+            "type": "WeaponFired",
+            "value": 7,
+            "selectionStart": 2,
+            "selectionEnd": 4
+          },
+          "pcm": {
+            "sampleRate": 48000,
+            "channels": 2,
+            "framesPerExport": 2400,
+            "pngFramesPerExport": 3,
+            "audibleRms": 0.1767625848345871,
+            "audibleNonzeroSamples": 4792,
+            "mutedRms": 0,
+            "mutedNonzeroSamples": 0
+          },
+          "editorChangedAfterQueue": true,
+          "terminalWorkersComplete": true,
+          "scope": "Actual Add Cue and Export Selection native controls persist/freeze authored Replay-bus event binding into detached tickets; independent native worker renders3PNG and produces2400 stereo PCM frames. Audible/muted bus differential, queued editor change and terminal completion are positively checked. Original event-free baseline recording remains unchanged; separate owned metadata event fixture identified above. These110 include91base+19cue checks and do not replace full158 replay suite or later helper/finalMain CI."
+        },
+        "headlessUi": {
+          "status": "passed",
+          "checks": 858,
+          "captures": 87,
+          "log": "/tmp/project-prime-host-audio-ui-final-dispatch.log",
+          "captureDirectory": "/tmp/project-prime-studio-audio-ui-final-dispatch-evidence",
+          "engineAssemblySha256": "161ae5be6f96a721bba045d203f4fa5debc63aeee3383b70f36f6050dd73fa92",
+          "studioAssemblySha256": "30a5730d45b98d03714e924491bab49083aa906439abc3166e4a4d57641b47f7",
+          "scope": "Actual loaded control suite and87 retained PNG captures, including final wrapped cue gain/value text and dispatch bindings. Headless UI controls alone do not prove native child viewport pixels; focused actual worker PCM is separate."
+        },
+        "fullReplayRerun": {
+          "status": "passed",
+          "checks": 158,
+          "log": "/tmp/project-prime-host-native-replay-audio-full.log",
+          "evidence": "/tmp/project-prime-native-replay-audio-full-evidence",
+          "engineAssemblySha256": "161ae5be6f96a721bba045d203f4fa5debc63aeee3383b70f36f6050dd73fa92",
+          "studioAssemblySha256": "30a5730d45b98d03714e924491bab49083aa906439abc3166e4a4d57641b47f7",
+          "nativeLibrarySha256": "6b6a9f2b74ca3ea935c3b08be503dd84cecaac6d2a53b261ebbf24723ac83f44",
+          "nativePatchFingerprint": "d26e910ce2f23e5c90e885c927d47c22e6d3227ac4a3ce14e6380ed5e5835d84",
+          "scope": "Actual full native Replay158 remains attributed to exact161ae5be/Studio30a573/d26 graph. Final560cef8e/c392973f build preserves production replay/Studio source bodies; its added hostedMac CLI diagnostic helper is separate. No actual158 rerun or fixture equivalence is relabeled to that later build."
+        }
+      },
+      "historicalB692Ci": {
+        "sourceHead": "b692ef6db2eea87f09d7545442d42b863310329c",
+        "testedMerge": "cb5b4490851e60f615db7231430e8e6fe9de2ad7",
+        "sourceTree": "82c37c850a3c54f4d864ac1db1093bb423252e0b",
+        "mergeTreeMatchesHead": true,
+        "workflowRun": 37556696151,
+        "evidence": "artifacts/studio-acceptance/final-ci/acceptance.json",
+        "successfulScopedJobsAtRecordedObservation": 26,
+        "overallAcceptance": false,
+        "windowsStudio": {
+          "job": 112586714897,
+          "status": "failed-negative-fixture-exception-contract",
+          "observedException": "UnauthorizedAccessException",
+          "observedHResult": "0x80070005",
+          "repairScope": "Recognize IOException or UnauthorizedAccessException only with actual denied rename native codes5/32/33. Canonical Read|Delete positive child replacement and complete immutable old/new snapshot oracles remain unchanged.",
+          "nextHeadExecution": "pending-actual-ci"
+        },
+        "windowsDx12": {
+          "job": 112586714751,
+          "status": "failed-validation-full-run-causal-trace-incomplete",
+          "productionDefaultSecondFullRun": "skipped-not-accepted",
+          "scope": "No device-loss cause or fix accepted; required new diagnostic and production-default full checks must both pass."
+        },
+        "linuxPackage": {
+          "job": 112586714885,
+          "status": "failed-nettransport-send-allocation-oracle",
+          "reportedRoundedBytesPerOperation": "0.01",
+          "requiredExactAllocatedBytes": 0,
+          "productionPathChanged": false,
+          "repairScope": "Precise bytes/calls/send-error-lock/runtime diagnostics and GC diagnostics now identify intermittent strict-zero failures; cause remains unclassified. Production transport unchanged, strict exact allocatedBytes==0 remains mandatory."
+        },
+        "latestRecordedObservation": {
+          "actualRows": 38,
+          "successfulScopedJobs": 27,
+          "failedJobs": 5,
+          "notDoneJobs": 6,
+          "overallAcceptance": false,
+          "scope": "Recorded b692 workflow observation only; not a final source/head acceptance result."
+        },
+        "intelGl": {
+          "job": 112585789286,
+          "status": "failed-actual-typed-legacy-constructor-capability",
+          "scope": "Exact NSGL suitable-pixel-format constructor failure precedes GL pixels. Shared diagnostic capability helper is implemented; actual hosted x64 adapter/census and mandatory Metal/MoltenVK stages remain next-CI gates."
+        },
+        "armModernRestart": {
+          "job": 112585789348,
+          "status": "failed-test-sequencing-after-proven-legacy-unavailable",
+          "scope": "All4 known CGL absence requests and exact typed NSGL failure succeeded, then UiOverlay.Upload entered unloadedGL because compatibility Active=false. Test-only repair establishes actual modern owner only for the proven unavailable branch before unchanged overlay release/double shutdown/fresh restart pixels; next-CI proof pending."
+        }
+      },
+      "pairedMacB692": {
+        "status": "passed-recorded-local-scope",
+        "evidence": "artifacts/studio-acceptance/final-release/osx-arm64-atomic-status/release-evidence.json",
+        "sourceHead": "b692ef6db2eea87f09d7545442d42b863310329c",
+        "sourceTree": "82c37c850a3c54f4d864ac1db1093bb423252e0b",
+        "rawTrackedFilesIdentity": "17ea1d3588d6b5aa859fed195160dc788d0f4d7934d066906a6ec314297c092f",
+        "archiveBytes": 162442580,
+        "archiveSha256": "c58dd6ea2f899ab000af0453ce95c6d05d69259a490ff117901e663c4f6d3f2a",
+        "version": "1.2.3",
+        "ipcVersion": 1,
+        "rid": "osx-arm64",
+        "selfContained": true,
+        "publishedEngineAssemblySha256": "15d5ef24e14a4eba503b21e540274900acd74e27c84f804b3040c86ab1018b86",
+        "publishedStudioAssemblySha256": "3eadfa39c319a1575c08599418a7e76f3847c90d2015299c72c28cec9080c176",
+        "nativePatchFingerprint": "8d0246408e9d8df823557ae2b613d784cd4bbc69f1979fcd791f9743a0316ebf",
+        "scope": "Actual SDK paired test1.2.3/IPC1 publish, strict ad hoc own bundle IDs/JIT/arm64, extracted accelerated Game launcher/thumbnail and native Studio Home capture/clean close/exit0. Immutable published IL confirms StatusFile bodies and all3 consumers. Local acceptance only: no production release/DeveloperID/notarization, no packaged Map/Replay parity, no later cue/d26-source acceptance."
+      },
+      "nativeDiagnostics": {
+        "status": "source-landed-native-build-and-abi-components-verified-runtime-ci-pending",
+        "patchFingerprint": "d26e910ce2f23e5c90e885c927d47c22e6d3227ac4a3ce14e6380ed5e5835d84",
+        "patches": [
+          "tools/wgpu/patches/dx12-gpu-validation-diagnostics.patch",
+          "tools/wgpu/patches/dx12-map-device-removal-diagnostics.patch"
+        ],
+        "scope": "Bounded prioritized native Warn/Error retention and forwarding; exact additional PRIME_WGPU_GPU_VALIDATION=1 only with native validation enables actual ID3D12Debug1 GPU-based and synchronized command-queue setters before creation. Failed opted-in Map queries actual GetDeviceRemovedReason and reports operation/reason HRESULTs. Default rendering retains diagnostic opt-outs.",
+        "requiredRuns": [
+          "Validation-enabled full native DX12 check with actual native setter evidence",
+          "Production-default full DX12 check with both diagnostic variables unset"
+        ],
+        "fullNativeFingerprintAbiReceipt": "artifacts/studio-acceptance/final-release/native-diagnostics-d26/current/all-native-receipts.json",
+        "freshManagedGraph": "See desktopGraph in this exact additive record.",
+        "nativeBuilds": {
+          "status": "passed-components",
+          "bridgeAbi": 1,
+          "macProductionLibrarySha256": "6b6a9f2b74ca3ea935c3b08be503dd84cecaac6d2a53b261ebbf24723ac83f44",
+          "macFaultLibrarySha256": "cfe7ac31904720041e0174246ec2b313c5942ae610ae7682fce5460e78582fd8",
+          "macFaultSubprocessChecks": 35,
+          "macPackagingChecks": 10,
+          "faultLog": "/tmp/project-prime-d26-native-osx-arm64-fault.log",
+          "packagingLog": "/tmp/project-prime-d26-native-packaging.log",
+          "androidAbis": [
+            {
+              "abi": "arm64-v8a",
+              "sha256": "e5b465c5ba64f6c2ff527d93c3260416d6d0e24a8ea99cbd48f12e1de78c3145"
+            },
+            {
+              "abi": "x86_64",
+              "sha256": "8526f10a9ab598dfc7b70d9c903266873484bf0c8f89e189f3f62caf88dff4e1"
+            }
+          ],
+          "scope": "Actual production/fault macOS and bothAndroid native builds match d26 fingerprint and canonical ABI. Fault subprocess/packaging checks do not claim hardware recovery, new full Replay/PCM, packaged APK inspection or Windows DX12 acceptance."
+        }
+      },
+      "remainingAcceptance": [
+        "Actual new Windows negative fixture, both DX12 full runs and measured hostedMac capability/mandatory modern stages",
+        "Strict zero-allocation Linux package gate with intermittent cause unclassified",
+        "All required Windows/Linux/macOS and Android checks for the final current PR head"
+      ],
+      "optionalScope": "Broader engine/UI assembly extraction and file associations remain optional; required R7 authoring is not deferred into that scope.",
+      "desktopGraph": {
+        "status": "passed-build",
+        "artifact": "artifacts/studio-acceptance/final-release/audio-diagnostics-main-build/manifest.json",
+        "buildLog": "/tmp/project-prime-studio-audio-diagnostics-final-build.log",
+        "snapshot": "/tmp/project-prime-studio-audio-diagnostics-final-snapshot",
+        "buildErrors": 0,
+        "buildWarnings": 132,
+        "buildSeconds": 52.92,
+        "trackedSourceInputs": 1412,
+        "trackedSourceInputsUnchangedDuringBuild": true,
+        "engineAssemblySha256": "161ae5be6f96a721bba045d203f4fa5debc63aeee3383b70f36f6050dd73fa92",
+        "studioAssemblySha256": "9d52dbb8b0b57fcea77692bf35404f6ac9a80c08bd9ffbc5b63212ce9aa3f6b2",
+        "nativeLibrarySha256": "6b6a9f2b74ca3ea935c3b08be503dd84cecaac6d2a53b261ebbf24723ac83f44",
+        "nativePatchFingerprint": "d26e910ce2f23e5c90e885c927d47c22e6d3227ac4a3ce14e6380ed5e5835d84",
+        "sourceVersionScope": "Actual precommit b692 metadata retained; changed working sources are not attributed to committed b692 or a future source head.",
+        "scope": "Fresh coherent managed build with source-input before/after identity and durable binary receipts. UI/cue PCM and final CI remain separate acceptance gates."
+      },
+      "architecture": {
+        "status": "passed",
+        "sourceContracts": 8235,
+        "selfTests": 66,
+        "sourceLog": "/tmp/project-prime-studio-architecture-audio-diagnostics-final.log",
+        "selfTestLog": "/tmp/project-prime-studio-architecture-audio-diagnostics-self-final.log",
+        "trackedAssetGuard": "passed",
+        "diffCheck": "passed",
+        "scope": "Actual new source scan and66 negative contracts on the coalesced graph; previous8153/8179 and66 records remain historical."
+      },
+      "androidBuild": {
+        "status": "passed-sdk-build-and-package-inspection-exact-recorded-inputs",
+        "buildErrors": 0,
+        "buildWarnings": 137,
+        "buildSeconds": 91.29,
+        "buildLog": "/tmp/project-prime-studio-android-d26-final.log",
+        "compileInputCount": 1177,
+        "compileInputsUnchangedDuringBuild": true,
+        "compileInputFilesSha256": "6f61ab9086a0b33019d27266aa7d09f18c9807cbd934e2ba6793dfb8c887eb90",
+        "inputsEqualCommittedB692": false,
+        "actualAssemblyVersion": "1.0.0.0",
+        "actualInformationalVersion": "local+b692ef6db2eea87f09d7545442d42b863310329c",
+        "apkInspection": "passed",
+        "scope": "Actual SDK/APK/native package/signature and bothABI extracted metadata gates on1177identical before/after evaluated inputs: b692base plus4frozenworking deltas. Actual precommit local+b692 stamp preserved. Receipt is historical exact input scope; later helper/final committed-head rebuild or Android runtime/CI is not inferred.",
+        "artifact": "artifacts/studio-acceptance/final-platform/android-d26/manifest.json",
+        "acceptance": "artifacts/studio-acceptance/final-platform/android-d26/acceptance.json",
+        "apkBytes": 118459468,
+        "apkSha256": "446a0ac0d1d2d7abb7b5d9e7fb37a0142fd3e758c2937ba130a3e2e580ccce8d",
+        "canonicalAssemblyBytes": 33545728,
+        "canonicalAssemblySha256": "14f82bbfeae8306813fca07a9d6b0af93db85c267ddb1a45bb96a1043f2a7b49",
+        "packagedAbiCanonicalAssembliesEqual": true,
+        "assemblyTypes": 4516,
+        "canonicalMapTypes": 247,
+        "passiveReplayPreserved": true,
+        "forbiddenCreatorGuiOrStudioTypes": 0,
+        "forbiddenDesktopOrStudioReferences": 0,
+        "allowedPureReplayHelpers": 9,
+        "nativePayloads": [
+          {
+            "abi": "arm64-v8a",
+            "bytes": 7919008,
+            "sha256": "e5b465c5ba64f6c2ff527d93c3260416d6d0e24a8ea99cbd48f12e1de78c3145"
+          },
+          {
+            "abi": "x86_64",
+            "bytes": 7570528,
+            "sha256": "8526f10a9ab598dfc7b70d9c903266873484bf0c8f89e189f3f62caf88dff4e1"
+          }
+        ],
+        "nativePatchFingerprint": "d26e910ce2f23e5c90e885c927d47c22e6d3227ac4a3ce14e6380ed5e5835d84",
+        "signature": "Verified APKv2/v3; AndroidDebug development certificate, no release-signature claim.",
+        "certificateSha256": "5333a64c8c2cd6d9ee7cab995cf810c1469c44fee23ecc828053ca62cb027288",
+        "onDeviceAcceptance": false
+      },
+      "hostedLegacyGlCapability": {
+        "status": "passed-exact-source-contracts-runtime-ci-pending",
+        "source": "src/MphRead/Mods/Render/HostedLegacyGlCapabilityCheck.cs",
+        "checks": 54,
+        "log": "/tmp/project-prime-hosted-legacy-contract.log",
+        "physicalCglRequests": 4,
+        "physicalFormatsPerRequest": 2,
+        "physicalAllowanceAccepted": false,
+        "scope": "Shared diagnostic-only helper requires exact typed GLFW callback/constructor error, explicitoptin+Actions+MacARM64orX64, actual exact AppleParavirtual adapter and independent4knownabsenceCGL results. Scoped offscreen Metal adapter probe is disposed; every returned CGLhandle released. Actual physical CGLallcount2/capableconstructor/defaultfailure remain mandatory and block allowance. UNAVAILABLE never claims GL pixels; modern restart and all Metal/MoltenVK stages remain mandatory. Controlled absence/probe fixtures are distinguished from physical capability.",
+        "finalMainBuild": "passed; see finalDesktopGraph",
+        "newPhysicalFullCheck": "passed; see physicalFinalRenderer"
+      },
+      "finalDesktopGraph": {
+        "status": "passed-build",
+        "artifact": "artifacts/studio-acceptance/final-release/r7-platform-main-build/build-identity.json",
+        "snapshot": "/tmp/project-prime-studio-r7-platform-final-snapshot",
+        "buildLog": "/tmp/project-prime-studio-r7-platform-final-build.log",
+        "buildErrors": 0,
+        "buildWarnings": 131,
+        "buildSeconds": 44.94,
+        "trackedSourceInputs": 1413,
+        "sourceInputsUnchangedBeforeAfter": true,
+        "sourceInputsSha256": "782fc06f8178cd41cf628a4cf07435639f5f1d368346eb7aa39804e1d509ae26",
+        "engineAssemblySha256": "560cef8e9dbf9197422e44d5719487846b9851a61a2a228db83e6f8ca80c8110",
+        "studioAssemblySha256": "c392973f43dd50ba25b6b56cb235024cf47d99e26b4766fbd4c1ac742cf8de94",
+        "nativeLibrarySha256": "6b6a9f2b74ca3ea935c3b08be503dd84cecaac6d2a53b261ebbf24723ac83f44",
+        "nativePatchFingerprint": "d26e910ce2f23e5c90e885c927d47c22e6d3227ac4a3ce14e6380ed5e5835d84",
+        "sourceVersionScope": "Actual precommit b692 attribution retained; exact frozen working source inputs do not yet identify a future committed head.",
+        "scope": "Latest coherent R7/UI plus hostedMac CLI capability/restart repair Main build. Actual cue/UI/fullReplay tests are attributed separately to161/30/d26; final physical renderer proof is on this560cef graph."
+      },
+      "finalArchitecture": {
+        "status": "passed",
+        "sourceContracts": 8239,
+        "selfTests": 66,
+        "sourceLog": "/tmp/project-prime-studio-r7-platform-architecture.log",
+        "selfTestLog": "/tmp/project-prime-studio-r7-platform-architecture-self.log",
+        "scope": "Exact latest source scan and negative66 contracts, read directly from completed logs; earlier8235/66 remains separate historical graph."
+      },
+      "physicalFinalRenderer": {
+        "status": "passed",
+        "artifact": "artifacts/studio-acceptance/final-release/physical-metal-gl-r7-final/manifest.json",
+        "log": "/tmp/project-prime-physical-metal-gl-r7-final.log",
+        "engineAssemblySha256": "560cef8e9dbf9197422e44d5719487846b9851a61a2a228db83e6f8ca80c8110",
+        "nativeLibrarySha256": "6b6a9f2b74ca3ea935c3b08be503dd84cecaac6d2a53b261ebbf24723ac83f44",
+        "nativePatchFingerprint": "d26e910ce2f23e5c90e885c927d47c22e6d3227ac4a3ce14e6380ed5e5835d84",
+        "exitCode": 0,
+        "elapsedSeconds": 2.766493417,
+        "productionDefaults": true,
+        "ownedProcessExited": true,
+        "ownedAwakeLeaseExited": true,
+        "scope": "Actual physical AppleM4Pro full Metal window draw, forced freshOpenGL/93mips and modern restart at production defaults on exact final560cef graph. No hostedMac absence or WindowsDX12/GPUvalidation result inferred."
+      }
     }
   }
 }

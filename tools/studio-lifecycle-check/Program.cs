@@ -47,6 +47,8 @@ internal static partial class Program
                     : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Library", "Application Support", "Project Prime", "paths.txt"));
             if(Array.IndexOf(args,"--native-replay") is int nativeReplayIndex&&nativeReplayIndex>=0)
                 await CheckNativeReplayLifecycleAsync(directory,args[nativeReplayIndex+1],args[nativeReplayIndex+2],args[nativeReplayIndex+3],args.Contains("--native-replay-no-hud"),args.Contains("--native-replay-workers-only"),args.Contains("--native-replay-stale-view"));
+            if(Array.IndexOf(args,"--native-replay-audio") is int audioIndex&&audioIndex>=0)
+                await CheckNativeReplayAudioAsync(directory,args[audioIndex+1],args[audioIndex+2],args[audioIndex+3]);
             Console.WriteLine($"Studio lifecycle checks passed: {_checks}. Base gates cover CLI, persistence, document host, jobs and authenticated process isolation; " +
                 "optional native/replay/game/performance gates run only when their explicit arguments are supplied.");
             return 0;

@@ -4,7 +4,6 @@ using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
-using GlfwErrorCode = OpenTK.Windowing.GraphicsLibraryFramework.ErrorCode;
 
 namespace MphRead.Mods.Render
 {
@@ -158,8 +157,8 @@ namespace MphRead.Mods.Render
 
                     UiOverlayCompositeCheck.Run(96, 64);
                     Console.WriteLine("[renderwindowcheck] fullscreen UI composite integration PASS");
-                    RunFailedRecoveryFallbackCheck();
-                    RunRendererRestartCheck(window, backend);
+                    bool legacyAvailable = RunFailedRecoveryFallbackCheck();
+                    RunRendererRestartCheck(window, backend, legacyAvailable);
                     Console.WriteLine(
                         $"[renderwindowcheck] PASS backend={GraphicsBackendPolicy.DisplayName(backend)} "
                         + $"launcher=rgba({pixel[0]},{pixel[1]},{pixel[2]},{pixel[3]}) "
@@ -190,6 +189,10 @@ namespace MphRead.Mods.Render
                 int start = Math.Max(0, diagnostics.Length - maximumDiagnosticCharacters);
                 if (diagnostics.Length != 0)
                     Console.Error.WriteLine(diagnostics.ToString(start, diagnostics.Length - start));
+                var nativeValidationDiagnostics = new System.Text.StringBuilder();
+                ModernGraphicsDevice.AppendNativeValidationDiagnostics(nativeValidationDiagnostics);
+                if (nativeValidationDiagnostics.Length != 0)
+                    Console.Error.WriteLine(nativeValidationDiagnostics.ToString());
                 return 1;
             }
         }
@@ -230,8 +233,17 @@ namespace MphRead.Mods.Render
                 + $"unpaced={unpacedMode} vsync={ModernGraphicsCompat.ActivePresentMode}");
         }
 
-        private static unsafe void RunRendererRestartCheck(NativeWindow window, GraphicsBackend backend)
+        private static unsafe void RunRendererRestartCheck(NativeWindow window, GraphicsBackend backend,
+            bool legacyAvailable)
         {
+            if (!legacyAvailable)
+            {
+                // No legacy context or bindings ever existed on this measured
+                // unsupported host. Establish a real modern resource owner for
+                // the same overlay release test before its mandatory restart.
+                ModernGraphicsCompat.Initialize(window, backend);
+                ModernGraphicsCompat.Resize(96, 64);
+            }
             byte[] overlay = { 255, 0, 0, 255 };
             fixed (byte* pixels = overlay) UiOverlay.Upload((nint)pixels, 1, 1);
             UiOverlay.Visible = true;
@@ -322,7 +334,7 @@ namespace MphRead.Mods.Render
             Console.WriteLine("[renderwindowcheck] wireframe/fill display-list switching PASS");
         }
 
-        private static void RunFailedRecoveryFallbackCheck()
+        private static bool RunFailedRecoveryFallbackCheck()
         {
             var deviceIdentity = ModernGraphicsCompat.DeviceIdentity;
             // The successful-reconstruction case above has already used the
@@ -336,41 +348,16 @@ namespace MphRead.Mods.Render
             GraphicsBackendPolicy.UseCompatibilityFallback("forced repeated device loss acceptance check");
             var settings = DesktopGlContext.Settings(background: true);
             settings.ClientSize = new(96, 64);
-            NativeWindow window;
-            GlfwErrorCode? creationError = null;
-            string? creationDescription = null;
-            GLFWCallbacks.ErrorCallback creationCallback = (code, description) =>
-            {
-                creationError = code;
-                creationDescription = description;
-                // Never unwind through GLFW's native callback frames.
-                try { Console.Error.WriteLine($"[window] GLFW {code}: {description}"); }
-                catch { }
-            };
-            GLFW.SetErrorCallback(creationCallback);
-            try
-            {
-                window = new NativeWindow(settings);
-            }
-            catch (InvalidOperationException ex) when (
-                creationError == GlfwErrorCode.FormatUnavailable
-                && creationDescription == "NSGL: Failed to find a suitable pixel format"
-                && ex.Message == "GLFW Format unavailable: NSGL: Failed to find a suitable pixel format"
-                && HostedLegacyFormatUnavailable(deviceIdentity.Adapter))
+            using var window = HostedLegacyGlCapabilityCheck.CreateWindow(settings, deviceIdentity.Adapter);
+            if (window == null)
             {
                 if (ModernGraphicsCompat.Active
                     || GraphicsBackendPolicy.Resolved != GraphicsBackend.OpenGL)
                     throw new InvalidOperationException("Unsupported legacy handoff retained modern renderer state.");
                 Console.WriteLine("[renderwindowcheck] repeated device loss and controlled shutdown PASS");
-                Console.WriteLine("[renderwindowcheck] legacy OpenGL draw UNAVAILABLE: hosted Apple Paravirtual ARM has no accelerated legacy CGL format; modern restart remains required");
-                return;
+                Console.WriteLine("[renderwindowcheck] legacy OpenGL draw UNAVAILABLE: hosted Apple Paravirtual device has no accelerated legacy CGL format; modern restart remains required");
+                return false;
             }
-            finally
-            {
-                DesktopGlContext.InstallErrorCallback();
-                GC.KeepAlive(creationCallback);
-            }
-            using var legacyWindow = window;
             using var graphics = new DesktopGraphicsSession(window);
             GraphicsApi.ClearColor(0, 1, 0, 1);
             GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
@@ -381,60 +368,8 @@ namespace MphRead.Mods.Render
             AuthoredRgbaMipGpuCheck.Verify();
             DesktopGraphicsSession.Present(window);
             Console.WriteLine("[renderwindowcheck] failed recovery to fresh OpenGL context PASS");
+            return true;
         }
-
-        private static bool HostedLegacyFormatUnavailable(string adapter)
-        {
-            // This is an acceptance diagnostic only. Normal renderer fallback
-            // still attempts the original GL context and propagates failures.
-            if (Environment.GetEnvironmentVariable("PRIME_ACCEPTANCE_HOSTED_NSGL_UNAVAILABLE") != "1"
-                || Environment.GetEnvironmentVariable("GITHUB_ACTIONS") != "true"
-                || !OperatingSystem.IsMacOS()
-                || System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture
-                    != System.Runtime.InteropServices.Architecture.Arm64
-                || adapter != "Apple Paravirtual device")
-                return false;
-
-            // Independently check the CGL capability, rather than infer it from
-            // a GLFW error. The minimal/offline request also rules out a depth,
-            // stencil, color-size or automatic-switching hint mismatch.
-            int[] standard = { 99, 0x1000, 73, 74, 5, 8, 24, 11, 8, 12, 24, 13, 8, 0 };
-            int[] offline = { 99, 0x1000, 73, 74, 96, 101, 5, 8, 24, 11, 8, 12, 24, 13, 8, 0 };
-            int[] minimal = { 99, 0x1000, 73, 74, 96, 101, 0 };
-            int[] defaultProfile = { 73, 74, 96, 101, 0 };
-            bool standardAbsent = LegacyFormatAbsent("standard", standard);
-            bool offlineAbsent = LegacyFormatAbsent("offline", offline);
-            bool minimalAbsent = LegacyFormatAbsent("minimal-offline", minimal);
-            bool defaultAbsent = LegacyFormatAbsent("minimal-offline-default-profile", defaultProfile);
-            return standardAbsent && offlineAbsent && minimalAbsent && defaultAbsent;
-        }
-
-        private static bool LegacyFormatAbsent(string request, int[] attributes)
-        {
-            nint format = 0;
-            try
-            {
-                int error = CGLChoosePixelFormat(attributes, out format, out int count);
-                bool absent = (error == 0 || error == 10002) && format == 0 && count == 0;
-                Console.WriteLine($"[renderwindowcheck] CGL legacy format request={request} error={error} count={count} handle={(format != 0 ? "present" : "none")} unavailable={absent}");
-                return absent;
-            }
-            finally
-            {
-                if (format != 0)
-                {
-                    int releaseError = CGLDestroyPixelFormat(format);
-                    if (releaseError != 0)
-                        throw new InvalidOperationException($"CGL format census release failed: {releaseError}.");
-                }
-            }
-        }
-
-        [System.Runtime.InteropServices.DllImport("/System/Library/Frameworks/OpenGL.framework/OpenGL")]
-        private static extern int CGLChoosePixelFormat(int[] attributes, out nint format, out int count);
-
-        [System.Runtime.InteropServices.DllImport("/System/Library/Frameworks/OpenGL.framework/OpenGL")]
-        private static extern int CGLDestroyPixelFormat(nint format);
 
         private static void RunScissorBoundsCheck()
         {

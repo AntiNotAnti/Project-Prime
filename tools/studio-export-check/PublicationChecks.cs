@@ -32,10 +32,10 @@ internal static class PublicationChecks
             {
                 FixturePublication.PublishText(destinationStatus, JsonSerializer.Serialize(
                     new StudioReplayExportStatus(Guid.Parse(idText), "Complete", 2, 2, null, Path.GetDirectoryName(destinationStatus)!)));
-                FixturePublication.PublishText(resultFile, JsonSerializer.Serialize(new ReplacementResult(true, null)));
+                FixturePublication.PublishText(resultFile, JsonSerializer.Serialize(new ReplacementResult(true, null, null)));
             }
-            catch (IOException error)
-            { FixturePublication.PublishText(resultFile, JsonSerializer.Serialize(new ReplacementResult(false, error.GetType().FullName))); }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+            { FixturePublication.PublishText(resultFile, JsonSerializer.Serialize(new ReplacementResult(false, error.GetType().FullName, error.HResult))); }
             return true;
         }
         return false;
@@ -64,13 +64,21 @@ internal static class PublicationChecks
         var initial = new StudioReplayExportStatus(id, "Rendering", 1, 2, null, directory);
         FixturePublication.PublishText(statusFile, JsonSerializer.Serialize(initial));
         bool? oldReaderBlocked = null;
+        ReplacementResult? oldReaderResult = null;
         if (OperatingSystem.IsWindows())
         {
             using var blocking = new FileStream(statusFile, FileMode.Open, FileAccess.Read, FileShare.Read);
             ReplacementResult result = await Replace(statusFile, Path.Combine(directory, "blocked-result"), id);
+            oldReaderResult = result;
             oldReaderBlocked = !result.Success;
-            check(oldReaderBlocked == true && result.ErrorType == typeof(IOException).FullName,
-                "Windows old Read-only sharing demonstrably rejects a real child's atomic status replacement");
+            bool expectedType = result.ErrorType == typeof(IOException).FullName
+                || result.ErrorType == typeof(UnauthorizedAccessException).FullName;
+            bool expectedNativeDenial = result.HResult == unchecked((int)0x80070005) // ERROR_ACCESS_DENIED
+                || result.HResult == unchecked((int)0x80070020) // ERROR_SHARING_VIOLATION
+                || result.HResult == unchecked((int)0x80070021); // ERROR_LOCK_VIOLATION
+            check(oldReaderBlocked == true && expectedType && expectedNativeDenial,
+                "Windows old Read-only sharing demonstrably rejects a real child's atomic status replacement: "
+                + result.ErrorType + " HRESULT=" + result.HResult?.ToString("X8"));
         }
         using (var snapshot = StudioReplayStatusFile.OpenSnapshot(statusFile))
         {
@@ -97,6 +105,8 @@ internal static class PublicationChecks
                 ClosedSignalRead = 4242,
                 WindowsOldReaderNegativeExecuted = OperatingSystem.IsWindows(),
                 WindowsOldReaderDeniedReplacement = oldReaderBlocked,
+                WindowsOldReaderDeniedException = oldReaderResult?.ErrorType,
+                WindowsOldReaderDeniedHResult = oldReaderResult?.HResult,
                 CanonicalReaderAllowedActualChildReplacement = true,
                 HeldOldSnapshotAndFreshNewSnapshotWereComplete = true,
                 StatusSnapshotLimitBytes = 65536
@@ -128,5 +138,5 @@ internal static class PublicationChecks
         }
         finally { if (!child.HasExited) { child.Kill(entireProcessTree: true); await child.WaitForExitAsync(); } }
     }
-    private sealed record ReplacementResult(bool Success, string? ErrorType);
+    private sealed record ReplacementResult(bool Success, string? ErrorType, int? HResult);
 }
