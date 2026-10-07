@@ -184,7 +184,7 @@ namespace MphRead.Mods.Launcher.Gui
             maxPlayers = Math.Clamp(maxPlayers, 2, 8);
             int first = Math.Clamp((maxPlayers + 1) / 2, 1, 4);
             int second = Math.Clamp(maxPlayers - first, 1, 4);
-            return new TeamLayout(2, first, second);
+            return new TeamLayout(2, (byte)first, (byte)second);
         }
 
         internal void CycleMap()
