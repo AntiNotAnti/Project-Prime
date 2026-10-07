@@ -299,9 +299,11 @@ jobs:
       - name: backend policy, device, draw and window present
         shell: pwsh
         run: |
+          & ./.github/scripts/Test-NativeRendererCheck.ps1
+          . ./.github/scripts/Invoke-NativeRendererCheck.ps1
           $negativeOut = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.negative.stdout.log'
           $negativeErr = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.negative.stderr.log'
-          $negative = Start-Process -FilePath (Resolve-Path publish/modern-win/ProjectPrime.exe) -ArgumentList @('-renderbackendprobe', '-renderer', 'opengl') -Wait -PassThru -NoNewWindow -RedirectStandardOutput $negativeOut -RedirectStandardError $negativeErr
+          $negative = Invoke-NativeRendererCheck -FilePath (Resolve-Path publish/modern-win/ProjectPrime.exe) -ArgumentList @('-renderbackendprobe', '-renderer', 'opengl') -StdoutPath $negativeOut -StderrPath $negativeErr -TimeoutSeconds 120
           if ($negative.ExitCode -ne 2) { throw "GUI process negative exit oracle expected 2, got $($negative.ExitCode)" }
           Write-Host 'Actual GUI process nonzero exit code preserved: 2.'
           if ('${{ matrix.renderer }}' -eq 'dx12') {
@@ -310,7 +312,7 @@ jobs:
           }
           $stdout = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.stdout.log'
           $stderr = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.stderr.log'
-          $process = Start-Process -FilePath (Resolve-Path publish/modern-win/ProjectPrime.exe) -ArgumentList @('-renderfullcheck', '-renderer', '${{ matrix.renderer }}') -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          $process = Invoke-NativeRendererCheck -FilePath (Resolve-Path publish/modern-win/ProjectPrime.exe) -ArgumentList @('-renderfullcheck', '-renderer', '${{ matrix.renderer }}') -StdoutPath $stdout -StderrPath $stderr -TimeoutSeconds 1200
           Get-Content $stdout
           Get-Content $stderr
           Write-Host "Native renderer process exit code: $($process.ExitCode)"
@@ -326,11 +328,12 @@ jobs:
         if: matrix.renderer == 'dx12'
         shell: pwsh
         run: |
+          . ./.github/scripts/Invoke-NativeRendererCheck.ps1
           Remove-Item Env:PRIME_WGPU_VALIDATION -ErrorAction SilentlyContinue
           Remove-Item Env:PRIME_WGPU_GPU_VALIDATION -ErrorAction SilentlyContinue
           $stdout = Join-Path $env:RUNNER_TEMP 'renderer-windows-dx12.default.stdout.log'
           $stderr = Join-Path $env:RUNNER_TEMP 'renderer-windows-dx12.default.stderr.log'
-          $process = Start-Process -FilePath (Resolve-Path publish/modern-win/ProjectPrime.exe) -ArgumentList @('-renderfullcheck', '-renderer', 'dx12') -Wait -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          $process = Invoke-NativeRendererCheck -FilePath (Resolve-Path publish/modern-win/ProjectPrime.exe) -ArgumentList @('-renderfullcheck', '-renderer', 'dx12') -StdoutPath $stdout -StderrPath $stderr -TimeoutSeconds 1200
           Get-Content $stdout
           Get-Content $stderr
           Write-Host "Production-default DirectX process exit code: $($process.ExitCode)"
@@ -694,7 +697,14 @@ jobs:
             ${{ runner.temp }}/map-multiplayer-check
             ${{ runner.temp }}/mapviewportcheck
             src/MphRead/bin/Release/net10.0/logs/
-            ~/Library/Application Support/Project Prime/logs/
+          if-no-files-found: warn
+
+      - name: macOS map startup diagnostics
+        if: always() && runner.os == 'macOS'
+        uses: actions/upload-artifact@v7
+        with:
+          name: map-startup-diagnostics-macos
+          path: ~/Library/Application Support/Project Prime/logs/
           if-no-files-found: warn
 
   controller-checks:
