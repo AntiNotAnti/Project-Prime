@@ -301,6 +301,7 @@ namespace MphRead.Mods.Launcher.Gui
         private ChoiceRow _presenceVisibilityRow = null!;
         private ChoiceRow _activityVisibilityRow = null!;
         private ChoiceRow _invitePolicyRow = null!;
+        private ToggleRow _doNotDisturbRow = null!;
         private FieldRow _serverRow = null!;
         private FieldRow _masterRow = null!;
         private ToggleRow _autoUpdate = null!;
@@ -2719,7 +2720,10 @@ namespace MphRead.Mods.Launcher.Gui
             _invitePolicyRow = Add(page, new ChoiceRow("Who can invite you",
                 new[] { "Everyone", "Friends only", "Nobody" },
                 (int)LauncherPrefs.InvitePolicy));
-            Explain(page, "Stored now so the invite system can enforce the choice server-side when invite delivery is enabled.");
+            Explain(page, "Controls who may send game invites when Do Not Disturb is off.");
+            _doNotDisturbRow = Add(page, new ToggleRow("Do Not Disturb",
+                LauncherPrefs.DoNotDisturb));
+            Explain(page, "Temporarily refuses game and party invites without hiding your online presence.");
 
             Heading(page, "Servers");
             _serverRow = Add(page, new FieldRow("Default server",
@@ -3146,6 +3150,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _activityVisibilityRow.Index, 0, 2);
             LauncherPrefs.InvitePolicy = (SocialInvitePolicy)Math.Clamp(
                 _invitePolicyRow.Index, 0, 2);
+            LauncherPrefs.DoNotDisturb = _doNotDisturbRow.On;
             LauncherPrefs.SocialPrivacyConfigured = true;
             SocialPresenceClient.NotifyPrivacyChanged();
             // These two rows are reachable from the pause menu as well as from
