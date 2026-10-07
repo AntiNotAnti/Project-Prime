@@ -301,6 +301,10 @@ namespace MphRead.Mods.Network
             string modifiers = new MatchDefinition { InstaGib = status.Rules.HasFlag(MatchModifierFlags.InstaGib),
                 LowTier = status.Rules.HasFlag(MatchModifierFlags.LowTier), NoImperialist = status.Rules.HasFlag(MatchModifierFlags.NoImperialist) }.ModifierSummary;
             if (modifiers.Length > 0) message += " · " + modifiers;
+            if (status.ReservedSlots > 0)
+                message += status.ReservedSlots == 1
+                    ? " · 1 seat reserved"
+                    : $" · {status.ReservedSlots} seats reserved";
             if (!String.IsNullOrEmpty(status.ServerName))
             {
                 // The name first: it is what the player recognises, and the
