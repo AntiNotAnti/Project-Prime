@@ -1,0 +1,283 @@
+--- a/wgpu-core/src/device/resource.rs
++++ b/wgpu-core/src/device/resource.rs
+@@ -328,14 +328,28 @@
+                 }
+                 _ => self.active_submission_index.load(Ordering::Relaxed),
+             };
+-            unsafe {
++            let wait_started = std::time::Instant::now();
++            let wait_completed = unsafe {
+                 self.raw
+                     .as_ref()
+                     .unwrap()
+                     .wait(fence, index_to_wait_for, CLEANUP_WAIT_MS)
+                     .map_err(DeviceError::from)?
+             };
+-            index_to_wait_for
++            // A bounded HAL wait may time out normally. Never retire or map
++            // the requested submission until the native fence proves it done.
++            let completed = prime_completed_submission_after_wait(
++                wait_completed,
++                index_to_wait_for,
++                || unsafe {
++                    self.raw.as_ref().unwrap().get_fence_value(fence)
++                        .map_err(DeviceError::from)
++                },
++            )?;
++            if !wait_completed {
++                prime_report_incomplete_wait(index_to_wait_for, completed, wait_started.elapsed());
++            }
++            completed
+         } else {
+             unsafe {
+                 self.raw
+@@ -3506,3 +3520,193 @@
+         assert_eq!(hal_bind_group_layout_entries(&explicit), explicit.values().copied().collect::<Vec<_>>());
+     }
+ }
++
++// Keep completion selection shared by the real maintenance path and its
++// regression tests. A successful wait trusts the HAL contract; after timeout
++// only a fresh native fence query may advance ownership and map callbacks.
++fn prime_completed_submission_after_wait<E>(
++    wait_completed: bool,
++    requested: hal::FenceValue,
++    observe: impl FnOnce() -> Result<hal::FenceValue, E>,
++) -> Result<hal::FenceValue, E> {
++    if wait_completed { Ok(requested) } else { observe() }
++}
++
++fn prime_report_incomplete_wait(requested: hal::FenceValue, completed: hal::FenceValue,
++    elapsed: std::time::Duration) {
++    // The warning records a timeout, not a device-loss or shader diagnosis.
++    // Preserve the existing wait budget and bound callback/log volume.
++    static REPORTS: AtomicU64 = AtomicU64::new(0);
++    if std::env::var("PRIME_WGPU_VALIDATION").as_deref() == Ok("1")
++        && REPORTS.fetch_add(1, Ordering::Relaxed) < 8 {
++        log::warn!("GPU fence wait incomplete: wait_completed=false requested={} actual_completed={} elapsed_ms={} wait_budget_ms={}",
++            requested, completed, elapsed.as_millis(), CLEANUP_WAIT_MS);
++    }
++}
++
++#[cfg(test)]
++mod prime_wait_completion_tests {
++    use super::{prime_completed_submission_after_wait, CommandAllocator, LifetimeTracker, UserClosures};
++    use crate::device::queue::{SubmittedWorkDoneClosure, TempResource};
++    use std::{
++        cell::Cell,
++        sync::{
++            atomic::{AtomicUsize, Ordering},
++            Arc,
++        },
++    };
++
++    type Empty = hal::api::Empty;
++    const OLDER: hal::FenceValue = 3;
++    const REQUESTED: hal::FenceValue = 5;
++
++    // Use the actual lifetime tracker and submitted-work callbacks. The empty
++    // HAL supplies only the type: no GPU, fake tracker, or timeout sleep is used.
++    fn tracked_work() -> (
++        LifetimeTracker<Empty>,
++        CommandAllocator<Empty>,
++        Arc<AtomicUsize>,
++        Arc<AtomicUsize>,
++    ) {
++        let mut tracker = LifetimeTracker::<Empty>::new();
++        let older_calls = Arc::new(AtomicUsize::new(0));
++        let requested_calls = Arc::new(AtomicUsize::new(0));
++        for (index, calls) in [(OLDER, &older_calls), (REQUESTED, &requested_calls)] {
++            tracker.track_submission(index, std::iter::empty::<TempResource<Empty>>(), Vec::new());
++            let calls = Arc::clone(calls);
++            tracker.add_work_done_closure(SubmittedWorkDoneClosure::from_rust(Box::new(move || {
++                calls.fetch_add(1, Ordering::SeqCst);
++            })));
++        }
++        (
++            tracker,
++            CommandAllocator { free_encoders: Vec::new() },
++            older_calls,
++            requested_calls,
++        )
++    }
++
++    fn maintain_tracked_work(
++        tracker: &mut LifetimeTracker<Empty>,
++        allocator: &mut CommandAllocator<Empty>,
++        wait_completed: bool,
++        observe: impl FnOnce() -> Result<hal::FenceValue, &'static str>,
++    ) -> Result<hal::FenceValue, &'static str> {
++        // Call the production selector used by Device::maintain, then the real
++        // submission triage and callback firing APIs in their production order.
++        let completed = prime_completed_submission_after_wait(wait_completed, REQUESTED, observe)?;
++        let submissions = tracker.triage_submissions(completed, allocator);
++        UserClosures { submissions, ..Default::default() }.fire();
++        Ok(completed)
++    }
++
++    fn assert_false_wait_completion(actual: hal::FenceValue, older_done: bool, requested_done: bool) {
++        let (mut tracker, mut allocator, older_calls, requested_calls) = tracked_work();
++        let observations = Cell::new(0);
++        let selected = maintain_tracked_work(&mut tracker, &mut allocator, false, || {
++            observations.set(observations.get() + 1);
++            Ok(actual)
++        });
++        assert_eq!(selected, Ok(actual));
++        assert_eq!(observations.get(), 1);
++        assert_eq!(older_calls.load(Ordering::SeqCst), if older_done { 1 } else { 0 });
++        assert_eq!(requested_calls.load(Ordering::SeqCst), if requested_done { 1 } else { 0 });
++        assert_eq!(tracker.queue_empty(), requested_done);
++
++        // A later observed completion must still fire each retained callback
++        // exactly once. Repeating the observation must not fire it again.
++        for _ in 0..2 {
++            assert_eq!(
++                maintain_tracked_work(&mut tracker, &mut allocator, false, || Ok(REQUESTED)),
++                Ok(REQUESTED),
++            );
++            assert!(tracker.queue_empty());
++            assert_eq!(older_calls.load(Ordering::SeqCst), 1);
++            assert_eq!(requested_calls.load(Ordering::SeqCst), 1);
++        }
++    }
++
++    #[test]
++    fn incomplete_wait_at_zero_preserves_all_active_work_and_callbacks() {
++        assert_false_wait_completion(0, false, false);
++    }
++
++    #[test]
++    fn incomplete_wait_retires_only_the_observed_older_submission() {
++        assert_false_wait_completion(OLDER, true, false);
++    }
++
++    #[test]
++    fn completion_racing_to_requested_after_timeout_is_retired() {
++        assert_false_wait_completion(REQUESTED, true, true);
++    }
++
++    #[test]
++    fn completion_racing_past_requested_retires_actual_later_work() {
++        let (mut tracker, mut allocator, older_calls, requested_calls) = tracked_work();
++        let later = REQUESTED + 2;
++        let later_calls = Arc::new(AtomicUsize::new(0));
++        tracker.track_submission(later, std::iter::empty::<TempResource<Empty>>(), Vec::new());
++        let callback_calls = Arc::clone(&later_calls);
++        tracker.add_work_done_closure(SubmittedWorkDoneClosure::from_rust(Box::new(move || {
++            callback_calls.fetch_add(1, Ordering::SeqCst);
++        })));
++
++        assert_eq!(
++            maintain_tracked_work(&mut tracker, &mut allocator, false, || Ok(later)),
++            Ok(later),
++        );
++        assert!(tracker.queue_empty());
++        assert_eq!(older_calls.load(Ordering::SeqCst), 1);
++        assert_eq!(requested_calls.load(Ordering::SeqCst), 1);
++        assert_eq!(later_calls.load(Ordering::SeqCst), 1);
++
++        assert_eq!(
++            maintain_tracked_work(&mut tracker, &mut allocator, false, || Ok(later)),
++            Ok(later),
++        );
++        assert_eq!(older_calls.load(Ordering::SeqCst), 1);
++        assert_eq!(requested_calls.load(Ordering::SeqCst), 1);
++        assert_eq!(later_calls.load(Ordering::SeqCst), 1);
++    }
++
++    #[test]
++    fn completed_wait_uses_requested_without_observing_the_fence_again() {
++        let (mut tracker, mut allocator, older_calls, requested_calls) = tracked_work();
++        assert_eq!(
++            maintain_tracked_work(&mut tracker, &mut allocator, true, || {
++                panic!("a completed wait must not query the fence again")
++            }),
++            Ok(REQUESTED),
++        );
++        assert!(tracker.queue_empty());
++        assert_eq!(older_calls.load(Ordering::SeqCst), 1);
++        assert_eq!(requested_calls.load(Ordering::SeqCst), 1);
++    }
++
++    #[test]
++    fn failed_completion_observation_never_triages_or_fires_callbacks() {
++        let (mut tracker, mut allocator, older_calls, requested_calls) = tracked_work();
++        let observations = Cell::new(0);
++        assert_eq!(
++            maintain_tracked_work(&mut tracker, &mut allocator, false, || {
++                observations.set(observations.get() + 1);
++                Err("native fence observation failed")
++            }),
++            Err("native fence observation failed"),
++        );
++        assert_eq!(observations.get(), 1);
++        assert!(!tracker.queue_empty());
++        assert_eq!(older_calls.load(Ordering::SeqCst), 0);
++        assert_eq!(requested_calls.load(Ordering::SeqCst), 0);
++
++        // Failure must retain, rather than silently discard, the callbacks.
++        assert_eq!(
++            maintain_tracked_work(&mut tracker, &mut allocator, false, || Ok(REQUESTED)),
++            Ok(REQUESTED),
++        );
++        assert!(tracker.queue_empty());
++        assert_eq!(older_calls.load(Ordering::SeqCst), 1);
++        assert_eq!(requested_calls.load(Ordering::SeqCst), 1);
++    }
++}
+--- a/wgpu-hal/src/dx12/device.rs
++++ b/wgpu-hal/src/dx12/device.rs
+@@ -1614,7 +1614,7 @@
+         &self,
+         fence: &super::Fence,
+     ) -> Result<crate::FenceValue, DeviceError> {
+-        Ok(unsafe { fence.raw.GetCompletedValue() })
++        prime_checked_fence_value(unsafe { fence.raw.GetCompletedValue() })
+     }
+     unsafe fn wait(
+         &self,
+@@ -1625,7 +1625,7 @@
+         let timeout_duration = Duration::from_millis(timeout_ms as u64);
+ 
+         // We first check if the fence has already reached the value we're waiting for.
+-        let mut fence_value = unsafe { fence.raw.GetCompletedValue() };
++        let mut fence_value = prime_checked_fence_value(unsafe { fence.raw.GetCompletedValue() })?;
+         if fence_value >= value {
+             return Ok(true);
+         }
+@@ -1691,7 +1691,7 @@
+                 }
+             };
+ 
+-            fence_value = unsafe { fence.raw.GetCompletedValue() };
++            fence_value = prime_checked_fence_value(unsafe { fence.raw.GetCompletedValue() })?;
+             log::trace!("Wait complete! Fence actual value: {}", fence_value);
+ 
+             if fence_value >= value {
+@@ -1754,3 +1754,26 @@
+         todo!()
+     }
+ }
++
++// D3D12 reports UINT64_MAX on device removal, not an all-complete fence.
++// Use the same guard for Poll and both Wait paths before any comparison.
++fn prime_checked_fence_value(value: crate::FenceValue) -> Result<crate::FenceValue, DeviceError> {
++    if value == u64::MAX { Err(DeviceError::Lost) } else { Ok(value) }
++}
++
++#[cfg(test)]
++mod prime_dx12_fence_completion_tests {
++    use super::*;
++
++    #[test]
++    fn removed_device_is_never_reported_as_completed_work() {
++        assert!(matches!(prime_checked_fence_value(u64::MAX), Err(DeviceError::Lost)));
++    }
++
++    #[test]
++    fn real_zero_older_target_and_later_completion_values_are_preserved() {
++        for value in [0, 3, 7, 8, u64::MAX - 1] {
++            assert_eq!(prime_checked_fence_value(value).unwrap(), value);
++        }
++    }
++}

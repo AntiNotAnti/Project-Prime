@@ -22,7 +22,7 @@ assert metadata['sha256'] == hashlib.sha256(data).hexdigest(), 'runtime hash dis
 assert b'primeWgpuInjectSurfaceOutcome\x00' not in data, 'test-only injection export detected in native binary'
 for name in ('primeWgpuBridgeVersion', 'primeWgpuSurfaceConfigure', 'primeWgpuSurfaceAcquire',
              'primeWgpuSurfacePresent', 'primeWgpuSurfaceDiscard', 'primeWgpuQueueSubmit',
-             'primeWgpuQueueGetTimestampPeriod'):
+             'primeWgpuQueueGetTimestampPeriod', 'primeWgpuQueueSubmitObserved'):
     assert name.encode() + b'\x00' in data, f'patched bridge export absent: {name}'
 if expected_target.startswith('osx'):
     assert b'primeInstanceCreateSurfaceAppKit\x00' in data, 'MoltenVK AppKit surface bridge absent'

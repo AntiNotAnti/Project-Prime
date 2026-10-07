@@ -306,15 +306,17 @@ namespace MphRead.Mods.Render
             }
             _api.RenderPassEncoderSetViewport(
                 pass, 0, 0, target.Width, target.Height, 0, 1);
-            ApplyScissor(pass, target.Width, target.Height);
+            bool rasterVisible = ApplyScissor(pass, target.Width, target.Height);
             uint retainedIndexCount = (uint)geometry.Triangles.Length;
-            if (!TryDrawRetainedIndexedIndirect(
-                pass, retainedIndexCount, item))
+            if (rasterVisible)
             {
-                _api.RenderPassEncoderDrawIndexed(
-                    pass, retainedIndexCount, 1, 0, 0, 0);
+                if (!TryDrawRetainedIndexedIndirect(pass, retainedIndexCount, item))
+                {
+                    _api.RenderPassEncoderDrawIndexed(
+                        pass, retainedIndexCount, 1, 0, 0, 0);
+                }
+                if (_measurePerformance) _coreDraws++;
             }
-            if (_measurePerformance) _coreDraws++;
             RecordCommandOperation();
 
             if (geometry.EndNormal is Vector3 normal)

@@ -22,13 +22,13 @@ namespace MphRead
         public string Name { get; }
         public string? InGameName { get; }
         public string Archive { get; }
-        public string ModelPath { get; }
-        public string AnimationPath { get; }
-        public string CollisionPath { get; }
+        public string ModelPath { get; private set; }
+        public string AnimationPath { get; private set; }
+        public string CollisionPath { get; private set; }
         public string? TexturePath { get; }
-        public string? EntityPath { get; }
+        public string? EntityPath { get; private set; }
         public string? EntityFilename { get; }
-        public string? NodePath { get; }
+        public string? NodePath { get; private set; }
         public string? RoomNodeName { get; }
         public uint BattleTimeLimit { get; }
         public uint TimeLimit { get; }
@@ -56,6 +56,17 @@ namespace MphRead
         public Vector3 PlayerMin { get; }
         public Vector3 PlayerMax { get; }
         public bool HasLimits { get; }
+
+        // A private replay keeps the recorded room name while loading immutable,
+        // package-addressed binaries. It never enters the process room registry.
+        internal RoomMetadata WithPrivateResources(Mods.MapGen.MapOutputSet outputs)
+        {
+            var copy = (RoomMetadata)MemberwiseClone();
+            copy.ModelPath = outputs.Model; copy.AnimationPath = outputs.Animation;
+            copy.CollisionPath = outputs.Collision; copy.EntityPath = outputs.Entities;
+            copy.NodePath = outputs.Nodes;
+            return copy;
+        }
 
         public RoomMetadata(int id, string name, string? inGameName, string archive, string modelPath, string animationPath,
             string collisionPath, string? texturePath, string? entityPath, string? nodePath, string? roomNodeName, uint battleTimeLimit,

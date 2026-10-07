@@ -27,15 +27,122 @@ namespace MphRead.Mods.Render
         private static nint _macVulkanLoader;
         // wgpu stores this process-wide, including after a device is disposed.
         private static readonly LogCallback _nativeLog = OnNativeLog;
+#if !ANDROID
+        private static readonly NativeValidationCriticalWarning _criticalFenceWarning = new();
+        private static readonly ShaderDiagnosticSourceRetention _shaderDiagnosticSource = new();
+        private static readonly ShaderDiagnosticReadbackObservation _shaderReadbackObservation = new();
+        internal static IDisposable? BeginLayeredPbrShaderDiagnosticScopeForCheck()
+        {
+            IDisposable? source = null, readback = null;
+            try
+            {
+                source = _shaderDiagnosticSource.BeginLayeredPbrScope(
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_SHADER_DIAGNOSTICS"),
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_VALIDATION"),
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_GPU_VALIDATION"),
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_SHADER_DIAGNOSTIC_DIRECTORY"),
+                    Environment.GetEnvironmentVariable("RUNNER_TEMP"),
+                    Environment.GetEnvironmentVariable("GITHUB_SHA"),
+                    Environment.GetEnvironmentVariable("GITHUB_RUN_ID"));
+                readback = _shaderReadbackObservation.BeginLayeredScope(
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_SHADER_DIAGNOSTICS"),
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_VALIDATION"),
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_GPU_VALIDATION"));
+                return ShaderDiagnosticReadbackObservation.Combine(source, readback);
+            }
+            catch
+            {
+                try { readback?.Dispose(); } catch { }
+                try { source?.Dispose(); } catch { }
+                return null;
+            }
+        }
+        internal static IDisposable BeginNativeReadbackObservationForCheck(int x, int y, int width, int height)
+            => _shaderReadbackObservation.BeginReadback(x, y, width, height);
+        internal static void WriteNativeReadbackObservationForCheck(string phase, string edge)
+            => _shaderReadbackObservation.Mark(phase, edge);
+        internal static bool TryCaptureNativeSubmitObservation(out NativeSubmitObservationIdentity identity)
+        {
+            identity = default;
+            if (!_shaderReadbackObservation.HasOwnedReadbackForNativeObservation) return false;
+            try
+            {
+                return _shaderReadbackObservation.TryCaptureNativeSubmitObservation(
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_SHADER_DIAGNOSTICS"),
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_VALIDATION"),
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_GPU_VALIDATION"), out identity);
+            }
+            catch { return false; }
+        }
+#endif
+        private static bool _nativeValidationDiagnosticsEnabled;
+        private static readonly object _nativeValidationDiagnosticLock = new();
+        private static readonly Queue<string> _nativeValidationErrors = new();
+        private static readonly Queue<string> _nativeValidationWarnings = new();
+        private static int _nativeValidationErrorsForwarded;
+        private static int _nativeValidationWarningsForwarded;
+        private const int NativeValidationErrorLimit = 64;
+        private const int NativeValidationWarningLimit = 32;
+        private const int NativeValidationMessageLimit = 4096;
 
         private static void OnNativeLog(LogLevel level, byte* message, void* userdata)
         {
             try
             {
-                Mods.DebugLog.Checkpoint("wgpu", $"{level}: {PtrString(message, "no detail")}");
+                string detail = PtrString(message, "no detail");
+#if !ANDROID
+                bool criticalFence = level == LogLevel.Warn
+                    && System.Threading.Volatile.Read(ref _nativeValidationDiagnosticsEnabled)
+                    && NativeValidationCriticalWarning.Matches(detail);
+                if (criticalFence) _criticalFenceWarning.TryForward(true, detail, Console.Error);
+                _shaderDiagnosticSource.TryRetain(level.ToString(), detail);
+#else
+                const bool criticalFence = false;
+#endif
+                try { Mods.DebugLog.Checkpoint("wgpu", $"{level}: {detail}"); }
+                catch { /* An optional disk-log failure must not discard the priority lane. */ }
+                if (System.Threading.Volatile.Read(ref _nativeValidationDiagnosticsEnabled)
+                    && level is LogLevel.Error or LogLevel.Warn)
+                {
+                    // Info-level generated HLSL can fill the ordinary diagnostic
+                    // tail. Preserve native errors separately and forward them
+                    // before a later device-loss/map failure obscures their cause.
+                    string bounded = detail.Length <= NativeValidationMessageLimit
+                        ? detail : detail[..NativeValidationMessageLimit] + " [truncated]";
+                    string record = $"[wgpu-validation] {level}: {bounded}";
+                    bool error = level == LogLevel.Error;
+                    int limit = error ? NativeValidationErrorLimit : NativeValidationWarningLimit;
+                    lock (_nativeValidationDiagnosticLock)
+                    {
+                        Queue<string> records = error ? _nativeValidationErrors : _nativeValidationWarnings;
+                        records.Enqueue(record);
+                        while (records.Count > limit) records.Dequeue();
+                    }
+                    int forwarded = error
+                        ? System.Threading.Interlocked.Increment(ref _nativeValidationErrorsForwarded)
+                        : System.Threading.Interlocked.Increment(ref _nativeValidationWarningsForwarded);
+                    if (forwarded <= limit && !criticalFence) Console.Error.WriteLine(record);
+                    else if (forwarded == limit + 1 && !criticalFence)
+                        Console.Error.WriteLine($"[wgpu-validation] {level}: immediate diagnostic limit reached; latest records remain retained");
+                }
             }
             catch { /* Never unwind a logging failure through native frames. */ }
         }
+
+        internal static void AppendNativeValidationDiagnostics(System.Text.StringBuilder output)
+        {
+            if (!System.Threading.Volatile.Read(ref _nativeValidationDiagnosticsEnabled)) return;
+            lock (_nativeValidationDiagnosticLock)
+            {
+                if (_nativeValidationErrors.Count == 0 && _nativeValidationWarnings.Count == 0) return;
+                output.AppendLine("Prioritized native validation diagnostics:");
+                foreach (string warning in _nativeValidationWarnings) output.AppendLine(warning);
+                foreach (string error in _nativeValidationErrors) output.AppendLine(error);
+            }
+        }
+
+        internal static int NativeValidationErrorCount
+            => System.Threading.Volatile.Read(ref _nativeValidationErrorsForwarded);
 
         private readonly WebGPU _api;
         private readonly Wgpu _native;
@@ -125,7 +232,39 @@ namespace MphRead.Mods.Render
             // Explicit destruction need not deliver an unexpected-loss callback.
             _errors.DeviceLost = true;
         }
-        internal ModernGraphicsDevice CreateReplacement() => CreateCore(Backend, _surfaceFactory);
+        private Action<ModernGraphicsDevice>? _replacementCreatedForCheck;
+        internal void ObserveNextReplacementForCheck(Action<ModernGraphicsDevice> observer)
+            => _replacementCreatedForCheck = observer;
+
+        internal void ReleaseOwnedPresentationSurface()
+        {
+            Surface* surface = _surface;
+            _surface = null;
+            if (surface == null) return;
+            // Unconfigure clears native presentation metadata. Releasing the
+            // surface also drops the DXGI swap chain that owns the HWND.
+            try { _api.SurfaceUnconfigure(surface); }
+            finally { _api.SurfaceRelease(surface); }
+        }
+
+        internal ModernGraphicsDevice CreateReplacement()
+        {
+            if (_surface != null)
+                throw new InvalidOperationException("Release the previous presentation surface before replacing its device.");
+            Action<ModernGraphicsDevice>? observer = _replacementCreatedForCheck;
+            _replacementCreatedForCheck = null;
+            ModernGraphicsDevice replacement = CreateCore(Backend, _surfaceFactory);
+            try
+            {
+                observer?.Invoke(replacement);
+                return replacement;
+            }
+            catch
+            {
+                replacement.Dispose();
+                throw;
+            }
+        }
 
         private unsafe delegate Surface* SurfaceFactory(WebGPU api, Instance* instance);
 
@@ -175,6 +314,12 @@ namespace MphRead.Mods.Render
         internal Adapter* Adapter => _adapter;
         internal Device* Device => _device;
         internal Surface* Surface => _surface;
+        internal Instance* Instance => _instance;
+
+        // Studio owns independently hosted Avalonia native surfaces. The device
+        // only borrows the active replay target; the surface owner releases it.
+        internal void BorrowStudioSurface(Surface* surface) => _surface = surface;
+        internal void ClearBorrowedStudioSurface() => _surface = null;
 
         public static ModernGraphicsDevice Create(GraphicsBackend requested = GraphicsBackend.Auto)
         {
@@ -241,8 +386,10 @@ namespace MphRead.Mods.Render
                             "Silk.NET loaded WebGPU without the wgpu-native extension.");
                     }
                     native = nativeExtension;
+                    bool nativeValidation = Environment.GetEnvironmentVariable("PRIME_WGPU_VALIDATION") == "1";
+                    System.Threading.Volatile.Write(ref _nativeValidationDiagnosticsEnabled, nativeValidation);
                     native.SetLogCallback(new PfnLogCallback(_nativeLog), null);
-                    native.SetLogLevel(Mods.DebugLog.Active ? LogLevel.Info : LogLevel.Error);
+                    native.SetLogLevel(nativeValidation || Mods.DebugLog.Active ? LogLevel.Info : LogLevel.Error);
                     Mods.DebugLog.Checkpoint("render",
                         $"{backend} startup: creating instance (wgpu=0x{native.GetVersion():x8})");
 
@@ -250,6 +397,13 @@ namespace MphRead.Mods.Render
                     extras.Chain.SType = (SType)NativeSType.STypeInstanceExtras;
                     extras.Chain.Next = null;
                     extras.Backends = ToInstanceBackend(backend);
+                    if (nativeValidation)
+                    {
+                        // Diagnostic opt-in: validate native commands without the
+                        // DEBUG flag's changes to shader compiler optimization.
+                        extras.Flags = (uint)InstanceFlag.Validation;
+                        Console.Error.WriteLine($"[render] native validation requested backend={GraphicsBackendPolicy.DisplayName(backend)} flags={(InstanceFlag)extras.Flags}");
+                    }
 
                     InstanceDescriptor instanceDescriptor = default;
                     instanceDescriptor.NextInChain = (ChainedStruct*)&extras;
@@ -415,15 +569,10 @@ namespace MphRead.Mods.Render
         {
             if (_disposed) return;
             _disposed = true;
-            if (_surface != null)
-            {
-                // A configured surface still refers to this device. Unconfigure
-                // and release it before releasing the device/adapter it was
-                // configured against.
-                _api.SurfaceUnconfigure(_surface);
-                _api.SurfaceRelease(_surface);
-                _surface = null;
-            }
+            _replacementCreatedForCheck = null;
+            // A configured surface still refers to this device. Release it
+            // before the device/adapter it was configured against.
+            ReleaseOwnedPresentationSurface();
             if (_device != null)
             {
                 _api.DeviceRelease(_device);

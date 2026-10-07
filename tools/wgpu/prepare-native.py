@@ -47,10 +47,12 @@ def archive(source, commit, target):
 
 def patch_fingerprint():
     inputs = [ROOT/'tools/wgpu/prime-appkit-surface.rs', ROOT/'tools/wgpu/prime-surface-outcomes.rs',
-              ROOT/'tools/wgpu/prepare-native.py', ROOT/'tools/wgpu/prime-dx12-wsi-policy.rs', *sorted((ROOT/'tools/wgpu/patches').glob('*.patch'))]
+              ROOT/'tools/wgpu/prepare-native.py', ROOT/'tools/wgpu/prime-dx12-wsi-policy.rs', ROOT/'tools/wgpu/prime-submit-observation.rs', *sorted((ROOT/'tools/wgpu/patches').glob('*.patch'))]
     digest = hashlib.sha256((NATIVE + CORE).encode())
     for item in inputs:
-        digest.update(item.name.encode()); digest.update(item.read_bytes())
+        # Every input is checked-in UTF-8 source/patch text. Git's Windows
+        # checkout line endings must not change the identity of the same patch.
+        digest.update(item.name.encode()); digest.update(item.read_text(encoding='utf-8').encode('utf-8'))
     return digest.hexdigest()
 
 
@@ -77,6 +79,7 @@ def prepare(offline):
     archive(headers, header_commit, target/'ffi/webgpu-headers')
     core_target = target.parent/(fingerprint + '-core')
     archive(core, CORE, core_target)
+    (core_target/'wgpu-hal/src/prime_submit_observation.rs').write_bytes((ROOT/'tools/wgpu/prime-submit-observation.rs').read_bytes())
     (core_target/'wgpu-hal/src/dx12/prime_wsi.rs').write_bytes((ROOT/'tools/wgpu/prime-dx12-wsi-policy.rs').read_bytes())
     for patch in sorted((ROOT/'tools/wgpu/patches').glob('*.patch')):
         where = core_target if patch.name.startswith('dx12-') else target
@@ -85,24 +88,24 @@ def prepare(offline):
     for item in inputs[:2]:
         (target/item.name).write_bytes(item.read_bytes())
     lib = target/'src/lib.rs'
-    with lib.open('a') as stream:
+    with lib.open('a', encoding='utf-8') as stream:
         for item in inputs[:2]:
             stream.write(f'\ninclude!(concat!(env!("CARGO_MANIFEST_DIR"), "/{item.name}"));\n')
     toml = target/'Cargo.toml'
-    text = toml.read_text().replace('[features]\n','[features]\nprime-fault-injection = []\n',1).replace('members = ["."]', 'members = ["."]\nexclude = ["_prime_wgpu"]', 1)
+    text = toml.read_text(encoding='utf-8').replace('[features]\n','[features]\nprime-fault-injection = []\n',1).replace('members = ["."]', 'members = ["."]\nexclude = ["_prime_wgpu"]', 1)
     text += '\n[patch."https://github.com/gfx-rs/wgpu"]\n'
     for crate in ('naga','wgpu-core','wgpu-hal','wgpu-types'):
         text += f'{crate} = {{ path = "../{fingerprint}-core/{crate}" }}\n'
-    toml.write_text(text)
+    toml.write_text(text, encoding='utf-8')
     # Only change source identity of the four pinned packages. All registry
     # versions/checksums remain exactly those in the upstream lockfile.
     lock = target/'Cargo.lock'
-    text = lock.read_text()
+    text = lock.read_text(encoding='utf-8')
     text = '\n'.join(line for line in text.split('\n')
                      if not line.startswith('source = "git+https://github.com/gfx-rs/wgpu?'))
-    lock.write_text(text)
+    lock.write_text(text, encoding='utf-8')
     manifest.write_text(json.dumps({'bridge_abi':1,'native_commit':NATIVE,'core_commit':CORE,
-                                    'patch_fingerprint':fingerprint}, indent=2)+'\n')
+                                    'patch_fingerprint':fingerprint}, indent=2)+'\n', encoding='utf-8')
     return target
 
 

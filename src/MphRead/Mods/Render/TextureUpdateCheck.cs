@@ -16,7 +16,12 @@ internal static class TextureUpdateCheck
             GraphicsBackendPolicy.Configure(renderer ?? "opengl");
             var settings = DesktopGlContext.Settings(background: true);
             settings.ClientSize = new Vector2i(32, 32);
-            using var window = new NativeWindow(settings);
+            using var window = HostedLegacyGlCapabilityCheck.CreateWindow(settings);
+            if (window == null)
+            {
+                Console.WriteLine("[textureupdatecheck] legacy OpenGL pixels UNAVAILABLE: hosted Apple Paravirtual device has no accelerated legacy CGL format; mandatory modern checks remain separate");
+                return 0;
+            }
             using var graphics = new DesktopGraphicsSession(window);
             DesktopGraphicsSession.Resize(window);
             Verify();

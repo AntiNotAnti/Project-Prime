@@ -64,6 +64,11 @@ internal static class NetworkBenchmark
         int PacketLength(int kind) => NetHeader.Size + (kind == 0 ? IntentPacket.FullSize : kind == 1
             ? SnapshotHeader.Size + s.Players * SnapshotFast.PlayerSize : kind == 2 ? lanes.SlowLength : lanes.WorldLength);
         var intent = IntentPacket.Read(NetArchitectureTests.IntentFixture());
+        intent.HasFireEvents = true;
+        intent.FireEventCount = NetFireEvents.Capacity;
+        for (int i = 0; i < intent.FireEventCount; i++)
+            intent.FireEvents[i] = new((uint)i + 1, 1, 1, 0, FireEventKind.PressFire, 0, 0, 0,
+                SourcePosition: new Vector3(1, 2, 3), SourceUp: Vector3.UnitY, SourceFlags: FireEvent.FlagSourcePose);
         var state = new PlayerState { SlotGeneration = 9, LifeId = 2, Position = new Vector3(1, 2, 3), Facing = Vector3.UnitZ };
         // Warm the exact codecs before allocation measurement.
         for (int i = 0; i < 1000; i++) { intent.Write(buffer); _ = IntentPacket.Read(buffer); state.Write(buffer); _ = PlayerState.Read(buffer); }
@@ -95,7 +100,11 @@ internal static class NetworkBenchmark
                 {
                     intent.Frame = packet.Frame; intent.Write(buffer);
                     var decoded = IntentPacket.Read(buffer.AsSpan(0, IntentPacket.FullSize));
-                    NetArchitectureTests.Check(decoded.Position == intent.Position && decoded.Frame == packet.Frame, "benchmark intent mismatch");
+                    NetArchitectureTests.Check(decoded.Position == intent.Position && decoded.Frame == packet.Frame
+                        && decoded.FireEventCount == NetFireEvents.Capacity
+                        && decoded.FireEvents[NetFireEvents.Capacity - 1].ShotId == NetFireEvents.Capacity
+                        && decoded.FireEvents[NetFireEvents.Capacity - 1].SourcePosition == new Vector3(1, 2, 3),
+                        "benchmark maximum-width intent mismatch");
                     bytesReceived += IntentPacket.FullSize + NetHeader.Size;
                 }
                 else if (kind == 1)
@@ -133,7 +142,11 @@ internal static class NetworkBenchmark
         }
         long allocationBytes = GC.GetAllocatedBytesForCurrentThread() - allocated;
         clock.Stop(); timings.Sort();
-        NetArchitectureTests.Check(queue.Count == 0 && maxPacket <= 1200, "drained queue and packet budget");
+        NetArchitectureTests.Check(queue.Count == 0, $"drained benchmark queue (remaining {queue.Count})");
+        // Protocol 42's maximum intent includes sixteen shot-time pose records.
+        // Check the production UDP MTU instead of the older 1,200-byte lane target.
+        NetArchitectureTests.Check(maxPacket <= NetConfig.MaxPacketSize,
+            $"benchmark packet budget (maximum {maxPacket} bytes, limit {NetConfig.MaxPacketSize}, players {s.Players})");
         return new { telemetry = telemetry.Capture(), scenario = s, durationSeconds = 10, packetsSent = sent, packetsReceived = received, bytesSent, bytesReceived,
             intentPackets = ticks * s.Players, snapshotPackets = ticks * s.Players, slowPackets = ticks / 6 * s.Players, worldPackets = ticks / 15 * s.Players, controlPackets = 0,
             transportQueueHighWater = high, injectedDrops = queue.Dropped, transportDrops = 0, coalescedPackets = 0,

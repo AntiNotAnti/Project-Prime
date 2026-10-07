@@ -144,6 +144,12 @@ internal sealed unsafe partial class ModernGraphicsCompat
 
     internal static void SubmitPending() => Current.FlushCommands();
 
+    internal static void ThrowIfDeviceFailedForCheck()
+    {
+        if (_current == null) throw new InvalidOperationException("No active modern device for the native check.");
+        _current._device.ThrowIfFailed();
+    }
+
     // End only the current compatibility render pass, keeping the command
     // encoder alive so callers can establish a hard state/viewmodel boundary
     // without paying for an additional QueueSubmit.
@@ -502,22 +508,82 @@ internal sealed unsafe partial class ModernGraphicsCompat
 
     private void FlushCommands()
     {
+#if !ANDROID
+        ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("active-pass-end", "START");
+#endif
         EndActiveCorePass();
+#if !ANDROID
+        ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("active-pass-end", "DONE");
+#endif
         if (_commandEncoder == null) return;
+#if !ANDROID
+        ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("encoder-finish", "START");
+#endif
         CommandBuffer* commands = _api.CommandEncoderFinish(_commandEncoder, new CommandBufferDescriptor());
+#if !ANDROID
+        ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("encoder-finish", "DONE");
+#endif
         try
         {
             // Uniform writes target independent arena storage. Queue them
             // immediately before the submission that consumes the recorded
             // offsets, collapsing hundreds of tiny writes into one per page.
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("geometry-writes", "START");
+#endif
             FlushGeometryWrites();
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("geometry-writes", "DONE");
+#endif
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("uniform-writes", "START");
+#endif
             FlushUniformWrites();
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("uniform-writes", "DONE");
+#endif
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("retained-uniform-writes", "START");
+#endif
             FlushRetainedUniformWrites();
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("retained-uniform-writes", "DONE");
+#endif
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("retained-pbr-writes", "START");
+#endif
             FlushRetainedPbrUniformWrites();
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("retained-pbr-writes", "DONE");
+#endif
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("indirect-writes", "START");
+#endif
             FlushRetainedIndirectWrites();
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("indirect-writes", "DONE");
+#endif
             long start = PerformanceStart();
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("checked-submit", "START");
+#endif
+#if !ANDROID
+            NativeGraphicsResult result = ModernGraphicsDevice.TryCaptureNativeSubmitObservation(out var identity)
+                ? ModernGraphicsNativeBridge.SubmitObserved(_queue, 1, &commands, identity)
+                : ModernGraphicsNativeBridge.Submit(_queue, 1, &commands);
+#else
             NativeGraphicsResult result = ModernGraphicsNativeBridge.Submit(_queue, 1, &commands);
+#endif
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("checked-submit", "DONE");
+#endif
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("observe-submit", "START");
+#endif
             _device.ObserveNativeResult(result, "submit command buffer");
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("observe-submit", "DONE");
+#endif
             if (start != 0)
             {
                 _queueSubmissions++;

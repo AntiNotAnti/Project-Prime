@@ -199,7 +199,7 @@ private:
 
     void OpenHunters(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:hunter"); }
     void OpenCommunity(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:forge"); }
-    void OpenStudio(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:theatre"); }
+    void OpenStudio(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("studio:open"); }
     void OpenProfile(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:hunter"); }
     void OpenSettings(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:settings"); }
     void OpenClassic(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("route:news"); }
@@ -421,4 +421,19 @@ PP_EXPORT int pp_rmlui_take_action(unsigned char* buffer, int capacity)
     std::memcpy(buffer, action.data(), static_cast<size_t>(length));
     buffer[length] = 0;
     return length;
+}
+
+// Bounded POC diagnostic for real native-input regression at each density.
+// This reads only the one shipped STUDIO control; no action is synthesized.
+PP_EXPORT int pp_rmlui_studio_bounds(float* x, float* y, float* width, float* height)
+{
+    if (!g_context || !g_document || !x || !y || !width || !height) return 0;
+    g_context->Update();
+    Rml::Element* studio = g_document->GetElementById("nav_studio");
+    if (!studio) return 0;
+    const auto offset = studio->GetAbsoluteOffset(Rml::BoxArea::Border);
+    const auto size = studio->GetBox().GetSize(Rml::BoxArea::Border);
+    if (size.x <= 0 || size.y <= 0) return 0;
+    *x = offset.x; *y = offset.y; *width = size.x; *height = size.y;
+    return 1;
 }

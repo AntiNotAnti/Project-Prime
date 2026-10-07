@@ -42,6 +42,29 @@ foreach ((int w, int h) in new[] { (1365, 767), (801, 603), (7, 5), (1, 9), (9, 
     }
 }
 Require(!ConservativeHiZ.TemporalOcclusionEnabled, "Untrusted moving-world history must not reject geometry");
+// Verify normalized, clamped lookup against independent rational pixel probes.
+// An odd source texel crossing a destination boundary belongs to both cells.
+foreach(int size in new[] {1,2,3,5,7,15,31,63,127,255,1080,1440,1920,2560,3840})
+{
+    int current=size;
+    do
+    {
+        int next=Math.Max(1,current/2);
+        for(int cell=0;cell<next;cell++)
+        {
+            var footprint=ConservativeHiZ.Footprint(cell,current,next);
+            Require(footprint.Start==(int)Math.Floor(cell*(double)current/next)
+                && footprint.End==(int)Math.Ceiling((cell+1)*(double)current/next),"HiZ normalized footprint disagrees with independent interval oracle");
+        }
+        for(int source=0;source<current;source++)for(int quarter=0;quarter<4;quarter++)
+        {
+            int cell=Math.Clamp((int)((4L*source+quarter)*next/(4L*current)),0,next-1);
+            var footprint=ConservativeHiZ.Footprint(cell,current,next);
+            Require(footprint.Start<=source && source<footprint.End,"HiZ normalized lookup lost its source texel");
+        }
+        current=next;
+    }while(current>1);
+}
 
 // Bounded atlas churn with a surviving shared lease. Randomized rent/return
 // checks disjointness and capacity against a separate occupancy bitmap.

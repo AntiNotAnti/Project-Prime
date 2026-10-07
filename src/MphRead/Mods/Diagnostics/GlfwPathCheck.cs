@@ -19,8 +19,24 @@ namespace MphRead.Mods.Diagnostics
                 // macOS can canonicalize /var to /private/var in getcwd.
                 fixture = Directory.GetCurrentDirectory();
                 GameFiles.Root = fixture;
-                Directory.CreateDirectory(Path.Combine(fixture, "files", Ver.AMHE1));
+                string extracted = Path.Combine(fixture, "files", Ver.AMHE1);
+                Directory.CreateDirectory(extracted);
                 File.WriteAllText("paths.txt", $"{Program.Version}\n{Ver.AMHE1}=files/{Ver.AMHE1}\n");
+                if (GameFiles.Problem() == null)
+                    throw new InvalidOperationException("An empty extraction fixture was accepted.");
+                // Only the launcher admission sentinel sizes are exercised.
+                // These generated zero headers are never decoded as game data.
+                foreach ((string relative, int minimum) in new[]
+                {
+                    (@"_archives\mp1\mp1_Model.bin", Sizes.Header),
+                    (@"_archives\mp1\mp1_Collision.bin", Sizes.CollisionHeader),
+                    (@"levels\entities\mp1_Ent.bin", Sizes.EntityHeader + Sizes.EntityEntry)
+                })
+                {
+                    string file = Paths.Combine(extracted, relative);
+                    Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+                    File.WriteAllBytes(file, new byte[minimum]);
+                }
                 if (GameFiles.Problem() is string before)
                     throw new InvalidOperationException($"Invalid path fixture: {before}");
 

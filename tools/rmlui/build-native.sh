@@ -16,6 +16,7 @@ usage: tools/rmlui/build-native.sh <auto|osx-arm64|osx-x64|linux-x64>
 
 Builds the optional RmlUi 6.3 proof-of-concept bridge. Nothing is installed
 system-wide; RmlUi and a minimal static FreeType are pinned under artifacts/.
+PRIME_RMLUI_BUILD_JOBS controls build workers (1..32; default 2).
 USAGE
     exit 2
 }
@@ -37,6 +38,26 @@ case "$target" in
     *) usage ;;
 esac
 
+# Pass an explicit count: bare --parallel can select unlimited GNU Make jobs.
+build_jobs=${PRIME_RMLUI_BUILD_JOBS-2}
+case "$build_jobs" in
+    [1-9]|[12][0-9]|3[0-2]) ;;
+    *) echo "error: PRIME_RMLUI_BUILD_JOBS must be an integer from 1 to 32" >&2; exit 2 ;;
+esac
+
+run_phase() {
+    local phase=$1
+    shift
+    local started=$SECONDS status=0
+    printf 'DIAGNOSTIC RMLUI START phase=%s target=%s jobs=%s\n' "$phase" "$target" "$build_jobs"
+    "$@" || status=$?
+    if (( status != 0 )); then
+        printf 'DIAGNOSTIC RMLUI FAIL phase=%s target=%s jobs=%s elapsedSeconds=%s exit=%s\n' "$phase" "$target" "$build_jobs" "$((SECONDS - started))" "$status" >&2
+        return "$status"
+    fi
+    printf 'DIAGNOSTIC RMLUI DONE phase=%s target=%s jobs=%s elapsedSeconds=%s\n' "$phase" "$target" "$build_jobs" "$((SECONDS - started))"
+}
+
 for command in git cmake; do
     command -v "$command" >/dev/null || { echo "error: $command is required" >&2; exit 1; }
 done
@@ -55,16 +76,16 @@ retry_git() {
 
 mkdir -p "$source_root"
 if [[ ! -d "$rml_src/.git" ]]; then
-    retry_git git clone --filter=blob:none --no-checkout https://github.com/mikke89/RmlUi.git "$rml_src"
+    run_phase rmlui-clone retry_git git clone --filter=blob:none --no-checkout https://github.com/mikke89/RmlUi.git "$rml_src"
 fi
-retry_git git -C "$rml_src" fetch --depth 1 origin "$rml_revision"
-git -C "$rml_src" checkout --detach "$rml_revision"
+run_phase rmlui-fetch retry_git git -C "$rml_src" fetch --depth 1 origin "$rml_revision"
+run_phase rmlui-checkout git -C "$rml_src" checkout --detach "$rml_revision"
 
 if [[ ! -d "$ft_src/.git" ]]; then
-    retry_git git clone --filter=blob:none --no-checkout https://github.com/freetype/freetype.git "$ft_src"
+    run_phase freetype-clone retry_git git clone --filter=blob:none --no-checkout https://github.com/freetype/freetype.git "$ft_src"
 fi
-retry_git git -C "$ft_src" fetch --depth 1 origin "$freetype_revision"
-git -C "$ft_src" checkout --detach "$freetype_revision"
+run_phase freetype-fetch retry_git git -C "$ft_src" fetch --depth 1 origin "$freetype_revision"
+run_phase freetype-checkout git -C "$ft_src" checkout --detach "$freetype_revision"
 
 ft_build="$root/artifacts/rmlui-poc-build/freetype-$target"
 ft_install="$root/artifacts/rmlui-poc-deps/freetype-$target"
@@ -82,7 +103,7 @@ elif [[ "$target" == osx-x64 ]]; then
     arch_args=(-DCMAKE_OSX_ARCHITECTURES=x86_64)
 fi
 
-cmake -S "$ft_src" -B "$ft_build" \
+run_phase freetype-configure cmake -S "$ft_src" -B "$ft_build" \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="$ft_install" \
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
@@ -93,23 +114,23 @@ cmake -S "$ft_src" -B "$ft_build" \
     -DFT_DISABLE_HARFBUZZ=TRUE \
     -DFT_DISABLE_BROTLI=TRUE \
     "${arch_args[@]}"
-cmake --build "$ft_build" --config Release --parallel
-cmake --install "$ft_build" --config Release
+run_phase freetype-build cmake --build "$ft_build" --config Release --parallel "$build_jobs"
+run_phase freetype-install cmake --install "$ft_build" --config Release
 
-cmake -S "$root/native/rmlui-poc" -B "$bridge_build" \
+run_phase bridge-configure cmake -S "$root/native/rmlui-poc" -B "$bridge_build" \
     -DCMAKE_BUILD_TYPE=Release \
     -DRMLUI_SOURCE_DIR="$rml_src" \
     -DCMAKE_PREFIX_PATH="$ft_install" \
     "${arch_args[@]}"
-cmake --build "$bridge_build" --config Release --target ProjectPrimeRmlUiNative --parallel
+run_phase bridge-build cmake --build "$bridge_build" --config Release --target ProjectPrimeRmlUiNative --parallel "$build_jobs"
 
 case "$target" in
     osx-*)
         library=$(find "$bridge_build" -type f -name 'libProjectPrime.RmlUi.Native.dylib' | head -1)
         [[ -n "$library" ]] || { echo "error: RmlUi bridge dylib was not produced" >&2; exit 1; }
         cp "$library" "$out/libProjectPrime.RmlUi.Native.dylib"
-        install_name_tool -id @rpath/libProjectPrime.RmlUi.Native.dylib "$out/libProjectPrime.RmlUi.Native.dylib"
-        codesign --force --sign - "$out/libProjectPrime.RmlUi.Native.dylib"
+        run_phase bridge-install-name install_name_tool -id @rpath/libProjectPrime.RmlUi.Native.dylib "$out/libProjectPrime.RmlUi.Native.dylib"
+        run_phase bridge-sign codesign --force --sign - "$out/libProjectPrime.RmlUi.Native.dylib"
         ;;
     linux-x64)
         library=$(find "$bridge_build" -type f -name 'libProjectPrime.RmlUi.Native.so' | head -1)

@@ -140,7 +140,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void OpenReplayControls()
         {
-            var view = new ReplayControlsView();
+            var view = new ReplayQuickControlsView();
             view.Closed += (_, _) => Pop();
             view.ResumeRequested += (_, _) =>
             {

@@ -360,6 +360,10 @@ namespace MphRead
             int playerCount, BossFlags bossFlags, int nodeLayerMask, int entityLayerId,
             RoomMetadata metadata, RoomEntity room, Scene scene, bool isRoomTransition)
         {
+            // Own every installed-room read before collision decode. Setup's
+            // later tracking is idempotent and retains this same lease while
+            // model, entities and navigation are loaded.
+            Mods.MapGen.MapRuntimeUsage.Track(scene, metadata.Name);
             if (playerCount == 0)
             {
                 playerCount = scene.Players.PlayerCount;

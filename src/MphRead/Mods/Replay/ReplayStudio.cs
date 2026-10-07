@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using MphRead.Mods.Network;
 
 namespace MphRead.Mods.Replay
@@ -386,9 +387,10 @@ namespace MphRead.Mods.Replay
         uint StartFrame,
         uint EndFrame,
         DateTime CreatedUtc,
-        string Name);
+        string Name,
+        string? SourceContentHash = null);
 
-    internal static class ReplayVirtualClips
+    internal static partial class ReplayVirtualClips
     {
         public const string Extension = ".ppclip";
 
@@ -396,6 +398,7 @@ namespace MphRead.Mods.Replay
         {
             if (startFrame >= endFrame) throw new ArgumentOutOfRangeException(nameof(endFrame));
             string source = Path.GetFullPath(sourceReplay);
+            string? sourceContentHash = null;
 
             // Watching a virtual clip uses a materialized .ppdemo cache. A clip
             // cut from that should not depend on the cache surviving: flatten it
@@ -408,6 +411,7 @@ namespace MphRead.Mods.Replay
                 startFrame = checked(parent.StartFrame + startFrame);
                 endFrame = checked(parent.StartFrame + endFrame);
                 source = Path.GetFullPath(parent.SourceReplay);
+                sourceContentHash = parent.SourceContentHash;
             }
 
             if (!File.Exists(source)) throw new FileNotFoundException("The source replay does not exist.", source);
@@ -415,7 +419,7 @@ namespace MphRead.Mods.Replay
             string title = string.IsNullOrWhiteSpace(name)
                 ? $"Clip {ReplayHud.Time(startFrame)}-{ReplayHud.Time(endFrame)}"
                 : name.Trim();
-            var document = new ReplayVirtualClipDocument(1, source, startFrame, endFrame, DateTime.UtcNow, title);
+            var document = new ReplayVirtualClipDocument(1, source, startFrame, endFrame, DateTime.UtcNow, title, sourceContentHash);
             string path = Path.Combine(DemoLibrary.Directory,
                 $"virtual_{DateTime.Now:yyyy-MM-dd_HH-mm-ss-fff}_{Guid.NewGuid():N}{Extension}");
             File.WriteAllText(path, JsonSerializer.Serialize(document, JsonOptions));
@@ -427,12 +431,13 @@ namespace MphRead.Mods.Replay
             document = null;
             try
             {
-                if (!File.Exists(path)) return false;
+                if (!File.Exists(path) || new FileInfo(path).Length > 512 * 1024) return false;
                 document = JsonSerializer.Deserialize<ReplayVirtualClipDocument>(
                     File.ReadAllText(path), JsonOptions);
                 return document is { Version: 1 } value
                     && value.StartFrame < value.EndFrame
-                    && !string.IsNullOrWhiteSpace(value.SourceReplay);
+                    && !string.IsNullOrWhiteSpace(value.SourceReplay)
+                    && (value.SourceContentHash == null || ReplaySourceHash.Valid(value.SourceContentHash));
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
             {
@@ -440,12 +445,17 @@ namespace MphRead.Mods.Replay
             }
         }
 
-        public static ReplayOpenResult Materialize(string virtualClipPath, string outputPath)
+        public static ReplayOpenResult Materialize(string virtualClipPath, string outputPath, CancellationToken cancellation = default)
         {
             if (!TryLoad(virtualClipPath, out ReplayVirtualClipDocument? clip) || clip == null)
                 return ReplayOpenResult.Corrupt;
             if (!File.Exists(clip.SourceReplay)) return ReplayOpenResult.FileMissing;
-            return ReplayArchive.Extract(clip.SourceReplay, clip.StartFrame, clip.EndFrame, outputPath);
+            try
+            {
+                using var verified = ReplayVirtualClipSource.Open(clip, VerificationRoot(virtualClipPath), cancellation);
+                return ReplayArchive.Extract(verified.Path, clip.StartFrame, clip.EndFrame, outputPath, cancellation);
+            }
+            catch (InvalidDataException) { return ReplayOpenResult.Corrupt; }
         }
 
         public static IReadOnlyList<string> List()
@@ -480,7 +490,7 @@ namespace MphRead.Mods.Replay
             ReplayArtifacts.DeleteAll(path);
         }
 
-        public static string? ResolveForPlayback(string path, out ReplayOpenResult result)
+        public static string? ResolveForPlayback(string path, out ReplayOpenResult result, CancellationToken cancellation = default)
         {
             result = ReplayOpenResult.Corrupt;
             if (!TryLoad(path, out ReplayVirtualClipDocument? clip) || clip == null)
@@ -495,6 +505,9 @@ namespace MphRead.Mods.Replay
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+                // Existing callers resolve on their detached storage/preparation jobs.
+                // Parse/extract the exact verified bytes, never a substituted path.
+                using var verified = ReplayVirtualClipSource.Open(clip, VerificationRoot(path), cancellation);
                 var source = new FileInfo(clip.SourceReplay);
                 var descriptor = new FileInfo(path);
                 if (File.Exists(output)
@@ -506,16 +519,18 @@ namespace MphRead.Mods.Replay
                 }
 
                 ReplayArtifacts.DeleteCache(output);
-                result = ReplayArchive.Extract(clip.SourceReplay,
-                    clip.StartFrame, clip.EndFrame, output);
+                result = ReplayArchive.Extract(verified.Path,
+                    clip.StartFrame, clip.EndFrame, output, cancellation);
                 return result == ReplayOpenResult.Success ? output : null;
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException
                 or ArgumentException)
             {
                 return null;
             }
         }
+
+        private static string VerificationRoot(string path) => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, ".virtual-cache", "source-verification");
 
         public static string LogicalPath(string playbackPath)
         {

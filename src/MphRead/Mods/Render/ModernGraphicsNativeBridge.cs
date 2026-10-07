@@ -27,6 +27,9 @@ internal static unsafe class ModernGraphicsNativeBridge
     private static delegate* unmanaged[Cdecl]<WgpuTexture*, byte*, nuint, uint> _discard;
     private static delegate* unmanaged[Cdecl]<Queue*, nuint, CommandBuffer**, byte*, nuint, uint> _submit;
     private static delegate* unmanaged[Cdecl]<Queue*, float> _timestampPeriod;
+#if !ANDROID
+    private static delegate* unmanaged[Cdecl]<Queue*, nuint, CommandBuffer**, byte*, nuint, NativeSubmitObservationIdentity*, uint> _observedSubmit;
+#endif
 
     internal static void Initialize(WebGPU api)
     {
@@ -47,6 +50,15 @@ internal static unsafe class ModernGraphicsNativeBridge
         _discard = (delegate* unmanaged[Cdecl]<WgpuTexture*, byte*, nuint, uint>)Resolve("primeWgpuSurfaceDiscard");
         _submit = (delegate* unmanaged[Cdecl]<Queue*, nuint, CommandBuffer**, byte*, nuint, uint>)Resolve("primeWgpuQueueSubmit");
         _timestampPeriod = (delegate* unmanaged[Cdecl]<Queue*, float>)Resolve("primeWgpuQueueGetTimestampPeriod");
+#if !ANDROID
+        _observedSubmit = null;
+        try
+        {
+            if (api.Context.TryGetProcAddress("primeWgpuQueueSubmitObserved", out nint observed) && observed != 0)
+                _observedSubmit = (delegate* unmanaged[Cdecl]<Queue*, nuint, CommandBuffer**, byte*, nuint, NativeSubmitObservationIdentity*, uint>)observed;
+        }
+        catch { } // Older compatible runtimes retain their original checked Submit.
+#endif
     }
 
     private static NativeGraphicsResult Result(uint status, byte* message)
@@ -91,6 +103,17 @@ internal static unsafe class ModernGraphicsNativeBridge
         message[0] = 0;
         return Result(_submit(queue, count, commands, message, MessageCapacity), message);
     }
+#if !ANDROID
+    internal static NativeGraphicsResult SubmitObserved(Queue* queue, uint count, CommandBuffer** commands,
+        in NativeSubmitObservationIdentity identity)
+    {
+        if (_observedSubmit == null) return Submit(queue, count, commands);
+        byte* message = stackalloc byte[MessageCapacity];
+        message[0] = 0;
+        fixed (NativeSubmitObservationIdentity* metadata = &identity)
+            return Result(_observedSubmit(queue, count, commands, message, MessageCapacity, metadata), message);
+    }
+#endif
     internal static float TimestampPeriod(Queue* queue) => _timestampPeriod(queue);
 }
 #endif

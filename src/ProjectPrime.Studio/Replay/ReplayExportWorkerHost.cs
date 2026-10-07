@@ -1,0 +1,255 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Layout;
+using Avalonia.Themes.Fluent;
+using Avalonia.Threading;
+using MphRead.Mods.StudioReplay;
+using ProjectPrime.Studio.Rendering;
+using System.Diagnostics;
+using System.Reflection;
+using System.Text.Json;
+
+namespace ProjectPrime.Studio.Replay;
+
+/// <summary>One persisted export owns a separate process, native device and canonical replay player.</summary>
+public static class ReplayExportWorkerHost
+{
+    internal static StudioReplayExportTicket? Ticket;
+    internal static int ExitCode;
+    internal static bool OriginCaptured;
+    private static IDisposable? _originPins;
+    public static async Task LaunchAsync(string ticketPath)
+    {
+        string executable = Environment.ProcessPath ?? throw new IOException("Studio executable is unavailable.");
+        var start = new ProcessStartInfo(executable) { UseShellExecute = false, CreateNoWindow = true,
+            RedirectStandardOutput = true, RedirectStandardError = true };
+        if (Path.GetFileNameWithoutExtension(executable).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+            start.ArgumentList.Add(typeof(ReplayExportWorkerHost).Assembly.Location);
+        start.ArgumentList.Add("--export-worker"); start.ArgumentList.Add(Path.GetFullPath(ticketPath));
+        using var process = Process.Start(start) ?? throw new IOException("Export worker did not start.");
+        // The task does not bind child lifetime to the editing document. Explicit cancellation
+        // is a persisted signal which remains meaningful after a document/window is closed.
+        Task stdout = Drain(process.StandardOutput);
+        Task<string> stderr = Tail(process.StandardError);
+        await process.WaitForExitAsync().ConfigureAwait(false);
+        await stdout.ConfigureAwait(false); string errors = await stderr.ConfigureAwait(false);
+        if (process.ExitCode != 0)
+        {
+            try
+            {
+                using var file = File.OpenRead(ticketPath);
+                if (file.Length <= 1024 * 1024)
+                {
+                    var ticket = JsonSerializer.Deserialize<StudioReplayExportTicket>(file, new JsonSerializerOptions { IncludeFields = true });
+                    string? log = ticket == null ? null : Path.Combine(Path.GetDirectoryName(ticket.StatusFile)!, "worker.log");
+                    if (log != null && File.Exists(log) && new FileInfo(log).Length <= 65536)
+                        errors = File.ReadAllText(log) + errors;
+                }
+            }
+            catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { }
+            if (errors.Length > 16384) errors = errors[^16384..];
+            throw new IOException("Export worker failed: " + errors);
+        }
+    }
+    private static async Task Drain(StreamReader reader) { while (await reader.ReadLineAsync().ConfigureAwait(false) != null) { } }
+    private static async Task<string> Tail(StreamReader reader)
+    {
+        var text = new System.Text.StringBuilder(); char[] buffer = new char[2048]; int count;
+        while ((count = await reader.ReadAsync(buffer).ConfigureAwait(false)) != 0)
+        { text.Append(buffer, 0, count); if (text.Length > 16384) text.Remove(0, text.Length - 16384); }
+        return text.ToString();
+    }
+    public static int Run(string ticketPath)
+    {
+        MphRead.Mods.Update.InstallationLifetime? installation = null;
+        Ticket = null; OriginCaptured = false;
+        try
+        {
+            using (var file = File.OpenRead(ticketPath))
+            {
+                if (file.Length > 1024 * 1024) throw new InvalidDataException("Export ticket exceeds the size limit.");
+                var ticket = JsonSerializer.Deserialize<StudioReplayExportTicket>(file, new JsonSerializerOptions { IncludeFields = true })
+                    ?? throw new InvalidDataException("Export ticket is empty.");
+                StudioReplayCachePins.ValidateTicket(ticket);
+                ValidatePrivateCache(ticket, ticketPath);
+                Ticket = ticket;
+            }
+            var diagnostics = new ReplayExportWorkerLog(Path.Combine(Path.GetDirectoryName(Ticket.StatusFile)!, "worker.log"));
+            Console.SetOut(diagnostics); Console.SetError(diagnostics);
+            installation = MphRead.Mods.Update.InstallationLifetime.AcquireApplication(AppContext.BaseDirectory);
+            using var startupCancellation = new CancellationTokenSource();
+            using var cancelSignal = new Timer(_ =>
+            {
+                if (File.Exists(Ticket.CancelFile))
+                    try { startupCancellation.Cancel(); } catch (ObjectDisposedException) { }
+            }, null, 0, 100);
+            _originPins = StudioReplayCachePins.PinReferences(Ticket, startupCancellation.Token);
+            foreach (var path in Ticket.RuntimePaths) MphRead.Paths.SetPath(path.Key, path.Value);
+            MphRead.Paths.MphKey = Ticket.MphKey; MphRead.Paths.FhKey = Ticket.FhKey;
+            Directory.CreateDirectory(Ticket.CacheRoot);
+            string snapshot = Path.Combine(Ticket.CacheRoot, "source.ppdemo");
+            using (var source = new FileStream(Ticket.ReplayPath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (var snapshotOutput = new FileStream(snapshot, FileMode.Create, FileAccess.Write, FileShare.None))
+            {
+                byte[] buffer = new byte[65536]; int count;
+                while ((count = source.Read(buffer, 0, buffer.Length)) != 0)
+                {
+                    if (File.Exists(Ticket.CancelFile))
+                    { WriteStatus(new(Ticket.Id, "Cancelled", 0, 0, null, Ticket.Request.Directory)); return 0; }
+                    snapshotOutput.Write(buffer, 0, count);
+                }
+                snapshotOutput.Flush(flushToDisk: true);
+            }
+            Ticket = Ticket with { ReplayPath = snapshot };
+            ExitCode = 0;
+            StudioGraphicsHost.Initialize(safeMode: false);
+            AppBuilder.Configure<ReplayExportWorkerApplication>().UsePlatformDetect().WithInterFont()
+                .StartWithClassicDesktopLifetime([], ShutdownMode.OnMainWindowClose);
+            return ExitCode;
+        }
+        catch (OperationCanceledException) when (Ticket != null && File.Exists(Ticket.CancelFile))
+        {
+            WriteStatus(new(Ticket.Id, "Cancelled", 0, 0, null, Ticket.Request.Directory));
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(ex.Message);
+            if (Ticket != null)
+                try { WriteStatus(new(Ticket.Id, "Failed", 0, 0, ex.Message, Ticket.Request.Directory)); }
+                catch (Exception logFailure) when (logFailure is IOException or UnauthorizedAccessException) { Console.Error.WriteLine(logFailure.Message); }
+            return 1;
+        }
+        finally
+        {
+            try { StudioGraphicsHost.Shutdown(); }
+            finally
+            {
+                ReleaseOriginPins();
+                CleanupScratch(ticketPath);
+                installation?.Dispose();
+            }
+            // Console retains the bounded diagnostic sink through process exit;
+            // a late native callback may still log after application shutdown.
+        }
+    }
+    internal static void ReleaseOriginPins() => Interlocked.Exchange(ref _originPins, null)?.Dispose();
+    private static void ValidatePrivateCache(StudioReplayExportTicket ticket, string ticketPath)
+    {
+        string directory = Path.GetDirectoryName(Path.GetFullPath(ticketPath))!;
+        string cache = MphRead.Mods.MapGen.MapPublicationLease.CanonicalizeRuntimeDirectory(ticket.CacheRoot);
+        if (!string.Equals(Path.GetFileName(directory), ticket.Id.ToString("N"), StringComparison.OrdinalIgnoreCase)
+            || !Same(Path.GetFullPath(ticket.CacheRoot), Path.Combine(directory, "cache"))
+            || !Same(Path.GetFullPath(ticket.StatusFile), Path.Combine(directory, "status.json"))
+            || !Same(Path.GetFullPath(ticket.CancelFile), Path.Combine(directory, "cancel")))
+            throw new InvalidDataException("Export scratch cache must belong to its private job directory.");
+        foreach (string key in new[] { ticket.MphKey, ticket.FhKey })
+        {
+            if (!ticket.RuntimePaths.TryGetValue(key, out string? path) || string.IsNullOrWhiteSpace(path)) continue;
+            string runtime = MphRead.Mods.MapGen.MapPublicationLease.CanonicalizeRuntimeDirectory(path);
+            if (Contains(runtime, cache) || Contains(cache, runtime))
+                throw new InvalidDataException("Export scratch cache aliases extracted game assets.");
+        }
+    }
+    private static void CleanupScratch(string ticketPath)
+    {
+        if (Ticket == null) return;
+        try
+        {
+            string directory = Path.GetDirectoryName(Path.GetFullPath(ticketPath))!;
+            string cache = Path.GetFullPath(Ticket.CacheRoot), output = Path.GetFullPath(Ticket.Request.Directory);
+            if (string.Equals(Path.GetFileName(directory), Ticket.Id.ToString("N"), StringComparison.OrdinalIgnoreCase)
+                && Same(cache, Path.Combine(directory, "cache")) && !Contains(cache, output) && !Contains(output, cache)
+                && Directory.Exists(cache) && (File.GetAttributes(cache) & FileAttributes.ReparsePoint) == 0)
+                Directory.Delete(cache, recursive: true);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { Console.Error.WriteLine("Export scratch cleanup: " + ex.Message); }
+    }
+    private static bool Same(string a, string b) => string.Equals(a, b,
+        OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+    private static bool Contains(string root, string path) => Same(root, path) || path.StartsWith(Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar,
+        OperatingSystem.IsWindows() || OperatingSystem.IsMacOS() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+    internal static void WriteStatus(StudioReplayExportStatus status)
+    {
+        if (Ticket == null) return;
+        Directory.CreateDirectory(Path.GetDirectoryName(Ticket.StatusFile)!);
+        using var process = Process.GetCurrentProcess();
+        StudioReplayStatusFile.Write(Ticket.StatusFile, status with { Id = Ticket.Id,
+            WorkerProcessId = process.Id, WorkerStartUtcTicks = process.StartTime.ToUniversalTime().Ticks,
+            OriginCaptured = OriginCaptured, WorkerIdentity = ReplayExportWorkerIdentity.Capture(process) });
+    }
+}
+
+public sealed class ReplayExportWorkerApplication : Application
+{
+    public override void Initialize() { RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark; Styles.Add(new FluentTheme()); }
+    public override void OnFrameworkInitializationCompleted()
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            desktop.MainWindow = new ReplayExportWorkerWindow(ReplayExportWorkerHost.Ticket!);
+        base.OnFrameworkInitializationCompleted();
+    }
+}
+
+internal sealed class ReplayExportWorkerWindow : Window
+{
+    private readonly StudioReplayExportTicket _ticket;
+    private readonly StudioReplayPlayer _player;
+    private readonly ReplayViewportHost _viewport;
+    private readonly TextBlock _status = new() { Margin = new Thickness(12) };
+    private readonly DispatcherTimer _timer;
+    private readonly Stopwatch _clock = Stopwatch.StartNew();
+    private TimeSpan _lastWrite;
+    private Guid? _job;
+    private bool _terminal;
+    internal ReplayExportWorkerWindow(StudioReplayExportTicket ticket)
+    {
+        _ticket = ticket; Title = "Project Prime Studio · Export worker"; Width = 800; Height = 520;
+        _player = new(ticket.ReplayPath, ticket.CacheRoot, ticket.PackageDirectories);
+        _viewport = new(new ExportPresentation(_player));
+        var content = new DockPanel(); DockPanel.SetDock(_status, Dock.Top); content.Children.Add(_status);
+        var cancel = new Button { Content = "Cancel export", Margin = new Thickness(12), HorizontalAlignment = HorizontalAlignment.Right };
+        cancel.Click += (_, _) => Cancel(); DockPanel.SetDock(cancel, Dock.Bottom); content.Children.Add(cancel); content.Children.Add(_viewport); Content = content;
+        _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(100), DispatcherPriority.Background, (_, _) => Tick());
+        Opened += (_, _) => _timer.Start();
+        Closing += (_, args) => { if (!_terminal) { Cancel(); args.Cancel = true; } };
+        Closed += (_, _) => { _timer.Stop(); _viewport.Dispose(); _player.Dispose(); };
+    }
+    private void Cancel() { if (_job is { } job) _player.CancelExport(job); else Finish(new(_ticket.Id, "Cancelled", 0, 0, null, _ticket.Request.Directory)); }
+    private void Tick()
+    {
+        if (_terminal) return;
+        try
+        {
+            if (_viewport.PresentationError is { } error) { Finish(new(_ticket.Id, "Failed", 0, 0, error, _ticket.Request.Directory)); return; }
+            if (_player.Status is { State: "Error", Error: { } failure }) { Finish(new(_ticket.Id, "Failed", 0, 0, failure, _ticket.Request.Directory)); return; }
+            if (File.Exists(_ticket.CancelFile)) { Cancel(); if (_terminal) return; }
+            if (_job == null && _player.Status.Ready)
+            {
+                ReplayExportWorkerHost.OriginCaptured = true;
+                ReplayExportWorkerHost.ReleaseOriginPins();
+                if (_ticket.CameraState is { } cameraState) _player.ImportCameraSidecarState(cameraState, persist: false);
+                else foreach (var key in _ticket.CameraKeys) _player.PutCameraKey(key);
+                _job = _player.QueueExport(_ticket.Request);
+            }
+            var state = _job is { } id ? _player.Exports.First(j => j.Id == id)
+                : new StudioReplayExportStatus(_ticket.Id, "Preparing", 0, 0, null, _ticket.Request.Directory);
+            _status.Text = $"{state.State} · {state.Frames}/{state.TotalFrames} frames";
+            if (_clock.Elapsed - _lastWrite >= TimeSpan.FromSeconds(.25)) { ReplayExportWorkerHost.WriteStatus(state); _lastWrite = _clock.Elapsed; }
+            if (state.State is "Complete" or "Failed" or "Cancelled") Finish(state);
+        }
+        catch (Exception ex) { Finish(new(_ticket.Id, "Failed", 0, 0, ex.Message, _ticket.Request.Directory)); }
+    }
+    private void Finish(StudioReplayExportStatus status)
+    {
+        _terminal = true; _timer.Stop(); ReplayExportWorkerHost.WriteStatus(status);
+        ReplayExportWorkerHost.ExitCode = status.State == "Failed" ? 1 : 0; Dispatcher.UIThread.Post(Close);
+    }
+    private sealed class ExportPresentation(StudioReplayPlayer player) : IStudioReplayGraphicsSession
+    {
+        public void OnGraphicsInitialize(int width, int height) => player.OnGraphicsInitialize(width, height);
+        public void OnGraphicsFrame(TimeSpan elapsed, StudioReplayView view) => player.Advance(elapsed);
+        public void OnGraphicsDeinitialize(bool nativeReleaseEligible) => player.OnGraphicsDeinitialize(nativeReleaseEligible);
+    }
+}

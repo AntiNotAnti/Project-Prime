@@ -12,13 +12,25 @@ internal sealed partial class MapStudioScreen
 {
     private void ImportModel() => Browse("Import OBJ / glTF / GLB model", false, path => ModelImportOptions(path), ".obj", ".gltf", ".glb");
 
+    internal void ShowModelImportDialog(string path,Guid? sourceId=null)
+    {
+        if(_document is null || _detached)throw new InvalidOperationException("Open a map before importing a model.");
+        if(_work!=null)throw new InvalidOperationException("Wait for the current map operation or cancel it first.");
+        path=Path.GetFullPath(path);
+        if(!File.Exists(path))throw new FileNotFoundException("Model source was not found.",path);
+        if(Path.GetExtension(path).ToLowerInvariant() is not (".obj" or ".gltf" or ".glb"))throw new ArgumentException("Choose an OBJ, glTF, or GLB model.",nameof(path));
+        var source=sourceId is null?null:_document.Project.Definition.ModelSources.FirstOrDefault(value=>value.Id==sourceId);
+        if(sourceId is not null && source is null)throw new ArgumentException("The imported model source is no longer in this map.",nameof(sourceId));
+        ModelImportOptions(path,source);
+    }
+
     private void ModelImportOptions(string path, MapModelSource? source = null)
     {
         var panel = new StackPanel { Spacing = 8 };
         panel.Children.Add(Text("3D MODEL · " + Path.GetFileName(path)));
         panel.Children.Add(Text("OBJ, glTF and GLB dependencies are resolved inside the model folder. Static geometry retains materials and UV0."));
         var settings = source?.Settings ?? new();
-        var scale = new TextBox { Text = settings.Scale.ToString(System.Globalization.CultureInfo.InvariantCulture) };
+        var scale = new TextBox { Name="ModelImportScale",Text = settings.Scale.ToString(System.Globalization.CultureInfo.InvariantCulture) };
         panel.Children.Add(Text("Scale")); panel.Children.Add(scale);
         var reverse = new CheckBox { Content = "Reverse face winding", IsChecked = settings.FlipWinding }; panel.Children.Add(reverse);
         var zUp = new CheckBox { Content = "Z-up source (Blender / 3ds Max)", IsChecked = settings.ZUp }; panel.Children.Add(zUp);
@@ -29,6 +41,7 @@ internal sealed partial class MapStudioScreen
         string? companion = ModelCollisionImport.FindCompanion(path);
         if (companion != null) panel.Children.Add(Text("Companion detected: " + Path.GetFileName(companion)));
         panel.Children.Add(Text("Collision proxies remain editable in the Collision layer and are invisible in play. Bounding boxes can block openings; inspect before applying."));
+        var error=Text("");error.Name="ModelImportError";panel.Children.Add(error);
         AddButton(panel, "Preview changes", () =>
         {
             try
@@ -36,7 +49,7 @@ internal sealed partial class MapStudioScreen
                 var options = new ModelImportSettings(Number(scale.Text ?? "1"), reverse.IsChecked == true, false, zUp.IsChecked == true, flipUv.IsChecked == true, (ModelCollisionMode)(collision.SelectedItem ?? ModelCollisionMode.None));
                 Dismiss(); AnalyzeModel(path, options, source?.Id);
             }
-            catch (Exception ex) { Failure(ex); }
+            catch (Exception ex) { error.Text=ex.Message; }
         });
         AddButton(panel, "Cancel", Dismiss); Modal(panel);
     }
@@ -57,7 +70,7 @@ internal sealed partial class MapStudioScreen
             {
                 _document.Selection.Clear();
                 foreach (var item in source.Objects) _document.Selection.Add(item.Id);
-                _document.SelectionChanged(); _viewport?.FrameSelection(); Dismiss();
+                _document.SelectionChanged(); RefreshHierarchy(); _viewport?.FrameSelection(); Dismiss();
             });
             AddButton(sources, "Detach source (keep geometry)", () =>
             {
@@ -78,128 +91,84 @@ internal sealed partial class MapStudioScreen
         VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto
     };
 
-    private void AnalyzeModel(string path, ModelImportSettings settings, Guid? sourceId) => _ = Job("Analyzing model", async token =>
+    private void AnalyzeModel(string path,ModelImportSettings settings,Guid? sourceId)
     {
-        if (_document == null) throw new IOException("Create or open a map first.");
-        var document = _document;
-        var state = document.CurrentStateId;
-        if (document.Project.Definition.BundlePath != null) throw new IOException("Save this package as an editable project before importing a model.");
-        var result = await Task.Run(() => ModelImportService.Import(path, settings, token), token);
-        var hash = await Task.Run(() => MapSourceFingerprint.Hash(result.Dependencies), token);
-        GuardJob(token);
-        var previous = document.Project.Definition.ModelSources.FirstOrDefault(s => s.Id == sourceId);
-        if (previous != null && previous.NormalizedHash == ModelReimport.NormalizedHash(result)
-            && previous.Settings == settings && previous.Source == path && previous.SourceHash == hash)
-        { _status.Text = "Model and referenced materials are unchanged."; return; }
-        string previewRoot=Path.Combine(Path.GetTempPath(),"ProjectPrime-model-preview-"+Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(previewRoot);
         try
         {
-            foreach(var asset in result.Assets)
+            path=Path.GetFullPath(path);var context=CaptureAssetContext();var snapshot=context.Document.CaptureBuildSnapshot();
+            _=Job("Analyzing model",async token=>
             {
-                MapPackageReader.CanonicalName(asset.Key);
-                string destination=Path.GetFullPath(Path.Combine(previewRoot,asset.Key));
-                string prefix=Path.GetFullPath(previewRoot)+Path.DirectorySeparatorChar;
-                if(!destination.StartsWith(prefix,StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidDataException("Model preview asset escapes its staging folder.");
-                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-                AtomicFile.Write(destination,asset.Value);
-            }
-        }
-        catch
-        {
-            try{Directory.Delete(previewRoot,true);}catch(IOException){}catch(UnauthorizedAccessException){}
-            throw;
-        }
-        var previewDefinition = new MapDefinition { BaseDirectory = previewRoot };
-        previewDefinition.Geometry.AddRange(result.Meshes); previewDefinition.Materials.AddRange(result.Materials);
-        MapViewport preview;
-        try
-        {
-            preview = new MapViewport(new MapDocument(new MapProject(previewDefinition)))
-                { Height = 280, MinWidth = 480, ReadOnlyPreview = true };
-        }
-        catch
-        {
-            try{Directory.Delete(previewRoot,true);}catch(IOException){}catch(UnauthorizedAccessException){}
-            throw;
-        }
-        bool previewCleaned=false;
-        void CleanupPreview()
-        {
-            if(previewCleaned)return;previewCleaned=true;preview.DetachDocument();
-            try{if(Directory.Exists(previewRoot))Directory.Delete(previewRoot,true);}
-            catch(IOException){}catch(UnauthorizedAccessException){}
-        }
-        preview.DetachedFromVisualTree += (_, _) => CleanupPreview();
-        var panel = new StackPanel { Spacing = 8 };
-        panel.Children.Add(Text(sourceId == null ? "IMPORT PREVIEW" : "REIMPORT PREVIEW"));
-        var oldMeshes = document.Project.Definition.Geometry.OfType<MapMesh>()
-            .Where(m => previous?.Objects.Any(o => o.Id == m.Id) == true).ToArray();
-        panel.Children.Add(Text($"Objects {oldMeshes.Length} → {result.Meshes.Count} · Vertices {oldMeshes.Sum(m => m.Vertices.Count)} → {result.Meshes.Sum(m => m.Vertices.Count)} · Faces {oldMeshes.Sum(m => m.Faces.Count)} → {result.Meshes.Sum(m => m.Faces.Count)}"));
-        panel.Children.Add(Text($"{result.Materials.Count} materials · {result.Assets.Count} baked textures · {result.Meshes.Where(m => m.Solid).Sum(m => m.Faces.Count)} collision triangles"));
-        var diff=ModelReimport.Preview(document.Project.Definition,previous,result);
-        panel.Children.Add(Text($"Materials {previous?.MaterialMappings.Count??0} → {result.Materials.Count}"));
-        var changes = new StackPanel { Spacing = 4 };
-        foreach(string name in diff.Added)changes.Children.Add(Text("+ "+name));
-        foreach(string name in diff.Changed)changes.Children.Add(Text("~ "+name));
-        foreach(string name in diff.Removed)changes.Children.Add(Text("− "+name));
-        if (changes.Children.Count > 0) panel.Children.Add(ModelImportScroll(changes, 180));
-        panel.Children.Add(Text($"Preserved edits: {diff.Transforms} transforms · {diff.MaterialOverrides} material overrides · {diff.PaintedFaces} painted faces · {diff.UvOverrides} UV overrides"));
-        var collisionPreview = new CheckBox {Content="Show collision preview"};
-        collisionPreview.IsCheckedChanged += (_,_) => {preview.Collision=collisionPreview.IsChecked==true;preview.InvalidateVisual();};
-        panel.Children.Add(collisionPreview);
-        panel.Children.Add(preview); preview.FrameAll();
-        panel.Children.Add(Text("Orbit and zoom to inspect. Compatible transforms, face paint and UV edits are preserved on reimport."));
-        foreach (string warning in result.Warnings.Take(20)) panel.Children.Add(Text(warning));
-        AddButton(panel, sourceId == null ? "Import" : "Apply reimport", () =>
-        {
-            try
-            {
-                if (_document != document || document.CurrentStateId != state) throw new IOException("The project changed. Preview the model again before applying.");
-                string? root=document.Project.Definition.BaseDirectory;
-                if(String.IsNullOrWhiteSpace(root)&&document.FilePath!=null)
-                    root=Path.GetDirectoryName(Path.GetFullPath(document.FilePath));
-                if(result.Assets.Count>0&&String.IsNullOrWhiteSpace(root))
-                    throw new IOException("Save this map project before applying a textured 3D model.");
-                var created=new System.Collections.Generic.List<string>();
+                var captured=await Task.Run(()=>ImportFrozenModel(path,settings,token),token);
+                GuardAssetContext(context,token);var result=captured.Model;
+                var previous=context.Document.Project.Definition.ModelSources.FirstOrDefault(source=>source.Id==sourceId);
+                var comparison=await Task.Run(()=>
+                {
+                    var definition=snapshot.CreateDefinition();var old=definition.ModelSources.FirstOrDefault(source=>source.Id==sourceId);
+                    bool unchanged=old!=null && old.NormalizedHash==ModelReimport.NormalizedHash(result) && old.Settings==settings && old.Source==path && old.SourceHash==captured.Hash;
+                    return(Unchanged:unchanged,Diff:ModelReimport.Preview(definition,old,result));
+                },token);
+                GuardAssetContext(context,token);
+                if(comparison.Unchanged){_status.Text="Model and referenced materials are unchanged.";return;}
+                string previewRoot=Path.Combine(_services.StagingDirectory,"model-preview-"+Guid.NewGuid().ToString("N"));
                 try
                 {
-                    if(root!=null)
+                    await Task.Run(()=>
                     {
-                        root=Path.GetFullPath(root);
-                        string prefix=root+Path.DirectorySeparatorChar;
                         foreach(var asset in result.Assets)
                         {
-                            MapPackageReader.CanonicalName(asset.Key);
-                            string destination=Path.GetFullPath(Path.Combine(root,asset.Key));
-                            if(!destination.StartsWith(prefix,StringComparison.OrdinalIgnoreCase))
-                                throw new InvalidDataException("Model asset escapes the map project.");
-                            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-                            bool existed=File.Exists(destination);
-                            AtomicFile.Write(destination,asset.Value);
-                            if(!existed)created.Add(destination);
+                            token.ThrowIfCancellationRequested();MapPackageReader.CanonicalName(asset.Key);
+                            AtomicFile.Write(Path.Combine(previewRoot,asset.Key),asset.Value);
                         }
-                    }
-                    string? projectRoot=root;
-                    document.Edit(sourceId == null ? "Import 3D model" : "Reimport 3D model", definition =>
+                    },token);
+                    GuardAssetContext(context,token);
+                    var previewDefinition=new MapDefinition {BaseDirectory=previewRoot};
+                    previewDefinition.Geometry.AddRange(result.Meshes);previewDefinition.Materials.AddRange(result.Materials);
+                    var preview=new MapViewport(new MapDocument(new MapProject(previewDefinition))) {Height=280,MinWidth=480,ReadOnlyPreview=true};
+                    bool cleaned=false,applying=false,accepted=false;
+                    void Cleanup()
                     {
-                        if(projectRoot!=null)definition.BaseDirectory=projectRoot;
-                        ModelReimport.Apply(definition, result, path, hash, settings, sourceId);
-                    }, MapChangeDomain.Geometry | MapChangeDomain.Material);
-                    if(root!=null)foreach(var asset in result.Assets)document.RegisterGeneratedAsset(asset.Key,root);
+                        if(cleaned)return;cleaned=true;if(applying&&!accepted)_work?.Cancel();preview.DetachDocument();
+                        try{if(Directory.Exists(previewRoot))Directory.Delete(previewRoot,true);}catch(IOException){}catch(UnauthorizedAccessException){}
+                    }
+                    preview.DetachedFromVisualTree+=(_,_)=>Cleanup();
+                    var panel=new StackPanel {Spacing=8};panel.Children.Add(Text(sourceId==null?"IMPORT PREVIEW":"REIMPORT PREVIEW"));
+                    var oldMeshes=context.Document.Project.Definition.Geometry.OfType<MapMesh>().Where(mesh=>previous?.Objects.Any(item=>item.Id==mesh.Id)==true).ToArray();
+                    panel.Children.Add(Text($"Objects {oldMeshes.Length} → {result.Meshes.Count} · Vertices {oldMeshes.Sum(mesh=>mesh.Vertices.Count)} → {result.Meshes.Sum(mesh=>mesh.Vertices.Count)} · Faces {oldMeshes.Sum(mesh=>mesh.Faces.Count)} → {result.Meshes.Sum(mesh=>mesh.Faces.Count)}"));
+                    panel.Children.Add(Text($"{result.Materials.Count} materials · {result.Assets.Count} textures · {result.Meshes.Where(mesh=>mesh.Solid).Sum(mesh=>mesh.Faces.Count)} collision faces"));
+                    var changes=new StackPanel {Spacing=4};var diff=comparison.Diff;
+                    foreach(string name in diff.Added)changes.Children.Add(Text("+ "+name));
+                    foreach(string name in diff.Changed)changes.Children.Add(Text("~ "+name));
+                    foreach(string name in diff.Removed)changes.Children.Add(Text("− "+name));
+                    if(changes.Children.Count>0)panel.Children.Add(ModelImportScroll(changes,180));
+                    panel.Children.Add(Text($"Preserved edits: {diff.Transforms} transforms · {diff.MaterialOverrides} material overrides · {diff.PaintedFaces} painted faces · {diff.UvOverrides} UV overrides"));
+                    var collisionPreview=new CheckBox {Content="Show collision preview"};
+                    collisionPreview.IsCheckedChanged+=(_,_)=>{preview.Collision=collisionPreview.IsChecked==true;preview.InvalidateVisual();};
+                    panel.Children.Add(collisionPreview);panel.Children.Add(preview);preview.FrameAll();
+                    panel.Children.Add(Text("Orbit and zoom to inspect. Compatible transforms, face paint and UV edits are preserved on reimport."));
+                    foreach(string warning in result.Warnings.Take(20))panel.Children.Add(Text(warning));
+                    AddButton(panel,sourceId==null?"Import":"Apply reimport",()=>
+                    {
+                        if(applying)return;applying=true;
+                        _=RunAssetUiAsync(()=>Job("Applying model",async applyToken=>
+                        {
+                            try
+                            {
+                                GuardAssetContext(context,applyToken);
+                                await ApplyCapturedModelAsync(context,snapshot,captured,path,settings,sourceId,applyToken);
+                                accepted=true;Cleanup();Dismiss();_viewport?.FrameAll();
+                            }
+                            finally{applying=false;}
+                        },propagateErrors:true));
+                    });
+                    AddButton(panel,"Cancel",()=>{Cleanup();Dismiss();});Modal(panel);
                 }
                 catch
                 {
-                    foreach(string createdPath in created)
-                        try{if(File.Exists(createdPath))File.Delete(createdPath);}catch(IOException){}catch(UnauthorizedAccessException){}
+                    try{if(Directory.Exists(previewRoot))Directory.Delete(previewRoot,true);}catch(IOException){}catch(UnauthorizedAccessException){}
                     throw;
                 }
-                foreach(string dependency in result.Dependencies)_changedSources.Remove(dependency);
-                CleanupPreview();Dismiss(); _viewport?.FrameAll(); _status.Text = "Model applied. Undo restores the previous import.";
-            }
-            catch (Exception ex) { Failure(ex); }
-        });
-        AddButton(panel, "Cancel", () => { CleanupPreview(); Dismiss(); }); Modal(panel);
-    });
+            });
+        }
+        catch(Exception error){Failure(error);}
+    }
 }

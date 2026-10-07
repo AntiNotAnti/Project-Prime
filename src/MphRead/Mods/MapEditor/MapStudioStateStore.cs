@@ -19,17 +19,17 @@ public static class MapStudioStateStore
 {
     private static readonly JsonSerializerOptions _json = new() { WriteIndented = true };
 
-    public static string PathFor(MapDefinition definition)
+    public static string PathFor(MapDefinition definition, string? userMapDirectory = null)
     {
         string id = definition.MapId == Guid.Empty
             ? Safe(definition.Name)
             : definition.MapId.ToString("N");
-        return Path.Combine(CustomRooms.UserMapDirectory,".studio",id+".json");
+        return Path.Combine(userMapDirectory ?? CustomRooms.UserMapDirectory,".studio",id+".json");
     }
 
-    public static MapStudioState Load(MapDefinition definition)
+    public static MapStudioState Load(MapDefinition definition, string? userMapDirectory = null)
     {
-        string path=PathFor(definition);
+        string path=PathFor(definition,userMapDirectory);
         try
         {
             if(!File.Exists(path))return new();
@@ -41,9 +41,9 @@ public static class MapStudioStateStore
         }
     }
 
-    public static void Save(MapDefinition definition,MapStudioState state)
+    public static void Save(MapDefinition definition,MapStudioState state, string? userMapDirectory = null)
     {
-        string path=PathFor(definition);
+        string path=PathFor(definition,userMapDirectory);
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         AtomicFile.Write(path,JsonSerializer.SerializeToUtf8Bytes(state,_json));
     }

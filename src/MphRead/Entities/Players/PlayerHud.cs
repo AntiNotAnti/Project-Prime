@@ -237,8 +237,10 @@ namespace MphRead.Entities
             }
             HudObject healthbarMain = HudInfo.GetHudObject(_hudObjects.HealthBarA);
             HudObject healthbarSub = HudInfo.GetHudObject(_hudObjects.HealthBarB);
-            _healthbarMainMeter = HudElements.MainHealthbars[(int)Hunter];
-            _healthbarSubMeter = HudElements.SubHealthbars[(int)Hunter];
+            _healthbarMainMeter = _scene.Services.IsReplica
+                ? HudElements.MainHealthbars[(int)Hunter].CopyDefinition() : HudElements.MainHealthbars[(int)Hunter];
+            _healthbarSubMeter = _scene.Services.IsReplica
+                ? HudElements.SubHealthbars[(int)Hunter].CopyDefinition() : HudElements.SubHealthbars[(int)Hunter];
             _healthbarMainMeter.BarInst = new HudObjectInstance(healthbarMain.Width, healthbarMain.Height);
             _healthbarMainMeter.BarInst.SetCharacterData(healthbarMain.CharacterData, _scene);
             _healthbarMainMeter.BarInst.SetPaletteData(healthbarMain.PaletteData, _scene);
@@ -544,7 +546,8 @@ namespace MphRead.Entities
                     scanIconInst.Enabled = true;
                     _scanIconInsts[i] = scanIconInst;
                 }
-                _scanProgressMeter = HudElements.SubHealthbars[(int)Hunter.Samus];
+                _scanProgressMeter = _scene.Services.IsReplica
+                    ? HudElements.SubHealthbars[(int)Hunter.Samus].CopyDefinition() : HudElements.SubHealthbars[(int)Hunter.Samus];
                 _scanProgressMeter.BarInst = new HudObjectInstance(samusSubBar.Width, samusSubBar.Height);
                 _scanProgressMeter.BarInst.SetCharacterData(samusSubBar.CharacterData, _scene);
                 _scanProgressMeter.BarInst.SetPaletteData(healthbarSub.PaletteData, _scene);
@@ -792,6 +795,20 @@ namespace MphRead.Entities
             {
                 UpdateScanHud();
             }
+            ComposeHudLayers(simulateReticle: true);
+        }
+
+        /// <summary>Compose the current private replica's visor and readouts
+        /// without simulation timers, local input, sounds or animation advances.</summary>
+        internal void PrepareReplicaHudPresentation()
+        {
+            if (!_scene.Services.IsReplica || !HudReady)
+                throw new InvalidOperationException("Replica HUD presentation requires initialized private HUD resources.");
+            ComposeHudLayers(simulateReticle: false);
+        }
+
+        private void ComposeHudLayers(bool simulateReticle)
+        {
             InitHudState();
             _scene.Layer1Info.ShiftX = 0;
             _scene.Layer1Info.ShiftY = 0;
@@ -853,7 +870,9 @@ namespace MphRead.Entities
                         _scene.Layer3Info.ShiftX = -_hudShiftX / 4 / 256f;
                         _scene.Layer3Info.ShiftY = -_hudShiftY / 4 / 192f;
                     }
-                    if (Features.NoIdleSway || _timeSinceInput < (ulong)Values.GunIdleTime * 2) // todo: FPS stuff
+                    if (!simulateReticle)
+                        _targetCircleInst.Enabled = true;
+                    else if (Features.NoIdleSway || _timeSinceInput < (ulong)Values.GunIdleTime * 2) // todo: FPS stuff
                     {
                         UpdateReticle();
                     }

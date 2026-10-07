@@ -10,6 +10,18 @@ internal static class ModernPbrLayerCheck
 {
     internal static void Verify()
     {
+        using var diagnosticScope = ModernGraphicsDevice.BeginLayeredPbrShaderDiagnosticScopeForCheck();
+        try { VerifyScoped(); }
+        catch (Exception ex)
+        {
+            ShaderDiagnosticPolicy.WriteException(Console.Error, "layered-pbr outer", ex);
+            throw;
+        }
+    }
+
+    private static void VerifyScoped()
+    {
+        ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=state-snapshot START");
         int previousProgram = GraphicsApi.GetInteger(GetPName.CurrentProgram);
         int previousReadFramebuffer = GraphicsApi.GetInteger(GetPName.ReadFramebufferBinding);
         int previousDrawFramebuffer = GraphicsApi.GetInteger(GetPName.DrawFramebufferBinding);
@@ -19,17 +31,26 @@ internal static class ModernPbrLayerCheck
         GraphicsApi.PushAttrib(AttribMask.AllAttribBits);
         try
         {
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=state-snapshot DONE");
             VerifyPixels();
+        }
+        catch (Exception ex)
+        {
+            ShaderDiagnosticPolicy.WriteException(Console.Error, "layered-pbr before state restoration", ex);
+            throw;
         }
         finally
         {
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=state-restore START");
             // Attribute stacks include texture enables/bindings and viewport,
             // but programs and framebuffer bindings need explicit restoration.
             GraphicsApi.UseProgram(previousProgram);
             GraphicsApi.BindFramebuffer(FramebufferTarget.ReadFramebuffer, previousReadFramebuffer);
             GraphicsApi.BindFramebuffer(FramebufferTarget.DrawFramebuffer, previousDrawFramebuffer);
             GraphicsApi.PopAttrib();
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=state-restore DONE");
         }
+        ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=state-verification START");
         int[] restoredViewport = new int[4];
         GraphicsApi.GetInteger(GetPName.Viewport, restoredViewport);
         if (GraphicsApi.GetInteger(GetPName.CurrentProgram) != previousProgram
@@ -40,10 +61,12 @@ internal static class ModernPbrLayerCheck
         for (int i = 0; i < previousViewport.Length; i++)
             if (restoredViewport[i] != previousViewport[i])
                 throw new InvalidOperationException("PBR pixel fixture did not restore its caller's viewport.");
+        ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=state-verification DONE");
     }
 
     private static void VerifyPixels()
     {
+        ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=setup START");
         int world = Link(Shaders.VertexShader, Shaders.FragmentShader);
         int post = Link(GraphicsPipelineShader.VertexSource, GraphicsPipelineShader.FragmentSource);
         int pbr = Link(DeferredPbrShader.VertexSource, DeferredPbrShader.FragmentSource);
@@ -67,6 +90,7 @@ internal static class ModernPbrLayerCheck
         int depthFbo = Framebuffer(depthColor, ownedDepth);
         try
         {
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=setup DONE");
             GraphicsApi.Disable(EnableCap.CullFace);
             GraphicsApi.Disable(EnableCap.AlphaTest);
             GraphicsApi.Disable(EnableCap.ScissorTest);
@@ -78,23 +102,33 @@ internal static class ModernPbrLayerCheck
             // Reduced G-buffer depth contains an opaque surface. The larger
             // forward depth deliberately contains only clear depth at resolve.
             GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, sceneFbo);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=clear-01 START");
             GraphicsApi.Clear(ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=clear-01 DONE");
             GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, depthFbo);
             GraphicsApi.Viewport(0, 0, 4, 4);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=clear-02 START");
             GraphicsApi.Clear(ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=clear-02 DONE");
             ConfigureWorld(world);
             GraphicsApi.Enable(EnableCap.DepthTest);
             GraphicsApi.DepthFunc(DepthFunction.Less);
             GraphicsApi.Color4(1, 1, 1, 1);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-01 START");
             Quad(-1, 1, 0);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-01 DONE");
 
             GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, resolveFbo);
             GraphicsApi.Viewport(0, 0, 4, 4);
             GraphicsApi.Disable(EnableCap.DepthTest);
             GraphicsApi.DepthMask(false);
             ConfigurePost(post, scene, ownedDepth, albedo, normal, material, 2);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-02 START");
             Quad(-1, 1, 0);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-02 DONE");
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=pixel-read-01 START");
             byte[] background = Pixel(2, 2);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=pixel-read-01 DONE");
             if (Math.Abs(background[0] - 51) + Math.Abs(background[1] - 102)
                 + Math.Abs(background[2] - 153) < 20)
                 throw new InvalidOperationException("PBR resolve did not use the reduced G-buffer's readable depth.");
@@ -115,32 +149,51 @@ internal static class ModernPbrLayerCheck
             GraphicsApi.UniformMatrix4(GraphicsApi.GetUniformLocation(world, "proj_mtx"),
                 false, ref foregroundProjection);
             GraphicsApi.Color4(0, 0, 1, 1);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-03 START");
             Quad(-1, 0, -0.5f);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-03 DONE");
             GraphicsApi.Enable(EnableCap.Blend);
             GraphicsApi.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(world, "mat_alpha"), 0.5f);
             GraphicsApi.Color4(1, 0, 0, 1);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-04 START");
             Quad(0, 1, -0.5f);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-04 DONE");
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=pixel-read-02 START");
             byte[] expectedTransparent = Pixel(6, 4);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=pixel-read-02 DONE");
 
             GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, outputFbo);
             GraphicsApi.Disable(EnableCap.Blend);
             GraphicsApi.Disable(EnableCap.DepthTest);
             GraphicsApi.DepthMask(false);
             ConfigurePost(post, scene, forwardDepth, albedo, normal, material, 0);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-05 START");
             Quad(-1, 1, 0);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-05 DONE");
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=pixel-read-03 START");
             byte[] foreground = Pixel(2, 4);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=pixel-read-03 DONE");
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=pixel-read-04 START");
             byte[] transparent = Pixel(6, 4);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=pixel-read-04 DONE");
             if (foreground[0] > 3 || foreground[1] > 3 || foreground[2] < 252)
                 throw new InvalidOperationException("Background PBR contaminated the foreground projection layer.");
             if (transparent[3] < 252)
                 throw new InvalidOperationException("Final opaque presentation did not close the transparent layer's alpha.");
             for (int c = 0; c < 3; c++)
                 if (Math.Abs(transparent[c] - expectedTransparent[c]) > 2)
+                {
+                    ReportTransparentMismatch(expectedTransparent, transparent, c);
                     throw new InvalidOperationException("Final presentation relit or attenuated a transparent layer after PBR.");
+                }
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(post, "gamma_value"), 2f);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-06 START");
             Quad(-1, 1, 0);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-06 DONE");
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=pixel-read-05 START");
             byte[] gradedTransparent = Pixel(6, 4);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=pixel-read-05 DONE");
             for (int c = 0; c < 3; c++)
                 if (Math.Abs(gradedTransparent[c]
                     - (int)Math.Round(Math.Sqrt(expectedTransparent[c] / 255.0) * 255)) > 2)
@@ -151,7 +204,9 @@ internal static class ModernPbrLayerCheck
                 FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, hdrResolved, 0);
             GraphicsApi.Viewport(0, 0, 4, 4);
             ConfigurePost(post, hdrSource, ownedDepth, albedo, normal, material, 2);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-07 START");
             Quad(-1, 1, 0);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-07 DONE");
             GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, sceneFbo);
             GraphicsApi.FramebufferTexture2D(FramebufferTarget.Framebuffer,
                 FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, hdrScene, 0);
@@ -165,8 +220,12 @@ internal static class ModernPbrLayerCheck
             GraphicsApi.ActiveTexture(TextureUnit.Texture0);
             GraphicsApi.BindTexture(TextureTarget.Texture2D, hdrScene);
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(toneMap, "hdr_tex"), 0);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-08 START");
             Quad(-1, 1, 0);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-08 DONE");
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=pixel-read-06 START");
             byte[] hdrPixel = Pixel(6, 4);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=pixel-read-06 DONE");
             // ACES of a value clamped to one is only ~205 in this linear RGBA8
             // target. This proves the early resolve/copy preserved >1 to the
             // dedicated final tone map, rather than tone mapping/clamping twice.
@@ -176,7 +235,9 @@ internal static class ModernPbrLayerCheck
             GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, depthFbo);
             GraphicsApi.Viewport(0, 0, 4, 4);
             GraphicsApi.ClearColor(0, 0.5f, 0, 1);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=clear-03 START");
             GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=clear-03 DONE");
             ConfigureWorld(pbr);
             GraphicsApi.ActiveTexture(TextureUnit.Texture0);
             GraphicsApi.BindTexture(TextureTarget.Texture2D, cutout);
@@ -186,20 +247,34 @@ internal static class ModernPbrLayerCheck
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(pbr, "use_override"), 1);
             GraphicsApi.Uniform4(GraphicsApi.GetUniformLocation(pbr, "override_color"), 1f, 0f, 0f, 1f);
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(pbr, "gbuffer_mode"), 1);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-09 START");
             Quad(-1, 1, 0);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-09 DONE");
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=pixel-read-07 START");
             byte[] rejectedCutout = Pixel(2, 2);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=pixel-read-07 DONE");
             if (rejectedCutout[0] > 3 || Math.Abs(rejectedCutout[1] - 128) > 2)
                 throw new InvalidOperationException("A non-opaque filtered texel entered the opaque G-buffer.");
             GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
                 1, 1, 0, PixelFormat.Rgba, PixelType.UnsignedByte, new byte[] { 255, 255, 255, 255 });
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-10 START");
             Quad(-1, 1, 0);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=draw-10 DONE");
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=pixel-read-08 START");
             byte[] acceptedCutout = Pixel(2, 2);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=pixel-read-08 DONE");
             if (acceptedCutout[0] < 252 || acceptedCutout[1] > 3)
                 throw new InvalidOperationException("A fully opaque texel was lost from the G-buffer.");
             Console.WriteLine("[renderwindowcheck] reduced PBR depth, foreground FOV, single dynamic lighting, transparency, final gamma/HDR and exact opaque-alpha pixel ownership PASS");
         }
+        catch (Exception ex)
+        {
+            ShaderDiagnosticPolicy.WriteException(Console.Error, "layered-pbr before resource cleanup", ex);
+            throw;
+        }
         finally
         {
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=cleanup START");
             GraphicsApi.UseProgram(0);
             for (int unit = 6; unit >= 0; unit--)
             {
@@ -219,6 +294,7 @@ internal static class ModernPbrLayerCheck
             GraphicsApi.DeleteProgram(post);
             GraphicsApi.DeleteProgram(pbr);
             GraphicsApi.DeleteProgram(toneMap);
+            ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck layered-pbr phase=cleanup DONE");
         }
     }
 
@@ -322,6 +398,21 @@ internal static class ModernPbrLayerCheck
         if (GraphicsApi.CheckFramebufferStatus(FramebufferTarget.Framebuffer) != FramebufferErrorCode.FramebufferComplete)
             throw new InvalidOperationException("PBR pixel fixture framebuffer is incomplete.");
         return fbo;
+    }
+
+    private static void ReportTransparentMismatch(byte[] expected, byte[] actual, int channel)
+    {
+        try
+        {
+            if (!ShaderDiagnosticPolicy.Enabled(
+                Environment.GetEnvironmentVariable(ShaderDiagnosticPolicy.EnvironmentVariable),
+                Environment.GetEnvironmentVariable("PRIME_WGPU_VALIDATION"),
+                Environment.GetEnvironmentVariable("PRIME_WGPU_GPU_VALIDATION")))
+                return;
+            ShaderDiagnosticPolicy.Write(Console.Error,
+                $"DIAGNOSTIC renderwindowcheck layered-pbr transparent-comparison expectedRead=2 actualRead=4 channel={channel} absoluteDelta={Math.Abs(actual[channel] - expected[channel])} expectedRgba={expected[0]},{expected[1]},{expected[2]},{expected[3]} actualRgba={actual[0]},{actual[1]},{actual[2]},{actual[3]}");
+        }
+        catch { } // Observation cannot replace the unchanged strict pixel failure.
     }
 
     private static byte[] Pixel(int x, int y)

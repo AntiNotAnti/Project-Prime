@@ -1,0 +1,223 @@
+--- a/src/logging.rs
++++ b/src/logging.rs
+@@ -30,6 +30,26 @@
+ 
+ struct Logger;
+ 
++// Compiler diagnostics may contain a terminating or embedded C NUL. Preserve
++// every byte as visible text for the C callback instead of truncating or panicking.
++pub(crate) fn diagnostic_c_string(message: String) -> CString {
++    match CString::new(message) {
++        Ok(message) => message,
++        Err(error) => {
++            let original = error.into_vec();
++            let mut escaped = Vec::with_capacity(original.len());
++            for byte in original {
++                if byte == 0 {
++                    escaped.extend_from_slice(b"\\0");
++                } else {
++                    escaped.push(byte);
++                }
++            }
++            CString::new(escaped).expect("diagnostic NUL bytes have been escaped")
++        }
++    }
++}
++
+ impl log::Log for Logger {
+     fn enabled(&self, _metadata: &Metadata) -> bool {
+         true
+@@ -40,7 +60,7 @@
+ 
+         if let Some(callback) = logger.callback {
+             let msg = record.args().to_string();
+-            let msg_c = CString::new(msg).unwrap();
++            let msg_c = diagnostic_c_string(msg);
+             let level = match record.level() {
+                 Level::Error => native::WGPULogLevel_Error,
+                 Level::Warn => native::WGPULogLevel_Warn,
+@@ -109,3 +129,73 @@
+     Debug,
+     Trace
+ );
++
++
++#[cfg(test)]
++mod prime_diagnostic_string_tests {
++    use super::*;
++    use log::Log as _;
++    use std::ffi::{c_char, c_void, CStr};
++    use std::sync::Mutex;
++
++    const OBSERVED_FXC_DIAGNOSTIC: &str = "Device::create_render_pipeline error: Internal error in ShaderStages(FRAGMENT) shader: FXC D3DCompile error (0x80004005): (295,21-124): warning X3570: gradient instruction used in a loop with varying iteration, attempting to unroll the loop\n(1787,5-15): error X3511: unable to unroll loop, loop does not appear to terminate in a timely manner (26 iterations) or unrolled loop is too large, use the [unroll(n)] attribute to force an exact higher number\n\0";
++
++    #[test]
++    fn observed_fxc_terminal_nul_is_preserved_without_the_previous_panic() {
++        let previous = CString::new(OBSERVED_FXC_DIAGNOSTIC).unwrap_err();
++        assert_eq!(previous.nul_position(), 452);
++        assert_eq!(OBSERVED_FXC_DIAGNOSTIC.len(), 453);
++        let encoded = diagnostic_c_string(OBSERVED_FXC_DIAGNOSTIC.to_owned());
++        assert_eq!(encoded.to_str().unwrap(), OBSERVED_FXC_DIAGNOSTIC.replace('\0', "\\0"));
++        assert!(encoded.to_str().unwrap().contains("error X3511"));
++        assert!(encoded.to_str().unwrap().ends_with("\n\\0"));
++    }
++
++    #[test]
++    fn embedded_adjacent_nuls_retain_unicode_newlines_and_the_entire_suffix() {
++        for message in ["", "normal\nUTF-8 λ 漢字", "before\0\0after λ\nlast\0", "\0\0"] {
++            let encoded = diagnostic_c_string(message.to_owned());
++            assert_eq!(encoded.as_bytes(), message.replace('\0', "\\0").as_bytes());
++            assert_eq!(encoded.as_bytes_with_nul().last(), Some(&0));
++            assert!(!encoded.as_bytes().contains(&0));
++        }
++    }
++
++    unsafe extern "C" fn capture_log(level: native::WGPULogLevel, message: *const c_char, userdata: *mut c_void) {
++        let capture = &*(userdata as *const Mutex<Vec<(native::WGPULogLevel, Vec<u8>)>>);
++        capture.lock().unwrap().push((level, CStr::from_ptr(message).to_bytes().to_vec()));
++    }
++
++    struct RegistrationGuard {
++        callback: native::WGPULogCallback,
++        userdata: *mut c_void,
++    }
++    impl Drop for RegistrationGuard {
++        fn drop(&mut self) {
++            let mut logger = LOGGER_INFO.write();
++            logger.callback = self.callback;
++            logger.userdata = self.userdata;
++        }
++    }
++
++    #[test]
++    fn actual_logger_c_callback_receives_complete_diagnostics_at_original_levels() {
++        let capture = Box::new(Mutex::new(Vec::<(native::WGPULogLevel, Vec<u8>)>::new()));
++        // The guard is declared after capture, so it restores the global pointer
++        // before captured storage is released, including assertion-unwind paths.
++        let registration = {
++            let mut logger = LOGGER_INFO.write();
++            let old = RegistrationGuard { callback: logger.callback, userdata: logger.userdata };
++            logger.callback = Some(capture_log);
++            logger.userdata = (&*capture as *const Mutex<_>).cast_mut().cast();
++            old
++        };
++        Logger.log(&Record::builder().args(format_args!("{}", OBSERVED_FXC_DIAGNOSTIC)).level(Level::Error).build());
++        Logger.log(&Record::builder().args(format_args!("{}", "prefix\0\0λ\nsuffix\0")).level(Level::Warn).build());
++        drop(registration);
++        let received = capture.lock().unwrap();
++        assert_eq!(received.len(), 2);
++        assert_eq!(received[0], (native::WGPULogLevel_Error, OBSERVED_FXC_DIAGNOSTIC.replace('\0', "\\0").into_bytes()));
++        assert_eq!(received[1], (native::WGPULogLevel_Warn, b"prefix\\0\\0\xCE\xBB\nsuffix\\0".to_vec()));
++    }
++}
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -522,7 +522,7 @@
+                 // handle device lost error early
+                 if let Some(callback) = self.device_lost_handler.callback {
+                     let userdata = self.device_lost_handler.userdata;
+-                    let msg = CString::new(err.to_string()).unwrap();
++                    let msg = logging::diagnostic_c_string(err.to_string());
+                     unsafe {
+                         callback(
+                             native::WGPUDeviceLostReason_Destroyed,
+@@ -557,7 +557,7 @@
+             None => {
+                 if let Some(callback) = self.uncaptured_handler.callback {
+                     let userdata = self.uncaptured_handler.userdata;
+-                    let msg = CString::new(err.to_string()).unwrap();
++                    let msg = logging::diagnostic_c_string(err.to_string());
+                     unsafe { callback(typ, msg.as_ptr(), userdata) };
+                 }
+             }
+@@ -789,7 +789,7 @@
+     let adapter_limits = match gfx_select!(adapter_id => context.adapter_limits(adapter_id)) {
+         Ok(adapter_limits) => adapter_limits,
+         Err(cause) => {
+-            let msg = CString::new(format_error(context, &cause)).unwrap();
++            let msg = logging::diagnostic_c_string(format_error(context, &cause));
+             callback(
+                 native::WGPURequestDeviceStatus_Error,
+                 std::ptr::null(),
+@@ -851,7 +851,7 @@
+             );
+         }
+         Some(err) => {
+-            let message = CString::new(format_error(context, &err)).unwrap();
++            let message = logging::diagnostic_c_string(format_error(context, &err));
+             callback(
+                 native::WGPURequestDeviceStatus_Error,
+                 std::ptr::null_mut(),
+@@ -2596,7 +2596,7 @@
+                 crate::Error::DeviceLost { .. } => unreachable!(),
+             };
+ 
+-            let msg = CString::new(error.to_string()).unwrap();
++            let msg = logging::diagnostic_c_string(error.to_string());
+             unsafe {
+                 callback(typ, msg.as_ptr(), userdata);
+             };
+@@ -2738,7 +2738,7 @@
+             );
+         }
+         Err(err) => {
+-            let message = CString::new(format_error(context, &err)).unwrap();
++            let message = logging::diagnostic_c_string(format_error(context, &err));
+             callback(
+                 match err {
+                     wgc::instance::RequestAdapterError::NotFound => {
+@@ -4290,6 +4290,54 @@
+     );
+ }
+ 
++
++
++#[cfg(test)]
++mod prime_diagnostic_string_tests {
++    use super::*;
++
++    unsafe extern "C" fn capture_error(typ: native::WGPUErrorType, message: *const std::os::raw::c_char, userdata: *mut std::os::raw::c_void) {
++        let capture = &mut *(userdata as *mut Vec<(native::WGPUErrorType, Vec<u8>)>);
++        capture.push((typ, CStr::from_ptr(message).to_bytes().to_vec()));
++    }
++
++    #[test]
++    fn actual_uncaptured_error_sink_keeps_validation_failure_and_complete_c_message() {
++        let description = "FXC failure 0x80004005\0\0λ\nerror X3511 suffix\0";
++        let mut capture = Vec::<(native::WGPUErrorType, Vec<u8>)>::new();
++        let mut sink = ErrorSinkRaw::new(DEFAULT_DEVICE_LOST_HANDLER);
++        sink.uncaptured_handler = UncapturedErrorCallback {
++            callback: Some(capture_error), userdata: (&mut capture as *mut Vec<_>).cast(),
++        };
++        sink.handle_error(Error::Validation {
++            source: Box::new(std::io::Error::other("compiler failure")), description: description.to_owned(),
++        });
++        assert_eq!(capture.len(), 1);
++        assert_eq!(capture[0].0, native::WGPUErrorType_Validation);
++        assert_ne!(capture[0].0, native::WGPUErrorType_NoError);
++        assert_eq!(capture[0].1, description.replace('\0', "\\0").into_bytes());
++    }
++
++    #[test]
++    fn error_scope_retains_the_original_failure_before_c_message_encoding() {
++        let description = "FXC failed\0λ\nfull suffix\0";
++        let mut capture = Vec::<(native::WGPUErrorType, Vec<u8>)>::new();
++        let mut sink = ErrorSinkRaw::new(DEFAULT_DEVICE_LOST_HANDLER);
++        sink.uncaptured_handler = UncapturedErrorCallback {
++            callback: Some(capture_error), userdata: (&mut capture as *mut Vec<_>).cast(),
++        };
++        sink.scopes.push(ErrorScope { error: None, filter: ErrorFilter::Validation });
++        sink.handle_error(Error::Validation {
++            source: Box::new(std::io::Error::other("compiler failure")), description: description.to_owned(),
++        });
++        assert!(capture.is_empty());
++        let error = sink.scopes.pop().unwrap().error.unwrap();
++        assert!(matches!(error, Error::Validation { .. }));
++        assert_eq!(error.to_string(), description);
++        assert_eq!(logging::diagnostic_c_string(error.to_string()).to_str().unwrap(), description.replace('\0', "\\0"));
++    }
++}
++
+ #[no_mangle]
+ pub unsafe extern "C" fn wgpuRenderPassEncoderEndPipelineStatisticsQuery(
+     pass: native::WGPURenderPassEncoder,

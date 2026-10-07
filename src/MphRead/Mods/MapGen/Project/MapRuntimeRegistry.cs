@@ -13,11 +13,6 @@ namespace MphRead
         }
         // Called between scenes on the shell thread. Existing metadata objects
         // remain valid for callers holding an earlier snapshot.
-        internal static void RegisterStudioPreview(MapDefinition definition)
-        {
-            CustomMapMusic.PreviewDefinition = definition;
-            RegisterRoomSnapshot(definition);
-        }
         internal static void RegisterDownloadedMap(MapDefinition definition)
         {
             RegisterRoomSnapshot(definition);

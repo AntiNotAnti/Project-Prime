@@ -97,6 +97,15 @@ namespace MphRead.Mods.MapGen
         public List<MapSpawn> Spawns { get; set; } = new List<MapSpawn>();
         public List<MapJumpPad> JumpPads { get; set; } = new List<MapJumpPad>();
         public List<MapItem> Items { get; set; } = new List<MapItem>();
+        public MapPrefabSource? PrefabSource { get; set; }
+        [JsonIgnore]
+        public List<MapPrefabInstance> PrefabInstances { get; set; } = new();
+        [JsonInclude, JsonPropertyName("prefabInstances")]
+        private List<MapPrefabInstance>? SerializedPrefabInstances
+        {
+            get => PrefabInstances.Count == 0 ? null : PrefabInstances;
+            set => PrefabInstances = value ?? new();
+        }
 
         private static readonly JsonSerializerOptions _options = new JsonSerializerOptions()
         {

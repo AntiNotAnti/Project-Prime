@@ -26,6 +26,29 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
     private readonly ReplayPayload _data;
     internal ReadOnlySpan<byte> Bytes => _data.Span;
     internal ReplayPayload Payload => _data;
+    /// <summary>Hash all serialized graph values and alias links. Construction
+    /// anchors describe how a capsule binds to a freshly loaded world; restored
+    /// collections legitimately have different anchors and are not graph state.</summary>
+    internal string GraphFingerprint()
+    {
+        using var source = _data.OpenRead(); using var input = new BinaryReader(source);
+        using var normalized = new MemoryStream(Bytes.Length); using var writer = new BinaryWriter(normalized);
+        writer.Write(input.ReadUInt32()); ushort version = input.ReadUInt16(); writer.Write(version);
+        writer.Write(input.ReadString()); writer.Write(input.ReadString()); writer.Write(input.ReadInt32()); writer.Write(input.ReadUInt64());
+        writer.Write(input.ReadUInt32()); writer.Write(input.ReadUInt32()); writer.Write(input.ReadUInt32());
+        WriteBytes(writer, ReadBytes(input, ReplayReplicaCheckpoint.MaximumBytes));
+        WriteBytes(writer, ReadBytes(input, ReplayReplicaCheckpoint.MaximumBytes));
+        int count = Count(input, MaximumObjects); writer.Write(count);
+        for (int i = 0; i < count; i++)
+        {
+            writer.Write(input.ReadUInt16()); _ = input.ReadUInt64();
+            WriteBytes(writer, ReadBytes(input, MaximumBytes));
+        }
+        if (version >= 2) WriteBytes(writer, ReadBytes(input, MaximumBytes));
+        if (version >= 3) WriteBytes(writer, ReadBytes(input, 4096));
+        if (source.Position != source.Length) throw new InvalidDataException("Trailing checkpoint bytes.");
+        writer.Flush(); return Convert.ToHexString(SHA256.HashData(normalized.GetBuffer().AsSpan(0, (int)normalized.Length))).ToLowerInvariant();
+    }
     internal uint Frame { get; }
     private readonly string _sourceContract;
     private ReplayWorldCheckpoint(ReplayPayload data, uint frame, string? sourceContract = null) { _data = data; Frame = frame; _sourceContract = sourceContract ?? Contract; }

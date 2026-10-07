@@ -24,6 +24,119 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  studio-desktop:
+    name: Studio desktop acceptance (${{ matrix.os }})
+    needs: patched-wgpu-native
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: macos-latest
+            rid: osx-arm64
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/download-artifact@v8
+        if: runner.os != 'macOS'
+        with:
+          name: patched-wgpu-${{ matrix.rid }}
+          path: artifacts/wgpu-native-desktop/${{ matrix.rid }}/
+      - name: native dependencies for the canonical engine on macOS
+        if: runner.os == 'macOS'
+        run: |
+          python3 tools/wgpu/test-build-shell.py
+          tools/wgpu/build-native.sh "${{ matrix.rid }}"
+          tools/ktx/build-native.sh "${{ matrix.rid }}"
+      - name: cross-process map publication ownership
+        run: dotnet run --project tools/map-publication-check -c Release
+      - name: hosted cache process ownership and live archive protection
+        run: dotnet run --project tools/hosted-cache-check -c Release
+      - name: fractional replay sampling, offline PCM, worker processes and diagnostic redaction
+        run: dotnet run --project tools/studio-export-check -c Release
+      - name: software Vulkan, X11 and replay encoder dependencies on Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y ffmpeg xvfb xauth mesa-vulkan-drivers \
+            libx11-6 libxrandr2 libxi6 libxcursor1 libxinerama1 libice6 libsm6 libfontconfig1
+      - name: real replay PCM and video encoder acceptance on Linux
+        if: runner.os == 'Linux'
+        run: |
+          dotnet run --project tools/studio-export-check -c Release -- --ffmpeg ffmpeg --ffprobe ffprobe
+      - name: portable paired packaging regressions
+        shell: bash
+        run: python3 -m unittest discover -s tools -p 'test_studio_packaging.py'
+      - name: paired updater versions and installation lifetime
+        run: dotnet run --project tools/updatecheck -c Release
+      - name: Studio architecture contracts
+        run: dotnet run --project tools/studio-architecture-check -c Release
+      - name: authenticated local IPC and forwarding
+        run: dotnet run --project tools/studio-ipc-check -c Release
+      - name: game broker and exact immutable package installation
+        run: dotnet run --project tools/game-studio-broker-check -c Release
+      - name: canonical legacy generation with separate live game scene ownership
+        run: dotnet run --project tools/map-generation-check -c Release
+      - name: canonical prefab structure and propagation
+        run: dotnet run --project tools/map-prefab-check -c Release
+      - name: canonical Studio geometry and gameplay analysis
+        run: dotnet run --project tools/studio-modeling-check -c Release
+      - name: canonical gameplay trigger and analyzer parity
+        run: dotnet run --project tools/map-gameplay-check -c Release
+      - name: measured Studio diagnostics and owned jobs
+        run: dotnet run --project tools/studio-diagnostics-check -c Release
+      - name: Studio launcher paths and file routes
+        run: dotnet run --project tools/studio-launch-check -c Release
+      - name: Studio rendering CPU parity and lossless picking IDs
+        run: dotnet run --project tools/studio-render-check -c Release
+      - name: post-process diagnostic policy, layout and callback controls
+        run: dotnet run --project tools/studio-shader-diagnostic-check -c Release
+      - name: Studio document and process lifecycle
+        run: |
+          dotnet run --project tools/studio-lifecycle-check -c Release
+          dotnet run --project tools/studio-lifecycle-check -c Release --no-build -- --native-map-readiness-controls
+      - name: native Studio windows, Map surfaces and process recovery on Linux
+        if: runner.os == 'Linux'
+        run: |
+          xvfb-run -a --server-args="-screen 0 1920x1080x24" \
+            dotnet run --project tools/studio-lifecycle-check -c Release --no-build -- --native
+      - name: Studio home and workspace captures
+        run: dotnet run --project tools/studio-ui-check -c Release -- "${{ runner.temp }}/studio-ui"
+      - name: publish matching game and Studio executables
+        shell: bash
+        run: |
+          version=$(dotnet msbuild src/MphRead/MphRead.csproj -getProperty:Version)
+          dotnet publish src/MphRead/MphRead.csproj -c Release -r "${{ matrix.rid }}" \
+            --self-contained true -p:PublishSingleFile=true -p:Version="$version" \
+            -p:InformationalVersion="$version" -p:IncludeSourceRevisionInInformationalVersion=false \
+            -o "publish/game-${{ matrix.rid }}"
+          dotnet publish src/ProjectPrime.Studio/ProjectPrime.Studio.csproj -c Release -r "${{ matrix.rid }}" \
+            --self-contained true -p:PublishSingleFile=true -p:Version="$version" \
+            -p:InformationalVersion="$version" -p:IncludeSourceRevisionInInformationalVersion=false \
+            -o "publish/studio-${{ matrix.rid }}"
+          extension=""
+          if [[ "${{ runner.os }}" == Windows ]]; then extension=.exe; fi
+          python3 tools/studio-pair.py smoke "publish/game-${{ matrix.rid }}/ProjectPrime$extension" \
+            "publish/studio-${{ matrix.rid }}/ProjectPrimeStudio$extension" "$version"
+      - name: no game assets in Studio
+        shell: bash
+        run: tools/check-no-game-assets.sh publish/studio-${{ matrix.rid }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: project-prime-studio-desktop-${{ matrix.rid }}
+          path: |
+            publish/game-${{ matrix.rid }}
+            publish/studio-${{ matrix.rid }}
+            ${{ runner.temp }}/studio-ui
+          if-no-files-found: error
+
   engineering-contracts:
     uses: ./.github/workflows/engineering-contracts.yml
     with:
@@ -103,8 +216,11 @@ jobs:
         shell: bash
         env:
           PRIME_PYTHON: python
-          LIBCLANG_PATH: ${{ runner.os == 'Windows' && 'C:/Program Files/LLVM/bin' || '' }}
+          PYTHONUTF8: '1'
         run: |
+          if [[ "${{ runner.os }}" == Windows ]]; then export LIBCLANG_PATH='C:/Program Files/LLVM/bin'; else unset LIBCLANG_PATH; fi
+          python tools/wgpu/test-patch-fingerprint.py
+          if [[ "${{ runner.os }}" == Linux ]]; then python tools/wgpu/test-build-shell.py; fi
           tools/wgpu/build-native.sh "${{ matrix.rid }}" --unit-tests
           tools/wgpu/build-native.sh "${{ matrix.rid }}" --fault-test
           python tools/wgpu/verify-runtime.py artifacts/wgpu-native-desktop/${{ matrix.rid }}/${{ matrix.rid == 'win-x64' && 'wgpu_native.dll' || 'libwgpu_native.so' }}
@@ -133,16 +249,123 @@ jobs:
           name: patched-wgpu-win-x64
           path: artifacts/wgpu-native-desktop/win-x64/
       - name: publish focused renderer build
+        id: renderer_publish
         shell: pwsh
         run: >
           dotnet publish src/MphRead/MphRead.csproj
           -c Release -r win-x64 --self-contained true
           -p:PublishSingleFile=true -o publish/modern-win
+      - name: software OpenGL recovery and Vulkan prerequisites
+        id: renderer_recovery_prerequisites
+        shell: pwsh
+        run: |
+          $mesaVersion = '26.2.4'
+          $mesaArchive = Join-Path $env:RUNNER_TEMP "mesa3d-$mesaVersion-release-msvc.7z"
+          $mesaRoot = Join-Path $env:RUNNER_TEMP "mesa-$mesaVersion"
+          Invoke-WebRequest "https://github.com/pal1000/mesa-dist-win/releases/download/$mesaVersion/mesa3d-$mesaVersion-release-msvc.7z" -OutFile $mesaArchive
+          $expectedMesa = '351fc8c8b695878ffb3eaa044b3ead08672a48b1a045e3c3e3975811df0f6695'
+          if ((Get-FileHash $mesaArchive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expectedMesa) { throw 'Mesa archive SHA-256 mismatch' }
+          7z x $mesaArchive "-o$mesaRoot" -y
+          if ($LASTEXITCODE -ne 0) { throw 'Mesa archive extraction failed' }
+          & (Join-Path $mesaRoot 'systemwidedeploy.cmd') 1
+          if ($LASTEXITCODE -ne 0) { throw 'Mesa OpenGL recovery prerequisite deployment failed' }
+          'GALLIUM_DRIVER=llvmpipe' >> $env:GITHUB_ENV
+          if ('${{ matrix.renderer }}' -eq 'vulkan') {
+            & (Join-Path $mesaRoot 'systemwidedeploy.cmd') 7
+            if ($LASTEXITCODE -ne 0) { throw 'Mesa software Vulkan deployment failed' }
+            $runtimeVersion = '1.4.363.0'
+            $runtimeZip = Join-Path $env:RUNNER_TEMP "VulkanRT-X64-$runtimeVersion-Components.zip"
+            $runtimeRoot = Join-Path $env:RUNNER_TEMP "vulkan-runtime-$runtimeVersion"
+            Invoke-WebRequest "https://sdk.lunarg.com/sdk/download/$runtimeVersion/windows/vulkan-runtime-components.zip" -OutFile $runtimeZip
+            $expectedRuntime = 'a25a927aa8b9f0371048f1861cf88ac3b9bc9b1fb332c42d897c8ab32695769a'
+            if ((Get-FileHash $runtimeZip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expectedRuntime) { throw 'Vulkan runtime SHA-256 mismatch' }
+            Expand-Archive $runtimeZip -DestinationPath $runtimeRoot
+            $runtimeX64 = Join-Path $runtimeRoot "VulkanRT-X64-$runtimeVersion-Components/x64"
+            Copy-Item (Join-Path $runtimeX64 'vulkan-1.dll') publish/modern-win/
+            $env:VK_DRIVER_FILES = Join-Path $mesaRoot 'x64/lvp_icd.x86_64.json'
+            "VK_DRIVER_FILES=$env:VK_DRIVER_FILES" >> $env:GITHUB_ENV
+            & (Join-Path $runtimeX64 'vulkaninfo.exe') --summary
+            if ($LASTEXITCODE -ne 0) { throw 'Pinned software Vulkan loader/ICD admission failed' }
+            Write-Host 'Vulkan acceptance uses the pinned Mesa lavapipe CPU adapter; no hardware GPU result is inferred.'
+          }
+      - name: verify DirectX native validation prerequisite
+        if: matrix.renderer == 'dx12'
+        shell: pwsh
+        run: |
+          $capabilityName = 'Tools.Graphics.DirectX~~~~0.0.1.0'
+          $capability = Get-WindowsCapability -Online -Name $capabilityName
+          if ($capability.State -ne 'Installed') {
+            Add-WindowsCapability -Online -Name $capabilityName
+            $capability = Get-WindowsCapability -Online -Name $capabilityName
+          }
+          if ($capability.State -ne 'Installed') { throw 'DirectX Graphics Tools validation capability was not installed' }
+          $debugLayer = Join-Path $env:windir 'System32/D3D12SDKLayers.dll'
+          if (-not (Test-Path $debugLayer)) { throw 'Installed DirectX validation layer DLL is unavailable' }
+          Write-Host "DirectX validation prerequisite installed: $debugLayer"
+      - name: verify native child deadline and exit control
+        id: renderer_child_control
+        shell: pwsh
+        run: ./.github/scripts/Test-NativeRendererCheck.ps1
       - name: backend policy, device, draw and window present
         shell: pwsh
         run: |
-          publish/modern-win/ProjectPrime.exe -renderfullcheck -renderer ${{ matrix.renderer }}
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          . ./.github/scripts/Invoke-NativeRendererCheck.ps1
+          $negativeOut = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.negative.stdout.log'
+          $negativeErr = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.negative.stderr.log'
+          $negative = Invoke-NativeRendererCheck -FilePath (Resolve-Path publish/modern-win/ProjectPrime.exe) -ArgumentList @('-renderbackendprobe', '-renderer', 'opengl') -StdoutPath $negativeOut -StderrPath $negativeErr -TimeoutSeconds 120
+          if ($negative.ExitCode -ne 2) { throw "GUI process negative exit oracle expected 2, got $($negative.ExitCode)" }
+          Write-Host 'Actual GUI process nonzero exit code preserved: 2.'
+          if ('${{ matrix.renderer }}' -eq 'dx12') {
+            $env:PRIME_WGPU_VALIDATION = '1'
+            $env:PRIME_WGPU_GPU_VALIDATION = '1'
+            $env:PRIME_WGPU_SHADER_DIAGNOSTICS = '1'
+            $env:PRIME_WGPU_SHADER_DIAGNOSTIC_DIRECTORY = Join-Path $env:RUNNER_TEMP 'renderer-windows-dx12.shader'
+          }
+          $stdout = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.stderr.log'
+          $process = Invoke-NativeRendererCheck -FilePath (Resolve-Path publish/modern-win/ProjectPrime.exe) -ArgumentList @('-renderfullcheck', '-renderer', '${{ matrix.renderer }}') -StdoutPath $stdout -StderrPath $stderr -TimeoutSeconds 1200
+          Get-Content $stdout
+          Get-Content $stderr
+          Write-Host "Native renderer process exit code: $($process.ExitCode)"
+          if ($process.ExitCode -ne 0) { exit $process.ExitCode }
+          $backend = if ('${{ matrix.renderer }}' -eq 'dx12') { 'DirectX 12' } else { 'Vulkan' }
+          $proof = (Get-Content $stdout -Raw) + (Get-Content $stderr -Raw)
+          if ('${{ matrix.renderer }}' -eq 'dx12' -and -not $proof.Contains('native validation requested backend=DirectX 12 flags=Validation')) { throw 'Missing requested native DirectX validation evidence' }
+          if ('${{ matrix.renderer }}' -eq 'dx12' -and -not $proof.Contains('DX12 GPU-based validation and synchronized command queue validation enabled')) { throw 'Missing actual ID3D12Debug1 GPU validation setter evidence' }
+          foreach ($phase in @('renderbackendprobe', 'renderwindowcheck')) {
+            if (-not $proof.Contains("[$phase] PASS backend=$backend")) { throw "Missing actual $backend $phase native pass evidence" }
+          }
+      - name: DirectX production-default full window and lifetime check
+        if: ${{ !cancelled() && matrix.renderer == 'dx12' && steps.renderer_publish.outcome == 'success' && steps.renderer_recovery_prerequisites.outcome == 'success' && steps.renderer_child_control.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          . ./.github/scripts/Invoke-NativeRendererCheck.ps1
+          Remove-Item Env:PRIME_WGPU_VALIDATION -ErrorAction SilentlyContinue
+          Remove-Item Env:PRIME_WGPU_GPU_VALIDATION -ErrorAction SilentlyContinue
+          Remove-Item Env:PRIME_WGPU_SHADER_DIAGNOSTICS -ErrorAction SilentlyContinue
+          Remove-Item Env:PRIME_WGPU_SHADER_DIAGNOSTIC_DIRECTORY -ErrorAction SilentlyContinue
+          $stdout = Join-Path $env:RUNNER_TEMP 'renderer-windows-dx12.default.stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'renderer-windows-dx12.default.stderr.log'
+          $process = Invoke-NativeRendererCheck -FilePath (Resolve-Path publish/modern-win/ProjectPrime.exe) -ArgumentList @('-renderfullcheck', '-renderer', 'dx12') -StdoutPath $stdout -StderrPath $stderr -TimeoutSeconds 1200
+          Get-Content $stdout
+          Get-Content $stderr
+          Write-Host "Production-default DirectX process exit code: $($process.ExitCode)"
+          if ($process.ExitCode -ne 0) { exit $process.ExitCode }
+          $proof = (Get-Content $stdout -Raw) + (Get-Content $stderr -Raw)
+          if ($proof.Contains('native validation requested')) { throw 'Production-default renderer unexpectedly enabled diagnostic validation' }
+          if ($proof.Contains('GPU-based validation and synchronized command queue validation enabled')) { throw 'Production-default renderer unexpectedly enabled GPU diagnostics' }
+          foreach ($phase in @('renderbackendprobe', 'renderwindowcheck')) {
+            if (-not $proof.Contains("[$phase] PASS backend=DirectX 12")) { throw "Missing production-default DirectX $phase native pass evidence" }
+          }
+      - name: Windows native renderer proof logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: renderer-acceptance-windows-${{ matrix.renderer }}
+          path: |
+            ${{ runner.temp }}/renderer-windows-${{ matrix.renderer }}.*.log
+            ${{ runner.temp }}/renderer-windows-${{ matrix.renderer }}.shader/**
+          if-no-files-found: warn
 
   modern-renderer-linux:
     needs: patched-wgpu-native
@@ -185,12 +408,17 @@ jobs:
 
   rmlui-home-poc:
     name: RmlUi home POC Linux render gate
+    needs: patched-wgpu-native
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      - uses: actions/download-artifact@v8
+        with:
+          name: patched-wgpu-linux-x64
+          path: artifacts/wgpu-native-desktop/linux-x64
       - name: validate authored menu-stage profiles
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -menustagecheck
       - name: install native and window dependencies
@@ -200,6 +428,13 @@ jobs:
             xvfb xauth libgl1 libglx-mesa0 libxinerama1 libxcursor1 libxi6
       - name: build pinned RmlUi 6.3 bridge
         run: bash tools/rmlui/build-native.sh linux-x64
+      - name: native RmlUi Studio keyboard, mouse and colour regressions
+        run: |
+          xvfb-run -a --server-args="-screen 0 4096x2304x24" \
+            env LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe \
+            dotnet run --project tools/rmlui-route-check -c Release -- \
+            artifacts/rmlui-native/linux-x64/libProjectPrime.RmlUi.Native.so \
+            --capture "$RUNNER_TEMP/rmlui-proof/native-regression"
       - name: publish opt-in Project Prime host
         run: >
           dotnet publish src/MphRead/MphRead.csproj
@@ -346,15 +581,23 @@ jobs:
             --self-contained true -p:PublishSingleFile=true -o "publish/modern-${{ matrix.rid }}"
           chmod +x "publish/modern-${{ matrix.rid }}/ProjectPrime"
       - name: OpenGL texture-update compatibility reference
-        # GitHub's Apple-Silicon hosted runner may expose no NSGL pixel format
-        # at all. Keep one real macOS OpenGL reference on the Intel runner;
-        # Metal and MoltenVK remain exercised on both architectures below.
-        if: matrix.rid == 'osx-x64'
+        # Hosted Paravirtual Macs may have no accelerated legacy CGL format.
+        # Exact typed construction failure plus an independent four-request
+        # census reports UNAVAILABLE; capable hosts must pass every GL pixel.
+        env:
+          PRIME_ACCEPTANCE_HOSTED_NSGL_UNAVAILABLE: '1'
         run: '"publish/modern-${{ matrix.rid }}/ProjectPrime" -textureupdatecheck -renderer opengl'
       - name: Metal device, draw and window present
+        env:
+          # This permits only measured absence of accelerated legacy CGL formats
+          # on the measured hosted Paravirtual device. Metal pixels/restart stay
+          # mandatory; capable hosts must pass the original GL fallback oracle.
+          PRIME_ACCEPTANCE_HOSTED_NSGL_UNAVAILABLE: '1'
         run: |
           "publish/modern-${{ matrix.rid }}/ProjectPrime" -renderfullcheck -renderer metal
       - name: MoltenVK device, draw and window present
+        env:
+          PRIME_ACCEPTANCE_HOSTED_NSGL_UNAVAILABLE: '1'
         run: tools/check-macos-modern-vulkan.sh "publish/modern-${{ matrix.rid }}/ProjectPrime" --window
 
   enhanced-hunter-checks:
@@ -401,6 +644,17 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: matching native renderer for the macOS Map viewport
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          case "$(uname -m)" in
+            arm64) map_rid=osx-arm64 ;;
+            x86_64) map_rid=osx-x64 ;;
+            *) echo "Unsupported macOS Map viewport architecture" >&2; exit 1 ;;
+          esac
+          tools/wgpu/build-native.sh "$map_rid"
+
       - name: map editor history and PK3 import regressions
         run: dotnet run --project tools/map-editor-check -c Release
 
@@ -421,9 +675,33 @@ jobs:
           sudo apt-get install -y xvfb libgl1 libglx-mesa0
           xvfb-run -a --server-args="-screen 0 3840x2160x24" dotnet src/MphRead/bin/Release/net10.0/ProjectPrime.dll -mapviewportcheck "$RUNNER_TEMP/mapviewportcheck"
 
-      - name: Windows and macOS viewport with real GL
-        if: runner.os != 'Linux'
+      - name: software OpenGL prerequisite for the Windows native viewport gate
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $mesaVersion = '26.2.4'
+          $mesaArchive = Join-Path $env:RUNNER_TEMP "mesa3d-$mesaVersion-release-msvc.7z"
+          $mesaRoot = Join-Path $env:RUNNER_TEMP 'project-prime-map-mesa'
+          Invoke-WebRequest "https://github.com/pal1000/mesa-dist-win/releases/download/$mesaVersion/mesa3d-$mesaVersion-release-msvc.7z" -OutFile $mesaArchive
+          $expected = '351fc8c8b695878ffb3eaa044b3ead08672a48b1a045e3c3e3975811df0f6695'
+          if ((Get-FileHash $mesaArchive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) { throw 'Mesa archive SHA-256 mismatch' }
+          7z x $mesaArchive "-o$mesaRoot" -y
+          if ($LASTEXITCODE -ne 0) { throw 'Mesa archive extraction failed' }
+          & (Join-Path $mesaRoot 'systemwidedeploy.cmd') 1
+          if ($LASTEXITCODE -ne 0) { throw 'Mesa software OpenGL deployment failed' }
+          'GALLIUM_DRIVER=llvmpipe' | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Windows viewport with real GL
+        if: runner.os == 'Windows'
         run: dotnet src/MphRead/bin/Release/net10.0/ProjectPrime.dll -mapviewportcheck "${{ runner.temp }}/mapviewportcheck"
+
+      - name: macOS viewport with real GL or measured Metal capability fallback
+        if: runner.os == 'macOS'
+        env:
+          PRIME_ACCEPTANCE_HOSTED_NSGL_UNAVAILABLE: '1'
+          PRIME_WGPU_VALIDATION: '1'
+        run: dotnet src/MphRead/bin/Release/net10.0/ProjectPrime.dll -mapviewportcheck "${{ runner.temp }}/mapviewportcheck" -mapproject maps/dust2.ppmap
 
       - name: map acceptance logs and viewport captures
         if: always()
@@ -433,6 +711,15 @@ jobs:
           path: |
             ${{ runner.temp }}/map-multiplayer-check
             ${{ runner.temp }}/mapviewportcheck
+            src/MphRead/bin/Release/net10.0/logs/
+          if-no-files-found: warn
+
+      - name: macOS map startup diagnostics
+        if: always() && runner.os == 'macOS'
+        uses: actions/upload-artifact@v7
+        with:
+          name: map-startup-diagnostics-macos
+          path: ~/Library/Application Support/Project Prime/logs/
           if-no-files-found: warn
 
   controller-checks:
@@ -554,12 +841,28 @@ jobs:
           path: artifacts/wgpu-native-desktop/${{ matrix.rid }}/
       # Windows and Linux targets remain cross-published on Ubuntu.
       - name: publish ${{ matrix.summary }}
-        run: >
-          dotnet publish src/MphRead/MphRead.csproj
-          -c Release -r ${{ matrix.rid }} ${{ matrix.extra }}
-          --self-contained true -p:PublishSingleFile=true
-          -o publish/${{ matrix.id }}
+        run: |
+          VERSION=$(dotnet msbuild src/MphRead/MphRead.csproj -getProperty:Version)
+          dotnet publish src/MphRead/MphRead.csproj \
+            -c Release -r ${{ matrix.rid }} ${{ matrix.extra }} \
+            --self-contained true -p:PublishSingleFile=true -p:Version="$VERSION" \
+            -p:InformationalVersion="$VERSION" -p:IncludeSourceRevisionInInformationalVersion=false \
+            -o publish/${{ matrix.id }}
 
+      - name: publish Studio into the paired desktop package
+        if: matrix.extra == ''
+        run: |
+          VERSION=$(dotnet msbuild src/MphRead/MphRead.csproj -getProperty:Version)
+          dotnet publish src/ProjectPrime.Studio/ProjectPrime.Studio.csproj -c Release -r "${{ matrix.rid }}" \
+            --self-contained true -p:PublishSingleFile=true -p:Version="$VERSION" \
+            -p:InformationalVersion="$VERSION" -p:IncludeSourceRevisionInInformationalVersion=false \
+            -o "publish/studio-${{ matrix.id }}"
+          python3 tools/studio-pair.py merge "publish/${{ matrix.id }}" "publish/studio-${{ matrix.id }}" "$VERSION"
+      - name: exact paired desktop version smoke
+        if: matrix.id == 'linux-x64'
+        run: |
+          VERSION=$(dotnet msbuild src/MphRead/MphRead.csproj -getProperty:Version)
+          python3 tools/studio-pair.py smoke publish/linux-x64/ProjectPrime publish/linux-x64/ProjectPrimeStudio "$VERSION"
       - name: map editor history regressions
         if: matrix.id == 'linux-x64'
         run: dotnet run --project tools/map-editor-check -c Release
@@ -752,8 +1055,15 @@ jobs:
           RID: ${{ matrix.rid }}
         run: |
           set -euo pipefail
+          VERSION=$(dotnet msbuild src/MphRead/MphRead.csproj -getProperty:Version)
           dotnet publish src/MphRead/MphRead.csproj -c Release -r "$RID" \
+            -p:Version="$VERSION" -p:InformationalVersion="$VERSION" -p:IncludeSourceRevisionInInformationalVersion=false \
             --self-contained true -p:PublishSingleFile=true -o "publish/$RID"
+          dotnet publish src/ProjectPrime.Studio/ProjectPrime.Studio.csproj -c Release -r "$RID" \
+            -p:Version="$VERSION" -p:InformationalVersion="$VERSION" -p:IncludeSourceRevisionInInformationalVersion=false \
+            --self-contained true -p:PublishSingleFile=true -o "publish/studio-$RID"
+          tools/sign-macos.sh "publish/studio-$RID" ProjectPrimeStudio
+          tools/check-macos-build.sh "publish/studio-$RID" "$RID" ProjectPrimeStudio
           chmod +x "publish/$RID/ProjectPrime"
           "publish/$RID/ProjectPrime" -renderbackendprobe -renderer metal
           tools/check-macos-modern-vulkan.sh "publish/$RID/ProjectPrime"
@@ -764,7 +1074,7 @@ jobs:
           tools/check-no-game-assets.sh "publish/$RID"
           tools/check-maps-shipped.sh "publish/$RID"
           VERSION=$(dotnet msbuild src/MphRead/MphRead.csproj -getProperty:Version)
-          tools/package-macos.sh "publish/$RID" dist "$RID" "$VERSION"
+          tools/package-macos.sh "publish/$RID" dist "$RID" "$VERSION" "publish/studio-$RID"
       - uses: actions/upload-artifact@v7
         with:
           name: ProjectPrime-${{ matrix.rid }}
@@ -866,7 +1176,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: map-acceptance-android
-          path: ${{ runner.temp }}/map-android-*.txt
+          path: |
+            ${{ runner.temp }}/map-android-*.txt
+            ${{ runner.temp }}/map-android-*.log
           if-no-files-found: warn
 
       # The same check, on the head it was written for: this is the project

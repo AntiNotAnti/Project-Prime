@@ -1,0 +1,73 @@
+--- a/wgpu-hal/src/dx12/device.rs
++++ b/wgpu-hal/src/dx12/device.rs
+@@ -19,6 +19,54 @@
+     um::{d3d12 as d3d12_ty, synchapi, winbase},
+     Interface,
+ };
++
++// Query the actual removal reason only after a failed Map and explicit opt-in.
++// The existing HRESULT conversion and default execution path remain unchanged.
++fn failed_map_device_removed_reason<F>(hr: i32, diagnostic: Option<&str>, query: F) -> Option<i32>
++where
++    F: FnOnce() -> i32,
++{
++    if hr < 0 && diagnostic == Some("1") {
++        Some(query())
++    } else {
++        None
++    }
++}
++
++#[cfg(test)]
++mod prime_dx12_device_removal_diagnostic_tests {
++    use super::failed_map_device_removed_reason;
++    use std::cell::Cell;
++
++    #[test]
++    fn default_and_nonexact_optins_never_query_the_native_device() {
++        for diagnostic in [None, Some(""), Some("0"), Some("true"), Some(" 1")] {
++            assert_eq!(failed_map_device_removed_reason(-1, diagnostic, || {
++                panic!("default diagnostics must never query the device")
++            }), None);
++        }
++    }
++
++    #[test]
++    fn successful_map_never_queries_even_when_diagnostics_are_enabled() {
++        for hr in [0, 1] {
++            assert_eq!(failed_map_device_removed_reason(hr, Some("1"), || {
++                panic!("successful Map must never query the device")
++            }), None);
++        }
++    }
++
++    #[test]
++    fn failed_opted_in_map_queries_once_and_preserves_the_actual_hresult() {
++        let calls = Cell::new(0);
++        let reason = 0x887A0006u32 as i32;
++        assert_eq!(failed_map_device_removed_reason(-1, Some("1"), || {
++            calls.set(calls.get() + 1);
++            reason
++        }), Some(reason));
++        assert_eq!(calls.get(), 1);
++    }
++}
+ 
+ // this has to match Naga's HLSL backend, and also needs to be null-terminated
+ const NAGA_LOCATION_SEMANTIC: &[u8] = b"LOC\0";
+@@ -391,6 +439,15 @@
+         let mut ptr = ptr::null_mut();
+         // TODO: 0 for subresource should be fine here until map and unmap buffer is subresource aware?
+         let hr = unsafe { (*buffer.resource).Map(0, ptr::null(), &mut ptr) };
++        if hr < 0 {
++            let diagnostic = std::env::var("PRIME_WGPU_VALIDATION").ok();
++            if let Some(reason) = failed_map_device_removed_reason(hr, diagnostic.as_deref(), || unsafe {
++                self.raw.GetDeviceRemovedReason()
++            }) {
++                log::error!("DX12 failed-map diagnostic: operation_hresult=0x{:08X} device_removed_reason=0x{:08X}",
++                    hr as u32, reason as u32);
++            }
++        }
+         hr.into_device_result("Map buffer")?;
+ 
+         Ok(crate::BufferMapping {

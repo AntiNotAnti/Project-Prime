@@ -1,0 +1,77 @@
+--- a/wgpu-hal/src/dx12/instance.rs
++++ b/wgpu-hal/src/dx12/instance.rs
+@@ -4,6 +4,29 @@
+ use super::SurfaceTarget;
+ use crate::auxil::{self, dxgi::result::HResult as _};
+ use std::{mem, sync::Arc};
++
++fn prime_gpu_validation_requested(validation: bool, diagnostic: Option<&str>) -> bool {
++    validation && diagnostic == Some("1")
++}
++
++#[cfg(test)]
++mod prime_dx12_gpu_validation_diagnostic_tests {
++    use super::prime_gpu_validation_requested;
++
++    #[test]
++    fn default_and_nonexact_optins_never_enable_gpu_validation() {
++        for diagnostic in [None, Some(""), Some("0"), Some("true"), Some(" 1")] {
++            assert!(!prime_gpu_validation_requested(true, diagnostic));
++            assert!(!prime_gpu_validation_requested(false, diagnostic));
++        }
++        assert!(!prime_gpu_validation_requested(false, Some("1")));
++    }
++
++    #[test]
++    fn gpu_validation_requires_both_explicit_native_validation_and_exact_optin() {
++        assert!(prime_gpu_validation_requested(true, Some("1")));
++    }
++}
+ 
+ impl Drop for super::Instance {
+     fn drop(&mut self) {
+@@ -21,18 +44,44 @@
+         })?;
+ 
+         if desc.flags.contains(wgt::InstanceFlags::VALIDATION) {
++            let gpu_validation_optin = std::env::var("PRIME_WGPU_GPU_VALIDATION").ok();
++            let gpu_validation = prime_gpu_validation_requested(
++                desc.flags.contains(wgt::InstanceFlags::VALIDATION), gpu_validation_optin.as_deref());
+             // Enable debug layer
+             match lib_main.get_debug_interface() {
+                 Ok(pair) => match pair.into_result() {
+                     Ok(debug_controller) => {
+                         debug_controller.enable_layer();
++                        if gpu_validation {
++                            // QueryInterface owns a separate COM reference, released
++                            // by ComPtr after both setters. This runs before device
++                            // creation and never changes the shader DEBUG flags.
++                            match unsafe { debug_controller.cast::<winapi::um::d3d12sdklayers::ID3D12Debug1>() }.into_result() {
++                                Ok(debug1) => {
++                                    unsafe {
++                                        debug1.SetEnableGPUBasedValidation(1);
++                                        debug1.SetEnableSynchronizedCommandQueueValidation(1);
++                                    }
++                                    // Warn severity preserves this positive native
++                                    // setter evidence in the bounded diagnostic lane.
++                                    log::warn!("DX12 GPU-based validation and synchronized command queue validation enabled");
++                                }
++                                Err(err) => log::warn!("DX12 GPU-based validation UNAVAILABLE: ID3D12Debug1: {}", err),
++                            }
++                        }
+                     }
+                     Err(err) => {
+                         log::warn!("Unable to enable D3D12 debug interface: {}", err);
++                        if gpu_validation {
++                            log::warn!("DX12 GPU-based validation UNAVAILABLE: no D3D12 debug interface");
++                        }
+                     }
+                 },
+                 Err(err) => {
+                     log::warn!("Debug interface function for D3D12 not found: {:?}", err);
++                    if gpu_validation {
++                        log::warn!("DX12 GPU-based validation UNAVAILABLE: no D3D12 debug interface function");
++                    }
+                 }
+             }
+         }

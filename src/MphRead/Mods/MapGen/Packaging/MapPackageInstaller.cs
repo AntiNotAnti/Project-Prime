@@ -37,7 +37,7 @@ public sealed class PreparedMapInstallation : IDisposable
             { collision.BundlePath = destination; collision.BaseDirectory = definition.BaseDirectory; }
             _definition = definition; _library = Path.GetFullPath(library);
             _runtimeNamespace = CustomRooms.RuntimeNamespace;
-            _runtimeRoot = Paths.FileSystem;
+            _runtimeRoot = CustomRooms.RuntimePublicationRoot;
             cancellation.ThrowIfCancellationRequested();
             _publication = publication;
         }
@@ -52,8 +52,10 @@ public sealed class PreparedMapInstallation : IDisposable
             MapRuntimeUsage.RequireInstallationAllowed(Identity.RoomKey, initialJoin);
             MapPackageInstaller.RequireNoConflict(Identity);
             if (_publication == null || _definition == null || _library != Path.GetFullPath(library)
-                || _runtimeNamespace != CustomRooms.RuntimeNamespace || _runtimeRoot != Paths.FileSystem)
+                || _runtimeNamespace != CustomRooms.RuntimeNamespace || _runtimeRoot != CustomRooms.RuntimePublicationRoot)
                 throw new IOException("Map publication target changed. Prepare the map again for this library/runtime.");
+            using var runtimeLease = MapPublicationLease.AcquirePublication(CustomRooms.RuntimePublicationRoot,
+                CustomRooms.RuntimeNamespace, Identity.RoomKey, cancellation: cancellation);
             Mods.RoomPrewarm.Invalidate(Identity.RoomKey);
             // Fail promptly when another process owns publication; never sleep in the network pump.
             using var lease = new FileStream(_manifest + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);

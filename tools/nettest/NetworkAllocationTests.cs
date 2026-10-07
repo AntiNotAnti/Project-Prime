@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Buffers.Binary;
 using System.Net;
+using System.Runtime.InteropServices;
 using MphRead.Mods.Network;
 
 namespace MphRead.NetTest;
@@ -57,11 +58,19 @@ internal static class NetworkAllocationTests
             Protocol17Tests.Connect(server, client);
             var endpoint = new IPEndPoint(IPAddress.Loopback, server.LocalPort);
             for (int i = 0; i < 10000; i++) client.Send(endpoint, PacketType.Intent, intentBytes);
+            var transportBefore = client.Telemetry.Capture();
+            var contentionBefore = client.ContentionStats();
+            int gen0Before = GC.CollectionCount(0), gen1Before = GC.CollectionCount(1), gen2Before = GC.CollectionCount(2);
             long sendStart = GC.GetAllocatedBytesForCurrentThread();
             for (int i = 0; i < 10000; i++) client.Send(endpoint, PacketType.Intent, intentBytes);
             long sendBytes = GC.GetAllocatedBytesForCurrentThread() - sendStart;
-            Console.WriteLine($"NetTransport.Send UDP: {sendBytes / 10000.0:F2} B/op (receive/fault/replay ownership excluded)");
-            if (!reportOnly) NetArchitectureTests.Check(sendBytes == 0, "steady connected UDP send allocation regression");
+            int gen0After = GC.CollectionCount(0), gen1After = GC.CollectionCount(1), gen2After = GC.CollectionCount(2);
+            var transportAfter = client.Telemetry.Capture();
+            var contentionAfter = client.ContentionStats();
+            Console.WriteLine($"NetTransport.Send UDP: {sendBytes / 10000.0:F2} B/op; exact allocated bytes={sendBytes}, measured calls=10000 (receive/fault/replay ownership excluded)");
+            Console.WriteLine($"UDP measurement: successful sends={transportAfter.PacketsSent - transportBefore.PacketsSent}, socket errors={transportAfter.SocketErrors - transportBefore.SocketErrors}, connection lock acquisitions={contentionAfter.Acquisitions - contentionBefore.Acquisitions}, contended={contentionAfter.Contended - contentionBefore.Contended}; runtime={RuntimeInformation.FrameworkDescription}; OS={RuntimeInformation.OSDescription}; architecture={RuntimeInformation.ProcessArchitecture}");
+            Console.WriteLine($"UDP measurement collections: Gen0={gen0After - gen0Before}, Gen1={gen1After - gen1Before}, Gen2={gen2After - gen2Before}; serverGC={System.Runtime.GCSettings.IsServerGC}");
+            if (!reportOnly) NetArchitectureTests.Check(sendBytes == 0, $"steady connected UDP send allocation regression: {sendBytes} bytes across 10000 measured sends");
             return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }

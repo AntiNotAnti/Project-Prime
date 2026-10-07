@@ -37,7 +37,10 @@ internal static class MapSnapshotCopy
             foreach (DictionaryEntry item in dictionary) result.Add(item.Key, CopyValue(item.Value));
             return result;
         }
-        if (type.Namespace != typeof(MapDefinition).Namespace)
+        if (type.Namespace != typeof(MapDefinition).Namespace
+            && type != typeof(MphRead.Mods.MapEditor.MapMeshModifierState)
+            && type != typeof(MphRead.Mods.MapEditor.MapMirrorModifier)
+            && type != typeof(MphRead.Mods.MapEditor.MapArrayModifier))
             throw new InvalidOperationException("Unsupported map snapshot data: " + type.FullName);
         object copy = type.GetConstructor(Type.EmptyTypes)?.Invoke(null)
             ?? RuntimeHelpers.GetUninitializedObject(type);

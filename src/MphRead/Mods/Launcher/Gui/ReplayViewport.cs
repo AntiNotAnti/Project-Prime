@@ -24,7 +24,7 @@ internal sealed class ReplayViewport : Border
         BorderThickness = new Thickness(1);
         BorderBrush = Brushes.Gray;
         ToolTip.SetTip(this, "Click to focus. WASD move, E/V up/down, Shift faster. Drag to look. "
-            + "F free camera, B add keyframe, N next keyframe. Replay camera/timing shortcuts use your Replay Keyboard bindings.");
+            + "F free camera, N next camera key. Replay playback shortcuts use your Replay Keyboard bindings.");
         LostFocus += (_, _) => Release();
         DetachedFromVisualTree += (_, _) => Release();
     }

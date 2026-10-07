@@ -1,0 +1,157 @@
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -197,7 +197,10 @@
+ 
+             match gfx_select!(self.id => context.device_poll(self.id, wgt::Maintain::Wait)) {
+                 Ok(_) => (),
+-                Err(err) => handle_error_fatal(context, err, "WGPUDeviceImpl::drop"),
++                Err(err) => match prime_route_device_poll_loss(&self.error_sink, err) {
++                    Ok(_) => (),
++                    Err(err) => handle_error_fatal(context, err, "WGPUDeviceImpl::drop"),
++                },
+             }
+ 
+             gfx_select!(self.id => context.device_drop(self.id));
+@@ -505,6 +508,7 @@
+     scopes: Vec<ErrorScope>,
+     uncaptured_handler: UncapturedErrorCallback,
+     device_lost_handler: DeviceLostCallback,
++    device_lost_reported: bool,
+ }
+ 
+ impl ErrorSinkRaw {
+@@ -513,12 +517,17 @@
+             scopes: Vec::new(),
+             uncaptured_handler: DEFAULT_UNCAPTURED_ERROR_HANDLER,
+             device_lost_handler,
++            device_lost_reported: false,
+         }
+     }
+ 
+     fn handle_error(&mut self, err: crate::Error) {
+         let (typ, filter) = match err {
+             crate::Error::DeviceLost { .. } => {
++                // Loss may be observed again by Poll and final device drop.
++                // Its rooted callback belongs to this sink and fires once.
++                if self.device_lost_reported { return; }
++                self.device_lost_reported = true;
+                 // handle device lost error early
+                 if let Some(callback) = self.device_lost_handler.callback {
+                     let userdata = self.device_lost_handler.userdata;
+@@ -4113,15 +4122,100 @@
+     }
+ }
+ 
++// A removed-device fence is an ordinary device-loss observation, not a
++// panic across C. Preserve the existing callback and false/pending poll status;
++// validation, OOM, invalid-device and stuck-GPU errors retain their fatal path.
++fn prime_route_device_poll_loss(
++    sink: &Mutex<ErrorSinkRaw>,
++    cause: wgc::device::WaitIdleError,
++) -> Result<bool, wgc::device::WaitIdleError> {
++    if matches!(&cause, wgc::device::WaitIdleError::Device(wgc::device::DeviceError::Lost)) {
++        sink.lock().handle_error(crate::Error::DeviceLost { source: Box::new(cause) });
++        Ok(false)
++    } else {
++        Err(cause)
++    }
++}
++
++#[cfg(test)]
++mod prime_device_poll_loss_tests {
++    use super::*;
++    use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
++
++    #[derive(Default)]
++    struct LostCapture {
++        calls: AtomicUsize,
++        reason: AtomicU32,
++        message: Mutex<String>,
++    }
++
++    unsafe extern "C" fn on_lost(reason: native::WGPUDeviceLostReason,
++        message: *const std::os::raw::c_char, userdata: *mut std::os::raw::c_void) {
++        let capture = unsafe { &*(userdata as *const LostCapture) };
++        capture.calls.fetch_add(1, Ordering::SeqCst);
++        capture.reason.store(reason as u32, Ordering::SeqCst);
++        *capture.message.lock() = unsafe { CStr::from_ptr(message) }.to_string_lossy().into_owned();
++    }
++
++    fn sink(capture: &LostCapture) -> Mutex<ErrorSinkRaw> {
++        Mutex::new(ErrorSinkRaw::new(DeviceLostCallback {
++            callback: Some(on_lost), userdata: capture as *const _ as *mut _,
++        }))
++    }
++
++    #[test]
++    fn repeated_poll_and_drop_loss_deliver_one_actual_rooted_callback_and_pending_status() {
++        let capture = LostCapture::default();
++        let sink = sink(&capture);
++        for _ in 0..3 {
++            let result = prime_route_device_poll_loss(&sink,
++                wgc::device::WaitIdleError::Device(wgc::device::DeviceError::Lost));
++            assert!(matches!(result, Ok(false)));
++        }
++        assert_eq!(capture.calls.load(Ordering::SeqCst), 1);
++        assert_eq!(capture.reason.load(Ordering::SeqCst), native::WGPUDeviceLostReason_Destroyed as u32);
++        assert_eq!(&*capture.message.lock(), "Device lost");
++    }
++
++    #[test]
++    fn prior_sink_loss_is_not_reported_again_by_poll_or_drop() {
++        let capture = LostCapture::default();
++        let sink = sink(&capture);
++        sink.lock().handle_error(crate::Error::DeviceLost {
++            source: Box::new(wgc::device::DeviceError::Lost),
++        });
++        assert!(matches!(prime_route_device_poll_loss(&sink,
++            wgc::device::WaitIdleError::Device(wgc::device::DeviceError::Lost)), Ok(false)));
++        assert_eq!(capture.calls.load(Ordering::SeqCst), 1);
++    }
++
++    #[test]
++    fn unrelated_poll_errors_are_not_misclassified_or_suppressed() {
++        let capture = LostCapture::default();
++        let sink = sink(&capture);
++        for cause in [
++            wgc::device::WaitIdleError::Device(wgc::device::DeviceError::Invalid),
++            wgc::device::WaitIdleError::Device(wgc::device::DeviceError::OutOfMemory),
++            wgc::device::WaitIdleError::StuckGpu,
++        ] {
++            let original = cause.to_string();
++            let returned = prime_route_device_poll_loss(&sink, cause).unwrap_err();
++            assert_eq!(returned.to_string(), original);
++        }
++        assert_eq!(capture.calls.load(Ordering::SeqCst), 0);
++        assert!(!sink.lock().device_lost_reported);
++    }
++}
++
+ #[no_mangle]
+ pub unsafe extern "C" fn wgpuDevicePoll(
+     device: native::WGPUDevice,
+     wait: bool,
+     wrapped_submission_index: Option<&native::WGPUWrappedSubmissionIndex>,
+ ) -> bool {
+-    let (device_id, context) = {
++    let (device_id, context, error_sink) = {
+         let device = device.as_ref().expect("invalid device");
+-        (device.id, &device.context)
++        (device.id, &device.context, &device.error_sink)
+     };
+ 
+     let maintain = match wait {
+@@ -4144,9 +4238,10 @@
+ 
+     match gfx_select!(device_id => context.device_poll(device_id, maintain)) {
+         Ok(queue_empty) => queue_empty,
+-        Err(cause) => {
+-            handle_error_fatal(context, cause, "wgpuDevicePoll");
+-        }
++        Err(cause) => match prime_route_device_poll_loss(error_sink, cause) {
++            Ok(queue_empty) => queue_empty,
++            Err(cause) => handle_error_fatal(context, cause, "wgpuDevicePoll"),
++        },
+     }
+ }
+ 

@@ -677,7 +677,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
             0, page.IndexCapacityBytes);
         _api.RenderPassEncoderSetViewport(
             pass, 0, 0, target.Width, target.Height, 0, 1);
-        ApplyScissor(pass, target.Width, target.Height);
+        bool rasterVisible = ApplyScissor(pass, target.Width, target.Height);
         if (_enabled.Contains(EnableCap.StencilTest)
             && target.HasDepth)
         {
@@ -685,9 +685,12 @@ internal sealed unsafe partial class ModernGraphicsCompat
                 pass, (uint)_stencilReference);
         }
 
-        EncodeRetainedStateMultiDraw(
-            pass, packets, start, count, firstSlot);
-        if (_measurePerformance) _coreDraws += count;
+        if (rasterVisible)
+        {
+            EncodeRetainedStateMultiDraw(
+                pass, packets, start, count, firstSlot);
+            if (_measurePerformance) _coreDraws += count;
+        }
         RecordCommandOperation();
 
         RetainedDrawPacket last = packets[start + count - 1];
@@ -832,11 +835,12 @@ internal sealed unsafe partial class ModernGraphicsCompat
             0, page.IndexCapacityBytes);
         _api.RenderPassEncoderSetViewport(
             pass, 0, 0, target.Width, target.Height, 0, 1);
-        ApplyScissor(pass, target.Width, target.Height);
-
-        EncodeRetainedStateMultiDraw(
-            pass, packets, start, count, firstSlot);
-        if (_measurePerformance) _coreDraws += count;
+        if (ApplyScissor(pass, target.Width, target.Height))
+        {
+            EncodeRetainedStateMultiDraw(
+                pass, packets, start, count, firstSlot);
+            if (_measurePerformance) _coreDraws += count;
+        }
         RecordCommandOperation();
 
         RetainedDrawPacket last = packets[start + count - 1];

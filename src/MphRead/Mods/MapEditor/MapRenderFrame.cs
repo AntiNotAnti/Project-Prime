@@ -4,6 +4,8 @@ using System.Numerics;
 
 namespace MphRead.Mods.MapEditor;
 
+public enum MapViewportDiagnosticMode { None, Terrain, Overdraw, TexelDensity, MaterialId }
+
 /// <summary>A stable CPU mesh. Replaced only when this object's geometry changes.</summary>
 public sealed record MapViewportMesh(Guid ObjectId, IReadOnlyList<MapViewportFace> Faces,
     IReadOnlyList<MapViewportFace>? CollisionFaces = null);
@@ -25,6 +27,18 @@ public sealed record MapRenderFrame(MapViewportLayout Layout, MapViewportCamera 
     public bool UvChecker { get; init; }
     public string GridView { get; init; } = "Perspective";
     public float GridStep { get; init; } = 4;
+    public bool LightingPreview { get; init; }
+    public bool ShadowPreview { get; init; }
+    public bool FogPreview { get; init; }
+    public MapViewportDiagnosticMode DiagnosticMode { get; init; }
+    public Vector3 Light1Vector { get; init; } = new(.3f,-1f,.2f);
+    public Vector3 Light2Vector { get; init; } = new(-.3f,1f,-.2f);
+    public Vector3 Light1Color { get; init; } = new(1f,28f/31,24f/31);
+    public Vector3 Light2Color { get; init; } = new(10f/31,11f/31,16f/31);
+    public Vector3 FogColor { get; init; } = new(8f/31,10f/31,16f/31);
+    public bool FogEnabled { get; init; } = true;
+    public int FogOffset { get; init; } = 65180;
+    public int FogSlope { get; init; } = 5;
 }
 
 /// <summary>Retain uploaded editor meshes across visibility changes. Upload lazily,
@@ -163,30 +177,46 @@ public static class MapViewportPicking
             {
                 var face=mesh.Faces[faceIndex];
                 if (frame.Collision && !face.Solid || face.Points.Length < 3) continue;
-                var a = Vector3.Transform(face.Points[0], transform);
-                for (int i = 1; i < face.Points.Length - 1; i++)
-                {
-                    var b = Vector3.Transform(face.Points[i], transform);
-                    var c = Vector3.Transform(face.Points[i + 1], transform);
-                    var edge = b - a; var other = c - a; var cross = Vector3.Cross(direction, other);
-                    float determinant = Vector3.Dot(edge, cross);
-                    if (MathF.Abs(determinant) < 1e-7f) continue;
-                    var offset = origin - a;
-                    float u = Vector3.Dot(offset, cross) / determinant;
-                    if (u < 0 || u > 1) continue;
-                    var q = Vector3.Cross(offset, edge);
-                    float v = Vector3.Dot(direction, q) / determinant;
-                    if (v < 0 || u + v > 1) continue;
-                    float distance = Vector3.Dot(other, q) / determinant;
-                    if (distance < .05f || distance >= nearest) continue;
-                    Vector3 normal=Vector3.Cross(edge,other);
-                    if(normal.LengthSquared()>1e-10f)normal=Vector3.Normalize(normal);
-                    else normal=Vector3.UnitY;
-                    nearest=distance;
-                    picked=new(mesh.ObjectId,faceIndex,face.Material,face.SourceMaterial,
-                        origin+direction*distance,normal,distance);
-                }
+                var hit = PickFace(mesh.ObjectId, faceIndex, face, transform, origin, direction, out _);
+                if (hit is not { } candidate || candidate.Distance >= nearest) continue;
+                nearest = candidate.Distance;
+                picked = candidate;
             }
+        }
+        return picked;
+    }
+
+    /// <summary>Canonical ray intersection for one cached face. Both full-scene
+    /// fallback and the GPU ID path use this exact triangle/near-plane kernel.</summary>
+    internal static MapPickHit? PickFace(Guid objectId, int faceIndex, MapViewportFace face,
+        Matrix4x4 transform, Vector3 origin, Vector3 direction, out int trianglesTested)
+    {
+        trianglesTested = 0;
+        if (face.Points.Length < 3) return null;
+        float nearest = float.PositiveInfinity;
+        MapPickHit? picked = null;
+        var a = Vector3.Transform(face.Points[0], transform);
+        for (int i = 1; i < face.Points.Length - 1; i++)
+        {
+            trianglesTested++;
+            var b = Vector3.Transform(face.Points[i], transform);
+            var c = Vector3.Transform(face.Points[i + 1], transform);
+            var edge = b - a; var other = c - a; var cross = Vector3.Cross(direction, other);
+            float determinant = Vector3.Dot(edge, cross);
+            if (MathF.Abs(determinant) < 1e-7f) continue;
+            var offset = origin - a;
+            float u = Vector3.Dot(offset, cross) / determinant;
+            if (u < 0 || u > 1) continue;
+            var q = Vector3.Cross(offset, edge);
+            float v = Vector3.Dot(direction, q) / determinant;
+            if (v < 0 || u + v > 1) continue;
+            float distance = Vector3.Dot(other, q) / determinant;
+            if (distance < .05f || distance >= nearest) continue;
+            Vector3 normal = Vector3.Cross(edge, other);
+            normal = normal.LengthSquared() > 1e-10f ? Vector3.Normalize(normal) : Vector3.UnitY;
+            nearest = distance;
+            picked = new(objectId, faceIndex, face.Material, face.SourceMaterial,
+                origin + direction * distance, normal, distance);
         }
         return picked;
     }

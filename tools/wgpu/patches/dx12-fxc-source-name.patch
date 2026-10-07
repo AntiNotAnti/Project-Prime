@@ -1,0 +1,88 @@
+--- a/wgpu-hal/src/dx12/shader_compilation.rs
++++ b/wgpu-hal/src/dx12/shader_compilation.rs
+@@ -23,6 +23,10 @@
+     log::Level,
+ ) {
+     profiling::scope!("compile_fxc");
++    // D3DCompile takes an optional C string, not a Rust string slice. An
++    // unlabeled module supplies an empty slice whose dangling pointer can be
++    // 0x1. Keep a real NUL-terminated name alive across the compiler call.
++    let source_name = fxc_source_name(source_name);
+     let mut shader_data = d3d12::Blob::null();
+     let mut compile_flags = d3dcompiler::D3DCOMPILE_ENABLE_STRICTNESS;
+     if device
+@@ -38,7 +42,7 @@
+         d3dcompiler::D3DCompile(
+             source.as_ptr().cast(),
+             source.len(),
+-            source_name.as_ptr().cast(),
++            source_name.as_ptr(),
+             ptr::null(),
+             ptr::null_mut(),
+             raw_ep.as_ptr(),
+@@ -75,6 +79,65 @@
+     }
+ }
+ 
++fn fxc_source_name(source_name: &str) -> std::ffi::CString {
++    // load_shader obtains this slice from its optional CString label. Invalid
++    // UTF-8 and missing labels become empty names, so an embedded NUL cannot
++    // reach this function.
++    std::ffi::CString::new(source_name).expect("FXC source name came from a CString")
++}
++
++#[cfg(test)]
++mod prime_fxc_source_name_tests {
++    use super::*;
++
++    #[test]
++    fn fxc_compiles_an_unlabeled_shader_with_a_valid_c_name() {
++        assert_eq!(fxc_source_name("").as_bytes_with_nul(), b"\0");
++        compile_with_name("", true);
++    }
++
++    #[test]
++    fn fxc_preserves_a_named_shader_and_terminates_its_c_name() {
++        assert_eq!(fxc_source_name("prime-shader").as_bytes_with_nul(), b"prime-shader\0");
++        compile_with_name("prime-shader", true);
++    }
++
++    #[test]
++    fn fxc_reports_invalid_unlabeled_source_without_an_access_violation() {
++        compile_with_name("", false);
++    }
++
++    fn compile_with_name(name: &str, valid: bool) {
++        let source: &[u8] = if valid {
++            b"float4 main(float4 p : POSITION) : SV_POSITION { return p; }"
++        } else {
++            b"this is invalid HLSL;"
++        };
++        let source_name = fxc_source_name(name);
++        let entry = std::ffi::CString::new("main").unwrap();
++        let target = std::ffi::CString::new("vs_5_0").unwrap();
++        let mut shader = d3d12::Blob::null();
++        let mut error = d3d12::Blob::null();
++        let hr = unsafe {
++            d3dcompiler::D3DCompile(
++                source.as_ptr().cast(), source.len(), source_name.as_ptr(),
++                ptr::null(), ptr::null_mut(), entry.as_ptr(), target.as_ptr(),
++                d3dcompiler::D3DCOMPILE_ENABLE_STRICTNESS, 0,
++                shader.mut_void().cast(), error.mut_void().cast(),
++            )
++        };
++        assert_eq!(hr.into_result().is_ok(), valid, "unexpected real FXC result: {hr:#x}");
++        if valid {
++            assert!(!shader.is_null());
++            assert!(unsafe { shader.GetBufferSize() } > 0);
++        } else {
++            assert!(shader.is_null());
++            assert!(!error.is_null());
++            assert!(unsafe { error.GetBufferSize() } > 0);
++        }
++    }
++}
++
+ // The Dxc implementation is behind a feature flag so that users who don't want to use dxc can disable the feature.
+ #[cfg(feature = "dxc_shader_compiler")]
+ mod dxc {

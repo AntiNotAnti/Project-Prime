@@ -541,6 +541,13 @@ namespace MphRead.Mods.Launcher.Gui
             double xFraction = 0.5, double yFraction = 0.5)
         {
             control.BringIntoView(); window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            // Layout updates alone do not commit the compositor's hit-test tree.
+            // The embedded launcher owns its render clock, so drive that clock
+            // before injecting input into a replaced or resized headless view.
+            UiRenderTimer.Pump();
+            using var frame = window.CaptureRenderedFrame();
+            GamepadChecks.Check(frame is { PixelSize.Width: > 0, PixelSize.Height: > 0 },
+                "headless pointer fixture commits a rendered frame before input");
             Point? origin = control.TranslatePoint(new Point(), window);
             GamepadChecks.Check(origin.HasValue,
                 $"{control.GetType().Name} has a window-space pointer target");

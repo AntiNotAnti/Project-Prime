@@ -102,6 +102,10 @@
          surface z-ordered over the game's costs the frame rate. -->
     <Compile Include="..\MphRead\**\*.cs"
              Exclude="..\MphRead\bin\**;..\MphRead\obj\**;..\MphRead\Mods\Launcher\Gui\Shell.cs;..\MphRead\Mods\Launcher\Gui\UiSurface.cs;..\MphRead\Mods\Launcher\Gui\UiBench.cs;..\MphRead\Mods\Render\UiOverlay.cs;..\MphRead\Mods\Render\LauncherPhoto.cs;..\MphRead\Mods\Render\LauncherNoise.cs;..\MphRead\Mods\Render\LauncherHunter.cs" />
+    <!-- Android keeps canonical runtime/map/replay compatibility and its own
+         launcher. The desktop creator presentation is not an Android feature,
+         even though it lives beside the shared launcher controls in the engine. -->
+    <Compile Remove="..\MphRead\Mods\Launcher\Gui\MapStudio*.cs;..\MphRead\Mods\Launcher\Gui\MapViewport*.cs;..\MphRead\AvaloniaShared\IMapStudioHostServices.cs;..\MphRead\AvaloniaShared\AvaloniaMapStudioHost.cs" />
     <AndroidResource Include="Resources\**\*.xml" />
     <!-- The launcher icon: the cherry mark out of src/MphRead/Assets, scaled
          to the five densities plus an adaptive foreground. Committed rather

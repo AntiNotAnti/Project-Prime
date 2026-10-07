@@ -15,7 +15,7 @@ internal sealed partial class MapViewport
 {
     private Scene? _renderer;
     private bool _rendererFailed;
-    private bool GpuActive => _renderer != null;
+        private bool GpuActive => _renderer != null || !_studioPresentationFailed && _studioPresentation?.Active == true;
     internal int GpuTextureUploads => _renderer?.EditorTextureUploads ?? 0;
     internal int GpuMeshUploads => _renderer?.EditorMeshUploads ?? 0;
     internal void PrepareRenderer()

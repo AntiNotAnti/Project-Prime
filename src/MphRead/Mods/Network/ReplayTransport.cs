@@ -177,6 +177,18 @@ namespace MphRead.Mods.Network
             _rebuild = null;
             return pending;
         }
+        // Explicit Studio cancellation keeps the last fully simulated world.
+        // Clear both seek paths: ContinueSeek alone does not clear a queued rebuild.
+        internal bool CancelPendingSeek()
+        {
+            if (!_session.HasSimulatedFrame) return false;
+            SeekGeneration++;
+            _steps = 0; _pauseStepPending = false;
+            _target = null; _rebuild = null; _resumeAfterSeek = false;
+            _fraction = 0; _presentationStartFrame = CurrentFrame;
+            State = ReplayState.Paused; NoteInput();
+            return true;
+        }
         public void ContinueSeek(uint frame, bool resume)
         {
             _resumeAfterSeek = resume;

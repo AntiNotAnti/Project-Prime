@@ -1591,6 +1591,8 @@ namespace MphRead
 
         public static (RoomMetadata?, int) GetRoomByName(string name)
         {
+            if (Mods.StudioReplay.StudioReplayResources.Current?.Room(name) is { } privateRoom)
+                return (privateRoom, privateRoom.Id);
             if (RoomMetadata.TryGetValue(name, out RoomMetadata? metadata))
             {
                 return (metadata, _roomIds.IndexOf(i => i == metadata.Name));
@@ -1600,6 +1602,7 @@ namespace MphRead
 
         public static RoomMetadata? GetRoomById(int id, bool noThrow = false)
         {
+            if (Mods.StudioReplay.StudioReplayResources.Current?.RoomById(id) is { } privateRoom) return privateRoom;
             if (id < 0 || id > _roomIds.Count)
             {
                 if (noThrow)

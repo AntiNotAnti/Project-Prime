@@ -14,13 +14,13 @@ namespace MphRead.Mods.Launcher.Gui;
 internal sealed partial class MapStudioScreen
 {
     private bool _poppedOut;
-    private static string CommunitySettingsPath => Path.Combine(LauncherPrefs.Directory, "map-community.txt");
-    private static string UserMapLibrary => CustomRooms.UserMapDirectory;
+    private string CommunitySettingsPath => Path.Combine(_services.CommunitySettingsDirectory, "map-community.txt");
+    private string UserMapLibrary => _services.UserMapDirectory;
 
-    private static async Task<T> WithCommunityAuthentication<T>(string address,
+    private async Task<T> WithCommunityAuthentication<T>(string address,
         CancellationToken token, Func<MapCommunityClient, Task<T>> action)
     {
-        string credential = await HunterLicenseClient.GetCommunityMapTicketAsync(token);
+        string credential = await _services.GetCommunityTicketAsync(false,token);
         using (var client = new MapCommunityClient(address, credential))
         {
             try { return await action(client); }
@@ -29,7 +29,7 @@ internal sealed partial class MapStudioScreen
 
         // A 401 cannot be repaired by simply pressing the button again if the
         // cached ticket is still alive. Force a mint and retry the operation once.
-        credential = await HunterLicenseClient.RefreshCommunityMapTicketAsync(token);
+        credential = await _services.GetCommunityTicketAsync(true,token);
         using var retry = new MapCommunityClient(address, credential);
         try { return await action(retry); }
         catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
@@ -43,42 +43,20 @@ internal sealed partial class MapStudioScreen
 
     private async Task PopOut()
     {
-#if MPHREAD_SHELL
-        if (_poppedOut || _work != null) return;
-        if (Shell.StudioWindow) { _status.Text = "This is already a separate editor window. Resize or maximize it using the window controls."; return; }
-        string? project = null;
+        if (_services.IsStandalone) { _status.Text = "This editor is already hosted in the desktop Studio application."; return; }
+        if (_work != null || _poppedOut) return;
         try
         {
-            _poppedOut=true;SetBusy(true);
-            _autosave.Dispose();await _autosave.Completion;
-            if (_document != null)
-            {
-                project = _path.Text ?? throw new IOException("Choose a project filename before opening the editor window.");
-                _document.Save(project);
-                _document.DiscardRecovery(CustomRooms.UserMapDirectory);
-            }
-            string executable = Environment.ProcessPath ?? throw new IOException("Cannot locate the application executable.");
-            var start = new ProcessStartInfo(executable) { UseShellExecute=false, WorkingDirectory=AppContext.BaseDirectory };
-            if (Path.GetFileNameWithoutExtension(executable).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
-                start.ArgumentList.Add(Path.Combine(AppContext.BaseDirectory, "ProjectPrime.dll"));
-            start.ArgumentList.Add("-mapstudio");
-            if (!string.IsNullOrWhiteSpace(project)) { start.ArgumentList.Add("-studioproject"); start.ArgumentList.Add(Path.GetFullPath(project)); }
-            using var child = Process.Start(start) ?? throw new IOException("Could not open Map Studio.");
-            _poppedOut=true; SetBusy(true);
-            _status.Text="Editing in the separate Map Studio window. Close it to resume editing here.";
-            await child.WaitForExitAsync();
-            if (project != null && File.Exists(project))
-            {
-                Load(MapProjectSerializer.Load(project), project);
-                _status.Text=child.ExitCode==0 ? "Editor window closed. Reloaded the saved project; unsaved edits are available through recovery." : $"Editor process exited with code {child.ExitCode}. Your saved project has been reloaded.";
-            }
+            _poppedOut = true; SetBusy(true);
+            _autosave.Dispose(); await _autosave.Completion;
+            if (_document != null) await SaveDocumentAsync(_path.Text ?? "", CancellationToken.None);
+            string? path=_document?.FilePath;
+            await _services.OpenDetachedEditorAsync(path, CancellationToken.None);
+            if (path != null && File.Exists(path)) Load(MapProjectSerializer.Load(path),path);
+            _status.Text="Editor window closed. The saved project was reloaded.";
         }
         catch (Exception ex) { Failure(ex); }
-        finally { _poppedOut=false; _autosave=new(); SetBusy(false); }
-#else
-        _status.Text="Separate editor windows require the desktop build.";
-        await Task.CompletedTask;
-#endif
+        finally { _poppedOut = false; _autosave=new(); SetBusy(false); }
     }
 
     private Task PrepareOnline()
@@ -103,13 +81,11 @@ internal sealed partial class MapStudioScreen
 
     private Task PreparePublishedOnline(bool publish, bool listed, string address) => Work("Preparing map for online play", async (project, token) =>
     {
-        if (!GameFiles.Ready) throw new IOException("Set up game files before hosting a map.");
-        GameFiles.ApplyPaths();
-        EnsureMapInstallationAllowed();
-        string path = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".ppmap");
+        if (!_services.IsStandalone) { if (!_services.GameFilesReady) throw new IOException("Set up game files before hosting a map."); _services.ApplyGamePaths(); }
+        string path = Path.Combine(_services.StagingDirectory, Guid.NewGuid().ToString("N") + ".ppmap");
         try
         {
-            await MapBuildScheduler.Shared.PackageAsync(MapBuildSnapshot.Capture(project), path, token);
+            await _services.BuildScheduler.PackageAsync(MapBuildSnapshot.Capture(project), path, token);
             GuardJob(token);
             using var package = new MapPackageReader(path);
             var manifest = package.Manifest!;
@@ -129,24 +105,17 @@ internal sealed partial class MapStudioScreen
                     throw new IOException("This exact version is not published. Choose Publish & Host or Host Unlisted.");
             }
             GuardJob(token);
-            Directory.CreateDirectory(LauncherPrefs.Directory);
+            Directory.CreateDirectory(_services.CommunitySettingsDirectory);
             File.WriteAllText(CommunitySettingsPath, address.Trim());
             var identity = MapContentIdentity.FromPackage(path);
-            using var prepared = await MapPackageInstaller.PrepareAsync(path, identity, token);
             GuardJob(token);
-            var installed = prepared.Commit(UserMapLibrary, cancellation: token);
-            Metadata.RegisterDownloadedMap(installed);
+            var installed = await _services.CommitPackageAsync(path,identity,token);
             _status.Text="Exact package published and installed. The lobby will advertise this Community service to joining players.";
-            HostRequested?.Invoke(this, installed);
+            if (_services.IsStandalone) await _services.RequestHostAsync(path,identity,address,token); else HostRequested?.Invoke(this, installed);
         }
         finally { if (File.Exists(path)) File.Delete(path); }
 
     });
-
-    private static void EnsureMapInstallationAllowed()
-    {
-        MapRuntimeUsage.RequireInstallationAllowed();
-    }
 
     private void ShowCommunity() => ShowCommunityDashboard();
 }

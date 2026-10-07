@@ -29,6 +29,7 @@ namespace MphRead.Mods.MapEditor
             FilePath = path;
             // Legacy object IDs exist in the editor snapshot only until Save.
             foreach (var item in MapObjects.All(Project.Definition)) if (item.Id == Guid.Empty) item.SetId(Guid.NewGuid());
+            foreach (var material in Project.Definition.Materials) if (material.Id == Guid.Empty) material.Id = Guid.NewGuid();
             SavedStateId = path == null ? null : History.CurrentStateId;
             if (path != null) History.MarkSaved();
             History.Changed += change =>
@@ -59,9 +60,9 @@ namespace MphRead.Mods.MapEditor
         }
         public MapProject Snapshot() => new(CaptureBuildSnapshot().CreateDefinition());
         private readonly HashSet<string> _recoveryAssets = new(StringComparer.Ordinal);
-        private readonly Dictionary<string, string> _generatedAssets = new(StringComparer.Ordinal);
-        public void RegisterGeneratedAsset(string relative, string root)
-            => _generatedAssets[relative] = Path.GetFullPath(root);
+        private readonly Dictionary<string, (string Root,string CanonicalRoot)> _generatedAssets = new(StringComparer.Ordinal);
+        public void RegisterGeneratedAsset(string relative, string root,string? canonicalRoot=null)
+            => _generatedAssets[relative] = (Path.GetFullPath(root),canonicalRoot??MapPublicationLease.ResolveRuntimeDirectoryAliases(root));
         public int CleanupGeneratedAssets()
         {
             var retained = Project.Definition.Assets.Select(a => a.Path).Concat(History.RetainedAssets).Concat(_recoveryAssets).ToHashSet(StringComparer.Ordinal);
@@ -69,9 +70,10 @@ namespace MphRead.Mods.MapEditor
             foreach (var entry in _generatedAssets.ToArray())
             {
                 if (retained.Contains(entry.Key)) continue;
-                string root = entry.Value + Path.DirectorySeparatorChar;
-                string path = Path.GetFullPath(Path.Combine(root, entry.Key));
-                if (!path.StartsWith(root, StringComparison.Ordinal) || File.GetAttributes(Path.GetDirectoryName(path)!).HasFlag(FileAttributes.ReparsePoint)) continue;
+                string path;
+                try { path=MapAssetDestination.Resolve(entry.Value.Root,entry.Key,entry.Value.CanonicalRoot); }
+                catch(IOException) { continue; }
+                catch(UnauthorizedAccessException) { continue; }
                 if (File.Exists(path)) { File.Delete(path); removed++; }
                 _generatedAssets.Remove(entry.Key);
             }
@@ -175,8 +177,10 @@ namespace MphRead.Mods.MapEditor
                 || File.GetLastWriteTimeUtc(recovery) > File.GetLastWriteTimeUtc(FilePath));
         }
         public void Restore(string directory)
+            => RestoreRecoveryFile(RecoveryPath(directory));
+        public void RestoreRecoveryFile(string recoveryPath)
         {
-            var recovery = ReadRecovery(RecoveryPath(directory)).Definition;
+            var recovery = ReadRecovery(recoveryPath).Definition;
             // Relative imports are relative to the real document, not .autosave.
             recovery.BaseDirectory = Project.Definition.BaseDirectory;
             recovery.SourcePath = Project.Definition.SourcePath;

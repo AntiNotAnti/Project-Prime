@@ -118,12 +118,14 @@ internal static class ReleaseInstallation
     internal static void Apply(string source, string target, Action<int>? afterMutation = null)
     {
         source = Path.GetFullPath(source); target = Path.GetFullPath(target);
+        using var applications = InstallationLifetime.AcquireUpdate(target);
         Directory.CreateDirectory(target);
         using var held = Acquire(target);
         RecoverCore(target);
         EnsureManifest(source);
         var next = ReadManifest(source)!;
         var previous = ReadManifest(target);
+        DesktopReleasePair.ValidateUpdate(source, target, next, previous);
         var keep = next.Files.ToHashSet(Names);
         var obsolete = previous?.Files.Where(p => !keep.Contains(p))
             ?? Directory.EnumerateFiles(target).Select(Path.GetFileName).Where(p => p != null && Legacy(p) && !keep.Contains(p)).Select(p => p!);

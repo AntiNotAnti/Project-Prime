@@ -41,7 +41,7 @@ namespace MphRead.Mods.Launcher.Gui
                 PrimeRoute.Settings => new SettingsView(settings, shell: true),
                 PrimeRoute.Offline => new OfflineWorkspace(settings, rooms, shell!.Overlays),
                 PrimeRoute.Theatre => new TheatreWorkspace(manageStorage: false),
-                PrimeRoute.Forge => new MapStudioScreen(shell!.Overlays, preview: true),
+                PrimeRoute.Forge => new ForgeWorkspace((_, _) => null),
                 PrimeRoute.Lobby => LobbyFixture(rooms, shell!.Overlays),
                 _ => throw new ArgumentOutOfRangeException(nameof(route))
             };
@@ -371,18 +371,34 @@ namespace MphRead.Mods.Launcher.Gui
         {
             // Connect already knows the server is InMatch before creating the
             // lobby screen. Repeat after disconnect to cover same-match rejoin.
+            TaskCompletionSource<MapGen.MapHash256>? verification = null;
             try
             {
                 for (int attempt = 0; attempt < 2; attempt++)
                 {
+                    const string room = "MP1 SANCTORUS";
+                    var stockHash = new MapGen.MapHash256(1, 2, 3, 4);
                     NetSession.StartClient("127.0.0.1", 9);
                     NetSession.ApplySessionState(new SessionStatePacket
                     {
                         Policy = ServerSessionPolicy.Lobby, Phase = SessionPhase.InMatch,
                         MatchId = 1, AuthorityEpoch = 1, StartGeneration = 1, Revision = 1,
-                        Match = new MatchDefinition { RoomKey = "MP1 SANCTORUS", Mode = GameMode.Battle }
+                        StockGameplayHash = stockHash,
+                        Match = new MatchDefinition { RoomKey = room, Mode = GameMode.Battle }
                     });
-                    var lobby = new LobbyScreen(new[] { "MP1 SANCTORUS" });
+                    // This asset-free UI fixture owns the verification result.
+                    // A zero advertised hash is rejected by the real map pump;
+                    // it can never reach the gameplay handoff under test.
+                    verification = new(TaskCreationOptions.RunContinuationsAsynchronously);
+                    var preparation = new LobbyMapPreparationState
+                    {
+                        RoomKey = room, RequiredStockHash = stockHash,
+                        State = MapAvailabilityState.Verifying,
+                        StockVerification = verification.Task
+                    };
+                    typeof(NetSession).GetProperty(nameof(NetSession.MapPreparation))!
+                        .SetValue(null, preparation);
+                    var lobby = new LobbyScreen(new[] { room });
                     using var coordinator = new LobbySessionCoordinator();
                     coordinator.Start();
                     coordinator.Screen = lobby;
@@ -398,6 +414,17 @@ namespace MphRead.Mods.Launcher.Gui
                         requests++;
                     };
                     coordinator.Tick();
+                    Check(requests == 0 && !lobby.IsSuspended && !NetSession.RequiredMapReady,
+                        "in-progress admission waits for stock gameplay verification");
+                    verification.SetResult(stockHash);
+                    var deadline = System.Diagnostics.Stopwatch.StartNew();
+                    while (requests == 0 && deadline.Elapsed < TimeSpan.FromSeconds(2))
+                    {
+                        coordinator.Tick();
+                        if (requests == 0) Thread.Sleep(1);
+                    }
+                    Check(preparation.State == MapAvailabilityState.Ready && NetSession.RequiredMapReady,
+                        "in-progress admission observes completed stock gameplay verification");
                     Check(requests == 1 && lobby.IsSuspended,
                         "in-progress join/rejoin hands the lobby connection to gameplay");
                     coordinator.Tick();
@@ -405,7 +432,7 @@ namespace MphRead.Mods.Launcher.Gui
                     NetSession.Stop();
                 }
             }
-            finally { NetSession.Stop(); }
+            finally { verification?.TrySetCanceled(); NetSession.Stop(); }
         }
         private static void CheckAdvancedRules()
         {
@@ -529,6 +556,9 @@ namespace MphRead.Mods.Launcher.Gui
                     CheckSavedLobbyLimits();
                     CheckAdvancedRules();
                     CheckInProgressAdmission();
+                    GameStudioRouteChecks.ForgeSurface(Check);
+                    GameStudioRouteChecks.ForgeNavigation(Check);
+                    GameStudioRouteChecks.GameSurfaceSizing(Check);
                     CheckWorkspaceTransitionReentry();
                     CheckPlayDiscoveryReentry();
                     var shell = Create();
@@ -538,9 +568,9 @@ namespace MphRead.Mods.Launcher.Gui
                     var header = shell.Header; var footer = shell.Footer;
                     var shellTabs = header.GetVisualDescendants().OfType<PrimeTabButton>()
                         .Select(button => button.Label).ToArray();
-                    Check(shellTabs.Contains("HOME") && shellTabs.Contains("REPLAY STUDIO")
-                        && shellTabs.Contains("MAP STUDIO"),
-                        "shell uses player-facing Home and studio destination labels");
+                    Check(shellTabs.Contains("HOME") && shellTabs.Contains("THEATRE")
+                        && shellTabs.Contains("FORGE"),
+                        "shell uses player-facing Home, Theatre and Forge destination labels");
                     shell.Router.Navigate(PrimeRoute.News); Drain(window);
                     Check(shell.Workspaces.Get(PrimeRoute.News)
                         .GetVisualDescendants().OfType<PrimeHeroPanel>().Any(),
@@ -561,28 +591,13 @@ namespace MphRead.Mods.Launcher.Gui
 
                     shell.Router.Navigate(PrimeRoute.Forge); Drain(window);
                     var mapStudio = shell.Workspaces.Get(PrimeRoute.Forge);
-                    Check(ControllerNav.Find(mapStudio, "studio.back") != null
-                        && ControllerNav.Find(mapStudio, "studio.save") != null
-                        && ControllerNav.Find(mapStudio, "studio.validate") != null
-                        && ControllerNav.Find(mapStudio, "studio.build") != null
-                        && ControllerNav.Find(mapStudio, "studio.playtest") != null,
-                        "Map Studio exposes persistent authoring and project actions");
-                    string[] studioHeadings = mapStudio.GetVisualDescendants().OfType<TextBlock>()
-                        .Select(block => block.Text ?? "").ToArray();
-                    Check(studioHeadings.Contains("SCENE HIERARCHY")
-                        && studioHeadings.Contains("VIEWPORT")
-                        && studioHeadings.Contains("INSPECTOR"),
-                        "Map Studio separates hierarchy viewport and inspector workspaces");
-                    var assetsQuick = ControllerNav.Find(mapStudio, "studio.assets")!;
-                    assetsQuick.Focus(); FocusNavigator.Key(assetsQuick, Key.Enter); Drain(window);
-                    Check(mapStudio.GetVisualDescendants().OfType<TextBlock>()
-                        .Any(block => block.Text == "ASSETS & MUSIC"),
-                        "Map Studio contextual Assets workspace is directly reachable");
-                    var healthQuick = ControllerNav.Find(mapStudio, "studio.health")!;
-                    healthQuick.Focus(); FocusNavigator.Key(healthQuick, Key.Enter); Drain(window);
-                    Check(mapStudio.GetVisualDescendants().OfType<TextBlock>()
-                        .Any(block => block.Text == "MAP HEALTH"),
-                        "Map Studio contextual health workspace is directly reachable");
+                    Check(ControllerNav.Find(mapStudio, "forge.open") != null
+                        && ControllerNav.Find(mapStudio, "forge.project") != null
+                        && ControllerNav.Find(mapStudio, "forge.recover") != null
+                        && ControllerNav.Find(mapStudio, "forge.back") != null,
+                        "game Forge exposes external launch, project, recovery and Back actions");
+                    Check(shell.Header.IsEffectivelyVisible && shell.Footer.IsEffectivelyVisible,
+                        "game Forge retains ordinary persistent navigation chrome");
 
                     shell.Router.Navigate(PrimeRoute.Lobby); Drain(window);
                     var lobbyPresentation = shell.Workspaces.Get(PrimeRoute.Lobby);

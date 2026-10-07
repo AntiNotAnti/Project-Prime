@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(StudioHostSnapshotPath)' == ''">
+    <ProjectReference Include="../../src/ProjectPrime.Studio/ProjectPrime.Studio.csproj" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(StudioHostSnapshotPath)' != ''">
+    <Reference Include="$(StudioHostSnapshotPath)/*.dll" Exclude="$(StudioHostSnapshotPath)/studio-lifecycle-check.dll;$(StudioHostSnapshotPath)/studio-ui-check.dll" />
+    <Content Include="$(StudioHostSnapshotPath)/*.dylib;$(StudioHostSnapshotPath)/*.so;$(StudioHostSnapshotPath)/ProjectPrime*" Exclude="$(StudioHostSnapshotPath)/*.dll" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="$(StudioHostSnapshotPath)/runtimes/**/*" Link="runtimes/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="$(StudioHostSnapshotPath)/runtimes/osx/native/*.dylib" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
+    <Content Include="$(StudioHostSnapshotPath)/runtimes/$(NETCoreSdkRuntimeIdentifier)/native/*.dylib" Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
+  </ItemGroup>
+</Project>

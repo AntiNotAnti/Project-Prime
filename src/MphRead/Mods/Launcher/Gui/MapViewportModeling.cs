@@ -46,6 +46,7 @@ internal sealed partial class MapViewport
     private void BeginSubInteraction(PointerPressedEventArgs e)
     {
         var mesh = (MapMesh)ActiveSelection!.Value;
+        if(mesh.ModifierSource!=null){ModelingError?.Invoke("Bake modifier stack before editing mesh elements.");e.Handled=true;return;}
         if (mesh.Locked) { ModelingError?.Invoke("Unlock the mesh before editing it."); e.Handled=true; return; }
         SubSelection.Bind(mesh.Id); _axis=-1;
         if (HasSubSelection && !e.KeyModifiers.HasFlag(KeyModifiers.Control) && !e.KeyModifiers.HasFlag(KeyModifiers.Shift))
@@ -74,9 +75,23 @@ internal sealed partial class MapViewport
     {
         if (ActiveSelection?.Value is not MapMesh mesh) return false;
         int face=-1, vertex=-1; MapEdge? edge=null;
+        var renderFrame=BuildRenderFrame(Layout);
+#if MPHREAD_SHELL
+        MphRead.Mods.StudioRendering.StudioPickResult? gpuPick=null;
+        if(_studioPresentation?.Active==true)
+        {
+            try
+            {
+                var kind=ElementMode=="Vertex" ? MphRead.Mods.StudioRendering.StudioPickKind.Vertex
+                    : ElementMode=="Edge" ? MphRead.Mods.StudioRendering.StudioPickKind.Edge : MphRead.Mods.StudioRendering.StudioPickKind.Face;
+                gpuPick=_studioPresentation.PickElement(renderFrame,point.X,point.Y,kind);
+            }
+            catch(Exception ex){DegradeStudioPresentation(ex);}
+        }
+#endif
         if (ElementMode=="Face")
         {
-            var hit=MapViewportPicking.PickHit(BuildRenderFrame(Layout),point.X,point.Y,false);
+            var hit=MapViewportPicking.PickHit(renderFrame,point.X,point.Y,false);
             if(hit is not {} picked || picked.ObjectId!=mesh.Id)return false;
             face=picked.FaceIndex;
         }
@@ -98,6 +113,22 @@ internal sealed partial class MapViewport
                 if(edge==null)return false;
             }
         }
+#if MPHREAD_SHELL
+        // GPU IDs refer to face-local polygon corners. Convert to canonical
+        // mesh indices, preserving the established CPU selection oracle when
+        // editor radius, hidden-element or clipping semantics disagree.
+        if(gpuPick?.Element is { } gpuElement && gpuElement.ObjectId==mesh.Id && (uint)gpuElement.Face<mesh.Faces.Count)
+        {
+            var corners=mesh.Faces[gpuElement.Face];
+            if(ElementMode=="Face" && gpuElement.Face==face)face=gpuElement.Face;
+            else if(ElementMode=="Vertex" && (uint)gpuElement.A<corners.Length && corners[gpuElement.A]==vertex)vertex=corners[gpuElement.A];
+            else if(ElementMode=="Edge" && (uint)gpuElement.A<corners.Length && (uint)gpuElement.B<corners.Length)
+            {
+                var pickedEdge=new MapEdge(corners[gpuElement.A],corners[gpuElement.B]);
+                if(pickedEdge==edge)edge=pickedEdge;
+            }
+        }
+#endif
         if(!add&&!toggle)SubSelection.Clear();SubSelection.Bind(mesh.Id);
         var topology=new MapMeshTopology(mesh);
         if(face>=0){SelectElements(SubSelection.Faces,linked?topology.ConnectedFaces(face):new[]{face},toggle);SubSelection.ActiveFace=face;}
@@ -142,6 +173,7 @@ internal sealed partial class MapViewport
         else if(control&&(e.Key==Key.Subtract||e.Key==Key.OemMinus))SubSelection.Resize(mesh,ElementMode,false);
         else if(!control&&!alt&&(e.Key==Key.G||e.Key==Key.R||e.Key==Key.S))
         {
+            if(mesh.ModifierSource!=null){ModelingError?.Invoke("Bake modifier stack before editing mesh elements.");return true;}
             if(!HasSubSelection)return true;
             Tool=e.Key==Key.G?"Move":e.Key==Key.R?"Rotate":"Scale";
             try {_subPreview=new(mesh,SubSelection,ElementMode,PivotMode,CursorPivot);_keyboardTransform=true;_numericTransform="";_start=_last;_drag=true;_axis=-1;}
@@ -179,6 +211,7 @@ internal sealed partial class MapViewport
         try
         {
             if(ActiveSelection?.Value is not MapMesh source)throw new InvalidOperationException("Select an editable mesh first.");
+            if(source.ModifierSource!=null)throw new InvalidOperationException("Bake modifier stack before editing mesh elements.");
             if(source.Locked)throw new InvalidOperationException("Unlock the mesh first.");
             SubSelection.Bind(source.Id);SubSelection.Validate(source);
             int[] faces=SubSelection.Faces.Order().ToArray(),vertices=SubSelection.VertexIndices(source,ElementMode);

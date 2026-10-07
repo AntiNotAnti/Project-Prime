@@ -29,26 +29,61 @@ internal static class RoadmapChecks
     }
     private static async Task InstanceRoles(Action<bool,string> check)
     {
-        Process Child(bool editor)
+        // These children call the game guard directly by reflection. Actual
+        // -mapstudio startup forwards before this guard; independent Studio
+        // forwarding/coexistence is tested by studio-ipc-check and the native
+        // studio-lifecycle-check, without adding Studio to this game tool.
+        Process Child(bool legacyStudioFlag)
         {
-            var start=new ProcessStartInfo(Environment.ProcessPath!){RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true};
-            start.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);start.ArgumentList.Add("--guard-child");if(editor)start.ArgumentList.Add("-mapstudio");
+            var start=new ProcessStartInfo(Environment.ProcessPath!){RedirectStandardInput=true,RedirectStandardOutput=true,RedirectStandardError=true,UseShellExecute=false};
+            start.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);start.ArgumentList.Add("--guard-child");if(legacyStudioFlag)start.ArgumentList.Add("-mapstudio");
             // Framework-dependent tests may run under an apphost rather than dotnet.
             if(!Path.GetFileNameWithoutExtension(Environment.ProcessPath!).Equals("dotnet",StringComparison.OrdinalIgnoreCase))start.ArgumentList.RemoveAt(0);
             return Process.Start(start)!;
         }
-        using var client=Child(false);using var editor=Child(true);
+        async Task Ready(Process child,string message)
+            =>check(await child.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(10))=="READY",message);
+        async Task Release(Process child)
+        {
+            await child.StandardInput.WriteLineAsync();
+            await child.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+        }
+        void Cleanup(Process child)
+        {
+            if(child.HasExited)return;
+            child.Kill(entireProcessTree:true);child.WaitForExit();
+        }
+        using var client=Child(false);
         try
         {
-            check(await client.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(10))=="READY","primary launcher role owns its instance guard");
-            check(await editor.StandardOutput.ReadLineAsync().WaitAsync(TimeSpan.FromSeconds(10))=="READY","explicit editor can coexist with launcher");
-            foreach(bool role in new[]{false,true})
+            await Ready(client,"primary game client owns its installation instance guard");
+            foreach(bool legacyFlag in new[]{false,true})
             {
-                using var duplicate=Child(role);await duplicate.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
-                check(duplicate.ExitCode!=0,"duplicate "+(role?"editor":"launcher")+" exits with refusal status");
+                using var duplicate=Child(legacyFlag);
+                try
+                {
+                    var output=duplicate.StandardOutput.ReadToEndAsync();
+                    var error=duplicate.StandardError.ReadToEndAsync();
+                    await duplicate.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+                    string text=await output;await error;
+                    check(duplicate.ExitCode!=0,"duplicate "+(legacyFlag?"legacy-flag":"ordinary")+" direct game guard acquisition exits with refusal status");
+                    check(text.Split('\n').Any(line=>line.Trim()=="REFUSED"),"duplicate "+(legacyFlag?"legacy-flag":"ordinary")+" reports guard refusal");
+                    check(!client.HasExited,"refused duplicate leaves the primary game owner running");
+                }
+                finally{Cleanup(duplicate);}
             }
+            await Release(client);
+            check(client.ExitCode==0,"primary game process releases its guard normally");
+            using var recovery=Child(true);
+            try
+            {
+                await Ready(recovery,"released game guard is reacquired despite an obsolete studio flag on a direct probe");
+                await Release(recovery);
+                check(recovery.ExitCode==0,"reacquired game guard releases independently");
+            }
+            finally{Cleanup(recovery);}
         }
-        finally{client.StandardInput.WriteLine();editor.StandardInput.WriteLine();await Task.WhenAll(client.WaitForExitAsync(),editor.WaitForExitAsync()).WaitAsync(TimeSpan.FromSeconds(10));}
+        finally{Cleanup(client);}
     }
     private static async Task LockChurn(Action<bool,string> check)
     {
@@ -172,34 +207,44 @@ internal static class RoadmapChecks
         check(Directory.EnumerateDirectories(cache).Count()<=1&&Directory.EnumerateFiles(cache,"*.lock").Count()<=2,"disk cache budget reclaims inactive outputs and key files");
         check((await scheduler.BuildAsync(MapBuildSnapshot.Capture(latest!))).CacheHit,"protected most recent cache entry remains a warm hit");
         var acquire=typeof(MapRuntimeUsage).GetMethod("AcquirePreparation",Private)!;
-        using(var lease=(IDisposable)acquire.Invoke(null,new[]{latest!.Name})!)
+        string runtime=Path.Combine(root,"runtime");
+        string? previousRuntime=CustomRooms.GeneratedRuntimeRoot;
+        try
         {
-            bool blocked=false;try{MapBuildScheduler.Publish(output!,latest,Path.Combine(root,"runtime"),root,root);}catch(IOException){blocked=true;}
-            check(blocked&&!Directory.Exists(Path.Combine(root,"runtime")),"authored Forge publication refuses active preparation before changing outputs");
+            // The live reader and writer must own the same real runtime. An
+            // unrelated private compiler output is intentionally independent.
+            CustomRooms.GeneratedRuntimeRoot=runtime;
+            string archive=CustomRooms.ArchiveDirectory(latest!),entities=CustomRooms.EntityDirectory(),nodes=CustomRooms.NodeDirectory();
+            using(var lease=(IDisposable)acquire.Invoke(null,new[]{latest!.Name})!)
+            {
+                bool blocked=false;try{MapBuildScheduler.Publish(output!,latest,archive,entities,nodes);}catch(IOException){blocked=true;}
+                check(blocked&&!Directory.Exists(runtime),"authored canonical runtime publication refuses active preparation before changing outputs");
+            }
+            using var cancellation=new CancellationTokenSource();cancellation.Cancel();bool canceled=false;
+            try{MapBuildScheduler.Publish(output!,latest,archive,entities,nodes,cancellation.Token);}catch(OperationCanceledException){canceled=true;}
+            check(canceled&&!Directory.Exists(runtime),"canceled authored publication leaves destination absent");
         }
-        using var cancellation=new CancellationTokenSource();cancellation.Cancel();bool canceled=false;
-        try{MapBuildScheduler.Publish(output!,latest,Path.Combine(root,"runtime"),root,root,cancellation.Token);}catch(OperationCanceledException){canceled=true;}
-        check(canceled&&!Directory.Exists(Path.Combine(root,"runtime")),"canceled authored publication leaves destination absent");
+        finally{CustomRooms.GeneratedRuntimeRoot=previousRuntime;}
         string retained=Path.Combine(root,"leased-cache");var owner=new MapBuildScheduler(retained,build:(map,path)=>{foreach(string file in MapOutputSet.Create(map,path,path,path).Files)File.WriteAllText(file,"leased");return new();});
         var first=await owner.BuildAsync(MapBuildSnapshot.Capture(new MapDefinition{Name="LEASE_ONE"}));
         var second=await owner.BuildAsync(MapBuildSnapshot.Capture(new MapDefinition{Name="LEASE_TWO"}));
         Type disk=typeof(MapBuildScheduler).Assembly.GetType("MphRead.Mods.MapGen.MapDiskCache")!;
         using(var held=(IDisposable)disk.GetMethod("Acquire",Private)!.Invoke(null,new object[]{retained,first.Fingerprint,CancellationToken.None})!)
         {
-            disk.GetMethod("Prune",Private)!.Invoke(null,new object[]{retained,1L,TimeSpan.FromDays(30),second.Fingerprint});
+            disk.GetMethod("Prune",Private)!.Invoke(null,new object?[]{retained,1L,TimeSpan.FromDays(30),second.Fingerprint,CancellationToken.None,null});
             check(File.Exists(first.Outputs!.Model),"budget eviction preserves an actively leased output directory");
         }
-        disk.GetMethod("Prune",Private)!.Invoke(null,new object[]{retained,1L,TimeSpan.FromDays(30),second.Fingerprint});
+        disk.GetMethod("Prune",Private)!.Invoke(null,new object?[]{retained,1L,TimeSpan.FromDays(30),second.Fingerprint,CancellationToken.None,null});
         check(!File.Exists(first.Outputs!.Model)&&File.Exists(second.Outputs!.Model),"eviction reclaims released cache while preserving current publication");
         string orphanKey=new string('a',64),activeKey=new string('b',64);
         string orphan=Path.Combine(retained,".build-"+orphanKey+"-"+Guid.NewGuid().ToString("N")),active=Path.Combine(retained,".build-"+activeKey+"-"+Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(orphan);Directory.CreateDirectory(active);File.WriteAllText(Path.Combine(orphan,"partial.bin"),"abandoned");
         using(var held=(IDisposable)disk.GetMethod("Acquire",Private)!.Invoke(null,new object[]{retained,activeKey,CancellationToken.None})!)
         {
-            disk.GetMethod("Prune",Private)!.Invoke(null,new object[]{retained,1L,TimeSpan.FromDays(30),second.Fingerprint});
+            disk.GetMethod("Prune",Private)!.Invoke(null,new object?[]{retained,1L,TimeSpan.FromDays(30),second.Fingerprint,CancellationToken.None,null});
             check(!Directory.Exists(orphan)&&Directory.Exists(active),"abandoned tagged staging is reclaimed while active compiler staging remains protected");
         }
-        disk.GetMethod("Prune",Private)!.Invoke(null,new object[]{retained,1L,TimeSpan.FromDays(30),second.Fingerprint});
+        disk.GetMethod("Prune",Private)!.Invoke(null,new object?[]{retained,1L,TimeSpan.FromDays(30),second.Fingerprint,CancellationToken.None,null});
         check(!Directory.Exists(active),"released incomplete compiler staging is reclaimed on the next sweep");
     }
     private static void CancelledPrivateCommit(Action<bool,string> check,string root)

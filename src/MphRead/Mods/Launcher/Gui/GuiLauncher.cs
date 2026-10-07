@@ -71,8 +71,13 @@ namespace MphRead.Mods.Launcher.Gui
                     return true;
                 }
                 MapGen.CustomRooms.DeferInitialRegistration = true;
+                Mods.StudioIntegration.GameStudioIntegration.Start();
                 bool ran = Shell.Run();
-                if (!ran) MapGen.CustomRooms.RestoreDeferredRegistration();
+                if (!ran)
+                {
+                    Mods.StudioIntegration.GameStudioIntegration.Stop();
+                    MapGen.CustomRooms.RestoreDeferredRegistration();
+                }
                 return ran;
 #else
                 // Android reaches its screens through the activity, not

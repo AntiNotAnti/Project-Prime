@@ -197,7 +197,7 @@ jobs:
       revision: ${{ needs.resolve.outputs.sha }}
 
   prepare-release:
-    needs: [resolve, engineering-contracts]
+    needs: [resolve, engineering-contracts, patched-wgpu-native]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -212,6 +212,10 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      - uses: actions/download-artifact@v8
+        with:
+          name: patched-wgpu-linux-x64
+          path: artifacts/wgpu-native-desktop/linux-x64/
       - name: nothing from the game is tracked
         run: tools/check-no-game-assets.sh
       - name: every custom map has the level it converts
@@ -221,6 +225,36 @@ jobs:
       # regressions in Create Lobby cannot ship behind a green packaging smoke.
       - name: hosted lobby allocation protocol
         run: dotnet run --project tools/nettest/nettest.csproj -c Release -- --lobby
+      - name: Studio architecture and authenticated process boundaries
+        run: |
+          dotnet run --project tools/updatecheck -c Release
+          dotnet run --project tools/studio-architecture-check -c Release
+          dotnet run --project tools/studio-ipc-check -c Release
+          dotnet run --project tools/map-publication-check -c Release
+          dotnet run --project tools/game-studio-broker-check -c Release
+          dotnet run --project tools/map-generation-check -c Release
+      - name: Studio authoring, lifecycle, diagnostics and launcher regressions
+        run: |
+          dotnet run --project tools/map-prefab-check -c Release
+          dotnet run --project tools/studio-modeling-check -c Release
+          dotnet run --project tools/map-gameplay-check -c Release
+          dotnet run --project tools/studio-lifecycle-check -c Release
+          dotnet run --project tools/studio-diagnostics-check -c Release
+          dotnet run --project tools/studio-launch-check -c Release
+          dotnet run --project tools/studio-render-check -c Release
+      - name: native Studio and replay encoder dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y ffmpeg xvfb xauth mesa-vulkan-drivers \
+            libx11-6 libxrandr2 libxi6 libxcursor1 libxinerama1 libice6 libsm6 libfontconfig1
+      - name: native Studio Map surface and process ownership
+        run: |
+          xvfb-run -a --server-args="-screen 0 1920x1080x24" \
+            dotnet run --project tools/studio-lifecycle-check -c Release --no-build -- --native
+      - name: Studio offline audio and actual encoder acceptance
+        run: |
+          dotnet run --project tools/studio-export-check -c Release -- --ffmpeg ffmpeg --ffprobe ffprobe
+          python3 -m unittest discover -s tools -p 'test_studio_packaging.py'
       - name: cook the map bundles
         env:
           PROJECT_PRIME_USER_DATA: ${{ github.workspace }}/.release-user-data
@@ -263,8 +297,11 @@ jobs:
         shell: bash
         env:
           PRIME_PYTHON: python
-          LIBCLANG_PATH: ${{ runner.os == 'Windows' && 'C:/Program Files/LLVM/bin' || '' }}
+          PYTHONUTF8: '1'
         run: |
+          if [[ "${{ runner.os }}" == Windows ]]; then export LIBCLANG_PATH='C:/Program Files/LLVM/bin'; else unset LIBCLANG_PATH; fi
+          python tools/wgpu/test-patch-fingerprint.py
+          if [[ "${{ runner.os }}" == Linux ]]; then python tools/wgpu/test-build-shell.py; fi
           tools/wgpu/build-native.sh "${{ matrix.rid }}" --unit-tests
           tools/wgpu/build-native.sh "${{ matrix.rid }}" --fault-test
           python tools/wgpu/verify-runtime.py artifacts/wgpu-native-desktop/${{ matrix.rid }}/${{ matrix.rid == 'win-x64' && 'wgpu_native.dll' || 'libwgpu_native.so' }}
@@ -334,7 +371,13 @@ jobs:
           fi
           dotnet publish src/MphRead/MphRead.csproj -c Release -r "$RID" \
             -p:Version="$VERSION" -p:InformationalVersion="$VERSION" \
-            "${args[@]}" -o "publish/$TARGET"
+            -p:IncludeSourceRevisionInInformationalVersion=false "${args[@]}" -o "publish/$TARGET"
+          if [ "$SERVER" != "true" ]; then
+            dotnet publish src/ProjectPrime.Studio/ProjectPrime.Studio.csproj -c Release -r "$RID" \
+              -p:Version="$VERSION" -p:InformationalVersion="$VERSION" -p:IncludeSourceRevisionInInformationalVersion=false \
+              --self-contained true -p:PublishSingleFile=true -o "publish/studio-$TARGET"
+            python3 tools/studio-pair.py merge "publish/$TARGET" "publish/studio-$TARGET" "$VERSION"
+          fi
       - uses: actions/upload-artifact@v7
         with:
           name: build-linux-${{ matrix.target }}
@@ -488,7 +531,7 @@ jobs:
           # Unix-mode transport. Restore executable bits after assembly so the
           # x64 smoke tests run the actual apphosts and the ARM64 tarball is
           # usable immediately after extraction on the target machine.
-          chmod +x publish/linux-x64/ProjectPrime
+          chmod +x publish/linux-x64/ProjectPrime publish/linux-x64/ProjectPrimeStudio
           chmod +x publish/linux-x64-server/ProjectPrime
           chmod +x publish/linux-arm64/ProjectPrime
       - name: nothing from the game is in the output
@@ -509,6 +552,7 @@ jobs:
         run: |
           set -euo pipefail
           tools/check-subsystem.sh gui publish/win-x64/ProjectPrime.exe
+          tools/check-subsystem.sh gui publish/win-x64/ProjectPrimeStudio.exe
           tools/check-subsystem.sh console publish/win-x64-server/ProjectPrimeServer.exe
 
       # Nothing gets tagged as a release until a server out of it has actually
@@ -519,6 +563,16 @@ jobs:
       # it reaches a player. The Windows server gets the same check on a
       # Windows runner in build.yml; the ARM64 one cannot run on this runner
       # at all, being cross-compiled for a different processor.
+      - name: paired release diagnostics and portable assembly regressions
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          python3 -m unittest discover -s tools -p 'test_studio_packaging.py'
+          python3 tools/studio-pair.py smoke publish/linux-x64/ProjectPrime publish/linux-x64/ProjectPrimeStudio "$VERSION"
+          for server in linux-arm64 linux-x64-server win-x64-server; do
+            test ! -e "publish/$server/ProjectPrimeStudio"
+            test ! -e "publish/$server/ProjectPrimeStudio.exe"
+          done
       - name: the dedicated server runs
         run: |
           set -euo pipefail
@@ -544,6 +598,8 @@ jobs:
           Host a game has a public machine run the match and puts you in it,
           so there is nothing to open on your router.
           F11 or Alt+Enter switches to fullscreen, Escape leaves it.
+          ProjectPrimeStudio.exe opens Map Studio and Replay Studio. Keep both
+          applications from this release together when moving or updating it.
 
           To run a server for other people without playing on it yourself,
           download the server package instead. The package is smaller because
@@ -586,6 +642,9 @@ jobs:
           -- there is one for plain x64 Linux and one for a Raspberry Pi.
 
           F11 or Alt+Enter switches to fullscreen, Escape opens the pause menu.
+          Run ./ProjectPrimeStudio for Map Studio and Replay Studio. Keep both
+          desktop applications from the same release together during updates.
+
           NOTE
           python3 tools/write-release-manifest.py publish/linux-x64
           ( cd publish/linux-x64 && tar czf "../../dist/ProjectPrime-$TAG-linux-x64.tar.gz" . )
@@ -734,8 +793,13 @@ jobs:
           tools/wgpu/build-native.sh "$RID"
           tools/ktx/build-native.sh "$RID"
           dotnet publish src/MphRead/MphRead.csproj -c Release -r "$RID" \
-            -p:Version="$VERSION" -p:InformationalVersion="$VERSION" \
+            -p:Version="$VERSION" -p:InformationalVersion="$VERSION" -p:IncludeSourceRevisionInInformationalVersion=false \
             --self-contained true -p:PublishSingleFile=true -o "publish/$RID"
+          dotnet publish src/ProjectPrime.Studio/ProjectPrime.Studio.csproj -c Release -r "$RID" \
+            -p:Version="$VERSION" -p:InformationalVersion="$VERSION" -p:IncludeSourceRevisionInInformationalVersion=false \
+            --self-contained true -p:PublishSingleFile=true -o "publish/studio-$RID"
+          tools/sign-macos.sh "publish/studio-$RID" ProjectPrimeStudio
+          tools/check-macos-build.sh "publish/studio-$RID" "$RID" ProjectPrimeStudio
           chmod +x "publish/$RID/ProjectPrime"
           "publish/$RID/ProjectPrime" -renderbackendprobe -renderer metal
           tools/check-macos-modern-vulkan.sh "publish/$RID/ProjectPrime"
@@ -745,7 +809,7 @@ jobs:
           python3 tools/test-compatibility-smoke.py "publish/$RID/ProjectPrime"
           tools/check-no-game-assets.sh "publish/$RID"
           tools/check-maps-shipped.sh "publish/$RID"
-          tools/package-macos.sh "publish/$RID" dist "$RID" "$VERSION"
+          tools/package-macos.sh "publish/$RID" dist "$RID" "$VERSION" "publish/studio-$RID"
       - uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.rid }}
@@ -799,7 +863,8 @@ jobs:
 
           - **Windows** -- the `win-x64` zip, run `ProjectPrime.exe`
           - **Linux** -- the `.tar.gz`, run `./ProjectPrime -launcher`
-          - **macOS** -- the matching `.tar.gz`
+          - **macOS** -- the matching `.tar.gz`, containing both sibling apps
+          - **Studio** -- `ProjectPrimeStudio.exe`, `./ProjectPrimeStudio`, or `Project Prime Studio.app`
           - **Android** -- the `.apk`
           - **Dedicated server** -- the `server-` package for the server OS/architecture
 

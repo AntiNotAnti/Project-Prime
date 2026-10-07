@@ -313,6 +313,20 @@ namespace MphRead.Mods.Render
             return new ModernTextureAsset(Key, AssetClass, Channel, width, height, pixels);
         }
 
+        /// <summary>Explicit-device uploaders use the same resampling/normal policy as preparation.</summary>
+        internal RgbaTextureMip[] CreateMipChain()
+        {
+            var levels = new System.Collections.Generic.List<RgbaTextureMip> { new(Width,Height,Pixels) };
+            int width=Width,height=Height;byte[] previous=Pixels;
+            while(width>1 || height>1)
+            {
+                int nextWidth=Math.Max(1,width/2),nextHeight=Math.Max(1,height/2);
+                byte[] data=Resample(previous,width,height,nextWidth,nextHeight,Channel==TextureAssetChannel.Normal);
+                levels.Add(new(nextWidth,nextHeight,data));previous=data;width=nextWidth;height=nextHeight;
+            }
+            return levels.ToArray();
+        }
+
         private static (int Width, int Height) FitDimensions(int width, int height, int maximumDimension)
         {
             maximumDimension = Math.Clamp(maximumDimension, 1, MaximumDimension);

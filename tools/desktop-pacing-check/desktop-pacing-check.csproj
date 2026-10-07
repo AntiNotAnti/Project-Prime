@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../src/MphRead/Mods/Render/DesktopFramePacing.cs" Link="DesktopFramePacing.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/FrameTiming.cs" Link="FrameTiming.cs" />
   </ItemGroup>
 </Project>

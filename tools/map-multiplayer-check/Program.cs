@@ -88,21 +88,57 @@ try
     {
         using var listener=new TcpListener(IPAddress.Loopback,0);listener.Start();
         string endpoint="http://127.0.0.1:"+((IPEndPoint)listener.LocalEndpoint).Port+"/";
-        using var cancellation=new CancellationTokenSource();
+        using var deadline=new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        using var cancellation=CancellationTokenSource.CreateLinkedTokenSource(deadline.Token);
+        using var peerStop=new CancellationTokenSource();
+        const int maximumRequests=8;
+        int requests=0,served=0;bool cancelledAfterBody=false;
         byte[] body=fault=="substituted version"?File.ReadAllBytes(v2):archive;
         var peer=Task.Run(async()=>
         {
-            using var connection=await listener.AcceptTcpClientAsync();await using var stream=connection.GetStream();
-            using var reader=new StreamReader(stream,Encoding.ASCII,false,1024,true);
-            while(await reader.ReadLineAsync() is {Length:>0}){}
-            await stream.WriteAsync(Encoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nContent-Length: "+body.Length+"\r\nConnection: close\r\n\r\n"));
-            await stream.WriteAsync(body.AsMemory(0,fault=="substituted version"?body.Length:body.Length/2));await stream.FlushAsync();
-            if(fault=="mid-stream cancellation")await Task.Delay(300);
+            try
+            {
+                // The production downloader retries interrupted bodies and bad hashes.
+                // Keep serving the fault until the download finishes, then cancel Accept.
+                while(true)
+                {
+                    using var connection=await listener.AcceptTcpClientAsync(peerStop.Token);await using var stream=connection.GetStream();
+                    using var reader=new StreamReader(stream,Encoding.ASCII,false,1024,true);
+                    while(await reader.ReadLineAsync(peerStop.Token) is {Length:>0}){}
+                    if(++requests>maximumRequests)throw new InvalidOperationException("Faulty HTTP fixture exceeded its request budget.");
+                    await stream.WriteAsync(Encoding.ASCII.GetBytes("HTTP/1.1 200 OK\r\nContent-Length: "+body.Length+"\r\nConnection: close\r\n\r\n"),peerStop.Token);
+                    await stream.WriteAsync(body.AsMemory(0,fault=="substituted version"?body.Length:body.Length/2),peerStop.Token);await stream.FlushAsync(peerStop.Token);
+                    served++;
+                    if(fault=="mid-stream cancellation")await Task.Delay(300,peerStop.Token);
+                }
+            }
+            catch(OperationCanceledException)when(peerStop.IsCancellationRequested){}
+            catch(Exception ex)when(cancellation.IsCancellationRequested&&(ex is IOException or SocketException)){}
         });
         using var faulty=new MapCommunityClient(endpoint);bool rejected=false;
-        try{using var prepared=await faulty.PrepareExactAsync(required,cancellation.Token,progress:_=>{if(fault=="mid-stream cancellation")cancellation.Cancel();});}
-        catch(Exception ex)when(ex is HttpRequestException or InvalidDataException or IOException or OperationCanceledException){rejected=true;}
-        await peer.WaitAsync(TimeSpan.FromSeconds(10));Check(rejected,fault+" cannot publish a package");
+        try
+        {
+            try
+            {
+                using var prepared=await faulty.PrepareExactAsync(required,cancellation.Token,progress:progress=>
+                {
+                    if(fault=="mid-stream cancellation"&&progress>0)
+                    {cancelledAfterBody=true;cancellation.Cancel();}
+                });
+            }
+            catch(OperationCanceledException ex)when(deadline.IsCancellationRequested)
+            {throw new TimeoutException("Faulty HTTP fixture download exceeded ten seconds: "+fault,ex);}
+            catch(OperationCanceledException)when(fault=="mid-stream cancellation"&&cancelledAfterBody){rejected=true;}
+            catch(Exception ex)when(!deadline.IsCancellationRequested&&(ex is HttpRequestException or InvalidDataException or IOException)){rejected=true;}
+        }
+        finally
+        {
+            peerStop.Cancel();
+            await peer.WaitAsync(TimeSpan.FromSeconds(2));
+        }
+        Check(rejected&&served>0&&requests<=maximumRequests
+            &&(fault=="mid-stream cancellation"?cancelledAfterBody:requests>1),
+            fault+" cannot publish a package ("+requests+" HTTP requests)");
     }
     var concurrent=await Task.WhenAll(client.PrepareExactAsync(required,default),client.PrepareExactAsync(required,default));foreach(var prepared in concurrent){Check(prepared.Identity.Matches(required),"duplicate concurrent download preserves identity");prepared.Dispose();}
     File.WriteAllText(Path.Combine(root,"community.stop"),"");await Finished(community,"Community");File.Delete(Path.Combine(root,"community.stop"));community=Spawn("community",root,hub);

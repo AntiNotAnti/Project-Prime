@@ -34,6 +34,10 @@ namespace MphRead
             }
             finally
             {
+#if MPHREAD_SHELL
+                try { Mods.StudioIntegration.GameStudioIntegration.Stop(); }
+                catch (Exception ex) { Mods.DebugLog.Line("studio", "broker shutdown failed: " + ex.Message); }
+#endif
                 Mods.LifecycleTiming.BeginShutdown("program finalizer");
                 Sound.AudioLifetime.Shutdown();
                 Mods.Launcher.ClientInstanceGuard.ReleaseProcess();

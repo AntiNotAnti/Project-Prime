@@ -676,11 +676,14 @@ namespace MphRead.Mods.Render
             _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32,
                 geometryBuffers.IndexOffset, indexBytes);
             _api.RenderPassEncoderSetViewport(pass, 0, 0, target.Width, target.Height, 0, 1);
-            ApplyScissor(pass, target.Width, target.Height);
+            bool rasterVisible = ApplyScissor(pass, target.Width, target.Height);
             if (_enabled.Contains(EnableCap.StencilTest) && target.HasDepth)
                 _api.RenderPassEncoderSetStencilReference(pass, (uint)_stencilReference);
-            _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
-            if (_measurePerformance) _coreDraws++;
+            if (rasterVisible)
+            {
+                _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
+                if (_measurePerformance) _coreDraws++;
+            }
             RecordCommandOperation();
         }
 
@@ -1073,7 +1076,16 @@ namespace MphRead.Mods.Render
             if (typeof(T) != typeof(byte))
                 throw new NotSupportedException("Modern offscreen readback currently targets byte arrays.");
 
+#if !ANDROID
+            using var readbackObservation = ModernGraphicsDevice.BeginNativeReadbackObservationForCheck(x, y, width, height);
+#endif
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("read-target", "START");
+#endif
             CoreTarget target = ResolveReadTarget();
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("read-target", "DONE");
+#endif
             ReadTexturePixels(target.ColorTexture, target.ColorFormat, target.Height,
                 x, y, width, height, format, (byte[])(object)pixels);
         }
@@ -1088,12 +1100,24 @@ namespace MphRead.Mods.Render
             uint rowBytes = copyWidth * (uint)sourcePixelBytes;
             uint paddedRow = (rowBytes + 255u) & ~255u;
             ulong total = (ulong)paddedRow * copyHeight;
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("readback-buffer", "START");
+#endif
             WgpuBuffer* readback = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
             {
                 Size = total,
                 Usage = BufferUsage.CopyDst | BufferUsage.MapRead
             });
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("readback-buffer", "DONE");
+#endif
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("encoder-begin", "START");
+#endif
             CommandEncoder* encoder = BeginCommands();
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("encoder-begin", "DONE");
+#endif
             var source = new ImageCopyTexture
             {
                 Texture = texture,
@@ -1112,23 +1136,74 @@ namespace MphRead.Mods.Render
                 }
             };
             var extent = new Extent3D(copyWidth, copyHeight, 1);
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("texture-copy", "START");
+#endif
             _api.CommandEncoderCopyTextureToBuffer(encoder, &source, &destination, &extent);
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("texture-copy", "DONE");
+#endif
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("command-record", "START");
+#endif
             EndCommands();
+#if !ANDROID
+            ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("command-record", "DONE");
+#endif
 
             bool mappedSuccessfully = false;
             try
             {
+#if !ANDROID
+                ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("flush-commands", "START");
+#endif
                 FlushCommands();
+#if !ANDROID
+                ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("flush-commands", "DONE");
+#endif
+#if !ANDROID
+                ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("reset-cursors", "START");
+#endif
                 ResetFrameBuffers();
+#if !ANDROID
+                ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("reset-cursors", "DONE");
+#endif
                 _mapStatus = BufferMapAsyncStatus.Unknown;
+#if !ANDROID
+                ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("map-async", "START");
+#endif
                 _api.BufferMapAsync(readback, MapMode.Read, 0, (nuint)total,
                     new PfnBufferMapCallback((status, _) => _mapStatus = status), null);
+#if !ANDROID
+                ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("map-async", "DONE");
+#endif
+#if !ANDROID
+                ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("poll-wait", "START");
+#endif
                 _device.Native.DevicePoll(_device.Device, true, null);
+#if !ANDROID
+                ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("poll-wait", "DONE");
+#endif
+#if !ANDROID
+                ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("map-status", "START");
+#endif
                 if (_mapStatus != BufferMapAsyncStatus.Success)
                     throw new InvalidOperationException($"Modern offscreen readback map failed: {_mapStatus}.");
+#if !ANDROID
+                ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("map-status", "DONE");
+#endif
 
                 mappedSuccessfully = true;
+#if !ANDROID
+                ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("mapped-range", "START");
+#endif
                 byte* mapped = (byte*)_api.BufferGetConstMappedRange(readback, 0, (nuint)total);
+#if !ANDROID
+                ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("mapped-range", "DONE");
+#endif
+#if !ANDROID
+                ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("pixel-unpack", "START");
+#endif
                 int components = format == PixelFormat.Rgb ? 3 : 4;
                 bool bgra = textureFormat == WgpuTextureFormat.Bgra8Unorm
                     || textureFormat == WgpuTextureFormat.Bgra8UnormSrgb;
@@ -1150,12 +1225,21 @@ namespace MphRead.Mods.Render
                         if (components == 4 && written < outputLength) pixels[written++] = b3;
                     }
                 }
+#if !ANDROID
+                ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("pixel-unpack", "DONE");
+#endif
             }
             finally
             {
+#if !ANDROID
+                ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("readback-cleanup", "START");
+#endif
                 if (mappedSuccessfully) _api.BufferUnmap(readback);
 
                 _api.BufferRelease(readback);
+#if !ANDROID
+                ModernGraphicsDevice.WriteNativeReadbackObservationForCheck("readback-cleanup", "DONE");
+#endif
             }
         }
 
@@ -1284,8 +1368,8 @@ namespace MphRead.Mods.Render
             _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, geometryBuffers.IndexOffset, indexBytes);
             _api.RenderPassEncoderSetViewport(pass, 0, 0,
                 destinationTarget.Width, destinationTarget.Height, 0, 1);
-            if (applyScissor) ApplyScissor(pass, destinationTarget.Width, destinationTarget.Height);
-            _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
+            if (!applyScissor || ApplyScissor(pass, destinationTarget.Width, destinationTarget.Height))
+                _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
             _api.RenderPassEncoderEnd(pass);
             EndCommands();
 

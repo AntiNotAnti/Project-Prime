@@ -157,8 +157,9 @@ namespace MphRead.Mods.Render
 
                     UiOverlayCompositeCheck.Run(96, 64);
                     Console.WriteLine("[renderwindowcheck] fullscreen UI composite integration PASS");
-                    RunFailedRecoveryFallbackCheck();
-                    RunRendererRestartCheck(window, backend);
+                    bool legacyAvailable = RunFailedRecoveryFallbackCheck();
+                    RunRendererRestartCheck(window, backend, legacyAvailable);
+                    RunReplacementFailureCleanupCheck(window, backend);
                     Console.WriteLine(
                         $"[renderwindowcheck] PASS backend={GraphicsBackendPolicy.DisplayName(backend)} "
                         + $"launcher=rgba({pixel[0]},{pixel[1]},{pixel[2]},{pixel[3]}) "
@@ -171,9 +172,16 @@ namespace MphRead.Mods.Render
                         + $"blitBottom=rgba({worldPixels[24]},{worldPixels[25]},{worldPixels[26]},{worldPixels[27]})");
                     return 0;
                 }
+                catch (Exception ex)
+                {
+                    ShaderDiagnosticPolicy.WriteException(Console.Error, "renderwindowcheck before Shutdown", ex);
+                    throw;
+                }
                 finally
                 {
+                    ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck phase=Shutdown START");
                     ModernGraphicsCompat.Shutdown();
+                    ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck phase=Shutdown DONE");
                 }
             }
             catch (Exception ex)
@@ -189,6 +197,10 @@ namespace MphRead.Mods.Render
                 int start = Math.Max(0, diagnostics.Length - maximumDiagnosticCharacters);
                 if (diagnostics.Length != 0)
                     Console.Error.WriteLine(diagnostics.ToString(start, diagnostics.Length - start));
+                var nativeValidationDiagnostics = new System.Text.StringBuilder();
+                ModernGraphicsDevice.AppendNativeValidationDiagnostics(nativeValidationDiagnostics);
+                if (nativeValidationDiagnostics.Length != 0)
+                    Console.Error.WriteLine(nativeValidationDiagnostics.ToString());
                 return 1;
             }
         }
@@ -229,8 +241,17 @@ namespace MphRead.Mods.Render
                 + $"unpaced={unpacedMode} vsync={ModernGraphicsCompat.ActivePresentMode}");
         }
 
-        private static unsafe void RunRendererRestartCheck(NativeWindow window, GraphicsBackend backend)
+        private static unsafe void RunRendererRestartCheck(NativeWindow window, GraphicsBackend backend,
+            bool legacyAvailable)
         {
+            if (!legacyAvailable)
+            {
+                // No legacy context or bindings ever existed on this measured
+                // unsupported host. Establish a real modern resource owner for
+                // the same overlay release test before its mandatory restart.
+                ModernGraphicsCompat.Initialize(window, backend);
+                ModernGraphicsCompat.Resize(96, 64);
+            }
             byte[] overlay = { 255, 0, 0, 255 };
             fixed (byte* pixels = overlay) UiOverlay.Upload((nint)pixels, 1, 1);
             UiOverlay.Visible = true;
@@ -321,8 +342,9 @@ namespace MphRead.Mods.Render
             Console.WriteLine("[renderwindowcheck] wireframe/fill display-list switching PASS");
         }
 
-        private static void RunFailedRecoveryFallbackCheck()
+        private static bool RunFailedRecoveryFallbackCheck()
         {
+            var deviceIdentity = ModernGraphicsCompat.DeviceIdentity;
             // The successful-reconstruction case above has already used the
             // one retry. A second loss must stay controlled and permit GL.
             ModernGraphicsCompat.DestroyDeviceForCheck();
@@ -334,7 +356,16 @@ namespace MphRead.Mods.Render
             GraphicsBackendPolicy.UseCompatibilityFallback("forced repeated device loss acceptance check");
             var settings = DesktopGlContext.Settings(background: true);
             settings.ClientSize = new(96, 64);
-            using var window = new NativeWindow(settings);
+            using var window = HostedLegacyGlCapabilityCheck.CreateWindow(settings, deviceIdentity.Adapter);
+            if (window == null)
+            {
+                if (ModernGraphicsCompat.Active
+                    || GraphicsBackendPolicy.Resolved != GraphicsBackend.OpenGL)
+                    throw new InvalidOperationException("Unsupported legacy handoff retained modern renderer state.");
+                Console.WriteLine("[renderwindowcheck] repeated device loss and controlled shutdown PASS");
+                Console.WriteLine("[renderwindowcheck] legacy OpenGL draw UNAVAILABLE: hosted Apple Paravirtual device has no accelerated legacy CGL format; modern restart remains required");
+                return false;
+            }
             using var graphics = new DesktopGraphicsSession(window);
             GraphicsApi.ClearColor(0, 1, 0, 1);
             GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
@@ -345,11 +376,14 @@ namespace MphRead.Mods.Render
             AuthoredRgbaMipGpuCheck.Verify();
             DesktopGraphicsSession.Present(window);
             Console.WriteLine("[renderwindowcheck] failed recovery to fresh OpenGL context PASS");
+            return true;
         }
 
         private static void RunScissorBoundsCheck()
         {
             int texture = GraphicsApi.GenTexture(), framebuffer = GraphicsApi.GenFramebuffer();
+            int sourceTexture = GraphicsApi.GenTexture(), sourceFramebuffer = GraphicsApi.GenFramebuffer();
+            int list = GraphicsApi.GenLists(1);
             GraphicsApi.PushAttrib(AttribMask.AllAttribBits);
             try
             {
@@ -365,50 +399,106 @@ namespace MphRead.Mods.Render
                 GraphicsApi.Disable(EnableCap.Blend);
                 GraphicsApi.Disable(EnableCap.CullFace);
                 GraphicsApi.ColorMask(true, true, true, true);
+                GraphicsApi.Disable(EnableCap.ScissorTest);
+                GraphicsApi.BindTexture(TextureTarget.Texture2D, sourceTexture);
+                GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8, 4, 4, 0,
+                    PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
+                GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, sourceFramebuffer);
+                GraphicsApi.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
+                    TextureTarget.Texture2D, sourceTexture, 0);
+                GraphicsApi.ClearColor(1, 0, 0, 1);
+                GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+                GraphicsApi.NewList(list, ListMode.Compile);
+                GraphicsApi.Color4(1f, 0f, 0f, 1f);
+                DrawQuad();
+                GraphicsApi.EndList();
                 foreach (bool window in new[] { false, true })
                 {
                     int width = window ? 96 : 4, height = window ? 64 : 4;
                     GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, window ? 0 : framebuffer);
                     GraphicsApi.Viewport(0, 0, width, height);
-                    foreach (bool clear in new[] { false, true })
-                    foreach (var rectangle in new[] { (-1, -1, 2, 2), (0, 0, 0, 4), (width + 1, 0, 4, 4) })
+                    foreach (string operation in new[] { "draw", "list", "clear", "blit" })
+                    foreach (var rectangle in new[]
                     {
+                        (-1, -1, 2, 2), (0, 0, 0, 4), (width + 1, 0, 4, 4),
+                        (0, 0, 4, 0), (-5, -5, 2, 2), (0, height + 1, 4, 4),
+                        (1, 1, 2, 2), (0, 0, width, height)
+                    })
+                    {
+                        GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, window ? 0 : framebuffer);
                         GraphicsApi.Disable(EnableCap.ScissorTest);
                         GraphicsApi.ClearColor(0, 0, 1, 1);
                         GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
                         GraphicsApi.Enable(EnableCap.ScissorTest);
                         GraphicsApi.Scissor(rectangle.Item1, rectangle.Item2, rectangle.Item3, rectangle.Item4);
-                        if (clear)
+                        if (operation == "clear")
                         {
                             GraphicsApi.ClearColor(1, 0, 0, 1);
                             GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
                         }
+                        else if (operation == "blit")
+                        {
+                            GraphicsApi.BindFramebuffer(FramebufferTarget.ReadFramebuffer, sourceFramebuffer);
+                            GraphicsApi.BlitFramebuffer(0, 0, 4, 4, 0, 0, width, height,
+                                ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Nearest);
+                            GraphicsApi.BindFramebuffer(FramebufferTarget.ReadFramebuffer, window ? 0 : framebuffer);
+                        }
+                        else if (operation == "list")
+                        {
+                            GraphicsApi.CallList(list);
+                        }
                         else
                         {
                             GraphicsApi.Color4(1f, 0f, 0f, 1f);
-                            GraphicsApi.Begin(PrimitiveType.Quads);
-                            GraphicsApi.Vertex3(-1, -1, 0); GraphicsApi.Vertex3(1, -1, 0);
-                            GraphicsApi.Vertex3(1, 1, 0); GraphicsApi.Vertex3(-1, 1, 0);
-                            GraphicsApi.End();
+                            DrawQuad();
                         }
                         byte[] pixels = new byte[width * height * 4];
                         GraphicsApi.ReadPixels(0, 0, width, height, PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
                         for (int i = 0; i < width * height; i++)
                         {
-                            bool red = rectangle.Item1 == -1 && i == 0;
+                            int x = i % width, y = i / width;
+                            bool red = x >= rectangle.Item1 && x < rectangle.Item1 + rectangle.Item3
+                                && y >= rectangle.Item2 && y < rectangle.Item2 + rectangle.Item4;
                             if (pixels[i * 4] != (red ? 255 : 0) || pixels[i * 4 + 2] != (red ? 0 : 255))
-                                throw new InvalidOperationException($"Scissor clipping failed: window={window} clear={clear} rect={rectangle} pixel={i}.");
+                                throw new InvalidOperationException($"Scissor clipping failed: window={window} operation={operation} rect={rectangle} pixel={i} rgba={pixels[i * 4]},{pixels[i * 4 + 1]},{pixels[i * 4 + 2]},{pixels[i * 4 + 3]}.");
                         }
                     }
+                    // An empty display-list draw must still adopt its trailing
+                    // GL attributes. Disabling scissor must restore full coverage.
+                    GraphicsApi.Disable(EnableCap.ScissorTest);
+                    GraphicsApi.ClearColor(0, 0, 1, 1);
+                    GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+                    GraphicsApi.Enable(EnableCap.ScissorTest);
+                    GraphicsApi.Scissor(0, 0, 0, 4);
+                    GraphicsApi.Color4(0f, 0f, 1f, 1f);
+                    GraphicsApi.CallList(list);
+                    GraphicsApi.Disable(EnableCap.ScissorTest);
+                    DrawQuad();
+                    byte[] restored = new byte[width * height * 4];
+                    GraphicsApi.ReadPixels(0, 0, width, height, PixelFormat.Rgba, PixelType.UnsignedByte, restored);
+                    for (int i = 0; i < width * height; i++)
+                        if (restored[i * 4] != 255 || restored[i * 4 + 2] != 0)
+                            throw new InvalidOperationException($"Empty-scissor list state/full coverage restoration failed: window={window} pixel={i}.");
                 }
-                Console.WriteLine("[renderwindowcheck] empty/offscreen scissor draws and clears PASS");
+                Console.WriteLine("[renderwindowcheck] empty/offscreen scissor draws, lists, clears, blits and state restoration PASS");
             }
             finally
             {
                 GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
                 GraphicsApi.DeleteFramebuffer(framebuffer);
                 GraphicsApi.DeleteTexture(texture);
+                GraphicsApi.DeleteFramebuffer(sourceFramebuffer);
+                GraphicsApi.DeleteTexture(sourceTexture);
+                GraphicsApi.DeleteLists(list, 1);
                 GraphicsApi.PopAttrib();
+            }
+
+            static void DrawQuad()
+            {
+                GraphicsApi.Begin(PrimitiveType.Quads);
+                GraphicsApi.Vertex3(-1, -1, 0); GraphicsApi.Vertex3(1, -1, 0);
+                GraphicsApi.Vertex3(1, 1, 0); GraphicsApi.Vertex3(-1, 1, 0);
+                GraphicsApi.End();
             }
         }
 
@@ -609,6 +699,7 @@ namespace MphRead.Mods.Render
             GraphicsApi.CallList(list);
             ModernGraphicsCompat.Present();
             int generation = ModernGraphicsCompat.DeviceGeneration;
+            int nativeErrors = ModernGraphicsDevice.NativeValidationErrorCount;
             ModernGraphicsCompat.DestroyDeviceForCheck();
             GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
             GraphicsApi.CallList(list);
@@ -618,14 +709,59 @@ namespace MphRead.Mods.Render
                 throw new InvalidOperationException("Device reconstruction did not restore texture/display-list contents.");
             AuthoredRgbaMipGpuCheck.VerifyTexture(authoredTexture, authored, mipmaps: true);
             ModernGraphicsCompat.Present();
+            if (ModernGraphicsDevice.NativeValidationErrorCount != nativeErrors)
+                throw new InvalidOperationException("Device reconstruction emitted a native validation error.");
             GraphicsApi.DeleteLists(list, 1);
             GraphicsApi.DeleteTexture(texture);
             GraphicsApi.DeleteTexture(authoredTexture);
             Console.WriteLine("[renderwindowcheck] device reconstruction and resource restoration PASS");
         }
 
+        private static unsafe void RunReplacementFailureCleanupCheck(NativeWindow window, GraphicsBackend backend)
+        {
+            int generation = ModernGraphicsCompat.DeviceGeneration;
+            int nativeErrors = ModernGraphicsDevice.NativeValidationErrorCount;
+            var expected = new InvalidOperationException("Injected replacement admission failure.");
+            ModernGraphicsDevice? candidate = null;
+            ModernGraphicsDevice? previous = null;
+            previous = ModernGraphicsCompat.ObserveNextDeviceReplacementForCheck(created =>
+            {
+                candidate = created;
+                if (previous!.Surface != null)
+                    throw new InvalidOperationException("Replacement creation retained the previous HWND surface.");
+                if (created.Surface == null || created.Device == null)
+                    throw new InvalidOperationException("Replacement failure did not exercise an allocated native candidate.");
+                throw expected;
+            });
+            ModernGraphicsCompat.DestroyDeviceForCheck();
+            try { GraphicsApi.Viewport(0, 0, 96, 64); }
+            catch (InvalidOperationException ex) when (ReferenceEquals(ex, expected)) { }
+            if (!ReferenceEquals(ModernGraphicsCompat.RecoveryFailure, expected)
+                || ModernGraphicsCompat.DeviceGeneration != generation || candidate == null)
+                throw new InvalidOperationException("Failed replacement was adopted or lost its guarded failure.");
+            foreach (var device in new[] { previous!, candidate })
+                if (device.Surface != null || device.Device != null || device.Adapter != null || device.Instance != null)
+                    throw new InvalidOperationException("Failed replacement retained native owner handles.");
+            ModernGraphicsCompat.Shutdown();
+            ModernGraphicsCompat.Shutdown();
+            if (ModernGraphicsCompat.Active)
+                throw new InvalidOperationException("Failed replacement survived controlled shutdown.");
+            ModernGraphicsCompat.Initialize(window, backend);
+            GraphicsApi.Viewport(0, 0, 96, 64);
+            GraphicsApi.ClearColor(0, 1, 0, 1);
+            GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+            byte[] pixel = new byte[4];
+            GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+            ModernGraphicsCompat.Present();
+            if (pixel[0] > 24 || pixel[1] < 220 || pixel[2] > 24
+                || ModernGraphicsDevice.NativeValidationErrorCount != nativeErrors)
+                throw new InvalidOperationException("Fresh renderer failed after replacement admission cleanup.");
+            Console.WriteLine("[renderwindowcheck] replacement admission failure cleanup and restart PASS");
+        }
+
         private static void RunAdvancedShaderCheck()
         {
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=postprocess phase=setup START");
             int texture = GraphicsApi.GenTexture();
             GraphicsApi.ActiveTexture(TextureUnit.Texture0);
             GraphicsApi.BindTexture(TextureTarget.Texture2D, texture);
@@ -638,15 +774,27 @@ namespace MphRead.Mods.Render
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(post, "contrast_value"), 1f);
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(post, "saturation_value"), 1f);
             GraphicsApi.Uniform2(GraphicsApi.GetUniformLocation(post, "texel"), 1f / 96, 1f / 64);
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=postprocess phase=setup DONE");
             for (int aa = 0; aa <= 4; aa++)
             {
                 GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(post, "aa_mode"), aa);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=postprocess-aa-{aa} phase=draw START");
                 DrawTexturedQuad(-1, -1, 1, 1, 0);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=postprocess-aa-{aa} phase=draw DONE");
+                var diagnostic = ModernGraphicsCompat.CapturePostProcessDiagnosticForCheck(post);
                 byte[] pixel = new byte[4];
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=postprocess-aa-{aa} phase=pixel-read START");
                 GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=postprocess-aa-{aa} phase=pixel-read DONE");
                 if (pixel[0] < 245 || pixel[1] > 10 || pixel[2] > 10)
-                    throw new InvalidOperationException($"Post-process AA mode {aa} changed a flat red field: {string.Join(",", pixel)}.");
+                {
+                    string failure = $"Post-process AA mode {aa} changed a flat red field: {string.Join(",", pixel)}.";
+                    if (diagnostic != null) ModernGraphicsCompat.WriteShaderDiagnosticForCheck("DIAGNOSTIC original pixel failure: " + failure);
+                    ModernGraphicsCompat.ObservePostProcessFailureForCheck(diagnostic);
+                    throw new InvalidOperationException(failure);
+                }
             }
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=pbr phase=setup START");
             int pbr = Link(DeferredPbrShader.VertexSource, DeferredPbrShader.FragmentSource);
             GraphicsApi.UseProgram(pbr);
             Matrix4 identity = Matrix4.Identity;
@@ -657,12 +805,17 @@ namespace MphRead.Mods.Render
             GraphicsApi.Uniform4(GraphicsApi.GetUniformLocation(pbr, "override_color"), 1f, 0f, 0f, 1f);
             GraphicsApi.Normal3(0, 0, 1);
             GraphicsApi.Color4(1f, 1f, 1f, 1f);
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=pbr phase=setup DONE");
             for (int mode = 1; mode <= 3; mode++)
             {
                 GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(pbr, "gbuffer_mode"), mode);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=pbr-target-{mode} phase=draw START");
                 DrawTexturedQuad(-1, -1, 1, 1, 0);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=pbr-target-{mode} phase=draw DONE");
                 byte[] pixel = new byte[4];
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=pbr-target-{mode} phase=pixel-read START");
                 GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=pbr-target-{mode} phase=pixel-read DONE");
                 bool valid = mode == 1 ? pixel[0] > 245 && pixel[1] < 10 && pixel[2] < 10
                     : mode == 2 ? pixel[0] > 120 && pixel[1] > 120 && pixel[2] > 245
                     : pixel[0] < 10 && pixel[1] > 145 && pixel[2] < 10;
@@ -675,9 +828,13 @@ namespace MphRead.Mods.Render
             for (int skin = 1; skin <= finishes.Length; skin++)
             {
                 GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(pbr, "cosmetic_skin"), skin);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=pbr-skin-{skin} phase=draw START");
                 DrawTexturedQuad(-1, -1, 1, 1, 0);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=pbr-skin-{skin} phase=draw DONE");
                 byte[] pixel = new byte[4];
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=pbr-skin-{skin} phase=pixel-read START");
                 GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=pbr-skin-{skin} phase=pixel-read DONE");
                 var expected = finishes[skin - 1];
                 if (Math.Abs(pixel[0] / 255f - expected.Metal) > 0.015f
                     || Math.Abs(pixel[1] / 255f - expected.Rough) > 0.015f)
@@ -690,11 +847,16 @@ namespace MphRead.Mods.Render
             GraphicsApi.EndList();
             GraphicsApi.Normal3(1, 0, 0);
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(pbr, "gbuffer_mode"), 2);
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=pbr-inherited-normal phase=draw START");
             GraphicsApi.CallList(normalList);
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=pbr-inherited-normal phase=draw DONE");
             byte[] inheritedNormal = new byte[4];
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=pbr-inherited-normal phase=pixel-read START");
             GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, inheritedNormal);
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=pbr-inherited-normal phase=pixel-read DONE");
             if (inheritedNormal[0] < 245 || inheritedNormal[1] < 120 || inheritedNormal[2] is < 120 or > 135)
                 throw new InvalidOperationException("Display list did not inherit its draw-time normal.");
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=pbr phase=cleanup START");
             GraphicsApi.DeleteLists(normalList, 1);
             GraphicsApi.Normal3(0, 0, 1);
             ModernGraphicsCompat.Resize(0, 0);
@@ -707,6 +869,7 @@ namespace MphRead.Mods.Render
             GraphicsApi.DeleteProgram(pbr);
             GraphicsApi.DeleteProgram(post);
             GraphicsApi.DeleteTexture(texture);
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=pbr phase=cleanup DONE");
         }
 
         private static void RunMipmapCheck()

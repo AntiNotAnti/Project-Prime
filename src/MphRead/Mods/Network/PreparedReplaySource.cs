@@ -202,9 +202,11 @@ internal sealed class ReplayPreparationJob : IDisposable
     private readonly Task<PreparedReplaySource> _task;
     private bool _taken, _disposed, _cleaned;
     internal bool Completed => _task.IsCompleted;
+    internal Task Completion => _task;
 
     private ReplayPreparationJob(Func<CancellationToken, PreparedReplaySource> prepare, Action? release = null)
     {
+        var privateResources = StudioReplay.StudioReplayResources.Current;
         _task = Task.Run(async () =>
         {
             bool admitted = false;
@@ -213,7 +215,7 @@ internal sealed class ReplayPreparationJob : IDisposable
                 await Workers.WaitAsync(_cancellation.Token).ConfigureAwait(false); admitted = true;
                 _cancellation.Token.ThrowIfCancellationRequested();
                 IsWorker(true);
-                try { return prepare(_cancellation.Token); }
+                try { using var scope = privateResources?.Enter(); return prepare(_cancellation.Token); }
                 finally { IsWorker(false); }
             }
             finally { if (admitted) Workers.Release(); release?.Invoke(); }

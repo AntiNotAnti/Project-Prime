@@ -64,6 +64,7 @@ internal sealed partial class MapStudioScreen
         var horizontal=new GridSplitter { Height=5,VerticalAlignment=VerticalAlignment.Stretch,HorizontalAlignment=HorizontalAlignment.Stretch,ResizeDirection=GridResizeDirection.Rows,Background=PrimeTheme.BorderBrush };
         Grid.SetRow(horizontal,1);Grid.SetColumnSpan(horizontal,3);grid.Children.Add(horizontal);
         _viewportHost.Children.Add(grid);
+        SetViewportMode(_viewportMode);
         if(_document.Project.Definition.Import!=null||_document.Project.Definition.NativeRoom!=null)_=PreviewImport();
         _status.Text="Four views · click a viewport to edit in it · drag dividers to resize · Four views returns to the active view.";
     }

@@ -38,7 +38,7 @@ internal sealed partial class MapStudioScreen
             }
             else
             {
-                if (!GameFiles.Ready) return;
+                if (!_services.GameFilesReady) return;
                 var model = Read.GetRoomModelForExport(definition.TextureSource);
                 if (material.SourceMaterial < 0 || material.SourceMaterial >= model.Materials.Count) return;
                 var original = model.Materials[material.SourceMaterial];
