@@ -497,7 +497,9 @@ private:
         data.selected_can_cancel = row->relation == "OUTGOING";
         data.selected_can_remove = row->relation == "FRIEND";
         data.selected_can_block = row->relation != "BLOCKED"
-            && row->relation != "GAME INVITE" && row->relation != "INVITE SENT";
+            && row->relation != "GAME INVITE" && row->relation != "INVITE SENT"
+            && row->relation != "PARTY MEMBER SELF"
+            && row->relation != "PARTY LEADER SELF";
         data.selected_can_unblock = row->relation == "BLOCKED";
         data.selected_can_invite = row->can_invite;
         data.selected_can_join = row->can_join;
