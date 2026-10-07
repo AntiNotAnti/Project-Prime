@@ -143,6 +143,7 @@ begin
                     'prime_id', sp.prime_id,
                     'display_name', pp."DisplayName",
                     'is_leader', pm.player_id = p.leader_id,
+                    'is_self', pm.player_id = p_actor,
                     'joined_at', pm.joined_at
                 ) order by (pm.player_id = p.leader_id) desc, pm.joined_at)
                 from prime.social_party_members pm
