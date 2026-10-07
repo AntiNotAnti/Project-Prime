@@ -27,6 +27,25 @@ namespace MphRead.Mods.Render
         private static nint _macVulkanLoader;
         // wgpu stores this process-wide, including after a device is disposed.
         private static readonly LogCallback _nativeLog = OnNativeLog;
+#if !ANDROID
+        private static readonly NativeValidationCriticalWarning _criticalFenceWarning = new();
+        private static readonly ShaderDiagnosticSourceRetention _shaderDiagnosticSource = new();
+        internal static IDisposable? BeginLayeredPbrShaderDiagnosticScopeForCheck()
+        {
+            try
+            {
+                return _shaderDiagnosticSource.BeginLayeredPbrScope(
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_SHADER_DIAGNOSTICS"),
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_VALIDATION"),
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_GPU_VALIDATION"),
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_SHADER_DIAGNOSTIC_DIRECTORY"),
+                    Environment.GetEnvironmentVariable("RUNNER_TEMP"),
+                    Environment.GetEnvironmentVariable("GITHUB_SHA"),
+                    Environment.GetEnvironmentVariable("GITHUB_RUN_ID"));
+            }
+            catch { return null; }
+        }
+#endif
         private static bool _nativeValidationDiagnosticsEnabled;
         private static readonly object _nativeValidationDiagnosticLock = new();
         private static readonly Queue<string> _nativeValidationErrors = new();
@@ -42,6 +61,15 @@ namespace MphRead.Mods.Render
             try
             {
                 string detail = PtrString(message, "no detail");
+#if !ANDROID
+                bool criticalFence = level == LogLevel.Warn
+                    && System.Threading.Volatile.Read(ref _nativeValidationDiagnosticsEnabled)
+                    && NativeValidationCriticalWarning.Matches(detail);
+                if (criticalFence) _criticalFenceWarning.TryForward(true, detail, Console.Error);
+                _shaderDiagnosticSource.TryRetain(level.ToString(), detail);
+#else
+                const bool criticalFence = false;
+#endif
                 try { Mods.DebugLog.Checkpoint("wgpu", $"{level}: {detail}"); }
                 catch { /* An optional disk-log failure must not discard the priority lane. */ }
                 if (System.Threading.Volatile.Read(ref _nativeValidationDiagnosticsEnabled)
@@ -64,8 +92,8 @@ namespace MphRead.Mods.Render
                     int forwarded = error
                         ? System.Threading.Interlocked.Increment(ref _nativeValidationErrorsForwarded)
                         : System.Threading.Interlocked.Increment(ref _nativeValidationWarningsForwarded);
-                    if (forwarded <= limit) Console.Error.WriteLine(record);
-                    else if (forwarded == limit + 1)
+                    if (forwarded <= limit && !criticalFence) Console.Error.WriteLine(record);
+                    else if (forwarded == limit + 1 && !criticalFence)
                         Console.Error.WriteLine($"[wgpu-validation] {level}: immediate diagnostic limit reached; latest records remain retained");
                 }
             }

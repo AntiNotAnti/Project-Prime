@@ -172,9 +172,16 @@ namespace MphRead.Mods.Render
                         + $"blitBottom=rgba({worldPixels[24]},{worldPixels[25]},{worldPixels[26]},{worldPixels[27]})");
                     return 0;
                 }
+                catch (Exception ex)
+                {
+                    ShaderDiagnosticPolicy.WriteException(Console.Error, "renderwindowcheck before Shutdown", ex);
+                    throw;
+                }
                 finally
                 {
+                    ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck phase=Shutdown START");
                     ModernGraphicsCompat.Shutdown();
+                    ShaderDiagnosticPolicy.Write(Console.Out, "DIAGNOSTIC renderwindowcheck phase=Shutdown DONE");
                 }
             }
             catch (Exception ex)

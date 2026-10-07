@@ -18,6 +18,15 @@ internal static class ShaderDiagnosticPolicy
         try { writer.WriteLine(message); return true; }
         catch { return false; } // Diagnostics cannot replace the original failure or interrupt cleanup.
     }
+    internal static bool WriteException(System.IO.TextWriter writer, string scope, Exception exception)
+    {
+        try
+        {
+            writer.WriteLine($"DIAGNOSTIC exception scope={scope}: {exception}");
+            return true;
+        }
+        catch { return false; }
+    }
     internal static void ValidateBinding(ulong offset, int bytes, int words)
     {
         if (bytes != PostProcessBytes || words != bytes / 4 || offset % 256 != 0)

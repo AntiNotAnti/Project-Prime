@@ -53,6 +53,7 @@ Check(ShaderDiagnosticMapRegistry.PendingCount == 0, "all callback leases releas
 Check(!ShaderDiagnosticPolicy.Write(new ThrowingWriter(), "diagnostic"), "throwing diagnostic writer is contained");
 var writer = new StringWriter();
 Check(ShaderDiagnosticPolicy.Write(writer, "actual diagnostic") && writer.ToString().Contains("actual diagnostic"), "working writer preserves complete record");
+checks += ObservationControls.Run();
 Console.WriteLine($"Shader diagnostic CPU policy/layout/callback controls PASS {checks}; no native device or GPU observation inferred.");
 
 sealed class ThrowingWriter : StringWriter

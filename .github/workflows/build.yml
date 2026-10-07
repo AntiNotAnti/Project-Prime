@@ -317,6 +317,7 @@ jobs:
             $env:PRIME_WGPU_VALIDATION = '1'
             $env:PRIME_WGPU_GPU_VALIDATION = '1'
             $env:PRIME_WGPU_SHADER_DIAGNOSTICS = '1'
+            $env:PRIME_WGPU_SHADER_DIAGNOSTIC_DIRECTORY = Join-Path $env:RUNNER_TEMP 'renderer-windows-dx12.shader'
           }
           $stdout = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.stdout.log'
           $stderr = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.stderr.log'
@@ -340,6 +341,7 @@ jobs:
           Remove-Item Env:PRIME_WGPU_VALIDATION -ErrorAction SilentlyContinue
           Remove-Item Env:PRIME_WGPU_GPU_VALIDATION -ErrorAction SilentlyContinue
           Remove-Item Env:PRIME_WGPU_SHADER_DIAGNOSTICS -ErrorAction SilentlyContinue
+          Remove-Item Env:PRIME_WGPU_SHADER_DIAGNOSTIC_DIRECTORY -ErrorAction SilentlyContinue
           $stdout = Join-Path $env:RUNNER_TEMP 'renderer-windows-dx12.default.stdout.log'
           $stderr = Join-Path $env:RUNNER_TEMP 'renderer-windows-dx12.default.stderr.log'
           $process = Invoke-NativeRendererCheck -FilePath (Resolve-Path publish/modern-win/ProjectPrime.exe) -ArgumentList @('-renderfullcheck', '-renderer', 'dx12') -StdoutPath $stdout -StderrPath $stderr -TimeoutSeconds 1200
@@ -358,7 +360,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: renderer-acceptance-windows-${{ matrix.renderer }}
-          path: ${{ runner.temp }}/renderer-windows-${{ matrix.renderer }}.*.log
+          path: |
+            ${{ runner.temp }}/renderer-windows-${{ matrix.renderer }}.*.log
+            ${{ runner.temp }}/renderer-windows-${{ matrix.renderer }}.shader/**
           if-no-files-found: warn
 
   modern-renderer-linux:
