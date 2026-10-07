@@ -142,8 +142,8 @@ namespace MphRead
             if (!PreviewAsked)
             {
                 _preview?.Reset();
-                foreach (var preview in _launcherSlotPreviews)
-                    preview?.Reset();
+                foreach (var slotPreview in _launcherSlotPreviews)
+                    slotPreview?.Reset();
                 _activePreview = null;
                 // So a rectangle from the last results screen cannot be used
                 // by the next one before the panel has published its own.
@@ -218,10 +218,10 @@ namespace MphRead
                 if (_launcherSlotPreviews[slot] is { } cached)
                     _activePreview = cached;
 
-                bool changed = !_launcherSlotClockSet[slot]
+                bool slotChanged = !_launcherSlotClockSet[slot]
                     || _launcherSlotClockHunter[slot] != LauncherHunter
                     || _launcherSlotClockSuit[slot] != LauncherSuit;
-                if (changed)
+                if (slotChanged)
                 {
                     _launcherSlotClockSet[slot] = true;
                     _launcherSlotClockHunter[slot] = LauncherHunter;

@@ -784,15 +784,15 @@ button {
 .lobby_roster_copy b {
     display: block;
     color: #d9e7f3;
-    font-size: 11dp;
+    font-size: 12dp;
     line-height: 12dp;
     font-weight: bold;
 }
 .lobby_roster_hunter {
     display: block;
     margin-top: 1dp;
-    color: #627e94;
-    font-size: 7dp;
+    color: #7796ad;
+    font-size: 8dp;
     line-height: 8dp;
 }
 .lobby_roster_state {
@@ -837,14 +837,8 @@ button {
     line-height: 15dp;
 }
 
-#lobby_slot0 { left: 56.5%; bottom: 70dp; }
-#lobby_slot1 { left: 40.5%; bottom: 145dp; }
-#lobby_slot2 { left: 70.2%; bottom: 145dp; }
-#lobby_slot3 { left: 36.0%; bottom: 225dp; }
-#lobby_slot4 { left: 75.2%; bottom: 225dp; }
-#lobby_slot5 { left: 32.2%; bottom: 294dp; }
-#lobby_slot6 { left: 79.0%; bottom: 294dp; }
-#lobby_slot7 { left: 57.7%; bottom: 355dp; }
+/* The native bridge places each nameplate from LauncherLobbyFormation.
+   No viewport-specific positions should live in RCSS. */
 
 #lobby_actions {
     position: absolute;
