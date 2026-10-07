@@ -71,6 +71,19 @@ public sealed partial class DedicatedServer
         => slot is >= 0 and < 8
             && (PartyReservedSlotsMask() & (1 << slot)) != 0;
 
+    private byte ReservedAdmissionSlotCount()
+    {
+        ushort mask = PartyReservedSlotsMask();
+        if (_waitlist != null)
+            mask |= _waitlist.QueueReservedSlots;
+
+        int count = 0;
+        for (int slot = 0; slot < _maxPlayers; slot++)
+            if ((mask & (1 << slot)) != 0)
+                count++;
+        return (byte)count;
+    }
+
     private void MaintainPartyReservations(double now)
     {
         if (!PartyReservationAvailable)
