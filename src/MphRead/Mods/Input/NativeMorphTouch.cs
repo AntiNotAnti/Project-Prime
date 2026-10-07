@@ -102,6 +102,8 @@ namespace MphRead.Mods.Input
         private float _rollShare;
         private float _pendingMouseX, _pendingMouseY;
         private float _syntheticX = 128, _syntheticY = 96;
+        private int _relativeIdleTicks;
+        private uint _lastReportedFrame = uint.MaxValue;
 
         public NativeTouchState State => _state;
         public uint Identity => _identity;
@@ -136,10 +138,15 @@ namespace MphRead.Mods.Input
                 else
                 {
                     // melonPrimeDS/Fruity's desktop adapter: 0.25 DS units for
-                    // one host relative-motion pixel.
+                    // one host relative-motion pixel. Relative mouse contact
+                    // remains down for four 60 Hz steps after motion, matching
+                    // the native adapter's short idle tail.
+                    bool moved = _pendingMouseX != 0 || _pendingMouseY != 0;
+                    if (moved) _relativeIdleTicks = 2;
+                    else if (_relativeIdleTicks > 0) _relativeIdleTicks--;
                     _syntheticX = Math.Clamp(_syntheticX + _pendingMouseX * 0.25f, short.MinValue + 1, short.MaxValue - 1);
                     _syntheticY = Math.Clamp(_syntheticY + _pendingMouseY * 0.25f, short.MinValue + 1, short.MaxValue - 1);
-                    _state.Update(contact || _pendingMouseX != 0 || _pendingMouseY != 0,
+                    _state.Update(contact || moved || _relativeIdleTicks > 0,
                         (short)MathF.Round(_syntheticX), (short)MathF.Round(_syntheticY));
                 }
                 _pendingMouseX = _pendingMouseY = 0;
@@ -151,6 +158,8 @@ namespace MphRead.Mods.Input
         public void ApplyReported(MorphTouchReport report, uint intentFrame)
         {
             _rollShare = 0;
+            if (_lastReportedFrame == intentFrame) return;
+            _lastReportedFrame = intentFrame;
             uint identity = intentFrame / 2;
             bool second = (intentFrame & 1) != 0;
             if (_hasIdentity && identity < _identity) return;
@@ -173,6 +182,7 @@ namespace MphRead.Mods.Input
         public void Suspend()
         {
             _state.Clear(); _rollShare = 0; _pendingMouseX = _pendingMouseY = 0;
+            _relativeIdleTicks = 0; _lastReportedFrame = uint.MaxValue;
             _hasIdentity = false; _identity++;
         }
     }
