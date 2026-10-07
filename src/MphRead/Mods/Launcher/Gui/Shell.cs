@@ -323,6 +323,32 @@ namespace MphRead.Mods.Launcher.Gui
             }
             while (RmlUiPrototype.Active && RmlUiPrototype.TryTakeCommand(out string rmlCommand))
             {
+                if (rmlCommand.StartsWith("lobby:", StringComparison.Ordinal))
+                {
+                    switch (rmlCommand)
+                    {
+                        case "lobby:ready":
+                            _front?.RmlLobbyReady();
+                            break;
+                        case "lobby:start":
+                            _front?.RmlLobbyStart();
+                            break;
+                        case "lobby:leave":
+                            _front?.RmlLobbyLeave();
+                            break;
+                        case "lobby:next-hunter":
+                            _front?.RmlLobbyNextHunter();
+                            break;
+                        case "lobby:next-suit":
+                            _front?.RmlLobbyNextSuit();
+                            break;
+                        case "lobby:classic":
+                            _front?.OpenClassicLobbyFromRml();
+                            break;
+                    }
+                    continue;
+                }
+
                 if (rmlCommand == "quit")
                 {
                     RequestQuit();
@@ -452,6 +478,12 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 // RmlUi renders itself later in UiOverlay.DrawAlone. Nothing
                 // here rasterizes an Avalonia surface or uploads a UI bitmap.
+                //
+                // While the live lobby owns presentation the Avalonia tree is
+                // intentionally detached, so its coordinator clock is stopped.
+                // Pump that same authoritative LobbyScreen control plane here.
+                if (RmlUiPrototype.LobbyMode)
+                    _front?.RmlLobbyTick();
                 NotePointerBasis(window);
                 UiOverlay.Visible = false;
                 RmlUiPrototype.Tick(window);
