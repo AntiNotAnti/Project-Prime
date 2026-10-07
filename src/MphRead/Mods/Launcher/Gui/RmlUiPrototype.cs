@@ -752,7 +752,22 @@ namespace MphRead.Mods.Launcher.Gui
             if (_socialJoin is { IsCompleted: false })
                 return;
             _socialJoin = SocialPartyClient.PrepareLeaderJoinAsync(_socialCancel.Token);
-            SetText("social_status", "VERIFYING PARTY LEADER LOBBY");
+            SetText("social_status", SocialPartyClient.Current.Travel != null
+                ? "FOLLOWING PARTY // VERIFYING DESTINATION"
+                : "VERIFYING PARTY LEADER LOBBY");
+            SetBool("social_loading", true);
+        }
+
+        private static void BeginPartyTravelDecline()
+        {
+            if (_socialFixture || _socialCancel == null || _socialCancel.IsCancellationRequested)
+                return;
+            if (_socialPartyMutation is { IsCompleted: false }
+                || _socialJoin is { IsCompleted: false })
+                return;
+            _socialPartyMutation =
+                SocialPartyClient.DeclineTravelAsync(_socialCancel.Token);
+            SetText("social_status", "DECLINING PARTY TRAVEL");
             SetBool("social_loading", true);
         }
 
@@ -1042,6 +1057,16 @@ namespace MphRead.Mods.Launcher.Gui
             if (action == "social:party-game-invite")
             {
                 BeginPartyGameInvites();
+                return;
+            }
+            if (action == "social:party-follow")
+            {
+                BeginPartyLeaderJoin();
+                return;
+            }
+            if (action == "social:party-decline-travel")
+            {
+                BeginPartyTravelDecline();
                 return;
             }
             if (action == "social:party-join-leader")
@@ -1682,6 +1707,9 @@ namespace MphRead.Mods.Launcher.Gui
             "party_disbanded" => "PARTY DISBANDED",
             "party_member_removed" => "PARTY MEMBER REMOVED",
             "party_leader_promoted" => "PARTY LEADER PROMOTED",
+            "party_travel_declined" => "PARTY TRAVEL DECLINED",
+            "party_travel_joined" => "PARTY REGROUPED",
+            "party_travel_published" => "PARTY TRAVEL READY",
             _ => status.Replace('_', ' ').ToUpperInvariant()
         };
 
