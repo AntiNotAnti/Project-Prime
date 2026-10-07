@@ -141,6 +141,8 @@ namespace MphRead.Mods.Launcher
         /// <summary>Who may send social/game invites once invite delivery is enabled.</summary>
         public static SocialInvitePolicy InvitePolicy { get; set; }
             = SocialInvitePolicy.Friends;
+        /// <summary>Temporarily refuse game and party invites without hiding presence.</summary>
+        public static bool DoNotDisturb { get; set; }
         /// <summary>
         /// False on a fresh install so an existing recovered account may adopt
         /// its server-side privacy choices before this device edits them.
@@ -370,6 +372,12 @@ namespace MphRead.Mods.Launcher
                                 && Enum.IsDefined(invitePolicy))
                             {
                                 InvitePolicy = invitePolicy;
+                            }
+                            break;
+                        case "social_do_not_disturb":
+                            if (Boolean.TryParse(value, out bool doNotDisturb))
+                            {
+                                DoNotDisturb = doNotDisturb;
                             }
                             break;
                         case "social_privacy_configured":
@@ -677,6 +685,7 @@ namespace MphRead.Mods.Launcher
                     $"social_presence_visibility={PresenceVisibility}",
                     $"social_activity_visibility={ActivityVisibility}",
                     $"social_invite_policy={InvitePolicy}",
+                    $"social_do_not_disturb={DoNotDisturb.ToString().ToLowerInvariant()}",
                     $"social_privacy_configured={SocialPrivacyConfigured.ToString().ToLowerInvariant()}",
                     $"debug_logs={DebugLogs.ToString().ToLowerInvariant()}",
                     $"bright_skins={RenderOptions.BrightSkins.ToString().ToLowerInvariant()}",
