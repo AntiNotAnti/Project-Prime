@@ -491,7 +491,7 @@ private:
         data.selected_detail = row->detail;
         data.selected_relation = row->relation;
         data.selected_invite_id = row->invite_id;
-        data.selected_can_add = row->relation == "PLAYER";
+        data.selected_can_add = row->relation == "PLAYER" || row->relation == "RECENT";
         data.selected_can_accept = row->relation == "INCOMING";
         data.selected_can_decline = row->relation == "INCOMING";
         data.selected_can_cancel = row->relation == "OUTGOING";
