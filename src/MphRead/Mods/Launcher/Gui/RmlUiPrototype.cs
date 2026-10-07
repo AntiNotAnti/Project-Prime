@@ -1204,8 +1204,31 @@ namespace MphRead.Mods.Launcher.Gui
                 && party.Members.Count > 1
                 && ownLobby != null
                 && ownLobby.ExpiresAt > DateTimeOffset.UtcNow);
+
+            SocialPartyTravel? travel = partyState.Travel;
+            bool sameTravelAuthority = false;
+            if (travel != null
+                && travel.TryAuthorityEpoch(out ulong travelEpoch)
+                && NetSession.Active
+                && NetSession.AuthorityEpoch == travelEpoch)
+            {
+                sameTravelAuthority = true;
+            }
+
+            bool travelFollowReady = travel is { IsLeader: false }
+                && !sameTravelAuthority
+                && !NetSession.Active;
+            bool travelDeclineReady = travelFollowReady
+                && !travel!.SelfStatus.Equals(
+                    "declined", StringComparison.OrdinalIgnoreCase);
+            SetBool("social_party_follow_ready", travelFollowReady);
+            SetBool("social_party_decline_travel_ready", travelDeclineReady);
+            SetText("social_party_travel_label",
+                travel == null ? "" : PartyTravelLabel(travel));
+
             bool leaderJoinable = false;
-            if (party is { IsLeader: false }
+            if (travel == null
+                && party is { IsLeader: false }
                 && !NetSession.Active
                 && RelationshipFor(party.LeaderPrimeId) == "FRIEND"
                 && presenceById.TryGetValue(
@@ -1225,6 +1248,11 @@ namespace MphRead.Mods.Launcher.Gui
                     ? partyState.IncomingPartyInvites[0] : null;
             string notice = LauncherPrefs.DoNotDisturb
                 ? "DO NOT DISTURB // GAME AND PARTY INVITES PAUSED"
+                : travel is { IsLeader: false }
+                    && !sameTravelAuthority
+                    && !travel.SelfStatus.Equals(
+                        "declined", StringComparison.OrdinalIgnoreCase)
+                        ? PartyTravelNotice(travel)
                 : newestInvite != null
                     ? $"GAME INVITE // {newestInvite.DisplayName.ToUpperInvariant()} // "
                         + SocialRoomLabel(newestInvite.RoomKey)
@@ -1273,7 +1301,10 @@ namespace MphRead.Mods.Launcher.Gui
                 .Append('|').Append(party?.PartyId ?? "")
                 .Append('|').Append(partyState.RecentPlayers.Count)
                 .Append('|').Append(LauncherPrefs.DoNotDisturb ? '1' : '0')
-                .Append('|').Append(ownLobby?.LobbyId ?? "");
+                .Append('|').Append(ownLobby?.LobbyId ?? "")
+                .Append('|').Append(travel?.TravelId ?? "")
+                .Append(':').Append(travel?.Revision ?? 0)
+                .Append(':').Append(travel?.SelfStatus ?? "");
             foreach (SocialUiRow row in filtered)
                 fingerprint.Append('|').Append(row.PrimeId).Append(':').Append(row.Activity)
                     .Append(':').Append(row.Detail).Append(':').Append(row.Relation)
@@ -1550,6 +1581,41 @@ namespace MphRead.Mods.Launcher.Gui
                 false,
                 false,
                 relation == "FRIEND" && CanInviteToParty(player.PrimeId));
+        }
+
+        private static string PartyTravelLabel(SocialPartyTravel travel)
+        {
+            string mode = travel.Reason switch
+            {
+                "quick_play" => "PARTY QUICK PLAY",
+                "regroup" => "POST-MATCH REGROUP",
+                _ => "PARTY TRAVEL"
+            };
+            string server = travel.ServerName.Trim().ToUpperInvariant();
+            string room = SocialRoomLabel(travel.RoomKey);
+            string target = server.Length == 0 ? room
+                : room.Length == 0 ? server
+                : server + " // " + room;
+            string status = travel.IsLeader
+                ? "LEADER READY"
+                : travel.SelfStatus.Replace('_', ' ').ToUpperInvariant();
+            return target.Length == 0
+                ? $"{mode} // {status}"
+                : $"{mode} // {target} // {status}";
+        }
+
+        private static string PartyTravelNotice(SocialPartyTravel travel)
+        {
+            string leader = travel.LeaderDisplayName.ToUpperInvariant();
+            string room = SocialRoomLabel(travel.RoomKey);
+            string mode = travel.Reason == "regroup"
+                ? "REGROUP WITH PARTY"
+                : travel.Reason == "quick_play"
+                    ? "PARTY QUICK PLAY READY"
+                    : "FOLLOW PARTY LEADER";
+            return room.Length == 0
+                ? $"{mode} // {leader}"
+                : $"{mode} // {leader} // {room}";
         }
 
         private static string InviteDetail(SocialGameInvite invite)
