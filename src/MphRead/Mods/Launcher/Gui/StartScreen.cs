@@ -302,6 +302,14 @@ namespace MphRead.Mods.Launcher.Gui
             view.Launched += (_, plan) => { Pop(); ConnectedOrFinished(plan); };
             _prime.Overlays.Show(view, cancel: view.RequestBack);
         }
+#if MPHREAD_RMLUI_POC
+        // Shell calls this only after an actual native Play flow has joined
+        // an authoritative session. Keep one source of truth for lobby
+        // creation, match loading, owner commands and round transitions.
+        internal void OpenConnectedFromRml(LaunchPlan plan)
+            => ConnectedOrFinished(plan);
+#endif
+
         private void ConnectedOrFinished(LaunchPlan plan)
         {
             if (NetSession.Active && NetSession.PersistentLobby)
