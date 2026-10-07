@@ -73,6 +73,36 @@ catch(ArgumentOutOfRangeException) { Check(queue.Count == 1,"nonfinite time reje
 try { queue.Update(29,2,0,true,3,12); Check(false,"reject reversed time"); }
 catch(ArgumentOutOfRangeException) { Check(queue.Count == 1,"server time cannot move backward"); }
 
+var partyCapacity = new LobbyWaitlist(4);
+partyCapacity.Update(0, 4, 0, true, 1, 1, externalReservedSlots: 0b0110);
+Check(!partyCapacity.CanDirectJoin(1) && !partyCapacity.CanDirectJoin(2),
+    "party reservation mask blocks direct admission");
+Check(partyCapacity.ReservedSlots == 0b0110,
+    "party reservation mask shares authoritative reserved capacity");
+partyCapacity.TryJoin(Owner(1), 1, 0, out var partyFirst);
+partyCapacity.TryJoin(Owner(2), 2, 0, out var partySecond);
+partyCapacity.TryGetState(Owner(1), partyFirst.QueueId, out var partyFirstState);
+partyCapacity.TryGetState(Owner(2), partySecond.QueueId, out var partySecondState);
+Check(partyFirstState.Offer?.Slot == 0 && partySecondState.Offer?.Slot == 3,
+    "queue offers route around party-reserved seats");
+Check(partyCapacity.ReservedSlots == 0b1111,
+    "queue and party reservations occupy one shared slot mask");
+partyCapacity.Update(1, 4, 0, true, 1, 1, externalReservedSlots: 0);
+Check(partyCapacity.CanDirectJoin(1) && partyCapacity.CanDirectJoin(2),
+    "released party mask returns untouched seats to direct admission");
+
+Check(PartySeatAllocator.TryAllocate(
+        8, unavailable: 0b0010_1101, requested: 3,
+        out byte[] groupSlots, out ushort groupMask)
+    && groupSlots.AsSpan().SequenceEqual(new byte[] { 1, 4, 6 })
+    && groupMask == 0b0101_0010,
+    "party allocator returns one deterministic complete group");
+Check(!PartySeatAllocator.TryAllocate(
+        4, unavailable: 0b0111, requested: 2,
+        out byte[] failedSlots, out ushort failedMask)
+    && failedSlots.Length == 0 && failedMask == 0,
+    "party allocator fails atomically without partial seats");
+
 var expiryQueue = new LobbyWaitlist(2, offerLifetimeSeconds: 1, resumeGraceSeconds: 2);
 expiryQueue.Update(0, 1, 1, true, 1, 1);
 expiryQueue.TryJoin(Owner(1), 1, 0, out var expiringFirst);
