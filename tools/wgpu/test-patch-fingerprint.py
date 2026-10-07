@@ -8,7 +8,7 @@ spec = importlib.util.spec_from_file_location('prepare_native', Path(__file__).w
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 inputs = ['prime-appkit-surface.rs', 'prime-surface-outcomes.rs', 'prepare-native.py',
-          'prime-dx12-wsi-policy.rs', 'patches/one.patch']
+          'prime-dx12-wsi-policy.rs', 'prime-submit-observation.rs', 'patches/one.patch']
 with tempfile.TemporaryDirectory(prefix='prime-native-fingerprint-') as directory:
     module.ROOT = Path(directory)
     for name in inputs:
