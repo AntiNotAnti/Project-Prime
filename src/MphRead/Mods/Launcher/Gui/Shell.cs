@@ -103,6 +103,7 @@ namespace MphRead.Mods.Launcher.Gui
         private static StartScreen? _front;
 #if MPHREAD_RMLUI_POC
         private static RmlMultiplayerController? _rmlMultiplayer;
+        private static RmlLobbyRulesEditor? _rmlLobbyRules;
 #endif
         private static InGameMenu? _menu;
         private static MenuSettings _settings = new MenuSettings();
@@ -326,6 +327,11 @@ namespace MphRead.Mods.Launcher.Gui
             }
             while (RmlUiPrototype.Active && RmlUiPrototype.TryTakeCommand(out string rmlCommand))
             {
+                if (rmlCommand.StartsWith("lobby:rules-", StringComparison.Ordinal))
+                {
+                    HandleRmlLobbyRulesCommand(rmlCommand);
+                    continue;
+                }
                 if (rmlCommand.StartsWith("lobby:", StringComparison.Ordinal))
                 {
                     switch (rmlCommand)
@@ -337,6 +343,7 @@ namespace MphRead.Mods.Launcher.Gui
                             _front?.RmlLobbyStart();
                             break;
                         case "lobby:leave":
+                            _rmlLobbyRules?.Close();
                             _front?.RmlLobbyLeave();
                             break;
                         case "lobby:next-hunter":
@@ -346,6 +353,7 @@ namespace MphRead.Mods.Launcher.Gui
                             _front?.RmlLobbyNextSuit();
                             break;
                         case "lobby:classic":
+                            _rmlLobbyRules?.Close();
                             _front?.OpenClassicLobbyFromRml();
                             break;
                     }
@@ -494,7 +502,12 @@ namespace MphRead.Mods.Launcher.Gui
                 // intentionally detached, so its coordinator clock is stopped.
                 // Pump that same authoritative LobbyScreen control plane here.
                 if (RmlUiPrototype.LobbyMode)
+                {
                     _front?.RmlLobbyTick();
+                    _rmlLobbyRules?.Tick();
+                }
+                else
+                    _rmlLobbyRules?.Close();
                 NotePointerBasis(window);
                 UiOverlay.Visible = false;
                 RmlUiPrototype.Tick(window);
@@ -674,6 +687,48 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
 #if MPHREAD_RMLUI_POC
+        private static RmlLobbyRulesEditor EnsureRmlLobbyRules()
+        {
+            if (_rmlLobbyRules != null) return _rmlLobbyRules;
+            IReadOnlyList<string> rooms = _rooms.Count != 0
+                ? _rooms
+                : GameFiles.Ready ? ThumbnailGenerator.MultiplayerRooms()
+                    : Array.Empty<string>();
+            return _rmlLobbyRules = new RmlLobbyRulesEditor(rooms);
+        }
+
+        private static void HandleRmlLobbyRulesCommand(string command)
+        {
+            if (!RmlUiPrototype.LobbyMode) return;
+            RmlLobbyRulesEditor editor = EnsureRmlLobbyRules();
+            switch (command)
+            {
+                case "lobby:rules-open":
+                    editor.Open();
+                    return;
+                case "lobby:rules-close":
+                    editor.Close();
+                    return;
+                case "lobby:rules-map":
+                    editor.CycleMap();
+                    return;
+                case "lobby:rules-mode":
+                    editor.CycleMode();
+                    return;
+                case "lobby:rules-format":
+                    editor.CycleFormat();
+                    return;
+                case "lobby:rules-apply":
+                    editor.Apply(RmlUiPrototype.ReadFieldValue("rules_time"),
+                        RmlUiPrototype.ReadFieldValue("rules_goal"));
+                    return;
+            }
+            const string prefix = "lobby:rules-toggle:";
+            if (command.StartsWith(prefix, StringComparison.Ordinal)
+                && Int32.TryParse(command[prefix.Length..], out int index))
+                editor.Toggle(index);
+        }
+
         private static RmlMultiplayerController EnsureRmlMultiplayer()
         {
             if (_rmlMultiplayer != null)
