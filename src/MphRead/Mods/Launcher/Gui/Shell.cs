@@ -714,7 +714,8 @@ namespace MphRead.Mods.Launcher.Gui
             else if (command == "play:toggle-host")
                 controller.ToggleHost();
             else if (command == "play:create")
-                controller.Create(RmlUiPrototype.ReadFieldValue("play_create_name"));
+                controller.Create(RmlUiPrototype.ReadFieldValue("play_create_name"),
+                    RmlUiPrototype.ReadFieldValue("play_create_player_name"));
             else if (command == "play:join")
                 controller.JoinEndpoint(
                     RmlUiPrototype.ReadFieldValue("play_join_address"), spectate: false);
