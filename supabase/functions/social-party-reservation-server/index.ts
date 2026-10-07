@@ -180,7 +180,9 @@ Deno.serve(async (req: Request) => {
 
     const reservationId = typeof body.reservation_id === "string"
       ? body.reservation_id.trim() : "";
-    if (!uuidPattern.test(reservationId))
+    const zeroReservation = "00000000-0000-0000-0000-000000000000";
+    if (!uuidPattern.test(reservationId)
+      && !(action === "cancel" && reservationId === zeroReservation))
       return json(400, { error: "invalid_reservation_id" });
 
     if (action === "activate") {
