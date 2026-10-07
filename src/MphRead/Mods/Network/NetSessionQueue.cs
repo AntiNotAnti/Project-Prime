@@ -9,22 +9,66 @@ public static partial class NetSession
     internal static void StartQueuedClient(LobbyQueueClient queue)
     {
         if (!queue.Admitted || queue.ClientId != ClientId)
-            throw new InvalidOperationException("The accepted queue connection belongs to another client.");
-        Stop();
+            throw new InvalidOperationException(
+                "The accepted queue connection belongs to another client.");
         var admission = queue.TakeAdmission();
+        AdoptReservedAdmission(
+            admission.Transport,
+            admission.Server,
+            admission.ClientId,
+            admission.Welcome,
+            "reserved-seat queue admission");
+    }
+
+    internal static void StartPartyReservedClient(PartyReservedAdmission reservation)
+    {
+        if (reservation == null)
+            throw new ArgumentNullException(nameof(reservation));
+
+        var admission = reservation.Take();
+        if (admission.ClientId != ClientId)
+        {
+            admission.Transport.Dispose();
+            throw new InvalidOperationException(
+                "The accepted party reservation belongs to another client.");
+        }
+
+        AdoptReservedAdmission(
+            admission.Transport,
+            admission.Server,
+            admission.ClientId,
+            admission.Welcome,
+            "party-reserved admission");
+    }
+
+    private static void AdoptReservedAdmission(
+        NetTransport transport,
+        System.Net.IPEndPoint server,
+        uint clientId,
+        ReceivedPacket welcome,
+        string label)
+    {
+        if (clientId != ClientId)
+        {
+            transport.Dispose();
+            throw new InvalidOperationException(
+                "The reserved admission belongs to another client.");
+        }
+
+        Stop();
         _ownerToken = Guid.Empty;
-        _transport = admission.Transport;
+        _transport = transport;
         _transport.EnableRealtimeStateCoalescing();
         _transport.AnswerPingsImmediately();
-        _hostEndPoint = admission.Server;
+        _hostEndPoint = server;
         _lastServerPacket = Clock;
         Role = NetRole.Client;
         LocalSlot = -1;
         NetFrame = 0;
         LastError = null;
         NetLog.Open(PlayerName);
-        NetLog.Event("adopting reserved-seat queue admission");
-        Handle(admission.Welcome, Clock);
+        NetLog.Event("adopting " + label);
+        Handle(welcome, Clock);
         SendIdentify();
     }
 }
