@@ -6,9 +6,9 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **42** (`NetConfig.ProtocolVersion`). It was already
-  42 at the Studio migration baseline (`fcf311cc`); the creator migration does not
-  change the gameplay protocol.
+- The current wire protocol is **43** (`NetConfig.ProtocolVersion`). Protocol 42
+  was the Studio migration baseline; protocol 43 adds owner-authored Samus Morph
+  Ball touch semantics without increasing the intent packet width.
 - Protocol mismatches are refused during the Hello handshake. Do not make incompatible wire or simulation changes without a protocol bump.
 - Dated protocol 6/7/8 measurements in `.claude/` are historical A/B evidence, not the current architecture.
 
