@@ -401,8 +401,13 @@ namespace MphRead.Mods.Network
         /// </summary>
         public const int SizeWithFlags = Size + 9;
         public const int SizeWithWaitlist = SizeWithFlags + 3;
+        // Protocol 43 adds one authoritative capacity byte after the existing
+        // waitlist tail. This is the number of currently unoccupied player
+        // slots held by queue offers or atomic party reservations.
+        public const int SizeWithReservations = SizeWithWaitlist + 1;
         public bool WaitlistSupported;
         public ushort WaitlistCount;
+        public byte ReservedSlots;
         public MatchModifierFlags Rules;
 
         /// <summary>Bit 0: this server will open a new match on a port of its own.</summary>
@@ -450,6 +455,10 @@ namespace MphRead.Mods.Network
                 dest[SizeWithFlags] = WaitlistSupported ? (byte)1 : (byte)0;
                 BinaryPrimitives.WriteUInt16LittleEndian(dest[(SizeWithFlags + 1)..], (ushort)Math.Min(WaitlistCount, (ushort)256));
             }
+            if (dest.Length >= SizeWithReservations)
+            {
+                dest[SizeWithWaitlist] = (byte)Math.Min(ReservedSlots, (byte)8);
+            }
         }
 
         public static ServerStatusPacket Read(ReadOnlySpan<byte> src)
@@ -469,6 +478,9 @@ namespace MphRead.Mods.Network
                 AllowJoinInProgress = src.Length < Size + 5 || src[Size + 4] != 0,
                 WaitlistSupported = src.Length >= SizeWithWaitlist && src[SizeWithFlags] == 1,
                 WaitlistCount = src.Length >= SizeWithWaitlist ? (ushort)Math.Min(BinaryPrimitives.ReadUInt16LittleEndian(src[(SizeWithFlags + 1)..]), (ushort)256) : (ushort)0,
+                ReservedSlots = src.Length >= SizeWithReservations
+                    ? (byte)Math.Min(src[SizeWithWaitlist], (byte)8)
+                    : (byte)0,
                 Rules = src.Length >= SizeWithFlags ? (MatchModifierFlags)BinaryPrimitives.ReadUInt32LittleEndian(src[(Size + 5)..]) : MatchModifierFlags.None
             };
         }
