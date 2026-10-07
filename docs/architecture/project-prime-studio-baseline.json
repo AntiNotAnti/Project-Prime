@@ -436,9 +436,9 @@
     },
     "exportComponents": {
       "status": "passed",
-      "checks": 1142,
-      "log": "/tmp/project-prime-export-final-contract.log",
-      "scope": "Actual production-linked FFmpeg/FFprobe/process/cache contracts; fixture pixels separate from nativeReplay proof"
+      "checks": 1144,
+      "log": "/tmp/project-prime-export-acknowledged-evidence.log",
+      "scope": "Actual FFmpeg/FFprobe/process/cache contracts; deliberately600ms-delayed children acknowledge live PID/start ownership, queue state and maximum2 concurrency. Fixture pixels separate from native Replay proof."
     },
     "server": {
       "status": "passed",
@@ -489,10 +489,17 @@
       "scope": "Actual SDK publish, sibling apps, strict signatures, arm64/native/JIT checks, paired executable versions and extracted native launcher/thumbnail smoke; no Developer ID/notarization claim"
     },
     "threeOsCi": {
-      "status": "pending",
-      "scope": "Final source Windows/Linux/macOS build and platform acceptance"
+      "status": "authoritative-current-pr-checks",
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/367/checks",
+      "requirement": "Required Windows/Linux/macOS and Android checks must succeed for the current PR head; queued, failed or superseded runs are not passing evidence.",
+      "recordedRun": 37549146540,
+      "recordedSourceHead": "b2f79132efcd6325d79f19e5f8a97addae5523f4",
+      "recordedMerge": "0819eefa266c7558609966945572acb7012bd61e",
+      "recordedSourceTree": "82cfbba268daa0f75c17aa90df9bb983bb684cec",
+      "recordedMergeTreeMatchesHead": true,
+      "recordedRunAcceptance": "not-promoted; final platform outcomes are external to this local record",
+      "finalEvidence": "artifacts/studio-acceptance/final-ci/acceptance.json: actual final tested head/merge/tree, all workflow jobs and artifacts, scopes/logs."
     },
-    "migrationComplete": false,
     "publication": {
       "status": "passed",
       "ordinaryFilesystemChecks": 83,
@@ -506,7 +513,28 @@
       ]
     },
     "remainingRequiredGates": [
-      "Final Windows/Linux/macOS CI for the final source checkpoint"
-    ]
+      "Successful required Windows/Linux/macOS and Android checks for the current PR head"
+    ],
+    "migrationCompletion": {
+      "authority": "Current PR #367 required checks plus the recorded local acceptance scopes",
+      "requirement": "All required current-head checks succeed; optional broader engine/UI assembly splitting and file associations are not completion blockers.",
+      "status": "see-current-pr-checks"
+    },
+    "ciFixtureRepairs": {
+      "scope": "Fixture-only compositor synchronization, acknowledged export worker startup, exact private map staging oracle; production input/export coordinator/map publication unchanged.",
+      "engineAssemblySha256": "f8f08a638b7c15b2990573be1b728827545f545c63e884845d0362f48b8c3f1a",
+      "studioAssemblySha256": "2a6644bdfa3874d43621d05e8b32826ec792a356bde05682975e29a3a0a052df",
+      "buildErrors": 0,
+      "buildWarnings": 133,
+      "buildSeconds": 41.74,
+      "buildLog": "/tmp/project-prime-studio-ci-repairs-build.log",
+      "gamepadChecks": 1022,
+      "primeUiChecks": 201,
+      "gamepadLog": "/tmp/project-prime-gamepad-ci-repairs.log",
+      "replayPreparationChecks": 32,
+      "replayPreparationLog": "/tmp/project-prime-ci-map-preparation-final.log",
+      "exportChecks": 1144,
+      "exportEvidence": "artifacts/studio-acceptance/final-release/export-coordinator-startup/summary.json"
+    }
   }
 }

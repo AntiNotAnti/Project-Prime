@@ -68,7 +68,16 @@ if (args is ["--coordinator-child", var stateFile, var cancelFile, var jobId, va
         File.Move(destination + ".staging", destination, true);
     }
     Publish("Rendering");
-    for (int i = 0; i < 100; i++) { ObserveChildren(); if (File.Exists(cancelFile)) { Publish("Cancelled"); return; } await Task.Delay(20); }
+    string release = Path.Combine(Path.GetDirectoryName(stateFile)!, "fixture-complete");
+    var readyDeadline = Stopwatch.StartNew();
+    while (true)
+    {
+        ObserveChildren();
+        if (File.Exists(cancelFile)) { Publish("Cancelled"); return; }
+        if (File.Exists(release)) break;
+        if (readyDeadline.Elapsed > TimeSpan.FromSeconds(30)) throw new TimeoutException("Coordinator fixture was not explicitly released.");
+        await Task.Delay(20);
+    }
     Publish("Complete");
     for (int i = 0; i < 8; i++) { ObserveChildren(); await Task.Delay(20); }
     return;
@@ -83,6 +92,9 @@ if (args.Contains("--encoder-child"))
 }
 int checks = 0;
 void Check(bool value, string message) { if (!value) throw new InvalidOperationException(message); checks++; }
+int evidenceAt = Array.IndexOf(args, "--coordinator-evidence");
+string? coordinatorEvidence = evidenceAt >= 0 ? Path.GetFullPath(args[evidenceAt + 1]) : null;
+if (coordinatorEvidence != null) Directory.CreateDirectory(coordinatorEvidence);
 string root = Path.Combine(Path.GetTempPath(), "prime-offline-export-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
 try
@@ -248,6 +260,9 @@ try
         .Select(path => int.Parse(File.ReadAllText(path))).DefaultIfEmpty(0).Max();
     async Task LaunchFixture(string path)
     {
+        // A deliberately slow launch reproduces the cold-start case which a
+        // fixed 300 ms assertion could inspect before either child existed.
+        await Task.Delay(600);
         var ticket = JsonSerializer.Deserialize<StudioReplayExportTicket>(File.ReadAllText(path), new JsonSerializerOptions { IncludeFields = true })!;
         string prefix = Path.GetFileNameWithoutExtension(executable).Equals("dotnet", StringComparison.OrdinalIgnoreCase) ? "\"" + Assembly.GetExecutingAssembly().Location + "\" " : "";
         string peers = Path.GetDirectoryName(Path.GetDirectoryName(path)!)!;
@@ -262,17 +277,71 @@ try
         string file = Path.Combine(directory, "ticket.json"); File.WriteAllText(file, JsonSerializer.Serialize(ticket, new JsonSerializerOptions { IncludeFields = true })); return file;
     }
     static string State(string path) => JsonSerializer.Deserialize<StudioReplayExportStatus>(File.ReadAllText(Path.Combine(Path.GetDirectoryName(path)!, "status.json")))!.State;
+    static StudioReplayExportStatus? FixtureStatus(string path)
+    {
+        try { return JsonSerializer.Deserialize<StudioReplayExportStatus>(File.ReadAllText(Path.Combine(Path.GetDirectoryName(path)!, "status.json"))); }
+        catch (Exception ex) when (ex is IOException or JsonException) { return null; }
+    }
+    static bool HasLiveRenderingChild(string path)
+    {
+        if (FixtureStatus(path) is not { State: "Rendering", WorkerProcessId: { } id, WorkerStartUtcTicks: { } start }) return false;
+        try { using var process = Process.GetProcessById(id); return !process.HasExited && process.StartTime.ToUniversalTime().Ticks == start; }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { return false; }
+    }
+    static void ReleaseFixtures(IEnumerable<string> paths)
+    {
+        foreach (string path in paths) File.WriteAllText(Path.Combine(Path.GetDirectoryName(path)!, "fixture-complete"), "complete");
+    }
+    async Task WaitForFixture(Func<bool> ready, StudioJobManager manager, string[] paths, string description)
+    {
+        var deadline = Stopwatch.StartNew();
+        while (!ready() && deadline.Elapsed < TimeSpan.FromSeconds(10))
+        {
+            if (MaximumLiveChildren() > 2) throw new InvalidOperationException("More than two actual export child processes were observed.");
+            await Task.Delay(20);
+        }
+        string details = $"jobs={manager.Jobs.Count}, queued={manager.Jobs.Count(j => j.Progress.Detail?.StartsWith("Queued") == true)}, maxLive={MaximumLiveChildren()}, "
+            + string.Join(", ", paths.Select(path => $"{Path.GetFileName(Path.GetDirectoryName(path))}:{FixtureStatus(path)?.State ?? "no status"}/pid={FixtureStatus(path)?.WorkerProcessId?.ToString() ?? "none"}"));
+        Check(ready(), description + ": " + details);
+    }
+    void RetainCoordinatorEvidence(string name, StudioJobManager manager, string[] paths, TimeSpan? acknowledgedAfter = null)
+    {
+        if (coordinatorEvidence == null) return;
+        var report = new
+        {
+            LegacyTimedCheckpointMilliseconds = 300,
+            InjectedMinimumLauncherDelayMilliseconds = 600,
+            LegacyTimedCheckpointGuaranteesReadiness = false,
+            AcknowledgedAfterMilliseconds = acknowledgedAfter?.TotalMilliseconds,
+            MaximumObservedActualChildren = MaximumLiveChildren(),
+            LiveRenderingChildren = paths.Count(HasLiveRenderingChild),
+            QueuedJobs = manager.Jobs.Count(job => job.Progress.Detail?.StartsWith("Queued") == true),
+            Jobs = manager.Jobs.Select(job => new { job.Id, job.State, job.Progress, job.Error }).ToArray(),
+            Workers = paths.Select(path => new { Ticket = Path.GetFileName(Path.GetDirectoryName(path)), Status = FixtureStatus(path), Live = HasLiveRenderingChild(path) }).ToArray(),
+            ChildObservations = Directory.EnumerateFiles(coordinatorRoot, "maximum-live-children", SearchOption.AllDirectories)
+                .Select(path => new { Ticket = Path.GetFileName(Path.GetDirectoryName(path)), MaximumActualChildren = int.Parse(File.ReadAllText(path)) }).ToArray()
+        };
+        File.WriteAllText(Path.Combine(coordinatorEvidence, name + ".json"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true, IncludeFields = true }));
+    }
     await using (var jobs = new StudioJobManager())
     {
         var coordinator = new ReplayExportWorkerCoordinator(jobs, LaunchFixture);
         var paths = Enumerable.Range(0, 5).Select(Ticket).ToArray();
+        var startAcknowledgement = Stopwatch.StartNew();
         var pending = paths.Select(coordinator.LaunchAsync).ToArray();
-        await Task.Delay(300);
-        Check(jobs.Jobs.Count == 5 && jobs.Jobs.Count(j => j.Progress.Detail?.StartsWith("Queued") == true) >= 3 && MaximumLiveChildren() == 2, "central jobs retain observable queued exports and bound actual child concurrency to two");
-        await Task.WhenAll(pending).WaitAsync(TimeSpan.FromSeconds(15));
+        try
+        {
+            await WaitForFixture(() => jobs.Jobs.Count == 5 && jobs.Jobs.Count(j => j.Progress.Detail?.StartsWith("Queued") == true) >= 3
+                && paths.Count(HasLiveRenderingChild) == 2 && MaximumLiveChildren() == 2, jobs, paths,
+                "central jobs retain three observable queued exports while two acknowledged actual children wait for explicit release");
+            RetainCoordinatorEvidence("cold-start-acknowledged", jobs, paths, startAcknowledgement.Elapsed);
+        }
+        finally { ReleaseFixtures(paths); await Task.WhenAll(pending).WaitAsync(TimeSpan.FromSeconds(15)); }
         Check(MaximumLiveChildren() == 2 && paths.All(p => State(p) == "Complete") && jobs.Jobs.All(j => j.State == StudioJobState.Completed), "all queued actual child workers finish independently with central immutable progress history");
+        RetainCoordinatorEvidence("all-queued-workers-complete", jobs, paths);
         string cancelled = Ticket(10); var stoppedTask = coordinator.LaunchAsync(cancelled);
-        await Task.Delay(150); jobs.Jobs.Last().Cancel();
+        await WaitForFixture(() => HasLiveRenderingChild(cancelled), jobs, [cancelled], "explicit cancellation targets an acknowledged actual child rather than a pending cold launch");
+        jobs.Jobs.Last().Cancel();
         try { await stoppedTask; } catch (OperationCanceledException) { }
         Check(State(cancelled) == "Cancelled" && jobs.Jobs.Last().State == StudioJobState.Cancelled, "explicit central cancellation writes the persisted signal and awaits actual child acknowledgment");
     }
@@ -280,13 +349,14 @@ try
     var detachedJobs = new StudioJobManager();
     var detached = new ReplayExportWorkerCoordinator(detachedJobs, LaunchFixture);
     Task[] activeTasks = new[] { continued, continuedSecond }.Select(detached.LaunchAsync).ToArray();
-    var starting = Stopwatch.StartNew();
-    while (new[] { continued, continuedSecond }.Any(path => !File.Exists(Path.Combine(Path.GetDirectoryName(path)!, "status.json")) || State(path) != "Rendering")
-        && starting.Elapsed < TimeSpan.FromSeconds(5)) await Task.Delay(20);
-    Check(starting.Elapsed < TimeSpan.FromSeconds(5), "both actual children publish live status before shutdown fixture queues excess work");
+    await WaitForFixture(() => HasLiveRenderingChild(continued) && HasLiveRenderingChild(continuedSecond), detachedJobs,
+        [continued, continuedSecond], "both actual children acknowledge ownership before shutdown fixture queues excess work");
     Task[] queuedTasks = new[] { queued, queuedSecond }.Select(detached.LaunchAsync).ToArray();
     Task[] continuedTasks = activeTasks.Concat(queuedTasks).ToArray();
-    await Task.Delay(100); detached.DetachForShutdown(); await detachedJobs.DisposeAsync();
+    await WaitForFixture(() => detachedJobs.Jobs.Count(job => job.Progress.Detail?.StartsWith("Queued") == true) == 2
+        && FixtureStatus(queued)?.State == "Queued" && FixtureStatus(queuedSecond)?.State == "Queued", detachedJobs,
+        [continued, continuedSecond, queued, queuedSecond], "excess tickets acknowledge their persisted queued state before shutdown");
+    detached.DetachForShutdown(); await detachedJobs.DisposeAsync();
     await Task.WhenAll(continuedTasks).WaitAsync(TimeSpan.FromSeconds(2));
     Check(!File.Exists(Path.Combine(Path.GetDirectoryName(continued)!, "cancel")) && State(continued) != "Cancelled", "whole Studio shutdown detaches observation without cancelling an actual running child");
     Check(State(queued) == "Queued" && State(queuedSecond) == "Queued" && !File.Exists(Path.Combine(Path.GetDirectoryName(queued)!, "cancel")), "whole Studio close preserves excess queued tickets without launching or cancelling them");
@@ -294,12 +364,16 @@ try
     {
         var restored = new ReplayExportWorkerCoordinator(restoredJobs, LaunchFixture);
         restored.RestorePersisted(coordinatorRoot);
-        await Task.Delay(100);
-        Check(restoredJobs.Jobs.Count == 4 && State(queued) == "Queued" && State(queuedSecond) == "Queued" && MaximumLiveChildren() == 2,
-            "immediate Studio restart reserves both still-running child slots before resuming pending tickets");
+        await WaitForFixture(() => restoredJobs.Jobs.Count == 4 && State(queued) == "Queued" && State(queuedSecond) == "Queued"
+            && HasLiveRenderingChild(continued) && HasLiveRenderingChild(continuedSecond) && MaximumLiveChildren() == 2
+            && restoredJobs.Jobs.Count(job => job.Progress.Detail?.StartsWith("Queued") == true) == 2, restoredJobs,
+            [continued, continuedSecond, queued, queuedSecond], "immediate Studio restart reserves both still-running child slots before resuming pending tickets");
+        RetainCoordinatorEvidence("restart-live-workers-reserved", restoredJobs, [continued, continuedSecond, queued, queuedSecond]);
+        ReleaseFixtures([continued, continuedSecond, queued, queuedSecond]);
         var deadline = Stopwatch.StartNew(); while (restoredJobs.Jobs.Any(j => j.State == StudioJobState.Running) && deadline.Elapsed < TimeSpan.FromSeconds(10)) await Task.Delay(50);
         Check(State(continued) == "Complete" && State(continuedSecond) == "Complete", "actual children persist terminal output after the original parent job manager has shut down");
         Check(State(queued) == "Complete" && State(queuedSecond) == "Complete" && MaximumLiveChildren() == 2, "new Studio coordinator rediscovers and resumes all persisted pending tickets without exceeding two actual children");
+        RetainCoordinatorEvidence("detached-and-restored-complete", restoredJobs, [continued, continuedSecond, queued, queuedSecond]);
     }
     string historyRoot = Path.Combine(root, "finished-history"); Directory.CreateDirectory(historyRoot);
     string? laterQueued = null;
@@ -316,6 +390,7 @@ try
     await using (var historyJobs = new StudioJobManager())
     {
         var historyCoordinator = new ReplayExportWorkerCoordinator(historyJobs, LaunchFixture);
+        ReleaseFixtures([laterQueued!]);
         historyCoordinator.RestorePersisted(historyRoot);
         Check(historyJobs.Jobs.Count == 1, "256 completed historical exports do not consume the pending restoration budget");
         var deadline = Stopwatch.StartNew();

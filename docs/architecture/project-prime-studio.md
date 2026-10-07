@@ -14,29 +14,35 @@ remains only for the explicitly retained viewport/UI diagnostic oracles.
 
 Local macOS acceptance proves native Map rendering, real external playtests,
 private Replay playback and synchronized presentation, native modal ownership,
-loaded creator controls and detached native video export. The entire migration
-is not yet declared complete: Windows/Linux/macOS CI must finish against the final source checkpoint. Central jobs, cancellation, curve selection, Android APK exclusion/signature
-and paired macOS publish/sign/extract acceptance now pass.
-Assembly extraction and file associations are optional.
+loaded creator controls and detached native video export. Local evidence records the exact scopes and immutable graphs below. Required final
+Windows/Linux/macOS and Android CI outcomes are authoritative in
+[PR #367’s checks](https://github.com/AntiNotAnti/Project-Prime/pull/367/checks)
+for its current head. Completion requires those checks to succeed; a queued,
+failed or superseded run is not passing evidence. Central jobs, cancellation,
+curve selection, Android APK exclusion/signature and paired macOS
+publish/sign/extract acceptance pass locally.
+`ProjectPrime.Studio.Protocol` already extracts the proven framework-only shared
+protocol boundary. Broader engine/UI assembly splitting and file associations
+remain optional follow-ups after the proven process separation.
 
 | Phase | Implemented boundary | Recorded acceptance and remaining gate |
 | --- | --- | --- |
 | 0 | Frozen baseline, captures/hashes, measurements and executable contracts | Original map/replay suites, five exact-baseline native Game startup/memory samples and five matching final-jobs Game samples recorded. Original Retina viewport assertion failure retained; corrected production oracle passes 48 on current source. |
-| 1 | Independent executable, installation/user single instance, request forwarding and lifetime | Native game/Studio integration 118, IPC 60 and real client-guard process checks 11 pass on macOS. Paired macOS publish/sign/extract passes; final three-OS CI pending. |
+| 1 | Independent executable, installation/user single instance, request forwarding and lifetime | Native game/Studio integration 118, IPC 60 and real client-guard process checks 11 pass on macOS. Paired macOS publish/sign/extract passes; current-head platform outcomes are recorded in PR #367’s required checks. |
 | 2 | Asset-free Home, documents, commands, docking/floating panels, persistence and jobs | Loaded headless UI 824 and native owned dialogs 122 pass, including central expensive-action jobs, true cancellation/drain, source-wait ownership and adoption guards. |
 | 3 | Canonical Map document and decomposed shared panels behind native host services | Map lifecycle/render 114, loaded UI 824, native modals 122 and real game/editor 118 pass. Actual failed native surface admission releases the unregistered handle and keeps canonical CPU editing available. |
 | 4 | Private Studio builds and game-owned exact package publication; all game runtime generation fenced | Canonical independent-process real-scene generation 114, publication/path 83 (86 on a case-sensitive filesystem), physical alias 17 and native game/editor 118 pass. |
-| 5 | Framework-only authenticated local protocol and bounded owner-thread game broker | IPC 60 and canonical broker 34 pass, including aliases, reconnect, rotated capabilities, cancellation, exact identity and narrow tickets. Remaining platform acceptance pending. |
+| 5 | Framework-only authenticated local protocol and bounded owner-thread game broker | IPC 60 and canonical broker 34 pass, including aliases, reconnect, rotated capabilities, cancellation, exact identity and narrow tickets. Required current-head platform outcomes are recorded in PR #367’s checks. |
 | 6 | Unsaved private package → exact external playtest → stop/edit/rebuild/restart | Native game/editor 118 passes with live-byte preservation, selection/history/layout retention, independent crashes and stale stop rejection. |
 | 7 | Per-document canonical private player, frozen sources, exact historical map resources, sidecars and lifetime pins | Standalone canonical Replay worker 72,624 plus parent lifecycle 94 pass; full native Replay 158 passes, including central seek cancellation and exact checkpoint/scene preservation. |
 | 8 | Explicit native presentation host, one session clock, view/device generation lifetime and retry | Native Replay 158 proves default HUD, two POVs, four cameras, 1×/2× timing, retry hashes, continuing clip Save As and stale-fourth-view recovery/cleanup. Full-graph hashes compare the same explicitly presented phase. |
 | 9 | Direct retained creator render world/graph, native surfaces, integer ID/depth picking and shared backend | Metal renderer 42 with evidence output, native Map 114 and dense redraw 97 pass. Exact 1440p offscreen renderer submission measured; end-to-end 1440p frame/GPU timing remains unmeasured. |
 | 10 | Map workspace, viewport modes, modeling, prefabs, assets, analysis, structural diff and restart authoring loop | Canonical modeling 121, prefab/diff 70, renderer 42 and loaded UI 824 pass. Cooperative topology/modifier cancellation preserves source, history and failed adoption. |
-| 11 | Replay tracks/curves, multiview, combat/analytics/comparison, offline audio, exports and portable/diagnostic bundles | Canonical Replay 72,624, native Replay 158 and export components 1,142 pass. Loaded UI 824 proves true two-dimensional key box selection, Speed-channel gestures and central action jobs. |
+| 11 | Replay tracks/curves, multiview, combat/analytics/comparison, offline audio, exports and portable/diagnostic bundles | Canonical Replay 72,624, native Replay 158 and export components 1,144 pass. Loaded UI 824 proves true two-dimensional key box selection, Speed-channel gestures and central action jobs. |
 | 12 | Studio Home/session recovery, search, configurable hotkeys and measured diagnostic HUD | Loaded UI 824, collector 18 and native modes/owned HUD 119 pass, including second/released/lost document attribution. GPU time is explicitly unavailable. |
 | Cleanup | External game creator routes; full in-game Replay editor and editor-only UiSurface sizing removed | Source contracts and original player UI regression pass. Retained diagnostic Map adapter is intentional; normal routes launch Studio. |
-| Release | Paired desktop metadata, installation leases and updater compatibility; Android runtime only | Updater 85, final server Release and actual paired macOS publish/sign/extract pass. Final signed Android development APK passes both ABI/native payload/extracted assembly exclusion checks. Final three-OS CI pending. |
-| Later | Selective shared assembly extraction and optional file associations | Optional follow-up; no giant namespace/engine rewrite is required. |
+| Release | Paired desktop metadata, installation leases and updater compatibility; Android runtime only | Updater 85, final server Release and actual paired macOS publish/sign/extract pass. Final signed Android development APK passes both ABI/native payload/extracted assembly exclusion checks. Required current-head platform outcomes are recorded in PR #367’s checks. |
+| Later | Broader engine/UI assembly separation and optional file associations | The framework-only shared Protocol boundary is already extracted. Selective additional assemblies are optional after the proven process boundary; no giant namespace/engine rewrite is required. |
 
 ## Product and process ownership
 
@@ -438,7 +444,8 @@ A reduced worker-only run never certifies omitted HUD/camera/clip branches.
 | Canonical modeling / prefab | 121 `/tmp/project-prime-studio-modeling-cancellation.log`; prefab/diff 70 `/tmp/project-prime-map-prefab-v6.log`. Actual compiler/topology/provenance/history/Save As races are covered; broad native gesture claims require their own workflows. |
 | Canonical Replay | Worker 72,624 plus parent lifecycle 94 `/tmp/project-prime-final-seek-replay.log`. Two historical recordings and two isolated custom-map versions; cancellation/supersession retains exact scene, checkpoint payload hashes/count/bytes and original transport, and disposes abandoned allocated candidates. |
 | Full native Replay | 158 `/tmp/project-prime-host-native-replay-final-presented.log`, captures/JSON `/tmp/project-prime-native-replay-final-presented-evidence/`: default HUD/two POVs, one-clock four views at 1×/2×, seek/retry hashes, clip continuation, stale fourth generation, exact frozen v5 crop, pixel-equal worker frame, native PNG/MP4/PCM exports and central jobs. |
-| Export components | 1,142 `/tmp/project-prime-export-final-contract.log`: canonical sampling/audio/encoder/cache, actual FFmpeg 9/FFprobe, bounded children, cancellation/restart/parent exit, refcount pins and malformed ticket pruning. Fixture testsrc pixels are separate from native Replay pixels. |
+| Export components | 1,144 `/tmp/project-prime-export-acknowledged-evidence.log`: canonical sampling/audio/encoder/cache, actual FFmpeg 9/FFprobe, bounded children, cancellation/restart/parent exit, refcount pins and malformed ticket pruning. Deliberately delayed child launches must acknowledge actual PID/start ownership before queue/concurrency checks; fixture testsrc pixels are separate from native Replay pixels. |
+| CI fixture synchronization and preparation | Fresh production-linked Gamepad 1,022 and Prime UI 201 pass `/tmp/project-prime-gamepad-ci-repairs.log` after committing a headless compositor frame before pointer input. Replay preparation 32 passes `/tmp/project-prime-ci-map-preparation-final.log`: exact private staging ownership/identity, existing archive/runtime bytes and cancellation cleanup, with unowned-file and mutation rejection. Production input, export coordination and map publication are unchanged by these fixture repairs. |
 | Map native renderer | Retained Metal 42 `/tmp/project-prime-studio-gpu-picking-final-evidence.log` (41 without output), native Map 114, dense redraw 97. Real one/four-view shared uploads, ID/depth CPU parity, loss/recovery, final resource zero counts and bounded winning-triangle CPU refinement. |
 | Diagnostics | Collector/job 18 `/tmp/project-prime-studio-diagnostics-final-labels.log`; owned native modes/HUD 119 `/tmp/project-prime-host-native-map-final-scoped.log`, captures `/tmp/project-prime-native-map-final-scoped-evidence/`; second unrendered/released map and lost-generation metrics are unavailable, then current-generation presentation restores them. |
 | Native failed admission | Generic native lifecycle 118 `/tmp/project-prime-host-native-admission-final-lifetime.log`: eight actual C API rejection checks, created/released handle counts, zero live surfaces/worlds/targets, retained error and CPU edit/Undo/Discard. |
@@ -567,7 +574,7 @@ Apple M4 Pro, .NET SDK 10.0.100/runtime 10.0.0. Missing local import textures ar
 recorded fixture limitations, not passing acceptance. GPU images use pixel/
 semantic/visual oracles rather than cross-driver PNG byte identity.
 
-## Remaining completion gates
+## Completion contract and evidence scopes
 
 Final local desktop acceptance passes against the immutable lifetime graph:
 engine `5789c339739fa809c0d6dec09aec52a025efc5720a01f2837df832e0cbbf834e`
@@ -592,13 +599,23 @@ with the Android Debug development certificate. The exact 1,175-source compile
 manifest, logs, probes, metadata and APK are retained in
 `artifacts/studio-acceptance/final-platform/android/`.
 Android compilation/package verification does not establish on-device graphics
-or gameplay acceptance. Final Windows/Linux/macOS CI remains pending against the
-same source checkpoint. No required authoring capability is being deferred to
-optional assembly extraction or file associations; do not associate generic
+or gameplay acceptance. Required final Windows/Linux/macOS and Android checks must succeed for the current
+PR head. [PR #367’s checks](https://github.com/AntiNotAnti/Project-Prime/pull/367/checks)
+are the authoritative live status; they are not replaced by this static local
+record. The ignored consolidated acceptance manifest
+`artifacts/studio-acceptance/final-ci/acceptance.json` retains the actual tested
+head, generated PR merge and source tree, per-job outcomes, logs and artifact
+identities once the final results settle. A generated merge can certify the head
+only when its source tree matches exactly, as verified for the recorded b2f79132
+run: merge `0819eefa266c7558609966945572acb7012bd61e`, matching tree
+`82cfbba268daa0f75c17aa90df9bb983bb684cec`. That identity verification does not
+convert a failed or incomplete workflow into acceptance. No required authoring capability is being deferred to
+optional broader engine/UI assembly splitting or file associations; do not associate generic
 `.json` files.
 
 Preserve the diagnostic-only legacy Map adapter while original viewport/UI checks
 need it. Normal creator routes and the full in-game Replay authoring UI are
 removed; this exception must not reopen embedded application ownership. Keep
-Theatre quick watch and independent existing killcams. Optional small shared
-assembly extraction follows proven boundaries and must not fork the engine.
+Theatre quick watch and independent existing killcams. The framework-only Protocol
+assembly is already shared and extracted. Optional additional engine/UI assemblies follow the proven boundaries and must not fork
+the engine.

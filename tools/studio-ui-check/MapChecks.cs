@@ -78,7 +78,7 @@ internal static partial class Program
             }
             document.Host.ShowPanel("Inspector");
             Console.WriteLine("Loaded Map UI and owned Community captures complete; canonical save/build/recovery acceptance next.");
-            await CheckCanonicalMapLifecycleAsync(window, document, canonical, paths);
+            await CheckCanonicalMapLifecycleAsync(window, document, canonical, paths, output);
         }
         catch(Exception error){Console.Error.WriteLine("Map editor acceptance failed before cleanup: "+error);throw;}
         finally
@@ -188,7 +188,7 @@ internal static partial class Program
         }
     }
 
-    private static async Task CheckCanonicalMapLifecycleAsync(StudioWindow window, MapStudioDocument document, MapDocument canonical, StudioPaths paths)
+    private static async Task CheckCanonicalMapLifecycleAsync(StudioWindow window, MapStudioDocument document, MapDocument canonical, StudioPaths paths, string output)
     {
         string source = Path.Combine(paths.UserDataDirectory, "acceptance-map.json");
         await document.SaveAsync(source, CancellationToken.None);
@@ -208,8 +208,9 @@ internal static partial class Program
             +System.Text.Json.JsonSerializer.Serialize(canonical.Diagnostics));
         await document.Host.BuildAsync(package: false);
         string runtime = Path.Combine(paths.UserDataDirectory, "runtime");
-        Check(Directory.Exists(runtime) && Directory.EnumerateFiles(runtime, "*", SearchOption.AllDirectories).Any(),
-            "standalone runtime build publishes canonical outputs beneath Studio private runtime");
+        bool published = Directory.Exists(runtime) && Directory.EnumerateFiles(runtime, "*", SearchOption.AllDirectories).Any();
+        Check(published, "standalone runtime build publishes canonical outputs beneath Studio private runtime"
+            + (published ? "" : "; " + CaptureMapBuildFailure(window, document, canonical, paths, output)));
         await document.Host.BuildAsync(package: true);
         string package = Path.ChangeExtension(source, ".ppmap");
         Check(File.Exists(package), "standalone package action writes portable canonical package");
