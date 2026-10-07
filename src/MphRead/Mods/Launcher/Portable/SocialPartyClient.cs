@@ -114,6 +114,92 @@ namespace MphRead.Mods.Launcher
             CancellationToken cancellationToken = default)
             => MutateAsync(Body("disband"), cancellationToken);
 
+        internal static Task<SocialPartyMutationResult> RequestReservationAsync(
+            ulong authorityEpoch, bool includeLeader,
+            CancellationToken cancellationToken = default)
+        {
+            if (authorityEpoch == 0)
+                return Task.FromResult(new SocialPartyMutationResult(
+                    false, "invalid_authority_epoch", Current));
+
+            var body = Body("request_reservation");
+            body["authority_epoch"] = authorityEpoch.ToString(
+                System.Globalization.CultureInfo.InvariantCulture);
+            body["include_leader"] = includeLeader;
+            return MutateAsync(body, cancellationToken);
+        }
+
+        internal static Task<SocialPartyMutationResult> CancelReservationAsync(
+            CancellationToken cancellationToken = default)
+            => MutateAsync(Body("cancel_reservation"), cancellationToken);
+
+        internal static async Task<PartyReservationPreparation>
+            PrepareLeaderReservationAsync(
+                ServerBrowserEntry entry,
+                CancellationToken cancellationToken = default)
+        {
+            SocialParty? party = Current.Party;
+            if (party is not { IsLeader: true } || party.Members.Count < 2)
+                return PartyReservationPreparation.Fail("leader_party_required");
+            if (!entry.Live || !entry.Compatible
+                || !entry.Status.LobbyEnabled
+                || entry.Status.Phase != SessionPhase.Lobby
+                || entry.Status.AuthorityEpoch == 0)
+                return PartyReservationPreparation.Fail("reservation_target_invalid");
+
+            SocialPartyReservation? existing = Current.Reservation;
+            if (existing != null
+                && (!existing.TryAuthorityEpoch(out ulong existingEpoch)
+                    || existingEpoch != entry.Status.AuthorityEpoch
+                    || !existing.IncludeLeader))
+            {
+                await CancelReservationAsync(cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            SocialPartyMutationResult requested =
+                await RequestReservationAsync(
+                    entry.Status.AuthorityEpoch,
+                    includeLeader: true,
+                    cancellationToken).ConfigureAwait(false);
+            if (!requested.Success)
+                return PartyReservationPreparation.Fail(requested.Status);
+
+            SocialPartyReservation? reservation =
+                requested.Snapshot?.Reservation ?? Current.Reservation;
+            if (reservation == null
+                || !Guid.TryParse(reservation.RequestId, out Guid requestId)
+                || requestId == Guid.Empty)
+                return PartyReservationPreparation.Fail(
+                    "reservation_request_missing");
+
+            PartyReservationClient? client =
+                await PartyReservationClient.ConnectAsync(
+                    entry.Listing.Address,
+                    entry.Listing.Port,
+                    requestId,
+                    cancellationToken).ConfigureAwait(false);
+            if (client == null)
+                return PartyReservationPreparation.Fail(
+                    "reservation_server_refused");
+
+            PartyReservedAdmission admission;
+            try
+            {
+                admission = client.TakeAdmission();
+            }
+            catch
+            {
+                client.Dispose();
+                throw;
+            }
+            client.Dispose();
+
+            RefreshNow();
+            return new PartyReservationPreparation(
+                true, "", admission, reservation);
+        }
+
         internal static async Task<PartyGameInviteResult> InvitePartyToLobbyAsync(
             CancellationToken cancellationToken = default)
         {
@@ -201,13 +287,45 @@ namespace MphRead.Mods.Launcher
                 return SocialJoinResolution.Fail(verified.Error);
 
             ServerBrowserEntry entry = verified.Entry;
+            PartyReservedAdmission? partyAdmission = null;
+
+            SocialPartyReservation? reservation = Current.Reservation;
+            if (reservation != null
+                && reservation.TryAuthorityEpoch(out ulong reservationEpoch)
+                && reservationEpoch == epoch
+                && Guid.TryParse(reservation.RequestId, out Guid requestId)
+                && requestId != Guid.Empty)
+            {
+                PartyReservationClient? client =
+                    await PartyReservationClient.ConnectAsync(
+                        entry.Listing.Address,
+                        entry.Listing.Port,
+                        requestId,
+                        cancellationToken).ConfigureAwait(false);
+                if (client == null)
+                    return SocialJoinResolution.Fail(
+                        "party_reservation_unavailable");
+
+                try
+                {
+                    partyAdmission = client.TakeAdmission();
+                }
+                catch
+                {
+                    client.Dispose();
+                    throw;
+                }
+                client.Dispose();
+            }
+
             return new SocialJoinResolution(
                 true,
                 entry.Listing.Address,
                 entry.Listing.Port,
                 entry.Name,
                 entry.Status.RoomKey,
-                "");
+                "",
+                partyAdmission);
         }
 
         internal static Task<SocialPartyMutationResult> DeclineTravelAsync(
@@ -512,6 +630,8 @@ namespace MphRead.Mods.Launcher
         public List<SocialRecentPlayer> RecentPlayers { get; set; } = new();
         [JsonPropertyName("travel")]
         public SocialPartyTravel? Travel { get; set; }
+        [JsonPropertyName("reservation")]
+        public SocialPartyReservation? Reservation { get; set; }
     }
 
     internal sealed class SocialParty
@@ -616,6 +736,59 @@ namespace MphRead.Mods.Launcher
         public bool IsSelf { get; set; }
         [JsonPropertyName("status")]
         public string Status { get; set; } = "pending";
+    }
+
+    internal sealed class SocialPartyReservation
+    {
+        [JsonPropertyName("request_id")]
+        public string RequestId { get; set; } = "";
+        [JsonPropertyName("authority_epoch")]
+        public string AuthorityEpoch { get; set; } = "";
+        [JsonPropertyName("include_leader")]
+        public bool IncludeLeader { get; set; }
+        [JsonPropertyName("requested_count")]
+        public int RequestedCount { get; set; }
+        [JsonPropertyName("status")]
+        public string Status { get; set; } = "pending";
+        [JsonPropertyName("server_reservation_id")]
+        public string? ServerReservationId { get; set; }
+        [JsonPropertyName("created_at")]
+        public DateTimeOffset CreatedAt { get; set; }
+        [JsonPropertyName("expires_at")]
+        public DateTimeOffset ExpiresAt { get; set; }
+        [JsonPropertyName("members")]
+        public List<SocialPartyReservationMember> Members { get; set; } = new();
+
+        public bool TryAuthorityEpoch(out ulong epoch)
+            => UInt64.TryParse(
+                AuthorityEpoch,
+                System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out epoch) && epoch != 0;
+    }
+
+    internal sealed class SocialPartyReservationMember
+    {
+        [JsonPropertyName("prime_id")]
+        public string PrimeId { get; set; } = "";
+        [JsonPropertyName("display_name")]
+        public string DisplayName { get; set; } = "Player";
+        [JsonPropertyName("is_self")]
+        public bool IsSelf { get; set; }
+        [JsonPropertyName("slot")]
+        public int? Slot { get; set; }
+        [JsonPropertyName("status")]
+        public string Status { get; set; } = "pending";
+    }
+
+    internal readonly record struct PartyReservationPreparation(
+        bool Success,
+        string Error,
+        PartyReservedAdmission? Admission,
+        SocialPartyReservation? Reservation)
+    {
+        internal static PartyReservationPreparation Fail(string error)
+            => new(false, error, null, null);
     }
 
     internal readonly record struct SocialPartyMutationResult(
