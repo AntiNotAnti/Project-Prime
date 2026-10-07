@@ -680,6 +680,82 @@ namespace MphRead.Mods.Launcher.Gui
             SetBool("social_loading", true);
         }
 
+        private static void BeginPartyMutation(string action, string id = "")
+        {
+            if (_socialFixture || _socialCancel == null || _socialCancel.IsCancellationRequested)
+                return;
+            if (_socialMutation is { IsCompleted: false }
+                || _socialInviteMutation is { IsCompleted: false }
+                || _socialPartyMutation is { IsCompleted: false }
+                || _socialPartyGameInvite is { IsCompleted: false }
+                || _socialJoin is { IsCompleted: false })
+            {
+                SetText("social_status", "SOCIAL ACTION ALREADY IN PROGRESS");
+                return;
+            }
+
+            CancellationToken token = _socialCancel.Token;
+            _socialPartyMutation = action switch
+            {
+                "party-invite" => SocialPartyClient.InviteAsync(id, token),
+                "party-accept" => SocialPartyClient.AcceptInviteAsync(id, token),
+                "party-decline" => SocialPartyClient.DeclineInviteAsync(id, token),
+                "party-cancel" => SocialPartyClient.CancelInviteAsync(id, token),
+                "party-leave" => SocialPartyClient.LeaveAsync(token),
+                "party-disband" => SocialPartyClient.DisbandAsync(token),
+                "party-kick" => SocialPartyClient.KickAsync(id, token),
+                "party-promote" => SocialPartyClient.PromoteAsync(id, token),
+                _ => null
+            };
+            if (_socialPartyMutation == null)
+                return;
+
+            SetText("social_status", action switch
+            {
+                "party-invite" => "SENDING PARTY INVITE",
+                "party-accept" => "JOINING PARTY",
+                "party-decline" => "DECLINING PARTY INVITE",
+                "party-cancel" => "CANCELLING PARTY INVITE",
+                "party-leave" => "LEAVING PARTY",
+                "party-disband" => "DISBANDING PARTY",
+                "party-kick" => "REMOVING PARTY MEMBER",
+                "party-promote" => "PROMOTING PARTY LEADER",
+                _ => "UPDATING PARTY"
+            });
+            SetBool("social_loading", true);
+        }
+
+        private static void BeginPartyGameInvites()
+        {
+            if (_socialFixture || _socialCancel == null || _socialCancel.IsCancellationRequested)
+                return;
+            if (_socialPartyGameInvite is { IsCompleted: false }
+                || _socialPartyMutation is { IsCompleted: false }
+                || _socialJoin is { IsCompleted: false })
+                return;
+
+            _socialPartyGameInvite =
+                SocialPartyClient.InvitePartyToLobbyAsync(_socialCancel.Token);
+            SetText("social_status", "INVITING PARTY TO LOBBY");
+            SetBool("social_loading", true);
+        }
+
+        private static void BeginPartyLeaderJoin()
+        {
+            if (_socialFixture || _socialCancel == null || _socialCancel.IsCancellationRequested)
+                return;
+            if (NetSession.Active)
+            {
+                SetText("social_status", "LEAVE YOUR CURRENT SESSION BEFORE JOINING ANOTHER");
+                return;
+            }
+            if (_socialJoin is { IsCompleted: false })
+                return;
+            _socialJoin = SocialPartyClient.PrepareLeaderJoinAsync(_socialCancel.Token);
+            SetText("social_status", "VERIFYING PARTY LEADER LOBBY");
+            SetBool("social_loading", true);
+        }
+
         private static void BeginSocialJoin(string action, string id)
         {
             if (_socialFixture || _socialCancel == null || _socialCancel.IsCancellationRequested)
@@ -825,6 +901,52 @@ namespace MphRead.Mods.Launcher.Gui
                 }
             }
 
+            if (_socialPartyMutation is { IsCompleted: true } partyMutation)
+            {
+                _socialPartyMutation = null;
+                try
+                {
+                    SocialPartyMutationResult result =
+                        partyMutation.GetAwaiter().GetResult();
+                    SetText("social_status", result.Success
+                        ? PartyMutationStatus(result.Status)
+                        : "PARTY REFUSED // "
+                            + result.Status.Replace('_', ' ').ToUpperInvariant());
+                    SocialPartyClient.RefreshNow();
+                    _socialFingerprint = "";
+                }
+                catch (OperationCanceledException) when (_socialCancel?.IsCancellationRequested == true)
+                {
+                }
+                catch (Exception ex)
+                {
+                    SetText("social_status", "PARTY FAILED // " + ShortSocialError(ex));
+                }
+            }
+
+            if (_socialPartyGameInvite is { IsCompleted: true } partyInviteAll)
+            {
+                _socialPartyGameInvite = null;
+                try
+                {
+                    PartyGameInviteResult result = partyInviteAll.GetAwaiter().GetResult();
+                    SetText("social_status", result.Status switch
+                    {
+                        "party_invites_sent" => $"PARTY INVITED // {result.Sent} SENT",
+                        "party_invites_partial" => $"PARTY INVITES // {result.Sent} SENT / {result.Refused} REFUSED",
+                        _ => "PARTY INVITE REFUSED // "
+                            + result.Status.Replace('_', ' ').ToUpperInvariant()
+                    });
+                }
+                catch (OperationCanceledException) when (_socialCancel?.IsCancellationRequested == true)
+                {
+                }
+                catch (Exception ex)
+                {
+                    SetText("social_status", "PARTY INVITE FAILED // " + ShortSocialError(ex));
+                }
+            }
+
             if (_socialJoin is { IsCompleted: true } join)
             {
                 _socialJoin = null;
@@ -857,6 +979,8 @@ namespace MphRead.Mods.Launcher.Gui
                 || _socialLookup is { IsCompleted: false }
                 || _socialMutation is { IsCompleted: false }
                 || _socialInviteMutation is { IsCompleted: false }
+                || _socialPartyMutation is { IsCompleted: false }
+                || _socialPartyGameInvite is { IsCompleted: false }
                 || _socialJoin is { IsCompleted: false });
         }
 
@@ -1328,6 +1452,21 @@ namespace MphRead.Mods.Launcher.Gui
             "invite_active" => "GAME INVITE ALREADY ACTIVE",
             "invite_declined" => "GAME INVITE DECLINED",
             "invite_cancelled" => "GAME INVITE CANCELLED",
+            _ => status.Replace('_', ' ').ToUpperInvariant()
+        };
+
+        private static string PartyMutationStatus(string status) => status switch
+        {
+            "party_created_and_invited" => "PARTY CREATED // INVITE SENT",
+            "party_invite_sent" => "PARTY INVITE SENT",
+            "party_invite_pending" => "PARTY INVITE ALREADY PENDING",
+            "party_joined" => "PARTY JOINED",
+            "party_invite_declined" => "PARTY INVITE DECLINED",
+            "party_invite_cancelled" => "PARTY INVITE CANCELLED",
+            "party_left" => "PARTY LEFT",
+            "party_disbanded" => "PARTY DISBANDED",
+            "party_member_removed" => "PARTY MEMBER REMOVED",
+            "party_leader_promoted" => "PARTY LEADER PROMOTED",
             _ => status.Replace('_', ' ').ToUpperInvariant()
         };
 
