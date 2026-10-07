@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Text;
+using MphRead.Mods.Launcher;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
@@ -25,6 +26,8 @@ internal static class Program
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int Bounds(out float x, out float y, out float width, out float height);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int ElementBounds(
         [MarshalAs(UnmanagedType.LPUTF8Str)] string id, out float x, out float y, out float width, out float height);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void LobbyAnchor(
+        int slot, float x, float y);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate void SetField(
         [MarshalAs(UnmanagedType.LPUTF8Str)] string id,
         [MarshalAs(UnmanagedType.LPUTF8Str)] string value);
@@ -81,9 +84,11 @@ internal static class Program
         var set = Load<SetBool>("pp_rmlui_set_bool");
         var bounds = Load<Bounds>("pp_rmlui_studio_bounds");
         var elementBounds = Load<ElementBounds>("pp_rmlui_element_bounds");
+        var setLobbyAnchor = Load<LobbyAnchor>("pp_rmlui_set_lobby_anchor");
         var setField = Load<SetField>("pp_rmlui_set_field");
         var readField = Load<ReadField>("pp_rmlui_read_field");
         byte[] actionBuffer = new byte[128];
+        float pointerWindowScaleX = 1f, pointerWindowScaleY = 1f;
         void Input(int code, int modifiers = 0)
         {
             key(code, 1, modifiers); key(code, 0, modifiers); update();
@@ -94,7 +99,15 @@ internal static class Program
                 out float width, out float height) == 1
                 && width > 0 && height > 0,
                 $"{element} is visible and has real native hit bounds");
-            move((int)(x + width / 2), (int)(y + height / 2), 0);
+            // Mimic the production mouse path: GLFW reports logical window
+            // coordinates, and the RmlUi bridge performs exactly one
+            // framebuffer scaling conversion. The regression used to inject
+            // already-scaled native pixels, missing Retina input failures.
+            (int mouseX, int mouseY) = RmlUiPointerMapping.FromWindow(
+                (x + width / 2) / pointerWindowScaleX,
+                (y + height / 2) / pointerWindowScaleY,
+                pointerWindowScaleX, pointerWindowScaleY);
+            move(mouseX, mouseY, 0);
             mouse(0, 1, 0);
             mouse(0, 0, 0);
             update();
@@ -132,6 +145,18 @@ internal static class Program
                 NativeWindow.ProcessWindowEvents(false);
                 Vector2i physical = window.FramebufferSize;
                 Require(physical == test.Physical, $"measured framebuffer matches requested {test.Physical}, density={test.Density}");
+                // GLFW's window size, not OpenTK.ClientSize, is the
+                // reliable logical coordinate basis on macOS Retina.
+                GLFW.GetWindowSize(window.WindowPtr, out int nativeWindowWidth,
+                    out int nativeWindowHeight);
+                Require(nativeWindowWidth > 0 && nativeWindowHeight > 0,
+                    "GLFW reports positive logical window dimensions");
+                pointerWindowScaleX = physical.X / (float)nativeWindowWidth;
+                pointerWindowScaleY = physical.Y / (float)nativeWindowHeight;
+                Require(float.IsFinite(pointerWindowScaleX)
+                    && float.IsFinite(pointerWindowScaleY)
+                    && pointerWindowScaleX > 0 && pointerWindowScaleY > 0,
+                    "GLFW window-to-framebuffer pointer scale is valid");
                 Require(initialize(physical.X, physical.Y, test.Density, assets) == 1,
                     $"current real OpenGL context initializes the shipped document at {physical}, density={test.Density}");
                 set("reduce_motion", 1); update();
@@ -164,7 +189,16 @@ internal static class Program
                 set("slot0_local", 1);
                 set("lobby_owner", 1);
                 set("lobby_require_ready", 1);
+                setLobbyAnchor(0, .5f, .832f);
                 update();
+                Require(elementBounds("lobby_actions", out float actionX,
+                    out _, out float actionW, out _) == 1 && actionW > 0
+                    && Math.Abs(actionX + actionW / 2 - physical.X / 2) < 14 * test.Density,
+                    "real RmlUi lobby action strip is horizontally centered");
+                Require(elementBounds("lobby_slot0", out float labelX,
+                    out _, out float labelW, out _) == 1 && labelW > 0
+                    && Math.Abs(labelX + labelW / 2 - physical.X / 2) < 14 * test.Density,
+                    "local Hunter nameplate uses the exact centered formation anchor");
                 Input(2);
                 Action("live lobby READY Enter", test.Density, "lobby:ready");
 
