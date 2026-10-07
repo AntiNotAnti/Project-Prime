@@ -180,7 +180,19 @@ begin
         return jsonb_build_object('ok', false, 'status', 'party_size_invalid');
     end if;
 
-    v_requested := v_party_size - case when p_include_leader then 0 else 1 end;
+    select count(*) into v_requested
+    from prime.social_party_members pm
+    where pm.party_id = v_party
+      and (p_include_leader or pm.player_id <> p_actor)
+      and not exists (
+          select 1
+          from prime.social_lobby_memberships membership
+          where membership.player_id = pm.player_id
+            and membership.authority_epoch = p_authority_epoch
+            and membership.lobby_eligible
+            and membership.expires_at > now()
+      );
+
     if v_requested < 1 then
         return jsonb_build_object('ok', false, 'status', 'reservation_not_needed');
     end if;
@@ -236,7 +248,15 @@ begin
     select v_request, pm.player_id
     from prime.social_party_members pm
     where pm.party_id = v_party
-      and (p_include_leader or pm.player_id <> p_actor);
+      and (p_include_leader or pm.player_id <> p_actor)
+      and not exists (
+          select 1
+          from prime.social_lobby_memberships membership
+          where membership.player_id = pm.player_id
+            and membership.authority_epoch = p_authority_epoch
+            and membership.lobby_eligible
+            and membership.expires_at > now()
+      );
 
     return jsonb_build_object(
         'ok', true,
@@ -616,7 +636,10 @@ begin
     where party_id = v_party
       and status in ('pending','reserved');
 
-    return case when tg_op = 'DELETE' then old else new end;
+    if tg_op = 'DELETE' then
+        return old;
+    end if;
+    return new;
 end;
 $;
 
