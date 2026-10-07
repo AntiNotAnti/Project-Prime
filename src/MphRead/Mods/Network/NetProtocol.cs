@@ -2526,7 +2526,12 @@ namespace MphRead.Mods.Network
         // not affect gameplay simulation, but protocol-40 transports would reject
         // the unknown reliable type without acknowledging it, so mixed v40/v41
         // peers must be refused rather than retrying replay evidence forever.
-        public const int ProtocolVersion = 42;
+        // Protocol 43 adds authoritative party-reservation claim/state/accept
+        // control packets on the queue transport. A protocol-42 server would
+        // silently ignore those packet kinds while still appearing compatible,
+        // which would strand party matchmaking in validation. Mixed v42/v43
+        // peers are therefore refused at the normal protocol boundary.
+        public const int ProtocolVersion = 43;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///
