@@ -82,6 +82,7 @@ struct PrimeMenuData {
     bool social_open = false;
     bool social_loading = false;
     bool social_context_open = false;
+    bool social_party_game_invite_ready = false;
     int social_tab = 0;
     Rml::String social_search;
     Rml::String social_status = "CONNECTING";
@@ -168,6 +169,7 @@ public:
         model.Bind("social_open", &data.social_open);
         model.Bind("social_loading", &data.social_loading);
         model.Bind("social_context_open", &data.social_context_open);
+        model.Bind("social_party_game_invite_ready", &data.social_party_game_invite_ready);
         model.Bind("social_tab", &data.social_tab);
         model.Bind("social_search", &data.social_search);
         model.Bind("social_status", &data.social_status);
@@ -293,6 +295,7 @@ public:
         else if (name == "social_open") data.social_open = value;
         else if (name == "social_loading") data.social_loading = value;
         else if (name == "social_context_open") data.social_context_open = value;
+        else if (name == "social_party_game_invite_ready") data.social_party_game_invite_ready = value;
         else return;
         handle.DirtyVariable(name);
     }
