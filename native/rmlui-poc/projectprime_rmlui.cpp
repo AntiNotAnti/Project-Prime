@@ -33,6 +33,9 @@ PP_EXPORT void pp_rmlui_shutdown();
 namespace {
 
 void FocusElement(const char* id);
+bool g_lobby_anchor_dirty = true;
+struct LobbyAnchor { float x = 0.f; float y = 0.f; };
+std::array<LobbyAnchor, 8> g_lobby_anchors{};
 
 class PrimeSystemInterface final : public Rml::SystemInterface {
 public:
@@ -247,6 +250,7 @@ public:
             if (data.lobby_mode == value) return;
             data.lobby_mode = value;
             data.home_mode = !value;
+            g_lobby_anchor_dirty = true;
             handle.DirtyVariable("lobby_mode");
             handle.DirtyVariable("home_mode");
             RequestFocus(value ? "lobby_ready" : "activity_selector");
@@ -259,7 +263,11 @@ public:
         else {
             for (int i = 0; i < 8; ++i) {
                 const std::string prefix = "slot" + std::to_string(i) + "_";
-                if (name == prefix + "occupied") data.slot_occupied[i] = value;
+                if (name == prefix + "occupied") {
+                    if (data.slot_occupied[i] != value)
+                        g_lobby_anchor_dirty = true;
+                    data.slot_occupied[i] = value;
+                }
                 else if (name == prefix + "ready") data.slot_ready[i] = value;
                 else if (name == prefix + "local") data.slot_local[i] = value;
                 else continue;
@@ -474,6 +482,29 @@ Rml::ElementDocument* g_document = nullptr;
 std::unique_ptr<PrimeMenuModel> g_model;
 bool g_initialized = false;
 
+void PositionLobbyNameplates()
+{
+    if (!g_context || !g_document || !g_lobby_anchor_dirty) return;
+    Rml::Element* stage = g_document->GetElementById("lobby_stage");
+    if (!stage) return;
+
+    const Rml::Vector2f stageOrigin = stage->GetAbsoluteOffset(Rml::BoxArea::Border);
+    const Rml::Vector2i dimensions = g_context->GetDimensions();
+    for (int index = 0; index < 8; ++index) {
+        const std::string id = "lobby_slot" + std::to_string(index);
+        Rml::Element* label = g_document->GetElementById(id);
+        if (!label) continue;
+        const Rml::Vector2f size = label->GetBox().GetSize(Rml::BoxArea::Border);
+        const float left = g_lobby_anchors[index].x * float(dimensions.x)
+            - stageOrigin.x - size.x * 0.5f;
+        const float top = g_lobby_anchors[index].y * float(dimensions.y)
+            - stageOrigin.y - size.y * 0.5f;
+        label->SetProperty("left", std::to_string(left) + "px");
+        label->SetProperty("top", std::to_string(top) + "px");
+    }
+    g_lobby_anchor_dirty = false;
+}
+
 void FocusElement(const char* id)
 {
     if (!g_document || !id) return;
@@ -585,6 +616,8 @@ PP_EXPORT void pp_rmlui_shutdown()
         g_document = nullptr;
     }
     g_model.reset();
+    g_lobby_anchor_dirty = true;
+    g_lobby_anchors = {};
     if (g_context) {
         Rml::RemoveContext("project-prime-rmlui-poc");
         g_context = nullptr;
@@ -600,6 +633,7 @@ PP_EXPORT void pp_rmlui_update()
 {
     if (!g_context) return;
     g_context->Update();
+    PositionLobbyNameplates();
     if (g_model) g_model->ApplyPendingFocus();
 }
 
@@ -634,6 +668,14 @@ PP_EXPORT void pp_rmlui_resize(int width, int height, float density)
     g_renderer->SetViewport(width, height);
     g_context->SetDimensions({width, height});
     g_context->SetDensityIndependentPixelRatio(std::max(density, 1.0f));
+    g_lobby_anchor_dirty = true;
+}
+
+PP_EXPORT void pp_rmlui_set_lobby_anchor(int slot, float center_x, float center_y)
+{
+    if (slot < 0 || slot >= int(g_lobby_anchors.size())) return;
+    g_lobby_anchors[slot] = {center_x, center_y};
+    g_lobby_anchor_dirty = true;
 }
 
 PP_EXPORT int pp_rmlui_mouse_move(int x, int y, int modifiers)
