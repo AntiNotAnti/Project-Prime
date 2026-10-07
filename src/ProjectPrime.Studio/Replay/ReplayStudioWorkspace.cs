@@ -45,7 +45,13 @@ public sealed partial class ReplayStudioWorkspace : UserControl, IDisposable
     {
         // One owner callback advances all views. Let input, commands and cancellation
         // run before another frame when several native surfaces take longer than 16 ms.
-        _viewTimer = new DispatcherTimer(TimeSpan.FromSeconds(1d / 60), DispatcherPriority.Background, (_, _) =>
+        // The replay simulation remains 60 Hz, but presentation must not be.
+        // A 60 Hz dispatcher ceiling made first-person viewmodels visibly step in
+        // Studio even though their replay pose interpolation is sub-frame smooth.
+        // Replay native surfaces present FIFO, so a short scheduler interval only
+        // removes our artificial ceiling; the display/present path still paces the
+        // actual draws and the dispatcher cannot overlap a slow multi-view frame.
+        _viewTimer = new DispatcherTimer(TimeSpan.FromSeconds(1d / 240), DispatcherPriority.Background, (_, _) =>
         {
             var now = _viewClock.Elapsed; var elapsed = now - _lastViewTime; _lastViewTime = now;
             for (int i = 0; i < _viewports.Count; i++) _viewports[i].RenderExternal(i == 0 ? elapsed : TimeSpan.Zero);

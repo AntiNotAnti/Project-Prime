@@ -83,10 +83,20 @@ public sealed partial class StudioReplayPlayer
                 if (job.Write is { IsCompleted: false }) return;
                 job.Write?.GetAwaiter().GetResult();
                 var view = job.Request.View ?? new(job.Request.Width, job.Request.Height, job.Request.Camera);
-                RenderPlayer(player, view with { Width = job.Request.Width, Height = job.Request.Height,
-                    GameHud = job.Request.GameHud, ReplayOverlay = job.Request.ReplayOverlay,
-                    PresentationFrame = sample.Frame, PresentationAlpha = sample.Alpha }, 0, job.Camera, editorOverlays: false);
-                var capture = CaptureScene(player.Current.Scene);
+                var scene = player.Current.Scene;
+                StudioReplayCapture capture;
+                scene.StudioReplayExporting = true;
+                try
+                {
+                    RenderPlayer(player, view with { Width = job.Request.Width, Height = job.Request.Height,
+                        GameHud = job.Request.GameHud, ReplayOverlay = job.Request.ReplayOverlay,
+                        PresentationFrame = sample.Frame, PresentationAlpha = sample.Alpha }, 0, job.Camera, editorOverlays: false);
+                    capture = CaptureScene(scene);
+                }
+                finally
+                {
+                    scene.StudioReplayExporting = false;
+                }
                 string file = Path.Combine(job.Request.Directory, $"frame_{job.Frames:D08}.png");
                 job.Write = Task.Run(() => SavePng(file, capture)); job.Frames++;
             }
