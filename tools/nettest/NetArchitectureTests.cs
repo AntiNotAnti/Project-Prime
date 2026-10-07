@@ -80,6 +80,24 @@ internal static class NetArchitectureTests
                 && intent.HasContinuousFireTick && intent.ContinuousFireTick == 0xCAFEBABE
                 && Math.Abs(IntentPacket.UnpackMoveAxis(intent.MoveX) - 64 / 127f) < .00001f,
                 "protocol 41 preserves protocol-40 Balanced ability semantics and exact FireEvent pose");
+            var touchIntent = new IntentPacket
+            {
+                Frame = 44, HasState = true, ShotFlags = 0,
+                Target = NetTargetIdentity.None
+            };
+            touchIntent.SetMorphTouch(new MphRead.Mods.Input.MorphTouchReport(
+                Down: true, Continued: true, Delta4X: -1234, Delta4Y: 2345));
+            byte[] touchBytes = new byte[touchIntent.EncodedSize];
+            touchIntent.WriteNetwork(touchBytes);
+            Check(IntentPacket.TryReadNetwork(touchBytes, out IntentPacket touchRoundtrip)
+                && touchRoundtrip.HasMorphTouch
+                && touchRoundtrip.MorphTouch.Down
+                && touchRoundtrip.MorphTouch.Continued
+                && touchRoundtrip.MorphTouch.Delta4X == -1234
+                && touchRoundtrip.MorphTouch.Delta4Y == 2345
+                && touchBytes.Length <= NetConfig.MaxPayloadSize,
+                "protocol 43 morph touch reuses target bytes with signed deltas and no MTU growth");
+
             var posed = new FireEvent(7, 99, 80, 64, FireEventKind.PressFire,
                 (byte)BeamType.Imperialist, 0, 0,
                 (byte)(FireEvent.FlagPose | FireEvent.FlagReticle),
