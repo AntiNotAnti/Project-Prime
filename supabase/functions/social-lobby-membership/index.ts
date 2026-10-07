@@ -169,6 +169,13 @@ Deno.serve(async (req: Request) => {
           expires_at = now() + interval '60 seconds'
     `;
     await sql`
+      select prime.social_recent_touch(
+        ${playerId}::uuid,
+        ${epoch}::numeric,
+        ${reporter.server_id}::uuid
+      )
+    `;
+    await sql`
       delete from prime.social_lobby_memberships
       where expires_at < now() - interval '10 minutes'
     `;
