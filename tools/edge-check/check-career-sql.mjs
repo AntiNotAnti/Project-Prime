@@ -90,7 +90,7 @@ try {
  const sessionC='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
  let lobbyResult=(await db.query(`select prime.social_lobby_register('${socialA}'::uuid,'203.0.113.10'::inet,27891,638000000000000000::numeric,34,'MP1 SANCTORUS','Prime Lobby') as value`)).rows[0].value;
  assert.equal(lobbyResult.ok,false); assert.equal(lobbyResult.status,'membership_unverified');
- await db.query(`insert into prime.social_lobby_memberships(player_id,authority_epoch,reporter_id,client_id,expires_at) values ('${socialA}'::uuid,638000000000000000::numeric,'99999999-9999-4999-8999-999999999999'::uuid,12345,now()+interval '60 seconds')`);
+ await db.query(`insert into prime.social_lobby_memberships(player_id,authority_epoch,reporter_id,client_id,lobby_eligible,expires_at) values ('${socialA}'::uuid,638000000000000000::numeric,'99999999-9999-4999-8999-999999999999'::uuid,12345,true,now()+interval '60 seconds')`);
  lobbyResult=(await db.query(`select prime.social_lobby_register('${socialA}'::uuid,'203.0.113.10'::inet,27891,638000000000000000::numeric,34,'MP1 SANCTORUS','Prime Lobby') as value`)).rows[0].value;
  assert.equal(lobbyResult.ok,true); assert.equal(lobbyResult.status,'lobby_registered');
  assert.equal(lobbyResult.lobby.host,'203.0.113.10'); assert.equal(lobbyResult.lobby.port,27891);
@@ -124,7 +124,7 @@ try {
  assert.equal(friendJoin.ok,true); assert.equal(friendJoin.status,'friend_resolved'); assert.equal(friendJoin.locator.lobby_id,socialLobbyId);
 
  const reporter='99999999-9999-4999-8999-999999999999';
- await db.query(`insert into prime.social_lobby_memberships(player_id,authority_epoch,reporter_id,client_id,expires_at) values ('${socialB}'::uuid,638000000000000000::numeric,'${reporter}'::uuid,22345,now()+interval '60 seconds')`);
+ await db.query(`insert into prime.social_lobby_memberships(player_id,authority_epoch,reporter_id,client_id,lobby_eligible,expires_at) values ('${socialB}'::uuid,638000000000000000::numeric,'${reporter}'::uuid,22345,false,now()+interval '60 seconds')`);
  await db.query(`select prime.social_recent_touch('${socialA}'::uuid,638000000000000000::numeric,'${reporter}'::uuid)`);
  let partySnapshot=(await db.query(`select prime.social_party_snapshot('${socialA}'::uuid) as value`)).rows[0].value;
  assert.equal(partySnapshot.recent_players[0].prime_id,'PP-2222-2222-2222-4222-8222'); assert.equal(partySnapshot.recent_players[0].encounters,1);
