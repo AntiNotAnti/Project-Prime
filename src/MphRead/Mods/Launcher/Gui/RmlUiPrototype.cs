@@ -555,6 +555,8 @@ namespace MphRead.Mods.Launcher.Gui
                 && NetSession.LocalSlot < NetSession.SlotLobbyReady.Length
                 && NetSession.SlotLobbyReady[NetSession.LocalSlot];
             SetBool("lobby_local_ready", localReady);
+            SetBool("lobby_require_ready",
+                NetSession.ServerSession is { } readySession && readySession.RequireReady);
             SetBool("lobby_owner", NetSession.LocalIsLobbyOwner);
             SetBool("lobby_starting", NetSession.IsStarting);
             SetText("lobby_ready_action", localReady ? "UNREADY" : "READY");
