@@ -69,6 +69,16 @@ struct PrimeMenuData {
     bool lobby_owner = false;
     bool lobby_local_ready = false;
     bool lobby_starting = false;
+    bool lobby_rules_open = false;
+    bool rules_owner = false;
+    bool rules_dirty = false;
+    bool rules_pending = false;
+    Rml::String rules_map = "WAITING FOR ARENA";
+    Rml::String rules_mode = "BATTLE";
+    Rml::String rules_format = "FFA";
+    Rml::String rules_goal_label = "SCORE GOAL";
+    Rml::String rules_status = "READING SERVER RULES";
+    std::array<Rml::String, 16> rules_toggles{};
     bool multiplayer_mode = false;
     bool play_create_mode = false;
     bool play_browser_mode = false;
@@ -139,6 +149,31 @@ public:
         model.Bind("lobby_status", &data.lobby_status);
         model.Bind("lobby_ready_action", &data.lobby_ready_action);
         model.Bind("lobby_local_hunter", &data.lobby_local_hunter);
+        model.Bind("lobby_rules_open", &data.lobby_rules_open);
+        model.Bind("rules_owner", &data.rules_owner);
+        model.Bind("rules_dirty", &data.rules_dirty);
+        model.Bind("rules_pending", &data.rules_pending);
+        model.Bind("rules_map", &data.rules_map);
+        model.Bind("rules_mode", &data.rules_mode);
+        model.Bind("rules_format", &data.rules_format);
+        model.Bind("rules_goal_label", &data.rules_goal_label);
+        model.Bind("rules_status", &data.rules_status);
+        model.Bind("rules_toggle0", &data.rules_toggles[0]);
+        model.Bind("rules_toggle1", &data.rules_toggles[1]);
+        model.Bind("rules_toggle2", &data.rules_toggles[2]);
+        model.Bind("rules_toggle3", &data.rules_toggles[3]);
+        model.Bind("rules_toggle4", &data.rules_toggles[4]);
+        model.Bind("rules_toggle5", &data.rules_toggles[5]);
+        model.Bind("rules_toggle6", &data.rules_toggles[6]);
+        model.Bind("rules_toggle7", &data.rules_toggles[7]);
+        model.Bind("rules_toggle8", &data.rules_toggles[8]);
+        model.Bind("rules_toggle9", &data.rules_toggles[9]);
+        model.Bind("rules_toggle10", &data.rules_toggles[10]);
+        model.Bind("rules_toggle11", &data.rules_toggles[11]);
+        model.Bind("rules_toggle12", &data.rules_toggles[12]);
+        model.Bind("rules_toggle13", &data.rules_toggles[13]);
+        model.Bind("rules_toggle14", &data.rules_toggles[14]);
+        model.Bind("rules_toggle15", &data.rules_toggles[15]);
         model.Bind("multiplayer_mode", &data.multiplayer_mode);
         model.Bind("play_create_mode", &data.play_create_mode);
         model.Bind("play_browser_mode", &data.play_browser_mode);
@@ -252,6 +287,28 @@ public:
         model.BindEventCallback("lobby_next_hunter", &PrimeMenuModel::LobbyNextHunter, this);
         model.BindEventCallback("lobby_next_suit", &PrimeMenuModel::LobbyNextSuit, this);
         model.BindEventCallback("lobby_classic", &PrimeMenuModel::LobbyClassic, this);
+        model.BindEventCallback("lobby_rules_open", &PrimeMenuModel::LobbyRulesOpen, this);
+        model.BindEventCallback("lobby_rules_close", &PrimeMenuModel::LobbyRulesClose, this);
+        model.BindEventCallback("lobby_rules_apply", &PrimeMenuModel::LobbyRulesApply, this);
+        model.BindEventCallback("lobby_rules_map", &PrimeMenuModel::LobbyRulesMap, this);
+        model.BindEventCallback("lobby_rules_mode", &PrimeMenuModel::LobbyRulesMode, this);
+        model.BindEventCallback("lobby_rules_format", &PrimeMenuModel::LobbyRulesFormat, this);
+        model.BindEventCallback("lobby_rules_toggle0", &PrimeMenuModel::LobbyRulesToggle0, this);
+        model.BindEventCallback("lobby_rules_toggle1", &PrimeMenuModel::LobbyRulesToggle1, this);
+        model.BindEventCallback("lobby_rules_toggle2", &PrimeMenuModel::LobbyRulesToggle2, this);
+        model.BindEventCallback("lobby_rules_toggle3", &PrimeMenuModel::LobbyRulesToggle3, this);
+        model.BindEventCallback("lobby_rules_toggle4", &PrimeMenuModel::LobbyRulesToggle4, this);
+        model.BindEventCallback("lobby_rules_toggle5", &PrimeMenuModel::LobbyRulesToggle5, this);
+        model.BindEventCallback("lobby_rules_toggle6", &PrimeMenuModel::LobbyRulesToggle6, this);
+        model.BindEventCallback("lobby_rules_toggle7", &PrimeMenuModel::LobbyRulesToggle7, this);
+        model.BindEventCallback("lobby_rules_toggle8", &PrimeMenuModel::LobbyRulesToggle8, this);
+        model.BindEventCallback("lobby_rules_toggle9", &PrimeMenuModel::LobbyRulesToggle9, this);
+        model.BindEventCallback("lobby_rules_toggle10", &PrimeMenuModel::LobbyRulesToggle10, this);
+        model.BindEventCallback("lobby_rules_toggle11", &PrimeMenuModel::LobbyRulesToggle11, this);
+        model.BindEventCallback("lobby_rules_toggle12", &PrimeMenuModel::LobbyRulesToggle12, this);
+        model.BindEventCallback("lobby_rules_toggle13", &PrimeMenuModel::LobbyRulesToggle13, this);
+        model.BindEventCallback("lobby_rules_toggle14", &PrimeMenuModel::LobbyRulesToggle14, this);
+        model.BindEventCallback("lobby_rules_toggle15", &PrimeMenuModel::LobbyRulesToggle15, this);
         model.BindEventCallback("play_quick", &PrimeMenuModel::PlayQuick, this);
         model.BindEventCallback("play_browse", &PrimeMenuModel::PlayBrowse, this);
         model.BindEventCallback("play_create_open", &PrimeMenuModel::PlayCreateOpen, this);
@@ -293,6 +350,11 @@ public:
         else if (name == "lobby_status") data.lobby_status = value;
         else if (name == "lobby_ready_action") data.lobby_ready_action = value;
         else if (name == "lobby_local_hunter") data.lobby_local_hunter = value;
+        else if (name == "rules_map") data.rules_map = value;
+        else if (name == "rules_mode") data.rules_mode = value;
+        else if (name == "rules_format") data.rules_format = value;
+        else if (name == "rules_goal_label") data.rules_goal_label = value;
+        else if (name == "rules_status") data.rules_status = value;
         else if (name == "play_status") data.play_status = value;
         else if (name == "play_create_map") data.play_create_map = value;
         else if (name == "play_create_mode_name") data.play_create_mode_name = value;
@@ -312,6 +374,13 @@ public:
                 handle.DirtyVariable(name);
                 return;
             }
+            for (int i = 0; i < int(data.rules_toggles.size()); ++i) {
+                if (name == "rules_toggle" + std::to_string(i)) {
+                    data.rules_toggles[i] = value;
+                    handle.DirtyVariable(name);
+                    return;
+                }
+            }
             return;
         }
         handle.DirtyVariable(name);
@@ -330,6 +399,8 @@ public:
                 data.multiplayer_mode = false;
                 data.play_create_mode = false;
                 data.play_browser_mode = false;
+                data.lobby_rules_open = false;
+                handle.DirtyVariable("lobby_rules_open");
                 handle.DirtyVariable("multiplayer_mode");
                 handle.DirtyVariable("play_create_mode");
                 handle.DirtyVariable("play_browser_mode");
@@ -344,6 +415,16 @@ public:
         else if (name == "lobby_owner") data.lobby_owner = value;
         else if (name == "lobby_local_ready") data.lobby_local_ready = value;
         else if (name == "lobby_starting") data.lobby_starting = value;
+        else if (name == "lobby_rules_open") {
+            data.lobby_rules_open = value;
+            handle.DirtyVariable("lobby_rules_open");
+            RequestFocus(value ? (data.rules_owner ? "rules_map_next" : "rules_close_top")
+                : "lobby_rules");
+            return;
+        }
+        else if (name == "rules_owner") data.rules_owner = value;
+        else if (name == "rules_dirty") data.rules_dirty = value;
+        else if (name == "rules_pending") data.rules_pending = value;
         else if (name == "multiplayer_mode") {
             data.multiplayer_mode = value;
             data.home_mode = !value && !data.lobby_mode;
@@ -391,6 +472,10 @@ public:
     bool Back()
     {
         if (data.lobby_mode) {
+            if (data.lobby_rules_open) {
+                CloseLobbyRules();
+                return true;
+            }
             Emit("lobby:leave");
             return true;
         }
@@ -665,6 +750,58 @@ private:
     void LobbyNextHunter(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:next-hunter"); }
     void LobbyNextSuit(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:next-suit"); }
     void LobbyClassic(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:classic"); }
+    void CloseLobbyRules()
+    {
+        if (!data.lobby_rules_open) return;
+        data.lobby_rules_open = false;
+        handle.DirtyVariable("lobby_rules_open");
+        Emit("lobby:rules-close");
+        RequestFocus("lobby_rules");
+    }
+    void LobbyRulesOpen(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode) Emit("lobby:rules-open"); }
+    void LobbyRulesClose(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { CloseLobbyRules(); }
+    void LobbyRulesApply(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-apply"); }
+    void LobbyRulesMap(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-map"); }
+    void LobbyRulesMode(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-mode"); }
+    void LobbyRulesFormat(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-format"); }
+    void LobbyRulesToggle0(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:0"); }
+    void LobbyRulesToggle1(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:1"); }
+    void LobbyRulesToggle2(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:2"); }
+    void LobbyRulesToggle3(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:3"); }
+    void LobbyRulesToggle4(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:4"); }
+    void LobbyRulesToggle5(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:5"); }
+    void LobbyRulesToggle6(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:6"); }
+    void LobbyRulesToggle7(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:7"); }
+    void LobbyRulesToggle8(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:8"); }
+    void LobbyRulesToggle9(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:9"); }
+    void LobbyRulesToggle10(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:10"); }
+    void LobbyRulesToggle11(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:11"); }
+    void LobbyRulesToggle12(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:12"); }
+    void LobbyRulesToggle13(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:13"); }
+    void LobbyRulesToggle14(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:14"); }
+    void LobbyRulesToggle15(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:15"); }
     void Noop(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) {}
 };
 
