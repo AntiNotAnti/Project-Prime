@@ -476,9 +476,19 @@ begin
     delete from prime.social_party_travel_responses
     where party_id = old.party_id
       and player_id = old.player_id;
+
+    if (
+        select count(*)
+        from prime.social_party_members
+        where party_id = old.party_id
+    ) < 2 then
+        delete from prime.social_party_travel
+        where party_id = old.party_id;
+    end if;
+
     return old;
 end;
-$$;
+$;
 
 drop trigger if exists project_prime_social_party_travel_member_remove
 on prime.social_party_members;
