@@ -1172,6 +1172,11 @@ namespace MphRead.Mods.Launcher.Gui
                     ? "1 RECENT" : $"{partyState.RecentPlayers.Count} RECENT");
             SetText("social_dnd_label",
                 LauncherPrefs.DoNotDisturb ? "DND ON" : "DND OFF");
+            SetBool("social_party_game_invite_ready",
+                party is { IsLeader: true }
+                && party.Members.Count > 1
+                && ownLobby != null
+                && ownLobby.ExpiresAt > DateTimeOffset.UtcNow);
             SetText("social_badge",
                 badge > 0 ? Math.Min(badge, 99).ToString(CultureInfo.InvariantCulture) : "");
 
