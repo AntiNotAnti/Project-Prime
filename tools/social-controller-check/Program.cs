@@ -13,6 +13,8 @@ var backend = new FakeSocial { Data = new() { Connected = true, Status = "READY"
 using (var controller = new SocialController(backend))
 {
     Check(controller.Snapshot.VisibleRows.Length == 1, "uses copied actual rows");
+    ulong unchangedVersion = controller.Snapshot.Version; controller.Pump();
+    Check(controller.Snapshot.Version == unchangedVersion, "idle Pump does not rebuild native bindings");
     controller.SelectRow(0);
     Check(controller.Snapshot.AvailableCommands.Contains(SocialCommand.RemoveFriend), "selected-row capabilities published");
     var remove = controller.Intent(SocialCommand.RemoveFriend);

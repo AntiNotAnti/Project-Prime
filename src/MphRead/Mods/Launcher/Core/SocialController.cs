@@ -161,7 +161,7 @@ public sealed class SocialController : IDisposable
         SocialRow? target = Rows().FirstOrDefault(row => row.Key == intent.TargetKey);
         if (!Allowed(intent.Command, target)) return Reject("This Social action is unavailable for the selected player or party.");
         if (NeedsConfirmation(intent.Command) && !confirmed)
-        { _confirmation = new(intent, Friendly(intent.Command.ToString()) + (target == null ? "?" : " — " + target.DisplayName + "?")); return SocialActionResult.Ok; }
+        { _confirmation = new(intent, ConfirmationMessage(intent.Command, target?.DisplayName ?? "this player")); return SocialActionResult.Ok; }
         _confirmation = null;
         Begin("SENDING SOCIAL ACTION", IsJoin(intent.Command), async token => (null, null, await _backend.ExecuteAsync(intent, target, token).ConfigureAwait(false)));
         return SocialActionResult.Ok;
@@ -223,10 +223,15 @@ public sealed class SocialController : IDisposable
         var visible = rows.Skip(_page * PageSize).Take(PageSize).ToImmutableArray();
         SocialRow? selected = visible.FirstOrDefault(row => row.Key == _selected);
         if (selected == null) _selected = "";
+        var commands = !_busy && !_disposed ? Enum.GetValues<SocialCommand>().Where(command => Allowed(command, selected)).ToImmutableArray() : ImmutableArray<SocialCommand>.Empty;
+        if (_snapshot.DataRevision == _revision && _snapshot.Tab == _tab && _snapshot.Filter == _filter
+            && _snapshot.PageIndex == _page && _snapshot.SelectedRow?.Key == selected?.Key && _snapshot.Busy == _busy
+            && _snapshot.CanCancel == (_busy && _cancellable) && _snapshot.Status == _status && _snapshot.CommandError == _error
+            && _snapshot.PendingConfirmation == _confirmation && _snapshot.AvailableCommands.SequenceEqual(commands)) return;
         _snapshot = new() { Lifetime = _lifetime, Version = ++_version, DataRevision = _revision, Tab = _tab,
             Filter = _filter, PageIndex = _page, PageCount = pages, TotalRows = rows.Length, VisibleRows = visible,
             SelectedRow = selected, Data = _data, Busy = _busy, CanCancel = _busy && _cancellable,
-            AvailableCommands = !_busy && !_disposed ? Enum.GetValues<SocialCommand>().Where(command => Allowed(command, selected)).ToImmutableArray() : ImmutableArray<SocialCommand>.Empty,
+            AvailableCommands = commands,
             Status = _status, CommandError = _error, PendingConfirmation = _confirmation };
     }
     private SocialActionResult Act(Func<SocialActionResult> action)
@@ -254,4 +259,14 @@ public sealed class SocialController : IDisposable
         return true;
     }
     private static string Friendly(string status) => status.Replace('_', ' ');
+    private static string ConfirmationMessage(SocialCommand command, string name) => command switch
+    {
+        SocialCommand.RemoveFriend => $"Remove {name} from your friends?",
+        SocialCommand.BlockPlayer => $"Block {name}? Existing friendship and invitations will be removed.",
+        SocialCommand.LeaveParty => "Leave your current party?",
+        SocialCommand.DisbandParty => "Disband your party and cancel its pending invitations and travel?",
+        SocialCommand.KickPartyMember => $"Remove {name} from your party?",
+        SocialCommand.PromotePartyMember => $"Make {name} the party leader?",
+        _ => "Apply this Social action?"
+    };
 }
