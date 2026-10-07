@@ -13,6 +13,7 @@ const epoch = "638000000000000000";
 const expectedServerHash = createHash("sha256").update(serverKey).digest("hex");
 let handler: (req: Request) => Promise<Response>;
 let lastHeartbeat: unknown[] = [];
+let lastRecent: unknown[] = [];
 let lastLeave: unknown[] = [];
 
 (globalThis as any).Deno = {
@@ -35,6 +36,10 @@ const fixtureSql: any = async (strings: TemplateStringsArray, ...values: unknown
   if (query.includes("insert into prime.social_lobby_memberships")) {
     lastHeartbeat = values;
     return [];
+  }
+  if (query.includes("social_recent_touch")) {
+    lastRecent = values;
+    return [{ social_recent_touch: null }];
   }
   if (query.includes("delete from prime.social_lobby_memberships")
     && query.includes("player_id =")) {
@@ -114,6 +119,7 @@ test("verified server heartbeat binds signed Hunter License to authority epoch",
   assert.deepEqual(lastHeartbeat, [
     playerId, epoch, reporterId, clientId,
   ]);
+  assert.deepEqual(lastRecent, [playerId, epoch, reporterId]);
 });
 
 test("membership rejects forged and wrong-client Hunter License tickets", async () => {
