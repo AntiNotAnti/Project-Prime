@@ -1177,6 +1177,17 @@ namespace MphRead.Mods.Launcher.Gui
                 && party.Members.Count > 1
                 && ownLobby != null
                 && ownLobby.ExpiresAt > DateTimeOffset.UtcNow);
+            bool leaderJoinable = false;
+            if (party is { IsLeader: false }
+                && !NetSession.Active
+                && RelationshipFor(party.LeaderPrimeId) == "FRIEND"
+                && presenceById.TryGetValue(
+                    party.LeaderPrimeId, out SocialOnlinePlayer? leaderPresence))
+            {
+                leaderJoinable = leaderPresence.Joinable
+                    && !String.IsNullOrWhiteSpace(leaderPresence.LobbyId);
+            }
+            SetBool("social_party_join_leader_ready", leaderJoinable);
             SetText("social_badge",
                 badge > 0 ? Math.Min(badge, 99).ToString(CultureInfo.InvariantCulture) : "");
 
