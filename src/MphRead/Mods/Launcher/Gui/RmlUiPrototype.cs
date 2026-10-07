@@ -992,6 +992,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _nextSocialReload = 0;
                 BeginSocialLoad(force: true);
                 SocialInviteClient.RefreshNow();
+                SocialPartyClient.RefreshNow();
                 RefreshSocialUi(force: true);
                 NativeFocus("social_tab_friends");
                 return;
@@ -1017,15 +1018,41 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 SocialPresenceClient.RefreshNow();
                 SocialInviteClient.RefreshNow();
+                SocialPartyClient.RefreshNow();
                 _nextSocialReload = 0;
                 BeginSocialLoad(force: true);
                 SetText("social_status", "REFRESHING SOCIAL");
                 return;
             }
+            if (action == "social:dnd")
+            {
+                LauncherPrefs.DoNotDisturb = !LauncherPrefs.DoNotDisturb;
+                LauncherPrefs.SocialPrivacyConfigured = true;
+                LauncherPrefs.Save();
+                SocialPresenceClient.NotifyPrivacyChanged();
+                SetText("social_dnd_label",
+                    LauncherPrefs.DoNotDisturb ? "DND ON" : "DND OFF");
+                SetText("social_status",
+                    LauncherPrefs.DoNotDisturb
+                        ? "DO NOT DISTURB ENABLED"
+                        : "DO NOT DISTURB DISABLED");
+                _socialFingerprint = "";
+                return;
+            }
+            if (action == "social:party-game-invite")
+            {
+                BeginPartyGameInvites();
+                return;
+            }
+            if (action == "social:party-join-leader")
+            {
+                BeginPartyLeaderJoin();
+                return;
+            }
             if (action.StartsWith("social:tab:", StringComparison.Ordinal))
             {
                 if (Int32.TryParse(action["social:tab:".Length..], out int tab))
-                    _socialTab = Math.Clamp(tab, 0, 4);
+                    _socialTab = Math.Clamp(tab, 0, 6);
                 _socialLookupPlayer = null;
                 _socialFingerprint = "";
                 RefreshSocialUi(force: true);
@@ -1054,7 +1081,8 @@ namespace MphRead.Mods.Launcher.Gui
             string verb = action[prefix.Length..separator];
             string id = action[(separator + 1)..].Trim();
 
-            if (verb is "invite-accept" or "invite-decline" or "invite-cancel")
+            if (verb is "invite-accept" or "invite-decline" or "invite-cancel"
+                or "party-accept" or "party-decline" or "party-cancel")
             {
                 if (!Guid.TryParse(id, out _))
                 {
@@ -1063,6 +1091,8 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 if (verb == "invite-accept")
                     BeginSocialJoin(verb, id);
+                else if (verb.StartsWith("party-", StringComparison.Ordinal))
+                    BeginPartyMutation(verb, id);
                 else
                     BeginInviteMutation(verb, id);
                 NativeFocus(SocialTabFocusId());
@@ -1079,6 +1109,9 @@ namespace MphRead.Mods.Launcher.Gui
                 BeginInviteMutation(verb, primeId);
             else if (verb == "join-friend")
                 BeginSocialJoin(verb, primeId);
+            else if (verb is "party-invite" or "party-leave"
+                or "party-disband" or "party-kick" or "party-promote")
+                BeginPartyMutation(verb, primeId);
             else
                 BeginSocialMutation(verb, primeId);
             NativeFocus(SocialTabFocusId());
@@ -1089,7 +1122,9 @@ namespace MphRead.Mods.Launcher.Gui
             1 => "social_tab_players",
             2 => "social_tab_requests",
             3 => "social_tab_invites",
-            4 => "social_blocks",
+            4 => "social_party",
+            5 => "social_recent",
+            6 => "social_blocks",
             _ => "social_tab_friends"
         };
 
