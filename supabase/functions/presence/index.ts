@@ -54,6 +54,7 @@ Deno.serve(async (req: Request) => {
     presence_visibility?: string;
     activity_visibility?: string;
     invite_policy?: string;
+    do_not_disturb?: boolean;
     display_name?: string;
     favorite_hunter?: number;
   };
@@ -105,6 +106,7 @@ Deno.serve(async (req: Request) => {
   let presence = "";
   let detail = "";
   let invites = "";
+  let doNotDisturb = false;
   if (action === "set_privacy") {
     presence = typeof body.presence_visibility === "string"
       ? body.presence_visibility.trim()
@@ -115,6 +117,7 @@ Deno.serve(async (req: Request) => {
     invites = typeof body.invite_policy === "string"
       ? body.invite_policy.trim()
       : "";
+    doNotDisturb = body.do_not_disturb === true;
     if (!presenceVisibility.has(presence)
       || !activityVisibility.has(detail)
       || !invitePolicy.has(invites)) {
@@ -165,7 +168,8 @@ Deno.serve(async (req: Request) => {
           ${user.id}::uuid,
           ${presence},
           ${detail},
-          ${invites}
+          ${invites},
+          ${doNotDisturb}
         ) as value
       `;
       const snapshot = rows[0]?.value;
