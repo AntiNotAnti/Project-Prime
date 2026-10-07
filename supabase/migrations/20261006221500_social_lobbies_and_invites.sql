@@ -66,9 +66,9 @@ create index if not exists game_invites_recipient_created_idx
     on prime.game_invites (recipient_id, created_at desc);
 create index if not exists game_invites_sender_created_idx
     on prime.game_invites (sender_id, created_at desc);
-create unique index if not exists game_invites_one_pending_pair_lobby_idx
+create unique index if not exists game_invites_one_live_pair_lobby_idx
     on prime.game_invites (sender_id, recipient_id, lobby_id)
-    where status = 'pending';
+    where status in ('pending', 'accepted');
 
 alter table prime.social_presence_sessions
     add column if not exists lobby_id uuid
@@ -540,7 +540,7 @@ begin
     where sender_id = p_actor
       and recipient_id = v_target
       and lobby_id = p_lobby_id
-      and status = 'pending'
+      and status in ('pending', 'accepted')
       and expires_at > now()
     order by created_at desc
     limit 1;
@@ -548,7 +548,7 @@ begin
     if v_invite is not null then
         return jsonb_build_object(
             'ok', true,
-            'status', 'invite_pending',
+            'status', 'invite_active',
             'invite_id', v_invite,
             'snapshot', prime.social_invites_snapshot(p_actor)
         );
