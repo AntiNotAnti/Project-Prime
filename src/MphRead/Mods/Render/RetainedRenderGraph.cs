@@ -27,7 +27,8 @@ namespace MphRead.Mods.Render
         MarkTranslucent,
         RebuildDepth,
         TranslucentBehind,
-        TranslucentFront
+        TranslucentFront,
+        TranslucentSingle
     }
 
     /// <summary>
@@ -244,12 +245,14 @@ namespace MphRead.Mods.Render
             + _translucentBatches.Count;
         internal int StateReuseCount => Reuses(_opaqueBatches)
             + Reuses(_decalBatches) + Reuses(_translucentBatches);
-        // Opaque state is consumed by opaque + depth rebuild; translucent
-        // state is consumed by mask + behind + front.
-        internal int GraphStateApplicationCount => _opaqueBatches.Count * 2
-            + _decalBatches.Count + _translucentBatches.Count * 3;
-        internal int GraphStateReuseCount => Reuses(_opaqueBatches) * 2
-            + Reuses(_decalBatches) + Reuses(_translucentBatches) * 3;
+        // Performance mode omits the mask/depth-rebuild/dual-translucency
+        // sequence. Keep telemetry honest about the graph actually executed.
+        internal int GraphStateApplicationCount => Mods.RenderOptions.Translucency == TranslucencyMode.Fast
+            ? _opaqueBatches.Count + _decalBatches.Count + _translucentBatches.Count
+            : _opaqueBatches.Count * 2 + _decalBatches.Count + _translucentBatches.Count * 3;
+        internal int GraphStateReuseCount => Mods.RenderOptions.Translucency == TranslucencyMode.Fast
+            ? Reuses(_opaqueBatches) + Reuses(_decalBatches) + Reuses(_translucentBatches)
+            : Reuses(_opaqueBatches) * 2 + Reuses(_decalBatches) + Reuses(_translucentBatches) * 3;
         internal int MeshDescriptorCount => _meshDescriptors.Count;
         internal bool TryGetPacket(RenderItem item, out RetainedDrawPacket packet) =>
             _packetByItem.TryGetValue(item, out packet);
@@ -420,6 +423,9 @@ namespace MphRead.Mods.Render
                 WorldRenderResource.Color),
             new(WorldRenderPassKind.TranslucentFront, "world.translucent-front",
                 WorldRenderResource.Depth | WorldRenderResource.Stencil,
+                WorldRenderResource.Color),
+            new(WorldRenderPassKind.TranslucentSingle, "world.translucent-fast",
+                WorldRenderResource.Depth,
                 WorldRenderResource.Color)
         };
 
@@ -436,7 +442,8 @@ namespace MphRead.Mods.Render
                 WorldRenderPassKind.MarkTranslucent,
                 WorldRenderPassKind.RebuildDepth,
                 WorldRenderPassKind.TranslucentBehind,
-                WorldRenderPassKind.TranslucentFront
+                WorldRenderPassKind.TranslucentFront,
+                WorldRenderPassKind.TranslucentSingle
             };
             if (_passes.Length != expected.Length)
             {
@@ -546,7 +553,8 @@ namespace MphRead
             Mods.Render.WorldRenderPassKind.Decal => _retainedRenderWorld.Decals,
             Mods.Render.WorldRenderPassKind.MarkTranslucent
                 or Mods.Render.WorldRenderPassKind.TranslucentBehind
-                or Mods.Render.WorldRenderPassKind.TranslucentFront => _retainedRenderWorld.Translucent,
+                or Mods.Render.WorldRenderPassKind.TranslucentFront
+                or Mods.Render.WorldRenderPassKind.TranslucentSingle => _retainedRenderWorld.Translucent,
             _ => _retainedRenderWorld.Opaque
         };
 
@@ -556,7 +564,8 @@ namespace MphRead
             Mods.Render.WorldRenderPassKind.Decal => _retainedRenderWorld.DecalBatches,
             Mods.Render.WorldRenderPassKind.MarkTranslucent
                 or Mods.Render.WorldRenderPassKind.TranslucentBehind
-                or Mods.Render.WorldRenderPassKind.TranslucentFront =>
+                or Mods.Render.WorldRenderPassKind.TranslucentFront
+                or Mods.Render.WorldRenderPassKind.TranslucentSingle =>
                     _retainedRenderWorld.TranslucentBatches,
             _ => _retainedRenderWorld.OpaqueBatches
         };
@@ -815,8 +824,17 @@ namespace MphRead
             const bool modernGraph = false;
 #endif
 
+            bool fastTranslucency = Mods.RenderOptions.Translucency == Mods.TranslucencyMode.Fast;
             foreach (Mods.Render.WorldRenderGraphPass pass in _worldRenderGraph.Passes)
             {
+                if (fastTranslucency && pass.Kind is Mods.Render.WorldRenderPassKind.MarkTranslucent
+                        or Mods.Render.WorldRenderPassKind.RebuildDepth
+                        or Mods.Render.WorldRenderPassKind.TranslucentBehind
+                        or Mods.Render.WorldRenderPassKind.TranslucentFront
+                    || !fastTranslucency && pass.Kind == Mods.Render.WorldRenderPassKind.TranslucentSingle)
+                {
+                    continue;
+                }
                 if (pass.Kind == Mods.Render.WorldRenderPassKind.DeferredPbr)
                 {
                     if (splitPbrOpaque)
@@ -904,6 +922,19 @@ namespace MphRead
                 case Mods.Render.WorldRenderPassKind.TranslucentFront:
                     GL.StencilOp(StencilOp.Keep, StencilOp.Keep,
                         StencilOp.Keep);
+                    DrawRenderGraphPackets(pass.Kind);
+                    break;
+
+                case Mods.Render.WorldRenderPassKind.TranslucentSingle:
+                    GL.Disable(EnableCap.StencilTest);
+                    GL.Enable(EnableCap.AlphaTest);
+                    GL.AlphaFunc(AlphaFunction.Less, 1.0f);
+                    GL.ColorMask(true, true, true, true);
+                    GL.DepthMask(false);
+                    GL.DepthFunc(DepthFunction.Lequal);
+                    GL.Enable(EnableCap.Blend);
+                    GL.BlendFunc(BlendingFactor.SrcAlpha,
+                        BlendingFactor.OneMinusSrcAlpha);
                     DrawRenderGraphPackets(pass.Kind);
                     break;
                 }
