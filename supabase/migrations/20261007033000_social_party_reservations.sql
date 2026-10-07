@@ -75,7 +75,6 @@ $$;
 create or replace function prime.social_party_reservation_snapshot(p_actor uuid)
 returns jsonb
 language plpgsql
-stable
 security invoker
 set search_path = prime, pg_temp
 as $$
@@ -595,6 +594,46 @@ create trigger project_prime_social_party_reservation_member_notify
 after insert or update or delete on prime.social_party_reservation_members
 for each row execute function prime.social_party_reservation_notify();
 
+create or replace function prime.social_party_reservation_roster_changed()
+returns trigger
+language plpgsql
+security invoker
+set search_path = prime, pg_temp
+as $
+declare
+    v_party uuid;
+begin
+    if tg_table_name = 'social_parties' then
+        v_party := new.party_id;
+    elsif tg_op = 'DELETE' then
+        v_party := old.party_id;
+    else
+        v_party := new.party_id;
+    end if;
+
+    update prime.social_party_reservations
+    set status = 'cancelled', updated_at = now()
+    where party_id = v_party
+      and status in ('pending','reserved');
+
+    return case when tg_op = 'DELETE' then old else new end;
+end;
+$;
+
+drop trigger if exists project_prime_social_party_reservation_roster_change
+on prime.social_party_members;
+create trigger project_prime_social_party_reservation_roster_change
+after insert or delete on prime.social_party_members
+for each row execute function prime.social_party_reservation_roster_changed();
+
+drop trigger if exists project_prime_social_party_reservation_leader_change
+on prime.social_parties;
+create trigger project_prime_social_party_reservation_leader_change
+after update of leader_id on prime.social_parties
+for each row
+when (old.leader_id is distinct from new.leader_id)
+execute function prime.social_party_reservation_roster_changed();
+
 alter table prime.social_party_reservations enable row level security;
 alter table prime.social_party_reservation_members enable row level security;
 
@@ -634,4 +673,6 @@ revoke execute on function prime.social_party_reservation_server_admitted(uuid,u
 revoke execute on function prime.social_party_reservation_server_cancel(uuid,uuid,uuid,text)
     from public, anon, authenticated;
 revoke execute on function prime.social_party_reservation_notify()
+    from public, anon, authenticated;
+revoke execute on function prime.social_party_reservation_roster_changed()
     from public, anon, authenticated;
