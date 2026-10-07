@@ -84,6 +84,8 @@ struct PrimeMenuData {
     bool social_context_open = false;
     bool social_party_game_invite_ready = false;
     bool social_party_join_leader_ready = false;
+    bool social_party_follow_ready = false;
+    bool social_party_decline_travel_ready = false;
     int social_tab = 0;
     Rml::String social_search;
     Rml::String social_status = "CONNECTING";
@@ -95,6 +97,7 @@ struct PrimeMenuData {
     Rml::String social_party_count = "NO PARTY";
     Rml::String social_recent_count = "0 RECENT";
     Rml::String social_dnd_label = "DND OFF";
+    Rml::String social_party_travel_label;
     Rml::String social_notice;
     std::vector<SocialRow> social_rows;
     std::vector<SocialRow> home_friends;
@@ -172,6 +175,8 @@ public:
         model.Bind("social_context_open", &data.social_context_open);
         model.Bind("social_party_game_invite_ready", &data.social_party_game_invite_ready);
         model.Bind("social_party_join_leader_ready", &data.social_party_join_leader_ready);
+        model.Bind("social_party_follow_ready", &data.social_party_follow_ready);
+        model.Bind("social_party_decline_travel_ready", &data.social_party_decline_travel_ready);
         model.Bind("social_tab", &data.social_tab);
         model.Bind("social_search", &data.social_search);
         model.Bind("social_status", &data.social_status);
@@ -183,6 +188,7 @@ public:
         model.Bind("social_party_count", &data.social_party_count);
         model.Bind("social_recent_count", &data.social_recent_count);
         model.Bind("social_dnd_label", &data.social_dnd_label);
+        model.Bind("social_party_travel_label", &data.social_party_travel_label);
         model.Bind("social_notice", &data.social_notice);
         model.Bind("social_rows", &data.social_rows);
         model.Bind("home_friends", &data.home_friends);
@@ -238,6 +244,8 @@ public:
         model.BindEventCallback("social_dnd", &PrimeMenuModel::SocialDnd, this);
         model.BindEventCallback("social_party_game_invite", &PrimeMenuModel::SocialPartyGameInvite, this);
         model.BindEventCallback("social_party_join_leader", &PrimeMenuModel::SocialPartyJoinLeader, this);
+        model.BindEventCallback("social_party_follow", &PrimeMenuModel::SocialPartyFollow, this);
+        model.BindEventCallback("social_party_decline_travel", &PrimeMenuModel::SocialPartyDeclineTravel, this);
         model.BindEventCallback("social_filter", &PrimeMenuModel::SocialFilter, this);
         model.BindEventCallback("social_select", &PrimeMenuModel::SocialSelect, this);
         model.BindEventCallback("social_context_close", &PrimeMenuModel::SocialContextClose, this);
@@ -286,6 +294,7 @@ public:
         else if (name == "social_party_count") data.social_party_count = value;
         else if (name == "social_recent_count") data.social_recent_count = value;
         else if (name == "social_dnd_label") data.social_dnd_label = value;
+        else if (name == "social_party_travel_label") data.social_party_travel_label = value;
         else if (name == "social_notice") data.social_notice = value;
         else return;
         handle.DirtyVariable(name);
@@ -300,6 +309,8 @@ public:
         else if (name == "social_context_open") data.social_context_open = value;
         else if (name == "social_party_game_invite_ready") data.social_party_game_invite_ready = value;
         else if (name == "social_party_join_leader_ready") data.social_party_join_leader_ready = value;
+        else if (name == "social_party_follow_ready") data.social_party_follow_ready = value;
+        else if (name == "social_party_decline_travel_ready") data.social_party_decline_travel_ready = value;
         else return;
         handle.DirtyVariable(name);
     }
@@ -467,6 +478,10 @@ private:
         { Emit("social:party-game-invite"); }
     void SocialPartyJoinLeader(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
         { Emit("social:party-join-leader"); }
+    void SocialPartyFollow(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+        { Emit("social:party-follow"); }
+    void SocialPartyDeclineTravel(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+        { Emit("social:party-decline-travel"); }
 
     void SocialFilter(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
     {
