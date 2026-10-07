@@ -112,6 +112,9 @@ try {
  assert.equal(inviteResult.ok,true); assert.equal(inviteResult.status,'invite_accepted');
  assert.equal(inviteResult.locator.host,'203.0.113.10'); assert.equal(inviteResult.locator.port,27891);
  assert.equal(inviteResult.locator.authority_epoch,'638000000000000000');
+ const duplicateLiveInvite=(await db.query(`select prime.social_invite_send('${socialA}'::uuid,'PP-2222-2222-2222-4222-8222','${socialLobbyId}'::uuid) as value`)).rows[0].value;
+ assert.equal(duplicateLiveInvite.ok,true); assert.equal(duplicateLiveInvite.status,'invite_active'); assert.equal(duplicateLiveInvite.invite_id,socialInviteId);
+ assert.equal((await db.query(`select count(*)::int as count from prime.game_invites where sender_id='${socialA}'::uuid and recipient_id='${socialB}'::uuid and lobby_id='${socialLobbyId}'::uuid and status in ('pending','accepted')`)).rows[0].count,1);
  const friendJoin=(await db.query(`select prime.social_join_friend('${socialB}'::uuid,'PP-1111-1111-1111-4111-8111') as value`)).rows[0].value;
  assert.equal(friendJoin.ok,true); assert.equal(friendJoin.status,'friend_resolved'); assert.equal(friendJoin.locator.lobby_id,socialLobbyId);
 
