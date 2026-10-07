@@ -318,7 +318,8 @@ void main()
     else
     {
         // Home keeps the original full-size solo hero platform.
-        vec2 platformDelta = (uv - vec2(0.615, 0.805)) / vec2(0.235, 0.060);
+        vec4 soloPad = lobby_pad_geometry[0];
+        vec2 platformDelta = (uv - soloPad.xy) / soloPad.zw;
         float platformQ = dot(platformDelta, platformDelta);
         float platformFill = 1.0 - smoothstep(0.62, 1.0, platformQ);
         float platformEdge = smoothstep(0.62, 0.77, platformQ)
