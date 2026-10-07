@@ -284,20 +284,23 @@ namespace MphRead.Mods.Launcher
                         && NetSession.PersistentLobby
                         && NetSession.IsInLobby;
 
+                    string requestedReason;
+                    lock (Sync) requestedReason = _nextTravelReason;
+                    bool explicitTravelReason =
+                        !requestedReason.Equals(
+                            "leader_lobby", StringComparison.Ordinal);
+
                     if (leaderInVerifiedLobby
                         && (lobby!.LobbyId != publishedLobby
                             || now >= nextTravelRefresh
-                            || current.Travel == null))
+                            || current.Travel == null
+                            || explicitTravelReason))
                     {
                         try
                         {
-                            string reason;
-                            lock (Sync)
-                            {
-                                reason = _nextTravelReason;
-                                if (reason == "leader_lobby" && sawPartyMatch)
-                                    reason = "regroup";
-                            }
+                            string reason = requestedReason;
+                            if (reason == "leader_lobby" && sawPartyMatch)
+                                reason = "regroup";
 
                             var body = Body("publish_travel");
                             body["lobby_id"] = lobby.LobbyId;
