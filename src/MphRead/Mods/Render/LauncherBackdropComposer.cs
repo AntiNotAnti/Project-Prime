@@ -2,6 +2,7 @@
 using System;
 using MphRead.Mods.Launcher;
 using OpenTK.Graphics.OpenGL;
+using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Render
 {
@@ -315,7 +316,7 @@ void main()
         private static void Color(int location, MenuRgb color)
         {
             if (location >= 0)
-                GL.Uniform3(location, color.R, color.G, color.B);
+                GL.Uniform3(location, new Vector3(color.R, color.G, color.B));
         }
 
         private static bool EnsureProgram()
