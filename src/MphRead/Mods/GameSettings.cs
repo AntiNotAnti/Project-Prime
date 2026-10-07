@@ -113,7 +113,17 @@ namespace MphRead.Mods
                     (int)MathF.Round(RenderOptions.CelEdge * 100)) / 100f, 0, 1);
 
             if (Enum.TryParse(settings.GraphicsPreset, true, out GraphicsPreset preset))
+            {
                 RenderOptions.Preset = preset;
+                // Fast translucency is deliberately part of the Performance
+                // recipe rather than a fidelity default. Custom preserves the
+                // current explicit value for command-line/diagnostic tuning.
+                if (preset != GraphicsPreset.Custom)
+                {
+                    RenderOptions.Translucency = preset == GraphicsPreset.Performance
+                        ? TranslucencyMode.Fast : TranslucencyMode.Native;
+                }
+            }
             if (Enum.TryParse(settings.AntiAliasing, true, out AntiAliasingMode aa))
                 RenderOptions.AntiAliasing = aa;
             RenderOptions.SharpenStrength = RenderOptions.ParseInt(settings.SharpenStrength,
