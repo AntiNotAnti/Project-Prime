@@ -334,8 +334,10 @@ namespace MphRead.Mods.Launcher
 
         public static async Task<OnlineJoinResult> JoinAsync(
             string host, int port, string playerName, Hunter hunter, int suit,
-            CancellationToken cancellationToken = default, LobbyQueueClient? queuedAdmission = null,
-            bool spectate = false)
+            CancellationToken cancellationToken = default,
+            LobbyQueueClient? queuedAdmission = null,
+            bool spectate = false,
+            PartyReservedAdmission? partyAdmission = null)
         {
             host = host.Trim();
             playerName = playerName.Trim();
@@ -358,8 +360,10 @@ namespace MphRead.Mods.Launcher
             {
                 joined = await Task.Run(() => NetLaunch.Connect(host, port,
                     playerName, hunter, color: suit,
-                    cancellationToken: cancellationToken, queuedAdmission: queuedAdmission,
-                    spectate: spectate), cancellationToken);
+                    cancellationToken: cancellationToken,
+                    queuedAdmission: queuedAdmission,
+                    spectate: spectate,
+                    partyAdmission: partyAdmission), cancellationToken);
             }
             catch (OperationCanceledException)
             {
