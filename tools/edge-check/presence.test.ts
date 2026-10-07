@@ -27,6 +27,7 @@ const snapshot = {
     presence_visibility: "everyone",
     activity_visibility: "friends",
     invite_policy: "friends",
+    do_not_disturb: false,
   },
   players: [],
   expires_after_seconds: 45,
@@ -164,11 +165,12 @@ test("privacy update is validated before SQL", async () => {
     presence_visibility: "friends",
     activity_visibility: "private",
     invite_policy: "nobody",
+    do_not_disturb: true,
   }));
   assert.equal(response.status, 200);
   let data: any = await response.json();
   assert.equal(data.status, "privacy_updated");
-  assert.deepEqual(lastPrivacy, [actor, "friends", "private", "nobody"]);
+  assert.deepEqual(lastPrivacy, [actor, "friends", "private", "nobody", true]);
 
   response = await handler(request({
     action: "set_privacy",
