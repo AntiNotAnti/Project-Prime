@@ -44,6 +44,12 @@ namespace MphRead.Mods.Network
         public int MaxPlayers { get; init; }
         public bool WaitlistSupported { get; init; }
         public int WaitlistCount { get; init; }
+        /// <summary>
+        /// Unoccupied player seats temporarily held by queue offers or atomic
+        /// party reservations. These seats are not available to a new direct
+        /// join even though they are not yet counted as connected players.
+        /// </summary>
+        public int ReservedSlots { get; init; }
         public float TimeRemaining { get; init; }
         /// <summary>What the server calls itself, or an empty string.</summary>
         public string ServerName
@@ -311,6 +317,7 @@ namespace MphRead.Mods.Network
                 Players = match.PlayerCount,
                 MaxPlayers = status.MaxPlayers,
                 WaitlistSupported = status.WaitlistSupported, WaitlistCount = status.WaitlistCount,
+                ReservedSlots = status.ReservedSlots,
                 TimeRemaining = match.TimeRemaining,
                 Latency = latency,
                 Legacy = legacy,
