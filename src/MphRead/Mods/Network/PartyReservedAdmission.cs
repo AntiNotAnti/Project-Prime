@@ -42,7 +42,18 @@ public sealed class PartyReservedAdmission : IDisposable
 
     public void Dispose()
     {
-        _transport?.Dispose();
+        if (_transport != null)
+        {
+            try
+            {
+                _transport.Send(
+                    Server, PacketType.Bye, ReadOnlySpan<byte>.Empty);
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+            _transport.Dispose();
+        }
         _transport = null;
         _welcome = null;
     }
