@@ -113,44 +113,27 @@ namespace MphRead.Entities
 
             if (Hunter == Hunter.Samus)
             {
-                // melonPrimeDS keeps Morph Ball steering tied to the movement
-                // produced in the current guest frame rather than the distance
-                // from a pointer-down anchor. Do the same here. UpdatePointer
-                // has already accumulated pen/tablet samples into MouseDeltaX/Y
-                // for this simulation step, so mouse and absolute pointer use
-                // one exact, no-latency source.
+                bool enabled;
+                bool contact = false;
                 if (absolutePointer)
                 {
                     Mods.Input.PointerSample sample = Mods.Input.PointerDevice.Current;
-                    bool stylusValid = sample.InContact
+                    enabled = sample.InContact
                         && (!Mods.Input.StylusZone.Enabled || Mods.Input.StylusZone.Aiming);
-                    if (!stylusValid)
-                    {
-                        Input.StylusAltTracking = false;
-                        ModSetAltSwipeDrive(false, 0, 0);
-                        return;
-                    }
-                    Input.StylusAltTracking = true;
+                    contact = enabled;
+                    Input.StylusAltTracking = enabled;
                 }
                 else
                 {
                     Input.StylusAltTracking = false;
-                    if (!Mods.InputSettings.MouseAltFormMovement || !Controls.MouseAim)
-                    {
-                        ModSetAltSwipeDrive(false, 0, 0);
-                        return;
-                    }
+                    enabled = Mods.InputSettings.MouseAltFormMovement && Controls.MouseAim;
                 }
 
-                (float X, float Y) stockDrive = Mods.Input.AltFormGesture.StockRollMouseDrive(
-                    Input.MouseDeltaX, Input.MouseDeltaY,
-                    Mods.InputSettings.AltSwipeSensitivity);
-                // Keep absolute contact engaged even on a zero-delta frame. It
-                // contributes no traction, but avoids manufacturing a release
-                // edge just because the pen paused for one simulation tick.
-                bool stockEngaged = absolutePointer
-                    || stockDrive.X != 0 || stockDrive.Y != 0;
-                ModSetAltSwipeDrive(stockEngaged, stockDrive.X, stockDrive.Y);
+                Input.MorphTouch.StepLocal(_scene.FrameCount, enabled, contact,
+                    Input.MouseDeltaX, Input.MouseDeltaY);
+                // Samus no longer uses the heuristic virtual-stick/flick path.
+                // The native touch producer owns both roll and touch boost.
+                ModSetAltSwipeDrive(false, 0, 0);
                 return;
             }
 
@@ -217,10 +200,8 @@ namespace MphRead.Entities
                 return;
             }
 
-            // Android already recognized the swipe against real touch timing.
-            // Desktop mouse/pen detection runs here for Spire so its momentum
-            // request exists before the movement simulation. Samus keeps its
-            // detector later, where held native boost can suppress a flick.
+            // Samus Morph Ball touch is handled by NativeTouchSample. The
+            // remaining one-shot gesture is Spire's mobility nudge.
             if (action == Mods.Input.AltFlickAction.SpireMomentum
                 && !global::System.OperatingSystem.IsAndroid())
             {
