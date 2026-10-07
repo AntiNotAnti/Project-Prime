@@ -1300,6 +1300,198 @@
         "ownedAwakeLeaseExited": true,
         "scope": "Actual physical AppleM4Pro full Metal window draw, forced freshOpenGL/93mips and modern restart at production defaults on exact final560cef graph. No hostedMac absence or WindowsDX12/GPUvalidation result inferred."
       }
+    },
+    "statusPublicationAndBindingOrderRepair": {
+      "sourceScope": "Frozen precommit causal repair batch based on 8acb52aabbab616bc66620ac7d7348e48669a9fa. The actual generated version retains base8acb; no future commit label. Previous exact8acb/d26 Main, SDK, APK and actual161/30 cue/UI/fullReplay proofs remain historical and are not relabeled to this graph.",
+      "acceptedOverall": false,
+      "windowsStatusPublication": {
+        "actualFailingJob": 112598737320,
+        "workflowRun": 37560556513,
+        "sourceHead": "8acb52aabbab616bc66620ac7d7348e48669a9fa",
+        "status": "causal-writer-repair-macos-components-passed-windows-runtime-pending",
+        "actualFailureLog": "/tmp/project-prime-ci-job-112598737320.log",
+        "observedScope": "Windows old-reader denial negative passed; canonical held Read|Delete positive child Move replacement failed. Original failure omitted ErrorType/HResult, so no specific native error is inferred.",
+        "source": "src/MphRead/Mods/StudioReplay/StudioReplayStatusFile.cs",
+        "sourceSha256": "634cf4f7bee6aaba6dceadbe7e3684c8fde908506c6b9a15ea71af0c537c5ce1",
+        "writerConsumers": [
+          "src/ProjectPrime.Studio/Replay/ReplayExportWorkerHost.cs",
+          "src/ProjectPrime.Studio/Replay/ReplayExportWorkerCoordinator.cs"
+        ],
+        "repairScope": "Canonical bounded Write closes unique same-directory staging, uses File.Replace for existing Windows destination (ReplaceFileW read/delete-compatible target) and initial File.Move without overwrite, Unix overwrite rename. Both real publishers and direct actual-child fixture delegate to this helper; errors propagate. Reader remains immutable Read|Delete with Write denied, no in-place mutation or destination deletion gap.",
+        "componentEvidence": "artifacts/studio-acceptance/final-release/status-replace-pure/manifest.json",
+        "localPlatform": "macOS",
+        "pureChecks": 1189,
+        "actualFfmpegChecks": 1194,
+        "pureExitCode": 0,
+        "ffmpegExitCode": 0,
+        "windowsRuntimeAccepted": false
+      },
+      "dx12BindingOrder": {
+        "actualFailingJob": 112598737289,
+        "workflowRun": 37560556513,
+        "sourceHead": "8acb52aabbab616bc66620ac7d7348e48669a9fa",
+        "nativeFingerprint": "d26e910ce2f23e5c90e885c927d47c22e6d3227ac4a3ce14e6380ed5e5835d84",
+        "status": "actual-gbv-cause-identified-native-boundary-sort-and-local-regressions-passed-windows-runtime-pending",
+        "log": "/tmp/project-prime-ci-8acb-windows-dx12-112598737289.log",
+        "actualGpuValidationError": 939,
+        "actualFirstDraw": 0,
+        "shaderStage": "VERTEX",
+        "rootParameter": 0,
+        "descriptorRange": 0,
+        "actualHeapDescriptor": "SRV",
+        "expectedShaderRegister": "CBV",
+        "mapOperationHResult": "0x887A0005",
+        "deviceRemovedReasonHResult": "0x887A0005",
+        "cause": "Independent renderer/shell source review finds nativecore EntryMap passes stage insertion order[2,0,1] to HAL while bindgroup entries are ordered[0,1,2]. This violates the HAL sorted-binding contract and maps the first descriptor to the wrong register type.",
+        "repairScope": "Sorting is implemented at the nativecore-to-HAL boundary. Actual Naga validation and vertex-then-fragment Interface::check_stage derive [2,0,1]; outgoing HAL entries are [0,1,2], with typed resource identities preserved and explicit descriptors unchanged. Production validation remains opt-in; actual validated and subsequent production-default full DX12 runs remain pending. The failed d26 first draw is preserved.",
+        "newNativeFingerprint": "467581d1f838134de71fafc1a2bb259bd9aea3974c67c9ed21e9729ba00c8725",
+        "nativeBuildAndAbi": "passed-scoped-local-macos-production-fault-and-both-android-abis",
+        "nextWindowsValidatedFullRun": "pending",
+        "nextWindowsProductionDefaultFullRun": "pending",
+        "sourceContractEvidence": "artifacts/studio-acceptance/final-release/native-layout-order-467581d1/source-contract-receipt.json",
+        "actualDerivedLayoutChecks": 2,
+        "actualDerivedLayoutChecksLog": "/tmp/project-prime-native-derived-layout-unit.log",
+        "nativeEvidence": "artifacts/studio-acceptance/final-release/native-layout-order-467581d1/current/all-native-receipts.json",
+        "bridgeAbi": 1,
+        "localNativeChecks": {
+          "classifier": 2,
+          "wsi": 2,
+          "faultSubprocess": 35,
+          "packaging": 10
+        },
+        "nativeLibraries": {
+          "macos/osx-arm64": {
+            "sha256": "2c8f690c54705e6119d33db3d1515351061dd7e4c0ffc332398cff2760851c93",
+            "target": "osx-arm64",
+            "faultInjection": false
+          },
+          "fault/osx-arm64": {
+            "sha256": "dd3ccb28163ed674f03cda555a2b31dab752e0d82528e3609590963c1bc80cec",
+            "target": "osx-arm64",
+            "faultInjection": true
+          },
+          "android/arm64-v8a": {
+            "sha256": "211aebab62e123754cb56d2a670cc69128bfa31a35cd7397029c28fe53fd4c3e",
+            "target": "android-arm64",
+            "faultInjection": false
+          },
+          "android/x86_64": {
+            "sha256": "b904b043067b5deaf46027102d093423b3a7111e96a3e8683c8344597ec9e678",
+            "target": "android-x64",
+            "faultInjection": false
+          }
+        }
+      },
+      "historical8acb": {
+        "sourceHead": "8acb52aabbab616bc66620ac7d7348e48669a9fa",
+        "sourceTree": "fb22333ffffd19e6f8720e2141d5e14a0d8a7265",
+        "mainGraph": {
+          "engineAssemblySha256": "560cef8e9dbf9197422e44d5719487846b9851a61a2a228db83e6f8ca80c8110",
+          "studioAssemblySha256": "c392973f43dd50ba25b6b56cb235024cf47d99e26b4766fbd4c1ac742cf8de94",
+          "scope": "Prior exact precommit Main build and production-default physical proof remain in cueAuthoringAndDx12Diagnostics; original precommit version attribution is preserved."
+        },
+        "pairedMacPackage": {
+          "status": "passed-exact-recorded-local-scope",
+          "evidence": "artifacts/studio-acceptance/final-release/osx-arm64-final-d26/release-evidence.json",
+          "rawTrackedFilesIdentity": "ce4d5e54eb14a7a94d581bd303436e2ce8d97a4fd7b2d0c6f58f5ae236ec4453",
+          "version": "1.2.3",
+          "ipcVersion": 1,
+          "rid": "osx-arm64",
+          "archiveBytes": 162431465,
+          "archiveSha256": "e9ca39d23e7142365657ceee6b6213f5564f07cfd6e4764ad49b461e91a04c81",
+          "publishedEngineAssemblySha256": "01129e4fd7af6c7f8aeba3be0960fc47338813bd439139f51e7de4aa81c94b6b",
+          "publishedStudioAssemblySha256": "dbb7ffeff200f3ba2f1f68ba8c4e4ebd1217da09882385f347698f2778f2d713",
+          "nativeFingerprint": "d26e910ce2f23e5c90e885c927d47c22e6d3227ac4a3ce14e6380ed5e5835d84",
+          "scope": "Actual SDK paired local test1.2.3/IPC1 package with strict ad hoc/extract/Home proof; no production release/DeveloperID/notarization or newer causal repair acceptance. Source-compatible fullReplay/cue/UI evidence remains separate actual161/30 graph."
+        },
+        "android": {
+          "status": "passed-exact-build-package-scope",
+          "evidence": "artifacts/studio-acceptance/final-platform/android-8acb/manifest.json",
+          "compileInputs": 1178,
+          "compileInputsSha256": "6c724b7b4e479178645e2cc99bd0d9cc07f8d8d08c450d2c050c9d06ddf016ff",
+          "allCompileInputsCommittedAndUnchanged": true,
+          "actualInformationalVersion": "local+8acb52aabbab616bc66620ac7d7348e48669a9fa",
+          "buildErrors": 0,
+          "buildWarnings": 137,
+          "buildSeconds": 105.58,
+          "apkBytes": 118126844,
+          "apkSha256": "0d9132a80a0c4477022af28ed19d63ef189ff9a2adcdf9a39662026d0714cf07",
+          "canonicalAssemblySha256": "25a6b4e63d5917c259ea7508c7d46020031e270eaab7ea9c4db48c942cfcb5eb",
+          "canonicalMapTypes": 247,
+          "passiveReplayPreserved": true,
+          "forbiddenCreatorGuiOrStudioTypes": 0,
+          "forbiddenDesktopOrStudioReferences": 0,
+          "nativeFingerprint": "d26e910ce2f23e5c90e885c927d47c22e6d3227ac4a3ce14e6380ed5e5835d84",
+          "signature": "Verified APKv2/v3 AndroidDebug development signature",
+          "scope": "Exact8acb committed inputs and bothABI/untrimmed/linked metadata plus native package exclusion/signature; no emulator/runtime or new boundary-sort-source acceptance."
+        },
+        "replayScope": "Actual source-compatible cue110/fullnativeReplay158/UI858 retain Engine161ae5be/Studio30a573/d26; they are not relabeled to560/c392, SDK011/dbb7, or the pending new repair graph."
+      },
+      "remainingAcceptance": [
+        "New final-head exact-source Android APK and pairedSDK receipts after commit",
+        "Actual Windows heldRead|Delete canonicalWrite positive and both full DX12 runs",
+        "All required final-head Windows/Linux/macOS and Android CI checks"
+      ],
+      "currentMain": {
+        "status": "passed-exact-precommit-build-and-source-contract-scope",
+        "evidence": "artifacts/studio-acceptance/final-release/layout-status-main-build/manifest.json",
+        "baseHead": "8acb52aabbab616bc66620ac7d7348e48669a9fa",
+        "versionScope": "Actual generated version retains the base8acb precommit attribution; this receipt does not claim a future head.",
+        "buildErrors": 0,
+        "buildWarnings": 131,
+        "buildSeconds": 50.29,
+        "sourceInputs": 1413,
+        "sourceInputsSha256": "9c8fa69c98332087fbfa1b8310da343bfb71e1c5841f495606bafbf69db581bc",
+        "sourceInputsUnchangedBeforeAfter": true,
+        "engineAssemblySha256": "0f6487e771d2c61197caab83f406e93ce361f6c3ea877ec01bb855f361c4a683",
+        "studioAssemblySha256": "d806217982d79a20e79b125678fd894a989ca47b840426603b16ace3c53b4652",
+        "nativeLibrarySha256": "2c8f690c54705e6119d33db3d1515351061dd7e4c0ffc332398cff2760851c93",
+        "nativeFingerprint": "467581d1f838134de71fafc1a2bb259bd9aea3974c67c9ed21e9729ba00c8725",
+        "architectureChecks": 8239,
+        "negativeContractChecks": 66,
+        "architectureLog": "/tmp/project-prime-studio-layout-status-architecture.log",
+        "negativeContractLog": "/tmp/project-prime-studio-layout-status-architecture-self.log",
+        "trackedAssetGuard": "pass"
+      },
+      "currentPhysicalRenderer": {
+        "status": "passed-exact-local-production-default-scope",
+        "evidence": "artifacts/studio-acceptance/final-release/physical-metal-gl-layout-final/manifest.json",
+        "engineAssemblySha256": "0f6487e771d2c61197caab83f406e93ce361f6c3ea877ec01bb855f361c4a683",
+        "nativeLibrarySha256": "2c8f690c54705e6119d33db3d1515351061dd7e4c0ffc332398cff2760851c93",
+        "nativeFingerprint": "467581d1f838134de71fafc1a2bb259bd9aea3974c67c9ed21e9729ba00c8725",
+        "platform": "Physical Apple M4 Pro macOS",
+        "exitCode": 0,
+        "elapsedSeconds": 2.595112708,
+        "scope": "Full Metal draw/window/pixel/mip phases, fresh actual legacy OpenGL with93 mip assertions and modern restart at production defaults. GPU validation and hosted unavailable allowance unset. No Windows DX12 or hosted Mac result inferred.",
+        "log": "/tmp/project-prime-physical-metal-gl-layout-final.log",
+        "logSha256": "7513602e52d10a4d36b149a1aa318437e4898ee0426559aba6948de1dcc10b16",
+        "ownedProcessExited": true,
+        "ownedAwakeLeaseExited": true
+      },
+      "currentReplayRuntime": {
+        "status": "passed-exact-current-native-cue-and-full-replay-scope",
+        "engineAssemblySha256": "0f6487e771d2c61197caab83f406e93ce361f6c3ea877ec01bb855f361c4a683",
+        "studioAssemblySha256": "d806217982d79a20e79b125678fd894a989ca47b840426603b16ace3c53b4652",
+        "nativeLibrarySha256": "2c8f690c54705e6119d33db3d1515351061dd7e4c0ffc332398cff2760851c93",
+        "nativeFingerprint": "467581d1f838134de71fafc1a2bb259bd9aea3974c67c9ed21e9729ba00c8725",
+        "cueChecks": 110,
+        "fullNativeReplayChecks": 158,
+        "cueExitCode": 0,
+        "fullReplayExitCode": 0,
+        "cueLog": "/tmp/project-prime-host-native-replay-layout-status-cue.log",
+        "fullReplayLog": "/tmp/project-prime-host-native-replay-layout-status-full.log",
+        "cueEvidence": "/tmp/project-prime-native-replay-layout-status-cue-evidence",
+        "fullReplayEvidence": "/tmp/project-prime-native-replay-layout-status-full-evidence",
+        "pngFramesPerWorker": 3,
+        "pcmFramesPerWorker": 2400,
+        "pcmSampleRate": 48000,
+        "pcmChannels": 2,
+        "audibleRms": 0.1767625848345871,
+        "audibleNonzeroSamples": 4792,
+        "mutedRms": 0,
+        "mutedNonzeroSamples": 0,
+        "scope": "Fresh actual source-bound AddCue/Export controls, frozen ticket, independent native worker, audible/muted PCM and full Replay gates on exact0f6487/d806217/467581. All owned applications, workers and awake leases exited. Earlier loadedUI858 remains actual161/30/d26 source-compatible evidence and is not relabeled."
+      }
     }
   }
 }

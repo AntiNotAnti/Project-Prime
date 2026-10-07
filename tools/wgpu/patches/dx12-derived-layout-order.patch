@@ -1,0 +1,118 @@
+--- a/wgpu-core/src/device/resource.rs
++++ b/wgpu-core/src/device/resource.rs
+@@ -1711,7 +1711,7 @@
+ 
+         let bgl_flags = conv::bind_group_layout_flags(self.features);
+ 
+-        let hal_bindings = entry_map.values().copied().collect::<Vec<_>>();
++        let hal_bindings = hal_bind_group_layout_entries(&entry_map);
+         let label = label.to_hal(self.instance_flags);
+         let hal_desc = hal::BindGroupLayoutDescriptor {
+             label,
+@@ -3403,3 +3403,106 @@
+         &mut self.info
+     }
+ }
++
++// HAL layout entries must match the binding-sorted resource entries supplied
++// by create_bind_group, even when shader stages discover bindings out of order.
++fn hal_bind_group_layout_entries(entry_map: &bgl::EntryMap) -> Vec<wgt::BindGroupLayoutEntry> {
++    let mut entries = entry_map.values().copied().collect::<Vec<_>>();
++    entries.sort_unstable_by_key(|entry| entry.binding);
++    entries
++}
++
++#[cfg(all(test, feature = "wgsl"))]
++mod prime_derived_bind_group_layout_tests {
++    use super::*;
++
++    fn derive_ui_layout() -> bgl::EntryMap {
++        // Vertex uses binding 2 before fragment uses 0 and 1, as in the native
++        // compatibility UI shader. Exercise Naga and the real stage validator.
++        let module = naga::front::wgsl::parse_str(
++            r#"
++@group(0) @binding(0) var picture: texture_2d<f32>;
++@group(0) @binding(1) var picture_sampler: sampler;
++@group(0) @binding(2) var<uniform> viewport: vec4<f32>;
++@vertex fn vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
++    return vec4<f32>(f32(index), 0.0, 0.0, 1.0) + viewport;
++}
++@fragment fn fs_main() -> @location(0) vec4<f32> {
++    return textureSample(picture, picture_sampler, vec2<f32>(0.5, 0.5));
++}
++"#,
++        )
++        .unwrap();
++        let info = naga::valid::Validator::new(
++            naga::valid::ValidationFlags::all(),
++            naga::valid::Capabilities::all(),
++        )
++        .validate(&module)
++        .unwrap();
++        let limits = wgt::Limits::default();
++        let interface = validation::Interface::new(
++            &module,
++            &info,
++            limits.clone(),
++            wgt::Features::empty(),
++        );
++        let mut layouts = validation::BindingLayoutSource::new_derived(&limits);
++        let mut sizes = FastHashMap::default();
++        let outputs = interface
++            .check_stage(
++                &mut layouts,
++                &mut sizes,
++                "vs_main",
++                wgt::ShaderStages::VERTEX,
++                validation::StageIo::default(),
++                None,
++            )
++            .unwrap();
++        interface
++            .check_stage(
++                &mut layouts,
++                &mut sizes,
++                "fs_main",
++                wgt::ShaderStages::FRAGMENT,
++                outputs,
++                None,
++            )
++            .unwrap();
++        match layouts {
++            validation::BindingLayoutSource::Derived(mut maps) => maps.remove(0),
++            _ => unreachable!(),
++        }
++    }
++
++    #[test]
++    fn real_vertex_then_fragment_derivation_obeys_hal_order() {
++        let map = derive_ui_layout();
++        // Preserve the actual discovery order as the regression's trigger.
++        assert_eq!(map.indices().collect::<Vec<_>>(), [2, 0, 1]);
++        let entries = hal_bind_group_layout_entries(&map);
++        assert_eq!(entries.iter().map(|entry| entry.binding).collect::<Vec<_>>(), [0, 1, 2]);
++        for entry in &entries {
++            assert_eq!(Some(entry), map.get(entry.binding));
++        }
++        assert!(matches!(entries[0].ty, wgt::BindingType::Texture { .. }));
++        assert!(matches!(entries[1].ty, wgt::BindingType::Sampler(_)));
++        assert!(matches!(entries[2].ty, wgt::BindingType::Buffer {
++            ty: wgt::BufferBindingType::Uniform, ..
++        }));
++        assert_eq!(entries[2].visibility, wgt::ShaderStages::VERTEX);
++        // Sorting the outgoing HAL copy must not rewrite shader identities.
++        assert_eq!(map.indices().collect::<Vec<_>>(), [2, 0, 1]);
++    }
++
++    #[test]
++    fn explicit_layout_entries_remain_identical() {
++        let derived = derive_ui_layout();
++        let explicit = bgl::EntryMap::from_entries(
++            &wgt::Limits::default(),
++            &derived.values().copied().collect::<Vec<_>>(),
++        )
++        .unwrap();
++        assert_eq!(explicit.indices().collect::<Vec<_>>(), [0, 1, 2]);
++        assert_eq!(hal_bind_group_layout_entries(&explicit), explicit.values().copied().collect::<Vec<_>>());
++    }
++}

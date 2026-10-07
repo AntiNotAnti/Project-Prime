@@ -628,6 +628,99 @@ semantic/visual oracles rather than cross-driver PNG byte identity.
 
 ## Completion contract and evidence scopes
 
+The working-tree causal batch after `8acb52aabbab616bc66620ac7d7348e48669a9fa`
+repairs status publication and a positively diagnosed native DX12 binding-order
+mismatch. Its exact precommit build/local renderer receipts are recorded separately;
+earlier package/runtime passes are not inherited by these new sources.
+
+In actual 8acb Windows Studio job `112598737320`, the old-reader denied-replacement
+negative passes, then the held Read|Delete positive child Move fails. That failure
+omitted ErrorType/HResult; no specific native code is inferred. The new canonical
+`StudioReplayStatusFile.Write` closes unique bounded staging and uses Windows
+`File.Replace` for an existing destination, whose ReplaceFileW target access is
+compatible with immutable read/delete sharing. Initial Windows publication uses
+non-overwriting Move; Unix keeps overwrite rename. Both actual worker publishers
+and the direct child fixture delegate to this same helper. `Read | Delete` is
+unchanged, Write remains denied, errors propagate and there is no deletion gap
+or in-place update. Local macOS pure 1,189 and actual FFmpeg/FFprobe 1,194 pass,
+recorded in `artifacts/studio-acceptance/final-release/status-replace-pure/manifest.json`.
+Actual next-head Windows replacement/runtime proof remains pending.
+
+Actual DX12 job `112598737289` now identifies GPU-based-validation error 939 on
+the first VERTEX draw: root parameter 0 / range 0 holds an SRV while the shader
+expects a CBV. The failed Map and actual `GetDeviceRemovedReason` both report
+`0x887A0005`; the d26 failure log is retained at
+`/tmp/project-prime-ci-8acb-windows-dx12-112598737289.log`. Independent renderer and
+shell source reviews find nativecore EntryMap stage insertion order `[2,0,1]`
+passed to HAL while bindgroup entries are ordered `[0,1,2]`, violating HAL's
+sorted-binding contract. The approved repair sorts at that native boundary and
+adds an intentionally unsorted shader-binding regression. The frozen native
+fingerprint is `467581d1f838134de71fafc1a2bb259bd9aea3974c67c9ed21e9729ba00c8725`.
+Actual Naga/check_stage derivation and explicit-layout invariants pass 2/2;
+classifier 2, WSI 2, fault subprocess 35 and packaging 10 also pass locally. The
+source receipt and all four macOS production/fault and Android arm64/x64 library
+hashes are retained under
+`artifacts/studio-acceptance/final-release/native-layout-order-467581d1/`.
+This establishes local compiled ABI/regression scope. Actual Windows runtime
+proof remains pending: both full validation-enabled and subsequent
+production-default DX12 checks remain required.
+
+The new coherent Main build passes with zero errors / 131 warnings in 50.29 s;
+all 1,413 evaluated source inputs are identical before/after, SHA-256
+`9c8fa69c98332087fbfa1b8310da343bfb71e1c5841f495606bafbf69db581bc`.
+Its exact engine is
+`0f6487e771d2c61197caab83f406e93ce361f6c3ea877ec01bb855f361c4a683`, Studio
+`d806217982d79a20e79b125678fd894a989ca47b840426603b16ace3c53b4652`, and macOS
+native `2c8f690c54705e6119d33db3d1515351061dd7e4c0ffc332398cff2760851c93` /
+467581d1. Actual generated version retains base8acb precommit attribution.
+Architecture 8,239/8,239 and negative contracts 66/66 pass on these sources.
+The build/source/asset-guard receipt is
+`artifacts/studio-acceptance/final-release/layout-status-main-build/manifest.json`.
+
+The physical Apple M4 Pro check on this exact engine/native graph exits zero in
+2.595112708 s at production defaults, with GPU validation and hosted capability
+allowance unset. Full Metal pixel/mip/window phases, fresh actual OpenGL with
+93 mip assertions, and modern restart pass; owned application and awake lease
+exit. Its separate receipt is
+`artifacts/studio-acceptance/final-release/physical-metal-gl-layout-final/manifest.json`.
+Fresh actual cue 110 and full native Replay 158 now pass on this exact
+0f6487/d806217/467581 graph. The actual cue controls produce frozen worker
+tickets; each independent worker renders three PNGs and 2,400 stereo 48 kHz
+PCM frames, with audible RMS 0.1767625848345871 / 4,792 nonzero samples and
+muted 0 / 0. Logs are
+`/tmp/project-prime-host-native-replay-layout-status-{cue,full}.log`; evidence is
+`/tmp/project-prime-native-replay-layout-status-{cue,full}-evidence`. All owned
+applications, workers and awake leases exit. The earlier loaded UI 858 remains
+its actual161/30/d26 source-compatible receipt, without relabeling. Windows
+DX12 and final-head CI acceptance are not inferred from these local results.
+
+The historical exact 8acb receipts remain separate: precommit Main 560cef8e/
+c392973f and its physical Metal/GL proof; paired macOS SDK engine
+`01129e4fd7af6c7f8aeba3be0960fc47338813bd439139f51e7de4aa81c94b6b` / Studio
+`dbb7ffeff200f3ba2f1f68ba8c4e4ebd1217da09882385f347698f2778f2d713` / native d26,
+archive 162,431,465 bytes SHA-256
+`e9ca39d23e7142365657ceee6b6213f5564f07cfd6e4764ad49b461e91a04c81`
+(`artifacts/studio-acceptance/final-release/osx-arm64-final-d26/release-evidence.json`).
+This actual SDK test package is 1.2.3 / IPC 1 with local strict ad hoc/extract/Home
+scope, not a production release or notarized package. Source-compatible cue110,
+full Replay158 and UI858 are still attributed to their actual engine161ae5be/
+Studio30a573/d26 binaries, without relabeling to either Main or SDK assemblies.
+
+The exact committed 8acb Android receipt is
+`artifacts/studio-acceptance/final-platform/android-8acb/manifest.json`:
+118,126,844-byte APK SHA-256
+`0d9132a80a0c4477022af28ed19d63ef189ff9a2adcdf9a39662026d0714cf07`,
+zero errors / 137 warnings in 105.58 s. All 1,178 committed source inputs match
+before/after, SHA-256
+`6c724b7b4e479178645e2cc99bd0d9cc07f8d8d08c450d2c050c9d06ddf016ff`.
+Actual informational version is `local+8acb52aabbab616bc66620ac7d7348e48669a9fa`;
+both ABI/linked/untrimmed metadata retain 247 Map types and passive Replay with
+zero creator/Studio types or references. Both d26 native payloads and AndroidDebug
+v2/v3 development signatures verify. This exact build/package proof does not
+establish Android runtime or accept newer status/binding repair sources. New
+final-head Android APK, paired SDK and all required final-head CI results remain
+pending for the causal batch; overall acceptance remains false.
+
 The working-tree batch after `b692ef6db2eea87f09d7545442d42b863310329c`
 completes the required R7 event-to-WAV authoring route. The Export inspector can
 add, update and remove at most 64 recorded-event bindings, choose an audio bus,

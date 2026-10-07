@@ -173,13 +173,11 @@ public static class ReplayExportWorkerHost
     internal static void WriteStatus(StudioReplayExportStatus status)
     {
         if (Ticket == null) return;
-        string staging = Ticket.StatusFile + ".staging";
         Directory.CreateDirectory(Path.GetDirectoryName(Ticket.StatusFile)!);
         using var process = Process.GetCurrentProcess();
-        File.WriteAllText(staging, JsonSerializer.Serialize(status with { Id = Ticket.Id,
+        StudioReplayStatusFile.Write(Ticket.StatusFile, status with { Id = Ticket.Id,
             WorkerProcessId = process.Id, WorkerStartUtcTicks = process.StartTime.ToUniversalTime().Ticks,
-            OriginCaptured = OriginCaptured, WorkerIdentity = ReplayExportWorkerIdentity.Capture(process) }));
-        File.Move(staging, Ticket.StatusFile, overwrite: true);
+            OriginCaptured = OriginCaptured, WorkerIdentity = ReplayExportWorkerIdentity.Capture(process) });
     }
 }
 

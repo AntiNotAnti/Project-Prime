@@ -208,8 +208,6 @@ public sealed class ReplayExportWorkerCoordinator(StudioJobManager jobs, Func<st
     private static void WriteStatus(StudioReplayExportTicket ticket, StudioReplayExportStatus status)
     {
         Directory.CreateDirectory(Path.GetDirectoryName(ticket.StatusFile)!);
-        string staging = ticket.StatusFile + ".observer." + Guid.NewGuid().ToString("N");
-        try { File.WriteAllText(staging, JsonSerializer.Serialize(status)); File.Move(staging, ticket.StatusFile, overwrite: true); }
-        finally { if (File.Exists(staging)) File.Delete(staging); }
+        StudioReplayStatusFile.Write(ticket.StatusFile, status);
     }
 }

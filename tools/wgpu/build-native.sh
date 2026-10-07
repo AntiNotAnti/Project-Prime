@@ -71,6 +71,9 @@ export CARGO_TARGET_DIR="$repo/artifacts/wgpu-native-target-patched"
 cargo build --manifest-path "$src/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --target "$triple" --no-default-features --features "$features"
 if $unit_tests; then
     cargo test --manifest-path "$src/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --target "$triple" --no-default-features --features "$features" --lib prime_surface_tests
+    # Select both packages so Cargo enables production features on the native
+    # workspace while testing the core dependency through the same pinned lock.
+    cargo test --manifest-path "$src/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --target "$triple" --package wgpu-native --package wgpu-core --no-default-features --features "$features" --lib prime_derived_bind_group_layout_tests
     rustc --test "$repo/tools/wgpu/prime-dx12-wsi-policy.rs" -o "$CARGO_TARGET_DIR/prime-dx12-policy-tests"
     "$CARGO_TARGET_DIR/prime-dx12-policy-tests"
     if [[ "$requested" == win-x64 ]]; then

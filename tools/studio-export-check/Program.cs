@@ -47,7 +47,13 @@ if (args is ["--stdio-parent", var loggingDirectoryForParent])
 if (args is ["--coordinator-child", var stateFile, var cancelFile, var jobId, var peerDirectory])
 {
     Guid id = Guid.Parse(jobId);
-    void Publish(string state) { using var process = Process.GetCurrentProcess(); FixturePublication.PublishText(stateFile, JsonSerializer.Serialize(new StudioReplayExportStatus(id, state, state == "Complete" ? 2 : 0, 2, null, Path.GetDirectoryName(stateFile)!, process.Id, process.StartTime.ToUniversalTime().Ticks, WorkerIdentity: ReplayExportWorkerIdentity.Capture(process)))); }
+    void Publish(string state)
+    {
+        using var process = Process.GetCurrentProcess();
+        StudioReplayStatusFile.Write(stateFile, new StudioReplayExportStatus(id, state,
+            state == "Complete" ? 2 : 0, 2, null, Path.GetDirectoryName(stateFile)!, process.Id,
+            process.StartTime.ToUniversalTime().Ticks, WorkerIdentity: ReplayExportWorkerIdentity.Capture(process)));
+    }
     int maximum = 0;
     void ObserveChildren()
     {
