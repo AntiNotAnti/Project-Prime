@@ -418,10 +418,14 @@ private:
         Emit((std::string("social:search:") + data.social_search).c_str());
     }
 
-    const SocialRow* FindRow(const Rml::String& prime_id) const
+    const SocialRow* FindRow(
+        const Rml::String& prime_id, const Rml::String& invite_id) const
     {
-        for (const SocialRow& row : data.social_rows)
-            if (row.prime_id == prime_id) return &row;
+        for (const SocialRow& row : data.social_rows) {
+            if (row.prime_id != prime_id) continue;
+            if (!invite_id.empty() && row.invite_id != invite_id) continue;
+            return &row;
+        }
         return nullptr;
     }
 
@@ -429,7 +433,9 @@ private:
     {
         if (arguments.empty()) return;
         const Rml::String prime_id = arguments[0].Get<Rml::String>();
-        const SocialRow* row = FindRow(prime_id);
+        const Rml::String invite_id = arguments.size() > 1
+            ? arguments[1].Get<Rml::String>() : Rml::String();
+        const SocialRow* row = FindRow(prime_id, invite_id);
         if (!row) return;
 
         data.selected_prime_id = row->prime_id;
