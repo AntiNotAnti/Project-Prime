@@ -715,6 +715,18 @@ button {
 }
 .social_tab.selected .social_tab_count { color: #8bd3ff; }
 
+.social_travel_notice {
+    margin-bottom: 8dp;
+    padding: 7dp 10dp;
+    color: #a9dbff;
+    background-color: rgba(19,73,117,0.20);
+    border: 1dp rgba(114,199,255,0.12);
+    border-left: 3dp #72c7ff;
+    font-size: 8dp;
+    line-height: 11dp;
+    font-weight: bold;
+    letter-spacing: 0.55dp;
+}
 .social_notice {
     margin-bottom: 8dp;
     padding: 8dp 10dp;
@@ -797,6 +809,16 @@ button {
     color: #ffffff;
     border-color: #72c7ff;
     background-color: rgba(28,114,225,0.50);
+}
+.social_state_action.subtle {
+    color: #8198ab;
+    background-color: rgba(7,24,39,0.48);
+    border-color: rgba(114,199,255,0.10);
+}
+.social_state_action.subtle:hover, .social_state_action.subtle:focus {
+    color: #dceeff;
+    border-color: rgba(114,199,255,0.34);
+    background-color: rgba(23,65,101,0.55);
 }
 .social_ttl {
     margin-left: auto;
