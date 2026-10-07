@@ -70,7 +70,8 @@ if $fault; then features="$features,prime-fault-injection"; out="$repo/artifacts
 export CARGO_TARGET_DIR="$repo/artifacts/wgpu-native-target-patched"
 cargo build --manifest-path "$src/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --target "$triple" --no-default-features --features "$features"
 if $unit_tests; then
-    cargo test --manifest-path "${src}-core/wgpu-hal/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --target "$triple" --lib prime_submit_observation_tests
+    rustc --edition=2021 --test "$repo/tools/wgpu/prime-submit-observation.rs" -o "$CARGO_TARGET_DIR/prime-submit-observation-tests"
+    "$CARGO_TARGET_DIR/prime-submit-observation-tests"
     cargo test --manifest-path "$src/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --target "$triple" --no-default-features --features "$features" --lib prime_surface_tests
     cargo test --manifest-path "$src/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --target "$triple" --no-default-features --features "$features" --lib prime_diagnostic_string_tests
     cargo test --manifest-path "$src/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --target "$triple" --no-default-features --features "$features" --lib prime_device_poll_loss_tests
