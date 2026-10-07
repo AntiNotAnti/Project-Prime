@@ -114,8 +114,8 @@ body {
     display: block;
     margin-top: 3dp;
     color: #6d8396;
-    font-size: 9dp;
-    line-height: 11dp;
+    font-size: 10dp;
+    line-height: 12dp;
     letter-spacing: 1.6dp;
 }
 
@@ -186,8 +186,8 @@ button {
     display: block;
     margin-top: 2dp;
     color: #667e92;
-    font-size: 8dp;
-    line-height: 10dp;
+    font-size: 9dp;
+    line-height: 11dp;
     letter-spacing: 0.7dp;
 }
 
@@ -298,8 +298,8 @@ button {
     margin-top: 9dp;
     color: #5f88a7;
     font-family: "JetBrains Mono";
-    font-size: 8dp;
-    line-height: 10dp;
+    font-size: 9dp;
+    line-height: 11dp;
     letter-spacing: 0.8dp;
 }
 .selector_change {
@@ -329,7 +329,7 @@ button {
     justify-content: space-between;
     padding: 8dp 13dp;
     color: #7a8fa2;
-    font-size: 9dp;
+    font-size: 10dp;
     letter-spacing: 1dp;
     background-color: rgba(3,10,18,86%);
     border-left: 1dp rgba(97,182,246,16%);
@@ -360,8 +360,8 @@ button {
 .deploy_kicker {
     display: block;
     color: #7f9fb7;
-    font-size: 8dp;
-    line-height: 10dp;
+    font-size: 9dp;
+    line-height: 11dp;
     letter-spacing: 1.5dp;
 }
 .deploy_label {
@@ -377,7 +377,10 @@ button {
     right: 20dp;
     top: 16dp;
     color: #8fd5ff;
-    font-size: 38dp;
+    font-family: "JetBrains Mono";
+    font-size: 31dp;
+    line-height: 34dp;
+    font-weight: bold;
 }
 
 #activity_drawer {
@@ -431,7 +434,7 @@ button {
     margin-top: 10dp;
     margin-bottom: 5dp;
     color: #55758f;
-    font-size: 8dp;
+    font-size: 9dp;
     font-family: "JetBrains Mono";
     font-weight: bold;
     letter-spacing: 1.4dp;
@@ -483,13 +486,13 @@ button {
     display: block;
     margin-top: 2dp;
     color: #71879a;
-    font-size: 9dp;
-    line-height: 12dp;
+    font-size: 10dp;
+    line-height: 13dp;
 }
 .drawer_state {
     margin-right: 10dp;
     color: #55e18c;
-    font-size: 8dp;
+    font-size: 9dp;
     font-family: "JetBrains Mono";
     letter-spacing: 0.8dp;
 }
@@ -504,8 +507,8 @@ button {
     padding-top: 10dp;
     color: #49677d;
     font-family: "JetBrains Mono";
-    font-size: 7dp;
-    line-height: 10dp;
+    font-size: 8dp;
+    line-height: 11dp;
     letter-spacing: 0.7dp;
     border-top: 1dp rgba(114,199,255,9%);
 }
@@ -547,8 +550,8 @@ button {
 #hunter_meta {
     margin-top: 1dp;
     color: #6b8295;
-    font-size: 8dp;
-    line-height: 10dp;
+    font-size: 9dp;
+    line-height: 11dp;
     letter-spacing: 1.1dp;
 }
 
@@ -558,8 +561,8 @@ button {
     top: 38dp;
     width: 304dp;
     padding: 15dp;
-    background-color: rgba(4,14,25,68%);
-    border: 1dp rgba(97,182,246,14%);
+    background-color: rgba(4,14,25,60%);
+    border: 1dp rgba(97,182,246,12%);
     border-left: 2dp rgba(114,199,255,45%);
 }
 .session_header {
@@ -579,8 +582,8 @@ button {
     display: flex;
     align-items: center;
     padding: 12dp;
-    background-color: rgba(12,40,65,80%);
-    border: 1dp rgba(97,182,246,14%);
+    background-color: rgba(12,40,65,60%);
+    border: 1dp rgba(97,182,246,11%);
 }
 .session_badge {
     width: 40dp;
@@ -591,7 +594,7 @@ button {
     color: #ffffff;
     font-size: 20dp;
     font-weight: bold;
-    background-color: #1c72e1;
+    background-color: rgba(28,114,225,78%);
 }
 .session_copy { flex: 1; }
 .session_name {
@@ -603,8 +606,8 @@ button {
 .session_meta {
     margin-top: 2dp;
     color: #8197aa;
-    font-size: 9dp;
-    line-height: 11dp;
+    font-size: 10dp;
+    line-height: 12dp;
 }
 .session_slot {
     display: flex;
@@ -625,8 +628,8 @@ button {
 .session_hint {
     margin-top: 10dp;
     color: #536b80;
-    font-size: 8dp;
-    line-height: 12dp;
+    font-size: 9dp;
+    line-height: 13dp;
 }
 
 #diagnostics_panel {
@@ -684,7 +687,7 @@ button {
 }
 #build_info {
     color: #60788d;
-    font-size: 9dp;
+    font-size: 10dp;
     letter-spacing: 0.8dp;
 }
 .blue { color: #72c7ff; }
