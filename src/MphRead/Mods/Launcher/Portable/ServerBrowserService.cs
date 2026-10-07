@@ -157,7 +157,10 @@ namespace MphRead.Mods.Launcher
                 ? Int32.MaxValue
                 : Math.Max(0, entry.Status.MaxPlayers - entry.Status.Players);
             bool phase = lobbyOnly
-                ? entry.Status.Legacy || entry.Status.Phase == SessionPhase.Lobby
+                ? !entry.Status.Legacy
+                    && entry.Status.LobbyEnabled
+                    && entry.Status.AuthorityEpoch != 0
+                    && entry.Status.Phase == SessionPhase.Lobby
                 : entry.Status.Legacy || entry.Status.Phase == SessionPhase.Lobby
                     || (entry.Status.Phase == SessionPhase.InMatch
                         && entry.Status.AllowJoinInProgress);
@@ -184,7 +187,8 @@ namespace MphRead.Mods.Launcher
 
         public static Task<QuickPlaySearchResult> FindBestAsync(
             CancellationToken cancellationToken = default)
-            => FindBestAsync(1, lobbyOnly: false, cancellationToken);
+            => FindBestAsync(1, lobbyOnly: false,
+                cancellationToken: cancellationToken);
 
         public static async Task<QuickPlaySearchResult> FindBestAsync(
             int requiredSlots, bool lobbyOnly,
