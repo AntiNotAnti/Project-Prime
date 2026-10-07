@@ -22,7 +22,11 @@ namespace MphRead.Mods.Render
 
         public static void DrawUnderHunter(int width, int height)
         {
-            if (!Enabled || !LauncherHunter.Wanted || width <= 0 || height <= 0)
+            // The live chamber's per-slot GL pedestal pass already lays down
+            // eight correctly aligned contact shadows from the formation table.
+            // The single-hero stage shadow would otherwise float between pads.
+            if (!Enabled || LauncherLobbyVisuals.Active
+                || !LauncherHunter.Wanted || width <= 0 || height <= 0)
                 return;
 
             EnsureTexture();
