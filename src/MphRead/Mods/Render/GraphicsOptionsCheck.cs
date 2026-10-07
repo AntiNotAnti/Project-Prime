@@ -19,6 +19,7 @@ namespace MphRead.Mods.Render
                 Check(RenderOptions.Preset == GraphicsPreset.Original
                     && RenderOptions.ResolutionScale == 100
                     && RenderOptions.AntiAliasing == AntiAliasingMode.Off
+                    && RenderOptions.Translucency == TranslucencyMode.Native
                     && RenderOptions.Shadows == ShadowQuality.Off
                     && !RenderOptions.TextureReplacements
                     && !RenderOptions.CharacterModelReplacements
@@ -60,6 +61,7 @@ namespace MphRead.Mods.Render
                 RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Performance);
                 Check(RenderOptions.ResolutionScale == 100
                     && RenderOptions.AntiAliasing == AntiAliasingMode.Fxaa
+                    && RenderOptions.Translucency == TranslucencyMode.Fast
                     && RenderOptions.TextureAnisotropy == 4
                     && !RenderOptions.NeedsReadableDepth && !RenderOptions.Bloom,
                     "performance preserves native detail without depth effects");
@@ -67,6 +69,7 @@ namespace MphRead.Mods.Render
                 RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Enhanced);
                 Check(RenderOptions.ResolutionScale == 100
                     && RenderOptions.AntiAliasing == AntiAliasingMode.Smaa
+                    && RenderOptions.Translucency == TranslucencyMode.Native
                     && RenderOptions.AmbientOcclusion == AmbientOcclusionQuality.Low
                     && RenderOptions.Bloom && RenderOptions.BloomIntensity == 20
                     && RenderOptions.Shadows == ShadowQuality.Off
