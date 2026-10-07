@@ -96,7 +96,8 @@ namespace MphRead.Mods.Launcher.Gui
                     _pending = false;
                     SetStatus("SERVER REJECTED CHANGES // " + NetSession.LobbyMessage);
                 }
-                else if (Environment.TickCount64 - _sentAt > 8000)
+                else if (Environment.TickCount64 - _sentAt
+                    > (_submittedMatch.MapIdentity.IsCustom ? 180000 : 8000))
                 {
                     _pending = false;
                     SetStatus("NO SERVER CONFIRMATION // REVIEW OR RETRY");
@@ -164,7 +165,8 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     Mode = mode, Format = actual,
                     CustomTeams = _draft.CustomTeams.IsValid
-                        ? _draft.CustomTeams : new TeamLayout(2, 2, 2),
+                        ? _draft.CustomTeams
+                        : DefaultCustomLayout(NetSession.ServerSession?.MaxPlayers ?? 8),
                     VanillaDuelResources = actual == MatchFormat.OneVsOne
                         && mode == GameMode.BattleTeams && _draft.VanillaDuelResources
                 };
@@ -175,6 +177,14 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             SetStatus("NO OTHER COMPATIBLE MATCHUP");
+        }
+
+        private static TeamLayout DefaultCustomLayout(int maxPlayers)
+        {
+            maxPlayers = Math.Clamp(maxPlayers, 2, 8);
+            int first = Math.Clamp((maxPlayers + 1) / 2, 1, 4);
+            int second = Math.Clamp(maxPlayers - first, 1, 4);
+            return new TeamLayout(2, first, second);
         }
 
         internal void CycleMap()
@@ -437,7 +447,9 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (!_open) return;
             _publishPending = false;
-            RmlUiPrototype.SetMenuBool("rules_owner", NetSession.CanEditLobby);
+            // Owner identity must not flicker to guest while an UpdateMatch
+            // packet is pending. CanEditLobby is transient; the role is not.
+            RmlUiPrototype.SetMenuBool("rules_owner", NetSession.LocalIsLobbyOwner);
             RmlUiPrototype.SetMenuBool("rules_dirty", _dirty);
             RmlUiPrototype.SetMenuBool("rules_pending", _pending);
             RmlUiPrototype.SetMenuText("rules_map", _draft.RoomKey.ToUpperInvariant());
