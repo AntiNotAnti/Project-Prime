@@ -15,6 +15,7 @@ namespace MphRead.Mods
         public int TextureAnisotropy { get; init; } = 1;
         public TextureUpscaleMode TextureUpscale { get; init; } = TextureUpscaleMode.Off;
         public AntiAliasingMode AntiAliasing { get; init; } = AntiAliasingMode.Off;
+        public TranslucencyMode Translucency { get; init; } = TranslucencyMode.Native;
         public int SharpenStrength { get; init; } = 0;
         public bool Bloom { get; init; } = false;
         public int BloomIntensity { get; init; } = 60;
@@ -42,7 +43,8 @@ namespace MphRead.Mods
             var performance = original with
             {
                 TextureFiltering = true, TextureMipmaps = true, TextureAnisotropy = 4,
-                AntiAliasing = AntiAliasingMode.Fxaa, SharpenStrength = 10
+                AntiAliasing = AntiAliasingMode.Fxaa, Translucency = TranslucencyMode.Fast,
+                SharpenStrength = 10
             };
             // Preserve authored colors, fog and lighting. Glow lowers the bloom
             // threshold globally; PBR/SSR assume materials the cartridge lacks.
@@ -50,6 +52,7 @@ namespace MphRead.Mods
             var enhanced = performance with
             {
                 TextureAnisotropy = 16, AntiAliasing = AntiAliasingMode.Smaa,
+                Translucency = TranslucencyMode.Native,
                 SharpenStrength = 10, Bloom = true, BloomIntensity = 20,
                 AdvancedMaterials = true, AmbientOcclusion = AmbientOcclusionQuality.Low
             };
