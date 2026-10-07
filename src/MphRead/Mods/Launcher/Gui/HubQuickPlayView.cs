@@ -133,8 +133,19 @@ namespace MphRead.Mods.Launcher.Gui
 
         private async Task RunAsync(CancellationToken cancellationToken)
         {
+            SocialParty? party = SocialPartyClient.Current.Party;
+            bool partyQuickPlay = party is { IsLeader: true }
+                && party.Members.Count > 1;
+            int requiredSlots = partyQuickPlay ? party!.Members.Count : 1;
+            if (partyQuickPlay)
+            {
+                _status.Text = $"SCANNING FOR {requiredSlots} PARTY SLOTS";
+                _detail.Text = "Looking for a compatible lobby with room for the whole party...";
+            }
+
             QuickPlaySearchResult search =
-                await ServerBrowserService.FindBestAsync(cancellationToken);
+                await ServerBrowserService.FindBestAsync(
+                    requiredSlots, lobbyOnly: partyQuickPlay, cancellationToken);
             if (cancellationToken.IsCancellationRequested)
                 return;
 
@@ -170,6 +181,8 @@ namespace MphRead.Mods.Launcher.Gui
                 _detail.Text = joined.Error;
                 return;
             }
+            if (partyQuickPlay)
+                SocialPartyClient.NoteQuickPlayTravel();
             Launched?.Invoke(this, joined.Plan);
         }
 
