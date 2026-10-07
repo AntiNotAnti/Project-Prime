@@ -2614,7 +2614,24 @@ namespace MphRead.Mods.Network
             return null;
         }
 
-        private bool SlotFree(int slot) => PhysicalSlotFree(slot) && (_queueAdmitting || _waitlist == null || _waitlist.Count == 0 || _waitlist.CanDirectJoin(slot));
+        private bool SlotFree(int slot)
+        {
+            if (!PhysicalSlotFree(slot))
+                return false;
+
+            // A reservation acceptance may consume exactly the seat assigned
+            // to that member. Every other admission path must treat party
+            // reservations as occupied capacity.
+            if (_partyReservationAdmittingSlot == slot)
+                return true;
+            if (PartySlotReserved(slot))
+                return false;
+
+            return _queueAdmitting
+                || _waitlist == null
+                || _waitlist.Count == 0
+                || _waitlist.CanDirectJoin(slot);
+        }
 
         private bool PhysicalSlotFree(int slot)
         {
