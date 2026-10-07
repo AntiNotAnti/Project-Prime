@@ -12,6 +12,8 @@ const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, {
 const actions = new Set([
   "snapshot", "invite", "accept", "decline", "cancel",
   "leave", "kick", "promote", "disband",
+  "publish_travel", "clear_travel",
+  "follow_travel", "decline_travel", "joined_travel",
 ]);
 const primeIdPattern = /^PP-(?:[0-9A-F]{4}-){4}[0-9A-F]{4}$/;
 const uuidPattern =
@@ -48,6 +50,10 @@ Deno.serve(async (req: Request) => {
     favorite_hunter?: number;
     target_prime_id?: string;
     invite_id?: string;
+    lobby_id?: string;
+    travel_id?: string;
+    revision?: number;
+    reason?: string;
   };
   try {
     body = await readObjectBounded(req, 4096) as typeof body;
@@ -82,6 +88,40 @@ Deno.serve(async (req: Request) => {
       return json(400, { error: "invalid_invite_id" });
   }
 
+  let lobbyId: string | null = null;
+  let travelId: string | null = null;
+  let revision = 0;
+  let reason = "leader_lobby";
+  if (action === "publish_travel") {
+    lobbyId = typeof body.lobby_id === "string" ? body.lobby_id.trim() : "";
+    reason = typeof body.reason === "string" ? body.reason.trim() : "leader_lobby";
+    if (!uuidPattern.test(lobbyId)
+      || !["leader_lobby", "quick_play", "regroup"].includes(reason))
+      return json(400, { error: "invalid_travel" });
+  }
+  if (action === "follow_travel" || action === "decline_travel"
+    || action === "joined_travel") {
+    travelId = typeof body.travel_id === "string" ? body.travel_id.trim() : "";
+    revision = Number.isInteger(body.revision) ? body.revision! : 0;
+    if (!uuidPattern.test(travelId) || revision < 1 || revision > 1000000)
+      return json(400, { error: "invalid_travel" });
+  }
+
+  async function combinedSnapshot() {
+    const rows = await sql`
+      select
+        prime.social_party_snapshot(${user.id}::uuid) as party,
+        prime.social_party_travel_snapshot(${user.id}::uuid) as travel
+    `;
+    const party = rows[0]?.party ?? {
+      party: null,
+      incoming_party_invites: [],
+      outgoing_party_invites: [],
+      recent_players: [],
+    };
+    return { ...party, travel: rows[0]?.travel ?? null };
+  }
+
   try {
     await sql`
       select public.project_prime_hunter_license_for(
@@ -92,18 +132,64 @@ Deno.serve(async (req: Request) => {
     `;
 
     if (action === "snapshot") {
-      const rows = await sql`
-        select prime.social_party_snapshot(${user.id}::uuid) as value
-      `;
       return json(200, {
         ok: true,
         status: "snapshot",
-        snapshot: rows[0]?.value ?? {
-          party: null,
-          incoming_party_invites: [],
-          outgoing_party_invites: [],
-          recent_players: [],
-        },
+        snapshot: await combinedSnapshot(),
+      });
+    }
+
+    if (action === "publish_travel") {
+      const rows = await sql`
+        select prime.social_party_travel_publish(
+          ${user.id}::uuid,
+          ${lobbyId}::uuid,
+          ${reason}::text
+        ) as value
+      `;
+      const value = rows[0]?.value ?? {
+        ok: false,
+        status: "party_travel_empty_result",
+      };
+      return json(200, {
+        ...value,
+        snapshot: await combinedSnapshot(),
+      });
+    }
+
+    if (action === "clear_travel") {
+      const rows = await sql`
+        select prime.social_party_travel_clear(${user.id}::uuid) as value
+      `;
+      const value = rows[0]?.value ?? {
+        ok: false,
+        status: "party_travel_empty_result",
+      };
+      return json(200, {
+        ...value,
+        snapshot: await combinedSnapshot(),
+      });
+    }
+
+    if (action === "follow_travel" || action === "decline_travel"
+      || action === "joined_travel") {
+      const travelAction = action === "follow_travel" ? "follow"
+        : action === "decline_travel" ? "decline" : "joined";
+      const rows = await sql`
+        select prime.social_party_travel_respond(
+          ${user.id}::uuid,
+          ${travelId}::uuid,
+          ${revision}::integer,
+          ${travelAction}::text
+        ) as value
+      `;
+      const value = rows[0]?.value ?? {
+        ok: false,
+        status: "party_travel_empty_result",
+      };
+      return json(200, {
+        ...value,
+        snapshot: await combinedSnapshot(),
       });
     }
 
@@ -115,9 +201,13 @@ Deno.serve(async (req: Request) => {
         ${inviteId}::uuid
       ) as value
     `;
-    return json(200, rows[0]?.value ?? {
+    const value = rows[0]?.value ?? {
       ok: false,
       status: "party_empty_result",
+    };
+    return json(200, {
+      ...value,
+      snapshot: await combinedSnapshot(),
     });
   } catch (error) {
     console.error("social party operation failed", error);
