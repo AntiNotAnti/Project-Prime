@@ -507,7 +507,7 @@ begin
 
     return old;
 end;
-$;
+$$;
 
 drop trigger if exists project_prime_social_party_travel_member_remove
 on prime.social_party_members;
