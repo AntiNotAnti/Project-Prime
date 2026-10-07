@@ -507,6 +507,22 @@ button {
     font-size: 8dp;
     line-height: 12dp;
 }
+.session_party_line {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 9dp;
+    padding: 7dp 8dp;
+    color: #7892a8;
+    background-color: rgba(6,24,40,0.62);
+    border: 1dp rgba(97,182,246,0.08);
+    font-size: 8dp;
+    font-weight: bold;
+    letter-spacing: 0.8dp;
+}
+.session_party_line b {
+    color: #8bd3ff;
+    font-weight: bold;
+}
 .session_friends_header {
     display: flex;
     justify-content: space-between;
