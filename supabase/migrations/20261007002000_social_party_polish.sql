@@ -526,9 +526,8 @@ begin
             set leader_id = v_new_leader, updated_at = now()
             where party_id = v_party;
             update prime.social_party_invites
-            set sender_id = v_new_leader
+            set status = 'cancelled', responded_at = now()
             where party_id = v_party
-              and sender_id = p_actor
               and status = 'pending';
         end if;
 
@@ -566,9 +565,8 @@ begin
         set leader_id = v_target, updated_at = now()
         where party_id = v_party;
         update prime.social_party_invites
-        set sender_id = v_target
+        set status = 'cancelled', responded_at = now()
         where party_id = v_party
-          and sender_id = p_actor
           and status = 'pending';
         return jsonb_build_object(
             'ok', true, 'status', 'party_leader_promoted',
