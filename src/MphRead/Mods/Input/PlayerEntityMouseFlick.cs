@@ -115,6 +115,7 @@ namespace MphRead.Entities
             if (!valid)
             {
                 Input.StylusAltTracking = false;
+                if (Hunter == Hunter.Samus) Input.MorphTouch.Suspend();
                 ModSetAltSwipeDrive(false, 0, 0);
                 return;
             }
