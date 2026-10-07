@@ -98,7 +98,9 @@ jobs:
       - name: post-process diagnostic policy, layout and callback controls
         run: dotnet run --project tools/studio-shader-diagnostic-check -c Release
       - name: Studio document and process lifecycle
-        run: dotnet run --project tools/studio-lifecycle-check -c Release
+        run: |
+          dotnet run --project tools/studio-lifecycle-check -c Release
+          dotnet run --project tools/studio-lifecycle-check -c Release --no-build -- --native-map-readiness-controls
       - name: native Studio windows, Map surfaces and process recovery on Linux
         if: runner.os == 'Linux'
         run: |

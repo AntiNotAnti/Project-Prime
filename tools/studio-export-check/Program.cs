@@ -22,15 +22,30 @@ if (args is ["--snapshot-child", var recordingToSnapshot, var sharedSnapshotRoot
 }
 if (args is ["--stdio-child", var childLoggingDirectory])
 {
-    using var log = new ReplayExportWorkerLog(Path.Combine(childLoggingDirectory, "worker.log"));
-    Console.SetOut(log); Console.SetError(log);
-    FixturePublication.PublishText(Path.Combine(childLoggingDirectory, "ready"), "ready");
-    var parentExit = Stopwatch.StartNew();
-    while (!File.Exists(Path.Combine(childLoggingDirectory, "parent-exited")) && parentExit.Elapsed < TimeSpan.FromSeconds(10))
-    { Console.WriteLine("waiting independently for launcher exit"); await Task.Delay(10); }
-    if (parentExit.Elapsed >= TimeSpan.FromSeconds(10)) throw new TimeoutException("Launcher exit was not observed.");
-    for (int i = 0; i < 100; i++) { Console.WriteLine(new string('x', 500)); Console.Error.WriteLine("teardown progress " + i); await Task.Delay(10); }
-    FixturePublication.PublishText(Path.Combine(childLoggingDirectory, "complete"), "complete"); return;
+    var observation = StdioFixtureObservation.TryCreate(childLoggingDirectory);
+    observation?.Record("Started");
+    try
+    {
+        using var log = new ReplayExportWorkerLog(Path.Combine(childLoggingDirectory, "worker.log"));
+        Console.SetOut(log); Console.SetError(log);
+        FixturePublication.PublishText(Path.Combine(childLoggingDirectory, "ready"), "ready");
+        observation?.Record("Ready");
+        var parentExit = Stopwatch.StartNew();
+        while (!File.Exists(Path.Combine(childLoggingDirectory, "parent-exited")) && parentExit.Elapsed < TimeSpan.FromSeconds(10))
+        { Console.WriteLine("waiting independently for launcher exit"); await Task.Delay(10); }
+        if (parentExit.Elapsed >= TimeSpan.FromSeconds(10)) throw new TimeoutException("Launcher exit was not observed.");
+        observation?.Record("ParentExitSignalSeen");
+        for (int i = 0; i < 100; i++)
+        {
+            Console.WriteLine(new string('x', 500)); Console.Error.WriteLine("teardown progress " + i);
+            if (i is 0 or 25 or 50 or 75 or 99) observation?.Record("TeardownProgress", i);
+            await Task.Delay(10);
+        }
+        FixturePublication.PublishText(Path.Combine(childLoggingDirectory, "complete"), "complete");
+        observation?.Record("CompletePublished"); return;
+    }
+    catch (Exception ex) { observation?.Record("Threw", error: ex); throw; }
+    finally { observation?.Record("ManagedFinallyReached"); }
 }
 if (args is ["--stdio-parent", var loggingDirectoryForParent])
 {
@@ -247,24 +262,28 @@ try
     string loggingDirectory = Path.Combine(root, "durable worker logging"); Directory.CreateDirectory(loggingDirectory);
     string loggingPrefix = Path.GetFileNameWithoutExtension(executable).Equals("dotnet", StringComparison.OrdinalIgnoreCase)
         ? "\"" + Assembly.GetExecutingAssembly().Location + "\" " : "";
-    using (var loggingParent = new ReplayEncoderJob(executable, loggingPrefix + "--stdio-parent \"" + loggingDirectory + "\"", root))
+    try
     {
-        var started = Stopwatch.StartNew();
-        while (!File.Exists(Path.Combine(loggingDirectory, "parent-pid")) && started.Elapsed < TimeSpan.FromSeconds(5)) await Task.Delay(10);
-        int parentId = int.Parse(FixturePublication.ReadText(Path.Combine(loggingDirectory, "parent-pid")));
-        bool parentExited = false;
-        try { using var parent = Process.GetProcessById(parentId); await parent.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5)); parentExited = parent.HasExited; }
-        catch (ArgumentException) { parentExited = true; }
-        Check(parentId != Environment.ProcessId && parentExited && !File.Exists(Path.Combine(loggingDirectory, "complete")), "actual intermediate launcher exits while its independently logging child remains alive");
-        FixturePublication.PublishText(Path.Combine(loggingDirectory, "parent-exited"), "verified parent exit");
-        var result = await loggingParent.Completion.WaitAsync(TimeSpan.FromSeconds(10));
-        Check(result.ExitCode == 0, "launcher diagnostic pipe draining completes after descendant inherited handles close");
+        using (var loggingParent = new ReplayEncoderJob(executable, loggingPrefix + "--stdio-parent \"" + loggingDirectory + "\"", root))
+        {
+            var started = Stopwatch.StartNew();
+            while (!File.Exists(Path.Combine(loggingDirectory, "parent-pid")) && started.Elapsed < TimeSpan.FromSeconds(5)) await Task.Delay(10);
+            int parentId = int.Parse(FixturePublication.ReadText(Path.Combine(loggingDirectory, "parent-pid")));
+            bool parentExited = false;
+            try { using var parent = Process.GetProcessById(parentId); await parent.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(5)); parentExited = parent.HasExited; }
+            catch (ArgumentException) { parentExited = true; }
+            Check(parentId != Environment.ProcessId && parentExited && !File.Exists(Path.Combine(loggingDirectory, "complete")), "actual intermediate launcher exits while its independently logging child remains alive");
+            FixturePublication.PublishText(Path.Combine(loggingDirectory, "parent-exited"), "verified parent exit");
+            var result = await loggingParent.Completion.WaitAsync(TimeSpan.FromSeconds(10));
+            Check(result.ExitCode == 0, "launcher diagnostic pipe draining completes after descendant inherited handles close");
+        }
+        var logDeadline = Stopwatch.StartNew();
+        while (!File.Exists(Path.Combine(loggingDirectory, "complete")) && logDeadline.Elapsed < TimeSpan.FromSeconds(5)) await Task.Delay(20);
+        Check(File.Exists(Path.Combine(loggingDirectory, "complete")), "worker-owned diagnostic writer survives actual parent process exit through final teardown log");
+        string retainedLog = Path.Combine(loggingDirectory, "worker.log");
+        Check(new FileInfo(retainedLog).Length <= 65536 && File.ReadAllText(retainedLog).Contains("teardown progress 99"), "worker diagnostics retain a bounded durable tail without parent-owned console pipes");
     }
-    var logDeadline = Stopwatch.StartNew();
-    while (!File.Exists(Path.Combine(loggingDirectory, "complete")) && logDeadline.Elapsed < TimeSpan.FromSeconds(5)) await Task.Delay(20);
-    Check(File.Exists(Path.Combine(loggingDirectory, "complete")), "worker-owned diagnostic writer survives actual parent process exit through final teardown log");
-    string retainedLog = Path.Combine(loggingDirectory, "worker.log");
-    Check(new FileInfo(retainedLog).Length <= 65536 && File.ReadAllText(retainedLog).Contains("teardown progress 99"), "worker diagnostics retain a bounded durable tail without parent-owned console pipes");
+    catch (Exception ex) { StdioFixtureObservation.RetainFailure(loggingDirectory, ex); throw; }
     string coordinatorRoot = Path.Combine(root, "workers"); Directory.CreateDirectory(coordinatorRoot);
     int MaximumLiveChildren() => Directory.EnumerateFiles(coordinatorRoot, "maximum-live-children", SearchOption.AllDirectories)
         .Select(path => int.Parse(FixturePublication.ReadText(path))).DefaultIfEmpty(0).Max();

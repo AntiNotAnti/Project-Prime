@@ -27,8 +27,10 @@ internal static partial class Program
     private sealed record NativeMap(Guid DocumentId,Guid MapId,ulong State,ulong? SavedState,Guid[] Selection,Guid? ActiveObject,int CommandCount,
         bool CanUndo,bool CanRedo,string DefinitionHash,string Layout,bool Dirty,string? Path);
     private sealed record NativeViewport(double Width,double Height,double RenderScale,int PixelWidth,int PixelHeight);
+    private sealed record NativeMapPresentation(int Index,bool Active,bool Failed,string? Error,StudioRenderMetrics? Metrics);
     private sealed record NativeSnapshot(int ProcessId, NativeDocument[] Documents, int MapViewports, StudioRenderMetrics? MapMetrics,
-        int Worlds, int NativeSurfaces, int ViewportTargets,NativeReplay? Replay,NativeMap? Map,long MetricsRevision,NativeViewport[] MapBounds,long Timestamp,int? Generation);
+        int Worlds, int NativeSurfaces, int ViewportTargets,NativeReplay? Replay,NativeMap? Map,long MetricsRevision,NativeViewport[] MapBounds,long Timestamp,int? Generation,
+        string? Backend=null,string? Adapter=null,NativeMapPresentation[]? MapPresentations=null);
     private sealed record NativeStartup(int ProcessId,double UsableHomeMilliseconds,long WorkingSetBytes,double Width,double Height,double RenderScale,int PixelWidth,int PixelHeight,
         string Kind="Home",string? SourceHash=null,long SourceBytes=0,int AuthoredObjects=0,uint? Frame=null,string? GameplayHash=null,
         string? PresentationHash=null,string? FullGraphHash=null,NativeViewport? Viewport=null);
@@ -131,7 +133,7 @@ internal static partial class Program
                         Interlocked.Read(ref _nativeMetricsRevision),window.GetVisualDescendants().OfType<Control>()
                             .Where(control=>control.GetType().Name=="MapViewport"&&control.IsEffectivelyVisible)
                             .Select(control=>new NativeViewport(control.Bounds.Width,control.Bounds.Height,window.RenderScaling,
-                                (int)Math.Round(control.Bounds.Width*window.RenderScaling),(int)Math.Round(control.Bounds.Height*window.RenderScaling))).ToArray(),Stopwatch.GetTimestamp(),StudioGraphicsHost.DeviceGeneration));
+                                (int)Math.Round(control.Bounds.Width*window.RenderScaling),(int)Math.Round(control.Bounds.Height*window.RenderScaling))).ToArray(),Stopwatch.GetTimestamp(),StudioGraphicsHost.DeviceGeneration,StudioGraphicsHost.Backend,StudioGraphicsHost.Adapter,ReadNativeMapPresentations(window)));
                     Console.WriteLine("STATUS " + JsonSerializer.Serialize(snapshot));
                     Console.Out.Flush();
                 }
@@ -380,6 +382,20 @@ internal static partial class Program
         catch (Exception ex) { Console.WriteLine("ERROR " + JsonSerializer.Serialize(ex.ToString())); Console.Out.Flush(); }
     }
 
+    private static NativeMapPresentation[] ReadNativeMapPresentations(StudioWindow window)
+    {
+        const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
+        return window.GetVisualDescendants().OfType<Control>()
+            .Where(control=>control.GetType().Name=="MapViewport"&&control.IsEffectivelyVisible)
+            .Select((control,index)=>
+            {
+                var presentation=control.GetType().GetField("_studioPresentation",flags)?.GetValue(control) as MapViewportHost;
+                bool failed=control.GetType().GetField("_studioPresentationFailed",flags)?.GetValue(control) is true;
+                return new NativeMapPresentation(index,presentation?.Active==true,failed,
+                    (presentation?.NativeControl as StudioNativeViewport)?.GraphicsError,presentation?.Metrics);
+            }).ToArray();
+    }
+
     private static NativeReplayClock ReadNativeReplayClock(ReplayStudioDocument document)
     {
         const BindingFlags flags=BindingFlags.Instance|BindingFlags.NonPublic;
@@ -422,13 +438,15 @@ internal static partial class Program
             NativeSnapshot rendered = await WaitForNativeMapMetricsAsync(primary, 1);
             Check(rendered.MapMetrics is { MeshUploads: > 0, ResidentMeshes: > 0, DrawCalls: > 0, ReadbackBytes: 0 },
                 "actual native Map viewport retains GPU geometry and presents without full-frame readback");
+            Console.WriteLine("Native Map single-view presented snapshot: "+JsonSerializer.Serialize(rendered));
             long initialUploads = rendered.MapMetrics!.MeshUploads;
             await primary.StandardInput.WriteLineAsync("map-four"); await primary.StandardInput.FlushAsync();
             await ReadNativeLineAsync(primary, "MAP-FOUR");
-            NativeSnapshot four = await WaitForNativeMapMetricsAsync(primary, 4);
+            NativeSnapshot four = await WaitForNativeMapMetricsAsync(primary, 4,rendered.MetricsRevision);
+            Console.WriteLine("Native Map four-view presented snapshot: "+JsonSerializer.Serialize(four));
             Check(four.MapMetrics is { DrawCalls: > 0, ReadbackBytes: 0 } && four.MapMetrics.MeshUploads == initialUploads
                 && four.Worlds == 1 && four.NativeSurfaces == 4 && four.ViewportTargets == 4,
-                "actual four native Map viewports share retained meshes and avoid full-frame readback");
+                "actual four native Map viewports share retained meshes and avoid full-frame readback; initial="+JsonSerializer.Serialize(rendered)+"; four="+JsonSerializer.Serialize(four));
             await primary.StandardInput.WriteLineAsync("close-document"); await primary.StandardInput.FlushAsync();
             await ReadNativeLineAsync(primary, "DOCUMENT-CLOSED");
             NativeSnapshot released = await NativeStatusAsync(primary);
@@ -560,16 +578,29 @@ internal static partial class Program
         throw new TimeoutException("Forwarded source did not publish to native desktop document host.");
     }
 
-    private static async Task<NativeSnapshot> WaitForNativeMapMetricsAsync(Process process, int viewports)
+    private static bool IsNativeMapPresentationReady(NativeSnapshot snapshot,int viewports,long afterRevision)
+        => snapshot.MapViewports==viewports && snapshot.MapMetrics is {DrawCalls:>0}
+            && snapshot.MetricsRevision>afterRevision && snapshot.Worlds==1
+            && snapshot.NativeSurfaces==viewports && snapshot.ViewportTargets==viewports
+            && snapshot.MapPresentations is { } presentations && presentations.Length==viewports
+            && presentations.All(view=>view.Active&&!view.Failed&&view.Metrics is {DrawCalls:>0});
+
+    private static async Task<NativeSnapshot> WaitForNativeMapMetricsAsync(Process process, int viewports,long afterRevision=-1)
     {
         var timer = Stopwatch.StartNew();
+        NativeSnapshot? last=null;
         while (timer.Elapsed < TimeSpan.FromSeconds(15))
         {
-            NativeSnapshot snapshot = await NativeStatusAsync(process);
-            if (snapshot.MapViewports == viewports && snapshot.MapMetrics is { DrawCalls: > 0 }) return snapshot;
+            NativeSnapshot snapshot = last=await NativeStatusAsync(process);
+            // Visual grid allocation precedes native child admission and each
+            // viewport's first Present. Retained global metrics alone can still
+            // describe the old single view, so require own metrics after a
+            // returned normal Present. This no-capture/no-pick transition does
+            // not independently certify the native outcome or GPU completion.
+            if (IsNativeMapPresentationReady(snapshot,viewports,afterRevision)) return snapshot;
             await Task.Delay(50);
         }
-        throw new TimeoutException("Native Map viewports did not present GPU frames: " + viewports);
+        throw new TimeoutException("Native Map viewports did not present GPU frames: " + viewports+"; afterRevision="+afterRevision+"; last="+JsonSerializer.Serialize(last));
     }
 
     private static async Task CloseNativeProbeAsync(Process process)

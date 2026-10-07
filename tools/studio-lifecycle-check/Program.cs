@@ -14,6 +14,7 @@ internal static partial class Program
 
     private static async Task<int> RunAsync(string[] args)
     {
+        if (args.SequenceEqual(["--native-map-readiness-controls"])) return RunNativeMapReadinessControls();
         if (args.Length > 0 && args[0] == "--instance-probe") return await RunInstanceProbeAsync(args);
         if (args.Length > 0 && args[0] == "--native-probe") return RunNativeProbe(args);
         if (args.Length > 0 && args[0] == "--replay-probe") return RunReplayProbe(args);

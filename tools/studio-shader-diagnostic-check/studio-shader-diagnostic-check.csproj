@@ -7,6 +7,7 @@
     <Compile Include="../../src/MphRead/Mods/Render/ShaderDiagnosticPolicy.cs" Link="ShaderDiagnosticPolicy.cs" />
     <Compile Include="../../src/MphRead/Mods/Render/NativeValidationCriticalWarning.cs" Link="NativeValidationCriticalWarning.cs" />
     <Compile Include="../../src/MphRead/Mods/Render/ShaderDiagnosticSourceRetention.cs" Link="ShaderDiagnosticSourceRetention.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/ShaderDiagnosticReadbackObservation.cs" Link="ShaderDiagnosticReadbackObservation.cs" />
     <Compile Include="../../src/MphRead/Mods/Render/Generated/GeneratedShaderLayouts.cs" Link="GeneratedShaderLayouts.cs" />
   </ItemGroup>
 </Project>

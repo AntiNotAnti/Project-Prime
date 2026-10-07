@@ -30,11 +30,13 @@ namespace MphRead.Mods.Render
 #if !ANDROID
         private static readonly NativeValidationCriticalWarning _criticalFenceWarning = new();
         private static readonly ShaderDiagnosticSourceRetention _shaderDiagnosticSource = new();
+        private static readonly ShaderDiagnosticReadbackObservation _shaderReadbackObservation = new();
         internal static IDisposable? BeginLayeredPbrShaderDiagnosticScopeForCheck()
         {
+            IDisposable? source = null, readback = null;
             try
             {
-                return _shaderDiagnosticSource.BeginLayeredPbrScope(
+                source = _shaderDiagnosticSource.BeginLayeredPbrScope(
                     Environment.GetEnvironmentVariable("PRIME_WGPU_SHADER_DIAGNOSTICS"),
                     Environment.GetEnvironmentVariable("PRIME_WGPU_VALIDATION"),
                     Environment.GetEnvironmentVariable("PRIME_WGPU_GPU_VALIDATION"),
@@ -42,9 +44,23 @@ namespace MphRead.Mods.Render
                     Environment.GetEnvironmentVariable("RUNNER_TEMP"),
                     Environment.GetEnvironmentVariable("GITHUB_SHA"),
                     Environment.GetEnvironmentVariable("GITHUB_RUN_ID"));
+                readback = _shaderReadbackObservation.BeginLayeredScope(
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_SHADER_DIAGNOSTICS"),
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_VALIDATION"),
+                    Environment.GetEnvironmentVariable("PRIME_WGPU_GPU_VALIDATION"));
+                return ShaderDiagnosticReadbackObservation.Combine(source, readback);
             }
-            catch { return null; }
+            catch
+            {
+                try { readback?.Dispose(); } catch { }
+                try { source?.Dispose(); } catch { }
+                return null;
+            }
         }
+        internal static IDisposable BeginNativeReadbackObservationForCheck(int x, int y, int width, int height)
+            => _shaderReadbackObservation.BeginReadback(x, y, width, height);
+        internal static void WriteNativeReadbackObservationForCheck(string phase, string edge)
+            => _shaderReadbackObservation.Mark(phase, edge);
 #endif
         private static bool _nativeValidationDiagnosticsEnabled;
         private static readonly object _nativeValidationDiagnosticLock = new();

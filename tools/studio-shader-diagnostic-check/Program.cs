@@ -54,6 +54,7 @@ Check(!ShaderDiagnosticPolicy.Write(new ThrowingWriter(), "diagnostic"), "throwi
 var writer = new StringWriter();
 Check(ShaderDiagnosticPolicy.Write(writer, "actual diagnostic") && writer.ToString().Contains("actual diagnostic"), "working writer preserves complete record");
 checks += ObservationControls.Run();
+checks += ReadbackObservationControls.Run();
 Console.WriteLine($"Shader diagnostic CPU policy/layout/callback controls PASS {checks}; no native device or GPU observation inferred.");
 
 sealed class ThrowingWriter : StringWriter
