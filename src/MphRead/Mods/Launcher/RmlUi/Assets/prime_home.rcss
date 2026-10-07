@@ -160,6 +160,13 @@ button {
     background-color: rgba(28,114,225,12%);
     border-bottom-color: #72c7ff;
 }
+.lobby #nav_hunters,
+.lobby #nav_community,
+.lobby #nav_studio,
+.lobby #profile {
+    opacity: 0.34;
+    cursor: default;
+}
 
 #account_cluster {
     width: 270dp;
