@@ -138,7 +138,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _socialPartyMutation = null;
                 _socialPartyGameInvite = null;
                 _socialJoin = null;
-                _verifiedSocialJoins.Clear();
+                ClearVerifiedSocialJoins();
                 _socialLookupQuery = "";
                 _socialSnapshot = null;
                 _socialLookupPlayer = null;
@@ -303,6 +303,15 @@ namespace MphRead.Mods.Launcher.Gui
             return false;
         }
 
+        private static void ClearVerifiedSocialJoins()
+        {
+            while (_verifiedSocialJoins.Count > 0)
+            {
+                SocialJoinResolution pending = _verifiedSocialJoins.Dequeue();
+                pending.PartyAdmission?.Dispose();
+            }
+        }
+
         public static void PointerMoved(double x, double y)
         {
             if (_active)
@@ -393,7 +402,7 @@ namespace MphRead.Mods.Launcher.Gui
             _socialPartyMutation = null;
             _socialPartyGameInvite = null;
             _socialJoin = null;
-            _verifiedSocialJoins.Clear();
+            ClearVerifiedSocialJoins();
             _socialSnapshot = null;
             _socialLookupPlayer = null;
             _socialPendingAction = "";
@@ -2036,7 +2045,7 @@ namespace MphRead.Mods.Launcher.Gui
             _socialPartyMutation = null;
             _socialPartyGameInvite = null;
             _socialJoin = null;
-            _verifiedSocialJoins.Clear();
+            ClearVerifiedSocialJoins();
             _socialSnapshot = null;
             _socialLookupPlayer = null;
             _socialPendingAction = "";
