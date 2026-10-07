@@ -73,7 +73,7 @@
 +        message: *const std::os::raw::c_char, userdata: *mut std::os::raw::c_void) {
 +        let capture = unsafe { &*(userdata as *const LostCapture) };
 +        capture.calls.fetch_add(1, Ordering::SeqCst);
-+        capture.reason.store(reason, Ordering::SeqCst);
++        capture.reason.store(reason as u32, Ordering::SeqCst);
 +        *capture.message.lock() = unsafe { CStr::from_ptr(message) }.to_string_lossy().into_owned();
 +    }
 +
@@ -93,7 +93,7 @@
 +            assert!(matches!(result, Ok(false)));
 +        }
 +        assert_eq!(capture.calls.load(Ordering::SeqCst), 1);
-+        assert_eq!(capture.reason.load(Ordering::SeqCst), native::WGPUDeviceLostReason_Destroyed);
++        assert_eq!(capture.reason.load(Ordering::SeqCst), native::WGPUDeviceLostReason_Destroyed as u32);
 +        assert_eq!(&*capture.message.lock(), "Device lost");
 +    }
 +
