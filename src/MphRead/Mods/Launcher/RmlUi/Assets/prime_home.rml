@@ -61,7 +61,7 @@
                     <button id="deploy" data-event-click="deploy">
                         <span class="deploy_kicker">{{activity_group}} ACTIVITY</span>
                         <span class="deploy_label">{{activity_action}}</span>
-                        <span class="deploy_arrow">→</span>
+                        <span class="deploy_arrow">&gt;</span>
                     </button>
                 </div>
 
