@@ -18,6 +18,11 @@ internal static class QueueBudgetTests
             NetArchitectureTests.Check(!queue.CanAccept(PacketType.MatchSemanticEvent)
                 && !queue.CanAccept(PacketType.MatchAward) && queue.CanAccept(PacketType.MatchLoaded),
                 "reliable admission follows actual priority before acknowledging delivery");
+            NetArchitectureTests.Check(
+                NetPacketQueue.Priority(PacketType.PartyReserveClaim) == NetPacketPriority.Critical
+                && NetPacketQueue.Priority(PacketType.PartyReserveState) == NetPacketPriority.Critical
+                && NetPacketQueue.Priority(PacketType.PartyReserveAccept) == NetPacketPriority.Critical,
+                "party reservation handshake uses critical control capacity");
             for (int i = 0; i < 128; i++) NetArchitectureTests.Check(queue.TryEnqueue(new(endpoint, loaded, 1)), "critical reserve survives flood");
             NetArchitectureTests.Check(!queue.TryEnqueue(new(endpoint, loaded, 1)) && !queue.TryEnqueue(new(endpoint, chat, 1))
                 && queue.HighWater == 2048, "absolute capacity");
