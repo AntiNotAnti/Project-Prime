@@ -159,6 +159,7 @@ namespace MphRead.Mods.Render
                     Console.WriteLine("[renderwindowcheck] fullscreen UI composite integration PASS");
                     bool legacyAvailable = RunFailedRecoveryFallbackCheck();
                     RunRendererRestartCheck(window, backend, legacyAvailable);
+                    RunReplacementFailureCleanupCheck(window, backend);
                     Console.WriteLine(
                         $"[renderwindowcheck] PASS backend={GraphicsBackendPolicy.DisplayName(backend)} "
                         + $"launcher=rgba({pixel[0]},{pixel[1]},{pixel[2]},{pixel[3]}) "
@@ -374,6 +375,8 @@ namespace MphRead.Mods.Render
         private static void RunScissorBoundsCheck()
         {
             int texture = GraphicsApi.GenTexture(), framebuffer = GraphicsApi.GenFramebuffer();
+            int sourceTexture = GraphicsApi.GenTexture(), sourceFramebuffer = GraphicsApi.GenFramebuffer();
+            int list = GraphicsApi.GenLists(1);
             GraphicsApi.PushAttrib(AttribMask.AllAttribBits);
             try
             {
@@ -389,50 +392,106 @@ namespace MphRead.Mods.Render
                 GraphicsApi.Disable(EnableCap.Blend);
                 GraphicsApi.Disable(EnableCap.CullFace);
                 GraphicsApi.ColorMask(true, true, true, true);
+                GraphicsApi.Disable(EnableCap.ScissorTest);
+                GraphicsApi.BindTexture(TextureTarget.Texture2D, sourceTexture);
+                GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8, 4, 4, 0,
+                    PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
+                GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, sourceFramebuffer);
+                GraphicsApi.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
+                    TextureTarget.Texture2D, sourceTexture, 0);
+                GraphicsApi.ClearColor(1, 0, 0, 1);
+                GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+                GraphicsApi.NewList(list, ListMode.Compile);
+                GraphicsApi.Color4(1f, 0f, 0f, 1f);
+                DrawQuad();
+                GraphicsApi.EndList();
                 foreach (bool window in new[] { false, true })
                 {
                     int width = window ? 96 : 4, height = window ? 64 : 4;
                     GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, window ? 0 : framebuffer);
                     GraphicsApi.Viewport(0, 0, width, height);
-                    foreach (bool clear in new[] { false, true })
-                    foreach (var rectangle in new[] { (-1, -1, 2, 2), (0, 0, 0, 4), (width + 1, 0, 4, 4) })
+                    foreach (string operation in new[] { "draw", "list", "clear", "blit" })
+                    foreach (var rectangle in new[]
                     {
+                        (-1, -1, 2, 2), (0, 0, 0, 4), (width + 1, 0, 4, 4),
+                        (0, 0, 4, 0), (-5, -5, 2, 2), (0, height + 1, 4, 4),
+                        (1, 1, 2, 2), (0, 0, width, height)
+                    })
+                    {
+                        GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, window ? 0 : framebuffer);
                         GraphicsApi.Disable(EnableCap.ScissorTest);
                         GraphicsApi.ClearColor(0, 0, 1, 1);
                         GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
                         GraphicsApi.Enable(EnableCap.ScissorTest);
                         GraphicsApi.Scissor(rectangle.Item1, rectangle.Item2, rectangle.Item3, rectangle.Item4);
-                        if (clear)
+                        if (operation == "clear")
                         {
                             GraphicsApi.ClearColor(1, 0, 0, 1);
                             GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
                         }
+                        else if (operation == "blit")
+                        {
+                            GraphicsApi.BindFramebuffer(FramebufferTarget.ReadFramebuffer, sourceFramebuffer);
+                            GraphicsApi.BlitFramebuffer(0, 0, 4, 4, 0, 0, width, height,
+                                ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Nearest);
+                            GraphicsApi.BindFramebuffer(FramebufferTarget.ReadFramebuffer, window ? 0 : framebuffer);
+                        }
+                        else if (operation == "list")
+                        {
+                            GraphicsApi.CallList(list);
+                        }
                         else
                         {
                             GraphicsApi.Color4(1f, 0f, 0f, 1f);
-                            GraphicsApi.Begin(PrimitiveType.Quads);
-                            GraphicsApi.Vertex3(-1, -1, 0); GraphicsApi.Vertex3(1, -1, 0);
-                            GraphicsApi.Vertex3(1, 1, 0); GraphicsApi.Vertex3(-1, 1, 0);
-                            GraphicsApi.End();
+                            DrawQuad();
                         }
                         byte[] pixels = new byte[width * height * 4];
                         GraphicsApi.ReadPixels(0, 0, width, height, PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
                         for (int i = 0; i < width * height; i++)
                         {
-                            bool red = rectangle.Item1 == -1 && i == 0;
+                            int x = i % width, y = i / width;
+                            bool red = x >= rectangle.Item1 && x < rectangle.Item1 + rectangle.Item3
+                                && y >= rectangle.Item2 && y < rectangle.Item2 + rectangle.Item4;
                             if (pixels[i * 4] != (red ? 255 : 0) || pixels[i * 4 + 2] != (red ? 0 : 255))
-                                throw new InvalidOperationException($"Scissor clipping failed: window={window} clear={clear} rect={rectangle} pixel={i}.");
+                                throw new InvalidOperationException($"Scissor clipping failed: window={window} operation={operation} rect={rectangle} pixel={i} rgba={pixels[i * 4]},{pixels[i * 4 + 1]},{pixels[i * 4 + 2]},{pixels[i * 4 + 3]}.");
                         }
                     }
+                    // An empty display-list draw must still adopt its trailing
+                    // GL attributes. Disabling scissor must restore full coverage.
+                    GraphicsApi.Disable(EnableCap.ScissorTest);
+                    GraphicsApi.ClearColor(0, 0, 1, 1);
+                    GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+                    GraphicsApi.Enable(EnableCap.ScissorTest);
+                    GraphicsApi.Scissor(0, 0, 0, 4);
+                    GraphicsApi.Color4(0f, 0f, 1f, 1f);
+                    GraphicsApi.CallList(list);
+                    GraphicsApi.Disable(EnableCap.ScissorTest);
+                    DrawQuad();
+                    byte[] restored = new byte[width * height * 4];
+                    GraphicsApi.ReadPixels(0, 0, width, height, PixelFormat.Rgba, PixelType.UnsignedByte, restored);
+                    for (int i = 0; i < width * height; i++)
+                        if (restored[i * 4] != 255 || restored[i * 4 + 2] != 0)
+                            throw new InvalidOperationException($"Empty-scissor list state/full coverage restoration failed: window={window} pixel={i}.");
                 }
-                Console.WriteLine("[renderwindowcheck] empty/offscreen scissor draws and clears PASS");
+                Console.WriteLine("[renderwindowcheck] empty/offscreen scissor draws, lists, clears, blits and state restoration PASS");
             }
             finally
             {
                 GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
                 GraphicsApi.DeleteFramebuffer(framebuffer);
                 GraphicsApi.DeleteTexture(texture);
+                GraphicsApi.DeleteFramebuffer(sourceFramebuffer);
+                GraphicsApi.DeleteTexture(sourceTexture);
+                GraphicsApi.DeleteLists(list, 1);
                 GraphicsApi.PopAttrib();
+            }
+
+            static void DrawQuad()
+            {
+                GraphicsApi.Begin(PrimitiveType.Quads);
+                GraphicsApi.Vertex3(-1, -1, 0); GraphicsApi.Vertex3(1, -1, 0);
+                GraphicsApi.Vertex3(1, 1, 0); GraphicsApi.Vertex3(-1, 1, 0);
+                GraphicsApi.End();
             }
         }
 
@@ -633,6 +692,7 @@ namespace MphRead.Mods.Render
             GraphicsApi.CallList(list);
             ModernGraphicsCompat.Present();
             int generation = ModernGraphicsCompat.DeviceGeneration;
+            int nativeErrors = ModernGraphicsDevice.NativeValidationErrorCount;
             ModernGraphicsCompat.DestroyDeviceForCheck();
             GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
             GraphicsApi.CallList(list);
@@ -642,10 +702,54 @@ namespace MphRead.Mods.Render
                 throw new InvalidOperationException("Device reconstruction did not restore texture/display-list contents.");
             AuthoredRgbaMipGpuCheck.VerifyTexture(authoredTexture, authored, mipmaps: true);
             ModernGraphicsCompat.Present();
+            if (ModernGraphicsDevice.NativeValidationErrorCount != nativeErrors)
+                throw new InvalidOperationException("Device reconstruction emitted a native validation error.");
             GraphicsApi.DeleteLists(list, 1);
             GraphicsApi.DeleteTexture(texture);
             GraphicsApi.DeleteTexture(authoredTexture);
             Console.WriteLine("[renderwindowcheck] device reconstruction and resource restoration PASS");
+        }
+
+        private static unsafe void RunReplacementFailureCleanupCheck(NativeWindow window, GraphicsBackend backend)
+        {
+            int generation = ModernGraphicsCompat.DeviceGeneration;
+            int nativeErrors = ModernGraphicsDevice.NativeValidationErrorCount;
+            var expected = new InvalidOperationException("Injected replacement admission failure.");
+            ModernGraphicsDevice? candidate = null;
+            ModernGraphicsDevice? previous = null;
+            previous = ModernGraphicsCompat.ObserveNextDeviceReplacementForCheck(created =>
+            {
+                candidate = created;
+                if (previous!.Surface != null)
+                    throw new InvalidOperationException("Replacement creation retained the previous HWND surface.");
+                if (created.Surface == null || created.Device == null)
+                    throw new InvalidOperationException("Replacement failure did not exercise an allocated native candidate.");
+                throw expected;
+            });
+            ModernGraphicsCompat.DestroyDeviceForCheck();
+            try { GraphicsApi.Viewport(0, 0, 96, 64); }
+            catch (InvalidOperationException ex) when (ReferenceEquals(ex, expected)) { }
+            if (!ReferenceEquals(ModernGraphicsCompat.RecoveryFailure, expected)
+                || ModernGraphicsCompat.DeviceGeneration != generation || candidate == null)
+                throw new InvalidOperationException("Failed replacement was adopted or lost its guarded failure.");
+            foreach (var device in new[] { previous!, candidate })
+                if (device.Surface != null || device.Device != null || device.Adapter != null || device.Instance != null)
+                    throw new InvalidOperationException("Failed replacement retained native owner handles.");
+            ModernGraphicsCompat.Shutdown();
+            ModernGraphicsCompat.Shutdown();
+            if (ModernGraphicsCompat.Active)
+                throw new InvalidOperationException("Failed replacement survived controlled shutdown.");
+            ModernGraphicsCompat.Initialize(window, backend);
+            GraphicsApi.Viewport(0, 0, 96, 64);
+            GraphicsApi.ClearColor(0, 1, 0, 1);
+            GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+            byte[] pixel = new byte[4];
+            GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+            ModernGraphicsCompat.Present();
+            if (pixel[0] > 24 || pixel[1] < 220 || pixel[2] > 24
+                || ModernGraphicsDevice.NativeValidationErrorCount != nativeErrors)
+                throw new InvalidOperationException("Fresh renderer failed after replacement admission cleanup.");
+            Console.WriteLine("[renderwindowcheck] replacement admission failure cleanup and restart PASS");
         }
 
         private static void RunAdvancedShaderCheck()

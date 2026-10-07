@@ -4,4 +4,4 @@ version = "0.1.0"
 edition = "2021"
 publish = false
 [dependencies]
-naga = { version = "=0.19.2", features = ["glsl-in", "wgsl-out"] }
+naga = { version = "=0.19.2", features = ["glsl-in", "wgsl-in", "wgsl-out", "hlsl-out"] }

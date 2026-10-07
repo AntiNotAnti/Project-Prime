@@ -194,15 +194,15 @@ fn prime_sample_history_tex(uv_4: vec2<f32>) -> vec4<f32> {
     let _e272: vec2<f32> = uv_5;
     let _e275: vec2<f32> = uv_5;
     let _e280: vec4<f32> = global.prime_texture_flip[2];
-    let _e284: vec2<f32> = uv_5;
-    let _e286: vec2<f32> = uv_5;
-    let _e289: vec2<f32> = uv_5;
-    let _e294: vec4<f32> = global.prime_texture_flip[2];
-    let _e296: vec2<f32> = uv_5;
-    let _e299: vec2<f32> = uv_5;
-    let _e304: vec4<f32> = global.prime_texture_flip[2];
-    let _e308: vec4<f32> = textureSample(prime_tex_history_tex, prime_sampler_history_tex, vec2<f32>(_e284.x, mix(_e296.y, (1f - _e299.y), _e304.x)));
-    return _e308;
+    let _e285: vec2<f32> = uv_5;
+    let _e287: vec2<f32> = uv_5;
+    let _e290: vec2<f32> = uv_5;
+    let _e295: vec4<f32> = global.prime_texture_flip[2];
+    let _e297: vec2<f32> = uv_5;
+    let _e300: vec2<f32> = uv_5;
+    let _e305: vec4<f32> = global.prime_texture_flip[2];
+    let _e310: vec4<f32> = textureSampleLevel(prime_tex_history_tex, prime_sampler_history_tex, vec2<f32>(_e285.x, mix(_e297.y, (1f - _e300.y), _e305.x)), 0f);
+    return _e310;
 }
 
 fn prime_sample_pbr_albedo(uv_6: vec2<f32>) -> vec4<f32> {
@@ -216,15 +216,15 @@ fn prime_sample_pbr_albedo(uv_6: vec2<f32>) -> vec4<f32> {
     let _e274: vec2<f32> = uv_7;
     let _e277: vec2<f32> = uv_7;
     let _e282: vec4<f32> = global.prime_texture_flip[3];
-    let _e286: vec2<f32> = uv_7;
-    let _e288: vec2<f32> = uv_7;
-    let _e291: vec2<f32> = uv_7;
-    let _e296: vec4<f32> = global.prime_texture_flip[3];
-    let _e298: vec2<f32> = uv_7;
-    let _e301: vec2<f32> = uv_7;
-    let _e306: vec4<f32> = global.prime_texture_flip[3];
-    let _e310: vec4<f32> = textureSample(prime_tex_pbr_albedo, prime_sampler_pbr_albedo, vec2<f32>(_e286.x, mix(_e298.y, (1f - _e301.y), _e306.x)));
-    return _e310;
+    let _e287: vec2<f32> = uv_7;
+    let _e289: vec2<f32> = uv_7;
+    let _e292: vec2<f32> = uv_7;
+    let _e297: vec4<f32> = global.prime_texture_flip[3];
+    let _e299: vec2<f32> = uv_7;
+    let _e302: vec2<f32> = uv_7;
+    let _e307: vec4<f32> = global.prime_texture_flip[3];
+    let _e312: vec4<f32> = textureSampleLevel(prime_tex_pbr_albedo, prime_sampler_pbr_albedo, vec2<f32>(_e287.x, mix(_e299.y, (1f - _e302.y), _e307.x)), 0f);
+    return _e312;
 }
 
 fn prime_sample_pbr_normal(uv_8: vec2<f32>) -> vec4<f32> {
@@ -238,15 +238,15 @@ fn prime_sample_pbr_normal(uv_8: vec2<f32>) -> vec4<f32> {
     let _e276: vec2<f32> = uv_9;
     let _e279: vec2<f32> = uv_9;
     let _e284: vec4<f32> = global.prime_texture_flip[4];
-    let _e288: vec2<f32> = uv_9;
-    let _e290: vec2<f32> = uv_9;
-    let _e293: vec2<f32> = uv_9;
-    let _e298: vec4<f32> = global.prime_texture_flip[4];
-    let _e300: vec2<f32> = uv_9;
-    let _e303: vec2<f32> = uv_9;
-    let _e308: vec4<f32> = global.prime_texture_flip[4];
-    let _e312: vec4<f32> = textureSample(prime_tex_pbr_normal, prime_sampler_pbr_normal, vec2<f32>(_e288.x, mix(_e300.y, (1f - _e303.y), _e308.x)));
-    return _e312;
+    let _e289: vec2<f32> = uv_9;
+    let _e291: vec2<f32> = uv_9;
+    let _e294: vec2<f32> = uv_9;
+    let _e299: vec4<f32> = global.prime_texture_flip[4];
+    let _e301: vec2<f32> = uv_9;
+    let _e304: vec2<f32> = uv_9;
+    let _e309: vec4<f32> = global.prime_texture_flip[4];
+    let _e314: vec4<f32> = textureSampleLevel(prime_tex_pbr_normal, prime_sampler_pbr_normal, vec2<f32>(_e289.x, mix(_e301.y, (1f - _e304.y), _e309.x)), 0f);
+    return _e314;
 }
 
 fn prime_sample_pbr_material(uv_10: vec2<f32>) -> vec4<f32> {
@@ -260,15 +260,15 @@ fn prime_sample_pbr_material(uv_10: vec2<f32>) -> vec4<f32> {
     let _e278: vec2<f32> = uv_11;
     let _e281: vec2<f32> = uv_11;
     let _e286: vec4<f32> = global.prime_texture_flip[5];
-    let _e290: vec2<f32> = uv_11;
-    let _e292: vec2<f32> = uv_11;
-    let _e295: vec2<f32> = uv_11;
-    let _e300: vec4<f32> = global.prime_texture_flip[5];
-    let _e302: vec2<f32> = uv_11;
-    let _e305: vec2<f32> = uv_11;
-    let _e310: vec4<f32> = global.prime_texture_flip[5];
-    let _e314: vec4<f32> = textureSample(prime_tex_pbr_material, prime_sampler_pbr_material, vec2<f32>(_e290.x, mix(_e302.y, (1f - _e305.y), _e310.x)));
-    return _e314;
+    let _e291: vec2<f32> = uv_11;
+    let _e293: vec2<f32> = uv_11;
+    let _e296: vec2<f32> = uv_11;
+    let _e301: vec4<f32> = global.prime_texture_flip[5];
+    let _e303: vec2<f32> = uv_11;
+    let _e306: vec2<f32> = uv_11;
+    let _e311: vec4<f32> = global.prime_texture_flip[5];
+    let _e316: vec4<f32> = textureSampleLevel(prime_tex_pbr_material, prime_sampler_pbr_material, vec2<f32>(_e291.x, mix(_e303.y, (1f - _e306.y), _e311.x)), 0f);
+    return _e316;
 }
 
 fn prime_sample_tex(uv_12: vec2<f32>) -> vec4<f32> {
@@ -282,15 +282,15 @@ fn prime_sample_tex(uv_12: vec2<f32>) -> vec4<f32> {
     let _e280: vec2<f32> = uv_13;
     let _e283: vec2<f32> = uv_13;
     let _e288: vec4<f32> = global.prime_texture_flip[6];
-    let _e292: vec2<f32> = uv_13;
-    let _e294: vec2<f32> = uv_13;
-    let _e297: vec2<f32> = uv_13;
-    let _e302: vec4<f32> = global.prime_texture_flip[6];
-    let _e304: vec2<f32> = uv_13;
-    let _e307: vec2<f32> = uv_13;
-    let _e312: vec4<f32> = global.prime_texture_flip[6];
-    let _e316: vec4<f32> = textureSample(prime_tex_tex, prime_sampler_tex, vec2<f32>(_e292.x, mix(_e304.y, (1f - _e307.y), _e312.x)));
-    return _e316;
+    let _e293: vec2<f32> = uv_13;
+    let _e295: vec2<f32> = uv_13;
+    let _e298: vec2<f32> = uv_13;
+    let _e303: vec4<f32> = global.prime_texture_flip[6];
+    let _e305: vec2<f32> = uv_13;
+    let _e308: vec2<f32> = uv_13;
+    let _e313: vec4<f32> = global.prime_texture_flip[6];
+    let _e318: vec4<f32> = textureSampleLevel(prime_tex_tex, prime_sampler_tex, vec2<f32>(_e293.x, mix(_e305.y, (1f - _e308.y), _e313.x)), 0f);
+    return _e318;
 }
 
 fn prime_original_main() {

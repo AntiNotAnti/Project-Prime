@@ -628,6 +628,116 @@ semantic/visual oracles rather than cross-driver PNG byte identity.
 
 ## Completion contract and evidence scopes
 
+The coherent working batch after `451f78c99042dbb0fdba2a31befb4ed8aa2a3e98`
+repairs four positively diagnosed renderer paths and captures Map startup errors.
+Its separate `shaderDiagnosticScissorAndSurfaceRepair` baseline object preserves
+every earlier exact graph. Generated versions retain the actual base451
+precommit attribution; overall migration acceptance remains false until all
+required final-head CI results are available.
+
+Actual 451 Windows DX12 job `112605781165` advances past the earlier descriptor
+ordering failure and reaches an FXC implicit-gradient unroll error in the SSR
+loop. The retained native HLSL uses an implicit sample at line 295 inside the
+loop at line 1787. The repair uses five explicit LOD0 reads for the known
+single-mip PostProcess targets, with matched filters and anisotropy 1. Actual
+pinned Naga/HLSL reproduction passes the new source and rejects the old source;
+eight World/PBR/layout output hashes remain unchanged. The exact receipt is
+`artifacts/studio-acceptance/final-release/postprocess-base-target-lod/receipt.json`.
+This source proof does not establish repaired Windows FXC or GPU acceptance.
+
+The same actual compiler diagnostic contains 453 bytes with a terminal NUL at
+offset 452, causing the old native logger's `CString::new(...).unwrap()` to
+abort. A shared encoder now escapes each NUL as visible backslash-zero across
+all seven diagnostic FFI paths, retaining every other UTF8 byte, newline,
+suffix and error/log classification. Five actual Rust tests cover the exact
+failure and real callback/sink paths. The rebuilt native fingerprint is
+`18e3d6f77a677324fb6a59827d54617db789c75857afb6986306e4112e875c26`.
+Actual macOS production/fault and both Android ABI receipts, with CString 5,
+derived-layout 2, classifier 2, WSI 2, fault subprocess 35 and packaging 10
+passes, are in
+`artifacts/studio-acceptance/final-release/native-diagnostic-c-string-repair/current/all-native-receipts.json`.
+
+Actual 451 hosted Intel Metal job `112604917905` fails the unchanged zero-width
+scissor pixel oracle after passing offscreen red and window setup. The pinned
+Metal HAL forwards empty scissors despite its documented limitation. Shared
+clipping now suppresses raster emission for enabled empty coverage across
+direct, core, retained World/PBR, multi-draw, blit and partial-clear paths.
+Queued unscissored full clears, readbacks and CPU/list tail state remain intact.
+The strict 66-case matrix retains the original per-pixel oracle and adds
+offscreen/empty boundaries and positive state restoration. Separately, device
+recovery releases the old presentation surface before allocating its
+replacement, retains CPU texture/list state, and releases both old and candidate
+native handles when an allocated replacement fails admission.
+
+The old 451 Map job `112605040450` remains **initializer-unclassified**: window
+construction preceded its catch, and artifact `11458770374` omitted redirected
+owned UserData fatal stderr. Neither GL absence nor a missing native library is
+inferred. The new outer startup catch records the full actual exception. Only
+the existing strict typed NSGL failure, measured Apple Paravirtual Metal
+adapter, all four known absent CGL requests and explicit hosted Mac Actions
+opt-in permit a fresh Metal window; all unchanged checks selected by that
+invocation must then run. The revised hosted Mac command explicitly imports
+`maps/dust2.ppmap`, requiring all 55 checks; its next-head runtime result remains
+pending. The separately measured physical base variants retain their 48 checks.
+Every other startup failure remains fatal. The workflow builds matching Mac
+native payloads before the first managed Map build and always archives owned
+UserData logs. Actual next-head hosted fallback proof remains pending.
+
+The new Main build passes with zero errors / 131 warnings in 58.37 s; all 1,413
+raw src inputs are identical before/after, SHA-256
+`ecd97fdd262079e6692db7118593a34717d6185895de5ac5917546a3ec849f3a`.
+Evaluated Compile inputs are separately retained: Engine 1,194, Studio 52 and
+Protocol 6, unchanged before/after.
+Its engine is
+`92fb5c7ca20bf95254e8c3c9a2891ba2c8ba174acfa1e2f596d4efad11b0f42a`, Studio
+`f935c57679d13caccf3eeb3231ad2e295e5290971df383f060b400b6ddd3f27f`, and native
+`02359652f461b647012db098a3fcdbe20c2afcec307b956a468a65633162e81a` / 18e3.
+Architecture 8,239/8,239, negative contracts 66/66, tracked asset guard and
+evaluated avares pass. The exact precommit verification is
+`/tmp/project-prime-studio-render-repair-final-build/verification.json`.
+
+Fresh physical Apple M4 Pro proof on this exact graph passes the full
+production-default Metal check in 4.105181209 s, including all 66 strict
+scissor cases, authored mip 93, PBR/final pixels, resource restoration with zero
+native errors, allocated replacement failure cleanup, fresh GL and modern
+restart. Imported canonical dust2 passes GL 55, Metal 55 and a separate
+validation-enabled Metal 55; native errors remain zero and the validation
+marker is present. The original 48-check base variants remain separate; 78 PNGs
+are retained. All owned processes exit and user processes are untouched. The
+durable receipt is
+`artifacts/studio-acceptance/final-release/physical-render-repair-18e3/receipt.json`.
+Fresh cue 110 and full native Replay 158 pass on this exact graph, retaining
+all original strict hashes, pixels, clocks, exports and stale-view lifecycle
+gates. Each independent audible/muted worker produces three inclusive
+1280×720 GPU frames and 2,400 stereo 48 kHz PCM frames: audible RMS
+0.1767625848345871 / 4,792 nonzero samples versus muted 0 / 0. Logs are
+`/tmp/project-prime-host-native-replay-render-repair-{cue,full}.log`; the durable
+255-file verified receipt is
+`artifacts/studio-acceptance/final-release/replay-render-repair-final/manifest.json`.
+All owned applications, workers and awake leases are reaped. Earlier UI 858 and cue/full
+Replay receipts keep their actual binary identities.
+
+Completed 451 CI remains separately scoped: Windows Studio pure 1,193 / base
+90 / headless UI 471 verifies canonical `File.Replace` under held Read|Delete,
+complete old/new snapshots and both strict denial negatives; Linux Studio pure
+1,191 / actual FFmpeg 1,196 / base 91 / asset-free native Map 118 / UI 471 passes.
+Receipts are under `artifacts/studio-acceptance/final-release/studio-ci-451f78c9/`.
+The unchanged strict UDP loop records exactly zero allocated bytes over 10,000
+successful sends, zero socket errors and zero Gen0/1/2 collections, without a
+measurement repair, tolerance or retry. Its separate receipt is
+`artifacts/studio-acceptance/final-release/network-allocation-diagnostics/ci-451/acceptance.json`.
+The 451 hosted Android APK is 122,940,609 bytes, SHA-256
+`cada4c14155e3858b0bd180b3461fa0e7728cf7e35fb324754f16ed2f1bac05b`, with actual
+`local+3bb074902df8d7fb756d2b4d614c07815d971af3` attribution and both ABI Map /
+passive Replay exclusions verified. Its owned KVM emulator coldboot and ppmap
+load/download/registration/runtime decode pass separately; receipts are under
+`artifacts/studio-acceptance/final-ci/current-451/`.
+Hosted ARM Metal passes with strict legacy GL **UNAVAILABLE**, not GL PASS;
+MoltenVK's exact hosted wrapper reports hardware SKIP after missing robustness
+and black pixels, not Vulkan acceptance. These historical results do not accept
+the new Windows shader/scissor/surface repairs. New final-head Android APK,
+paired SDK and all required CI checks remain pending.
+
 The working-tree causal batch after `8acb52aabbab616bc66620ac7d7348e48669a9fa`
 repairs status publication and a positively diagnosed native DX12 binding-order
 mismatch. Its exact precommit build/local renderer receipts are recorded separately;

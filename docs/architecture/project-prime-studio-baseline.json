@@ -1492,6 +1492,482 @@
         "mutedNonzeroSamples": 0,
         "scope": "Fresh actual source-bound AddCue/Export controls, frozen ticket, independent native worker, audible/muted PCM and full Replay gates on exact0f6487/d806217/467581. All owned applications, workers and awake leases exited. Earlier loadedUI858 remains actual161/30/d26 source-compatible evidence and is not relabeled."
       }
+    },
+    "shaderDiagnosticScissorAndSurfaceRepair": {
+      "sourceScope": "Coherent frozen working repair batch based on actual451. Its generated version keeps base451 precommit attribution. Every older exact build/package/runtime object remains unchanged; no future head or inherited acceptance.",
+      "acceptedOverall": false,
+      "retained451Ci": {
+        "sourceHead": "451f78c99042dbb0fdba2a31befb4ed8aa2a3e98",
+        "sourceTree": "6f5cf2c4f4537501dd479c0f94597bbd342b5018",
+        "testedMerge": "3bb074902df8d7fb756d2b4d614c07815d971af3",
+        "workflowRun": 37562807220,
+        "nativeFingerprint": "467581d1f838134de71fafc1a2bb259bd9aea3974c67c9ed21e9729ba00c8725",
+        "scope": "Completed exact451 CI scopes remain historical. They do not accept the new post451 repair sources or the whole required matrix.",
+        "windowsStudio": {
+          "evidence": "artifacts/studio-acceptance/final-release/studio-ci-451f78c9/windows-success.json",
+          "job": 112605781075,
+          "status": "success",
+          "counts": {
+            "PureExport": 1193,
+            "BaseLifecycle": 90,
+            "HeadlessUI": 471
+          },
+          "statusPublication": {
+            "WindowsLegacyMoveUnderCanonicalReader": {
+              "Success": false,
+              "ErrorType": "System.UnauthorizedAccessException",
+              "HResult": -2147024891,
+              "ErrorMessage": "Access to the path is denied."
+            },
+            "LegacyMoveHResultHex": "80070005",
+            "CanonicalPublisherUnderOldReadOnlySharing": {
+              "Success": false,
+              "ErrorType": "System.IO.IOException",
+              "HResult": -2147024864,
+              "ErrorMessage": "The process cannot access the file because it is being used by another process."
+            },
+            "OldReaderHResultHex": "80070020",
+            "CanonicalPublisherUnderCanonicalReader": {
+              "Success": true,
+              "ErrorType": null,
+              "HResult": null,
+              "ErrorMessage": null
+            },
+            "HeldCompleteOldAndFreshCompleteNew": true,
+            "OversizedWritePreservedPreviousStatus": true,
+            "OwnedStagingFiles": 0,
+            "ReadLimitBytes": 65536,
+            "MalformedReadRejected": true,
+            "PersistedWitness": "windows-captures/export-publication/atomic-publication-witness.json",
+            "PersistedWitnessSha256": "03b97245d0927be8b16b7fa64daf8c267477782c7fdcf32e1ff2bb27c0435fab"
+          },
+          "pair": "Game and Studio published matching1.0.0/IPC1; pair smoke and no-assets guard completed.",
+          "artifact": {
+            "Id": 11458021977,
+            "Name": "project-prime-studio-desktop-win-x64",
+            "Files": 184,
+            "Bytes": 195082482,
+            "Sha256": "6bd9a374b3206c4ad3835e7fa7514d1451afa053af9f2a94cab90216ad3a8a16",
+            "Scope": "Paired self-contained Game/Studio and Headless UI control captures plus publication-only witness.",
+            "DownloadedLocally": true,
+            "LocallyExtractedControlPngs": 48,
+            "SelectedInventory": "windows-artifact-inventory.json"
+          },
+          "scope": "Actual complete Studio Windows CI job on exact451 tested merge. Real child status publisher File.Replace under immutable held reader, pure sampling/PCM/worker checks, base process lifecycle, Headless Avalonia Skia controls and paired publish. No Windows native Map/Replay GPU or actual FFmpeg claim from this job."
+        },
+        "linuxStudio": {
+          "evidence": "artifacts/studio-acceptance/final-release/studio-ci-451f78c9/linux-success.json",
+          "job": 112605781156,
+          "status": "success",
+          "counts": {
+            "PureExport": 1191,
+            "ActualLinuxFfmpeg": 1196,
+            "BaseLifecycle": 91,
+            "NativeMapXvfb": 118,
+            "HeadlessUI": 471
+          },
+          "statusPublication": "Actual canonical publisher under held canonical reader succeeded; complete old/new, bounded read/write and malformed rejection assertions reached Passed. Windows-specific negative controls were not executed here.",
+          "kernelIdentityWitnesses": "Exact kernel identities match while cross-process UTC ticks differ; no PID-only or time-tolerance gate.",
+          "pair": "Game and Studio published matching1.0.0/IPC1; pair smoke and no-assets guard completed.",
+          "artifact": {
+            "Id": 11458406023,
+            "Name": "project-prime-studio-desktop-linux-x64",
+            "Files": 180,
+            "Bytes": 164949099,
+            "Sha256": "e7bf49772c818e53839ef6af0c730fa81ed7c915b62ea824f76af6e284d36ac1",
+            "Scope": "Paired self-contained Game/Studio, headless UI captures and scoped export-publication witness. Native CPU fallback PNG only /tmp path in log; no uploaded native-frame PNG inferred.",
+            "DownloadedLocally": false
+          },
+          "scope": "Actual complete Studio Linux CI job on exact451 tested merge. Native Xvfb asset-free Map118; Headless Avalonia Skia controls471; pure PCM/actual encoder and paired publish. No proprietary Replay/native Game or loaded-asset cue UI claims."
+        },
+        "strictUdpAllocation": {
+          "evidence": "artifacts/studio-acceptance/final-release/network-allocation-diagnostics/ci-451/acceptance.json",
+          "job": 112605781307,
+          "accepted": true,
+          "exactAllocatedBytes": 0,
+          "measuredCalls": 10000,
+          "successfulSends": 10000,
+          "socketErrors": 0,
+          "collections": {
+            "Gen0": 0,
+            "Gen1": 0,
+            "Gen2": 0
+          },
+          "measurementRepairApplied": false,
+          "scope": "Actual strict unchanged10000-send loop/exactzero gate; no forced collection/NoGCRegion/tolerance/retry/discarded measurement window. Historical b692 rounded0.01 delta cause remains unclassified."
+        },
+        "androidPackage": {
+          "evidence": "artifacts/studio-acceptance/final-ci/current-451/android-release/manifest.json",
+          "job": 112605040407,
+          "apkBytes": 122940609,
+          "apkSha256": "cada4c14155e3858b0bd180b3461fa0e7728cf7e35fb324754f16ed2f1bac05b",
+          "actualInformationalVersion": "local+3bb074902df8d7fb756d2b4d614c07815d971af3",
+          "nativeFingerprint": "467581d1f838134de71fafc1a2bb259bd9aea3974c67c9ed21e9729ba00c8725",
+          "canonicalAssemblyBytes": 33529344,
+          "canonicalAssemblySha256": "04048df8fc5efc96bcd56a7397d9baa7f4567551691ae033099fcb12724b0d5e",
+          "canonicalTypes": 4510,
+          "canonicalMapTypes": 247,
+          "passiveReplayPreserved": true,
+          "forbiddenCreatorGuiOrStudioTypesOrReferences": 0,
+          "signature": "Verified AndroidDebug development v2/v3; no release signing assertion.",
+          "scope": "Actual current451 same-tree merged-source hosted SDK APK; both ABI XABA/XALZ canonical assemblies preserve247Map types/passiveReplay and exclude desktop CreatorGUI/Studio executable refs. Actual467native fingerprint/byte hashes inspected; no local/CI toolchain byte equality claimed. Separate emulator ppmap runtime positive recorded in android-map/manifest.json."
+        },
+        "androidRuntime": {
+          "evidence": "artifacts/studio-acceptance/final-ci/current-451/android-map/manifest.json",
+          "job": 112605040407,
+          "acceptedRuntimeScope": true,
+          "ownedKvmColdBootSeconds": 51.332,
+          "scope": "Actual owned named Android emulator ppmap load, package verification, download, registration and runtime decode. Separate from APK metadata; no physical-device or modern-GPU claim."
+        },
+        "hostedMacArm64": {
+          "job": 112604918086,
+          "status": "success-exact-scoped-metal-and-capability-check",
+          "log": "/tmp/project-prime-ci-451-macos-arm64-112604918086.log",
+          "legacyGl": "UNAVAILABLE after exact typed NSGL constructor failure, measured Apple Paravirtual device and all four CGL requests absent; not GL PASS.",
+          "metal": "Actual full pixel/window/copy/scissor/PBR/mip93/resource/restart checks PASS; GPU timestamps reported unsupported feature.",
+          "moltenVk": "Existing exact hosted wrapper reports hardware SKIP after missing buffer robustness and actual black0/25; no Vulkan pixel or restart acceptance."
+        },
+        "hostedMacIntel": {
+          "job": 112604917905,
+          "status": "failure",
+          "log": "/tmp/project-prime-ci-451-macos-x64-112604917905.log",
+          "legacyGl": "Strict typed/measured four-request UNAVAILABLE; not GL PASS.",
+          "metalFailure": "Offscreen red25 and zero-size/present checks pass, then enabled zero-width scissor (0,0,0,4), window=False clear=False, pixel0 fails strict pixel oracle. MoltenVK did not run."
+        }
+      },
+      "causalRepairs": {
+        "postProcessBaseTargetLod": {
+          "evidence": "artifacts/studio-acceptance/final-release/postprocess-base-target-lod/receipt.json",
+          "failed451Job": 112605781165,
+          "actualBeforeHlslImplicitSampleLine": 295,
+          "actualBeforeHlslReflectionLoopLine": 1787,
+          "cause": "FXC implicit-gradient unroll failure in varying SSR loop. Terminal diagnostic NUL causes a separate native logger abort.",
+          "repair": "Five known single-mip PostProcess color targets use explicit LOD0; matched nearest/linear filters retain MaxAnisotropy1. Authored material mip sampling is unchanged.",
+          "knownBaseOnlyTargets": [
+            "tex",
+            "history_tex",
+            "pbr_albedo",
+            "pbr_normal",
+            "pbr_material"
+          ],
+          "actualNagaHlslCurrentExitCode": 0,
+          "actualOriginalNegativeExitCode": 101,
+          "unchangedWorldPbrAndLayoutOutputHashes": 8,
+          "scope": "Actual pinned Naga validation/HLSL reproduction and exact sampler/allocation source contracts; new Windows FXC/GBV/default full runtime remains pending."
+        },
+        "nativeDiagnosticCStrings": {
+          "sourceEvidence": "artifacts/studio-acceptance/final-release/native-diagnostic-c-string-repair/manifest.json",
+          "actualTestEvidence": "artifacts/studio-acceptance/final-release/native-diagnostic-c-string-repair/current/all-native-receipts.json",
+          "failed451Job": 112605781165,
+          "actualDiagnosticBytes": 453,
+          "actualTerminalNulOffset": 452,
+          "oldConversion": "CString::new(record.args().to_string()).unwrap()",
+          "repair": "One diagnostic encoder escapes each NUL as visible backslash-zero, preserving all other UTF8 bytes/newlines/suffix and original error/log classifications across all seven diagnostic FFI conversion paths.",
+          "conversionSites": [
+            "Logger.log",
+            "ErrorSinkRaw device-lost",
+            "ErrorSinkRaw uncaptured error",
+            "AdapterRequestDevice adapter-limits failure",
+            "AdapterRequestDevice request failure",
+            "DevicePopErrorScope",
+            "InstanceRequestAdapter failure"
+          ],
+          "actualRustChecks": 5,
+          "scope": "Exact old NulError reproduction, byte-preserving new encoder, real Logger/uncaptured callback and scoped sink tests. Scoped sink-plus-encoder coverage does not claim a GPU-backed PopErrorScope invocation."
+        },
+        "emptyScissorRasterEmission": {
+          "failed451Job": 112604917905,
+          "cause": "Pinned Metal HAL forwards zero-sized scissors with a known empty-scissor TODO; previous compatibility paths still emitted raster commands for clamped empty coverage.",
+          "repair": "Shared widened-endpoint clipping suppresses raster emission only when enabled scissor coverage is empty. All direct/core/retained World/PBR, multi-draw, scissored blit and partial-clear raster paths retain CPU state/list tail values, queued unscissored full-clear operations and readbacks.",
+          "strictActualPixelCases": 66,
+          "caseScope": "Draw/list/clear/blit across eight original and added rectangles, offscreen and window targets, plus two list color-state restoration cases. Original independent per-pixel red/blue oracles remain; no tiny-scissor substitution or skip.",
+          "actualPhysicalExitCode": 0,
+          "source": "src/MphRead/Mods/Render/ModernGraphicsWindowCheck.cs"
+        },
+        "ownedSurfaceReplacement": {
+          "repair": "Release the old native presentation surface before constructing the replacement on the same native window. Retain CPU-owned texture/list state for reconstruction; adopt only a successful candidate and release all candidate/old native handles on injected admission failure.",
+          "actualPhysicalScope": "Resource reconstruction/native-error guard, allocated replacement failure cleanup, idempotent shutdown, fresh GL and modern pixel restart all pass on the exact current physical graph.",
+          "actualPhysicalExitCode": 0,
+          "sources": [
+            "src/MphRead/Mods/Render/ModernGraphicsCompat.cs",
+            "src/MphRead/Mods/Render/ModernGraphicsDevice.cs",
+            "src/MphRead/Mods/Render/ModernGraphicsWindowCheck.cs"
+          ]
+        },
+        "mapStartupDiagnosticsAndGuardedMetal": {
+          "failed451Job": 112605040450,
+          "oldFailureClassification": "initializer-unclassified",
+          "oldLog": "/tmp/project-prime-ci-451-map-macos-112605040450.log",
+          "oldArtifactId": 11458770374,
+          "oldArtifactBytes": 82120,
+          "oldArtifactSha256": "745b9fbab2270dfb79d770f1373e8df72f34bdf0e5b41cadc69dcba63cf4fb14",
+          "oldArtifactEntries": 147,
+          "oldArtifactLimitation": "Window/session construction preceded the check try/catch; redirected owned UserData native stderr was not uploaded. No typed fatal trace is available, so GL absence or missing native library is not inferred.",
+          "repair": "Outer startup catch reports the complete exception to stdout and owned logs. Only the existing exact typed NSGL failure + measured Apple Paravirtual Metal adapter + all four known absent CGL requests + strict Mac Actions opt-in permits a fresh NoAPI/Metal window, then every unchanged Map pixel gate runs. Every other startup failure remains fatal.",
+          "workflow": "Build matching Mac native payload before the first managed Map build; explicitly import maps/dust2.ppmap for all55 hosted checks; retain actual owned UserData fatal logs in the always artifact. Windows/Linux legacy GL routes remain strict.",
+          "actualPhysicalImportedMapChecks": {
+            "legacyGl": 55,
+            "metal": 55,
+            "metalWithNativeValidation": 55
+          },
+          "hostedFallbackRuntime": "pending-next-required-ci",
+          "scope": "Actual physical GL/explicit Metal/validated Metal all55 pass; the guarded hosted-capability fallback itself still requires actual next-head CI. No whole Map skip or GL PASS for unavailable legacy capability.",
+          "importedProjectChecks": 55,
+          "hostedInvocationScope": "Revised hosted Mac command explicitly passes -mapproject maps/dust2.ppmap and requires the full imported55 after any guarded measured Metal fallback. Its actual next-head runtime remains pending; separate current physical GL/Metal/validatedMetal imported55 already passes. Base48 physical variants retain their distinct scope.",
+          "plannedHostedCommandChecks": 55,
+          "plannedHostedProject": "maps/dust2.ppmap"
+        }
+      },
+      "nativeBuild": {
+        "status": "passed-exact-local-build-unit-fault-and-packaging-scope",
+        "evidence": "artifacts/studio-acceptance/final-release/native-diagnostic-c-string-repair/current/all-native-receipts.json",
+        "nativeFingerprint": "18e3d6f77a677324fb6a59827d54617db789c75857afb6986306e4112e875c26",
+        "actualMacTests": {
+          "diagnostic_c_strings": 5,
+          "derived_layout": 2,
+          "surface_classifier": 2,
+          "window_surface_policy": 2,
+          "subprocess_fault_cases": 35,
+          "packaging_cases": 10
+        },
+        "libraries": [
+          {
+            "scope": "mac-production",
+            "library_sha256": "02359652f461b647012db098a3fcdbe20c2afcec307b956a468a65633162e81a",
+            "manifest": "artifacts/studio-acceptance/final-release/native-diagnostic-c-string-repair/current/mac-production/PRIME-WGPU.json",
+            "log": "artifacts/studio-acceptance/final-release/native-diagnostic-c-string-repair/current/mac-production/build.log",
+            "fault_injection": false
+          },
+          {
+            "scope": "mac-fault",
+            "library_sha256": "0e7a3a678a1cc632f848f1cf81715b40c036dc218dfa6b9af919e195b6efd57e",
+            "manifest": "artifacts/studio-acceptance/final-release/native-diagnostic-c-string-repair/current/mac-fault/PRIME-WGPU.json",
+            "log": "artifacts/studio-acceptance/final-release/native-diagnostic-c-string-repair/current/mac-fault/build.log",
+            "fault_injection": true
+          },
+          {
+            "scope": "android-arm64",
+            "library_sha256": "e8befa4ebbd7da202bdd7dee9a4e9ef658bd1a5b812a1d63eb735b4702509841",
+            "manifest": "artifacts/studio-acceptance/final-release/native-diagnostic-c-string-repair/current/android-arm64/PRIME-WGPU.json",
+            "log": "artifacts/studio-acceptance/final-release/native-diagnostic-c-string-repair/current/android-arm64/build.log",
+            "fault_injection": false
+          },
+          {
+            "scope": "android-x64",
+            "library_sha256": "6db3838a875ffa22795b2af26c68169e75414a1e1c665421714b870ac70f64c3",
+            "manifest": "artifacts/studio-acceptance/final-release/native-diagnostic-c-string-repair/current/android-x64/PRIME-WGPU.json",
+            "log": "artifacts/studio-acceptance/final-release/native-diagnostic-c-string-repair/current/android-x64/build.log",
+            "fault_injection": false
+          }
+        ],
+        "scope": "Native builds, production payload identity, real diagnostic callback/unit tests and subprocess faults; no new Windows draw acceptance"
+      },
+      "currentMain": {
+        "status": "passed-exact-precommit-build-and-source-contract-scope",
+        "evidence": "/tmp/project-prime-studio-render-repair-final-build/verification.json",
+        "snapshot": "/tmp/project-prime-studio-render-repair-final-snapshot",
+        "baseHead": "451f78c99042dbb0fdba2a31befb4ed8aa2a3e98",
+        "baseTree": "6f5cf2c4f4537501dd479c0f94597bbd342b5018",
+        "versionScope": "Frozen working source graph; actual generated version remains its real base commit. No future commit or CI attribution.",
+        "buildErrors": 0,
+        "buildWarnings": 131,
+        "buildSeconds": 58.37,
+        "architectureChecks": 8239,
+        "negativeContractChecks": 66,
+        "trackedAssetGuard": "pass",
+        "evaluatedAvares": "pass",
+        "nativeFingerprint": "18e3d6f77a677324fb6a59827d54617db789c75857afb6986306e4112e875c26",
+        "files": [
+          {
+            "path": "ProjectPrime.dll",
+            "bytes": 34194432,
+            "sha256": "92fb5c7ca20bf95254e8c3c9a2891ba2c8ba174acfa1e2f596d4efad11b0f42a"
+          },
+          {
+            "path": "ProjectPrimeStudio.dll",
+            "bytes": 408576,
+            "sha256": "f935c57679d13caccf3eeb3231ad2e295e5290971df383f060b400b6ddd3f27f"
+          },
+          {
+            "path": "ProjectPrime.Studio.Protocol.dll",
+            "bytes": 61952,
+            "sha256": "89d69ed890e04cab6c3188435ce954e04f8ffb3dc759d8576a33a097249bca8d"
+          },
+          {
+            "path": "libwgpu_native.dylib",
+            "bytes": 6306080,
+            "sha256": "02359652f461b647012db098a3fcdbe20c2afcec307b956a468a65633162e81a"
+          },
+          {
+            "path": "PRIME-WGPU.json",
+            "bytes": 459,
+            "sha256": "9067a02034904a319e3d7af7b96f6630f6ee7d0f6852793bf3e6be84c5df313e"
+          }
+        ],
+        "checks": [
+          {
+            "name": "architecture-build",
+            "exitCode": 0,
+            "log": "architecture-build.log",
+            "sha256": "e4b330c9214178101dbcac5a3bfed3248174cd7961eab2976f626aafc8234461"
+          },
+          {
+            "name": "architecture-scan",
+            "exitCode": 0,
+            "log": "architecture-scan.log",
+            "sha256": "9e181dcaf8f1c48908181d31efd812b5ebd521a2b73d193a55507ec64fa024f6"
+          },
+          {
+            "name": "architecture-selftest",
+            "exitCode": 0,
+            "log": "architecture-selftest.log",
+            "sha256": "8353081dd58bd4abfcff04c3597511fea68c89a898420273e24567a17d388348"
+          },
+          {
+            "name": "asset-guard",
+            "exitCode": 0,
+            "log": "asset-guard.log",
+            "sha256": "573bc96dc332ec6c5b65efbffe3848cdcd55413dc324d2773e361c0941d75ced"
+          },
+          {
+            "name": "avares-main",
+            "exitCode": 0,
+            "log": "avares-main.log",
+            "sha256": "1d7e9370f18ad6cf372d98c68a881dee199d01adca76ea6c4d24e5bb930acb8a"
+          }
+        ],
+        "rawSourceInputs": 1413,
+        "rawSourceInputsSha256": "ecd97fdd262079e6692db7118593a34717d6185895de5ac5917546a3ec849f3a",
+        "rawSourceInputsUnchangedBeforeAfter": true,
+        "rawSourceInputsScope": "1413 raw src inputs; distinct from evaluated project Compile items.",
+        "evaluatedCompileInputs": {
+          "engine": 1194,
+          "studio": 52,
+          "protocol": 6,
+          "unchangedBeforeAfter": true,
+          "evidenceDirectory": "/tmp/project-prime-studio-render-repair-final-build",
+          "receiptNames": "before/after-<project>-evaluated-compile.json"
+        }
+      },
+      "currentPhysicalRendererAndMap": {
+        "status": "passed-exact-physical-production-and-map-validation-scope",
+        "evidence": "artifacts/studio-acceptance/final-release/physical-render-repair-18e3/receipt.json",
+        "engineAssemblySha256": "92fb5c7ca20bf95254e8c3c9a2891ba2c8ba174acfa1e2f596d4efad11b0f42a",
+        "studioAssemblySha256": "f935c57679d13caccf3eeb3231ad2e295e5290971df383f060b400b6ddd3f27f",
+        "nativeLibrarySha256": "02359652f461b647012db098a3fcdbe20c2afcec307b956a468a65633162e81a",
+        "nativeFingerprint": "18e3d6f77a677324fb6a59827d54617db789c75857afb6986306e4112e875c26",
+        "platform": "Physical Apple M4 Pro macOS",
+        "strictScissorCases": 66,
+        "authoredMipChecks": 93,
+        "importedMapChecksPerBackend": 55,
+        "baseMapVariantsChecks": 48,
+        "retainedPngs": 78,
+        "nativeValidationErrors": 0,
+        "ownedProcessesExited": true,
+        "userProcessesUntouched": true,
+        "processes": [
+          {
+            "name": "metal-production-full",
+            "exit_code": 0,
+            "elapsed_seconds": 4.1051812089999995,
+            "log": "artifacts/studio-acceptance/final-release/physical-render-repair-18e3/metal-production-full.log",
+            "log_sha256": "a9074f02c8e8b778b412f89f80898a7ee7f95a23fc0d65a75c0c22ebef2bc4d4",
+            "validation_opt_in": false
+          },
+          {
+            "name": "map-legacy-gl",
+            "exit_code": 0,
+            "elapsed_seconds": 4.619959792,
+            "log": "artifacts/studio-acceptance/final-release/physical-render-repair-18e3/map-legacy-gl.log",
+            "log_sha256": "dd4e78f87ccc21a2f5bee129b6d3232821eb8b899ae8fbba6d3301b19eb6af47",
+            "validation_opt_in": false
+          },
+          {
+            "name": "map-metal",
+            "exit_code": 0,
+            "elapsed_seconds": 4.112568541,
+            "log": "artifacts/studio-acceptance/final-release/physical-render-repair-18e3/map-metal.log",
+            "log_sha256": "27a1ed15e27901b170f03e97412911d92eed5675b539a6367dd5829d3da27895",
+            "validation_opt_in": false
+          },
+          {
+            "name": "map-metal-validation",
+            "exit_code": 0,
+            "elapsed_seconds": 4.055775917,
+            "log": "artifacts/studio-acceptance/final-release/physical-render-repair-18e3/map-metal-validation.log",
+            "log_sha256": "2e10cc23c916d5202228fc29004619200fcf469577e7bc1e2397ab39e6e39fa7",
+            "validation_opt_in": true,
+            "actual_validation_marker": true
+          },
+          {
+            "name": "map-legacy-gl-imported",
+            "exit_code": 0,
+            "elapsed_seconds": 5.977543584,
+            "log": "artifacts/studio-acceptance/final-release/physical-render-repair-18e3/map-legacy-gl-imported.log",
+            "log_sha256": "975a2a91e6d409f33e9a6e7e4b3dcf93d1614f5d020cec3b1cfd43f5b013fa9d",
+            "validation_opt_in": false,
+            "actual_map_checks": 55
+          },
+          {
+            "name": "map-metal-imported",
+            "exit_code": 0,
+            "elapsed_seconds": 6.054263458,
+            "log": "artifacts/studio-acceptance/final-release/physical-render-repair-18e3/map-metal-imported.log",
+            "log_sha256": "ba654958269999e82dc7b83c2684655cb20317c64d1cec238cdfb256e140ac44",
+            "validation_opt_in": false,
+            "actual_map_checks": 55
+          },
+          {
+            "name": "map-metal-validation-imported",
+            "exit_code": 0,
+            "elapsed_seconds": 5.978785541000001,
+            "log": "artifacts/studio-acceptance/final-release/physical-render-repair-18e3/map-metal-validation-imported.log",
+            "log_sha256": "c7eb0d2458f6b9774c326054d1852838d37b6df97f95a3a9f80fc40bdc42dc47",
+            "validation_opt_in": true,
+            "actual_map_checks": 55,
+            "actual_validation_marker": true
+          }
+        ],
+        "scope": "Physical Apple M4 Pro, production-default Metal full actual window pixels/resource/lifetime/recovery, canonical Map GL55 + Metal55 + separate native-validation Metal55. Source is immutable post451 repair graph; no new Windows FXC acceptance inferred."
+      },
+      "currentReplayRuntime": {
+        "cueStatus": "passed-actual-exact-new-graph",
+        "cueChecks": 110,
+        "fullNativeReplayStatus": "passed-actual-exact-new-graph",
+        "fullNativeReplayChecks": 158,
+        "engineAssemblySha256": "92fb5c7ca20bf95254e8c3c9a2891ba2c8ba174acfa1e2f596d4efad11b0f42a",
+        "studioAssemblySha256": "f935c57679d13caccf3eeb3231ad2e295e5290971df383f060b400b6ddd3f27f",
+        "nativeFingerprint": "18e3d6f77a677324fb6a59827d54617db789c75857afb6986306e4112e875c26",
+        "scope": "Fresh actual cue authoring/control-to-immutable-ticket-to-native-worker PCM and full158 native Replay pass on exact92fb/f935/native02359652/18e3, with all original strict hashes, pixel, clock, export, lifecycle and stale-view gates retained. Each independent audible/muted worker produces three inclusive1280x720 GPU frames and2400 stereo48k PCM frames. Historical0f64/d806/467 and161/30/d26 UI/cue/fullReplay receipts retain their own identities; no newer final-head CI inferred.",
+        "status": "passed-exact-fresh-cue-and-full-native-replay-scope",
+        "cueExitCode": 0,
+        "fullReplayExitCode": 0,
+        "nativeLibrarySha256": "02359652f461b647012db098a3fcdbe20c2afcec307b956a468a65633162e81a",
+        "cueLog": "/tmp/project-prime-host-native-replay-render-repair-cue.log",
+        "fullReplayLog": "/tmp/project-prime-host-native-replay-render-repair-full.log",
+        "cueEvidence": "/tmp/project-prime-native-replay-render-repair-cue-evidence",
+        "fullReplayEvidence": "/tmp/project-prime-native-replay-render-repair-full-evidence",
+        "pngFramesPerWorker": 3,
+        "pngWidth": 1280,
+        "pngHeight": 720,
+        "pcmFramesPerWorker": 2400,
+        "pcmSampleRate": 48000,
+        "pcmChannels": 2,
+        "audibleRms": 0.1767625848345871,
+        "audibleNonzeroSamples": 4792,
+        "mutedRms": 0,
+        "mutedNonzeroSamples": 0,
+        "ownedApplicationsWorkersAndAwakeLeasesReaped": true,
+        "evidence": "artifacts/studio-acceptance/final-release/replay-render-repair-final/manifest.json",
+        "manifestSha256": "c00869229d0042e025a1e083364e678b756b2312f0b87c7f5065156847e20461",
+        "verifiedArchivedFiles": 255
+      },
+      "remainingAcceptance": [
+        "New final-head Android APK and pairedSDK receipts after commit",
+        "Actual next-head Windows FXC, full GBV then production-default full DX12 runtime",
+        "Actual next-head Intel empty-scissor Metal and guarded Mac Map startup fallback with all55 imported-project pixel gates; revised hosted invocation remains pending and physical imported55 is separately proven",
+        "All required final-head Windows/Linux/macOS and Android CI checks"
+      ]
     }
   }
 }

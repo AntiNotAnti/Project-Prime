@@ -84,6 +84,9 @@ namespace MphRead.Mods.Render
             }
         }
 
+        internal static int NativeValidationErrorCount
+            => System.Threading.Volatile.Read(ref _nativeValidationErrorsForwarded);
+
         private readonly WebGPU _api;
         private readonly Wgpu _native;
         private Instance* _instance;
@@ -172,7 +175,39 @@ namespace MphRead.Mods.Render
             // Explicit destruction need not deliver an unexpected-loss callback.
             _errors.DeviceLost = true;
         }
-        internal ModernGraphicsDevice CreateReplacement() => CreateCore(Backend, _surfaceFactory);
+        private Action<ModernGraphicsDevice>? _replacementCreatedForCheck;
+        internal void ObserveNextReplacementForCheck(Action<ModernGraphicsDevice> observer)
+            => _replacementCreatedForCheck = observer;
+
+        internal void ReleaseOwnedPresentationSurface()
+        {
+            Surface* surface = _surface;
+            _surface = null;
+            if (surface == null) return;
+            // Unconfigure clears native presentation metadata. Releasing the
+            // surface also drops the DXGI swap chain that owns the HWND.
+            try { _api.SurfaceUnconfigure(surface); }
+            finally { _api.SurfaceRelease(surface); }
+        }
+
+        internal ModernGraphicsDevice CreateReplacement()
+        {
+            if (_surface != null)
+                throw new InvalidOperationException("Release the previous presentation surface before replacing its device.");
+            Action<ModernGraphicsDevice>? observer = _replacementCreatedForCheck;
+            _replacementCreatedForCheck = null;
+            ModernGraphicsDevice replacement = CreateCore(Backend, _surfaceFactory);
+            try
+            {
+                observer?.Invoke(replacement);
+                return replacement;
+            }
+            catch
+            {
+                replacement.Dispose();
+                throw;
+            }
+        }
 
         private unsafe delegate Surface* SurfaceFactory(WebGPU api, Instance* instance);
 
@@ -477,15 +512,10 @@ namespace MphRead.Mods.Render
         {
             if (_disposed) return;
             _disposed = true;
-            if (_surface != null)
-            {
-                // A configured surface still refers to this device. Unconfigure
-                // and release it before releasing the device/adapter it was
-                // configured against.
-                _api.SurfaceUnconfigure(_surface);
-                _api.SurfaceRelease(_surface);
-                _surface = null;
-            }
+            _replacementCreatedForCheck = null;
+            // A configured surface still refers to this device. Release it
+            // before the device/adapter it was configured against.
+            ReleaseOwnedPresentationSurface();
             if (_device != null)
             {
                 _api.DeviceRelease(_device);

@@ -79,7 +79,15 @@ for kind, pair in sources.items():
     texture_header=''
     for i,name in enumerate(samplers):
         texture_header+=f'layout(set=0,binding={1+i*2}) uniform texture2D prime_tex_{name};\nlayout(set=0,binding={2+i*2}) uniform sampler prime_sampler_{name};\n'
-        texture_header+=f'vec4 prime_sample_{name}(vec2 uv) {{ return texture(sampler2D(prime_tex_{name}, prime_sampler_{name}), vec2(uv.x, mix(uv.y,1.0-uv.y,prime_texture_flip[{i}].x))); }}\n'
+        # Post-process inputs are base-only scene/history/G-buffer targets.
+        # Explicit LOD retains their sampling while avoiding implicit gradients
+        # inside divergent SSR/AA loops, which FXC otherwise tries to unroll.
+        # World/material textures keep their authored mip/anisotropic behavior.
+        base_target=kind=='PostProcess' and name in {
+            'tex', 'history_tex', 'pbr_albedo', 'pbr_normal', 'pbr_material'}
+        lookup='textureLod' if base_target else 'texture'
+        lod=', 0.0' if base_target else ''
+        texture_header+=f'vec4 prime_sample_{name}(vec2 uv) {{ return {lookup}(sampler2D(prime_tex_{name}, prime_sampler_{name}), vec2(uv.x, mix(uv.y,1.0-uv.y,prime_texture_flip[{i}].x)){lod}); }}\n'
     for stage,source in pair.items():
         source=re.sub(r'^\s*#version[^\n]*','',source,flags=re.M)
         source=uniform.sub('',source)

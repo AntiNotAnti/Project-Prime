@@ -144,6 +144,12 @@ internal sealed unsafe partial class ModernGraphicsCompat
 
     internal static void SubmitPending() => Current.FlushCommands();
 
+    internal static void ThrowIfDeviceFailedForCheck()
+    {
+        if (_current == null) throw new InvalidOperationException("No active modern device for the native check.");
+        _current._device.ThrowIfFailed();
+    }
+
     // End only the current compatibility render pass, keeping the command
     // encoder alive so callers can establish a hard state/viewmodel boundary
     // without paying for an additional QueueSubmit.

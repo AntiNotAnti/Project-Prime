@@ -22,14 +22,48 @@ internal static class MapViewportCheck
 {
     internal static int Run(string directory, string? projectPath = null)
     {
-        directory = Path.GetFullPath(Path.Combine(ConsoleSetup.LaunchDirectory, directory));
-        Directory.CreateDirectory(directory);
-        var settings = DesktopGlContext.Settings(background: true);
-        settings.StartVisible = true;
-        settings.StartFocused = false;
-        settings.ClientSize = new(960, 600);
-        using var window = new NativeWindow(settings);
+        try
+        {
+            directory = Path.GetFullPath(Path.Combine(ConsoleSetup.LaunchDirectory, directory));
+            Directory.CreateDirectory(directory);
+            return RunCore(directory, projectPath);
+        }
+        catch (Exception error)
+        {
+            // Include context/UI initialization in the diagnostic boundary.
+            // Native stderr may be redirected into the owned user-data log.
+            Console.WriteLine("MAPVIEWPORT STARTUP " + error);
+            Mods.DebugLog.Exception("mapviewport", error);
+            try { File.WriteAllText(Path.Combine(directory, "startup-failure.txt"), error.ToString()); }
+            catch (Exception logError) { Console.WriteLine("MAPVIEWPORT startup log unavailable: " + logError.Message); }
+            return 1;
+        }
+    }
+
+    private static int RunCore(string directory, string? projectPath)
+    {
+        var settings = WindowSettings();
+        NativeWindow? created = GraphicsBackendPolicy.ModernGameplayRequested
+            ? new NativeWindow(settings) : HostedLegacyGlCapabilityCheck.CreateWindow(settings);
+        if (created == null)
+        {
+            // The helper requires the exact typed constructor failure, measured
+            // Paravirtual adapter and four absent formats under hosted opt-in.
+            // The Map test itself remains mandatory on a real modern owner.
+            Console.WriteLine("MAPVIEWPORT legacy OpenGL UNAVAILABLE: exact hosted capability census; running all Map pixel checks on Metal");
+            GraphicsBackendPolicy.Configure("metal");
+            created = new NativeWindow(WindowSettings());
+        }
+        using var window = created;
+        int nativeErrorsBefore = ModernGraphicsDevice.NativeValidationErrorCount;
         using var graphics = new MphRead.Mods.Render.DesktopGraphicsSession(window);
+        if (ModernGraphicsCompat.Active)
+        {
+            var identity = ModernGraphicsCompat.DeviceIdentity;
+            if (string.IsNullOrWhiteSpace(identity.Adapter))
+                throw new InvalidOperationException("Map viewport modern device has no measured adapter identity.");
+            Console.WriteLine($"MAPVIEWPORT actual renderer backend={identity.Backend} adapter=\"{identity.Adapter}\" generation={ModernGraphicsCompat.DeviceGeneration}");
+        }
         var surface = UiSurface.Ensure() ?? throw new InvalidOperationException("No UI surface.");
         int checks = 0;
         var foregroundPlayers = MphRead.Entities.PlayerEntity.LegacyRegistry;
@@ -332,11 +366,31 @@ internal static class MapViewportCheck
             texturedView.UvChecker=false; surface.DrawMapViewport(window.FramebufferSize.X,window.FramebufferSize.Y);
             Check(texturedView.GpuTextureUploads==textureUploads+1,"leaving checker reuses authored texture");
             Check(GL.GetError()==ErrorCode.NoError,"textured rendering leaves valid GL state");
+            if (ModernGraphicsCompat.Active)
+            {
+                // Explicit check-only readback drains queued raster work and
+                // native callbacks before certifying the validation counter.
+                byte[] fence = new byte[4];
+                GL.ReadPixels(0, 0, 1, 1, OpenTK.Graphics.OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, fence);
+                ModernGraphicsCompat.ThrowIfDeviceFailedForCheck();
+                if (ModernGraphicsDevice.NativeValidationErrorCount != nativeErrorsBefore)
+                    throw new InvalidOperationException("Map viewport emitted native validation errors.");
+                Console.WriteLine("MAPVIEWPORT native validation errors=0");
+            }
             Console.WriteLine($"MAPVIEWPORT {checks} checks passed.");
             return 0;
         }
         catch (Exception ex) { Console.WriteLine("MAPVIEWPORT " + ex); return 1; }
         finally { surface.ReleaseMapRenderer(); surface.Hide(); UiOverlay.Release(); }
+    }
+
+    private static NativeWindowSettings WindowSettings()
+    {
+        var settings = DesktopGlContext.Settings(background: true);
+        settings.StartVisible = true;
+        settings.StartFocused = false;
+        settings.ClientSize = new(960, 600);
+        return settings;
     }
 }
 #endif

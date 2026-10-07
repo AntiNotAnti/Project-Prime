@@ -676,11 +676,14 @@ namespace MphRead.Mods.Render
             _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32,
                 geometryBuffers.IndexOffset, indexBytes);
             _api.RenderPassEncoderSetViewport(pass, 0, 0, target.Width, target.Height, 0, 1);
-            ApplyScissor(pass, target.Width, target.Height);
+            bool rasterVisible = ApplyScissor(pass, target.Width, target.Height);
             if (_enabled.Contains(EnableCap.StencilTest) && target.HasDepth)
                 _api.RenderPassEncoderSetStencilReference(pass, (uint)_stencilReference);
-            _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
-            if (_measurePerformance) _coreDraws++;
+            if (rasterVisible)
+            {
+                _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
+                if (_measurePerformance) _coreDraws++;
+            }
             RecordCommandOperation();
         }
 
@@ -1284,8 +1287,8 @@ namespace MphRead.Mods.Render
             _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, geometryBuffers.IndexOffset, indexBytes);
             _api.RenderPassEncoderSetViewport(pass, 0, 0,
                 destinationTarget.Width, destinationTarget.Height, 0, 1);
-            if (applyScissor) ApplyScissor(pass, destinationTarget.Width, destinationTarget.Height);
-            _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
+            if (!applyScissor || ApplyScissor(pass, destinationTarget.Width, destinationTarget.Height))
+                _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
             _api.RenderPassEncoderEnd(pass);
             EndCommands();
 
