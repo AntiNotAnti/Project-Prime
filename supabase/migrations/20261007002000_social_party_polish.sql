@@ -248,6 +248,12 @@ begin
     join prime.social_parties p on p.party_id = pm.party_id
     where pm.player_id = p_actor;
 
+    if v_party is not null then
+        perform 1 from prime.social_parties
+        where party_id = v_party
+        for update;
+    end if;
+
     if p_target_prime_id is not null then
         select player_id into v_target
         from prime.social_profiles
@@ -365,6 +371,9 @@ begin
             ) then
                 return jsonb_build_object('ok', false, 'status', 'blocked');
             end if;
+            perform 1 from prime.social_parties
+            where party_id = v_invite.party_id
+            for update;
             select count(*) into v_members
             from prime.social_party_members
             where party_id = v_invite.party_id;
@@ -726,7 +735,7 @@ declare
     v_player uuid;
 begin
     if to_regprocedure('realtime.send(jsonb,text,text,boolean)') is null then
-        return coalesce(new, old);
+        if tg_op = 'DELETE' then return old; else return new; end if;
     end if;
 
     v_payload := jsonb_build_object('kind', 'party_changed');
@@ -742,10 +751,17 @@ begin
         v_player := coalesce(new.player_id, old.player_id);
         execute 'select realtime.send($1,$2,$3,$4)'
         using v_payload, 'social_changed', 'social:user:' || v_player::text, true;
+    elsif tg_table_name = 'social_parties' then
+        execute 'select realtime.send($1,$2,$3,$4)'
+        using v_payload, 'social_changed', 'social:user:' || new.leader_id::text, true;
+        if old.leader_id is distinct from new.leader_id then
+            execute 'select realtime.send($1,$2,$3,$4)'
+            using v_payload, 'social_changed', 'social:user:' || old.leader_id::text, true;
+        end if;
     end if;
-    return coalesce(new, old);
+    if tg_op = 'DELETE' then return old; else return new; end if;
 end;
-$$;
+$;
 
 drop trigger if exists project_prime_social_party_invite_notify on prime.social_party_invites;
 create trigger project_prime_social_party_invite_notify
@@ -756,6 +772,63 @@ drop trigger if exists project_prime_social_party_member_notify on prime.social_
 create trigger project_prime_social_party_member_notify
 after insert or delete on prime.social_party_members
 for each row execute function prime.social_party_notify();
+
+drop trigger if exists project_prime_social_party_leader_notify on prime.social_parties;
+create trigger project_prime_social_party_leader_notify
+after update of leader_id on prime.social_parties
+for each row execute function prime.social_party_notify();
+
+-- A block is stronger than party membership. Preserve the Slice 4 game-invite
+-- cleanup and also cancel party invites / split an existing party immediately.
+create or replace function prime.social_block_invite_cleanup()
+returns trigger
+language plpgsql
+security invoker
+set search_path = prime, pg_temp
+as $
+declare
+    v_blocker_party uuid;
+    v_blocked_party uuid;
+    v_leader uuid;
+begin
+    update prime.game_invites
+    set status = 'cancelled', responded_at = now()
+    where status in ('pending', 'accepted')
+      and ((sender_id = new.blocker_id and recipient_id = new.blocked_id)
+        or (sender_id = new.blocked_id and recipient_id = new.blocker_id));
+
+    update prime.social_party_invites
+    set status = 'cancelled', responded_at = now()
+    where status = 'pending'
+      and ((sender_id = new.blocker_id and recipient_id = new.blocked_id)
+        or (sender_id = new.blocked_id and recipient_id = new.blocker_id));
+
+    select party_id into v_blocker_party
+    from prime.social_party_members where player_id = new.blocker_id;
+    select party_id into v_blocked_party
+    from prime.social_party_members where player_id = new.blocked_id;
+
+    if v_blocker_party is not null and v_blocker_party = v_blocked_party then
+        select leader_id into v_leader
+        from prime.social_parties
+        where party_id = v_blocker_party
+        for update;
+
+        if v_leader = new.blocker_id then
+            delete from prime.social_party_members
+            where party_id = v_blocker_party and player_id = new.blocked_id;
+        else
+            delete from prime.social_party_members
+            where party_id = v_blocker_party and player_id = new.blocker_id;
+        end if;
+        update prime.social_parties
+        set updated_at = now()
+        where party_id = v_blocker_party;
+    end if;
+
+    return new;
+end;
+$;
 
 alter table prime.social_recent_players enable row level security;
 alter table prime.social_parties enable row level security;
