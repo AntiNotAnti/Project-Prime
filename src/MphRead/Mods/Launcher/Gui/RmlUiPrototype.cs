@@ -1456,11 +1456,17 @@ namespace MphRead.Mods.Launcher.Gui
                             : party.IsLeader && !member.IsLeader
                                 ? "PARTY MEMBER MANAGE"
                                 : member.IsLeader ? "PARTY LEADER" : "PARTY MEMBER";
+                        string memberDetail = online == null
+                            ? "" : SocialRoomLabel(online.RoomKey);
+                        string travelStatus = PartyTravelMemberStatus(member.PrimeId);
+                        if (travelStatus.Length > 0)
+                            memberDetail = memberDetail.Length == 0
+                                ? travelStatus : memberDetail + " // " + travelStatus;
                         rows.Add(new SocialUiRow(
                             member.PrimeId,
                             member.DisplayName.ToUpperInvariant(),
                             online == null ? "OFFLINE" : ActivityLabel(online.Activity),
-                            online == null ? "" : SocialRoomLabel(online.RoomKey),
+                            memberDetail,
                             relation,
                             "",
                             online != null,
@@ -1625,6 +1631,27 @@ namespace MphRead.Mods.Launcher.Gui
             if (server.Length == 0) return room;
             if (room.Length == 0) return server;
             return server + " // " + room;
+        }
+
+        private static string PartyTravelMemberStatus(string primeId)
+        {
+            SocialPartyTravel? travel = SocialPartyClient.Current.Travel;
+            if (travel == null) return "";
+            foreach (SocialPartyTravelMember member in travel.Members)
+            {
+                if (!member.PrimeId.Equals(
+                    primeId, StringComparison.OrdinalIgnoreCase))
+                    continue;
+                return member.Status switch
+                {
+                    "following" => "FOLLOWING PARTY",
+                    "joined" => "REGROUPED",
+                    "declined" => "TRAVEL DECLINED",
+                    "pending" => "TRAVEL PENDING",
+                    _ => member.Status.Replace('_', ' ').ToUpperInvariant()
+                };
+            }
+            return "";
         }
 
         private static bool CanInviteToParty(string primeId)
