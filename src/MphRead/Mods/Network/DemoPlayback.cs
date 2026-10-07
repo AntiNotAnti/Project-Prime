@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using MphRead.Entities;
 using OpenTK.Mathematics;
 using MphRead.Mods.Replay;
@@ -26,6 +27,40 @@ public static class DemoPlayback
     private static ulong _audio;
     private static bool _failed;
     private static bool _presentationFailed;
+    private static PreviewBoundsLease? _previewBounds;
+    /// <summary>Registers a platform's replay viewport on its render owner.
+    /// Disposing an older registration cannot retire a newer platform owner.</summary>
+    internal static IDisposable RegisterPreviewBounds(Func<int, int, Vector4i?> bounds)
+    {
+        ArgumentNullException.ThrowIfNull(bounds);
+        var lease = new PreviewBoundsLease(bounds);
+        Interlocked.Exchange(ref _previewBounds, lease);
+        return lease;
+    }
+    private sealed class PreviewBoundsLease(Func<int, int, Vector4i?> bounds) : IDisposable
+    {
+        internal readonly int Owner = Environment.CurrentManagedThreadId;
+        internal readonly Func<int, int, Vector4i?> Bounds = bounds;
+        public void Dispose()
+        {
+            if (Owner != Environment.CurrentManagedThreadId)
+                throw new InvalidOperationException("Replay viewport registration belongs to its render thread.");
+            Interlocked.CompareExchange(ref _previewBounds, null, this);
+        }
+    }
+    private static Vector4i? PlatformPreviewBounds(int width, int height)
+    {
+        var lease = Volatile.Read(ref _previewBounds);
+        if (lease == null || lease.Owner != Environment.CurrentManagedThreadId || width <= 0 || height <= 0) return null;
+        try
+        {
+            var bounds = lease.Bounds(width, height);
+            if (bounds is not { } area || area.X < 0 || area.Y < 0 || area.Z <= 0 || area.W <= 0
+                || (long)area.X + area.Z > width || (long)area.Y + area.W > height) return null;
+            return area;
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or ArgumentException) { return null; }
+    }
     internal static ReplayPlaybackSession Session => _pendingSource?.Session ?? _openingPlayer?.Current.Session ?? _player?.Current.Session ?? _prepared;
     internal static Scene? ReplicaScene => _player?.Current.Scene;
     // A failed private replay remains alive long enough to accept restart controls,
@@ -259,9 +294,17 @@ public static class DemoPlayback
         if (scene == null) return null;
         scene.ReplayPreviewSize = _shell!.Size;
         scene.ReplayPreviewBounds = null;
-#if MPHREAD_SHELL
+#if MPHREAD_SHELL && MPHREAD_AVALONIA
         scene.ReplayPreviewBounds = Launcher.Gui.UiSurface.Current?.ReplayViewportBounds(_shell.Size.X, _shell.Size.Y);
 #endif
+#if MPHREAD_SHELL
+#if MPHREAD_RMLUI_POC && !ANDROID
+        scene.ReplayPreviewBounds = Launcher.Gui.Shell.NativeReplayViewportBounds(_shell.Size.X, _shell.Size.Y)
+            ?? scene.ReplayPreviewBounds;
+#endif
+#endif
+        if (Volatile.Read(ref _previewBounds) != null)
+            scene.ReplayPreviewBounds = PlatformPreviewBounds(_shell.Size.X, _shell.Size.Y);
         var viewportSize = scene.ReplayPreviewBounds is { } bounds
             ? new Vector2i(bounds.Z, bounds.W) : _shell.Size;
         var size = ReplayVideoExporter.OutputSize ?? viewportSize;

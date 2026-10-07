@@ -1,0 +1,176 @@
+/* Shared authored theme rules, extracted from prime_home.rcss. */
+* {
+box-sizing: border-box;
+}
+
+div {
+display: block;
+}
+
+@keyframes enter-top {
+from { opacity: 0; transform: translateY(-10dp); }
+    to   { opacity: 1; transform: translateY(0dp); }
+}
+
+@keyframes enter-left {
+from { opacity: 0; transform: translateX(-18dp); }
+    to   { opacity: 1; transform: translateX(0dp); }
+}
+
+@keyframes enter-right {
+from { opacity: 0; transform: translateX(14dp); }
+    to   { opacity: 1; transform: translateX(0dp); }
+}
+
+@keyframes enter-bottom {
+from { opacity: 0; transform: translateY(8dp); }
+    to   { opacity: 1; transform: translateY(0dp); }
+}
+
+@keyframes enter-hunter {
+from { opacity: 0; transform: translateY(8dp); }
+    to   { opacity: 1; transform: translateY(0dp); }
+}
+
+@keyframes drawer-in {
+from { opacity: 0; transform: translateX(-16dp); }
+    to   { opacity: 1; transform: translateX(0dp); }
+}
+
+body {
+margin: 0;
+    width: 100%;
+    height: 100%;
+    color: #edf7ff;
+    font-family: Rajdhani;
+    font-size: 16dp;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.enter_top {
+animation: 0.16s quadratic-out 1 enter-top;
+}
+
+.enter_left {
+animation: 0.18s quadratic-out 1 enter-left;
+}
+
+.enter_right {
+animation: 0.18s quadratic-out 1 enter-right;
+}
+
+.enter_bottom {
+animation: 0.16s quadratic-out 1 enter-bottom;
+}
+
+.enter_hunter {
+animation: 0.18s quadratic-out 1 enter-hunter;
+}
+
+.reduce-motion .enter_top,
+.reduce-motion .enter_left,
+.reduce-motion .enter_right,
+.reduce-motion .enter_bottom,
+.reduce-motion .enter_hunter {
+animation: none;
+}
+
+button {
+tab-index: auto;
+    cursor: pointer;
+    color: #9caec0;
+    background-color: rgba(0,0,0,0);
+    border: 0;
+    font-family: Rajdhani;
+}
+
+.eyebrow {
+color: #72c7ff;
+    font-size: 10dp;
+    line-height: 12dp;
+    font-weight: bold;
+    letter-spacing: 1.9dp;
+    margin-bottom: 6dp;
+}
+
+.reduce-motion #activity_drawer.open {
+animation: none;
+}
+
+.blue {
+color: #72c7ff;
+}
+
+.divider {
+margin-left: 10dp;
+    margin-right: 10dp;
+    color: #344d62;
+}
+
+@media (max-height: 760dp) {
+.eyebrow {
+margin-bottom: 4dp;
+}
+}
+
+button:disabled, input:disabled, .unavailable { opacity: 0.38; cursor: default; }
+
+/* Common semantic text elements need explicit flow in RmlUi. */
+h1, h2, h3, h4, h5, h6, p { display: block; }
+
+/* Portable equivalents use authored opaque surfaces, solid borders and text.
+   Every renderer can draw them without a layer, filter or custom shader. */
+.reduce-motion *, body.reduce-motion *, body.reduce-motion #screen *,
+body.reduce-motion #dialog_content * { animation: none; transition: none; }
+.high-contrast { color: #ffffff; }
+.high-contrast #topbar, .high-contrast #footerbar, .high-contrast #dialog_backdrop {
+    background-color: #000000; border-color: #ffffff;
+}
+.high-contrast div, .high-contrast p, .high-contrast span, .high-contrast label,
+.high-contrast h1, .high-contrast h2, .high-contrast h3 { color: #ffffff; }
+.high-contrast button, .high-contrast input, .high-contrast textarea {
+    color: #ffffff; background-color: #000000; border: 1dp #ffffff;
+}
+.high-contrast button:hover, .high-contrast button:focus,
+.high-contrast input:focus, .high-contrast textarea:focus {
+    color: #000000; background-color: #ffffff; border-color: #ffffff;
+}
+.high-contrast button:disabled, .high-contrast input:disabled { opacity: 0.7; }
+.large-text { font-size: 20dp; }
+.large-text button, .large-text input, .large-text textarea, .large-text label { font-size: 16dp; }
+.large-text p, .large-text .eyebrow, .large-text .account_meta,
+.large-text #build_info, .large-text .play_form_hint { font-size: 14dp; line-height: 19dp; }
+.touch-targets button, .touch-targets input, .touch-targets textarea { min-height: 48dp; }
+.touch-targets scrollbarvertical, .touch-targets scrollbarvertical slidertrack,
+.touch-targets scrollbarvertical sliderbar { width: 24dp; }
+.touch-targets scrollbarhorizontal, .touch-targets scrollbarhorizontal slidertrack,
+.touch-targets scrollbarhorizontal sliderbar { height: 24dp; }
+
+/* The chrome and dialog root increase specificity over per-page colours. */
+body.high-contrast #screen div, body.high-contrast #screen p, body.high-contrast #screen span,
+body.high-contrast #screen label, body.high-contrast #screen h1, body.high-contrast #screen h2,
+body.high-contrast #screen h3, body.high-contrast #dialog_content p, body.high-contrast #dialog_content span,
+body.high-contrast #dialog_content label, body.high-contrast #dialog_content h1,
+body.high-contrast #dialog_content h2 { color: #ffffff; }
+body.high-contrast #screen #primary_nav .nav.active {
+    color: #000000;
+    background-color: #ffffff;
+    border-bottom: 4dp #ffd866;
+}
+body.high-contrast #screen button, body.high-contrast #screen input, body.high-contrast #screen textarea,
+body.high-contrast #dialog_content button, body.high-contrast #dialog_content input,
+body.high-contrast #dialog_content textarea { color: #ffffff; background-color: #000000; border: 1dp #ffffff; }
+body.high-contrast #screen button:focus, body.high-contrast #screen button:hover,
+body.high-contrast #screen input:focus, body.high-contrast #screen textarea:focus,
+body.high-contrast #dialog_content button:focus, body.high-contrast #dialog_content button:hover,
+body.high-contrast #dialog_content input:focus, body.high-contrast #dialog_content textarea:focus {
+    color: #000000; background-color: #ffffff;
+}
+body.large-text #screen button, body.large-text #screen input, body.large-text #screen textarea,
+body.large-text #screen label, body.large-text #dialog_content button,
+body.large-text #dialog_content input, body.large-text #dialog_content textarea,
+body.large-text #dialog_content label { font-size: 16dp; }
+body.large-text #screen p, body.large-text #dialog_content p { font-size: 16dp; line-height: 21dp; }
+body.touch-targets #screen button, body.touch-targets #screen input, body.touch-targets #screen textarea,
+body.touch-targets #dialog_content button, body.touch-targets #dialog_content input,
+body.touch-targets #dialog_content textarea { min-height: 48dp; }

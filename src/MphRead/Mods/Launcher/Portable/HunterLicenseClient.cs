@@ -262,6 +262,7 @@ namespace MphRead.Mods.Launcher
         public static async Task<HunterLicenseSnapshot> LoadAsync(
             CancellationToken cancellationToken = default)
         {
+            if (LauncherUiPerformance.Enabled) return LocalSnapshot();
             await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
@@ -531,6 +532,8 @@ namespace MphRead.Mods.Launcher
 
         private static async Task<AuthSession> AuthenticateAsync(CancellationToken cancellationToken)
         {
+            if (LauncherUiPerformance.Enabled)
+                throw new InvalidOperationException("Live account authentication is disabled in UI performance diagnostics.");
             long refreshBefore = DateTimeOffset.UtcNow.AddMinutes(2).ToUnixTimeSeconds();
             if (_currentSession is { AccessToken.Length: > 0 } cached
                 && cached.ExpiresAt > refreshBefore)
@@ -687,6 +690,8 @@ namespace MphRead.Mods.Launcher
         private static HttpRequestMessage Request(
             HttpMethod method, string path, string? accessToken, object? body)
         {
+            if (LauncherUiPerformance.Enabled)
+                throw new InvalidOperationException("Live account requests are disabled in UI performance diagnostics.");
             var request = new HttpRequestMessage(method, Url + path);
             request.Headers.TryAddWithoutValidation("apikey", Key);
             if (!String.IsNullOrWhiteSpace(accessToken))

@@ -1,0 +1,47 @@
+<rml>
+<head>
+    <title>Offline match setup</title>
+    <link type="text/template" href="../../components/app-shell.rml" />
+    <link type="text/rcss" href="offline.rcss" />
+</head>
+<body template="prime-shell">
+    <div id="offline_page" class="offline_page">
+        <div id="offline_eyebrow" class="eyebrow">OPERATIONS // OFFLINE</div>
+        <h1 id="offline_heading">OFFLINE MATCH SETUP</h1>
+        <p id="offline_description">Configure a local match, train your aim, or continue an Adventure run.</p>
+        <div id="offline_availability" class="offline_notice" />
+        <div id="offline_error" class="offline_error" />
+        <div id="offline_columns" class="offline_columns">
+            <div id="offline_match_panel" class="offline_panel">
+                <h2>LOCAL MATCH</h2>
+                <button id="offline_arena" data-action="offline:open-arena" class="offline_choice"><span>ARENA</span><b id="offline_arena_value" /></button>
+                <div id="offline_arena_error" class="offline_error" />
+                <button id="offline_mode" data-action="offline:choice:1" class="offline_choice"><span>GAME TYPE</span><b id="offline_mode_value" /></button>
+                <button id="offline_matchup" data-action="offline:choice:2" class="offline_choice"><span>MATCHUP</span><b id="offline_matchup_value" /></button>
+                <button data-action="offline:choice:3" class="offline_choice"><span>COMBATANTS</span><b id="offline_bots_value" /></button>
+                <button data-action="offline:choice:4" class="offline_choice"><span>DIFFICULTY</span><b id="offline_skill_value" /></button>
+                <button data-action="offline:choice:5" class="offline_choice"><span>HUNTER</span><b id="offline_hunter_value" /></button>
+                <button data-action="offline:choice:6" class="offline_choice"><span>SUIT</span><b id="offline_suit_value" /></button>
+                <button id="offline_rules_open" class="offline_action" data-action="offline:open-rules">ADVANCED MATCH RULES</button>
+                <div id="offline_summary" class="offline_summary" />
+                <button id="offline_start" class="offline_action primary" data-action="offline:launch-match">INITIATE BOT SIMULATION</button>
+            </div>
+            <div id="offline_training_panel" class="offline_panel">
+                <h2 id="offline_training_heading">AIM TRAINER</h2>
+                <p id="offline_training_description">Timed Flick requires a hit within 1.5 seconds. Multi Target Flick uses four or five ground and elevated targets.</p>
+                <button class="offline_choice" data-action="offline:choice:7"><span>HUNTER</span><b id="offline_training_hunter_value" /></button>
+                <button class="offline_choice" data-action="offline:choice:8"><span>DRILL</span><b id="offline_drill_value" /></button>
+                <button id="offline_weapon" class="offline_choice" data-action="offline:choice:9"><span>WEAPON</span><b id="offline_weapon_value" /></button>
+                <button class="offline_choice" data-action="offline:choice:10"><span>DURATION</span><b id="offline_duration_value" /></button>
+                <button id="offline_targets" class="offline_choice" data-action="offline:choice:11"><span>TARGETS</span><b id="offline_targets_value" /></button>
+                <button class="offline_choice" data-action="offline:choice:12"><span>MOVEMENT</span><b id="offline_movement_value" /></button>
+                <button id="offline_training_options" class="offline_action" data-action="offline:open-training-options">ADVANCED TRAINING OPTIONS</button>
+                <button id="offline_training_start" class="offline_action primary" data-action="offline:launch-training">INITIATE TRAINING</button>
+                <h2 id="offline_adventure_heading">ADVENTURE RUNS</h2>
+                <p id="offline_adventure_description">Explore the Alimbic Cluster and recover the Octoliths.</p>
+                <button class="offline_action" data-action="route:adventure">OPEN ADVENTURE SAVES</button>
+            </div>
+        </div>
+    </div>
+</body>
+</rml>

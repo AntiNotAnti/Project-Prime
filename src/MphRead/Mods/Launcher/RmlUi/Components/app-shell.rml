@@ -1,0 +1,75 @@
+<template name="prime-shell" content="stage">
+    <head>
+        <link type="text/rcss" href="../themes/prime.rcss" />
+        <link type="text/rcss" href="controls.rcss" />
+        <link type="text/rcss" href="app-shell.rcss" />
+    </head>
+    <body>
+        <div id="screen" data-prime-class-reduce-motion="reduce_motion" data-prime-class-lobby="lobby_mode">
+            <div id="top_rule" />
+            <div id="topbar" class="enter_top">
+                <div id="brand">
+                    <div id="brand_mark">P</div>
+                    <div id="brand_copy">
+                        <div class="brand_title">PROJECT PRIME</div>
+                        <div class="brand_subtitle">HUNTERS ONLINE</div>
+                    </div>
+                </div>
+                <div id="primary_nav">
+                    <button id="nav_play" class="nav" data-action="route:home">PLAY</button>
+                    <button id="nav_hunters" class="nav" data-action="hunter:open">HUNTERS</button>
+                    <button id="nav_community" class="nav" data-action="route:forge">COMMUNITY</button>
+                    <button id="nav_studio" class="nav" data-action="studio:open">STUDIO</button>
+                </div>
+                <div id="account_cluster">
+                    <div class="online_dot" />
+                    <div class="account_copy">
+                        <div class="account_name" data-prime-text="{{player_name}}" id="account_name" />
+                        <div class="account_meta" data-prime-text="{{profile_state}}" id="profile_state" />
+                    </div>
+                    <button id="profile" class="utility" data-action="route:hunter">PROFILE</button>
+                </div>
+            </div>
+            <div id="stage">
+            </div>
+            <div id="system_status_toast" role="status" aria-live="polite" data-prime-text="{{system_status}}" />
+            <div id="diagnostics_panel" data-prime-class-open="diagnostics_visible">
+                <div class="diag_header">
+                    <span>UI DIAGNOSTICS</span>
+                    <span class="diag_key">F10</span>
+                </div>
+                <div class="diag_row">
+                    <span>LIBRARY</span>
+                    <b>RMLUI 6.3</b>
+                </div>
+                <div class="diag_row">
+                    <span>RENDERER</span>
+                    <b data-prime-text="{{renderer_name}}" id="text_renderer_name_1" />
+                </div>
+                <div class="diag_row">
+                    <span>GAME DATA</span>
+                    <b data-prime-text="{{game_data_state}}" id="text_game_data_state_1" />
+                </div>
+                <div class="diag_row">
+                    <span>SUBMIT</span>
+                    <b data-prime-text="{{ui_cost}}" id="text_ui_cost_1" />
+                </div>
+                <div class="diag_row"><span>INPUT</span><b id="input_debug" data-prime-text="{{input_debug}}" /></div>
+            </div>
+            <div id="footerbar" class="enter_bottom">
+                <div id="build_info">
+                    <span class="blue" data-prime-text="BUILD {{build_version}}" id="build_version" />
+                    <span class="divider">//</span>
+                    <span id="client_label">PROJECT PRIME CLIENT</span>
+                </div>
+                <div id="footer_actions" data-prime-visible="home_mode">
+                    <button id="footer_news" class="footer_button" data-action="route:news">NEWS</button>
+                    <button id="footer_social" class="footer_button" data-action="route:social">SOCIAL</button>
+                    <button id="footer_settings" class="footer_button" data-action="route:settings">SETTINGS</button>
+                    <button id="footer_quit" class="footer_button danger" data-action="quit">QUIT</button>
+                </div>
+                <div id="lobby_footer_state" data-prime-visible="lobby_mode" data-prime-text="{{lobby_status}}" />
+            </div>
+        </div>
+    </body>
+</template>

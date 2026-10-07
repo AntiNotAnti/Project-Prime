@@ -69,6 +69,13 @@ namespace MphRead.Mods.Launcher.Gui
             // OpenTK's strings are only guaranteed for the duration of the
             // native callback, so copy before handing them to a screen.
             string[] files=e.FileNames?.ToArray()??Array.Empty<string>();
+#if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.Active)
+            {
+                foreach (string path in files) QueueNativeDroppedDocument(path);
+                return;
+            }
+#endif
             if(files.Length>0)FilesDropped?.Invoke(files);
         }
 
@@ -161,6 +168,12 @@ namespace MphRead.Mods.Launcher.Gui
                 LifecycleTiming.Startup("RmlUi proof requested; Avalonia surface deferred");
             }
             LauncherPrefs.Load();
+#if MPHREAD_RMLUI_POC
+            _nativeCapturePageApplied = false;
+            _nativeCommandLineRouteApplied = false;
+            _nativeInitialSetupApplied = false;
+            if (!RmlUiPrototype.CaptureRequested && !LauncherUiPerformance.Enabled) Core.SocialRuntime.Start();
+#endif
             _settings = GameState.LoadSettings();
             Mods.GameSettings.Apply(_settings);
             LifecycleTiming.Startup("launcher preferences loaded");
@@ -263,14 +276,14 @@ namespace MphRead.Mods.Launcher.Gui
                 if (window != null)
                 {
                     window.FileDrop -= OnFilesDropped;
+                    if (!Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested) window.Context.MakeCurrent();
+#if MPHREAD_RMLUI_POC
+                    ReleaseRmlLobby();
+                    _nativeReturnTheatre?.Dispose(); _nativeReturnTheatre = null;
+                    RmlUiPrototype.Shutdown();
+#endif
                     if (!Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested)
                     {
-                        window.Context.MakeCurrent();
-#if MPHREAD_RMLUI_POC
-                        // The RmlUi bridge owns GL resources and must be torn
-                        // down while this compatibility context is still current.
-                        RmlUiPrototype.Shutdown();
-#endif
                         // Program names are context-local. Any desktop
                         // compatibility-context handoff invalidates the legacy
                         // uniform cache before GL work resumes on this window.
@@ -281,13 +294,16 @@ namespace MphRead.Mods.Launcher.Gui
                     }
                 }
 #if MPHREAD_RMLUI_POC
-                ReleaseRmlLobby();
+                if (window == null) { ReleaseRmlLobby(); RmlUiPrototype.Shutdown(); }
                 _rmlMultiplayer?.Dispose();
                 _rmlMultiplayer = null;
                 _rmlLobbyRules = null;
 #endif
                 _front?.Dispose();
                 _front = null;
+#if MPHREAD_RMLUI_POC
+                Core.SocialRuntime.Stop();
+#endif
                 ReleaseApplicationRouter();
                 Mods.DebugLog.Line("shutdown", "disposing native window");
                 try { window?.Dispose(); }
@@ -323,6 +339,9 @@ namespace MphRead.Mods.Launcher.Gui
             }
 #endif
 #if MPHREAD_RMLUI_POC
+            ApplyNativeCapturePage();
+            EnsureNativeStartupSetup();
+            PumpNativeRoutes();
             // The proof owns only the front screen. If it fails after startup,
             // or if one of its buttons selects a destination, restore the
             // existing authoritative shell and continue from there.
@@ -331,8 +350,10 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 RestoreLegacyRmlPresentation();
             }
-            while (RmlUiPrototype.Visible && RmlUiPrototype.TryTakeCommand(out string rmlCommand))
+            while (RmlUiPrototype.Visible && RmlUiPrototype.TryTakeIntent(out var nativeIntent))
             {
+                if (HandleNativePageIntent(nativeIntent)) continue;
+                string rmlCommand = RmlUi.Host.RmlUiIntentRegistry.ToLegacy(nativeIntent);
                 if (rmlCommand.StartsWith("lobby:rules-", StringComparison.Ordinal))
                 {
                     HandleRmlLobbyRulesCommand(rmlCommand);
@@ -408,13 +429,18 @@ namespace MphRead.Mods.Launcher.Gui
                 }
             }
 #endif
-            if (window.HasScene && window.Scene.AimTrainer is { Completed: true, ResultsShown: false } training
-                && UiSurface.Ensure() is { } trainingSurface)
+            if (window.HasScene && window.Scene.AimTrainer is { Completed: true, ResultsShown: false } training)
             {
+#if MPHREAD_RMLUI_POC
+                if (!OpenNativeAimResults(training))
+#endif
+                if (UiSurface.Ensure() is { } trainingSurface)
+                {
                 training.ResultsShown = true;
                 trainingSurface.Show(new AimTrainerResultsView(training,
                     () => { _endMatch = true; _pending = AimTrainerLaunch.Create(training.Definition.Retry(), training.Plan.Hunter, LauncherPrefs.LastColor); },
                     () => { _focusTrainingOnReturn = true; RequestEndMatch(); }, RequestEndMatch));
+                }
             }
             if (_quit)
             {
@@ -459,8 +485,15 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             // A replay error must never strand the player behind a hidden shell.
-            // Restore the already-open Theatre editor automatically so Escape is
-            // not the only recovery path from a frozen fullscreen frame.
+            // Restore its controls automatically when fullscreen playback fails.
+#if MPHREAD_RMLUI_POC
+            if (window.HasScene && RmlUiPrototype.Active && _played?.Kind == LaunchKind.Demo
+                && DemoPlayback.IsActive && DemoPlayback.LastResult != ReplayOpenResult.Success)
+            {
+                if (_nativePlayback == null) OpenNativePlayback();
+            }
+            else
+#endif
             if (window.HasScene && _played?.Kind == LaunchKind.Demo
                 && DemoPlayback.IsActive && DemoPlayback.LastResult != ReplayOpenResult.Success
                 && _front != null && UiSurface.Ensure() is { } replaySurface
@@ -515,6 +548,7 @@ namespace MphRead.Mods.Launcher.Gui
                 UiOverlay.Visible = false;
                 RmlUiPrototype.Tick(window);
                 _rmlMultiplayer?.Tick();
+                TickNativePages();
                 return;
             }
 #endif
@@ -581,7 +615,11 @@ namespace MphRead.Mods.Launcher.Gui
         /// panel steps aside -- the scoreboard beside it is the engine's own
         /// screen and stays exactly as it is.
         /// </summary>
-        public static bool EndPanelUp => _endPanel != null;
+        public static bool EndPanelUp => _endPanel != null
+#if MPHREAD_RMLUI_POC
+            || _nativeResults?.Active == true
+#endif
+            ;
 
         /// <summary>
         /// Put the results panel up while the results are up, and take it down
@@ -598,6 +636,9 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal static void TickEndPanel()
         {
+#if MPHREAD_RMLUI_POC
+            if (TickNativeEndPanel()) return;
+#endif
             bool want = _window?.HasScene == true && !_matchLoading
                 && Mods.EndScreen.PanelAvailable && _menu == null;
             if (want && !EndPanelUp)
@@ -793,6 +834,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static void AcceptRmlMultiplayerPlan(LaunchPlan plan)
         {
+            _nativeSocialJoin = false;
             _rmlMultiplayer?.Cancel();
             if (NetSession.Active && NetSession.PersistentLobby)
             {
@@ -883,6 +925,10 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     string failure = MatchStart.LastError ?? "The map could not be loaded.";
                     NetSession.ReportMatchLoadFailed(failure);
+#if MPHREAD_RMLUI_POC
+                    if (RecoverNativeLaunchFailure(window, failure)
+                        || RecoverNativeTrainingLaunchFailure(window, plan, failure)) return;
+#endif
                     EndMatch(window);
                     if (plan.Kind == LaunchKind.Demo)
                     {
@@ -897,6 +943,9 @@ namespace MphRead.Mods.Launcher.Gui
                 _rmlLobby?.YieldPumpToGameplay();
 #endif
                 _front?.YieldLobbyPumpToGameplay();
+#if MPHREAD_RMLUI_POC
+                CompleteNativePageLaunch(plan);
+#endif
 
                 if (NetSession.PersistentLobby && NetSession.IsStarting)
                 {
@@ -907,7 +956,15 @@ namespace MphRead.Mods.Launcher.Gui
                     // every participant the same visible start boundary.
                     _matchLoading = true;
                 }
-                else if (plan.Kind == LaunchKind.Demo && _front != null)
+                else if (plan.Kind == LaunchKind.Demo
+#if MPHREAD_RMLUI_POC
+                    && _nativePlayback?.IsOpen == true)
+                {
+                    RmlUiPrototype.ShowGameplayMenu();
+                }
+                else if (plan.Kind == LaunchKind.Demo
+#endif
+                    && _front != null)
                 {
                     _front.ShowReplayEditor(RequestEndMatch, () => FullscreenReplay(window));
                     UiSurface.Current?.Show(_front);
@@ -935,6 +992,10 @@ namespace MphRead.Mods.Launcher.Gui
                 // Back to the front screen rather than out of the program: a
                 // map that will not load is a reason to pick another one.
                 NetSession.ReportMatchLoadFailed(ex.Message);
+#if MPHREAD_RMLUI_POC
+                if (RecoverNativeLaunchFailure(window, ex.Message)
+                    || RecoverNativeTrainingLaunchFailure(window, plan, ex.Message)) return;
+#endif
                 EndMatch(window);
                 if (plan.Kind == LaunchKind.Demo)
                 {
@@ -995,7 +1056,21 @@ namespace MphRead.Mods.Launcher.Gui
             MatchStart.AfterMatch();
 #if MPHREAD_RMLUI_POC
             ReleaseRmlLobby();
-            if (TryRestoreRmlHome(window)) return;
+            if (TryRestoreRmlHome(window))
+            {
+                if (_nativeReturnTheatre != null)
+                {
+                    _nativeReturnTheatre.ResumeAfterPlayback();
+                    OpenNativePage(Core.LauncherPage.Theatre);
+                }
+                else if (_played?.Kind == LaunchKind.AimTrainer && _focusTrainingOnReturn)
+                {
+                    OpenNativePage(Core.LauncherPage.Offline);
+                    _nativeOffline?.FocusTraining();
+                }
+                _focusTrainingOnReturn = false;
+                return;
+            }
 #endif
             ShowFrontScreen();
             if (_played?.Kind == LaunchKind.AimTrainer) _front?.OpenTraining(_focusTrainingOnReturn);
@@ -1057,6 +1132,9 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal static bool OpenPauseMenu()
         {
+#if MPHREAD_RMLUI_POC
+            if (OpenNativePause()) return true;
+#endif
             UiSurface? surface = UiSurface.Ensure();
             if (surface == null)
             {
@@ -1081,6 +1159,9 @@ namespace MphRead.Mods.Launcher.Gui
         /// <summary>Take it down and give the match its input back.</summary>
         internal static void CloseMenu()
         {
+#if MPHREAD_RMLUI_POC
+            if (CloseNativePause()) return;
+#endif
             if (_menu == null)
             {
                 return;
@@ -1151,6 +1232,10 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal static void AfterDraw(RenderWindow window)
         {
+#if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.Visible && HasNativeHunterPreview)
+                DrawNativeHunterPreview(window, window.FramebufferSize.X, window.FramebufferSize.Y);
+#endif
             if (Interlocked.Exchange(ref _firstFrameStarted, 1) == 0)
             {
                 LifecycleTiming.FirstFrame();
@@ -1946,7 +2031,8 @@ namespace MphRead.Mods.Launcher.Gui
         public static void PointerMoved(double x, double y)
         {
 #if MPHREAD_RMLUI_POC
-            if (RmlUiPrototype.Visible) { RmlUiPrototype.PointerMoved(x, y); return; }
+            if (RmlUiPrototype.Visible && NativeHudMove(x, y)) return;
+            if (RmlUiPrototype.Visible) { _nativePlayback?.Viewport.PointerMoveInWindow(x, y); RmlUiPrototype.PointerMoved(x, y); return; }
 #endif
             UiSurface.Current?.PointerMoved(x, y);
         }
@@ -1954,6 +2040,9 @@ namespace MphRead.Mods.Launcher.Gui
         public static void PointerButton(MouseButton button, double x, double y, bool down)
         {
 #if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.Visible && down && _nativeSettings?.TryCaptureMouse(button) == true) return;
+            if (RmlUiPrototype.Visible && NativeHudPointer(button, x, y, down)) return;
+            if (RmlUiPrototype.Visible && NativeReplayPointer(button, x, y, down)) return;
             if (RmlUiPrototype.Visible) { RmlUiPrototype.PointerButton(button, x, y, down); return; }
 #endif
             UiSurface? surface = UiSurface.Current;
@@ -1972,6 +2061,7 @@ namespace MphRead.Mods.Launcher.Gui
         public static void PointerWheel(double deltaX, double deltaY)
         {
 #if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.Visible && _nativeSettings?.TryCaptureWheel((float)deltaY) == true) return;
             if (RmlUiPrototype.Visible) { RmlUiPrototype.PointerWheel(deltaX, deltaY); return; }
 #endif
             UiSurface.Current?.PointerWheel(deltaX, deltaY);
@@ -1980,6 +2070,11 @@ namespace MphRead.Mods.Launcher.Gui
         public static void KeyDown(KeyboardKeyEventArgs e)
         {
 #if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.Visible && _nativeSettings?.TryCaptureKey(e.Key) == true) return;
+            if (RmlUiPrototype.Visible && _nativeHud?.KeyDown(e.Key, RmlUi.Host.RmlUiDesktopInput.Modifiers(e)) == true)
+            { TickNativeSettings(); return; }
+            if (RmlUiPrototype.Visible && _nativePlayback?.Viewport.KeyDown(e.Key) == true) return;
+            if (RmlUiPrototype.Visible && NativeReplayShortcut(e.Key, RmlUi.Host.RmlUiDesktopInput.Modifiers(e))) return;
             if (RmlUiPrototype.Visible) { RmlUiPrototype.KeyDown(e); return; }
 #endif
             UiSurface.Current?.KeyDown(e.Key, Modifiers(e));
@@ -1988,6 +2083,7 @@ namespace MphRead.Mods.Launcher.Gui
         public static void KeyUp(KeyboardKeyEventArgs e)
         {
 #if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.Visible && _nativePlayback?.Viewport.KeyUp(e.Key) == true) return;
             if (RmlUiPrototype.Visible) { RmlUiPrototype.KeyUp(e); return; }
 #endif
             UiSurface.Current?.KeyUp(e.Key, Modifiers(e));

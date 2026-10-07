@@ -71,6 +71,12 @@
     <AvaloniaAccessUnstablePrivateApis>true</AvaloniaAccessUnstablePrivateApis>
     <NoWarn>$(NoWarn);AVA3001</NoWarn>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <!-- Native runtime is opt-in until device/platform parity is established. -->
+    <MphReadRmlUiAndroid Condition="'$(MphReadRmlUiAndroid)' == ''">false</MphReadRmlUiAndroid>
+    <MphReadRmlUiAndroidCheck Condition="'$(MphReadRmlUiAndroidCheck)' == ''">false</MphReadRmlUiAndroidCheck>
+    <DefineConstants Condition="'$(MphReadRmlUiAndroid)' == 'true' and '$(MphReadRmlUiAndroidCheck)' == 'true'">$(DefineConstants);MPHREAD_RMLUI_ANDROID_CHECK</DefineConstants>
+    <DefineConstants Condition="'$(MphReadRmlUiAndroid)' == 'true'">$(DefineConstants);MPHREAD_RMLUI_POC;MPHREAD_RMLUI_ANDROID</DefineConstants>
+    <MphReadRmlUiNativeAssets Condition="'$(MphReadRmlUiAndroid)' == 'true'">true</MphReadRmlUiNativeAssets>
     <!-- Foundation-only package gate: the neutral native core can be included
          for runtime development without changing Android presentation/input. -->
     <MphReadRmlUiNativeAssets Condition="'$(MphReadRmlUiNativeAssets)' == ''">false</MphReadRmlUiNativeAssets>
@@ -109,6 +115,9 @@
          launcher. The desktop creator presentation is not an Android feature,
          even though it lives beside the shared launcher controls in the engine. -->
     <Compile Remove="..\MphRead\Mods\Launcher\Gui\MapStudio*.cs;..\MphRead\Mods\Launcher\Gui\MapViewport*.cs;..\MphRead\AvaloniaShared\IMapStudioHostServices.cs;..\MphRead\AvaloniaShared\AvaloniaMapStudioHost.cs" />
+    <Compile Remove="..\MphRead\Mods\Launcher\Gui\Shell*.cs" />
+    <Compile Remove="..\MphRead\Mods\Launcher\RmlUi\Host\RmlUiCocoa*.cs" />
+    <Compile Remove="..\MphRead\Mods\Launcher\Gui\RmlUiPrototype.cs;..\MphRead\Mods\Launcher\RmlUi\Host\RmlUiDesktopInput.cs;..\MphRead\Mods\Launcher\RmlUi\Host\RmlUiWindowsIme.cs" />
     <AndroidResource Include="Resources\**\*.xml" />
     <!-- The launcher icon: the cherry mark out of src/MphRead/Assets, scaled
          to the five densities plus an adaptive foreground. Committed rather
@@ -202,6 +211,12 @@
     <AndroidNativeLibrary Include="$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/x86_64/libProjectPrime.RmlUi.Native.so"
                           Link="lib/x86_64/libProjectPrime.RmlUi.Native.so"
                           Condition="'$(RuntimeIdentifier)' == '' or '$(RuntimeIdentifier)' == 'android-x64'" />
+    <AndroidAsset Include="../MphRead/Mods/Launcher/RmlUi/Pages/**/*.rml;../MphRead/Mods/Launcher/RmlUi/Pages/**/*.rcss"
+                  LogicalName="rmlui/pages/%(RecursiveDir)%(Filename)%(Extension)" />
+    <AndroidAsset Include="../MphRead/Mods/Launcher/RmlUi/Themes/**/*.rcss"
+                  LogicalName="rmlui/themes/%(RecursiveDir)%(Filename)%(Extension)" />
+    <AndroidAsset Include="../MphRead/Mods/Launcher/RmlUi/Components/**/*.rml;../MphRead/Mods/Launcher/RmlUi/Components/**/*.rcss"
+                  LogicalName="rmlui/components/%(RecursiveDir)%(Filename)%(Extension)" />
     <AndroidAsset Include="../MphRead/Mods/Launcher/RmlUi/Assets/**/*"
                   LogicalName="rmlui/%(RecursiveDir)%(Filename)%(Extension)" />
     <AndroidAsset Include="$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/arm64-v8a/PRIME-RMLUI.json"
@@ -210,7 +225,7 @@
     <AndroidAsset Include="$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/x86_64/PRIME-RMLUI.json"
                   LogicalName="rmlui/native-manifests/x86_64/PRIME-RMLUI.json"
                   Condition="'$(RuntimeIdentifier)' == '' or '$(RuntimeIdentifier)' == 'android-x64'" />
-    <AndroidAsset Include="../MphRead/Assets/Fonts/Rajdhani-SemiBold.ttf;../MphRead/Assets/Fonts/Rajdhani-Bold.ttf;../MphRead/Assets/Fonts/JetBrainsMono-Regular.ttf;../MphRead/Assets/Fonts/Rajdhani-OFL.txt;../MphRead/Assets/Fonts/JetBrainsMono-OFL.txt"
+    <AndroidAsset Include="../MphRead/Assets/Fonts/Rajdhani-SemiBold.ttf;../MphRead/Assets/Fonts/Rajdhani-Bold.ttf;../MphRead/Assets/Fonts/JetBrainsMono-Regular.ttf;../MphRead/Assets/Fonts/NotoSansJP-Regular.ttf;../MphRead/Assets/Fonts/Rajdhani-OFL.txt;../MphRead/Assets/Fonts/JetBrainsMono-OFL.txt;../MphRead/Assets/Fonts/NotoSansJP-OFL.txt"
                   LogicalName="rmlui/fonts/%(Filename)%(Extension)" />
     <AndroidAsset Include="$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/arm64-v8a/licenses/*"
                   LogicalName="rmlui/licenses/%(Filename)%(Extension)"
@@ -302,4 +317,5 @@
   <ItemGroup>
     <ProjectReference Include="../MphRead.Protocol.Generator/MphRead.Protocol.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
+  <Import Project="AndroidRmlUi.NoAvalonia.targets" Condition="Exists('AndroidRmlUi.NoAvalonia.targets')" />
 </Project>

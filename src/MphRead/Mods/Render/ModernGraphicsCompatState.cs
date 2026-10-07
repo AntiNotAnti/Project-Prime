@@ -19,6 +19,7 @@ namespace MphRead.Mods.Render
         PlayerOutline,
         ToneMap,
         Backdrop,
+        LauncherChamber,
         DeferredPbr,
         DeferredPbrMrt,
         PostProcess
@@ -394,6 +395,8 @@ namespace MphRead.Mods.Render
                 return ModernProgramKind.ToneMap;
             if (vertex == Shaders.BackdropVertexShader && fragment == Shaders.BackdropFragmentShader)
                 return ModernProgramKind.Backdrop;
+            if (vertex == LauncherChamberShader.VertexSource && fragment == LauncherChamberShader.FragmentSource)
+                return ModernProgramKind.LauncherChamber;
             return ModernProgramKind.Unknown;
         }
     }

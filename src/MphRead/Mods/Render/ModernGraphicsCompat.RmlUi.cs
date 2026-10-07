@@ -11,6 +11,22 @@ namespace MphRead.Mods.Render;
 
 internal sealed unsafe partial class ModernGraphicsCompat
 {
+    internal readonly record struct RmlUiResourceSample(int Geometry,int Buffers,long BufferCapacityBytes,int Textures,long TextureCapacityBytes,int StencilTextures,long EstimatedStencilBytes,int Pipelines,int ShaderModules);
+    internal static RmlUiResourceSample RmlUiResources
+    {
+        get
+        {
+            var s=Current;long buffers=0,textures=0;int bufferCount=0;
+            foreach(var item in s._rmlGeometry.Values)
+            {
+                if(item.Native.Vertex!=null){bufferCount++;buffers=checked(buffers+(long)item.Native.VertexCapacity);}
+                if(item.Native.Index!=null){bufferCount++;buffers=checked(buffers+(long)item.Native.IndexCapacity);}
+            }
+            foreach(var item in s._rmlTextures.Values)textures=checked(textures+(long)item.Source.Width*item.Source.Height*4);
+            return new(s._rmlGeometry.Count,bufferCount,buffers,s._rmlTextures.Count,textures,s._rmlStencil==null?0:1,
+                s._rmlStencil==null?0:(long)s._width*s._height*4,s._rmlPipelines.Count,s._rmlShader==null?0:1);
+        }
+    }
     private enum RmlPipelineMode { Draw, DrawClipped, MaskSet, MaskIntersect }
     private readonly record struct RmlPipelineKey(WgpuTextureFormat Format, RmlPipelineMode Mode);
     private sealed class RmlGeometryResource
@@ -29,6 +45,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
     private ShaderModule* _rmlShader;
     private NativeRenderbuffer? _rmlStencil;
     private ulong _rmlGeneration;
+    private RmlUiDrawListFrame? _rmlPreparedFrame;
 
     private const string RmlShader = @"
 struct Input {
@@ -234,6 +251,7 @@ fn fs_srgb(input: Output) -> @location(0) vec4<f32> {
 
     private void PrepareRmlResources(RmlUiDrawListFrame frame)
     {
+        if (ReferenceEquals(_rmlPreparedFrame, frame)) return;
         PruneRmlResources(_rmlGeometry, frame.Geometry, resource => ReleaseGeometry(resource.Native));
         PruneRmlResources(_rmlTextures, frame.Textures, resource => ReleaseNativeTexture(resource.Native));
         foreach (var item in frame.Geometry)
@@ -286,6 +304,7 @@ fn fs_srgb(input: Output) -> @location(0) vec4<f32> {
             _rmlTextures[item.Key] = new RmlTextureResource { Source = source, Native = native };
             UploadTexture(native, source.Pixels);
         }
+        _rmlPreparedFrame = frame;
     }
 
     private static void PruneRmlResources<T, TSource>(Dictionary<ulong, T> resources,
@@ -434,6 +453,7 @@ fn fs_srgb(input: Output) -> @location(0) vec4<f32> {
 
     private void ReleaseRmlFrameResources()
     {
+        _rmlPreparedFrame = null;
         foreach (var resource in _rmlGeometry.Values) ReleaseGeometry(resource.Native);
         foreach (var resource in _rmlTextures.Values) ReleaseNativeTexture(resource.Native);
         _rmlGeometry.Clear(); _rmlTextures.Clear();

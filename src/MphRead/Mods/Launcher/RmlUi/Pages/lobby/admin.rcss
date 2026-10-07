@@ -1,0 +1,15 @@
+body { font-family: Rajdhani; font-size: 17dp; color: #d8edff; background-color: rgba(2,9,18,92%); }
+.admin-panel { display: block; width: 94%; max-width: 1180dp; max-height: 92%; margin: 3% auto; padding: 18dp; overflow: auto; background-color: #08192b; border: 1dp #285274; }
+.admin-header, .admin-grid, .admin-actions, .admin-chat-compose { display: flex; justify-content: space-between; }
+.admin-header { width: 86vw; max-width: 1100dp; align-items: center; } .admin-header > div { width: 78%; } h1 { display: block; width: 100%; margin: 2dp 0 10dp; font-size: 30dp; } .eyebrow, .section-title { color: #78caff; font-size: 13dp; letter-spacing: 1dp; }
+.section-title { margin: 14dp 0 7dp; } .admin-status { padding: 8dp; color: #ffd88c; background-color: #0c263e; }
+.admin-grid { width: 86vw; max-width: 1100dp; } .admin-roster { width: 49%; display: block; flex-shrink: 0; } .admin-controls { width: 48%; display: block; flex-shrink: 0; } .hint { font-size: 13dp; line-height: 18dp; color: #a6bdd0; white-space: pre-wrap; }
+button { tab-index: auto; min-height: 40dp; padding: 8dp 10dp; margin: 0 4dp 5dp 0; color: #d8edff; background-color: #123554; border: 1dp #356689; font-size: 14dp; }
+button:hover, button:focus { border-color: #8ed6ff; background-color: #225b81; } button.unavailable { color: #627d91; background-color: #0c2236; border-color: #253e52; }
+button.selected { background-color: #225b81; border-color: #b9e7ff; } button.primary { border-color: #72d0ff; } button.danger { border-color: #ce6471; } .admin-roster-row { width: 100%; display: block; text-align: left; min-height: 48dp; }
+.admin-roster-row.selected { background-color: #225b81; border-left: 3dp #8ed6ff; } .admin-player-name { display: block; font-size: 17dp; } .admin-player-details { display: block; font-size: 12dp; color: #92b7d1; }
+.admin-actions { flex-wrap: wrap; justify-content: flex-start; margin-top: 7dp; } .admin-selected { font-size: 23dp; color: #ffffff; }
+.admin-chat-history { height: 95dp; padding: 8dp; overflow: auto; white-space: pre-wrap; background-color: #061322; font-size: 14dp; }
+.admin-chat-compose { margin-top: 7dp; } input { tab-index: auto; width: 74%; height: 39dp; padding: 7dp; background-color: #123554; border: 1dp #477b9e; color: #fff; }
+.admin-confirmation { position: fixed; left: 20%; top: 32%; width: 60%; padding: 24dp; z-index: 10; background-color: #13293e; border: 2dp #e0838e; white-space: pre-wrap; }
+@media (max-width: 960dp) { .admin-grid { display: block; } .admin-roster, .admin-controls { width: 100%; } .admin-confirmation { left: 5%; width: 90%; } }

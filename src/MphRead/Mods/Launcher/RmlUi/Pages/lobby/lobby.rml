@@ -1,0 +1,147 @@
+<rml>
+    <head>
+        <title>Project Prime // Lobby</title>
+        <link type="text/template" href="../../components/app-shell.rml" />
+        <link type="text/rcss" href="lobby.rcss" />
+    </head>
+    <body template="prime-shell">
+        <div id="lobby_stage">
+            <div id="lobby_heading" class="enter_left">
+                <div class="eyebrow">MULTIPLAYER // LIVE LOBBY</div>
+                <div class="lobby_title" data-prime-text="{{lobby_name}}" id="text_lobby_name_1" />
+                <div class="lobby_status_line" data-prime-text="{{lobby_status}}" id="text_lobby_status_1" />
+            </div>
+            <div id="lobby_match_panel" class="lobby_side_panel enter_left">
+                <div class="eyebrow">NEXT MATCH</div>
+                <div class="lobby_panel_title" data-prime-text="{{lobby_mode_name}}" id="text_lobby_mode_name_1" />
+                <div class="lobby_data_row">
+                    <span>ARENA</span>
+                    <b data-prime-text="{{lobby_map}}" id="text_lobby_map_1" />
+                </div>
+                <div class="lobby_data_row">
+                    <span>FORMAT</span>
+                    <b data-prime-text="{{lobby_format}}" id="text_lobby_format_1" />
+                </div>
+                <div class="lobby_data_row">
+                    <span>PLAYERS</span>
+                    <b data-prime-text="{{lobby_player_count}}" id="text_lobby_player_count_1" />
+                </div>
+                <div class="lobby_data_row">
+                    <span>READY</span>
+                    <b data-prime-text="{{lobby_ready_count}}" id="text_lobby_ready_count_1" />
+                </div>
+                <button id="lobby_match_rules" class="lobby_small_button" data-action="lobby:rules-open">MAP / RULES &gt;</button>
+            </div>
+            <div id="lobby_roster_panel" class="lobby_side_panel enter_right">
+                <div class="lobby_roster_header">
+                    <div class="eyebrow">CONNECTED HUNTERS</div>
+                    <div class="lobby_roster_count" data-prime-text="{{lobby_player_count}}" id="text_lobby_player_count_2" />
+                </div>
+                <div class="lobby_roster_row" data-prime-visible="slot0_occupied" id="visible_slot0_occupied_1" data-prime-class-ready="slot0_ready" data-prime-class-local="slot0_local">
+                    <span class="lobby_roster_index">1</span>
+                    <span class="lobby_roster_copy">
+                        <b data-prime-text="{{slot0_name}}" id="text_slot0_name_1" />
+                        <span class="lobby_roster_hunter" data-prime-text="{{slot0_hunter}}" id="text_slot0_hunter_1" />
+                    </span>
+                    <span class="lobby_roster_state" data-prime-text="{{slot0_state}}" id="text_slot0_state_1" />
+                </div>
+                <div class="lobby_roster_row" data-prime-visible="slot1_occupied" id="visible_slot1_occupied_1" data-prime-class-ready="slot1_ready" data-prime-class-local="slot1_local">
+                    <span class="lobby_roster_index">2</span>
+                    <span class="lobby_roster_copy">
+                        <b data-prime-text="{{slot1_name}}" id="text_slot1_name_1" />
+                        <span class="lobby_roster_hunter" data-prime-text="{{slot1_hunter}}" id="text_slot1_hunter_1" />
+                    </span>
+                    <span class="lobby_roster_state" data-prime-text="{{slot1_state}}" id="text_slot1_state_1" />
+                </div>
+                <div class="lobby_roster_row" data-prime-visible="slot2_occupied" id="visible_slot2_occupied_1" data-prime-class-ready="slot2_ready" data-prime-class-local="slot2_local">
+                    <span class="lobby_roster_index">3</span>
+                    <span class="lobby_roster_copy">
+                        <b data-prime-text="{{slot2_name}}" id="text_slot2_name_1" />
+                        <span class="lobby_roster_hunter" data-prime-text="{{slot2_hunter}}" id="text_slot2_hunter_1" />
+                    </span>
+                    <span class="lobby_roster_state" data-prime-text="{{slot2_state}}" id="text_slot2_state_1" />
+                </div>
+                <div class="lobby_roster_row" data-prime-visible="slot3_occupied" id="visible_slot3_occupied_1" data-prime-class-ready="slot3_ready" data-prime-class-local="slot3_local">
+                    <span class="lobby_roster_index">4</span>
+                    <span class="lobby_roster_copy">
+                        <b data-prime-text="{{slot3_name}}" id="text_slot3_name_1" />
+                        <span class="lobby_roster_hunter" data-prime-text="{{slot3_hunter}}" id="text_slot3_hunter_1" />
+                    </span>
+                    <span class="lobby_roster_state" data-prime-text="{{slot3_state}}" id="text_slot3_state_1" />
+                </div>
+                <div class="lobby_roster_row" data-prime-visible="slot4_occupied" id="visible_slot4_occupied_1" data-prime-class-ready="slot4_ready" data-prime-class-local="slot4_local">
+                    <span class="lobby_roster_index">5</span>
+                    <span class="lobby_roster_copy">
+                        <b data-prime-text="{{slot4_name}}" id="text_slot4_name_1" />
+                        <span class="lobby_roster_hunter" data-prime-text="{{slot4_hunter}}" id="text_slot4_hunter_1" />
+                    </span>
+                    <span class="lobby_roster_state" data-prime-text="{{slot4_state}}" id="text_slot4_state_1" />
+                </div>
+                <div class="lobby_roster_row" data-prime-visible="slot5_occupied" id="visible_slot5_occupied_1" data-prime-class-ready="slot5_ready" data-prime-class-local="slot5_local">
+                    <span class="lobby_roster_index">6</span>
+                    <span class="lobby_roster_copy">
+                        <b data-prime-text="{{slot5_name}}" id="text_slot5_name_1" />
+                        <span class="lobby_roster_hunter" data-prime-text="{{slot5_hunter}}" id="text_slot5_hunter_1" />
+                    </span>
+                    <span class="lobby_roster_state" data-prime-text="{{slot5_state}}" id="text_slot5_state_1" />
+                </div>
+                <div class="lobby_roster_row" data-prime-visible="slot6_occupied" id="visible_slot6_occupied_1" data-prime-class-ready="slot6_ready" data-prime-class-local="slot6_local">
+                    <span class="lobby_roster_index">7</span>
+                    <span class="lobby_roster_copy">
+                        <b data-prime-text="{{slot6_name}}" id="text_slot6_name_1" />
+                        <span class="lobby_roster_hunter" data-prime-text="{{slot6_hunter}}" id="text_slot6_hunter_1" />
+                    </span>
+                    <span class="lobby_roster_state" data-prime-text="{{slot6_state}}" id="text_slot6_state_1" />
+                </div>
+                <div class="lobby_roster_row" data-prime-visible="slot7_occupied" id="visible_slot7_occupied_1" data-prime-class-ready="slot7_ready" data-prime-class-local="slot7_local">
+                    <span class="lobby_roster_index">8</span>
+                    <span class="lobby_roster_copy">
+                        <b data-prime-text="{{slot7_name}}" id="text_slot7_name_1" />
+                        <span class="lobby_roster_hunter" data-prime-text="{{slot7_hunter}}" id="text_slot7_hunter_1" />
+                    </span>
+                    <span class="lobby_roster_state" data-prime-text="{{slot7_state}}" id="text_slot7_state_1" />
+                </div>
+            </div>
+            <div id="lobby_slot0" class="lobby_nameplate local" data-prime-visible="slot0_occupied">
+                <b data-prime-text="{{slot0_name}}" id="text_slot0_name_2" />
+                <span data-prime-text="{{slot0_hunter}} // {{slot0_state}}" id="text_slot0_hunter_2" />
+            </div>
+            <div id="lobby_slot1" class="lobby_nameplate" data-prime-visible="slot1_occupied">
+                <b data-prime-text="{{slot1_name}}" id="text_slot1_name_2" />
+                <span data-prime-text="{{slot1_hunter}}" id="text_slot1_hunter_2" />
+            </div>
+            <div id="lobby_slot2" class="lobby_nameplate" data-prime-visible="slot2_occupied">
+                <b data-prime-text="{{slot2_name}}" id="text_slot2_name_2" />
+                <span data-prime-text="{{slot2_hunter}}" id="text_slot2_hunter_2" />
+            </div>
+            <div id="lobby_slot3" class="lobby_nameplate" data-prime-visible="slot3_occupied">
+                <b data-prime-text="{{slot3_name}}" id="text_slot3_name_2" />
+                <span data-prime-text="{{slot3_hunter}}" id="text_slot3_hunter_2" />
+            </div>
+            <div id="lobby_slot4" class="lobby_nameplate" data-prime-visible="slot4_occupied">
+                <b data-prime-text="{{slot4_name}}" id="text_slot4_name_2" />
+                <span data-prime-text="{{slot4_hunter}}" id="text_slot4_hunter_2" />
+            </div>
+            <div id="lobby_slot5" class="lobby_nameplate" data-prime-visible="slot5_occupied">
+                <b data-prime-text="{{slot5_name}}" id="text_slot5_name_2" />
+                <span data-prime-text="{{slot5_hunter}}" id="text_slot5_hunter_2" />
+            </div>
+            <div id="lobby_slot6" class="lobby_nameplate" data-prime-visible="slot6_occupied">
+                <b data-prime-text="{{slot6_name}}" id="text_slot6_name_2" />
+                <span data-prime-text="{{slot6_hunter}}" id="text_slot6_hunter_2" />
+            </div>
+            <div id="lobby_slot7" class="lobby_nameplate" data-prime-visible="slot7_occupied">
+                <b data-prime-text="{{slot7_name}}" id="text_slot7_name_2" />
+                <span data-prime-text="{{slot7_hunter}}" id="text_slot7_hunter_2" />
+            </div>
+            <div id="lobby_actions" class="enter_bottom">
+                <button id="lobby_ready" class="lobby_action primary" data-prime-visible="lobby_require_ready" data-action="lobby:ready" data-prime-text="{{lobby_ready_action}}" />
+                <button id="lobby_hunter" class="lobby_action" data-action="lobby:next-hunter" data-prime-text="HUNTER // {{lobby_local_hunter}}" />
+                <button id="lobby_suit" class="lobby_action" data-action="lobby:next-suit">NEXT SUIT</button>
+                <button id="lobby_rules" class="lobby_action" data-action="lobby:rules-open">LOBBY RULES</button>
+                <button id="lobby_leave" class="lobby_action danger" data-action="lobby:leave">LEAVE</button>
+                <button id="lobby_start" class="lobby_action start" data-prime-visible="lobby_owner" data-action="lobby:start" data-prime-disabled="!lobby_can_start">START MATCH</button>
+            </div>
+        </div>
+    </body>
+</rml>

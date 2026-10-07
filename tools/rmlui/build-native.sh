@@ -19,6 +19,7 @@ Desktop defaults to gl2; Android requires draw-list and ANDROID_NDK_ROOT.
 Windows requires Git Bash, CMake and Visual Studio C++ build tools.
 PRIME_RMLUI_BUILD_JOBS controls build workers (1..32; default 2).
 PRIME_RMLUI_OFFLINE=1 reuses the exact pinned dependency checkouts.
+PRIME_RMLUI_OUTPUT_DIR overrides the native artifact directory (absolute path).
 USAGE
     exit 2
 }
@@ -119,6 +120,10 @@ if [[ "$target" == android-* ]]; then
     abi=arm64-v8a
     [[ "$target" != android-x64 ]] || abi=x86_64
     out="$root/artifacts/rmlui-native-android/lib/$abi"
+fi
+if [[ -n "${PRIME_RMLUI_OUTPUT_DIR:-}" ]]; then
+    out="$PRIME_RMLUI_OUTPUT_DIR"
+    [[ "$out" = /* ]] || { echo "error: PRIME_RMLUI_OUTPUT_DIR must be absolute" >&2; exit 2; }
 fi
 mkdir -p "$ft_build" "$ft_install" "$bridge_build" "$out"
 arch_args=()

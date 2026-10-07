@@ -1,0 +1,10 @@
+Noto Sans JP, static weight 400 Japanese fallback for native RmlUi.
+Source: https://github.com/google/fonts/tree/main/ofl/notosansjp
+Variable font: https://raw.githubusercontent.com/google/fonts/main/ofl/notosansjp/NotoSansJP%5Bwght%5D.ttf
+Fetched 2026-10-07; original SHA-256:
+c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f
+Generated static instance with fontTools varLib.instancer at wght=400.
+Static SHA-256:
+d92c53d6160146e5b5e54979d7818f8fabea2ac0d51f7d0d414ada0e6e73e0b0
+Redistributed under SIL Open Font License 1.1; see NotoSansJP-OFL.txt.
+The full Japanese character set is retained. User strings are not translated.

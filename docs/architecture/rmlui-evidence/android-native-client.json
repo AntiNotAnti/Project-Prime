@@ -1,0 +1,162 @@
+{
+  "format": 1,
+  "date": "2026-10-07",
+  "scope": "Opt-in actual Android client dependency boundary; production default selection is unchanged.",
+  "properties": {
+    "MphReadAvalonia": "false",
+    "MphReadRmlUiAndroid": "true"
+  },
+  "source": [
+    "src/MphRead.Android/AndroidRmlUi.NoAvalonia.targets",
+    "src/MphRead.Android/Native/NativeMainActivity.cs",
+    "src/MphRead.Android/Native/NativeMainApplication.cs",
+    "src/MphRead.Android/Native/MainActivity.RmlUi.cs",
+    "src/MphRead.Android/Native/native_styles.xml"
+  ],
+  "nativeJavaEntryBaseTypes": {
+    "MainActivity": "android.app.Activity",
+    "MainApplication": "android.app.Application"
+  },
+  "builds": [
+    {
+      "rid": "android-arm64",
+      "configuration": "Debug",
+      "apk": "/tmp/prime-android-noava/arm64-apk/com.projectprime.game-Signed.apk",
+      "sha256": "80343b2b4c11ef32f3f14e32d344e37871dad64fac511efd031750874860f523",
+      "managedAssemblies": 226,
+      "avaloniaAssemblies": 0,
+      "signedApkVerification": "passed",
+      "nativeManifestAndPayloadVerification": "passed against its build checkpoint; latest source refresh pending",
+      "restoredAvaloniaPackages": 0,
+      "apkCartridgeExtractionPaths": [],
+      "nativeSourceFingerprint": "a0b17373d08d420ac286e8d62858754393d269106ffcc0efae9fcd0f7f36df55"
+    },
+    {
+      "rid": "android-x64",
+      "configuration": "Debug",
+      "apk": "/tmp/prime-android-noava/x64-apk/com.projectprime.game-Signed.apk",
+      "sha256": "655365acf362b1b17d086ecc01272e144d42193e467fd7fa61c9c7f69f50e356",
+      "managedAssemblies": 226,
+      "avaloniaAssemblies": 0,
+      "signedApkVerification": "passed",
+      "nativeManifestAndPayloadVerification": "passed against its build checkpoint; latest source refresh pending",
+      "restoredAvaloniaPackages": 0,
+      "apkCartridgeExtractionPaths": [],
+      "nativeSourceFingerprint": "a0b17373d08d420ac286e8d62858754393d269106ffcc0efae9fcd0f7f36df55"
+    },
+    {
+      "rid": "android-arm64",
+      "configuration": "Debug-check",
+      "apk": "/tmp/prime-android-noava/arm64-check-apk/com.projectprime.game-Signed.apk",
+      "sha256": "fcc532212a1bf5c765d2d2f05cfb059f2522fc0bf5ac62816dbc0345fde78260",
+      "managedAssemblies": 226,
+      "avaloniaAssemblies": 0,
+      "signedApkVerification": "passed",
+      "nativeManifestAndPayloadVerification": "passed",
+      "restoredAvaloniaPackages": 0,
+      "apkCartridgeExtractionPaths": [],
+      "nativeSourceFingerprint": "c636f9527736bac8134306a337bbbae578dff619591d89de90b5448d229b11f5"
+    },
+    {
+      "rid": "android-arm64",
+      "configuration": "Release",
+      "apk": "/tmp/prime-android-noava/arm64-release-apk/com.projectprime.game-Signed.apk",
+      "sha256": "281d6d619a17f023a47ceb532d5386ebf2e788e308fd905b127ea8123be9b40e",
+      "managedAssemblies": 93,
+      "avaloniaAssemblies": 0,
+      "signedApkVerification": "passed",
+      "nativeManifestAndPayloadVerification": "passed against its build checkpoint; latest source refresh pending",
+      "restoredAvaloniaPackages": 0,
+      "apkCartridgeExtractionPaths": [],
+      "nativeSourceFingerprint": "a0b17373d08d420ac286e8d62858754393d269106ffcc0efae9fcd0f7f36df55"
+    },
+    {
+      "rid": "android-x64",
+      "configuration": "Release",
+      "apk": "/tmp/prime-android-noava/x64-release-apk/com.projectprime.game-Signed.apk",
+      "sha256": "18e94cd05fbf2efb22f7fd3e68cb965a958c858ec0b420468fc495d3e18448e6",
+      "managedAssemblies": 93,
+      "avaloniaAssemblies": 0,
+      "signedApkVerification": "passed",
+      "nativeManifestAndPayloadVerification": "passed",
+      "restoredAvaloniaPackages": 0,
+      "apkCartridgeExtractionPaths": [],
+      "nativeSourceFingerprint": "c636f9527736bac8134306a337bbbae578dff619591d89de90b5448d229b11f5",
+      "privateLicenseDtoTrimmerWarnings": 0
+    },
+    {
+      "rid": "android-arm64",
+      "configuration": "Release-check",
+      "apk": "/tmp/prime-android-noava/arm64-release-check-apk/com.projectprime.game-Signed.apk",
+      "sha256": "248c5a102bc42f982be0bd728c839a37cca04a4a16a57058a3eb9c1a354857c0",
+      "managedAssemblies": 93,
+      "avaloniaAssemblies": 0,
+      "signedApkVerification": "passed",
+      "nativeManifestAndPayloadVerification": "passed",
+      "nativeSourceFingerprint": "c636f9527736bac8134306a337bbbae578dff619591d89de90b5448d229b11f5",
+      "restoredAvaloniaPackages": 0,
+      "apkCartridgeExtractionPaths": [],
+      "privateLicenseDtoTrimmerWarnings": 0,
+      "runAotCompilation": false,
+      "trimmed": true
+    }
+  ],
+  "positiveControls": [
+    {
+      "apk": "artifacts/rmlui-android-arm64-check/com.projectprime.game-Signed.apk",
+      "rid": "android-arm64",
+      "avaloniaAssemblies": 16
+    },
+    {
+      "apk": "artifacts/rmlui-android-runtime-x64-check/com.projectprime.game-Signed.apk",
+      "rid": "android-x64",
+      "avaloniaAssemblies": 16
+    }
+  ],
+  "negativeControl": "Auditing the preserved default ARM64 APK with --expect-avalonia false correctly fails and names its 16 Avalonia assemblies.",
+  "cartridgeGuard": "tools/check-no-game-assets.sh passed Debug, Debug-check and Release output directories. APK contents additionally inspected for ROM/extraction/cache paths.",
+  "validationTools": [
+    "tools/rmlui/verify-android-client.py",
+    "tools/rmlui/verify-runtime.py --apk",
+    "Android SDK apksigner verify",
+    "tools/check-no-game-assets.sh"
+  ],
+  "runtimeAcceptance": {
+    "platform": "Android ARM64 emulator, actual opt-in client without Avalonia",
+    "buildCheckpoint": "330c3907f7540949f73191fe6e93e63d1d93870b56129950245c251b1f20bc7b",
+    "passed": {
+      "GPU": 126,
+      "Input": 13,
+      "Accessibility": 16,
+      "Flow": "Real three-bot match \u2192 native pause \u2192 native Settings and system IME \u2192 Back/Resume \u2192 pause \u2192 leave confirmation \u2192 retained launcher."
+    },
+    "pending": [
+      "HUD pinch diagnostics",
+      "Release and Debug replay validation",
+      "Physical-device acceptance",
+      "Default cutover gate"
+    ],
+    "nextPackage": "Fresh trimmed Release CHECK c636f952 is with platform validation; current Debug CHECK follows."
+  },
+  "nativeSchedulingRegression": {
+    "sourceFingerprint": "c636f9527736bac8134306a337bbbae578dff619591d89de90b5448d229b11f5",
+    "nativeCoreAssertions": 5179,
+    "actualManagedNativeScheduleAssertions": 122,
+    "actualDrawListReaderCacheAssertions": 12,
+    "behavior": [
+      "Authored HUD canvas focus preserves its geometry while ordinary controls retain nearest scrolling.",
+      "Optional 40-byte status preserves intent protocol v1 and owner thread rejection.",
+      "Actual caret deadlines decrement with elapsed time and trigger one context update before capture.",
+      "One hundred static frames reuse native draw resources and managed capture without owner-thread allocation.",
+      "DOM, input, viewport, composition, resource retirement, and generation changes invalidate capture."
+    ],
+    "log": "/tmp/prime-native-update-status-check.log"
+  },
+  "androidPredictiveBack": {
+    "activityManifestEnableOnBackInvokedCallback": true,
+    "dispatcherPriority": "Default, preserving system IME dismissal priority",
+    "registeredCallback": "NativeMainActivity.NativeBackCallback",
+    "retirement": "Exact callback unregistered and disposed in OnDestroy",
+    "actualDeviceCheckpoint": "API36 emulator Back opens native pause instead of finishing the activity; match/settings/IME/leave flow passed on checkpoint330c3907. Trimmed Release and current Debug package checks continue."
+  }
+}

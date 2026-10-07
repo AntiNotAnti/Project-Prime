@@ -1,7 +1,8 @@
 # RmlUi runtime ownership boundaries
 
-Status: implemented foundation with limited local validation; production parity
-and release acceptance remain open.
+Status: implemented native client source and named local validation; required
+automated integration/cutover acceptance remains open. The user owns external
+physical live testing, which is a coverage limit rather than a completion blocker.
 
 The migration preserves the game's existing service and renderer authority. RmlUi
 owns document layout, native input dispatch and UI draw data. It does not own a
@@ -29,10 +30,12 @@ inventory are linked from [migration status](rmlui-migration-status.md).
 | World, Hunter previews, HUD and final composition | Existing engine/frame renderer | Chamber/Hunter/HUD remain engine draws; RmlUi overlays them before present. |
 
 The baseline `PrimeRouter` exposes `News`, `Play`, `HunterLicense`, `Theatre`,
-`Forge`, `Offline`, `Settings` and `Lobby`. Future route naming may add `Home`,
-`Hunters`, `Community`, `Adventure` and `StudioLaunch`, but this does not remove
-any operation covered by those legacy workspaces. A route alias must preserve its
-guards, dirty-settings confirmation, session restrictions and back behavior.
+`Forge`, `Offline`, `Settings` and `Lobby`. The native application router adds
+explicit Home/Hunters/Community/Adventure/Studio entry mappings while preserving
+legacy operations. News owns the original bundled catalog/filter/select/read
+workflow and must not silently alias the activity Home page. Route aliases retain
+dirty-settings, session and back guards; their complete integration acceptance
+remains recorded separately from source coverage.
 
 ## Lobby clock and game handoff
 
@@ -99,9 +102,9 @@ per-document resources. Host snapshot revisions, cancellation and owner-thread
 guards are implemented, and debug-only reload is guarded. Real native validation
 exercised 100 modal open/close cycles and 100 reinitializations; actual managed
 P/Invoke integration exercised DOM intents, Unicode/clipboard, focus restoration,
-document cancellation and device loss. Shared page/component/theme decomposition
-and full platform/failure acceptance remain open; these tests do not establish
-RML-01 parity.
+document cancellation and device loss. Shared page/component/theme decomposition now supplies the native routes. Full
+platform/failure acceptance remains open; the latest native action/core suite
+reports 5,148 assertions, and no count alone establishes RML-01 parity.
 
 ## Input coordinate and focus contract
 
@@ -160,8 +163,8 @@ There is no new UI swapchain, independent WebGPU device or gameplay HUD rewrite.
 Dedicated-server targets remain UI-free: no native bridge, font, UI shader,
 RmlUi or Avalonia dependencies.
 
-Local compositor checks on an Apple M4 Pro passed 20 assertions on Metal and
-20 on Vulkan/MoltenVK, including resize, zero-size suspend/resume, destroyed
+Local compositor checks on an Apple M4 Pro passed 22 assertions on Metal and
+22 on Vulkan/MoltenVK, including resize, zero-size suspend/resume, destroyed
 device recovery and shutdown/reentry without validation errors. This establishes
 those compositor cases on that machine; it does not establish Windows
 DX12/Vulkan, Linux Vulkan, Android, forced sRGB surfaces, a complete native
@@ -170,9 +173,57 @@ document under gameplay, or measured performance parity.
 macOS arm64/x64 GL2 and neutral native compiles, Android arm64-v8a/x86_64 NDK
 compiles with 16 KB alignment, and opt-in signed APK payload builds are recorded
 in the status evidence. Android's `MphReadRmlUiNativeAssets=true` packages the
-bridge/assets only: `AndroidUiSurface`/`AndroidUiOverlay`, touch/IME and Activity
-lifecycle remain Avalonia-based. APK validation used `RunAOTCompilation=false`;
-production AOT and physical-device UI acceptance remain open.
+bridge/assets only. The separate `MphReadRmlUiAndroid=true` feature selects the
+native SurfaceView launcher and shared Core/presenters. The launcher render
+thread owns its host/resources; match menus transfer to the existing engine
+owner after the launcher releases its graphics lease. Touch, insets, Back, real
+InputConnection edits and virtual accessibility actions queue immutable work to
+that owner. Actual emulator ES3 pixel/state checks passed 126 assertions,
+InputConnection passed 13 and accessibility provider queries/actions passed 16,
+including native Unicode SetText, focus and retirement. Signed native-only Debug
+and Release APKs record zero Avalonia assemblies. APK checks used
+`RunAOTCompilation=false`; production AOT and remaining automated lifecycle/GPU
+acceptance remain open. Physical TalkBack and vendor-device coverage are
+user-owned live testing.
+
+## Semantic projection, localization and theme
+
+The native semantic snapshot is a bounded projection of the current live DOM,
+not a second application authority. Platform providers read immutable nodes and
+queue generation/document/revision/key actions. Only the host owner captures
+native data or drains actions. Private action identities participate in the
+semantic revision, so recycling a row cannot reinterpret a stale activation.
+Editable values never enter semantic packets, provider queries or command
+string diagnostics; secure inputs expose only protected metadata and actions.
+The shared managed service reuses its byte buffer and unchanged immutable graph;
+trimmed Android Release explicitly preserves the private decoding DTOs.
+Optional native update status permits skipping a semantic read only for the
+same clean visual revision with a positive native deadline. Missing exports
+retain eager native capture; command/retirement invalidation preserves action
+staleness checks. Actual semantic mutation/deadline checks pass; production timing reruns remain
+pending.
+
+Cocoa uses actual per-content-view AppKit accessibility elements with restored
+view ownership on disposal. Android uses actual virtual descendants of its
+SurfaceView with screen bounds and owner-queued actions; event delivery checks
+whether accessibility is enabled. Neither OS query callback calls RmlUi. Physical
+VoiceOver/TalkBack remains user-owned live coverage. Windows COM HWND and Linux
+GDBus AT-SPI providers now exist with 150 native/provider contracts and actual
+GLib wire checks; external OS modes await hosted CI. See [theme and accessibility](rmlui-theme-accessibility.md) and
+[platform text input](rmlui-platform-text-input.md) for contracts and limitations.
+
+Shared RCSS explicitly defines RmlUi scrollbar dimensions and block typography;
+RmlUi does not supply HTML browser defaults. Density uses logical dp, and compact
+routes preserve reachable controls with scrolling. High contrast, large text,
+touch targets and Reduce Motion use existing launcher preference persistence.
+The portable authored theme uses ordinary surfaces/borders/text and reports no
+unsupported layer/filter/custom-shader features in its native render check.
+Arbitrary unsupported GPU features still fail explicitly in the compositor.
+
+Shared navigation/footer/status chrome is translated into the six existing
+languages; Noto Sans JP is a bundled, licensed fallback font. Per-route body
+translations and complete glyph/screen-reader coverage remain open. Localization
+never rewrites user input, account identity or network-authored metadata.
 
 ## Rollout and removal gates
 

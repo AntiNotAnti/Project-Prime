@@ -31,12 +31,13 @@ namespace MphRead.Mods.Launcher.Core
                     ? states[slot] : MapAvailabilityState.Unknown;
                 players.Add(new LobbyPlayerSnapshot(slot, roster.Names[i] ?? "", (Hunter)roster.Hunters[i],
                     roster.Colors[i], roster.Teams[i], roster.LobbyReady[i], roster.Pings[i], roster.IsBot(i),
-                    roster.IsSpectator(i), roster.BotLevels[i], roster.DamageReductions[i], availability));
+                    roster.IsSpectator(i), roster.BotLevels[i], roster.DamageReductions[i], availability, roster.Generations[i]));
             }
             return new LobbySnapshot
             {
                 Active = NetSession.Active, Persistent = NetSession.PersistentLobby,
                 Phase = NetSession.SessionPhase, SessionRevision = packet?.Revision ?? 0,
+                RosterRevision = roster.Revision,
                 MatchId = packet?.MatchId ?? 0, AuthorityEpoch = packet?.AuthorityEpoch ?? 0,
                 StartGeneration = packet?.StartGeneration ?? 0, StartStage = packet?.StartStage ?? default,
                 ExpectedParticipants = packet?.ExpectedParticipants ?? 0,
@@ -86,10 +87,17 @@ namespace MphRead.Mods.Launcher.Core
         public void Identify(Hunter hunter, byte color)
         {
             NetSession.LocalHunter = hunter; NetSession.LocalColor = color;
-            LauncherPrefs.LastHunter = hunter; LauncherPrefs.LastColor = color; LauncherPrefs.Save();
+            if (LauncherPrefs.LastHunter != hunter || LauncherPrefs.LastColor != color)
+            {
+                LauncherPrefs.LastHunter = hunter; LauncherPrefs.LastColor = color; LauncherPrefs.Save();
+            }
             NetSession.SendIdentify();
         }
-        public void SetSpectator(bool spectator) => SpectatorMode.SetSessionPreference(spectator);
+        public void SetSpectator(bool spectator)
+        {
+            if (SpectatorMode.PreferSpectator == spectator) NetSession.AnnounceSpectatorRole();
+            else SpectatorMode.SetSessionPreference(spectator);
+        }
         public void SendChat(string text) => NetChat.Send(text);
         public void RetryMap() => NetSession.RetryMapPreparation();
 

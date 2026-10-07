@@ -1,0 +1,29 @@
+#news_page { width:100vw; height:100%; padding:18dp; overflow-y:auto; overflow-x:hidden; }
+#news_page h1 { display:block; width:94vw; font-size:28dp; margin:0 0 12dp; }
+.news_commands { display:flex; flex-wrap:wrap; width:94vw; margin-bottom:14dp; }
+.news_columns { display:flex; flex-wrap:wrap; width:94vw; gap:14dp; }
+#news_hero { width:48vw; padding:18dp; background-color:#081a29; border:1dp #426983; }
+#news_feed { width:43vw; padding:12dp; background-color:#07131e; border:1dp #426983; }
+#news_category,#news_headline,#news_summary { display:block; width:43vw; }
+#news_headline { font-size:28dp; margin:10dp 0; }
+#news_summary { font-size:17dp; line-height:23dp; margin-bottom:18dp; }
+#news_feed p { display:block; width:39vw; margin:0 0 12dp; }
+.news_article { display:block; width:39vw; min-height:80dp; padding:10dp; margin-bottom:10dp; border:1dp #426983; background-color:#10283d; text-align:left; }
+.news_title,.news_summary { display:block; width:35vw; }
+.news_title { color:#edf7ff; font-size:18dp; line-height:21dp; }
+.news_summary { color:#b2cadc; font-size:14dp; line-height:19dp; margin-top:6dp; }
+.news_article:hover,.news_article:focus,.news_article.selected,.play_action.selected { border-color:#72c7ff; background-color:#1a4565; }
+#news_error { display:block; width:94vw; color:#ffbc73; }
+#news_back { display:block; width:96dp; min-height:44dp; margin-top:12dp; }
+#news_detail { position:absolute; left:8vw; top:8vh; width:84vw; max-height:84vh; padding:20dp; overflow-y:auto; background-color:#081a29; border:2dp #72c7ff; }
+#news_detail h1,#news_detail p,#news_detail_category { display:block; width:76vw; }
+#news_detail h1 { font-size:28dp; margin:10dp 0 18dp; }
+#news_detail p { font-size:17dp; line-height:24dp; margin-bottom:18dp; }
+@media (max-width:800dp) {
+ #news_page h1,.news_commands,.news_columns,#news_error { width:88vw; }
+ #news_hero,#news_feed { width:86vw; margin-bottom:12dp; }
+ #news_category,#news_headline,#news_summary,#news_feed p,.news_article { width:78vw; }
+ .news_title,.news_summary { width:73vw; }
+ #news_detail { left:3vw; width:94vw; padding:12dp; }
+ #news_detail h1,#news_detail p,#news_detail_category { width:86vw; }
+}

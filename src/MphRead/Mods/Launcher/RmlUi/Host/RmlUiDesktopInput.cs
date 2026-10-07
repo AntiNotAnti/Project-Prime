@@ -1,6 +1,7 @@
 #if MPHREAD_RMLUI_POC || MPHREAD_RMLUI
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using OpenTK.Windowing.Desktop;
 
 namespace MphRead.Mods.Launcher.RmlUi.Host
 {
@@ -10,18 +11,40 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         {
             int key = TranslateKey(e.Key);
             if (key == 0) return;
+            if (host.TryGetTextInputState(out var preedit) && preedit.Composing) return;
             bool clipboardShortcut = (e.Control || e.Command) && host.TextInputActive;
             if (clipboardShortcut && e.Key == Keys.V)
             {
                 try { host.SetClipboard(GLFW.GetClipboardString(null) ?? ""); }
                 catch { /* Some headless/windowing providers have no OS clipboard. */ }
             }
-            host.Input.Key(key, true, Modifiers(e));
+            host.Input.Dispatch(new(host.CurrentInputDocument, RmlUiPlatformInputKind.KeyDown,
+                Code: key, Modifiers: Modifiers(e)));
             if (clipboardShortcut && e.Key is Keys.C or Keys.X)
             {
                 try { GLFW.SetClipboardString(null, host.ReadClipboard()); }
                 catch { /* The native editing buffer remains available. */ }
             }
+        }
+
+        internal static void KeyUp(RmlUiHost host, KeyboardKeyEventArgs e)
+        {
+            int key = TranslateKey(e.Key);
+            if (key != 0 && !(host.TryGetTextInputState(out var preedit) && preedit.Composing))
+                host.Input.Dispatch(new(host.CurrentInputDocument, RmlUiPlatformInputKind.KeyUp,
+                    Code: key, Modifiers: Modifiers(e)));
+        }
+
+        internal static unsafe RmlUiWindowsIme? AttachIme(RmlUiHost host, NativeWindow window, System.Func<bool> visible)
+        {
+            if (!System.OperatingSystem.IsWindows()) return null;
+            return RmlUiWindowsIme.TryAttach(host, GLFW.GetWin32Window(window.WindowPtr), visible);
+        }
+
+        internal static unsafe RmlUiCocoaIme? AttachCocoaIme(RmlUiHost host, NativeWindow window, System.Func<bool> visible)
+        {
+            if (!System.OperatingSystem.IsMacOS()) return null;
+            return RmlUiCocoaIme.TryAttach(host, GLFW.GetCocoaView(window.WindowPtr), visible);
         }
 
         internal static int TranslateKey(Keys key) => key switch

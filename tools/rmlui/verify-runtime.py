@@ -16,11 +16,14 @@ MANIFEST = "PRIME-RMLUI.json"
 LICENSES = ("RmlUi-LICENSE.txt", "FreeType-LICENSE.txt", "FreeType-FTL.txt", "FreeType-GPLv2.txt")
 ASSETS = ("prime_home.rml", "prime_home.rcss", "fonts/Rajdhani-SemiBold.ttf",
           "fonts/Rajdhani-Bold.ttf", "fonts/JetBrainsMono-Regular.ttf",
-          "fonts/Rajdhani-OFL.txt", "fonts/JetBrainsMono-OFL.txt")
+          "fonts/Rajdhani-OFL.txt", "fonts/JetBrainsMono-OFL.txt", "fonts/NotoSansJP-Regular.ttf", "fonts/NotoSansJP-OFL.txt")
 EXPORTS = ("pp_rmlui_initialize", "pp_rmlui_shutdown", "pp_rmlui_update", "pp_rmlui_render",
            "pp_rmlui_key", "pp_rmlui_text", "pp_rmlui_take_action", "pp_rmlui_protocol_version",
            "pp_rmlui_initialize_backend", "pp_rmlui_document_open", "pp_rmlui_document_close",
-           "pp_rmlui_document_count", "pp_rmlui_take_intent", "pp_rmlui_draw_command_count")
+           "pp_rmlui_document_count", "pp_rmlui_take_intent", "pp_rmlui_draw_command_count",
+           "pp_rmlui_text_input_state", "pp_rmlui_composition", "pp_rmlui_text_selection_utf16",
+           "pp_rmlui_document_accessibility_snapshot", "pp_rmlui_accessibility_action", "pp_rmlui_accessibility_set_text",
+           "pp_rmlui_set_clipboard", "pp_rmlui_read_clipboard", "pp_rmlui_draw_geometry_count")
 NAMES = {"win-x64": "ProjectPrime.RmlUi.Native.dll", "linux-x64": "libProjectPrime.RmlUi.Native.so",
          "osx-arm64": "libProjectPrime.RmlUi.Native.dylib", "osx-x64": "libProjectPrime.RmlUi.Native.dylib",
          "android-arm64": "libProjectPrime.RmlUi.Native.so", "android-x64": "libProjectPrime.RmlUi.Native.so"}

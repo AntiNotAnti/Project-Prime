@@ -702,6 +702,7 @@ namespace MphRead.Mods.Launcher.Gui
                 UiOverlay.Visible = false;
                 return;
             }
+            long uiStarted = LauncherUiPerformance.Start();
             Mods.Input.GamepadDesktop.Poll();
             _gamepad.Update(_view);
             RunPending();
@@ -732,6 +733,7 @@ namespace MphRead.Mods.Launcher.Gui
                 // The texture from the last redraw is still on the GPU and
                 // still correct. Leave it there.
                 UiOverlay.Visible = true;
+                LauncherUiPerformance.RecordAvaloniaUpdate(uiStarted);
                 return;
             }
             _dirty = false;
@@ -743,8 +745,10 @@ namespace MphRead.Mods.Launcher.Gui
             clock.Restart();
             int drawn = _impl.Drawn;
             UiRenderTimer.Pump();
-            _drawMs += clock.Elapsed.TotalMilliseconds;
+            double redrawMs = clock.Elapsed.TotalMilliseconds;
+            _drawMs += redrawMs;
             clock.Restart();
+            long uploadedBytes = 0;
             // Only when the compositor actually put something in the buffer.
             // It draws nothing when nothing is dirty -- which is most of the
             // backstop redraws -- and the texture already on the card is then
@@ -753,8 +757,11 @@ namespace MphRead.Mods.Launcher.Gui
             if (_impl.Drawn != drawn && _impl.Pixels != IntPtr.Zero)
             {
                 UiOverlay.Upload(_impl.Pixels, _impl.PixelWidth, _impl.PixelHeight);
+                uploadedBytes = checked((long)_impl.PixelWidth * _impl.PixelHeight * 4);
                 _uploadMs += clock.Elapsed.TotalMilliseconds;
             }
+            LauncherUiPerformance.RecordAvaloniaRedraw(redrawMs, clock.Elapsed.TotalMilliseconds, uploadedBytes);
+            LauncherUiPerformance.RecordAvaloniaUpdate(uiStarted);
             UiOverlay.Visible = true;
         }
 

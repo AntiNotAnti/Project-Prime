@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><AllowUnsafeBlocks>true</AllowUnsafeBlocks><NoWarn>0436</NoWarn><DefineConstants>MPHREAD_RMLUI_POC</DefineConstants></PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/MphRead/MphRead.csproj" AdditionalProperties="MphReadRmlUi=true" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/RmlUi/Host/*.cs" Exclude="../../src/MphRead/Mods/Launcher/RmlUi/Host/*DesktopInput.cs" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/RmlUiPointerMapping.cs" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiAccessibility.cs;../../src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiVisualPolicy.cs" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiDrawList.cs;../../src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiDrawListReader.cs" />
+    <None Include="../../src/MphRead/Assets/Fonts/Rajdhani-*.ttf;../../src/MphRead/Assets/Fonts/JetBrainsMono-Regular.ttf;../../src/MphRead/Assets/Fonts/NotoSansJP-Regular.ttf;../../src/MphRead/Assets/Fonts/NotoSansJP-OFL.txt" Link="rmlui/fonts/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/MphRead/Mods/Launcher/RmlUi/Assets/**/*" Link="rmlui/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/MphRead/Mods/Launcher/RmlUi/Pages/home/*.rml;../../src/MphRead/Mods/Launcher/RmlUi/Pages/home/*.rcss" Link="rmlui/pages/home/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/MphRead/Mods/Launcher/RmlUi/Components/**/*.rml;../../src/MphRead/Mods/Launcher/RmlUi/Components/**/*.rcss" Link="rmlui/components/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/MphRead/Mods/Launcher/RmlUi/Themes/**/*.rcss" Link="rmlui/themes/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

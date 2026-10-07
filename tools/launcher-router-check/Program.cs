@@ -15,8 +15,8 @@ foreach (LauncherPage page in Enum.GetValues<LauncherPage>())
     Check(LauncherRouteCatalog.TryParse(LauncherRouteCatalog.DeepLink(route), out var parsed) && parsed == route,
         page + " canonical deep link preserves Unicode and reserved characters");
 }
-Check(LauncherRouteCatalog.TryParse("news", out var home) && home.Page == LauncherPage.Home,
-    "News compatibility alias resolves Home");
+Check(LauncherRouteCatalog.TryParse("news", out var news) && news.Page == LauncherPage.News,
+    "News has its own readable dispatch route");
 Check(LauncherRouteCatalog.TryParse("hunterlicense", out var license) && license.Page == LauncherPage.License,
     "Hunter License compatibility alias resolves License");
 Check(LauncherRouteCatalog.TryParse("forge", out var studio) && studio.Page == LauncherPage.StudioLaunch,

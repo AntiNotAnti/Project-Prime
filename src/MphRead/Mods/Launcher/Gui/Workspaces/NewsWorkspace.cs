@@ -5,34 +5,13 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using MphRead.Mods.Launcher.Core;
 
 namespace MphRead.Mods.Launcher.Gui
 {
-    internal sealed record PrimeDispatch(string Category, string Title, string Summary, string Detail);
-    internal interface INewsProvider { IReadOnlyList<PrimeDispatch> Read(); }
-
-    internal sealed class BundledNewsProvider : INewsProvider
-    {
-        public IReadOnlyList<PrimeDispatch> Read() => new PrimeDispatch[]
-        {
-            new("NEWS", "PROJECT PRIME COMMUNITY UPDATE",
-                "A new home for your hunts. Catch up on what's changing in Project Prime.",
-                "Project Prime brings Metroid Prime Hunters to modern PCs and Android. This news page collects project updates, patch notes and announcements. Join the Discord to follow the community, and check GitHub Releases for published builds."),
-            new("PATCH NOTES", "LOBBY & SETTINGS REFINEMENTS",
-                "Clearer controls, more room for settings, and team selection in the roster.",
-                "Lobby rule controls have larger OFF/ON buttons. Settings uses a single category strip. Hunter previews stay behind dialogs, and team-mode rosters offer team arrows that respect team locks and available slots. These changes are included in this build."),
-            new("ANNOUNCEMENTS", "JOIN THE PROJECT PRIME DISCORD",
-                "Stay connected with the Project Prime community.",
-                "Join the Discord using the button at the top of Home. Follow project announcements, keep up with patch notes, and connect with other hunters."),
-            new("NEWS", "PERSISTENT MULTIPLAYER LOBBIES",
-                "Stay connected between matches.",
-                "Project Prime lobbies support up to eight players, owner controls, team layouts, optional ready checks and rematches. The active lobby indicator in the header brings you back to your session.")
-        };
-    }
-
     internal sealed class NewsWorkspace : UserControl
     {
-        internal const string DiscordUrl = "https://discord.gg/qKp2M8kHd6";
+        internal const string DiscordUrl = NewsController.DiscordUrl;
 
         public NewsWorkspace(PrimeOverlayHost overlays, INewsProvider? provider = null)
         {
@@ -50,7 +29,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Spacing = 6
             };
             var filterButtons = new List<PrimeTabButton>();
-            var articleButtons = new List<(PrimeDispatch Article, PrimeButton Button)>();
+            var articleButtons = new List<(NewsDispatch Article, PrimeButton Button)>();
             var feed = new StackPanel { Spacing = 8 };
 
             var categoryBadge = new ContentControl();
@@ -64,7 +43,7 @@ namespace MphRead.Mods.Launcher.Gui
                 MaxWidth = 760
             };
             PrimeMotionHandle? heroCopyMotion = null;
-            PrimeDispatch? selected = null;
+            NewsDispatch? selected = null;
 
             var read = new PrimeButton("OPEN TRANSMISSION →",
                 () => { if (selected != null) Details(selected); }, primary: true);
@@ -79,7 +58,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             var hero = new PrimeHeroPanel(heroCopy, MapShot.For("MP11 BREAKTHROUGH"), minHeight: 280);
 
-            void Select(PrimeDispatch article, bool animate = true)
+            void Select(NewsDispatch article, bool animate = true)
             {
                 selected = article;
                 headline.Text = article.Title;
@@ -105,14 +84,14 @@ namespace MphRead.Mods.Launcher.Gui
                     "Select a transmission to feature it on the command deck.",
                     PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush));
 
-                PrimeDispatch[] articles = dispatches
+                NewsDispatch[] articles = dispatches
                     .Where(d => category == "ALL" || d.Category == category)
                     .ToArray();
 
                 int index = 0;
-                foreach (PrimeDispatch item in articles)
+                foreach (NewsDispatch item in articles)
                 {
-                    PrimeDispatch article = item;
+                    NewsDispatch article = item;
                     var card = new PrimeButton(
                         item.Title,
                         $"{item.Category}  //  {item.Summary}",
@@ -141,7 +120,7 @@ namespace MphRead.Mods.Launcher.Gui
                     button.Selected = button.Label == category;
             }
 
-            void Details(PrimeDispatch item)
+            void Details(NewsDispatch item)
             {
                 overlays.Show(new PrimePanel(PrimeChrome.Stack(
                     new PrimeBadge(item.Category),

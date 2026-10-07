@@ -15,6 +15,8 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static void OpenRmlLobby(LaunchPlan plan)
         {
+            RetireNativePages();
+            WireNativePages();
             ReleaseRmlLobby();
             _rmlLobbyRules?.ResetSession();
             SpectatorMode.SetSessionPreference(plan.Spectate);
@@ -58,6 +60,7 @@ namespace MphRead.Mods.Launcher.Gui
         private static void RmlMatchRequested(object? sender, LaunchPlan plan)
         {
             if (!ReferenceEquals(sender, _rmlLobby)) return;
+            RetireNativePages();
             _rmlLobbyRules?.ResetSession();
             LobbySnapshot snapshot = _rmlLobby!.Snapshot();
             _rmlPendingStart = (snapshot.Lifetime, snapshot.MatchId,
@@ -67,6 +70,12 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static bool ValidateRmlPendingPlan()
         {
+            if (_nativeLaunchFailure != null && !RmlUiPrototype.Runtime.IsAlive(_nativeLaunchDocument))
+            {
+                _nativeLaunchFailure = null;
+                _nativeLaunchDocument = default;
+                return false;
+            }
             if (_rmlPendingStart is not { } expected) return true;
             if (_pendingLobbyController is not { } controller) return false;
             LobbySnapshot current = controller.Snapshot();
@@ -93,8 +102,9 @@ namespace MphRead.Mods.Launcher.Gui
                 RmlUiPrototype.SetMenuText("system_status", reason);
         }
 
-        private static void ReleaseRmlLobby()
+        private static void ReleaseRmlLobby(bool retirePages = true)
         {
+            if (retirePages) RetireNativePages();
             LobbySessionController? controller = _rmlLobby;
             _rmlLobby = null;
             _rmlPendingStart = null;
@@ -106,6 +116,7 @@ namespace MphRead.Mods.Launcher.Gui
             RmlUiPrototype.ClearLobbySnapshot();
         }
 
+#if MPHREAD_AVALONIA
         private static void OpenLegacyRmlLobby()
         {
             if (_rmlLobby is not { } controller) return;
@@ -148,14 +159,19 @@ namespace MphRead.Mods.Launcher.Gui
             ShowFrontScreen();
             return _front != null;
         }
+#endif
 
         private static bool TryRestoreRmlHome(RenderWindow window)
         {
             if (!RmlUiPrototype.Requested || RmlUiPrototype.Failed) return false;
             if (!RmlUiPrototype.Active && !RmlUiPrototype.TryActivate(window)) return false;
+            RetireNativePages();
+            WireNativePages();
             // Retire any prior rollback presenter before another session can
             // connect; its backend must never stop or hydrate the new lobby.
+#if MPHREAD_AVALONIA
             _front?.RetireLobby();
+#endif
             _pendingLobbyController = null;
             _rmlPendingStart = null;
             _settings = GameState.LoadSettings();

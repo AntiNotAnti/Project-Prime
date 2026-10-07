@@ -13,11 +13,13 @@ public interface IStudioMapPresentation : IDisposable
     StudioPickResult? PickElement(MapRenderFrame frame,double x,double y,StudioPickKind kind) => null;
 }
 
+#if MPHREAD_AVALONIA
 public interface IStudioNativeMapPresentation : IStudioMapPresentation
 {
     Avalonia.Controls.Control NativeControl { get; }
     void Present(MapRenderFrame frame, StudioViewportImage overlay);
 }
+#endif
 
 public sealed record StudioViewportImage(int Width, int Height, byte[] Rgba);
 

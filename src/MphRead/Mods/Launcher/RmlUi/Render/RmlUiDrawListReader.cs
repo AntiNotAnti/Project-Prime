@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using MphRead.Mods.Launcher.RmlUi.Host;
 
 namespace MphRead.Mods.Launcher.RmlUi.Render;
 
@@ -11,6 +12,12 @@ internal sealed unsafe class RmlUiDrawListReader
 {
     private const string Library = "ProjectPrime.RmlUi.Native";
     private ulong _generation;
+    private ulong _visualRevision;
+    private bool? _updateStatusAbi;
+    private RmlUiDrawListFrame? _frame;
+    internal long CaptureRequests { get; private set; }
+    internal long CapturedFrames { get; private set; }
+    internal long ReusedFrames { get; private set; }
     private readonly Dictionary<ulong, RmlUiDrawGeometry> _geometry = new();
     private readonly Dictionary<ulong, RmlUiDrawTexture> _textures = new();
 
@@ -30,6 +37,8 @@ internal sealed unsafe class RmlUiDrawListReader
 
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_generation")]
     private static extern ulong Generation();
+    [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_update_status")]
+    private static extern int UpdateStatus(ref RmlUiNativeUpdateState status);
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_draw_features")]
     private static extern uint Features();
     [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_draw_command_count")]
@@ -45,10 +54,22 @@ internal sealed unsafe class RmlUiDrawListReader
 
     internal RmlUiDrawListFrame Capture()
     {
+        CaptureRequests++;
         if (Features() != 0)
             throw new NotSupportedException("The RmlUi theme requested GPU layers, filters, or custom shaders which the draw-list compositor does not implement.");
-        ulong generation = Generation();
+        // Called after native Render, which updates the retained list when DOM,
+        // input, animation, viewport or resource lifetime has changed. A copied
+        // frame remains usable across engine device recreation; GPU resources
+        // are separately rebuilt by ModernGraphicsCompat.
+        bool statusAvailable = TryUpdateStatus(out var status);
+        ulong generation = statusAvailable ? status.Generation : Generation();
         if (_generation != generation) { Forget(); _generation = generation; }
+        if (statusAvailable && (status.Flags & RmlUiUpdateFlags.DrawListValid) != 0
+            && _frame != null && _visualRevision == status.VisualRevision)
+        {
+            ReusedFrames++;
+            return _frame;
+        }
         int count = CommandCount();
         if ((uint)count > 1_000_000) throw new InvalidOperationException("RmlUi native command count is invalid.");
         var commands = new RmlUiDrawCommand[count];
@@ -103,7 +124,28 @@ internal sealed unsafe class RmlUiDrawListReader
             if (command.Kind == RmlUiDrawCommandKind.Geometry && command.Texture != 0 && !usedTextures.Contains(command.Texture))
                 throw new InvalidOperationException("RmlUi draw command references a released texture.");
         Prune(_geometry, usedGeometry); Prune(_textures, usedTextures);
-        return new RmlUiDrawListFrame(generation, commands, _geometry, _textures);
+        var frame = new RmlUiDrawListFrame(generation, commands, _geometry, _textures);
+        CapturedFrames++;
+        _frame = statusAvailable && (status.Flags & RmlUiUpdateFlags.DrawListValid) != 0 ? frame : null;
+        _visualRevision = _frame != null ? status.VisualRevision : 0;
+        return frame;
+    }
+
+    private bool TryUpdateStatus(out RmlUiNativeUpdateState status)
+    {
+        status = RmlUiNativeUpdateState.Request();
+        if (_updateStatusAbi == false) return false;
+        try
+        {
+            if (UpdateStatus(ref status) == 0 || status.Size != 40 || status.Version != 1
+                || status.Generation == 0 || status.VisualRevision == 0 || status.Reserved != 0
+                || (status.Flags & ~((RmlUiUpdateFlags)3)) != 0
+                || double.IsNaN(status.NextUpdateDelaySeconds) || status.NextUpdateDelaySeconds < 0)
+            { _updateStatusAbi = false; return false; }
+            _updateStatusAbi = true;
+            return true;
+        }
+        catch (EntryPointNotFoundException) { _updateStatusAbi = false; return false; }
     }
 
     private static void Prune<T>(Dictionary<ulong, T> values, HashSet<ulong> used)
@@ -113,6 +155,10 @@ internal sealed unsafe class RmlUiDrawListReader
             if (!used.Contains(handle)) (released ??= new()).Add(handle);
         if (released != null) foreach (ulong handle in released) values.Remove(handle);
     }
-    internal void Forget() { _generation = 0; _geometry.Clear(); _textures.Clear(); }
+    internal void Forget()
+    {
+        _generation = 0; _visualRevision = 0; _frame = null;
+        _geometry.Clear(); _textures.Clear();
+    }
 }
 #endif

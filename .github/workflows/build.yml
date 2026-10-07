@@ -590,6 +590,26 @@ jobs:
         run: tools/rmlui/build-native.sh "${{ matrix.rid }}" draw-list
       - name: portable host ownership and route regressions
         run: dotnet run --project tools/rmlui-runtime-check -c Release
+      - name: isolated Linux IBus and virtual display dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y ibus libibus-1.0-5 gir1.2-ibus-1.0 python3-gi dbus-x11 xvfb xauth at-spi2-core python3-pyatspi libglib2.0-0
+      - name: actual Linux IBus composition and stale-focus transport
+        if: runner.os == 'Linux'
+        run: |
+          dbus-run-session -- xvfb-run -a /usr/bin/python3 tools/rmlui-linux-ime-check/run-ibus-check.py \
+            --native artifacts/rmlui-native/linux-x64/libProjectPrime.RmlUi.Native.so
+      - name: actual Windows UI Automation native provider
+        if: runner.os == 'Windows'
+        run: >
+          dotnet run --project tools/rmlui-platform-accessibility-check -c Release --
+          --native artifacts/rmlui-native/win-x64/ProjectPrime.RmlUi.Native.dll --windows
+      - name: actual Linux AT-SPI accessibility bus and external reader
+        if: runner.os == 'Linux'
+        run: >
+          dbus-run-session -- xvfb-run -a dotnet run --project tools/rmlui-platform-accessibility-check -c Release --
+          --native artifacts/rmlui-native/linux-x64/libProjectPrime.RmlUi.Native.so --atspi
       - name: real native DOM, Unicode, clipboard, generation and draw-list regressions
         shell: bash
         run: |
@@ -1348,6 +1368,7 @@ jobs:
           for rid in android-arm64 android-x64; do
             dotnet publish src/MphRead.Android/MphRead.Android.csproj \
               -c Release -r "$rid" -p:AndroidPackageFormat=apk -p:MphReadRmlUiNativeAssets=true \
+              -p:MphReadRmlUiAndroid=false -p:MphReadAvalonia=true \
               -p:AndroidSdkDirectory="$ANDROID_HOME" -p:JavaSdkDirectory="$JAVA_HOME" \
               -o "publish/rmlui-android/$rid"
           done
@@ -1356,6 +1377,8 @@ jobs:
           for rid in android-arm64 android-x64; do
             for apk in "publish/rmlui-android/$rid/"*-Signed.apk; do
               python3 tools/rmlui/verify-runtime.py --apk "$apk" "$rid"
+              python3 tools/rmlui/verify-android-client.py --apk "$apk" \
+                --assets src/MphRead.Android/obj/project.assets.json --expect-avalonia true
             done
           done
       - uses: actions/upload-artifact@v7
@@ -1363,6 +1386,70 @@ jobs:
           name: rmlui-foundation-android-apks
           path: publish/rmlui-android/**/*-Signed.apk
           if-no-files-found: error
+
+      - name: publish opt-in Android native runtime APKs
+        run: |
+          for rid in android-arm64 android-x64; do
+            dotnet publish src/MphRead.Android/MphRead.Android.csproj \
+              -c Release -r "$rid" -p:AndroidPackageFormat=apk -p:MphReadRmlUiAndroid=true -p:MphReadAvalonia=true \
+              -p:AndroidSdkDirectory="$ANDROID_HOME" -p:JavaSdkDirectory="$JAVA_HOME" \
+              -o "publish/rmlui-android-runtime/$rid"
+            for apk in "publish/rmlui-android-runtime/$rid/"*-Signed.apk; do
+              python3 tools/rmlui/verify-runtime.py --apk "$apk" "$rid"
+            done
+          done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-opt-in-android-runtime-apks
+          path: publish/rmlui-android-runtime/**/*-Signed.apk
+          if-no-files-found: error
+
+      - name: publish opt-in Android native clients without Avalonia
+        run: |
+          for rid in android-arm64 android-x64; do
+            dotnet publish src/MphRead.Android/MphRead.Android.csproj \
+              -c Release -r "$rid" -p:AndroidPackageFormat=apk \
+              -p:MphReadRmlUiAndroid=true -p:MphReadAvalonia=false \
+              -p:AndroidSdkDirectory="$ANDROID_HOME" -p:JavaSdkDirectory="$JAVA_HOME" \
+              -o "publish/rmlui-android-native/$rid"
+            for apk in "publish/rmlui-android-native/$rid/"*-Signed.apk; do
+              python3 tools/rmlui/verify-runtime.py --apk "$apk" "$rid"
+              python3 tools/rmlui/verify-android-client.py --apk "$apk" \
+                --assets src/MphRead.Android/obj/project.assets.json --expect-avalonia false
+            done
+          done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-opt-in-android-native-client-apks
+          path: publish/rmlui-android-native/**/*-Signed.apk
+          if-no-files-found: error
+
+      - name: publish native Android framework acceptance APK
+        run: >
+          dotnet publish src/MphRead.Android/MphRead.Android.csproj
+          -c Release -r android-x64 -p:AndroidPackageFormat=apk
+          -p:MphReadRmlUiAndroid=true -p:MphReadAvalonia=false
+          -p:MphReadRmlUiAndroidCheck=true -p:RunAOTCompilation=false
+          -p:AndroidSdkDirectory="$ANDROID_HOME" -p:JavaSdkDirectory="$JAVA_HOME"
+          -o publish/rmlui-android-check
+      - name: canonical desktop to GLES shader translation source guard
+        run: dotnet run --project tools/rmlui-es-shader-check -c Release
+      - name: verify native Android framework acceptance package
+        run: |
+          python3 tools/rmlui/verify-runtime.py --apk publish/rmlui-android-check/com.projectprime.game-Signed.apk android-x64
+          python3 tools/rmlui/verify-android-client.py --apk publish/rmlui-android-check/com.projectprime.game-Signed.apk \
+            --assets src/MphRead.Android/obj/project.assets.json --expect-avalonia false
+      - name: actual Android native GPU, IME, accessibility and multitouch acceptance
+        run: bash tools/rmlui/android-check.sh publish/rmlui-android-check/com.projectprime.game-Signed.apk
+      - name: Android native framework acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-android-native-framework-proof
+          path: |
+            ${{ runner.temp }}/rmlui-android-proof
+            ${{ runner.temp }}/rmlui-android-emulator.log
+          if-no-files-found: warn
 
       # One APK, the one people install. An untrimmed Debug build was
       # collected beside it, as a way of telling a crash on a device apart

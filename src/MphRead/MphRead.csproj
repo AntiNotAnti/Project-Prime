@@ -54,7 +54,7 @@
          on. Server builds do not get it because the authoritative headless
          simulation has no use for a UI toolkit and every megabyte of one is a
          megabyte in the server download. -->
-    <MphReadAvalonia Condition="'$(MphReadServer)' != 'true'">true</MphReadAvalonia>
+    <MphReadAvalonia Condition="'$(MphReadAvalonia)' == '' and '$(MphReadServer)' != 'true'">true</MphReadAvalonia>
     <DefineConstants Condition="'$(MphReadAvalonia)' == 'true'">$(DefineConstants);MPHREAD_AVALONIA</DefineConstants>
     <!-- The one-window shell: the launcher and the pause menu rendered into
          the game window (Mods/Launcher/Gui/Shell.cs, UiSurface.cs). Desktop
@@ -72,6 +72,10 @@
     <MphReadRmlUiEnabled Condition="('$(MphReadRmlUi)' == 'true' or '$(MphReadRmlUiPoc)' == 'true') and '$(MphReadServer)' != 'true'">true</MphReadRmlUiEnabled>
     <DefineConstants Condition="'$(MphReadRmlUi)' == 'true' and '$(MphReadServer)' != 'true'">$(DefineConstants);MPHREAD_RMLUI</DefineConstants>
     <DefineConstants Condition="'$(MphReadRmlUiEnabled)' == 'true'">$(DefineConstants);MPHREAD_RMLUI_POC</DefineConstants>
+    <!-- The native-only client is an explicit compile projection. The release
+         default and the transitional Avalonia rollback build stay unchanged. -->
+    <MphReadNativeClient Condition="'$(MphReadAvalonia)' == 'false' and '$(MphReadRmlUi)' == 'true' and '$(MphReadServer)' != 'true'">true</MphReadNativeClient>
+    <DefineConstants Condition="'$(MphReadNativeClient)' == 'true'">$(DefineConstants);MPHREAD_SHELL</DefineConstants>
     <!-- Project Prime shell identity for Explorer, the taskbar and pinned
          shortcuts. The dedicated server keeps a small badge so it is visually
          distinct from the game client. Runtime GL windows still use the
@@ -121,12 +125,17 @@
   <ItemGroup Condition="'$(MphReadAvalonia)' != 'true'">
     <Compile Remove="Mods\Launcher\Gui\**" />
   </ItemGroup>
+  <ItemGroup Condition="'$(MphReadNativeClient)' == 'true'">
+    <!-- Native engine adapters contain no toolkit types. Both compile paths
+         reuse the same page presenters and Core/session authorities. -->
+    <Compile Include="Mods/Launcher/Gui/RmlUiPrototype.cs;Mods/Launcher/Gui/RmlMultiplayerController*.cs;Mods/Launcher/Gui/RmlLobbyRulesEditor.cs;Mods/Launcher/Gui/Shell.Navigation.cs;Mods/Launcher/Gui/Shell.Presentation.cs;Mods/Launcher/Gui/Shell.RmlUi*.cs" />
+    <EmbeddedResource Include="Assets/project-prime-mark.png;Assets/Fonts/Roboto-Bold.ttf" />
+  </ItemGroup>
   <ItemGroup Condition="'$(MphReadRmlUiEnabled)' != 'true'">
-    <Compile Remove="Mods\Launcher\RmlUi\Host\**\*.cs;Mods\Launcher\RmlUi\Render\**\*.cs" />
+    <Compile Remove="Mods\Launcher\RmlUi\**\*.cs" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(MphReadAvalonia)' == 'true'">
-    <ProjectReference Include="..\ProjectPrime.Studio.Protocol\ProjectPrime.Studio.Protocol.csproj" />
     <PackageReference Include="Avalonia" Version="12.1.2" />
     <!-- Desktop is still here for the platform's fonts, its Skia backend and
          the packages the render path pulls in; what it is no longer used for
@@ -196,7 +205,17 @@
     <None Include="Mods/Launcher/RmlUi/Assets/**/*"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
           TargetPath="rmlui/%(RecursiveDir)%(Filename)%(Extension)" ExcludeFromSingleFile="true" />
-    <None Update="Assets/Fonts/Rajdhani-SemiBold.ttf;Assets/Fonts/Rajdhani-Bold.ttf;Assets/Fonts/JetBrainsMono-Regular.ttf;Assets/Fonts/Rajdhani-OFL.txt;Assets/Fonts/JetBrainsMono-OFL.txt"
+    <None Remove="Mods/Launcher/RmlUi/Pages/**/*;Mods/Launcher/RmlUi/Components/**/*;Mods/Launcher/RmlUi/Themes/**/*" />
+    <None Include="Mods/Launcher/RmlUi/Pages/**/*.rml;Mods/Launcher/RmlUi/Pages/**/*.rcss"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
+          TargetPath="rmlui/pages/%(RecursiveDir)%(Filename)%(Extension)" ExcludeFromSingleFile="true" />
+    <None Include="Mods/Launcher/RmlUi/Components/**/*.rml;Mods/Launcher/RmlUi/Components/**/*.rcss"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
+          TargetPath="rmlui/components/%(RecursiveDir)%(Filename)%(Extension)" ExcludeFromSingleFile="true" />
+    <None Include="Mods/Launcher/RmlUi/Themes/**/*.rcss"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
+          TargetPath="rmlui/themes/%(RecursiveDir)%(Filename)%(Extension)" ExcludeFromSingleFile="true" />
+    <None Update="Assets/Fonts/Rajdhani-SemiBold.ttf;Assets/Fonts/Rajdhani-Bold.ttf;Assets/Fonts/JetBrainsMono-Regular.ttf;Assets/Fonts/NotoSansJP-Regular.ttf;Assets/Fonts/Rajdhani-OFL.txt;Assets/Fonts/JetBrainsMono-OFL.txt;Assets/Fonts/NotoSansJP-OFL.txt"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
           TargetPath="rmlui/fonts/%(Filename)%(Extension)" ExcludeFromSingleFile="true" />
     <None Include="$(MphReadRmlUiNativePath)"
@@ -221,10 +240,22 @@
   </Target>
 
   <ItemGroup Condition="'$(MphReadServer)' != 'true'">
+    <ProjectReference Include="../ProjectPrime.Studio.Protocol/ProjectPrime.Studio.Protocol.csproj" />
+    <!-- Shared gameplay/replay bitmap rendering is independent of the UI
+         toolkit. Keep its direct dependency in native-only client packages. -->
+    <PackageReference Include="SkiaSharp" Version="3.119.4" Condition="'$(MphReadNativeClient)' == 'true'" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.119.4" Condition="'$(MphReadNativeClient)' == 'true'" />
     <!-- Original Project Prime combat-feedback stingers. Embedded so single-file
          releases and Android all carry the same defaults without loose assets. -->
     <EmbeddedResource Include="Assets\Sounds\Combat\*.wav" />
   </ItemGroup>
+
+  <Target Name="VerifyNativeClientToolkitBoundary" AfterTargets="ResolveReferences" Condition="'$(MphReadNativeClient)' == 'true'">
+    <ItemGroup>
+      <_NativeClientToolkitReference Include="@(ReferencePath)" Condition="$([System.String]::Copy('%(ReferencePath.Filename)').StartsWith('Avalonia'))" />
+    </ItemGroup>
+    <Error Condition="'@(_NativeClientToolkitReference)' != ''" Text="The native-only game client must not reference Avalonia assemblies: @(_NativeClientToolkitReference)." />
+  </Target>
 
   <ItemGroup Condition="'$(MphReadServer)' != 'true'">
     <!-- The backdrop again, as a plain embedded resource, for the same reason

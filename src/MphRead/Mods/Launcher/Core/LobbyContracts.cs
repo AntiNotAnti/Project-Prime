@@ -16,7 +16,8 @@ namespace MphRead.Mods.Launcher.Core
     public readonly record struct LobbyIntent(Guid Lifetime, ushort ExpectedRevision, LobbyIntentKind Kind,
         byte TargetSlot = byte.MaxValue, sbyte Team = -1, Hunter Hunter = default,
         byte Color = 0, byte BotLevel = 1, byte DamageReduction = 0, string Text = "",
-        MatchDefinition? Match = null, LobbyRuleFlags RuleFlags = default, uint DraftVersion = 0);
+        MatchDefinition? Match = null, LobbyRuleFlags RuleFlags = default, uint DraftVersion = 0,
+        uint ExpectedRosterRevision = 0, ushort TargetGeneration = 0);
 
     public readonly record struct LobbyActionResult(bool Accepted, string Message)
     {
@@ -26,7 +27,7 @@ namespace MphRead.Mods.Launcher.Core
 
     public readonly record struct LobbyPlayerSnapshot(byte Slot, string Name, Hunter Hunter, byte Color,
         sbyte Team, bool Ready, ushort Ping, bool IsBot, bool IsSpectator, byte BotLevel,
-        byte DamageReduction, MapAvailabilityState MapAvailability);
+        byte DamageReduction, MapAvailabilityState MapAvailability, ushort Generation = 0);
 
     /// <summary>Copied values only: no controls, mutable packets or roster arrays escape the session owner.</summary>
     public sealed record LobbySnapshot
@@ -40,6 +41,7 @@ namespace MphRead.Mods.Launcher.Core
         public bool Suspended { get; init; }
         public SessionPhase Phase { get; init; }
         public ushort SessionRevision { get; init; }
+        public uint RosterRevision { get; init; }
         public ushort MatchId { get; init; }
         public ulong AuthorityEpoch { get; init; }
         public uint StartGeneration { get; init; }
@@ -64,6 +66,13 @@ namespace MphRead.Mods.Launcher.Core
         public string MapMessage { get; init; } = "";
         public double CountdownSeconds { get; init; }
         public bool PreferSpectator { get; init; }
+        public bool IdentityPending { get; init; }
+        public bool SpectatorPending { get; init; }
+        public string IdentityMessage { get; init; } = "";
+        public string SpectatorMessage { get; init; } = "";
+        public Hunter? AcknowledgedLocalHunter { get; init; }
+        public byte? AcknowledgedLocalColor { get; init; }
+        public bool? AcknowledgedSpectator { get; init; }
         public bool ContainsBots { get; init; }
         public bool RulesPending { get; init; }
         public string RulesError { get; init; } = "";

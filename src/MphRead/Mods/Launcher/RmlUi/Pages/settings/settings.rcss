@@ -1,0 +1,50 @@
+.settings_workspace { position: absolute; left: 4%; top: 5%; width: 92%; height: 89%; display: flex; flex-direction: row; background-color: rgba(2, 9, 17, 90%); border: 1dp #1b334b; }
+.settings_navigation { width: 19%; height: 100%; padding: 20dp; border-right: 1dp #1b334b; }
+.settings_navigation h1 { font-size: 28dp; margin-bottom: 20dp; }
+.settings_tab { display: block; width: 100%; height: 35dp; text-align: left; padding-left: 12dp; margin-bottom: 5dp; background-color: #0c1725; border: 1dp #1c354f; color: #c8d8e9; }
+.settings_tab:hover, .settings_tab:focus { background-color: #183951; border-color: #459ac4; color: #ffffff; }
+.settings_content { width: 77%; height: 100%; padding: 16dp 20dp; }
+.settings_heading { display: flex; justify-content: space-between; height: 42dp; }
+.settings_heading h2 { font-size: 25dp; }
+#settings_dirty { color: #7194ad; padding-top: 8dp; }
+.settings_fields { width: 100%; height: 61%; overflow: auto; padding-right: 10dp; }
+.settings_row { display: flex; flex-direction: row; align-items: center; width: 100%; min-height: 58dp; padding: 7dp 8dp; border-bottom: 1dp #162b40; }
+.settings_row.dirty { background-color: #102840; }
+.settings_description { width: 49%; padding-right: 12dp; }
+.settings_description label { font-size: 16dp; color: #dceafa; }
+.settings_help { font-size: 12dp; color: #7897ad; padding-top: 3dp; }
+.settings_value { width: 35%; height: 32dp; }
+.settings_cycle { width: 12%; height: 32dp; margin-left: 10dp; font-size: 12dp; }
+.settings_paging { display: flex; justify-content: center; align-items: center; height: 42dp; margin-top: 4dp; }
+#settings_paging { margin: 0dp 18dp; color: #92b2ce; }
+.settings_error { min-height: 20dp; color: #ff918a; font-size: 13dp; }
+.settings_status { min-height: 20dp; color: #a0bacf; font-size: 13dp; }
+.settings_actions { display: flex; justify-content: flex-end; height: 44dp; margin-top: 5dp; }
+.settings_actions button { width: 165dp; margin-left: 10dp; }
+.settings_tools { padding: 15dp; }
+.settings_tools p { margin: 10dp 0dp; color: #a9bdce; }
+.settings_tools button { display: block; margin: 8dp 0dp; width: 85%; height: 40dp; }
+#settings_archive_path { display: block; width: 96%; margin: 8dp 0dp; height: 36dp; }
+.settings_credits_text { white-space: pre-wrap; font-size: 15dp; color: #c5d5e5; }
+.settings_dialog { position: absolute; left: 25%; top: 27%; width: 50%; padding: 28dp; background-color: #07121f; border: 1dp #284d68; }
+.settings_dialog h1 { font-size: 25dp; margin-bottom: 15dp; }
+.settings_dialog p { color: #b3c8da; line-height: 1.4; margin-bottom: 18dp; }
+.settings_dialog .dialog_actions { display: flex; justify-content: flex-end; margin-top: 20dp; }
+.settings_dialog button { width: 145dp; height: 40dp; margin-left: 8dp; }
+
+.settings_search { display: flex; align-items: center; height: 38dp; margin-bottom: 8dp; }
+.settings_search input { width: 70%; height: 32dp; margin-right: 10dp; }
+.settings_search button { width: 12%; height: 32dp; margin-left: 6dp; }
+.settings_tools input { display: block; width: 96%; height: 32dp; margin: 8dp 0dp; }
+
+.settings_dialog .settings_conflict_actions { width: 100%; }
+.settings_dialog .settings_conflict_actions button { width: 22%; margin-left: 2%; }
+
+.settings_glyph_dialog { top: 16%; width: 65%; left: 17%; }
+#settings_glyph_name { width: 100%; height: 38dp; margin-bottom: 8dp; }
+.settings_glyph_tabs { display: flex; width: 100%; margin: 8dp 0dp; }
+.settings_glyph_tabs button { width: 19%; height: 32dp; margin-left: 1%; font-size: 11dp; }
+.settings_glyph_grid { display: flex; flex-wrap: wrap; width: 100%; min-height: 195dp; }
+.settings_glyph_grid .settings_glyph { width: 11%; height: 50dp; margin-left: 1%; margin-bottom: 8dp; font-size: 22dp; }
+.settings_glyph_paging { display: flex; justify-content: center; align-items: center; width: 100%; margin: 10dp 0dp; }
+.settings_glyph_paging span { margin: 0dp 20dp; }

@@ -1,0 +1,101 @@
+<rml>
+    <head>
+        <title>Project Prime // Rules</title>
+        <link type="text/template" href="../../components/dialog.rml" />
+        <link type="text/rcss" href="rules.rcss" />
+    </head>
+    <body template="prime-dialog">
+        <div id="lobby_rules_modal">
+            <div id="lobby_rules_dimmer" />
+            <div id="lobby_rules_sheet">
+                <div class="rules_heading">
+                    <div>
+                        <div class="eyebrow">MULTIPLAYER // SESSION AUTHORITY</div>
+                        <div class="rules_title">LOBBY RULES</div>
+                    </div>
+                    <button id="rules_close_top" class="play_action" data-action="lobby:rules-close">CLOSE</button>
+                </div>
+                <div class="rules_columns">
+                    <div class="rules_main">
+                        <div class="eyebrow">MATCH CONFIGURATION</div>
+                        <div class="play_form_label">NEXT ARENA</div>
+                        <button id="rules_map_next" class="rules_choice" data-action="lobby:rules-map" data-prime-disabled="!rules_owner">
+                            <span data-prime-text="{{rules_map}}" id="text_rules_map_1" />
+                            <span class="rules_change">&gt;</span>
+                        </button>
+                        <div class="play_form_label">GAME TYPE</div>
+                        <button id="rules_mode_next" class="rules_choice" data-action="lobby:rules-mode" data-prime-disabled="!rules_owner">
+                            <span data-prime-text="{{rules_mode}}" id="text_rules_mode_1" />
+                            <span class="rules_change">&gt;</span>
+                        </button>
+                        <div class="play_form_label">MATCHUP / TEAMS</div>
+                        <button id="rules_format_next" class="rules_choice" data-action="lobby:rules-format" data-prime-disabled="!rules_owner">
+                            <span data-prime-text="{{rules_format}}" id="text_rules_format_1" />
+                            <span class="rules_change">&gt;</span>
+                        </button>
+                        <div class="rules_limit_row">
+                            <div class="rules_limit">
+                                <div class="play_form_label">TIME LIMIT</div>
+                                <input id="rules_time" class="play_input" type="text" maxlength="8" value="7:00" data-prime-disabled="!rules_owner" />
+                            </div>
+                            <div class="rules_limit">
+                                <div class="play_form_label" data-prime-text="{{rules_goal_label}}" id="text_rules_goal_label_1" />
+                                <input id="rules_goal" class="play_input" type="text" maxlength="8" value="7" data-prime-disabled="!rules_owner" />
+                            </div>
+                        </div>
+                        <div class="rules_hint">MINUTES OR M:SS // LIVES DISPLAY INCLUDES FIRST LIFE</div>
+                    </div>
+                    <div class="rules_flags">
+                        <div class="eyebrow">MATCH &amp; GAMEPLAY</div>
+                        <div class="rules_toggle_columns">
+                            <div class="rules_toggle_column">
+                                <button id="rules_toggle0" class="rules_toggle" data-action="lobby:rules-toggle:0" data-prime-disabled="!rules_owner">REQUIRE READY <span data-prime-text="{{rules_toggle0}}" id="text_rules_toggle0_1" />
+                                </button>
+                                <button id="rules_toggle1" class="rules_toggle" data-action="lobby:rules-toggle:1" data-prime-disabled="!rules_owner">JOIN IN PROGRESS <span data-prime-text="{{rules_toggle1}}" id="text_rules_toggle1_1" />
+                                </button>
+                                <button id="rules_toggle2" class="rules_toggle" data-action="lobby:rules-toggle:2" data-prime-disabled="!rules_owner">LOCK TEAMS <span data-prime-text="{{rules_toggle2}}" id="text_rules_toggle2_1" />
+                                </button>
+                                <button id="rules_toggle3" class="rules_toggle" data-action="lobby:rules-toggle:3" data-prime-disabled="!rules_owner">OPPONENT HEALTH <span data-prime-text="{{rules_toggle3}}" id="text_rules_toggle3_1" />
+                                </button>
+                                <button id="rules_toggle4" class="rules_toggle" data-action="lobby:rules-toggle:4" data-prime-disabled="!rules_owner">POWERUPS <span data-prime-text="{{rules_toggle4}}" id="text_rules_toggle4_1" />
+                                </button>
+                                <button id="rules_toggle5" class="rules_toggle" data-action="lobby:rules-toggle:5" data-prime-disabled="!rules_owner">SPAWN PROTECTION <span data-prime-text="{{rules_toggle5}}" id="text_rules_toggle5_1" />
+                                </button>
+                                <button id="rules_toggle6" class="rules_toggle" data-action="lobby:rules-toggle:6" data-prime-disabled="!rules_owner">AFFINITY WEAPONS <span data-prime-text="{{rules_toggle6}}" id="text_rules_toggle6_1" />
+                                </button>
+                                <button id="rules_toggle7" class="rules_toggle" data-action="lobby:rules-toggle:7" data-prime-disabled="!rules_owner">FRIENDLY FIRE <span data-prime-text="{{rules_toggle7}}" id="text_rules_toggle7_1" />
+                                </button>
+                            </div>
+                            <div class="rules_toggle_column">
+                                <button id="rules_toggle8" class="rules_toggle" data-action="lobby:rules-toggle:8" data-prime-disabled="!rules_owner">BALANCED MODE <span data-prime-text="{{rules_toggle8}}" id="text_rules_toggle8_1" />
+                                </button>
+                                <button id="rules_toggle9" class="rules_toggle" data-action="lobby:rules-toggle:9" data-prime-disabled="!rules_owner">INSTA-GIB <span data-prime-text="{{rules_toggle9}}" id="text_rules_toggle9_1" />
+                                </button>
+                                <button id="rules_toggle10" class="rules_toggle" data-action="lobby:rules-toggle:10" data-prime-disabled="!rules_owner">LOW TIER <span data-prime-text="{{rules_toggle10}}" id="text_rules_toggle10_1" />
+                                </button>
+                                <button id="rules_toggle11" class="rules_toggle" data-action="lobby:rules-toggle:11" data-prime-disabled="!rules_owner">NO IMPERIALIST <span data-prime-text="{{rules_toggle11}}" id="text_rules_toggle11_1" />
+                                </button>
+                                <button id="rules_toggle12" class="rules_toggle" data-action="lobby:rules-toggle:12" data-prime-disabled="!rules_owner">FIESTA <span data-prime-text="{{rules_toggle12}}" id="text_rules_toggle12_1" />
+                                </button>
+                                <button id="rules_toggle13" class="rules_toggle" data-action="lobby:rules-toggle:13" data-prime-disabled="!rules_owner">VANILLA 1V1 PICKUPS <span data-prime-text="{{rules_toggle13}}" id="text_rules_toggle13_1" />
+                                </button>
+                                <button id="rules_toggle14" class="rules_toggle" data-action="lobby:rules-toggle:14" data-prime-disabled="!rules_owner">SHADOW FREEZE <span data-prime-text="{{rules_toggle14}}" id="text_rules_toggle14_1" />
+                                </button>
+                                <button id="rules_toggle15" class="rules_toggle" data-action="lobby:rules-toggle:15" data-prime-disabled="!rules_owner">OCTOLITH RESET <span data-prime-text="{{rules_toggle15}}" id="text_rules_toggle15_1" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="rules_status" data-prime-text="{{rules_status}}" />
+                <div class="rules_footer">
+                    <div class="rules_owner_message" data-prime-visible="rules_owner" id="visible_rules_owner_1">CHANGES ARE SUBMITTED TO THE SERVER ONLY WHEN YOU APPLY.</div>
+                    <div class="rules_owner_message" data-prime-visible="!rules_owner" id="visible__rules_owner_1">VIEW ONLY // THE LOBBY OWNER CONTROLS THESE SETTINGS.</div>
+                    <button id="rules_classic" class="play_action" data-action="lobby:admin-open" data-prime-disabled="!rules_owner">OTHER OPTIONS</button>
+                    <button id="rules_cancel" class="play_action" data-action="lobby:rules-close">CANCEL</button>
+                    <button id="rules_apply" class="play_action primary" data-prime-visible="rules_owner" data-action="lobby:rules-apply" data-prime-disabled="!rules_owner">APPLY RULES</button>
+                </div>
+            </div>
+        </div>
+    </body>
+</rml>

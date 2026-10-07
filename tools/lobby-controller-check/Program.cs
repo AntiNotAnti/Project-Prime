@@ -3,6 +3,7 @@ using MphRead;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Network;
+using MphRead.Mods.Cosmetics;
 
 int checks = 0;
 void Check(bool value, string name)
@@ -165,6 +166,194 @@ using (var current = new LobbySessionController(backend, new LobbyContext("Lobby
     Check(backend.Stops == 0, "retired presenter disposal cannot disconnect new lobby");
 }
 
+backend = new FakeLobby();
+backend.State = backend.State with { Players = backend.State.Players.Add(new(1, "Guest", Hunter.Kanden,
+    1, -1, true, 21, false, false, 1, 0, MapAvailabilityState.Ready, 7)) };
+using (var controller = new LobbySessionController(backend))
+{
+    LobbyIntent selected = controller.Intent(LobbyIntentKind.KickPlayer, 1);
+    Check(selected.TargetGeneration == 7 && selected.ExpectedRosterRevision == 1,
+        "selected player command retains slot generation and roster witness");
+    backend.State = backend.State with { Players = backend.State.Players.SetItem(1, backend.State.Players[1] with { Generation = 8 }) };
+    Check(!controller.Dispatch(selected).Accepted && backend.Commands.Count == 0,
+        "slot reused within the same session revision cannot receive a destructive command");
+    selected = controller.Intent(LobbyIntentKind.TransferOwner, 1);
+    backend.State = backend.State with { RosterRevision = 2 };
+    Check(!controller.Dispatch(selected).Accepted, "roster update invalidates a retained admin confirmation");
+    Check(controller.Dispatch(controller.Intent(LobbyIntentKind.TransferOwner, 1)).Accepted,
+        "owner can transfer to a current human participant");
+    backend.State = backend.State with { CommandPending = false, OwnerSlot = 1, Message = "" };
+    Check(!controller.Dispatch(controller.Intent(LobbyIntentKind.KickPlayer, 1)).Accepted,
+        "ownership loss invalidates admin permissions immediately");
+}
+
+backend = new FakeLobby();
+backend.State = backend.State with { Match = backend.State.Match!.Value with { Mode = GameMode.BattleTeams, Format = MatchFormat.OneVsOne },
+    RuleFlags = LobbyRuleFlags.RequireReady,
+    Players = ImmutableArray.Create(backend.State.Players[0] with { Team = 0, Ready = true },
+        new LobbyPlayerSnapshot(1, "Bot", Hunter.Kanden, 0, 1, false, 0, true, false, 2, 0, MapAvailabilityState.Ready, 2),
+        new LobbyPlayerSnapshot(2, "Observer", Hunter.Trace, 0, 0, false, 10, false, true, 1, 0, MapAvailabilityState.Ready, 3)) };
+using (var controller = new LobbySessionController(backend))
+{
+    var view = LobbyPresentation.From(controller.Snapshot());
+    Check(view.CombatantCount == 2 && view.SpectatorCount == 1 && view.BotCount == 1
+        && view.Teams[0].Occupants == 1, "spectators do not occupy team seats or combatant counts");
+    Check(view.CanStart && view.StartReason == "Ready to start.", "bots and spectators do not require ready for start");
+    Check(!view.CanAssignTeam(0, 1) && view.CanAssignTeam(0, 0) && view.CanAssignTeam(0, -1),
+        "team capabilities include capacity, current seat and Auto");
+    Check(!controller.Dispatch(controller.Intent(LobbyIntentKind.SetTeam, 0) with { Team = 1 }).Accepted,
+        "team command rejects an occupied team");
+    Check(!controller.Dispatch(controller.Intent(LobbyIntentKind.SetTeam, 2) with { Team = 1 }).Accepted,
+        "spectator cannot be assigned a combat team");
+    Check(!controller.Dispatch(controller.Intent(LobbyIntentKind.TransferOwner, 1)).Accepted,
+        "bot cannot become lobby owner");
+    Check(view.Players[1].CanConfigureBot && view.Players[1].CanRemoveBot && !view.Players[2].CanChangeTeam,
+        "row capabilities preserve bot and spectator roles");
+    Check(!controller.Dispatch(controller.Intent(LobbyIntentKind.UpdateBot, 1) with { BotLevel = 4 }).Accepted,
+        "bot configuration validates existing difficulty limits");
+    Check(!controller.Dispatch(controller.Intent(LobbyIntentKind.UpdateBot, 1) with { DamageReduction = 1 }).Accepted,
+        "bot configuration validates handicap steps");
+    Check(controller.Dispatch(controller.Intent(LobbyIntentKind.UpdateBot, 1) with { Hunter = Hunter.Weavel, Team = 1, BotLevel = 3 }).Accepted,
+        "owner can configure a current bot in its existing team seat");
+    backend.State = backend.State with { CommandPending = false, OwnerSlot = 1, RuleFlags = LobbyRuleFlags.LockTeams };
+    Check(!LobbyPresentation.From(controller.Snapshot()).CanAssignTeam(0, -1)
+        && !controller.Dispatch(controller.Intent(LobbyIntentKind.SetTeam, 0) with { Team = -1 }).Accepted,
+        "guest respects locked teams in model and command validation");
+}
+
+backend = new FakeLobby();
+using (var controller = new LobbySessionController(backend))
+{
+    Check(controller.Dispatch(controller.Intent(LobbyIntentKind.Identify) with { Hunter = Hunter.Kanden, Color = 2 }).Accepted
+        && controller.Snapshot().IdentityPending && controller.Snapshot().AcknowledgedLocalHunter == Hunter.Samus,
+        "Hunter request remains distinct from server acknowledged identity");
+    backend.State = backend.State with { LocalHunter = Hunter.Samus, LocalColor = 0 };
+    backend.Clock = 1.1;
+    controller.PumpOnce(LobbyPumpOwner.Legacy, 1);
+    Check(backend.Identifies == 2 && controller.Snapshot().LocalHunter == Hunter.Kanden,
+        "older roster identity does not lose requested Hunter and retries through service");
+    backend.State = backend.State with { Players = backend.State.Players.SetItem(0,
+        backend.State.Players[0] with { Hunter = Hunter.Kanden, Color = 2 }) };
+    controller.PumpOnce(LobbyPumpOwner.Legacy, 2);
+    Check(!controller.Snapshot().IdentityPending && controller.Snapshot().AcknowledgedLocalColor == 2,
+        "exact Hunter and suit roster echo confirms selection");
+    controller.Dispatch(controller.Intent(LobbyIntentKind.Identify) with { Hunter = Hunter.Trace, Color = 0 });
+    backend.State = backend.State with { Match = backend.State.Match!.Value with { LowTier = true } };
+    controller.PumpOnce(LobbyPumpOwner.Legacy, 3);
+    Check(!controller.Snapshot().IdentityPending && controller.Snapshot().IdentityMessage.Contains("did not confirm"),
+        "rule change cancels now disallowed Hunter with explicit feedback");
+    controller.Dispatch(controller.Intent(LobbyIntentKind.ToggleSpectator));
+    Check(controller.Snapshot().SpectatorPending && controller.Snapshot().PreferSpectator
+        && controller.Snapshot().AcknowledgedSpectator == false, "spectator request waits for authoritative role echo");
+    Check(!controller.Dispatch(controller.Intent(LobbyIntentKind.ToggleSpectator)).Accepted
+        && !controller.Dispatch(controller.Intent(LobbyIntentKind.ToggleReady)).Accepted,
+        "pending spectator role blocks duplicate role and ready commands");
+    backend.State = backend.State with { Players = backend.State.Players.SetItem(0, backend.State.Players[0] with { IsSpectator = true }) };
+    controller.PumpOnce(LobbyPumpOwner.Legacy, 4);
+    Check(!controller.Snapshot().SpectatorPending && controller.Snapshot().AcknowledgedSpectator == true,
+        "authoritative spectator role confirms request");
+    controller.Dispatch(controller.Intent(LobbyIntentKind.ToggleSpectator));
+    backend.Clock = 10;
+    controller.PumpOnce(LobbyPumpOwner.Legacy, 5);
+    Check(!controller.Snapshot().SpectatorPending && controller.Snapshot().SpectatorMessage.Contains("did not confirm"),
+        "spectator timeout releases pending state with reason");
+    Check(!controller.Dispatch(controller.Intent(LobbyIntentKind.SendChat) with { Text = new string('x', 97) }).Accepted,
+        "chat rejects text exceeding existing protocol budget");
+    Check(!controller.Dispatch(controller.Intent(LobbyIntentKind.SendChat) with { Text = "hello 🌌" }).Accepted
+        && controller.Snapshot().CommandError.Contains("ASCII"), "unsupported chat receives explicit feedback");
+    Check(controller.Dispatch(controller.Intent(LobbyIntentKind.SendChat) with { Text = new string('x', 96) }).Accepted,
+        "chat accepts full existing protocol budget");
+    backend.State = backend.State with { MaxPlayers = 1 };
+    Check(!LobbyPresentation.From(controller.Snapshot()).CanAddBot
+        && !controller.Dispatch(controller.Intent(LobbyIntentKind.AddBot)).Accepted,
+        "full lobby disables and rejects bot addition");
+}
+
+var cosmetics = new FakeHunters();
+using (var selection = new HunterSelectionController(backend: cosmetics))
+{
+    var initial = selection.Snapshot;
+    selection.Pump();
+    Check(ReferenceEquals(initial, selection.Snapshot) && initial.Skins.Length == 7
+        && initial.ArmorEffects.Length == 21 && initial.DeathPresentations.Length == 8,
+        "Hunter selector exposes complete actual cosmetic catalog with stable immutable snapshot");
+    Check(!selection.SelectSkin("skin.trace.obsidian").Accepted && selection.Snapshot.CommandError.Length > 0,
+        "Hunter-specific skin from another Hunter receives explicit rejection");
+    selection.Pump();
+    Check(selection.Snapshot.CommandError.Length > 0, "Hunter error remains visible across refreshes");
+    cosmetics.Blocked = "armor.lightning";
+    Check(!selection.SelectArmor("armor.lightning").Accepted
+        && !selection.Snapshot.ArmorEffects.Single(value => value.Key == cosmetics.Blocked).Unlocked,
+        "backend ownership gate is reflected in choices and command validation");
+    cosmetics.Blocked = "";
+    Check(selection.SelectSkin("skin.samus.obsidian").Accepted && selection.SelectArmor("armor.lightning").Accepted,
+        "valid cosmetic draft changes clear errors");
+    CosmeticLoadout samusDraft = selection.Snapshot.Draft;
+    selection.SelectHunter(Hunter.Weavel);
+    selection.SetPreviewMode(SkinContext.Halfturret);
+    selection.SelectHunter(Hunter.Samus);
+    Check(selection.Snapshot.Draft == samusDraft && selection.Snapshot.PreviewMode == SkinContext.Biped,
+        "per-Hunter draft survives selection changes and incompatible preview resets");
+    Check(!selection.SetPreviewMode(SkinContext.Halfturret).Accepted,
+        "half-turret preview is restricted to Weavel");
+    selection.Rotate(100); selection.Zoom(10); selection.SetLoopDeath(true);
+    int requested = selection.Snapshot.DeathRequest;
+    selection.PreviewDeath(); selection.CompareNative(true);
+    Check(selection.Snapshot.PreviewLoadout == CosmeticLoadout.Default && selection.Snapshot.Draft == samusDraft
+        && selection.Snapshot.DeathRequest == requested + 1 && selection.Snapshot.Zoom == 1,
+        "native comparison and preview reset preserve draft and death trigger");
+    selection.CompareNative(false);
+    Check(selection.Equip().Accepted && selection.Snapshot.Saving && selection.Snapshot.Equipped == samusDraft
+        && selection.Snapshot.PendingSync, "equip persists local loadout before asynchronous account result");
+    Check(!selection.Equip().Accepted, "pending cosmetic save cannot submit duplicate request");
+    cosmetics.Complete(false);
+    selection.Pump();
+    Check(!selection.Snapshot.Saving && selection.Snapshot.Equipped == samusDraft
+        && selection.Snapshot.CommandError.Contains("NOT SYNCED"), "failed remote save retains local equip and visible status");
+    selection.SelectSuit(3); selection.ApplyIdentity();
+    Check(cosmetics.SavedHunter == Hunter.Samus && cosmetics.SavedColor == 3,
+        "pre-lobby identity persists only through explicit apply");
+    Check(selection.Equip().Accepted, "unsynced equip can be retried");
+    cosmetics.Complete(true); selection.Pump();
+    Check(!selection.Snapshot.PendingSync && !selection.Snapshot.Saving, "exact account acknowledgement clears sync pending");
+    bool wrongThread = Task.Run(() => { try { selection.SelectSuit(0); } catch (InvalidOperationException) { return true; } return false; }).GetAwaiter().GetResult();
+    Check(wrongThread, "worker cannot mutate Hunter selector");
+}
+
+backend = new FakeLobby();
+using (var lobby = new LobbySessionController(backend))
+using (var selection = new HunterSelectionController(lobby, new FakeHunters()))
+{
+    selection.SelectHunter(Hunter.Trace);
+    backend.State = backend.State with { Match = backend.State.Match!.Value with { LowTier = true } };
+    selection.Pump();
+    Check(selection.Snapshot.Hunter == Hunter.Trace && selection.Snapshot.AllowedHunters.Length == 4
+        && !selection.Snapshot.CanApplyIdentity && !selection.ApplyIdentity().Accepted,
+        "live rule refresh preserves draft selection while disallowed identity receives explicit feedback");
+    selection.SelectHunter(Hunter.Kanden); selection.SelectSuit(1);
+    Check(selection.ApplyIdentity().Accepted && lobby.Snapshot().IdentityPending,
+        "live Hunter apply uses shared lobby authority");
+    selection.Pump();
+    Check(selection.Snapshot.IdentityPending && selection.Snapshot.AcknowledgedHunter == Hunter.Samus,
+        "native Hunter state presents pending and acknowledged identity independently");
+    backend.State = backend.State with { Players = backend.State.Players.SetItem(0, backend.State.Players[0] with { Hunter = Hunter.Kanden, Color = 1 }) };
+    lobby.PumpOnce(LobbyPumpOwner.Legacy, 1); selection.Pump();
+    Check(!selection.Snapshot.IdentityPending && selection.Snapshot.Status.Contains("confirmed"),
+        "native Hunter status reports server confirmation");
+}
+
+cosmetics = new FakeHunters { PreferredHunter = (Hunter)250 };
+using (var selection = new HunterSelectionController(backend: cosmetics))
+{
+    Check(selection.Snapshot.CommandError.Contains("saved Hunter"), "invalid saved Hunter is explained rather than silently replaced");
+    selection.Equip();
+    selection.Dispose();
+    cosmetics.Complete(true);
+    selection.Pump();
+    Check(!selection.Snapshot.CanEquip && !selection.Snapshot.CanApplyIdentity,
+        "disposed Hunter selector ignores late save completion and releases actions");
+}
+
 var lifetimes = new HashSet<Guid>();
 for (int cycle = 0; cycle < 50; cycle++)
 {
@@ -186,14 +375,14 @@ sealed class FakeLobby : ILobbySessionBackend
 {
     public LobbySnapshot State = new()
     {
-        Active = true, Persistent = true, Phase = SessionPhase.Lobby, SessionRevision = 1,
+        Active = true, Persistent = true, Phase = SessionPhase.Lobby, SessionRevision = 1, RosterRevision = 1,
         MaxPlayers = 8, OwnerSlot = 0, LocalSlot = 0, LocalHunter = Hunter.Samus,
         PlayerName = "Owner", RequiredMapReady = true,
         Match = new MatchDefinition { RoomKey = "test_arena", Mode = GameMode.Battle, PointGoal = 7 },
         Players = ImmutableArray.Create(new LobbyPlayerSnapshot(0, "Owner", Hunter.Samus, 0, -1,
-            false, 0, false, false, 1, 0, MapAvailabilityState.Ready))
+            false, 0, false, false, 1, 0, MapAvailabilityState.Ready, 1))
     };
-    public int Pumps, Stops, AcceptedRules;
+    public int Pumps, Stops, AcceptedRules, Identifies, SpectatorRequests;
     public bool LoadMatch;
     public bool RejectStart;
     public Action? OnPump;
@@ -217,10 +406,39 @@ sealed class FakeLobby : ILobbySessionBackend
         State = State with { CommandPending = true, Message = "Waiting for server..." };
         return true;
     }
-    public void Identify(Hunter hunter, byte color) => State = State with { LocalHunter = hunter, LocalColor = color };
-    public void SetSpectator(bool spectator) => State = State with { PreferSpectator = spectator };
+    public void Identify(Hunter hunter, byte color) { Identifies++; State = State with { LocalHunter = hunter, LocalColor = color }; }
+    public void SetSpectator(bool spectator) { SpectatorRequests++; State = State with { PreferSpectator = spectator }; }
     public void SendChat(string text) => State = State with { Chat = State.Chat.Add(text) };
     public void RetryMap() { }
     public LobbyActionResult ValidateRules(MatchDefinition match) => LobbyActionResult.Ok;
     public void RulesAccepted(MatchDefinition match) => AcceptedRules++;
+}
+
+sealed class FakeHunters : IHunterSelectionBackend
+{
+    private readonly Dictionary<Hunter, CosmeticLoadout> _equipped = new();
+    private readonly HashSet<Hunter> _pending = new();
+    private TaskCompletionSource<HunterEquipResult>? _work;
+    private Hunter _savingHunter;
+    public Hunter PreferredHunter { get; set; } = Hunter.Samus;
+    public byte PreferredColor => 0;
+    public Hunter SavedHunter;
+    public byte SavedColor;
+    public string Blocked = "";
+    public void SaveIdentity(Hunter hunter, byte color) { SavedHunter = hunter; SavedColor = color; }
+    public HunterSelectionProfile Capture(Hunter hunter) => new(
+        _equipped.GetValueOrDefault(hunter, CosmeticLoadout.Default), _pending.Contains(hunter),
+        ImmutableArray.Create(SkinContext.Biped, SkinContext.ViewModel), true, "Installed pack enabled.", "Effects visible.");
+    public bool IsUnlocked(Hunter hunter, CosmeticDefinition definition, out string reason)
+    { reason = definition.Key == Blocked ? "This cosmetic is locked by the test authority." : ""; return reason.Length == 0; }
+    public Task<HunterEquipResult> EquipAsync(Hunter hunter, CosmeticLoadout loadout, CancellationToken cancellationToken)
+    {
+        _equipped[hunter] = loadout; _pending.Add(hunter); _savingHunter = hunter;
+        _work = new(); return _work.Task;
+    }
+    public void Complete(bool synced)
+    {
+        if (synced) _pending.Remove(_savingHunter);
+        _work!.SetResult(new(synced, synced ? "EQUIPPED / SYNCED" : "LOCAL / NOT SYNCED — server unavailable"));
+    }
 }

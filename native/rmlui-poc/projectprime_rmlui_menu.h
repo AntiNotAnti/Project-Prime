@@ -472,6 +472,7 @@ public:
             Rml::Element* element = FindElementById(it->first.c_str());
             if (auto* input = dynamic_cast<Rml::ElementFormControlInput*>(element)) {
                 input->SetValue(it->second);
+                DirtyVisual();
                 it = pending_inputs.erase(it);
             } else ++it;
         }
@@ -755,4 +756,3 @@ private:
     { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:15"); }
     void Noop(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) {}
 };
-

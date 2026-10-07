@@ -6,7 +6,7 @@ namespace MphRead.Mods.Launcher.Core;
 /// <summary>Application destinations. A destination does not imply that a native presenter is ready.</summary>
 internal enum LauncherPage
 {
-    Home, Play, Lobby, Hunters, Community, Theatre, Offline, Adventure, License, Settings, StudioLaunch
+    Home, Play, Lobby, Hunters, Community, Theatre, Offline, Adventure, License, Settings, StudioLaunch, Social, News
 }
 
 internal readonly record struct LauncherRoute(LauncherPage Page, string? Item = null);
@@ -31,7 +31,8 @@ internal static class LauncherRouteCatalog
         LauncherPage.Hunters => "hunters", LauncherPage.Community => "community",
         LauncherPage.Theatre => "theatre", LauncherPage.Offline => "offline",
         LauncherPage.Adventure => "adventure", LauncherPage.License => "license",
-        LauncherPage.Settings => "settings", LauncherPage.StudioLaunch => "studio",
+        LauncherPage.Settings => "settings", LauncherPage.StudioLaunch => "studio", LauncherPage.Social => "social",
+        LauncherPage.News => "news",
         _ => throw new ArgumentOutOfRangeException(nameof(page))
     };
 
@@ -68,13 +69,14 @@ internal static class LauncherRouteCatalog
         }
         LauncherPage? page = name.ToLowerInvariant() switch
         {
-            "home" or "news" => LauncherPage.Home,
+            "home" => LauncherPage.Home, "news" => LauncherPage.News,
             "play" => LauncherPage.Play, "lobby" => LauncherPage.Lobby,
             "hunters" => LauncherPage.Hunters, "community" => LauncherPage.Community,
             "theatre" => LauncherPage.Theatre, "offline" => LauncherPage.Offline,
             "adventure" => LauncherPage.Adventure,
             "license" or "hunterlicense" or "hunter-license" => LauncherPage.License,
             "settings" => LauncherPage.Settings,
+            "social" or "party" => LauncherPage.Social,
             "studio" or "studiolaunch" or "forge" => LauncherPage.StudioLaunch,
             _ => null
         };

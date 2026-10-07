@@ -49,8 +49,20 @@ namespace MphRead.Mods.Launcher.Gui
             _controller = controller;
         }
 
+        private readonly Action<string, string> _setText;
+        private readonly Action<string, bool> _setBool;
+        private readonly Action<string, string> _setField;
+#if !ANDROID
         internal RmlLobbyRulesEditor(IReadOnlyList<string> rooms)
+            : this(rooms, RmlUiPrototype.SetMenuText, RmlUiPrototype.SetMenuBool,
+                RmlUiPrototype.SetFieldValue) { }
+#endif
+        internal RmlLobbyRulesEditor(IReadOnlyList<string> rooms, Action<string, string> setText,
+            Action<string, bool> setBool, Action<string, string> setField)
         {
+            _setText = setText ?? throw new ArgumentNullException(nameof(setText));
+            _setBool = setBool ?? throw new ArgumentNullException(nameof(setBool));
+            _setField = setField ?? throw new ArgumentNullException(nameof(setField));
             _rooms = rooms
                 .Where(room => !String.IsNullOrWhiteSpace(room))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -66,9 +78,9 @@ namespace MphRead.Mods.Launcher.Gui
             if (!_pending)
                 ResetFrom(session, "SERVER RULES LOADED");
             _publishPending = true;
-            RmlUiPrototype.SetMenuBool("lobby_rules_open", true);
-            RmlUiPrototype.SetFieldValue("rules_time", _timeText);
-            RmlUiPrototype.SetFieldValue("rules_goal", _goalText);
+            _setBool("lobby_rules_open", true);
+            _setField("rules_time", _timeText);
+            _setField("rules_goal", _goalText);
             Publish();
         }
 
@@ -76,7 +88,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _open = false;
             _dirty = false; // unsaved changes are discarded, not transmitted
-            RmlUiPrototype.SetMenuBool("lobby_rules_open", false);
+            _setBool("lobby_rules_open", false);
         }
 
         /// <summary>
@@ -92,7 +104,7 @@ namespace MphRead.Mods.Launcher.Gui
             _pending = false;
             _dirty = false;
             _publishPending = false;
-            RmlUiPrototype.SetMenuBool("lobby_rules_open", false);
+            _setBool("lobby_rules_open", false);
         }
 
         internal void Tick()
@@ -113,8 +125,8 @@ namespace MphRead.Mods.Launcher.Gui
                     _pending = false;
                     _dirty = false;
                     ResetFrom(session, "RULES SAVED // SERVER CONFIRMED");
-                    RmlUiPrototype.SetFieldValue("rules_time", _timeText);
-                    RmlUiPrototype.SetFieldValue("rules_goal", _goalText);
+                    _setField("rules_time", _timeText);
+                    _setField("rules_goal", _goalText);
                 }
                 else if (!NetSession.LobbyCommandPending
                     && !String.IsNullOrWhiteSpace(NetSession.LobbyMessage))
@@ -132,8 +144,8 @@ namespace MphRead.Mods.Launcher.Gui
             else if (!_dirty && (session.Match != _draft || session.RuleFlags != _flags))
             {
                 ResetFrom(session, "SERVER RULES UPDATED");
-                RmlUiPrototype.SetFieldValue("rules_time", _timeText);
-                RmlUiPrototype.SetFieldValue("rules_goal", _goalText);
+                _setField("rules_time", _timeText);
+                _setField("rules_goal", _goalText);
             }
 
             if (_open)
@@ -168,8 +180,8 @@ namespace MphRead.Mods.Launcher.Gui
             };
             _goalText = LobbyRuleEditValues.GoalText(mode, _draft.PointGoal);
             _timeText = LobbyRuleEditValues.DurationText(_draft.TimeLimitSeconds);
-            RmlUiPrototype.SetFieldValue("rules_goal", _goalText);
-            RmlUiPrototype.SetFieldValue("rules_time", _timeText);
+            _setField("rules_goal", _goalText);
+            _setField("rules_time", _timeText);
             MarkDirty();
         }
 
@@ -482,19 +494,19 @@ namespace MphRead.Mods.Launcher.Gui
             _publishPending = false;
             // Owner identity must not flicker to guest while an UpdateMatch
             // packet is pending. CanEditLobby is transient; the role is not.
-            RmlUiPrototype.SetMenuBool("rules_owner", NetSession.LocalIsLobbyOwner);
-            RmlUiPrototype.SetMenuBool("rules_dirty", _dirty);
-            RmlUiPrototype.SetMenuBool("rules_pending", _pending);
-            RmlUiPrototype.SetMenuText("rules_map", _draft.RoomKey.ToUpperInvariant());
-            RmlUiPrototype.SetMenuText("rules_mode",
+            _setBool("rules_owner", NetSession.LocalIsLobbyOwner);
+            _setBool("rules_dirty", _dirty);
+            _setBool("rules_pending", _pending);
+            _setText("rules_map", _draft.RoomKey.ToUpperInvariant());
+            _setText("rules_mode",
                 MatchTypeCatalog.BaseLabel(_draft.Mode).ToUpperInvariant());
-            RmlUiPrototype.SetMenuText("rules_format",
+            _setText("rules_format",
                 MatchTypeCatalog.MatchupLabel(_draft.Mode, _draft.Format).ToUpperInvariant());
-            RmlUiPrototype.SetMenuText("rules_goal_label",
+            _setText("rules_goal_label",
                 LobbyRuleEditValues.GoalLabel(_draft.Mode));
-            RmlUiPrototype.SetMenuText("rules_status", _status.ToUpperInvariant());
+            _setText("rules_status", _status.ToUpperInvariant());
             for (int i = 0; i < ToggleCount; i++)
-                RmlUiPrototype.SetMenuText($"rules_toggle{i}", OnOff(i));
+                _setText($"rules_toggle{i}", OnOff(i));
         }
     }
 }

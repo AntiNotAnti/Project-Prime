@@ -1,0 +1,114 @@
+<rml>
+    <head>
+        <title>Project Prime // Home</title>
+        <link type="text/template" href="../../components/app-shell.rml" />
+        <link type="text/rcss" href="home.rcss" />
+    </head>
+    <body template="prime-shell">
+        <div id="activity_panel" class="enter_left">
+            <div id="activity_compact" data-prime-class-hidden="activity_selector_open">
+                <div class="eyebrow" data-prime-text="{{activity_group}}" id="text_activity_group_1" />
+                <button id="activity_selector" data-action="home:drawer-open">
+                    <span class="selector_art">
+                        <span class="selector_art_label">MODE</span>
+                    </span>
+                    <span class="selector_copy">
+                        <span class="selector_title" data-prime-text="{{activity_title}}" id="text_activity_title_1" />
+                        <span class="selector_meta" data-prime-text="{{activity_description}}" id="text_activity_description_1" />
+                        <span class="selector_hint" data-prime-text="{{activity_hint}}" id="text_activity_hint_1" />
+                    </span>
+                    <span class="selector_change">
+                        <span class="selector_change_label">CHANGE</span>
+                        <span class="selector_change_arrow">V</span>
+                    </span>
+                </button>
+                <div id="activity_status">
+                    <span data-prime-text="{{activity_hint}}" id="text_activity_hint_2" />
+                    <span class="ready">READY</span>
+                </div>
+                <button id="deploy" data-action="home:deploy">
+                    <span class="deploy_kicker" data-prime-text="{{activity_group}} ACTIVITY" id="text_activity_group_2" />
+                    <span class="deploy_label" data-prime-text="{{activity_action}}" id="text_activity_action_1" />
+                    <span class="deploy_arrow">&gt;</span>
+                </button>
+            </div>
+            <div id="activity_drawer" data-prime-class-open="activity_selector_open">
+                <div class="drawer_header">
+                    <div>
+                        <div class="eyebrow">PLAY</div>
+                        <div class="drawer_title">CHOOSE ACTIVITY</div>
+                    </div>
+                    <button id="drawer_close" data-action="home:drawer-close">CLOSE</button>
+                </div>
+                <div class="drawer_section">MULTIPLAYER</div>
+                <button id="drawer_quick" class="drawer_item" data-prime-class-selected="activity_index == 0" data-preview="stage-preview:quick" data-action="stage:quick">
+                    <span class="drawer_code">01</span>
+                    <span class="drawer_copy">
+                        <span class="drawer_name">QUICK PLAY</span>
+                        <span class="drawer_meta">Automatic public matchmaking</span>
+                    </span>
+                    <span class="drawer_state" data-prime-visible="activity_index == 0" id="visible_activity_index____0_1">ACTIVE</span>
+                    <span class="drawer_arrow">›</span>
+                </button>
+                <button id="drawer_browser" class="drawer_item" data-prime-class-selected="activity_index == 1" data-preview="stage-preview:browser" data-action="stage:browser">
+                    <span class="drawer_code">02</span>
+                    <span class="drawer_copy">
+                        <span class="drawer_name">SERVER BROWSER</span>
+                        <span class="drawer_meta">Browse public and private sessions</span>
+                    </span>
+                    <span class="drawer_state" data-prime-visible="activity_index == 1" id="visible_activity_index____1_1">ACTIVE</span>
+                    <span class="drawer_arrow">›</span>
+                </button>
+                <div class="drawer_section">LOCAL</div>
+                <button id="drawer_offline" class="drawer_item" data-prime-class-selected="activity_index == 2" data-preview="stage-preview:offline" data-action="stage:offline">
+                    <span class="drawer_code">03</span>
+                    <span class="drawer_copy">
+                        <span class="drawer_name">OFFLINE BATTLE</span>
+                        <span class="drawer_meta">Bots, training and custom rules</span>
+                    </span>
+                    <span class="drawer_state" data-prime-visible="activity_index == 2" id="visible_activity_index____2_1">ACTIVE</span>
+                    <span class="drawer_arrow">›</span>
+                </button>
+                <div class="drawer_section">SOLO</div>
+                <button id="drawer_adventure" class="drawer_item" data-prime-class-selected="activity_index == 3" data-preview="stage-preview:adventure" data-action="stage:adventure">
+                    <span class="drawer_code">04</span>
+                    <span class="drawer_copy">
+                        <span class="drawer_name">ADVENTURE</span>
+                        <span class="drawer_meta">Continue or load a solo save</span>
+                    </span>
+                    <span class="drawer_state" data-prime-visible="activity_index == 3" id="visible_activity_index____3_1">ACTIVE</span>
+                    <span class="drawer_arrow">›</span>
+                </button>
+                <div class="drawer_footer">
+                        HOVER OR FOCUS TO PREVIEW THE MENU STAGE // SELECT TO CONFIRM
+                    </div>
+            </div>
+        </div>
+        <div id="hunter_caption" class="enter_hunter">
+            <div class="hunter_rule" />
+            <div>
+                <div class="eyebrow">ACTIVE HUNTER</div>
+                <div id="hunter_name" data-prime-text="{{hunter_name}}" />
+                <div id="hunter_meta">SELECTED LOADOUT</div>
+            </div>
+        </div>
+        <div id="session_panel" class="enter_right">
+            <div class="session_header">
+                <div class="eyebrow">CURRENT SESSION</div>
+                <div class="session_state">SOLO</div>
+            </div>
+            <div class="session_player">
+                <div class="session_badge">P</div>
+                <div class="session_copy">
+                    <div class="session_name" data-prime-text="{{player_name}}" id="text_player_name_2" />
+                    <div class="session_meta" data-prime-text="{{hunter_name}} // READY" id="text_hunter_name_1" />
+                </div>
+            </div>
+            <button id="home_social" class="session_slot" data-action="route:social">
+                <span class="plus">+</span>
+                <span id="home_party_state">FRIENDS AND PARTY</span>
+            </button>
+            <div id="home_social_summary" class="session_hint">OPEN SOCIAL TO MANAGE FRIENDS, INVITES AND YOUR PARTY.</div>
+        </div>
+    </body>
+</rml>

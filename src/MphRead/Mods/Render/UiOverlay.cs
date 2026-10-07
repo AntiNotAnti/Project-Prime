@@ -74,7 +74,12 @@ namespace MphRead.Mods.Render
                 return;
             }
 #endif
-            if (Visible) _overlay.Draw(width, height);
+            if (Visible)
+            {
+                long uiStarted = Mods.Launcher.LauncherUiPerformance.Start();
+                _overlay.Draw(width, height);
+                Mods.Launcher.LauncherUiPerformance.RecordAvaloniaComposite(uiStarted);
+            }
         }
 
         /// <summary>
@@ -132,7 +137,7 @@ namespace MphRead.Mods.Render
             // photograph path. The deployment chamber is an RmlUi proof
             // concern until that renderer migration is explicitly promoted.
             LauncherPhoto.Draw(width, height);
-#if MPHREAD_SHELL
+#if MPHREAD_SHELL && MPHREAD_AVALONIA
             Mods.Launcher.Gui.UiSurface.Current?.DrawMapViewport(width, height);
 #endif
             Draw(width, height);

@@ -43,6 +43,13 @@ namespace MphRead.Mods
         public static bool HandleEscape(NativeWindow window)
         {
             if (KillCam.RequestSkip()) return true;
+#if MPHREAD_RMLUI_POC && MPHREAD_SHELL && !ANDROID
+            if (Launcher.Gui.RmlUiPrototype.Active)
+            {
+                if (_open) Close(); else OpenMenu();
+                return true;
+            }
+#endif
 #if MPHREAD_AVALONIA
             if (!Launcher.Gui.GuiLauncher.EnsureSetup())
             {

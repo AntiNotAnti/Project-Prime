@@ -153,6 +153,9 @@ namespace MphRead.Mods.Launcher
         /// Suppress launcher transition motion while keeping hover/focus state changes.
         /// </summary>
         public static bool ReduceMotion { get; set; }
+        public static bool HighContrast { get; set; }
+        public static bool LargeText { get; set; }
+        public static bool TouchTargets { get; set; }
 
         /// <summary>Master gain for Project Prime combat-feedback cues, before the normal SFX volume.</summary>
         public static float CombatFeedbackVolume { get; set; } = 1f;
@@ -496,6 +499,15 @@ namespace MphRead.Mods.Launcher
                                 ReduceMotion = reduceMotion;
                             }
                             break;
+                        case "high_contrast":
+                            if (Boolean.TryParse(value, out bool highContrast)) HighContrast = highContrast;
+                            break;
+                        case "large_text":
+                            if (Boolean.TryParse(value, out bool largeText)) LargeText = largeText;
+                            break;
+                        case "touch_targets":
+                            if (Boolean.TryParse(value, out bool touchTargets)) TouchTargets = touchTargets;
+                            break;
                         case "combat_feedback_volume":
                             if (Single.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture,
                                 out float feedbackVolume))
@@ -693,6 +705,9 @@ namespace MphRead.Mods.Launcher
                     $"player_outline={RenderOptions.PlayerOutline.ToString().ToLowerInvariant()}",
                     $"player_outline_width={RenderOptions.PlayerOutlineWidth.ToString(CultureInfo.InvariantCulture)}",
                     $"reduce_motion={ReduceMotion.ToString().ToLowerInvariant()}",
+                    $"high_contrast={HighContrast.ToString().ToLowerInvariant()}",
+                    $"large_text={LargeText.ToString().ToLowerInvariant()}",
+                    $"touch_targets={TouchTargets.ToString().ToLowerInvariant()}",
                     $"combat_feedback_volume={CombatFeedbackVolume.ToString(CultureInfo.InvariantCulture)}",
                     $"combat_notifications_visible={CombatNotificationsVisible.ToString().ToLowerInvariant()}",
                     $"imperialist_headshot_sound={ImperialistHeadshotSound}",

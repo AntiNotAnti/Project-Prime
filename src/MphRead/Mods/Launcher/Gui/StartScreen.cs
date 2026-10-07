@@ -50,7 +50,11 @@ namespace MphRead.Mods.Launcher.Gui
             _layers.Children.Add(_startup);
             Content = _layers;
             _prime.Router.CanNavigate = CanNavigate;
-            _prime.Router.NavigationGuardEnabled = () => _prime.IsVisible && _prime.IsEnabled
+            // A private router belongs to this front screen even while startup
+            // hides the shell. A borrowed application router must only consult
+            // the legacy guard while the legacy surface owns presentation.
+            _prime.Router.NavigationGuardEnabled = () => applicationRouter == null
+                || (_startup != null || _prime.IsVisible && _prime.IsEnabled)
 #if MPHREAD_SHELL && !ANDROID
                 && UiSurface.Current?.Visible == true
 #endif
@@ -74,7 +78,7 @@ namespace MphRead.Mods.Launcher.Gui
             AttachedToVisualTree += (_, _) => _session.Start();
             DetachedFromVisualTree += (_, _) => _session.Stop();
             _prime.Start();
-#if ANDROID
+#if ANDROID && !MPHREAD_RMLUI_ANDROID
             var navigation = new GamepadNavigation();
             var timer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Input,
                 (_, _) => { if (Mods.Input.GamepadContexts.MenuVisible) navigation.Update(this); });
@@ -324,6 +328,20 @@ namespace MphRead.Mods.Launcher.Gui
         // Shell calls this only after an actual native Play flow has joined
         // an authoritative session. Keep one source of truth for lobby
         // creation, match loading, owner commands and round transitions.
+        internal void OpenRouteFromRml(PrimeRoute route)
+        {
+            if (_startup != null)
+            {
+                PrimeStartupScreen startup = _startup;
+                _startup = null;
+                _layers.Children.Remove(startup);
+                startup.Dispose();
+                _prime.IsVisible = true;
+                _prime.IsEnabled = true;
+            }
+            _prime.Router.Navigate(route);
+        }
+
         internal void OpenConnectedFromRml(LaunchPlan plan, LobbySessionController? existingController = null)
         {
             // Explicit legacy fallback reuses the existing lobby controller.
@@ -375,7 +393,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
         private void LobbyClosed(string reason)
         {
-#if MPHREAD_RMLUI_POC
+#if MPHREAD_RMLUI_POC && !ANDROID
             if (RmlUiPrototype.LobbyMode)
                 RmlUiPrototype.ExitLobby();
 #endif
@@ -555,7 +573,11 @@ namespace MphRead.Mods.Launcher.Gui
         /// map already having one.
         /// </summary>
         internal void BeginDeferredPreviewCatchup(CancellationToken cancel = default)
+#if MPHREAD_RMLUI_ANDROID
+            { }
+#else
             => _ = CatchUpPreviews(cancel);
+#endif
 
         private async Task CatchUpPreviews(CancellationToken cancel = default)
         {
