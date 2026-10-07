@@ -3,6 +3,9 @@
 alter table prime.social_settings
     add column if not exists do_not_disturb boolean not null default false;
 
+alter table prime.social_lobby_memberships
+    add column if not exists lobby_eligible boolean not null default false;
+
 create table if not exists prime.social_recent_players (
     actor_id uuid not null references prime.social_profiles(player_id) on delete cascade,
     other_id uuid not null references prime.social_profiles(player_id) on delete cascade,
