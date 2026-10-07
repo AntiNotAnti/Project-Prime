@@ -212,8 +212,13 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
 
-            for (int i = 0; i < _lobbyPlayerCount && i < LobbyPlacements.Length; i++)
+            // Draw rear-to-front so a distant Hunter can never paint over
+            // the local/front hero where their preview rectangles overlap.
+            ReadOnlySpan<int> drawOrder = stackalloc int[] { 7, 5, 6, 3, 4, 1, 2, 0 };
+            foreach (int i in drawOrder)
             {
+                if (i >= _lobbyPlayerCount || i >= LobbyPlacements.Length)
+                    continue;
                 LobbyDisplayPlayer player = _lobbyPlayers[i];
                 if (!player.Occupied)
                     continue;
@@ -487,17 +492,14 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             if (localRosterIndex >= 0)
+            {
                 AddRosterPlayer(localRosterIndex);
-            for (int i = 0; i < roster.Count && display < _lobbyPlayers.Length; i++)
-            {
-                if (i != localRosterIndex)
-                    AddRosterPlayer(i);
             }
-
-            // The authoritative roster may arrive one packet after the lobby
-            // session. Keep the local/front platform populated during that gap.
-            if (display == 0 && NetSession.LocalSlot >= 0)
+            else if (NetSession.LocalSlot >= 0)
             {
+                // The authoritative roster may arrive one packet after the
+                // session. Always reserve the front position for the local
+                // player so another peer never temporarily becomes the hero.
                 string localName = String.IsNullOrWhiteSpace(NetSession.PlayerName)
                     ? HubState.Capture().PlayerName
                     : NetSession.PlayerName;
@@ -508,6 +510,11 @@ namespace MphRead.Mods.Launcher.Gui
                     NetSession.LocalSlot < NetSession.SlotLobbyReady.Length
                         && NetSession.SlotLobbyReady[NetSession.LocalSlot],
                     Local: true, SpectatorMode.PreferSpectator, Occupied: true);
+            }
+            for (int i = 0; i < roster.Count && display < _lobbyPlayers.Length; i++)
+            {
+                if (i != localRosterIndex)
+                    AddRosterPlayer(i);
             }
 
             for (int i = display; i < _lobbyPlayers.Length; i++)
