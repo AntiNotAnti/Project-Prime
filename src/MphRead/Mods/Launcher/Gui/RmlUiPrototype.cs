@@ -1318,6 +1318,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             "invite_sent" => "GAME INVITE SENT",
             "invite_pending" => "GAME INVITE ALREADY PENDING",
+            "invite_active" => "GAME INVITE ALREADY ACTIVE",
             "invite_declined" => "GAME INVITE DECLINED",
             "invite_cancelled" => "GAME INVITE CANCELLED",
             _ => status.Replace('_', ' ').ToUpperInvariant()
