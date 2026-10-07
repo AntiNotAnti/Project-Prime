@@ -692,16 +692,22 @@ namespace MphRead.Mods.Launcher.Gui
             _detailMetaMotion = PrimeMotion.Enter(_detailMeta, 3, 0.13);
         }
 
-        internal Task JoinVerifiedSocialLobbyAsync(string host, int port)
+        internal Task JoinVerifiedSocialLobbyAsync(
+            string host, int port,
+            PartyReservedAdmission? partyAdmission = null)
         {
             _address.Value = port == NetConfig.DefaultPort
                 ? host
                 : $"{host}:{port.ToString(CultureInfo.InvariantCulture)}";
-            _summary.Text = "JOINING VERIFIED SOCIAL LOBBY";
-            return JoinAsync();
+            _summary.Text = partyAdmission == null
+                ? "JOINING VERIFIED SOCIAL LOBBY"
+                : "JOINING RESERVED PARTY SLOT";
+            return JoinAsync(partyAdmission: partyAdmission);
         }
 
-        private async Task JoinAsync(bool spectate = false)
+        private async Task JoinAsync(
+            bool spectate = false,
+            PartyReservedAdmission? partyAdmission = null)
         {
             if (CanLaunch?.Invoke() == false) return;
             if (_joining || NetSession.Active)
@@ -732,9 +738,12 @@ namespace MphRead.Mods.Launcher.Gui
             CancelDiscovery();
 
             OnlineJoinResult result = await ServerBrowserService.JoinAsync(
-                host, port, player, hunter, suit, _connect.Token, spectate: spectate);
+                host, port, player, hunter, suit, _connect.Token,
+                spectate: spectate,
+                partyAdmission: partyAdmission);
 
-            if (!result.Joined && !_connect.IsCancellationRequested && Overlays != null && !spectate)
+            if (!result.Joined && !_connect.IsCancellationRequested
+                && Overlays != null && !spectate && partyAdmission == null)
             {
                 var status = await ServerBrowserService.ProbeAsync(host, port, allowJoinProbe: false);
                 if (!_connect.IsCancellationRequested && status.Online && status.Protocol == NetConfig.ProtocolVersion && status.WaitlistSupported
