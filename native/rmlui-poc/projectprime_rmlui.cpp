@@ -59,6 +59,7 @@ struct SocialRow {
     bool can_accept_invite = false;
     bool can_decline_invite = false;
     bool can_cancel_invite = false;
+    bool can_party_invite = false;
 };
 
 struct PrimeMenuData {
@@ -89,6 +90,9 @@ struct PrimeMenuData {
     Rml::String social_friend_count = "0 ONLINE";
     Rml::String social_request_count = "0 REQUESTS";
     Rml::String social_invite_count = "0 INVITES";
+    Rml::String social_party_count = "NO PARTY";
+    Rml::String social_recent_count = "0 RECENT";
+    Rml::String social_dnd_label = "DND OFF";
     Rml::String social_notice;
     std::vector<SocialRow> social_rows;
     std::vector<SocialRow> home_friends;
@@ -111,6 +115,14 @@ struct PrimeMenuData {
     bool selected_can_accept_invite = false;
     bool selected_can_decline_invite = false;
     bool selected_can_cancel_invite = false;
+    bool selected_can_party_invite = false;
+    bool selected_can_party_accept = false;
+    bool selected_can_party_decline = false;
+    bool selected_can_party_cancel = false;
+    bool selected_can_party_leave = false;
+    bool selected_can_party_disband = false;
+    bool selected_can_party_kick = false;
+    bool selected_can_party_promote = false;
 };
 
 class PrimeMenuModel {
@@ -150,6 +162,7 @@ public:
             row.RegisterMember("can_accept_invite", &SocialRow::can_accept_invite);
             row.RegisterMember("can_decline_invite", &SocialRow::can_decline_invite);
             row.RegisterMember("can_cancel_invite", &SocialRow::can_cancel_invite);
+            row.RegisterMember("can_party_invite", &SocialRow::can_party_invite);
         }
         model.RegisterArray<std::vector<SocialRow>>();
         model.Bind("social_open", &data.social_open);
@@ -163,6 +176,9 @@ public:
         model.Bind("social_friend_count", &data.social_friend_count);
         model.Bind("social_request_count", &data.social_request_count);
         model.Bind("social_invite_count", &data.social_invite_count);
+        model.Bind("social_party_count", &data.social_party_count);
+        model.Bind("social_recent_count", &data.social_recent_count);
+        model.Bind("social_dnd_label", &data.social_dnd_label);
         model.Bind("social_notice", &data.social_notice);
         model.Bind("social_rows", &data.social_rows);
         model.Bind("home_friends", &data.home_friends);
@@ -184,6 +200,14 @@ public:
         model.Bind("selected_can_accept_invite", &data.selected_can_accept_invite);
         model.Bind("selected_can_decline_invite", &data.selected_can_decline_invite);
         model.Bind("selected_can_cancel_invite", &data.selected_can_cancel_invite);
+        model.Bind("selected_can_party_invite", &data.selected_can_party_invite);
+        model.Bind("selected_can_party_accept", &data.selected_can_party_accept);
+        model.Bind("selected_can_party_decline", &data.selected_can_party_decline);
+        model.Bind("selected_can_party_cancel", &data.selected_can_party_cancel);
+        model.Bind("selected_can_party_leave", &data.selected_can_party_leave);
+        model.Bind("selected_can_party_disband", &data.selected_can_party_disband);
+        model.Bind("selected_can_party_kick", &data.selected_can_party_kick);
+        model.Bind("selected_can_party_promote", &data.selected_can_party_promote);
 
         model.BindEventCallback("select_quick", &PrimeMenuModel::SelectQuick, this);
         model.BindEventCallback("select_browser", &PrimeMenuModel::SelectBrowser, this);
@@ -203,8 +227,12 @@ public:
         model.BindEventCallback("social_players", &PrimeMenuModel::SocialPlayers, this);
         model.BindEventCallback("social_requests", &PrimeMenuModel::SocialRequests, this);
         model.BindEventCallback("social_invites", &PrimeMenuModel::SocialInvites, this);
+        model.BindEventCallback("social_party", &PrimeMenuModel::SocialParty, this);
+        model.BindEventCallback("social_recent", &PrimeMenuModel::SocialRecent, this);
         model.BindEventCallback("social_blocks", &PrimeMenuModel::SocialBlocks, this);
         model.BindEventCallback("social_refresh", &PrimeMenuModel::SocialRefresh, this);
+        model.BindEventCallback("social_dnd", &PrimeMenuModel::SocialDnd, this);
+        model.BindEventCallback("social_party_game_invite", &PrimeMenuModel::SocialPartyGameInvite, this);
         model.BindEventCallback("social_filter", &PrimeMenuModel::SocialFilter, this);
         model.BindEventCallback("social_select", &PrimeMenuModel::SocialSelect, this);
         model.BindEventCallback("social_context_close", &PrimeMenuModel::SocialContextClose, this);
@@ -220,6 +248,14 @@ public:
         model.BindEventCallback("social_accept_invite", &PrimeMenuModel::SocialAcceptInvite, this);
         model.BindEventCallback("social_decline_invite", &PrimeMenuModel::SocialDeclineInvite, this);
         model.BindEventCallback("social_cancel_invite", &PrimeMenuModel::SocialCancelInvite, this);
+        model.BindEventCallback("social_party_invite", &PrimeMenuModel::SocialPartyInvite, this);
+        model.BindEventCallback("social_party_accept", &PrimeMenuModel::SocialPartyAccept, this);
+        model.BindEventCallback("social_party_decline", &PrimeMenuModel::SocialPartyDecline, this);
+        model.BindEventCallback("social_party_cancel", &PrimeMenuModel::SocialPartyCancel, this);
+        model.BindEventCallback("social_party_leave", &PrimeMenuModel::SocialPartyLeave, this);
+        model.BindEventCallback("social_party_disband", &PrimeMenuModel::SocialPartyDisband, this);
+        model.BindEventCallback("social_party_kick", &PrimeMenuModel::SocialPartyKick, this);
+        model.BindEventCallback("social_party_promote", &PrimeMenuModel::SocialPartyPromote, this);
         model.BindEventCallback("noop", &PrimeMenuModel::Noop, this);
 
         handle = model.GetModelHandle();
@@ -242,6 +278,9 @@ public:
         else if (name == "social_friend_count") data.social_friend_count = value;
         else if (name == "social_request_count") data.social_request_count = value;
         else if (name == "social_invite_count") data.social_invite_count = value;
+        else if (name == "social_party_count") data.social_party_count = value;
+        else if (name == "social_recent_count") data.social_recent_count = value;
+        else if (name == "social_dnd_label") data.social_dnd_label = value;
         else if (name == "social_notice") data.social_notice = value;
         else return;
         handle.DirtyVariable(name);
@@ -407,10 +446,18 @@ private:
         { SelectSocialTab(2, "social:tab:2"); }
     void SocialInvites(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
         { SelectSocialTab(3, "social:tab:3"); }
-    void SocialBlocks(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+    void SocialParty(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
         { SelectSocialTab(4, "social:tab:4"); }
+    void SocialRecent(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+        { SelectSocialTab(5, "social:tab:5"); }
+    void SocialBlocks(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+        { SelectSocialTab(6, "social:tab:6"); }
     void SocialRefresh(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
         { Emit("social:refresh"); }
+    void SocialDnd(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+        { Emit("social:dnd"); }
+    void SocialPartyGameInvite(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
+        { Emit("social:party-game-invite"); }
 
     void SocialFilter(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
     {
@@ -457,6 +504,15 @@ private:
         data.selected_can_accept_invite = row->can_accept_invite;
         data.selected_can_decline_invite = row->can_decline_invite;
         data.selected_can_cancel_invite = row->can_cancel_invite;
+        data.selected_can_party_invite = row->can_party_invite;
+        data.selected_can_party_accept = row->relation == "PARTY INVITE";
+        data.selected_can_party_decline = row->relation == "PARTY INVITE";
+        data.selected_can_party_cancel = row->relation == "PARTY INVITE SENT";
+        data.selected_can_party_leave = row->relation == "PARTY MEMBER SELF"
+            || row->relation == "PARTY LEADER SELF";
+        data.selected_can_party_disband = row->relation == "PARTY LEADER SELF";
+        data.selected_can_party_kick = row->relation == "PARTY MEMBER MANAGE";
+        data.selected_can_party_promote = row->relation == "PARTY MEMBER MANAGE";
         data.social_context_open = true;
 
         handle.DirtyVariable("selected_prime_id");
@@ -477,6 +533,14 @@ private:
         handle.DirtyVariable("selected_can_accept_invite");
         handle.DirtyVariable("selected_can_decline_invite");
         handle.DirtyVariable("selected_can_cancel_invite");
+        handle.DirtyVariable("selected_can_party_invite");
+        handle.DirtyVariable("selected_can_party_accept");
+        handle.DirtyVariable("selected_can_party_decline");
+        handle.DirtyVariable("selected_can_party_cancel");
+        handle.DirtyVariable("selected_can_party_leave");
+        handle.DirtyVariable("selected_can_party_disband");
+        handle.DirtyVariable("selected_can_party_kick");
+        handle.DirtyVariable("selected_can_party_promote");
         handle.DirtyVariable("social_context_open");
         Emit((std::string("social:context:") + data.selected_prime_id).c_str());
     }
@@ -517,6 +581,14 @@ private:
     void SocialAcceptInvite(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitInvite("invite-accept"); }
     void SocialDeclineInvite(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitInvite("invite-decline"); }
     void SocialCancelInvite(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitInvite("invite-cancel"); }
+    void SocialPartyInvite(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitSelected("party-invite"); }
+    void SocialPartyAccept(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitInvite("party-accept"); }
+    void SocialPartyDecline(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitInvite("party-decline"); }
+    void SocialPartyCancel(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitInvite("party-cancel"); }
+    void SocialPartyLeave(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitSelected("party-leave"); }
+    void SocialPartyDisband(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitSelected("party-disband"); }
+    void SocialPartyKick(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitSelected("party-kick"); }
+    void SocialPartyPromote(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitSelected("party-promote"); }
     void Noop(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) {}
 };
 
@@ -733,7 +805,8 @@ PP_EXPORT void pp_rmlui_social_clear()
 PP_EXPORT void pp_rmlui_social_add_row(const char* prime_id, const char* name,
     const char* activity, const char* detail, const char* relation, const char* invite_id,
     int online, int friend_online, int can_invite, int can_join,
-    int can_accept_invite, int can_decline_invite, int can_cancel_invite)
+    int can_accept_invite, int can_decline_invite, int can_cancel_invite,
+    int can_party_invite)
 {
     if (!g_model) return;
     SocialRow row;
@@ -750,6 +823,7 @@ PP_EXPORT void pp_rmlui_social_add_row(const char* prime_id, const char* name,
     row.can_accept_invite = can_accept_invite != 0;
     row.can_decline_invite = can_decline_invite != 0;
     row.can_cancel_invite = can_cancel_invite != 0;
+    row.can_party_invite = can_party_invite != 0;
     g_model->AddSocialRow(row);
 }
 
@@ -785,7 +859,9 @@ PP_EXPORT int pp_rmlui_back()
             case 1: id = "social_tab_players"; break;
             case 2: id = "social_tab_requests"; break;
             case 3: id = "social_tab_invites"; break;
-            case 4: id = "social_blocks"; break;
+            case 4: id = "social_party"; break;
+            case 5: id = "social_recent"; break;
+            case 6: id = "social_blocks"; break;
             default: id = "social_tab_friends"; break;
             }
         }
