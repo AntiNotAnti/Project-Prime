@@ -81,7 +81,11 @@ public sealed partial class DedicatedServer
             if (peer.Published != state) PublishQueueState(peer, state, now);
         }
         foreach (var endpoint in _queueRemove)
-        { _queuePeers.Remove(endpoint); _transport?.RetireConnection(endpoint); }
+        {
+            PartyReservationPeerRemoved(endpoint);
+            _queuePeers.Remove(endpoint);
+            _transport?.RetireConnection(endpoint);
+        }
     }
     private static uint NextQueueRevision(QueuePeer peer)
     {
@@ -140,7 +144,8 @@ public sealed partial class DedicatedServer
         {
             // NetTransport alone creates an unwrapped local reliable-failure Bye;
             // remote unsequenced Bye is rejected by its receive boundary.
-            if (peer.QueueId != 0) _waitlist.Leave(peer.Owner, peer.QueueId, now);
+            if (peer.QueueId != 0 && _waitlist != null)
+                _waitlist.Leave(peer.Owner, peer.QueueId, now);
             RemoveQueuePeer(peer); return true;
         }
         if (packet.ConnectionId == 0 || packet.ConnectionId != _transport?.QueueConnectionId(packet.Sender)) return true;
