@@ -1165,7 +1165,9 @@ namespace MphRead.Mods.Launcher.Gui
             SetText("social_invite_count",
                 allInvites == 1 ? "1 ACTIVE" : $"{allInvites} ACTIVE");
             SetText("social_party_count", party == null
-                ? (incomingPartyInvites == 1 ? "1 INVITE" : $"{incomingPartyInvites} INVITES")
+                ? incomingPartyInvites == 0 ? "SOLO"
+                    : incomingPartyInvites == 1 ? "1 INVITE"
+                    : $"{incomingPartyInvites} INVITES"
                 : $"{party.Members.Count}/8 MEMBERS");
             SetText("social_recent_count",
                 partyState.RecentPlayers.Count == 1
