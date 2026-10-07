@@ -103,6 +103,50 @@ Check(!PartySeatAllocator.TryAllocate(
     && failedSlots.Length == 0 && failedMask == 0,
     "party allocator fails atomically without partial seats");
 
+var reservationRequest = Guid.Parse("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+var serverReservation = Guid.Parse("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb");
+string ticket = "pp1." + new string('A', 48) + "." + new string('B', 43);
+var claimPacket = new PartyReserveClaimPacket(reservationRequest, 12345, ticket);
+byte[] claimBytes = new byte[claimPacket.Size];
+Check(claimPacket.Write(claimBytes) == claimBytes.Length
+    && PartyReserveClaimPacket.TryRead(claimBytes, out var claimRoundTrip)
+    && claimRoundTrip == claimPacket,
+    "party reservation claim round trips signed identity");
+for (int i = 0; i < claimBytes.Length; i++)
+    Check(!PartyReserveClaimPacket.TryRead(claimBytes.AsSpan(0, i), out _),
+        "party reservation claim truncation " + i);
+Check(!PartyReserveClaimPacket.TryRead(claimBytes.Concat(new byte[]{0}).ToArray(), out _),
+    "party reservation claim rejects trailing bytes");
+
+var reserveState = new PartyReserveStatePacket(
+    reservationRequest, serverReservation,
+    PartyReservationWireState.Reserved,
+    Slot: 3, RequiredCount: 4, AdmittedCount: 1,
+    AuthorityEpoch: 638000000000000000UL,
+    ExpiresInTicks: 1800);
+byte[] reserveStateBytes = new byte[PartyReserveStatePacket.Size];
+reserveState.Write(reserveStateBytes);
+Check(PartyReserveStatePacket.TryRead(reserveStateBytes, out var reserveStateRoundTrip)
+    && reserveStateRoundTrip == reserveState,
+    "party reservation state round trips exact slot assignment");
+reserveStateBytes[33] = 9;
+Check(!PartyReserveStatePacket.TryRead(reserveStateBytes, out _),
+    "party reservation state rejects invalid slot");
+
+var reserveAccept = new PartyReserveAcceptPacket(
+    reservationRequest, serverReservation, 638000000000000000UL);
+byte[] reserveAcceptBytes = new byte[PartyReserveAcceptPacket.Size];
+reserveAccept.Write(reserveAcceptBytes);
+Check(PartyReserveAcceptPacket.TryRead(reserveAcceptBytes, out var reserveAcceptRoundTrip)
+    && reserveAcceptRoundTrip == reserveAccept,
+    "party reservation acceptance is epoch fenced");
+reserveAcceptBytes[^1] = 0;
+Check(PartyReserveAcceptPacket.TryRead(reserveAcceptBytes, out _),
+    "party reservation acceptance remains structurally valid after epoch byte change");
+Array.Clear(reserveAcceptBytes, 32, 8);
+Check(!PartyReserveAcceptPacket.TryRead(reserveAcceptBytes, out _),
+    "party reservation acceptance rejects zero epoch");
+
 var expiryQueue = new LobbyWaitlist(2, offerLifetimeSeconds: 1, resumeGraceSeconds: 2);
 expiryQueue.Update(0, 1, 1, true, 1, 1);
 expiryQueue.TryJoin(Owner(1), 1, 0, out var expiringFirst);
