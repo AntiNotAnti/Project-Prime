@@ -626,7 +626,39 @@ namespace MphRead.Mods.Launcher.Gui
                 ? $"PARTY QUICK PLAY  /  {result.Message}".ToUpperInvariant()
                 : $"QUICK PLAY  /  {result.Message}".ToUpperInvariant();
             _summary.Foreground = HubTheme.GoodBrush;
-            await JoinAsync();
+
+            PartyReservedAdmission? partyAdmission = null;
+            if (partyQuickPlay)
+            {
+                ShowProgress($"Reserving {requiredSlots} party slots…");
+                PartyReservationPreparation prepared =
+                    await SocialPartyClient.PrepareLeaderReservationAsync(
+                        result.Entry, cancel.Token);
+                if (cancel.IsCancellationRequested)
+                {
+                    prepared.Admission?.Dispose();
+                    return;
+                }
+                if (!prepared.Success || prepared.Admission == null)
+                {
+                    CloseProgress();
+                    _summary.Text = ("PARTY RESERVATION FAILED  /  "
+                        + prepared.Error.Replace('_', ' ')).ToUpperInvariant();
+                    _summary.Foreground = HubTheme.DangerBrush;
+                    return;
+                }
+                partyAdmission = prepared.Admission;
+            }
+
+            try
+            {
+                await JoinAsync(partyAdmission: partyAdmission);
+            }
+            catch
+            {
+                partyAdmission?.Dispose();
+                throw;
+            }
             if (partyQuickPlay && NetSession.Active)
                 SocialPartyClient.NoteQuickPlayTravel();
         }
