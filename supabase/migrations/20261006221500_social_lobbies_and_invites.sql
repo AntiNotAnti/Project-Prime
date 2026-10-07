@@ -126,7 +126,6 @@ begin
         select 1 from prime.social_lobby_memberships m
         where m.player_id = p_actor
           and m.authority_epoch = p_authority_epoch
-          and m.lobby_eligible
           and m.expires_at > now()
     ) then
         return jsonb_build_object('ok', false, 'status', 'membership_unverified');
