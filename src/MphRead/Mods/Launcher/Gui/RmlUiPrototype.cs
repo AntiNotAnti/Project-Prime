@@ -385,6 +385,9 @@ namespace MphRead.Mods.Launcher.Gui
             _socialLoad = null;
             _socialMutation = null;
             _socialLookup = null;
+            _socialInviteMutation = null;
+            _socialJoin = null;
+            _verifiedSocialJoins.Clear();
             _socialSnapshot = null;
             _socialLookupPlayer = null;
             _socialPendingAction = "";
@@ -1543,6 +1546,9 @@ namespace MphRead.Mods.Launcher.Gui
             _socialLoad = null;
             _socialMutation = null;
             _socialLookup = null;
+            _socialInviteMutation = null;
+            _socialJoin = null;
+            _verifiedSocialJoins.Clear();
             _socialSnapshot = null;
             _socialLookupPlayer = null;
             _socialPendingAction = "";
