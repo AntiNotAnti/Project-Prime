@@ -1088,8 +1088,12 @@ button {
 
 #lobby_actions {
     position: absolute;
-    left: 290dp;
-    right: 290dp;
+    /* Exact 50% anchor shared with the lobby's front Hunter and V stage.
+       Fixed left/right gutters previously gave the row a different center
+       at several breakpoints. */
+    left: 50%;
+    width: 620dp;
+    margin-left: -310dp;
     bottom: 10dp;
     height: 42dp;
     display: flex;
@@ -1450,7 +1454,7 @@ button {
     #lobby_heading, #lobby_match_panel { left: 24dp; }
     #lobby_match_panel { width: 216dp; }
     #lobby_roster_panel { right: 24dp; width: 204dp; }
-    #lobby_actions { left: 245dp; right: 235dp; }
+    #lobby_actions { left: 50%; width: 590dp; margin-left: -295dp; }
     .lobby_action { min-width: 82dp; font-size: 9dp; }
     #footerbar { padding-left: 28dp; padding-right: 28dp; }
 }
@@ -1468,7 +1472,7 @@ button {
     #lobby_heading { width: 190dp; }
     #lobby_match_panel { width: 190dp; }
     #lobby_roster_panel { width: 184dp; }
-    #lobby_actions { left: 198dp; right: 194dp; }
+    #lobby_actions { left: 50%; width: 540dp; margin-left: -270dp; }
     .lobby_action { min-width: 72dp; padding-left: 6dp; padding-right: 6dp; font-size: 8dp; }
     .lobby_nameplate { display: none; }
 }
@@ -1496,7 +1500,7 @@ button {
     #lobby_heading { display: none; }
     #lobby_match_panel { left: 14dp; top: 18dp; width: 170dp; }
     #lobby_roster_panel { right: 14dp; top: 18dp; width: 170dp; }
-    #lobby_actions { left: 188dp; right: 188dp; height: 38dp; }
+    #lobby_actions { left: 50%; width: 94%; margin-left: -47%; height: 38dp; }
     .lobby_action { min-width: 62dp; font-size: 7dp; }
     #footerbar { height: 58dp; }
     #stage { bottom: 58dp; }
