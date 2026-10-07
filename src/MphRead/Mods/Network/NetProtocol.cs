@@ -28,6 +28,9 @@ namespace MphRead.Mods.Network
         QueueState = 61, QueueSeatOffer = 62, QueueAccept = 63, QueueDecline = 64,
         HostChallenge = 65, HostChallengeReply = 66,
         ReplayShotFact = 67, // authority -> recorders, optional accepted shot result
+        PartyReserveClaim = 68, // queue transport -> server, authenticated party seat claim
+        PartyReserveState = 69, // server -> reservation claimant, authoritative group state
+        PartyReserveAccept = 70, // claimant -> server, consume assigned reserved seat
         Hello = 1,          // client -> host, join request
         Welcome = 2,        // host -> client, assigns a slot
         Intent = 3,         // client -> host, one frame of input
@@ -398,8 +401,13 @@ namespace MphRead.Mods.Network
         /// </summary>
         public const int SizeWithFlags = Size + 9;
         public const int SizeWithWaitlist = SizeWithFlags + 3;
+        // Protocol 43 adds one authoritative capacity byte after the existing
+        // waitlist tail. This is the number of currently unoccupied player
+        // slots held by queue offers or atomic party reservations.
+        public const int SizeWithReservations = SizeWithWaitlist + 1;
         public bool WaitlistSupported;
         public ushort WaitlistCount;
+        public byte ReservedSlots;
         public MatchModifierFlags Rules;
 
         /// <summary>Bit 0: this server will open a new match on a port of its own.</summary>
@@ -447,6 +455,10 @@ namespace MphRead.Mods.Network
                 dest[SizeWithFlags] = WaitlistSupported ? (byte)1 : (byte)0;
                 BinaryPrimitives.WriteUInt16LittleEndian(dest[(SizeWithFlags + 1)..], (ushort)Math.Min(WaitlistCount, (ushort)256));
             }
+            if (dest.Length >= SizeWithReservations)
+            {
+                dest[SizeWithWaitlist] = (byte)Math.Min(ReservedSlots, (byte)8);
+            }
         }
 
         public static ServerStatusPacket Read(ReadOnlySpan<byte> src)
@@ -466,6 +478,9 @@ namespace MphRead.Mods.Network
                 AllowJoinInProgress = src.Length < Size + 5 || src[Size + 4] != 0,
                 WaitlistSupported = src.Length >= SizeWithWaitlist && src[SizeWithFlags] == 1,
                 WaitlistCount = src.Length >= SizeWithWaitlist ? (ushort)Math.Min(BinaryPrimitives.ReadUInt16LittleEndian(src[(SizeWithFlags + 1)..]), (ushort)256) : (ushort)0,
+                ReservedSlots = src.Length >= SizeWithReservations
+                    ? (byte)Math.Min(src[SizeWithWaitlist], (byte)8)
+                    : (byte)0,
                 Rules = src.Length >= SizeWithFlags ? (MatchModifierFlags)BinaryPrimitives.ReadUInt32LittleEndian(src[(Size + 5)..]) : MatchModifierFlags.None
             };
         }
@@ -2558,7 +2573,12 @@ namespace MphRead.Mods.Network
         // peers must be refused rather than retrying replay evidence forever.
         // Protocol 43 gives the existing intent target-state bytes Morph Ball
         // touch meaning while Samus is transformed. Packet widths are unchanged.
-        public const int ProtocolVersion = 43;
+        // Protocol 44 adds authoritative party-reservation claim/state/accept
+        // control packets on the queue transport. A protocol-43 server would
+        // silently ignore those packet kinds while still appearing compatible,
+        // which would strand party matchmaking in validation. Mixed v43/v44
+        // peers are therefore refused at the normal protocol boundary.
+        public const int ProtocolVersion = 44;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

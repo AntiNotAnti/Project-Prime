@@ -217,8 +217,9 @@ namespace MphRead.Mods.Launcher.Gui
         /// <summary>Fill the columns in once the server has answered.</summary>
         public void SetStatus(ServerStatus status)
         {
+            int effectivePlayers = status.Players + Math.Max(0, status.ReservedSlots);
             CanJoin = status.Online && status.Protocol == NetConfig.ProtocolVersion
-                && (status.MaxPlayers <= 0 || status.Players < status.MaxPlayers);
+                && (status.MaxPlayers <= 0 || effectivePlayers < status.MaxPlayers);
             CanQueue = status.Online && status.Protocol == NetConfig.ProtocolVersion && status.WaitlistSupported;
             WaitingCount = status.WaitlistCount;
             _availability = !status.Online ? "OFFLINE" : status.Protocol != NetConfig.ProtocolVersion ? "BUILD MISMATCH"
@@ -252,7 +253,9 @@ namespace MphRead.Mods.Launcher.Gui
                     : status.RoomKey;
             _mode = NetStatus.ModeName(status.Mode);
             _players = status.MaxPlayers > 0
-                ? $"{status.Players}/{status.MaxPlayers}"
+                ? status.ReservedSlots > 0
+                    ? $"{status.Players}+{status.ReservedSlots}/{status.MaxPlayers}"
+                    : $"{status.Players}/{status.MaxPlayers}"
                 : status.Players.ToString(CultureInfo.InvariantCulture);
             if (status.Latency >= 0)
             {

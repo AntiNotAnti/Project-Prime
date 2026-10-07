@@ -40,11 +40,19 @@ public sealed partial class DedicatedServer
         ushort occupied = 0;
         foreach (var peer in _peers) occupied |= (ushort)(1 << peer.SlotIndex);
         foreach (var bot in _bots) occupied |= (ushort)(1 << bot.SlotIndex);
-        _waitlist.Update(now, _maxPlayers, occupied, QueueAdmissionAllowed, _matchId, _authorityEpoch);
+        _waitlist.Update(
+            now,
+            _maxPlayers,
+            occupied,
+            QueueAdmissionAllowed,
+            _matchId,
+            _authorityEpoch,
+            PartyReservedSlotsMask());
     }
     private void MaintainWaitlist(double now)
     {
-        if (_waitlist == null) return;
+        MaintainPartyReservations(now);
+        if (_waitlist == null && _queuePeers.Count == 0) return;
         RefreshWaitlist(now);
         _queueRemove.Clear();
         foreach (var peer in _queuePeers.Values)
@@ -52,10 +60,15 @@ public sealed partial class DedicatedServer
             if (peer.QueueId == 0)
             {
                 // Unproven bootstrap never occupies FIFO or player capacity.
-                if (now - peer.CreatedAt >= 5) _queueRemove.Add(peer.Endpoint);
+                // Party reservation validation is an authenticated server-side
+                // round trip, so give that bounded path a little more room.
+                double lifetime = PartyReservationPeerActive(peer.Endpoint) ? 12 : 5;
+                if (now - peer.LastSeen >= lifetime)
+                    _queueRemove.Add(peer.Endpoint);
                 continue;
             }
-            if (!_waitlist.TryGetState(peer.Owner, peer.QueueId, out var state))
+            if (_waitlist == null
+                || !_waitlist.TryGetState(peer.Owner, peer.QueueId, out var state))
             {
                 PublishQueueTerminal(peer, LobbyQueueWireState.Expired);
                 _queueRemove.Add(peer.Endpoint); continue;
@@ -68,7 +81,11 @@ public sealed partial class DedicatedServer
             if (peer.Published != state) PublishQueueState(peer, state, now);
         }
         foreach (var endpoint in _queueRemove)
-        { _queuePeers.Remove(endpoint); _transport?.RetireConnection(endpoint); }
+        {
+            PartyReservationPeerRemoved(endpoint);
+            _queuePeers.Remove(endpoint);
+            _transport?.RetireConnection(endpoint);
+        }
     }
     private static uint NextQueueRevision(QueuePeer peer)
     {
@@ -93,16 +110,20 @@ public sealed partial class DedicatedServer
     }
     private void PublishQueueTerminal(QueuePeer peer, LobbyQueueWireState state)
     {
-        var packet = new QueueStatePacket(NextQueueRevision(peer), peer.QueueId, 0, (ushort)(_waitlist?.Count ?? 0), state);
+        var packet = new QueueStatePacket(NextQueueRevision(peer), peer.QueueId, 0,
+            (ushort)(_waitlist?.Count ?? 0), state);
         packet.Write(_scratch); _transport?.Send(peer.Endpoint, PacketType.QueueState, _scratch.AsSpan(0, QueueStatePacket.Size));
     }
     private void HandleQueueHello(ReceivedPacket packet, double now)
     {
-        if (_waitlist == null || !QueueHelloPacket.TryRead(packet.Payload, out var hello) || hello.ClientNonce == 0
+        if ((_waitlist == null && !PartyReservationAvailable)
+            || !QueueHelloPacket.TryRead(packet.Payload, out var hello)
+            || hello.ClientNonce == 0
             || Find(packet.Sender) != null) return;
         if (!_queuePeers.TryGetValue(packet.Sender, out var peer))
         {
-            if (_waitlist.Count >= WaitlistCapacity || _queuePeers.Count >= WaitlistCapacity + 16
+            if ((_waitlist?.Count ?? 0) >= WaitlistCapacity
+                || _queuePeers.Count >= WaitlistCapacity + 16
                 || _queuePeers.Values.Count(p => p.QueueId == 0) >= 16
                 || !_queueBootstrapBudget.Take(now * 1000, 8, 16)) return;
             // A client ID cannot claim an already connected player or queue identity.
@@ -117,28 +138,45 @@ public sealed partial class DedicatedServer
     }
     private bool HandleQueuePeer(ReceivedPacket packet, double now)
     {
-        if (_waitlist == null || !_queuePeers.TryGetValue(packet.Sender, out var peer)) return false;
+        if (!_queuePeers.TryGetValue(packet.Sender, out var peer)) return false;
         if (packet.Type == PacketType.Hello) return true; // A queued endpoint cannot bypass its offer via normal Hello.
         if (packet.ConnectionId == 0 && packet.Type == PacketType.Bye)
         {
             // NetTransport alone creates an unwrapped local reliable-failure Bye;
             // remote unsequenced Bye is rejected by its receive boundary.
-            if (peer.QueueId != 0) _waitlist.Leave(peer.Owner, peer.QueueId, now);
+            if (peer.QueueId != 0 && _waitlist != null)
+                _waitlist.Leave(peer.Owner, peer.QueueId, now);
             RemoveQueuePeer(peer); return true;
         }
         if (packet.ConnectionId == 0 || packet.ConnectionId != _transport?.QueueConnectionId(packet.Sender)) return true;
         var owner = LobbyQueueConnection.FromEstablished(packet.Sender, packet.ConnectionId);
         if (peer.QueueId != 0 && peer.Owner != owner) return true;
-        if (packet.Type is PacketType.Ping or PacketType.Pong or PacketType.QueueJoin or PacketType.QueueLeave
-            or PacketType.QueueAccept or PacketType.QueueDecline)
+        if (packet.Type is PacketType.Ping or PacketType.Pong
+            or PacketType.QueueJoin or PacketType.QueueLeave
+            or PacketType.QueueAccept or PacketType.QueueDecline
+            or PacketType.PartyReserveClaim or PacketType.PartyReserveAccept)
         {
             peer.LastSeen = now;
-            if (peer.Disconnected && _waitlist.Resume(owner, peer.QueueId, now)) peer.Disconnected = false;
+            if (peer.QueueId != 0 && peer.Disconnected
+                && _waitlist != null
+                && _waitlist.Resume(owner, peer.QueueId, now))
+                peer.Disconnected = false;
         }
+
+        if (HandlePartyReservationPacket(packet, peer, owner, now))
+            return true;
+
         switch (packet.Type)
         {
             case PacketType.QueueJoin:
-                if (!QueueJoinPacket.TryRead(packet.Payload, out var join) || join.ClientNonce != peer.Nonce) break;
+                if (_waitlist == null)
+                {
+                    PublishQueueTerminal(peer, LobbyQueueWireState.Rejected);
+                    RemoveQueuePeer(peer);
+                    break;
+                }
+                if (!QueueJoinPacket.TryRead(packet.Payload, out var join)
+                    || join.ClientNonce != peer.Nonce) break;
                 if (peer.QueueId == 0)
                 {
                     RefreshWaitlist(now);
@@ -149,19 +187,27 @@ public sealed partial class DedicatedServer
                 if (_waitlist.TryGetState(owner, peer.QueueId, out var state)) PublishQueueState(peer, state, now);
                 break;
             case PacketType.QueueLeave:
-                if (QueueLeavePacket.TryRead(packet.Payload, out var leave) && leave.QueueId == peer.QueueId
+                if (_waitlist != null
+                    && QueueLeavePacket.TryRead(packet.Payload, out var leave)
+                    && leave.QueueId == peer.QueueId
                     && _waitlist.Leave(owner, leave.QueueId, now))
                 { PublishQueueTerminal(peer, LobbyQueueWireState.Left); RemoveQueuePeer(peer); }
                 break;
             case PacketType.QueueDecline:
-                if (QueueDeclinePacket.TryRead(packet.Payload, out var decline) && decline.QueueId == peer.QueueId
-                    && _waitlist.Decline(owner, decline.QueueId, decline.OfferId, decline.MatchId, decline.AuthorityEpoch, now))
+                if (_waitlist != null
+                    && QueueDeclinePacket.TryRead(packet.Payload, out var decline)
+                    && decline.QueueId == peer.QueueId
+                    && _waitlist.Decline(owner, decline.QueueId, decline.OfferId,
+                        decline.MatchId, decline.AuthorityEpoch, now))
                 { PublishQueueTerminal(peer, LobbyQueueWireState.Left); RemoveQueuePeer(peer); }
                 break;
             case PacketType.QueueAccept:
-                if (!QueueAcceptPacket.TryRead(packet.Payload, out var accept) || accept.QueueId != peer.QueueId) break;
+                if (_waitlist == null
+                    || !QueueAcceptPacket.TryRead(packet.Payload, out var accept)
+                    || accept.QueueId != peer.QueueId) break;
                 RefreshWaitlist(now);
-                if (_waitlist.TryAccept(owner, accept.QueueId, accept.OfferId, accept.MatchId, accept.AuthorityEpoch, now, slot =>
+                if (_waitlist.TryAccept(owner, accept.QueueId, accept.OfferId,
+                    accept.MatchId, accept.AuthorityEpoch, now, slot =>
                 {
                     // Use ordinary team/lifecycle/player admission, preserving the same socket and connection.
                     byte[] hello = new byte[7]; hello[0] = (byte)PacketType.Hello;
@@ -174,7 +220,8 @@ public sealed partial class DedicatedServer
                 })) _queuePeers.Remove(peer.Endpoint); // transport was promoted by the ordinary Welcome
                 break;
             case PacketType.Bye:
-                if (peer.QueueId != 0) _waitlist.Disconnect(owner, peer.QueueId, now);
+                if (peer.QueueId != 0 && _waitlist != null)
+                    _waitlist.Disconnect(owner, peer.QueueId, now);
                 peer.Disconnected = true;
                 break;
             case PacketType.Ping:
@@ -184,5 +231,9 @@ public sealed partial class DedicatedServer
         return true;
     }
     private void RemoveQueuePeer(QueuePeer peer)
-    { _queuePeers.Remove(peer.Endpoint); _transport?.RetireConnection(peer.Endpoint); }
+    {
+        PartyReservationPeerRemoved(peer.Endpoint);
+        _queuePeers.Remove(peer.Endpoint);
+        _transport?.RetireConnection(peer.Endpoint);
+    }
 }

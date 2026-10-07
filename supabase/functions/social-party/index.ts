@@ -14,10 +14,13 @@ const actions = new Set([
   "leave", "kick", "promote", "disband",
   "publish_travel", "clear_travel",
   "follow_travel", "decline_travel", "joined_travel",
+  "request_reservation", "cancel_reservation",
 ]);
 const primeIdPattern = /^PP-(?:[0-9A-F]{4}-){4}[0-9A-F]{4}$/;
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const epochPattern = /^[1-9][0-9]{0,19}$/;
+const maxUint64 = 18446744073709551615n;
 
 function json(status: number, value: unknown) {
   return new Response(JSON.stringify(value), {
@@ -54,6 +57,8 @@ Deno.serve(async (req: Request) => {
     travel_id?: string;
     revision?: number;
     reason?: string;
+    authority_epoch?: string;
+    include_leader?: boolean;
   };
   try {
     body = await readObjectBounded(req, 4096) as typeof body;
@@ -107,11 +112,30 @@ Deno.serve(async (req: Request) => {
       return json(400, { error: "invalid_travel" });
   }
 
+  let authorityEpoch = "";
+  let includeLeader = false;
+  if (action === "request_reservation") {
+    authorityEpoch = typeof body.authority_epoch === "string"
+      ? body.authority_epoch.trim() : "";
+    includeLeader = body.include_leader === true;
+    if (!epochPattern.test(authorityEpoch)) {
+      return json(400, { error: "invalid_authority_epoch" });
+    }
+    try {
+      const parsed = BigInt(authorityEpoch);
+      if (parsed <= 0n || parsed > maxUint64)
+        return json(400, { error: "invalid_authority_epoch" });
+    } catch {
+      return json(400, { error: "invalid_authority_epoch" });
+    }
+  }
+
   async function combinedSnapshot() {
     const rows = await sql`
       select
         prime.social_party_snapshot(${user.id}::uuid) as party,
-        prime.social_party_travel_snapshot(${user.id}::uuid) as travel
+        prime.social_party_travel_snapshot(${user.id}::uuid) as travel,
+        prime.social_party_reservation_snapshot(${user.id}::uuid) as reservation
     `;
     const party = rows[0]?.party ?? {
       party: null,
@@ -119,7 +143,11 @@ Deno.serve(async (req: Request) => {
       outgoing_party_invites: [],
       recent_players: [],
     };
-    return { ...party, travel: rows[0]?.travel ?? null };
+    return {
+      ...party,
+      travel: rows[0]?.travel ?? null,
+      reservation: rows[0]?.reservation ?? null,
+    };
   }
 
   try {
@@ -186,6 +214,40 @@ Deno.serve(async (req: Request) => {
       const value = rows[0]?.value ?? {
         ok: false,
         status: "party_travel_empty_result",
+      };
+      return json(200, {
+        ...value,
+        snapshot: await combinedSnapshot(),
+      });
+    }
+
+    if (action === "request_reservation") {
+      const rows = await sql`
+        select prime.social_party_reservation_request(
+          ${user.id}::uuid,
+          ${authorityEpoch}::numeric,
+          ${includeLeader}
+        ) as value
+      `;
+      const value = rows[0]?.value ?? {
+        ok: false,
+        status: "reservation_empty_result",
+      };
+      return json(200, {
+        ...value,
+        snapshot: await combinedSnapshot(),
+      });
+    }
+
+    if (action === "cancel_reservation") {
+      const rows = await sql`
+        select prime.social_party_reservation_cancel(
+          ${user.id}::uuid
+        ) as value
+      `;
+      const value = rows[0]?.value ?? {
+        ok: false,
+        status: "reservation_empty_result",
       };
       return json(200, {
         ...value,

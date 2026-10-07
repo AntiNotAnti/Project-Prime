@@ -2027,7 +2027,9 @@ namespace MphRead.Mods.Network
                 LobbyEnabled = SessionPolicy == ServerSessionPolicy.Lobby, AllowJoinInProgress = AllowJoinInProgress,
                 MaxPlayers = (byte)_maxPlayers,
                 Protocol = NetConfig.ProtocolVersion,
-                WaitlistSupported = WaitlistEnabled, WaitlistCount = (ushort)(_waitlist?.Count ?? 0),
+                WaitlistSupported = WaitlistEnabled,
+                WaitlistCount = (ushort)(_waitlist?.Count ?? 0),
+                ReservedSlots = ReservedAdmissionSlotCount(),
                 ServerName = ServerName,
                 // What this box can do besides the match it is running. The
                 // launcher's create-server screen asks every server on the
@@ -2038,7 +2040,7 @@ namespace MphRead.Mods.Network
             };
             status.Write(_scratch);
             _transport?.Send(sender, PacketType.StatusReply,
-                _scratch.AsSpan(0, ServerStatusPacket.SizeWithWaitlist));
+                _scratch.AsSpan(0, ServerStatusPacket.SizeWithReservations));
         }
 
         /// <summary>
@@ -2614,7 +2616,24 @@ namespace MphRead.Mods.Network
             return null;
         }
 
-        private bool SlotFree(int slot) => PhysicalSlotFree(slot) && (_queueAdmitting || _waitlist == null || _waitlist.Count == 0 || _waitlist.CanDirectJoin(slot));
+        private bool SlotFree(int slot)
+        {
+            if (!PhysicalSlotFree(slot))
+                return false;
+
+            // A reservation acceptance may consume exactly the seat assigned
+            // to that member. Every other admission path must treat party
+            // reservations as occupied capacity.
+            if (_partyReservationAdmittingSlot == slot)
+                return true;
+            if (PartySlotReserved(slot))
+                return false;
+
+            return _queueAdmitting
+                || _waitlist == null
+                || _waitlist.Count == 0
+                || _waitlist.CanDirectJoin(slot);
+        }
 
         private bool PhysicalSlotFree(int slot)
         {

@@ -155,7 +155,9 @@ namespace MphRead.Mods.Launcher
             requiredSlots = Math.Max(1, requiredSlots);
             int available = entry.Status.MaxPlayers <= 0
                 ? Int32.MaxValue
-                : Math.Max(0, entry.Status.MaxPlayers - entry.Status.Players);
+                : Math.Max(0, entry.Status.MaxPlayers
+                    - entry.Status.Players
+                    - Math.Max(0, entry.Status.ReservedSlots));
             bool phase = lobbyOnly
                 ? !entry.Status.Legacy
                     && entry.Status.LobbyEnabled
@@ -334,8 +336,10 @@ namespace MphRead.Mods.Launcher
 
         public static async Task<OnlineJoinResult> JoinAsync(
             string host, int port, string playerName, Hunter hunter, int suit,
-            CancellationToken cancellationToken = default, LobbyQueueClient? queuedAdmission = null,
-            bool spectate = false)
+            CancellationToken cancellationToken = default,
+            LobbyQueueClient? queuedAdmission = null,
+            bool spectate = false,
+            PartyReservedAdmission? partyAdmission = null)
         {
             host = host.Trim();
             playerName = playerName.Trim();
@@ -358,8 +362,10 @@ namespace MphRead.Mods.Launcher
             {
                 joined = await Task.Run(() => NetLaunch.Connect(host, port,
                     playerName, hunter, color: suit,
-                    cancellationToken: cancellationToken, queuedAdmission: queuedAdmission,
-                    spectate: spectate), cancellationToken);
+                    cancellationToken: cancellationToken,
+                    queuedAdmission: queuedAdmission,
+                    spectate: spectate,
+                    partyAdmission: partyAdmission), cancellationToken);
             }
             catch (OperationCanceledException)
             {

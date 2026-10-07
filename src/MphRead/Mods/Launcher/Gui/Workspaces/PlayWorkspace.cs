@@ -1,6 +1,7 @@
 #if MPHREAD_AVALONIA
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -473,6 +474,14 @@ namespace MphRead.Mods.Launcher.Gui
             _quickSearch = null;
         }
 
+        private void CompleteQuickSearch(CancellationTokenSource cancel)
+        {
+            if (!ReferenceEquals(_quickSearch, cancel))
+                return;
+            _quickSearch = null;
+            cancel.Dispose();
+        }
+
         private void CancelWork()
         {
             CancelDiscovery();
@@ -607,14 +616,16 @@ namespace MphRead.Mods.Launcher.Gui
             QuickPlaySearchResult result = await ServerBrowserService.FindBestAsync(
                 requiredSlots, lobbyOnly: partyQuickPlay, cancellationToken: cancel.Token);
             if (cancel.IsCancellationRequested || TopLevel.GetTopLevel(this) == null)
+            {
+                CompleteQuickSearch(cancel);
                 return;
-            _quickSearch.Dispose();
-            _quickSearch = null;
+            }
             _quick.IsEnabled = true;
             _refresh.IsEnabled = true;
 
             if (!result.Found)
             {
+                CompleteQuickSearch(cancel);
                 CloseProgress();
                 _summary.Text = result.Message.ToUpperInvariant();
                 _summary.Foreground = HubTheme.WarmBrush;
@@ -626,7 +637,42 @@ namespace MphRead.Mods.Launcher.Gui
                 ? $"PARTY QUICK PLAY  /  {result.Message}".ToUpperInvariant()
                 : $"QUICK PLAY  /  {result.Message}".ToUpperInvariant();
             _summary.Foreground = HubTheme.GoodBrush;
-            await JoinAsync();
+
+            PartyReservedAdmission? partyAdmission = null;
+            if (partyQuickPlay)
+            {
+                ShowProgress($"Reserving {requiredSlots} party slots…");
+                PartyReservationPreparation prepared =
+                    await SocialPartyClient.PrepareLeaderReservationAsync(
+                        result.Entry, cancel.Token);
+                if (cancel.IsCancellationRequested)
+                {
+                    prepared.Admission?.Dispose();
+                    CompleteQuickSearch(cancel);
+                    return;
+                }
+                if (!prepared.Success || prepared.Admission == null)
+                {
+                    CompleteQuickSearch(cancel);
+                    CloseProgress();
+                    _summary.Text = ("PARTY RESERVATION FAILED  /  "
+                        + prepared.Error.Replace('_', ' ')).ToUpperInvariant();
+                    _summary.Foreground = HubTheme.DangerBrush;
+                    return;
+                }
+                partyAdmission = prepared.Admission;
+            }
+
+            CompleteQuickSearch(cancel);
+            try
+            {
+                await JoinAsync(partyAdmission: partyAdmission);
+            }
+            catch
+            {
+                partyAdmission?.Dispose();
+                throw;
+            }
             if (partyQuickPlay && NetSession.Active)
                 SocialPartyClient.NoteQuickPlayTravel();
         }
@@ -692,16 +738,22 @@ namespace MphRead.Mods.Launcher.Gui
             _detailMetaMotion = PrimeMotion.Enter(_detailMeta, 3, 0.13);
         }
 
-        internal Task JoinVerifiedSocialLobbyAsync(string host, int port)
+        internal Task JoinVerifiedSocialLobbyAsync(
+            string host, int port,
+            PartyReservedAdmission? partyAdmission = null)
         {
             _address.Value = port == NetConfig.DefaultPort
                 ? host
                 : $"{host}:{port.ToString(CultureInfo.InvariantCulture)}";
-            _summary.Text = "JOINING VERIFIED SOCIAL LOBBY";
-            return JoinAsync();
+            _summary.Text = partyAdmission == null
+                ? "JOINING VERIFIED SOCIAL LOBBY"
+                : "JOINING RESERVED PARTY SLOT";
+            return JoinAsync(partyAdmission: partyAdmission);
         }
 
-        private async Task JoinAsync(bool spectate = false)
+        private async Task JoinAsync(
+            bool spectate = false,
+            PartyReservedAdmission? partyAdmission = null)
         {
             if (CanLaunch?.Invoke() == false) return;
             if (_joining || NetSession.Active)
@@ -732,13 +784,17 @@ namespace MphRead.Mods.Launcher.Gui
             CancelDiscovery();
 
             OnlineJoinResult result = await ServerBrowserService.JoinAsync(
-                host, port, player, hunter, suit, _connect.Token, spectate: spectate);
+                host, port, player, hunter, suit, _connect.Token,
+                spectate: spectate,
+                partyAdmission: partyAdmission);
 
-            if (!result.Joined && !_connect.IsCancellationRequested && Overlays != null && !spectate)
+            if (!result.Joined && !_connect.IsCancellationRequested
+                && Overlays != null && !spectate && partyAdmission == null)
             {
                 var status = await ServerBrowserService.ProbeAsync(host, port, allowJoinProbe: false);
                 if (!_connect.IsCancellationRequested && status.Online && status.Protocol == NetConfig.ProtocolVersion && status.WaitlistSupported
-                    && (status.Players >= status.MaxPlayers || status.WaitlistCount > 0))
+                    && (status.Players + Math.Max(0, status.ReservedSlots)
+                        >= status.MaxPlayers || status.WaitlistCount > 0))
                 {
                     CloseProgress();
                     using var queued = await LobbyQueueDialog.ShowAsync(Overlays, host, port, _connect.Token,

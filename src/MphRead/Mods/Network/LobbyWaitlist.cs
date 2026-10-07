@@ -44,6 +44,7 @@ internal sealed class LobbyWaitlist
     private bool _allowAdmission, _inAdmission;
     private int _playerCapacity;
     private ushort _occupied;
+    private ushort _externalReserved;
     private uint _matchId;
     private ulong _epoch;
     private LobbyWaitlistMetrics _metrics;
@@ -95,18 +96,37 @@ internal sealed class LobbyWaitlist
 
     /// <summary>Publish authoritative occupancy (humans AND bots), lifecycle and JIP
     /// admission policy, then expire reservations and offer currently free seats.</summary>
-    internal void Update(double now, int playerCapacity, ushort occupiedSlots, bool allowAdmission, uint matchId, ulong authorityEpoch)
+    internal void Update(double now, int playerCapacity, ushort occupiedSlots,
+        bool allowAdmission, uint matchId, ulong authorityEpoch,
+        ushort externalReservedSlots = 0)
     {
         CheckOwner();
-        if (playerCapacity < 1 || playerCapacity > 8 || (occupiedSlots >> playerCapacity) != 0
-            || matchId == 0 || authorityEpoch == 0) throw new ArgumentException("Invalid authoritative admission state.");
+        if (playerCapacity < 1 || playerCapacity > 8
+            || (occupiedSlots >> playerCapacity) != 0
+            || (externalReservedSlots >> playerCapacity) != 0
+            || matchId == 0 || authorityEpoch == 0)
+            throw new ArgumentException("Invalid authoritative admission state.");
+
         Advance(now);
         bool changedEpoch = _matchId != matchId || _epoch != authorityEpoch;
-        _playerCapacity = playerCapacity; _occupied = occupiedSlots; _allowAdmission = allowAdmission;
-        _matchId = matchId; _epoch = authorityEpoch;
+        _playerCapacity = playerCapacity;
+        _occupied = occupiedSlots;
+        _externalReserved = externalReservedSlots;
+        _allowAdmission = allowAdmission;
+        _matchId = matchId;
+        _epoch = authorityEpoch;
+
         foreach (var entry in _entries)
-            if (entry.Offer is LobbySeatOffer offer && (changedEpoch || !allowAdmission
-                || offer.Slot >= playerCapacity || (occupiedSlots & (1 << offer.Slot)) != 0)) entry.Offer = null;
+        {
+            if (entry.Offer is LobbySeatOffer offer
+                && (changedEpoch || !allowAdmission
+                    || offer.Slot >= playerCapacity
+                    || ((occupiedSlots | externalReservedSlots)
+                        & (1 << offer.Slot)) != 0))
+            {
+                entry.Offer = null;
+            }
+        }
         OfferAvailable();
     }
 
@@ -127,13 +147,29 @@ internal sealed class LobbyWaitlist
             _metrics = _metrics with { OffersCreated = Increment(_metrics.OffersCreated) };
         }
     }
-    private ushort ReservedSlotsCore()
+    private ushort QueueReservedSlotsCore()
     {
         ushort result = 0;
-        foreach (var entry in _entries) if (entry.Offer is LobbySeatOffer offer) result |= (ushort)(1 << offer.Slot);
+        foreach (var entry in _entries)
+        {
+            if (entry.Offer is LobbySeatOffer offer)
+                result |= (ushort)(1 << offer.Slot);
+        }
         return result;
     }
-    internal ushort ReservedSlots { get { CheckOwner(); return ReservedSlotsCore(); } }
+
+    private ushort ReservedSlotsCore()
+        => (ushort)(QueueReservedSlotsCore() | _externalReserved);
+
+    internal ushort QueueReservedSlots
+    {
+        get { CheckOwner(); return QueueReservedSlotsCore(); }
+    }
+
+    internal ushort ReservedSlots
+    {
+        get { CheckOwner(); return ReservedSlotsCore(); }
+    }
     internal int Count { get { CheckOwner(); return _entries.Count; } }
     internal LobbyWaitlistMetrics Metrics { get { CheckOwner(); return _metrics; } }
     internal bool CanDirectJoin(int slot)
@@ -223,7 +259,8 @@ internal sealed class LobbyWaitlist
     }
     internal void Clear()
     {
-        CheckOwner(); _entries.Clear(); _occupied = 0; _allowAdmission = false;
+        CheckOwner(); _entries.Clear(); _occupied = 0; _externalReserved = 0;
+        _allowAdmission = false;
         // Never reuse queue or offer IDs while this owner lives.
     }
 }
