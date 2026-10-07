@@ -168,13 +168,20 @@ namespace MphRead
             _activePreview = preview;
 
             Hunter want = LauncherPreview ? LauncherHunter : Mods.EndScreen.Hunter;
-            var mode = LauncherPreview && Mods.Cosmetics.CosmeticPreview.Loadout != null
+            // Multi-player lobby slots are always character bipeds. A stale
+            // cosmetic-preview request (viewmodel/alt/death demo) must not turn
+            // every remote roster entry into the local preview tool's form.
+            bool lobbySlot = LauncherPreview && slot >= 0;
+            var mode = LauncherPreview && !lobbySlot
+                && Mods.Cosmetics.CosmeticPreview.Loadout != null
                 ? Mods.Cosmetics.CosmeticPreview.Mode : Mods.Cosmetics.SkinContext.Biped;
             bool modelChanged = !preview.Ready || preview.Shown != want || preview.Mode != mode;
             preview.SetUp(want, LauncherPreview ? LauncherSuit : Mods.EndScreen.Suit, mode);
-            preview.SetCosmetics(Mods.Cosmetics.CosmeticPreview.Loadout
-                    ?? Mods.Cosmetics.CosmeticPersistence.Get(want),
-                Mods.Cosmetics.CosmeticPreview.DeathRequest);
+            preview.SetCosmetics(lobbySlot
+                    ? Mods.Cosmetics.CosmeticPersistence.Get(want)
+                    : Mods.Cosmetics.CosmeticPreview.Loadout
+                        ?? Mods.Cosmetics.CosmeticPersistence.Get(want),
+                lobbySlot ? 0 : Mods.Cosmetics.CosmeticPreview.DeathRequest);
 
             // Textures and display lists, which nobody else is going to make.
             // Lobby slots keep their own initialization witness so switching
