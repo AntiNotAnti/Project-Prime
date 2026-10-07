@@ -315,6 +315,12 @@ namespace MphRead.Mods.Launcher.Gui
                     // any configuration draft, close sheets and show the countdown.
                     _prime.Overlays.Clear(); _bypassGuard = true;
                     _prime.Router.Navigate(PrimeRoute.Lobby); _bypassGuard = false;
+#if MPHREAD_RMLUI_POC
+                    // Scene loading and its barrier still use the authoritative
+                    // lobby screen. Restore that surface before handing the launch
+                    // plan to Shell so RmlUi cannot remain over the loading scene.
+                    RestoreAvaloniaLobbyFromRml();
+#endif
                     _spectateNextMatch = SpectatorMode.PreferSpectator;
                     MatchRequested?.Invoke(this, match with { Spectate = _spectateNextMatch });
                 };
@@ -325,11 +331,26 @@ namespace MphRead.Mods.Launcher.Gui
                 // Screen assignment performs an immediate hydration tick, and an
                 // already-running match can request its scene during that tick.
                 _session.Screen = _lobby;
+#if MPHREAD_RMLUI_POC
+                if (RmlUiPrototype.Requested && Shell.Window is { } rmlWindow
+                    && RmlUiPrototype.EnterLobby(rmlWindow,
+                        plan.Lobby?.ServerName, plan.Lobby?.Endpoint))
+                {
+                    // The RmlUi chamber is now the lobby presentation owner.
+                    // Detaching this view stops LobbySessionCoordinator; Shell's
+                    // Rml lobby tick below keeps the same authoritative pump alive.
+                    UiSurface.Current?.Hide();
+                }
+#endif
             }
             else Finish(plan);
         }
         private void LobbyClosed(string reason)
         {
+#if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.LobbyMode)
+                RmlUiPrototype.ExitLobby();
+#endif
             _session.Screen = null; _lobby = null;
             _prime.Overlays.Clear();
             if (_prime.Router.Current == PrimeRoute.Lobby) _prime.Router.Navigate(PrimeRoute.Play);
@@ -337,6 +358,55 @@ namespace MphRead.Mods.Launcher.Gui
             if (_prime.Workspaces.Get(PrimeRoute.Play) is PlayWorkspace play) play.SessionEnded(reason);
             _prime.Refresh();
         }
+#if MPHREAD_RMLUI_POC
+        private void RestoreAvaloniaLobbyFromRml()
+        {
+            if (!RmlUiPrototype.LobbyMode || _lobby == null)
+                return;
+
+            RmlUiPrototype.Shutdown();
+            if (UiSurface.Ensure() is not { } surface)
+                return;
+
+            _bypassGuard = true;
+            try
+            {
+                _prime.Router.Navigate(PrimeRoute.Lobby);
+            }
+            finally
+            {
+                _bypassGuard = false;
+            }
+            surface.Show(this);
+            _session.Start();
+        }
+
+        internal void RmlLobbyTick()
+        {
+            if (!RmlUiPrototype.LobbyMode || _lobby == null)
+                return;
+
+            // LobbySessionCoordinator is detached while the Avalonia surface is
+            // hidden. Keep the exact same server control plane running under the
+            // RmlUi presentation instead of inventing a parallel network path.
+            NetSession.Pump();
+            _lobby.SessionTick(foreground: true);
+        }
+
+        internal void RmlLobbyReady() => _lobby?.RmlToggleReady();
+        internal void RmlLobbyStart() => _lobby?.RmlStartMatch();
+        internal void RmlLobbyLeave() => _lobby?.RmlLeave();
+        internal void RmlLobbyNextHunter() => _lobby?.RmlNextHunter();
+        internal void RmlLobbyNextSuit() => _lobby?.RmlNextSuit();
+
+        internal void OpenClassicLobbyFromRml()
+        {
+            if (_lobby == null)
+                return;
+            RestoreAvaloniaLobbyFromRml();
+        }
+#endif
+
         private void OpenSetup()
         {
             var view = new SetupScreen();
