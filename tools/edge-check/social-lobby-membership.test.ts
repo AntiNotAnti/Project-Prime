@@ -110,6 +110,7 @@ test("verified server heartbeat binds signed Hunter License to authority epoch",
     authority_epoch: epoch,
     client_id: clientId,
     career_ticket: ticket(),
+    lobby_eligible: true,
   }));
   assert.equal(response.status, 200);
   const data: any = await response.json();
@@ -117,7 +118,7 @@ test("verified server heartbeat binds signed Hunter License to authority epoch",
   assert.equal(data.status, "membership_verified");
   assert.equal(data.player_id, playerId);
   assert.deepEqual(lastHeartbeat, [
-    playerId, epoch, reporterId, clientId,
+    playerId, epoch, reporterId, clientId, true,
   ]);
   assert.deepEqual(lastRecent, [playerId, epoch, reporterId]);
 });
@@ -128,6 +129,7 @@ test("membership rejects forged and wrong-client Hunter License tickets", async 
     authority_epoch: epoch,
     client_id: clientId,
     career_ticket: ticket(playerId, clientId + 1),
+    lobby_eligible: false,
   }));
   assert.equal(response.status, 401);
 
@@ -136,6 +138,7 @@ test("membership rejects forged and wrong-client Hunter License tickets", async 
     authority_epoch: epoch,
     client_id: clientId,
     career_ticket: ticket().slice(0, -2) + "xx",
+    lobby_eligible: false,
   }));
   assert.equal(response.status, 401);
 });
@@ -147,6 +150,7 @@ test("leave removes only the verified player, epoch and reporter tuple", async (
     authority_epoch: epoch,
     client_id: clientId,
     career_ticket: ticket(),
+    lobby_eligible: true,
   }));
   assert.equal(response.status, 200);
   const data: any = await response.json();
