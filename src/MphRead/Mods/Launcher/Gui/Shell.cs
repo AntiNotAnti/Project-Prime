@@ -101,6 +101,9 @@ namespace MphRead.Mods.Launcher.Gui
             }
         }
         private static StartScreen? _front;
+#if MPHREAD_RMLUI_POC
+        private static RmlMultiplayerController? _rmlMultiplayer;
+#endif
         private static InGameMenu? _menu;
         private static MenuSettings _settings = new MenuSettings();
         private static IReadOnlyList<string> _rooms = Array.Empty<string>();
@@ -349,6 +352,12 @@ namespace MphRead.Mods.Launcher.Gui
                     continue;
                 }
 
+                if (rmlCommand.StartsWith("play:", StringComparison.Ordinal))
+                {
+                    HandleRmlPlayCommand(rmlCommand);
+                    continue;
+                }
+
                 if (rmlCommand == "quit")
                 {
                     RequestQuit();
@@ -359,6 +368,8 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     if (Mods.StudioIntegration.StudioApplicationLauncher.TryOpen(null, false, out string? error))
                         continue;
+                    _rmlMultiplayer?.Cancel();
+                    _rmlMultiplayer?.Cancel();
                     RmlUiPrototype.Shutdown();
                     if (!GuiLauncher.EnsureSetup() || UiSurface.Ensure() == null)
                     {
@@ -487,6 +498,7 @@ namespace MphRead.Mods.Launcher.Gui
                 NotePointerBasis(window);
                 UiOverlay.Visible = false;
                 RmlUiPrototype.Tick(window);
+                _rmlMultiplayer?.Tick();
                 return;
             }
 #endif
@@ -660,6 +672,89 @@ namespace MphRead.Mods.Launcher.Gui
             }
             surface.Show(_front);
         }
+
+#if MPHREAD_RMLUI_POC
+        private static RmlMultiplayerController EnsureRmlMultiplayer()
+        {
+            if (_rmlMultiplayer != null)
+                return _rmlMultiplayer;
+            IReadOnlyList<string> rooms = _rooms.Count != 0
+                ? _rooms
+                : GameFiles.Ready ? ThumbnailGenerator.MultiplayerRooms()
+                    : Array.Empty<string>();
+            var controller = new RmlMultiplayerController(rooms);
+            controller.Connected += AcceptRmlMultiplayerPlan;
+            return _rmlMultiplayer = controller;
+        }
+
+        private static void HandleRmlPlayCommand(string command)
+        {
+            if (command == "play:cancel")
+            {
+                _rmlMultiplayer?.Cancel();
+                return;
+            }
+            RmlMultiplayerController controller = EnsureRmlMultiplayer();
+            if (command == "play:quick")
+            {
+                if (!controller.Visible) controller.Open(quickPlay: true);
+                else controller.QuickPlay();
+            }
+            else if (command == "play:browse")
+            {
+                if (!controller.Visible) controller.Open(quickPlay: false);
+                else controller.Browse();
+            }
+            else if (command == "play:create-open")
+            {
+                // RmlUi owns this view and its input fields. Creating a session
+                // happens only on the explicit CREATE & JOIN press.
+            }
+            else if (command == "play:next-map")
+                controller.NextMap();
+            else if (command == "play:next-mode")
+                controller.NextMode();
+            else if (command == "play:toggle-host")
+                controller.ToggleHost();
+            else if (command == "play:create")
+                controller.Create(RmlUiPrototype.ReadFieldValue("play_create_name"));
+            else if (command == "play:join")
+                controller.JoinEndpoint(
+                    RmlUiPrototype.ReadFieldValue("play_join_address"), spectate: false);
+            else if (command.StartsWith("play:server:", StringComparison.Ordinal)
+                && Int32.TryParse(command["play:server:".Length..], out int index))
+                controller.JoinSelected(index);
+        }
+
+        private static void AcceptRmlMultiplayerPlan(LaunchPlan plan)
+        {
+            // The migration creates the authoritative LobbyScreen only after a
+            // real connection is established. Until this boundary, browsing,
+            // hosting and connecting have no visible Avalonia dependency.
+            _rmlMultiplayer?.Cancel();
+            if (!GuiLauncher.EnsureSetup() || UiSurface.Ensure() == null)
+            {
+                NetSession.Stop();
+                Mods.DebugLog.Line("rmlui",
+                    "could not initialize fallback authority for connected lobby");
+                RequestQuit();
+                return;
+            }
+
+            ShowFrontScreen();
+            if (_front == null)
+            {
+                NetSession.Stop();
+                RequestQuit();
+                return;
+            }
+
+            if (!NetSession.PersistentLobby)
+                RmlUiPrototype.Shutdown();
+
+            _front.OpenConnectedFromRml(plan);
+        }
+#endif
 
         private static void Decided(LaunchPlan plan)
         {
