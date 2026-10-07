@@ -555,6 +555,62 @@ namespace MphRead.Mods.Launcher.Gui
             _suspended = true;
         }
 
+#if MPHREAD_RMLUI_POC
+        // RmlUi is a presentation owner only. These entry points deliberately
+        // reuse the authoritative lobby command paths instead of maintaining a
+        // second lobby state machine beside this screen.
+        internal void RmlToggleReady()
+        {
+            if (_closed || !NetSession.IsInLobby || NetSession.LocalSlot < 0)
+                return;
+            NetSession.SendLobbyCommand(LobbyCommandType.SetReady,
+                ready: !NetSession.SlotLobbyReady[NetSession.LocalSlot]);
+        }
+
+        internal void RmlStartMatch()
+        {
+            if (_closed)
+                return;
+            StartMatchRequested();
+        }
+
+        internal void RmlLeave()
+        {
+            Leave("");
+        }
+
+        internal void RmlNextHunter()
+        {
+            if (_closed || !NetSession.IsInLobby || NetSession.LobbyCommandPending)
+                return;
+
+            bool lowTier = NetSession.ActiveMatchDefinition?.LowTier ?? false;
+            Hunter[] pool = Multiplayer.HunterRules.Pool(lowTier).ToArray();
+            if (pool.Length == 0)
+                return;
+
+            int current = Array.IndexOf(pool, NetSession.LocalHunter);
+            int next = current < 0 ? 0 : (current + 1) % pool.Length;
+            NetSession.LocalHunter = pool[next];
+            LauncherPrefs.LastHunter = NetSession.LocalHunter;
+            LauncherPrefs.Save();
+            NetSession.SendIdentify();
+            _shownRosterRevision = null;
+        }
+
+        internal void RmlNextSuit()
+        {
+            if (_closed || !NetSession.IsInLobby || NetSession.LobbyCommandPending)
+                return;
+
+            NetSession.LocalColor = (NetSession.LocalColor + 1) & 3;
+            LauncherPrefs.LastColor = NetSession.LocalColor;
+            LauncherPrefs.Save();
+            NetSession.SendIdentify();
+            _shownRosterRevision = null;
+        }
+#endif
+
         private void Invite()
         {
             string endpoint = $"{LauncherPrefs.ServerAddress}:{LauncherPrefs.ServerPort}";
