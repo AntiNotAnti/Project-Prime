@@ -25,7 +25,7 @@ internal sealed class PartyReservationClient : IDisposable
     private readonly byte[] _buffer = new byte[1024];
 
     private bool _welcomed;
-    private bool _acceptSent;
+    private double _lastAccept = -1;
     private double _lastHello = -1;
     private double _lastClaim = -1;
     private double _lastPing = -1;
@@ -173,8 +173,9 @@ internal sealed class PartyReservationClient : IDisposable
                 _state = state;
                 if (state.State == PartyReservationWireState.Reserved)
                 {
-                    if (!_acceptSent)
+                    if (now - _lastAccept >= .5)
                     {
+                        _lastAccept = now;
                         var accept = new PartyReserveAcceptPacket(
                             state.RequestId,
                             state.ReservationId,
@@ -184,7 +185,6 @@ internal sealed class PartyReservationClient : IDisposable
                             _server,
                             PacketType.PartyReserveAccept,
                             _buffer.AsSpan(0, PartyReserveAcceptPacket.Size));
-                        _acceptSent = true;
                     }
                 }
                 else if (state.State == PartyReservationWireState.Rejected)
