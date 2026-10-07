@@ -19,6 +19,31 @@ namespace MphRead.Mods.Launcher
 
             Check(LauncherLobbyFormation.Validate(),
                 "eight linked lobby slots form a symmetric V with local hero at front");
+            LobbyFormationSlot hero = LauncherLobbyFormation.At(0);
+            Check(Math.Abs(hero.PadX - .5f) < .001f
+                && Math.Abs((hero.HunterLeft + hero.HunterRight) * .5f - .5f) < .01f
+                && Math.Abs(hero.LabelX - .5f) < .001f,
+                "lobby hero pad, model and nameplate share the horizontal midpoint");
+            for (int wing = 1; wing <= 5; wing += 2)
+            {
+                LobbyFormationSlot left = LauncherLobbyFormation.At(wing);
+                LobbyFormationSlot right = LauncherLobbyFormation.At(wing + 1);
+                Check(Math.Abs(left.PadX + right.PadX - 1f) < .001f,
+                    $"lobby wing {wing}/{wing + 1} is centered as a mirrored pair");
+            }
+
+            (int x1, int y1) = RmlUiPointerMapping.FromWindow(210, 140, 1f, 1f);
+            Check(x1 == 210 && y1 == 140,
+                "native RmlUi pointer position remains unscaled at 1x");
+            (int x2, int y2) = RmlUiPointerMapping.FromWindow(210, 140, 2f, 2f);
+            Check(x2 == 420 && y2 == 280,
+                "Retina mouse converts GLFW window to framebuffer exactly once");
+            (int x3, int y3) = RmlUiPointerMapping.FromWindow(210, 140, 1.5f, 1.5f);
+            Check(x3 == 315 && y3 == 210,
+                "fractional DPI RmlUi clicks preserve target geometry");
+            (int outsideX, int outsideY) = RmlUiPointerMapping.FromWindow(-5, 200, 2f, 2f);
+            Check(outsideX == -10 && outsideY == 400,
+                "RmlUi captured mouse release stays outside the viewport");
             Check(LauncherLobbyFormation.PackPads().Length == LauncherLobbyFormation.Capacity * 4,
                 "GL platform uniforms come from the shared formation");
             for (int slot = 0; slot < LauncherLobbyFormation.Capacity; slot++)

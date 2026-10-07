@@ -46,6 +46,7 @@ namespace MphRead.Mods.Launcher.Gui
         private static string? _captureDirectory;
         private static bool _diagnosticsVisible;
         private static bool _lobbyMode;
+        private static bool _multiplayerMode;
         private static string _lobbyName = "MULTIPLAYER LOBBY";
         private static string _lobbyEndpoint = "";
         private static readonly LobbyDisplayPlayer[] _lobbyPlayers = new LobbyDisplayPlayer[8];
@@ -111,6 +112,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _height = height;
                 _density = density;
                 _active = true;
+                _multiplayerMode = false;
                 _nextStateRefresh = 0;
                 _captureFrames = 0;
                 _captureDirectory = CaptureDirectory();
@@ -151,6 +153,7 @@ namespace MphRead.Mods.Launcher.Gui
                 return false;
 
             _lobbyMode = true;
+            _multiplayerMode = false;
             _lobbyName = String.IsNullOrWhiteSpace(lobbyName)
                 ? "MULTIPLAYER LOBBY"
                 : lobbyName.Trim().ToUpperInvariant();
@@ -174,6 +177,7 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
 
             _lobbyMode = false;
+            _multiplayerMode = false;
             _lobbyPlayerCount = 0;
             Array.Clear(_lobbyPlayers);
             LauncherLobbyVisuals.Reset();
@@ -193,6 +197,9 @@ namespace MphRead.Mods.Launcher.Gui
 
             if (!_lobbyMode)
             {
+                // Browser/Create overlays use the central bay for real data.
+                // Do not paint a giant Hunter through translucent server rows.
+                if (_multiplayerMode) return;
                 LauncherHunter.PreviewSlot = -1;
                 LauncherHunter.Draw(window, width, height);
                 return;
@@ -346,12 +353,13 @@ namespace MphRead.Mods.Launcher.Gui
 
         public static void PointerMoved(double x, double y)
         {
-            if (_active)
-            {
-                NativeMouseMove(
-                    (int)Math.Round(x * _pointerScaleX),
-                    (int)Math.Round(y * _pointerScaleY), 0);
-            }
+            if (!_active) return;
+            // Shell forwards raw GLFW window coordinates, never pixels already
+            // scaled by RenderWindow.PointerPixels. ReadSize supplies the one
+            // framebuffer/GLFW-window conversion, independent of dp density.
+            (int px, int py) = RmlUiPointerMapping.FromWindow(
+                x, y, _pointerScaleX, _pointerScaleY);
+            NativeMouseMove(px, py, 0);
         }
 
         public static void PointerButton(MouseButton button, double x, double y, bool down)
@@ -621,8 +629,8 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static void ConfigureHunter(HubSnapshot snapshot)
         {
-            LauncherHunter.Wanted = snapshot.GameFilesReady;
-            LauncherHunter.CanPresent = () => _active;
+            LauncherHunter.Wanted = snapshot.GameFilesReady && !_multiplayerMode;
+            LauncherHunter.CanPresent = () => _active && !_multiplayerMode;
             LauncherHunter.PreviewSlot = -1;
             LauncherHunter.Hunter = snapshot.DisplayHunter;
             LauncherHunter.Suit = snapshot.Suit;
@@ -652,6 +660,18 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     ApplyStageAction(action);
                     continue;
+                }
+                if (action.StartsWith("play:", StringComparison.Ordinal))
+                {
+                    bool multiplayer = action != "play:cancel";
+                    if (_multiplayerMode != multiplayer)
+                    {
+                        _multiplayerMode = multiplayer;
+                        if (multiplayer)
+                            LauncherHunter.Wanted = false;
+                        else
+                            ConfigureHunter(HubState.Capture());
+                    }
                 }
                 _commands.Enqueue(action);
             }

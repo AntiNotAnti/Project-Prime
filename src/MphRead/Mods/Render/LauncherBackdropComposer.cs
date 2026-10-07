@@ -319,7 +319,10 @@ void main()
     else
     {
         // Home keeps the original full-size solo hero platform.
-        vec4 soloPad = lobby_pad_geometry[0];
+        // Home's solo-stage hero remains offset for its left activity menu.
+        // The separate live-lobby formation is centered at 0.5 and must not
+        // pull the home-only pedestal away from the single-Hunter preview.
+        vec4 soloPad = vec4(0.615, 0.805, 0.235, 0.060);
         vec2 platformDelta = (uv - soloPad.xy) / soloPad.zw;
         float platformQ = dot(platformDelta, platformDelta);
         float platformFill = 1.0 - smoothstep(0.62, 1.0, platformQ);
