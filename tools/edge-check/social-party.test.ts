@@ -8,9 +8,11 @@ const target = "PP-2222-2222-4222-8222-2222";
 const invite = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const lobby = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const travelId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+const reservationRequest = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 let handler: (req: Request) => Promise<Response>;
 let lastAction: unknown[] = [];
 let lastTravel: unknown[] = [];
+let lastReservation: unknown[] = [];
 
 (globalThis as any).Deno = {
   env: {
@@ -35,6 +37,18 @@ const snapshot = {
   recent_players: [],
 };
 
+const reservation = {
+  request_id: reservationRequest,
+  authority_epoch: "638000000000000000",
+  include_leader: true,
+  requested_count: 2,
+  status: "pending",
+  server_reservation_id: null,
+  created_at: "2026-10-07T03:00:00Z",
+  expires_at: "2026-10-07T03:00:20Z",
+  members: [],
+};
+
 const travel = {
   travel_id: travelId,
   revision: 4,
@@ -56,8 +70,9 @@ const fixtureSql: any = async (strings: TemplateStringsArray, ...values: unknown
   if (query.includes("project_prime_hunter_license_for"))
     return [{ project_prime_hunter_license_for: { profile: {} } }];
   if (query.includes("social_party_snapshot")
-    && query.includes("social_party_travel_snapshot"))
-    return [{ party: snapshot, travel }];
+    && query.includes("social_party_travel_snapshot")
+    && query.includes("social_party_reservation_snapshot"))
+    return [{ party: snapshot, travel, reservation }];
   if (query.includes("social_party_travel_publish")) {
     lastTravel = values;
     return [{ value: { ok: true, status: "party_travel_published", travel } }];
@@ -86,6 +101,25 @@ const fixtureSql: any = async (strings: TemplateStringsArray, ...values: unknown
           expires_at: "2026-10-07T03:00:00Z",
         } : null,
         travel,
+      },
+    }];
+  }
+  if (query.includes("social_party_reservation_request")) {
+    lastReservation = values;
+    return [{
+      value: {
+        ok: true,
+        status: "reservation_requested",
+        reservation,
+      },
+    }];
+  }
+  if (query.includes("social_party_reservation_cancel")) {
+    lastReservation = values;
+    return [{
+      value: {
+        ok: true,
+        status: "reservation_cancelled",
       },
     }];
   }
@@ -141,7 +175,7 @@ test("social party remains JWT/Auth gated", async () => {
   assert.equal((await handler(request({ action: "snapshot" }, "bad-token"))).status, 401);
 });
 
-test("party snapshot returns party, invites, recent players and travel", async () => {
+test("party snapshot returns party, travel and reservation state", async () => {
   const response = await handler(request({ action: "snapshot" }));
   assert.equal(response.status, 200);
   const data: any = await response.json();
@@ -150,6 +184,7 @@ test("party snapshot returns party, invites, recent players and travel", async (
   assert.deepEqual(data.snapshot.recent_players, []);
   assert.equal(data.snapshot.travel.travel_id, travelId);
   assert.equal(data.snapshot.travel.reason, "regroup");
+  assert.equal(data.snapshot.reservation.request_id, reservationRequest);
 });
 
 test("target party mutations use verified actor and canonical Prime ID", async () => {
@@ -225,6 +260,33 @@ test("travel follow/decline/joined are revision-bound and return locator only fo
   assert.equal(data.status, "party_travel_joined");
 });
 
+test("leader reservation requests preserve uint64 authority and include-leader mode", async () => {
+  lastReservation = [];
+  const response = await handler(request({
+    action: "request_reservation",
+    authority_epoch: "638000000000000000",
+    include_leader: true,
+  }));
+  assert.equal(response.status, 200);
+  const data: any = await response.json();
+  assert.equal(data.status, "reservation_requested");
+  assert.equal(data.snapshot.reservation.request_id, reservationRequest);
+  assert.deepEqual(lastReservation, [
+    actor, "638000000000000000", true,
+  ]);
+});
+
+test("leader can cancel the active party reservation", async () => {
+  lastReservation = [];
+  const response = await handler(request({
+    action: "cancel_reservation",
+  }));
+  assert.equal(response.status, 200);
+  const data: any = await response.json();
+  assert.equal(data.status, "reservation_cancelled");
+  assert.deepEqual(lastReservation, [actor]);
+});
+
 test("malformed party IDs and oversized bodies fail before SQL", async () => {
   assert.equal((await handler(request({
     action: "kick",
@@ -243,6 +305,11 @@ test("malformed party IDs and oversized bodies fail before SQL", async () => {
     action: "follow_travel",
     travel_id: travelId,
     revision: 0,
+  }))).status, 400);
+  assert.equal((await handler(request({
+    action: "request_reservation",
+    authority_epoch: "18446744073709551616",
+    include_leader: true,
   }))).status, 400);
 
   const response = await handler(new Request(
