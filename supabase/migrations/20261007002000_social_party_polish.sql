@@ -153,6 +153,17 @@ as $$
 declare
     v_now timestamptz := now();
 begin
+    -- Every participant heartbeat for one authority touches the same directed
+    -- player pairs. Lock the verified membership set in one stable order so
+    -- simultaneous A->B and B->A heartbeats cannot deadlock on opposite upserts.
+    perform m.player_id
+    from prime.social_lobby_memberships m
+    where m.authority_epoch = p_authority_epoch
+      and m.reporter_id = p_reporter
+      and m.expires_at > v_now
+    order by m.player_id
+    for update;
+
     insert into prime.social_recent_players(actor_id, other_id, last_seen, encounters)
     select p_player, m.player_id, v_now, 1
     from prime.social_lobby_memberships m
@@ -337,6 +348,14 @@ declare
     v_created boolean := false;
 begin
     perform prime.social_party_expire(p_actor);
+
+    -- Serialize all party choices from one account. In particular this makes
+    -- two simultaneous first invites converge on one newly-created party
+    -- instead of racing the unique player_id membership constraint.
+    perform 1
+    from prime.social_profiles
+    where player_id = p_actor
+    for update;
 
     select pm.party_id, p.leader_id into v_party, v_leader
     from prime.social_party_members pm
