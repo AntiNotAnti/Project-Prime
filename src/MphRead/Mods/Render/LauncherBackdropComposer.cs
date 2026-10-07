@@ -133,6 +133,9 @@ float platform_fill_mask(vec2 uv, vec2 center, vec2 radius)
 void main()
 {
     vec2 uv = chamber_uv;
+    // The standalone Play/home hero remains right-offset to make room for
+    // the activity selector. The actual eight-player lobby is centered.
+    float stageHeroX = lobby_mode > 0.5 ? 0.5 : 0.615;
     float aspect = max(resolution.x / max(resolution.y, 1.0), 1.0);
     vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
 
@@ -151,7 +154,7 @@ void main()
     // Neutral torso-level lift keeps the selected Hunter readable without
     // painting Hunter identity color through the model itself. This is the
     // brightest part of the room, but still reads as reflected chamber light.
-    float torsoLift = ellipse_mask(uv, vec2(0.615, 0.49), vec2(0.255, 0.335));
+    float torsoLift = ellipse_mask(uv, vec2(stageHeroX, 0.49), vec2(0.255, 0.335));
     vec3 heroAmbient = mix(base_mid, vec3(0.105, 0.145, 0.185), 0.55);
     col += heroAmbient * torsoLift * (0.15 + 0.05 * hero_light);
 
@@ -218,7 +221,7 @@ void main()
 
     // Hero halo behind the selected Hunter. Hunter theme drives the hue while
     // activity mood decides how energetic the chamber feels.
-    vec2 heroCenter = vec2(0.615, 0.49);
+    vec2 heroCenter = vec2(stageHeroX, 0.49);
     float hero = ellipse_mask(uv, heroCenter, vec2(0.205, 0.39));
     float pulse = 1.0;
     if (time_value > 0.0)
@@ -228,12 +231,12 @@ void main()
 
     // Narrow rear rim column gives shoulders/head a clean edge without turning
     // the whole background into a glowing circle.
-    float rimColumn = ellipse_mask(uv, vec2(0.615, 0.43), vec2(0.105, 0.32));
+    float rimColumn = ellipse_mask(uv, vec2(stageHeroX, 0.43), vec2(0.105, 0.32));
     col += hunter_rim * rimColumn * 0.040 * hero_light;
 
     // Neutral cool key behind the head and upper torso. It raises local
     // contrast without recoloring the Hunter's authored red/orange/blue/etc.
-    float heroKey = ellipse_mask(uv, vec2(0.615, 0.390), vec2(0.165, 0.225));
+    float heroKey = ellipse_mask(uv, vec2(stageHeroX, 0.390), vec2(0.165, 0.225));
     vec3 heroKeyColor = vec3(0.31, 0.39, 0.46);
     col += heroKeyColor * heroKey * (0.040 + 0.020 * hero_light);
 
@@ -251,7 +254,7 @@ void main()
     float fy = max(uv.y - 0.56, 0.001);
     float perspectiveY = 1.0 / (fy * 10.0 + 0.55);
     float horizontal = line(fract(perspectiveY * 4.2) - 0.5, 0.06);
-    float centeredX = (uv.x - 0.615) / max(fy + 0.20, 0.20);
+    float centeredX = (uv.x - stageHeroX) / max(fy + 0.20, 0.20);
     float vertical = line(fract(centeredX * 4.5) - 0.5, 0.035);
     float grid = max(horizontal, vertical) * floorMask;
     col += activity_accent * grid * 0.038 * floor_grid;
@@ -357,7 +360,7 @@ void main()
 
     // Local rear haze sits under the model pass, so it gives the legs depth
     // while the Hunter itself remains crisp and materially neutral.
-    float rearLegFog = ellipse_mask(uv, vec2(0.615, 0.685), vec2(0.315, 0.135));
+    float rearLegFog = ellipse_mask(uv, vec2(stageHeroX, 0.685), vec2(0.315, 0.135));
     vec3 rearFogColor = mix(activity_accent, vec3(0.22, 0.28, 0.33), 0.72);
     col = mix(col, rearFogColor,
         rearLegFog * fog_amount * (0.045 + 0.020 * energy));
