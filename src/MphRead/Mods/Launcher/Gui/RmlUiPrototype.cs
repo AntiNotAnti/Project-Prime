@@ -1135,6 +1135,8 @@ namespace MphRead.Mods.Launcher.Gui
 
             SocialPresenceSnapshot presence = SocialPresenceClient.Current;
             SocialInviteSnapshot invites = SocialInviteClient.Current;
+            SocialPartySnapshot partyState = SocialPartyClient.Current;
+            SocialParty? party = partyState.Party;
             SocialLobbyLocator? ownLobby = SocialInviteClient.CurrentLobby;
             bool canInvite = ownLobby != null
                 && ownLobby.ExpiresAt > DateTimeOffset.UtcNow;
@@ -1154,20 +1156,39 @@ namespace MphRead.Mods.Launcher.Gui
                 + (_socialSnapshot?.OutgoingRequests.Count ?? 0);
             int incomingInvites = invites.Incoming.Count;
             int allInvites = incomingInvites + invites.Outgoing.Count;
-            int badge = requests + incomingInvites;
+            int incomingPartyInvites = partyState.IncomingPartyInvites.Count;
+            int badge = requests + incomingInvites + incomingPartyInvites;
             SetText("social_online_count", $"{presence.Players.Count} ONLINE");
             SetText("social_friend_count", $"{onlineFriends.Count} ONLINE");
             SetText("social_request_count",
                 requests == 1 ? "1 REQUEST" : $"{requests} REQUESTS");
             SetText("social_invite_count",
                 allInvites == 1 ? "1 ACTIVE" : $"{allInvites} ACTIVE");
+            SetText("social_party_count", party == null
+                ? (incomingPartyInvites == 1 ? "1 INVITE" : $"{incomingPartyInvites} INVITES")
+                : $"{party.Members.Count}/8 MEMBERS");
+            SetText("social_recent_count",
+                partyState.RecentPlayers.Count == 1
+                    ? "1 RECENT" : $"{partyState.RecentPlayers.Count} RECENT");
+            SetText("social_dnd_label",
+                LauncherPrefs.DoNotDisturb ? "DND ON" : "DND OFF");
             SetText("social_badge",
                 badge > 0 ? Math.Min(badge, 99).ToString(CultureInfo.InvariantCulture) : "");
+
             SocialGameInvite? newestInvite = invites.Incoming.Count > 0
                 ? invites.Incoming[0] : null;
-            SetText("social_notice", newestInvite == null ? ""
-                : $"GAME INVITE // {newestInvite.DisplayName.ToUpperInvariant()} // "
-                    + SocialRoomLabel(newestInvite.RoomKey));
+            SocialPartyInvite? newestPartyInvite =
+                partyState.IncomingPartyInvites.Count > 0
+                    ? partyState.IncomingPartyInvites[0] : null;
+            string notice = LauncherPrefs.DoNotDisturb
+                ? "DO NOT DISTURB // GAME AND PARTY INVITES PAUSED"
+                : newestInvite != null
+                    ? $"GAME INVITE // {newestInvite.DisplayName.ToUpperInvariant()} // "
+                        + SocialRoomLabel(newestInvite.RoomKey)
+                    : newestPartyInvite != null
+                        ? $"PARTY INVITE // {newestPartyInvite.DisplayName.ToUpperInvariant()}"
+                        : "";
+            SetText("social_notice", notice);
 
             List<SocialUiRow> rows = BuildSocialRows(presenceById, canInvite);
             var filtered = new List<SocialUiRow>();
@@ -1204,6 +1225,10 @@ namespace MphRead.Mods.Launcher.Gui
             fingerprint.Append(_socialTab).Append('|').Append(_socialSearch).Append('|')
                 .Append(presence.Players.Count).Append('|').Append(onlineFriends.Count)
                 .Append('|').Append(requests).Append('|').Append(allInvites)
+                .Append('|').Append(incomingPartyInvites)
+                .Append('|').Append(party?.PartyId ?? "")
+                .Append('|').Append(partyState.RecentPlayers.Count)
+                .Append('|').Append(LauncherPrefs.DoNotDisturb ? '1' : '0')
                 .Append('|').Append(ownLobby?.LobbyId ?? "");
             foreach (SocialUiRow row in filtered)
                 fingerprint.Append('|').Append(row.PrimeId).Append(':').Append(row.Activity)
@@ -1339,6 +1364,99 @@ namespace MphRead.Mods.Launcher.Gui
                 return rows;
             }
 
+            if (_socialTab == 4)
+            {
+                SocialPartySnapshot partyState = SocialPartyClient.Current;
+                SocialParty? party = partyState.Party;
+                if (party != null)
+                {
+                    foreach (SocialPartyMember member in party.Members)
+                    {
+                        presenceById.TryGetValue(
+                            member.PrimeId, out SocialOnlinePlayer? online);
+                        string relation = member.IsSelf
+                            ? (member.IsLeader ? "PARTY LEADER SELF" : "PARTY MEMBER SELF")
+                            : party.IsLeader && !member.IsLeader
+                                ? "PARTY MEMBER MANAGE"
+                                : member.IsLeader ? "PARTY LEADER" : "PARTY MEMBER";
+                        rows.Add(new SocialUiRow(
+                            member.PrimeId,
+                            member.DisplayName.ToUpperInvariant(),
+                            online == null ? "OFFLINE" : ActivityLabel(online.Activity),
+                            online == null ? "" : SocialRoomLabel(online.RoomKey),
+                            relation,
+                            "",
+                            online != null,
+                            online?.IsFriend == true,
+                            canInvite && !member.IsSelf,
+                            !NetSession.Active && member.IsLeader && !member.IsSelf
+                                && online?.Joinable == true
+                                && !String.IsNullOrWhiteSpace(online.LobbyId),
+                            false, false, false, false));
+                    }
+                }
+
+                foreach (SocialPartyInvite invite in partyState.IncomingPartyInvites)
+                {
+                    presenceById.TryGetValue(
+                        invite.PrimeId, out SocialOnlinePlayer? online);
+                    rows.Add(new SocialUiRow(
+                        invite.PrimeId,
+                        invite.DisplayName.ToUpperInvariant(),
+                        "PARTY INVITE",
+                        "EXPIRES " + invite.ExpiresAt.ToLocalTime().ToString(
+                            "t", CultureInfo.CurrentCulture),
+                        "PARTY INVITE",
+                        invite.InviteId,
+                        online != null,
+                        online?.IsFriend == true,
+                        false, false, false, false, false, false));
+                }
+                foreach (SocialPartyInvite invite in partyState.OutgoingPartyInvites)
+                {
+                    presenceById.TryGetValue(
+                        invite.PrimeId, out SocialOnlinePlayer? online);
+                    rows.Add(new SocialUiRow(
+                        invite.PrimeId,
+                        invite.DisplayName.ToUpperInvariant(),
+                        "PARTY INVITE SENT",
+                        "EXPIRES " + invite.ExpiresAt.ToLocalTime().ToString(
+                            "t", CultureInfo.CurrentCulture),
+                        "PARTY INVITE SENT",
+                        invite.InviteId,
+                        online != null,
+                        online?.IsFriend == true,
+                        false, false, false, false, false, false));
+                }
+                return rows;
+            }
+
+            if (_socialTab == 5)
+            {
+                foreach (SocialRecentPlayer recent in SocialPartyClient.Current.RecentPlayers)
+                {
+                    presenceById.TryGetValue(
+                        recent.PrimeId, out SocialOnlinePlayer? online);
+                    string relationship = RelationshipFor(recent.PrimeId);
+                    rows.Add(new SocialUiRow(
+                        recent.PrimeId,
+                        recent.DisplayName.ToUpperInvariant(),
+                        online == null ? "RECENT PLAYER" : ActivityLabel(online.Activity),
+                        RecentDetail(recent, online),
+                        "RECENT",
+                        "",
+                        online != null,
+                        online?.IsFriend == true,
+                        canInvite && relationship != "BLOCKED",
+                        !NetSession.Active && relationship == "FRIEND"
+                            && online?.Joinable == true
+                            && !String.IsNullOrWhiteSpace(online.LobbyId),
+                        false, false, false,
+                        CanInviteToParty(recent.PrimeId)));
+                }
+                return rows;
+            }
+
             if (_socialSnapshot == null) return rows;
             foreach (SocialPlayer blocked in _socialSnapshot.Blocked)
                 rows.Add(RowForPersistent(
@@ -1393,6 +1511,45 @@ namespace MphRead.Mods.Launcher.Gui
             if (server.Length == 0) return room;
             if (room.Length == 0) return server;
             return server + " // " + room;
+        }
+
+        private static bool CanInviteToParty(string primeId)
+        {
+            if (!String.Equals(
+                RelationshipFor(primeId), "FRIEND", StringComparison.Ordinal))
+                return false;
+
+            SocialPartySnapshot state = SocialPartyClient.Current;
+            if (state.Party is { IsLeader: false })
+                return false;
+            if (state.Party != null)
+            {
+                foreach (SocialPartyMember member in state.Party.Members)
+                    if (member.PrimeId.Equals(
+                        primeId, StringComparison.OrdinalIgnoreCase))
+                        return false;
+            }
+            foreach (SocialPartyInvite invite in state.OutgoingPartyInvites)
+                if (invite.PrimeId.Equals(
+                    primeId, StringComparison.OrdinalIgnoreCase))
+                    return false;
+            return true;
+        }
+
+        private static string RecentDetail(
+            SocialRecentPlayer recent, SocialOnlinePlayer? online)
+        {
+            if (online != null && !String.IsNullOrWhiteSpace(online.RoomKey))
+                return SocialRoomLabel(online.RoomKey);
+
+            TimeSpan age = DateTimeOffset.UtcNow - recent.LastSeen;
+            string when = age.TotalMinutes < 2 ? "JUST NOW"
+                : age.TotalHours < 1 ? $"{Math.Max(2, (int)age.TotalMinutes)}M AGO"
+                : age.TotalDays < 1 ? $"{Math.Max(1, (int)age.TotalHours)}H AGO"
+                : $"{Math.Max(1, (int)age.TotalDays)}D AGO";
+            string encounters = recent.Encounters == 1
+                ? "1 ENCOUNTER" : $"{recent.Encounters} ENCOUNTERS";
+            return when + " // " + encounters;
         }
 
         private static string RelationshipFor(string primeId)
