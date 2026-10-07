@@ -504,7 +504,8 @@ private:
         data.selected_can_accept = row->relation == "INCOMING";
         data.selected_can_decline = row->relation == "INCOMING";
         data.selected_can_cancel = row->relation == "OUTGOING";
-        data.selected_can_remove = row->relation == "FRIEND";
+        data.selected_can_remove = row->relation == "FRIEND"
+            || row->relation == "RECENT FRIEND";
         data.selected_can_block = row->relation != "BLOCKED"
             && row->relation != "GAME INVITE" && row->relation != "INVITE SENT"
             && row->relation != "PARTY MEMBER SELF"
