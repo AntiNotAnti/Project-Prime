@@ -11,7 +11,6 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 
 internal static class Program
 {
-    private const string ExpectedAction = "studio:open";
     // The existing ScreenCapture gate counts pixels with any RGB component > 8.
     private const double MinimumLitFraction = .01;
     private static int _checks;
@@ -79,13 +78,15 @@ internal static class Program
         {
             key(code, 1, modifiers); key(code, 0, modifiers); update();
         }
-        void Action(string gesture, float density)
+        void Action(string gesture, float density, string expected)
         {
             Array.Clear(actionBuffer);
             int count = take(actionBuffer, actionBuffer.Length);
-            Require(count > 0 && count <= actionBuffer.Length && Encoding.UTF8.GetString(actionBuffer, 0, count) == ExpectedAction,
-                $"{gesture} density={density} emits {ExpectedAction} through the actual native DOM");
-            Require(take(actionBuffer, actionBuffer.Length) == 0, $"{gesture} density={density} emits exactly one action");
+            Require(count > 0 && count <= actionBuffer.Length
+                && Encoding.UTF8.GetString(actionBuffer, 0, count) == expected,
+                $"{gesture} density={density} emits {expected} through the actual native DOM");
+            Require(take(actionBuffer, actionBuffer.Length) == 0,
+                $"{gesture} density={density} emits exactly one action");
         }
 
         try
@@ -125,15 +126,30 @@ internal static class Program
                 Require(fraction >= MinimumLitFraction,
                     $"real RGB framebuffer {physical}, density={test.Density} exceeds unchanged 1% lit gate: {fraction:P3}");
                 window.Context.SwapBuffers();
-                // The shipped document focuses mode_quick. Native Shift-Tab reaches
-                // profile then nav_studio; Enter dispatches its actual DOM callback.
-                Input(1, 1); Input(1, 1); Input(2); Action("keyboard Enter", test.Density);
+
+                // Exercise the real lobby-mode data binding and READY action,
+                // not a synthetic command. Switching modes requests focus on
+                // #lobby_ready after the native model update.
+                set("lobby_mode", 1);
+                set("slot0_occupied", 1);
+                set("slot0_local", 1);
+                set("lobby_owner", 1);
+                update();
+                Input(2);
+                Action("live lobby READY Enter", test.Density, "lobby:ready");
+                set("lobby_mode", 0);
+                update();
+
+                // Home focus is restored to activity_selector. Native Shift-Tab
+                // reaches profile then nav_studio; Enter dispatches its DOM callback.
+                Input(1, 1); Input(1, 1); Input(2);
+                Action("keyboard Enter", test.Density, "studio:open");
                 Require(bounds(out float x, out float y, out float width, out float height) == 1
                     && float.IsFinite(x) && float.IsFinite(y) && float.IsFinite(width) && float.IsFinite(height)
                     && width > 0 && height > 0 && x >= 0 && y >= 0 && x + width <= physical.X && y + height <= physical.Y,
                     "bounded actual STUDIO control fits the framebuffer");
                 move((int)(x + width / 2), (int)(y + height / 2), 0);
-                mouse(0, 1, 0); mouse(0, 0, 0); update(); Action("mouse click", test.Density);
+                mouse(0, 1, 0); mouse(0, 0, 0); update(); Action("mouse click", test.Density, "studio:open");
                 shutdown(); Require(take(actionBuffer, actionBuffer.Length) == 0, "native shutdown clears pending action ownership");
             }
         }
