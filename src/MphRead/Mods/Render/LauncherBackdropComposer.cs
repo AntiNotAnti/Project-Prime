@@ -46,7 +46,8 @@ namespace MphRead.Mods.Render
         private static int _lobbyMode;
         private static int _lobbyOccupancyA;
         private static int _lobbyOccupancyB;
-        private static int _lobbyPadGeometry;
+        private static readonly int[] _lobbyPadLocations =
+            new int[LauncherLobbyFormation.Capacity];
         private static readonly float[] _packedLobbyPads = LauncherLobbyFormation.PackPads();
 
         private const string VertexSource = @"#version 120
@@ -440,7 +441,16 @@ void main()
             bool lobby = LauncherLobbyVisuals.Active;
             byte occupied = LauncherLobbyVisuals.OccupiedMask;
             GL.Uniform1(_lobbyMode, lobby ? 1f : 0f);
-            GL.Uniform4(_lobbyPadGeometry, LauncherLobbyFormation.Capacity, _packedLobbyPads);
+            // This compatibility GL facade exposes typed vec4 uniforms, not
+            // the pointer/count overload. Cache locations once at link time
+            // and update each authored pad without unmanaged buffers.
+            for (int slot = 0; slot < LauncherLobbyFormation.Capacity; slot++)
+            {
+                int offset = slot * 4;
+                GL.Uniform4(_lobbyPadLocations[slot], new Vector4(
+                    _packedLobbyPads[offset], _packedLobbyPads[offset + 1],
+                    _packedLobbyPads[offset + 2], _packedLobbyPads[offset + 3]));
+            }
             GL.Uniform4(_lobbyOccupancyA, new Vector4(
                 (occupied & 0x01) != 0 ? 1f : 0f,
                 (occupied & 0x02) != 0 ? 1f : 0f,
@@ -542,7 +552,9 @@ void main()
                 _lobbyMode = GL.GetUniformLocation(program, "lobby_mode");
                 _lobbyOccupancyA = GL.GetUniformLocation(program, "lobby_occupancy_a");
                 _lobbyOccupancyB = GL.GetUniformLocation(program, "lobby_occupancy_b");
-                _lobbyPadGeometry = GL.GetUniformLocation(program, "lobby_pad_geometry[0]");
+                for (int slot = 0; slot < LauncherLobbyFormation.Capacity; slot++)
+                    _lobbyPadLocations[slot] = GL.GetUniformLocation(
+                        program, $"lobby_pad_geometry[{slot}]");
                 Mods.DebugLog.Line("rmlui",
                     "deployment chamber renderer ready: procedural GL hero scene");
                 return true;
@@ -583,7 +595,8 @@ void main()
             _heroLight = _pulseSpeed = _warmth = _haloStrength = -1;
             _floorGlow = _leftDarken = _rightDarken = -1;
             _beamIntensity = _backgroundSoftness = -1;
-            _lobbyMode = _lobbyOccupancyA = _lobbyOccupancyB = _lobbyPadGeometry = -1;
+            _lobbyMode = _lobbyOccupancyA = _lobbyOccupancyB = -1;
+            Array.Fill(_lobbyPadLocations, -1);
         }
     }
 }
