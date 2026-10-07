@@ -245,12 +245,14 @@ jobs:
           name: patched-wgpu-win-x64
           path: artifacts/wgpu-native-desktop/win-x64/
       - name: publish focused renderer build
+        id: renderer_publish
         shell: pwsh
         run: >
           dotnet publish src/MphRead/MphRead.csproj
           -c Release -r win-x64 --self-contained true
           -p:PublishSingleFile=true -o publish/modern-win
       - name: software OpenGL recovery and Vulkan prerequisites
+        id: renderer_recovery_prerequisites
         shell: pwsh
         run: |
           $mesaVersion = '26.2.4'
@@ -296,10 +298,13 @@ jobs:
           $debugLayer = Join-Path $env:windir 'System32/D3D12SDKLayers.dll'
           if (-not (Test-Path $debugLayer)) { throw 'Installed DirectX validation layer DLL is unavailable' }
           Write-Host "DirectX validation prerequisite installed: $debugLayer"
+      - name: verify native child deadline and exit control
+        id: renderer_child_control
+        shell: pwsh
+        run: ./.github/scripts/Test-NativeRendererCheck.ps1
       - name: backend policy, device, draw and window present
         shell: pwsh
         run: |
-          & ./.github/scripts/Test-NativeRendererCheck.ps1
           . ./.github/scripts/Invoke-NativeRendererCheck.ps1
           $negativeOut = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.negative.stdout.log'
           $negativeErr = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.negative.stderr.log'
@@ -325,7 +330,7 @@ jobs:
             if (-not $proof.Contains("[$phase] PASS backend=$backend")) { throw "Missing actual $backend $phase native pass evidence" }
           }
       - name: DirectX production-default full window and lifetime check
-        if: matrix.renderer == 'dx12'
+        if: ${{ !cancelled() && matrix.renderer == 'dx12' && steps.renderer_publish.outcome == 'success' && steps.renderer_recovery_prerequisites.outcome == 'success' && steps.renderer_child_control.outcome == 'success' }}
         shell: pwsh
         run: |
           . ./.github/scripts/Invoke-NativeRendererCheck.ps1

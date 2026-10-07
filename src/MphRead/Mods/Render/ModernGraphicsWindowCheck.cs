@@ -754,6 +754,7 @@ namespace MphRead.Mods.Render
 
         private static void RunAdvancedShaderCheck()
         {
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=postprocess phase=setup START");
             int texture = GraphicsApi.GenTexture();
             GraphicsApi.ActiveTexture(TextureUnit.Texture0);
             GraphicsApi.BindTexture(TextureTarget.Texture2D, texture);
@@ -766,15 +767,21 @@ namespace MphRead.Mods.Render
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(post, "contrast_value"), 1f);
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(post, "saturation_value"), 1f);
             GraphicsApi.Uniform2(GraphicsApi.GetUniformLocation(post, "texel"), 1f / 96, 1f / 64);
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=postprocess phase=setup DONE");
             for (int aa = 0; aa <= 4; aa++)
             {
                 GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(post, "aa_mode"), aa);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=postprocess-aa-{aa} phase=draw START");
                 DrawTexturedQuad(-1, -1, 1, 1, 0);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=postprocess-aa-{aa} phase=draw DONE");
                 byte[] pixel = new byte[4];
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=postprocess-aa-{aa} phase=pixel-read START");
                 GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=postprocess-aa-{aa} phase=pixel-read DONE");
                 if (pixel[0] < 245 || pixel[1] > 10 || pixel[2] > 10)
                     throw new InvalidOperationException($"Post-process AA mode {aa} changed a flat red field: {string.Join(",", pixel)}.");
             }
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=pbr phase=setup START");
             int pbr = Link(DeferredPbrShader.VertexSource, DeferredPbrShader.FragmentSource);
             GraphicsApi.UseProgram(pbr);
             Matrix4 identity = Matrix4.Identity;
@@ -785,12 +792,17 @@ namespace MphRead.Mods.Render
             GraphicsApi.Uniform4(GraphicsApi.GetUniformLocation(pbr, "override_color"), 1f, 0f, 0f, 1f);
             GraphicsApi.Normal3(0, 0, 1);
             GraphicsApi.Color4(1f, 1f, 1f, 1f);
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=pbr phase=setup DONE");
             for (int mode = 1; mode <= 3; mode++)
             {
                 GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(pbr, "gbuffer_mode"), mode);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=pbr-target-{mode} phase=draw START");
                 DrawTexturedQuad(-1, -1, 1, 1, 0);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=pbr-target-{mode} phase=draw DONE");
                 byte[] pixel = new byte[4];
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=pbr-target-{mode} phase=pixel-read START");
                 GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=pbr-target-{mode} phase=pixel-read DONE");
                 bool valid = mode == 1 ? pixel[0] > 245 && pixel[1] < 10 && pixel[2] < 10
                     : mode == 2 ? pixel[0] > 120 && pixel[1] > 120 && pixel[2] > 245
                     : pixel[0] < 10 && pixel[1] > 145 && pixel[2] < 10;
@@ -803,9 +815,13 @@ namespace MphRead.Mods.Render
             for (int skin = 1; skin <= finishes.Length; skin++)
             {
                 GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(pbr, "cosmetic_skin"), skin);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=pbr-skin-{skin} phase=draw START");
                 DrawTexturedQuad(-1, -1, 1, 1, 0);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=pbr-skin-{skin} phase=draw DONE");
                 byte[] pixel = new byte[4];
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=pbr-skin-{skin} phase=pixel-read START");
                 GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+                Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=pbr-skin-{skin} phase=pixel-read DONE");
                 var expected = finishes[skin - 1];
                 if (Math.Abs(pixel[0] / 255f - expected.Metal) > 0.015f
                     || Math.Abs(pixel[1] / 255f - expected.Rough) > 0.015f)
@@ -818,11 +834,16 @@ namespace MphRead.Mods.Render
             GraphicsApi.EndList();
             GraphicsApi.Normal3(1, 0, 0);
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(pbr, "gbuffer_mode"), 2);
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=pbr-inherited-normal phase=draw START");
             GraphicsApi.CallList(normalList);
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=pbr-inherited-normal phase=draw DONE");
             byte[] inheritedNormal = new byte[4];
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=pbr-inherited-normal phase=pixel-read START");
             GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, inheritedNormal);
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=pbr-inherited-normal phase=pixel-read DONE");
             if (inheritedNormal[0] < 245 || inheritedNormal[1] < 120 || inheritedNormal[2] is < 120 or > 135)
                 throw new InvalidOperationException("Display list did not inherit its draw-time normal.");
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=pbr phase=cleanup START");
             GraphicsApi.DeleteLists(normalList, 1);
             GraphicsApi.Normal3(0, 0, 1);
             ModernGraphicsCompat.Resize(0, 0);
@@ -835,6 +856,7 @@ namespace MphRead.Mods.Render
             GraphicsApi.DeleteProgram(pbr);
             GraphicsApi.DeleteProgram(post);
             GraphicsApi.DeleteTexture(texture);
+            Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=pbr phase=cleanup DONE");
         }
 
         private static void RunMipmapCheck()
