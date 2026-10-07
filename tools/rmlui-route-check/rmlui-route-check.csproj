@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="OpenTK" Version="4.9.4" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/RmlUiPointerMapping.cs" Link="RmlUiPointerMapping.cs" />
     <None Include="../../src/MphRead/Mods/Launcher/RmlUi/Assets/prime_home.*" Link="rmlui/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../src/MphRead/Assets/Fonts/Rajdhani-*.ttf;../../src/MphRead/Assets/Fonts/JetBrainsMono-Regular.ttf;../../src/MphRead/Assets/Fonts/Rajdhani-OFL.txt;../../src/MphRead/Assets/Fonts/JetBrainsMono-OFL.txt"
           Link="rmlui/fonts/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
