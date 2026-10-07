@@ -8630,6 +8630,22 @@ localCenter *= _profileHudScale;
             return (x * scaleX, y * scaleY);
         }
 
+        /// <summary>
+        /// Renderer-to-shell pointer boundary. Avalonia's headless surface
+        /// receives framebuffer pixels. RmlUi receives GLFW's original
+        /// window-space cursor and alone applies its framebuffer / GLFW
+        /// window-size conversion. Sending PointerPixels to RmlUi here caused
+        /// two DPI multiplications on Retina and made every click miss.
+        /// </summary>
+        private (double X, double Y) ShellPointerCoordinates(double x, double y)
+        {
+#if MPHREAD_RMLUI_POC
+            if (Mods.Launcher.Gui.RmlUiPrototype.Active)
+                return (x, y);
+#endif
+            return PointerPixels(x, y);
+        }
+
         private Scene NewScene()
         {
             return new Scene(PixelSize, KeyboardState, MouseState, (string title) =>
@@ -9528,7 +9544,7 @@ localCenter *= _profileHudScale;
             // manager: the player is choosing something, not playing.
             if (Mods.Launcher.Gui.Shell.UiVisible)
             {
-                (double px, double py) = PointerPixels(MouseState.X, MouseState.Y);
+                (double px, double py) = ShellPointerCoordinates(MouseState.X, MouseState.Y);
                 Mods.Replay.ReplayInput.CancelScrub();
                 Mods.Launcher.Gui.Shell.PointerButton(e.Button, px, py, down: true);
                 base.OnMouseDown(e);
@@ -9602,7 +9618,7 @@ localCenter *= _profileHudScale;
             // manager: the player is choosing something, not playing.
             if (Mods.Launcher.Gui.Shell.UiVisible)
             {
-                (double px, double py) = PointerPixels(MouseState.X, MouseState.Y);
+                (double px, double py) = ShellPointerCoordinates(MouseState.X, MouseState.Y);
                 Mods.Launcher.Gui.Shell.PointerButton(e.Button, px, py, down: false);
                 base.OnMouseUp(e);
                 return;
@@ -9640,7 +9656,7 @@ localCenter *= _profileHudScale;
             // manager: the player is choosing something, not playing.
             if (Mods.Launcher.Gui.Shell.UiVisible)
             {
-                (double px, double py) = PointerPixels(e.X, e.Y);
+                (double px, double py) = ShellPointerCoordinates(e.X, e.Y);
                 Mods.Replay.ReplayInput.CancelScrub();
                 Mods.Launcher.Gui.Shell.PointerMoved(px, py);
                 base.OnMouseMove(e);
