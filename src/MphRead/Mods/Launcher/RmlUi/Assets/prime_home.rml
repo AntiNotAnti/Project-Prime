@@ -190,7 +190,7 @@
                     </div>
 
                     <button class="social_row" data-for="row : social_rows"
-                            data-event-click="social_select(row.prime_id)">
+                            data-event-click="social_select(row.prime_id, row.invite_id)">
                         <span class="social_presence_dot" data-class-online="row.online"></span>
                         <span class="social_row_copy">
                             <span class="social_row_top">
