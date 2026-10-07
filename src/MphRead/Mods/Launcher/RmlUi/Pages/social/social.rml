@@ -1,0 +1,95 @@
+<rml>
+<head>
+    <title>Social</title>
+    <link type="text/template" href="../../components/app-shell.rml" />
+    <link type="text/rcss" href="social.rcss" />
+</head>
+<body template="prime-shell">
+<div id="social_page">
+    <div class="eyebrow">HUNTERS ONLINE // SOCIAL</div>
+    <div id="social_header" class="social_header"><h1>YOUR HUNTING PARTY</h1><input id="social_self_id" type="text" readonly="readonly" value="" /></div>
+    <p id="social_counts" />
+    <div id="social_tabs" class="social_tabs">
+        <button id="social_friends" data-action="social:friends">FRIENDS</button>
+        <button id="social_players" data-action="social:players">PLAYERS</button>
+        <button id="social_requests" data-action="social:requests">REQUESTS</button>
+        <button id="social_invites" data-action="social:invites">INVITES</button>
+        <button id="social_party" data-action="social:party">PARTY</button>
+        <button id="social_recent" data-action="social:recent">RECENT</button>
+        <button id="social_blocked" data-action="social:blocked">BLOCKED</button>
+    </div>
+    <div class="social_searches">
+        <input id="social_filter" type="text" maxlength="48" value="" placeholder="Search this section" />
+        <button id="social_search" data-action="social:search">SEARCH</button>
+        <input id="social_lookup_id" type="text" maxlength="27" value="" placeholder="PP-1234-5678-9ABC-DEF0-1234" />
+        <button id="social_lookup" data-action="social:lookup">LOOK UP PRIME ID</button>
+    </div>
+    <div class="social_columns">
+        <div class="social_panel social_list">
+            <div id="social_empty" class="social_notice" />
+            <button id="social_row_0" class="social_row" data-action="social:select-0"><b id="social_row_name_0" /><span id="social_row_detail_0" /></button>
+            <button id="social_row_1" class="social_row" data-action="social:select-1"><b id="social_row_name_1" /><span id="social_row_detail_1" /></button>
+            <button id="social_row_2" class="social_row" data-action="social:select-2"><b id="social_row_name_2" /><span id="social_row_detail_2" /></button>
+            <button id="social_row_3" class="social_row" data-action="social:select-3"><b id="social_row_name_3" /><span id="social_row_detail_3" /></button>
+            <button id="social_row_4" class="social_row" data-action="social:select-4"><b id="social_row_name_4" /><span id="social_row_detail_4" /></button>
+            <button id="social_row_5" class="social_row" data-action="social:select-5"><b id="social_row_name_5" /><span id="social_row_detail_5" /></button>
+            <button id="social_row_6" class="social_row" data-action="social:select-6"><b id="social_row_name_6" /><span id="social_row_detail_6" /></button>
+            <button id="social_row_7" class="social_row" data-action="social:select-7"><b id="social_row_name_7" /><span id="social_row_detail_7" /></button>
+            <div class="social_paging"><button id="social_previous_page" data-action="social:previous-page">PREVIOUS</button><span id="social_page_count" /><button id="social_next_page" data-action="social:next-page">NEXT</button></div>
+        </div>
+        <div class="social_panel social_details">
+            <h2 id="social_selected_name">SELECT A PLAYER OR INVITATION</h2>
+            <p id="social_selected_prime_id" /><p id="social_selected_relation" /><p id="social_selected_activity" />
+            <p id="social_selected_detail" class="social_notice" /><p id="social_selected_expiry" />
+            <div class="social_commands">
+                <button id="social_command_21" data-action="social:send-friend-request">ADD FRIEND</button>
+                <button id="social_command_22" data-action="social:accept-friend-request">ACCEPT FRIEND REQUEST</button>
+                <button id="social_command_23" data-action="social:decline-friend-request">DECLINE FRIEND REQUEST</button>
+                <button id="social_command_24" data-action="social:cancel-friend-request">CANCEL FRIEND REQUEST</button>
+                <button id="social_command_25" class="social_danger" data-action="social:remove-friend">REMOVE FRIEND</button>
+                <button id="social_command_26" class="social_danger" data-action="social:block-player">BLOCK PLAYER</button>
+                <button id="social_command_27" data-action="social:unblock-player">UNBLOCK PLAYER</button>
+                <button id="social_command_28" data-action="social:send-game-invite">INVITE TO LOBBY</button>
+                <button id="social_command_29" data-action="social:join-friend">JOIN FRIEND</button>
+                <button id="social_command_30" data-action="social:accept-game-invite">ACCEPT GAME INVITE</button>
+                <button id="social_command_31" data-action="social:decline-game-invite">DECLINE GAME INVITE</button>
+                <button id="social_command_32" data-action="social:cancel-game-invite">CANCEL GAME INVITE</button>
+                <button id="social_command_33" data-action="social:invite-party">INVITE TO PARTY</button>
+                <button id="social_command_34" data-action="social:accept-party-invite">ACCEPT PARTY INVITE</button>
+                <button id="social_command_35" data-action="social:decline-party-invite">DECLINE PARTY INVITE</button>
+                <button id="social_command_36" data-action="social:cancel-party-invite">CANCEL PARTY INVITE</button>
+                <button id="social_command_39" class="social_danger" data-action="social:kick-party-member">REMOVE FROM PARTY</button>
+                <button id="social_command_40" data-action="social:promote-party-member">MAKE PARTY LEADER</button>
+            </div>
+        </div>
+    </div>
+    <div class="social_panel social_party_status">
+        <h2>PARTY TRAVEL AND RESERVED SEATS</h2>
+        <p id="social_party_summary" /><p id="social_travel_summary" class="social_notice" /><p id="social_travel_members" class="social_notice" />
+        <p id="social_reservation_summary" class="social_notice" /><p id="social_reserved_members" class="social_notice" />
+        <div class="social_commands">
+            <button id="social_command_37" class="social_danger" data-action="social:leave-party">LEAVE PARTY</button>
+            <button id="social_command_38" class="social_danger" data-action="social:disband-party">DISBAND PARTY</button>
+            <button id="social_command_41" data-action="social:invite-party-lobby">INVITE PARTY TO LOBBY</button>
+            <button id="social_command_42" data-action="social:follow-party-travel">FOLLOW PARTY TRAVEL</button>
+            <button id="social_command_43" data-action="social:join-party-leader">JOIN PARTY LEADER</button>
+            <button id="social_command_44" data-action="social:decline-party-travel">DECLINE PARTY TRAVEL</button>
+            <button id="social_command_45" data-action="social:cancel-reservation">CANCEL RESERVED SEATS</button>
+        </div>
+        <p id="social_session_notice" />
+    </div>
+    <div class="social_panel social_privacy">
+        <h2>PRIVACY</h2>
+        <div class="social_commands">
+            <button id="social_presence" data-action="social:presence-next">PRESENCE // <span id="social_presence_value" /></button>
+            <button id="social_activity" data-action="social:activity-next">ACTIVITY // <span id="social_activity_value" /></button>
+            <button id="social_invites_privacy" data-action="social:invites-next">INVITES // <span id="social_invites_value" /></button>
+            <button id="social_dnd" data-action="social:dnd">DO NOT DISTURB // <span id="social_dnd_value" /></button>
+        </div>
+        <p>Privacy changes save immediately. Do Not Disturb refuses game and party invitations while keeping your presence choice.</p>
+    </div>
+    <div id="social_status" class="social_notice social_status" /><div id="social_error" class="social_notice social_error" />
+    <div class="social_commands"><button id="social_refresh" data-action="social:refresh">REFRESH SOCIAL</button><button id="social_cancel_refresh" data-action="social:cancel">CANCEL REQUEST</button><button id="social_back" data-action="social:back">BACK</button></div>
+</div>
+</body>
+</rml>
