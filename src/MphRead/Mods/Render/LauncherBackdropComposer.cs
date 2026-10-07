@@ -141,6 +141,17 @@ void main()
     float innerGate = smoothstep(0.27, 0.34, uv.y) * (1.0 - smoothstep(0.68, 0.74, uv.y));
     col += activity_secondary * innerEdges * innerGate * 0.018 * structure_amount;
 
+    // A deeper, deliberately asymmetric wall plane prevents the chamber from
+    // reading as a row of evenly spaced primitives. These broad silhouettes
+    // sit behind the lit ribs and leave the hero bay visually open.
+    float farLeftWall = box_mask(uv, vec2(0.245, 0.23), vec2(0.325, 0.70), 0.020);
+    float farRightWall = box_mask(uv, vec2(0.870, 0.18), vec2(0.945, 0.66), 0.020);
+    float farWall = min(1.0, farLeftWall + farRightWall);
+    col = mix(col, base_bottom * 0.58, farWall * 0.52 * structure_amount);
+    float farCrossbeam = box_mask(uv, vec2(0.255, 0.285), vec2(0.930, 0.302), 0.008);
+    col = mix(col, base_bottom * 0.44, farCrossbeam * 0.70 * structure_amount);
+    col += activity_accent * farCrossbeam * 0.020 * structure_amount;
+
     // Vertical chamber ribs and recessed side panels.
     for (int i = 0; i < 7; i++)
     {
@@ -159,11 +170,27 @@ void main()
     col += activity_secondary * (leftBrace + rightBrace) * braceGate
         * 0.06 * structure_amount;
 
-    // Technical light rails in the upper bay.
+    // Technical light rail: a dark recessed channel first, then the segmented
+    // emitters. The channel makes the upper blocks feel installed in the room
+    // instead of floating over the backdrop.
+    float railChannel = box_mask(uv, vec2(0.335, 0.185), vec2(0.845, 0.255), 0.010);
+    col = mix(col, base_bottom * 0.38, railChannel * 0.76);
+    float railSpine = box_mask(uv, vec2(0.345, 0.211), vec2(0.835, 0.222), 0.004);
+    col += activity_accent * railSpine * 0.028 * structure_amount;
     float railBand = box_mask(uv, vec2(0.36, 0.20), vec2(0.82, 0.24), 0.008);
     float railPattern = step(0.58, fract(uv.x * 22.0));
     col += activity_secondary * railBand * railPattern
-        * (0.08 + 0.08 * energy);
+        * (0.075 + 0.075 * energy);
+
+    // A very slow light sweep crosses only the distant architecture. Reduce
+    // Motion supplies time_value == 0, which freezes this at a stable position.
+    float sweepCenter = time_value > 0.0
+        ? mod(time_value * 0.018, 1.16) - 0.08
+        : 0.53;
+    float wallSweep = 1.0 - smoothstep(0.015, 0.095, abs(uv.x - sweepCenter));
+    float wallSweepGate = box_mask(uv, vec2(0.29, 0.27), vec2(0.91, 0.70), 0.035);
+    col += vec3(0.17, 0.25, 0.32) * wallSweep * wallSweepGate
+        * 0.034 * energy * structure_amount;
 
     // Hero halo behind the selected Hunter. Hunter theme drives the hue while
     // activity mood decides how energetic the chamber feels.
@@ -179,6 +206,12 @@ void main()
     // the whole background into a glowing circle.
     float rimColumn = ellipse_mask(uv, vec2(0.615, 0.43), vec2(0.105, 0.32));
     col += hunter_rim * rimColumn * 0.040 * hero_light;
+
+    // Neutral cool key behind the head and upper torso. It raises local
+    // contrast without recoloring the Hunter's authored red/orange/blue/etc.
+    float heroKey = ellipse_mask(uv, vec2(0.615, 0.390), vec2(0.165, 0.225));
+    vec3 heroKeyColor = vec3(0.31, 0.39, 0.46);
+    col += heroKeyColor * heroKey * (0.040 + 0.020 * hero_light);
 
     // Soft volumetric shafts from above.
     float shaftA = max(0.0, 1.0 - abs((uv.x - 0.58) * 6.4 + (uv.y - 0.15) * 0.55));
@@ -213,6 +246,19 @@ void main()
     col += hunter_halo * platformEdge * floor_glow * 0.22;
     col += activity_secondary * platformEdge * floor_glow * 0.075;
 
+    // Three segmented service rings add machinery detail without becoming a
+    // second focal point. Segment gaps remain visible even at low energy.
+    float ringA = 1.0 - smoothstep(0.018, 0.050, abs(platformQ - 0.20));
+    float ringB = 1.0 - smoothstep(0.018, 0.050, abs(platformQ - 0.40));
+    float ringC = 1.0 - smoothstep(0.018, 0.050, abs(platformQ - 0.60));
+    float ringAngle = atan(platformDelta.y, platformDelta.x);
+    float ringPhase = fract((ringAngle + 3.14159265) / 6.28318530 * 12.0);
+    float ringSegments = smoothstep(0.08, 0.18, ringPhase)
+        * (1.0 - smoothstep(0.72, 0.82, ringPhase));
+    float serviceRings = max(ringA, max(ringB, ringC)) * ringSegments;
+    col += mix(activity_secondary, hunter_halo, 0.22)
+        * serviceRings * floor_glow * 0.11;
+
     // Low chamber haze.
     float lowFog = smoothstep(0.52, 0.92, uv.y)
         * (1.0 - smoothstep(0.88, 1.0, uv.y));
@@ -221,6 +267,13 @@ void main()
         fogWave += sin(uv.x * 8.0 + time_value * 0.18) * 0.10;
     vec3 fogColor = mix(activity_accent, vec3(0.16, 0.24, 0.31), 0.58);
     col = mix(col, fogColor, lowFog * fog_amount * 0.10 * fogWave);
+
+    // Local rear haze sits under the model pass, so it gives the legs depth
+    // while the Hunter itself remains crisp and materially neutral.
+    float rearLegFog = ellipse_mask(uv, vec2(0.615, 0.685), vec2(0.315, 0.135));
+    vec3 rearFogColor = mix(activity_accent, vec3(0.22, 0.28, 0.33), 0.72);
+    col = mix(col, rearFogColor,
+        rearLegFog * fog_amount * (0.045 + 0.020 * energy));
 
     // Sparse energy dust. Large cells make this cheap and intentionally subtle.
     vec2 cells = floor(uv * vec2(80.0, 45.0));
