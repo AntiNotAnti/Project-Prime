@@ -191,28 +191,28 @@
                     </div>
 
                     <div class="lobby_roster_row" data-if="slot0_occupied" data-class-ready="slot0_ready" data-class-local="slot0_local">
-                        <span class="lobby_roster_index">1</span><span class="lobby_roster_copy"><b>{{slot0_name}}</b><small>{{slot0_hunter}}</small></span><span class="lobby_roster_state">{{slot0_state}}</span>
+                        <span class="lobby_roster_index">1</span><span class="lobby_roster_copy"><b>{{slot0_name}}</b><span class="lobby_roster_hunter">{{slot0_hunter}}</span></span><span class="lobby_roster_state">{{slot0_state}}</span>
                     </div>
                     <div class="lobby_roster_row" data-if="slot1_occupied" data-class-ready="slot1_ready" data-class-local="slot1_local">
-                        <span class="lobby_roster_index">2</span><span class="lobby_roster_copy"><b>{{slot1_name}}</b><small>{{slot1_hunter}}</small></span><span class="lobby_roster_state">{{slot1_state}}</span>
+                        <span class="lobby_roster_index">2</span><span class="lobby_roster_copy"><b>{{slot1_name}}</b><span class="lobby_roster_hunter">{{slot1_hunter}}</span></span><span class="lobby_roster_state">{{slot1_state}}</span>
                     </div>
                     <div class="lobby_roster_row" data-if="slot2_occupied" data-class-ready="slot2_ready" data-class-local="slot2_local">
-                        <span class="lobby_roster_index">3</span><span class="lobby_roster_copy"><b>{{slot2_name}}</b><small>{{slot2_hunter}}</small></span><span class="lobby_roster_state">{{slot2_state}}</span>
+                        <span class="lobby_roster_index">3</span><span class="lobby_roster_copy"><b>{{slot2_name}}</b><span class="lobby_roster_hunter">{{slot2_hunter}}</span></span><span class="lobby_roster_state">{{slot2_state}}</span>
                     </div>
                     <div class="lobby_roster_row" data-if="slot3_occupied" data-class-ready="slot3_ready" data-class-local="slot3_local">
-                        <span class="lobby_roster_index">4</span><span class="lobby_roster_copy"><b>{{slot3_name}}</b><small>{{slot3_hunter}}</small></span><span class="lobby_roster_state">{{slot3_state}}</span>
+                        <span class="lobby_roster_index">4</span><span class="lobby_roster_copy"><b>{{slot3_name}}</b><span class="lobby_roster_hunter">{{slot3_hunter}}</span></span><span class="lobby_roster_state">{{slot3_state}}</span>
                     </div>
                     <div class="lobby_roster_row" data-if="slot4_occupied" data-class-ready="slot4_ready" data-class-local="slot4_local">
-                        <span class="lobby_roster_index">5</span><span class="lobby_roster_copy"><b>{{slot4_name}}</b><small>{{slot4_hunter}}</small></span><span class="lobby_roster_state">{{slot4_state}}</span>
+                        <span class="lobby_roster_index">5</span><span class="lobby_roster_copy"><b>{{slot4_name}}</b><span class="lobby_roster_hunter">{{slot4_hunter}}</span></span><span class="lobby_roster_state">{{slot4_state}}</span>
                     </div>
                     <div class="lobby_roster_row" data-if="slot5_occupied" data-class-ready="slot5_ready" data-class-local="slot5_local">
-                        <span class="lobby_roster_index">6</span><span class="lobby_roster_copy"><b>{{slot5_name}}</b><small>{{slot5_hunter}}</small></span><span class="lobby_roster_state">{{slot5_state}}</span>
+                        <span class="lobby_roster_index">6</span><span class="lobby_roster_copy"><b>{{slot5_name}}</b><span class="lobby_roster_hunter">{{slot5_hunter}}</span></span><span class="lobby_roster_state">{{slot5_state}}</span>
                     </div>
                     <div class="lobby_roster_row" data-if="slot6_occupied" data-class-ready="slot6_ready" data-class-local="slot6_local">
-                        <span class="lobby_roster_index">7</span><span class="lobby_roster_copy"><b>{{slot6_name}}</b><small>{{slot6_hunter}}</small></span><span class="lobby_roster_state">{{slot6_state}}</span>
+                        <span class="lobby_roster_index">7</span><span class="lobby_roster_copy"><b>{{slot6_name}}</b><span class="lobby_roster_hunter">{{slot6_hunter}}</span></span><span class="lobby_roster_state">{{slot6_state}}</span>
                     </div>
                     <div class="lobby_roster_row" data-if="slot7_occupied" data-class-ready="slot7_ready" data-class-local="slot7_local">
-                        <span class="lobby_roster_index">8</span><span class="lobby_roster_copy"><b>{{slot7_name}}</b><small>{{slot7_hunter}}</small></span><span class="lobby_roster_state">{{slot7_state}}</span>
+                        <span class="lobby_roster_index">8</span><span class="lobby_roster_copy"><b>{{slot7_name}}</b><span class="lobby_roster_hunter">{{slot7_hunter}}</span></span><span class="lobby_roster_state">{{slot7_state}}</span>
                     </div>
                 </div>
 
