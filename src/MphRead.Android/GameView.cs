@@ -1790,6 +1790,7 @@ namespace MphRead.Droid
                 }
                 _controls.TakeSwipeBoost();
                 _controls.TakeDoubleTapJump();
+                MphRead.Mods.Input.MorphTouchHost.Clear();
                 // Nothing to scan or boost from here, and FIRE has to be the
                 // button that cycles players rather than a SCAN left over from
                 // whatever the visor was doing.
@@ -1906,6 +1907,24 @@ namespace MphRead.Droid
                 _input.Apply(controls.RolltLeft, left);
                 _input.Apply(controls.RollRight, right);
 
+                // Samus' aim finger is the DS stylus. Publish the
+                // absolute contact without consuming the aim delta; the shared
+                // 30 Hz producer samples it on the native cadence.
+                if (main.Hunter == MphRead.Hunter.Samus && main.IsAltForm
+                    && !main.IsMorphing && !main.IsUnmorphing
+                    && !GameState.DialogPause
+                    && !_controls.IsHeld(TouchAction.WeaponMenu))
+                {
+                    (bool Down, float X, float Y) morphTouch = _controls.AimPosition();
+                    MphRead.Mods.Input.MorphTouchHost.Publish(morphTouch.Down,
+                        _controls.Width > 0 ? morphTouch.X / _controls.Width : 0,
+                        _controls.Height > 0 ? morphTouch.Y / _controls.Height : 0);
+                }
+                else
+                {
+                    MphRead.Mods.Input.MorphTouchHost.Clear();
+                }
+
                 // Samus uses current-frame aim-side motion, just like
                 // native Morph Ball steering. The other rolling hunters keep
                 // the anchored precision stick. Neither path consumes the aim
@@ -1957,20 +1976,16 @@ namespace MphRead.Droid
                 // One button on the DS, and the same key here by default:
                 // jumping on foot is boosting in the ball.
                 _input.Apply(controls.Boost, jump);
-                // Fast gestures layer a one-shot movement effect on top of the
-                // drag: Samus gets the aimed native boost and Spire gets a
-                // directional momentum shove. No swipe synthesizes Spire's
-                // AltAttack press. Other transformed hunters keep the drag.
+                // Samus' touch boost is now decided by the native Morph Ball
+                // producer. Keep the legacy one-shot recognizer only for
+                // Spire's mobility nudge.
                 _controls.SwipeBoostEnabled = main.IsAltForm
                     && Mods.Input.AltFormGesture.FlickAction(main.Hunter)
-                        != Mods.Input.AltFlickAction.None;
+                        == Mods.Input.AltFlickAction.SpireMomentum;
                 (bool Fired, float X, float Y) swipe = _controls.TakeSwipeBoost();
-                if (swipe.Fired && main.IsAltForm)
+                if (swipe.Fired && main.IsAltForm && main.Hunter == MphRead.Hunter.Spire)
                 {
                     main.SwipeBoostRequested = true;
-                    // Which way the thumb went, for the boost to follow. The
-                    // engine turns it into a world direction; here it is still
-                    // just the screen's.
                     main.SwipeBoostX = swipe.X;
                     main.SwipeBoostY = swipe.Y;
                 }
