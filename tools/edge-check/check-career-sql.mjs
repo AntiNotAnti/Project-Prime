@@ -56,8 +56,8 @@ try {
  await db.query(`select public.project_prime_hunter_license_for('${socialC}'::uuid,'Gamma',2)`);
  const socialProfiles=(await db.query(`select player_id,prime_id from prime.social_profiles where player_id in ('${socialA}'::uuid,'${socialB}'::uuid,'${socialC}'::uuid) order by player_id`)).rows;
  assert.deepEqual(socialProfiles.map(x=>x.prime_id),['PP-1111-1111-1111-4111-8111','PP-2222-2222-2222-4222-8222','PP-3333-3333-3333-4333-8333']);
- const socialRls=(await db.query(`select c.relname,c.relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='prime' and c.relname in ('social_profiles','friend_requests','friendships','player_blocks','social_settings','social_presence_sessions','social_lobby_memberships','social_lobbies','game_invites') order by c.relname`)).rows;
- assert.equal(socialRls.length,9); assert.ok(socialRls.every(x=>x.relrowsecurity===true));
+ const socialRls=(await db.query(`select c.relname,c.relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='prime' and c.relname in ('social_profiles','friend_requests','friendships','player_blocks','social_settings','social_presence_sessions','social_lobby_memberships','social_lobbies','game_invites','social_recent_players','social_parties','social_party_members','social_party_invites') order by c.relname`)).rows;
+ assert.equal(socialRls.length,13); assert.ok(socialRls.every(x=>x.relrowsecurity===true));
  const socialPrivileges=(await db.query(`select
   has_table_privilege('authenticated','prime.social_profiles','select') as profile_select,
   has_table_privilege('authenticated','prime.friend_requests','select') as request_select,
@@ -65,11 +65,16 @@ try {
   has_table_privilege('authenticated','prime.social_lobby_memberships','select') as membership_select,
   has_table_privilege('authenticated','prime.social_lobbies','select') as lobby_select,
   has_table_privilege('authenticated','prime.game_invites','select') as invite_select,
+  has_table_privilege('authenticated','prime.social_recent_players','select') as recent_select,
+  has_table_privilege('authenticated','prime.social_parties','select') as party_select,
+  has_table_privilege('authenticated','prime.social_party_members','select') as party_member_select,
+  has_table_privilege('authenticated','prime.social_party_invites','select') as party_invite_select,
   has_function_privilege('authenticated','prime.social_mutate(uuid,text,text)','execute') as mutate,
   has_function_privilege('authenticated','prime.social_presence_heartbeat(uuid,uuid,text,text,boolean,uuid)','execute') as heartbeat,
-  has_function_privilege('authenticated','prime.social_invite_send(uuid,text,uuid)','execute') as invite_send
+  has_function_privilege('authenticated','prime.social_invite_send(uuid,text,uuid)','execute') as invite_send,
+  has_function_privilege('authenticated','prime.social_party_action(uuid,text,text,uuid)','execute') as party_action
  `)).rows[0];
- assert.deepEqual(socialPrivileges,{profile_select:false,request_select:false,presence_select:false,membership_select:false,lobby_select:false,invite_select:false,mutate:false,heartbeat:false,invite_send:false});
+ assert.deepEqual(socialPrivileges,{profile_select:false,request_select:false,presence_select:false,membership_select:false,lobby_select:false,invite_select:false,recent_select:false,party_select:false,party_member_select:false,party_invite_select:false,mutate:false,heartbeat:false,invite_send:false,party_action:false});
 
  let socialResult=(await db.query(`select prime.social_mutate('${socialA}'::uuid,'PP-2222-2222-2222-4222-8222','send_request') as value`)).rows[0].value;
  assert.equal(socialResult.ok,true); assert.equal(socialResult.status,'request_sent');
@@ -118,7 +123,30 @@ try {
  const friendJoin=(await db.query(`select prime.social_join_friend('${socialB}'::uuid,'PP-1111-1111-1111-4111-8111') as value`)).rows[0].value;
  assert.equal(friendJoin.ok,true); assert.equal(friendJoin.status,'friend_resolved'); assert.equal(friendJoin.locator.lobby_id,socialLobbyId);
 
- presence=(await db.query(`select prime.social_privacy_update('${socialA}'::uuid,'friends','private','nobody') as value`)).rows[0].value;
+ const reporter='99999999-9999-4999-8999-999999999999';
+ await db.query(`insert into prime.social_lobby_memberships(player_id,authority_epoch,reporter_id,client_id,expires_at) values ('${socialB}'::uuid,638000000000000000::numeric,'${reporter}'::uuid,22345,now()+interval '60 seconds')`);
+ await db.query(`select prime.social_recent_touch('${socialA}'::uuid,638000000000000000::numeric,'${reporter}'::uuid)`);
+ let partySnapshot=(await db.query(`select prime.social_party_snapshot('${socialA}'::uuid) as value`)).rows[0].value;
+ assert.equal(partySnapshot.recent_players[0].prime_id,'PP-2222-2222-2222-4222-8222'); assert.equal(partySnapshot.recent_players[0].encounters,1);
+
+ presence=(await db.query(`select prime.social_privacy_update('${socialB}'::uuid,'everyone','friends','friends',true) as value`)).rows[0].value;
+ assert.equal(presence.settings.do_not_disturb,true);
+ let partyResult=(await db.query(`select prime.social_party_action('${socialA}'::uuid,'invite','PP-2222-2222-2222-4222-8222',null) as value`)).rows[0].value;
+ assert.equal(partyResult.ok,false); assert.equal(partyResult.status,'do_not_disturb');
+ const dndGameInvite=(await db.query(`select prime.social_invite_send('${socialA}'::uuid,'PP-2222-2222-2222-4222-8222','${socialLobbyId}'::uuid) as value`)).rows[0].value;
+ assert.equal(dndGameInvite.ok,false); assert.equal(dndGameInvite.status,'do_not_disturb');
+
+ await db.query(`select prime.social_privacy_update('${socialB}'::uuid,'everyone','friends','friends',false)`);
+ partyResult=(await db.query(`select prime.social_party_action('${socialA}'::uuid,'invite','PP-2222-2222-2222-4222-8222',null) as value`)).rows[0].value;
+ assert.equal(partyResult.ok,true); assert.ok(['party_created_and_invited','party_invite_sent'].includes(partyResult.status));
+ partySnapshot=(await db.query(`select prime.social_party_snapshot('${socialB}'::uuid) as value`)).rows[0].value;
+ assert.equal(partySnapshot.incoming_party_invites.length,1);
+ const partyInviteId=partySnapshot.incoming_party_invites[0].invite_id;
+ partyResult=(await db.query(`select prime.social_party_action('${socialB}'::uuid,'accept',null,'${partyInviteId}'::uuid) as value`)).rows[0].value;
+ assert.equal(partyResult.ok,true); assert.equal(partyResult.status,'party_joined'); assert.equal(partyResult.snapshot.party.members.length,2);
+ assert.equal(partyResult.snapshot.party.leader_prime_id,'PP-1111-1111-1111-4111-8111');
+
+ presence=(await db.query(`select prime.social_privacy_update('${socialA}'::uuid,'friends','private','nobody',false) as value`)).rows[0].value;
  assert.equal(presence.settings.presence_visibility,'friends'); assert.equal(presence.settings.activity_visibility,'private'); assert.equal(presence.settings.invite_policy,'nobody');
  const strangerView=(await db.query(`select prime.social_presence_snapshot('${socialC}'::uuid) as value`)).rows[0].value;
  assert.equal(strangerView.players.some(x=>x.prime_id==='PP-1111-1111-1111-4111-8111'),false);
@@ -130,6 +158,8 @@ try {
 
  socialResult=(await db.query(`select prime.social_mutate('${socialA}'::uuid,'PP-2222-2222-2222-4222-8222','block_player') as value`)).rows[0].value;
  assert.equal(socialResult.status,'blocked'); assert.equal(socialResult.snapshot.friends.length,0); assert.equal(socialResult.snapshot.blocked.length,1);
+ const partyAfterBlock=(await db.query(`select prime.social_party_snapshot('${socialA}'::uuid) as value`)).rows[0].value;
+ assert.equal(partyAfterBlock.party.members.length,1); assert.equal(partyAfterBlock.party.members[0].prime_id,'PP-1111-1111-1111-4111-8111');
  const inviteStatus=(await db.query(`select status from prime.game_invites where invite_id='${socialInviteId}'::uuid`)).rows[0].status;
  assert.equal(inviteStatus,'cancelled');
  const hidden=(await db.query(`select prime.social_lookup('${socialB}'::uuid,'PP-1111-1111-1111-4111-8111') as value`)).rows[0].value;
@@ -139,7 +169,7 @@ try {
  await db.query(`delete from prime.hunter_licenses where "PlayerId" in ('${socialA}'::uuid,'${socialB}'::uuid,'${socialC}'::uuid)`);
  await db.query(`delete from prime.player_profiles where "PlayerId" in ('${socialA}'::uuid,'${socialB}'::uuid,'${socialC}'::uuid)`);
  await db.query(`delete from prime.players where "Id" in ('${socialA}'::uuid,'${socialB}'::uuid,'${socialC}'::uuid)`);
- console.log('PASS social IDs, private grants/RLS, presence privacy, authenticated lobby identity, invites, Join Friend, blocking and cleanup');
+ console.log('PASS social IDs, private grants/RLS, DND, recent players, parties, invites, Join Friend, blocking and cleanup');
  phase='service grant';
  const grants=(await db.query(`select rol,
   has_function_privilege(rol,'public.ingest_project_prime_career_match(jsonb,uuid,integer,text,text)','execute') as ingest,
