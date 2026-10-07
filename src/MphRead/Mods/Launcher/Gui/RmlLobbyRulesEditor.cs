@@ -69,6 +69,21 @@ namespace MphRead.Mods.Launcher.Gui
             RmlUiPrototype.SetMenuBool("lobby_rules_open", false);
         }
 
+        /// <summary>
+        /// A new session cannot inherit a previous lobby's pending UpdateMatch
+        /// witness or local rule draft. Shell calls this when the RmlUi lobby
+        /// stops owning presentation, including after a disconnect.
+        /// </summary>
+        internal void ResetSession()
+        {
+            if (!_open && !_pending && !_dirty) return;
+            _open = false;
+            _pending = false;
+            _dirty = false;
+            _publishPending = false;
+            RmlUiPrototype.SetMenuBool("lobby_rules_open", false);
+        }
+
         internal void Tick()
         {
             if ((!_open && !_pending)
