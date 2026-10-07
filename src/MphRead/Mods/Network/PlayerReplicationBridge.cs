@@ -390,6 +390,14 @@ namespace MphRead.Mods.Network
                 // looking. See NetSession.AppliedSnapshotFrame.
                 AckFrame = 0
             };
+            // Protocol 43 reuses the target-identity bytes for Samus'
+            // Morph Ball touch while transformed. A ball cannot fire a
+            // homing/continuous weapon, so the two meanings never overlap.
+            if (player.Hunter == Hunter.Samus && player.IsAltForm)
+            {
+                intent.SetMorphTouch(player.ModMorphTouchReport());
+            }
+
             // And the read point itself, if the puppets are being drawn on a
             // playout clock: that is a point *between* two snapshots, and an
             // integer ack cannot name it. Overwrites the choice above rather
@@ -622,7 +630,15 @@ namespace MphRead.Mods.Network
             // Only on the authority, like the form above: it is the machine
             // whose copy of this shot decides what it hit, and a client that
             // also acted on it would be correcting a puppet from two sources.
-            if (intent.HasState && intent.Target.IsSupplied
+            if (player.Hunter == Hunter.Samus)
+            {
+                if (intent.HasMorphTouch)
+                    player.ModApplyReportedMorphTouch(intent.MorphTouch, intent.Frame);
+                else
+                    player.ModClearReportedMorphTouch();
+            }
+
+            if (intent.HasState && !intent.HasMorphTouch && intent.Target.IsSupplied
                 && intent.WeaponSelect == (byte)BeamType.VoltDriver
                 && player.SlotIndex != _host.LocalSlot)
             {
