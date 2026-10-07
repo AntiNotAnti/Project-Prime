@@ -219,12 +219,26 @@ public static partial class NetLobbyTest
         Check(!new QueueStatePacket(1,1,2,1,LobbyQueueWireState.Waiting).Validate(), "impossible queue position rejects at generated boundary");
         Check(new QueueSeatOfferPacket(1,ulong.MaxValue,ulong.MaxValue,ushort.MaxValue,ulong.MaxValue,18000).Validate(), "queue identities preserve complete ulong domain");
         const string unicodeServerName = "Rémëlle ー's lobby";
-        var status = new ServerStatusPacket { WaitlistSupported = true, WaitlistCount = 256, ServerName = unicodeServerName };
-        byte[] statusBytes = new byte[ServerStatusPacket.SizeWithWaitlist]; status.Write(statusBytes);
+        var status = new ServerStatusPacket
+        {
+            WaitlistSupported = true,
+            WaitlistCount = 256,
+            ReservedSlots = 3,
+            ServerName = unicodeServerName
+        };
+        byte[] statusBytes = new byte[ServerStatusPacket.SizeWithReservations];
+        status.Write(statusBytes);
         var decoded = ServerStatusPacket.Read(statusBytes);
-        Check(decoded.WaitlistSupported && decoded.WaitlistCount == 256 && decoded.ServerName == unicodeServerName,
-            "bounded discovery queue capability/count and Unicode server name round trip");
-        Check(!ServerStatusPacket.Read(statusBytes.AsSpan(0, ServerStatusPacket.SizeWithFlags)).WaitlistSupported, "old discovery reply defaults queue capability off");
+        Check(decoded.WaitlistSupported && decoded.WaitlistCount == 256
+            && decoded.ReservedSlots == 3
+            && decoded.ServerName == unicodeServerName,
+            "bounded discovery queue/reservation capacity and Unicode server name round trip");
+        Check(ServerStatusPacket.Read(
+                statusBytes.AsSpan(0, ServerStatusPacket.SizeWithWaitlist)).ReservedSlots == 0,
+            "pre-protocol-43 discovery reply defaults reserved capacity to zero");
+        Check(!ServerStatusPacket.Read(
+                statusBytes.AsSpan(0, ServerStatusPacket.SizeWithFlags)).WaitlistSupported,
+            "old discovery reply defaults queue capability off");
     }
 
 }
