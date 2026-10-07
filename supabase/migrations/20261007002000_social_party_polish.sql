@@ -773,13 +773,7 @@ using ((select auth.uid()) = actor_id);
 
 create policy social_party_member_read on prime.social_party_members
 for select to authenticated
-using (
-    exists (
-        select 1 from prime.social_party_members self
-        where self.party_id = social_party_members.party_id
-          and self.player_id = (select auth.uid())
-    )
-);
+using ((select auth.uid()) = player_id);
 
 create policy social_party_read on prime.social_parties
 for select to authenticated
