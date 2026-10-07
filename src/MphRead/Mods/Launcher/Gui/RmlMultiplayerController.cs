@@ -38,6 +38,7 @@ namespace MphRead.Mods.Launcher.Gui
         private string _status = "CHOOSE A MULTIPLAYER ACTIVITY";
 
         public event Action<LaunchPlan>? Connected;
+        public bool Visible => _visible;
 
         public RmlMultiplayerController(IReadOnlyList<string> rooms)
         {
