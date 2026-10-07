@@ -257,6 +257,8 @@ namespace MphRead.Mods.Launcher
             CancellationToken token = lifetime.Token;
             DateTimeOffset nextPoll = DateTimeOffset.MinValue;
             DateTimeOffset nextTravelRefresh = DateTimeOffset.MinValue;
+            DateTimeOffset nextTravelAttempt = DateTimeOffset.MinValue;
+            DateTimeOffset nextTravelAckAttempt = DateTimeOffset.MinValue;
             bool sawPartyMatch = false;
             string publishedLobby = "";
 
@@ -291,6 +293,7 @@ namespace MphRead.Mods.Launcher
                             "leader_lobby", StringComparison.Ordinal);
 
                     if (leaderInVerifiedLobby
+                        && now >= nextTravelAttempt
                         && (lobby!.LobbyId != publishedLobby
                             || now >= nextTravelRefresh
                             || current.Travel == null
@@ -309,11 +312,13 @@ namespace MphRead.Mods.Launcher
                                 await InvokeAsync(body, token).ConfigureAwait(false);
                             if (envelope.Snapshot != null)
                                 PublishSnapshot(generation, envelope.Snapshot);
+                            nextTravelAckAttempt = DateTimeOffset.UtcNow.AddSeconds(30);
                             if (envelope.Ok)
                             {
                                 publishedLobby = lobby.LobbyId;
                                 nextTravelRefresh = DateTimeOffset.UtcNow
                                     + TravelRefreshInterval;
+                                nextTravelAttempt = DateTimeOffset.MinValue;
                                 sawPartyMatch = false;
                                 lock (Sync) _nextTravelReason = "leader_lobby";
                             }
@@ -325,11 +330,12 @@ namespace MphRead.Mods.Launcher
                         catch (Exception ex)
                         {
                             NoteFailure(ex);
-                            nextTravelRefresh = DateTimeOffset.UtcNow.AddSeconds(10);
+                            nextTravelAttempt = DateTimeOffset.UtcNow.AddSeconds(10);
                         }
                     }
                     else if (party is { IsLeader: true }
                         && current.Travel != null
+                        && now >= nextTravelAttempt
                         && (!NetSession.Active
                             || !NetSession.PersistentLobby
                             || !NetSession.IsInLobby))
@@ -342,6 +348,7 @@ namespace MphRead.Mods.Launcher
                                 PublishSnapshot(generation, envelope.Snapshot);
                             publishedLobby = "";
                             nextTravelRefresh = DateTimeOffset.MinValue;
+                            nextTravelAttempt = DateTimeOffset.MinValue;
                         }
                         catch (OperationCanceledException) when (token.IsCancellationRequested)
                         {
@@ -350,11 +357,13 @@ namespace MphRead.Mods.Launcher
                         catch (Exception ex)
                         {
                             NoteFailure(ex);
+                            nextTravelAttempt = DateTimeOffset.UtcNow.AddSeconds(10);
                         }
                     }
 
                     SocialPartyTravel? travel = Current.Travel;
                     if (travel is { IsLeader: false }
+                        && now >= nextTravelAckAttempt
                         && !travel.SelfStatus.Equals(
                             "joined", StringComparison.OrdinalIgnoreCase)
                         && travel.TryAuthorityEpoch(out ulong travelEpoch)
@@ -378,6 +387,7 @@ namespace MphRead.Mods.Launcher
                         catch (Exception ex)
                         {
                             NoteFailure(ex);
+                            nextTravelAckAttempt = DateTimeOffset.UtcNow.AddSeconds(10);
                         }
                     }
 
