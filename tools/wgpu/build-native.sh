@@ -72,9 +72,11 @@ cargo build --manifest-path "$src/Cargo.toml" --locked ${offline_option:+"$offli
 if $unit_tests; then
     cargo test --manifest-path "$src/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --target "$triple" --no-default-features --features "$features" --lib prime_surface_tests
     cargo test --manifest-path "$src/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --target "$triple" --no-default-features --features "$features" --lib prime_diagnostic_string_tests
+    cargo test --manifest-path "$src/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --target "$triple" --no-default-features --features "$features" --lib prime_device_poll_loss_tests
     # Select both packages so Cargo enables production features on the native
     # workspace while testing the core dependency through the same pinned lock.
     cargo test --manifest-path "$src/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --target "$triple" --package wgpu-native --package wgpu-core --no-default-features --features "$features" --lib prime_derived_bind_group_layout_tests
+    cargo test --manifest-path "$src/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --target "$triple" --package wgpu-native --package wgpu-core --no-default-features --features "$features" --lib prime_wait_completion_tests
     rustc --test "$repo/tools/wgpu/prime-dx12-wsi-policy.rs" -o "$CARGO_TARGET_DIR/prime-dx12-policy-tests"
     "$CARGO_TARGET_DIR/prime-dx12-policy-tests"
     if [[ "$requested" == win-x64 ]]; then
@@ -82,6 +84,7 @@ if $unit_tests; then
         cargo test --manifest-path "${src}-core/wgpu-hal/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --features dx12 --lib prime_fxc_source_name_tests
         cargo test --manifest-path "${src}-core/wgpu-hal/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --features dx12 --lib prime_dx12_device_removal_diagnostic_tests
         cargo test --manifest-path "${src}-core/wgpu-hal/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --features dx12 --lib prime_dx12_gpu_validation_diagnostic_tests
+        cargo test --manifest-path "${src}-core/wgpu-hal/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --features dx12 --lib prime_dx12_fence_completion_tests
     fi
 fi
 mkdir -p "$out"

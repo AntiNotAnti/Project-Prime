@@ -342,7 +342,15 @@ internal static class MapViewportCheck
             texturedDefinition.Geometry.Add(new MapBox());
             var texturedDocument = new MapDocument(new MapProject(texturedDefinition));
             var texturedView = new MapViewport(texturedDocument);
-            var texturedPanel = new Panel(); texturedPanel.Children.Add(texturedView);
+            // Keep the strict whole-preview coverage oracle independent of the
+            // host's constrained window aspect. CaptureGpuPreview uses these bounds.
+            var texturedPanel = new Panel
+            {
+                Width = 512, Height = 512,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+            };
+            texturedPanel.Children.Add(texturedView);
             surface.Show(texturedPanel); surface.Resize(window.FramebufferSize.X,window.FramebufferSize.Y); surface.PrepareMapRenderer();
             for(int i=0;i<5;i++){System.Threading.Thread.Sleep(20);surface.Invalidate();surface.Tick();}
             texturedView.FrameAll();

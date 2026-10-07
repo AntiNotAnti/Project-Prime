@@ -31,6 +31,17 @@ namespace MphRead.Mods.Render
                 GLFW.InitHint(InitHintBool.CocoaChdirResources, false);
         }
 
+        // OpenTK 4.9.4 queries this handle with glfwGetVideoMode before it
+        // calls glfwCreateWindow, including windowed and NoAPI windows. A null
+        // primary monitor must be rejected in managed code before construction.
+        private static NativeWindowSettings RequirePrimaryMonitor(NativeWindowSettings settings)
+        {
+            if (settings.CurrentMonitor.Pointer == IntPtr.Zero)
+                throw new InvalidOperationException(
+                    "GLFW did not report a primary monitor. A game window cannot be created while the display is unavailable.");
+            return settings;
+        }
+
         public static NativeWindowSettings Settings(bool background = false)
         {
             GraphicsBackendPolicy.LoadPreference();
@@ -54,7 +65,7 @@ namespace MphRead.Mods.Render
                 // Vulkan surfaces cannot be created for a GLFW window that
                 // already owns an OpenGL client API. Metal/DX12 follow the same
                 // path so one window contract covers every modern backend.
-                return new NativeWindowSettings
+                return RequirePrimaryMonitor(new NativeWindowSettings
                 {
                     ClientSize = new Vector2i(1280, 768),
                     Title = Branding.Name,
@@ -62,10 +73,10 @@ namespace MphRead.Mods.Render
                     Flags = ContextFlags.Default,
                     AutoLoadBindings = false,
                     StartVisible = false
-                };
+                });
             }
 
-            return new NativeWindowSettings
+            return RequirePrimaryMonitor(new NativeWindowSettings
             {
                 ClientSize = new Vector2i(1280, 768),
                 Title = Branding.Name,
@@ -75,7 +86,7 @@ namespace MphRead.Mods.Render
                 Flags = ContextFlags.Default,
                 APIVersion = OperatingSystem.IsMacOS() ? new Version(2, 1) : new Version(3, 2),
                 StartVisible = false
-            };
+            });
         }
     }
 }
