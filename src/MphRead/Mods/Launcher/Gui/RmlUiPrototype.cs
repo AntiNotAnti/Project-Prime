@@ -135,10 +135,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _socialInviteMutation = null;
                 _socialJoin = null;
                 _verifiedSocialJoins.Clear();
-                _socialInviteMutation = null;
-            _socialJoin = null;
-            _verifiedSocialJoins.Clear();
-            _socialLookupQuery = "";
+                _socialLookupQuery = "";
                 _socialSnapshot = null;
                 _socialLookupPlayer = null;
                 _socialPendingAction = "";
