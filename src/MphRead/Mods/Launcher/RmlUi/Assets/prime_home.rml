@@ -245,7 +245,7 @@
                     <div class="lobby_data_row"><span>FORMAT</span><b>{{lobby_format}}</b></div>
                     <div class="lobby_data_row"><span>PLAYERS</span><b>{{lobby_player_count}}</b></div>
                     <div class="lobby_data_row"><span>READY</span><b>{{lobby_ready_count}}</b></div>
-                    <button class="lobby_small_button" data-event-click="lobby_classic">MAP / RULES</button>
+                    <button id="lobby_match_rules" class="lobby_small_button" data-event-click="lobby_rules_open">MAP / RULES &gt;</button>
                 </div>
 
                 <div id="lobby_roster_panel" class="lobby_side_panel enter_right">
@@ -293,9 +293,89 @@
                     <button id="lobby_ready" class="lobby_action primary" data-event-click="lobby_ready">{{lobby_ready_action}}</button>
                     <button id="lobby_hunter" class="lobby_action" data-event-click="lobby_next_hunter">HUNTER // {{lobby_local_hunter}}</button>
                     <button id="lobby_suit" class="lobby_action" data-event-click="lobby_next_suit">NEXT SUIT</button>
-                    <button id="lobby_rules" class="lobby_action" data-event-click="lobby_classic">LOBBY OPTIONS</button>
+                    <button id="lobby_rules" class="lobby_action" data-event-click="lobby_rules_open">LOBBY RULES</button>
                     <button id="lobby_leave" class="lobby_action danger" data-event-click="lobby_leave">LEAVE</button>
                     <button id="lobby_start" class="lobby_action start" data-if="lobby_owner" data-event-click="lobby_start">START MATCH</button>
+                </div>
+
+                <!-- Owner edits are staged locally and sent only by APPLY.
+                     The authoritative NetSession rules stay on the server. -->
+                <div id="lobby_rules_modal" data-if="lobby_rules_open">
+                    <div id="lobby_rules_dimmer"></div>
+                    <div id="lobby_rules_sheet">
+                        <div class="rules_heading">
+                            <div>
+                                <div class="eyebrow">MULTIPLAYER // SESSION AUTHORITY</div>
+                                <div class="rules_title">LOBBY RULES</div>
+                            </div>
+                            <button id="rules_close_top" class="play_action" data-event-click="lobby_rules_close">CLOSE</button>
+                        </div>
+
+                        <div class="rules_columns">
+                            <div class="rules_main">
+                                <div class="eyebrow">MATCH CONFIGURATION</div>
+                                <div class="play_form_label">NEXT ARENA</div>
+                                <button id="rules_map_next" class="rules_choice" data-event-click="lobby_rules_map">
+                                    <span>{{rules_map}}</span><span class="rules_change">&gt;</span>
+                                </button>
+                                <div class="play_form_label">GAME TYPE</div>
+                                <button id="rules_mode_next" class="rules_choice" data-event-click="lobby_rules_mode">
+                                    <span>{{rules_mode}}</span><span class="rules_change">&gt;</span>
+                                </button>
+                                <div class="play_form_label">MATCHUP / TEAMS</div>
+                                <button id="rules_format_next" class="rules_choice" data-event-click="lobby_rules_format">
+                                    <span>{{rules_format}}</span><span class="rules_change">&gt;</span>
+                                </button>
+
+                                <div class="rules_limit_row">
+                                    <div class="rules_limit">
+                                        <div class="play_form_label">TIME LIMIT</div>
+                                        <input id="rules_time" class="play_input" type="text" maxlength="8" value="7:00" />
+                                    </div>
+                                    <div class="rules_limit">
+                                        <div class="play_form_label">{{rules_goal_label}}</div>
+                                        <input id="rules_goal" class="play_input" type="text" maxlength="8" value="7" />
+                                    </div>
+                                </div>
+                                <div class="rules_hint">MINUTES OR M:SS // LIVES DISPLAY INCLUDES FIRST LIFE</div>
+                            </div>
+
+                            <div class="rules_flags">
+                                <div class="eyebrow">MATCH &amp; GAMEPLAY</div>
+                                <div class="rules_toggle_columns">
+                                    <div class="rules_toggle_column">
+                                        <button id="rules_toggle0" class="rules_toggle" data-event-click="lobby_rules_toggle0">REQUIRE READY <span>{{rules_toggle0}}</span></button>
+                                        <button id="rules_toggle1" class="rules_toggle" data-event-click="lobby_rules_toggle1">JOIN IN PROGRESS <span>{{rules_toggle1}}</span></button>
+                                        <button id="rules_toggle2" class="rules_toggle" data-event-click="lobby_rules_toggle2">LOCK TEAMS <span>{{rules_toggle2}}</span></button>
+                                        <button id="rules_toggle3" class="rules_toggle" data-event-click="lobby_rules_toggle3">OPPONENT HEALTH <span>{{rules_toggle3}}</span></button>
+                                        <button id="rules_toggle4" class="rules_toggle" data-event-click="lobby_rules_toggle4">POWERUPS <span>{{rules_toggle4}}</span></button>
+                                        <button id="rules_toggle5" class="rules_toggle" data-event-click="lobby_rules_toggle5">SPAWN PROTECTION <span>{{rules_toggle5}}</span></button>
+                                        <button id="rules_toggle6" class="rules_toggle" data-event-click="lobby_rules_toggle6">AFFINITY WEAPONS <span>{{rules_toggle6}}</span></button>
+                                        <button id="rules_toggle7" class="rules_toggle" data-event-click="lobby_rules_toggle7">FRIENDLY FIRE <span>{{rules_toggle7}}</span></button>
+                                    </div>
+                                    <div class="rules_toggle_column">
+                                        <button id="rules_toggle8" class="rules_toggle" data-event-click="lobby_rules_toggle8">BALANCED MODE <span>{{rules_toggle8}}</span></button>
+                                        <button id="rules_toggle9" class="rules_toggle" data-event-click="lobby_rules_toggle9">INSTA-GIB <span>{{rules_toggle9}}</span></button>
+                                        <button id="rules_toggle10" class="rules_toggle" data-event-click="lobby_rules_toggle10">LOW TIER <span>{{rules_toggle10}}</span></button>
+                                        <button id="rules_toggle11" class="rules_toggle" data-event-click="lobby_rules_toggle11">NO IMPERIALIST <span>{{rules_toggle11}}</span></button>
+                                        <button id="rules_toggle12" class="rules_toggle" data-event-click="lobby_rules_toggle12">FIESTA <span>{{rules_toggle12}}</span></button>
+                                        <button id="rules_toggle13" class="rules_toggle" data-event-click="lobby_rules_toggle13">VANILLA 1V1 PICKUPS <span>{{rules_toggle13}}</span></button>
+                                        <button id="rules_toggle14" class="rules_toggle" data-event-click="lobby_rules_toggle14">SHADOW FREEZE <span>{{rules_toggle14}}</span></button>
+                                        <button id="rules_toggle15" class="rules_toggle" data-event-click="lobby_rules_toggle15">OCTOLITH RESET <span>{{rules_toggle15}}</span></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="rules_status">{{rules_status}}</div>
+                        <div class="rules_footer">
+                            <div class="rules_owner_message" data-if="rules_owner">CHANGES ARE SUBMITTED TO THE SERVER ONLY WHEN YOU APPLY.</div>
+                            <div class="rules_owner_message" data-if="!rules_owner">VIEW ONLY // THE LOBBY OWNER CONTROLS THESE SETTINGS.</div>
+                            <button id="rules_classic" class="play_action" data-event-click="lobby_classic">OTHER OPTIONS</button>
+                            <button id="rules_cancel" class="play_action" data-event-click="lobby_rules_close">CANCEL</button>
+                            <button id="rules_apply" class="play_action primary" data-if="rules_owner" data-event-click="lobby_rules_apply">APPLY RULES</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
