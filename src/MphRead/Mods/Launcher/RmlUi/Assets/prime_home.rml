@@ -177,6 +177,10 @@
                 </div>
 
                 <div class="social_notice" data-if="social_notice != ''">{{social_notice}}</div>
+                <div class="social_travel_notice"
+                     data-if="social_tab == 4 && social_party_travel_label != ''">
+                    {{social_party_travel_label}}
+                </div>
 
                 <div class="social_search_row">
                     <input id="social_search" type="text" maxlength="48"
@@ -192,6 +196,12 @@
                     <button id="social_party_game_invite" class="social_state_action"
                             data-if="social_tab == 4 && social_party_game_invite_ready"
                             data-event-click="social_party_game_invite">INVITE PARTY TO LOBBY</button>
+                    <button id="social_party_follow" class="social_state_action"
+                            data-if="social_tab == 4 && social_party_follow_ready"
+                            data-event-click="social_party_follow">FOLLOW PARTY</button>
+                    <button id="social_party_decline_travel" class="social_state_action subtle"
+                            data-if="social_tab == 4 && social_party_decline_travel_ready"
+                            data-event-click="social_party_decline_travel">DECLINE</button>
                     <button id="social_party_join_leader" class="social_state_action"
                             data-if="social_tab == 4 && social_party_join_leader_ready"
                             data-event-click="social_party_join_leader">JOIN LEADER</button>
