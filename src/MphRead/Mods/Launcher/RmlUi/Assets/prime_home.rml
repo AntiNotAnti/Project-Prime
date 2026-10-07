@@ -4,7 +4,7 @@
     <link type="text/rcss" href="prime_home.rcss" />
 </head>
 <body data-model="prime_menu">
-    <div id="screen" data-class-reduce-motion="reduce_motion">
+    <div id="screen" data-class-reduce-motion="reduce_motion" data-class-lobby="lobby_mode">
         <div id="top_rule"></div>
 
         <div id="topbar" class="enter_top">
