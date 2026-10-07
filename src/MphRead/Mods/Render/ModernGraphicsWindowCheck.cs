@@ -774,12 +774,18 @@ namespace MphRead.Mods.Render
                 Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=postprocess-aa-{aa} phase=draw START");
                 DrawTexturedQuad(-1, -1, 1, 1, 0);
                 Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=postprocess-aa-{aa} phase=draw DONE");
+                var diagnostic = ModernGraphicsCompat.CapturePostProcessDiagnosticForCheck(post);
                 byte[] pixel = new byte[4];
                 Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=postprocess-aa-{aa} phase=pixel-read START");
                 GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
                 Console.WriteLine($"DIAGNOSTIC renderwindowcheck advanced variant=postprocess-aa-{aa} phase=pixel-read DONE");
                 if (pixel[0] < 245 || pixel[1] > 10 || pixel[2] > 10)
-                    throw new InvalidOperationException($"Post-process AA mode {aa} changed a flat red field: {string.Join(",", pixel)}.");
+                {
+                    string failure = $"Post-process AA mode {aa} changed a flat red field: {string.Join(",", pixel)}.";
+                    if (diagnostic != null) ModernGraphicsCompat.WriteShaderDiagnosticForCheck("DIAGNOSTIC original pixel failure: " + failure);
+                    ModernGraphicsCompat.ObservePostProcessFailureForCheck(diagnostic);
+                    throw new InvalidOperationException(failure);
+                }
             }
             Console.WriteLine("DIAGNOSTIC renderwindowcheck advanced variant=pbr phase=setup START");
             int pbr = Link(DeferredPbrShader.VertexSource, DeferredPbrShader.FragmentSource);

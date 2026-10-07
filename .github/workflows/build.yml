@@ -95,6 +95,8 @@ jobs:
         run: dotnet run --project tools/studio-launch-check -c Release
       - name: Studio rendering CPU parity and lossless picking IDs
         run: dotnet run --project tools/studio-render-check -c Release
+      - name: post-process diagnostic policy, layout and callback controls
+        run: dotnet run --project tools/studio-shader-diagnostic-check -c Release
       - name: Studio document and process lifecycle
         run: dotnet run --project tools/studio-lifecycle-check -c Release
       - name: native Studio windows, Map surfaces and process recovery on Linux
@@ -314,6 +316,7 @@ jobs:
           if ('${{ matrix.renderer }}' -eq 'dx12') {
             $env:PRIME_WGPU_VALIDATION = '1'
             $env:PRIME_WGPU_GPU_VALIDATION = '1'
+            $env:PRIME_WGPU_SHADER_DIAGNOSTICS = '1'
           }
           $stdout = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.stdout.log'
           $stderr = Join-Path $env:RUNNER_TEMP 'renderer-windows-${{ matrix.renderer }}.stderr.log'
@@ -336,6 +339,7 @@ jobs:
           . ./.github/scripts/Invoke-NativeRendererCheck.ps1
           Remove-Item Env:PRIME_WGPU_VALIDATION -ErrorAction SilentlyContinue
           Remove-Item Env:PRIME_WGPU_GPU_VALIDATION -ErrorAction SilentlyContinue
+          Remove-Item Env:PRIME_WGPU_SHADER_DIAGNOSTICS -ErrorAction SilentlyContinue
           $stdout = Join-Path $env:RUNNER_TEMP 'renderer-windows-dx12.default.stdout.log'
           $stderr = Join-Path $env:RUNNER_TEMP 'renderer-windows-dx12.default.stderr.log'
           $process = Invoke-NativeRendererCheck -FilePath (Resolve-Path publish/modern-win/ProjectPrime.exe) -ArgumentList @('-renderfullcheck', '-renderer', 'dx12') -StdoutPath $stdout -StderrPath $stderr -TimeoutSeconds 1200

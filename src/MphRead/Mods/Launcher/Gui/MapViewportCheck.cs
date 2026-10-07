@@ -351,7 +351,9 @@ internal static class MapViewportCheck
                 VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
             };
             texturedPanel.Children.Add(texturedView);
-            surface.Show(texturedPanel); surface.Resize(window.FramebufferSize.X,window.FramebufferSize.Y); surface.PrepareMapRenderer();
+            var texturedRoot = new Panel();
+            texturedRoot.Children.Add(texturedPanel);
+            surface.Show(texturedRoot); surface.Resize(window.FramebufferSize.X,window.FramebufferSize.Y); surface.PrepareMapRenderer();
             for(int i=0;i<5;i++){System.Threading.Thread.Sleep(20);surface.Invalidate();surface.Tick();}
             texturedView.FrameAll();
             surface.DrawMapViewport(window.FramebufferSize.X,window.FramebufferSize.Y);
