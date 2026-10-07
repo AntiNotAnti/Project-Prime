@@ -706,10 +706,7 @@ namespace MphRead.Mods.Launcher.Gui
                 else controller.Browse();
             }
             else if (command == "play:create-open")
-            {
-                // RmlUi owns this view and its input fields. Creating a session
-                // happens only on the explicit CREATE & JOIN press.
-            }
+                controller.OpenCreate();
             else if (command == "play:next-map")
                 controller.NextMap();
             else if (command == "play:next-mode")
