@@ -346,12 +346,13 @@ namespace MphRead.Mods.Launcher.Gui
 
         public static void PointerMoved(double x, double y)
         {
-            if (_active)
-            {
-                NativeMouseMove(
-                    (int)Math.Round(x * _pointerScaleX),
-                    (int)Math.Round(y * _pointerScaleY), 0);
-            }
+            if (!_active) return;
+            // Shell forwards raw GLFW window coordinates, never pixels already
+            // scaled by RenderWindow.PointerPixels. ReadSize supplies the one
+            // framebuffer/GLFW-window conversion, independent of dp density.
+            (int px, int py) = RmlUiPointerMapping.FromWindow(
+                x, y, _pointerScaleX, _pointerScaleY);
+            NativeMouseMove(px, py, 0);
         }
 
         public static void PointerButton(MouseButton button, double x, double y, bool down)
