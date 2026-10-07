@@ -316,8 +316,24 @@ jobs:
           if ($negative.ExitCode -ne 2) { throw "GUI process negative exit oracle expected 2, got $($negative.ExitCode)" }
           Write-Host 'Actual GUI process nonzero exit code preserved: 2.'
           if ('${{ matrix.renderer }}' -eq 'dx12') {
+            # GPU-based validation is intentionally bounded to the native backend probe.
+            # On GitHub's Microsoft Basic Render Driver it can turn the full shader/readback
+            # suite into multi-minute command submissions and can exceed the 20-minute
+            # watchdog. The full suite still runs immediately below with the D3D12 debug
+            # layer enabled, while this probe proves the ID3D12Debug1 GPU-validation path.
             $env:PRIME_WGPU_VALIDATION = '1'
             $env:PRIME_WGPU_GPU_VALIDATION = '1'
+            $gpuValidationOut = Join-Path $env:RUNNER_TEMP 'renderer-windows-dx12.gpu-validation.stdout.log'
+            $gpuValidationErr = Join-Path $env:RUNNER_TEMP 'renderer-windows-dx12.gpu-validation.stderr.log'
+            $gpuValidation = Invoke-NativeRendererCheck -FilePath (Resolve-Path publish/modern-win/ProjectPrime.exe) -ArgumentList @('-renderbackendprobe', '-renderer', 'dx12') -StdoutPath $gpuValidationOut -StderrPath $gpuValidationErr -TimeoutSeconds 180
+            Get-Content $gpuValidationOut
+            Get-Content $gpuValidationErr
+            if ($gpuValidation.ExitCode -ne 0) { throw "DirectX GPU-validation probe exited with $($gpuValidation.ExitCode)" }
+            $gpuValidationProof = (Get-Content $gpuValidationOut -Raw) + (Get-Content $gpuValidationErr -Raw)
+            if (-not $gpuValidationProof.Contains('native validation requested backend=DirectX 12 flags=Validation')) { throw 'Missing requested native DirectX validation evidence in bounded GPU-validation probe' }
+            if (-not $gpuValidationProof.Contains('DX12 GPU-based validation and synchronized command queue validation enabled')) { throw 'Missing actual ID3D12Debug1 GPU validation setter evidence' }
+            if (-not $gpuValidationProof.Contains('[renderbackendprobe] PASS backend=DirectX 12')) { throw 'Bounded DirectX GPU-validation backend probe did not pass' }
+            Remove-Item Env:PRIME_WGPU_GPU_VALIDATION -ErrorAction SilentlyContinue
             $env:PRIME_WGPU_SHADER_DIAGNOSTICS = '1'
             $env:PRIME_WGPU_SHADER_DIAGNOSTIC_DIRECTORY = Join-Path $env:RUNNER_TEMP 'renderer-windows-dx12.shader'
           }
@@ -330,8 +346,8 @@ jobs:
           if ($process.ExitCode -ne 0) { exit $process.ExitCode }
           $backend = if ('${{ matrix.renderer }}' -eq 'dx12') { 'DirectX 12' } else { 'Vulkan' }
           $proof = (Get-Content $stdout -Raw) + (Get-Content $stderr -Raw)
-          if ('${{ matrix.renderer }}' -eq 'dx12' -and -not $proof.Contains('native validation requested backend=DirectX 12 flags=Validation')) { throw 'Missing requested native DirectX validation evidence' }
-          if ('${{ matrix.renderer }}' -eq 'dx12' -and -not $proof.Contains('DX12 GPU-based validation and synchronized command queue validation enabled')) { throw 'Missing actual ID3D12Debug1 GPU validation setter evidence' }
+          if ('${{ matrix.renderer }}' -eq 'dx12' -and -not $proof.Contains('native validation requested backend=DirectX 12 flags=Validation')) { throw 'Missing requested native DirectX validation evidence in full renderer acceptance' }
+          if ('${{ matrix.renderer }}' -eq 'dx12' -and $proof.Contains('GPU-based validation and synchronized command queue validation enabled')) { throw 'Full DirectX acceptance unexpectedly enabled GPU-based validation' }
           foreach ($phase in @('renderbackendprobe', 'renderwindowcheck')) {
             if (-not $proof.Contains("[$phase] PASS backend=$backend")) { throw "Missing actual $backend $phase native pass evidence" }
           }

@@ -43,9 +43,10 @@ if (args is ["--stdio-child", var childLoggingDirectory])
             Console.WriteLine(new string('x', 500)); Console.Error.WriteLine("teardown progress " + i);
             double currentWrite=Stopwatch.GetElapsedTime(beforeWrite).TotalMilliseconds; writeMs+=currentWrite; maxWriteMs=Math.Max(maxWriteMs,currentWrite);written++;
             if (i is 0 or 25 or 50 or 75 or 99) observation?.Record("TeardownProgress", i, timing:Metrics());
-            long beforeDelay=Stopwatch.GetTimestamp();
-            await Task.Delay(10);
-            double currentDelay=Stopwatch.GetElapsedTime(beforeDelay).TotalMilliseconds;delayMs+=currentDelay;maxDelayMs=Math.Max(maxDelayMs,currentDelay);delayed++;
+            // This fixture verifies that the orphaned worker owns its durable log after
+            // the launcher exits. Do not turn it into a 100-timer scheduler benchmark:
+            // loaded macOS runners can stretch each 10 ms timer to ~50-90 ms.
+            if ((i & 7) == 7) Thread.Yield();
         }
         FixturePublication.PublishText(Path.Combine(childLoggingDirectory, "complete"), "complete");
         observation?.Record("CompletePublished", timing:Metrics()); return;
