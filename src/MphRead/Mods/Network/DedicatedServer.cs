@@ -2027,7 +2027,9 @@ namespace MphRead.Mods.Network
                 LobbyEnabled = SessionPolicy == ServerSessionPolicy.Lobby, AllowJoinInProgress = AllowJoinInProgress,
                 MaxPlayers = (byte)_maxPlayers,
                 Protocol = NetConfig.ProtocolVersion,
-                WaitlistSupported = WaitlistEnabled, WaitlistCount = (ushort)(_waitlist?.Count ?? 0),
+                WaitlistSupported = WaitlistEnabled,
+                WaitlistCount = (ushort)(_waitlist?.Count ?? 0),
+                ReservedSlots = ReservedAdmissionSlotCount(),
                 ServerName = ServerName,
                 // What this box can do besides the match it is running. The
                 // launcher's create-server screen asks every server on the
@@ -2038,7 +2040,7 @@ namespace MphRead.Mods.Network
             };
             status.Write(_scratch);
             _transport?.Send(sender, PacketType.StatusReply,
-                _scratch.AsSpan(0, ServerStatusPacket.SizeWithWaitlist));
+                _scratch.AsSpan(0, ServerStatusPacket.SizeWithReservations));
         }
 
         /// <summary>
