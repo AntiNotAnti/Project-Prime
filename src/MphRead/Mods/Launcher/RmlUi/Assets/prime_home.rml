@@ -290,7 +290,7 @@
                 <div id="lobby_slot7" class="lobby_nameplate" data-if="slot7_occupied"><b>{{slot7_name}}</b><span>{{slot7_hunter}}</span></div>
 
                 <div id="lobby_actions" class="enter_bottom">
-                    <button id="lobby_ready" class="lobby_action primary" data-event-click="lobby_ready">{{lobby_ready_action}}</button>
+                    <button id="lobby_ready" class="lobby_action primary" data-if="lobby_require_ready" data-event-click="lobby_ready">{{lobby_ready_action}}</button>
                     <button id="lobby_hunter" class="lobby_action" data-event-click="lobby_next_hunter">HUNTER // {{lobby_local_hunter}}</button>
                     <button id="lobby_suit" class="lobby_action" data-event-click="lobby_next_suit">NEXT SUIT</button>
                     <button id="lobby_rules" class="lobby_action" data-event-click="lobby_rules_open">LOBBY RULES</button>
