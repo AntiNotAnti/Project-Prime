@@ -505,7 +505,10 @@ namespace MphRead.Mods.Network
             // A separate additive packet keeps old Identify/name parsing intact.
             // Acquisition is asynchronous: the existing identity retry starts
             // it, then a later pass sends the cached short-lived ticket.
-            if (Launcher.HunterLicenseClient.TryGetCareerTicket(ClientId, out string careerTicket))
+            bool hasTicket = IdentityTicketSourceForChecks is { } source
+                ? source(ClientId, out string careerTicket)
+                : Launcher.HunterLicenseClient.TryGetCareerTicket(ClientId, out careerTicket);
+            if (hasTicket)
             {
                 int bytes = Math.Min(careerTicket.Length, 768);
                 System.Text.Encoding.ASCII.GetBytes(careerTicket.AsSpan(0, bytes),
@@ -515,6 +518,14 @@ namespace MphRead.Mods.Network
             }
 #endif
         }
+
+        // The network conformance executable must never acquire real account
+        // credentials or write a production profile while exercising admission.
+        internal delegate bool IdentityTicketSource(uint clientId, out string ticket);
+        internal static IdentityTicketSource? IdentityTicketSourceForChecks { get; set; }
+        // Opaque connection ownership witness for cancelling a completed join
+        // without stopping a later session that reused the same server epoch.
+        internal static object? ConnectionIdentity => _transport;
 
         private static uint _cosmeticRevision;
         private static void SendCosmetics()

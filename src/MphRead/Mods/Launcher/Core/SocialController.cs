@@ -133,6 +133,12 @@ public sealed class SocialController : IDisposable
         _confirmation = null; return DispatchCore(confirmation.Intent, true);
     });
     public SocialActionResult DismissConfirmation() => Act(() => { _confirmation = null; return SocialActionResult.Ok; });
+    public void ReportJoinFailure(string message)
+    {
+        EnsureOwner(); if (_disposed) return;
+        _status = _error = String.IsNullOrWhiteSpace(message) ? "The verified Social lobby could not be joined. Refresh and retry." : message;
+        Publish();
+    }
     public SocialActionResult SetPrivacy(SocialPrivacy privacy) => Act(() =>
     {
         if (privacy.Presence is < 0 or > 2 || privacy.Activity is < 0 or > 2 || privacy.Invites is < 0 or > 2)

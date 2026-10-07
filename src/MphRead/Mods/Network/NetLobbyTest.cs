@@ -1051,7 +1051,9 @@ namespace MphRead.Mods.Network
                     .SetValue(Server, !simulate);
                 Server.SetSessionOptions(requireReady: true, allowJoinInProgress: allowJoinInProgress);
                 _thread = new Thread(() => { try { Server.Run(); } catch (Exception ex) { _error = ex; } }) { IsBackground = true };
-                _thread.Start(); Wait(() => Server.Listening, "server listening");
+                // Binding happens before custom-map staging and rotation validation.
+                // Admission's normal deadline starts only when the command loop can answer it.
+                _thread.Start(); Wait(() => Server.ControlPlaneReady, "server command loop ready", 15000);
             }
             public Client Add(uint id, Guid token = default, bool dropInitialHello = false)
             {

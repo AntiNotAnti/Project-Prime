@@ -59,6 +59,7 @@ Deno.serve(async (req: Request) => {
     reason?: string;
     authority_epoch?: string;
     include_leader?: boolean;
+    request_id?: string;
   };
   try {
     body = await readObjectBounded(req, 4096) as typeof body;
@@ -240,9 +241,16 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === "cancel_reservation") {
-      const rows = await sql`
+      const requestId = typeof body.request_id === "string" ? body.request_id.trim() : null;
+      if (requestId !== null && !uuidPattern.test(requestId))
+        return json(400, { error: "invalid_request_id" });
+      const rows = requestId === null ? await sql`
         select prime.social_party_reservation_cancel(
           ${user.id}::uuid
+        ) as value
+      ` : await sql`
+        select prime.social_party_reservation_cancel(
+          ${user.id}::uuid, ${requestId}::uuid
         ) as value
       `;
       const value = rows[0]?.value ?? {

@@ -14,13 +14,17 @@ namespace MphRead.Mods.Launcher
     /// </summary>
     internal static class SocialClient
     {
+        private static SocialSnapshot? _current;
+        internal static SocialSnapshot? Current => Volatile.Read(ref _current);
         public static async Task<SocialSnapshot> LoadAsync(
             CancellationToken cancellationToken = default)
         {
             SocialEnvelope envelope = await InvokeAsync(
                 "snapshot", targetPrimeId: null, cancellationToken).ConfigureAwait(false);
-            return envelope.Snapshot
+            SocialSnapshot snapshot = envelope.Snapshot
                 ?? throw new InvalidOperationException("Social service returned no snapshot.");
+            Volatile.Write(ref _current, snapshot);
+            return snapshot;
         }
 
         public static async Task<SocialLookupResult> LookupAsync(
@@ -68,6 +72,7 @@ namespace MphRead.Mods.Launcher
                 action, primeId, cancellationToken).ConfigureAwait(false);
             if (envelope.Ok)
                 SocialPresenceClient.RefreshNow();
+            if (envelope.Snapshot != null) Volatile.Write(ref _current, envelope.Snapshot);
             return new SocialMutationResult
             {
                 Success = envelope.Ok,

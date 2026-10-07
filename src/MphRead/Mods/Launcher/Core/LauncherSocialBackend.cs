@@ -21,6 +21,7 @@ public sealed class LauncherSocialBackend : ISocialBackend
     public event Action? Changed;
     public LauncherSocialBackend()
     {
+        if (SocialClient.Current is { } cached) { _friends = cached; _connected = true; _status = "SOCIAL READY"; }
         SocialPresenceClient.Changed += PresenceChanged;
         SocialInviteClient.Changed += InvitesChanged;
         SocialPartyClient.Changed += PartyChanged;
@@ -240,7 +241,7 @@ public sealed class LauncherSocialBackend : ISocialBackend
                 SocialCommand.KickPartyMember => await SocialPartyClient.KickAsync(primeId, token).ConfigureAwait(false),
                 SocialCommand.PromotePartyMember => await SocialPartyClient.PromoteAsync(primeId, token).ConfigureAwait(false),
                 SocialCommand.DeclinePartyTravel => await SocialPartyClient.DeclineTravelAsync(token).ConfigureAwait(false),
-                SocialCommand.CancelReservation => await SocialPartyClient.CancelReservationAsync(token).ConfigureAwait(false),
+                SocialCommand.CancelReservation => await SocialPartyClient.CancelReservationAsync(intent.ReservationId, token).ConfigureAwait(false),
                 _ => throw new InvalidOperationException("Unknown Social command.")
             };
             return new(mutation.Success, mutation.Status, Current());
@@ -274,6 +275,27 @@ public sealed class LauncherSocialBackend : ISocialBackend
 /// <summary>One process lifecycle owner, independent of whether the Social page is open.</summary>
 public static class SocialRuntime
 {
+    public static SocialHomeSummary Summary
+    {
+        get
+        {
+            SocialSnapshot? directory = SocialClient.Current;
+            SocialPresenceSnapshot presence = SocialPresenceClient.Current;
+            SocialInviteSnapshot invites = SocialInviteClient.Current;
+            SocialPartySnapshot parties = SocialPartyClient.Current;
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            var friends = presence.Players.Where(player => player.IsFriend).OrderBy(player => player.DisplayName, StringComparer.OrdinalIgnoreCase).ToArray();
+            SocialParty? party = parties.Party;
+            return new(directory != null, directory?.IncomingRequests.Count ?? 0,
+                invites.Incoming.Count(invite => invite.ExpiresAt > now && invite.Status is "pending" or "accepted"),
+                parties.IncomingPartyInvites.Count(invite => invite.ExpiresAt > now), friends.Length,
+                friends.Take(3).Select(player => new SocialHomeFriend(player.PrimeId, player.DisplayName,
+                    player.Activity, player.RoomKey ?? "", player.Joinable)).ToImmutableArray(),
+                party == null ? null : new(party.PartyId, party.LeaderPrimeId, party.IsLeader, party.Members.Count),
+                parties.Travel is { IsLeader: false, SelfStatus: "pending" } travel && travel.ExpiresAt > now,
+                parties.Reservation?.Status ?? "", LauncherPrefs.DoNotDisturb);
+        }
+    }
     public static void Start() { SocialPresenceClient.Start(); SocialInviteClient.Start(); SocialPartyClient.Start(); }
     public static void Stop() { SocialPartyClient.Stop(); SocialInviteClient.Stop(); SocialPresenceClient.Stop(); }
     public static void Suspend() => Stop();
@@ -281,7 +303,7 @@ public static class SocialRuntime
     public static void NotifySessionChanged() { SocialPresenceClient.RefreshNow(); SocialInviteClient.RefreshNow(); SocialPartyClient.RefreshNow(); }
 }
 
-public sealed record SocialLeaderAdmissionResult(bool Success, string Error, PartyReservedAdmission? Admission = null);
+public sealed record SocialLeaderAdmissionResult(bool Success, string Error, PartyReservedAdmission? Admission = null, string RequestId = "");
 
 /// <summary>Shared Quick Play entry to the existing server-authoritative whole-party reservation.</summary>
 public static class SocialMatchmaking
@@ -300,11 +322,21 @@ public static class SocialMatchmaking
         try
         {
             PartyReservationPreparation result = await SocialPartyClient.PrepareLeaderReservationAsync(entry, cancellationToken).ConfigureAwait(false);
-            return new(result.Success, result.Error, result.Admission);
+            return new(result.Success, result.Error, result.Admission, result.Reservation?.RequestId ?? "");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
         catch (Exception) { return new(false, "Party reservation service unavailable. Refresh Social and retry."); }
     }
     public static void NoteQuickPlayTravel() => SocialPartyClient.NoteQuickPlayTravel();
+    public static async Task<SocialActionResult> CancelReservationAsync(string requestId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            SocialPartyMutationResult result = await SocialPartyClient.CancelReservationAsync(requestId, cancellationToken).ConfigureAwait(false);
+            return new(result.Success, result.Status);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception) { return new(false, "Party reservation cancellation could not be confirmed; its server lease will expire."); }
+    }
 }
 #endif

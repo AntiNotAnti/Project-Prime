@@ -34,6 +34,14 @@ public sealed record SocialTravelView(string TravelId, int Revision, string Reas
     string RoomKey, string ServerName, ulong AuthorityEpoch, DateTimeOffset ExpiresAt,
     bool IsLeader, string SelfStatus, ImmutableArray<SocialTravelMember> Members);
 public sealed record SocialReservedMember(string PrimeId, string DisplayName, bool IsSelf, int? Slot, string Status);
+public sealed record SocialHomeFriend(string PrimeId, string DisplayName, string Activity, string RoomKey, bool Joinable);
+public sealed record SocialHomeSummary(bool DirectoryLoaded, int IncomingRequests, int IncomingGameInvites, int IncomingPartyInvites,
+    int FriendsOnline, ImmutableArray<SocialHomeFriend> Friends, SocialPartyView? Party,
+    bool TravelPending, string ReservationStatus, bool DoNotDisturb)
+{
+    public int InvitationCount => IncomingGameInvites + IncomingPartyInvites;
+    public int UnreadCount => IncomingRequests + InvitationCount;
+}
 public sealed record SocialReservationView(string RequestId, ulong AuthorityEpoch, bool IncludeLeader,
     int RequestedCount, string Status, DateTimeOffset ExpiresAt, ImmutableArray<SocialReservedMember> Members);
 public sealed record SocialData

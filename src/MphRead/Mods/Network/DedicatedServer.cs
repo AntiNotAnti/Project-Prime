@@ -297,6 +297,10 @@ namespace MphRead.Mods.Network
         /// <summary>Whether the listener is up, so a pool can wait for it.</summary>
         public bool Listening => _transport != null;
 
+        private volatile bool _controlPlaneReady;
+        /// <summary>Startup validation completed and the server is entering its command loop.</summary>
+        public bool ControlPlaneReady => _controlPlaneReady;
+
         /// <summary>The port actually bound, which is not the requested one when that was zero.</summary>
         public int BoundPort => _transport?.LocalPort ?? _port;
 
@@ -488,6 +492,7 @@ namespace MphRead.Mods.Network
                 _matchStarted = 0;
                 while (_running && !cancel.IsCancellationRequested && !ownedStop.IsCancellationRequested)
                 {
+                    _controlPlaneReady = true;
                     using var loopTiming = LoopDiagnostics.Begin(NetDiagnostics.Enabled || Telemetry.ProductionTelemetry.Enabled);
                     double now = clock.Elapsed.TotalSeconds;
                     _now = now;
@@ -774,6 +779,7 @@ namespace MphRead.Mods.Network
                 catch (Exception ex) { Log($"cleanup {name}: {ex.Message}"); }
             }
             _running = false;
+            _controlPlaneReady = false;
             Release("active peers", () =>
             {
                 foreach (var peer in _peers)

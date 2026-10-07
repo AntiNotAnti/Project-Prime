@@ -133,6 +133,15 @@ namespace MphRead.Mods.Launcher
             CancellationToken cancellationToken = default)
             => MutateAsync(Body("cancel_reservation"), cancellationToken);
 
+        internal static Task<SocialPartyMutationResult> CancelReservationAsync(string requestId,
+            CancellationToken cancellationToken = default)
+        {
+            if (!Guid.TryParse(requestId, out Guid id) || id == Guid.Empty)
+                return Task.FromResult(new SocialPartyMutationResult(false, "invalid_request_id", Current));
+            var body = Body("cancel_reservation"); body["request_id"] = id.ToString();
+            return MutateAsync(body, cancellationToken);
+        }
+
         internal static async Task<PartyReservationPreparation>
             PrepareLeaderReservationAsync(
                 ServerBrowserEntry entry,
@@ -181,7 +190,7 @@ namespace MphRead.Mods.Launcher
                     cancellationToken).ConfigureAwait(false);
             if (client == null)
                 return PartyReservationPreparation.Fail(
-                    "reservation_server_refused");
+                    "reservation_server_refused", reservation);
 
             PartyReservedAdmission admission;
             try
@@ -867,8 +876,8 @@ namespace MphRead.Mods.Launcher
         PartyReservedAdmission? Admission,
         SocialPartyReservation? Reservation)
     {
-        internal static PartyReservationPreparation Fail(string error)
-            => new(false, error, null, null);
+        internal static PartyReservationPreparation Fail(string error, SocialPartyReservation? reservation = null)
+            => new(false, error, null, reservation);
     }
 
     internal readonly record struct SocialPartyMutationResult(

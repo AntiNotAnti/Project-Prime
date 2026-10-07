@@ -288,6 +288,7 @@ test("leader can cancel the active party reservation", async () => {
 });
 
 test("malformed party IDs and oversized bodies fail before SQL", async () => {
+  assert.equal((await handler(request({ action: "cancel_reservation", request_id: "invalid" }))).status, 400);
   assert.equal((await handler(request({
     action: "kick",
     target_prime_id: "Player Two",
@@ -324,4 +325,11 @@ test("malformed party IDs and oversized bodies fail before SQL", async () => {
     },
   ));
   assert.equal(response.status, 413);
+});
+
+test("owned cancellation retains its exact request witness", async () => {
+  lastReservation = [];
+  const response = await handler(request({ action: "cancel_reservation", request_id: reservationRequest }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(lastReservation, [actor, reservationRequest]);
 });

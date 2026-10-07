@@ -216,6 +216,21 @@ try {
  const noReservationNeeded=(await db.query(`select prime.social_party_reservation_request('${socialA}'::uuid,${secondEpoch}::numeric,false) as value`)).rows[0].value;
  assert.equal(noReservationNeeded.ok,false); assert.equal(noReservationNeeded.status,'reservation_not_needed');
 
+ await db.query(`update prime.social_lobby_memberships set expires_at=now()-interval '1 second' where player_id='${socialB}'::uuid`);
+ const newerReservation=(await db.query(`select prime.social_party_reservation_request('${socialA}'::uuid,${secondEpoch}::numeric,false) as value`)).rows[0].value;
+ assert.equal(newerReservation.ok,true);
+ const newerRequest=newerReservation.reservation.request_id;
+ assert.notEqual(newerRequest,reservationRequestId);
+ const lateCancel=(await db.query(`select prime.social_party_reservation_cancel('${socialA}'::uuid,'${reservationRequestId}'::uuid) as value`)).rows[0].value;
+ assert.equal(lateCancel.status,'reservation_already_clear');
+ assert.equal((await db.query(`select status from prime.social_party_reservations where request_id='${newerRequest}'::uuid`)).rows[0].status,'pending');
+ const followerCancel=(await db.query(`select prime.social_party_reservation_cancel('${socialB}'::uuid,'${newerRequest}'::uuid) as value`)).rows[0].value;
+ assert.equal(followerCancel.ok,false); assert.equal(followerCancel.status,'leader_only');
+ const ownedCancel=(await db.query(`select prime.social_party_reservation_cancel('${socialA}'::uuid,'${newerRequest}'::uuid) as value`)).rows[0].value;
+ assert.equal(ownedCancel.status,'reservation_cancelled');
+ const cancelPermissions=(await db.query(`select has_function_privilege('anon','prime.social_party_reservation_cancel(uuid,uuid)','execute') as anon,has_function_privilege('authenticated','prime.social_party_reservation_cancel(uuid,uuid)','execute') as authenticated,has_function_privilege('service_role','prime.social_party_reservation_cancel(uuid,uuid)','execute') as service`)).rows[0];
+ assert.deepEqual(cancelPermissions,{anon:false,authenticated:false,service:true});
+
  presence=(await db.query(`select prime.social_privacy_update('${socialA}'::uuid,'friends','private','nobody',false) as value`)).rows[0].value;
  assert.equal(presence.settings.presence_visibility,'friends'); assert.equal(presence.settings.activity_visibility,'private'); assert.equal(presence.settings.invite_policy,'nobody');
  const strangerView=(await db.query(`select prime.social_presence_snapshot('${socialC}'::uuid) as value`)).rows[0].value;
