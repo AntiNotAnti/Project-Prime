@@ -1019,6 +1019,7 @@ namespace MphRead.Entities
             {
                 _spireRockPosL += delta;
                 _spireRockPosR += delta;
+                _dialancheCollision.Translate(delta);
             }
         }
 
