@@ -41,18 +41,18 @@ namespace MphRead.Mods.Launcher
     {
         public static LauncherBackdropStyle DeploymentChamber => new(
             Name: "deployment-chamber",
-            Top: new MenuRgb(0.018f, 0.040f, 0.070f),
-            Mid: new MenuRgb(0.030f, 0.082f, 0.125f),
+            Top: new MenuRgb(0.020f, 0.044f, 0.074f),
+            Mid: new MenuRgb(0.036f, 0.098f, 0.148f),
             Bottom: new MenuRgb(0.010f, 0.024f, 0.043f),
-            StructureOpacity: 0.72f,
-            HeroHalo: 0.54f,
+            StructureOpacity: 0.78f,
+            HeroHalo: 0.48f,
             Fog: 0.18f,
             Particles: 0.15f,
-            FloorGlow: 0.34f,
+            FloorGlow: 0.42f,
             LeftUiDarken: 0.48f,
             RightUiDarken: 0.28f,
-            BeamIntensity: 0.18f,
-            BackgroundSoftness: 0.16f);
+            BeamIntensity: 0.24f,
+            BackgroundSoftness: 0.14f);
     }
 
     public readonly record struct LauncherActivityAmbience(

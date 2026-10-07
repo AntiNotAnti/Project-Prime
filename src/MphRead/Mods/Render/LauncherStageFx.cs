@@ -102,25 +102,31 @@ namespace MphRead.Mods.Render
             float floorY = Math.Clamp(bottom - GroundInset(LauncherHunter.Hunter),
                 0.15f, 0.94f);
 
-            // Reflected floor light first.
-            DrawRadial(centerX, floorY - 0.006f, spanX * 0.76f, 0.075f,
+            float spread = spanX * FootSpread(LauncherHunter.Hunter);
+
+            // Reflected floor light first. A broad pool establishes the hero
+            // platform while two tighter pools make the boots feel planted.
+            DrawRadial(centerX, floorY - 0.006f, spanX * 0.80f, 0.085f,
                 theme.Floor.R, theme.Floor.G, theme.Floor.B,
-                0.055f + style.FloorGlow * theme.AccentStrength * 0.075f);
+                0.075f + style.FloorGlow * theme.AccentStrength * 0.11f);
+            DrawRadial(centerX - spread, floorY - 0.004f, spanX * 0.18f, 0.032f,
+                theme.Floor.R, theme.Floor.G, theme.Floor.B, 0.085f);
+            DrawRadial(centerX + spread, floorY - 0.004f, spanX * 0.18f, 0.032f,
+                theme.Floor.R, theme.Floor.G, theme.Floor.B, 0.085f);
 
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
 
-            // Wide, faint penumbra ties both feet into one floor plane.
-            DrawRadial(centerX, floorY + 0.003f, spanX * 0.54f, 0.046f,
-                0.00f, 0.00f, 0.00f, 0.24f);
+            // Wide penumbra ties both feet into one floor plane.
+            DrawRadial(centerX, floorY + 0.003f, spanX * 0.56f, 0.050f,
+                0.00f, 0.00f, 0.00f, 0.31f);
 
             // Two darker contact cores sit under the actual stance. They are
             // deliberately tiny so they read as weight, not painted circles.
-            float spread = spanX * FootSpread(LauncherHunter.Hunter);
             float coreWidth = spanX * 0.17f;
-            DrawRadial(centerX - spread, floorY, coreWidth, 0.019f,
-                0.00f, 0.00f, 0.00f, 0.44f);
-            DrawRadial(centerX + spread, floorY, coreWidth, 0.019f,
-                0.00f, 0.00f, 0.00f, 0.44f);
+            DrawRadial(centerX - spread, floorY, coreWidth, 0.020f,
+                0.00f, 0.00f, 0.00f, 0.56f);
+            DrawRadial(centerX + spread, floorY, coreWidth, 0.020f,
+                0.00f, 0.00f, 0.00f, 0.56f);
 
             EndScreenPass();
         }
@@ -141,9 +147,9 @@ namespace MphRead.Mods.Render
             LauncherActivityAmbience activity = LauncherMenuVisuals.Activity;
             LauncherHunterTheme theme = LauncherMenuVisuals.Hunter(LauncherHunter.Hunter);
             float amount = Math.Clamp(
-                stage.ForegroundHaze * 0.55f
-                + style.Fog * activity.FogBias * 0.10f,
-                0f, 0.10f);
+                stage.ForegroundHaze * 0.32f
+                + style.Fog * activity.FogBias * 0.055f,
+                0f, 0.055f);
             if (amount <= 0)
                 return;
 
@@ -158,8 +164,10 @@ namespace MphRead.Mods.Render
             float centerX = (left + right) * 0.5f;
             float centerY = (top + bottom) * 0.5f;
 
-            MenuRgb air = MenuRgb.Lerp(activity.Accent, theme.Halo,
-                LauncherBackdrop.Scene == LauncherBackdropScene.Adventure ? 0.18f : 0.28f);
+            // Foreground air is mostly neutral. Hunter identity stays behind
+            // the model in the halo/floor instead of becoming a suit-color wash.
+            MenuRgb air = MenuRgb.Lerp(activity.Accent, theme.Halo, 0.08f);
+            air = MenuRgb.Lerp(air, new MenuRgb(0.28f, 0.36f, 0.42f), 0.58f);
             float r = air.R;
             float g = air.G;
             float b = air.B;
@@ -170,9 +178,9 @@ namespace MphRead.Mods.Render
             // Full-body air layer is almost imperceptible; the lower-body veil
             // is stronger because that is where the character meets room haze.
             DrawRadial(centerX, centerY + spanY * 0.04f,
-                spanX * 0.86f, spanY * 0.78f, r, g, b, amount * 0.30f);
+                spanX * 0.86f, spanY * 0.78f, r, g, b, amount * 0.16f);
             DrawRadial(centerX, centerY + spanY * 0.24f,
-                spanX * 0.76f, spanY * 0.43f, r, g, b, amount);
+                spanX * 0.76f, spanY * 0.43f, r, g, b, amount * 0.55f);
 
             EndScreenPass();
         }
