@@ -833,7 +833,8 @@ void PositionLobbyNameplates()
     const Rml::Vector2i dimensions = g_context->GetDimensions();
     // On 720p the foreground local pad is close to the action strip. Keep
     // the player label above that strip without inventing per-DPI RCSS offsets.
-    const Rml::Element* actions = g_document->GetElementById("lobby_actions");
+    // RmlUi's GetAbsoluteOffset is non-const even for layout queries.
+    Rml::Element* actions = g_document->GetElementById("lobby_actions");
     const float actionTop = actions
         ? actions->GetAbsoluteOffset(Rml::BoxArea::Border).y
         : float(dimensions.y);
