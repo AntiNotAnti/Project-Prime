@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Mods.Input;
+using MphRead.Mods.Network;
 using MphRead.Mods.Render;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
@@ -1216,12 +1217,10 @@ namespace MphRead.Mods.Launcher.Gui
 
             SocialPartyTravel? travel = partyState.Travel;
             bool sameTravelAuthority = false;
-            if (travel != null
-                && travel.TryAuthorityEpoch(out ulong travelEpoch)
-                && NetSession.Active
-                && NetSession.AuthorityEpoch == travelEpoch)
+            if (travel != null && NetSession.Active
+                && travel.TryAuthorityEpoch(out ulong travelEpoch))
             {
-                sameTravelAuthority = true;
+                sameTravelAuthority = NetSession.AuthorityEpoch == travelEpoch;
             }
 
             bool travelFollowReady = travel is { IsLeader: false }
@@ -1239,12 +1238,15 @@ namespace MphRead.Mods.Launcher.Gui
             if (travel == null
                 && party is { IsLeader: false }
                 && !NetSession.Active
-                && RelationshipFor(party.LeaderPrimeId) == "FRIEND"
-                && presenceById.TryGetValue(
-                    party.LeaderPrimeId, out SocialOnlinePlayer? leaderPresence))
+                && RelationshipFor(party.LeaderPrimeId) == "FRIEND")
             {
-                leaderJoinable = leaderPresence.Joinable
-                    && !String.IsNullOrWhiteSpace(leaderPresence.LobbyId);
+                if (presenceById.TryGetValue(
+                    party.LeaderPrimeId, out SocialOnlinePlayer? leaderPresence)
+                    && leaderPresence != null)
+                {
+                    leaderJoinable = leaderPresence.Joinable
+                        && !String.IsNullOrWhiteSpace(leaderPresence.LobbyId);
+                }
             }
             SetBool("social_party_join_leader_ready", leaderJoinable);
             SetText("social_badge",
