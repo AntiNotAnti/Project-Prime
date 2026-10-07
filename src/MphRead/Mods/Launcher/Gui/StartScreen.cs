@@ -387,8 +387,9 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _bypassGuard = false;
             }
+            // Show reattaches StartScreen; its visual-tree hook restarts
+            // LobbySessionCoordinator exactly once after this callback unwinds.
             surface.Show(this);
-            _session.Start();
         }
 
         internal void RmlLobbyTick()
