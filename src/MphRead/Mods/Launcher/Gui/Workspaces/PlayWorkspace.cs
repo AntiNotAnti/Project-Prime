@@ -473,6 +473,14 @@ namespace MphRead.Mods.Launcher.Gui
             _quickSearch = null;
         }
 
+        private void CompleteQuickSearch(CancellationTokenSource cancel)
+        {
+            if (!ReferenceEquals(_quickSearch, cancel))
+                return;
+            _quickSearch = null;
+            cancel.Dispose();
+        }
+
         private void CancelWork()
         {
             CancelDiscovery();
@@ -607,14 +615,16 @@ namespace MphRead.Mods.Launcher.Gui
             QuickPlaySearchResult result = await ServerBrowserService.FindBestAsync(
                 requiredSlots, lobbyOnly: partyQuickPlay, cancellationToken: cancel.Token);
             if (cancel.IsCancellationRequested || TopLevel.GetTopLevel(this) == null)
+            {
+                CompleteQuickSearch(cancel);
                 return;
-            _quickSearch.Dispose();
-            _quickSearch = null;
+            }
             _quick.IsEnabled = true;
             _refresh.IsEnabled = true;
 
             if (!result.Found)
             {
+                CompleteQuickSearch(cancel);
                 CloseProgress();
                 _summary.Text = result.Message.ToUpperInvariant();
                 _summary.Foreground = HubTheme.WarmBrush;
@@ -637,10 +647,12 @@ namespace MphRead.Mods.Launcher.Gui
                 if (cancel.IsCancellationRequested)
                 {
                     prepared.Admission?.Dispose();
+                    CompleteQuickSearch(cancel);
                     return;
                 }
                 if (!prepared.Success || prepared.Admission == null)
                 {
+                    CompleteQuickSearch(cancel);
                     CloseProgress();
                     _summary.Text = ("PARTY RESERVATION FAILED  /  "
                         + prepared.Error.Replace('_', ' ')).ToUpperInvariant();
@@ -650,6 +662,7 @@ namespace MphRead.Mods.Launcher.Gui
                 partyAdmission = prepared.Admission;
             }
 
+            CompleteQuickSearch(cancel);
             try
             {
                 await JoinAsync(partyAdmission: partyAdmission);
