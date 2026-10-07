@@ -225,7 +225,7 @@
                     <div class="social_context_actions">
                         <button class="social_action primary" data-if="selected_can_join" data-event-click="social_join_friend">JOIN FRIEND</button>
                         <button class="social_action primary" data-if="selected_can_invite" data-event-click="social_invite_friend">INVITE TO LOBBY</button>
-                        <button class="social_action primary" data-if="selected_can_accept_invite" data-event-click="social_accept_invite">ACCEPT GAME INVITE</button>
+                        <button class="social_action primary" data-if="selected_can_accept_invite" data-event-click="social_accept_invite">JOIN GAME INVITE</button>
                         <button class="social_action" data-if="selected_can_decline_invite" data-event-click="social_decline_invite">DECLINE GAME INVITE</button>
                         <button class="social_action" data-if="selected_can_cancel_invite" data-event-click="social_cancel_invite">CANCEL GAME INVITE</button>
                         <button class="social_action primary" data-if="selected_can_add" data-event-click="social_add">ADD FRIEND</button>
