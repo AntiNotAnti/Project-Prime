@@ -2,6 +2,7 @@
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
   <ItemGroup>
     <Compile Include="../../src/MphRead/Mods/Network/LobbyWaitlist.cs" Link="LobbyWaitlist.cs" />
+    <Compile Include="../../src/MphRead/Mods/Network/PartySeatAllocator.cs" Link="PartySeatAllocator.cs" />
     <Compile Include="../../src/MphRead/Mods/Network/Generated/NetPacketAttribute.cs" Link="NetPacketAttribute.cs" />
     <ProjectReference Include="../../src/MphRead.Protocol.Generator/MphRead.Protocol.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
