@@ -17,6 +17,16 @@ namespace MphRead.Mods.Launcher
                 checks++;
             }
 
+            Check(LauncherLobbyFormation.Validate(),
+                "eight linked lobby slots form a symmetric V with local hero at front");
+            Check(LauncherLobbyFormation.PackPads().Length == LauncherLobbyFormation.Capacity * 4,
+                "GL platform uniforms come from the shared formation");
+            for (int slot = 0; slot < LauncherLobbyFormation.Capacity; slot++)
+            {
+                LobbyFormationSlot placement = LauncherLobbyFormation.At(slot);
+                Check(placement.Valid, $"slot {slot} model, platform and nameplate are bounded");
+            }
+
             LauncherBackdropStyle style = LauncherMenuVisuals.Style;
             Check(style.Name == "deployment-chamber",
                 "universal deployment chamber is the default RmlUi backdrop");
