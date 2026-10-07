@@ -497,10 +497,11 @@ namespace MphRead.Mods.Launcher
         int Port,
         string ServerName,
         string RoomKey,
-        string Error)
+        string Error,
+        PartyReservedAdmission? PartyAdmission = null)
     {
         public static SocialJoinResolution Fail(string error)
-            => new(false, "", 0, "", "", error);
+            => new(false, "", 0, "", "", error, null);
     }
 }
 #endif
