@@ -358,7 +358,7 @@ namespace MphRead.Mods.Launcher.Gui
                 else
                 {
                     ShowFrontScreen();
-                    _front?.JoinVerifiedSocialLobby(socialJoin.Host, socialJoin.Port);
+                    _front?.JoinVerifiedSocialLobby(socialJoin);
                 }
             }
             while (RmlUiPrototype.Active && RmlUiPrototype.TryTakeCommand(out string rmlCommand))
