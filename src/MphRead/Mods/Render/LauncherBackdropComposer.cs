@@ -46,6 +46,8 @@ namespace MphRead.Mods.Render
         private static int _lobbyMode;
         private static int _lobbyOccupancyA;
         private static int _lobbyOccupancyB;
+        private static int _lobbyPadGeometry;
+        private static readonly float[] _packedLobbyPads = LauncherLobbyFormation.PackPads();
 
         private const string VertexSource = @"#version 120
 varying vec2 chamber_uv;
@@ -85,6 +87,7 @@ uniform float background_softness;
 uniform float lobby_mode;
 uniform vec4 lobby_occupancy_a;
 uniform vec4 lobby_occupancy_b;
+uniform vec4 lobby_pad_geometry[8];
 
 float hash21(vec2 p)
 {
@@ -252,87 +255,90 @@ void main()
     float grid = max(horizontal, vertical) * floorMask;
     col += activity_accent * grid * 0.038 * floor_grid;
 
-    // Dedicated hero platform. A dark center plus colored edge is cleaner than
-    // pretending the Hunter is standing on a photographed map floor.
-    vec2 platformDelta = (uv - vec2(0.615, 0.805)) / vec2(0.235, 0.060);
-    float platformQ = dot(platformDelta, platformDelta);
-    float platformFill = 1.0 - smoothstep(0.62, 1.0, platformQ);
-    float platformEdge = smoothstep(0.62, 0.77, platformQ)
-        * (1.0 - smoothstep(0.88, 1.0, platformQ));
-    col = mix(col, vec3(0.006, 0.012, 0.022), platformFill * 0.70);
-    float platformCore = 1.0 - smoothstep(0.08, 0.70, platformQ);
-    col += mix(activity_accent, hunter_halo, 0.30)
-        * platformCore * floor_glow * 0.045;
-    col += hunter_halo * platformEdge * floor_glow * 0.22;
-    col += activity_secondary * platformEdge * floor_glow * 0.075;
-
-    // Three segmented service rings add machinery detail without becoming a
-    // second focal point. Segment gaps remain visible even at low energy.
-    float ringA = 1.0 - smoothstep(0.018, 0.050, abs(platformQ - 0.20));
-    float ringB = 1.0 - smoothstep(0.018, 0.050, abs(platformQ - 0.40));
-    float ringC = 1.0 - smoothstep(0.018, 0.050, abs(platformQ - 0.60));
-    float ringAngle = atan(platformDelta.y, platformDelta.x);
-    float ringPhase = fract((ringAngle + 3.14159265) / 6.28318530 * 12.0);
-    float ringSegments = smoothstep(0.08, 0.18, ringPhase)
-        * (1.0 - smoothstep(0.72, 0.82, ringPhase));
-    float serviceRings = max(ringA, max(ringB, ringC)) * ringSegments;
-    col += mix(activity_secondary, hunter_halo, 0.22)
-        * serviceRings * floor_glow * 0.11;
-
-    // In the live lobby the local/front pad stays the hero platform above.
-    // Seven additional pads recede in a chevron around it. Empty slots remain
-    // faintly visible so the room communicates its eight-player capacity while
-    // occupied slots gain the activity light.
+    // Every lobby pad, real Hunter frame, and player plate reads the one
+    // authored LauncherLobbyFormation table. There are no shader-local
+    // guesses about the positions anymore.
     if (lobby_mode > 0.5)
     {
-        float occ1 = lobby_occupancy_a.y;
-        float occ2 = lobby_occupancy_a.z;
-        float occ3 = lobby_occupancy_a.w;
-        float occ4 = lobby_occupancy_b.x;
-        float occ5 = lobby_occupancy_b.y;
-        float occ6 = lobby_occupancy_b.z;
-        float occ7 = lobby_occupancy_b.w;
+        for (int slot = 7; slot >= 0; slot--)
+        {
+            vec4 geometry = lobby_pad_geometry[slot];
+            vec2 centre = geometry.xy;
+            vec2 radius = geometry.zw;
+            float occupied = slot < 4
+                ? lobby_occupancy_a[slot] : lobby_occupancy_b[slot - 4];
 
-        vec2 p1 = vec2(0.495, 0.690);
-        vec2 p2 = vec2(0.735, 0.690);
-        vec2 p3 = vec2(0.435, 0.590);
-        vec2 p4 = vec2(0.795, 0.590);
-        vec2 p5 = vec2(0.385, 0.505);
-        vec2 p6 = vec2(0.845, 0.505);
-        vec2 p7 = vec2(0.615, 0.430);
+            // A raised steel pedestal, not a floating dark ellipse.
+            vec2 foot = (uv - centre) / radius;
+            float q = dot(foot, foot);
+            vec2 outer = (uv - (centre + vec2(0.0, 0.014))) / (radius * 1.12);
+            float shadow = 1.0 - smoothstep(0.52, 1.22, dot(outer, outer));
+            col *= 1.0 - shadow * (0.10 + occupied * 0.11);
 
-        vec2 r1 = vec2(0.130, 0.038);
-        vec2 r2 = vec2(0.115, 0.033);
-        vec2 r3 = vec2(0.100, 0.029);
-        vec2 r4 = vec2(0.090, 0.026);
+            float body = 1.0 - smoothstep(0.64, 0.98, q);
+            float lip = smoothstep(0.71, 0.82, q)
+                * (1.0 - smoothstep(0.93, 1.05, q));
+            float raisedEdge = lip * smoothstep(-0.25, 0.70, foot.y);
+            float innerDish = 1.0 - smoothstep(0.20, 0.72, q);
 
-        float e1 = platform_edge_mask(uv, p1, r1);
-        float e2 = platform_edge_mask(uv, p2, r1);
-        float e3 = platform_edge_mask(uv, p3, r2);
-        float e4 = platform_edge_mask(uv, p4, r2);
-        float e5 = platform_edge_mask(uv, p5, r3);
-        float e6 = platform_edge_mask(uv, p6, r3);
-        float e7 = platform_edge_mask(uv, p7, r4);
-        float f1 = platform_fill_mask(uv, p1, r1);
-        float f2 = platform_fill_mask(uv, p2, r1);
-        float f3 = platform_fill_mask(uv, p3, r2);
-        float f4 = platform_fill_mask(uv, p4, r2);
-        float f5 = platform_fill_mask(uv, p5, r3);
-        float f6 = platform_fill_mask(uv, p6, r3);
-        float f7 = platform_fill_mask(uv, p7, r4);
+            // Muted steel panels and illuminated rim. Unoccupied pads retain
+            // structure but never compete with an occupied Hunter.
+            vec3 metal = mix(vec3(0.017, 0.033, 0.047),
+                             vec3(0.043, 0.075, 0.095),
+                             clamp((1.0 - foot.y) * 0.34, 0.0, 1.0));
+            col = mix(col, metal, body * 0.85);
+            col += vec3(0.075, 0.118, 0.150) * raisedEdge * 0.18;
+            vec3 activeLight = mix(activity_secondary, hunter_halo, 0.16);
+            col += activeLight * lip * (0.025 + occupied * 0.14);
+            col += vec3(0.075, 0.135, 0.170) * innerDish
+                * (0.014 + occupied * 0.017);
 
-        float allFill = min(1.0, f1 + f2 + f3 + f4 + f5 + f6 + f7);
-        col = mix(col, vec3(0.006, 0.014, 0.022), allFill * 0.36);
+            // Four ring cuts and twelve broken light segments. They communicate
+            // hardware, not eight huge pools of opaque ink.
+            float ring1 = 1.0 - smoothstep(0.026, 0.052, abs(q - 0.22));
+            float ring2 = 1.0 - smoothstep(0.025, 0.050, abs(q - 0.43));
+            float angle = atan(foot.y, foot.x);
+            float phase = fract((angle + 3.14159265) / 6.28318530 * 12.0);
+            float segments = smoothstep(0.06, 0.15, phase)
+                * (1.0 - smoothstep(0.73, 0.86, phase));
+            col += activeLight * max(ring1, ring2) * segments
+                * (0.024 + occupied * 0.063);
 
-        vec3 emptyPad = vec3(0.08, 0.18, 0.24);
-        vec3 livePad = mix(activity_secondary, hunter_halo, 0.18);
-        col += mix(emptyPad, livePad, occ1) * e1 * (0.030 + 0.080 * occ1);
-        col += mix(emptyPad, livePad, occ2) * e2 * (0.030 + 0.080 * occ2);
-        col += mix(emptyPad, livePad, occ3) * e3 * (0.026 + 0.070 * occ3);
-        col += mix(emptyPad, livePad, occ4) * e4 * (0.026 + 0.070 * occ4);
-        col += mix(emptyPad, livePad, occ5) * e5 * (0.022 + 0.060 * occ5);
-        col += mix(emptyPad, livePad, occ6) * e6 * (0.022 + 0.060 * occ6);
-        col += mix(emptyPad, livePad, occ7) * e7 * (0.020 + 0.055 * occ7);
+            // Contact darkening happens at the exact same pad coordinates as
+            // the models' authored stance, before those models are rendered.
+            vec2 leftBoot = centre + vec2(-radius.x * 0.30, -radius.y * 0.05);
+            vec2 rightBoot = centre + vec2(radius.x * 0.30, -radius.y * 0.05);
+            float boots = ellipse_mask(uv, leftBoot,
+                    vec2(radius.x * 0.23, radius.y * 0.44))
+                + ellipse_mask(uv, rightBoot,
+                    vec2(radius.x * 0.23, radius.y * 0.44));
+            col *= 1.0 - min(1.0, boots) * occupied * 0.13;
+        }
+    }
+    else
+    {
+        // Home keeps the original full-size solo hero platform.
+        vec2 platformDelta = (uv - vec2(0.615, 0.805)) / vec2(0.235, 0.060);
+        float platformQ = dot(platformDelta, platformDelta);
+        float platformFill = 1.0 - smoothstep(0.62, 1.0, platformQ);
+        float platformEdge = smoothstep(0.62, 0.77, platformQ)
+            * (1.0 - smoothstep(0.88, 1.0, platformQ));
+        col = mix(col, vec3(0.006, 0.012, 0.022), platformFill * 0.70);
+        float platformCore = 1.0 - smoothstep(0.08, 0.70, platformQ);
+        col += mix(activity_accent, hunter_halo, 0.30)
+            * platformCore * floor_glow * 0.045;
+        col += hunter_halo * platformEdge * floor_glow * 0.22;
+        col += activity_secondary * platformEdge * floor_glow * 0.075;
+        float ringA = 1.0 - smoothstep(0.018, 0.050, abs(platformQ - 0.20));
+        float ringB = 1.0 - smoothstep(0.018, 0.050, abs(platformQ - 0.40));
+        float ringC = 1.0 - smoothstep(0.018, 0.050, abs(platformQ - 0.60));
+        float ringAngle = atan(platformDelta.y, platformDelta.x);
+        float ringPhase = fract((ringAngle + 3.14159265) / 6.28318530 * 12.0);
+        float ringSegments = smoothstep(0.08, 0.18, ringPhase)
+            * (1.0 - smoothstep(0.72, 0.82, ringPhase));
+        float serviceRings = max(ringA, max(ringB, ringC)) * ringSegments;
+        col += mix(activity_secondary, hunter_halo, 0.22)
+            * serviceRings * floor_glow * 0.11;
     }
 
     // Low chamber haze.
@@ -433,6 +439,7 @@ void main()
             bool lobby = LauncherLobbyVisuals.Active;
             byte occupied = LauncherLobbyVisuals.OccupiedMask;
             GL.Uniform1(_lobbyMode, lobby ? 1f : 0f);
+            GL.Uniform4(_lobbyPadGeometry, LauncherLobbyFormation.Capacity, _packedLobbyPads);
             GL.Uniform4(_lobbyOccupancyA, new Vector4(
                 (occupied & 0x01) != 0 ? 1f : 0f,
                 (occupied & 0x02) != 0 ? 1f : 0f,
@@ -534,6 +541,7 @@ void main()
                 _lobbyMode = GL.GetUniformLocation(program, "lobby_mode");
                 _lobbyOccupancyA = GL.GetUniformLocation(program, "lobby_occupancy_a");
                 _lobbyOccupancyB = GL.GetUniformLocation(program, "lobby_occupancy_b");
+                _lobbyPadGeometry = GL.GetUniformLocation(program, "lobby_pad_geometry[0]");
                 Mods.DebugLog.Line("rmlui",
                     "deployment chamber renderer ready: procedural GL hero scene");
                 return true;
@@ -574,7 +582,7 @@ void main()
             _heroLight = _pulseSpeed = _warmth = _haloStrength = -1;
             _floorGlow = _leftDarken = _rightDarken = -1;
             _beamIntensity = _backgroundSoftness = -1;
-            _lobbyMode = _lobbyOccupancyA = _lobbyOccupancyB = -1;
+            _lobbyMode = _lobbyOccupancyA = _lobbyOccupancyB = _lobbyPadGeometry = -1;
         }
     }
 }
