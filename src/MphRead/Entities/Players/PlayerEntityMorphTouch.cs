@@ -106,6 +106,9 @@ namespace MphRead.Entities
         internal void ModApplyReportedMorphTouch(MorphTouchReport report, uint intentFrame)
             => Input.MorphTouch.ApplyReported(report, intentFrame);
 
+        internal void ModClearReportedMorphTouch()
+            => Input.MorphTouch.Suspend();
+
         private void ResetNativeMorphTouch()
         {
             Input.MorphTouch.Suspend();
