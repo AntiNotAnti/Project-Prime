@@ -292,7 +292,7 @@ namespace MphRead.Mods.Launcher.Gui
             if (_finished) return;
             _finished = true; Plan = plan; Done?.Invoke(this, plan);
         }
-        internal void JoinVerifiedSocialLobby(string host, int port)
+        internal void JoinVerifiedSocialLobby(SocialJoinResolution socialJoin)
         {
             // RmlUi already completed the product-startup decision before it
             // handed us a verified social join. Do not put the startup card
@@ -310,12 +310,23 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Dispatcher.UIThread.Post(async () =>
                 {
-                    try { await play.JoinVerifiedSocialLobbyAsync(host, port); }
+                    try
+                    {
+                        await play.JoinVerifiedSocialLobbyAsync(
+                            socialJoin.Host,
+                            socialJoin.Port,
+                            socialJoin.PartyAdmission);
+                    }
                     catch (Exception ex)
                     {
+                        socialJoin.PartyAdmission?.Dispose();
                         Mods.DebugLog.Exception("social", ex);
                     }
                 }, DispatcherPriority.Background);
+            }
+            else
+            {
+                socialJoin.PartyAdmission?.Dispose();
             }
         }
 
