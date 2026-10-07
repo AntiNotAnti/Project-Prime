@@ -788,7 +788,7 @@ button {
     line-height: 12dp;
     font-weight: bold;
 }
-.lobby_roster_copy small {
+.lobby_roster_hunter {
     display: block;
     margin-top: 1dp;
     color: #627e94;
