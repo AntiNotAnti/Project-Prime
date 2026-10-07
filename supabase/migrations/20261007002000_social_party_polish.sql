@@ -6,6 +6,88 @@ alter table prime.social_settings
 alter table prime.social_lobby_memberships
     add column if not exists lobby_eligible boolean not null default false;
 
+create or replace function prime.social_lobby_register(
+    p_actor uuid,
+    p_host inet,
+    p_port integer,
+    p_authority_epoch numeric,
+    p_protocol integer,
+    p_room_key text,
+    p_server_name text
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = prime, pg_temp
+as $
+declare
+    v_lobby uuid;
+begin
+    if not exists (
+        select 1 from prime.social_profiles where player_id = p_actor
+    ) then
+        return jsonb_build_object('ok', false, 'status', 'profile_required');
+    end if;
+    if not exists (
+        select 1 from prime.social_lobby_memberships m
+        where m.player_id = p_actor
+          and m.authority_epoch = p_authority_epoch
+          and m.lobby_eligible
+          and m.expires_at > now()
+    ) then
+        return jsonb_build_object('ok', false, 'status', 'membership_unverified');
+    end if;
+    if family(p_host) <> 4
+       or p_host <<= inet '0.0.0.0/8'
+       or p_host <<= inet '10.0.0.0/8'
+       or p_host <<= inet '100.64.0.0/10'
+       or p_host <<= inet '127.0.0.0/8'
+       or p_host <<= inet '169.254.0.0/16'
+       or p_host <<= inet '172.16.0.0/12'
+       or p_host <<= inet '192.168.0.0/16'
+       or p_host <<= inet '224.0.0.0/4'
+       or p_host <<= inet '240.0.0.0/4' then
+        return jsonb_build_object('ok', false, 'status', 'public_endpoint_required');
+    end if;
+    if p_port < 1 or p_port > 65535
+       or p_protocol < 1 or p_protocol > 255
+       or p_authority_epoch <= 0
+       or char_length(btrim(p_room_key)) not between 1 and 128
+       or char_length(coalesce(p_server_name, '')) > 96 then
+        return jsonb_build_object('ok', false, 'status', 'invalid_lobby');
+    end if;
+
+    insert into prime.social_lobbies (
+        owner_id, host_address, port, authority_epoch, protocol,
+        room_key, server_name, updated_at, expires_at
+    )
+    values (
+        p_actor, p_host, p_port, p_authority_epoch, p_protocol,
+        btrim(p_room_key), left(coalesce(p_server_name, ''), 96),
+        now(), now() + interval '90 seconds'
+    )
+    on conflict (owner_id, authority_epoch) do update
+    set host_address = excluded.host_address,
+        port = excluded.port,
+        protocol = excluded.protocol,
+        room_key = excluded.room_key,
+        server_name = excluded.server_name,
+        updated_at = now(),
+        expires_at = now() + interval '90 seconds'
+    returning lobby_id into v_lobby;
+
+    delete from prime.social_lobbies l
+    where l.owner_id = p_actor
+      and l.expires_at < now() - interval '1 day';
+
+    return jsonb_build_object(
+        'ok', true,
+        'status', 'lobby_registered',
+        'lobby', prime.social_lobby_locator(v_lobby)
+    );
+end;
+$;
+
 create table if not exists prime.social_recent_players (
     actor_id uuid not null references prime.social_profiles(player_id) on delete cascade,
     other_id uuid not null references prime.social_profiles(player_id) on delete cascade,
