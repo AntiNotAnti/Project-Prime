@@ -1216,7 +1216,8 @@ namespace MphRead.Mods.Launcher.Gui
                     false,
                     false,
                     false,
-                    false);
+                    false,
+                    CanInviteToParty(lookup.PrimeId));
                 if (SocialMatches(row, _socialSearch))
                     filtered.Insert(0, row);
             }
@@ -1236,7 +1237,8 @@ namespace MphRead.Mods.Launcher.Gui
                     .Append(':').Append(row.InviteId)
                     .Append(':').Append(row.Online ? '1' : '0')
                     .Append(':').Append(row.CanInvite ? '1' : '0')
-                    .Append(':').Append(row.CanJoin ? '1' : '0');
+                    .Append(':').Append(row.CanJoin ? '1' : '0')
+                    .Append(':').Append(row.CanPartyInvite ? '1' : '0');
             for (int i = 0; i < onlineFriends.Count && i < 3; i++)
                 fingerprint.Append("|H:").Append(onlineFriends[i].PrimeId)
                     .Append(':').Append(onlineFriends[i].Activity)
@@ -1302,7 +1304,8 @@ namespace MphRead.Mods.Launcher.Gui
                             && player.Joinable && !String.IsNullOrWhiteSpace(player.LobbyId),
                         false,
                         false,
-                        false));
+                        false,
+                        CanInviteToParty(player.PrimeId)));
                 }
                 return rows;
             }
@@ -1486,7 +1489,8 @@ namespace MphRead.Mods.Launcher.Gui
                         && online.Joinable && !String.IsNullOrWhiteSpace(online.LobbyId),
                     false,
                     false,
-                    false);
+                    false,
+                    relation == "FRIEND" && CanInviteToParty(player.PrimeId));
             }
             return new SocialUiRow(
                 player.PrimeId,
@@ -1501,7 +1505,8 @@ namespace MphRead.Mods.Launcher.Gui
                 false,
                 false,
                 false,
-                false);
+                false,
+                relation == "FRIEND" && CanInviteToParty(player.PrimeId));
         }
 
         private static string InviteDetail(SocialGameInvite invite)
