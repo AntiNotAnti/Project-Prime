@@ -1149,7 +1149,7 @@ namespace MphRead.Mods.Launcher.Gui
                         false,
                         false,
                         !NetSession.Active,
-                        true,
+                        invite.Status.Equals("pending", StringComparison.OrdinalIgnoreCase),
                         false));
                 }
                 foreach (SocialGameInvite invite in invites.Outgoing)
