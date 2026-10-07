@@ -51,8 +51,10 @@ namespace MphRead.Mods.Render
                 && worldGraph.Passes[1].Kind == WorldRenderPassKind.DeferredPbr
                 && worldGraph.Passes[2].Kind == WorldRenderPassKind.ForwardOpaque
                 && worldGraph.Passes[3].Kind == WorldRenderPassKind.Decal
-                && worldGraph.Passes[6].Kind == WorldRenderPassKind.TranslucentBehind,
-                "opaque PBR resolves before foreground, decals and transparency");
+                && worldGraph.Passes[6].Kind == WorldRenderPassKind.TranslucentBehind
+                && worldGraph.Passes[^1].Kind == WorldRenderPassKind.TranslucentSingle
+                && (worldGraph.Passes[^1].Reads & WorldRenderResource.Stencil) == 0,
+                "native transparency remains ordered and fast transparency needs only depth");
             Check((frameGraph.Passes[^2].Reads & (FrameRenderResource.PbrAlbedo
                     | FrameRenderResource.PbrNormal | FrameRenderResource.PbrMaterial)) == 0,
                 "final post-process cannot apply background PBR over forward layers");
@@ -237,8 +239,14 @@ namespace MphRead.Mods.Render
                 "override packet breaks batching");
             Check(world.StateReuseCount >= 1,
                 "batching records at least one shared state reuse");
+            RenderOptions.Translucency = TranslucencyMode.Native;
             Check(world.GraphStateReuseCount >= 2,
-                "opaque reuse is counted in both opaque and depth passes");
+                "native transparency counts opaque reuse in opaque and depth passes");
+            int nativeApplications = world.GraphStateApplicationCount;
+            RenderOptions.Translucency = TranslucencyMode.Fast;
+            Check(world.GraphStateApplicationCount < nativeApplications,
+                "fast transparency removes mask, depth rebuild and second translucent draw");
+            RenderOptions.Translucency = TranslucencyMode.Native;
 
             RetainedMaterialDescriptor captured = world.Opaque[0].Material;
             opaqueA.Diffuse = new Vector3(.25f, .5f, .75f);
