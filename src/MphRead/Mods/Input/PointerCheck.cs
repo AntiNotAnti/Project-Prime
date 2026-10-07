@@ -19,6 +19,7 @@ namespace MphRead.Mods.Input
                 _checks = 0;
                 CheckBindings();
                 CheckMovement();
+                CheckMorphTouch();
                 CheckCameraBasis();
                 CheckZone();
                 CheckPlayerInput();
@@ -265,6 +266,63 @@ namespace MphRead.Mods.Input
                 InputSettings.AltSwipeSensitivity = oldAltSwipeSensitivity;
                 MouseFlick.Reset();
             }
+        }
+
+        private static void CheckMorphTouch()
+        {
+            var native = new NativeTouchState();
+            native.Update(true, 100, 100);
+            native.Update(true, 190, 100);
+            Require(native.Continued && native.Delta4X == 90
+                    && MorphBallTouchRules.Arbitrate(false, true, native.Report())
+                        == MorphBoostBranch.SkipShoulder,
+                "native touch boost threshold is strictly greater than 90 DS units");
+            native.Update(true, 191, 100);
+            Require(native.Delta4X == 91
+                    && MorphBallTouchRules.Arbitrate(false, true, native.Report())
+                        == MorphBoostBranch.TouchBoost,
+                "native four-sample touch history clears the >90 boost threshold");
+
+            var sample = new NativeTouchSample();
+            var report = new MorphTouchReport(true, true, 32, -48);
+            sample.ApplyReported(report, 20);
+            Require(Math.Abs(sample.TakeRollShare() - 0.5f) < 0.0001f
+                    && sample.TakeRollShare() == 0,
+                "first remote native substep contributes exactly half once");
+            sample.ApplyReported(report, 20);
+            Require(sample.TakeRollShare() == 0,
+                "duplicate remote touch frame cannot manufacture roll");
+            sample.ApplyReported(report, 21);
+            Require(Math.Abs(sample.TakeRollShare() - 0.5f) < 0.0001f,
+                "sibling remote substep contributes the second half");
+
+            Vector2 full = MorphBallTouchRules.TouchRoll(20, -40,
+                MorphBallTouchRules.TouchRollPerDsPixel,
+                0, -1, -1, 0, 1);
+            Vector2 half = MorphBallTouchRules.TouchRoll(20, -40,
+                MorphBallTouchRules.TouchRollPerDsPixel,
+                0, -1, -1, 0, 0.5f);
+            Require(Vector2.Distance(full, half * 2) < 0.000001f,
+                "two 60 Hz roll shares integrate to one native 30 Hz impulse");
+
+            var latch = new MorphBallBoostStateMachine.SampleLatch();
+            bool canTouch = true;
+            ushort charge = 10;
+            var boost = MorphBallBoostStateMachine.Advance(latch, 7, false,
+                ref canTouch, new MorphTouchReport(true, true, 91, 0),
+                shoulderHeld: true, ref charge, min: 4, max: 20);
+            Require(boost.TouchFired && !canTouch && charge == 10,
+                "touch boost fires once and preserves shoulder charge");
+            boost = MorphBallBoostStateMachine.Advance(latch, 7, true,
+                ref canTouch, new MorphTouchReport(true, true, 91, 0),
+                shoulderHeld: true, ref charge, min: 4, max: 20);
+            Require(!boost.TouchFired && charge == 10,
+                "touch-boost sibling step cannot resume shoulder charging");
+            boost = MorphBallBoostStateMachine.Advance(latch, 8, false,
+                ref canTouch, new MorphTouchReport(false, false, 0, 0),
+                shoulderHeld: true, ref charge, min: 4, max: 20);
+            Require(canTouch && charge == 11,
+                "next native no-contact sample rearms touch boost and resumes shoulder charge");
         }
 
         private static void CheckCameraBasis()
