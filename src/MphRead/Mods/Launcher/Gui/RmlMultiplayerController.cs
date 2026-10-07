@@ -28,6 +28,8 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly List<ServerBrowserEntry> _servers = new();
         private readonly string[] _rooms;
         private CancellationTokenSource? _operation;
+        private enum PendingActivity { None, Browse, Quick, Connect, Create }
+        private PendingActivity _pendingActivity;
         private int _generation;
         private int _roomIndex;
         private int _modeIndex;
@@ -71,6 +73,7 @@ namespace MphRead.Mods.Launcher.Gui
             _operation?.Dispose();
             _operation = null;
             _busy = false;
+            _pendingActivity = PendingActivity.None;
         }
 
         public void Tick()
@@ -87,7 +90,7 @@ namespace MphRead.Mods.Launcher.Gui
         public void Browse()
         {
             if (!_visible) return;
-            (int generation, CancellationToken token) = Begin("SEARCHING DIRECTORY");
+            (int generation, CancellationToken token) = Begin("SEARCHING DIRECTORY", PendingActivity.Browse);
             _servers.Clear();
             _dirty = true;
             _ = DiscoverAsync(generation, token);
@@ -119,7 +122,7 @@ namespace MphRead.Mods.Launcher.Gui
         public void QuickPlay()
         {
             if (!_visible) return;
-            (int generation, CancellationToken token) = Begin("QUICK PLAY // SEARCHING");
+            (int generation, CancellationToken token) = Begin("QUICK PLAY // SEARCHING", PendingActivity.Quick);
             _ = QuickPlayAsync(generation, token);
         }
 
@@ -161,7 +164,11 @@ namespace MphRead.Mods.Launcher.Gui
 
         public void JoinEndpoint(string address, bool spectate)
         {
-            if (!_visible || _busy) return;
+            // Live server rows are actionable before the last directory probe
+            // finishes. A join cancels that discovery instead of waiting for
+            // the slowest offline listing.
+            if (!_visible || (_busy && _pendingActivity != PendingActivity.Browse))
+                return;
             if (!ServerBrowserService.TryParseEndpoint(address,
                 LauncherPrefs.ServerAddress, LauncherPrefs.ServerPort,
                 out string host, out int port))
@@ -171,7 +178,8 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             string player = LocalPlayer();
-            (int generation, CancellationToken token) = Begin($"CONNECTING TO {host}:{port}");
+            (int generation, CancellationToken token) = Begin(
+                $"CONNECTING TO {host}:{port}", PendingActivity.Connect);
             _ = JoinAsync(generation, token, host, port, player, spectate);
         }
 
@@ -191,6 +199,7 @@ namespace MphRead.Mods.Launcher.Gui
                         return;
                     }
                     _busy = false;
+                    _pendingActivity = PendingActivity.None;
                     _dirty = true;
                     Connected?.Invoke(joined.Plan with
                     {
@@ -200,6 +209,24 @@ namespace MphRead.Mods.Launcher.Gui
             }
             catch (OperationCanceledException) { }
             catch (Exception ex) { Post(generation, () => FinishOperation(ex.Message)); }
+        }
+
+        public void OpenCreate()
+        {
+            if (!_visible) return;
+            // Browsing is cancellable. Reaching the create form must never
+            // wait for a dead directory before the map/host controls work.
+            if (_pendingActivity == PendingActivity.Browse
+                || _pendingActivity == PendingActivity.Quick)
+            {
+                _generation++;
+                _operation?.Cancel();
+                _operation?.Dispose();
+                _operation = null;
+                _busy = false;
+                _pendingActivity = PendingActivity.None;
+            }
+            Status("CONFIGURE YOUR LOBBY");
         }
 
         public void NextMap(int direction = 1)
@@ -246,7 +273,8 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             (int generation, CancellationToken token) = Begin(localHost
-                ? "STARTING LOCAL SERVER" : "FINDING HOST FOR LOBBY");
+                ? "STARTING LOCAL SERVER" : "FINDING HOST FOR LOBBY",
+                PendingActivity.Create);
             _ = CreateAsync(generation, token, name, player, map, mode, localHost);
         }
 
@@ -364,6 +392,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Post(generation, () =>
                 {
                     _busy = false;
+                    _pendingActivity = PendingActivity.None;
                     _dirty = true;
                     Connected?.Invoke(plan);
                 });
@@ -372,13 +401,15 @@ namespace MphRead.Mods.Launcher.Gui
             catch (Exception ex) { Post(generation, () => FinishOperation(ex.Message)); }
         }
 
-        private (int Generation, CancellationToken Token) Begin(string message)
+        private (int Generation, CancellationToken Token) Begin(
+            string message, PendingActivity activity)
         {
             _operation?.Cancel();
             _operation?.Dispose();
             _operation = new CancellationTokenSource();
             _generation++;
             _busy = true;
+            _pendingActivity = activity;
             Status(message);
             return (_generation, _operation.Token);
         }
@@ -386,6 +417,7 @@ namespace MphRead.Mods.Launcher.Gui
         private void FinishOperation(string message)
         {
             _busy = false;
+            _pendingActivity = PendingActivity.None;
             Status(message);
         }
 
