@@ -328,17 +328,19 @@ namespace MphRead.Mods.Network
 
         public static Task<bool> HeartbeatAsync(
             ulong authorityEpoch, uint clientId, string careerTicket,
-            CancellationToken cancellationToken = default)
-            => SendAsync("heartbeat", authorityEpoch, clientId, careerTicket, cancellationToken);
+            bool lobbyEligible, CancellationToken cancellationToken = default)
+            => SendAsync("heartbeat", authorityEpoch, clientId, careerTicket,
+                lobbyEligible, cancellationToken);
 
         public static Task<bool> LeaveAsync(
             ulong authorityEpoch, uint clientId, string careerTicket,
             CancellationToken cancellationToken = default)
-            => SendAsync("leave", authorityEpoch, clientId, careerTicket, cancellationToken);
+            => SendAsync("leave", authorityEpoch, clientId, careerTicket,
+                lobbyEligible: false, cancellationToken);
 
         private static async Task<bool> SendAsync(
             string action, ulong authorityEpoch, uint clientId, string careerTicket,
-            CancellationToken cancellationToken)
+            bool lobbyEligible, CancellationToken cancellationToken)
         {
             if (!Enabled || authorityEpoch == 0 || clientId == 0
                 || careerTicket.Length is < 20 or > 768)
@@ -357,7 +359,8 @@ namespace MphRead.Mods.Network
                         authority_epoch = authorityEpoch.ToString(
                             CultureInfo.InvariantCulture),
                         client_id = clientId,
-                        career_ticket = careerTicket
+                        career_ticket = careerTicket,
+                        lobby_eligible = lobbyEligible
                     }),
                     Encoding.UTF8, "application/json");
 
@@ -460,6 +463,7 @@ namespace MphRead.Mods.Network
             public ulong Epoch;
             public uint ClientId;
             public string Ticket = "";
+            public bool LobbyEligible;
             public bool Verified;
         }
 
@@ -469,10 +473,13 @@ namespace MphRead.Mods.Network
 
         private void PumpSocialLobbyMembership(double now)
         {
-            bool lobby = SessionPolicy == ServerSessionPolicy.Lobby
-                && _phase == SessionPhase.Lobby
-                && _authorityEpoch != 0
-                && SocialLobbyMembershipReporter.Enabled;
+            bool track = _authorityEpoch != 0
+                && SocialLobbyMembershipReporter.Enabled
+                && _phase is SessionPhase.Lobby
+                    or SessionPhase.InMatch
+                    or SessionPhase.PostMatch;
+            bool lobbyEligible = SessionPolicy == ServerSessionPolicy.Lobby
+                && _phase == SessionPhase.Lobby;
 
             var active = new HashSet<Peer>(_peers);
             foreach (Peer peer in _socialLobbyMembership.Keys.ToArray())
@@ -499,7 +506,7 @@ namespace MphRead.Mods.Network
 
                 bool identityReady = peer.ClientId != 0
                     && peer.CareerTicket.StartsWith("pp1.", StringComparison.Ordinal);
-                if (!lobby || !identityReady)
+                if (!track || !identityReady)
                 {
                     if (state.Verified && state.Pending == null
                         && state.Epoch != 0 && state.ClientId != 0
@@ -515,12 +522,14 @@ namespace MphRead.Mods.Network
                     state.Epoch = 0;
                     state.ClientId = 0;
                     state.Ticket = "";
+                    state.LobbyEligible = false;
                     state.LastStarted = Double.NegativeInfinity;
                     continue;
                 }
 
                 bool identityChanged = state.Epoch != _authorityEpoch
                     || state.ClientId != peer.ClientId
+                    || state.LobbyEligible != lobbyEligible
                     || !String.Equals(state.Ticket, peer.CareerTicket,
                         StringComparison.Ordinal);
                 if (identityChanged)
@@ -528,6 +537,7 @@ namespace MphRead.Mods.Network
                     state.Epoch = _authorityEpoch;
                     state.ClientId = peer.ClientId;
                     state.Ticket = peer.CareerTicket;
+                    state.LobbyEligible = lobbyEligible;
                     state.Verified = false;
                     state.LastStarted = Double.NegativeInfinity;
                 }
@@ -537,7 +547,8 @@ namespace MphRead.Mods.Network
                 {
                     state.LastStarted = now;
                     state.Pending = SocialLobbyMembershipReporter.HeartbeatAsync(
-                        _authorityEpoch, peer.ClientId, peer.CareerTicket);
+                        _authorityEpoch, peer.ClientId, peer.CareerTicket,
+                        lobbyEligible);
                 }
             }
         }

@@ -268,6 +268,7 @@ namespace MphRead.Mods.Launcher
             body["presence_visibility"] = privacy.PresenceVisibility;
             body["activity_visibility"] = privacy.ActivityVisibility;
             body["invite_policy"] = privacy.InvitePolicy;
+            body["do_not_disturb"] = privacy.DoNotDisturb;
             return body;
         }
 
@@ -280,7 +281,8 @@ namespace MphRead.Mods.Launcher
         {
             PresenceVisibility = PresenceWire(LauncherPrefs.PresenceVisibility),
             ActivityVisibility = ActivityWire(LauncherPrefs.ActivityVisibility),
-            InvitePolicy = InviteWire(LauncherPrefs.InvitePolicy)
+            InvitePolicy = InviteWire(LauncherPrefs.InvitePolicy),
+            DoNotDisturb = LauncherPrefs.DoNotDisturb
         };
 
         private static void Publish(int generation, SocialPresenceSnapshot? snapshot)
@@ -300,6 +302,7 @@ namespace MphRead.Mods.Launcher
                     LauncherPrefs.PresenceVisibility = ParsePresence(remote.PresenceVisibility);
                     LauncherPrefs.ActivityVisibility = ParseActivity(remote.ActivityVisibility);
                     LauncherPrefs.InvitePolicy = ParseInvite(remote.InvitePolicy);
+                    LauncherPrefs.DoNotDisturb = remote.DoNotDisturb;
                 }
                 else if (LocalPrivacy() != remote)
                 {
@@ -403,6 +406,8 @@ namespace MphRead.Mods.Launcher
         public string ActivityVisibility { get; set; } = "friends";
         [JsonPropertyName("invite_policy")]
         public string InvitePolicy { get; set; } = "friends";
+        [JsonPropertyName("do_not_disturb")]
+        public bool DoNotDisturb { get; set; }
         [JsonPropertyName("updated_at")]
         public DateTimeOffset? UpdatedAt { get; set; }
 
@@ -413,13 +418,15 @@ namespace MphRead.Mods.Launcher
                 && String.Equals(ActivityVisibility, other.ActivityVisibility,
                     StringComparison.OrdinalIgnoreCase)
                 && String.Equals(InvitePolicy, other.InvitePolicy,
-                    StringComparison.OrdinalIgnoreCase);
+                    StringComparison.OrdinalIgnoreCase)
+                && DoNotDisturb == other.DoNotDisturb;
 
         public override bool Equals(object? obj) => Equals(obj as SocialPrivacySettings);
         public override int GetHashCode() => HashCode.Combine(
             PresenceVisibility.ToLowerInvariant(),
             ActivityVisibility.ToLowerInvariant(),
-            InvitePolicy.ToLowerInvariant());
+            InvitePolicy.ToLowerInvariant(),
+            DoNotDisturb);
 
         public static bool operator ==(SocialPrivacySettings? left, SocialPrivacySettings? right)
             => Object.Equals(left, right);

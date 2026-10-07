@@ -7,7 +7,8 @@ bash tools/edge-check/check-deno.sh
 node --test tools/edge-check/*.test.ts
 ```
 
-Run the disposable SQL acceptance check with Node/npm on macOS or Linux:
+The engineering-contract CI also runs the disposable SQL acceptance check. To
+run that same gate directly with Node/npm on macOS or Linux:
 
 ```sh
 node tools/edge-check/check-career-sql.mjs
@@ -39,7 +40,7 @@ Primary runtime references: [PGlite setup and batch SQL](https://pglite.dev/docs
 [PGlite PL/pgSQL examples](https://pglite.dev/examples), and
 [PGlite source](https://github.com/electric-sql/pglite).
 
-Each of the nine functions has its own strict `deno.json` and integrity lock.
+Each of the ten functions has its own strict `deno.json` and integrity lock.
 CI checks those graphs with `--frozen-lockfile`; dependency drift fails instead
 of updating locks. Supabase client imports use exact version **2.117.2**, published
 2026-09-25. Runtime declarations come from the same exact `functions-js` npm
