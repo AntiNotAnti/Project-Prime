@@ -234,8 +234,7 @@ internal sealed class PartyReservationClient : IDisposable
         return Admitted && !cancellationToken.IsCancellationRequested;
     }
 
-    internal (NetTransport Transport, IPEndPoint Server, uint ClientId, ReceivedPacket Welcome)
-        TakeAdmission()
+    internal PartyReservedAdmission TakeAdmission()
     {
         if (_transport == null || _welcome is not ReceivedPacket welcome)
             throw new InvalidOperationException(
@@ -243,7 +242,11 @@ internal sealed class PartyReservationClient : IDisposable
 
         NetTransport transport = _transport;
         _transport = null;
-        return (transport, _server, _clientId, welcome);
+        return new PartyReservedAdmission(
+            transport,
+            _server,
+            _clientId,
+            welcome);
     }
 
     public void Dispose()
