@@ -184,6 +184,8 @@ public sealed partial class DedicatedServer
                             PartyReservationWireState.Rejected,
                             PartyReserveStatePacket.NoSlot,
                             (byte)validation.RequestedCount, 0, now);
+                        _ = PartyReservationServerRelay.CancelAsync(
+                            state.RequestId, Guid.Empty, "rejected");
                         continue;
                     }
                 }
