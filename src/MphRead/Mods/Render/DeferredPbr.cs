@@ -211,7 +211,7 @@ namespace MphRead
                 GL.DepthFunc(DepthFunction.Lequal);
                 GL.Enable(EnableCap.Blend);
                 GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-                GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer, SceneWorldFramebuffer());
                 GL.UseProgram(_shaderProgramId);
                 GL.Viewport(0, 0, _targetSize.X, _targetSize.Y);
                 GL.ClearColor(_clearColor);

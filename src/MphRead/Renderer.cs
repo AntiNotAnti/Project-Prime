@@ -690,16 +690,23 @@ namespace MphRead
         private int _frameBuffer = 0;
         private int _screenTexture = 0;
         private int _renderBuffer = 0;
-        // What the ink pass reads. A pass cannot sample the target it is
-        // drawing into, so the finished scene is copied here first.
+        // While cel outlines are active the world is rendered here instead of
+        // into _screenTexture. The outline pass samples this immutable source
+        // and writes the resolved picture directly into _screenTexture, avoiding
+        // a full-frame CopyTexSubImage2D on every outlined frame.
         private int _celTexture = 0;
         // The scene's depth, as a texture rather than as _renderBuffer, which
         // nothing can read. Only allocated while cel shading is drawing its
         // outline, and zero when the driver would not take one.
         private int _depthTexture = 0;
         private bool _depthTextureRefused = false;
+        // Color-only destination for the cel resolve (_screenTexture).
         private int _celFrameBuffer = 0;
         private int _celFrameBufferColor = 0;
+        // World source target for cel frames (_celTexture + readable depth).
+        private int _celSourceFrameBuffer = 0;
+        private int _celSourceFrameBufferColor = 0;
+        private int _celSourceFrameBufferDepth = 0;
         private int _maxRenderTargetSize;
 
         /// <summary>
@@ -968,8 +975,10 @@ namespace MphRead
             GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
                 TextureTarget.Texture2D, _screenTexture, 0);
 
-            // The ink pass's copy of the scene. Same size and same filtering;
-            // it is only ever sampled texel for texel.
+            // The ink pass's source scene. When outlines are active the world
+            // renders directly here, then the outline pass resolves into
+            // _screenTexture. Same size and nearest filtering because it is
+            // sampled texel for texel.
             _celTexture = GL.GenTexture();
 
             GL.BindTexture(TextureTarget.Texture2D, _celTexture);
@@ -2840,8 +2849,10 @@ namespace MphRead
                 target = _targetSize;
             }
             // Before the frame is drawn into it, since this swaps what the
-            // depth is drawn into.
+            // depth is drawn into. Cel frames then bind their separate world
+            // color source so the outline can resolve without copying color.
             UpdateDepthAttachment(target);
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, SceneWorldFramebuffer());
             GL.Viewport(0, 0, target.X, target.Y);
             GL.UseProgram(_shaderProgramId);
             // Cosmetic submission values are entity-local. Clear both the shader
@@ -3121,11 +3132,13 @@ namespace MphRead
                     FramebufferAttachment.DepthStencilAttachment, RenderbufferTarget.Renderbuffer,
                     _renderBuffer);
                 GL.DeleteTexture(_depthTexture);
-                                _depthTexture = 0;
+                _depthTexture = 0;
+                _celSourceFrameBufferDepth = 0;
                 ValidateFramebuffer("Scene renderbuffer depth");
                 return;
             }
             _depthTexture = GL.GenTexture();
+            _celSourceFrameBufferDepth = 0;
 
             GL.BindTexture(TextureTarget.Texture2D, _depthTexture);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Depth24Stencil8,
@@ -3147,7 +3160,8 @@ namespace MphRead
                     FramebufferAttachment.DepthStencilAttachment, RenderbufferTarget.Renderbuffer,
                     _renderBuffer);
                 GL.DeleteTexture(_depthTexture);
-                                _depthTexture = 0;
+                _depthTexture = 0;
+                _celSourceFrameBufferDepth = 0;
             }
             ValidateFramebuffer("Scene depth attachment");
             CheckGlError("Scene depth attachment");
@@ -3238,20 +3252,32 @@ namespace MphRead
         /// and every map preview comes from: a line drawn later would be in
         /// the game and missing from all of them.
         /// </summary>
+        private bool CelOutlineSourceActive =>
+            Mods.RenderOptions.CelShading && Mods.RenderOptions.CelEdge > 0
+            && _celTexture != 0 && _celShaderProgramId != 0 && _depthTexture != 0;
+
+        /// <summary>
+        /// The color texture currently receiving world passes. Cel outlines use
+        /// a ping-pong source so the post pass can sample the complete world
+        /// while resolving directly into the normal scene color target.
+        /// </summary>
+        private int SceneWorldColorTexture()
+            => CelOutlineSourceActive ? _celTexture : _screenTexture;
+
+        private int SceneWorldFramebuffer()
+            => CelOutlineSourceActive ? CelSourceFrameBuffer() : _frameBuffer;
+
         private void DrawCelOutline()
         {
-            if (!Mods.RenderOptions.CelShading || Mods.RenderOptions.CelEdge <= 0
-                || _celTexture == 0 || _celShaderProgramId == 0 || _depthTexture == 0)
+            if (!CelOutlineSourceActive)
             {
                 return;
             }
             Vector2i target = _targetSize;
             BeginPostProcessPass();
-            // The scene, kept where the pass can read it. First, because
-            // everything below draws over the target -- including the probe,
-            // which is why it can afford to.
-            GL.BindTexture(TextureTarget.Texture2D, _celTexture);
-            GL.CopyTexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, 0, 0, target.X, target.Y);
+            // The world was rendered directly into _celTexture. Probe and real
+            // outline passes may both write _screenTexture because the source
+            // remains untouched; the real pass overwrites every probe pixel.
             if (_calibrateInk)
             {
                 _calibrateInk = false;
@@ -3263,7 +3289,36 @@ namespace MphRead
         }
 
         /// <summary>
-        /// The ink pass's own target: the scene's colour texture and nothing
+        /// The world target used only while cel outlines are active. It shares
+        /// the readable scene depth with the normal framebuffer but writes its
+        /// color to _celTexture, leaving _screenTexture free as the resolve
+        /// destination.
+        /// </summary>
+        private int CelSourceFrameBuffer()
+        {
+            if (_celSourceFrameBuffer == 0)
+            {
+                _celSourceFrameBuffer = GL.GenFramebuffer();
+            }
+            if (_celSourceFrameBufferColor != _celTexture
+                || _celSourceFrameBufferDepth != _depthTexture)
+            {
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer, _celSourceFrameBuffer);
+                GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
+                    FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D,
+                    _celTexture, 0);
+                GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
+                    FramebufferAttachment.DepthStencilAttachment, TextureTarget.Texture2D,
+                    _depthTexture, 0);
+                ValidateFramebuffer("Cel source attachments");
+                _celSourceFrameBufferColor = _celTexture;
+                _celSourceFrameBufferDepth = _depthTexture;
+            }
+            return _celSourceFrameBuffer;
+        }
+
+        /// <summary>
+        /// The ink pass's own target: the final scene colour texture and nothing
         /// else.
         ///
         /// Built once and kept. The colour attachment is refreshed only if the
@@ -3291,8 +3346,9 @@ namespace MphRead
         }
 
         /// <summary>
-        /// The pass itself: the finished scene out of <c>_celTexture</c>, the
-        /// depth the scene left behind, and a quad over the whole target.
+        /// The pass itself: the world source in <c>_celTexture</c>, the depth
+        /// that same world pass left behind, and a quad resolving directly into
+        /// <c>_screenTexture</c>.
         /// </summary>
         private void DrawCelQuad(Vector2i target, bool probe)
         {
@@ -3392,10 +3448,11 @@ namespace MphRead
         /// that becomes the floor.
         ///
         /// Once a scene, in the same frame as the real pass and before it, so
-        /// nobody ever sees the probe -- the scene has already been copied out
-        /// to <c>_celTexture</c> by then, and the real pass paints every pixel
-        /// back from it. Colour is read rather than depth because colour is
-        /// what a GL ES driver is required to hand back.
+        /// nobody ever sees the probe -- the world already lives in the separate
+        /// <c>_celTexture</c> source, and the real pass paints every pixel of
+        /// <c>_screenTexture</c> over the probe immediately afterward. Colour is
+        /// read rather than depth because colour is what a GL ES driver is
+        /// required to hand back.
         /// </summary>
         private void CalibrateInk(Vector2i target)
         {
@@ -5530,14 +5587,22 @@ namespace MphRead
             DisposeDeferredPbr();
             DisposeShadowMap();
             if (_frameTransientTextures != null) DisposeFrameTransientTextures();
-            // The cel target also owns a reference to _screenTexture. Release
-            // it before deleting that texture in the shell's persistent context.
+            // Cel targets own references to the two scene colors and readable
+            // depth. Release both before deleting those textures in the shell's
+            // persistent context.
             if (_celFrameBuffer != 0)
             {
                 GL.DeleteFramebuffer(_celFrameBuffer);
                 _celFrameBuffer = 0;
             }
             _celFrameBufferColor = 0;
+            if (_celSourceFrameBuffer != 0)
+            {
+                GL.DeleteFramebuffer(_celSourceFrameBuffer);
+                _celSourceFrameBuffer = 0;
+            }
+            _celSourceFrameBufferColor = 0;
+            _celSourceFrameBufferDepth = 0;
             if (_frameBuffer != 0)
             {
                 GL.DeleteFramebuffer(_frameBuffer);

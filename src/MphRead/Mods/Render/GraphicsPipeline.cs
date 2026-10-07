@@ -102,7 +102,7 @@ namespace MphRead
                 GL.Disable(EnableCap.Blend);
                 GL.UseProgram(_graphicsProgram);
                 GL.ActiveTexture(TextureUnit.Texture0);
-                GL.BindTexture(TextureTarget.Texture2D, _screenTexture);
+                GL.BindTexture(TextureTarget.Texture2D, SceneWorldColorTexture());
                 GL.Uniform1(_gfxSceneSampler, 0);
                 GL.ActiveTexture(TextureUnit.Texture1);
                 GL.BindTexture(TextureTarget.Texture2D, DeferredPbrDepth);
@@ -172,7 +172,7 @@ namespace MphRead
                 // The source and destination are distinct attachments. Copy only
                 // color; MPH's depth/stencil remain authoritative for later passes.
                 GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, resolveFramebuffer);
-                GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _frameBuffer);
+                GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, SceneWorldFramebuffer());
                 GL.BlitFramebuffer(0, 0, _pbrSize.X, _pbrSize.Y,
                     0, 0, _targetSize.X, _targetSize.Y,
                     ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear);
@@ -192,7 +192,7 @@ namespace MphRead
                     GL.ActiveTexture((TextureUnit)((int)TextureUnit.Texture0 + unit));
                     GL.BindTexture(TextureTarget.Texture2D, 0);
                 }
-                GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer, SceneWorldFramebuffer());
                 GL.Viewport(0, 0, _targetSize.X, _targetSize.Y);
                 GL.UseProgram(_shaderProgramId);
             }

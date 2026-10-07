@@ -78,7 +78,7 @@ namespace MphRead.Mods.Render
                     | FrameRenderResource.PbrNormal
                     | FrameRenderResource.PbrMaterial),
             new(FrameRenderPassKind.Outlines, "frame.outlines",
-                FrameRenderResource.SceneDepth,
+                FrameRenderResource.SceneColor | FrameRenderResource.SceneDepth,
                 FrameRenderResource.SceneColor),
             new(FrameRenderPassKind.SceneOverlays, "frame.scene-overlays",
                 FrameRenderResource.SceneColor | FrameRenderResource.SceneDepth,

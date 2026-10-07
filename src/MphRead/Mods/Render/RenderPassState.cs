@@ -39,7 +39,7 @@ namespace MphRead
 
         private void BeginWorldPass()
         {
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, SceneWorldFramebuffer());
             GL.Viewport(0, 0, _targetSize.X, _targetSize.Y);
             GL.UseProgram(_shaderProgramId);
             // A secondary pass can finish on a skinned remote player. Start every

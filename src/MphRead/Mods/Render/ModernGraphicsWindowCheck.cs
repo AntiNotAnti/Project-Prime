@@ -1203,25 +1203,23 @@ namespace MphRead.Mods.Render
                 PixelFormat.Rgba, PixelType.UnsignedByte, linearBlendPixel);
             GraphicsApi.DeleteTexture(greenTexture);
 
-            // Exercise the real cel program with the scene's depth-stencil
-            // texture sampled on unit 1 while writing color through a separate
-            // color-only framebuffer, matching Scene.DrawCelQuad.
-            int celCopy = GraphicsApi.GenTexture();
+            // Exercise the real cel program in its copy-free arrangement:
+            // the finished world color remains immutable on unit 0 while the
+            // outline resolves directly into a second color attachment.
+            int celResolved = GraphicsApi.GenTexture();
             GraphicsApi.ActiveTexture(TextureUnit.Texture0);
-            GraphicsApi.BindTexture(TextureTarget.Texture2D, celCopy);
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, celResolved);
             GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
                 64, 64, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
             GraphicsApi.TexParameter(TextureTarget.Texture2D,
                 TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
             GraphicsApi.TexParameter(TextureTarget.Texture2D,
                 TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
-            GraphicsApi.BindFramebuffer(FramebufferTarget.ReadFramebuffer, framebuffer);
-            GraphicsApi.CopyTexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, 0, 0, 64, 64);
 
             int celFramebuffer = GraphicsApi.GenFramebuffer();
             GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, celFramebuffer);
             GraphicsApi.FramebufferTexture2D(FramebufferTarget.Framebuffer,
-                FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, color, 0);
+                FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, celResolved, 0);
             if (GraphicsApi.CheckFramebufferStatus(FramebufferTarget.Framebuffer)
                 != FramebufferErrorCode.FramebufferComplete)
             {
@@ -1232,7 +1230,7 @@ namespace MphRead.Mods.Render
             GraphicsApi.ActiveTexture(TextureUnit.Texture1);
             GraphicsApi.BindTexture(TextureTarget.Texture2D, depth);
             GraphicsApi.ActiveTexture(TextureUnit.Texture0);
-            GraphicsApi.BindTexture(TextureTarget.Texture2D, celCopy);
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, color);
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(cel, "tex"), 0);
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(cel, "depth_tex"), 1);
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(cel, "texel_w"), 1f / 64f);
@@ -1261,8 +1259,6 @@ namespace MphRead.Mods.Render
             GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
             GraphicsApi.ActiveTexture(TextureUnit.Texture0);
             GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
-            GraphicsApi.DeleteFramebuffer(celFramebuffer);
-            GraphicsApi.DeleteTexture(celCopy);
 
             GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
             GraphicsApi.Viewport(0, 0, 96, 64);
@@ -1274,7 +1270,7 @@ namespace MphRead.Mods.Render
             GraphicsApi.Enable(EnableCap.Blend);
             GraphicsApi.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
             GraphicsApi.ActiveTexture(TextureUnit.Texture0);
-            GraphicsApi.BindTexture(TextureTarget.Texture2D, color);
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, celResolved);
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(rtt, "tex"), 0);
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(rtt, "alpha"), 1f);
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(rtt, "use_mask"), 0);
@@ -1302,6 +1298,9 @@ namespace MphRead.Mods.Render
                 PixelFormat.Rgba, PixelType.UnsignedByte, sample);
             Array.Copy(sample, 0, pixels, 8, 4);
             ModernGraphicsCompat.Present();
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
+            GraphicsApi.DeleteFramebuffer(celFramebuffer);
+            GraphicsApi.DeleteTexture(celResolved);
 
             // Second frame: replay-preview style scaled framebuffer blit using
             // independent read/draw bindings.
