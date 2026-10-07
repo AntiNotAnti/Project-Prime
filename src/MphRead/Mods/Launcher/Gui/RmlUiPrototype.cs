@@ -208,6 +208,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             if (!_lobbyMode)
             {
+                LauncherHunter.PreviewSlot = -1;
                 LauncherHunter.Draw(window, width, height);
                 return;
             }
@@ -226,6 +227,7 @@ namespace MphRead.Mods.Launcher.Gui
                 LobbyHunterPlacement placement = LobbyPlacements[i];
                 LauncherHunter.Wanted = true;
                 LauncherHunter.CanPresent = () => _active && _lobbyMode;
+                LauncherHunter.PreviewSlot = i;
                 LauncherHunter.Hunter = player.Hunter;
                 LauncherHunter.Suit = player.Suit;
                 LauncherHunter.Left = placement.Left;
@@ -608,6 +610,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             LauncherHunter.Wanted = GameFiles.Ready && player.Occupied;
             LauncherHunter.CanPresent = () => _active && _lobbyMode;
+            LauncherHunter.PreviewSlot = 0;
             LauncherHunter.Hunter = player.Hunter;
             LauncherHunter.Suit = player.Suit;
             LauncherHunter.Left = placement.Left;
@@ -622,6 +625,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             LauncherHunter.Wanted = snapshot.GameFilesReady;
             LauncherHunter.CanPresent = () => _active;
+            LauncherHunter.PreviewSlot = -1;
             LauncherHunter.Hunter = snapshot.DisplayHunter;
             LauncherHunter.Suit = snapshot.Suit;
             // The room profile owns composition now, not the RML document.
