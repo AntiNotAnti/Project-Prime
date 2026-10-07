@@ -2111,6 +2111,7 @@ namespace MphRead.Entities
                             _soundSource.PlaySfx(SfxId.SPIRE_ALT_ATTACK);
                             _spireRockPosR = Position;
                             _spireRockPosL = Position;
+                            _dialancheCollision.Reset(Position);
                             _spireAltUp = _fieldC0;
                             var cross = Vector3.Cross(_facingVector, _spireAltUp);
                             _spireAltFacing = Vector3.Cross(_spireAltUp, cross).Normalized();
