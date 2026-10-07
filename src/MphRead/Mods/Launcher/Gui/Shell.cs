@@ -171,10 +171,12 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 SocialPresenceClient.Start();
                 SocialInviteClient.Start();
+                SocialPartyClient.Start();
             }
 #else
             SocialPresenceClient.Start();
             SocialInviteClient.Start();
+            SocialPartyClient.Start();
 #endif
             LifecycleTiming.Startup("launcher preferences loaded");
             Interlocked.Exchange(ref _firstFrameStarted, 0);
@@ -260,6 +262,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _startupWork = null;
                 _deferredCustomRoomsPending = null;
                 _deferredCustomRoomsToken = default;
+                SocialPartyClient.Stop();
                 SocialInviteClient.Stop();
                 SocialPresenceClient.Stop();
                 Active = false;
