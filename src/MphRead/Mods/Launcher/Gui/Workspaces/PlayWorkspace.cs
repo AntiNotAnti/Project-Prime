@@ -605,7 +605,7 @@ namespace MphRead.Mods.Launcher.Gui
             var cancel = new CancellationTokenSource();
             _quickSearch = cancel;
             QuickPlaySearchResult result = await ServerBrowserService.FindBestAsync(
-                requiredSlots, lobbyOnly: partyQuickPlay, cancel.Token);
+                requiredSlots, lobbyOnly: partyQuickPlay, cancellationToken: cancel.Token);
             if (cancel.IsCancellationRequested || TopLevel.GetTopLevel(this) == null)
                 return;
             _quickSearch.Dispose();
