@@ -178,7 +178,7 @@ public static class ReplayExportWorkerHost
         using var process = Process.GetCurrentProcess();
         File.WriteAllText(staging, JsonSerializer.Serialize(status with { Id = Ticket.Id,
             WorkerProcessId = process.Id, WorkerStartUtcTicks = process.StartTime.ToUniversalTime().Ticks,
-            OriginCaptured = OriginCaptured }));
+            OriginCaptured = OriginCaptured, WorkerIdentity = ReplayExportWorkerIdentity.Capture(process) }));
         File.Move(staging, Ticket.StatusFile, overwrite: true);
     }
 }

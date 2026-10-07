@@ -10,6 +10,21 @@ internal static partial class Program
     private static async Task CheckNativeReplayLifecycleAsync(string directory,string assets,string fixture,string output,bool disableGameHud=false,bool workersOnly=false,bool staleView=false)
     {
         output=Path.GetFullPath(output);Directory.CreateDirectory(output);
+        string nativeLibrary = OperatingSystem.IsMacOS() ? "libwgpu_native.dylib"
+            : OperatingSystem.IsWindows() ? "wgpu_native.dll" : "libwgpu_native.so";
+        object ArtifactIdentity(string path) => new { Path = path, Bytes = new FileInfo(path).Length,
+            Sha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant() };
+        File.WriteAllText(Path.Combine(output,"native-replay-input-identity.json"),JsonSerializer.Serialize(new
+        {
+            Scope="Actual native Replay/worker acceptance; world comparisons use the same explicitly presented phase within this run.",
+            CapturedUtc=DateTime.UtcNow,
+            Source=ArtifactIdentity(Path.GetFullPath(fixture)),
+            Engine=ArtifactIdentity(typeof(StudioReplayPlayer).Assembly.Location),
+            Studio=ArtifactIdentity(typeof(ProjectPrime.Studio.StudioWindow).Assembly.Location),
+            Harness=ArtifactIdentity(typeof(Program).Assembly.Location),
+            StagedNativeRuntime=ArtifactIdentity(Path.Combine(AppContext.BaseDirectory,nativeLibrary)),
+            AssetsPathsFile=Path.GetFullPath(assets), disableGameHud, workersOnly, staleView
+        },new JsonSerializerOptions{WriteIndented=true}));
         string profile=Path.Combine(directory,"native-replay-profile");Directory.CreateDirectory(profile);
         new StudioSettingsStore(new(AppContext.BaseDirectory,profile)).SaveSettings(new(){GamePathsFile=Path.GetFullPath(assets)});
         string source=Path.Combine(directory,"native-replay.ppdemo");File.Copy(fixture,source);

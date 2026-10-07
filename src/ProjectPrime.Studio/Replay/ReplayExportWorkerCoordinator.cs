@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Diagnostics;
 using MphRead.Mods.StudioReplay;
 using ProjectPrime.Studio.Jobs;
+using ReplayExportWorkerPresence = MphRead.Platform.ProcessLifetimePresence;
 
 namespace ProjectPrime.Studio.Replay;
 
@@ -32,7 +33,7 @@ public sealed class ReplayExportWorkerCoordinator(StudioJobManager jobs, Func<st
             {
                 var ticket = ReadTicket(path);
                 var state = ReadStatus(ticket);
-                if (state?.State is "Complete" or "Failed" or "Cancelled" && !IsRetainedWorkerAlive(state)) continue;
+                if (state?.State is "Complete" or "Failed" or "Cancelled" && !RequiresRetainedProcessWait(state)) continue;
                 if (pending.Count == 256) break;
                 pending.Add((path, state == null || state.State == "Queued"));
             }
@@ -104,7 +105,7 @@ public sealed class ReplayExportWorkerCoordinator(StudioJobManager jobs, Func<st
                     if (status?.State is "Complete" or "Cancelled" or "Failed")
                     {
                         if (child != null) await child.ConfigureAwait(false);
-                        else await WaitForRetainedWorkerExitAsync(status).ConfigureAwait(false);
+                        else await WaitForRetainedWorkerExitAsync(status, progress).ConfigureAwait(false);
                         if (status.State == "Failed") throw new IOException(status.Error ?? "Replay export failed.");
                         if (status.State == "Cancelled") throw new OperationCanceledException(cancellation);
                         return true;
@@ -115,7 +116,8 @@ public sealed class ReplayExportWorkerCoordinator(StudioJobManager jobs, Func<st
                         throw new IOException("Export worker exited without a terminal result.");
                     }
                     if (child == null && File.Exists(ticket.StatusFile)
-                        && DateTime.UtcNow - File.GetLastWriteTimeUtc(ticket.StatusFile) > TimeSpan.FromMinutes(2))
+                        && DateTime.UtcNow - File.GetLastWriteTimeUtc(ticket.StatusFile) > TimeSpan.FromMinutes(2)
+                        && (status == null || !RequiresRetainedProcessWait(status)))
                         throw new IOException("The persisted export worker stopped updating; its ticket and partial output are retained for review.");
                     // Cancellation sends a signal, then continues observing until the child acknowledges it.
                     await Task.Delay(100, _observationStop.Token).ConfigureAwait(false);
@@ -143,26 +145,46 @@ public sealed class ReplayExportWorkerCoordinator(StudioJobManager jobs, Func<st
             }
         }
     }
-    private async Task WaitForRetainedWorkerExitAsync(StudioReplayExportStatus status)
+    private async Task WaitForRetainedWorkerExitAsync(StudioReplayExportStatus status, IProgress<StudioJobProgress> progress)
     {
-        if (status is not { WorkerProcessId: { } id, WorkerStartUtcTicks: { } start }) return;
-        try
+        if (status is not { WorkerProcessId: { } id }) return;
+        string? observedIdentity = null;
+        bool announced = false;
+        while (true)
         {
-            using var process = Process.GetProcessById(id);
-            if (process.StartTime.ToUniversalTime().Ticks == start)
-                await process.WaitForExitAsync(_observationStop.Token).ConfigureAwait(false);
+            try
+            {
+                using var process = Process.GetProcessById(id);
+                var presence = ReplayExportWorkerIdentity.Assess(process, observedIdentity ?? status.WorkerIdentity,
+                    observedIdentity == null ? status.WorkerStartUtcTicks : null);
+                if (presence == ReplayExportWorkerPresence.Exited) return;
+                if (!announced && presence == ReplayExportWorkerPresence.UnverifiedAlive)
+                {
+                    progress.Report(new(0, "Worker identity unavailable · waiting for the retained process to exit"));
+                    announced = true;
+                }
+                // For an unverifiable legacy record, retain the incarnation
+                // observed now without claiming it is the recorded worker.
+                // A later PID reuse ends this deferral; no signal is sent.
+                if (observedIdentity == null)
+                    try { observedIdentity = ReplayExportWorkerIdentity.Capture(process); }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception or InvalidOperationException) { }
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { return; }
+            catch (System.ComponentModel.Win32Exception) { /* Inaccessible does not prove the retained process exited. */ }
+            await Task.Delay(100, _observationStop.Token).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { }
     }
-    private static bool IsRetainedWorkerAlive(StudioReplayExportStatus status)
+    private static bool RequiresRetainedProcessWait(StudioReplayExportStatus status)
     {
-        if (status is not { WorkerProcessId: { } id, WorkerStartUtcTicks: { } start }) return false;
+        if (status is not { WorkerProcessId: { } id }) return false;
         try
         {
             using var process = Process.GetProcessById(id);
-            return !process.HasExited && process.StartTime.ToUniversalTime().Ticks == start;
+            return ReplayExportWorkerIdentity.Assess(process, status.WorkerIdentity, status.WorkerStartUtcTicks) != ReplayExportWorkerPresence.Exited;
         }
-        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { return false; }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException) { return false; }
+        catch (System.ComponentModel.Win32Exception) { return true; }
     }
     private static StudioReplayExportTicket ReadTicket(string path)
     {

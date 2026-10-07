@@ -535,6 +535,106 @@
       "replayPreparationLog": "/tmp/project-prime-ci-map-preparation-final.log",
       "exportChecks": 1144,
       "exportEvidence": "artifacts/studio-acceptance/final-release/export-coordinator-startup/summary.json"
+    },
+    "evidencePolicy": "Existing desktopGraph, loaded/native acceptance, APK, package and measurement records retain their exact historical binary scopes. latestFixAcceptance records subsequent source/build/component evidence; pending reruns are not promoted to passes. Current PR required checks remain final-head authority.",
+    "latestFixAcceptance": {
+      "sourceIdentity": "Coalesced fix working tree after 39ff92d44b3182048c20106bf8b65e15bb8fc497; not attributed to an earlier immutable desktop/APK/package graph",
+      "desktopGraph": {
+        "status": "passed",
+        "snapshot": "/tmp/project-prime-studio-kernel-cache-final-snapshot",
+        "engineAssemblySha256": "c06e565170ce09582307fae355b1b7bbc00eb6fce3ce04ca14bcd0b6288bac11",
+        "studioAssemblySha256": "13f45952fee0ec3bc3ca50f53c95790098506c23605d1f20d344c07c707b5943",
+        "buildErrors": 0,
+        "buildWarnings": 133,
+        "buildSeconds": 52.64,
+        "log": "/tmp/project-prime-studio-kernel-cache-final-build.log",
+        "scope": "Fresh managed Release build with shared process identity, hosted-cache ownership and current 8d native payload; native Replay, APK and paired publish reruns remain separate pending gates."
+      },
+      "architecture": {
+        "status": "passed",
+        "sourceContracts": 8153,
+        "sourceLog": "/tmp/project-prime-studio-architecture-kernel-cache-final.log",
+        "selfTestLog": "/tmp/project-prime-studio-architecture-kernel-cache-self-final.log",
+        "scope": "Current source scan and freshly compiled 66 lexical/protocol/Android-exclusion self-tests. Earlier 8121/66 evidence above retains its historical graph; the older 46-case binary is not used to certify current source.",
+        "selfTests": 66
+      },
+      "processIdentity": {
+        "status": "implemented-and-component-tested",
+        "canonicalSource": "src/MphRead/Platform/ProcessLifetimeIdentity.cs",
+        "studioDelegation": "src/ProjectPrime.Studio/Replay/ReplayExportWorkerIdentity.cs",
+        "scope": "One BCL-only canonical identity for export admission and hosted-cache reap. Linux/Android use exact boot ID, PID and procfs kernel start time; Windows/macOS use exact native process creation time. Unavailable metadata and legacy Linux/Android UTC records are UnverifiedAlive and retain ownership; only confirmed exit or a verified different incarnation permits destructive reap. No UTC tolerance, PID-only verification or Game-to-Studio dependency."
+      },
+      "hostedCache": {
+        "status": "passed",
+        "checks": 26,
+        "log": "/tmp/project-prime-hosted-cache-identity.log",
+        "scope": "Real independent owner and reaper processes under cache budget pressure preserve active library and exact hash archive, retain empty/malformed/oversized/legacy identities, distinguish simulated PID reuse, and reclaim only after confirmed exit or exact incarnation mismatch. Existing startup handoff and archive/pin protection remain."
+      },
+      "exportComponents": {
+        "status": "passed",
+        "platform": "macOS",
+        "checks": 1160,
+        "log": "/tmp/project-prime-export-shared-identity-final.log",
+        "scope": "Canonical fractional sampling, PCM, real FFmpeg/FFprobe, worker process identity, small-thread-pool ownership and cache contracts against the shared identity source. Fixture pixels do not certify fresh native Replay presentation.",
+        "linux": {
+          "status": "pending-actual-ci",
+          "expectedChecks": 1162,
+          "scope": "Expected Linux-specific cases are not accepted until the actual current-head workflow reports success."
+        }
+      },
+      "contentFreeUi": {
+        "status": "passed",
+        "checks": 471,
+        "log": "/tmp/project-prime-ci-content-free-ui.log",
+        "captures": "/tmp/project-prime-ci-content-free-ui",
+        "withGeneratedAssets": {
+          "status": "passed",
+          "checks": 581,
+          "log": "/tmp/project-prime-ci-content-free-ui-assets.log",
+          "captures": "/tmp/project-prime-ci-content-free-ui-assets"
+        },
+        "scope": "Headless shell and canonical Map CPU authoring begin with no extracted game root. The optional generated PNG/WAV/model/prefab asset fixture is self-contained. Neither count includes the loaded Replay/assets historical 824 suite or proves GPU pixels."
+      },
+      "androidBootstrap": {
+        "status": "passed-fixture",
+        "assertions": 182,
+        "scriptCases": 22,
+        "defaultBootDeadlineSeconds": 600,
+        "artifact": "artifacts/studio-acceptance/final-release/android-bootstrap/manifest.json",
+        "log": "artifacts/studio-acceptance/final-release/android-bootstrap/android-bootstrap-tests.log",
+        "scope": "Finite positive boot admission in both Map and renderer scripts, bounded adb/deadline and owned-child cleanup. Fake SDK/app operations with real child processes cover success, absent/inexact AVD, dead/offline/unbooted/hanging adb, invalid timeout and runtime failure. No actual emulator/native/on-device acceptance claim."
+      },
+      "nativePayloads": {
+        "patchFingerprint": "8d0246408e9d8df823557ae2b613d784cd4bbc69f1979fcd791f9743a0316ebf",
+        "bridgeAbi": 1,
+        "macOS": {
+          "status": "built-and-fingerprint-verified",
+          "manifest": "artifacts/wgpu-native-macos/osx-arm64/PRIME-WGPU.json",
+          "librarySha256": "66cea18944cc9ea1e662828f23697b4a27f54528e31892ab26d73dd19569ee30"
+        },
+        "android": {
+          "status": "native-only-builds-verified",
+          "manifest": "artifacts/studio-acceptance/final-platform/android-native-8d024640/manifest.json",
+          "abis": [
+            "arm64-v8a",
+            "x86_64"
+          ],
+          "managedApkAcceptance": false,
+          "onDeviceAcceptance": false
+        },
+        "windowsFxc": {
+          "status": "repair-landed-runtime-ci-pending",
+          "patch": "tools/wgpu/patches/dx12-fxc-source-name.patch",
+          "scope": "D3DCompile receives an owned NUL-terminated CString even for unlabeled shaders. Real named/unlabeled/invalid shader tests are present; Windows execution and native runtime acceptance require current-head CI."
+        }
+      },
+      "pendingReruns": [
+        "Full native Replay 158 scope against c06e5651/13f45952 and the 8d native payload",
+        "Fresh Android managed APK/extracted assembly/native payload/signature verification",
+        "Fresh paired macOS publish/sign/extract/native smoke",
+        "Actual Linux export 1162 and Windows FXC/native runtime CI",
+        "All required Windows/Linux/macOS and Android checks for the current PR head"
+      ]
     }
   }
 }

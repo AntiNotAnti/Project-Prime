@@ -27,6 +27,7 @@ dotnet run --project tools/frame-trace-check -c Release
 dotnet run --project tools/desktop-pacing-check -c Release
 dotnet run --project tools/android-pacing-check -c Release
 dotnet run --project tools/replay-timeline-check -c Release
+dotnet run --project tools/hosted-cache-check -c Release
 dotnet run --project tools/map-editor-check -c Release -- --roadmap-only
 dotnet run --project tools/map-editor-check -c Release --no-build -- --replay-preparation-only
 dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadServer=true

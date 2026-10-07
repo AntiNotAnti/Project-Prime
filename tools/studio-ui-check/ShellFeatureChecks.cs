@@ -108,6 +108,9 @@ internal static partial class Program
         materialResult.Activate(); PumpLayout(window);
         Check(document.Host.GetVisualDescendants().OfType<TextBlock>().Any(block => block.IsEffectivelyVisible && block.Text == "MATERIAL BROWSER"),
             "global material search activates native material editor panel");
+        string assetRoot = map.Project.Definition.BaseDirectory ?? Path.Combine(paths.UserDataDirectory, "map-projects");
+        Directory.CreateDirectory(assetRoot);
+        WriteFixtureMusic(Path.Combine(assetRoot, "acceptance-search.wav"));
         map.Edit("Search fixture asset",definition=>definition.Assets.Add(new(){Path="acceptance-search.wav",Kind="audio",Name="Acceptance search asset"}),MapChangeDomain.Metadata);
         var assetResult=StudioGlobalSearchWindow.Search(window.Documents,window.Commands,new StudioSettings(),"acceptance-search")
             .Single(match=>match.Category=="Asset");

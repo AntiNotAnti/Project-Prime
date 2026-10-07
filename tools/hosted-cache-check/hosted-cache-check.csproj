@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/MphRead/Mods/Network/HostedPackageCache.cs" Link="HostedPackageCache.cs" />
+    <Compile Include="../../src/MphRead/Platform/ProcessLifetimeIdentity.cs" Link="ProcessLifetimeIdentity.cs" />
+  </ItemGroup>
+</Project>

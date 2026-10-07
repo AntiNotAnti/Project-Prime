@@ -45,7 +45,7 @@ if (args is ["--stdio-parent", var loggingDirectoryForParent])
 if (args is ["--coordinator-child", var stateFile, var cancelFile, var jobId, var peerDirectory])
 {
     Guid id = Guid.Parse(jobId);
-    void Publish(string state) { string staging = stateFile + ".fixture"; using var process = Process.GetCurrentProcess(); File.WriteAllText(staging, JsonSerializer.Serialize(new StudioReplayExportStatus(id, state, state == "Complete" ? 2 : 0, 2, null, Path.GetDirectoryName(stateFile)!, process.Id, process.StartTime.ToUniversalTime().Ticks))); File.Move(staging, stateFile, true); }
+    void Publish(string state) { string staging = stateFile + ".fixture"; using var process = Process.GetCurrentProcess(); File.WriteAllText(staging, JsonSerializer.Serialize(new StudioReplayExportStatus(id, state, state == "Complete" ? 2 : 0, 2, null, Path.GetDirectoryName(stateFile)!, process.Id, process.StartTime.ToUniversalTime().Ticks, WorkerIdentity: ReplayExportWorkerIdentity.Capture(process)))); File.Move(staging, stateFile, true); }
     int maximum = 0;
     void ObserveChildren()
     {
@@ -55,9 +55,9 @@ if (args is ["--coordinator-child", var stateFile, var cancelFile, var jobId, va
             try
             {
                 var status = JsonSerializer.Deserialize<StudioReplayExportStatus>(File.ReadAllText(peer));
-                if (status is not { WorkerProcessId: { } processId, WorkerStartUtcTicks: { } start }) continue;
+                if (status is not { WorkerProcessId: { } processId }) continue;
                 using var process = Process.GetProcessById(processId);
-                if (!process.HasExited && process.StartTime.ToUniversalTime().Ticks == start) live++;
+                if (ReplayExportWorkerIdentity.Matches(process, status.WorkerIdentity, status.WorkerStartUtcTicks)) live++;
             }
             catch (Exception ex) when (ex is IOException or JsonException or ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { }
         }
@@ -120,6 +120,7 @@ try
     try { StudioReplaySnapshotCache.Capture(sourceRecording, snapshotRoot, default); } catch (InvalidDataException) { corruptSnapshot = true; }
     Check(corruptSnapshot && File.ReadAllBytes(changedRecording).AsSpan().SequenceEqual(new byte[] { 4 }), "a corrupted content-addressed snapshot is rejected without replacing bytes held by another owner");
     await CacheRetentionChecks.Run(root, Check);
+    await WorkerIdentityChecks.Run(root, Check);
     foreach (int fps in new[] { 24, 30, 48, 60, 90, 120, 144 })
     {
         var sampler = new ReplayExportSampler(120, 180, fps);
@@ -284,8 +285,8 @@ try
     }
     static bool HasLiveRenderingChild(string path)
     {
-        if (FixtureStatus(path) is not { State: "Rendering", WorkerProcessId: { } id, WorkerStartUtcTicks: { } start }) return false;
-        try { using var process = Process.GetProcessById(id); return !process.HasExited && process.StartTime.ToUniversalTime().Ticks == start; }
+        if (FixtureStatus(path) is not { State: "Rendering", WorkerProcessId: { } id } status) return false;
+        try { using var process = Process.GetProcessById(id); return ReplayExportWorkerIdentity.Matches(process, status.WorkerIdentity, status.WorkerStartUtcTicks); }
         catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or System.ComponentModel.Win32Exception) { return false; }
     }
     static void ReleaseFixtures(IEnumerable<string> paths)
@@ -335,6 +336,17 @@ try
                 && paths.Count(HasLiveRenderingChild) == 2 && MaximumLiveChildren() == 2, jobs, paths,
                 "central jobs retain three observable queued exports while two acknowledged actual children wait for explicit release");
             RetainCoordinatorEvidence("cold-start-acknowledged", jobs, paths, startAcknowledgement.Elapsed);
+            if (OperatingSystem.IsLinux())
+            {
+                var witnesses = paths.Select(FixtureStatus).Where(status => status?.WorkerProcessId != null).Select(status =>
+                {
+                    using var process = Process.GetProcessById(status!.WorkerProcessId!.Value);
+                    return new { process.Id, ChildUtcTicks = status.WorkerStartUtcTicks, ObserverUtcTicks = process.StartTime.ToUniversalTime().Ticks,
+                        ExactKernelIdentityMatches = ReplayExportWorkerIdentity.Matches(process, status.WorkerIdentity), status.WorkerIdentity };
+                }).ToArray();
+                Console.WriteLine("Linux cross-process identity witness: " + JsonSerializer.Serialize(witnesses));
+                if (coordinatorEvidence != null) File.WriteAllText(Path.Combine(coordinatorEvidence, "linux-process-identity-witness.json"), JsonSerializer.Serialize(witnesses, new JsonSerializerOptions { WriteIndented = true }));
+            }
         }
         finally { ReleaseFixtures(paths); await Task.WhenAll(pending).WaitAsync(TimeSpan.FromSeconds(15)); }
         Check(MaximumLiveChildren() == 2 && paths.All(p => State(p) == "Complete") && jobs.Jobs.All(j => j.State == StudioJobState.Completed), "all queued actual child workers finish independently with central immutable progress history");

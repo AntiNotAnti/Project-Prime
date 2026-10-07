@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using MphRead.Platform;
 
 namespace MphRead.Mods.Network;
 
@@ -91,9 +93,14 @@ internal sealed class HostedPackageCache
     {
         using var current = owner == null ? Process.GetCurrentProcess() : null;
         var process = owner ?? current!;
+        string identity;
+        try { identity = ProcessLifetimeIdentity.Capture(process); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception
+            or PlatformNotSupportedException or InvalidOperationException)
+        { identity = ""; } // An unavailable incarnation cannot authorize destructive cleanup.
         string marker = Path.Combine(library, ".cache-owner");
         string temporary = marker + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        File.WriteAllText(temporary, process.Id + ":" + process.StartTime.ToUniversalTime().Ticks);
+        File.WriteAllText(temporary, "2\n" + process.Id.ToString(CultureInfo.InvariantCulture) + "\n" + identity);
         File.Move(temporary, marker, overwrite: true);
     }
     private void ReapLibraries()
@@ -106,21 +113,45 @@ internal sealed class HostedPackageCache
             // Leave a short handoff window for a child to register after parent
             // exit. Child startup replaces this marker before reading its catalog.
             if (!File.Exists(marker) || DateTime.UtcNow - File.GetLastWriteTimeUtc(marker) < TimeSpan.FromMinutes(2)) continue;
-            string[] owner;
+            if (new FileInfo(marker).Length > 512) continue;
+            string owner;
             using (var file = new FileStream(marker, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
-            using (var reader = new StreamReader(file)) owner = reader.ReadToEnd().Split(':');
-            if (owner.Length != 2 || !int.TryParse(owner[0], out int pid) || !long.TryParse(owner[1], out long incarnation)) continue;
-            bool running;
+            using (var reader = new StreamReader(file)) owner = reader.ReadToEnd();
+            if (!TryOwner(owner, out int pid, out string? identity, out long? legacy)) continue;
+            ProcessLifetimePresence presence;
             try
             {
                 using var process = Process.GetProcessById(pid);
-                running = !process.HasExited && process.StartTime.ToUniversalTime().Ticks == incarnation;
+                presence = ProcessLifetimeIdentity.Assess(process, identity, legacy);
             }
-            catch (ArgumentException) { running = false; }
-            catch (InvalidOperationException) { running = false; }
-            catch (System.ComponentModel.Win32Exception) { continue; } // Cannot inspect another owner: retain its pin.
-            if (!running) Directory.Delete(library, recursive: true);
+            catch (ArgumentException) { presence = ProcessLifetimePresence.Exited; }
+            catch (InvalidOperationException) { presence = ProcessLifetimePresence.Exited; }
+            catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or PlatformNotSupportedException)
+            { continue; } // Cannot inspect another owner: retain its pin.
+            if (presence != ProcessLifetimePresence.Exited) continue;
+            // Owner handoff replaces this marker atomically. A changed or freshly
+            // handed-off marker must not be reaped using the previously read PID.
+            if (File.ReadAllText(marker) != owner
+                || DateTime.UtcNow - File.GetLastWriteTimeUtc(marker) < TimeSpan.FromMinutes(2)) continue;
+            Directory.Delete(library, recursive: true);
         }
+    }
+    private static bool TryOwner(string value, out int pid, out string? identity, out long? legacy)
+    {
+        pid = 0; identity = null; legacy = null;
+        string[] versioned = value.Split('\n');
+        if (versioned.Length == 3 && versioned[0] == "2")
+        {
+            identity = versioned[2].Length == 0 ? null : versioned[2];
+            return int.TryParse(versioned[1], NumberStyles.None, CultureInfo.InvariantCulture, out pid) && pid > 0;
+        }
+        // Earlier markers used a reconstructed UTC start time. Assess retains a
+        // live Linux/Android PID conservatively because that value is not stable
+        // across managed observers; it still recognizes an actually exited PID.
+        string[] old = value.Split(':');
+        if (old.Length != 2 || !int.TryParse(old[0], NumberStyles.None, CultureInfo.InvariantCulture, out pid) || pid <= 0
+            || !long.TryParse(old[1], NumberStyles.None, CultureInfo.InvariantCulture, out long ticks) || ticks <= 0) return false;
+        legacy = ticks; return true;
     }
     private sealed class Lease(string path, FileStream guard) : IDisposable
     {

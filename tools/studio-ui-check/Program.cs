@@ -29,6 +29,15 @@ internal static partial class Program
         string data = Path.Combine(Path.GetTempPath(), "prime-studio-ui-data-" + Guid.NewGuid().ToString("N"));
         try
         {
+            if (!args.Contains("--replay"))
+            {
+                Directory.CreateDirectory(data);
+                string paths = Path.Combine(data, "content-free-paths.txt");
+                File.WriteAllText(paths, "0.20.0.0\n");
+                MphRead.AvaloniaShared.StudioGameAssets.Configure(paths);
+                Check(MphRead.Paths.FileSystem.Length == 0,
+                    "content-free shell and map acceptance starts with no extracted game root");
+            }
             // Dispatch may complete its Task inline on the session worker; asynchronous disposal
             // lets that worker return before awaiting the dispatcher lifetime.
             await using HeadlessUnitTestSession session = HeadlessUnitTestSession.StartNew(typeof(StudioUiApplication));

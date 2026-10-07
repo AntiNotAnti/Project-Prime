@@ -52,7 +52,7 @@ Project Prime is built on [MphRead](https://github.com/NoneGiven/MphRead) by **N
 
 * Full **replay recording**
 * Project Prime `.ppdemo` replay format
-* **Replay Studio**
+* **Replay Studio** in the standalone desktop **Project Prime Studio** application
 * Rolling gameplay clips
 * Kill cams
 * Replay timeline and playback controls
@@ -63,7 +63,7 @@ Project Prime is built on [MphRead](https://github.com/NoneGiven/MphRead) by **N
 
 ### Custom Maps
 
-* Integrated **Map Studio**
+* **Map Studio** in the standalone desktop **Project Prime Studio** application
 * Create and edit Project Prime maps
 * `.ppmap` packaged map format
 * Quake III map import workflow
@@ -306,7 +306,7 @@ Place installed custom maps in the appropriate Project Prime maps directory and 
 
 ### Map Studio
 
-Project Prime includes an integrated **Map Studio** for creating and working with custom maps.
+**Project Prime Studio** includes Map Studio for creating and working with custom maps. Desktop packages ship Studio alongside the game. Open it directly or choose Forge in Project Prime; Studio can run independently and remains open during external playtests.
 
 Map Studio supports workflows including:
 
@@ -328,7 +328,7 @@ More technical information is available in:
 
 Project Prime records replays using the `.ppdemo` format.
 
-The integrated **Replay Studio** provides tools for reviewing and managing recorded gameplay.
+**Project Prime Studio** includes Replay Studio for reviewing and editing recorded gameplay, synchronized camera views, cinematic authoring, and detached video export. Project Prime retains its Theatre browser, quick replay playback, rolling clips, and kill cams.
 
 Features include:
 
@@ -388,6 +388,14 @@ osx-x64
 osx-arm64
 ```
 
+Build and run Studio independently:
+
+```bash
+dotnet run --project src/ProjectPrime.Studio/ProjectPrime.Studio.csproj -c Release
+```
+
+Publish Studio for the same runtime and version as the game into a separate output directory. The [Studio packaging instructions](docs/architecture/project-prime-studio.md) describe paired release assembly and verification. Android packages contain the game runtime only.
+
 ### Dedicated Server
 
 Example Linux dedicated server build:
@@ -432,6 +440,7 @@ The repository includes extensive technical documentation covering the major Pro
 Useful starting points include:
 
 * [`CLAUDE.md`](CLAUDE.md) — repository architecture, commands, diagnostics, and testing
+* [Project Prime Studio](docs/architecture/project-prime-studio.md) — independent desktop application, shared engine boundaries, migration, and acceptance
 * [Replay and Map Studio architecture](docs/architecture/replay-map-upgrade-status.md) — implementation, validation, and platform coverage
 * [`SERVER.md`](SERVER.md) — dedicated server setup
 * [`.claude/multiplayer/`](.claude/multiplayer/) — multiplayer architecture and networking

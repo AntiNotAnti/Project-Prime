@@ -27,6 +27,7 @@ internal static partial class Program
             var document = (MapStudioDocument)window.Documents.ActiveDocument!;
             document.NewProject("ACCEPTANCE MAP", example: true);
             MapDocument canonical = document.Host.Document ?? throw new InvalidOperationException("Map editor did not create its canonical document.");
+            AuthorOwnedMapFixtureMaterials(canonical, paths);
             Check(document.Dirty && document.CanSave && canonical.Project.Definition.Geometry.Count > 0,
                 "new canonical project exposes geometry and real dirty/save lifecycle");
             CheckActualMapDockingAndSearch(window, document, paths);
@@ -88,6 +89,39 @@ internal static partial class Program
             window.Close();
             await window.DisposeResourcesAsync();
         }
+    }
+
+    private static void AuthorOwnedMapFixtureMaterials(MapDocument map, StudioPaths paths)
+    {
+        // The template deliberately borrows game materials. This acceptance map
+        // instead packages its own textures so compiler/publication checks run
+        // on a clean runner without any extracted cartridge files.
+        string root = Path.Combine(paths.UserDataDirectory, "map-projects");
+        Directory.CreateDirectory(root);
+        string[] textures = ["acceptance-arena.tex", "acceptance-accent.tex"];
+        for (int index = 0; index < textures.Length; index++)
+        {
+            using var writer = new BinaryWriter(File.Create(Path.Combine(root, textures[index])));
+            writer.Write("FPTX"u8); writer.Write((ushort)1); writer.Write((ushort)1);
+            writer.Write((ushort)0); writer.Write((ushort)8); writer.Write((ushort)8);
+            writer.Write((ushort)2); writer.Write((ushort)0);
+            writer.Write((ushort)(index == 0 ? 15855 : 5225)); writer.Write((ushort)32767);
+            writer.Write(Enumerable.Range(0, 64).Select(pixel => (byte)((pixel / 8 + pixel % 8) % 2)).ToArray());
+        }
+        map.Edit("Author portable acceptance materials", definition =>
+        {
+            definition.BaseDirectory = root;
+            for (int index = 0; index < definition.Materials.Count; index++)
+            {
+                string texture = textures[index % textures.Length];
+                definition.Materials[index].Texture = texture;
+                definition.Materials[index].SourceMaterial = 0;
+            }
+            foreach (string texture in textures) definition.Assets.Add(new() { Path = texture, Kind = "texture" });
+        }, MapChangeDomain.Material);
+        Check(map.Project.Definition.Materials.All(material => material.Texture is not null)
+            && textures.All(texture => MapTexturePack.Load(MapAssets.Read(map.Project.Definition, texture), texture).Entries.Count == 1),
+            "canonical acceptance map owns every native material texture without borrowing extracted game data");
     }
 
     private static async Task CaptureOwnedMapDialogAsync(Window dialog,string output,string route)

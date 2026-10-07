@@ -39,7 +39,7 @@ public sealed record StudioReplayExportRequest(string Directory, uint StartFrame
     bool ReplayOverlay = false, StudioReplayCameraMode Camera = StudioReplayCameraMode.Authored, StudioReplayAudioOptions? Audio = null,
     StudioReplayView? View = null);
 public sealed record StudioReplayExportStatus(Guid Id, string State, long Frames, long TotalFrames, string? Error, string Directory,
-    int? WorkerProcessId = null, long? WorkerStartUtcTicks = null, bool OriginCaptured = false);
+    int? WorkerProcessId = null, long? WorkerStartUtcTicks = null, bool OriginCaptured = false, string? WorkerIdentity = null);
 public sealed record StudioReplayPortableImport(string ReplayPath, IReadOnlyList<string> PackageDirectories);
 public sealed record StudioAudioEventBinding(string EventType, string WaveFile, StudioAudioBus Bus = StudioAudioBus.Game, int? Value = null, float Gain = 1);
 public sealed record StudioReplayAudioOptions(bool Enabled = true, StudioAudioVolumes? Volumes = null,

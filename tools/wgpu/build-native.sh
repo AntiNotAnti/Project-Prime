@@ -75,6 +75,7 @@ if $unit_tests; then
     "$CARGO_TARGET_DIR/prime-dx12-policy-tests"
     if [[ "$requested" == win-x64 ]]; then
         cargo test --manifest-path "${src}-core/wgpu-hal/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --features dx12 --lib prime_dx12_tests
+        cargo test --manifest-path "${src}-core/wgpu-hal/Cargo.toml" --locked ${offline_option:+"$offline_option"} --release --features dx12 --lib prime_fxc_source_name_tests
     fi
 fi
 mkdir -p "$out"
