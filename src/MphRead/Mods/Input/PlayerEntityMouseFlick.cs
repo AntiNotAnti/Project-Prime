@@ -85,11 +85,22 @@ namespace MphRead.Entities
         /// </summary>
         private void ModApplyPointerAltMove()
         {
-            // Android queues its hunter-specific touch sample in GameView before
-            // the shared hardware-input pass: current-frame motion for Samus,
-            // anchored precision drive for the other rolling forms.
+            // Android publishes Samus' aim finger before this shared
+            // hardware-input pass. Advance the same 30 Hz producer here; the
+            // other transformed hunters retain their existing Android drive.
             if (global::System.OperatingSystem.IsAndroid())
             {
+                if (Hunter == Hunter.Samus)
+                {
+                    bool enabled = IsMainPlayer && !IsBot && IsAltForm
+                        && !IsMorphing && !IsUnmorphing
+                        && !Flags1.TestFlag(PlayerFlags1.NoAimInput)
+                        && !Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen)
+                        && !Mods.SpectatorMode.IsSpectating;
+                    Input.MorphTouch.StepLocal(_scene.FrameCount, enabled,
+                        Mods.Input.MorphTouchHost.Down, 0, 0);
+                    ModSetAltSwipeDrive(false, 0, 0);
+                }
                 return;
             }
 
