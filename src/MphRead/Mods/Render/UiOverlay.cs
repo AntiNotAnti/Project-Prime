@@ -80,26 +80,20 @@ namespace MphRead.Mods.Render
             GL.ClearColor(0f, 0f, 0f, 1f);
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit
                 | ClearBufferMask.StencilBufferBit);
-            // The photograph under the screens, at the window's resolution
-            // rather than at the raster cap theirs is drawn at. See
-            // LauncherPhoto for why it is no longer in the same bitmap as the
-            // washes over it -- and note that the composite is unchanged: the
-            // overlay blends premultiplied, which is the same "over" Avalonia
-            // applied when it owned both layers.
 #if MPHREAD_RMLUI_POC
             bool rmlStage = Mods.Launcher.Gui.RmlUiPrototype.Active;
-            LauncherPhoto.StageFxEnabled = rmlStage;
-            LauncherStageFx.Enabled = rmlStage;
-#else
-            LauncherPhoto.StageFxEnabled = false;
-#endif
-            LauncherPhoto.Draw(width, height);
-#if MPHREAD_RMLUI_POC
             if (rmlStage)
             {
-                // Stage dressing belongs under the model. Drawing these cues in
-                // RmlUi would tint the Hunter itself because vector UI is the
-                // last layer in the composite.
+                // The RmlUi home now owns a purpose-built deployment chamber,
+                // not a photographed gameplay room. Activity ambience and
+                // Hunter identity feed this lightweight procedural stage.
+                LauncherPhoto.StageFxEnabled = false;
+                LauncherBackdropComposer.Enabled = true;
+                LauncherStageFx.Enabled = true;
+                LauncherBackdropComposer.Draw(width, height);
+
+                // Grounding and atmosphere remain separate passes around the
+                // real engine Hunter so the model keeps its actual materials.
                 LauncherStageFx.DrawUnderHunter(width, height);
                 LauncherHunter.CinematicLighting = true;
                 try
@@ -111,10 +105,8 @@ namespace MphRead.Mods.Render
                     LauncherHunter.CinematicLighting = false;
                     Scene.LauncherPreviewCinematicLighting = false;
                 }
-                // A tiny amount of atmosphere belongs in front of the Hunter
-                // too. This is what visually shares the room's air without
-                // changing the actual Hunter material or gameplay renderer.
                 LauncherStageFx.DrawOverHunter(width, height);
+
                 // The fixed-function RmlUi renderer samples unit 0. The scene
                 // and preview are free to leave a different unit active.
                 GL.ActiveTexture(TextureUnit.Texture0);
@@ -122,6 +114,14 @@ namespace MphRead.Mods.Render
                 return;
             }
 #endif
+            LauncherBackdropComposer.Enabled = false;
+            LauncherStageFx.Enabled = false;
+            LauncherPhoto.StageFxEnabled = false;
+
+            // The production Avalonia shell still uses its established room
+            // photograph path. The deployment chamber is an RmlUi proof
+            // concern until that renderer migration is explicitly promoted.
+            LauncherPhoto.Draw(width, height);
 #if MPHREAD_SHELL
             Mods.Launcher.Gui.UiSurface.Current?.DrawMapViewport(width, height);
 #endif
@@ -148,6 +148,7 @@ namespace MphRead.Mods.Render
             {
                 _overlay.Release();
                 LauncherStageFx.Release();
+                LauncherBackdropComposer.Release();
                 LauncherPhoto.StageFxEnabled = false;
             }
             finally { Visible = false; }
@@ -160,6 +161,7 @@ namespace MphRead.Mods.Render
         {
             _overlay.Forget();
             LauncherStageFx.ForgetRendererResources();
+            LauncherBackdropComposer.ForgetRendererResources();
             LauncherPhoto.StageFxEnabled = false;
             Visible = false;
         }

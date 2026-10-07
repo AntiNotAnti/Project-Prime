@@ -6,8 +6,6 @@ using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using MphRead.Mods.Input;
 using MphRead.Mods.Render;
 using OpenTK.Mathematics;
@@ -45,9 +43,6 @@ namespace MphRead.Mods.Launcher.Gui
         private static double _renderMs;
         private static int _captureFrames;
         private static string? _captureDirectory;
-        private static Task<int>? _stageRefresh;
-        private static CancellationTokenSource? _stageRefreshCancel;
-        private static string _stageRefreshRoom = "";
         private static bool _diagnosticsVisible;
 
         static RmlUiPrototype()
@@ -116,8 +111,10 @@ namespace MphRead.Mods.Launcher.Gui
                 HubSnapshot snapshot = HubState.Capture();
                 ConfigureHunter(snapshot);
                 RefreshState(snapshot, force: true);
-                BeginMenuStageRefresh(snapshot);
-                Mods.DebugLog.Line("rmlui", $"RmlUi 6.3 POC active at {width}x{height} ({density:0.##}x density)");
+                Mods.DebugLog.Line("rmlui",
+                    $"RmlUi 6.3 POC active at {width}x{height} ({density:0.##}x density) "
+                    + $"// {LauncherMenuVisuals.Style.Name} / {LauncherMenuVisuals.Activity.Name}");
+
                 return true;
             }
             catch (DllNotFoundException ex)
@@ -165,7 +162,6 @@ namespace MphRead.Mods.Launcher.Gui
                 else
                     _gamepad.Update(GamepadManager.Snapshot, GamepadContext.Menu, now);
 
-                PollMenuStageRefresh();
                 NativeUpdate();
                 DrainActions();
             }
@@ -217,7 +213,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Mods.Render.FinalCompositeCapture.WriteEvidence(path,
                     window.FramebufferSize.X, window.FramebufferSize.Y,
-                    "RmlUi proof final composite: cinematic ground + engine Hunter + direct RmlUi overlay");
+                    "RmlUi proof final composite: procedural deployment chamber + engine Hunter + direct RmlUi overlay");
                 Mods.DebugLog.Line("rmlui", $"proof capture: {path}");
             }
             else
@@ -316,10 +312,6 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepad.Reset();
             _captureDirectory = null;
             _captureFrames = 0;
-            _stageRefreshCancel?.Cancel();
-            _stageRefreshCancel = null;
-            _stageRefresh = null;
-            _stageRefreshRoom = "";
             LauncherHunter.Reset();
             GamepadContexts.MenuVisible = false;
             Mods.DebugLog.Line("rmlui", "RmlUi POC shut down");
@@ -357,78 +349,6 @@ namespace MphRead.Mods.Launcher.Gui
             LauncherHunter.Bottom = stage.HunterBottom;
             LauncherHunter.DistanceScale = stage.HunterDistanceScale;
             LauncherHunter.TransparentBackground = true;
-        }
-
-        private static void BeginMenuStageRefresh(HubSnapshot snapshot)
-        {
-            if (!snapshot.GameFilesReady || !ThumbnailBatch.CanRun || _stageRefresh != null)
-                return;
-
-            string room = LauncherBackdrop.RoomKey;
-            if (String.IsNullOrWhiteSpace(room)
-                || ThumbnailGenerator.HasCinematicPresentation(room))
-                return;
-
-            _stageRefreshRoom = room;
-            _stageRefreshCancel = new CancellationTokenSource();
-            CancellationToken token = _stageRefreshCancel.Token;
-            Mods.DebugLog.Line("rmlui",
-                $"refreshing cinematic menu stage for {room} in a background preview worker");
-            _stageRefresh = Task.Run(() => ThumbnailBatch.Run(
-                new[] { room },
-                parallelism: 1,
-                width: ThumbnailGenerator.ThumbnailWidth,
-                height: ThumbnailGenerator.ThumbnailHeight,
-                report: line => Mods.DebugLog.Line("rmlui", line),
-                cancel: token,
-                force: true), token);
-        }
-
-        private static void PollMenuStageRefresh()
-        {
-            Task<int>? task = _stageRefresh;
-            if (task == null || !task.IsCompleted)
-                return;
-
-            string room = _stageRefreshRoom;
-            CancellationTokenSource? completedCancel = _stageRefreshCancel;
-            _stageRefresh = null;
-            _stageRefreshRoom = "";
-            _stageRefreshCancel = null;
-            try
-            {
-                int written = task.GetAwaiter().GetResult();
-                if (written > 0 || ThumbnailGenerator.HasCinematicPresentation(room))
-                {
-                    // The old GPU texture is still valid while the worker
-                    // replaces the PNG, so the menu never flashes to black.
-                    // Swap to the clean image now, on the GL owner thread.
-                    LauncherPhoto.Invalidate();
-                    LauncherBackdrop.Refresh();
-                    Mods.DebugLog.Line("rmlui",
-                        $"cinematic menu stage refreshed for {room}");
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                Mods.DebugLog.Line("rmlui", "cinematic menu-stage refresh cancelled");
-            }
-            catch (Exception ex)
-            {
-                // A stale backdrop is cosmetic. The frontend remains usable.
-                Mods.DebugLog.Line("rmlui",
-                    $"cinematic menu-stage refresh failed: {ex.Message}");
-            }
-            finally
-            {
-                completedCancel?.Dispose();
-                // The player may have selected another activity while this
-                // worker was rendering. Chain the current room now that the
-                // single preview-worker slot is free.
-                if (_active && !String.Equals(room, LauncherBackdrop.RoomKey,
-                    StringComparison.OrdinalIgnoreCase))
-                    BeginMenuStageRefresh(HubState.Capture());
-            }
         }
 
         private static void DrainActions()
@@ -482,11 +402,10 @@ namespace MphRead.Mods.Launcher.Gui
 
             HubSnapshot snapshot = HubState.Capture();
             ConfigureHunter(snapshot);
-            BeginMenuStageRefresh(snapshot);
             Mods.DebugLog.Line("rmlui",
-                $"{(preview ? "menu stage preview" : "menu stage")} -> "
-                + $"{LauncherBackdrop.Scene}/{LauncherBackdrop.RoomKey} "
-                + $"profile={LauncherMenuStage.Current.Name}");
+                $"{(preview ? "deployment chamber preview" : "deployment chamber")} -> "
+                + $"{LauncherMenuVisuals.Activity.Name} / "
+                + $"{LauncherMenuVisuals.Hunter(snapshot.DisplayHunter).Name}");
         }
 
         private static void HandleGamepad(UiAction action)
@@ -665,10 +584,6 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepad.Reset();
             _captureDirectory = null;
             _captureFrames = 0;
-            _stageRefreshCancel?.Cancel();
-            _stageRefreshCancel = null;
-            _stageRefresh = null;
-            _stageRefreshRoom = "";
             LauncherHunter.Reset();
             GamepadContexts.MenuVisible = false;
             Mods.DebugLog.Line("rmlui", $"POC {message}: {ex.Message}; falling back to Avalonia");

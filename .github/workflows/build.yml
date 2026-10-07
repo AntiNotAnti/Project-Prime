@@ -437,6 +437,8 @@ jobs:
           path: artifacts/wgpu-native-desktop/linux-x64
       - name: validate authored menu-stage profiles
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -menustagecheck
+      - name: validate deployment chamber themes and ambience
+        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -menubackdropcheck
       - name: install native and window dependencies
         run: |
           sudo apt-get update -qq

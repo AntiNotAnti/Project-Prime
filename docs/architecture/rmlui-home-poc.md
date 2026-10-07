@@ -9,7 +9,7 @@ The native bridge is pinned to **RmlUi 6.3** at `ba95ffe8bfb6370efb2cdcca927eaad
 When built with `MphReadRmlUiPoc=true` and launched with `-rmluipoc`:
 
 - RmlUi renders directly into Project Prime's OpenGL back buffer. The front screen does not rasterize or upload an Avalonia full-window bitmap.
-- Project Prime renders the cinematic room image and the real animated Hunter. RmlUi renders only the interactive chrome above them.
+- Project Prime renders a procedural Deployment Chamber and the real animated Hunter. RmlUi renders only the interactive chrome above them.
 - `HubState` remains the presentation-neutral source for player, Hunter, suit and setup state.
 - Mouse, keyboard and controller navigation feed the RmlUi context.
 - PLAY / HUNTERS / COMMUNITY / STUDIO / SETTINGS still hand off to the existing Prime shell, so this proof does not duplicate gameplay or service state.
@@ -80,10 +80,44 @@ Slice C tunes the integration instead of adding more decoration:
 
 This is still not true depth-buffer DOF or a physically shared shadow map. Those belong to a later fully live Menu Stage renderer. Slice C is the POC-safe version: it improves depth cues without loading another gameplay world or changing the selected Hunter's real material.
 
+## Deployment Chamber background system
+
+The POC no longer uses a literal multiplayer map as the normal RmlUi home background. The room-thumbnail path remains available to the production Avalonia shell, but the RmlUi home now renders a purpose-built **Project Prime Deployment Chamber** directly in the game window.
+
+The chamber is deliberately universal:
+
+- a procedural far background, chamber ribs, technical rails, angled braces and a central hero bay replace the raw arena photograph;
+- a perspective floor grid and dedicated hero platform give every Hunter a clean physical anchor;
+- the background has explicit left and right readability zones so activity/session chrome does not have to fight environment detail;
+- activity ambience is data-driven:
+  - Quick Play is the brighter, more energetic multiplayer treatment;
+  - Server Browser is cooler and more technical with reduced particle motion;
+  - Offline Battle emphasizes the simulation floor grid;
+  - Adventure increases fog/particles and introduces a restrained warm distance bias;
+- Hunter identity is also data-driven. Samus, Kanden, Trace, Sylux, Noxus, Spire and Weavel each provide halo, rim, floor and particle accents without requiring a separate environment;
+- activity-drawer hover/focus changes the chamber ambience immediately because it already drives `LauncherBackdrop.Scene`; selecting the entry commits the same mood;
+- Reduce menu motion freezes shader pulsing and atmospheric drift while preserving the composition;
+- the old background-thumbnail regeneration worker is no longer started by the RmlUi home, so switching activities does not spin up a hidden room render merely to change menu mood;
+- `-menubackdropcheck` validates all shipped activity/hunter style contracts without game assets, and the real RmlUi capture gate exercises the chamber shader across 720p, 1080p, 1440p, 4K and Retina simulation.
+
+The render stack for the RmlUi home is now:
+
+```text
+procedural deployment chamber
+  -> activity ambience
+  -> hunter identity halo / floor / particles
+  -> grounding + contact shadow
+  -> real engine Hunter
+  -> subtle foreground atmosphere
+  -> RmlUi
+```
+
+No cartridge-derived image is needed for this background. The selected Hunter remains the actual Project Prime model and uses the existing preview/material pipeline.
+
 ## macOS
 
 ```sh
-git checkout feature/rmlui-poc-stage-c
+git checkout feature/rmlui-deployment-chamber
 bash tools/rmlui/build-native.sh auto
 
 dotnet run --project src/MphRead/MphRead.csproj \
@@ -91,7 +125,7 @@ dotnet run --project src/MphRead/MphRead.csproj \
   -rmluipoc -renderer opengl
 ```
 
-The first run after this slice may regenerate the current menu-stage room image in a background process. The existing image stays visible until the clean replacement is ready.
+The RmlUi home no longer needs a generated room image; the Deployment Chamber is procedural and appears immediately.
 
 ## Linux x64
 
@@ -137,7 +171,7 @@ The proof is ready to expand only when:
 - type and controls have comparable logical size on standard-DPI and Retina displays;
 - 720p through 4K captures stay inside safe bounds with no clipped CTA, nav or profile controls;
 - the real Hunter reads as the avatar focal point rather than an enemy placed in the center of a gameplay screenshot;
-- the menu-stage room art contains no local arm cannon, local body/shadow or pickup clutter;
+- the Deployment Chamber contains no gameplay room/viewmodel/pickup imagery;
 - mouse and controller focus have no dead states;
 - resize/fullscreen changes preserve pointer alignment and RmlUi density;
 - reduced-motion mode removes page-entry animation;
