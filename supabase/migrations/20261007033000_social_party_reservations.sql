@@ -619,7 +619,7 @@ returns trigger
 language plpgsql
 security invoker
 set search_path = prime, pg_temp
-as $
+as $$
 declare
     v_party uuid;
 begin
@@ -641,7 +641,7 @@ begin
     end if;
     return new;
 end;
-$;
+$$;
 
 drop trigger if exists project_prime_social_party_reservation_roster_change
 on prime.social_party_members;
