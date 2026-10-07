@@ -35,6 +35,7 @@ PP_EXPORT void pp_rmlui_shutdown();
 namespace {
 
 void FocusElement(const char* id);
+Rml::Element* FindElementById(const char* id);
 bool g_lobby_anchor_dirty = true;
 struct LobbyAnchor { float x = 0.f; float y = 0.f; };
 std::array<LobbyAnchor, 8> g_lobby_anchors{};
@@ -431,7 +432,7 @@ public:
         // Inputs are conditional data-if branches. Defer their initial values
         // until after the multiplayer DOM is materialized by Context::Update.
         for (auto it = pending_inputs.begin(); it != pending_inputs.end();) {
-            Rml::Element* element = g_document ? g_document->GetElementById(it->first) : nullptr;
+            Rml::Element* element = FindElementById(it->first.c_str());
             if (auto* input = dynamic_cast<Rml::ElementFormControlInput*>(element)) {
                 input->SetValue(it->second);
                 it = pending_inputs.erase(it);
@@ -697,10 +698,14 @@ void PositionLobbyNameplates()
     g_lobby_anchor_dirty = false;
 }
 
+Rml::Element* FindElementById(const char* id)
+{
+    return g_document && id ? g_document->GetElementById(id) : nullptr;
+}
+
 void FocusElement(const char* id)
 {
-    if (!g_document || !id) return;
-    if (Rml::Element* element = g_document->GetElementById(id))
+    if (Rml::Element* element = FindElementById(id))
         element->Focus();
 }
 
@@ -913,6 +918,24 @@ PP_EXPORT void pp_rmlui_set_text(const char* name, const char* value)
 PP_EXPORT void pp_rmlui_set_bool(const char* name, int value)
 {
     if (g_model && name) g_model->SetBool(name, value != 0);
+}
+
+PP_EXPORT void pp_rmlui_set_field(const char* id, const char* value)
+{
+    if (g_model && id)
+        g_model->SetInputText(id, value ? value : "");
+}
+
+PP_EXPORT int pp_rmlui_read_field(const char* id, unsigned char* buffer, int capacity)
+{
+    if (!id || !buffer || capacity <= 1) return 0;
+    auto* input = dynamic_cast<Rml::ElementFormControlInput*>(FindElementById(id));
+    if (!input) return 0;
+    const std::string value = input->GetValue();
+    const int length = std::min(int(value.size()), capacity - 1);
+    std::memcpy(buffer, value.data(), size_t(length));
+    buffer[length] = 0;
+    return length;
 }
 
 PP_EXPORT int pp_rmlui_back()
