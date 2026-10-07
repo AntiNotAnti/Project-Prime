@@ -34,7 +34,10 @@ public static partial class NetSession
             var neutral = scene.PlayerReplication.CaptureIntent(player);
             neutral.Buttons &= IntentButtons.InPlayState | IntentButtons.AltFormState | IntentButtons.ZoomedState;
             neutral.Presses = default; neutral.MoveX = neutral.MoveY = 0;
-            neutral.ShotFlags &= unchecked((byte)~IntentPacket.FlagBoosting);
+            if ((neutral.ShotFlags & IntentPacket.FlagMorphTouch) != 0)
+                neutral.Target = NetTargetIdentity.None;
+            neutral.ShotFlags &= unchecked((byte)~(IntentPacket.FlagBoosting
+                | IntentPacket.FlagMorphTouch));
             neutral.ChargeLevel = 0; neutral.ContinuousFireTick = 0;
             SendIntent(neutral);
         }
