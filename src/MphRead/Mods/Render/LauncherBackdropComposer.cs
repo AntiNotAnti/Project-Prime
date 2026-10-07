@@ -43,8 +43,7 @@ namespace MphRead.Mods.Render
         private static int _beamIntensity;
         private static int _backgroundSoftness;
 
-        private const string VertexSource = @"
-#version 120
+        private const string VertexSource = @"#version 120
 varying vec2 chamber_uv;
 void main()
 {
@@ -53,8 +52,7 @@ void main()
 }
 ";
 
-        private const string FragmentSource = @"
-#version 120
+        private const string FragmentSource = @"#version 120
 varying vec2 chamber_uv;
 
 uniform vec2 resolution;
