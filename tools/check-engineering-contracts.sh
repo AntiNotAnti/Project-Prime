@@ -17,6 +17,10 @@ dotnet build src/MphRead/MphRead.csproj -c Release
 for check in replaycontrolcheck replayformatcheck charactermodelcheck frametimingcheck; do
   dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- "-$check"
 done
+# Verify paired installation recovery and the standalone Studio project graph
+# before expensive platform-native and release packaging jobs begin.
+dotnet run --project tools/updatecheck -c Release
+dotnet run --project tools/studio-architecture-check -c Release
 dotnet run --project tools/nettest -c Release -- --authority-policy
 dotnet run --project tools/nettest -c Release --no-build -- --architecture
 dotnet run --project tools/nettest -c Release --no-build -- --input-edges

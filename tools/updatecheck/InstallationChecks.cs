@@ -25,6 +25,10 @@ internal static class InstallationChecks
     }
     internal static void Run(Action<bool, string> check, string[] args)
     {
+        string processPath = Environment.ProcessPath
+            ?? throw new InvalidOperationException("Updater recovery tests require an executable process path.");
+        bool dotnetHost = Path.GetFileNameWithoutExtension(processPath)
+            .Equals("dotnet", StringComparison.OrdinalIgnoreCase);
         string root = Path.Combine(Path.GetTempPath(), "prime-install-check-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         string? oldUserData = Environment.GetEnvironmentVariable("PROJECT_PRIME_USER_DATA");
@@ -64,8 +68,8 @@ internal static class InstallationChecks
             for (int step = 1; step <= 6; step++)
             {
                 var fixture = Fixture("crash-" + step);
-                var start = new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false };
-                if (Path.GetFileNameWithoutExtension(Environment.ProcessPath).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+                var start = new ProcessStartInfo(processPath) { UseShellExecute = false };
+                if (dotnetHost)
                     start.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);
                 foreach (string value in new[] { "--crash-install", fixture.Source, fixture.Target, step.ToString() }) start.ArgumentList.Add(value);
                 using var child = Process.Start(start)!;
@@ -89,8 +93,8 @@ internal static class InstallationChecks
                 catch (IOException) { failed = true; }
                 check(failed && File.ReadAllText(oldPath) == "old shape", "shape transition " + fileToDirectory + " fault " + step + " restores old path");
                 ReleaseInstallation.Recover(target);
-                var shapeStart = new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false };
-                if (Path.GetFileNameWithoutExtension(Environment.ProcessPath).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+                var shapeStart = new ProcessStartInfo(processPath) { UseShellExecute = false };
+                if (dotnetHost)
                     shapeStart.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);
                 foreach (string value in new[] { "--crash-install", source, target, step.ToString() }) shapeStart.ArgumentList.Add(value);
                 using (var killed = Process.Start(shapeStart)!)
@@ -194,9 +198,9 @@ internal static class InstallationChecks
                 check(rejected && Original(paired.Target),"matching release versions must also satisfy the Studio IPC version contract");
             }
             PairSource(paired.Source, "1.2.3+abc", "1.2.3+abc");
-            var hold = new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false,
+            var hold = new ProcessStartInfo(processPath) { UseShellExecute = false,
                 RedirectStandardInput = true, RedirectStandardOutput = true };
-            if (Path.GetFileNameWithoutExtension(Environment.ProcessPath).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+            if (dotnetHost)
                 hold.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);
             hold.ArgumentList.Add("--hold-installation"); hold.ArgumentList.Add(paired.Target);
             using (var child = Process.Start(hold)!)
