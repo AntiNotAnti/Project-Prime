@@ -193,7 +193,25 @@ internal static partial class Shell
             OpenNativePlayback();
         if (_matchLoading && window.HasScene)
         {
-            if (!NetSession.FreezeGameplay) { _matchLoading = false; RmlUiPrototype.Hide(); }
+            // The lobby controller yields pumping while gameplay loads, but its
+            // copied snapshot still carries the server's synchronized countdown.
+            if (_rmlLobby != null && RmlUiPrototype.Pages is {} startPages)
+            {
+                var starting = _rmlLobby.Snapshot();
+                RmlUiLobbyBindings.Present(startPages, starting);
+                // Reveal the loaded world during the last third of a second,
+                // ending at the server release edge without delaying gameplay.
+                double fade = starting.CountdownSeconds > 0
+                    ? Math.Clamp(starting.CountdownSeconds / .35, 0, 1) : 1;
+                RmlUiPrototype.Runtime.SetText(startPages.Document, "opacity:screen",
+                    fade.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            if (!NetSession.FreezeGameplay)
+            {
+                _matchLoading = false; RmlUiPrototype.Hide();
+                if (RmlUiPrototype.Pages is {} finishedPages)
+                    RmlUiPrototype.Runtime.SetText(finishedPages.Document,"opacity:screen","1");
+            }
             else if (NetSession.Refused || NetSession.SessionTimedOut) { _matchLoading = false; _endMatch = true; }
         }
     }
@@ -297,7 +315,7 @@ internal static partial class Shell
         {
             if (!MatchStart.Begin(window, _settings, plan)) { FailNativeMatch(window, plan, MatchStart.LastError ?? "The map could not be loaded."); return; }
             _rmlLobby?.YieldPumpToGameplay(); CompleteNativePageLaunch(plan);
-            if (NetSession.PersistentLobby && NetSession.IsStarting) _matchLoading = true;
+            if (NetSession.PersistentLobby && NetSession.IsStarting) { _matchLoading = true; RmlUiPrototype.ShowGameplayMenu(); }
             else if (plan.Kind == LaunchKind.Demo && _nativePlayback?.IsOpen == true) RmlUiPrototype.ShowGameplayMenu();
             else RmlUiPrototype.Hide();
         }

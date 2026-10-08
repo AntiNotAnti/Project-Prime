@@ -57,6 +57,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         HunterRotate = 83,
         HunterZoom = 84,
         LobbyTeamSelect = 88,
+        LobbySlotTeamNext = 89,
+        LobbyMapOpen = 90, LobbyMapSelect = 91, LobbyMapPrevious = 92, LobbyMapNext = 93, LobbyMapClose = 94,
         SettingsApply = 100,
         SettingsDiscard = 101,
         SettingsCategory = 102,
@@ -205,6 +207,10 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 [RmlUiIntentKind.LobbyRulesOpen] = "lobby:rules-open",
                 [RmlUiIntentKind.LobbyRulesClose] = "lobby:rules-close",
                 [RmlUiIntentKind.LobbyRulesApply] = "lobby:rules-apply",
+                [RmlUiIntentKind.LobbyMapOpen] = "lobby:map-open",
+                [RmlUiIntentKind.LobbyMapPrevious] = "lobby:map-previous",
+                [RmlUiIntentKind.LobbyMapNext] = "lobby:map-next",
+                [RmlUiIntentKind.LobbyMapClose] = "lobby:map-close",
                 [RmlUiIntentKind.LobbyRulesMap] = "lobby:rules-map",
                 [RmlUiIntentKind.LobbyRulesMode] = "lobby:rules-mode",
                 [RmlUiIntentKind.LobbyRulesFormat] = "lobby:rules-format",
@@ -293,9 +299,10 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RmlUiIntentKind.PlayQueueAction => argument is >= 0 and < 4,
             RmlUiIntentKind.Navigate => argument >= 0 && argument < Routes.Length,
             RmlUiIntentKind.StageSelect or RmlUiIntentKind.StagePreview => argument is >= 0 and < 5,
+            RmlUiIntentKind.LobbyMapSelect => argument is >= 0 and < 6,
             RmlUiIntentKind.PlayServer => argument is >= 0 and < 8,
             RmlUiIntentKind.LobbyRulesToggle => argument is >= 0 and < 16,
-            RmlUiIntentKind.LobbyPlayerSelect => argument is >= 0 and < 8,
+            RmlUiIntentKind.LobbyPlayerSelect or RmlUiIntentKind.LobbySlotTeamNext => argument is >= 0 and < 8,
             RmlUiIntentKind.HunterSelect => argument is >= 0 and < 7,
             RmlUiIntentKind.HunterSuit => argument is >= 0 and < 4,
             RmlUiIntentKind.HunterPreviewMode => argument is >= 0 and < 4,
@@ -358,6 +365,10 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 intent = new(RmlUiIntentKind.PlayServer, argument, document, sequence);
             else if (TryIndex(action, "lobby:rules-toggle:", 16, out argument))
                 intent = new(RmlUiIntentKind.LobbyRulesToggle, argument, document, sequence);
+            else if (TryIndex(action, "lobby:map-select:", 6, out argument) && argument >= 0)
+                intent = new(RmlUiIntentKind.LobbyMapSelect, argument, document, sequence);
+            else if (TryIndex(action, "lobby:slot-team:", 8, out argument) && argument >= 0)
+                intent = new(RmlUiIntentKind.LobbySlotTeamNext, argument, document, sequence);
             else if (TryIndex(action, "lobby:player:", 8, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.LobbyPlayerSelect, argument, document, sequence);
             else if (TryIndex(action, "hunter:select:", 7, out argument) && argument >= 0)
@@ -468,6 +479,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 RmlUiIntentKind.PlayQueueAction => "play:" + PlayQueueActions[intent.Argument],
                 RmlUiIntentKind.PlayServer => "play:server:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.LobbyRulesToggle => "lobby:rules-toggle:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
+                RmlUiIntentKind.LobbyMapSelect => "lobby:map-select:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
+                RmlUiIntentKind.LobbySlotTeamNext => "lobby:slot-team:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.LobbyPlayerSelect => "lobby:player:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.HunterSelect => "hunter:select:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.HunterSuit => "hunter:suit:" + intent.Argument.ToString(CultureInfo.InvariantCulture),

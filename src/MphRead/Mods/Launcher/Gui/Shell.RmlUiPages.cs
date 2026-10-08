@@ -1,5 +1,6 @@
 #if MPHREAD_RMLUI_POC && !ANDROID
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using MphRead.Mods.Cosmetics;
 using MphRead.Mods.Launcher.Core;
@@ -33,6 +34,7 @@ internal static partial class Shell
     private static HunterSelectionController? _licenseSelection;
     private static InGamePagePresenter? _nativePause;
     private static InGameController? _nativePauseController;
+    private static RmlLobbyMapPicker? _nativeMaps;
     private static TheatrePagePresenter? _nativeTheatre;
     private static TheatreController? _nativeTheatreController, _nativeReturnTheatre;
     private static TheatrePlaybackPagePresenter? _nativePlayback;
@@ -50,6 +52,7 @@ internal static partial class Shell
         || _nativeLicense != null || _nativePause != null || _nativeTheatre != null || _nativePlayback != null
         || _nativeStudio != null || _nativeCommunity != null || _nativeSocial != null || _nativeSettings != null || _nativeHud != null
         || _nativeResults != null || _nativeAimResults != null || _nativeSetup != null || _nativeNews != null;
+    internal static bool HasNativeContentPage => HasNativePage;
     internal static bool HasNativeHunterPreview => _nativeHunters?.Active == true;
 
     private static void WireNativePages()
@@ -67,6 +70,7 @@ internal static partial class Shell
         CancelDeferredStudioPlaytest();
         RetireNativeQueue();
         CancelNativeSocialJoin();
+        RetireNativeOwner(ref _nativeMaps);
         RetireNativeOwner(ref _nativeHunters);
         RetireNativeOwner(ref _nativeAdmin);
         CosmeticPreview.Loadout = null;
@@ -118,6 +122,7 @@ internal static partial class Shell
         if (navigate && NativeSettingsForeground && page != LauncherPage.Settings)
         { _nativeSettings!.RequestLeave(() => OpenNativePage(page, item: item)); return true; }
         if (navigate && ApplicationRouter.Current == new LauncherRoute(page, item) && HasNativePage) return true;
+        StopNativeReplayForNavigation();
         if (page == LauncherPage.Settings && item == "setup") return OpenNativeSetupPage(!GameFiles.Ready, navigate);
         if (navigate && ApplicationRouter.Navigate(new(page, item)) == LauncherNavigationOutcome.Blocked) return true;
         RetireNativePages();
@@ -199,6 +204,7 @@ internal static partial class Shell
     {
         if (_nativeQueue != default && RmlUiPrototype.Pages?.Manager.Top == _nativeQueue)
         { _rmlMultiplayer?.QueueLeave(); TickNativeQueue(); return true; }
+        if (_nativeMaps?.Active == true) { _nativeMaps.Dispose(); _nativeMaps = null; return true; }
         if (_nativeHunters?.Active == true) { _nativeHunters.Dispose(); _nativeHunters = null; return true; }
         if (_nativeAdmin?.Active == true)
         {
@@ -235,7 +241,7 @@ internal static partial class Shell
         _nativeAdmin?.Dispose(); _nativeAdmin = null;
         _nativeHunters?.Dispose();
         if (_nativeLicense != null) _licenseSelection ??= new(_rmlLobby);
-        _nativeHunters = new(RmlUiPrototype.Runtime, _rmlLobby, existingSelection: _licenseSelection);
+        _nativeHunters = new(RmlUiPrototype.Runtime, _rmlLobby, existingSelection: _licenseSelection, compact: _rmlLobby != null);
         _nativeHunters.PreviewChanged += PresentNativeHunterPreview;
         _nativeHunters.Closed += () =>
         {
@@ -262,6 +268,28 @@ internal static partial class Shell
     private static bool DrawNativeHunterPreview(RenderWindow window, int width, int height)
     {
         if (_nativeHunters?.Active != true) return false;
+        if (_nativeHunters.Compact)
+        {
+            var selected = _nativeHunters.Snapshot;
+            try
+            {
+                for (int i=0; i<7; i++)
+                {
+                    if (!RmlUiPrototype.Runtime.TryGetElementBounds(_nativeHunters.Document, "hunter_model"+i,
+                        out float x, out float y, out float w, out float h)) continue;
+                    CosmeticPreview.Loadout = null; CosmeticPreview.Mode = SkinContext.Biped;
+                    CosmeticPreview.Yaw=0; CosmeticPreview.Zoom=1; CosmeticPreview.LoopDeath=false;
+                    LauncherHunter.Hunter=(Hunter)i; LauncherHunter.Suit=selected.Color; LauncherHunter.PreviewSlot=i;
+                    LauncherHunter.Wanted=GameFiles.Ready; LauncherHunter.CanPresent=()=>_nativeHunters?.Active==true;
+                    LauncherHunter.Left=x/width; LauncherHunter.Top=y/height;
+                    LauncherHunter.Right=(x+w)/width; LauncherHunter.Bottom=(y+h)/height;
+                    LauncherHunter.DistanceScale=1; LauncherHunter.TransparentBackground=true;
+                    LauncherHunter.Draw(window,width,height);
+                }
+            }
+            finally { PresentNativeHunterPreview(selected); LauncherHunter.PreviewSlot=-1; }
+            return true;
+        }
         if (!RmlUiPrototype.Runtime.TryGetElementBounds(_nativeHunters.Document, "hunter_preview_space",
             out float left, out float top, out float areaWidth, out float areaHeight)) return true;
         PresentNativeHunterPreview(_nativeHunters.Snapshot);
@@ -290,7 +318,47 @@ internal static partial class Shell
             chatPages.SetText("lobby_chat_status",result.Accepted?"":result.Message);
             return true;
         }
+        if (intent.Kind is RmlUiIntentKind.LobbyPlayerSelect or RmlUiIntentKind.LobbySlotTeamNext
+            && _rmlLobby is { } slotLobby && RmlUiPrototype.Pages is { Suspended: false } slotPages
+            && intent.Document == slotPages.Document && intent.Document == slotPages.Manager.Top)
+        {
+            var snapshot = slotLobby.Snapshot();
+            var model = LobbyPresentation.From(snapshot);
+            var players = snapshot.Players.OrderByDescending(p => p.Slot == snapshot.LocalSlot).ToArray();
+            if ((uint)intent.Argument >= 8) return true;
+            if (intent.Argument >= players.Length)
+            {
+                if (intent.Kind == RmlUiIntentKind.LobbyPlayerSelect && model.CanAddBot)
+                    slotLobby.Dispatch(slotLobby.Intent(LobbyIntentKind.AddBot) with { Hunter = Hunter.Random, BotLevel = 1 });
+            }
+            else if (intent.Kind == RmlUiIntentKind.LobbySlotTeamNext)
+            {
+                var player = players[intent.Argument];
+                for (int step = 1; step <= model.Teams.Length; step++)
+                {
+                    sbyte next = (sbyte)((Math.Max(-1, (int)player.Team) + step) % model.Teams.Length);
+                    if (next == player.Team || !model.CanAssignTeam(player.Slot, next)) continue;
+                    slotLobby.Dispatch(slotLobby.Intent(LobbyIntentKind.SetTeam, player.Slot) with { Team = next });
+                    break;
+                }
+            }
+            else
+            {
+                _nativeAdmin?.Dispose();
+                _nativeAdmin = new(RmlUiPrototype.Runtime, slotLobby);
+                _nativeAdmin.Open(players[intent.Argument].Slot); WireNativePages();
+            }
+            return true;
+        }
         if (HandleNativeQueue(intent)) return true;
+        if (_nativeMaps?.Active == true) { _nativeMaps.Handle(intent); return true; }
+        if (intent.Kind == RmlUiIntentKind.LobbyMapOpen && _rmlLobby != null)
+        {
+            _nativeMaps?.Dispose();
+            _nativeMaps = new(RmlUiPrototype.Runtime, _rmlLobby,
+                _rooms.Count != 0 ? _rooms : ThumbnailGenerator.MultiplayerRooms());
+            _nativeMaps.Open(); WireNativePages(); return true;
+        }
         if (_nativeHunters?.Active == true) { _nativeHunters.Handle(intent); return true; }
         if (_nativeAdmin?.Active == true) { _nativeAdmin.Handle(intent); return true; }
         if (HasNativePage && RmlUiPrototype.Pages is { } activePages && intent.Document != activePages.Manager.Top) return true;
@@ -305,7 +373,7 @@ internal static partial class Shell
         }
         if (_nativeSetup?.HandleAction(intent) == true) return true;
         if (_nativeSetup != null && !_nativeSetup.Controller.CanLeave) return true;
-        if (intent.Kind == RmlUiIntentKind.HunterOpen) { OpenNativeHunters(); return true; }
+        if (intent.Kind == RmlUiIntentKind.HunterOpen) { StopNativeReplayForNavigation(); OpenNativeHunters(); return true; }
         if (intent.Kind == RmlUiIntentKind.OpenStudio) return OpenNativePage(LauncherPage.StudioLaunch);
         if (intent.Kind == RmlUiIntentKind.LobbyAdminOpen && _rmlLobby != null)
         {
@@ -318,6 +386,16 @@ internal static partial class Shell
         return NavigateNativeRoute((RmlUiRouteArgument)intent.Argument);
     }
 
+    private static void StopNativeReplayForNavigation()
+    {
+        if (_window?.HasScene != true || _played?.Kind != LaunchKind.Demo) return;
+        RetireNativePages();
+        _nativeReturnTheatre?.Dispose(); _nativeReturnTheatre = null;
+        _window.EndScene(); MatchStart.AfterMatch(); PauseMenu.Reset();
+        _played = null; _matchLoading = false;
+        TryRestoreRmlHome(_window);
+    }
+
     private static bool NavigateNativeRoute(RmlUiRouteArgument route)
     {
         if (NativeSetupBlocksNavigation) return true;
@@ -328,6 +406,7 @@ internal static partial class Shell
             _nativeSettings!.RequestLeave(() => NavigateNativeRoute(route));
             return true;
         }
+        StopNativeReplayForNavigation();
         if (route is RmlUiRouteArgument.Home or RmlUiRouteArgument.Play)
         {
             if (RmlUiPrototype.Pages is not { } composition) return false;
@@ -376,6 +455,7 @@ internal static partial class Shell
         _nativeAdventure?.Present();
         _nativeLicense?.Refresh();
         _nativePause?.Refresh();
+        _nativeMaps?.Update();
         _nativeTheatre?.Present();
         _nativePlayback?.Present();
         _nativeStudio?.Refresh();

@@ -201,7 +201,7 @@ internal sealed partial class SettingsPagePresenter : IDisposable
         var b=new Dictionary<string,RmlUiBindingValue>();
         void Text(string id,string value)=>b[id]=RmlUiBindingValue.FromText(value);
         void Flag(string id,bool value)=>b[id]=RmlUiBindingValue.FromBoolean(value);
-        Text("settings_title",_controller.Query.Length>0?"Search results":(s.Category==SettingsCategory.Hud?"HUD":s.Category.ToString())+" / "+_controller.Group);
+        Text("settings_title",_controller.Query.Length>0?"Search results":s.Category==SettingsCategory.Hud?"HUD Studio":s.Category+" / "+_controller.Group);
         var groups=_controller.Groups;
         for(int i=0;i<192;i++)
         {
@@ -211,6 +211,7 @@ internal sealed partial class SettingsPagePresenter : IDisposable
         foreach(SettingsCategory category in Enum.GetValues<SettingsCategory>())
             Flag("class:settings_"+category.ToString().ToLowerInvariant()+"_tab:selected",category==s.Category);
         Text("settings_paging",$"Page {s.Page+1} of {s.PageCount}");
+        Flag("visible:settings_pager",s.Category!=SettingsCategory.Hud||_controller.Query.Length>0);
         Text("settings_status",_operation!=null?"Working...":_operationStatus.Length>0?_operationStatus:s.Status);
         Text("settings_error",_operationError.Length>0?_operationError:s.Error);
         Text("settings_dirty",s.Dirty||nativeDraft?"Unsaved changes":"Saved settings");
@@ -238,7 +239,7 @@ internal sealed partial class SettingsPagePresenter : IDisposable
         {
             bool present=i<s.Fields.Count;Flag("visible:settings_row_"+i,present);if(!present)continue;
             var row=s.Fields[i];Text("settings_label_"+i,row.Definition.Label);Text("settings_help_"+i,row.Definition.Help);
-            Text("settings_cycle_"+i,row.Definition.Kind==SettingsValueKind.Boolean?"TOGGLE":row.Definition.Choices.Count>0?"NEXT":"STAGE");
+            Text("settings_cycle_"+i,row.Definition.Kind==SettingsValueKind.Boolean?"TOGGLE":row.Definition.Choices.Count>0?"NEXT":"SET");
             Flag("class:settings_row_"+i+":dirty",row.Changed);
             Flag("disabled:settings_value_"+i,s.RestartRequired||s.VideoConfirmation);
             Flag("disabled:settings_cycle_"+i,s.RestartRequired||s.VideoConfirmation);

@@ -112,7 +112,7 @@ static class Program
 
     private static void DirtyRoute(LauncherPage destination, bool save)
     {
-        Home(); Click("footer_settings");
+        Home(); Click("header_settings");
         var oldDocument = Settings.Document;
         float original = InputSettings.MouseSensitivity;
         float desired = Math.Abs(original - .37f) < .001f ? .42f : .37f;
@@ -138,7 +138,7 @@ static class Program
             Click("nav_play", mouse: true);
         }
         Check(Pages.Manager.PageKey == "home", "actual Home document is current after return");
-        Click("footer_settings", mouse: true);
+        Click("header_settings", mouse: true);
         Check(Get<object>("_nativeSettings") != null && Pages.Manager.PageKey == "settings", "future Home control opens fresh Settings without swallowed input");
         Console.WriteLine($"Shell route decision passed: {destination}, {(save ? "Apply" : "Discard")}.");
     }
@@ -206,7 +206,7 @@ static class Program
 
     private static void DirtyStudio(bool save)
     {
-        Home(); Click("footer_settings");
+        Home(); Click("header_settings");
         var oldDocument = Settings.Document;
         float original = InputSettings.MouseSensitivity;
         float desired = Math.Abs(original - .53f) < .001f ? .61f : .53f;
@@ -230,14 +230,14 @@ static class Program
         Pump();
         Check(Get<object>("_nativeSettings") == null && Pages.Manager.PageKey == "home",
             "cancelled Studio approval leaves a usable native Home document");
-        Click("footer_settings", mouse: true);
+        Click("header_settings", mouse: true);
         Check(Pages.Manager.PageKey == "settings", "Home controls remain usable after cancelled Studio request");
         Console.WriteLine("Shell Studio dirty decision passed: " + (save ? "Apply" : "Discard") + ".");
     }
 
     private static void DeferredStudioCancelled()
     {
-        Home(); Click("footer_settings"); StageMouse(.73f);
+        Home(); Click("header_settings"); StageMouse(.73f);
         const string room = "fixture-cancel-before-decision";
         Check(Shell.QueueExternalStudioPlaytest(room, new StudioPlaytestOptions()), "Studio request waits in dirty Settings decision");
         Guid ipc = TrackStudio(room);
@@ -250,14 +250,14 @@ static class Program
         Check(!Shell.ExternalStudioLaunchPending, "Stop cancels deferred Studio request before Settings approval");
         Check(Get<object>("_nativeSettings") == null && Pages.Manager.PageKey == "home",
             "cancelled deferred request restores native Home after Settings decision");
-        Click("footer_settings", mouse: true);
+        Click("header_settings", mouse: true);
         Check(Pages.Manager.PageKey == "settings", "Home control works after deferred Studio cancellation");
         Home();
     }
 
     private static void DeferredStudioDecisionCancelled()
     {
-        Home(); Click("footer_settings"); StageMouse(.81f);
+        Home(); Click("header_settings"); StageMouse(.81f);
         var document = Settings.Document;
         Check(Shell.QueueExternalStudioPlaytest("fixture-cancel-dialog", new StudioPlaytestOptions()),
             "Studio IPC can wait for Settings decision");

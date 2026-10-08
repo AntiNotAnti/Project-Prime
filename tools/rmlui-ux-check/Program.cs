@@ -9,9 +9,11 @@ using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Launcher.RmlUi.Render;
 using MphRead.Mods.Launcher.RmlUi.Settings;
 using MphRead.Mods.Render.Hud;
+using MphRead.Mods.Network;
 using SkiaSharp;
 
-if(args.Length!=3)throw new ArgumentException("Supply bridge, asset root, and local preview directory.");
+if(args.Length is <3 or >4)throw new ArgumentException("Supply bridge, asset root, preview directory, and optionally an extracted-game paths file.");
+if(args.Length==4){Paths.UpdatePaths(Path.GetFullPath(args[3]));Paths.ChooseMphPath();}
 string fixture=Directory.CreateTempSubdirectory("prime-ux-fixture-").FullName;
 Environment.SetEnvironmentVariable("PROJECT_PRIME_USER_DATA",fixture);
 Environment.SetEnvironmentVariable("PROJECT_PRIME_UI_PERF",Path.Combine(fixture,"unused.json"));
@@ -82,6 +84,47 @@ try
   new LobbyMapPreview().Present("TRANSFER LOCK",pages.SetText,(id,value)=>{pages.SetBool(id,value);if(id=="lobby_map_image_ready")previewReady=value;});
   Check(previewReady,"lobby decodes cached map preview");
   Draw("lobby");foreach(var id in new[]{"lobby_match_rules","lobby_map_preview","lobby_chat_input","lobby_chat_send"})Fits(pages.Document,id);
+
+  Check(!host.TryGetElementBounds(pages.Document,"footer_settings",out _,out _,out _,out _),"only one Settings entry");
+  Fits(pages.Document,"header_settings");
+  host.TryGetElementBounds(pages.Document,"lobby_match_panel",out _,out float panelY,out _,out float panelH);
+  host.TryGetElementBounds(pages.Document,"lobby_map_preview",out _,out float previewY,out _,out _);
+  Check(previewY>=panelY+panelH,"map preview does not overlap rules");
+  var backend=new FakeLobby();using var lobby=new LobbySessionController(backend);
+  RmlUiLobbyBindings.Present(pages,lobby.Snapshot());Draw("lobby-occupied");
+  Check(!host.TryGetElementBounds(pages.Document,"lobby_slot7",out _,out _,out _,out float emptyH)||emptyH==0,"empty floating labels cannot cover main hunter");
+  Check(host.FocusDocument(pages.Document,"lobby_map_preview"),"map preview is keyboard selectable");
+  host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
+  Check(host.TryTakeIntent(out var mapOpen)&&mapOpen.Kind==RmlUiIntentKind.LobbyMapOpen,"map preview opens typed picker");
+  using(var maps=new RmlLobbyMapPicker(host,lobby,ThumbnailGenerator.MultiplayerRooms()))
+  {
+   maps.Open();Draw("map-picker");var doc=host.CurrentInputDocument;
+   foreach(var id in new[]{"map_close","map_previous","map_next","map_choice0","map_choice5"})Fits(doc,id);
+   Check(host.FocusDocument(doc,"map_next"),"map next focus");host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
+   Check(host.TryTakeIntent(out var next)&&next.Kind==RmlUiIntentKind.LobbyMapNext&&maps.Handle(next),"map paging uses native action");
+   Check(host.FocusDocument(doc,"map_close"),"map close focus");host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
+   Check(host.TryTakeIntent(out var closeMap)&&maps.Handle(closeMap)&&!maps.Active,"map picker closes");
+  }
+  if(args.Length==4)
+  {
+   using var selectable=new RmlLobbyMapPicker(host,lobby,new[]{"AD1 TRANSFER LOCK BT","AD2 ALINOS PERCH"});
+   selectable.Open();host.Update();var doc=host.CurrentInputDocument;
+   Check(host.FocusDocument(doc,"map_choice1"),"compatible map card focus");
+   host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
+   Check(host.TryTakeIntent(out var selectMap)&&selectable.Handle(selectMap)&&!selectable.Active,"compatible map applies and closes");
+   Check(backend.Commands.Any(c=>c.Kind==LobbyIntentKind.UpdateRules&&c.Match?.RoomKey=="AD2 ALINOS PERCH"),"map picker dispatches validated rules");
+  }
+  using(var strip=new RmlHunterSelectionPresenter(host,backend:new FakeHunters(),compact:true))
+  {
+   strip.Open();Draw("hunter-strip");for(int i=0;i<7;i++)Fits(strip.Document,"hunter_model"+i);
+   Check(host.FocusDocument(strip.Document,"hunter_choice3"),"hunter card focus");host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
+   Check(host.TryTakeIntent(out var choose)&&strip.Handle(choose)&&!strip.Active,"hunter card selects and closes");
+  }
+  backend.State=backend.State with { Phase=SessionPhase.Starting, CountdownSeconds=2, StartStage=StartStage.Countdown };
+  RmlUiLobbyBindings.Present(pages,lobby.Snapshot());Draw("countdown");Fits(pages.Document,"lobby_countdown_number");
+  using(var settings=new SettingsPagePresenter(host,pages.Manager,new MenuSettings(),new SceneGameState(new()),()=>{},()=>{},editHud:()=>{}))
+  { settings.Open();pages.PresentChrome(settings.Document);host.FocusDocument(settings.Document,"settings_hud_tab");host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
+    if(host.TryTakeIntent(out var hudTab))settings.HandleAction(hudTab);Draw("hud-settings");Fits(settings.Document,"settings_hud_edit"); }
   Console.WriteLine($"PASS native UX layout {size}");
  }
  Console.WriteLine($"PASS {checks} native UX layout/input checks; PNGs rasterize the actual RmlUi draw list without a game renderer.");

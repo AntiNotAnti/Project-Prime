@@ -49,8 +49,9 @@ internal sealed class SettingsController
     internal SettingsCategory Category { get; private set; }
     internal int Page { get; private set; }
     internal string Group { get; private set; } = "";
+    private static bool Browseable(SettingsFieldDefinition field) => field.Category != SettingsCategory.Hud;
     private readonly Dictionary<SettingsCategory,string[]> _groups = new();
-    internal IReadOnlyList<string> Groups => _groups.TryGetValue(Category,out var groups)?groups:_groups[Category]=_backend.Definitions.Where(f => f.Category == Category).Select(f => f.Group).Distinct().OrderBy(g=>g is "Controller / preferences" or "Appearance and scale"?0:1).ToArray();
+    internal IReadOnlyList<string> Groups => _groups.TryGetValue(Category,out var groups)?groups:_groups[Category]=_backend.Definitions.Where(f => Browseable(f) && f.Category == Category).Select(f => f.Group).Distinct().OrderBy(g=>g is "Controller / preferences" or "Appearance and scale"?0:1).ToArray();
     internal void SelectGroup(int index) { var groups=Groups; if(index<0||index>=groups.Count)return; Group=groups[index]; Query=""; Page=0; _revision++; }
     internal string Query { get; private set; } = "";
     internal bool Dirty => _draft.Any(value => !_saved.TryGetValue(value.Key, out string? saved) || saved != value.Value);
@@ -73,8 +74,8 @@ internal sealed class SettingsController
         Tick();
         var groups=Groups;
         if (!groups.Contains(Group)) Group=groups.FirstOrDefault() ?? "";
-        // Search spans every category; group browsing never hides an editable field.
-        var fields = _backend.Definitions.Where(field => Query.Length > 0
+        // Search spans general settings; HUD properties are edited in HUD Studio.
+        var fields = _backend.Definitions.Where(Browseable).Where(field => Query.Length > 0
             ? field.Label.Contains(Query,StringComparison.OrdinalIgnoreCase) || field.Id.Contains(Query,StringComparison.OrdinalIgnoreCase)
                 || field.Group.Contains(Query,StringComparison.OrdinalIgnoreCase)
             : field.Category == Category && field.Group == Group).ToArray();

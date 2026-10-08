@@ -649,3 +649,6 @@ border-color: rgba(114,199,255,22%);
 }
 
 #hunter_caption { left: 50%; }
+
+#hunter_caption { left: 63%; bottom: 40dp; width: 250dp; pointer-events: none; }
+@media (max-width: 900dp) { #hunter_caption { left: 62%; width: 170dp; } #hunter_name { font-size: 21dp; } .hunter_rule { width: 24dp; } }

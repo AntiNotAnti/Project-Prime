@@ -300,3 +300,8 @@ height: 34dp; bottom: 8dp;
 #lobby_rules_modal { top: 93dp; bottom: 68dp; }
 @media (max-width: 900dp) { #lobby_rules_modal { top: 83dp; bottom: 58dp; } }
 @media (max-height: 760dp) { #lobby_rules_modal { top: 79dp; bottom: 54dp; } }
+
+.rules_toggle .rules_label { display: block; flex: 1; margin-left: 0dp; color: #dcebf7; font-family: Rajdhani; font-size: 12dp; line-height: 16dp; }
+.rules_toggle { min-height: 40dp; }
+.rules_columns { position: absolute; top: 78dp; bottom: 110dp; left: 18dp; right: 18dp; width: auto; min-height: 0dp; overflow-y: auto; }
+@media (max-width: 800dp) { .rules_columns { display: block; } .rules_main { width: 100%; border-right: 0dp; padding-right: 0dp; } .rules_flags { padding: 18dp 0dp; } }

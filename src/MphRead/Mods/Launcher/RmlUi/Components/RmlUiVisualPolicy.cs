@@ -63,6 +63,7 @@ public static class RmlUiChromeLocalization
         int index = language >= 0 && language < Labels.Length ? language : 0;
         var bindings = new Dictionary<string, string>(StringComparer.Ordinal);
         for (int i = 0; i < Ids.Length; i++) if (Ids[i] != "profile") bindings.Add(Ids[i], Labels[index][i]);
+        bindings.Add("header_settings", Labels[index][7]);
         return bindings;
     }
     public static void Apply(RmlUiHost host, RmlUiDocumentToken document, int language)

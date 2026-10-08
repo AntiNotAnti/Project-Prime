@@ -1191,7 +1191,7 @@ namespace MphRead.Entities
                 return _reticleCurrentPosition;
             }
 
-            float alpha = (float)Math.Clamp(_scene.Services.IsReplica ? Mods.Render.FrameTiming.Alpha : Mods.Render.FrameTiming.PresentationAlpha, 0.0, 1.0);
+            float alpha = (float)Math.Clamp(_scene.Services.IsReplica ? _scene.ReplayRenderAlpha : Mods.Render.FrameTiming.PresentationAlpha, 0.0, 1.0);
             Vector2 step = _reticleCurrentPosition - _reticlePreviousPosition;
 
             // Classic native aiming and Pro Dynamic/Metroid both use the

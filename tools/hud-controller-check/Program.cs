@@ -31,7 +31,11 @@ using(var controller=new HudEditorController(original,backend))
     controller.SetCanvasSize(640,360);var rect=controller.Bounds(1);float x=rect.Center.X,y=rect.Center.Y;
     float offset=controller.CopyDraft().Elements["core.health"].OffsetX;
     Check(controller.PointerDown(1,x,y)&&controller.Snapshot().Selected==1,"pointer hit uses shared HUD bounds");
-    controller.PointerMove(1,x+12,y,shift:true);controller.PointerMove(1,x+24,y,shift:true);controller.PointerUp(1);
+    controller.HandleControllerAxes(new(null, default, 0), 100);
+    Check(controller.PointerMove(1,x+12,y,shift:true),"disconnected gamepad poll preserves mouse drag");
+    controller.HandleControllerAxes(new("pad", new GamepadState { Connected=true }, 1), 116);
+    Check(controller.PointerMove(1,x+24,y,shift:true),"gamepad connection change preserves mouse drag");
+    controller.PointerUp(1);
     Check(controller.CopyDraft().Elements["core.health"].OffsetX==offset+72,"physical drag maps to logical HUD units");
     controller.Dispatch(HudEditorAction.Undo);
     Check(controller.CopyDraft().Elements["core.health"].OffsetX==offset,"multi-frame drag commits one undo step");

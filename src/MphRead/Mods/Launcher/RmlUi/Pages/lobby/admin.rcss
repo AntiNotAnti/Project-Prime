@@ -13,3 +13,19 @@ button.selected { background-color: #225b81; border-color: #b9e7ff; } button.pri
 .admin-chat-compose { margin-top: 7dp; } input { tab-index: auto; width: 74%; height: 39dp; padding: 7dp; background-color: #123554; border: 1dp #477b9e; color: #fff; }
 .admin-confirmation { position: fixed; left: 20%; top: 32%; width: 60%; padding: 24dp; z-index: 10; background-color: #13293e; border: 2dp #e0838e; white-space: pre-wrap; }
 @media (max-width: 960dp) { .admin-grid { display: block; } .admin-roster, .admin-controls { width: 100%; } .admin-confirmation { left: 5%; width: 90%; } }
+
+.admin-panel { position: absolute; left: 5%; right: 5%; top: 5%; bottom: 5%; width: auto; max-width: none; max-height: none; margin: 0dp; display: flex; flex-direction: column; overflow: hidden; padding: 20dp; }
+.admin-header, .admin-grid { width: 100%; max-width: none; }
+.admin-header, .admin-status { flex-shrink: 0; }
+.admin-grid { flex: 1; min-height: 0dp; margin-top: 14dp; }
+.admin-roster { width: 34%; overflow-y: auto; padding-right: 14dp; }
+.admin-controls { width: 65%; overflow-y: auto; padding-right: 6dp; }
+.admin-card { display: block; padding: 14dp; margin-bottom: 12dp; border: 1dp #28445c; background-color: #0b2032; }
+.admin-card .section-title { display: block; margin: 0dp 0dp 10dp; font-weight: bold; }
+.hint { display: block; margin-top: 6dp; margin-bottom: 8dp; }
+.admin-actions { display: flex; flex-wrap: wrap; align-items: center; width: 100%; margin: 8dp 0dp; }
+.admin-actions button { display: block; min-height: 38dp; margin: 0dp 8dp 8dp 0dp; }
+.admin-roster-row { min-height: 54dp; }
+#admin_rotation_state { font-size: 12dp; }
+#admin_team0 { border-left: 4dp #ff9c00; } #admin_team1 { border-left: 4dp #49df67; } #admin_team2 { border-left: 4dp #299cff; } #admin_team3 { border-left: 4dp #de59ff; }
+@media (max-width: 800dp) { .admin-panel { left: 2%; right: 2%; padding: 12dp; } .admin-grid { display: block; overflow-y: auto; } .admin-roster, .admin-controls { width: 100%; overflow: visible; } .admin-chat-history { height: 70dp; } }

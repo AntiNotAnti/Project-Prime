@@ -117,7 +117,7 @@ namespace MphRead
         public static bool SaveExists(byte slot) => Current.SaveExists(slot);
         public static StorySave? PeekSave(byte slot) => Current.PeekSave(slot);
         public static void CommitSave() => Current.CommitSave();
-        public static MenuSettings LoadSettings() => Current.LoadSettings();
+        public static MenuSettings LoadSettings(string? saveDirectory = null) => Current.LoadSettings(saveDirectory);
         public static void CommitSettings(MenuSettings menuSettings) => Current.CommitSettings(menuSettings);
         public static void Reset() => Current.Reset();
         public static bool IsResultTie { get => Current.IsResultTie; }

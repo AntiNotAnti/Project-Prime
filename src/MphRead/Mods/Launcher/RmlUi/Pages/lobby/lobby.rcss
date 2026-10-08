@@ -372,3 +372,49 @@ min-width: 62dp; font-size: 7dp;
 @media (max-height: 700dp) { #lobby_roster_panel { max-height: 40%; } }
 
 @media (max-height: 650dp) { #lobby_map_image { height: 90dp; } }
+
+#lobby_roster_panel { right: 24dp; top: 24dp; width: 286dp; bottom: 250dp; max-height: none; overflow-y: auto; background-color: rgba(3,13,23,94%); }
+.lobby_roster_row { min-height: 38dp; margin-bottom: 2dp; border-left: 3dp #35506a; padding: 3dp; }
+.lobby_roster_copy { flex: 1; min-width: 0dp; width: auto; padding: 4dp; text-align: left; background-color: transparent; }
+.lobby_roster_copy:hover, .lobby_roster_copy:focus { background-color: #17364c; }
+.lobby_roster_copy b { overflow: hidden; max-height: 16dp; }
+.lobby_roster_meta { display: block; text-align: right; }
+.lobby_roster_state { display: block; }
+.lobby_team { display: block; font-size: 9dp; padding: 3dp 5dp; margin-top: 2dp; border: 1dp #42627b; background-color: #102638; }
+.lobby_team:hover, .lobby_team:focus { background-color: #235475; }
+.lobby_nameplate { min-height: 30dp; }
+.lobby_nameplate.empty { background-color: rgba(5,24,38,85%); border-top-color: #416780; }
+.lobby_nameplate.empty span, .lobby_roster_row.empty .lobby_roster_hunter { color: #90cbed; }
+.lobby_nameplate:hover, .lobby_nameplate:focus { background-color: #16425e; border-top-color: #a7e4ff; }
+.lobby_roster_row.team0, .lobby_nameplate.team0 { border-color: #ff9c00; } .lobby_roster_row.team1, .lobby_nameplate.team1 { border-color: #49df67; } .lobby_roster_row.team2, .lobby_nameplate.team2 { border-color: #299cff; } .lobby_roster_row.team3, .lobby_nameplate.team3 { border-color: #de59ff; }
+.team0 .lobby_team { color: #ffb647; } .team1 .lobby_team { color: #74ec8c; } .team2 .lobby_team { color: #71c0ff; } .team3 .lobby_team { color: #e69aff; }
+#lobby_chat_panel { width: 286dp; right: 24dp; bottom: 64dp; height: 172dp; }
+@media (max-width: 1100dp) { #lobby_roster_panel, #lobby_chat_panel { right: 12dp; width: 216dp; } .lobby_roster_index { width: 12dp; } }
+@media (max-height: 720dp) { #lobby_roster_panel { top: 12dp; bottom: 178dp; } .lobby_roster_row { min-height: 34dp; } #lobby_chat_panel { height: 104dp; } #lobby_chat_history { height: 34dp; } }
+
+#lobby_map_preview { top: 354dp; }
+@media (max-height: 720dp) { #lobby_map_preview { top: 316dp; } #lobby_map_image { height: 76dp; } }
+
+.lobby_team:disabled, .lobby_team.unavailable { opacity: 1; background-color: transparent; border-color: transparent; }
+
+#lobby_map_preview { top: 390dp; cursor: pointer; }
+#lobby_map_preview:hover, #lobby_map_preview:focus { border-color: #91daff; background-color: #143248; }
+#lobby_countdown { position: absolute; left: 0dp; top: 0dp; width: 100%; height: 100%; z-index: 100; background-color: rgba(3,12,22,92%); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+#lobby_countdown_number { font-size: 90dp; color: #b7eaff; }
+#lobby_countdown_detail { font-size: 22dp; color: #d8efff; letter-spacing: 3dp; }
+@media (max-height: 720dp) { #lobby_map_preview { top: 354dp; min-height: 0dp; } #lobby_map_image { height: 64dp; } .lobby_data_row { padding-top: 5dp; padding-bottom: 5dp; } }
+
+@media (max-height: 650dp) { #lobby_heading { display: none; } #lobby_match_panel { top: 12dp; } #lobby_map_preview { top: 278dp; } }
+
+#lobby_map_preview { text-align: left; color: #b8d7ed; background-color: rgba(3,13,23,94%); }
+
+/* Keep the preview below the rules as text and display density change. */
+#lobby_left_panels { position: absolute; left: 32dp; top: 94dp; width: 238dp; }
+#lobby_left_panels #lobby_match_panel, #lobby_left_panels #lobby_map_preview { position: relative; left: 0dp; top: 0dp; width: 100%; display: block; }
+#lobby_left_panels #lobby_map_preview { margin-top: 12dp; min-height: 0dp; }
+.lobby_small_button { display: block; text-align: center; }
+@media (max-width: 1500dp) { #lobby_left_panels { left: 24dp; width: 216dp; } }
+@media (max-width: 1180dp) { #lobby_left_panels { width: 190dp; } }
+@media (max-height: 720dp) { .lobby_data_row { min-height: 23dp; padding-top: 3dp; padding-bottom: 3dp; } .lobby_small_button { margin-top: 5dp; padding: 5dp; } }
+@media (max-height: 650dp) { #lobby_left_panels { top: 12dp; } }
+@media (max-width: 900dp) { #lobby_left_panels { left: 14dp; top: 18dp; width: 170dp; } }

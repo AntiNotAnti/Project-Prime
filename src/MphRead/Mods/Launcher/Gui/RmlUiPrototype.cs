@@ -238,7 +238,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 // Browser/Create overlays use the central bay for real data.
                 // Do not paint a giant Hunter through translucent server rows.
-                if (_multiplayerMode) return;
+                if (_multiplayerMode || Shell.HasNativeContentPage) return;
                 LauncherHunter.PreviewSlot = -1;
                 LauncherHunter.Draw(window, width, height);
                 return;
@@ -823,14 +823,7 @@ namespace MphRead.Mods.Launcher.Gui
                     mask |= (byte)(1 << i);
                     if (player.Ready) readyCount++;
                 }
-                SetBool($"slot{i}_occupied", occupied);
-                SetBool($"slot{i}_ready", occupied && player.Ready);
-                SetBool($"slot{i}_local", occupied && player.Local);
-                SetText($"slot{i}_name", occupied ? player.Name : "");
-                SetText($"slot{i}_hunter", occupied ? player.Hunter.ToString().ToUpperInvariant() : "");
-                SetText($"slot{i}_state", occupied
-                    ? player.Spectator ? "SPECTATING" : player.Ready ? "READY" : "WAITING"
-                    : "");
+
             }
 
             LauncherLobbyVisuals.Active = true;
