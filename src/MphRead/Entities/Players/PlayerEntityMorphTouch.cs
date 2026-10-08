@@ -77,7 +77,7 @@ namespace MphRead.Entities
                     - Fixed.ToFloat(Values.BoostSpeedMin)) / Math.Max(1f, max);
             speedDelta.X += _field70 * factor;
             speedDelta.Z += _field74 * factor;
-            _boostDamage = (ushort)(Values.AltAttackDamage * spent / Math.Max(1, (int)max));
+            _boostDamage = (ushort)(Values.AltAttackDamage * spent / Math.Max(1, max));
             BeginMorphBoostPresentation();
         }
 

@@ -9211,7 +9211,12 @@ localCenter *= _profileHudScale;
             // draws the pointer itself, which is how its opacity can range all
             // the way down to 0%. Placement and UI screens keep the platform
             // cursor so they are never made unusable by that setting.
-            bool gameplayPointer = (Scene.CameraMode == CameraMode.Player || Scene.IsFreeCam)
+#if MPHREAD_SHELL
+            bool shellOwnsInput = Mods.Launcher.Gui.Shell.UiVisible;
+#else
+            bool shellOwnsInput = false;
+#endif
+            bool gameplayPointer = !shellOwnsInput && (Scene.CameraMode == CameraMode.Player || Scene.IsFreeCam)
                 && !Scene.FrameAdvance && !Mods.Network.DemoPlayback.IsActive
                 && !Mods.PauseMenu.Open && !Mods.EndScreen.Available
                 && !Mods.Input.StylusZone.Placing && !GameState.DialogPause && !GameState.MenuPause;
@@ -9241,7 +9246,7 @@ localCenter *= _profileHudScale;
             var pointer = Mods.Input.WindowsPenInput.Read(MouseState, ClientSize.X, ClientSize.Y,
                 out bool independentPrimary);
             Mods.Input.PointerDevice.Update(pointer, ClientSize.X, ClientSize.Y, independentPrimary,
-                acceptsInput: IsFocused && !Mods.PauseMenu.Open && !Mods.Chat.ChatBox.Composing
+                acceptsInput: IsFocused && !shellOwnsInput && !Mods.PauseMenu.Open && !Mods.Chat.ChatBox.Composing
                     && !GameState.MenuPause && !GameState.DialogPause && !Mods.EndScreen.Available);
             if (Mods.Input.StylusZone.Placing)
             {

@@ -64,10 +64,14 @@
          stack gives for nothing. The Android head defines MPHREAD_AVALONIA
          without this one and leaves those two files out. -->
     <DefineConstants Condition="'$(MphReadAvalonia)' == 'true'">$(DefineConstants);MPHREAD_SHELL</DefineConstants>
-    <!-- Optional renderer-migration gate. Off by default, so release and
-         server behavior remain unchanged until explicitly built for the POC. -->
+    <!-- Migration features stay opt-in until the platform parity gate passes.
+         MphReadRmlUi is the runtime feature; MphReadRmlUiPoc remains a compatible
+         development switch. Neither changes the release default or the server. -->
+    <MphReadRmlUi Condition="'$(MphReadRmlUi)' == ''">false</MphReadRmlUi>
     <MphReadRmlUiPoc Condition="'$(MphReadRmlUiPoc)' == ''">false</MphReadRmlUiPoc>
-    <DefineConstants Condition="'$(MphReadRmlUiPoc)' == 'true' and '$(MphReadServer)' != 'true'">$(DefineConstants);MPHREAD_RMLUI_POC</DefineConstants>
+    <MphReadRmlUiEnabled Condition="('$(MphReadRmlUi)' == 'true' or '$(MphReadRmlUiPoc)' == 'true') and '$(MphReadServer)' != 'true'">true</MphReadRmlUiEnabled>
+    <DefineConstants Condition="'$(MphReadRmlUi)' == 'true' and '$(MphReadServer)' != 'true'">$(DefineConstants);MPHREAD_RMLUI</DefineConstants>
+    <DefineConstants Condition="'$(MphReadRmlUiEnabled)' == 'true'">$(DefineConstants);MPHREAD_RMLUI_POC</DefineConstants>
     <!-- Project Prime shell identity for Explorer, the taskbar and pinned
          shortcuts. The dedicated server keeps a small badge so it is visually
          distinct from the game client. Runtime GL windows still use the
@@ -116,6 +120,9 @@
        server build never restores Avalonia and never carries it. -->
   <ItemGroup Condition="'$(MphReadAvalonia)' != 'true'">
     <Compile Remove="Mods\Launcher\Gui\**" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MphReadRmlUiEnabled)' != 'true'">
+    <Compile Remove="Mods\Launcher\RmlUi\Host\**\*.cs;Mods\Launcher\RmlUi\Render\**\*.cs" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(MphReadAvalonia)' == 'true'">
@@ -170,43 +177,48 @@
     <AvaloniaResource Include="Assets\Backgrounds\launcher-bg.png" />
   </ItemGroup>
 
-  <PropertyGroup Condition="'$(MphReadRmlUiPoc)' == 'true' and '$(MphReadServer)' != 'true'">
+  <PropertyGroup Condition="'$(MphReadRmlUiEnabled)' == 'true'">
     <MphReadRmlUiRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</MphReadRmlUiRid>
     <MphReadRmlUiRid Condition="'$(MphReadRmlUiRid)' == ''">$(NETCoreSdkRuntimeIdentifier)</MphReadRmlUiRid>
+    <MphReadRmlUiNativeName Condition="$(MphReadRmlUiRid.StartsWith('win'))">ProjectPrime.RmlUi.Native.dll</MphReadRmlUiNativeName>
     <MphReadRmlUiNativeName Condition="$(MphReadRmlUiRid.StartsWith('osx'))">libProjectPrime.RmlUi.Native.dylib</MphReadRmlUiNativeName>
     <MphReadRmlUiNativeName Condition="$(MphReadRmlUiRid.StartsWith('linux'))">libProjectPrime.RmlUi.Native.so</MphReadRmlUiNativeName>
-    <MphReadRmlUiNativePath>$(MSBuildProjectDirectory)\..\..\artifacts\rmlui-native\$(MphReadRmlUiRid)\$(MphReadRmlUiNativeName)</MphReadRmlUiNativePath>
+    <MphReadRmlUiNativeDirectory>$(MSBuildProjectDirectory)/../../artifacts/rmlui-native/$(MphReadRmlUiRid)</MphReadRmlUiNativeDirectory>
+    <MphReadRmlUiNativePath>$(MphReadRmlUiNativeDirectory)/$(MphReadRmlUiNativeName)</MphReadRmlUiNativePath>
+    <MphReadRmlUiPython Condition="$([MSBuild]::IsOSPlatform('Windows'))">python</MphReadRmlUiPython>
+    <MphReadRmlUiPython Condition="'$(MphReadRmlUiPython)' == ''">python3</MphReadRmlUiPython>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(MphReadRmlUiPoc)' == 'true' and '$(MphReadServer)' != 'true'">
-    <!-- RML/RCSS stay loose only for this prototype so authoring changes can
-         be inspected without inventing a resource VFS before the gate passes. -->
-    <None Update="Mods\Launcher\RmlUi\Assets\prime_home.rml"
-          CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest"
-          TargetPath="rmlui\prime_home.rml" />
-    <None Update="Mods\Launcher\RmlUi\Assets\prime_home.rcss"
-          CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest"
-          TargetPath="rmlui\prime_home.rcss" />
-    <None Update="Assets\Fonts\Rajdhani-SemiBold.ttf"
-          CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest"
-          TargetPath="rmlui\fonts\Rajdhani-SemiBold.ttf" />
-    <None Update="Assets\Fonts\Rajdhani-Bold.ttf"
-          CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest"
-          TargetPath="rmlui\fonts\Rajdhani-Bold.ttf" />
-    <None Update="Assets\Fonts\JetBrainsMono-Regular.ttf"
-          CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest"
-          TargetPath="rmlui\fonts\JetBrainsMono-Regular.ttf" />
+  <ItemGroup Condition="'$(MphReadRmlUiEnabled)' == 'true'">
+    <!-- Keep the native library and its matched document/font payload beside
+         single-file hosts, where the native bootstrap can resolve them. -->
+    <None Remove="Mods/Launcher/RmlUi/Assets/**/*" />
+    <None Include="Mods/Launcher/RmlUi/Assets/**/*"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
+          TargetPath="rmlui/%(RecursiveDir)%(Filename)%(Extension)" ExcludeFromSingleFile="true" />
+    <None Update="Assets/Fonts/Rajdhani-SemiBold.ttf;Assets/Fonts/Rajdhani-Bold.ttf;Assets/Fonts/JetBrainsMono-Regular.ttf;Assets/Fonts/Rajdhani-OFL.txt;Assets/Fonts/JetBrainsMono-OFL.txt"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
+          TargetPath="rmlui/fonts/%(Filename)%(Extension)" ExcludeFromSingleFile="true" />
     <None Include="$(MphReadRmlUiNativePath)"
           Condition="'$(MphReadRmlUiNativeName)' != '' and Exists('$(MphReadRmlUiNativePath)')"
           Link="$(MphReadRmlUiNativeName)"
-          CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" />
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest"
+          ExcludeFromSingleFile="true" />
+    <None Include="$(MphReadRmlUiNativeDirectory)/PRIME-RMLUI.json"
+          Condition="Exists('$(MphReadRmlUiNativeDirectory)/PRIME-RMLUI.json')"
+          Link="PRIME-RMLUI.json" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="$(MphReadRmlUiNativeDirectory)/licenses/*"
+          Link="licenses/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
   </ItemGroup>
+
+  <Target Name="VerifyPrimeRmlUiRuntime" BeforeTargets="ComputeFilesToPublish"
+          Condition="'$(MphReadRmlUiEnabled)' == 'true'">
+    <Error Condition="'$(MphReadRmlUiNativeName)' == '' or !Exists('$(MphReadRmlUiNativePath)') or !Exists('$(MphReadRmlUiNativeDirectory)/PRIME-RMLUI.json')"
+           Text="RmlUi native runtime missing for $(MphReadRmlUiRid). Run tools/rmlui/build-native.sh $(MphReadRmlUiRid) before publishing (or tools/rmlui/build-native.ps1 on Windows)." />
+    <Exec Command="$(MphReadRmlUiPython) &quot;$(MSBuildProjectDirectory)/../../tools/rmlui/verify-runtime.py&quot; &quot;$(MphReadRmlUiNativePath)&quot; &quot;$(MphReadRmlUiRid)&quot;" />
+  </Target>
 
   <ItemGroup Condition="'$(MphReadServer)' != 'true'">
     <!-- Original Project Prime combat-feedback stingers. Embedded so single-file

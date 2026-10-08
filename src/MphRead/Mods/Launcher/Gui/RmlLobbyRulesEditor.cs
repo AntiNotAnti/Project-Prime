@@ -5,6 +5,7 @@ using System.Linq;
 using MphRead.Mods.MapGen;
 using MphRead.Mods.Multiplayer;
 using MphRead.Mods.Network;
+using MphRead.Mods.Launcher.Core;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -21,6 +22,8 @@ namespace MphRead.Mods.Launcher.Gui
     {
         internal const int ToggleCount = 16;
         private readonly string[] _rooms;
+        private LobbySessionController? _controller;
+        private uint _draftVersion;
         private MatchDefinition _draft;
         private LobbyRuleFlags _flags;
         private MatchDefinition _baselineMatch;
@@ -38,6 +41,13 @@ namespace MphRead.Mods.Launcher.Gui
         private string _goalText = "";
 
         internal bool IsOpen => _open;
+
+        internal void BindSession(LobbySessionController? controller)
+        {
+            if (ReferenceEquals(_controller, controller)) return;
+            ResetSession();
+            _controller = controller;
+        }
 
         internal RmlLobbyRulesEditor(IReadOnlyList<string> rooms)
         {
@@ -76,6 +86,7 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal void ResetSession()
         {
+            _controller = null;
             if (!_open && !_pending && !_dirty) return;
             _open = false;
             _pending = false;
@@ -338,7 +349,8 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             int max = session.MaxPlayers;
-            int participants = NetSession.LobbyRoster().Count;
+            RosterPacket roster = NetSession.LobbyRoster();
+            int participants = Enumerable.Range(0, roster.Count).Count(i => !roster.IsSpectator(i));
             TeamLayout layout = LobbyRules.ResolveTeamLayout(match);
             if (layout.TeamCount > 0
                 && (layout.TotalPlayers < participants
@@ -371,13 +383,19 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
 
-            SessionStatePacket updated = session;
-            updated.Match = match;
-            updated.RuleFlags = flags;
-            if (!NetSession.SendLobbyCommand(LobbyCommandType.UpdateMatch,
-                configuration: updated))
+            if (_controller is not { } controller)
             {
-                SetStatus("LOBBY IS BUSY // RETRY WHEN SERVER ACKNOWLEDGES");
+                SetStatus("LOBBY SESSION IS NO LONGER ACTIVE");
+                return;
+            }
+            LobbyActionResult result = controller.Dispatch(controller.Intent(LobbyIntentKind.UpdateRules) with
+            {
+                ExpectedRevision = session.Revision, Match = match,
+                RuleFlags = flags, DraftVersion = ++_draftVersion
+            });
+            if (!result.Accepted)
+            {
+                SetStatus(result.Message);
                 return;
             }
 

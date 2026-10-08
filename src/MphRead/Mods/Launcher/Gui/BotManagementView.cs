@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
 using MphRead.Mods.Network;
+using MphRead.Mods.Launcher.Core;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -24,9 +25,11 @@ namespace MphRead.Mods.Launcher.Gui
         private bool? _lowTier;
         private byte[] _slots = Array.Empty<byte>();
         private string _rosterKey = "";
+        private readonly LobbySessionController? _lobby;
 
-        internal BotManagementView()
+        internal BotManagementView(LobbySessionController? lobby = null)
         {
+            _lobby = lobby;
             Spacing = 5;
             Children.Add(new TextBlock { Text = "BOTS · PRACTICE MATCH\nHunter License progression disabled when bots are used.",
                 TextWrapping = TextWrapping.Wrap, Foreground = HubTheme.WarmBrush });
@@ -58,9 +61,33 @@ namespace MphRead.Mods.Launcher.Gui
         private void Send(LobbyCommandType type)
         {
             byte target = _target.SelectedIndex >= 0 && _target.SelectedIndex < _slots.Length ? _slots[_target.SelectedIndex] : (byte)255;
-            NetSession.SendLobbyCommand(type, target, (sbyte)(_team.SelectedIndex - 1),
-                hunter: (byte)_hunters[Math.Clamp(_hunter.SelectedIndex, 0, _hunters.Length - 1)],
-                color: (byte)_suit.SelectedIndex, botLevel: (byte)_level.SelectedIndex);
+            Hunter hunter = _hunters[Math.Clamp(_hunter.SelectedIndex, 0, _hunters.Length - 1)];
+            if (_lobby is { } lobby)
+            {
+                LobbyIntentKind kind = type switch
+                {
+                    LobbyCommandType.AddBot => LobbyIntentKind.AddBot,
+                    LobbyCommandType.UpdateBot => LobbyIntentKind.UpdateBot,
+                    _ => LobbyIntentKind.RemoveBot
+                };
+                LobbyActionResult result = lobby.Dispatch(lobby.Intent(kind) with
+                {
+                    TargetSlot = target, Team = (sbyte)(_team.SelectedIndex - 1), Hunter = hunter,
+                    Color = (byte)_suit.SelectedIndex, BotLevel = (byte)_level.SelectedIndex
+                });
+                if (!result.Accepted)
+                {
+                    Refresh();
+                    _status.Text = result.Message;
+                    return;
+                }
+            }
+            else
+            {
+                // In-match pause controls remain on the engine's existing command path.
+                NetSession.SendLobbyCommand(type, target, (sbyte)(_team.SelectedIndex - 1),
+                    hunter: (byte)hunter, color: (byte)_suit.SelectedIndex, botLevel: (byte)_level.SelectedIndex);
+            }
             Refresh();
         }
         private void Refresh()

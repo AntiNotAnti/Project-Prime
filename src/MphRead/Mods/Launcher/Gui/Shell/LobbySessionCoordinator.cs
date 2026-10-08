@@ -3,11 +3,11 @@ using System;
 #if ANDROID
 using Avalonia.Threading;
 #endif
-using MphRead.Mods.Network;
+using MphRead.Mods.Launcher.Core;
 namespace MphRead.Mods.Launcher.Gui
 {
-    // The one launcher owner of the lobby control-plane pump. Workspace detachment
-    // never disconnects it; only Leave/session loss or the game handoff does.
+    // Legacy presentation clock for the shared lobby controller. Detaching a
+    // workspace never disconnects the session; Native ownership rejects this clock.
     internal sealed class LobbySessionCoordinator : IDisposable
     {
 #if ANDROID
@@ -56,8 +56,8 @@ namespace MphRead.Mods.Launcher.Gui
             // InMatch describes the server, not this client's scene. A late
             // join already has that phase while its lobby still needs to emit
             // MatchRequested. Yield the pump only after the local handoff.
-            if (Screen is not { } screen || (screen.IsSuspended && NetSession.IsPlaying)) return;
-            NetSession.Pump();
+            if (Screen is not { } screen) return;
+            if (!screen.Controller.PumpOnce(LobbyPumpOwner.Legacy)) return;
             screen.SessionTick(forceForeground || IsForeground());
         }
 

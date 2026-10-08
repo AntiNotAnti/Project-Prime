@@ -71,6 +71,9 @@
     <AvaloniaAccessUnstablePrivateApis>true</AvaloniaAccessUnstablePrivateApis>
     <NoWarn>$(NoWarn);AVA3001</NoWarn>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <!-- Foundation-only package gate: the neutral native core can be included
+         for runtime development without changing Android presentation/input. -->
+    <MphReadRmlUiNativeAssets Condition="'$(MphReadRmlUiNativeAssets)' == ''">false</MphReadRmlUiNativeAssets>
     <!-- There is no XAML in this project: every screen here is written in C#.
          The compiler still runs when AvaloniaResource items are present, and on
          Android it and the Android SDK disagree about where the compiled
@@ -191,6 +194,44 @@
     <AvaloniaResource Include="..\MphRead\Assets\Geo\*.gz"
                       Link="Assets\Geo\%(Filename)%(Extension)" />
   </ItemGroup>
+
+  <ItemGroup Condition="'$(MphReadRmlUiNativeAssets)' == 'true'">
+    <AndroidNativeLibrary Include="$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/arm64-v8a/libProjectPrime.RmlUi.Native.so"
+                          Link="lib/arm64-v8a/libProjectPrime.RmlUi.Native.so"
+                          Condition="'$(RuntimeIdentifier)' == '' or '$(RuntimeIdentifier)' == 'android-arm64'" />
+    <AndroidNativeLibrary Include="$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/x86_64/libProjectPrime.RmlUi.Native.so"
+                          Link="lib/x86_64/libProjectPrime.RmlUi.Native.so"
+                          Condition="'$(RuntimeIdentifier)' == '' or '$(RuntimeIdentifier)' == 'android-x64'" />
+    <AndroidAsset Include="../MphRead/Mods/Launcher/RmlUi/Assets/**/*"
+                  LogicalName="rmlui/%(RecursiveDir)%(Filename)%(Extension)" />
+    <AndroidAsset Include="$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/arm64-v8a/PRIME-RMLUI.json"
+                  LogicalName="rmlui/native-manifests/arm64-v8a/PRIME-RMLUI.json"
+                  Condition="'$(RuntimeIdentifier)' == '' or '$(RuntimeIdentifier)' == 'android-arm64'" />
+    <AndroidAsset Include="$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/x86_64/PRIME-RMLUI.json"
+                  LogicalName="rmlui/native-manifests/x86_64/PRIME-RMLUI.json"
+                  Condition="'$(RuntimeIdentifier)' == '' or '$(RuntimeIdentifier)' == 'android-x64'" />
+    <AndroidAsset Include="../MphRead/Assets/Fonts/Rajdhani-SemiBold.ttf;../MphRead/Assets/Fonts/Rajdhani-Bold.ttf;../MphRead/Assets/Fonts/JetBrainsMono-Regular.ttf;../MphRead/Assets/Fonts/Rajdhani-OFL.txt;../MphRead/Assets/Fonts/JetBrainsMono-OFL.txt"
+                  LogicalName="rmlui/fonts/%(Filename)%(Extension)" />
+    <AndroidAsset Include="$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/arm64-v8a/licenses/*"
+                  LogicalName="rmlui/licenses/%(Filename)%(Extension)"
+                  Condition="'$(RuntimeIdentifier)' == '' or '$(RuntimeIdentifier)' == 'android-arm64'" />
+    <AndroidAsset Include="$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/x86_64/licenses/*"
+                  LogicalName="rmlui/licenses/%(Filename)%(Extension)"
+                  Condition="'$(RuntimeIdentifier)' == 'android-x64'" />
+  </ItemGroup>
+
+  <Target Name="VerifyPrimeAndroidRmlUiRuntime" BeforeTargets="_BuildApkEmbed;_BuildApkFastDev;ComputeFilesToPublish"
+          Condition="'$(MphReadRmlUiNativeAssets)' == 'true'">
+    <ItemGroup>
+      <_PrimeAndroidRmlUi Include="$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/arm64-v8a/libProjectPrime.RmlUi.Native.so"
+                          Condition="'$(RuntimeIdentifier)' == '' or '$(RuntimeIdentifier)' == 'android-arm64'" />
+      <_PrimeAndroidRmlUi Include="$(MSBuildProjectDirectory)/../../artifacts/rmlui-native-android/lib/x86_64/libProjectPrime.RmlUi.Native.so"
+                          Condition="'$(RuntimeIdentifier)' == '' or '$(RuntimeIdentifier)' == 'android-x64'" />
+    </ItemGroup>
+    <Error Condition="!Exists('%(_PrimeAndroidRmlUi.Identity)')"
+           Text="Android RmlUi native bridge missing: %(_PrimeAndroidRmlUi.Identity). Build tools/rmlui/build-native.sh android-arm64 and android-x64 with ANDROID_NDK_ROOT set." />
+    <Exec Command="python3 &quot;$(MSBuildProjectDirectory)/../../tools/rmlui/verify-runtime.py&quot; &quot;%(_PrimeAndroidRmlUi.Identity)&quot;" />
+  </Target>
 
   <Target Name="VerifyPrimeAndroidWgpuRuntime" BeforeTargets="_BuildApkEmbed;_BuildApkFastDev;ComputeFilesToPublish">
     <ItemGroup>

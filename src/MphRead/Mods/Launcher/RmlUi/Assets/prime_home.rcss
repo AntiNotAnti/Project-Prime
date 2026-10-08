@@ -866,14 +866,15 @@ button {
 #play_create_submit { nav-up: #play_toggle_host; nav-right: #play_create_cancel; }
 #play_create_cancel { nav-left: #play_create_submit; }
 
-@media (max-width: 1500px) {
+/* Match responsive breakpoints to the density-independent control dimensions. */
+@media (max-width: 1500dp) {
     #play_header, #play_browser, #play_create { left: 28dp; }
     #play_connect { right: 28dp; width: 240dp; }
     #play_browser { width: 55%; }
     #play_create { width: 415dp; }
     .play_action { min-width: 82dp; padding-left: 9dp; padding-right: 9dp; }
 }
-@media (max-width: 900px) {
+@media (max-width: 900dp) {
     #play_header, #play_browser, #play_create { left: 18dp; }
     #play_header { top: 15dp; width: 430dp; }
     .play_title { font-size: 24dp; line-height: 27dp; }
@@ -884,7 +885,7 @@ button {
     .play_action { min-width: 68dp; font-size: 9dp; padding-left: 7dp; padding-right: 7dp; }
     .play_panel { max-height: 300dp; }
 }
-@media (max-height: 760px) {
+@media (max-height: 760dp) {
     #play_browser, #play_connect, #play_create { top: 98dp; }
     .play_panel { max-height: 260dp; }
     .play_server { min-height: 40dp; padding-top: 5dp; padding-bottom: 5dp; }
@@ -1338,7 +1339,7 @@ button {
 #rules_apply { nav-left: #rules_cancel; nav-up: #rules_toggle15; }
 #rules_cancel { nav-left: #rules_classic; nav-right: #rules_apply; }
 #rules_classic { nav-right: #rules_cancel; }
-@media (max-width: 1250px) {
+@media (max-width: 1250dp) {
     #lobby_rules_sheet { left: 3%; right: 3%; padding: 11dp; }
     .rules_main { flex: 0 0 30%; width: 30%; padding-right: 10dp; }
     .rules_flags { padding-left: 10dp; }
@@ -1347,14 +1348,14 @@ button {
     #rules_status { left: 11dp; right: 11dp; }
     .rules_footer { left: 11dp; right: 11dp; }
 }
-@media (max-width: 900px) {
+@media (max-width: 900dp) {
     .rules_title { font-size: 20dp; line-height: 23dp; }
     .rules_main { flex: 0 0 36%; width: 36%; }
     .rules_toggle { min-height: 30dp; margin-bottom: 3dp; font-size: 8dp; }
     .rules_toggle span { font-size: 8dp; }
     .rules_owner_message { display: none; }
 }
-@media (max-height: 740px) {
+@media (max-height: 740dp) {
     #lobby_rules_sheet { top: 6dp; bottom: 5dp; padding-top: 10dp; }
     .rules_heading { margin-bottom: 7dp; }
     .rules_toggle { min-height: 28dp; margin-bottom: 3dp; padding-top: 4dp; padding-bottom: 4dp; }
@@ -1439,7 +1440,7 @@ button {
     background-color: rgba(178,47,58,28%);
 }
 
-@media (max-width: 1500px) {
+@media (max-width: 1500dp) {
     #topbar { padding-left: 24dp; padding-right: 24dp; }
     #brand { width: 226dp; margin-right: 6dp; }
     #brand_mark { width: 48dp; height: 48dp; line-height: 48dp; font-size: 28dp; }
@@ -1459,7 +1460,7 @@ button {
     #footerbar { padding-left: 28dp; padding-right: 28dp; }
 }
 
-@media (max-width: 1180px) {
+@media (max-width: 1180dp) {
     #session_panel { display: none; }
     #brand { width: 210dp; }
     .nav { width: 94dp; min-width: 94dp; }
@@ -1477,7 +1478,7 @@ button {
     .lobby_nameplate { display: none; }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 900dp) {
     #topbar { height: 82dp; }
     #top_rule { top: 82dp; }
     #stage { top: 83dp; }
@@ -1506,7 +1507,7 @@ button {
     #stage { bottom: 58dp; }
 }
 
-@media (max-height: 760px) {
+@media (max-height: 760dp) {
     #topbar { height: 78dp; }
     #top_rule { top: 78dp; }
     #stage { top: 79dp; bottom: 54dp; }
