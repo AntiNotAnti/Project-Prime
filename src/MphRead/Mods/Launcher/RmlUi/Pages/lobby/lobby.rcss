@@ -278,7 +278,7 @@ nav-left: #lobby_ready; nav-right: #lobby_suit;
 }
 
 #lobby_suit {
-nav-left: #lobby_hunter; nav-right: #lobby_leave;
+nav-left: #lobby_hunter; nav-right: auto;
 }
 
 #lobby_rules {
@@ -286,12 +286,21 @@ nav-left: #lobby_suit; nav-right: #lobby_leave;
 }
 
 #lobby_leave {
-nav-left: #lobby_suit; nav-right: #lobby_start;
+position: absolute;
+right: 24dp;
+bottom: 10dp;
+height: 42dp;
+margin: 0dp;
+nav-left: auto;
 }
 
 #lobby_start {
-nav-left: #lobby_leave;
+nav-left: #lobby_suit; nav-right: #lobby_leave;
 }
+
+@media (max-width: 1100dp) { #lobby_leave { right: 12dp; } }
+@media (max-width: 900dp) { #lobby_leave { height: 38dp; } }
+@media (max-width: 480dp) { #lobby_actions { bottom: 56dp; } }
 
 
 
