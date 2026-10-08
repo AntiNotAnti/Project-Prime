@@ -52,7 +52,7 @@ namespace MphRead.Mods.Launcher.Gui
             get
             {
 #if MPHREAD_RMLUI_POC
-                if (RmlUiPrototype.Active) return true;
+                if (RmlUiPrototype.Visible) return true;
 #endif
                 return UiSurface.Current?.Visible == true;
             }
@@ -69,6 +69,13 @@ namespace MphRead.Mods.Launcher.Gui
             // OpenTK's strings are only guaranteed for the duration of the
             // native callback, so copy before handing them to a screen.
             string[] files=e.FileNames?.ToArray()??Array.Empty<string>();
+#if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.Active)
+            {
+                foreach (string path in files) QueueNativeDroppedDocument(path);
+                return;
+            }
+#endif
             if(files.Length>0)FilesDropped?.Invoke(files);
         }
 
@@ -135,7 +142,8 @@ namespace MphRead.Mods.Launcher.Gui
 #if !MPHREAD_SERVER
             if (GraphicsBackendPolicy.Requested == GraphicsBackend.Auto
                 && ModernGraphicsCompat.RecoveryFailure is Exception failure)
-                return RendererCompatibilityRestart.Start(failure.Message);
+                return RendererCompatibilityRestart.Start(failure.Message,
+                    LauncherUiRuntime.Decision.Explicit ? LauncherUiRuntime.Decision.Requested : null);
 #endif
             return result;
         }
@@ -161,6 +169,14 @@ namespace MphRead.Mods.Launcher.Gui
                 LifecycleTiming.Startup("RmlUi proof requested; Avalonia surface deferred");
             }
             LauncherPrefs.Load();
+#if MPHREAD_RMLUI_POC
+            _nativeCapturePageApplied = false;
+            _nativeCommandLineRouteApplied = false;
+            _nativeInitialSetupApplied = false;
+            if (!RmlUiPrototype.CaptureRequested && !LauncherUiPerformance.Enabled) Core.SocialRuntime.Start();
+#endif
+            _settings = GameState.LoadSettings();
+            Mods.GameSettings.Apply(_settings);
             LifecycleTiming.Startup("launcher preferences loaded");
             Interlocked.Exchange(ref _firstFrameStarted, 0);
             // The backdrop is GL's from here on: this is the one head with a
@@ -261,14 +277,14 @@ namespace MphRead.Mods.Launcher.Gui
                 if (window != null)
                 {
                     window.FileDrop -= OnFilesDropped;
+                    if (!Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested) window.Context.MakeCurrent();
+#if MPHREAD_RMLUI_POC
+                    ReleaseRmlLobby();
+                    _nativeReturnTheatre?.Dispose(); _nativeReturnTheatre = null;
+                    RmlUiPrototype.Shutdown();
+#endif
                     if (!Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested)
                     {
-                        window.Context.MakeCurrent();
-#if MPHREAD_RMLUI_POC
-                        // The RmlUi bridge owns GL resources and must be torn
-                        // down while this compatibility context is still current.
-                        RmlUiPrototype.Shutdown();
-#endif
                         // Program names are context-local. Any desktop
                         // compatibility-context handoff invalidates the legacy
                         // uniform cache before GL work resumes on this window.
@@ -278,8 +294,18 @@ namespace MphRead.Mods.Launcher.Gui
                         UiSurface.Current?.ReleaseMapRenderer();
                     }
                 }
+#if MPHREAD_RMLUI_POC
+                if (window == null) { ReleaseRmlLobby(); RmlUiPrototype.Shutdown(); }
+                _rmlMultiplayer?.Dispose();
+                _rmlMultiplayer = null;
+                _rmlLobbyRules = null;
+#endif
                 _front?.Dispose();
                 _front = null;
+#if MPHREAD_RMLUI_POC
+                Core.SocialRuntime.Stop();
+#endif
+                ReleaseApplicationRouter();
                 Mods.DebugLog.Line("shutdown", "disposing native window");
                 try { window?.Dispose(); }
                 finally
@@ -314,19 +340,21 @@ namespace MphRead.Mods.Launcher.Gui
             }
 #endif
 #if MPHREAD_RMLUI_POC
+            ApplyNativeCapturePage();
+            EnsureNativeStartupSetup();
+            PumpNativeRoutes();
             // The proof owns only the front screen. If it fails after startup,
             // or if one of its buttons selects a destination, restore the
             // existing authoritative shell and continue from there.
             if (RmlUiPrototype.Requested && RmlUiPrototype.Failed && !window.HasScene
                 && UiSurface.Current?.Visible != true)
             {
-                if (GuiLauncher.EnsureSetup() && UiSurface.Ensure() != null)
-                    ShowFrontScreen();
-                else
-                    RequestQuit();
+                RestoreLegacyRmlPresentation();
             }
-            while (RmlUiPrototype.Active && RmlUiPrototype.TryTakeCommand(out string rmlCommand))
+            while (RmlUiPrototype.Visible && RmlUiPrototype.TryTakeIntent(out var nativeIntent))
             {
+                if (HandleNativePageIntent(nativeIntent)) continue;
+                string rmlCommand = RmlUi.Host.RmlUiIntentRegistry.ToLegacy(nativeIntent);
                 if (rmlCommand.StartsWith("lobby:rules-", StringComparison.Ordinal))
                 {
                     HandleRmlLobbyRulesCommand(rmlCommand);
@@ -337,24 +365,24 @@ namespace MphRead.Mods.Launcher.Gui
                     switch (rmlCommand)
                     {
                         case "lobby:ready":
-                            _front?.RmlLobbyReady();
+                            DispatchRmlLobby(Core.LobbyIntentKind.ToggleReady);
                             break;
                         case "lobby:start":
-                            _front?.RmlLobbyStart();
+                            DispatchRmlLobby(Core.LobbyIntentKind.StartMatch);
                             break;
                         case "lobby:leave":
                             _rmlLobbyRules?.ResetSession();
-                            _front?.RmlLobbyLeave();
+                            DispatchRmlLobby(Core.LobbyIntentKind.Leave);
                             break;
                         case "lobby:next-hunter":
-                            _front?.RmlLobbyNextHunter();
+                            DispatchRmlLobby(Core.LobbyIntentKind.NextHunter);
                             break;
                         case "lobby:next-suit":
-                            _front?.RmlLobbyNextSuit();
+                            DispatchRmlLobby(Core.LobbyIntentKind.NextSuit);
                             break;
                         case "lobby:classic":
                             _rmlLobbyRules?.ResetSession();
-                            _front?.OpenClassicLobbyFromRml();
+                            OpenLegacyRmlLobby();
                             break;
                     }
                     continue;
@@ -377,13 +405,7 @@ namespace MphRead.Mods.Launcher.Gui
                     if (Mods.StudioIntegration.StudioApplicationLauncher.TryOpen(null, false, out string? error))
                         continue;
                     _rmlMultiplayer?.Cancel();
-                    RmlUiPrototype.Shutdown();
-                    if (!GuiLauncher.EnsureSetup() || UiSurface.Ensure() == null)
-                    {
-                        RequestQuit();
-                        break;
-                    }
-                    ShowFrontScreen();
+                    if (!RestoreLegacyRmlPresentation()) break;
                     _front?.ShowStudioLaunchFailure(error ?? "Project Prime Studio could not start.");
                     break;
                 }
@@ -402,25 +424,24 @@ namespace MphRead.Mods.Launcher.Gui
                 if (rmlRoute is { } target)
                 {
                     _rmlMultiplayer?.Cancel();
-                    RmlUiPrototype.Shutdown();
-                    if (!GuiLauncher.EnsureSetup() || UiSurface.Ensure() == null)
-                    {
-                        RequestQuit();
-                        break;
-                    }
-                    ShowFrontScreen();
+                    if (!RestoreLegacyRmlPresentation()) break;
                     _front?.Prime.Router.Navigate(target);
                     break;
                 }
             }
 #endif
-            if (window.HasScene && window.Scene.AimTrainer is { Completed: true, ResultsShown: false } training
-                && UiSurface.Ensure() is { } trainingSurface)
+            if (window.HasScene && window.Scene.AimTrainer is { Completed: true, ResultsShown: false } training)
             {
+#if MPHREAD_RMLUI_POC
+                if (!OpenNativeAimResults(training))
+#endif
+                if (UiSurface.Ensure() is { } trainingSurface)
+                {
                 training.ResultsShown = true;
                 trainingSurface.Show(new AimTrainerResultsView(training,
                     () => { _endMatch = true; _pending = AimTrainerLaunch.Create(training.Definition.Retry(), training.Plan.Hunter, LauncherPrefs.LastColor); },
                     () => { _focusTrainingOnReturn = true; RequestEndMatch(); }, RequestEndMatch));
+                }
             }
             if (_quit)
             {
@@ -438,6 +459,13 @@ namespace MphRead.Mods.Launcher.Gui
             }
             if (_pending is LaunchPlan plan)
             {
+#if MPHREAD_RMLUI_POC
+                if (!ValidateRmlPendingPlan())
+                {
+                    _pending = null;
+                    return;
+                }
+#endif
                 // MatchStart is intentionally synchronous because scene/GPU
                 // creation belongs to this thread. Do not make its CPU preflight
                 // synchronous too: large custom maps can spend seconds compiling,
@@ -458,8 +486,15 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             // A replay error must never strand the player behind a hidden shell.
-            // Restore the already-open Theatre editor automatically so Escape is
-            // not the only recovery path from a frozen fullscreen frame.
+            // Restore its controls automatically when fullscreen playback fails.
+#if MPHREAD_RMLUI_POC
+            if (window.HasScene && RmlUiPrototype.Active && _played?.Kind == LaunchKind.Demo
+                && DemoPlayback.IsActive && DemoPlayback.LastResult != ReplayOpenResult.Success)
+            {
+                if (_nativePlayback == null) OpenNativePlayback();
+            }
+            else
+#endif
             if (window.HasScene && _played?.Kind == LaunchKind.Demo
                 && DemoPlayback.IsActive && DemoPlayback.LastResult != ReplayOpenResult.Success
                 && _front != null && UiSurface.Ensure() is { } replaySurface
@@ -475,6 +510,9 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     _matchLoading = false;
                     UiSurface.Current?.Hide();
+#if MPHREAD_RMLUI_POC
+                    if (_rmlLobby != null) RmlUiPrototype.Hide();
+#endif
                 }
                 else if (NetSession.Refused || NetSession.SessionTimedOut)
                 {
@@ -493,17 +531,16 @@ namespace MphRead.Mods.Launcher.Gui
         internal static void TickUi(RenderWindow window)
         {
 #if MPHREAD_RMLUI_POC
-            if (RmlUiPrototype.Active)
+            if (RmlUiPrototype.Visible)
             {
                 // RmlUi renders itself later in UiOverlay.DrawAlone. Nothing
                 // here rasterizes an Avalonia surface or uploads a UI bitmap.
                 //
-                // While the live lobby owns presentation the Avalonia tree is
-                // intentionally detached, so its coordinator clock is stopped.
-                // Pump that same authoritative LobbyScreen control plane here.
+                // The engine owns the clock. Native and legacy presenters use
+                // the same toolkit-free controller, with one active pump owner.
                 if (RmlUiPrototype.LobbyMode)
                 {
-                    _front?.RmlLobbyTick();
+                    PumpRmlLobby();
                     _rmlLobbyRules?.Tick();
                 }
                 else
@@ -512,6 +549,7 @@ namespace MphRead.Mods.Launcher.Gui
                 UiOverlay.Visible = false;
                 RmlUiPrototype.Tick(window);
                 _rmlMultiplayer?.Tick();
+                TickNativePages();
                 return;
             }
 #endif
@@ -578,7 +616,11 @@ namespace MphRead.Mods.Launcher.Gui
         /// panel steps aside -- the scoreboard beside it is the engine's own
         /// screen and stays exactly as it is.
         /// </summary>
-        public static bool EndPanelUp => _endPanel != null;
+        public static bool EndPanelUp => _endPanel != null
+#if MPHREAD_RMLUI_POC
+            || _nativeResults?.Active == true
+#endif
+            ;
 
         /// <summary>
         /// Put the results panel up while the results are up, and take it down
@@ -595,6 +637,9 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal static void TickEndPanel()
         {
+#if MPHREAD_RMLUI_POC
+            if (TickNativeEndPanel()) return;
+#endif
             bool want = _window?.HasScene == true && !_matchLoading
                 && Mods.EndScreen.PanelAvailable && _menu == null;
             if (want && !EndPanelUp)
@@ -671,7 +716,7 @@ namespace MphRead.Mods.Launcher.Gui
                 // is held for one launch so the joined server and the loaded
                 // player agree, and this is where a launch begins.
                 Hunters.Reroll();
-                _front = new StartScreen(_settings, _rooms);
+                _front = new StartScreen(_settings, _rooms, ApplicationRouter);
                 _front.Done += (_, plan) => Decided(plan);
                 _front.MatchRequested += (_, plan) => Decided(plan);
             }
@@ -689,12 +734,18 @@ namespace MphRead.Mods.Launcher.Gui
 #if MPHREAD_RMLUI_POC
         private static RmlLobbyRulesEditor EnsureRmlLobbyRules()
         {
-            if (_rmlLobbyRules != null) return _rmlLobbyRules;
+            if (_rmlLobbyRules != null)
+            {
+                _rmlLobbyRules.BindSession(_rmlLobby);
+                return _rmlLobbyRules;
+            }
             IReadOnlyList<string> rooms = _rooms.Count != 0
                 ? _rooms
                 : GameFiles.Ready ? ThumbnailGenerator.MultiplayerRooms()
                     : Array.Empty<string>();
-            return _rmlLobbyRules = new RmlLobbyRulesEditor(rooms);
+            _rmlLobbyRules = new RmlLobbyRulesEditor(rooms);
+            _rmlLobbyRules.BindSession(_rmlLobby);
+            return _rmlLobbyRules;
         }
 
         private static void HandleRmlLobbyRulesCommand(string command)
@@ -747,8 +798,11 @@ namespace MphRead.Mods.Launcher.Gui
             if (command == "play:cancel")
             {
                 _rmlMultiplayer?.Cancel();
+                ApplicationRouter.Back();
                 return;
             }
+            if (!RmlUiPrototype.LobbyMode)
+                ApplicationRouter.Navigate(new(Core.LauncherPage.Play));
             RmlMultiplayerController controller = EnsureRmlMultiplayer();
             if (command == "play:quick")
             {
@@ -781,31 +835,15 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static void AcceptRmlMultiplayerPlan(LaunchPlan plan)
         {
-            // The migration creates the authoritative LobbyScreen only after a
-            // real connection is established. Until this boundary, browsing,
-            // hosting and connecting have no visible Avalonia dependency.
+            _nativeSocialJoin = false;
             _rmlMultiplayer?.Cancel();
-            if (!GuiLauncher.EnsureSetup() || UiSurface.Ensure() == null)
+            if (NetSession.Active && NetSession.PersistentLobby)
             {
-                NetSession.Stop();
-                Mods.DebugLog.Line("rmlui",
-                    "could not initialize fallback authority for connected lobby");
-                RequestQuit();
+                OpenRmlLobby(plan);
                 return;
             }
-
-            ShowFrontScreen();
-            if (_front == null)
-            {
-                NetSession.Stop();
-                RequestQuit();
-                return;
-            }
-
-            if (!NetSession.PersistentLobby)
-                RmlUiPrototype.Shutdown();
-
-            _front.OpenConnectedFromRml(plan);
+            RmlUiPrototype.Hide();
+            Decided(plan);
         }
 #endif
 
@@ -816,6 +854,20 @@ namespace MphRead.Mods.Launcher.Gui
                 RequestQuit();
                 return;
             }
+#if MPHREAD_RMLUI_POC
+            _pendingLobbyController = _rmlLobby ?? _front?.LobbyController;
+            if (plan.Kind == LaunchKind.Online && _pendingLobbyController is { } lobby)
+            {
+                Core.LobbySnapshot snapshot = lobby.Snapshot();
+                _rmlPendingStart = (snapshot.Lifetime, snapshot.MatchId,
+                    snapshot.AuthorityEpoch, snapshot.StartGeneration);
+            }
+            else
+            {
+                _pendingLobbyController = null;
+                _rmlPendingStart = null;
+            }
+#endif
             _pending = plan;
         }
 
@@ -864,6 +916,9 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _played = plan;
             _front?.SuspendLobby();
+#if MPHREAD_RMLUI_POC
+            _rmlLobby?.Suspend();
+#endif
             _matchLoading = false;
             try
             {
@@ -871,6 +926,10 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     string failure = MatchStart.LastError ?? "The map could not be loaded.";
                     NetSession.ReportMatchLoadFailed(failure);
+#if MPHREAD_RMLUI_POC
+                    if (RecoverNativeLaunchFailure(window, failure)
+                        || RecoverNativeTrainingLaunchFailure(window, plan, failure)) return;
+#endif
                     EndMatch(window);
                     if (plan.Kind == LaunchKind.Demo)
                     {
@@ -879,6 +938,15 @@ namespace MphRead.Mods.Launcher.Gui
                     else if (plan.Kind == LaunchKind.AimTrainer) _front?.ShowTrainingLaunchFailure(failure);
                     return;
                 }
+#if MPHREAD_RMLUI_POC
+                // Only an actual local scene transfers pumping to gameplay.
+                // A queued plan or a server InMatch phase can still be prewarming.
+                _rmlLobby?.YieldPumpToGameplay();
+#endif
+                _front?.YieldLobbyPumpToGameplay();
+#if MPHREAD_RMLUI_POC
+                CompleteNativePageLaunch(plan);
+#endif
 
                 if (NetSession.PersistentLobby && NetSession.IsStarting)
                 {
@@ -889,7 +957,15 @@ namespace MphRead.Mods.Launcher.Gui
                     // every participant the same visible start boundary.
                     _matchLoading = true;
                 }
-                else if (plan.Kind == LaunchKind.Demo && _front != null)
+                else if (plan.Kind == LaunchKind.Demo
+#if MPHREAD_RMLUI_POC
+                    && _nativePlayback?.IsOpen == true)
+                {
+                    RmlUiPrototype.ShowGameplayMenu();
+                }
+                else if (plan.Kind == LaunchKind.Demo
+#endif
+                    && _front != null)
                 {
                     _front.ShowReplayEditor(RequestEndMatch, () => FullscreenReplay(window));
                     UiSurface.Current?.Show(_front);
@@ -897,6 +973,9 @@ namespace MphRead.Mods.Launcher.Gui
                 else
                 {
                     UiSurface.Current?.Hide();
+#if MPHREAD_RMLUI_POC
+                    RmlUiPrototype.Hide();
+#endif
                 }
             }
             catch (Exception ex)
@@ -914,6 +993,10 @@ namespace MphRead.Mods.Launcher.Gui
                 // Back to the front screen rather than out of the program: a
                 // map that will not load is a reason to pick another one.
                 NetSession.ReportMatchLoadFailed(ex.Message);
+#if MPHREAD_RMLUI_POC
+                if (RecoverNativeLaunchFailure(window, ex.Message)
+                    || RecoverNativeTrainingLaunchFailure(window, plan, ex.Message)) return;
+#endif
                 EndMatch(window);
                 if (plan.Kind == LaunchKind.Demo)
                 {
@@ -939,14 +1022,26 @@ namespace MphRead.Mods.Launcher.Gui
             _matchLoading = false;
             CloseMenu(); window.EndScene(); MatchStart.AfterMatch();
             NetSession.ResetMatchState(); PauseMenu.Reset();
+#if MPHREAD_RMLUI_POC
+            if (_rmlLobby is { } nativeLobby)
+            {
+                nativeLobby.Resume();
+                nativeLobby.TransferPumpOwnership(Core.LobbyPumpOwner.Native);
+                RmlUiPrototype.PresentLobby(nativeLobby.Snapshot());
+                if (!RmlUiPrototype.EnterLobby(window, nativeLobby.Snapshot().Context?.ServerName,
+                        nativeLobby.Snapshot().Context?.Endpoint))
+                {
+                    OpenLegacyRmlLobby();
+                    return;
+                }
+                RmlUiPrototype.Show();
+                return;
+            }
+#endif
             if (_front != null)
             {
                 UiSurface.Current?.Show(_front);
                 _front.ResumeLobby();
-#if MPHREAD_RMLUI_POC
-                if (RmlUiPrototype.Requested)
-                    _front.TryShowRmlLobby(window);
-#endif
             }
         }
 
@@ -960,6 +1055,24 @@ namespace MphRead.Mods.Launcher.Gui
             NetSession.Stop();
             NetHostSession.Stop();
             MatchStart.AfterMatch();
+#if MPHREAD_RMLUI_POC
+            ReleaseRmlLobby();
+            if (TryRestoreRmlHome(window))
+            {
+                if (_nativeReturnTheatre != null)
+                {
+                    _nativeReturnTheatre.ResumeAfterPlayback();
+                    OpenNativePage(Core.LauncherPage.Theatre);
+                }
+                else if (_played?.Kind == LaunchKind.AimTrainer && _focusTrainingOnReturn)
+                {
+                    OpenNativePage(Core.LauncherPage.Offline);
+                    _nativeOffline?.FocusTraining();
+                }
+                _focusTrainingOnReturn = false;
+                return;
+            }
+#endif
             ShowFrontScreen();
             if (_played?.Kind == LaunchKind.AimTrainer) _front?.OpenTraining(_focusTrainingOnReturn);
             _focusTrainingOnReturn = false;
@@ -1020,6 +1133,9 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal static bool OpenPauseMenu()
         {
+#if MPHREAD_RMLUI_POC
+            if (OpenNativePause()) return true;
+#endif
             UiSurface? surface = UiSurface.Ensure();
             if (surface == null)
             {
@@ -1044,6 +1160,9 @@ namespace MphRead.Mods.Launcher.Gui
         /// <summary>Take it down and give the match its input back.</summary>
         internal static void CloseMenu()
         {
+#if MPHREAD_RMLUI_POC
+            if (CloseNativePause()) return;
+#endif
             if (_menu == null)
             {
                 return;
@@ -1114,6 +1233,10 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal static void AfterDraw(RenderWindow window)
         {
+#if MPHREAD_RMLUI_POC
+            if (RmlUiPrototype.Visible && HasNativeHunterPreview)
+                DrawNativeHunterPreview(window, window.FramebufferSize.X, window.FramebufferSize.Y);
+#endif
             if (Interlocked.Exchange(ref _firstFrameStarted, 1) == 0)
             {
                 LifecycleTiming.FirstFrame();
@@ -1146,6 +1269,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static void StartBackgroundStartupWork()
         {
+            if (LauncherUiPerformance.Enabled) return;
             var cancel = new CancellationTokenSource();
             CancellationTokenSource? previous = Interlocked.Exchange(
                 ref _startupWorkCancel, cancel);
@@ -1909,7 +2033,8 @@ namespace MphRead.Mods.Launcher.Gui
         public static void PointerMoved(double x, double y)
         {
 #if MPHREAD_RMLUI_POC
-            if (RmlUiPrototype.Active) { RmlUiPrototype.PointerMoved(x, y); return; }
+            if (RmlUiPrototype.Visible && NativeHudMove(x, y)) return;
+            if (RmlUiPrototype.Visible) { _nativePlayback?.Viewport.PointerMoveInWindow(x, y); RmlUiPrototype.PointerMoved(x, y); return; }
 #endif
             UiSurface.Current?.PointerMoved(x, y);
         }
@@ -1917,7 +2042,10 @@ namespace MphRead.Mods.Launcher.Gui
         public static void PointerButton(MouseButton button, double x, double y, bool down)
         {
 #if MPHREAD_RMLUI_POC
-            if (RmlUiPrototype.Active) { RmlUiPrototype.PointerButton(button, x, y, down); return; }
+            if (RmlUiPrototype.Visible && down && _nativeSettings?.TryCaptureMouse(button) == true) return;
+            if (RmlUiPrototype.Visible && NativeHudPointer(button, x, y, down)) return;
+            if (RmlUiPrototype.Visible && NativeReplayPointer(button, x, y, down)) return;
+            if (RmlUiPrototype.Visible) { RmlUiPrototype.PointerButton(button, x, y, down); return; }
 #endif
             UiSurface? surface = UiSurface.Current;
             if (surface == null)
@@ -1935,7 +2063,8 @@ namespace MphRead.Mods.Launcher.Gui
         public static void PointerWheel(double deltaX, double deltaY)
         {
 #if MPHREAD_RMLUI_POC
-            if (RmlUiPrototype.Active) { RmlUiPrototype.PointerWheel(deltaX, deltaY); return; }
+            if (RmlUiPrototype.Visible && _nativeSettings?.TryCaptureWheel((float)deltaY) == true) return;
+            if (RmlUiPrototype.Visible) { RmlUiPrototype.PointerWheel(deltaX, deltaY); return; }
 #endif
             UiSurface.Current?.PointerWheel(deltaX, deltaY);
         }
@@ -1943,7 +2072,12 @@ namespace MphRead.Mods.Launcher.Gui
         public static void KeyDown(KeyboardKeyEventArgs e)
         {
 #if MPHREAD_RMLUI_POC
-            if (RmlUiPrototype.Active) { RmlUiPrototype.KeyDown(e); return; }
+            if (RmlUiPrototype.Visible && _nativeSettings?.TryCaptureKey(e.Key) == true) return;
+            if (RmlUiPrototype.Visible && _nativeHud?.KeyDown(e.Key, RmlUi.Host.RmlUiDesktopInput.Modifiers(e)) == true)
+            { TickNativeSettings(); return; }
+            if (RmlUiPrototype.Visible && _nativePlayback?.Viewport.KeyDown(e.Key) == true) return;
+            if (RmlUiPrototype.Visible && NativeReplayShortcut(e.Key, RmlUi.Host.RmlUiDesktopInput.Modifiers(e))) return;
+            if (RmlUiPrototype.Visible) { RmlUiPrototype.KeyDown(e); return; }
 #endif
             UiSurface.Current?.KeyDown(e.Key, Modifiers(e));
         }
@@ -1951,7 +2085,8 @@ namespace MphRead.Mods.Launcher.Gui
         public static void KeyUp(KeyboardKeyEventArgs e)
         {
 #if MPHREAD_RMLUI_POC
-            if (RmlUiPrototype.Active) { RmlUiPrototype.KeyUp(e); return; }
+            if (RmlUiPrototype.Visible && _nativePlayback?.Viewport.KeyUp(e.Key) == true) return;
+            if (RmlUiPrototype.Visible) { RmlUiPrototype.KeyUp(e); return; }
 #endif
             UiSurface.Current?.KeyUp(e.Key, Modifiers(e));
         }
@@ -1959,7 +2094,7 @@ namespace MphRead.Mods.Launcher.Gui
         public static void TextInput(string text)
         {
 #if MPHREAD_RMLUI_POC
-            if (RmlUiPrototype.Active) { RmlUiPrototype.TextInput(text); return; }
+            if (RmlUiPrototype.Visible) { RmlUiPrototype.TextInput(text); return; }
 #endif
             UiSurface.Current?.TextInput(text);
         }

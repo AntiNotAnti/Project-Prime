@@ -48,7 +48,7 @@ namespace MphRead.Droid
     /// Presentation may run above 60 Hz; its deadline follows the selected
     /// frame cap and the active display's pacing policy.
     /// </summary>
-    internal sealed class GameView : SurfaceView, ISurfaceHolderCallback
+    internal sealed partial class GameView : SurfaceView, ISurfaceHolderCallback
     {
         private readonly RenderLoop _loop;
 
@@ -60,6 +60,7 @@ namespace MphRead.Droid
         {
             _loop = new RenderLoop(controls, input, build, onEnd, onLoaded, onError,
                 onPauseMenu, onSoftKeyboard);
+            InitializeNativeInput(context);
             Holder?.AddCallback(this);
             // So this view can receive key events at all: from a keyboard
             // plugged into the phone, from one paired over Bluetooth, from the
@@ -77,7 +78,7 @@ namespace MphRead.Droid
         /// </summary>
         public override bool OnCheckIsTextEditor()
         {
-            return MphRead.Mods.Chat.ChatBox.Composing;
+            return NativeTextEditor || MphRead.Mods.Chat.ChatBox.Composing;
         }
 
         /// <summary>
@@ -95,6 +96,7 @@ namespace MphRead.Droid
         /// </summary>
         public override IInputConnection? OnCreateInputConnection(EditorInfo? outAttrs)
         {
+            if (NativeConnection(outAttrs) is { } native) return native;
             if (outAttrs != null)
             {
                 outAttrs.InputType = InputTypes.Null;
@@ -122,6 +124,7 @@ namespace MphRead.Droid
 
         public override bool OnKeyDown(Keycode keyCode, KeyEvent? e)
         {
+            if (NativeKey(keyCode, e, true)) return true;
             // The pad first: its buttons are their own key codes and overlap
             // nothing a keyboard sends, so this only ever claims events a
             // keyboard could not have produced. A fallback in practice --
@@ -143,6 +146,7 @@ namespace MphRead.Droid
 
         public override bool OnKeyUp(Keycode keyCode, KeyEvent? e)
         {
+            if (NativeKey(keyCode, e, false)) return true;
             if (GamepadBridge.HandleKey(keyCode, e, down: false))
             {
                 return true;
@@ -162,7 +166,7 @@ namespace MphRead.Droid
         /// </summary>
         public override bool OnGenericMotionEvent(MotionEvent? e)
         {
-            return GamepadBridge.HandleMotion(e) || base.OnGenericMotionEvent(e);
+            return GamepadBridge.HandleMotion(e) || NativeGeneric(e) || base.OnGenericMotionEvent(e);
         }
 
         /// <summary>
@@ -306,7 +310,7 @@ namespace MphRead.Droid
         /// The GL context, the thread that owns it, and the game loop that
         /// runs on it.
         /// </summary>
-        private sealed class RenderLoop
+        private sealed partial class RenderLoop
         {
             /// <summary>
             /// Density-independent pixels of drag per unit of mouse movement.
@@ -429,6 +433,7 @@ namespace MphRead.Droid
 
             public void SetPaused(bool paused)
             {
+                if (paused) LoseNativeFocus();
                 lock (_lock)
                 {
                     if (_paused == paused)
@@ -470,6 +475,7 @@ namespace MphRead.Droid
 
             public void SurfaceGone()
             {
+                LoseNativeFocus();
                 lock (_lock)
                 {
                     _holder = null;
@@ -537,6 +543,8 @@ namespace MphRead.Droid
                                 Console.WriteLine($"[android] surface teardown failed: {ex}");
                             }
                             bool nativeAvailable = NativeCleanupAvailable();
+                            try { ReleaseNativeUi(nativeAvailable); }
+                            catch (Exception ex) { retirementFailure ??= ex; Console.WriteLine($"[android] native UI teardown failed: {ex}"); }
                             Exception? sceneFailure = CleanupScene(nativeAvailable);
                             retirementFailure ??= sceneFailure;
                             try { CleanupSession(nativeAvailable); }
@@ -1235,6 +1243,7 @@ namespace MphRead.Droid
                 MphRead.Mods.Render.LowLatencyController.WaitForFrame(latencyFrame);
                 long allocatedStart = GC.GetAllocatedBytesForCurrentThread();
                 ApplySpectatorRequest();
+                UpdateNativeUi();
                 GameState.ApplyPause();
                 int steps = MphRead.Mods.Network.NetSession.HoldLoadingFrame()
                     ? 0 : FrameTiming.Advance(elapsed);
@@ -1430,6 +1439,8 @@ namespace MphRead.Droid
 
             private void DrawUi()
             {
+                if (DrawNativeUi()) return;
+#if MPHREAD_AVALONIA
                 RefreshOverlayRenderer();
                 AndroidUiSurface? surface = AndroidUiSurface.Current;
                 SayUi();
@@ -1479,6 +1490,7 @@ namespace MphRead.Droid
                     MphRead.Scene.LauncherPreview = false;
                     MphRead.Scene.PreviewWanted = false;
                 }
+#endif
             }
 
             /// <summary>

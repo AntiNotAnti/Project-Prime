@@ -529,6 +529,7 @@ namespace MphRead.Mods.Render
                 ModernProgramKind.DeferredPbr => ModernProgramKind.DeferredPbr,
                 ModernProgramKind.DeferredPbrMrt => ModernProgramKind.DeferredPbrMrt,
                 ModernProgramKind.PostProcess => ModernProgramKind.PostProcess,
+                ModernProgramKind.LauncherChamber => ModernProgramKind.LauncherChamber,
                 ModernProgramKind.World => ModernProgramKind.World,
                 ModernProgramKind.Shift => ModernProgramKind.Shift,
                 ModernProgramKind.Cel => ModernProgramKind.Cel,

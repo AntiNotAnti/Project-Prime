@@ -15,10 +15,11 @@ using Avalonia.Threading;
 using MphRead.Mods.Chat;
 using MphRead.Mods.Network;
 using MphRead.Mods.Multiplayer;
+using MphRead.Mods.Launcher.Core;
 
 namespace MphRead.Mods.Launcher.Gui
 {
-    internal sealed class LobbyScreen : UserControl
+    internal sealed class LobbyScreen : UserControl, IDisposable
     {
         private static readonly MatchTypeDefinition[] _gameTypes = MatchTypeCatalog.GameTypes;
         private static readonly MatchupDefinition[] _matchups = MatchTypeCatalog.Matchups;
@@ -26,6 +27,7 @@ namespace MphRead.Mods.Launcher.Gui
         public event EventHandler<LaunchPlan>? MatchRequested;
         public event EventHandler? HubRequested;
         public event EventHandler<string>? Closed;
+        internal LobbySessionController Controller { get; }
 
         private readonly Grid _root = new();
         private readonly Control _mainPage;
@@ -80,10 +82,10 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly Image _preview = new() { Height = 124, Stretch = Stretch.UniformToFill };
         private readonly string[] _rooms;
         private readonly List<byte> _targetSlots = new();
+        private LobbySnapshot? _displayedRoster;
 
         private MatchDefinition? _shownMatch;
-        private MatchDefinition? _submittedMatch;
-        private LobbyRuleFlags _submittedRules;
+        private MatchDefinition? _submittedMatch => Controller.PendingRuleMatch;
         private ushort? _shownRevision;
         private uint? _shownRosterRevision;
         private int _chatRevision = -1, _rosterCount;
@@ -92,15 +94,23 @@ namespace MphRead.Mods.Launcher.Gui
         private string _draftRoom = "";
         private string _teamChoiceKey = "";
         private TeamLayout _customLayout = new(2, 2, 2);
-        private bool _syncing, _suspended, _closed, _draftDirty, _closingLobby, _startAfterSave, _matchRequestIssued;
+        private bool _syncing, _draftDirty;
+        private bool _suspended => Controller.IsSuspended;
+        private bool _closed => Controller.IsClosed;
         private bool _saveFailed, _goalCustomized;
         private GameMode _goalMode = GameMode.Battle;
-        private uint _draftVersion, _submittedDraftVersion;
+        private uint _draftVersion;
         private double _draftChangedAt;
         private Bitmap? _bitmap;
+        private bool _disposed;
 
-        public LobbyScreen(IReadOnlyList<string> rooms, MphRead.Mods.Launcher.LobbyContext? context = null)
+        public LobbyScreen(IReadOnlyList<string> rooms, MphRead.Mods.Launcher.LobbyContext? context = null,
+            LobbySessionController? controller = null)
         {
+            Controller = controller ?? new LobbySessionController(context);
+            Controller.MatchRequested += ControllerMatchRequested;
+            Controller.Closed += ControllerClosed;
+            Controller.RulesConfirmed += ControllerRulesConfirmed;
             _rooms = rooms.ToArray();
             Focusable = true;
 
@@ -114,8 +124,8 @@ namespace MphRead.Mods.Launcher.Gui
             _team.Changed += (_, _) =>
             {
                 if (!_syncing && NetSession.LocalSlot >= 0)
-                    NetSession.SendLobbyCommand(LobbyCommandType.SetTeam, (byte)NetSession.LocalSlot,
-                        (sbyte)(_team.Index - 1));
+                    Controller.Dispatch(DisplayedTargetIntent(LobbyIntentKind.SetTeam, (byte)NetSession.LocalSlot) with
+                        { Team = (sbyte)(_team.Index - 1) });
             };
 
             _map = new PickRow("Map");
@@ -220,8 +230,8 @@ namespace MphRead.Mods.Launcher.Gui
                 if (target == byte.MaxValue) return;
                 byte reduction = (byte)Math.Clamp(_handicap.Index * PlayerHandicap.Step,
                     0, PlayerHandicap.MaxDamageReduction);
-                NetSession.SendLobbyCommand(LobbyCommandType.SetHandicap, target,
-                    damageReduction: reduction);
+                Controller.Dispatch(DisplayedTargetIntent(LobbyIntentKind.SetHandicap, target) with
+                    { DamageReduction = reduction });
             };
 
             // Team management is a one-click action now. The previous flow was:
@@ -254,7 +264,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             administration.Children.Add(teamButtons);
 
-            administration.Children.Add(new Expander { Header = "MANAGE BOTS", Content = new BotManagementView() });
+            administration.Children.Add(new Expander { Header = "MANAGE BOTS", Content = new BotManagementView(Controller) });
             administration.Children.Add(LobbySubhead("LOBBY CONTROL"));
             var adminButtons = new Grid
             {
@@ -272,9 +282,8 @@ namespace MphRead.Mods.Launcher.Gui
 
             _closeLobby = SmallButton("CLOSE LOBBY", () => Confirm("CLOSE LOBBY FOR EVERYONE?", () =>
             {
-                if (NetSession.SendLobbyCommand(LobbyCommandType.CloseLobby))
+                if (Controller.Dispatch(Controller.Intent(LobbyIntentKind.CloseLobby)).Accepted)
                 {
-                    _closingLobby = true;
                     _status.Text = "Closing lobby...";
                 }
             }), HubTheme.Danger);
@@ -332,9 +341,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             _ready = ActionButton("READY", () =>
             {
-                if (NetSession.LocalSlot >= 0)
-                    NetSession.SendLobbyCommand(LobbyCommandType.SetReady,
-                        ready: !NetSession.SlotLobbyReady[NetSession.LocalSlot]);
+                Controller.Dispatch(Controller.Intent(LobbyIntentKind.ToggleReady));
             }, accent: HubTheme.Accent);
             ControllerNav.Identify(_ready, "lobby.ready");
 
@@ -344,7 +351,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             _spectatorRole = ActionButton("", () =>
             {
-                SpectatorMode.SetSessionPreference(!SpectatorMode.PreferSpectator);
+                Controller.Dispatch(Controller.Intent(LobbyIntentKind.ToggleSpectator));
                 RefreshSpectatorRole();
             }, accent: HubTheme.Accent);
             ControllerNav.Identify(_spectatorRole, "lobby.spectator-role");
@@ -446,7 +453,8 @@ namespace MphRead.Mods.Launcher.Gui
             Grid.SetRow(chatBody, 1); comms.Children.Add(chatBody);
             Grid.SetRow(_status, 2); comms.Children.Add(_status);
             _start.MinHeight = 64;
-            _retryMap = new PrimeButton("RETRY MAP DOWNLOAD", NetSession.RetryMapPreparation);
+            _retryMap = new PrimeButton("RETRY MAP DOWNLOAD", () =>
+                Controller.Dispatch(Controller.Intent(LobbyIntentKind.RetryMap)));
             var sessionActions = PrimeChrome.Stack(_start, _ready, _spectatorRole, _retryMap,
                 PrimeChrome.Columns("*,*,*", new PrimeButton("INVITE", Invite), _mainMenu, _leave));
             Grid.SetRow(sessionActions, 3); comms.Children.Add(sessionActions);
@@ -545,71 +553,11 @@ namespace MphRead.Mods.Launcher.Gui
 
         public void Resume()
         {
-            _suspended = false;
-            if (NetSession.IsInLobby) _matchRequestIssued = false;
+            Controller.Resume();
             _shownRevision = null;
         }
 
-        public void Suspend()
-        {
-            _suspended = true;
-        }
-
-#if MPHREAD_RMLUI_POC
-        // RmlUi is a presentation owner only. These entry points deliberately
-        // reuse the authoritative lobby command paths instead of maintaining a
-        // second lobby state machine beside this screen.
-        internal void RmlToggleReady()
-        {
-            if (_closed || !NetSession.IsInLobby || NetSession.LocalSlot < 0)
-                return;
-            NetSession.SendLobbyCommand(LobbyCommandType.SetReady,
-                ready: !NetSession.SlotLobbyReady[NetSession.LocalSlot]);
-        }
-
-        internal void RmlStartMatch()
-        {
-            if (_closed)
-                return;
-            StartMatchRequested();
-        }
-
-        internal void RmlLeave()
-        {
-            Leave("");
-        }
-
-        internal void RmlNextHunter()
-        {
-            if (_closed || !NetSession.IsInLobby || NetSession.LobbyCommandPending)
-                return;
-
-            bool lowTier = NetSession.ActiveMatchDefinition?.LowTier ?? false;
-            Hunter[] pool = Multiplayer.HunterRules.Pool(lowTier).ToArray();
-            if (pool.Length == 0)
-                return;
-
-            int current = Array.IndexOf(pool, NetSession.LocalHunter);
-            int next = current < 0 ? 0 : (current + 1) % pool.Length;
-            NetSession.LocalHunter = pool[next];
-            LauncherPrefs.LastHunter = NetSession.LocalHunter;
-            LauncherPrefs.Save();
-            NetSession.SendIdentify();
-            _shownRosterRevision = null;
-        }
-
-        internal void RmlNextSuit()
-        {
-            if (_closed || !NetSession.IsInLobby || NetSession.LobbyCommandPending)
-                return;
-
-            NetSession.LocalColor = (NetSession.LocalColor + 1) & 3;
-            LauncherPrefs.LastColor = NetSession.LocalColor;
-            LauncherPrefs.Save();
-            NetSession.SendIdentify();
-            _shownRosterRevision = null;
-        }
-#endif
+        public void Suspend() => Controller.Suspend();
 
         private void Invite()
         {
@@ -628,99 +576,75 @@ namespace MphRead.Mods.Launcher.Gui
 
         internal bool IsSuspended => _suspended;
 
+        // Presentation only. The coordinator/native host pumps the shared
+        // controller before requesting this visual refresh.
         internal void SessionTick(bool foreground)
         {
-            if (_closed || !CheckConnection()) return;
-            if (!_suspended) Tick(foreground);
+            if (_closed) return;
+            _saveFailed = Controller.Snapshot().RulesError.Length > 0;
+            if (!_suspended)
+            {
+                if (foreground) Refresh();
+                TryAutoApply();
+            }
             else if (NetSession.IsStarting) RefreshStartPresentation();
-            RequestMatchLoadIfNeeded();
         }
 
         internal void RefreshStartPresentation()
         {
-            if (!_closed && NetSession.ServerSession != null)
-                Refresh();
+            if (!_closed && NetSession.ServerSession != null) Refresh();
         }
 
-        public void Leave(string reason)
+        public void Leave(string reason) => Controller.Leave(reason);
+
+        private void ControllerClosed(object? sender, string reason)
         {
-            if (_closed) return;
-            _closed = true;
-            _bitmap?.Dispose();
-            NetSession.Stop();
-            NetHostSession.Stop();
+            ReleasePresentation();
             Closed?.Invoke(this, reason);
         }
 
-        private void Tick(bool foreground)
+        private void ReleasePresentation()
         {
-            if (_suspended || _closed) return;
-            if (!CheckConnection()) return;
-            if (foreground) Refresh();
-            if (_closingLobby && !NetSession.LobbyCommandPending
-                && NetSession.LobbyMessage.Length > 0)
-            {
-                // A denied close leaves the lobby alive. Keep the server's reason
-                // visible and restore normal disconnect semantics.
-                _closingLobby = false;
-            }
-            TryAutoApply();
-            if (_startAfterSave && !NetSession.LobbyCommandPending)
-            {
-                if (NetSession.LobbyMessage.Length > 0)
-                {
-                    _startAfterSave = false;
-                }
-                else if (NetSession.CanEditLobby)
-                {
-                    _startAfterSave = false;
-                    NetSession.SendLobbyCommand(LobbyCommandType.StartMatch);
-                }
-            }
-            RequestMatchLoadIfNeeded();
+            _preview.Source = null;
+            _arenaHero.SetArt(null);
+            _bitmap?.Dispose();
+            _bitmap = null;
+            Controller.MatchRequested -= ControllerMatchRequested;
+            Controller.Closed -= ControllerClosed;
+            Controller.RulesConfirmed -= ControllerRulesConfirmed;
         }
 
-        private bool CheckConnection()
+        internal void Retire()
         {
-            if (!NetSession.Refused && !NetSession.SessionTimedOut && NetSession.Active)
-                return true;
-
-            Leave(_closingLobby && !NetSession.Active
-                ? "Lobby closed."
-                : NetSession.Refused
-                    ? NetSession.RefusedReason.Describe("Server")
-                    : "The connection to the server was lost.");
-            return false;
+            if (_disposed) return;
+            _disposed = true;
+            ReleasePresentation();
+            Controller.Retire();
+            MatchRequested = null; HubRequested = null; Closed = null;
         }
 
-        private void RequestMatchLoadIfNeeded()
+        public void Dispose()
         {
-            if (_matchRequestIssued || !NetSession.ShouldLoadMatch) return;
+            if (_disposed) return;
+            _disposed = true;
+            ReleasePresentation();
+            Controller.Dispose();
+            MatchRequested = null; HubRequested = null; Closed = null;
+        }
 
-            // The coordinator hydrates a newly assigned lobby immediately. During
-            // join-in-progress that tick can arrive while StartScreen is still
-            // wiring the gameplay handoff. Do not consume the one-shot request
-            // until somebody is actually listening for it.
-            EventHandler<LaunchPlan>? handler = MatchRequested;
-            if (handler == null) return;
-
-            _matchRequestIssued = true;
-            _startAfterSave = false;
+        private void ControllerMatchRequested(object? sender, LaunchPlan plan)
+        {
             _status.Text = NetSession.IsPlaying
-                ? "Joining match in progress..."
-                : "Loading match... waiting for all players.";
+                ? "Joining match in progress..." : "Loading match... waiting for all players.";
             _ready.IsEnabled = false;
             _start.IsEnabled = false;
-            Suspend();
-            MatchDefinition match = NetSession.ActiveMatchDefinition!.Value;
-            handler.Invoke(this, new LaunchPlan
-            {
-                Kind = LaunchKind.Online,
-                Hunter = NetSession.LocalHunter,
-                PlayerName = NetSession.PlayerName,
-                RoomKey = match.RoomKey,
-                Mode = match.Mode
-            });
+            MatchRequested?.Invoke(this, plan);
+        }
+
+        private void ControllerRulesConfirmed(uint version, MatchDefinition match)
+        {
+            _saveFailed = false;
+            if (version == _draftVersion) _draftDirty = false;
         }
 
         private void RefreshSpectatorRole()
@@ -739,7 +663,7 @@ namespace MphRead.Mods.Launcher.Gui
         private void Refresh()
         {
             if (NetSession.ServerSession is not { } session) return;
-            AcceptSubmittedRules(session);
+            _displayedRoster = Controller.Snapshot();
             _syncing = true;
             RefreshHunterChoices(_draftDirty && NetSession.CanEditLobby ? _lowTier.On : session.Match.LowTier);
             _suit.Index = NetSession.LocalColor;
@@ -945,7 +869,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _chatRevision = NetChat.Revision;
                 _chat.Text = String.Join("\n", NetChat.History.TakeLast(12));
-                Dispatcher.UIThread.Post(() => _chatHistory.ScrollToEnd(), DispatcherPriority.Loaded);
+                Dispatcher.UIThread.Post(() => { if (!_closed) _chatHistory.ScrollToEnd(); }, DispatcherPriority.Loaded);
             }
 
             _syncing = false;
@@ -990,17 +914,13 @@ namespace MphRead.Mods.Launcher.Gui
         private void Identify()
         {
             if (_syncing || !NetSession.IsInLobby) return;
-            NetSession.LocalHunter = _allowedHunters[_hunter.Index];
-            NetSession.LocalColor = _suit.Index;
-            LauncherPrefs.LastHunter = NetSession.LocalHunter;
-            LauncherPrefs.LastColor = NetSession.LocalColor;
-            LauncherPrefs.Save();
-            NetSession.SendIdentify();
+            Controller.Dispatch(Controller.Intent(LobbyIntentKind.Identify) with
+                { Hunter = _allowedHunters[_hunter.Index], Color = (byte)_suit.Index });
         }
 
         private void SendChat()
         {
-            NetChat.Send(_chatEntry.Text ?? "");
+            Controller.Dispatch(Controller.Intent(LobbyIntentKind.SendChat) with { Text = _chatEntry.Text ?? "" });
             _chatEntry.Text = "";
         }
 
@@ -1008,6 +928,15 @@ namespace MphRead.Mods.Launcher.Gui
             _target.Index >= 0 && _target.Index < _targetSlots.Count
                 ? _targetSlots[_target.Index]
                 : byte.MaxValue;
+
+        private LobbyIntent DisplayedTargetIntent(LobbyIntentKind kind, byte target)
+        {
+            LobbyIntent intent = Controller.Intent(kind, target);
+            if (_displayedRoster is not { } displayed) return intent;
+            return intent with { ExpectedRevision = displayed.SessionRevision, ExpectedRosterRevision = displayed.RosterRevision,
+                TargetGeneration = displayed.Players.Where(player => player.Slot == target)
+                    .Select(player => player.Generation).FirstOrDefault() };
+        }
 
         private static bool CanChangePlayerTeam(SessionStatePacket session, byte slot) =>
             PlayerChoosesTeam(session.Match) && NetSession.IsInLobby && !NetSession.LobbyCommandPending
@@ -1019,7 +948,7 @@ namespace MphRead.Mods.Launcher.Gui
             var roster = NetSession.LobbyRoster();
             var layout = LobbyRules.ResolveTeamLayout(session.Match);
             if (LobbyPlayerRow.NextTeam(roster, slot, layout, direction) is { } team)
-                NetSession.SendLobbyCommand(LobbyCommandType.SetTeam, slot, team);
+                Controller.Dispatch(DisplayedTargetIntent(LobbyIntentKind.SetTeam, slot) with { Team = team });
             Refresh();
         }
 
@@ -1027,14 +956,15 @@ namespace MphRead.Mods.Launcher.Gui
         {
             byte target = SelectedTargetSlot();
             if (target != byte.MaxValue)
-                NetSession.SendLobbyCommand(LobbyCommandType.SetTeam, target, team);
+                Controller.Dispatch(DisplayedTargetIntent(LobbyIntentKind.SetTeam, target) with { Team = team });
         }
 
         private void Admin(LobbyCommandType type)
         {
             byte target = SelectedTargetSlot();
             if (target != byte.MaxValue)
-                NetSession.SendLobbyCommand(type, target, -1);
+                Controller.Dispatch(DisplayedTargetIntent(type == LobbyCommandType.TransferOwner
+                    ? LobbyIntentKind.TransferOwner : LobbyIntentKind.KickPlayer, target));
         }
 
         private void RefreshTeamOrganizer(SessionStatePacket session, RosterPacket roster,
@@ -1144,27 +1074,18 @@ namespace MphRead.Mods.Launcher.Gui
         private void StartMatchRequested()
         {
             if (!NetSession.CanEditLobby) return;
-            if (NetSession.LobbyCommandPending)
-            {
-                // Clicking Start can move focus out of a rule field, which sends
-                // its save just before this click handler runs. Queue the start
-                // behind that save instead of swallowing the click.
-                if (_submittedMatch != null)
-                    _startAfterSave = true;
-                return;
-            }
-            if (_draftDirty)
+            if (_draftDirty && _submittedMatch == null)
             {
                 if (!TryBuildMatch(out _, out string reason))
                 {
                     _layoutSummary.Text = reason;
                     return;
                 }
-                _startAfterSave = true;
                 TryAutoApply(force: true);
-                return;
+                if (_submittedMatch == null) return;
             }
-            NetSession.SendLobbyCommand(LobbyCommandType.StartMatch);
+            LobbyActionResult result = Controller.Dispatch(Controller.Intent(LobbyIntentKind.StartMatch));
+            if (!result.Accepted) _layoutSummary.Text = result.Message;
         }
 
         private void MatchChoiceChanged(bool resetGoal)
@@ -1216,6 +1137,7 @@ namespace MphRead.Mods.Launcher.Gui
             if (_syncing) return;
             _draftDirty = true;
             _saveFailed = false;
+            Controller.ClearRuleError();
             _draftVersion++;
             _draftChangedAt = NetSession.Clock;
             RefreshDraft();
@@ -1315,72 +1237,26 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void TryAutoApply(bool force = false)
         {
-            if (_submittedMatch != null)
-            {
-                // The command result and authoritative SessionState are separate
-                // UDP packets. Keep the draft alive until the server publishes
-                // the exact accepted rules, rather than letting an older state
-                // snap the controls back to its defaults while the save is in flight.
-                if (!NetSession.LobbyCommandPending && NetSession.LobbyMessage.Length > 0)
-                {
-                    _submittedMatch = null;
-                    _saveFailed = true;
-                }
-                else
-                {
-                    return;
-                }
-            }
+            if (_submittedMatch != null) return;
             if (_saveFailed && !force) return;
             if (force) _saveFailed = false;
             if (!_draftDirty || NetSession.LobbyCommandPending || !NetSession.CanEditLobby
                 || (!force && (_time.Box.IsFocused || _goal.Box.IsFocused))
-                || (!force && NetSession.Clock - _draftChangedAt < 0.35)
-                || NetSession.ServerSession is not { } config)
+                || (!force && NetSession.Clock - _draftChangedAt < 0.35))
                 return;
             if (!TryBuildMatch(out MatchDefinition match, out string reason))
             {
                 if (force) _layoutSummary.Text = reason;
                 return;
             }
-
-            config.Match = match;
-            config.RuleFlags = (match.HideOpponentHealth ? LobbyRuleFlags.HideOpponentHealth : 0)
+            LobbyRuleFlags flags = (match.HideOpponentHealth ? LobbyRuleFlags.HideOpponentHealth : 0)
                 | (_requireReady.On ? LobbyRuleFlags.RequireReady : 0)
                 | (_join.On ? LobbyRuleFlags.AllowJoinInProgress : 0)
                 | (PlayerChoosesTeam(match) && _lockTeams.On ? LobbyRuleFlags.LockTeams : 0);
-            if (NetSession.SendLobbyCommand(LobbyCommandType.UpdateMatch, configuration: config))
-            {
-                _submittedMatch = match;
-                _submittedRules = config.RuleFlags;
-                _submittedDraftVersion = _draftVersion;
-                _layoutSummary.Text = "Saving changes...";
-            }
-        }
-
-        private void AcceptSubmittedRules(SessionStatePacket session)
-        {
-            if (_submittedMatch is not { } submitted
-                || session.Match != submitted
-                || session.RuleFlags != _submittedRules)
-                return;
-
-            // Persist only after the server publishes the exact submitted match.
-            // This makes a completely new hosted/dedicated lobby start with the
-            // last accepted clock/goal instead of hardcoded 7:00/7 defaults.
-            LauncherPrefs.LastLobbyMode = submitted.Mode;
-            LauncherPrefs.LastLobbyTimeLimitSeconds = submitted.TimeLimitSeconds;
-            LauncherPrefs.LastLobbyGoal = submitted.PointGoal;
-            LauncherPrefs.Save();
-
-            _submittedMatch = null;
-            _saveFailed = false;
-            // A player can make a newer edit while the previous command is
-            // crossing the network. Only clear dirty for the exact draft that
-            // produced this authoritative state; otherwise the newer edit is
-            // still waiting to be saved.
-            if (_submittedDraftVersion == _draftVersion)
-                _draftDirty = false;
+            LobbyActionResult result = Controller.Dispatch(Controller.Intent(LobbyIntentKind.UpdateRules) with
+                { Match = match, RuleFlags = flags, DraftVersion = _draftVersion });
+            _layoutSummary.Text = result.Accepted ? "Saving changes..." : result.Message;
+            _saveFailed = !result.Accepted;
         }
 
         private void OpenMapPicker()
@@ -1462,7 +1338,7 @@ namespace MphRead.Mods.Launcher.Gui
             if (Overlays != null) { Overlays.Show(page); return; }
             _root.Children.Clear();
             _root.Children.Add(page);
-            Dispatcher.UIThread.Post(() => page.Focus(), DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(() => { if (!_closed) page.Focus(); }, DispatcherPriority.Background);
         }
 
         private void ClosePage()
@@ -1470,7 +1346,7 @@ namespace MphRead.Mods.Launcher.Gui
             if (Overlays != null) { Overlays.Close(); return; }
             _root.Children.Clear();
             _root.Children.Add(_mainPage);
-            Dispatcher.UIThread.Post(() => _map.Focus(), DispatcherPriority.Background);
+            Dispatcher.UIThread.Post(() => { if (!_closed) _map.Focus(); }, DispatcherPriority.Background);
         }
 
         private void SetPreview(string room)

@@ -26,6 +26,12 @@ namespace MphRead.Mods.Network
         public bool LobbyEnabled { get; init; }
         public bool AllowJoinInProgress { get; init; }
         public bool Online { get; init; }
+        /// <summary>
+        /// Server-instance identity published in MatchState. It changes when a
+        /// dedicated authority process restarts and is used by social invites
+        /// to reject stale endpoint reuse.
+        /// </summary>
+        public ulong AuthorityEpoch { get; init; }
         public string RoomKey
         {
             get => _roomKey ?? "";
@@ -38,6 +44,12 @@ namespace MphRead.Mods.Network
         public int MaxPlayers { get; init; }
         public bool WaitlistSupported { get; init; }
         public int WaitlistCount { get; init; }
+        /// <summary>
+        /// Unoccupied player seats temporarily held by queue offers or atomic
+        /// party reservations. These seats are not available to a new direct
+        /// join even though they are not yet counted as connected players.
+        /// </summary>
+        public int ReservedSlots { get; init; }
         public float TimeRemaining { get; init; }
         /// <summary>What the server calls itself, or an empty string.</summary>
         public string ServerName
@@ -289,6 +301,10 @@ namespace MphRead.Mods.Network
             string modifiers = new MatchDefinition { InstaGib = status.Rules.HasFlag(MatchModifierFlags.InstaGib),
                 LowTier = status.Rules.HasFlag(MatchModifierFlags.LowTier), NoImperialist = status.Rules.HasFlag(MatchModifierFlags.NoImperialist) }.ModifierSummary;
             if (modifiers.Length > 0) message += " · " + modifiers;
+            if (status.ReservedSlots > 0)
+                message += status.ReservedSlots == 1
+                    ? " · 1 seat reserved"
+                    : $" · {status.ReservedSlots} seats reserved";
             if (!String.IsNullOrEmpty(status.ServerName))
             {
                 // The name first: it is what the player recognises, and the
@@ -298,12 +314,14 @@ namespace MphRead.Mods.Network
             return new ServerStatus
             {
                 Online = true,
+                AuthorityEpoch = match.AuthorityEpoch,
                 RoomKey = match.RoomKey,
                 ServerName = status.ServerName ?? "",
                 Mode = mode, Rules = status.Rules,
                 Players = match.PlayerCount,
                 MaxPlayers = status.MaxPlayers,
                 WaitlistSupported = status.WaitlistSupported, WaitlistCount = status.WaitlistCount,
+                ReservedSlots = status.ReservedSlots,
                 TimeRemaining = match.TimeRemaining,
                 Latency = latency,
                 Legacy = legacy,

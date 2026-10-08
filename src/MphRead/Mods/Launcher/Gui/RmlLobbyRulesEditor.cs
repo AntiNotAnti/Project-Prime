@@ -5,6 +5,7 @@ using System.Linq;
 using MphRead.Mods.MapGen;
 using MphRead.Mods.Multiplayer;
 using MphRead.Mods.Network;
+using MphRead.Mods.Launcher.Core;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -21,6 +22,8 @@ namespace MphRead.Mods.Launcher.Gui
     {
         internal const int ToggleCount = 16;
         private readonly string[] _rooms;
+        private LobbySessionController? _controller;
+        private uint _draftVersion;
         private MatchDefinition _draft;
         private LobbyRuleFlags _flags;
         private MatchDefinition _baselineMatch;
@@ -39,8 +42,27 @@ namespace MphRead.Mods.Launcher.Gui
 
         internal bool IsOpen => _open;
 
-        internal RmlLobbyRulesEditor(IReadOnlyList<string> rooms)
+        internal void BindSession(LobbySessionController? controller)
         {
+            if (ReferenceEquals(_controller, controller)) return;
+            ResetSession();
+            _controller = controller;
+        }
+
+        private readonly Action<string, string> _setText;
+        private readonly Action<string, bool> _setBool;
+        private readonly Action<string, string> _setField;
+#if !ANDROID
+        internal RmlLobbyRulesEditor(IReadOnlyList<string> rooms)
+            : this(rooms, RmlUiPrototype.SetMenuText, RmlUiPrototype.SetMenuBool,
+                RmlUiPrototype.SetFieldValue) { }
+#endif
+        internal RmlLobbyRulesEditor(IReadOnlyList<string> rooms, Action<string, string> setText,
+            Action<string, bool> setBool, Action<string, string> setField)
+        {
+            _setText = setText ?? throw new ArgumentNullException(nameof(setText));
+            _setBool = setBool ?? throw new ArgumentNullException(nameof(setBool));
+            _setField = setField ?? throw new ArgumentNullException(nameof(setField));
             _rooms = rooms
                 .Where(room => !String.IsNullOrWhiteSpace(room))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -56,9 +78,9 @@ namespace MphRead.Mods.Launcher.Gui
             if (!_pending)
                 ResetFrom(session, "SERVER RULES LOADED");
             _publishPending = true;
-            RmlUiPrototype.SetMenuBool("lobby_rules_open", true);
-            RmlUiPrototype.SetFieldValue("rules_time", _timeText);
-            RmlUiPrototype.SetFieldValue("rules_goal", _goalText);
+            _setBool("lobby_rules_open", true);
+            _setField("rules_time", _timeText);
+            _setField("rules_goal", _goalText);
             Publish();
         }
 
@@ -66,7 +88,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _open = false;
             _dirty = false; // unsaved changes are discarded, not transmitted
-            RmlUiPrototype.SetMenuBool("lobby_rules_open", false);
+            _setBool("lobby_rules_open", false);
         }
 
         /// <summary>
@@ -76,12 +98,13 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal void ResetSession()
         {
+            _controller = null;
             if (!_open && !_pending && !_dirty) return;
             _open = false;
             _pending = false;
             _dirty = false;
             _publishPending = false;
-            RmlUiPrototype.SetMenuBool("lobby_rules_open", false);
+            _setBool("lobby_rules_open", false);
         }
 
         internal void Tick()
@@ -102,8 +125,8 @@ namespace MphRead.Mods.Launcher.Gui
                     _pending = false;
                     _dirty = false;
                     ResetFrom(session, "RULES SAVED // SERVER CONFIRMED");
-                    RmlUiPrototype.SetFieldValue("rules_time", _timeText);
-                    RmlUiPrototype.SetFieldValue("rules_goal", _goalText);
+                    _setField("rules_time", _timeText);
+                    _setField("rules_goal", _goalText);
                 }
                 else if (!NetSession.LobbyCommandPending
                     && !String.IsNullOrWhiteSpace(NetSession.LobbyMessage))
@@ -121,8 +144,8 @@ namespace MphRead.Mods.Launcher.Gui
             else if (!_dirty && (session.Match != _draft || session.RuleFlags != _flags))
             {
                 ResetFrom(session, "SERVER RULES UPDATED");
-                RmlUiPrototype.SetFieldValue("rules_time", _timeText);
-                RmlUiPrototype.SetFieldValue("rules_goal", _goalText);
+                _setField("rules_time", _timeText);
+                _setField("rules_goal", _goalText);
             }
 
             if (_open)
@@ -157,8 +180,8 @@ namespace MphRead.Mods.Launcher.Gui
             };
             _goalText = LobbyRuleEditValues.GoalText(mode, _draft.PointGoal);
             _timeText = LobbyRuleEditValues.DurationText(_draft.TimeLimitSeconds);
-            RmlUiPrototype.SetFieldValue("rules_goal", _goalText);
-            RmlUiPrototype.SetFieldValue("rules_time", _timeText);
+            _setField("rules_goal", _goalText);
+            _setField("rules_time", _timeText);
             MarkDirty();
         }
 
@@ -338,7 +361,8 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             int max = session.MaxPlayers;
-            int participants = NetSession.LobbyRoster().Count;
+            RosterPacket roster = NetSession.LobbyRoster();
+            int participants = Enumerable.Range(0, roster.Count).Count(i => !roster.IsSpectator(i));
             TeamLayout layout = LobbyRules.ResolveTeamLayout(match);
             if (layout.TeamCount > 0
                 && (layout.TotalPlayers < participants
@@ -371,13 +395,19 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
 
-            SessionStatePacket updated = session;
-            updated.Match = match;
-            updated.RuleFlags = flags;
-            if (!NetSession.SendLobbyCommand(LobbyCommandType.UpdateMatch,
-                configuration: updated))
+            if (_controller is not { } controller)
             {
-                SetStatus("LOBBY IS BUSY // RETRY WHEN SERVER ACKNOWLEDGES");
+                SetStatus("LOBBY SESSION IS NO LONGER ACTIVE");
+                return;
+            }
+            LobbyActionResult result = controller.Dispatch(controller.Intent(LobbyIntentKind.UpdateRules) with
+            {
+                ExpectedRevision = session.Revision, Match = match,
+                RuleFlags = flags, DraftVersion = ++_draftVersion
+            });
+            if (!result.Accepted)
+            {
+                SetStatus(result.Message);
                 return;
             }
 
@@ -464,19 +494,19 @@ namespace MphRead.Mods.Launcher.Gui
             _publishPending = false;
             // Owner identity must not flicker to guest while an UpdateMatch
             // packet is pending. CanEditLobby is transient; the role is not.
-            RmlUiPrototype.SetMenuBool("rules_owner", NetSession.LocalIsLobbyOwner);
-            RmlUiPrototype.SetMenuBool("rules_dirty", _dirty);
-            RmlUiPrototype.SetMenuBool("rules_pending", _pending);
-            RmlUiPrototype.SetMenuText("rules_map", _draft.RoomKey.ToUpperInvariant());
-            RmlUiPrototype.SetMenuText("rules_mode",
+            _setBool("rules_owner", NetSession.LocalIsLobbyOwner);
+            _setBool("rules_dirty", _dirty);
+            _setBool("rules_pending", _pending);
+            _setText("rules_map", _draft.RoomKey.ToUpperInvariant());
+            _setText("rules_mode",
                 MatchTypeCatalog.BaseLabel(_draft.Mode).ToUpperInvariant());
-            RmlUiPrototype.SetMenuText("rules_format",
+            _setText("rules_format",
                 MatchTypeCatalog.MatchupLabel(_draft.Mode, _draft.Format).ToUpperInvariant());
-            RmlUiPrototype.SetMenuText("rules_goal_label",
+            _setText("rules_goal_label",
                 LobbyRuleEditValues.GoalLabel(_draft.Mode));
-            RmlUiPrototype.SetMenuText("rules_status", _status.ToUpperInvariant());
+            _setText("rules_status", _status.ToUpperInvariant());
             for (int i = 0; i < ToggleCount; i++)
-                RmlUiPrototype.SetMenuText($"rules_toggle{i}", OnOff(i));
+                _setText($"rules_toggle{i}", OnOff(i));
         }
     }
 }

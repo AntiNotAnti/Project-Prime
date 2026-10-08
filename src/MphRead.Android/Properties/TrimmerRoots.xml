@@ -88,13 +88,13 @@
     <type fullname="MphRead.Mods.Launcher.HunterLicenseStats" preserve="all" />
     <type fullname="MphRead.Mods.Launcher.HunterLicenseMatch" preserve="all" />
     <type fullname="MphRead.Mods.Launcher.HunterLicenseCosmetic" preserve="all" />
-    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient+StoredSession" preserve="all" />
-    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient+AuthSession" preserve="all" />
-    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient+AuthUser" preserve="all" />
-    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient+AuthIdentity" preserve="all" />
-    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient+OAuthAuthorizeResponse" preserve="all" />
-    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient+CareerTicketResponse" preserve="all" />
-    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient+CommunityMapTicketResponse" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient/StoredSession" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient/AuthSession" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient/AuthUser" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient/AuthIdentity" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient/OAuthAuthorizeResponse" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient/CareerTicketResponse" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient/CommunityMapTicketResponse" preserve="all" />
   </assembly>
   <assembly fullname="OpenTK.Windowing.GraphicsLibraryFramework">
     <type fullname="OpenTK.Windowing.GraphicsLibraryFramework.KeyboardState" preserve="all" />

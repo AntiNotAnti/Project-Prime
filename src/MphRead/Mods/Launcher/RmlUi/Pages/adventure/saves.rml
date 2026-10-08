@@ -1,0 +1,54 @@
+<rml>
+<head>
+    <title>Adventure saves</title>
+    <link type="text/template" href="../../components/app-shell.rml" />
+    <link type="text/rcss" href="saves.rcss" />
+</head>
+<body template="prime-shell">
+    <div id="adventure_page">
+        <div class="adventure_header">
+            <div class="eyebrow">OPERATIONS // OFFLINE</div>
+            <h1 id="adventure_title">ADVENTURE RUNS</h1>
+            <p id="adventure_description">Explore the Alimbic Cluster and recover the Octoliths.</p>
+        </div>
+        <div class="adventure_columns">
+            <div class="adventure_panel adventure_slots">
+                <div class="eyebrow">SAVE SLOTS</div>
+                <button id="adventure_slot1" class="adventure_slot" data-action="adventure:slot:1">
+                    <span id="adventure_slot1_label">SLOT 01</span>
+                </button>
+                <button id="adventure_slot2" class="adventure_slot" data-action="adventure:slot:2">
+                    <span id="adventure_slot2_label">SLOT 02</span>
+                </button>
+                <button id="adventure_slot3" class="adventure_slot" data-action="adventure:slot:3">
+                    <span id="adventure_slot3_label">SLOT 03</span>
+                </button>
+                <button id="adventure_refresh" class="play_action wide" data-action="adventure:refresh">REFRESH SAVES</button>
+            </div>
+            <div class="adventure_panel adventure_details">
+                <div id="adventure_selected_slot" class="eyebrow">SAVE SLOT 01</div>
+                <div id="adventure_save_detail" />
+                <div class="play_form_label">HUNTER</div>
+                <button id="adventure_next_hunter" class="play_choice" data-action="adventure:next-hunter">
+                    <b id="adventure_hunter" /><span>CHANGE</span>
+                </button>
+                <p class="adventure_hint">Continue from the saved checkpoint, or begin a new expedition from Celestial Archives.</p>
+                <div class="adventure_actions">
+                    <button id="adventure_continue" class="play_action primary" data-action="adventure:continue">RESUME</button>
+                    <button id="adventure_new_run" class="play_action" data-action="adventure:new-run">+ NEW RUN</button>
+                </div>
+                <div id="adventure_launch_status" class="adventure_notice">PREPARING ADVENTURE...</div>
+            </div>
+        </div>
+        <div id="adventure_files_error" class="adventure_notice adventure_error">
+            <div id="adventure_file_problem" />
+            <button class="play_action" data-action="route:settings">SET UP GAME FILES</button>
+        </div>
+        <div id="adventure_error" class="adventure_notice adventure_error"><div id="adventure_error_text" /></div>
+        <div class="adventure_navigation">
+            <button id="adventure_back" class="play_action" data-action="route:offline">OFFLINE MODES</button>
+            <button class="play_action" data-action="route:home">HOME</button>
+        </div>
+    </div>
+</body>
+</rml>

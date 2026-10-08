@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+<PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><DefineConstants>$(DefineConstants);MPHREAD_SERVER</DefineConstants><MigrationRoot Condition="'$(MigrationRoot)' == ''">../..</MigrationRoot></PropertyGroup>
+<ItemGroup>
+<Compile Include="../../src/MphRead/Mods/Launcher/Core/SocialContracts.cs;../../src/MphRead/Mods/Launcher/Core/SocialController.cs" Link="Core/%(Filename)%(Extension)" />
+<Compile Include="$(MigrationRoot)/src/MphRead/Mods/Launcher/RmlUi/Host/*.cs" Exclude="$(MigrationRoot)/src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiLobbyBindings.cs" Link="Host/%(Filename)%(Extension)" />
+<Compile Include="../../src/MphRead/Mods/Launcher/RmlUi/Pages/social/SocialPagePresenter.cs" Link="SocialPagePresenter.cs" />
+<Compile Include="$(MigrationRoot)/src/MphRead/Mods/Launcher/Portable/RmlUiPointerMapping.cs" Link="RmlUiPointerMapping.cs" />
+<None Include="$(MigrationRoot)/src/MphRead/Mods/Launcher/RmlUi/Assets/prime_home.*" Link="rmlui/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+<None Include="$(MigrationRoot)/src/MphRead/Mods/Launcher/RmlUi/Pages/**/*.rml;$(MigrationRoot)/src/MphRead/Mods/Launcher/RmlUi/Pages/**/*.rcss" Exclude="$(MigrationRoot)/src/MphRead/Mods/Launcher/RmlUi/Pages/social/**" Link="rmlui/pages/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+<None Include="../../src/MphRead/Mods/Launcher/RmlUi/Pages/social/*.rml;../../src/MphRead/Mods/Launcher/RmlUi/Pages/social/*.rcss" Link="rmlui/pages/social/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+<None Include="$(MigrationRoot)/src/MphRead/Mods/Launcher/RmlUi/Components/**/*.rml;$(MigrationRoot)/src/MphRead/Mods/Launcher/RmlUi/Components/**/*.rcss" Link="rmlui/components/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+<None Include="$(MigrationRoot)/src/MphRead/Mods/Launcher/RmlUi/Themes/**/*.rcss" Link="rmlui/themes/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+<None Include="$(MigrationRoot)/src/MphRead/Assets/Fonts/Rajdhani-*.ttf;$(MigrationRoot)/src/MphRead/Assets/Fonts/JetBrainsMono-Regular.ttf" Link="rmlui/fonts/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+</ItemGroup></Project>

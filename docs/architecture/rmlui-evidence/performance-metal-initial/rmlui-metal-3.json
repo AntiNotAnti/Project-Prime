@@ -1,0 +1,82 @@
+{
+  "format": 1,
+  "mode": "RmlUi",
+  "platform": "macOS 27.0.0",
+  "architecture": "Arm64",
+  "logicalProcessors": 12,
+  "width": 2560,
+  "height": 1440,
+  "firstPresentationFromProcessStartMs": 877.2768,
+  "warmupSeconds": 5,
+  "sampleSeconds": 20.0056774,
+  "frames": 1172,
+  "framesPerSecond": 58.58336993877548,
+  "processCpuSeconds": 5.912234,
+  "processCpuPercentOfOneCore": 29.552780852099513,
+  "processCpuPercentOfMachine": 2.4627317376749596,
+  "totalUiFrame": {
+    "count": 1172,
+    "meanMs": 0.4873209897610921,
+    "p50Ms": 0.4168,
+    "p95Ms": 1.2456,
+    "maxMs": 2.5069999999999997
+  },
+  "update": {
+    "count": 1172,
+    "meanMs": 0.32794931740614375,
+    "p50Ms": 0.2798,
+    "p95Ms": 0.9119,
+    "maxMs": 1.4215
+  },
+  "render": {
+    "count": 1172,
+    "meanMs": 0.1593716723549489,
+    "p50Ms": 0.1331,
+    "p95Ms": 0.4688,
+    "maxMs": 1.0855
+  },
+  "bitmapUpload": {
+    "count": 0,
+    "meanMs": null,
+    "p50Ms": null,
+    "p95Ms": null,
+    "maxMs": null
+  },
+  "redraws": 1172,
+  "redrawsPerSecond": 58.58336993877548,
+  "bitmapUploads": 0,
+  "bitmapUploadBytes": 0,
+  "managedAllocatedBytes": 60332056,
+  "processWorkingSetBytes": 369033216,
+  "processPrivateBytes": 0,
+  "backend": "Metal",
+  "frameRateCap": 60,
+  "gpuResources": {
+    "Textures": 5,
+    "Renderbuffers": 0,
+    "Geometry": 3,
+    "Pipelines": 25,
+    "Programs": 5,
+    "Lists": 3,
+    "Views": 5,
+    "Samplers": 4,
+    "Buffers": 29,
+    "ShaderModules": 18,
+    "BindGroups": 92,
+    "Surfaces": 1,
+    "QuerySets": 0
+  },
+  "rmlGpuResources": {
+    "Geometry": 61,
+    "Buffers": 122,
+    "BufferCapacityBytes": 126456,
+    "Textures": 17,
+    "TextureCapacityBytes": 4030464,
+    "StencilTextures": 1,
+    "EstimatedStencilBytes": 14745600,
+    "Pipelines": 1,
+    "ShaderModules": 1
+  },
+  "scope": "Production launcher UI update (including IME/accessibility) and native draw or Avalonia bitmap redraw/upload; full-process idle CPU includes scene/background services. Diagnostic runs disable SocialRuntime account/presence start and automatic updater network requests; IME and accessibility stay enabled.",
+  "storageNote": "Tracked native resource capacity is not driver residency or total VRAM. GPU completion time is not inferred from CPU submission time."
+}

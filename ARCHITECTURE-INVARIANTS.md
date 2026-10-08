@@ -6,9 +6,11 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **43** (`NetConfig.ProtocolVersion`). Protocol 42
+- The current wire protocol is **44** (`NetConfig.ProtocolVersion`). Protocol 42
   was the Studio migration baseline; protocol 43 adds owner-authored Samus Morph
-  Ball touch semantics without increasing the intent packet width.
+  Ball touch semantics without increasing the intent packet width. Protocol 44
+  combines those semantics with authoritative party reservation queue controls
+  and the reserved-capacity status tail.
 - Protocol mismatches are refused during the Hello handshake. Do not make incompatible wire or simulation changes without a protocol bump.
 - Dated protocol 6/7/8 measurements in `.claude/` are historical A/B evidence, not the current architecture.
 

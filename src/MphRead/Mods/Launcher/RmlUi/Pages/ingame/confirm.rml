@@ -1,0 +1,3 @@
+<rml><head><link type="text/rcss" href="../../components/controls.rcss"/><title>Confirm match action</title><link type="text/rcss" href="../../themes/prime.rcss"/><link type="text/rcss" href="match.rcss"/></head>
+<body class="confirmation"><div class="match-panel"><h2 id="ingame_question"/><p id="ingame_confirmation_error" class="error"/>
+<button id="ingame_cancel" data-action="ingame:cancel">CANCEL</button><button class="danger" data-action="ingame:confirm">CONFIRM</button></div></body></rml>

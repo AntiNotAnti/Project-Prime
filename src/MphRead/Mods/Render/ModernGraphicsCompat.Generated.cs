@@ -42,7 +42,8 @@ namespace MphRead.Mods.Render
 
         private static bool UsesGeneratedShader(ModernProgramKind kind) =>
             kind is ModernProgramKind.World or ModernProgramKind.DeferredPbr
-                or ModernProgramKind.DeferredPbrMrt or ModernProgramKind.PostProcess;
+                or ModernProgramKind.DeferredPbrMrt or ModernProgramKind.PostProcess
+                or ModernProgramKind.LauncherChamber;
 
         internal static void ValidateGeneratedShaders()
         {

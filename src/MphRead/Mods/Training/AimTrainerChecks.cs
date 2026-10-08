@@ -3,7 +3,7 @@ using System.IO;
 using MphRead.Entities;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Input;
-#if MPHREAD_SHELL
+#if MPHREAD_SHELL && MPHREAD_AVALONIA
 using Avalonia.Controls;
 #endif
 using MphRead.Mods.Network;
@@ -108,7 +108,7 @@ public static class AimTrainerChecks
             check(trainer.Completed && trainer.Stats.ElapsedFrames == 900 && trainer.Stats.ShotsMissed == 1, "timer completes exactly and resolves pending misses");
             int score = trainer.Stats.Score; trainer.ProcessFrame(); target.TakeDamage(10, DamageFlags.Headshot, null, beam);
             check(score == trainer.Stats.Score && trainer.Stats.ElapsedFrames == 900, "completed run is immutable");
-#if MPHREAD_SHELL
+#if MPHREAD_SHELL && MPHREAD_AVALONIA
             if (shots != null)
             {
                 Directory.CreateDirectory(shots);

@@ -339,7 +339,7 @@ namespace MphRead.Mods.Input
                 PadBindings.Set(PadAction.Shoot, GamepadButtons.Y);
                 Check(GamepadProbe.Actions(GamepadButtons.Y).Contains("Fire / alt attack"), "probe uses remapped actions");
                 CheckPersistence();
-#if MPHREAD_SHELL
+#if MPHREAD_SHELL && MPHREAD_AVALONIA
                 Launcher.Gui.GamepadUiChecks.Run(shots);
 #endif
                 Console.WriteLine($"[gamepadcheck] PASS: {_checks} deterministic checks");

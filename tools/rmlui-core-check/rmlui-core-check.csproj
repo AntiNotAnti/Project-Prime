@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/MphRead/Mods/Launcher/RmlUi/Host/*.cs" Link="Host/%(Filename)%(Extension)" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/RmlUiPointerMapping.cs" Link="RmlUiPointerMapping.cs" />
+    <Compile Include="../rmlui-runtime-check/NativeHostCheck.cs" Link="NativeHostCheck.cs" />
+    <Compile Include="../rmlui-runtime-check/NativeScheduleCheck.cs" Link="NativeScheduleCheck.cs" />
+    <None Include="../../src/MphRead/Mods/Launcher/RmlUi/Pages/**/*" Link="rmlui/pages/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/MphRead/Mods/Launcher/RmlUi/Themes/**/*" Link="rmlui/themes/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/MphRead/Mods/Launcher/RmlUi/Components/**/*" Link="rmlui/components/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/MphRead/Mods/Launcher/RmlUi/Assets/**/*" Link="rmlui/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/MphRead/Assets/Fonts/Rajdhani-*.ttf;../../src/MphRead/Assets/Fonts/JetBrainsMono-Regular.ttf;../../src/MphRead/Assets/Fonts/Rajdhani-OFL.txt;../../src/MphRead/Assets/Fonts/JetBrainsMono-OFL.txt" Link="rmlui/fonts/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

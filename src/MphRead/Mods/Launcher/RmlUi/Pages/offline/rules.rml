@@ -1,0 +1,40 @@
+<rml>
+<head>
+    <title>Offline match rules</title>
+    <link type="text/template" href="../../components/dialog.rml" />
+    <link type="text/rcss" href="offline.rcss" />
+</head>
+<body template="prime-dialog">
+    <div class="offline_dialog">
+        <h1>MATCH RULES</h1>
+        <p>Apply saves the rules for future local matches. Cancel discards this draft.</p>
+        <div class="offline_rule_columns">
+            <div class="offline_panel">
+                <div id="offline_point_goal_row" class="offline_field"><label for="offline_point_goal">Point goal (0–999)</label><input id="offline_point_goal" type="text" maxlength="3" /></div>
+                <div id="offline_time_limit_row" class="offline_field"><label for="offline_time_limit">Time limit (m:ss)</label><input id="offline_time_limit" type="text" maxlength="5" /></div>
+                <div id="offline_time_goal_row" class="offline_field"><label for="offline_time_goal">Time goal (m:ss)</label><input id="offline_time_goal" type="text" maxlength="5" /></div>
+                <div id="offline_chamber_help">3 lives // Last player standing. One lethal shot. Kills earn ammo.</div>
+                <button id="offline_damage_value" class="offline_action" data-action="offline:damage" />
+            </div>
+            <div class="offline_panel">
+                <button id="offline_rule_1" class="offline_action" data-action="offline:rule:1" />
+                <button id="offline_rule_2" class="offline_action" data-action="offline:rule:2" />
+                <button id="offline_rule_3" class="offline_action" data-action="offline:rule:3" />
+                <button id="offline_rule_4" class="offline_action" data-action="offline:rule:4" />
+                <button id="offline_rule_5" class="offline_action" data-action="offline:rule:5" />
+                <button id="offline_rule_11" class="offline_action" data-action="offline:rule:11" />
+            </div>
+            <div class="offline_panel">
+                <button id="offline_rule_10" class="offline_action" data-action="offline:rule:10" />
+                <button id="offline_rule_6" class="offline_action" data-action="offline:rule:6" />
+                <button id="offline_rule_7" class="offline_action" data-action="offline:rule:7" />
+                <button id="offline_rule_8" class="offline_action" data-action="offline:rule:8" />
+                <button id="offline_rule_9" class="offline_action" data-action="offline:rule:9" />
+                <button id="offline_rule_0" class="offline_action" data-action="offline:rule:0" />
+            </div>
+        </div>
+        <div id="offline_rules_error" class="offline_error" />
+        <div class="offline_actions"><button id="offline_rules_cancel" data-action="offline:cancel-rules" class="offline_action">CANCEL</button><button id="offline_rules_apply" data-action="offline:apply-rules" class="offline_action primary">APPLY RULES</button></div>
+    </div>
+</body>
+</rml>

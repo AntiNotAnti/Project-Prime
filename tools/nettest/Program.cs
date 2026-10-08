@@ -28,6 +28,9 @@ namespace MphRead.NetTest
 
         private static int Main(string[] args)
         {
+            // Admission conformance must never acquire a real identity ticket
+            // or write a production profile through the normal client handshake.
+            NetSession.IdentityTicketSourceForChecks = (uint _, out string ticket) => { ticket = ""; return false; };
             if (args.Length > 0 && args[0] == "--authority-policy") return NetworkAuthorityPolicyCheck.Run();
             if (args.Length > 0 && args[0] == "--transport-lifecycle") return TransportLifecycleTests.Run();
             if (args.Length > 0 && args[0] == "--movement-network") return NetMovementCheck.Run(args.Length > 1 ? args[1] : null);

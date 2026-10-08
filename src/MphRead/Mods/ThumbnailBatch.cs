@@ -152,11 +152,16 @@ namespace MphRead.Mods
                     bool allExited = true;
                     foreach (Process proc in running)
                     {
-                        if (!proc.HasExited) { allExited = false; continue; }
-                        if (proc.ExitCode != 0)
+                        lock (proc)
                         {
-                            ThumbnailLog.Write($"worker {proc.Id} exited with code {proc.ExitCode}");
-                            abnormalExit = true;
+                            lock (_processLock)
+                                if (_exiting || !_activeWorkers.Contains(proc)) { abnormalExit = true; continue; }
+                            if (!proc.HasExited) { allExited = false; continue; }
+                            if (proc.ExitCode != 0)
+                            {
+                                ThumbnailLog.Write($"worker {proc.Id} exited with code {proc.ExitCode}");
+                                abnormalExit = true;
+                            }
                         }
                     }
                     if (allExited || abnormalExit) break;
@@ -203,22 +208,30 @@ namespace MphRead.Mods
 
         private static void StopWorker(Process proc)
         {
-            try
+            // ProcessExit and the batch's finally can retire the same worker.
+            // Process.Dispose is not safe concurrently; serialize inspection
+            // and retirement, and let shutdown wait for an in-progress stop.
+            lock (proc)
             {
-                if (!proc.HasExited) proc.Kill(entireProcessTree: true);
-                // Killed preview workers must never hold application shutdown
-                // hostage. Their output is disposable cache data.
-                if (proc.WaitForExit(250)) proc.WaitForExit();
-            }
-            catch (InvalidOperationException) { }
-            catch (System.ComponentModel.Win32Exception ex)
-            {
-                ThumbnailLog.Write($"could not stop preview worker: {ex.Message}");
-            }
-            finally
-            {
-                lock (_processLock) _activeWorkers.Remove(proc);
-                proc.Dispose();
+                lock (_processLock)
+                    if (!_activeWorkers.Contains(proc)) return;
+                try
+                {
+                    if (!proc.HasExited) proc.Kill(entireProcessTree: true);
+                    // Killed preview workers must never hold application shutdown
+                    // hostage. Their output is disposable cache data.
+                    if (proc.WaitForExit(250)) proc.WaitForExit();
+                }
+                catch (InvalidOperationException) { }
+                catch (System.ComponentModel.Win32Exception ex)
+                {
+                    ThumbnailLog.Write($"could not stop preview worker: {ex.Message}");
+                }
+                finally
+                {
+                    lock (_processLock) _activeWorkers.Remove(proc);
+                    proc.Dispose();
+                }
             }
         }
 

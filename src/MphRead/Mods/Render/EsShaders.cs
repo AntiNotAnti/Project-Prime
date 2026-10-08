@@ -68,6 +68,7 @@ uniform mat4 view_mtx;
 uniform mat4 view_inv_mtx;
 uniform mat4 tex_mtx;
 uniform int texgen_mode;
+uniform bool weighted_skinning;
 uniform mat4 mtx_stack[32];
 
 out vec2 texcoord;
@@ -91,18 +92,33 @@ vec3 light_calc(vec3 light_vec, vec3 light_col, vec3 normal_vec, vec3 dif_col, v
 void main()
 {
     vec4 vtx_in_color = a_color_set > 0.5 ? a_color : imm_color;
-    mat4 stack_mtx = mtx_stack[int(clamp(a_texcoord.z, 0.0, 31.0))];
+    mat4 stack_mtx;
+    if (weighted_skinning) {
+        float packedJoints = floor(a_texcoord.z + 0.5);
+        int j0 = int(mod(packedJoints, 32.0)); packedJoints = floor(packedJoints / 32.0);
+        int j1 = int(mod(packedJoints, 32.0)); packedJoints = floor(packedJoints / 32.0);
+        int j2 = int(mod(packedJoints, 32.0)); packedJoints = floor(packedJoints / 32.0);
+        int j3 = int(mod(packedJoints, 32.0));
+        vec4 weights = max(vtx_in_color, vec4(0.0));
+        float total = weights.x + weights.y + weights.z + weights.w;
+        weights = total > 0.000001 ? weights / total : vec4(1.0, 0.0, 0.0, 0.0);
+        stack_mtx = mtx_stack[j0] * weights.x + mtx_stack[j1] * weights.y
+            + mtx_stack[j2] * weights.z + mtx_stack[j3] * weights.w;
+    }
+    else {
+        stack_mtx = mtx_stack[int(clamp(a_texcoord.z, 0.0, 31.0))];
+    }
     // view_inv_mtx is set for billboard transforms
     mat4 model_mtx = stack_mtx * view_inv_mtx;
     gl_Position = proj_mtx * view_mtx * model_mtx * a_position;
-    vec4 vtx_color = show_colors ? vtx_in_color : vec4(1.0);
+    vec4 vtx_color = weighted_skinning ? vec4(1.0) : (show_colors ? vtx_in_color : vec4(1.0));
     vec3 normal = normalize(mat3(model_mtx) * a_normal);
     surface_normal = normal;
     surface_position = (model_mtx * a_position).xyz;
     if (use_light) {
         vec3 dif_current = diffuse;
         vec3 amb_current = ambient;
-        if (vtx_in_color.a == 0.0) {
+        if (!weighted_skinning && vtx_in_color.a == 0.0) {
             // see comment on DIF_AMB
             dif_current = vtx_color.rgb;
             amb_current = vec3(0.0, 0.0, 0.0);
@@ -707,9 +723,8 @@ void main()
             {
                 return;
             }
-            _checked = true;
             Check("VertexShader", Shaders.VertexShader,
-                "6f1b01955020fefd225fcfdf8dbe52dcc38e05cd9bb0736bb0f98bb72e65f876");
+                "10d6837ed1a7531c81f5ec6d5f39473c03efc0266541b66a79de89eb268d63db");
             Check("FragmentShader", Shaders.FragmentShader,
                 "f94ea63d4fc009891c691363f2615ae5d9fa69abbde9fb4bdf2f1c4c3da4a30e");
             Check("RttVertexShader", Shaders.RttVertexShader,
@@ -719,7 +734,8 @@ void main()
             Check("CelFragmentShader", Shaders.CelFragmentShader,
                 "0fcb40630809a0e5b2d78448ed8b9518686fb6a5fc3b1a69914a37fecf28f7d5");
             Check("ShiftFragmentShader", Shaders.ShiftFragmentShader,
-                "2b2511d5506ad9a25d64005b7b9e452f56b550410f96c753a6072a743b3162fa");
+                "c211ff39501d0621308d2af61925bdc726b640f2e6cd3ebb7cd4a27ed898577a");
+            _checked = true;
         }
 
         private static void Check(string name, string source, string expected)

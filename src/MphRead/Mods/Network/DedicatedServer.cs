@@ -297,6 +297,10 @@ namespace MphRead.Mods.Network
         /// <summary>Whether the listener is up, so a pool can wait for it.</summary>
         public bool Listening => _transport != null;
 
+        private volatile bool _controlPlaneReady;
+        /// <summary>Startup validation completed and the server is entering its command loop.</summary>
+        public bool ControlPlaneReady => _controlPlaneReady;
+
         /// <summary>The port actually bound, which is not the requested one when that was zero.</summary>
         public int BoundPort => _transport?.LocalPort ?? _port;
 
@@ -488,6 +492,7 @@ namespace MphRead.Mods.Network
                 _matchStarted = 0;
                 while (_running && !cancel.IsCancellationRequested && !ownedStop.IsCancellationRequested)
                 {
+                    _controlPlaneReady = true;
                     using var loopTiming = LoopDiagnostics.Begin(NetDiagnostics.Enabled || Telemetry.ProductionTelemetry.Enabled);
                     double now = clock.Elapsed.TotalSeconds;
                     _now = now;
@@ -580,6 +585,7 @@ namespace MphRead.Mods.Network
                         // measurement: ping first, publish second.
                         PingPeers(now);
                         BroadcastSessionState();
+                        PumpSocialLobbyMembership(now);
                         if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch)
                         {
                             BroadcastMatchState(now);
@@ -773,6 +779,7 @@ namespace MphRead.Mods.Network
                 catch (Exception ex) { Log($"cleanup {name}: {ex.Message}"); }
             }
             _running = false;
+            _controlPlaneReady = false;
             Release("active peers", () =>
             {
                 foreach (var peer in _peers)
@@ -2026,7 +2033,9 @@ namespace MphRead.Mods.Network
                 LobbyEnabled = SessionPolicy == ServerSessionPolicy.Lobby, AllowJoinInProgress = AllowJoinInProgress,
                 MaxPlayers = (byte)_maxPlayers,
                 Protocol = NetConfig.ProtocolVersion,
-                WaitlistSupported = WaitlistEnabled, WaitlistCount = (ushort)(_waitlist?.Count ?? 0),
+                WaitlistSupported = WaitlistEnabled,
+                WaitlistCount = (ushort)(_waitlist?.Count ?? 0),
+                ReservedSlots = ReservedAdmissionSlotCount(),
                 ServerName = ServerName,
                 // What this box can do besides the match it is running. The
                 // launcher's create-server screen asks every server on the
@@ -2037,7 +2046,7 @@ namespace MphRead.Mods.Network
             };
             status.Write(_scratch);
             _transport?.Send(sender, PacketType.StatusReply,
-                _scratch.AsSpan(0, ServerStatusPacket.SizeWithWaitlist));
+                _scratch.AsSpan(0, ServerStatusPacket.SizeWithReservations));
         }
 
         /// <summary>
@@ -2613,7 +2622,24 @@ namespace MphRead.Mods.Network
             return null;
         }
 
-        private bool SlotFree(int slot) => PhysicalSlotFree(slot) && (_queueAdmitting || _waitlist == null || _waitlist.Count == 0 || _waitlist.CanDirectJoin(slot));
+        private bool SlotFree(int slot)
+        {
+            if (!PhysicalSlotFree(slot))
+                return false;
+
+            // A reservation acceptance may consume exactly the seat assigned
+            // to that member. Every other admission path must treat party
+            // reservations as occupied capacity.
+            if (_partyReservationAdmittingSlot == slot)
+                return true;
+            if (PartySlotReserved(slot))
+                return false;
+
+            return _queueAdmitting
+                || _waitlist == null
+                || _waitlist.Count == 0
+                || _waitlist.CanDirectJoin(slot);
+        }
 
         private bool PhysicalSlotFree(int slot)
         {

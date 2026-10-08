@@ -67,7 +67,19 @@ namespace MphRead.Mods.Render
         /// </summary>
         public static void Draw(int width, int height)
         {
-            if (Visible) _overlay.Draw(width, height);
+#if MPHREAD_RMLUI_POC
+            if (Mods.Launcher.Gui.RmlUiPrototype.Visible)
+            {
+                Mods.Launcher.Gui.RmlUiPrototype.Render(width, height);
+                return;
+            }
+#endif
+            if (Visible)
+            {
+                long uiStarted = Mods.Launcher.LauncherUiPerformance.Start();
+                _overlay.Draw(width, height);
+                Mods.Launcher.LauncherUiPerformance.RecordAvaloniaComposite(uiStarted);
+            }
         }
 
         /// <summary>
@@ -81,7 +93,7 @@ namespace MphRead.Mods.Render
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit
                 | ClearBufferMask.StencilBufferBit);
 #if MPHREAD_RMLUI_POC
-            bool rmlStage = Mods.Launcher.Gui.RmlUiPrototype.Active;
+            bool rmlStage = Mods.Launcher.Gui.RmlUiPrototype.Visible;
             if (rmlStage)
             {
                 // The RmlUi home now owns a purpose-built deployment chamber,
@@ -125,7 +137,7 @@ namespace MphRead.Mods.Render
             // photograph path. The deployment chamber is an RmlUi proof
             // concern until that renderer migration is explicitly promoted.
             LauncherPhoto.Draw(width, height);
-#if MPHREAD_SHELL
+#if MPHREAD_SHELL && MPHREAD_AVALONIA
             Mods.Launcher.Gui.UiSurface.Current?.DrawMapViewport(width, height);
 #endif
             Draw(width, height);

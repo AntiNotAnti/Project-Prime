@@ -2450,7 +2450,12 @@ namespace MphRead
 #if MPHREAD_SHELL
             if (Mods.Launcher.Gui.Shell.UiVisible)
             {
+#if MPHREAD_RMLUI_POC && !ANDROID
+                if (Mods.Launcher.Gui.Shell.PollNativeReplayViewport(this)) return;
+#endif
+#if MPHREAD_AVALONIA
                 Mods.Launcher.Gui.ReplayViewport.Poll(this);
+#endif
                 return;
             }
 #endif
@@ -8639,7 +8644,7 @@ localCenter *= _profileHudScale;
         /// </summary>
         private (double X, double Y) ShellPointerCoordinates(double x, double y)
         {
-#if MPHREAD_RMLUI_POC
+#if MPHREAD_RMLUI_POC && !ANDROID
             if (Mods.Launcher.Gui.RmlUiPrototype.Active)
                 return (x, y);
 #endif
@@ -8876,7 +8881,9 @@ localCenter *= _profileHudScale;
 #if MPHREAD_SHELL
                     // Map Studio owns GPU resources too. Release them before the
                     // modern facade is detached from this NoAPI window.
+#if MPHREAD_AVALONIA
                     Mods.Launcher.Gui.UiSurface.Current?.ReleaseMapRenderer(CanReleaseSceneNativeResources);
+#endif
 #endif
                 }
                 finally
@@ -9140,14 +9147,23 @@ localCenter *= _profileHudScale;
 
         private void PresentFrame()
         {
+#if MPHREAD_SHELL
+            Mods.Launcher.Gui.Shell.BeforePresent(this);
+#endif
 #if !MPHREAD_SERVER
             if (Mods.Render.ModernGraphicsCompat.Active)
             {
                 Mods.Render.ModernGraphicsCompat.Present();
+#if MPHREAD_SHELL
+                Mods.Launcher.Gui.Shell.AfterPresent(this, Mods.Render.ModernGraphicsCompat.LastPresentationSucceeded);
+#endif
                 return;
             }
 #endif
             SwapBuffers();
+#if MPHREAD_SHELL
+            Mods.Launcher.Gui.Shell.AfterPresent(this, true);
+#endif
         }
 
         protected override void OnRenderFrame(FrameEventArgs args)
@@ -9211,7 +9227,12 @@ localCenter *= _profileHudScale;
             // draws the pointer itself, which is how its opacity can range all
             // the way down to 0%. Placement and UI screens keep the platform
             // cursor so they are never made unusable by that setting.
-            bool gameplayPointer = (Scene.CameraMode == CameraMode.Player || Scene.IsFreeCam)
+#if MPHREAD_SHELL
+            bool shellOwnsInput = Mods.Launcher.Gui.Shell.UiVisible;
+#else
+            bool shellOwnsInput = false;
+#endif
+            bool gameplayPointer = !shellOwnsInput && (Scene.CameraMode == CameraMode.Player || Scene.IsFreeCam)
                 && !Scene.FrameAdvance && !Mods.Network.DemoPlayback.IsActive
                 && !Mods.PauseMenu.Open && !Mods.EndScreen.Available
                 && !Mods.Input.StylusZone.Placing && !GameState.DialogPause && !GameState.MenuPause;
@@ -9241,7 +9262,7 @@ localCenter *= _profileHudScale;
             var pointer = Mods.Input.WindowsPenInput.Read(MouseState, ClientSize.X, ClientSize.Y,
                 out bool independentPrimary);
             Mods.Input.PointerDevice.Update(pointer, ClientSize.X, ClientSize.Y, independentPrimary,
-                acceptsInput: IsFocused && !Mods.PauseMenu.Open && !Mods.Chat.ChatBox.Composing
+                acceptsInput: IsFocused && !shellOwnsInput && !Mods.PauseMenu.Open && !Mods.Chat.ChatBox.Composing
                     && !GameState.MenuPause && !GameState.DialogPause && !Mods.EndScreen.Available);
             if (Mods.Input.StylusZone.Placing)
             {
@@ -9799,7 +9820,11 @@ localCenter *= _profileHudScale;
             // able to be told F11, or F11 is the one key in the game nobody
             // can bind.
             if (Mods.Launcher.Gui.Shell.UiVisible
+#if MPHREAD_AVALONIA
                 && !Mods.Launcher.Gui.KeyRow.AnyListening
+#else
+                && !Mods.Launcher.Gui.Shell.NativeKeyCaptureActive
+#endif
                 && Mods.WindowMode.HandleKey(this, e))
             {
                 base.OnKeyDown(e);

@@ -7,6 +7,10 @@ python3 -m unittest discover -s tools/telemetry -p 'test_*.py'
 python3 -m unittest discover -s tools -p 'test_dedicated_smoke.py'
 python3 -m unittest discover -s tools -p 'test_release_policy.py'
 node --test tools/edge-check/*.test.ts
+# Execute every repository migration against the disposable PostgreSQL fixture.
+# This catches PL/pgSQL/RLS/constraint failures before a social or career
+# migration can reach deployment.
+node tools/edge-check/check-career-sql.mjs
 # Run client contracts before the server compile, which changes the project
 # surface in the same output directory. Avoid parallel builds of this project.
 dotnet build src/MphRead/MphRead.csproj -c Release

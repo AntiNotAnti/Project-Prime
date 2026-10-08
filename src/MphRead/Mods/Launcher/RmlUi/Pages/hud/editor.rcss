@@ -1,0 +1,39 @@
+#hud_page { position: absolute; top: 1%; bottom: 1%; left: 2%; right: 2%; overflow-y: auto; padding: 10dp 12dp; background-color: rgba(2,9,16,96%); }
+#hud_page h1, #hud_page h2, #hud_page h3, #hud_page p { display: block; }
+#hud_page h1 { width: 92vw; margin: 0 0 4dp; color: #ffffff; font-size: 26dp; line-height: 30dp; }
+.hud_intro { width: 92vw; margin: 0 0 8dp; color: #b2cadc; line-height: 20dp; }
+.hud_toolbar { display: flex; flex-wrap: wrap; align-items: center; margin: 4dp 0; }
+.hud_toolbar .play_action { min-height: 30dp; padding: 6dp 9dp; font-size: 12dp; margin-bottom: 4dp; }
+#hud_main { display: flex; width: 92vw; align-items: flex-start; }
+.hud_preview_column { width: 58vw; margin-right: 14dp; }
+.hud_inspector { width: 30vw; padding: 10dp; border: 1dp #21445e; background-color: #041321; }
+.hud_inspector h2 { width: 28vw; font-size: 20dp; line-height: 24dp; color: #ffffff; margin: 0 0 8dp; }
+.hud_inspector h3 { width: 28vw; font-size: 16dp; line-height: 20dp; color: #d5eaff; margin: 12dp 0 6dp; }
+.hud_help { width: 28vw; margin: 4dp 0 8dp; color: #b2cadc; font-size: 12dp; line-height: 17dp; }
+#hud_canvas { position: relative; width: 58vw; height: 40vh; min-height: 230dp; overflow: hidden; border: 1dp #21445e; background-color: #101820; }
+#hud_canvas:focus { border-color: #55e18c; }
+#hud_preview { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+#hud_surface { position: absolute; background-color: transparent; pointer-events: none; }
+.hud_element { position: absolute; background-color: transparent; color: #ffffff; font-size: 11dp; line-height: 14dp; overflow: hidden; }
+.hud_element span { display: block; padding: 2dp; }
+.hud_element.selected { border: 1dp #55e18c; }
+.hud_element:hover, .hud_element:focus { border: 1dp #72c7ff; }
+#hud_guide_x, #hud_guide_y { position: absolute; background-color: #55e18c; pointer-events: none; }
+.hud_preview_note { width: 58vw; font-size: 12dp; line-height: 17dp; color: #b2cadc; margin: 6dp 0; }
+.hud_error { padding: 8dp; margin: 6dp 0; border: 1dp #ff788a; color: #ffb7bf; white-space: pre-wrap; }
+#hud_status { width: 58vw; white-space: pre-wrap; font-size: 12dp; line-height: 17dp; color: #b2cadc; margin: 8dp 0; }
+.hud_element_choices { display: flex; flex-wrap: wrap; }
+.hud_pick { padding: 5dp 7dp; margin: 0 4dp 4dp 0; border: 1dp #21445e; background-color: #0b2338; color: #b2cadc; font-size: 11dp; }
+.hud_pick.selected { border-color: #55e18c; color: #ffffff; }
+.hud_layout_fields { display: flex; flex-wrap: wrap; align-items: center; }
+.hud_layout_fields .play_form_label { width: 11vw; margin: 4dp 0; }
+.hud_layout_fields .play_input { width: 15vw; margin: 4dp 0; }
+#hud_color_swatch { display: block; width: 26vw; height: 8dp; }
+.hud_property { display: block; width: 27vw; text-align: left; padding: 6dp 8dp; margin-bottom: 4dp; background-color: #0b2338; border: 1dp #21445e; color: #b2cadc; }
+.hud_property span, .hud_property b { display: block; width: 24vw; font-size: 12dp; line-height: 17dp; }
+.hud_property.selected { border-color: #55e18c; }
+#hud_property_label, #hud_property_help { width: 27vw; font-size: 12dp; line-height: 17dp; margin: 6dp 0; color: #b2cadc; white-space: pre-wrap; }
+#hud_property_value { width: 27vw; }
+#hud_name { width: 58vw; }
+#hud_json { width: 58vw; height: 100dp; overflow-y: auto; font-size: 12dp; }
+@media (max-width: 780dp) { #hud_main { display: block; width: 90vw; } .hud_preview_column, #hud_canvas, .hud_preview_note, #hud_status, #hud_name, #hud_json { width: 88vw; } .hud_inspector { width: 86vw; margin-top: 10dp; } .hud_inspector h2, .hud_inspector h3, .hud_help { width: 82vw; } .hud_property, #hud_property_value, #hud_property_label, #hud_property_help { width: 80vw; } .hud_property span, .hud_property b { width: 76vw; } .hud_layout_fields .play_form_label { width: 26vw; } .hud_layout_fields .play_input { width: 48vw; } #hud_color_swatch { width: 76vw; } }

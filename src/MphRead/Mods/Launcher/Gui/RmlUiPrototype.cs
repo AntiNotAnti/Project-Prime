@@ -1,12 +1,14 @@
-#if MPHREAD_RMLUI_POC
+#if MPHREAD_RMLUI_POC || MPHREAD_RMLUI
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
-using System.Runtime.InteropServices;
-using System.Text;
 using MphRead.Mods.Input;
+using MphRead.Mods.Launcher.Core;
+using MphRead.Mods.Launcher.RmlUi.Host;
+using MphRead.Mods.Launcher.RmlUi.Components;
+using MphRead.Mods.Launcher.RmlUi.Render;
 using MphRead.Mods.Network;
 using MphRead.Mods.Render;
 using OpenTK.Mathematics;
@@ -17,28 +19,35 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 namespace MphRead.Mods.Launcher.Gui
 {
     /// <summary>
-    /// Opt-in RmlUi 6.3 proof of concept for the front screen.
-    ///
-    /// This deliberately does not replace any authoritative launcher service.
-    /// It proves the rendering/input seam only: RmlUi draws directly into the
-    /// shell's OpenGL back buffer while HubState supplies the same player/hunter
-    /// snapshot the Avalonia shell consumes. Actions hand back to the existing
-    /// Prime shell until a destination is migrated for real.
+    /// Transitional engine presenter. Native lifetime, input, document bindings
+    /// and the versioned intent protocol belong to RmlUiHost; this adapter owns
+    /// the existing engine-rendered deployment chamber and Hunter composition.
     /// </summary>
     internal static class RmlUiPrototype
     {
-        private const string NativeLibraryName = "ProjectPrime.RmlUi.Native";
-        private const int ActionBufferSize = 128;
-        private static readonly byte[] _actionBuffer = new byte[ActionBufferSize];
-        private static readonly Queue<string> _commands = new();
+        private static readonly RmlUiHost _runtime = new();
+        private static RmlUiLauncherPages? _pages;
+        private static readonly Queue<RmlUiIntent> _commands = new();
+        private static bool _visible;
+        private static bool _gameplayOverlay;
+        private static LobbySnapshot? _lobbySnapshot;
+        private static string _restoreFocus = "";
+        private static RmlUiWindowsIme? _windowsIme;
+        private static RmlUiCocoaIme? _cocoaIme;
+        private static RmlUiLinuxIme? _linuxIme;
+        private static RmlUiAccessibilityService? _accessibility;
+        private static RmlUiCocoaAccessibility? _cocoaAccessibility;
+        private static RmlUiWindowsAccessibility? _windowsAccessibility;
+        private static RmlUiLinuxAccessibility? _linuxAccessibility;
+        private static RenderWindow? _inputWindow;
+        private static RmlUiInputModifiers _inputModifiers;
         private static readonly GamepadUiRouter _gamepad = new();
         private static bool _active;
         private static bool _failed;
+        private static bool _tearingDown;
         private static int _width;
         private static int _height;
         private static float _density = 1;
-        private static float _pointerScaleX = 1;
-        private static float _pointerScaleY = 1;
         private static long _nextStateRefresh;
         private static int _renderSamples;
         private static double _renderMs;
@@ -59,14 +68,21 @@ namespace MphRead.Mods.Launcher.Gui
         static RmlUiPrototype()
         {
             _gamepad.Action += HandleGamepad;
+            _runtime.CleanupFailed += error => Mods.DebugLog.Exception("rmlui", error);
         }
 
-        public static bool Requested => Array.Exists(Environment.GetCommandLineArgs(),
-            value => value.Equals("-rmluipoc", StringComparison.OrdinalIgnoreCase)
-                || value.Equals("-rmluipocshot", StringComparison.OrdinalIgnoreCase));
+        public static bool Requested => LauncherUiRuntime.UseNative;
 
         public static bool CaptureRequested => CaptureDirectory() != null;
         public static bool Active => _active;
+        public static bool Visible => _active && _visible;
+        internal static RmlUiHost Runtime => _runtime;
+        internal static RmlUiLauncherPages? Pages => _pages;
+        internal static Func<bool>? BackRequested { get; set; }
+        internal static Func<RenderWindow, int, int, bool>? HunterPreviewDrawOverride { get; set; }
+        internal static Func<UiAction, bool>? GamepadActionOverride { get; set; }
+        internal static Action? InputReleaseRequested { get; set; }
+        internal static Action? PresentationRetiring { get; set; }
         public static bool Failed => _failed;
         public static bool LobbyMode => _active && _lobbyMode;
 
@@ -75,18 +91,14 @@ namespace MphRead.Mods.Launcher.Gui
             if (!Requested || _active || _failed)
                 return _active;
 
-            if (ModernGraphicsCompat.Active || GraphicsBackendPolicy.ModernGameplayRequested)
-            {
-                Mods.DebugLog.Line("rmlui", "POC requires the compatibility OpenGL renderer; falling back to Avalonia");
-                return false;
-            }
-
+            LauncherUiRuntime.BeginNativeAttempt();
             string root = Path.Combine(AppContext.BaseDirectory, "rmlui");
             string document = Path.Combine(root, "prime_home.rml");
             if (!File.Exists(document))
             {
-                Mods.DebugLog.Line("rmlui", $"POC assets are missing at {document}; falling back to Avalonia");
+                Mods.DebugLog.Line("rmlui", $"Native UI assets are missing at {document}.");
                 _failed = true;
+                LauncherUiRuntime.RecordNativeFailure(LauncherUiFailure.Initialization);
                 return false;
             }
 
@@ -100,11 +112,13 @@ namespace MphRead.Mods.Launcher.Gui
                     NativeWindow.ProcessWindowEvents(false);
                 }
                 ReadSize(window, out int width, out int height, out float density);
-                int ok = NativeInitialize(width, height, density, root);
-                if (ok == 0)
+                bool ok = _runtime.Initialize(width, height, density, root,
+                    ModernGraphicsCompat.Active ? RmlUiRenderBackend.DrawList : RmlUiRenderBackend.OpenGl);
+                if (!ok)
                 {
-                    Mods.DebugLog.Line("rmlui", "native RmlUi host refused initialization; falling back to Avalonia");
+                    Mods.DebugLog.Line("rmlui", "Native RmlUi host refused initialization.");
                     _failed = true;
+                    LauncherUiRuntime.RecordNativeFailure(LauncherUiFailure.Initialization);
                     return false;
                 }
 
@@ -112,35 +126,48 @@ namespace MphRead.Mods.Launcher.Gui
                 _height = height;
                 _density = density;
                 _active = true;
+                _visible = true;
+                _gameplayOverlay = false;
+                _pages = _runtime.ProtocolVersion == RmlUiIntentRegistry.ProtocolVersion
+                    ? new RmlUiLauncherPages(_runtime) : null;
+                _inputWindow = window;
+                window.FocusedChanged += WindowFocusChanged;
+                _windowsIme = RmlUiDesktopInput.AttachIme(_runtime, window, () => Visible);
+                _cocoaIme = RmlUiDesktopInput.AttachCocoaIme(_runtime, window, () => Visible);
+                _linuxIme = RmlUiLinuxDesktopInput.Attach(_runtime, window, () => Visible);
+                AttachAccessibility(window);
+                ReadSize(window, out _, out _, out _);
                 _multiplayerMode = false;
                 _nextStateRefresh = 0;
                 _captureFrames = 0;
                 _captureDirectory = CaptureDirectory();
                 _diagnosticsVisible = false;
-                GamepadContexts.MenuVisible = true;
+                _runtime.Input.DiagnosticsEnabled = false;
+                GamepadContexts.MenuVisible = Visible;
                 _gamepad.Reset();
 
                 LauncherBackdrop.Set(LauncherBackdropScene.Multiplayer);
                 HubSnapshot snapshot = HubState.Capture();
                 ConfigureHunter(snapshot);
                 RefreshState(snapshot, force: true);
+                _pages?.ShowBaseline(RmlUiMenuPage.Home);
                 Mods.DebugLog.Line("rmlui",
-                    $"RmlUi 6.3 POC active at {width}x{height} ({density:0.##}x density) "
+                    $"RmlUi 6.3 active at {width}x{height} ({density:0.##}x density) "
                     + $"// {LauncherMenuVisuals.Style.Name} / {LauncherMenuVisuals.Activity.Name}");
 
                 return true;
             }
             catch (DllNotFoundException ex)
             {
-                Fail("native bridge not found", ex);
+                Fail("native bridge not found", ex, LauncherUiFailure.Initialization);
             }
             catch (EntryPointNotFoundException ex)
             {
-                Fail("native bridge ABI mismatch", ex);
+                Fail("native bridge ABI mismatch", ex, LauncherUiFailure.Initialization);
             }
             catch (Exception ex)
             {
-                Fail("initialization failed", ex);
+                Fail("initialization failed", ex, LauncherUiFailure.Initialization);
             }
             return false;
         }
@@ -152,6 +179,8 @@ namespace MphRead.Mods.Launcher.Gui
             if (!_active && !TryActivate(window))
                 return false;
 
+            _commands.Clear();
+            _runtime.DiscardIntents();
             _lobbyMode = true;
             _multiplayerMode = false;
             _lobbyName = String.IsNullOrWhiteSpace(lobbyName)
@@ -161,9 +190,11 @@ namespace MphRead.Mods.Launcher.Gui
             LauncherLobbyVisuals.Active = true;
             PublishLobbyAnchors();
             LauncherBackdrop.Set(LauncherBackdropScene.Lobby,
-                NetSession.ActiveMatchDefinition?.RoomKey);
+                _lobbySnapshot?.Match?.RoomKey);
             SetBool("multiplayer_mode", false);
             SetBool("lobby_mode", true);
+            _pages?.ShowBaseline(RmlUiMenuPage.Lobby);
+            Show();
             RefreshLobbyState(force: true);
             _nextStateRefresh = 0;
             Mods.DebugLog.Line("rmlui",
@@ -173,15 +204,19 @@ namespace MphRead.Mods.Launcher.Gui
 
         public static void ExitLobby()
         {
+            _gameplayOverlay = false;
             if (!_active || !_lobbyMode)
                 return;
 
+            _commands.Clear();
+            _runtime.DiscardIntents();
             _lobbyMode = false;
             _multiplayerMode = false;
             _lobbyPlayerCount = 0;
             Array.Clear(_lobbyPlayers);
             LauncherLobbyVisuals.Reset();
             SetBool("lobby_mode", false);
+            _pages?.ShowBaseline(RmlUiMenuPage.Home);
             LauncherBackdrop.Set(LauncherBackdropScene.Multiplayer);
             HubSnapshot snapshot = HubState.Capture();
             ConfigureHunter(snapshot);
@@ -192,8 +227,11 @@ namespace MphRead.Mods.Launcher.Gui
 
         public static void DrawHunters(RenderWindow window, int width, int height)
         {
-            if (!_active || width <= 0 || height <= 0)
+            if (!Visible || _gameplayOverlay || width <= 0 || height <= 0)
                 return;
+            // A customization viewport draws after the modal's background, in its empty
+            // authored rectangle. Suppress the chamber hero while that viewport owns it.
+            if (HunterPreviewDrawOverride != null && Shell.HasNativeHunterPreview) return;
 
             if (!_lobbyMode)
             {
@@ -218,7 +256,7 @@ namespace MphRead.Mods.Launcher.Gui
 
                 LobbyFormationSlot placement = LauncherLobbyFormation.At(i);
                 LauncherHunter.Wanted = true;
-                LauncherHunter.CanPresent = () => _active && _lobbyMode;
+                LauncherHunter.CanPresent = () => Visible && _lobbyMode;
                 LauncherHunter.PreviewSlot = i;
                 LauncherHunter.Hunter = player.Hunter;
                 LauncherHunter.Suit = player.Suit;
@@ -239,22 +277,26 @@ namespace MphRead.Mods.Launcher.Gui
 
         public static void Tick(RenderWindow window)
         {
-            if (!_active)
+            if (!Visible)
                 return;
+            long uiStarted = LauncherUiPerformance.Start();
             try
             {
+                long phaseStarted = LauncherUiPerformance.Start();
                 ReadSize(window, out int width, out int height, out float density);
                 if (width != _width || height != _height || Math.Abs(density - _density) > 0.01f)
                 {
                     _width = width;
                     _height = height;
                     _density = density;
-                    NativeResize(width, height, density);
+                    _runtime.Resize(width, height, density);
                     if (_lobbyMode) PublishLobbyAnchors();
                 }
+                LauncherUiPerformance.RecordPhase("viewport", phaseStarted);
 
+                phaseStarted = LauncherUiPerformance.Start();
                 long now = Environment.TickCount64;
-                if (now >= _nextStateRefresh)
+                if (!_gameplayOverlay && now >= _nextStateRefresh)
                 {
                     if (_lobbyMode)
                     {
@@ -269,31 +311,74 @@ namespace MphRead.Mods.Launcher.Gui
                         _nextStateRefresh = now + 1000;
                     }
                 }
+                LauncherUiPerformance.RecordPhase("stateRefresh", phaseStarted);
 
+                phaseStarted = LauncherUiPerformance.Start();
                 Mods.Input.GamepadDesktop.Poll();
                 if (!GamepadContexts.Focused)
                     _gamepad.Reset();
                 else
                     _gamepad.Update(GamepadManager.Snapshot, GamepadContext.Menu, now);
+                LauncherUiPerformance.RecordPhase("gamepad", phaseStarted);
 
-                NativeUpdate();
+                phaseStarted = LauncherUiPerformance.Start();
+                _pages?.Flush();
+                LauncherUiPerformance.RecordPhase("pageBindings", phaseStarted);
+                phaseStarted = LauncherUiPerformance.Start();
+                _accessibility?.Drain(_runtime);
+                LauncherUiPerformance.RecordPhase("accessibilityDrain", phaseStarted);
+                phaseStarted = LauncherUiPerformance.Start();
+                _runtime.Update();
+                LauncherUiPerformance.RecordPhase("contextUpdate", phaseStarted);
+                phaseStarted = LauncherUiPerformance.Start();
+                _pages?.AfterUpdate();
+                LauncherUiPerformance.RecordPhase("pageFocus", phaseStarted);
+                phaseStarted = LauncherUiPerformance.Start();
+                _windowsIme?.RefreshCandidatePosition();
+                _cocoaIme?.RefreshCandidatePosition();
+                _linuxIme?.Pump();
+                LauncherUiPerformance.RecordPhase("ime", phaseStarted);
+                if (_accessibility != null)
+                {
+                    phaseStarted = LauncherUiPerformance.Start();
+                    var semantics = _accessibility.Capture(_runtime);
+                    LauncherUiPerformance.RecordPhase("accessibilityCapture", phaseStarted);
+                    phaseStarted = LauncherUiPerformance.Start();
+                    PublishAccessibility(semantics);
+                    LauncherUiPerformance.RecordPhase("accessibilityPublish", phaseStarted);
+                    if (LauncherUiPerformance.Enabled)
+                    {
+                        var counters = _accessibility.CaptureMetrics;
+                        LauncherUiPerformance.RecordAccessibilityCapture(counters.Requests, counters.NativeReads,
+                            counters.DecodedSnapshots, counters.ReusedSnapshots, counters.IdleSkips);
+                    }
+                }
+                phaseStarted = LauncherUiPerformance.Start();
                 DrainActions();
+                if (_runtime.Input.DiagnosticsEnabled)
+                    SetText("input_debug", _runtime.Input.Diagnostics.Display);
+                LauncherUiPerformance.RecordPhase("intentDrain", phaseStarted);
             }
             catch (Exception ex)
             {
                 Fail("update failed", ex);
             }
+            finally { LauncherUiPerformance.RecordNativeUpdate(uiStarted); }
         }
 
         public static void Render(int width, int height)
         {
-            if (!_active || width <= 0 || height <= 0)
+            if (!Visible || width <= 0 || height <= 0)
                 return;
             try
             {
                 long started = Stopwatch.GetTimestamp();
-                NativeRender(width, height);
+                long contextStarted = LauncherUiPerformance.Start();
+                _runtime.Render(width, height);
+                LauncherUiPerformance.RecordPhase("contextRender", contextStarted);
+                if (ModernGraphicsCompat.Active) RmlUiGpuCompositor.DrawNativeFrame(width, height);
                 double elapsed = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+                LauncherUiPerformance.RecordNativeRender(started);
                 _renderMs += elapsed;
                 _renderSamples++;
                 if (_renderSamples >= 30)
@@ -311,7 +396,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         public static void AfterDraw(RenderWindow window)
         {
-            if (!_active || _captureDirectory == null)
+            if (!Visible || _captureDirectory == null)
                 return;
 
             _captureFrames++;
@@ -340,101 +425,326 @@ namespace MphRead.Mods.Launcher.Gui
             Shell.RequestQuit();
         }
 
+        public static bool TryTakeIntent(out RmlUiIntent intent)
+        {
+            while (_commands.Count > 0)
+            {
+                intent = _commands.Dequeue();
+                if (Visible && _runtime.IsAlive(intent.Document)) return true;
+            }
+            intent = default;
+            return false;
+        }
+
+        // Compatibility for the legacy Shell adapter; new presenters consume typed intents.
         public static bool TryTakeCommand(out string command)
         {
-            if (_commands.Count > 0)
+            if (TryTakeIntent(out RmlUiIntent intent))
             {
-                command = _commands.Dequeue();
+                command = RmlUiIntentRegistry.ToLegacy(intent);
                 return true;
             }
             command = string.Empty;
             return false;
         }
 
-        public static void PointerMoved(double x, double y)
+        public static void PresentLobby(LobbySnapshot snapshot)
+        {
+            _runtime.VerifyOwnerThread();
+            if (_lobbySnapshot is { } previous && previous.Lifetime == snapshot.Lifetime
+                && snapshot.Version < previous.Version) return;
+            _lobbySnapshot = snapshot;
+            if (Visible && _lobbyMode && !_gameplayOverlay) RefreshLobbyState(force: false);
+        }
+
+        public static void ClearLobbySnapshot()
+        {
+            _runtime.VerifyOwnerThread();
+            _lobbySnapshot = null;
+            _commands.Clear();
+        }
+
+        public static void Hide()
         {
             if (!_active) return;
-            // Shell forwards raw GLFW window coordinates, never pixels already
-            // scaled by RenderWindow.PointerPixels. ReadSize supplies the one
-            // framebuffer/GLFW-window conversion, independent of dp density.
-            (int px, int py) = RmlUiPointerMapping.FromWindow(
-                x, y, _pointerScaleX, _pointerScaleY);
-            NativeMouseMove(px, py, 0);
+            _runtime.VerifyOwnerThread();
+            InputReleaseRequested?.Invoke();
+            _restoreFocus = _runtime.FocusedElement();
+            _windowsIme?.Cancel();
+            _cocoaIme?.Cancel();
+            _linuxIme?.Cancel();
+            RetireAccessibility();
+            _visible = false;
+            _gameplayOverlay = false;
+            _runtime.ReleaseInput();
+            if (_pages != null) _pages.SetVisible(false);
+            else _runtime.ShowDocument(_runtime.HomeDocument, false);
+            _commands.Clear();
+            _runtime.DiscardIntents();
+            _gamepad.Reset();
+            LauncherHunter.Wanted = false;
+            LauncherLobbyVisuals.Active = false;
+            GamepadContexts.MenuVisible = false;
+        }
+
+        public static void Show()
+        {
+            if (!_active) return;
+            _runtime.VerifyOwnerThread();
+            _gameplayOverlay = false;
+            _visible = true;
+            if (_pages != null) _pages.SetVisible(true);
+            else _runtime.ShowDocument(_runtime.HomeDocument, true);
+            _gamepad.Reset();
+            GamepadContexts.MenuVisible = true;
+            if (_lobbyMode)
+            {
+                PublishLobbyAnchors();
+                RefreshLobbyState(force: true);
+            }
+            else
+            {
+                HubSnapshot snapshot = HubState.Capture();
+                ConfigureHunter(snapshot);
+                RefreshState(snapshot, force: true);
+            }
+            _pages?.Flush();
+            RmlUiDocumentToken inputDocument = _runtime.CurrentInputDocument;
+            if (!_runtime.FocusDocument(inputDocument, _restoreFocus))
+                _runtime.FocusDocument(inputDocument,
+                    _lobbyMode ? "lobby_hunter" : _multiplayerMode ? "play_quick" : "deploy");
+            _nextStateRefresh = 0;
+        }
+
+        internal static void ShowGameplayMenu()
+        {
+            if (!_active) return;
+            _runtime.VerifyOwnerThread();
+            _gameplayOverlay = true;
+            _visible = true;
+            if (_pages != null) _pages.SetVisible(true);
+            else _runtime.ShowDocument(_runtime.HomeDocument, true);
+            _gamepad.Reset();
+            GamepadContexts.MenuVisible = true;
+            LauncherHunter.Wanted = false;
+            LauncherLobbyVisuals.Active = false;
+            if (!String.IsNullOrEmpty(_restoreFocus))
+                _runtime.FocusDocument(_runtime.CurrentInputDocument, _restoreFocus);
+        }
+
+        public static void PointerMoved(double x, double y)
+        {
+            if (Visible) _runtime.Input.Dispatch(new(_runtime.CurrentInputDocument,
+                RmlUiPlatformInputKind.PointerMove, RmlUiInputDevice.Pointer, X: x, Y: y, Modifiers: _inputModifiers));
         }
 
         public static void PointerButton(MouseButton button, double x, double y, bool down)
         {
-            if (!_active) return;
-            PointerMoved(x, y);
+            if (!Visible) return;
             int translated = button switch
             {
                 MouseButton.Button2 => 1,
                 MouseButton.Button3 => 2,
                 _ => 0
             };
-            NativeMouseButton(translated, down ? 1 : 0, 0);
+            _runtime.Input.Dispatch(new(_runtime.CurrentInputDocument,
+                down ? RmlUiPlatformInputKind.PointerDown : RmlUiPlatformInputKind.PointerUp,
+                RmlUiInputDevice.Pointer, X: x, Y: y, Code: translated, Modifiers: _inputModifiers));
         }
 
         public static void PointerWheel(double deltaX, double deltaY)
         {
-            if (_active) NativeMouseWheel((float)deltaY, 0);
+            if (Visible) _runtime.Input.Dispatch(new(_runtime.CurrentInputDocument,
+                RmlUiPlatformInputKind.Wheel, RmlUiInputDevice.Pointer, Delta: deltaY, Modifiers: _inputModifiers));
         }
 
         public static void KeyDown(KeyboardKeyEventArgs e)
         {
-            if (!_active) return;
+            if (!Visible) return;
+            _inputModifiers = RmlUiDesktopInput.Modifiers(e);
+#if DEBUG
+            if (e.Key == Keys.F9)
+            {
+                try
+                {
+                    var retiredPages = _pages;
+                    _pages = null;
+                    RmlUiCleanup.Run(ReportCleanup,
+                        () => _windowsIme?.Cancel(), () => _cocoaIme?.Cancel(), () => _linuxIme?.Cancel(),
+                        RetireAccessibility, () => PresentationRetiring?.Invoke(), () => retiredPages?.Dispose());
+                    if (!_runtime.ReloadAssets())
+                        throw new InvalidOperationException("Native RmlUi asset reload failed.");
+                    _pages = _runtime.ProtocolVersion == RmlUiIntentRegistry.ProtocolVersion
+                        ? new RmlUiLauncherPages(_runtime) : null;
+                    _commands.Clear();
+                    SetBool("lobby_mode", _lobbyMode);
+                    SetBool("multiplayer_mode", _multiplayerMode);
+                    Show();
+                    if (_lobbyMode) PublishLobbyAnchors();
+                }
+                catch (Exception ex) { Fail("asset reload failed", ex); }
+                return;
+            }
+#endif
             if (e.Key == Keys.F10)
             {
                 _diagnosticsVisible = !_diagnosticsVisible;
+                _runtime.Input.DiagnosticsEnabled = _diagnosticsVisible;
                 SetBool("diagnostics_visible", _diagnosticsVisible);
                 return;
             }
             if (e.Key == Keys.Escape)
             {
-                // The selector is a modal layer inside this proof, so Escape
-                // closes it and restores the committed Menu Stage before
-                // falling through to the production shell on a second press.
-                if (NativeBack() == 0)
-                    _commands.Enqueue("route:news");
+                HandleBack();
                 return;
             }
-            int key = TranslateKey(e.Key);
-            if (key != 0) NativeKey(key, 1, Modifiers(e));
+            if (!RmlUiLinuxDesktopInput.Process(_linuxIme, e, released: false))
+                RmlUiDesktopInput.KeyDown(_runtime, e);
         }
 
         public static void KeyUp(KeyboardKeyEventArgs e)
         {
-            if (!_active) return;
-            int key = TranslateKey(e.Key);
-            if (key != 0) NativeKey(key, 0, Modifiers(e));
+            if (!Visible) return;
+            _inputModifiers = RmlUiDesktopInput.Modifiers(e);
+            if (!RmlUiLinuxDesktopInput.Process(_linuxIme, e, released: true))
+                RmlUiDesktopInput.KeyUp(_runtime, e);
         }
 
         public static void TextInput(string text)
         {
-            if (!_active || string.IsNullOrEmpty(text)) return;
-            foreach (Rune rune in text.EnumerateRunes())
-                NativeText((uint)rune.Value);
+            if (!Visible) return;
+            if (_linuxIme?.SuppressCharacterCallback() == true) return;
+            if (_runtime.TryGetTextInputState(out var scope))
+                _runtime.Input.Dispatch(new(scope.Document, RmlUiPlatformInputKind.TextCommitted,
+                    FocusEpoch: scope.FocusEpoch, Text: text));
+            else _runtime.Input.Text(text); // Compatibility bridge/platform committed Unicode path.
+        }
+
+        private static void WindowFocusChanged(FocusedChangedEventArgs e)
+        {
+            if (!_active || e.IsFocused) return;
+            InputReleaseRequested?.Invoke();
+            _windowsIme?.Cancel();
+            _cocoaIme?.Cancel();
+            _linuxIme?.Cancel();
+            _runtime.Input.Dispatch(new(_runtime.CurrentInputDocument, RmlUiPlatformInputKind.FocusLost));
+            _inputModifiers = default;
+            _gamepad.Reset();
+        }
+
+        private static void DetachPlatformInput()
+        {
+            var cocoaAccessibility = _cocoaAccessibility;
+            var windowsAccessibility = _windowsAccessibility;
+            var linuxAccessibility = _linuxAccessibility;
+            var accessibility = _accessibility;
+            var inputWindow = _inputWindow;
+            var windowsIme = _windowsIme;
+            var cocoaIme = _cocoaIme;
+            var linuxIme = _linuxIme;
+            _cocoaAccessibility = null;
+            _windowsAccessibility = null;
+            _linuxAccessibility = null;
+            _accessibility = null;
+            _inputWindow = null;
+            _windowsIme = null;
+            _cocoaIme = null;
+            _linuxIme = null;
+            _inputModifiers = default;
+            RmlUiCleanup.Run(ReportCleanup,
+                () => cocoaAccessibility?.Dispose(), () => windowsAccessibility?.Dispose(),
+                () => linuxAccessibility?.Dispose(), () => accessibility?.Retire(),
+                () => { if (inputWindow != null) inputWindow.FocusedChanged -= WindowFocusChanged; },
+                () => windowsIme?.Dispose(), () => cocoaIme?.Dispose(), () => linuxIme?.Dispose());
+        }
+
+        private static unsafe void AttachAccessibility(RenderWindow window)
+        {
+            _accessibility = new RmlUiAccessibilityService();
+            if (OperatingSystem.IsMacOS())
+                _cocoaAccessibility = new RmlUiCocoaAccessibility(GLFW.GetCocoaView(window.WindowPtr), _accessibility);
+            else if (OperatingSystem.IsWindows())
+                _windowsAccessibility = new RmlUiWindowsAccessibility(GLFW.GetWin32Window(window.WindowPtr), _accessibility);
+            else if (OperatingSystem.IsLinux())
+                _linuxAccessibility = new RmlUiLinuxAccessibility(_accessibility);
+        }
+
+        private static unsafe void PublishAccessibility(RmlUiAccessibilitySnapshot snapshot)
+        {
+            _cocoaAccessibility?.Publish(snapshot);
+            _windowsAccessibility?.Publish(snapshot);
+            if (_linuxAccessibility == null || _inputWindow == null) return;
+            GLFW.GetWindowSize(_inputWindow.WindowPtr, out int width, out int height);
+            int x = 0, y = 0;
+            bool screenCoordinates = false;
+            try { screenCoordinates = GLFW.GetX11Display() != 0; }
+            catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException or NotSupportedException) { }
+            if (screenCoordinates) GLFW.GetWindowPos(_inputWindow.WindowPtr, out x, out y);
+            _linuxAccessibility.Publish(snapshot, new(x, y, width, height), screenCoordinates);
+        }
+
+        private static void RetireAccessibility()
+        {
+            if (_accessibility == null) return;
+            _accessibility.Retire();
+            PublishAccessibility(_accessibility.Snapshot);
         }
 
         public static void Shutdown()
         {
-            if (!_active)
-                return;
-            try { NativeShutdown(); }
-            catch (Exception ex) { Mods.DebugLog.Exception("rmlui", ex); }
+            if (_tearingDown || (!_active && !_runtime.Active)) return;
+            RetireNativePresentation();
+            if (!_failed) LauncherUiRuntime.CompleteCleanShutdown();
+            RmlUiCleanup.Try(() => Mods.DebugLog.Line("rmlui", "RmlUi shut down"));
+        }
+
+        private static void RetireNativePresentation()
+        {
+            if (_tearingDown) return;
+            _tearingDown = true;
+            _visible = false;
+            var retiring = PresentationRetiring;
+            var releaseInput = InputReleaseRequested;
+            var pages = _pages;
+            PresentationRetiring = null;
+            InputReleaseRequested = null;
+            _pages = null;
+            try
+            {
+                RmlUiCleanup.Run(ReportCleanup,
+                    () => releaseInput?.Invoke(), () => retiring?.Invoke(), DetachPlatformInput,
+                    () => pages?.Dispose(), RmlUiGpuCompositor.ReleaseNativeFrame, _runtime.Shutdown);
+            }
+            finally
+            {
+                try { ResetPresentationState(); }
+                finally { _tearingDown = false; }
+            }
+        }
+
+        private static void ResetPresentationState()
+        {
             _active = false;
+            _visible = false;
+            _gameplayOverlay = false;
             _commands.Clear();
-            _gamepad.Reset();
             _captureDirectory = null;
             _captureFrames = 0;
             _lobbyMode = false;
+            _multiplayerMode = false;
             _lobbyPlayerCount = 0;
+            _lobbySnapshot = null;
+            _restoreFocus = "";
+            BackRequested = null;
+            GamepadActionOverride = null; InputReleaseRequested = null; PresentationRetiring = null;
             Array.Clear(_lobbyPlayers);
-            LauncherLobbyVisuals.Reset();
-            LauncherHunter.Reset();
-            GamepadContexts.MenuVisible = false;
-            Mods.DebugLog.Line("rmlui", "RmlUi POC shut down");
+            RmlUiCleanup.Run(ReportCleanup, _gamepad.Reset, LauncherLobbyVisuals.Reset,
+                LauncherHunter.Reset, () => GamepadContexts.MenuVisible = false);
         }
+
+        private static void ReportCleanup(Exception error) => Mods.DebugLog.Exception("rmlui", error);
+        private static string RendererLabel => ModernGraphicsCompat.Active
+            ? GraphicsBackendPolicy.DisplayName(ModernGraphicsCompat.DeviceIdentity.Backend).ToUpperInvariant() : "OPENGL";
 
         private static void RefreshState(HubSnapshot snapshot, bool force)
         {
@@ -447,7 +757,7 @@ namespace MphRead.Mods.Launcher.Gui
             SetBool("diagnostics_visible", _diagnosticsVisible);
             if (force)
             {
-                SetText("renderer_name", "OPENGL // RMLUI 6.3");
+                SetText("renderer_name", RendererLabel + " // RMLUI 6.3");
                 SetText("ui_cost", "RMLUI DIRECT GPU OVERLAY // MEASURING");
             }
         }
@@ -457,11 +767,12 @@ namespace MphRead.Mods.Launcher.Gui
             if (!_lobbyMode)
                 return;
 
-            RosterPacket roster = NetSession.LobbyRoster();
+            LobbySnapshot? snapshot = _lobbySnapshot;
+            if (snapshot == null) return;
             int localRosterIndex = -1;
-            for (int i = 0; i < roster.Count; i++)
+            for (int i = 0; i < snapshot.Players.Length; i++)
             {
-                if (roster.Slots[i] == NetSession.LocalSlot)
+                if (snapshot.Players[i].Slot == snapshot.LocalSlot)
                 {
                     localRosterIndex = i;
                     break;
@@ -471,47 +782,29 @@ namespace MphRead.Mods.Launcher.Gui
             int display = 0;
             void AddRosterPlayer(int rosterIndex)
             {
-                if (display >= _lobbyPlayers.Length || rosterIndex < 0 || rosterIndex >= roster.Count)
+                if (display >= _lobbyPlayers.Length || rosterIndex < 0 || rosterIndex >= snapshot.Players.Length)
                     return;
-                int netSlot = roster.Slots[rosterIndex];
-                Hunter hunter = (Hunter)Math.Clamp((int)roster.Hunters[rosterIndex], 0, Hunters.Playable - 1);
-                int suit = Math.Clamp((int)roster.Colors[rosterIndex], 0, 3);
-                string name = roster.Names[rosterIndex];
-                if (String.IsNullOrWhiteSpace(name))
-                    name = $"PLAYER {netSlot + 1}";
-                bool ready = roster.LobbyReady[rosterIndex];
-                bool local = netSlot == NetSession.LocalSlot;
-                bool spectator = roster.Roles[rosterIndex] != 0;
+                LobbyPlayerSnapshot player = snapshot.Players[rosterIndex];
+                string name = String.IsNullOrWhiteSpace(player.Name) ? $"PLAYER {player.Slot + 1}" : player.Name;
                 _lobbyPlayers[display++] = new LobbyDisplayPlayer(
-                    netSlot, hunter, suit, name.Trim().ToUpperInvariant(),
-                    ready, local, spectator, Occupied: true);
+                    player.Slot, (Hunter)Math.Clamp((int)player.Hunter, 0, Hunters.Playable - 1),
+                    Math.Clamp((int)player.Color, 0, 3), name.Trim().ToUpperInvariant(),
+                    player.Ready, player.Slot == snapshot.LocalSlot, player.IsSpectator, Occupied: true);
             }
 
             if (localRosterIndex >= 0)
-            {
                 AddRosterPlayer(localRosterIndex);
-            }
-            else if (NetSession.LocalSlot >= 0)
+            else if (snapshot.LocalSlot >= 0)
             {
-                // The authoritative roster may arrive one packet after the
-                // session. Always reserve the front position for the local
-                // player so another peer never temporarily becomes the hero.
-                string localName = String.IsNullOrWhiteSpace(NetSession.PlayerName)
-                    ? HubState.Capture().PlayerName
-                    : NetSession.PlayerName;
+                string localName = String.IsNullOrWhiteSpace(snapshot.PlayerName)
+                    ? HubState.Capture().PlayerName : snapshot.PlayerName;
                 _lobbyPlayers[display++] = new LobbyDisplayPlayer(
-                    NetSession.LocalSlot, NetSession.LocalHunter,
-                    Math.Clamp(NetSession.LocalColor, 0, 3),
-                    localName.Trim().ToUpperInvariant(),
-                    NetSession.LocalSlot < NetSession.SlotLobbyReady.Length
-                        && NetSession.SlotLobbyReady[NetSession.LocalSlot],
-                    Local: true, SpectatorMode.PreferSpectator, Occupied: true);
+                    snapshot.LocalSlot, snapshot.LocalHunter, Math.Clamp((int)snapshot.LocalColor, 0, 3),
+                    localName.Trim().ToUpperInvariant(), Ready: false,
+                    Local: true, snapshot.PreferSpectator, Occupied: true);
             }
-            for (int i = 0; i < roster.Count && display < _lobbyPlayers.Length; i++)
-            {
-                if (i != localRosterIndex)
-                    AddRosterPlayer(i);
-            }
+            for (int i = 0; i < snapshot.Players.Length && display < _lobbyPlayers.Length; i++)
+                if (i != localRosterIndex) AddRosterPlayer(i);
 
             for (int i = display; i < _lobbyPlayers.Length; i++)
                 _lobbyPlayers[i] = default;
@@ -541,7 +834,7 @@ namespace MphRead.Mods.Launcher.Gui
             LauncherLobbyVisuals.Active = true;
             LauncherLobbyVisuals.OccupiedMask = mask;
 
-            MatchDefinition? match = NetSession.ActiveMatchDefinition;
+            MatchDefinition? match = snapshot.Match;
             if (match is { } definition)
             {
                 LauncherBackdrop.Set(LauncherBackdropScene.Lobby, definition.RoomKey);
@@ -559,25 +852,25 @@ namespace MphRead.Mods.Launcher.Gui
             SetText("lobby_name", _lobbyName);
             SetText("lobby_player_count", $"{display} / 8");
             SetText("lobby_ready_count", $"{readyCount} READY");
-            bool localReady = NetSession.LocalSlot >= 0
-                && NetSession.LocalSlot < NetSession.SlotLobbyReady.Length
-                && NetSession.SlotLobbyReady[NetSession.LocalSlot];
+            bool localReady = localRosterIndex >= 0 && snapshot.Players[localRosterIndex].Ready;
+            bool starting = snapshot.Phase == SessionPhase.Starting;
             SetBool("lobby_local_ready", localReady);
-            SetBool("lobby_require_ready",
-                NetSession.ServerSession is { } readySession && readySession.RequireReady);
-            SetBool("lobby_owner", NetSession.LocalIsLobbyOwner);
-            SetBool("lobby_starting", NetSession.IsStarting);
+            SetBool("lobby_require_ready", (snapshot.RuleFlags & LobbyRuleFlags.RequireReady) != 0);
+            SetBool("lobby_owner", snapshot.IsOwner);
+            SetBool("lobby_starting", starting);
+            SetBool("lobby_can_start", LobbyPresentation.From(snapshot).CanStart);
             SetText("lobby_ready_action", localReady ? "UNREADY" : "READY");
             SetText("lobby_local_hunter",
-                (display > 0 ? _lobbyPlayers[0].Hunter : NetSession.LocalHunter)
+                (display > 0 ? _lobbyPlayers[0].Hunter : snapshot.LocalHunter)
                     .ToString().ToUpperInvariant());
 
-            string status = NetSession.LobbyMessage;
+            string status = String.IsNullOrWhiteSpace(snapshot.CommandError)
+                ? snapshot.Message : snapshot.CommandError;
             if (String.IsNullOrWhiteSpace(status))
             {
-                if (NetSession.IsStarting)
+                if (starting)
                 {
-                    double remaining = NetSession.StartCountdownRemainingSeconds;
+                    double remaining = snapshot.CountdownSeconds;
                     status = remaining > 0
                         ? $"MATCH STARTING // {Math.Max(1, (int)Math.Ceiling(remaining))}"
                         : "SYNCHRONIZING MATCH";
@@ -588,15 +881,16 @@ namespace MphRead.Mods.Launcher.Gui
                     status = "CONNECTED // WAITING FOR PLAYERS";
             }
             SetText("lobby_status", status.ToUpperInvariant());
+            if (_pages != null) RmlUiLobbyBindings.Present(_pages, snapshot);
 
             if (display > 0)
-                ConfigureLobbyHunter(_lobbyPlayers[0], LobbyPlacements[0]);
+                ConfigureLobbyHunter(_lobbyPlayers[0], LauncherLobbyFormation.At(0));
             else
                 LauncherHunter.Wanted = false;
 
             if (force)
             {
-                SetText("renderer_name", "OPENGL // RMLUI 6.3 // LIVE LOBBY");
+                SetText("renderer_name", RendererLabel + " // RMLUI 6.3 // LIVE LOBBY");
                 SetText("ui_cost", "RMLUI LIVE LOBBY // DIRECT GPU OVERLAY");
             }
         }
@@ -605,7 +899,7 @@ namespace MphRead.Mods.Launcher.Gui
             LobbyDisplayPlayer player, LobbyFormationSlot placement)
         {
             LauncherHunter.Wanted = GameFiles.Ready && player.Occupied;
-            LauncherHunter.CanPresent = () => _active && _lobbyMode;
+            LauncherHunter.CanPresent = () => Visible && _lobbyMode;
             LauncherHunter.PreviewSlot = 0;
             LauncherHunter.Hunter = player.Hunter;
             LauncherHunter.Suit = player.Suit;
@@ -619,18 +913,18 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static void PublishLobbyAnchors()
         {
-            if (!_active) return;
+            if (!Visible) return;
             for (int i = 0; i < LauncherLobbyFormation.Capacity; i++)
             {
                 LobbyFormationSlot slot = LauncherLobbyFormation.At(i);
-                NativeSetLobbyAnchor(i, slot.LabelX, slot.LabelY);
+                _runtime.SetLobbyAnchor(i, slot.LabelX, slot.LabelY);
             }
         }
 
         private static void ConfigureHunter(HubSnapshot snapshot)
         {
             LauncherHunter.Wanted = snapshot.GameFilesReady && !_multiplayerMode;
-            LauncherHunter.CanPresent = () => _active && !_multiplayerMode;
+            LauncherHunter.CanPresent = () => Visible && !_multiplayerMode;
             LauncherHunter.PreviewSlot = -1;
             LauncherHunter.Hunter = snapshot.DisplayHunter;
             LauncherHunter.Suit = snapshot.Suit;
@@ -648,42 +942,39 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static void DrainActions()
         {
-            for (int i = 0; i < 8; i++)
+            for (int i = 0; i < 64 && _runtime.TryTakeIntent(out RmlUiIntent intent); i++)
             {
-                Array.Clear(_actionBuffer, 0, _actionBuffer.Length);
-                int length = NativeTakeAction(_actionBuffer, _actionBuffer.Length);
-                if (length <= 0) return;
-                string action = Encoding.UTF8.GetString(
-                    _actionBuffer, 0, Math.Min(length, _actionBuffer.Length - 1));
-                if (action.StartsWith("stage:", StringComparison.Ordinal)
-                    || action.StartsWith("stage-preview:", StringComparison.Ordinal))
+                if (_pages != null && _pages.HandleIntent(intent, out RmlUiIntent forwarded))
                 {
-                    ApplyStageAction(action);
+                    if (forwarded.Kind == 0) continue;
+                    intent = forwarded;
+                }
+                if (intent.Kind is RmlUiIntentKind.StageSelect or RmlUiIntentKind.StagePreview)
+                {
+                    ApplyStageAction(intent);
                     continue;
                 }
-                if (action.StartsWith("play:", StringComparison.Ordinal))
+                if (intent.Kind is >= RmlUiIntentKind.PlayQuick and <= RmlUiIntentKind.PlayServer)
                 {
-                    bool multiplayer = action != "play:cancel";
+                    bool multiplayer = intent.Kind != RmlUiIntentKind.PlayCancel;
                     if (_multiplayerMode != multiplayer)
                     {
                         _multiplayerMode = multiplayer;
-                        if (multiplayer)
-                            LauncherHunter.Wanted = false;
-                        else
-                            ConfigureHunter(HubState.Capture());
+                        if (multiplayer) LauncherHunter.Wanted = false;
+                        else ConfigureHunter(HubState.Capture());
                     }
                 }
-                _commands.Enqueue(action);
+                _commands.Enqueue(intent);
             }
         }
 
-        private static void ApplyStageAction(string action)
+        private static void ApplyStageAction(RmlUiIntent intent)
         {
-            int separator = action.IndexOf(':');
-            string stage = separator >= 0 && separator + 1 < action.Length
-                ? action[(separator + 1)..]
-                : "";
-            bool preview = action.StartsWith("stage-preview:", StringComparison.Ordinal);
+            string stage = intent.Argument switch
+            {
+                0 => "quick", 1 => "browser", 2 => "offline", 3 => "adventure", _ => ""
+            };
+            bool preview = intent.Kind == RmlUiIntentKind.StagePreview;
 
             switch (stage)
             {
@@ -717,13 +1008,11 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static void HandleGamepad(UiAction action)
         {
-            if (!_active) return;
+            if (!Visible) return;
+            if (GamepadActionOverride?.Invoke(action) == true) return;
             if (action == UiAction.Back)
             {
-                // Back closes an open activity drawer first. Only a second
-                // Back hands control to the production shell.
-                if (NativeBack() == 0)
-                    _commands.Enqueue("route:news");
+                HandleBack();
                 return;
             }
             int key = action switch
@@ -739,35 +1028,35 @@ namespace MphRead.Mods.Launcher.Gui
             };
             if (key == 0) return;
             int modifiers = action == UiAction.PreviousTab ? 1 : 0;
-            NativeKey(key, 1, modifiers);
-            NativeKey(key, 0, modifiers);
+            if (_runtime.TryGetTextInputState(out var composition) && composition.Composing) return;
+            var document = _runtime.CurrentInputDocument;
+            _runtime.Input.Dispatch(new(document, RmlUiPlatformInputKind.KeyDown, RmlUiInputDevice.Gamepad,
+                Code: key, Modifiers: (RmlUiInputModifiers)modifiers));
+            _runtime.Input.Dispatch(new(document, RmlUiPlatformInputKind.KeyUp, RmlUiInputDevice.Gamepad,
+                Code: key, Modifiers: (RmlUiInputModifiers)modifiers));
         }
 
-        private static int TranslateKey(Keys key) => key switch
+        private static void HandleBack()
         {
-            Keys.Tab => 1,
-            Keys.Enter or Keys.KeyPadEnter => 2,
-            Keys.Escape => 3,
-            Keys.Space => 4,
-            Keys.Up => 5,
-            Keys.Down => 6,
-            Keys.Left => 7,
-            Keys.Right => 8,
-            Keys.Home => 9,
-            Keys.End => 10,
-            Keys.PageUp => 11,
-            Keys.PageDown => 12,
-            _ => 0
-        };
-
-        private static int Modifiers(KeyboardKeyEventArgs e)
-        {
-            int modifiers = 0;
-            if (e.Shift) modifiers |= 1;
-            if (e.Control) modifiers |= 2;
-            if (e.Alt) modifiers |= 4;
-            if (e.Command) modifiers |= 8;
-            return modifiers;
+            if (_runtime.TryGetTextInputState(out var composition) && composition.Composing)
+            {
+                _runtime.Input.Dispatch(new(composition.Document, RmlUiPlatformInputKind.CompositionCancel,
+                    RmlUiInputDevice.InputMethod, composition.FocusEpoch));
+                _windowsIme?.Cancel();
+                _cocoaIme?.Cancel();
+                _linuxIme?.Cancel();
+                return;
+            }
+            if (BackRequested?.Invoke() == true) return;
+            if (_pages != null && _pages.Back(out RmlUiIntent forwarded))
+            {
+                if (forwarded.Kind is RmlUiIntentKind.StageSelect or RmlUiIntentKind.StagePreview)
+                    ApplyStageAction(forwarded);
+                else if (forwarded.Kind != 0) _commands.Enqueue(forwarded);
+                return;
+            }
+            if (!_runtime.Back())
+                _commands.Enqueue(_runtime.CreateIntent(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.News));
         }
 
         private static string? CaptureDirectory()
@@ -828,8 +1117,7 @@ namespace MphRead.Mods.Launcher.Gui
                 // platform DPI answer if GLFW window-size lookup is unavailable.
             }
 
-            _pointerScaleX = framebufferScaleX;
-            _pointerScaleY = framebufferScaleY;
+            _runtime.Input.SetFramebufferScale(framebufferScaleX, framebufferScaleY);
 
             float contentScale = 1f;
             try
@@ -875,110 +1163,37 @@ namespace MphRead.Mods.Launcher.Gui
 
         internal static void SetFieldValue(string id, string value)
         {
-            if (_active) NativeSetField(id, value ?? string.Empty);
+            if (!_active) return;
+            if (_pages != null) _pages.SetField(id, value);
+            else _runtime.SetField(_runtime.HomeDocument, id, value);
         }
 
-        internal static string ReadFieldValue(string id)
-        {
-            if (!_active) return string.Empty;
-            byte[] buffer = new byte[256];
-            int length = NativeReadField(id, buffer, buffer.Length);
-            return length <= 0 ? string.Empty
-                : Encoding.UTF8.GetString(buffer, 0, Math.Min(length, buffer.Length - 1));
-        }
+        internal static string ReadFieldValue(string id) => _active
+            ? _pages?.ReadField(id) ?? _runtime.ReadField(_runtime.HomeDocument, id) : string.Empty;
 
         private static void SetText(string name, string value)
         {
-            if (_active) NativeSetText(name, value ?? string.Empty);
+            if (!_active) return;
+            if (_pages != null) _pages.SetText(name, value);
+            else _runtime.SetText(_runtime.HomeDocument, name, value);
         }
 
         private static void SetBool(string name, bool value)
         {
-            if (_active) NativeSetBool(name, value ? 1 : 0);
+            if (!_active) return;
+            if (_pages != null) _pages.SetBool(name, value);
+            else _runtime.SetBool(_runtime.HomeDocument, name, value);
         }
 
-        private static void Fail(string message, Exception ex)
+        private static void Fail(string message, Exception ex, LauncherUiFailure failure = LauncherUiFailure.Runtime)
         {
-            bool wasActive = _active;
             _failed = true;
-            _active = false;
-            if (wasActive)
-            {
-                try { NativeShutdown(); }
-                catch (Exception shutdown) { Mods.DebugLog.Exception("rmlui", shutdown); }
-            }
-            _commands.Clear();
-            _gamepad.Reset();
-            _captureDirectory = null;
-            _captureFrames = 0;
-            _lobbyMode = false;
-            _lobbyPlayerCount = 0;
-            Array.Clear(_lobbyPlayers);
-            LauncherLobbyVisuals.Reset();
-            LauncherHunter.Reset();
-            GamepadContexts.MenuVisible = false;
-            Mods.DebugLog.Line("rmlui", $"POC {message}: {ex.Message}; falling back to Avalonia");
-            Mods.DebugLog.Exception("rmlui", ex);
+            LauncherUiRuntime.RecordNativeFailure(failure);
+            RetireNativePresentation();
+            RmlUiCleanup.Run(null, () => Mods.DebugLog.Line("rmlui", $"Native UI {message}: {ex.Message}"),
+                () => Mods.DebugLog.Exception("rmlui", ex));
         }
 
-        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_initialize")]
-        private static extern int NativeInitialize(int width, int height, float density,
-            [MarshalAs(UnmanagedType.LPUTF8Str)] string assetRoot);
-
-        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_shutdown")]
-        private static extern void NativeShutdown();
-
-        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_update")]
-        private static extern void NativeUpdate();
-
-        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_render")]
-        private static extern void NativeRender(int width, int height);
-
-        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_resize")]
-        private static extern void NativeResize(int width, int height, float density);
-
-        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_mouse_move")]
-        private static extern int NativeMouseMove(int x, int y, int modifiers);
-
-        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_mouse_button")]
-        private static extern int NativeMouseButton(int button, int down, int modifiers);
-
-        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_mouse_wheel")]
-        private static extern int NativeMouseWheel(float deltaY, int modifiers);
-
-        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_key")]
-        private static extern int NativeKey(int key, int down, int modifiers);
-
-        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_text")]
-        private static extern int NativeText(uint codepoint);
-
-        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_set_text")]
-        private static extern void NativeSetText(
-            [MarshalAs(UnmanagedType.LPUTF8Str)] string name,
-            [MarshalAs(UnmanagedType.LPUTF8Str)] string value);
-
-        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_set_bool")]
-        private static extern void NativeSetBool(
-            [MarshalAs(UnmanagedType.LPUTF8Str)] string name, int value);
-
-        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_set_lobby_anchor")]
-        private static extern void NativeSetLobbyAnchor(int slot, float centerX, float centerY);
-
-        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_set_field")]
-        private static extern void NativeSetField(
-            [MarshalAs(UnmanagedType.LPUTF8Str)] string id,
-            [MarshalAs(UnmanagedType.LPUTF8Str)] string value);
-
-        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_read_field")]
-        private static extern int NativeReadField(
-            [MarshalAs(UnmanagedType.LPUTF8Str)] string id,
-            [Out] byte[] buffer, int capacity);
-
-        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_back")]
-        private static extern int NativeBack();
-
-        [DllImport(NativeLibraryName, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_take_action")]
-        private static extern int NativeTakeAction([Out] byte[] buffer, int capacity);
     }
 }
 #endif

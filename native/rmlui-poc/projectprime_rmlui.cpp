@@ -2,7 +2,11 @@
 #include <RmlUi/Core/Input.h>
 #include <RmlUi/Core/StringUtilities.h>
 #include <RmlUi/Core/Elements/ElementFormControlInput.h>
-#include "RmlUi_Renderer_GL2.h"
+#include <RmlUi/Core/Elements/ElementFormControlTextArea.h>
+#include "projectprime_rmlui_renderer.h"
+#include "projectprime_rmlui_text_input.h"
+#include "projectprime_rmlui_accessibility.h"
+#include <RmlUi/Core/EventListener.h>
 
 #include <algorithm>
 #include <array>
@@ -13,28 +17,20 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
-
-#if defined(_WIN32)
-#define NOMINMAX
-#include <windows.h>
-#include <GL/gl.h>
-#elif defined(__APPLE__)
-#include <OpenGL/gl.h>
-#else
-#include <GL/gl.h>
-#endif
-
-#if defined(_WIN32)
-#define PP_EXPORT extern "C" __declspec(dllexport)
-#else
-#define PP_EXPORT extern "C" __attribute__((visibility("default")))
-#endif
-
-PP_EXPORT void pp_rmlui_shutdown();
+#include <vector>
+#include <thread>
+#include <cmath>
+#include <atomic>
+#include <cerrno>
+#include <cstdlib>
+#include <cctype>
+#include <limits>
 
 namespace {
 
 void FocusElement(const char* id);
+void QueueHomeAction(const std::string& action);
+void DirtyVisual();
 Rml::Element* FindElementById(const char* id);
 bool g_lobby_anchor_dirty = true;
 struct LobbyAnchor { float x = 0.f; float y = 0.f; };
@@ -49,798 +45,482 @@ public:
         return std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
     }
 
+    void SetClipboardText(const Rml::String& text) override { clipboard = text; }
+    void GetClipboardText(Rml::String& text) override { text = clipboard; }
+    void ClearClipboard() { clipboard.clear(); }
+    void JoinPath(Rml::String& translated, const Rml::String& document, const Rml::String& path) override
+    {
+        // The default browser-style resolver removes the leading '/' from
+        // absolute paths. Local engine thumbnails must retain their real path.
+        if (!path.empty() && path[0] == '/') translated = path;
+        else Rml::SystemInterface::JoinPath(translated, document, path);
+    }
 private:
+    Rml::String clipboard;
     std::chrono::steady_clock::time_point started;
 };
 
-struct PrimeMenuData {
-    Rml::String player_name = "PLAYER";
-    Rml::String profile_state = "LOCAL PROFILE";
-    Rml::String hunter_name = "SAMUS";
-    Rml::String game_data_state = "GAME DATA UNKNOWN";
-    Rml::String build_version = "local";
-    Rml::String renderer_name = "OPENGL // RMLUI 6.3";
-    Rml::String ui_cost = "RMLUI DIRECT GPU OVERLAY // MEASURING";
-    bool reduce_motion = false;
-    bool diagnostics_visible = false;
-    bool activity_selector_open = false;
-    bool home_mode = true;
-    bool lobby_mode = false;
-    bool lobby_owner = false;
-    bool lobby_local_ready = false;
-    bool lobby_require_ready = false;
-    bool lobby_starting = false;
-    bool lobby_rules_open = false;
-    bool rules_owner = false;
-    bool rules_dirty = false;
-    bool rules_pending = false;
-    Rml::String rules_map = "WAITING FOR ARENA";
-    Rml::String rules_mode = "BATTLE";
-    Rml::String rules_format = "FFA";
-    Rml::String rules_goal_label = "SCORE GOAL";
-    Rml::String rules_status = "READING SERVER RULES";
-    std::array<Rml::String, 16> rules_toggles{};
-    bool multiplayer_mode = false;
-    bool play_create_mode = false;
-    bool play_browser_mode = false;
-    bool play_busy = false;
-    bool play_no_servers = true;
-    Rml::String play_status = "CONTACTING DIRECTORY";
-    Rml::String play_create_map = "WAITING FOR MAPS";
-    Rml::String play_create_mode_name = "BATTLE";
-    Rml::String play_create_host = "HOSTED // ONLINE";
-    Rml::String play_server_count = "0 LIVE";
-    std::array<Rml::String, 8> play_server_name{};
-    std::array<Rml::String, 8> play_server_details{};
-    std::array<bool, 8> play_server_present{};
-
-    Rml::String lobby_name = "MULTIPLAYER LOBBY";
-    Rml::String lobby_map = "WAITING FOR MAP";
-    Rml::String lobby_mode_name = "BATTLE";
-    Rml::String lobby_format = "FREE FOR ALL";
-    Rml::String lobby_player_count = "1 / 8";
-    Rml::String lobby_ready_count = "0 READY";
-    Rml::String lobby_status = "WAITING FOR PLAYERS";
-    Rml::String lobby_ready_action = "READY";
-    Rml::String lobby_local_hunter = "SAMUS";
-    std::array<Rml::String, 8> slot_name{};
-    std::array<Rml::String, 8> slot_hunter{};
-    std::array<Rml::String, 8> slot_state{};
-    std::array<bool, 8> slot_occupied{};
-    std::array<bool, 8> slot_ready{};
-    std::array<bool, 8> slot_local{};
-
-    int activity_index = 0;
-    Rml::String activity_group = "MULTIPLAYER";
-    Rml::String activity_title = "QUICK PLAY";
-    Rml::String activity_description = "Find the best compatible public hunt.";
-    Rml::String activity_hint = "PUBLIC MATCHMAKING";
-    Rml::String activity_action = "DEPLOY";
-};
-
-class PrimeMenuModel {
-public:
-    bool Setup(Rml::Context* context)
-    {
-        Rml::DataModelConstructor model = context->CreateDataModel("prime_menu");
-        if (!model)
-            return false;
-
-        model.Bind("player_name", &data.player_name);
-        model.Bind("profile_state", &data.profile_state);
-        model.Bind("hunter_name", &data.hunter_name);
-        model.Bind("game_data_state", &data.game_data_state);
-        model.Bind("build_version", &data.build_version);
-        model.Bind("renderer_name", &data.renderer_name);
-        model.Bind("ui_cost", &data.ui_cost);
-        model.Bind("reduce_motion", &data.reduce_motion);
-        model.Bind("diagnostics_visible", &data.diagnostics_visible);
-        model.Bind("activity_selector_open", &data.activity_selector_open);
-        model.Bind("home_mode", &data.home_mode);
-        model.Bind("lobby_mode", &data.lobby_mode);
-        model.Bind("lobby_owner", &data.lobby_owner);
-        model.Bind("lobby_local_ready", &data.lobby_local_ready);
-        model.Bind("lobby_require_ready", &data.lobby_require_ready);
-        model.Bind("lobby_starting", &data.lobby_starting);
-        model.Bind("lobby_name", &data.lobby_name);
-        model.Bind("lobby_map", &data.lobby_map);
-        model.Bind("lobby_mode_name", &data.lobby_mode_name);
-        model.Bind("lobby_format", &data.lobby_format);
-        model.Bind("lobby_player_count", &data.lobby_player_count);
-        model.Bind("lobby_ready_count", &data.lobby_ready_count);
-        model.Bind("lobby_status", &data.lobby_status);
-        model.Bind("lobby_ready_action", &data.lobby_ready_action);
-        model.Bind("lobby_local_hunter", &data.lobby_local_hunter);
-        model.Bind("lobby_rules_open", &data.lobby_rules_open);
-        model.Bind("rules_owner", &data.rules_owner);
-        model.Bind("rules_dirty", &data.rules_dirty);
-        model.Bind("rules_pending", &data.rules_pending);
-        model.Bind("rules_map", &data.rules_map);
-        model.Bind("rules_mode", &data.rules_mode);
-        model.Bind("rules_format", &data.rules_format);
-        model.Bind("rules_goal_label", &data.rules_goal_label);
-        model.Bind("rules_status", &data.rules_status);
-        model.Bind("rules_toggle0", &data.rules_toggles[0]);
-        model.Bind("rules_toggle1", &data.rules_toggles[1]);
-        model.Bind("rules_toggle2", &data.rules_toggles[2]);
-        model.Bind("rules_toggle3", &data.rules_toggles[3]);
-        model.Bind("rules_toggle4", &data.rules_toggles[4]);
-        model.Bind("rules_toggle5", &data.rules_toggles[5]);
-        model.Bind("rules_toggle6", &data.rules_toggles[6]);
-        model.Bind("rules_toggle7", &data.rules_toggles[7]);
-        model.Bind("rules_toggle8", &data.rules_toggles[8]);
-        model.Bind("rules_toggle9", &data.rules_toggles[9]);
-        model.Bind("rules_toggle10", &data.rules_toggles[10]);
-        model.Bind("rules_toggle11", &data.rules_toggles[11]);
-        model.Bind("rules_toggle12", &data.rules_toggles[12]);
-        model.Bind("rules_toggle13", &data.rules_toggles[13]);
-        model.Bind("rules_toggle14", &data.rules_toggles[14]);
-        model.Bind("rules_toggle15", &data.rules_toggles[15]);
-        model.Bind("multiplayer_mode", &data.multiplayer_mode);
-        model.Bind("play_create_mode", &data.play_create_mode);
-        model.Bind("play_browser_mode", &data.play_browser_mode);
-        model.Bind("play_busy", &data.play_busy);
-        model.Bind("play_no_servers", &data.play_no_servers);
-        model.Bind("play_status", &data.play_status);
-        model.Bind("play_create_map", &data.play_create_map);
-        model.Bind("play_create_mode_name", &data.play_create_mode_name);
-        model.Bind("play_create_host", &data.play_create_host);
-        model.Bind("play_server_count", &data.play_server_count);
-        model.Bind("play_server0_present", &data.play_server_present[0]);
-        model.Bind("play_server0_name", &data.play_server_name[0]);
-        model.Bind("play_server0_details", &data.play_server_details[0]);
-        model.Bind("play_server1_present", &data.play_server_present[1]);
-        model.Bind("play_server1_name", &data.play_server_name[1]);
-        model.Bind("play_server1_details", &data.play_server_details[1]);
-        model.Bind("play_server2_present", &data.play_server_present[2]);
-        model.Bind("play_server2_name", &data.play_server_name[2]);
-        model.Bind("play_server2_details", &data.play_server_details[2]);
-        model.Bind("play_server3_present", &data.play_server_present[3]);
-        model.Bind("play_server3_name", &data.play_server_name[3]);
-        model.Bind("play_server3_details", &data.play_server_details[3]);
-        model.Bind("play_server4_present", &data.play_server_present[4]);
-        model.Bind("play_server4_name", &data.play_server_name[4]);
-        model.Bind("play_server4_details", &data.play_server_details[4]);
-        model.Bind("play_server5_present", &data.play_server_present[5]);
-        model.Bind("play_server5_name", &data.play_server_name[5]);
-        model.Bind("play_server5_details", &data.play_server_details[5]);
-        model.Bind("play_server6_present", &data.play_server_present[6]);
-        model.Bind("play_server6_name", &data.play_server_name[6]);
-        model.Bind("play_server6_details", &data.play_server_details[6]);
-        model.Bind("play_server7_present", &data.play_server_present[7]);
-        model.Bind("play_server7_name", &data.play_server_name[7]);
-        model.Bind("play_server7_details", &data.play_server_details[7]);
-        model.Bind("slot0_name", &data.slot_name[0]);
-        model.Bind("slot0_hunter", &data.slot_hunter[0]);
-        model.Bind("slot0_state", &data.slot_state[0]);
-        model.Bind("slot0_occupied", &data.slot_occupied[0]);
-        model.Bind("slot0_ready", &data.slot_ready[0]);
-        model.Bind("slot0_local", &data.slot_local[0]);
-        model.Bind("slot1_name", &data.slot_name[1]);
-        model.Bind("slot1_hunter", &data.slot_hunter[1]);
-        model.Bind("slot1_state", &data.slot_state[1]);
-        model.Bind("slot1_occupied", &data.slot_occupied[1]);
-        model.Bind("slot1_ready", &data.slot_ready[1]);
-        model.Bind("slot1_local", &data.slot_local[1]);
-        model.Bind("slot2_name", &data.slot_name[2]);
-        model.Bind("slot2_hunter", &data.slot_hunter[2]);
-        model.Bind("slot2_state", &data.slot_state[2]);
-        model.Bind("slot2_occupied", &data.slot_occupied[2]);
-        model.Bind("slot2_ready", &data.slot_ready[2]);
-        model.Bind("slot2_local", &data.slot_local[2]);
-        model.Bind("slot3_name", &data.slot_name[3]);
-        model.Bind("slot3_hunter", &data.slot_hunter[3]);
-        model.Bind("slot3_state", &data.slot_state[3]);
-        model.Bind("slot3_occupied", &data.slot_occupied[3]);
-        model.Bind("slot3_ready", &data.slot_ready[3]);
-        model.Bind("slot3_local", &data.slot_local[3]);
-        model.Bind("slot4_name", &data.slot_name[4]);
-        model.Bind("slot4_hunter", &data.slot_hunter[4]);
-        model.Bind("slot4_state", &data.slot_state[4]);
-        model.Bind("slot4_occupied", &data.slot_occupied[4]);
-        model.Bind("slot4_ready", &data.slot_ready[4]);
-        model.Bind("slot4_local", &data.slot_local[4]);
-        model.Bind("slot5_name", &data.slot_name[5]);
-        model.Bind("slot5_hunter", &data.slot_hunter[5]);
-        model.Bind("slot5_state", &data.slot_state[5]);
-        model.Bind("slot5_occupied", &data.slot_occupied[5]);
-        model.Bind("slot5_ready", &data.slot_ready[5]);
-        model.Bind("slot5_local", &data.slot_local[5]);
-        model.Bind("slot6_name", &data.slot_name[6]);
-        model.Bind("slot6_hunter", &data.slot_hunter[6]);
-        model.Bind("slot6_state", &data.slot_state[6]);
-        model.Bind("slot6_occupied", &data.slot_occupied[6]);
-        model.Bind("slot6_ready", &data.slot_ready[6]);
-        model.Bind("slot6_local", &data.slot_local[6]);
-        model.Bind("slot7_name", &data.slot_name[7]);
-        model.Bind("slot7_hunter", &data.slot_hunter[7]);
-        model.Bind("slot7_state", &data.slot_state[7]);
-        model.Bind("slot7_occupied", &data.slot_occupied[7]);
-        model.Bind("slot7_ready", &data.slot_ready[7]);
-        model.Bind("slot7_local", &data.slot_local[7]);
-        model.Bind("activity_index", &data.activity_index);
-        model.Bind("activity_group", &data.activity_group);
-        model.Bind("activity_title", &data.activity_title);
-        model.Bind("activity_description", &data.activity_description);
-        model.Bind("activity_hint", &data.activity_hint);
-        model.Bind("activity_action", &data.activity_action);
-
-        model.BindEventCallback("toggle_activity_selector", &PrimeMenuModel::ToggleActivitySelector, this);
-        model.BindEventCallback("close_activity_selector", &PrimeMenuModel::CloseActivitySelector, this);
-        model.BindEventCallback("preview_quick", &PrimeMenuModel::PreviewQuick, this);
-        model.BindEventCallback("preview_browser", &PrimeMenuModel::PreviewBrowser, this);
-        model.BindEventCallback("preview_offline", &PrimeMenuModel::PreviewOffline, this);
-        model.BindEventCallback("preview_adventure", &PrimeMenuModel::PreviewAdventure, this);
-        model.BindEventCallback("select_quick", &PrimeMenuModel::SelectQuick, this);
-        model.BindEventCallback("select_browser", &PrimeMenuModel::SelectBrowser, this);
-        model.BindEventCallback("select_offline", &PrimeMenuModel::SelectOffline, this);
-        model.BindEventCallback("select_adventure", &PrimeMenuModel::SelectAdventure, this);
-        model.BindEventCallback("deploy", &PrimeMenuModel::Deploy, this);
-        model.BindEventCallback("nav_hunters", &PrimeMenuModel::OpenHunters, this);
-        model.BindEventCallback("nav_community", &PrimeMenuModel::OpenCommunity, this);
-        model.BindEventCallback("nav_studio", &PrimeMenuModel::OpenStudio, this);
-        model.BindEventCallback("open_profile", &PrimeMenuModel::OpenProfile, this);
-        model.BindEventCallback("open_settings", &PrimeMenuModel::OpenSettings, this);
-        model.BindEventCallback("open_classic", &PrimeMenuModel::OpenClassic, this);
-        model.BindEventCallback("quit_game", &PrimeMenuModel::Quit, this);
-        model.BindEventCallback("lobby_ready", &PrimeMenuModel::LobbyReady, this);
-        model.BindEventCallback("lobby_start", &PrimeMenuModel::LobbyStart, this);
-        model.BindEventCallback("lobby_leave", &PrimeMenuModel::LobbyLeave, this);
-        model.BindEventCallback("lobby_next_hunter", &PrimeMenuModel::LobbyNextHunter, this);
-        model.BindEventCallback("lobby_next_suit", &PrimeMenuModel::LobbyNextSuit, this);
-        model.BindEventCallback("lobby_classic", &PrimeMenuModel::LobbyClassic, this);
-        model.BindEventCallback("lobby_rules_open", &PrimeMenuModel::LobbyRulesOpen, this);
-        model.BindEventCallback("lobby_rules_close", &PrimeMenuModel::LobbyRulesClose, this);
-        model.BindEventCallback("lobby_rules_apply", &PrimeMenuModel::LobbyRulesApply, this);
-        model.BindEventCallback("lobby_rules_map", &PrimeMenuModel::LobbyRulesMap, this);
-        model.BindEventCallback("lobby_rules_mode", &PrimeMenuModel::LobbyRulesMode, this);
-        model.BindEventCallback("lobby_rules_format", &PrimeMenuModel::LobbyRulesFormat, this);
-        model.BindEventCallback("lobby_rules_toggle0", &PrimeMenuModel::LobbyRulesToggle0, this);
-        model.BindEventCallback("lobby_rules_toggle1", &PrimeMenuModel::LobbyRulesToggle1, this);
-        model.BindEventCallback("lobby_rules_toggle2", &PrimeMenuModel::LobbyRulesToggle2, this);
-        model.BindEventCallback("lobby_rules_toggle3", &PrimeMenuModel::LobbyRulesToggle3, this);
-        model.BindEventCallback("lobby_rules_toggle4", &PrimeMenuModel::LobbyRulesToggle4, this);
-        model.BindEventCallback("lobby_rules_toggle5", &PrimeMenuModel::LobbyRulesToggle5, this);
-        model.BindEventCallback("lobby_rules_toggle6", &PrimeMenuModel::LobbyRulesToggle6, this);
-        model.BindEventCallback("lobby_rules_toggle7", &PrimeMenuModel::LobbyRulesToggle7, this);
-        model.BindEventCallback("lobby_rules_toggle8", &PrimeMenuModel::LobbyRulesToggle8, this);
-        model.BindEventCallback("lobby_rules_toggle9", &PrimeMenuModel::LobbyRulesToggle9, this);
-        model.BindEventCallback("lobby_rules_toggle10", &PrimeMenuModel::LobbyRulesToggle10, this);
-        model.BindEventCallback("lobby_rules_toggle11", &PrimeMenuModel::LobbyRulesToggle11, this);
-        model.BindEventCallback("lobby_rules_toggle12", &PrimeMenuModel::LobbyRulesToggle12, this);
-        model.BindEventCallback("lobby_rules_toggle13", &PrimeMenuModel::LobbyRulesToggle13, this);
-        model.BindEventCallback("lobby_rules_toggle14", &PrimeMenuModel::LobbyRulesToggle14, this);
-        model.BindEventCallback("lobby_rules_toggle15", &PrimeMenuModel::LobbyRulesToggle15, this);
-        model.BindEventCallback("play_quick", &PrimeMenuModel::PlayQuick, this);
-        model.BindEventCallback("play_browse", &PrimeMenuModel::PlayBrowse, this);
-        model.BindEventCallback("play_create_open", &PrimeMenuModel::PlayCreateOpen, this);
-        model.BindEventCallback("play_create_submit", &PrimeMenuModel::PlayCreateSubmit, this);
-        model.BindEventCallback("play_join", &PrimeMenuModel::PlayJoin, this);
-        model.BindEventCallback("play_back", &PrimeMenuModel::PlayBack, this);
-        model.BindEventCallback("play_next_map", &PrimeMenuModel::PlayNextMap, this);
-        model.BindEventCallback("play_next_mode", &PrimeMenuModel::PlayNextMode, this);
-        model.BindEventCallback("play_toggle_host", &PrimeMenuModel::PlayToggleHost, this);
-        model.BindEventCallback("play_server0", &PrimeMenuModel::PlayServer0, this);
-        model.BindEventCallback("play_server1", &PrimeMenuModel::PlayServer1, this);
-        model.BindEventCallback("play_server2", &PrimeMenuModel::PlayServer2, this);
-        model.BindEventCallback("play_server3", &PrimeMenuModel::PlayServer3, this);
-        model.BindEventCallback("play_server4", &PrimeMenuModel::PlayServer4, this);
-        model.BindEventCallback("play_server5", &PrimeMenuModel::PlayServer5, this);
-        model.BindEventCallback("play_server6", &PrimeMenuModel::PlayServer6, this);
-        model.BindEventCallback("play_server7", &PrimeMenuModel::PlayServer7, this);
-        model.BindEventCallback("noop", &PrimeMenuModel::Noop, this);
-
-        handle = model.GetModelHandle();
-        return true;
-    }
-
-    void SetText(const std::string& name, const std::string& value)
-    {
-        if (name == "player_name") data.player_name = value;
-        else if (name == "profile_state") data.profile_state = value;
-        else if (name == "hunter_name") data.hunter_name = value;
-        else if (name == "game_data_state") data.game_data_state = value;
-        else if (name == "build_version") data.build_version = value;
-        else if (name == "renderer_name") data.renderer_name = value;
-        else if (name == "ui_cost") data.ui_cost = value;
-        else if (name == "lobby_name") data.lobby_name = value;
-        else if (name == "lobby_map") data.lobby_map = value;
-        else if (name == "lobby_mode_name") data.lobby_mode_name = value;
-        else if (name == "lobby_format") data.lobby_format = value;
-        else if (name == "lobby_player_count") data.lobby_player_count = value;
-        else if (name == "lobby_ready_count") data.lobby_ready_count = value;
-        else if (name == "lobby_status") data.lobby_status = value;
-        else if (name == "lobby_ready_action") data.lobby_ready_action = value;
-        else if (name == "lobby_local_hunter") data.lobby_local_hunter = value;
-        else if (name == "rules_map") data.rules_map = value;
-        else if (name == "rules_mode") data.rules_mode = value;
-        else if (name == "rules_format") data.rules_format = value;
-        else if (name == "rules_goal_label") data.rules_goal_label = value;
-        else if (name == "rules_status") data.rules_status = value;
-        else if (name == "play_status") data.play_status = value;
-        else if (name == "play_create_map") data.play_create_map = value;
-        else if (name == "play_create_mode_name") data.play_create_mode_name = value;
-        else if (name == "play_create_host") data.play_create_host = value;
-        else if (name == "play_server_count") data.play_server_count = value;
-        else {
-            for (int i = 0; i < 8; ++i) {
-                const std::string prefix = "slot" + std::to_string(i) + "_";
-                if (name == prefix + "name") data.slot_name[i] = value;
-                else if (name == prefix + "hunter") data.slot_hunter[i] = value;
-                else if (name == prefix + "state") data.slot_state[i] = value;
-                else if (name == "play_server" + std::to_string(i) + "_name")
-                    data.play_server_name[i] = value;
-                else if (name == "play_server" + std::to_string(i) + "_details")
-                    data.play_server_details[i] = value;
-                else continue;
-                handle.DirtyVariable(name);
-                return;
-            }
-            for (int i = 0; i < int(data.rules_toggles.size()); ++i) {
-                if (name == "rules_toggle" + std::to_string(i)) {
-                    data.rules_toggles[i] = value;
-                    handle.DirtyVariable(name);
-                    return;
-                }
-            }
-            return;
-        }
-        handle.DirtyVariable(name);
-    }
-
-    void SetBool(const std::string& name, bool value)
-    {
-        if (name == "reduce_motion") data.reduce_motion = value;
-        else if (name == "diagnostics_visible") data.diagnostics_visible = value;
-        else if (name == "activity_selector_open") data.activity_selector_open = value;
-        else if (name == "lobby_mode") {
-            if (data.lobby_mode == value) return;
-            data.lobby_mode = value;
-            data.home_mode = !value;
-            if (value) {
-                data.multiplayer_mode = false;
-                data.play_create_mode = false;
-                data.play_browser_mode = false;
-                data.lobby_rules_open = false;
-                handle.DirtyVariable("lobby_rules_open");
-                handle.DirtyVariable("multiplayer_mode");
-                handle.DirtyVariable("play_create_mode");
-                handle.DirtyVariable("play_browser_mode");
-            }
-            g_lobby_anchor_dirty = true;
-            handle.DirtyVariable("lobby_mode");
-            handle.DirtyVariable("home_mode");
-            RequestFocus(value ? (data.lobby_require_ready ? "lobby_ready" : "lobby_hunter")
-                : "activity_selector");
-            return;
-        }
-        else if (name == "home_mode") data.home_mode = value;
-        else if (name == "lobby_owner") data.lobby_owner = value;
-        else if (name == "lobby_local_ready") data.lobby_local_ready = value;
-        else if (name == "lobby_require_ready") {
-            if (data.lobby_require_ready == value) return;
-            data.lobby_require_ready = value;
-            handle.DirtyVariable("lobby_require_ready");
-            if (data.lobby_mode)
-                RequestFocus(value ? "lobby_ready" : "lobby_hunter");
-            return;
-        }
-        else if (name == "lobby_starting") data.lobby_starting = value;
-        else if (name == "lobby_rules_open") {
-            data.lobby_rules_open = value;
-            handle.DirtyVariable("lobby_rules_open");
-            RequestFocus(value ? (data.rules_owner ? "rules_map_next" : "rules_close_top")
-                : "lobby_rules");
-            return;
-        }
-        else if (name == "rules_owner") data.rules_owner = value;
-        else if (name == "rules_dirty") data.rules_dirty = value;
-        else if (name == "rules_pending") data.rules_pending = value;
-        else if (name == "multiplayer_mode") {
-            data.multiplayer_mode = value;
-            data.home_mode = !value && !data.lobby_mode;
-            handle.DirtyVariable("multiplayer_mode");
-            handle.DirtyVariable("home_mode");
-            return;
-        }
-        else if (name == "play_create_mode") data.play_create_mode = value;
-        else if (name == "play_browser_mode") data.play_browser_mode = value;
-        else if (name == "play_busy") data.play_busy = value;
-        else if (name == "play_no_servers") data.play_no_servers = value;
-        else {
-            for (int i = 0; i < 8; ++i) {
-                const std::string prefix = "slot" + std::to_string(i) + "_";
-                if (name == prefix + "occupied") {
-                    if (data.slot_occupied[i] != value)
-                        g_lobby_anchor_dirty = true;
-                    data.slot_occupied[i] = value;
-                }
-                else if (name == prefix + "ready") data.slot_ready[i] = value;
-                else if (name == prefix + "local") data.slot_local[i] = value;
-                else if (name == "play_server" + std::to_string(i) + "_present")
-                {
-                    data.play_server_present[i] = value;
-                    handle.DirtyVariable(name);
-                    return;
-                }
-                else continue;
-                handle.DirtyVariable(name);
-                return;
-            }
-            return;
-        }
-        handle.DirtyVariable(name);
-    }
-
-    bool TakeAction(std::string& result)
-    {
-        if (actions.empty()) return false;
-        result = std::move(actions.front());
-        actions.pop_front();
-        return true;
-    }
-
-    bool Back()
-    {
-        if (data.lobby_mode) {
-            if (data.lobby_rules_open) {
-                CloseLobbyRules();
-                return true;
-            }
-            Emit("lobby:leave");
-            return true;
-        }
-        if (data.multiplayer_mode) {
-            if (data.play_create_mode) {
-                data.play_create_mode = false;
-                data.play_browser_mode = true;
-                handle.DirtyVariable("play_create_mode");
-                handle.DirtyVariable("play_browser_mode");
-                Emit("play:browse");
-                RequestFocus("play_quick");
-            } else {
-                data.multiplayer_mode = false;
-                data.home_mode = true;
-                data.play_browser_mode = false;
-                handle.DirtyVariable("multiplayer_mode");
-                handle.DirtyVariable("home_mode");
-                handle.DirtyVariable("play_browser_mode");
-                Emit("play:cancel");
-                RequestFocus("activity_selector");
-            }
-            return true;
-        }
-        if (!data.activity_selector_open)
-            return false;
-        SetSelectorOpen(false);
-        EmitStage(data.activity_index, false);
-        RequestFocus("activity_selector");
-        return true;
-    }
-
-    void SetInputText(const std::string& id, const std::string& value)
-    {
-        pending_inputs[id] = value;
-    }
-
-    void ApplyPendingFocus()
-    {
-        // Inputs are conditional data-if branches. Defer their initial values
-        // until after the multiplayer DOM is materialized by Context::Update.
-        for (auto it = pending_inputs.begin(); it != pending_inputs.end();) {
-            Rml::Element* element = FindElementById(it->first.c_str());
-            if (auto* input = dynamic_cast<Rml::ElementFormControlInput*>(element)) {
-                input->SetValue(it->second);
-                it = pending_inputs.erase(it);
-            } else ++it;
-        }
-        if (pending_focus.empty())
-            return;
-        std::string id = std::move(pending_focus);
-        pending_focus.clear();
-        FocusElement(id.c_str());
-    }
-
-private:
-    PrimeMenuData data;
-    Rml::DataModelHandle handle;
-    std::deque<std::string> actions;
-    std::string pending_focus;
-    std::unordered_map<std::string, std::string> pending_inputs;
-
-    void Emit(const char* action) { actions.emplace_back(action); }
-    void RequestFocus(const char* id) { pending_focus = id ? id : ""; }
-
-    static const char* StageName(int index)
-    {
-        switch (index) {
-        case 0: return "quick";
-        case 1: return "browser";
-        case 2: return "offline";
-        case 3: return "adventure";
-        default: return "quick";
-        }
-    }
-
-    void EmitStage(int index, bool preview)
-    {
-        actions.emplace_back(std::string(preview ? "stage-preview:" : "stage:")
-            + StageName(index));
-    }
-
-    const char* ActivityElement(int index) const
-    {
-        switch (index) {
-        case 0: return "drawer_quick";
-        case 1: return "drawer_browser";
-        case 2: return "drawer_offline";
-        case 3: return "drawer_adventure";
-        default: return "drawer_quick";
-        }
-    }
-
-    void SetSelectorOpen(bool open)
-    {
-        if (data.activity_selector_open == open)
-            return;
-        data.activity_selector_open = open;
-        handle.DirtyVariable("activity_selector_open");
-    }
-
-    void SetActivity(int index, const char* group, const char* title,
-        const char* description, const char* hint, const char* action)
-    {
-        data.activity_index = index;
-        data.activity_group = group;
-        data.activity_title = title;
-        data.activity_description = description;
-        data.activity_hint = hint;
-        data.activity_action = action;
-        handle.DirtyVariable("activity_index");
-        handle.DirtyVariable("activity_group");
-        handle.DirtyVariable("activity_title");
-        handle.DirtyVariable("activity_description");
-        handle.DirtyVariable("activity_hint");
-        handle.DirtyVariable("activity_action");
-    }
-
-    void ToggleActivitySelector(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    {
-        const bool opening = !data.activity_selector_open;
-        SetSelectorOpen(opening);
-        if (opening) {
-            // The drawer becomes display:block on the next data-model update.
-            // Defer focus until after that update so gamepad focus cannot land
-            // on an element that is still display:none this frame.
-            RequestFocus(ActivityElement(data.activity_index));
-        }
-        else {
-            EmitStage(data.activity_index, false);
-            RequestFocus("activity_selector");
-        }
-    }
-
-    void CloseActivitySelector(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    {
-        if (!data.activity_selector_open) return;
-        SetSelectorOpen(false);
-        EmitStage(data.activity_index, false);
-        RequestFocus("activity_selector");
-    }
-
-    void PreviewQuick(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitStage(0, true); }
-    void PreviewBrowser(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitStage(1, true); }
-    void PreviewOffline(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitStage(2, true); }
-    void PreviewAdventure(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { EmitStage(3, true); }
-
-    void SelectQuick(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    {
-        SetActivity(0, "MULTIPLAYER", "QUICK PLAY",
-            "Find the best compatible public hunt.",
-            "PUBLIC MATCHMAKING", "DEPLOY");
-        SetSelectorOpen(false);
-        EmitStage(0, false);
-        RequestFocus("activity_selector");
-    }
-
-    void SelectBrowser(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    {
-        SetActivity(1, "MULTIPLAYER", "SERVER BROWSER",
-            "Browse live public and private sessions.",
-            "LIVE DIRECTORY", "BROWSE SERVERS");
-        SetSelectorOpen(false);
-        EmitStage(1, false);
-        RequestFocus("activity_selector");
-    }
-
-    void SelectOffline(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    {
-        SetActivity(2, "LOCAL PLAY", "OFFLINE BATTLE",
-            "Bots, training and custom rules.",
-            "LOCAL SESSION", "CONFIGURE MATCH");
-        SetSelectorOpen(false);
-        EmitStage(2, false);
-        RequestFocus("activity_selector");
-    }
-
-    void SelectAdventure(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    {
-        SetActivity(3, "SOLO", "ADVENTURE",
-            "Continue or load a solo save.",
-            "SAVE DATA", "CONTINUE");
-        SetSelectorOpen(false);
-        EmitStage(3, false);
-        RequestFocus("activity_selector");
-    }
-
-    void Deploy(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    {
-        switch (data.activity_index) {
-        case 0: OpenMultiplayer(true); break;
-        case 1: OpenMultiplayer(false); break;
-        case 2: Emit("route:offline"); break;
-        case 3: Emit("route:offline"); break;
-        default: break;
-        }
-    }
-
-    void OpenMultiplayer(bool quick)
-    {
-        if (data.lobby_mode || data.multiplayer_mode) return;
-        data.multiplayer_mode = true;
-        data.home_mode = false;
-        data.play_create_mode = false;
-        data.play_browser_mode = true;
-        SetSelectorOpen(false);
-        handle.DirtyVariable("home_mode");
-        handle.DirtyVariable("multiplayer_mode");
-        handle.DirtyVariable("play_browser_mode");
-        handle.DirtyVariable("play_create_mode");
-        Emit(quick ? "play:quick" : "play:browse");
-        RequestFocus("play_quick");
-    }
-    void PlayQuick(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { Emit("play:quick"); }
-    void PlayBrowse(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { Emit("play:browse"); }
-    void PlayCreateOpen(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    {
-        data.play_create_mode = true;
-        data.play_browser_mode = false;
-        handle.DirtyVariable("play_create_mode");
-        handle.DirtyVariable("play_browser_mode");
-        Emit("play:create-open");
-        RequestFocus("play_create_name");
-    }
-    void PlayCreateSubmit(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { Emit("play:create"); }
-    void PlayJoin(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { Emit("play:join"); }
-    void PlayBack(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { Back(); }
-    void PlayNextMap(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { Emit("play:next-map"); }
-    void PlayNextMode(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { Emit("play:next-mode"); }
-    void PlayToggleHost(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { Emit("play:toggle-host"); }
-    void PlayServer0(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { Emit("play:server:0"); }
-    void PlayServer1(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { Emit("play:server:1"); }
-    void PlayServer2(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { Emit("play:server:2"); }
-    void PlayServer3(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { Emit("play:server:3"); }
-    void PlayServer4(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { Emit("play:server:4"); }
-    void PlayServer5(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { Emit("play:server:5"); }
-    void PlayServer6(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { Emit("play:server:6"); }
-    void PlayServer7(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { Emit("play:server:7"); }
-
-    void OpenHunters(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (!data.lobby_mode && !data.multiplayer_mode) Emit("route:hunter"); }
-    void OpenCommunity(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (!data.lobby_mode && !data.multiplayer_mode) Emit("route:forge"); }
-    void OpenStudio(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (!data.lobby_mode && !data.multiplayer_mode) Emit("studio:open"); }
-    void OpenProfile(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (!data.lobby_mode && !data.multiplayer_mode) Emit("route:hunter"); }
-    void OpenSettings(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (!data.lobby_mode && !data.multiplayer_mode) Emit("route:settings"); }
-    void OpenClassic(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (!data.lobby_mode && !data.multiplayer_mode) Emit("route:news"); }
-    void Quit(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (!data.lobby_mode && !data.multiplayer_mode) Emit("quit"); }
-    void LobbyReady(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:ready"); }
-    void LobbyStart(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:start"); }
-    void LobbyLeave(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:leave"); }
-    void LobbyNextHunter(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:next-hunter"); }
-    void LobbyNextSuit(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:next-suit"); }
-    void LobbyClassic(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { Emit("lobby:classic"); }
-    void CloseLobbyRules()
-    {
-        if (!data.lobby_rules_open) return;
-        data.lobby_rules_open = false;
-        handle.DirtyVariable("lobby_rules_open");
-        Emit("lobby:rules-close");
-        RequestFocus("lobby_rules");
-    }
-    void LobbyRulesOpen(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode) Emit("lobby:rules-open"); }
-    void LobbyRulesClose(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { CloseLobbyRules(); }
-    void LobbyRulesApply(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-apply"); }
-    void LobbyRulesMap(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-map"); }
-    void LobbyRulesMode(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-mode"); }
-    void LobbyRulesFormat(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-format"); }
-    void LobbyRulesToggle0(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:0"); }
-    void LobbyRulesToggle1(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:1"); }
-    void LobbyRulesToggle2(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:2"); }
-    void LobbyRulesToggle3(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:3"); }
-    void LobbyRulesToggle4(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:4"); }
-    void LobbyRulesToggle5(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:5"); }
-    void LobbyRulesToggle6(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:6"); }
-    void LobbyRulesToggle7(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:7"); }
-    void LobbyRulesToggle8(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:8"); }
-    void LobbyRulesToggle9(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:9"); }
-    void LobbyRulesToggle10(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:10"); }
-    void LobbyRulesToggle11(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:11"); }
-    void LobbyRulesToggle12(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:12"); }
-    void LobbyRulesToggle13(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:13"); }
-    void LobbyRulesToggle14(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:14"); }
-    void LobbyRulesToggle15(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&)
-    { if (data.lobby_mode && data.lobby_rules_open && data.rules_owner) Emit("lobby:rules-toggle:15"); }
-    void Noop(Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) {}
-};
+#include "projectprime_rmlui_menu.h"
 
 PrimeSystemInterface g_system;
-std::unique_ptr<RenderInterface_GL2> g_renderer;
+PrimeTextInputHandler g_text_input;
+PrimeAccessibilityTree g_accessibility;
+std::unique_ptr<PrimeRenderer> g_renderer;
 Rml::Context* g_context = nullptr;
 Rml::ElementDocument* g_document = nullptr;
 std::unique_ptr<PrimeMenuModel> g_model;
-bool g_initialized = false;
+std::atomic<bool> g_initialized{false};
+std::thread::id g_owner;
+std::atomic<uint64_t> g_generation{0};
+uint64_t g_next_document_id = 0;
+uint64_t g_home_id = 0;
+uint64_t g_next_sequence = 0;
+std::filesystem::path g_asset_root;
+struct QueuedAction { PrimeIntent intent; std::string legacy; };
+std::deque<QueuedAction> g_actions;
+int g_programmatic_field_mutations = 0;
+struct ProgrammaticFieldMutation {
+    ProgrammaticFieldMutation() { ++g_programmatic_field_mutations; }
+    ~ProgrammaticFieldMutation() { --g_programmatic_field_mutations; }
+};
+struct Document {
+    Rml::ElementDocument* element = nullptr;
+    std::string relative_path;
+    int layer = 0;
+    uint64_t restore_document = 0;
+    std::string restore_element;
+    std::unordered_map<std::string, std::string> texts;
+    std::unordered_map<std::string, bool> booleans;
+};
+std::unordered_map<uint64_t, Document> g_documents;
+std::vector<uint64_t> g_document_order;
+bool g_update_dirty = true;
+bool g_draw_list_valid = false;
+uint64_t g_visual_revision = 0;
+uint64_t g_resource_revision = 0;
+double g_last_update_time = 0;
+int g_backend = -1;
+bool g_pointer_known = false;
+int g_pointer_x = 0, g_pointer_y = 0, g_pointer_modifiers = 0;
+uint32_t g_pointer_buttons = 0;
+int g_capture_width = 0, g_capture_height = 0;
+bool g_updated_since_render = false;
+
+void DirtyVisual()
+{
+    g_update_dirty = true;
+    g_draw_list_valid = false;
+    ++g_visual_revision;
+}
+void SyncResources()
+{
+    const uint64_t revision = g_renderer ? g_renderer->ResourceRevision() : 0;
+    if (revision == g_resource_revision) return;
+    g_resource_revision = revision;
+    g_draw_list_valid = false;
+    ++g_visual_revision;
+}
+double RemainingUpdateDelay()
+{
+    if (!g_context || g_update_dirty) return 0;
+    // RmlUi 6.3 returns an interval requested during the last Update(), not a
+    // deadline. Account for real elapsed time so caret/animation timers fire.
+    const double delay = g_context->GetNextUpdateDelay();
+    if (std::isnan(delay) || delay < 0) return 0;
+    return std::max(0.0, delay - std::max(0.0, g_system.GetElapsedTime() - g_last_update_time));
+}
+void EnsureUpdated(bool scheduled = false);
+
+bool OwnerThread() { return g_initialized && std::this_thread::get_id() == g_owner; }
+Document* GetDocument(uint64_t id)
+{
+    if (!OwnerThread()) return nullptr;
+    const auto found = g_documents.find(id);
+    return found != g_documents.end() ? &found->second : nullptr;
+}
+uint64_t DocumentId(Rml::ElementDocument* document)
+{
+    for (const auto& entry : g_documents) if (entry.second.element == document) return entry.first;
+    return 0;
+}
+bool ForegroundDocument(Rml::ElementDocument* document)
+{
+    Rml::ElementDocument* page = nullptr;
+    for (int index = g_context->GetNumDocuments() - 1; index >= 0; --index) {
+        auto* candidate = g_context->GetDocument(index);
+        if (!candidate || !candidate->IsVisible()) continue;
+        if (candidate->IsModal()) return candidate == document;
+        auto* record = GetDocument(DocumentId(candidate));
+        if (!page && record && record->layer != 2) page = candidate;
+    }
+    return page == document;
+}
+bool TranslateAction(const std::string& action, PrimeIntent& intent)
+{
+    struct Mapping { const char* text; PrimeIntentKind kind; int argument; };
+    static constexpr Mapping mappings[] = {
+        {"route:home", PrimeIntentKind::Navigate, 0}, {"route:play", PrimeIntentKind::Navigate, 1},
+        {"route:offline", PrimeIntentKind::Navigate, 2}, {"route:hunter", PrimeIntentKind::Navigate, 3},
+        {"route:forge", PrimeIntentKind::Navigate, 4}, {"route:community", PrimeIntentKind::Navigate, 4},
+        {"route:theatre", PrimeIntentKind::Navigate, 5}, {"route:settings", PrimeIntentKind::Navigate, 6},
+        {"route:news", PrimeIntentKind::Navigate, 7}, {"route:adventure", PrimeIntentKind::Navigate, 8},
+        {"route:social", PrimeIntentKind::Navigate, 9}, {"quit", PrimeIntentKind::Quit, 0},
+        {"home:drawer-open", PrimeIntentKind::HomeDrawerOpen, 0},
+        {"home:drawer-close", PrimeIntentKind::HomeDrawerClose, 0},
+        {"home:deploy", PrimeIntentKind::HomeDeploy, 0},
+        {"studio:open", PrimeIntentKind::OpenStudio, 0},
+        {"play:quick", PrimeIntentKind::PlayQuick, 0}, {"play:browse", PrimeIntentKind::PlayBrowse, 0},
+        {"play:create-open", PrimeIntentKind::PlayCreateOpen, 0}, {"play:create", PrimeIntentKind::PlayCreate, 0},
+        {"play:join", PrimeIntentKind::PlayJoin, 0}, {"play:cancel", PrimeIntentKind::PlayCancel, 0},
+        {"play:next-map", PrimeIntentKind::PlayNextMap, 0}, {"play:next-mode", PrimeIntentKind::PlayNextMode, 0},
+        {"play:toggle-host", PrimeIntentKind::PlayToggleHost, 0},
+        {"lobby:ready", PrimeIntentKind::LobbyReady, 0}, {"lobby:start", PrimeIntentKind::LobbyStart, 0},
+        {"lobby:leave", PrimeIntentKind::LobbyLeave, 0}, {"lobby:next-hunter", PrimeIntentKind::LobbyNextHunter, 0},
+        {"lobby:next-suit", PrimeIntentKind::LobbyNextSuit, 0}, {"lobby:classic", PrimeIntentKind::LobbyClassic, 0},
+        {"lobby:rules-open", PrimeIntentKind::LobbyRulesOpen, 0}, {"lobby:rules-close", PrimeIntentKind::LobbyRulesClose, 0},
+        {"lobby:rules-apply", PrimeIntentKind::LobbyRulesApply, 0}, {"lobby:rules-map", PrimeIntentKind::LobbyRulesMap, 0},
+        {"lobby:rules-mode", PrimeIntentKind::LobbyRulesMode, 0}, {"lobby:rules-format", PrimeIntentKind::LobbyRulesFormat, 0},
+        {"lobby:admin-open", PrimeIntentKind::LobbyAdminOpen, 0},
+        {"lobby:kick", PrimeIntentKind::LobbyKick, 0},
+        {"lobby:transfer-owner", PrimeIntentKind::LobbyTransferOwner, 0},
+        {"lobby:close", PrimeIntentKind::LobbyClose, 0},
+        {"lobby:bot-add", PrimeIntentKind::LobbyBotAdd, 0},
+        {"lobby:bot-remove", PrimeIntentKind::LobbyBotRemove, 0},
+        {"lobby:bot-configure", PrimeIntentKind::LobbyBotConfigure, 0},
+        {"lobby:handicap-next", PrimeIntentKind::LobbyHandicapNext, 0},
+        {"lobby:team-next", PrimeIntentKind::LobbyTeamNext, 0},
+        {"lobby:teams-auto", PrimeIntentKind::LobbyTeamsAuto, 0},
+        {"lobby:team-lock-toggle", PrimeIntentKind::LobbyTeamLockToggle, 0},
+        {"lobby:chat-send", PrimeIntentKind::LobbyChatSend, 0},
+        {"lobby:map-retry", PrimeIntentKind::LobbyMapRetry, 0},
+        {"lobby:bot-hunter-next", PrimeIntentKind::LobbyBotHunterNext, 0},
+        {"lobby:bot-suit-next", PrimeIntentKind::LobbyBotSuitNext, 0},
+        {"lobby:bot-level-next", PrimeIntentKind::LobbyBotLevelNext, 0},
+        {"lobby:admin-confirm", PrimeIntentKind::LobbyAdminConfirm, 0},
+        {"lobby:admin-cancel", PrimeIntentKind::LobbyAdminCancel, 0},
+        {"lobby:admin-close", PrimeIntentKind::LobbyAdminClose, 0},
+        {"hunter:open", PrimeIntentKind::HunterOpen, 0},
+        {"hunter:spectator", PrimeIntentKind::HunterSpectator, 0},
+        {"hunter:apply", PrimeIntentKind::HunterApply, 0},
+        {"hunter:cancel", PrimeIntentKind::HunterCancel, 0},
+        {"hunter:skin-next", PrimeIntentKind::HunterSkinNext, 0},
+        {"hunter:armor-next", PrimeIntentKind::HunterArmorNext, 0},
+        {"hunter:death-next", PrimeIntentKind::HunterDeathNext, 0},
+        {"hunter:cosmetics-reset", PrimeIntentKind::HunterCosmeticsReset, 0},
+        {"hunter:preview-death", PrimeIntentKind::HunterPreviewDeath, 0},
+        {"hunter:cosmetics-save", PrimeIntentKind::HunterCosmeticsSave, 0},
+        {"hunter:loop-death", PrimeIntentKind::HunterLoopDeath, 0},
+        {"hunter:compare-native", PrimeIntentKind::HunterCompareNative, 0},
+        {"hunter:reset-preview", PrimeIntentKind::HunterResetPreview, 0},
+        {"settings:apply", PrimeIntentKind::SettingsApply, 0},
+        {"settings:discard", PrimeIntentKind::SettingsDiscard, 0},
+        {"settings:reset-category", PrimeIntentKind::SettingsResetCategory, 0},
+        {"settings:close", PrimeIntentKind::SettingsClose, 0},
+        {"settings:keep-video", PrimeIntentKind::SettingsKeepVideo, 0},
+        {"settings:revert-video", PrimeIntentKind::SettingsRevertVideo, 0},
+        {"adventure:next-hunter", PrimeIntentKind::AdventureNextHunter, 0},
+        {"adventure:continue", PrimeIntentKind::AdventureContinue, 0},
+        {"adventure:new-run", PrimeIntentKind::AdventureNewRun, 0},
+        {"adventure:confirm-new-run", PrimeIntentKind::AdventureConfirmNewRun, 0},
+        {"adventure:cancel-new-run", PrimeIntentKind::AdventureCancelNewRun, 0},
+        {"adventure:refresh", PrimeIntentKind::AdventureRefresh, 0},
+        {"community:refresh", PrimeIntentKind::CommunityRefresh, 0},
+        {"community:search", PrimeIntentKind::CommunitySearch, 0},
+        {"community:confirm", PrimeIntentKind::CommunityConfirm, 0},
+        {"community:cancel", PrimeIntentKind::CommunityCancel, 0},
+        {"community:cancel-work", PrimeIntentKind::CommunityCancelWork, 0},
+        {"community:report", PrimeIntentKind::CommunityReport, 0},
+        {"community:import", PrimeIntentKind::CommunityImport, 0},
+        {"community:page:previous", PrimeIntentKind::CommunityPage, -1},
+        {"community:page:next", PrimeIntentKind::CommunityPage, 1},
+        {"community:revision-page:previous", PrimeIntentKind::CommunityRevisionPage, -1},
+        {"community:revision-page:next", PrimeIntentKind::CommunityRevisionPage, 1},
+        {"offline:damage", PrimeIntentKind::OfflineDamage, 0},
+        {"offline:launch-match", PrimeIntentKind::OfflineLaunchMatch, 0},
+        {"offline:open-rules", PrimeIntentKind::OfflineOpenRules, 0},
+        {"offline:cancel-rules", PrimeIntentKind::OfflineCancelRules, 0},
+        {"offline:apply-rules", PrimeIntentKind::OfflineApplyRules, 0},
+        {"offline:launch-training", PrimeIntentKind::OfflineLaunchTraining, 0},
+        {"offline:open-training-options", PrimeIntentKind::OfflineOpenTrainingOptions, 0},
+        {"offline:close-training-options", PrimeIntentKind::OfflineCloseTrainingOptions, 0},
+        {"offline:open-arena", PrimeIntentKind::OfflineOpenArena, 0},
+        {"offline:arena-search", PrimeIntentKind::OfflineArenaSearch, 0},
+        {"offline:cancel-arena", PrimeIntentKind::OfflineCancelArena, 0},
+        {"offline:arena-page:previous", PrimeIntentKind::OfflineArenaPage, -1},
+        {"offline:arena-page:next", PrimeIntentKind::OfflineArenaPage, 1}
+    };
+    for (const auto& mapping : mappings) if (action == mapping.text) {
+        intent.kind = uint32_t(mapping.kind); intent.argument = mapping.argument; return true;
+    }
+    const char* stages[] = {"quick", "browser", "offline", "adventure"};
+    for (int index = 0; index < 4; ++index) {
+        if (action == std::string("stage:") + stages[index]) {
+            intent.kind = uint32_t(PrimeIntentKind::StageSelect); intent.argument = index; return true;
+        }
+        if (action == std::string("stage-preview:") + stages[index]) {
+            intent.kind = uint32_t(PrimeIntentKind::StagePreview); intent.argument = index; return true;
+        }
+    }
+    for (int index = 0; index < 8; ++index) if (action == "play:server:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::PlayServer); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 16; ++index) if (action == "lobby:rules-toggle:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::LobbyRulesToggle); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 8; ++index) if (action == "lobby:player:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::LobbyPlayerSelect); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 7; ++index) if (action == "hunter:select:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HunterSelect); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 4; ++index) if (action == "hunter:suit:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HunterSuit); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 4; ++index) if (action == "hunter:preview-mode:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HunterPreviewMode); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 64; ++index) if (index != 15 && action == "settings:action:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::SettingsAction); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 9; ++index) if (action == "settings:category:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::SettingsCategory); intent.argument = index; return true;
+    }
+    for (int index = 1; index < 4; ++index) if (action == "adventure:slot:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::AdventureSelectSlot); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 16; ++index) if (action == "offline:choice:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::OfflineChoice); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 12; ++index) if (action == "offline:rule:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::OfflineRuleToggle); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 5; ++index) if (action == "offline:training-toggle:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::OfflineTrainingToggle); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 2; ++index) if (action == "hunter:rotate:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HunterRotate); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 4; ++index) if (action == "lobby:team:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::LobbyTeamSelect); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 2; ++index) if (action == "hunter:zoom:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HunterZoom); intent.argument = index; return true;
+    }
+    const char* theatreaction_names[] = {"search", "next-filter", "next-sort", "previous-page", "next-page", "refresh", "watch", "favorite", "validate", "recover", "cancel-job", "export", "rename", "organize", "delete", "confirm-delete", "cancel-delete", "reveal", "studio", "import", "import-path", "favorite-filtered", "validate-filtered", "clear-search", "cancel-launch"};
+    for (int index = 0; index < 25; ++index) if (action == std::string("theatre:") + theatreaction_names[index]) {
+        intent.kind = uint32_t(PrimeIntentKind::TheatreAction); intent.argument = index; return true;
+    }
+    const char* replayaction_names[] = {"toggle-pause", "jump-back", "jump-forward", "restart", "step", "next-rate", "next-camera", "previous-player", "next-player", "seek", "studio", "back", "fullscreen"};
+    for (int index = 0; index < 13; ++index) if (action == std::string("replay:") + replayaction_names[index]) {
+        intent.kind = uint32_t(PrimeIntentKind::ReplayAction); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 16; ++index) if (action == "offline:arena:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::OfflineSelectArena); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 8; ++index) if (action == "theatre:entry:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::TheatreEntry); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 3; ++index) if (action == "theatre:thumbnail:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::TheatreThumbnail); intent.argument = index; return true;
+    }
+    const char* licenseaction_names[] = {"overview", "customization", "stats", "history", "achievements", "emblems", "titles", "comparison", "account", "refresh", "cancel-refresh", "previous-page", "next-page", "send-verification", "finish-password", "recover", "link-google", "link-github", "link-discord", "refresh-account", "back"};
+    for (int index = 0; index < 21; ++index) if (action == std::string("license:") + licenseaction_names[index]) {
+        intent.kind = uint32_t(PrimeIntentKind::LicenseAction); intent.argument = index; return true;
+    }
+    const char* studioaction_names[] = {"launch", "pick-map", "open-path", "recover", "cancel"};
+    for (int index = 0; index < 5; ++index) if (action == std::string("studio:") + studioaction_names[index]) {
+        intent.kind = uint32_t(PrimeIntentKind::StudioAction); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 3; ++index) if (action == "community:tab:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::CommunityTab); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 3; ++index) if (action == "community:sort:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::CommunitySort); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 4; ++index) if (action == "community:lifecycle:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::CommunityLifecycle); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 8; ++index) if (action == "community:select:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::CommunitySelect); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 10; ++index) if (action == "community:detail:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::CommunityDetailAction); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 8; ++index) if (action == "community:revision:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::CommunitySelectRevision); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 5; ++index) if (action == "community:creator:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::CommunityCreatorAction); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 2; ++index) if (action == "community:upload:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::CommunityUpload); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 3; ++index) if (action == "community:visibility:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::CommunityVisibility); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 6; ++index) if (action == "community:report-reason:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::CommunityReportReason); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 5; ++index) if (action == "community:conflict:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::CommunityConflict); intent.argument = index; return true;
+    }
+    const char* queue_actions[] = {"queue-join", "queue-accept", "queue-decline", "queue-leave"};
+    for (int index = 0; index < 4; ++index) if (action == std::string("play:") + queue_actions[index]) {
+        intent.kind = uint32_t(PrimeIntentKind::PlayQueueAction); intent.argument = index; return true;
+    }
+    const char* social_names[] = {"friends", "players", "requests", "invites", "party", "recent", "blocked", "refresh", "cancel", "lookup", "search", "previous-page", "next-page", "select-0", "select-1", "select-2", "select-3", "select-4", "select-5", "select-6", "select-7", "send-friend-request", "accept-friend-request", "decline-friend-request", "cancel-friend-request", "remove-friend", "block-player", "unblock-player", "send-game-invite", "join-friend", "accept-game-invite", "decline-game-invite", "cancel-game-invite", "invite-party", "accept-party-invite", "decline-party-invite", "cancel-party-invite", "leave-party", "disband-party", "kick-party-member", "promote-party-member", "invite-party-lobby", "follow-party-travel", "join-party-leader", "decline-party-travel", "cancel-reservation", "confirm", "dismiss", "presence-next", "activity-next", "invites-next", "dnd", "back"};
+    for (int index = 0; index < 53; ++index) if (action == std::string("social:") + social_names[index]) {
+        intent.kind = uint32_t(PrimeIntentKind::SocialAction); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 12; ++index) if (action == "news:action:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::NewsAction); intent.argument = index; return true;
+    }
+    const char* results_actions[] = {"close", "search", "previous-page", "next-page", "rematch", "clear-search"};
+    for (int index = 0; index < 6; ++index) if (action == std::string("results:") + results_actions[index]) {
+        intent.kind = uint32_t(PrimeIntentKind::ResultsAction); intent.argument = index; return true;
+    }
+    const char* aimresults_actions[] = {"retry", "change-drill", "exit"};
+    for (int index = 0; index < 3; ++index) if (action == std::string("aim-results:") + aimresults_actions[index]) {
+        intent.kind = uint32_t(PrimeIntentKind::AimResultsAction); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 4096; ++index) if (action == "results:map:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::ResultsMap); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 15; ++index) if (action == "setup:action:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::SetupAction); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 30; ++index) if (action == "setup:release:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::SetupRelease); intent.argument = index; return true;
+    }
+    const char* hud_actions[] = {"open", "use", "cancel", "next-preset", "undo", "redo", "lock-all", "unlock-all", "align-left", "align-top", "native-elements", "reset-hud", "toggle-visible", "toggle-lock", "next-anchor", "next-visibility", "reset-element", "reset-section", "next-aspect", "next-hunter", "next-scenario", "next-grid", "toggle-guides", "save-named", "load-named", "export-json", "import-json", "property-previous", "property-next", "property-apply", "property-reset", "next-palette", "next-crosshair-target", "toggle-crosshair-override", "next-crosshair-preset", "share-crosshair", "import-crosshair", "next-radar-preset", "nudge-left", "nudge-right", "nudge-up", "nudge-down", "scale-down", "scale-up", "apply-layout"};
+    for (int index = 0; index < 45; ++index) if (action == std::string("hud:") + hud_actions[index]) {
+        intent.kind = uint32_t(PrimeIntentKind::HudAction); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 14; ++index) if (action == "hud:element:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HudElement); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 8; ++index) if (action == "hud:property:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HudProperty); intent.argument = index; return true;
+    }
+    const char* in_game_actions[] = {"resume", "fullscreen", "settings", "replay", "vote", "spectate", "rejoin", "recorder", "return-lobby", "leave", "quit", "confirm", "cancel", "map-next", "vote-submit", "vote-yes", "vote-no", "bots", "bot-select", "bot-hunter", "bot-suit", "bot-skill", "bot-team", "bot-handicap", "bot-remove", "bot-add", "bot-apply"};
+    for (int index = 0; index < 27; ++index) if (action == std::string("ingame:") + in_game_actions[index]) {
+        intent.kind = uint32_t(PrimeIntentKind::InGameAction); intent.argument = index; return true;
+    }
+    return false;
+}
+void QueueAction(const std::string& action, uint64_t document)
+{
+    auto* source = GetDocument(document);
+    if (!source) return;
+    DirtyVisual();
+    source->booleans.clear(); // DOM callbacks may change presenter booleans.
+    PrimeIntent intent;
+    if (!TranslateAction(action, intent)) return;
+    intent.generation = g_generation;
+    intent.document_id = document;
+    intent.sequence = ++g_next_sequence;
+    // A bounded queue prevents repeated-input accumulation while a host stalls.
+    if (g_actions.size() < 256) g_actions.push_back({intent, action});
+}
+void QueueHomeAction(const std::string& action) { QueueAction(action, g_home_id); }
+class DocumentActionListener final : public Rml::EventListener {
+public:
+    void ProcessEvent(Rml::Event& event) override
+    {
+        const bool change = event.GetType() == "change";
+        // Range SetValue emits the same synchronous change event as user input.
+        // Presenter bindings must not feed their authoritative position back as
+        // a user seek command. Keyboard, pointer and accessibility edits remain
+        // outside this scope and still dispatch through the real DOM listener.
+        if (change && g_programmatic_field_mutations != 0) return;
+        const bool click = event.GetType() == "click";
+        const bool range = event.GetTargetElement()->GetTagName() == "input"
+            && event.GetTargetElement()->GetAttribute<Rml::String>("type", "") == "range";
+        if ((change && !range) || (click && range)) return;
+        for (auto* element = event.GetTargetElement(); element; element = element->GetParentNode()) {
+            const Rml::String action = element->GetAttribute<Rml::String>(click || change ? "data-action" : "data-preview", "");
+            if (!action.empty()) {
+                if (!element->HasAttribute("disabled")) QueueAction(action, DocumentId(element->GetOwnerDocument()));
+                break;
+            }
+        }
+    }
+};
+DocumentActionListener g_action_listener;
+
+uint64_t RegisterDocument(Rml::ElementDocument* element, const std::string& path, int layer)
+{
+    if (!element) return 0;
+    const uint64_t id = ++g_next_document_id;
+    Document entry;
+    entry.element = element; entry.relative_path = path; entry.layer = layer;
+    if (auto* focused = g_context->GetFocusElement()) {
+        entry.restore_document = DocumentId(focused->GetOwnerDocument());
+        entry.restore_element = focused->GetId();
+    }
+    g_documents.emplace(id, std::move(entry));
+    g_document_order.push_back(id);
+    g_lobby_anchor_dirty = true;
+    DirtyVisual();
+    element->AddEventListener("click", &g_action_listener);
+    element->AddEventListener("change", &g_action_listener);
+    element->AddEventListener("mouseover", &g_action_listener);
+    element->AddEventListener("focus", &g_action_listener, true);
+    element->Show(layer == 1 ? Rml::ModalFlag::Modal : Rml::ModalFlag::None);
+    return id;
+}
+int CopyUtf8(const std::string& value, unsigned char* buffer, int capacity)
+{
+    if (!buffer || capacity <= 1) return 0;
+    if (value.size() >= size_t(capacity)) { buffer[0] = 0; return -int(value.size() + 1); }
+    std::memcpy(buffer, value.data(), value.size()); buffer[value.size()] = 0;
+    return int(value.size());
+}
+
+bool ReadFiniteNumbers(const std::string& text, float* values, int count)
+{
+    const char* cursor = text.c_str();
+    for (int i = 0; i < count; ++i) {
+        errno = 0;
+        char* end = nullptr;
+        values[i] = std::strtof(cursor, &end);
+        if (end == cursor || errno == ERANGE || !std::isfinite(values[i])) return false;
+        cursor = end;
+        while (*cursor && std::isspace(static_cast<unsigned char>(*cursor))) ++cursor;
+        if (i + 1 < count) { if (*cursor++ != ',') return false; }
+        else if (*cursor) return false;
+    }
+    return true;
+}
+
+Rml::ElementFormControl* TextField(Rml::Element* element)
+{
+    if (auto* input = dynamic_cast<Rml::ElementFormControlInput*>(element)) return input;
+    return dynamic_cast<Rml::ElementFormControlTextArea*>(element);
+}
+
 
 void PositionLobbyNameplates()
 {
-    if (!g_context || !g_document || !g_lobby_anchor_dirty) return;
-    Rml::Element* stage = g_document->GetElementById("lobby_stage");
-    if (!stage) return;
+    if (!g_context || !g_lobby_anchor_dirty) return;
+    for (auto& entry : g_documents) {
+    auto* document = entry.second.element;
+    if (!document->IsVisible()) continue;
+    Rml::Element* stage = document->GetElementById("lobby_stage");
+    if (!stage) continue;
 
     const Rml::Vector2f stageOrigin = stage->GetAbsoluteOffset(Rml::BoxArea::Border);
     const Rml::Vector2i dimensions = g_context->GetDimensions();
     // On 720p the foreground local pad is close to the action strip. Keep
     // the player label above that strip without inventing per-DPI RCSS offsets.
     // RmlUi's GetAbsoluteOffset is non-const even for layout queries.
-    Rml::Element* actions = g_document->GetElementById("lobby_actions");
+    Rml::Element* actions = document->GetElementById("lobby_actions");
     const float actionTop = actions
         ? actions->GetAbsoluteOffset(Rml::BoxArea::Border).y
         : float(dimensions.y);
     for (int index = 0; index < 8; ++index) {
         const std::string id = "lobby_slot" + std::to_string(index);
-        Rml::Element* label = g_document->GetElementById(id);
+        Rml::Element* label = document->GetElementById(id);
         if (!label) continue;
         const Rml::Vector2f size = label->GetBox().GetSize(Rml::BoxArea::Border);
         const float left = g_lobby_anchors[index].x * float(dimensions.x)
@@ -851,6 +531,8 @@ void PositionLobbyNameplates()
         const float top = std::max(0.f, std::min(desiredTop, maxTop));
         label->SetProperty("left", std::to_string(left) + "px");
         label->SetProperty("top", std::to_string(top) + "px");
+        DirtyVisual();
+    }
     }
     g_lobby_anchor_dirty = false;
 }
@@ -863,7 +545,36 @@ Rml::Element* FindElementById(const char* id)
 void FocusElement(const char* id)
 {
     if (Rml::Element* element = FindElementById(id))
-        element->Focus();
+        if (g_context->GetFocusElement() != element && element->Focus()) DirtyVisual();
+}
+
+void EnsureUpdated(bool scheduled)
+{
+    if (!g_context || (!g_update_dirty && (!scheduled || RemainingUpdateDelay() > 0))) return;
+    // An update may dispatch a model's pending focus or position nameplates.
+    // Settle those mutations once; a zero-delay animation belongs to the next
+    // frame, rather than causing two timer-driven updates in this frame.
+    for (int pass = 0; pass < 2; ++pass) {
+        g_update_dirty = false;
+        g_context->Update();
+        g_updated_since_render = true;
+        g_last_update_time = g_system.GetElapsedTime();
+        ++g_visual_revision;
+        g_draw_list_valid = false;
+        PositionLobbyNameplates();
+        if (g_model) { ProgrammaticFieldMutation binding; g_model->ApplyPendingFocus(); }
+        SyncResources();
+        if (!g_update_dirty) break;
+    }
+}
+
+void ScrollFocusedElement(Rml::Element* element)
+{
+    // A pointer gesture captures its canvas bounds before requesting focus.
+    // Authored canvases keep that coordinate space fixed under the finger.
+    // Ordinary controls retain nearest scrolling for keyboard/accessibility.
+    if (element->GetAttribute<Rml::String>("data-focus-scroll", "") != "none")
+        element->ScrollIntoView(Rml::ScrollIntoViewOptions(Rml::ScrollAlignment::Nearest));
 }
 
 int ConvertModifiers(int modifiers)
@@ -873,11 +584,15 @@ int ConvertModifiers(int modifiers)
     if (modifiers & 2) result |= Rml::Input::KM_CTRL;
     if (modifiers & 4) result |= Rml::Input::KM_ALT;
     if (modifiers & 8) result |= Rml::Input::KM_META;
+#if defined(__APPLE__)
+    if (modifiers & 8) result |= Rml::Input::KM_CTRL;
+#endif
     return result;
 }
 
 Rml::Input::KeyIdentifier ConvertKey(int key)
 {
+    if (key >= 32 && key <= 57) return static_cast<Rml::Input::KeyIdentifier>(int(Rml::Input::KI_A) + key - 32);
     switch (key) {
     case 1: return Rml::Input::KI_TAB;
     case 2: return Rml::Input::KI_RETURN;
@@ -891,6 +606,15 @@ Rml::Input::KeyIdentifier ConvertKey(int key)
     case 10: return Rml::Input::KI_END;
     case 11: return Rml::Input::KI_PRIOR;
     case 12: return Rml::Input::KI_NEXT;
+    case 13: return Rml::Input::KI_BACK;
+    case 14: return Rml::Input::KI_DELETE;
+    case 15: return Rml::Input::KI_INSERT;
+    case 16: return Rml::Input::KI_A;
+    case 17: return Rml::Input::KI_C;
+    case 18: return Rml::Input::KI_V;
+    case 19: return Rml::Input::KI_X;
+    case 20: return Rml::Input::KI_Y;
+    case 21: return Rml::Input::KI_Z;
     default: return Rml::Input::KI_UNKNOWN;
     }
 }
@@ -900,146 +624,170 @@ std::filesystem::path RootPath(const char* root, const char* child)
     return std::filesystem::path(root ? root : "") / child;
 }
 
-void RestoreGlState()
-{
-    glDepthMask(GL_TRUE);
-    glDisableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_COLOR_ARRAY);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-    glDisable(GL_SCISSOR_TEST);
-    glDisable(GL_STENCIL_TEST);
-    glDisable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glEnable(GL_DEPTH_TEST);
-    glMatrixMode(GL_MODELVIEW);
-}
-
 } // namespace
 
 PP_EXPORT int pp_rmlui_initialize(int width, int height, float density, const char* asset_root)
 {
-    if (g_initialized) return 1;
-    if (!asset_root || width <= 0 || height <= 0) return 0;
+    return pp_rmlui_initialize_backend(width, height, density, asset_root, 0);
+}
 
-    g_renderer = std::make_unique<RenderInterface_GL2>();
+PP_EXPORT int pp_rmlui_initialize_backend(int width, int height, float density, const char* asset_root, int backend)
+{
+    if (g_initialized) return OwnerThread() ? 1 : 0;
+    if (!asset_root || width <= 0 || height <= 0 || !std::isfinite(density) || density <= 0) return 0;
+    if (backend == 1) g_renderer = CreatePrimeDrawListRenderer();
+#if defined(PP_RMLUI_GL2)
+    else if (backend == 0) g_renderer = CreatePrimeGl2Renderer();
+#endif
+    else return 0;
+    g_owner = std::this_thread::get_id();
+    g_backend = backend;
+    g_update_dirty = true; g_draw_list_valid = false;
+    g_visual_revision = 0; g_resource_revision = 0;
+    g_last_update_time = g_system.GetElapsedTime(); g_pointer_known = false; g_pointer_buttons = 0;
+    g_capture_width = 0; g_capture_height = 0;
+    g_updated_since_render = false;
     g_renderer->SetViewport(width, height);
     Rml::SetSystemInterface(&g_system);
-    Rml::SetRenderInterface(g_renderer.get());
-
-    if (!Rml::Initialise()) return 0;
+    Rml::SetRenderInterface(g_renderer->Interface());
+    if (!Rml::Initialise()) {
+        Rml::SetRenderInterface(nullptr); Rml::SetSystemInterface(nullptr); g_renderer.reset(); return 0;
+    }
     g_initialized = true;
+    ++g_generation;
+    std::error_code error;
+    g_asset_root = std::filesystem::weakly_canonical(asset_root, error);
+    if (error) { pp_rmlui_shutdown(); return 0; }
 
     const std::string regular = RootPath(asset_root, "fonts/Rajdhani-SemiBold.ttf").string();
     const std::string bold = RootPath(asset_root, "fonts/Rajdhani-Bold.ttf").string();
     const std::string mono = RootPath(asset_root, "fonts/JetBrainsMono-Regular.ttf").string();
     if (!Rml::LoadFontFace(regular) || !Rml::LoadFontFace(bold) || !Rml::LoadFontFace(mono)) {
-        pp_rmlui_shutdown();
-        return 0;
+        pp_rmlui_shutdown(); return 0;
     }
-
-    g_context = Rml::CreateContext("project-prime-rmlui-poc", {width, height});
-    if (!g_context) {
-        pp_rmlui_shutdown();
-        return 0;
+    const auto japanese = RootPath(asset_root, "fonts/NotoSansJP-Regular.ttf");
+    if (std::filesystem::is_regular_file(japanese) && !Rml::LoadFontFace(japanese.string(), true)) {
+        pp_rmlui_shutdown(); return 0;
     }
+    Rml::SetTextInputHandler(&g_text_input);
+    g_context = Rml::CreateContext("project-prime-rmlui", {width, height});
+    if (!g_context) { pp_rmlui_shutdown(); return 0; }
+    g_text_input.Attach(g_context, g_generation.load(), DocumentId);
     g_context->SetDensityIndependentPixelRatio(std::max(density, 1.0f));
-
     g_model = std::make_unique<PrimeMenuModel>();
-    if (!g_model->Setup(g_context)) {
-        pp_rmlui_shutdown();
-        return 0;
-    }
-
-    const std::string document_path = RootPath(asset_root, "prime_home.rml").string();
-    g_document = g_context->LoadDocument(document_path);
-    if (!g_document) {
-        pp_rmlui_shutdown();
-        return 0;
-    }
-    g_document->Show();
-    if (Rml::Element* first = g_document->GetElementById("activity_selector")) first->Focus();
+    if (!g_model->Setup(g_context)) { pp_rmlui_shutdown(); return 0; }
+    g_home_id = pp_rmlui_document_open("prime_home.rml", 0);
+    if (!g_home_id) { pp_rmlui_shutdown(); return 0; }
+    g_document = GetDocument(g_home_id)->element;
+    FocusElement("activity_selector");
     return 1;
 }
 
 PP_EXPORT void pp_rmlui_shutdown()
 {
     if (!g_initialized && !g_renderer) return;
-    if (g_document) {
-        g_document->Close();
-        g_document = nullptr;
+    if (g_initialized && !OwnerThread()) return;
+    g_text_input.Detach();
+    // Documents and their model listeners are released while both the RmlUi core
+    // and render adapter still exist. RemoveContext flushes deferred Close().
+    for (auto& entry : g_documents) {
+        entry.second.element->RemoveEventListener("click", &g_action_listener);
+    entry.second.element->RemoveEventListener("change", &g_action_listener);
+    entry.second.element->RemoveEventListener("mouseover", &g_action_listener);
+    entry.second.element->RemoveEventListener("focus", &g_action_listener, true);
+        entry.second.element->Close();
     }
-    g_model.reset();
-    g_lobby_anchor_dirty = true;
-    g_lobby_anchors = {};
+    g_accessibility.Clear();
+    g_documents.clear(); g_document_order.clear(); g_actions.clear();
+    g_document = nullptr; g_home_id = 0;
     if (g_context) {
-        Rml::RemoveContext("project-prime-rmlui-poc");
-        g_context = nullptr;
+        Rml::RemoveContext("project-prime-rmlui"); g_context = nullptr;
     }
+    Rml::SetTextInputHandler(nullptr);
+    g_model.reset();
+    g_lobby_anchor_dirty = true; g_lobby_anchors = {};
     if (g_initialized) Rml::Shutdown();
     g_initialized = false;
-    Rml::SetRenderInterface(nullptr);
-    Rml::SetSystemInterface(nullptr);
-    g_renderer.reset();
+    Rml::SetRenderInterface(nullptr); Rml::SetSystemInterface(nullptr);
+    g_renderer.reset(); g_asset_root.clear(); g_system.ClearClipboard();
+    g_backend = -1; g_update_dirty = true; g_draw_list_valid = false; g_pointer_known = false;
+    ++g_generation; // Invalidates worker completions even before a reinit.
 }
 
 PP_EXPORT void pp_rmlui_update()
 {
-    if (!g_context) return;
-    g_context->Update();
-    PositionLobbyNameplates();
-    if (g_model) g_model->ApplyPendingFocus();
+    if (!OwnerThread() || !g_context) return;
+    EnsureUpdated(true);
+}
+
+PP_EXPORT int pp_rmlui_update_status(PrimeUpdateStatus* status)
+{
+    if (!OwnerThread() || !g_context || !status || status->size != sizeof(PrimeUpdateStatus) || status->version != 1) return 0;
+    SyncResources();
+    status->generation = g_generation;
+    status->visual_revision = g_visual_revision;
+    status->next_update_delay_seconds = RemainingUpdateDelay();
+    status->flags = (g_update_dirty ? 1u : 0u) | (g_backend == 1 && g_draw_list_valid ? 2u : 0u);
+    status->reserved = 0;
+    return 1;
 }
 
 PP_EXPORT void pp_rmlui_render(int width, int height)
 {
-    if (!g_context || !g_renderer || width <= 0 || height <= 0) return;
-
-    // Project Prime renders the cinematic ground and Hunter first. The sample
-    // backend normally owns an empty framebuffer, while this bridge is an
-    // overlay in somebody else's frame, so establish only the state RmlUi
-    // needs and never clear color.
-#if !defined(_WIN32)
-    glActiveTexture(GL_TEXTURE0);
-#endif
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-    glDisable(GL_CULL_FACE);
-    glDisable(GL_ALPHA_TEST);
-
+    if (!OwnerThread() || !g_context || !g_renderer || width <= 0 || height <= 0) return;
+    if (width != g_capture_width || height != g_capture_height) {
+        g_capture_width = width; g_capture_height = height; DirtyVisual();
+    }
     g_renderer->SetViewport(width, height);
+    EnsureUpdated(!g_updated_since_render);
+    SyncResources();
+    if (g_backend == 1 && g_draw_list_valid) { g_updated_since_render = false; return; }
     g_renderer->BeginFrame();
-    glClearStencil(0);
-    glClear(GL_STENCIL_BUFFER_BIT);
     g_context->Render();
     g_renderer->EndFrame();
-    RestoreGlState();
+    SyncResources();
+    g_draw_list_valid = g_backend == 1 && !g_update_dirty;
+    g_updated_since_render = false;
 }
 
 PP_EXPORT void pp_rmlui_resize(int width, int height, float density)
 {
-    if (!g_context || !g_renderer || width <= 0 || height <= 0) return;
+    if (!OwnerThread() || !g_context || !g_renderer || width <= 0 || height <= 0) return;
     g_renderer->SetViewport(width, height);
+    const float dpi = std::isfinite(density) && density > 0 ? std::max(density, 1.0f) : g_context->GetDensityIndependentPixelRatio();
+    if (g_context->GetDimensions() == Rml::Vector2i(width, height) && g_context->GetDensityIndependentPixelRatio() == dpi) return;
     g_context->SetDimensions({width, height});
-    g_context->SetDensityIndependentPixelRatio(std::max(density, 1.0f));
+    g_context->SetDensityIndependentPixelRatio(dpi);
     g_lobby_anchor_dirty = true;
+    DirtyVisual();
 }
 
 PP_EXPORT void pp_rmlui_set_lobby_anchor(int slot, float center_x, float center_y)
 {
-    if (slot < 0 || slot >= int(g_lobby_anchors.size())) return;
+    if (!OwnerThread() || slot < 0 || slot >= int(g_lobby_anchors.size()) || !std::isfinite(center_x) || !std::isfinite(center_y)) return;
+    if (g_lobby_anchors[slot].x == center_x && g_lobby_anchors[slot].y == center_y) return;
     g_lobby_anchors[slot] = {center_x, center_y};
     g_lobby_anchor_dirty = true;
+    DirtyVisual();
 }
 
 PP_EXPORT int pp_rmlui_mouse_move(int x, int y, int modifiers)
 {
-    return g_context ? (g_context->ProcessMouseMove(x, y, ConvertModifiers(modifiers)) ? 1 : 0) : 0;
+    if (!OwnerThread() || !g_context) return 0;
+    const bool stationary = g_pointer_known && x == g_pointer_x && y == g_pointer_y && modifiers == g_pointer_modifiers;
+    g_pointer_known = true; g_pointer_x = x; g_pointer_y = y; g_pointer_modifiers = modifiers;
+    if (!stationary || g_pointer_buttons) DirtyVisual();
+    return g_context->ProcessMouseMove(x, y, ConvertModifiers(modifiers)) ? 1 : 0;
 }
 
 PP_EXPORT int pp_rmlui_mouse_button(int button, int down, int modifiers)
 {
-    if (!g_context) return 0;
+    if (!OwnerThread() || !g_context) return 0;
+    DirtyVisual();
+    if (button >= 0 && button < 32) {
+        if (down) g_pointer_buttons |= 1u << button;
+        else g_pointer_buttons &= ~(1u << button);
+    }
     const bool propagated = down
         ? g_context->ProcessMouseButtonDown(button, ConvertModifiers(modifiers))
         : g_context->ProcessMouseButtonUp(button, ConvertModifiers(modifiers));
@@ -1048,14 +796,17 @@ PP_EXPORT int pp_rmlui_mouse_button(int button, int down, int modifiers)
 
 PP_EXPORT int pp_rmlui_mouse_wheel(float delta_y, int modifiers)
 {
-    return g_context ? (g_context->ProcessMouseWheel(-delta_y, ConvertModifiers(modifiers)) ? 1 : 0) : 0;
+    if (!OwnerThread() || !g_context || !std::isfinite(delta_y)) return 0;
+    DirtyVisual();
+    return g_context->ProcessMouseWheel(-delta_y, ConvertModifiers(modifiers)) ? 1 : 0;
 }
 
 PP_EXPORT int pp_rmlui_key(int key, int down, int modifiers)
 {
-    if (!g_context) return 0;
+    if (!OwnerThread() || !g_context) return 0;
     const Rml::Input::KeyIdentifier converted = ConvertKey(key);
     if (converted == Rml::Input::KI_UNKNOWN) return 0;
+    DirtyVisual();
     const bool propagated = down
         ? g_context->ProcessKeyDown(converted, ConvertModifiers(modifiers))
         : g_context->ProcessKeyUp(converted, ConvertModifiers(modifiers));
@@ -1064,63 +815,64 @@ PP_EXPORT int pp_rmlui_key(int key, int down, int modifiers)
 
 PP_EXPORT int pp_rmlui_text(unsigned int codepoint)
 {
-    return g_context ? (g_context->ProcessTextInput(static_cast<Rml::Character>(codepoint)) ? 1 : 0) : 0;
+    if (codepoint == 0 || codepoint > 0x10ffff || (codepoint >= 0xd800 && codepoint <= 0xdfff)) return 0;
+    if (!OwnerThread() || !g_context) return 0;
+    DirtyVisual();
+    return g_context->ProcessTextInput(static_cast<Rml::Character>(codepoint)) ? 1 : 0;
 }
 
 PP_EXPORT void pp_rmlui_set_text(const char* name, const char* value)
 {
-    if (g_model && name) g_model->SetText(name, value ? value : "");
+    pp_rmlui_document_set_text(g_home_id, name, value);
 }
 
 PP_EXPORT void pp_rmlui_set_bool(const char* name, int value)
 {
-    if (g_model && name) g_model->SetBool(name, value != 0);
+    pp_rmlui_document_set_bool(g_home_id, name, value);
 }
 
 PP_EXPORT void pp_rmlui_set_field(const char* id, const char* value)
 {
-    if (g_model && id)
-        g_model->SetInputText(id, value ? value : "");
+    pp_rmlui_document_set_field(g_home_id, id, value);
 }
 
 PP_EXPORT int pp_rmlui_read_field(const char* id, unsigned char* buffer, int capacity)
 {
-    if (!id || !buffer || capacity <= 1) return 0;
-    auto* input = dynamic_cast<Rml::ElementFormControlInput*>(FindElementById(id));
-    if (!input) return 0;
-    const std::string value = input->GetValue();
-    const int length = std::min(int(value.size()), capacity - 1);
-    std::memcpy(buffer, value.data(), size_t(length));
-    buffer[length] = 0;
-    return length;
+    return pp_rmlui_document_read_field(g_home_id, id, buffer, capacity);
 }
 
 PP_EXPORT int pp_rmlui_back()
 {
+    if (!OwnerThread()) return 0;
+    DirtyVisual();
+    if (auto* home = GetDocument(g_home_id)) home->booleans.clear();
+    for (auto it = g_document_order.rbegin(); it != g_document_order.rend(); ++it) {
+        auto* document = GetDocument(*it);
+        if (document && document->layer == 1 && document->element->IsVisible())
+            return pp_rmlui_document_close(*it);
+    }
     return g_model && g_model->Back() ? 1 : 0;
 }
 
 PP_EXPORT int pp_rmlui_take_action(unsigned char* buffer, int capacity)
 {
-    if (!g_model || !buffer || capacity <= 1) return 0;
-    std::string action;
-    if (!g_model->TakeAction(action)) return 0;
-    const int length = std::min(static_cast<int>(action.size()), capacity - 1);
-    std::memcpy(buffer, action.data(), static_cast<size_t>(length));
-    buffer[length] = 0;
+    if (!OwnerThread() || !buffer || capacity <= 1 || g_actions.empty()) return 0;
+    const int length = CopyUtf8(g_actions.front().legacy, buffer, capacity);
+    if (length >= 0) g_actions.pop_front();
     return length;
 }
 
 // Actual RmlUi element bounds are used by the native regression. This does
 // not synthesize an action or bypass the DOM's focus/click dispatch.
-PP_EXPORT int pp_rmlui_element_bounds(const char* id, float* x, float* y,
+PP_EXPORT int pp_rmlui_document_element_bounds(uint64_t document_id, const char* id, float* x, float* y,
     float* width, float* height)
 {
-    if (!g_context || !g_document || !id || !x || !y || !width || !height)
+    auto* document = GetDocument(document_id);
+    if (!document || !id || !x || !y || !width || !height)
         return 0;
-    g_context->Update();
-    Rml::Element* element = FindElementById(id);
-    if (!element) return 0;
+    EnsureUpdated();
+    Rml::Element* element = document->element->GetElementById(id);
+    if (!element || !element->IsVisible(true)) return 0;
     const auto offset = element->GetAbsoluteOffset(Rml::BoxArea::Border);
     const auto size = element->GetBox().GetSize(Rml::BoxArea::Border);
     if (size.x <= 0 || size.y <= 0) return 0;
@@ -1130,18 +882,415 @@ PP_EXPORT int pp_rmlui_element_bounds(const char* id, float* x, float* y,
     *height = size.y;
     return 1;
 }
+PP_EXPORT int pp_rmlui_element_bounds(const char* id, float* x, float* y,
+    float* width, float* height)
+{
+    return pp_rmlui_document_element_bounds(g_home_id, id, x, y, width, height);
+}
 
 // Bounded POC diagnostic for real native-input regression at each density.
 // This reads only the one shipped STUDIO control; no action is synthesized.
 PP_EXPORT int pp_rmlui_studio_bounds(float* x, float* y, float* width, float* height)
 {
-    if (!g_context || !g_document || !x || !y || !width || !height) return 0;
-    g_context->Update();
+    if (!OwnerThread() || !g_context || !g_document || !x || !y || !width || !height) return 0;
+    EnsureUpdated();
     Rml::Element* studio = g_document->GetElementById("nav_studio");
-    if (!studio) return 0;
+    if (!studio || !studio->IsVisible(true)) return 0;
     const auto offset = studio->GetAbsoluteOffset(Rml::BoxArea::Border);
     const auto size = studio->GetBox().GetSize(Rml::BoxArea::Border);
     if (size.x <= 0 || size.y <= 0) return 0;
     *x = offset.x; *y = offset.y; *width = size.x; *height = size.y;
     return 1;
+}
+
+PP_EXPORT uint32_t pp_rmlui_protocol_version() { return PP_RMLUI_PROTOCOL_VERSION; }
+PP_EXPORT uint64_t pp_rmlui_generation() { return g_generation; }
+PP_EXPORT uint64_t pp_rmlui_home_document() { return OwnerThread() ? g_home_id : 0; }
+PP_EXPORT int pp_rmlui_take_intent(PrimeIntent* intent)
+{
+    if (!OwnerThread() || !intent || intent->size != sizeof(PrimeIntent)
+        || intent->version != PP_RMLUI_PROTOCOL_VERSION || g_actions.empty()) return 0;
+    *intent = g_actions.front().intent;
+    g_actions.pop_front();
+    return 1;
+}
+PP_EXPORT uint64_t pp_rmlui_document_open(const char* relative_path, int layer)
+{
+    if (!OwnerThread() || !g_context || !relative_path || (layer != 0 && layer != 1)) return 0;
+    const std::filesystem::path relative(relative_path);
+    if (relative.empty() || relative.is_absolute()) return 0;
+    std::error_code error;
+    const auto path = std::filesystem::weakly_canonical(g_asset_root / relative, error);
+    if (error || path.extension() != ".rml") return 0;
+    // The relative-document API cannot escape packaged source-controlled assets,
+    // including through symlinks. Resource resolution still uses native RmlUi.
+    auto root_part = g_asset_root.begin(); auto path_part = path.begin();
+    for (; root_part != g_asset_root.end(); ++root_part, ++path_part)
+        if (path_part == path.end() || *root_part != *path_part) return 0;
+    return RegisterDocument(g_context->LoadDocument(path.string()), relative.generic_string(), layer);
+}
+PP_EXPORT int pp_rmlui_document_close(uint64_t document_id)
+{
+    auto* document = GetDocument(document_id);
+    if (!document || document_id == g_home_id) return 0;
+    const uint64_t restore_document = document->restore_document;
+    const std::string restore_element = document->restore_element;
+    document->element->RemoveEventListener("click", &g_action_listener);
+    document->element->RemoveEventListener("change", &g_action_listener);
+    document->element->RemoveEventListener("mouseover", &g_action_listener);
+    document->element->RemoveEventListener("focus", &g_action_listener, true);
+    document->element->Close();
+    DirtyVisual();
+    g_accessibility.Forget(document_id);
+    g_documents.erase(document_id);
+    g_document_order.erase(std::remove(g_document_order.begin(), g_document_order.end(), document_id), g_document_order.end());
+    g_actions.erase(std::remove_if(g_actions.begin(), g_actions.end(), [document_id](const QueuedAction& action) {
+        return action.intent.document_id == document_id;
+    }), g_actions.end());
+    EnsureUpdated(); // Flush the document's deferred detach/release on owner thread.
+    if (auto* restore = GetDocument(restore_document)) {
+        restore->element->Show(restore->layer == 1 ? Rml::ModalFlag::Modal : Rml::ModalFlag::None, Rml::FocusFlag::Keep);
+        if (!restore_element.empty()) pp_rmlui_document_focus(restore_document, restore_element.c_str());
+    } else if (auto* home = GetDocument(g_home_id)) {
+        home->element->Show(Rml::ModalFlag::None, Rml::FocusFlag::Keep);
+    }
+    DirtyVisual();
+    return 1;
+}
+PP_EXPORT int pp_rmlui_document_show(uint64_t document_id, int show)
+{
+    auto* document = GetDocument(document_id);
+    if (!document) return 0;
+    g_lobby_anchor_dirty = true;
+    DirtyVisual();
+    if (show) document->element->Show(document->layer == 1 ? Rml::ModalFlag::Modal : Rml::ModalFlag::None, Rml::FocusFlag::Keep);
+    else {
+        document->element->Hide();
+        g_actions.erase(std::remove_if(g_actions.begin(), g_actions.end(), [document_id](const QueuedAction& action) {
+            return action.intent.document_id == document_id;
+        }), g_actions.end());
+    }
+    return 1;
+}
+PP_EXPORT int pp_rmlui_document_focus(uint64_t document_id, const char* element_id)
+{
+    auto* document = GetDocument(document_id);
+    if (!document || !element_id || !document->element->IsVisible()) return 0;
+    EnsureUpdated();
+    auto* element = document->element->GetElementById(element_id);
+    if (!element || !element->IsVisible(true) || element->HasAttribute("disabled") || !element->Focus()) return 0;
+    ScrollFocusedElement(element);
+    DirtyVisual();
+    return 1;
+}
+PP_EXPORT int pp_rmlui_document_set_text(uint64_t document_id, const char* name, const char* value)
+{
+    auto* document = GetDocument(document_id);
+    if (!document || !name) return 0;
+    const std::string text = value ? value : "";
+    const auto previous = document->texts.find(name);
+    if (previous != document->texts.end() && previous->second == text) return 1;
+    const std::string binding(name);
+    if (binding.rfind("action:", 0) == 0) {
+        auto* element = document->element->GetElementById(binding.substr(7));
+        PrimeIntent validated;
+        if (!element || !TranslateAction(text, validated)) return 0;
+        element->SetAttribute("data-action", text);
+    } else if (binding.rfind("rect:", 0) == 0) {
+        auto* element = document->element->GetElementById(binding.substr(5));
+        float rect[4];
+        if (!element || !ReadFiniteNumbers(text, rect, 4) || rect[2] < 0.f || rect[3] < 0.f) return 0;
+        for (float value : rect) if (std::abs(value) > 100000.f) return 0;
+        static const Rml::PropertyId properties[] = {Rml::PropertyId::Left, Rml::PropertyId::Top, Rml::PropertyId::Width, Rml::PropertyId::Height};
+        for (int i = 0; i < 4; ++i) element->SetProperty(properties[i], Rml::Property(rect[i], Rml::Unit::PX));
+    } else if (binding.rfind("opacity:", 0) == 0) {
+        auto* element = document->element->GetElementById(binding.substr(8));
+        float opacity;
+        if (!element || !ReadFiniteNumbers(text, &opacity, 1) || opacity < 0.f || opacity > 1.f) return 0;
+        element->SetProperty(Rml::PropertyId::Opacity, Rml::Property(opacity, Rml::Unit::NUMBER));
+    } else if (binding.rfind("font-size:", 0) == 0) {
+        auto* element = document->element->GetElementById(binding.substr(10));
+        float size;
+        if (!element || !ReadFiniteNumbers(text, &size, 1) || size < 0.f || size > 1000.f) return 0;
+        element->SetProperty(Rml::PropertyId::FontSize, Rml::Property(size, Rml::Unit::PX));
+    } else if (binding.rfind("color:", 0) == 0 || binding.rfind("ink:", 0) == 0) {
+        const bool foreground = binding.rfind("ink:", 0) == 0;
+        auto* element = document->element->GetElementById(binding.substr(foreground ? 4 : 6));
+        if (!element || (text.size() != 7 && text.size() != 9) || text[0] != '#') return 0;
+        for (size_t i = 1; i < text.size(); ++i) if (!std::isxdigit(static_cast<unsigned char>(text[i]))) return 0;
+        element->SetProperty(foreground ? "color" : "background-color", text);
+    } else if (binding.rfind("image:", 0) == 0) {
+        auto* element = document->element->GetElementById(binding.substr(6));
+        if (!element || element->GetTagName() != "img" || text.find("://") != std::string::npos
+            || text.find('\n') != std::string::npos || text.find('\r') != std::string::npos) return 0;
+        // The presenter provides a local path from the authoritative thumbnail
+        // service. Attribute assignment never parses supplied text as markup.
+        element->SetAttribute("src", text);
+    } else if (document_id == g_home_id && g_model) g_model->SetText(name, text);
+    else {
+        auto* element = document->element->GetElementById(name);
+        if (!element) return 0;
+        element->SetInnerRML(Rml::StringUtilities::EncodeRml(text));
+    }
+    document->texts[name] = text;
+    DirtyVisual();
+    return 1;
+}
+PP_EXPORT int pp_rmlui_document_set_bool(uint64_t document_id, const char* name, int value)
+{
+    auto* document = GetDocument(document_id);
+    if (!document || !name) return 0;
+    const bool boolean = value != 0;
+    const auto previous = document->booleans.find(name);
+    if (previous != document->booleans.end() && previous->second == boolean) return 1;
+    const std::string binding(name);
+    if (binding.rfind("disabled:", 0) == 0) {
+        auto* element = document->element->GetElementById(binding.substr(9));
+        if (!element) return 0;
+        if (boolean) element->SetAttribute("disabled", "disabled");
+        else element->RemoveAttribute("disabled");
+        element->SetClass("unavailable", boolean);
+    } else if (binding.rfind("class:", 0) == 0) {
+        const size_t separator = binding.find(':', 6);
+        if (separator == std::string::npos || separator + 1 == binding.size()) return 0;
+        const std::string id = binding.substr(6, separator - 6);
+        auto* element = id == "@document" ? document->element : document->element->GetElementById(id);
+        if (!element) return 0;
+        element->SetClass(binding.substr(separator + 1), boolean);
+    } else if (binding.rfind("visible:", 0) == 0) {
+        auto* element = document->element->GetElementById(binding.substr(8));
+        if (!element) return 0;
+        if (boolean) element->RemoveProperty("display");
+        else element->SetProperty("display", "none");
+    } else if (document_id == g_home_id && g_model) g_model->SetBool(name, boolean);
+    else {
+        auto* element = document->element->GetElementById(name);
+        if (!element) return 0;
+        if (boolean) element->RemoveProperty("display");
+        else element->SetProperty("display", "none");
+    }
+    document->booleans[name] = boolean;
+    DirtyVisual();
+    return 1;
+}
+PP_EXPORT int pp_rmlui_document_set_field(uint64_t document_id, const char* element_id, const char* value)
+{
+    auto* document = GetDocument(document_id);
+    if (!document || !element_id) return 0;
+    auto* element = TextField(document->element->GetElementById(element_id));
+    if (!element && document_id == g_home_id && g_model) { g_model->SetInputText(element_id, value ? value : ""); DirtyVisual(); return 1; }
+    if (!element) return 0;
+    const Rml::String text = value ? value : "";
+    const Rml::String previous = element->GetValue();
+    bool changed = previous != text;
+    if (changed && element->GetTagName() == "input" && element->GetAttribute<Rml::String>("type", "") == "range") {
+        // RmlUi formats range values with six decimals. Compare numeric values
+        // so an unchanged integer presenter binding does not dirty every frame.
+        float previous_number = 0.f, next_number = 0.f;
+        if (ReadFiniteNumbers(previous, &previous_number, 1) && ReadFiniteNumbers(text, &next_number, 1))
+            changed = previous_number != next_number;
+    }
+    if (changed) { ProgrammaticFieldMutation binding; element->SetValue(text); DirtyVisual(); }
+    return 1;
+}
+PP_EXPORT int pp_rmlui_document_read_field(uint64_t document_id, const char* element_id, unsigned char* buffer, int capacity)
+{
+    auto* document = GetDocument(document_id);
+    if (!document || !element_id || !buffer || capacity <= 1) return 0;
+    auto* element = TextField(document->element->GetElementById(element_id));
+    return element ? CopyUtf8(element->GetValue(), buffer, capacity) : 0;
+}
+PP_EXPORT int pp_rmlui_document_reload(uint64_t document_id)
+{
+#if !defined(NDEBUG)
+    auto* document = GetDocument(document_id);
+    if (!document || document_id == g_home_id) return 0;
+    auto* replacement = g_context->LoadDocument((g_asset_root / document->relative_path).string());
+    if (!replacement) return 0;
+    document->element->RemoveEventListener("click", &g_action_listener);
+    document->element->RemoveEventListener("change", &g_action_listener);
+    document->element->RemoveEventListener("mouseover", &g_action_listener);
+    document->element->RemoveEventListener("focus", &g_action_listener, true);
+    document->element->Close();
+    document->element = replacement;
+    g_accessibility.Forget(document_id);
+    document->texts.clear(); document->booleans.clear();
+    replacement->AddEventListener("click", &g_action_listener);
+    replacement->AddEventListener("change", &g_action_listener);
+    replacement->AddEventListener("mouseover", &g_action_listener);
+    replacement->AddEventListener("focus", &g_action_listener, true);
+    replacement->Show(document->layer == 1 ? Rml::ModalFlag::Modal : Rml::ModalFlag::None);
+    g_actions.erase(std::remove_if(g_actions.begin(), g_actions.end(), [document_id](const QueuedAction& action) {
+        return action.intent.document_id == document_id;
+    }), g_actions.end());
+    DirtyVisual(); EnsureUpdated(); return 1;
+#else
+    (void)document_id; return 0;
+#endif
+}
+PP_EXPORT int pp_rmlui_document_count() { return OwnerThread() ? int(g_documents.size()) : 0; }
+PP_EXPORT int pp_rmlui_focused_element(unsigned char* buffer, int capacity)
+{
+    if (!OwnerThread() || !g_context) return 0;
+    auto* focused = g_context->GetFocusElement();
+    return focused && !dynamic_cast<Rml::ElementDocument*>(focused) ? CopyUtf8(focused->GetId(), buffer, capacity) : 0;
+}
+PP_EXPORT int pp_rmlui_text_input_active()
+{
+    if (!OwnerThread() || !g_context) return 0;
+    auto* focused = g_context->GetFocusElement();
+    if (!focused) return 0;
+    if (focused->GetTagName() == "textarea") return 1;
+    if (focused->GetTagName() != "input") return 0;
+    const auto type = focused->GetAttribute<Rml::String>("type", "text");
+    return type == "text" || type == "password" || type == "number" ? 1 : 0;
+}
+PP_EXPORT void pp_rmlui_focus_lost()
+{
+    if (!OwnerThread() || !g_context) return;
+    DirtyVisual(); g_pointer_known = false; g_pointer_buttons = 0;
+    g_context->ProcessMouseLeave();
+    for (int button = 0; button < 3; ++button) g_context->ProcessMouseButtonUp(button, 0);
+    for (int code = 1; code <= 57; ++code) {
+        const auto key = ConvertKey(code);
+        if (key != Rml::Input::KI_UNKNOWN) g_context->ProcessKeyUp(key, 0);
+    }
+    if (auto* focused = g_context->GetFocusElement()) {
+        if (auto* document = focused->GetOwnerDocument()) document->Focus();
+        else focused->Blur();
+    }
+}
+PP_EXPORT int pp_rmlui_draw_command_count() { return OwnerThread() && g_renderer ? g_renderer->CommandCount() : 0; }
+PP_EXPORT int pp_rmlui_draw_command(int index, PrimeDrawCommand* command)
+{
+    return OwnerThread() && g_renderer && command && command->size == sizeof(PrimeDrawCommand) && g_renderer->ReadCommand(index, *command) ? 1 : 0;
+}
+PP_EXPORT int pp_rmlui_draw_geometry(uint64_t handle, PrimeDrawGeometry* geometry)
+{
+    return OwnerThread() && g_renderer && geometry && geometry->size == sizeof(PrimeDrawGeometry) && g_renderer->ReadGeometry(handle, *geometry) ? 1 : 0;
+}
+PP_EXPORT int pp_rmlui_draw_texture_count() { return OwnerThread() && g_renderer ? g_renderer->TextureCount() : 0; }
+PP_EXPORT int pp_rmlui_draw_texture(int index, PrimeDrawTexture* texture)
+{
+    return OwnerThread() && g_renderer && texture && texture->size == sizeof(PrimeDrawTexture) && g_renderer->ReadTexture(index, *texture) ? 1 : 0;
+}
+PP_EXPORT uint32_t pp_rmlui_draw_features() { return OwnerThread() && g_renderer ? g_renderer->UnsupportedFeatures() : 0; }
+
+PP_EXPORT void pp_rmlui_set_clipboard(const char* text)
+{
+    if (OwnerThread()) g_system.SetClipboardText(text ? text : "");
+}
+PP_EXPORT int pp_rmlui_read_clipboard(unsigned char* buffer, int capacity)
+{
+    if (!OwnerThread()) return 0;
+    Rml::String text; g_system.GetClipboardText(text);
+    return CopyUtf8(text, buffer, capacity);
+}
+
+PP_EXPORT int pp_rmlui_draw_geometry_count() { return OwnerThread() && g_renderer ? g_renderer->GeometryCount() : 0; }
+
+PP_EXPORT int pp_rmlui_document_set_enabled(uint64_t document_id, const char* element_id, int enabled)
+{
+    auto* document = GetDocument(document_id);
+    if (!document || !element_id) return 0;
+    auto* element = document->element->GetElementById(element_id);
+    if (!element) return 0;
+    if (enabled) element->RemoveAttribute("disabled");
+    else element->SetAttribute("disabled", "disabled");
+    element->SetClass("unavailable", enabled == 0);
+    DirtyVisual();
+    return 1;
+}
+
+PP_EXPORT int pp_rmlui_document_accessibility_snapshot(uint64_t document_id, unsigned char* buffer, int capacity)
+{
+    auto* document = GetDocument(document_id);
+    if (!document || !document->element->IsVisible()) return 0;
+    EnsureUpdated();
+    return CopyUtf8(g_accessibility.Snapshot(document->element, g_context->GetFocusElement(), g_generation, document_id), buffer, capacity);
+}
+PP_EXPORT int pp_rmlui_accessibility_action(uint64_t generation, uint64_t document_id, uint64_t revision, const char* node_key, int action)
+{
+    auto* document = GetDocument(document_id);
+    if (!document || generation != g_generation || action < 0 || action > 3 || !ForegroundDocument(document->element)) return 0;
+    EnsureUpdated();
+    auto* element = g_accessibility.Resolve(document->element, g_context->GetFocusElement(), generation, document_id, revision, node_key);
+    if (!element) return 0;
+    const int mask = g_accessibility.ActionMask(document_id, node_key);
+    if (action == 0) {
+        if (!(mask & PrimeAccessibilityTree::Focus) || !element->Focus()) return 0;
+        ScrollFocusedElement(element);
+    } else if (action == 1) {
+        if (!(mask & PrimeAccessibilityTree::Press)) return 0;
+        element->Click();
+    } else {
+        if (!(mask & PrimeAccessibilityTree::Scroll)) return 0;
+        const float distance = std::max(1.f, element->GetClientHeight() * .8f);
+        element->SetScrollTop(element->GetScrollTop() + (action == 2 ? distance : -distance));
+    }
+    DirtyVisual();
+    return 1;
+}
+PP_EXPORT int pp_rmlui_accessibility_set_text(uint64_t generation, uint64_t document_id, uint64_t revision, const char* node_key, const char* value)
+{
+    auto* document = GetDocument(document_id);
+    if (!document || generation != g_generation || !value || !ForegroundDocument(document->element)) return 0;
+    EnsureUpdated();
+    auto* element = g_accessibility.Resolve(document->element, g_context->GetFocusElement(), generation, document_id, revision, node_key);
+    if (!element || !(g_accessibility.ActionMask(document_id, node_key) & PrimeAccessibilityTree::SetText)) return 0;
+    auto* field = TextField(element);
+    if (!field || element->HasAttribute("readonly")) return 0;
+    Rml::String text(value);
+    if (text.size() > 128 * 1024) return 0;
+    const int maximum = element->GetAttribute<int>("maxlength", -1);
+    if (maximum >= 0) {
+        const int length = static_cast<int>(Rml::StringUtilities::LengthUTF8(text));
+        text.resize(size_t(Rml::StringUtilities::ConvertCharacterOffsetToByteOffset(text, std::min(length, maximum))));
+    }
+    g_text_input.Cancel();
+    // Accessibility is one user edit. Range SetValue already emits change;
+    // silence that binding side effect before the single explicit DOM event.
+    { ProgrammaticFieldMutation binding; field->SetValue(text); }
+    Rml::Dictionary parameters; parameters["value"] = text;
+    element->DispatchEvent("change", parameters);
+    DirtyVisual();
+    return 1;
+}
+
+PP_EXPORT int pp_rmlui_text_input_state(PrimeTextInputState* state)
+{
+    return OwnerThread() && state && g_text_input.State(*state) ? 1 : 0;
+}
+PP_EXPORT int pp_rmlui_text_selection_utf16(uint64_t generation, uint64_t document_id, uint64_t focus_epoch, int* start, int* end)
+{
+    if (!OwnerThread() || !start || !end) return 0;
+    PrimeTextInputState state;
+    if (!g_text_input.State(state) || state.generation != generation || state.document_id != document_id || state.focus_epoch != focus_epoch) return 0;
+    auto* field = dynamic_cast<Rml::ElementFormControl*>(g_context->GetFocusElement());
+    if (!field) return 0;
+    const Rml::String value = field->GetValue();
+    auto offset = [&value](int scalar) {
+        const int limit = Rml::StringUtilities::ConvertCharacterOffsetToByteOffset(value, std::max(0, scalar));
+        int units = 0;
+        for (int index = 0; index < limit && size_t(index) < value.size(); ++index) {
+            const unsigned char byte = static_cast<unsigned char>(value[size_t(index)]);
+            if ((byte & 0xc0) == 0x80) continue;
+            units += byte >= 0xf0 && byte <= 0xf4 ? 2 : 1;
+        }
+        return units;
+    };
+    *start = offset(state.selection_start); *end = offset(state.selection_end); return 1;
+}
+PP_EXPORT int pp_rmlui_composition(uint64_t generation, uint64_t document_id, uint64_t focus_epoch,
+    int stage, const char* text, int cursor, int selection_length)
+{
+    if (!OwnerThread() || !g_text_input.Compose(generation, document_id, focus_epoch, stage, text, cursor, selection_length)) return 0;
+    DirtyVisual(); return 1;
+}
+PP_EXPORT int pp_rmlui_hovered_element(unsigned char* buffer, int capacity)
+{
+    if (!OwnerThread() || !g_context) return 0;
+    auto* element = g_context->GetHoverElement();
+    while (element && element->GetId().empty()) element = element->GetParentNode();
+    return element ? CopyUtf8(element->GetId(), buffer, capacity) : 0;
 }

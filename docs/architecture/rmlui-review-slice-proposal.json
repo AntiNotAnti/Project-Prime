@@ -1,0 +1,3681 @@
+{
+  "schema_version": 1,
+  "proposal_only": true,
+  "captured_at_utc": "2026-10-08T00:55:48.810326+00:00",
+  "observed_git_head": "e9f4d3bd7429820cc1e24ae2e3f024815aecf8f1",
+  "scope": "Current diff versus HEAD (staged and unstaged) and nonignored untracked files only; not a reconstruction of commits already present in HEAD.",
+  "git_mutations_performed": false,
+  "file_count": 431,
+  "assigned_file_count": 422,
+  "excluded_parent_integration": [
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/Shell.RmlUi.cs",
+      "integration_slice": "RML-18",
+      "reason": "Parent-owned all-route Shell integration excluded from per-route file ownership."
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiLinks.cs",
+      "integration_slice": "RML-18",
+      "reason": "Parent-owned all-route Shell integration excluded from per-route file ownership."
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiPages.cs",
+      "integration_slice": "RML-18",
+      "reason": "Parent-owned all-route Shell integration excluded from per-route file ownership."
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiPolicy.cs",
+      "integration_slice": "RML-18",
+      "reason": "Parent-owned all-route Shell integration excluded from per-route file ownership."
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiQueue.cs",
+      "integration_slice": "RML-18",
+      "reason": "Parent-owned all-route Shell integration excluded from per-route file ownership."
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiResults.cs",
+      "integration_slice": "RML-18",
+      "reason": "Parent-owned all-route Shell integration excluded from per-route file ownership."
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiSettings.cs",
+      "integration_slice": "RML-18",
+      "reason": "Parent-owned all-route Shell integration excluded from per-route file ownership."
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiSocial.cs",
+      "integration_slice": "RML-18",
+      "reason": "Parent-owned all-route Shell integration excluded from per-route file ownership."
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/Shell.cs",
+      "integration_slice": "RML-18",
+      "reason": "Parent-owned all-route Shell integration excluded from per-route file ownership."
+    }
+  ],
+  "counts_by_proposed_slice": {
+    "MANUAL-REVIEW": 2,
+    "RML-01": 25,
+    "RML-02": 31,
+    "RML-03": 43,
+    "RML-04": 11,
+    "RML-05": 19,
+    "RML-06": 5,
+    "RML-08": 45,
+    "RML-09": 13,
+    "RML-10": 11,
+    "RML-11": 22,
+    "RML-12": 31,
+    "RML-13": 15,
+    "RML-14": 10,
+    "RML-15": 27,
+    "RML-16": 9,
+    "RML-17": 27,
+    "RML-18": 48,
+    "RML-19": 7,
+    "RML-20": 21
+  },
+  "review_order": [
+    "RML-00",
+    "RML-01",
+    "RML-02",
+    "RML-03",
+    "RML-04",
+    "RML-05",
+    "RML-06",
+    "RML-07",
+    "RML-08",
+    "RML-09",
+    "RML-10",
+    "RML-11",
+    "RML-12",
+    "RML-13",
+    "RML-14",
+    "RML-15",
+    "RML-16",
+    "RML-17",
+    "RML-18",
+    "RML-19",
+    "RML-20"
+  ],
+  "limitations": [
+    "A file-name proposal is not an independently compiling commit certificate; shared entries need chronological hunk partitioning.",
+    "Already committed foundation/social work is absent from this current-diff-only inventory and must be retained/reviewed in its existing stack.",
+    "Route controllers/backends/presenters/assets/tools should land together; all-route Shell convergence is explicitly deferred to RML-18.",
+    "Do not move final shipping defaults or Avalonia removals into early foundation/package slices; RML-19/20 retain separate release gates.",
+    "Standalone Studio STUDIO-RML-00..05 is conditional and not implemented by the client entry slices."
+  ],
+  "files": [
+    {
+      "path": ".github/workflows/build.yml",
+      "change_kind": "modified",
+      "proposed_slice": "RML-16",
+      "rationale": "Native/platform CI and package gates.",
+      "shared_or_late_dependencies": [
+        "RML-00 baseline gates",
+        "RML-03 IME/provider fixtures",
+        "RML-17 Android runtime gates",
+        "RML-20 native-only/server boundaries: split chronological hunks."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "docs/architecture/rmlui-current-workflow-assessment.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/android-native-client.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/foundation-rebuild-status.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/gpu-lifetime-metal.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/gpu-lifetime-vulkan.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/mac-golden-candidate-matrix.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/mac-golden-settings-repair.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-initial/avalonia-metal-1.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-initial/avalonia-metal-2.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-initial/avalonia-metal-3.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-initial/comparison.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-initial/rmlui-metal-1.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-initial/rmlui-metal-2.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-initial/rmlui-metal-3.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/DISQUALIFIED.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/avalonia-metal-1.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/avalonia-metal-1.png.evidence.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/avalonia-metal-2.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/avalonia-metal-2.png.evidence.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/avalonia-metal-3.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/avalonia-metal-3.png.evidence.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/comparison.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/rmlui-metal-1.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/rmlui-metal-1.png.evidence.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/rmlui-metal-2.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/rmlui-metal-2.png.evidence.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/rmlui-metal-3.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/rmlui-metal-3.png.evidence.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-phases/rmlui-metal-phases-before.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-migration-status.md",
+      "change_kind": "modified",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-performance-report.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-platform-text-input.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-review-slice-proposal.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-runtime-boundaries.md",
+      "change_kind": "modified",
+      "proposed_slice": "RML-01",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [
+        "Later route/platform evidence belongs in RML-18; do not backdate counts."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "docs/architecture/rmlui-theme-accessibility.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "native/rmlui-poc/projectprime_rmlui.cpp",
+      "change_kind": "modified",
+      "proposed_slice": "RML-01",
+      "rationale": "Shared native ABI/framework; all bounded future typed action IDs can land in foundation.",
+      "shared_or_late_dependencies": [
+        "Current native cpp/API/menu also integrate RML-03 semantic/text protocols and RML-05..14 actions; stage matching headers together, or split additive exports by dependent slice."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "native/rmlui-poc/projectprime_rmlui_accessibility.h",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-01",
+      "rationale": "Shared native ABI/framework; all bounded future typed action IDs can land in foundation.",
+      "shared_or_late_dependencies": [
+        "Current native cpp/API/menu also integrate RML-03 semantic/text protocols and RML-05..14 actions; stage matching headers together, or split additive exports by dependent slice."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "native/rmlui-poc/projectprime_rmlui_api.h",
+      "change_kind": "modified",
+      "proposed_slice": "RML-01",
+      "rationale": "Shared native ABI/framework; all bounded future typed action IDs can land in foundation.",
+      "shared_or_late_dependencies": [
+        "Current native cpp/API/menu also integrate RML-03 semantic/text protocols and RML-05..14 actions; stage matching headers together, or split additive exports by dependent slice."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "native/rmlui-poc/projectprime_rmlui_draw_list.cpp",
+      "change_kind": "modified",
+      "proposed_slice": "RML-01",
+      "rationale": "Shared native ABI/framework; all bounded future typed action IDs can land in foundation.",
+      "shared_or_late_dependencies": [
+        "Current native cpp/API/menu also integrate RML-03 semantic/text protocols and RML-05..14 actions; stage matching headers together, or split additive exports by dependent slice."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "native/rmlui-poc/projectprime_rmlui_menu.h",
+      "change_kind": "modified",
+      "proposed_slice": "RML-01",
+      "rationale": "Shared native ABI/framework; all bounded future typed action IDs can land in foundation.",
+      "shared_or_late_dependencies": [
+        "Current native cpp/API/menu also integrate RML-03 semantic/text protocols and RML-05..14 actions; stage matching headers together, or split additive exports by dependent slice."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "native/rmlui-poc/projectprime_rmlui_renderer.h",
+      "change_kind": "modified",
+      "proposed_slice": "RML-01",
+      "rationale": "Shared native ABI/framework; all bounded future typed action IDs can land in foundation.",
+      "shared_or_late_dependencies": [
+        "Current native cpp/API/menu also integrate RML-03 semantic/text protocols and RML-05..14 actions; stage matching headers together, or split additive exports by dependent slice."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "native/rmlui-poc/projectprime_rmlui_text_input.h",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-01",
+      "rationale": "Shared native ABI/framework; all bounded future typed action IDs can land in foundation.",
+      "shared_or_late_dependencies": [
+        "Current native cpp/API/menu also integrate RML-03 semantic/text protocols and RML-05..14 actions; stage matching headers together, or split additive exports by dependent slice."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "native/rmlui-poc/projectprime_rmlui_text_protocol.h",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-01",
+      "rationale": "Shared native ABI/framework; all bounded future typed action IDs can land in foundation.",
+      "shared_or_late_dependencies": [
+        "Current native cpp/API/menu also integrate RML-03 semantic/text protocols and RML-05..14 actions; stage matching headers together, or split additive exports by dependent slice."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUi.NoAvalonia.targets",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-20",
+      "rationale": "Android UI-assembly-free entry/source boundary.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiAccessibility.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [
+        "Depends on RML-03 immutable semantic service and RML-09 real Account fixture.",
+        "UI/provider callbacks must match the Func<Command,bool> API."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiAccessibilityCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [
+        "Depends on RML-03 immutable semantic service and RML-09 real Account fixture.",
+        "UI/provider callbacks must match the Func<Command,bool> API."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiAssets.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiCheckReport.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiClipboard.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiGlesCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiGlesRenderer.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiHudCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiHudSession.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiImages.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiInput.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiInputCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiKeys.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiMatchSession.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiResultsSession.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiSession.Lobby.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiSession.Queue.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiSession.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [
+        "Final file consumes RML-05..14 presenters and RML-03 provider/text APIs; stage after those sources.",
+        "Native-only entry hooks depend on RML-20 or need guarded early hunks."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiView.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [
+        "Final file consumes RML-05..14 presenters and RML-03 provider/text APIs; stage after those sources.",
+        "Native-only entry hooks depend on RML-20 or need guarded early hunks."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiVisualPolicy.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/GameView.RmlUi.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [
+        "Final file consumes RML-05..14 presenters and RML-03 provider/text APIs; stage after those sources.",
+        "Native-only entry hooks depend on RML-20 or need guarded early hunks."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead.Android/GameView.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/MainActivity.RmlUi.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/MainActivity.RmlUiDocuments.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/MainActivity.SettingsArchive.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-08",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [
+        "Android boundary guards depend on RML-17/20."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead.Android/MainActivity.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/MphRead.Android.csproj",
+      "change_kind": "modified",
+      "proposed_slice": "RML-16",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [
+        "RML-17 opt-in runtime/presenter assets",
+        "RML-20 Avalonia-free source/package cutover: split hunks and retain platform feature guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead.Android/Native/MainActivity.RmlUi.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-20",
+      "rationale": "Android UI-assembly-free entry/source boundary.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/Native/NativeMainActivity.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-20",
+      "rationale": "Android UI-assembly-free entry/source boundary.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/Native/NativeMainApplication.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-20",
+      "rationale": "Android UI-assembly-free entry/source boundary.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/Native/native_styles.xml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-20",
+      "rationale": "Android UI-assembly-free entry/source boundary.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/Properties/TrimmerRoots.xml",
+      "change_kind": "modified",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead.Android/TouchOverlayView.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-17",
+      "rationale": "Native Android surface, input/lifecycle and shared presenter integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Assets/Fonts/NotoSansJP-OFL.txt",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Licensed Japanese glyph fallback for native text/chrome.",
+      "shared_or_late_dependencies": [
+        "RML-16/17 manifests must bundle font and attribution."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Assets/Fonts/NotoSansJP-Regular.ttf",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Licensed Japanese glyph fallback for native text/chrome.",
+      "shared_or_late_dependencies": [
+        "RML-16/17 manifests must bundle font and attribution."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Assets/Fonts/NotoSansJP-SOURCE.txt",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Licensed Japanese glyph fallback for native text/chrome.",
+      "shared_or_late_dependencies": [
+        "RML-16/17 manifests must bundle font and attribution."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Diagnostics/CompatibilityCheck.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-20",
+      "rationale": "Diagnostics/gamepad/training assembly/source guards.",
+      "shared_or_late_dependencies": [
+        "Review actual hunks for RML-03/11 behavior changes, rather than classifying a whole diagnostic file solely by its name."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Diagnostics/LauncherWindowCheck.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-20",
+      "rationale": "Diagnostics/gamepad/training assembly/source guards.",
+      "shared_or_late_dependencies": [
+        "Review actual hunks for RML-03/11 behavior changes, rather than classifying a whole diagnostic file solely by its name."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Diagnostics/PlatformDiagnostics.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-20",
+      "rationale": "Diagnostics/gamepad/training assembly/source guards.",
+      "shared_or_late_dependencies": [
+        "Review actual hunks for RML-03/11 behavior changes, rather than classifying a whole diagnostic file solely by its name."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Input/GamepadChecks.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-20",
+      "rationale": "Diagnostics/gamepad/training assembly/source guards.",
+      "shared_or_late_dependencies": [
+        "Review actual hunks for RML-03/11 behavior changes, rather than classifying a whole diagnostic file solely by its name."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/AdventureContracts.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/AdventureController.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/AimResultsController.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-13",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/CommunityContracts.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-10",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/CommunityController.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-10",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/CommunityEngineBackend.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-10",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/HudEditorContracts.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-14",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/HudEditorController.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-14",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/HunterSelectionController.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-06",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/InGameController.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-13",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/LauncherHunterSelectionBackend.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-06",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/LauncherLicenseBackend.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-09",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/LauncherRoute.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-02",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/LauncherUiSelectionPolicy.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-19",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [
+        "Durable UI startup/recovery policy is shared by native-only RML-20 and Android RML-17; final accepted RID/default changes remain candidate until automated gates pass."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/LicenseContracts.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-09",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/LicenseController.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-09",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/LobbyContracts.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-04",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/LobbyPresentation.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-04",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/LobbySessionController.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-04",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/MatchResultsController.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-13",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/NetLobbySessionBackend.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-04",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/NewsCatalog.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/NewsController.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/NewsEngineBackend.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/OfflineContracts.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/OfflineController.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/SetupController.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/StudioContracts.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [
+        "Shared independent Studio launch authority also implements RML-14 Map entry; do not duplicate it."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/StudioController.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [
+        "Shared independent Studio launch authority also implements RML-14 Map entry; do not duplicate it."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/StudioEntryBackend.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [
+        "Shared independent Studio launch authority also implements RML-14 Map entry; do not duplicate it."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/TheatreContracts.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/TheatreController.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/TheatreEngineBackend.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/TheatrePlaybackController.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/TheatreViewportController.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Presentation-neutral application/service controller and copied data contract.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/BotManagementView.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-05",
+      "rationale": "Legacy/shared presentation adapter changed to reuse native authority.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/LobbyScreen.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-04",
+      "rationale": "Legacy/shared presentation adapter changed to reuse native authority.",
+      "shared_or_late_dependencies": [
+        "Whole file mixes RML-02 navigation, RML-04 authority and RML-20 source guards: split hunks or stage after prerequisites."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/RmlLobbyRulesEditor.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-04",
+      "rationale": "Legacy/shared presentation adapter changed to reuse native authority.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/RmlMultiplayerController.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-05",
+      "rationale": "Legacy/shared presentation adapter changed to reuse native authority.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/RmlUiPrototype.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-01",
+      "rationale": "Legacy/shared presentation adapter changed to reuse native authority.",
+      "shared_or_late_dependencies": [
+        "Final prototype hooks modern composition RML-15, all-route documents RML-18, provider/text RML-03 and UI runtime policy RML-19; split foundation lifecycle from late integration hunks."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/Shell.Presentation.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-20",
+      "rationale": "Native-only application entry and presentation abstraction.",
+      "shared_or_late_dependencies": [
+        "Final NativeShell consumes all route presenters and RML-19 policy: stage after RML-18/19."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/Shell/PrimeRouter.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-02",
+      "rationale": "Legacy/shared presentation adapter changed to reuse native authority.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/StartScreen.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-02",
+      "rationale": "Legacy/shared presentation adapter changed to reuse native authority.",
+      "shared_or_late_dependencies": [
+        "Whole file mixes RML-02 navigation, RML-04 authority and RML-20 source guards: split hunks or stage after prerequisites."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/UiSurface.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-20",
+      "rationale": "Legacy/shared presentation adapter changed to reuse native authority.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/Workspaces/NewsWorkspace.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-02",
+      "rationale": "Legacy/shared presentation adapter changed to reuse native authority.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Native/NativeClientEntry.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-20",
+      "rationale": "Native-only application entry and presentation abstraction.",
+      "shared_or_late_dependencies": [
+        "Final NativeShell consumes all route presenters and RML-19 policy: stage after RML-18/19."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Native/NativeShell.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-20",
+      "rationale": "Native-only application entry and presentation abstraction.",
+      "shared_or_late_dependencies": [
+        "Final NativeShell consumes all route presenters and RML-19 policy: stage after RML-18/19."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Portable/GameFiles.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-08",
+      "rationale": "Existing portable authority or runtime policy instrumentation.",
+      "shared_or_late_dependencies": [
+        "Toolkit-free/source guards support RML-20; split those hunks if extraction lands earlier."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Portable/HunterLicenseClient.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-09",
+      "rationale": "Existing portable authority or runtime policy instrumentation.",
+      "shared_or_late_dependencies": [
+        "Toolkit-free authority guard is required by native-only RML-20 and Community RML-10; retain one existing auth implementation."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Portable/LauncherPrefs.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-03",
+      "rationale": "Existing portable authority or runtime policy instrumentation.",
+      "shared_or_late_dependencies": [
+        "Shared prefs file also serves RML-08 explicit settings rows; preserve legacy keys/values."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Portable/LauncherUiPerformance.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Existing portable authority or runtime policy instrumentation.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Portable/LauncherUiRuntime.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-19",
+      "rationale": "Existing portable authority or runtime policy instrumentation.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiAccessibility.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Shared composed chrome and explicit RmlUi control/theme assets.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiCocoaAccessibility.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Shared composed chrome and explicit RmlUi control/theme assets.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiLinuxAccessibility.Protocol.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Shared composed chrome and explicit RmlUi control/theme assets.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiLinuxAccessibility.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Shared composed chrome and explicit RmlUi control/theme assets.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiVisualPolicy.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Shared composed chrome and explicit RmlUi control/theme assets.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiWindowsAccessibility.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Shared composed chrome and explicit RmlUi control/theme assets.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Components/app-shell.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Shared composed chrome and explicit RmlUi control/theme assets.",
+      "shared_or_late_dependencies": [
+        "Final high-contrast/touch/localized chrome uses RML-03 policy; final footer/Nav exposes future routes, which must stay gated until RML-18 integration."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Components/app-shell.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Shared composed chrome and explicit RmlUi control/theme assets.",
+      "shared_or_late_dependencies": [
+        "Final high-contrast/touch/localized chrome uses RML-03 policy; final footer/Nav exposes future routes, which must stay gated until RML-18 integration."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Components/controls.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Shared composed chrome and explicit RmlUi control/theme assets.",
+      "shared_or_late_dependencies": [
+        "Final high-contrast/touch/localized chrome uses RML-03 policy; final footer/Nav exposes future routes, which must stay gated until RML-18 integration."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Components/dialog.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Shared composed chrome and explicit RmlUi control/theme assets.",
+      "shared_or_late_dependencies": [
+        "Final high-contrast/touch/localized chrome uses RML-03 policy; final footer/Nav exposes future routes, which must stay gated until RML-18 integration."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Components/dialog.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Shared composed chrome and explicit RmlUi control/theme assets.",
+      "shared_or_late_dependencies": [
+        "Final high-contrast/touch/localized chrome uses RML-03 policy; final footer/Nav exposes future routes, which must stay gated until RML-18 integration."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiCleanup.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-01",
+      "rationale": "Shared managed host/document/action/framework.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiCocoaIme.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Shared managed host/document/action/framework.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiCocoaViewApi.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Shared managed host/document/action/framework.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiDesktopInput.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-03",
+      "rationale": "Shared managed host/document/action/framework.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiHost.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-01",
+      "rationale": "Shared managed host/document/action/framework.",
+      "shared_or_late_dependencies": [
+        "Final source includes RML-03 text/semantic and RML-05..14 action contracts; foundation may own additive ABI IDs, but matching optional capabilities/exports must land together."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiIbusApi.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Shared managed host/document/action/framework.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiInput.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-01",
+      "rationale": "Shared managed host/document/action/framework.",
+      "shared_or_late_dependencies": [
+        "Final source includes RML-03 text/semantic and RML-05..14 action contracts; foundation may own additive ABI IDs, but matching optional capabilities/exports must land together."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiIntent.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-01",
+      "rationale": "Shared managed host/document/action/framework.",
+      "shared_or_late_dependencies": [
+        "Final source includes RML-03 text/semantic and RML-05..14 action contracts; foundation may own additive ABI IDs, but matching optional capabilities/exports must land together."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiLauncherPages.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Shared managed host/document/action/framework.",
+      "shared_or_late_dependencies": [
+        "Final launcher composition includes RML-05 queue/advanced page bindings; keep shared core separate from late all-route integration if needed."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiLinuxDesktopInput.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Shared managed host/document/action/framework.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiLinuxIme.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Shared managed host/document/action/framework.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiMenuPages.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Shared managed host/document/action/framework.",
+      "shared_or_late_dependencies": [
+        "Final launcher composition includes RML-05 queue/advanced page bindings; keep shared core separate from late all-route integration if needed."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiNativeBridge.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-01",
+      "rationale": "Shared managed host/document/action/framework.",
+      "shared_or_late_dependencies": [
+        "Final source includes RML-03 text/semantic and RML-05..14 action contracts; foundation may own additive ABI IDs, but matching optional capabilities/exports must land together."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiPageManager.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Shared managed host/document/action/framework.",
+      "shared_or_late_dependencies": [
+        "Final launcher composition includes RML-05 queue/advanced page bindings; keep shared core separate from late all-route integration if needed."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiPlatformInput.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-01",
+      "rationale": "Shared managed host/document/action/framework.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiUpdateState.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-01",
+      "rationale": "Shared managed host/document/action/framework.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiWindowsIme.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Shared managed host/document/action/framework.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/adventure/AdventurePagePresenter.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/adventure/confirm.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/adventure/saves.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/adventure/saves.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/community/CommunityPagePresenter.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-10",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/community/browser.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-10",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/community/community.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-10",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/community/flow.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-10",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/home/home.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/home/home.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/hud/HudEditorPagePresenter.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-14",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/hud/HudPreviewBitmap.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-14",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/hud/editor.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-14",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/hud/editor.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-14",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/hunters/selection.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-06",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/hunters/selection.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-06",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/AimResultsPagePresenter.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-13",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/InGamePagePresenter.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-13",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/MatchResultsPagePresenter.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-13",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/aim-results.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-13",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/confirm.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-13",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/match.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-13",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/pause.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-13",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/results.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-13",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/results.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-13",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/license/LicensePagePresenter.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-09",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/license/license.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-09",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/license/license.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-09",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/admin.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-05",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/admin.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-05",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/lobby.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-04",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/lobby.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-04",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/rules.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-05",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/rules.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-05",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/news/NewsPagePresenter.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/news/detail.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/news/news.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/news/news.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/offline/OfflinePagePresenter.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/offline/arena.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/offline/offline.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/offline/rules.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/offline/setup.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/offline/training.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/play/browser.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-05",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/play/browser.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-05",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/play/queue.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-05",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/play/queue.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-05",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/capture.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/conflict.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/glyphs.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/reset.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/setup.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/unsaved.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/video.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/setup/EngineSetupBackend.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/setup/NativeUpdateMonitor.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/setup/SetupEngineCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/setup/SetupPagePresenter.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/setup/rom.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/setup/setup.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/setup/setup.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/setup/update.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/studio/StudioPagePresenter.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [
+        "Map launch entry is also RML-14, using the same RML-12 Studio authority."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/studio/entry.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [
+        "Map launch entry is also RML-14, using the same RML-12 Studio authority."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/studio/entry.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [
+        "Map launch entry is also RML-14, using the same RML-12 Studio authority."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/theatre/TheatreImageCache.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/theatre/TheatrePagePresenter.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/theatre/TheatrePlaybackPagePresenter.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/theatre/confirm-delete.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/theatre/library.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/theatre/playback.rml",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/theatre/theatre.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Route-owned authored documents, presenter and local check helpers.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlHunterSelectionPresenter.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-06",
+      "rationale": "Native lobby/Hunter/controller bindings.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlLobbyAdminPresenter.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-05",
+      "rationale": "Native lobby/Hunter/controller bindings.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlUiLobbyBindings.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-04",
+      "rationale": "Native lobby/Hunter/controller bindings.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiDrawListReader.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Engine-owned draw-list compositor.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiGpuCompositor.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Engine-owned draw-list compositor.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.Controller.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Typed Settings schema/persistence/input/presenter and actual authority checks.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.Hud.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Typed Settings schema/persistence/input/presenter and actual authority checks.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.Input.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Typed Settings schema/persistence/input/presenter and actual authority checks.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.Persistence.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Typed Settings schema/persistence/input/presenter and actual authority checks.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Typed Settings schema/persistence/input/presenter and actual authority checks.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackendCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Typed Settings schema/persistence/input/presenter and actual authority checks.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsNativePageCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Typed Settings schema/persistence/input/presenter and actual authority checks.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Glyphs.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Typed Settings schema/persistence/input/presenter and actual authority checks.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Typed Settings schema/persistence/input/presenter and actual authority checks.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Typed Settings schema/persistence/input/presenter and actual authority checks.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Themes/prime.rcss",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Shared composed chrome and explicit RmlUi control/theme assets.",
+      "shared_or_late_dependencies": [
+        "Final high-contrast/touch/localized chrome uses RML-03 policy; final footer/Nav exposes future routes, which must stay gated until RML-18 integration."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/ModEntry.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-20",
+      "rationale": "Client entry/source boundary.",
+      "shared_or_late_dependencies": [
+        "RML-19 default/rollback policy."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Network/DemoPlayback.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-12",
+      "rationale": "Existing replay camera/playback authority integration.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/Network/LobbyQueueClient.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-05",
+      "rationale": "Existing queue authority cancellation/Bye cleanup fix.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "src/MphRead/Mods/PauseMenu.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-13",
+      "rationale": "Native in-game menu handoff.",
+      "shared_or_late_dependencies": [
+        "RML-20 toolkit guard/source boundary hunks."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/DesktopGlContext.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/EsShaders.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/Generated/GeneratedShaderLayouts.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/Generated/LauncherChamber.fragment.wgsl",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/Generated/LauncherChamber.vertex.wgsl",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/Generated/layouts.json",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/LauncherBackdropComposer.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/LauncherChamberShader.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/ModernGraphicsCompat.Generated.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/ModernGraphicsCompat.RmlUi.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/ModernGraphicsCompat.RmlUiCheck.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/ModernGraphicsCompat.RmlUiLifetimeCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/ModernGraphicsCompat.World.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/ModernGraphicsCompat.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/ModernGraphicsCompatState.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/RenderPassState.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/RendererCompatibilityRestart.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-19",
+      "rationale": "Typed explicit renderer/UI recovery restart preserving the durable failure witness.",
+      "shared_or_late_dependencies": [
+        "Native-only RML-20 and actual post-application recovery regression."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Render/UiOverlay.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/StudioIntegration/Shell.StudioIntegration.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-12",
+      "rationale": "Existing Studio authority/viewport broker changes.",
+      "shared_or_late_dependencies": [
+        "RML-14 creation entry and RML-20 native-only guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/StudioRendering/StudioViewportContract.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-12",
+      "rationale": "Existing Studio authority/viewport broker changes.",
+      "shared_or_late_dependencies": [
+        "RML-14 creation entry and RML-20 native-only guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/ThumbnailBatch.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-12",
+      "rationale": "Existing preview-worker authority retirement race fix discovered by integrated client runs.",
+      "shared_or_late_dependencies": [
+        "RML-18 capture/performance guards exercise this shared authority; retain serialized process shutdown without backdating validation."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Mods/Training/AimTrainerChecks.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-20",
+      "rationale": "Diagnostics/gamepad/training assembly/source guards.",
+      "shared_or_late_dependencies": [
+        "Review actual hunks for RML-03/11 behavior changes, rather than classifying a whole diagnostic file solely by its name."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/MphRead.StudioEngine.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-20",
+      "rationale": "Independent Studio toolkit engine restore/output graph; game globals cannot contaminate Studio.",
+      "shared_or_late_dependencies": [
+        "Conditional Studio authoring remains a separate product; pair/compile after native default candidate."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/MphRead.csproj",
+      "change_kind": "modified",
+      "proposed_slice": "RML-16",
+      "rationale": "Desktop runtime asset/font/license package integration.",
+      "shared_or_late_dependencies": [
+        "RML-01 feature flag/build boundary",
+        "RML-03 fallback font",
+        "RML-19 shipping policy",
+        "RML-20 compile/dependency exclusions: whole final file cannot safely be treated as foundation-only."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/MphRead/Renderer.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Modern renderer/chamber/shader/composition changes.",
+      "shared_or_late_dependencies": [
+        "Engine renderer/UiOverlay final files also include RML-13 running-match and RML-18 all-route integration plus RML-20 source guards."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "src/ProjectPrime.Studio/ProjectPrime.Studio.csproj",
+      "change_kind": "modified",
+      "proposed_slice": "MANUAL-REVIEW",
+      "rationale": "No safe file-name assignment; inspect the diff.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "tools/adventure-controller-check/NativeAdventureCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/adventure-controller-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/adventure-controller-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/adventure-controller-check/adventure-controller-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/asset-guard-allow.txt",
+      "change_kind": "modified",
+      "proposed_slice": "RML-03",
+      "rationale": "Licensed Noto Sans JP font guard allow entry.",
+      "shared_or_late_dependencies": [
+        "RML-16/17 packages must preserve the matching OFL/source attribution."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "tools/community-controller-check/NativeCommunityCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-10",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/community-controller-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-10",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/community-controller-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-10",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/community-controller-check/community-controller-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-10",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/default-client-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-20",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/default-client-check/check.py",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-20",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/hud-controller-check/NativeHudCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-14",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/hud-controller-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-14",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/hud-controller-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-14",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/hud-controller-check/hud-controller-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-14",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/in-game-controller-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-13",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/in-game-controller-check/in-game-controller-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-13",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/launcher-router-check/Program.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-02",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/launcher-ui-policy-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-19",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/launcher-ui-policy-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-19",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/launcher-ui-policy-check/launcher-ui-policy-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-19",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/launcher-ui-policy-check/process-check.py",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-19",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/license-controller-check/NativeLicenseLayoutCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-09",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/license-controller-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-09",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/license-controller-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-09",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/license-controller-check/license-controller-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-09",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/lobby-controller-check/Program.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-04",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/lobby-controller-check/README.md",
+      "change_kind": "modified",
+      "proposed_slice": "RML-04",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/modern-shaders/README.md",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/modern-shaders/export/Program.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/native-client-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-20",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/native-client-check/check.py",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-20",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/news-controller-check/NativeNewsCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/news-controller-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/news-controller-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/news-controller-check/news-controller-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/offline-controller-check/NativeOfflineCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/offline-controller-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/offline-controller-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/offline-controller-check/offline-controller-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-11",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-accessibility-check/NativeThemeCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-accessibility-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-accessibility-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-accessibility-check/rmlui-accessibility-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-account-diagnostic-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-09",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-account-diagnostic-check/rmlui-account-diagnostic-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-09",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-assessment-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-assessment-check/propose-slices.py",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-assessment-check/refresh-workflows.py",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-cocoa-accessibility-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-cocoa-accessibility-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-cocoa-accessibility-check/rmlui-cocoa-accessibility-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-cocoa-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-cocoa-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-cocoa-check/rmlui-cocoa-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-compositor-check/Program.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-15",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-core-check/Program.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-01",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [
+        "Final tool asserts future RML-03/05..14 contracts; foundation test can own centralized action IDs but optional page assertions require their authored assets."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "tools/rmlui-core-check/rmlui-core-check.csproj",
+      "change_kind": "modified",
+      "proposed_slice": "RML-01",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [
+        "Final tool asserts future RML-03/05..14 contracts; foundation test can own centralized action IDs but optional page assertions require their authored assets."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "tools/rmlui-drawlist-cache-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-15",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-drawlist-cache-check/rmlui-drawlist-cache-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-15",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-es-shader-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-15",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-es-shader-check/rmlui-es-shader-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-15",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-host-profile/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-host-profile/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-host-profile/rmlui-host-profile.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-linux-ime-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-linux-ime-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-linux-ime-check/ibus-fixture.py",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-linux-ime-check/rmlui-linux-ime-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-linux-ime-check/run-ibus-check.py",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-lobby-live-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-lobby-live-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-lobby-live-check/rmlui-lobby-live-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-lobby-page-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-05",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-lobby-page-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-05",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-lobby-page-check/rmlui-lobby-page-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-05",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-multiplayer-check/LiveQueueChecks.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-05",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-multiplayer-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-05",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-multiplayer-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-05",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-multiplayer-check/rmlui-multiplayer-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-05",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-page-check/FakeBridge.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-page-check/NativePageCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-page-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-page-check/rmlui-page-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-02",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-platform-accessibility-check/LinuxFixture.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-platform-accessibility-check/LinuxWireCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-platform-accessibility-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-platform-accessibility-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-platform-accessibility-check/WindowsFixture.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-platform-accessibility-check/atspi-client.py",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-platform-accessibility-check/rmlui-platform-accessibility-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-platform-accessibility-check/windows-client.ps1",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-03",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-runtime-check/NativeHostCheck.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-01",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [
+        "Final tool asserts future RML-03/05..14 contracts; foundation test can own centralized action IDs but optional page assertions require their authored assets."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "tools/rmlui-runtime-check/NativeScheduleCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-01",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [
+        "Final tool asserts future RML-03/05..14 contracts; foundation test can own centralized action IDs but optional page assertions require their authored assets."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "tools/rmlui-runtime-check/Program.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-01",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [
+        "Final tool asserts future RML-03/05..14 contracts; foundation test can own centralized action IDs but optional page assertions require their authored assets."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "tools/rmlui-runtime-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-01",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [
+        "Final tool asserts future RML-03/05..14 contracts; foundation test can own centralized action IDs but optional page assertions require their authored assets."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "tools/rmlui-runtime-check/SchedulerCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-01",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [
+        "Final tool asserts future RML-03/05..14 contracts; foundation test can own centralized action IDs but optional page assertions require their authored assets."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "tools/rmlui-runtime-check/rmlui-runtime-check.csproj",
+      "change_kind": "modified",
+      "proposed_slice": "RML-01",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [
+        "Final tool asserts future RML-03/05..14 contracts; foundation test can own centralized action IDs but optional page assertions require their authored assets."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "tools/rmlui-settings-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-settings-check/rmlui-settings-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-settings-engine-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-settings-engine-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-settings-engine-check/rmlui-settings-engine-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-settings-layout-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-settings-layout-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-settings-layout-check/rmlui-settings-layout-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-setup-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-setup-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-setup-check/rmlui-setup-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-setup-engine-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-setup-engine-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-setup-engine-check/rmlui-setup-engine-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-shell-routing-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-shell-routing-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-shell-routing-check/rmlui-shell-routing-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-studio-check/CheckStubs.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-studio-check/DiagnosticsStub.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-studio-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-studio-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-studio-check/rmlui-studio-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui/GOLDEN_CAPTURE.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui/README.md",
+      "change_kind": "modified",
+      "proposed_slice": "RML-16",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui/android-check.sh",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-16",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui/android-runtime-check.py",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-16",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui/build-native.sh",
+      "change_kind": "modified",
+      "proposed_slice": "RML-16",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui/full-source-check.sh",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-16",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui/golden-capture.py",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui/performance-check.py",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui/verify-android-client.py",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-20",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui/verify-runtime.py",
+      "change_kind": "modified",
+      "proposed_slice": "RML-16",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/studio-shader-diagnostic-check/LayoutTypes.cs",
+      "change_kind": "modified",
+      "proposed_slice": "MANUAL-REVIEW",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
+      "path": "tools/theatre-controller-check/NativeTheatreCheck.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/theatre-controller-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/theatre-controller-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/theatre-controller-check/theatre-controller-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-12",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    }
+  ],
+  "delivery_override": {
+    "user_request": "one aggregate PR; skip further checks",
+    "proposal_usage": "Historical ownership/audit mapping only; do not create a separate PR per slice."
+  }
+}

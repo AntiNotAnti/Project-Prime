@@ -1,4 +1,4 @@
-#if MPHREAD_SHELL
+#if MPHREAD_SHELL && MPHREAD_AVALONIA
 using System;
 using MphRead.Mods.Launcher.Gui;
 using OpenTK.Graphics.OpenGL;

@@ -10,8 +10,8 @@ internal static class ContinuousTargetTests
     {
         try
         {
-            Check(NetConfig.ProtocolVersion == 43 && IntentPacket.Protocol41FullSize == 1175 && IntentPacket.FullSize == 1447,
-                "protocol 43 retains historical fire poses and adds source body/up context");
+            Check(NetConfig.ProtocolVersion == 44 && IntentPacket.Protocol41FullSize == 1175 && IntentPacket.FullSize == 1447,
+                "protocol 44 retains historical fire poses, source body/up context and Morph touch widths");
             Span<byte> bytes = stackalloc byte[102];
             foreach (byte slot in new byte[] { 0x80, 0x81, 0x88 })
             {

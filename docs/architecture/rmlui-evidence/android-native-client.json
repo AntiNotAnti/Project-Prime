@@ -1,0 +1,229 @@
+{
+  "format": 1,
+  "date": "2026-10-07",
+  "scope": "Actual Android client dependency boundary checkpoints; native-only defaults now applied as an unmerged development candidate. Final cutover/runtime acceptance is incomplete because the user requested the PR and stopped further checks.",
+  "properties": {
+    "MphReadAvalonia": "false",
+    "MphReadRmlUiAndroid": "true"
+  },
+  "source": [
+    "src/MphRead.Android/AndroidRmlUi.NoAvalonia.targets",
+    "src/MphRead.Android/Native/NativeMainActivity.cs",
+    "src/MphRead.Android/Native/NativeMainApplication.cs",
+    "src/MphRead.Android/Native/MainActivity.RmlUi.cs",
+    "src/MphRead.Android/Native/native_styles.xml"
+  ],
+  "nativeJavaEntryBaseTypes": {
+    "MainActivity": "android.app.Activity",
+    "MainApplication": "android.app.Application"
+  },
+  "builds": [
+    {
+      "rid": "android-arm64",
+      "configuration": "Debug",
+      "apk": "/tmp/prime-android-noava/arm64-apk/com.projectprime.game-Signed.apk",
+      "sha256": "80343b2b4c11ef32f3f14e32d344e37871dad64fac511efd031750874860f523",
+      "managedAssemblies": 226,
+      "avaloniaAssemblies": 0,
+      "signedApkVerification": "passed",
+      "nativeManifestAndPayloadVerification": "passed against its build checkpoint; latest source refresh pending",
+      "restoredAvaloniaPackages": 0,
+      "apkCartridgeExtractionPaths": [],
+      "nativeSourceFingerprint": "a0b17373d08d420ac286e8d62858754393d269106ffcc0efae9fcd0f7f36df55"
+    },
+    {
+      "rid": "android-x64",
+      "configuration": "Debug",
+      "apk": "/tmp/prime-android-noava/x64-apk/com.projectprime.game-Signed.apk",
+      "sha256": "655365acf362b1b17d086ecc01272e144d42193e467fd7fa61c9c7f69f50e356",
+      "managedAssemblies": 226,
+      "avaloniaAssemblies": 0,
+      "signedApkVerification": "passed",
+      "nativeManifestAndPayloadVerification": "passed against its build checkpoint; latest source refresh pending",
+      "restoredAvaloniaPackages": 0,
+      "apkCartridgeExtractionPaths": [],
+      "nativeSourceFingerprint": "a0b17373d08d420ac286e8d62858754393d269106ffcc0efae9fcd0f7f36df55"
+    },
+    {
+      "rid": "android-arm64",
+      "configuration": "Debug-check",
+      "apk": "/tmp/prime-android-noava/arm64-check-apk/com.projectprime.game-Signed.apk",
+      "sha256": "16fca14f225db34b52c19f8b9b7bac3293e5521203ac7fc3f5e86a6283c1f91f",
+      "managedAssemblies": 226,
+      "avaloniaAssemblies": 0,
+      "signedApkVerification": "Earlier54b checkpoint audited; latest signed publish succeeded but standalone verification was stopped",
+      "nativeManifestAndPayloadVerification": "Publish-time bridge verification succeeded; latest APK audit stopped",
+      "restoredAvaloniaPackages": 0,
+      "apkCartridgeExtractionPaths": [],
+      "nativeSourceFingerprint": "54bdf92e2ae8858de2cbc4ee7861b91ef9a17ba8d69b8443dd6265b7436bc3e6",
+      "runAotCompilation": false,
+      "assetsGraph": "/tmp/prime-android-noava-arm64/MphRead.Android/obj/project.assets.json",
+      "gameAssetGuard": "passed",
+      "currentCheckpoint": false,
+      "publishLog": "/tmp/prime-rmlui-final-stable-debug-check-publish.log",
+      "checkpointScope": "Explicit native-only flags; this is not a completed ordinary post-cutover default-package acceptance.",
+      "refreshDisposition": "Latest stabilized-fixture publish completed exit0 before user stop; post-refresh APK audits not run."
+    },
+    {
+      "rid": "android-arm64",
+      "configuration": "Release",
+      "apk": "/tmp/prime-android-noava/arm64-release-apk/com.projectprime.game-Signed.apk",
+      "sha256": "c34c5f1e710b986d45ce069342bc06f3720bf5fe6b88e9bc13a698ca22b47bd1",
+      "managedAssemblies": 93,
+      "avaloniaAssemblies": 0,
+      "signedApkVerification": "passed",
+      "nativeManifestAndPayloadVerification": "passed against current54b source and exact restored assets graph",
+      "restoredAvaloniaPackages": 0,
+      "apkCartridgeExtractionPaths": [],
+      "nativeSourceFingerprint": "54bdf92e2ae8858de2cbc4ee7861b91ef9a17ba8d69b8443dd6265b7436bc3e6",
+      "runAotCompilation": true,
+      "currentCheckpoint": true,
+      "assetsGraph": "/tmp/prime-android-noava-arm64/MphRead.Android/obj/project.assets.json",
+      "publishLog": "/tmp/prime-rmlui-axrange-release-arm64-publish.log",
+      "privateLicenseDtoTrimmerWarnings": 0,
+      "gameAssetGuard": "passed"
+    },
+    {
+      "rid": "android-x64",
+      "configuration": "Release",
+      "apk": "/tmp/prime-android-noava/x64-release-apk/com.projectprime.game-Signed.apk",
+      "sha256": "8899c4357329945f5aef2a030eefb7ae2d4996cc1d9b6861d9efa0980a645ee6",
+      "managedAssemblies": 93,
+      "avaloniaAssemblies": 0,
+      "signedApkVerification": "passed",
+      "nativeManifestAndPayloadVerification": "passed against current54b source and exact restored assets graph",
+      "restoredAvaloniaPackages": 0,
+      "apkCartridgeExtractionPaths": [],
+      "nativeSourceFingerprint": "54bdf92e2ae8858de2cbc4ee7861b91ef9a17ba8d69b8443dd6265b7436bc3e6",
+      "privateLicenseDtoTrimmerWarnings": 0,
+      "runAotCompilation": true,
+      "assetsGraph": "/tmp/prime-android-noava-x64/MphRead.Android/obj/project.assets.json",
+      "gameAssetGuard": "passed",
+      "currentCheckpoint": true,
+      "publishLog": "/tmp/prime-rmlui-axrange-release-x64-publish.log"
+    },
+    {
+      "rid": "android-arm64",
+      "configuration": "Release-check",
+      "apk": "/tmp/prime-android-noava/arm64-release-check-apk/com.projectprime.game-Signed.apk",
+      "sha256": "7abd03fc01a6b364974ba0041f66d57e41dfd139db0ff3fbc27463fee3526d1a",
+      "managedAssemblies": 93,
+      "avaloniaAssemblies": 0,
+      "signedApkVerification": "passed",
+      "nativeManifestAndPayloadVerification": "passed against current54b source and exact restored assets graph",
+      "nativeSourceFingerprint": "54bdf92e2ae8858de2cbc4ee7861b91ef9a17ba8d69b8443dd6265b7436bc3e6",
+      "restoredAvaloniaPackages": 0,
+      "apkCartridgeExtractionPaths": [],
+      "privateLicenseDtoTrimmerWarnings": 0,
+      "runAotCompilation": false,
+      "trimmed": true,
+      "assetsGraph": "/tmp/prime-android-noava-arm64/MphRead.Android/obj/project.assets.json",
+      "gameAssetGuard": "passed",
+      "currentCheckpoint": true,
+      "publishLog": "/tmp/prime-rmlui-final-stable-release-check-publish.log",
+      "checkpointScope": "Explicit native-only flags; this is not a completed ordinary post-cutover default-package acceptance."
+    }
+  ],
+  "positiveControls": [
+    {
+      "apk": "artifacts/rmlui-android-arm64-check/com.projectprime.game-Signed.apk",
+      "rid": "android-arm64",
+      "avaloniaAssemblies": 16
+    },
+    {
+      "apk": "artifacts/rmlui-android-runtime-x64-check/com.projectprime.game-Signed.apk",
+      "rid": "android-x64",
+      "avaloniaAssemblies": 16
+    }
+  ],
+  "negativeControl": "Auditing the preserved default ARM64 APK with --expect-avalonia false correctly fails and names its 16 Avalonia assemblies.",
+  "cartridgeGuard": "tools/check-no-game-assets.sh passed Debug, Debug-check and Release output directories. APK contents additionally inspected for ROM/extraction/cache paths.",
+  "validationTools": [
+    "tools/rmlui/verify-android-client.py",
+    "tools/rmlui/verify-runtime.py --apk",
+    "Android SDK apksigner verify",
+    "tools/check-no-game-assets.sh"
+  ],
+  "runtimeAcceptance": {
+    "platform": "Android ARM64 emulator, actual opt-in client without Avalonia",
+    "buildCheckpoint": "330c3907f7540949f73191fe6e93e63d1d93870b56129950245c251b1f20bc7b",
+    "passed": {
+      "GPU": 126,
+      "Input": 13,
+      "Accessibility": 16,
+      "Flow": "Real three-bot match \u2192 native pause \u2192 native Settings and system IME \u2192 Back/Resume \u2192 pause \u2192 leave confirmation \u2192 retained launcher."
+    },
+    "pending": [
+      "Final54b stabilized Accessibility/HUD/real replay fixture acceptance",
+      "Ordinary default -ui=auto runtime Home/surface acceptance and current CI/performance",
+      "Post-cutover Activity skipped-present/faulted-retirement/replacement scenarios",
+      "Actual paired Studio version/broker/smoke audits"
+    ],
+    "nextPackage": "Stable-fixture signed Release/Debug CHECK publishes finished; final emulator/cutover checks stopped at the user request. No new acceptance claimed.",
+    "frameworkReleaseCheckpoint": {
+      "nativeFingerprint": "6db876ccc6b13516ad3a145957d5a221655f592cb9737749c51752660ffaedfe",
+      "reports": "artifacts/rmlui-android-proof/release-quiet/runtime-evidence.json",
+      "passed": {
+        "GPU": 126,
+        "Input": 13,
+        "Accessibility": 16
+      },
+      "lifecycle": "Actual trimmed Release unchanged quiet retry and same-process background/resume passed.",
+      "scope": "Historical6db unchanged trimmed Release framework checkpoint; current54b APK runtime checks remain separate."
+    },
+    "physicalDeviceGate": "Waived by the user; no physical-device pass claimed.",
+    "replayHistoricalCheckpoint": {
+      "nativeFingerprint": "6db876ccc6b13516ad3a145957d5a221655f592cb9737749c51752660ffaedfe",
+      "passed": "Platform owner observed actual real recording Play/Pause, +10 second seek, fullscreen and API36 Back returning to retained Home. Final54b replay validation remains separate."
+    }
+  },
+  "nativeSchedulingRegression": {
+    "sourceFingerprint": "54bdf92e2ae8858de2cbc4ee7861b91ef9a17ba8d69b8443dd6265b7436bc3e6",
+    "nativeCoreAssertions": 5429,
+    "actualManagedNativeScheduleAssertions": 122,
+    "actualDrawListReaderCacheAssertions": 15,
+    "behavior": [
+      "Authored HUD canvas focus preserves its geometry while ordinary controls retain nearest scrolling.",
+      "Optional 40-byte status preserves intent protocol v1 and owner thread rejection.",
+      "Actual caret deadlines decrement with elapsed time and trigger one context update before capture.",
+      "One hundred static frames reuse native draw resources and managed capture without owner-thread allocation.",
+      "DOM, input, viewport, composition, resource retirement, and generation changes invalidate capture."
+    ],
+    "log": "/tmp/prime-native-ax-range-fixed.log",
+    "rangeInputRegression": {
+      "baseline6db": "Actual semantic slider edit emitted two seeks; exact-one test failed.",
+      "programmatic": "120 authoritative range writes emit zero user seek; numeric-equal idle position retains captured revision.",
+      "user": "One physical keyboard range edit and one semantic slider SetText each emit exactly one typed replay seek."
+    },
+    "actualDrawListReaderCacheLog": "/tmp/prime-rmlui-drawlist-cache-54b-check.log"
+  },
+  "androidPredictiveBack": {
+    "activityManifestEnableOnBackInvokedCallback": true,
+    "dispatcherPriority": "Default, preserving system IME dismissal priority",
+    "registeredCallback": "NativeMainActivity.NativeBackCallback",
+    "retirement": "Exact callback unregistered and disposed in OnDestroy",
+    "actualDeviceCheckpoint": "API36 emulator Back opens native pause instead of finishing the activity; match/settings/IME/leave flow passed on checkpoint330c3907. Trimmed Release and current Debug package checks continue."
+  },
+  "cutoverCandidate": {
+    "applied": true,
+    "patch": "/tmp/prime-rmlui-cutover-candidate/cutover.patch",
+    "msbuildEvaluatedCases": 13,
+    "isolatedPolicyContracts": 48,
+    "actualOrdinaryDesktopBuild": "passed;zero Avalonia restored/dependency/output entries",
+    "actualStudioBuild": "passed with independent importedengine projection; toolkit retained; no native RmlUi page/library output",
+    "gates": [
+      "current matched Home performance",
+      "current full CI aggregate",
+      "actual paired Studio/package validation after application"
+    ],
+    "outsideReviewCorrections": [
+      "Only a successfully presented modern surface acknowledges startup or settings usability",
+      "Bounded native OpenGL recovery preserves explicit UI selection",
+      "Clean startup retirement is acknowledged on the Activity owner thread only after successful renderer stop"
+    ],
+    "shippingAcceptance": false,
+    "finalValidationDisposition": "User requested aggregate PR with checks skipped. No current CI/performance acceptance or final post-cutover APK/Studio pair smoke pass is claimed.",
+    "unfinishedLifecycleFixture": "New unwired startup lifecycle test helper removed on user stop; no adapters were wired. Reviewed production false-present, retirement and monotonic-owner fixes remain.",
+    "sourceInspectionCorrection": "Native-only project now disables stale imported Avalonia application-icon/XAML targets and removes inherited toolkit item lists. The observed default-win-x64 stale resource failure was corrected by source inspection; no new check was run after user stop."
+  }
+}

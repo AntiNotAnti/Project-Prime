@@ -1,0 +1,100 @@
+<rml>
+    <head>
+        <title>Project Prime // Play</title>
+        <link type="text/template" href="../../components/app-shell.rml" />
+        <link type="text/rcss" href="browser.rcss" />
+    </head>
+    <body template="prime-shell">
+        <div id="multiplayer_stage">
+            <div id="play_header" class="enter_left">
+                <div class="eyebrow">PLAY // MULTIPLAYER</div>
+                <div class="play_title">FIND YOUR NEXT HUNT</div>
+                <div class="play_status" data-prime-text="{{play_status}}" id="text_play_status_1" />
+            </div>
+            <div id="play_browser" class="enter_left" data-prime-visible="play_browser_mode">
+                <div class="play_toolbar">
+                    <button id="play_quick" class="play_action primary" data-action="play:quick">QUICK PLAY</button>
+                    <button id="play_create_open" class="play_action" data-action="play:create-open">CREATE LOBBY</button>
+                    <button id="play_refresh" class="play_action" data-action="play:browse">REFRESH</button>
+                    <button id="play_back" class="play_action" data-action="play:cancel">BACK</button>
+                </div>
+                <div class="play_panel">
+                    <div class="play_panel_head">
+                        <span>LIVE SERVER DIRECTORY</span>
+                        <span data-prime-text="{{play_server_count}}" id="text_play_server_count_1" />
+                    </div>
+                    <button id="play_entry0" class="play_server" data-prime-visible="play_server0_present" data-action="play:server:0">
+                        <b data-prime-text="{{play_server0_name}}" id="text_play_server0_name_1" />
+                        <span data-prime-text="{{play_server0_details}}" id="text_play_server0_details_1" />
+                    </button>
+                    <button id="play_entry1" class="play_server" data-prime-visible="play_server1_present" data-action="play:server:1">
+                        <b data-prime-text="{{play_server1_name}}" id="text_play_server1_name_1" />
+                        <span data-prime-text="{{play_server1_details}}" id="text_play_server1_details_1" />
+                    </button>
+                    <button id="play_entry2" class="play_server" data-prime-visible="play_server2_present" data-action="play:server:2">
+                        <b data-prime-text="{{play_server2_name}}" id="text_play_server2_name_1" />
+                        <span data-prime-text="{{play_server2_details}}" id="text_play_server2_details_1" />
+                    </button>
+                    <button id="play_entry3" class="play_server" data-prime-visible="play_server3_present" data-action="play:server:3">
+                        <b data-prime-text="{{play_server3_name}}" id="text_play_server3_name_1" />
+                        <span data-prime-text="{{play_server3_details}}" id="text_play_server3_details_1" />
+                    </button>
+                    <button id="play_entry4" class="play_server" data-prime-visible="play_server4_present" data-action="play:server:4">
+                        <b data-prime-text="{{play_server4_name}}" id="text_play_server4_name_1" />
+                        <span data-prime-text="{{play_server4_details}}" id="text_play_server4_details_1" />
+                    </button>
+                    <button id="play_entry5" class="play_server" data-prime-visible="play_server5_present" data-action="play:server:5">
+                        <b data-prime-text="{{play_server5_name}}" id="text_play_server5_name_1" />
+                        <span data-prime-text="{{play_server5_details}}" id="text_play_server5_details_1" />
+                    </button>
+                    <button id="play_entry6" class="play_server" data-prime-visible="play_server6_present" data-action="play:server:6">
+                        <b data-prime-text="{{play_server6_name}}" id="text_play_server6_name_1" />
+                        <span data-prime-text="{{play_server6_details}}" id="text_play_server6_details_1" />
+                    </button>
+                    <button id="play_entry7" class="play_server" data-prime-visible="play_server7_present" data-action="play:server:7">
+                        <b data-prime-text="{{play_server7_name}}" id="text_play_server7_name_1" />
+                        <span data-prime-text="{{play_server7_details}}" id="text_play_server7_details_1" />
+                    </button>
+                    <div id="play_browser_empty" class="play_empty" data-prime-visible="play_no_servers">NO PUBLIC SESSIONS LISTED. CREATE YOUR OWN OR ENTER AN ADDRESS.</div>
+                </div>
+            </div>
+            <div id="play_connect" class="enter_right" data-prime-visible="play_browser_mode">
+                <div class="eyebrow">YOUR DEPLOYMENT</div>
+                <div class="play_form_label">PLAYER NAME</div>
+                <input id="play_player_name" class="play_input" type="text" maxlength="24" value="Player" />
+                <div class="play_form_label">DIRECT CONNECT</div>
+                <input id="play_join_address" class="play_input" type="text" maxlength="120" value="" />
+                <button id="play_join" class="play_action primary wide" data-action="play:join">JOIN SERVER</button>
+                <div class="play_form_hint">HOST OR HOST:PORT // SELECT A LIVE ROW TO JOIN INSTANTLY</div>
+            </div>
+            <div id="play_create" class="enter_left" data-prime-visible="play_create_mode">
+                <div class="eyebrow">DEPLOYMENT // CREATE LOBBY</div>
+                <div class="play_section_title">NEW MULTIPLAYER LOBBY</div>
+                <div class="play_form_label">YOUR PLAYER NAME</div>
+                <input id="play_create_player_name" class="play_input" type="text" maxlength="24" value="Player" />
+                <div class="play_form_label">LOBBY NAME</div>
+                <input id="play_create_name" class="play_input" type="text" maxlength="48" value="Project Prime lobby" />
+                <div class="play_form_label">FIRST ARENA</div>
+                <button id="play_next_map" class="play_choice" data-action="play:next-map">
+                    <span class="bound_text" id="text_play_create_map_1" data-prime-text="{{play_create_map}} " />
+                    <span>CHANGE &gt;</span>
+                </button>
+                <div class="play_form_label">GAME TYPE</div>
+                <button id="play_next_mode" class="play_choice" data-action="play:next-mode">
+                    <span class="bound_text" id="text_play_create_mode_name_1" data-prime-text="{{play_create_mode_name}} " />
+                    <span>CHANGE &gt;</span>
+                </button>
+                <div class="play_form_label">HOST LOCATION</div>
+                <button id="play_toggle_host" class="play_choice" data-action="play:toggle-host">
+                    <span class="bound_text" id="text_play_create_host_1" data-prime-text="{{play_create_host}} " />
+                    <span>CHANGE &gt;</span>
+                </button>
+                <div class="play_form_hint">DEFAULT 8 PLAYERS // ADVANCED RULES REMAIN AVAILABLE AFTER CREATION</div>
+                <div class="play_toolbar">
+                    <button id="play_create_submit" class="play_action primary" data-action="play:create">CREATE &amp; JOIN</button>
+                    <button id="play_create_cancel" class="play_action" data-action="play:cancel">BACK TO BROWSER</button>
+                </div>
+            </div>
+        </div>
+    </body>
+</rml>

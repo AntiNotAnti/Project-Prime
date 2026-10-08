@@ -1,0 +1,66 @@
+
+.community_page { width: 100vw; height: 100%; padding: 18dp; overflow-y: auto; }
+.community_page h1, .community_dialog h1 { font-size: 26dp; margin: 0 0 8dp; color: #edf7ff; }
+.community_page h2, .community_dialog h2 { font-size: 20dp; margin: 8dp 0 10dp; color: #72c7ff; }
+.community_page p, .community_dialog p { color: #9caec0; margin: 0 0 12dp; }
+.community_columns, .community_fields { display: flex; gap: 12dp; }
+.community_catalog { flex: 3; min-width: 0; }
+.community_detail_panel { flex: 2; min-width: 0; padding: 16dp; background-color: #0b1723; border: 1dp #28465e; }
+.community_tabs, .community_creator { display: flex; flex-wrap: wrap; gap: 6dp; margin-bottom: 8dp; align-items: center; }
+.community_tabs button { padding: 8dp 12dp; color: #c9dceb; background-color: #101f2d; border: 1dp #29485e; }
+.community_fields > button { width: 160dp; align-self: flex-end; }
+.community_field { flex: 1; min-width: 0; margin-bottom: 10dp; }
+.community_field label { display: block; margin-bottom: 5dp; color: #72c7ff; }
+.community_field input { display: block; width: 100%; padding: 10dp; color: #edf7ff; background-color: #14283a; border: 1dp #29485e; }
+.community_action { display: block; width: 100%; padding: 10dp 12dp; margin-bottom: 6dp; text-align: left; color: #c9dceb; border: 1dp #29485e; background-color: #101f2d; }
+.community_action.primary { background-color: #15465e; border-color: #72c7ff; color: #d8f3ff; text-align: center; }
+.community_row { margin-bottom: 6dp; }
+.community_row button { display: block; width: 100%; padding: 10dp 12dp; color: #d8f3ff; background-color: #101f2d; border: 1dp #29485e; text-align: left; }
+.community_row b, .community_row span { display: block; }
+.community_row b { font-size: 17dp; }
+.community_row span { font-size: 12dp; color: #9caec0; margin-top: 3dp; }
+.community_row .selected, .community_tabs .selected { background-color: #19384f; border-color: #72c7ff; }
+.community_page button:hover, .community_dialog button:hover { background-color: #19384f; }
+.community_page button:focus, .community_dialog button:focus, .community_field input:focus { border-color: #72c7ff; }
+.community_notice { color: #b1c3d4; margin: 6dp 0; }
+.community_error { color: #ff9090; margin: 6dp 0; }
+.community_detail { white-space: pre-wrap; word-break: break-all; color: #b1c3d4; margin: 12dp 0; }
+.community_dialog { position: absolute; top: 8%; left: 8%; width: 84%; max-height: 84%; overflow-y: auto; padding: 22dp; border: 1dp #4b7799; background-color: #09131e; }
+.community_creator > button { width: 48%; }
+@media (max-width: 800dp) { .community_columns { flex-direction: column; } .community_dialog { left: 3%; width: 94%; top: 5%; max-height: 90%; } .community_creator > button { width: 100%; } }
+
+.community_page h1, .community_page h2, .community_page p, .community_dialog h1, .community_dialog h2, .community_dialog p { display: block; }
+
+/* Viewport widths avoid zero-width automatic text boxes inside the positioned shell stage. */
+.community_page h1, .community_page p { width: 94vw; }
+.community_dialog h1, .community_dialog h2, .community_dialog p { width: 76vw; }
+@media (max-width: 800dp) { .community_dialog h1, .community_dialog h2, .community_dialog p { width: 86vw; } }
+
+.community_columns, .community_fields, .community_page > .community_tabs,
+.community_page > .community_notice, .community_page > .community_error { width: 94vw; }
+.community_fields > .community_field { flex: none; width: 76vw; }
+.community_fields > button { width: 16vw; }
+.community_catalog { flex: none; width: 54vw; }
+.community_detail_panel { flex: none; width: 38vw; }
+.community_catalog .community_row, .community_catalog .community_row button { width: 54vw; }
+.community_catalog .community_row b, .community_catalog .community_row span { width: 50vw; }
+.community_detail_panel h2, .community_detail_panel .community_detail, .community_detail_panel .community_action { width: 34vw; display: block; }
+.community_dialog { width: 84vw; }
+.community_dialog .community_field, .community_dialog .community_tabs, .community_dialog .community_creator,
+.community_dialog .community_notice, .community_dialog .community_error, .community_dialog .community_detail,
+.community_dialog .community_action, .community_dialog .community_row, .community_dialog .community_row button { width: 76vw; }
+.community_field label, .community_field input { width: 76vw; }
+.community_dialog .community_row b, .community_dialog .community_row span { width: 72vw; }
+.community_dialog .community_creator > .community_action { width: 37vw; }
+@media (max-width: 800dp) {
+ .community_catalog, .community_detail_panel { width: 86vw; }
+ .community_catalog .community_row, .community_catalog .community_row button,
+ .community_detail_panel h2, .community_detail_panel .community_detail, .community_detail_panel .community_action { width: 78vw; }
+ .community_catalog .community_row b, .community_catalog .community_row span { width: 74vw; }
+ .community_dialog .community_field, .community_dialog .community_tabs, .community_dialog .community_creator,
+ .community_dialog .community_notice, .community_dialog .community_error, .community_dialog .community_detail,
+ .community_dialog .community_action, .community_dialog .community_row, .community_dialog .community_row button,
+ .community_dialog .community_field label, .community_dialog .community_field input { width: 86vw; }
+ .community_dialog .community_row b, .community_dialog .community_row span { width: 82vw; }
+ .community_dialog .community_creator > .community_action { width: 86vw; }
+}

@@ -44,6 +44,7 @@ public partial class MainActivity
     protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
     {
         base.OnActivityResult(requestCode, resultCode, data);
+        if (HandleNativeDocumentResult(requestCode, resultCode, data)) return;
         if (requestCode != SettingsDocumentRequest) return;
         var completion = _settingsDocument;
         _settingsDocument = null;
@@ -62,6 +63,7 @@ public partial class MainActivity
 
     private void DisposeSettingsArchiveServices()
     {
+        DisposeNativeDocumentServices();
         _settingsDocument?.TrySetResult(null);
         _settingsDocument = null;
         if (Instance == this)

@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
 using MphRead.Mods.Network;
+using MphRead.Mods.Launcher.Core;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -23,10 +24,13 @@ namespace MphRead.Mods.Launcher.Gui
         private Hunter[] _hunters = Enumerable.Range(0, 7).Select(i => (Hunter)i).Append(Hunter.Random).ToArray();
         private bool? _lowTier;
         private byte[] _slots = Array.Empty<byte>();
+        private ushort[] _generations = Array.Empty<ushort>();
         private string _rosterKey = "";
+        private readonly LobbySessionController? _lobby;
 
-        internal BotManagementView()
+        internal BotManagementView(LobbySessionController? lobby = null)
         {
+            _lobby = lobby;
             Spacing = 5;
             Children.Add(new TextBlock { Text = "BOTS · PRACTICE MATCH\nHunter License progression disabled when bots are used.",
                 TextWrapping = TextWrapping.Wrap, Foreground = HubTheme.WarmBrush });
@@ -58,9 +62,36 @@ namespace MphRead.Mods.Launcher.Gui
         private void Send(LobbyCommandType type)
         {
             byte target = _target.SelectedIndex >= 0 && _target.SelectedIndex < _slots.Length ? _slots[_target.SelectedIndex] : (byte)255;
-            NetSession.SendLobbyCommand(type, target, (sbyte)(_team.SelectedIndex - 1),
-                hunter: (byte)_hunters[Math.Clamp(_hunter.SelectedIndex, 0, _hunters.Length - 1)],
-                color: (byte)_suit.SelectedIndex, botLevel: (byte)_level.SelectedIndex);
+            Hunter hunter = _hunters[Math.Clamp(_hunter.SelectedIndex, 0, _hunters.Length - 1)];
+            if (_lobby is { } lobby)
+            {
+                LobbyIntentKind kind = type switch
+                {
+                    LobbyCommandType.AddBot => LobbyIntentKind.AddBot,
+                    LobbyCommandType.UpdateBot => LobbyIntentKind.UpdateBot,
+                    _ => LobbyIntentKind.RemoveBot
+                };
+                LobbyIntent intent = lobby.Intent(kind, target);
+                if (kind != LobbyIntentKind.AddBot && _target.SelectedIndex >= 0 && _target.SelectedIndex < _generations.Length)
+                    intent = intent with { TargetGeneration = _generations[_target.SelectedIndex] };
+                LobbyActionResult result = lobby.Dispatch(intent with
+                {
+                    Team = (sbyte)(_team.SelectedIndex - 1), Hunter = hunter,
+                    Color = (byte)_suit.SelectedIndex, BotLevel = (byte)_level.SelectedIndex
+                });
+                if (!result.Accepted)
+                {
+                    Refresh();
+                    _status.Text = result.Message;
+                    return;
+                }
+            }
+            else
+            {
+                // In-match pause controls remain on the engine's existing command path.
+                NetSession.SendLobbyCommand(type, target, (sbyte)(_team.SelectedIndex - 1),
+                    hunter: (byte)hunter, color: (byte)_suit.SelectedIndex, botLevel: (byte)_level.SelectedIndex);
+            }
             Refresh();
         }
         private void Refresh()
@@ -82,6 +113,7 @@ namespace MphRead.Mods.Launcher.Gui
                 byte selected = _target.SelectedIndex >= 0 && _target.SelectedIndex < _slots.Length ? _slots[_target.SelectedIndex] : (byte)255;
                 var entries = Enumerable.Range(0, roster.Count).Where(roster.IsBot).ToArray();
                 _slots = entries.Select(i => roster.Slots[i]).ToArray();
+                _generations = entries.Select(i => roster.Generations[i]).ToArray();
                 _target.ItemsSource = entries.Select(i => $"{roster.Names[i]} · {Difficulties[roster.BotLevels[i]]} · slot {roster.Slots[i] + 1}").ToArray();
                 _target.SelectedIndex = _slots.Length == 0 ? -1 : Math.Max(0, Array.IndexOf(_slots, selected));
                 _rosterKey = key;

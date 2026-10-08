@@ -311,6 +311,14 @@ namespace MphRead
 
         public bool CheckRenderInvariants()
         {
+            // A real replay preview blits its inset render target into the
+            // containing window and restores that window's viewport. Detached
+            // Studio export does not present, so its target size stays current.
+            // These are the same active-output guards as PreviewReplayOutput.
+            var presentedSize = _replayOutputFramebuffer != 0
+                && (ExportingReplay || ReplayPreviewBounds.HasValue)
+                && (!StudioReplayExporting || ReplayPreviewBounds.HasValue)
+                ? ReplayPreviewSize : Size;
             int active = GL.GetInteger(GetPName.ActiveTexture);
             GL.ActiveTexture(TextureUnit.Texture1);
             int maskTexture = GL.GetInteger(GetPName.TextureBinding2D);
@@ -322,7 +330,7 @@ namespace MphRead
                 && GL.GetInteger(GetPName.ReadFramebufferBinding) == 0
                 && GL.GetInteger(GetPName.DepthWritemask) != 0
                 && _renderViewport[0] == 0 && _renderViewport[1] == 0
-                && _renderViewport[2] == Size.X && _renderViewport[3] == Size.Y;
+                && _renderViewport[2] == presentedSize.X && _renderViewport[3] == presentedSize.Y;
         }
 
         [Conditional("DEBUG")]

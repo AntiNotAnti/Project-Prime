@@ -50,7 +50,7 @@ namespace MphRead.Mods.Diagnostics
                 }
                 finally { File.Delete(probe); }
             });
-#if MPHREAD_SHELL
+#if MPHREAD_SHELL && MPHREAD_AVALONIA
             Check("Avalonia", () =>
             {
                 if (!Launcher.Gui.GuiLauncher.EnsureSetup(requireDisplay: false))
@@ -88,8 +88,11 @@ namespace MphRead.Mods.Diagnostics
                     ("libglfw.3.dylib", "glfwGetVersion"),
                     ("libminiaudio.dylib", "ma_version_string"),
                     ("libSkiaSharp.dylib", "sk_version_get_milestone"),
+#if MPHREAD_AVALONIA
                     ("libHarfBuzzSharp.dylib", "hb_version_string"),
-                    ("libAvaloniaNative.dylib", "CreateAvaloniaNative") })
+                    ("libAvaloniaNative.dylib", "CreateAvaloniaNative")
+#endif
+                    })
                 {
                     Check(file, () => LoadNative(file, symbol));
                 }

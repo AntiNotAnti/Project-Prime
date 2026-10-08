@@ -1,4 +1,4 @@
-#if MPHREAD_AVALONIA
+#if !MPHREAD_SERVER
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -262,6 +262,7 @@ namespace MphRead.Mods.Launcher
         public static async Task<HunterLicenseSnapshot> LoadAsync(
             CancellationToken cancellationToken = default)
         {
+            if (LauncherUiPerformance.Enabled) return LocalSnapshot();
             await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
@@ -531,6 +532,8 @@ namespace MphRead.Mods.Launcher
 
         private static async Task<AuthSession> AuthenticateAsync(CancellationToken cancellationToken)
         {
+            if (LauncherUiPerformance.Enabled)
+                throw new InvalidOperationException("Live account authentication is disabled in UI performance diagnostics.");
             long refreshBefore = DateTimeOffset.UtcNow.AddMinutes(2).ToUnixTimeSeconds();
             if (_currentSession is { AccessToken.Length: > 0 } cached
                 && cached.ExpiresAt > refreshBefore)
@@ -615,6 +618,62 @@ namespace MphRead.Mods.Launcher
                 ?? throw new InvalidOperationException("Supabase Auth returned no user.");
         }
 
+        /// <summary>
+        /// Borrow the current verified Supabase session for a scoped transport
+        /// such as Realtime. The identity gate is held only while refreshing
+        /// credentials; the caller never blocks ordinary Hunter License/social
+        /// requests for the lifetime of a WebSocket.
+        /// </summary>
+        internal static async Task<T> WithAuthenticatedSessionAsync<T>(
+            Func<AuthenticatedSessionContext, CancellationToken, Task<T>> action,
+            CancellationToken cancellationToken = default)
+        {
+            AuthenticatedSessionContext context;
+            await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                AuthSession session = await AuthenticateAsync(cancellationToken).ConfigureAwait(false);
+                string userId = session.User?.Id ?? "";
+                if (userId.Length == 0)
+                {
+                    AuthUser user = await GetUserAsync(
+                        session.AccessToken, cancellationToken).ConfigureAwait(false);
+                    userId = user.Id;
+                }
+                if (!Guid.TryParse(userId, out _))
+                    throw new InvalidOperationException("Supabase Auth returned no stable user ID.");
+                context = new AuthenticatedSessionContext(
+                    Url, Key, session.AccessToken, userId, session.ExpiresAt);
+            }
+            finally
+            {
+                Gate.Release();
+            }
+
+            return await action(context, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Invoke another first-party Supabase Edge Function through the same
+        /// authenticated session used by Hunter License without exposing the
+        /// access token to callers.
+        /// </summary>
+        internal static async Task<T> InvokeAuthenticatedFunctionAsync<T>(
+            string function, object body, CancellationToken cancellationToken = default)
+        {
+            await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                AuthSession session = await AuthenticateAsync(cancellationToken).ConfigureAwait(false);
+                return await FunctionAsync<T>(
+                    session.AccessToken, function, body, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                Gate.Release();
+            }
+        }
+
         private static async Task<T> FunctionAsync<T>(
             string accessToken, string function, object body, CancellationToken cancellationToken)
         {
@@ -631,6 +690,8 @@ namespace MphRead.Mods.Launcher
         private static HttpRequestMessage Request(
             HttpMethod method, string path, string? accessToken, object? body)
         {
+            if (LauncherUiPerformance.Enabled)
+                throw new InvalidOperationException("Live account requests are disabled in UI performance diagnostics.");
             var request = new HttpRequestMessage(method, Url + path);
             request.Headers.TryAddWithoutValidation("apikey", Key);
             if (!String.IsNullOrWhiteSpace(accessToken))

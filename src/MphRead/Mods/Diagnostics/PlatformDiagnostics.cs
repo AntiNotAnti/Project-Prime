@@ -27,7 +27,11 @@ namespace MphRead.Mods.Diagnostics
             if (OperatingSystem.IsMacOS())
             {
                 foreach (string library in new[] { "libopenal.1.dylib", "libglfw.3.dylib",
-                    "libSkiaSharp.dylib", "libAvaloniaNative.dylib", "libminiaudio.dylib" })
+                    "libSkiaSharp.dylib", "libminiaudio.dylib",
+#if MPHREAD_AVALONIA
+                    "libAvaloniaNative.dylib",
+#endif
+                    })
                 {
                     message.AppendLine($"Native: {Path.Combine(Platform.AppPaths.ExecutableDirectory, library)}");
                 }

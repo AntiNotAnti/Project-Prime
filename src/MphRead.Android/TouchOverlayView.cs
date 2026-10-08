@@ -24,6 +24,11 @@ namespace MphRead.Droid
     internal sealed class TouchOverlayView : View
     {
         private readonly TouchControls _controls;
+#if MPHREAD_RMLUI_ANDROID
+        internal Func<bool>? NativeVisible;
+        internal Func<MotionEvent, bool>? NativeTouch;
+        internal Func<MotionEvent, bool>? NativeHover;
+#endif
         private readonly Paint _fill = new Paint(PaintFlags.AntiAlias);
         private readonly Paint _stroke = new Paint(PaintFlags.AntiAlias);
         private readonly Paint _text = new Paint(PaintFlags.AntiAlias);
@@ -85,6 +90,10 @@ namespace MphRead.Droid
         protected override void OnDraw(Canvas canvas)
         {
             base.OnDraw(canvas);
+#if MPHREAD_RMLUI_ANDROID
+            if (NativeVisible?.Invoke() == true) return;
+#endif
+#if MPHREAD_AVALONIA
             if (AndroidUiSurface.Current?.Visible == true)
             {
                 // A screen is drawn into the frame under this one and every
@@ -92,6 +101,7 @@ namespace MphRead.Droid
                 // cannot reach are worse than no buttons.
                 return;
             }
+#endif
             if (MphRead.Mods.Chat.ChatBox.Composing)
             {
                 // Chat owns the glass while the soft keyboard is up. Reset the
@@ -180,10 +190,14 @@ namespace MphRead.Droid
 
         public override bool OnTouchEvent(MotionEvent? e)
         {
+#if MPHREAD_RMLUI_ANDROID
+            if (e != null && NativeVisible?.Invoke() == true) { NativeTouch?.Invoke(e); return true; }
+#endif
             if (e == null)
             {
                 return false;
             }
+#if MPHREAD_AVALONIA
             if (AndroidUiSurface.Current is AndroidUiSurface surface && surface.Visible)
             {
                 // The results panel is the one moment in a match when nobody
@@ -192,6 +206,7 @@ namespace MphRead.Droid
                 // as long as the panel is drawn.
                 return HandUp(surface, e);
             }
+#endif
             if (MphRead.Mods.Chat.ChatBox.Composing)
             {
                 _controls.ReleaseEverything();
@@ -275,6 +290,10 @@ namespace MphRead.Droid
             }
             return true;
         }
+#if MPHREAD_RMLUI_ANDROID
+        protected override bool DispatchHoverEvent(MotionEvent? e) => e != null && NativeVisible?.Invoke() == true
+            && NativeHover?.Invoke(e) == true || base.DispatchHoverEvent(e);
+#endif
 
         // A real device commonly batches several high-rate digitizer samples
         // into one UI-thread MotionEvent. Replaying the whole history keeps the
@@ -344,6 +363,7 @@ namespace MphRead.Droid
         /// windowing system. The first only: these screens are a menu, and a
         /// second finger on a menu is a finger resting on the glass.
         /// </summary>
+#if MPHREAD_AVALONIA
         private static bool HandUp(AndroidUiSurface surface, MotionEvent e)
         {
             if (e.ActionMasked == MotionEventActions.PointerDown
@@ -377,5 +397,6 @@ namespace MphRead.Droid
             }
             return true;
         }
+#endif
     }
 }

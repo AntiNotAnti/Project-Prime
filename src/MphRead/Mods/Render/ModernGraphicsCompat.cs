@@ -183,6 +183,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         private int _scissorWidth = 1;
         private int _scissorHeight = 1;
         private bool _vsync = true;
+        private bool _lastPresentationSucceeded;
         private PresentMode _presentMode = PresentMode.Fifo;
         private readonly HashSet<PresentMode> _presentModes = new();
 
@@ -207,6 +208,9 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             Current._presentMode is not (PresentMode.Immediate or PresentMode.Mailbox);
 
         internal static string ActivePresentMode => Current._presentMode.ToString();
+
+        /// <summary>Whether the most recent presentation reached the existing surface.</summary>
+        internal static bool LastPresentationSucceeded => _current?._lastPresentationSucceeded == true;
 
         private void SelectPresentMode()
         {
@@ -979,6 +983,9 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             if (_disposed) return;
             _disposed = true;
             DiscardCommands();
+#if MPHREAD_RMLUI_POC
+            DisposeRmlUiResources();
+#endif
             DisposeGpuTiming();
             DisposeFrameBindGroups();
             ReleaseSurfaceTexture();
@@ -1147,6 +1154,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private void PresentCore()
         {
+            _lastPresentationSucceeded = false;
             _device.ThrowIfFailed();
             // Hidden HD replacements are safe to advance after this frame has
             // finished authoring its draws. Mip generation, when a base upload
@@ -1167,6 +1175,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             {
                 NativeGraphicsResult result = ModernGraphicsNativeBridge.Present(_device.Surface);
                 presented = _device.ObserveNativeResult(result, "present surface");
+                _lastPresentationSucceeded = presented;
                 RecordSurfaceRecovery(result.Outcome);
             }
             finally { RecordPresentTime(presentStart); ReleaseSurfaceTexture(); }

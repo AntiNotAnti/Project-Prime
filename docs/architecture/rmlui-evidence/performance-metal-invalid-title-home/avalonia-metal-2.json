@@ -1,0 +1,95 @@
+{
+  "format": 1,
+  "mode": "Avalonia",
+  "platform": "macOS 27.0.0",
+  "architecture": "Arm64",
+  "logicalProcessors": 12,
+  "width": 2560,
+  "height": 1440,
+  "firstPresentationFromProcessStartMs": 919.815,
+  "warmupSeconds": 5,
+  "sampleSeconds": 20.0129547,
+  "frames": 1169,
+  "framesPerSecond": 58.4121643966945,
+  "processCpuSeconds": 3.481222,
+  "processCpuPercentOfOneCore": 17.394842751530334,
+  "processCpuPercentOfMachine": 1.4495702292941945,
+  "totalUiFrame": {
+    "count": 1169,
+    "meanMs": 0.17198272027373826,
+    "p50Ms": 0.0363,
+    "p95Ms": 0.2812,
+    "maxMs": 7.9154
+  },
+  "update": {
+    "count": 1169,
+    "meanMs": 0.13580025662959794,
+    "p50Ms": 0.0087,
+    "p95Ms": 0.2541,
+    "maxMs": 7.8784
+  },
+  "render": {
+    "count": 78,
+    "meanMs": 0.1923512820512821,
+    "p50Ms": 0.0157,
+    "p95Ms": 0.8588,
+    "maxMs": 1.4505
+  },
+  "bitmapUpload": {
+    "count": 28,
+    "meanMs": 3.8218928571428568,
+    "p50Ms": 3.4786,
+    "p95Ms": 6.6581,
+    "maxMs": 6.9725
+  },
+  "phases": {},
+  "redraws": 78,
+  "redrawsPerSecond": 3.8974754687272637,
+  "bitmapUploads": 28,
+  "bitmapUploadBytes": 232243200,
+  "managedAllocatedBytes": 368965416,
+  "accessibilityCapture": {
+    "requests": 0,
+    "nativeReads": 0,
+    "decoded": 0,
+    "reused": 0,
+    "idleSkips": 0
+  },
+  "drawListCapture": {
+    "requests": 0,
+    "captured": 0,
+    "reused": 0
+  },
+  "processWorkingSetBytes": 451067904,
+  "processPrivateBytes": null,
+  "backend": "Metal",
+  "frameRateCap": 60,
+  "gpuResources": {
+    "Textures": 4,
+    "Renderbuffers": 0,
+    "Geometry": 0,
+    "Pipelines": 2,
+    "Programs": 0,
+    "Lists": 0,
+    "Views": 4,
+    "Samplers": 3,
+    "Buffers": 5,
+    "ShaderModules": 7,
+    "BindGroups": 2,
+    "Surfaces": 1,
+    "QuerySets": 0
+  },
+  "rmlGpuResources": {
+    "Geometry": 0,
+    "Buffers": 0,
+    "BufferCapacityBytes": 0,
+    "Textures": 0,
+    "TextureCapacityBytes": 0,
+    "StencilTextures": 0,
+    "EstimatedStencilBytes": 0,
+    "Pipelines": 0,
+    "ShaderModules": 0
+  },
+  "scope": "Production launcher UI update (including IME/accessibility) and native draw or Avalonia bitmap redraw/upload; full-process idle CPU includes scene/background services. Diagnostic runs disable SocialRuntime account/presence start and automatic updater network requests; IME and accessibility stay enabled.",
+  "storageNote": "Tracked native resource capacity is not driver residency or total VRAM. GPU completion time is not inferred from CPU submission time."
+}

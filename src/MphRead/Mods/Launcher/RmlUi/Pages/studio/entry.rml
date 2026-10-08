@@ -1,0 +1,37 @@
+<rml>
+<head>
+    <title>Project Prime Studio</title>
+    <link type="text/template" href="../../components/app-shell.rml" />
+    <link type="text/rcss" href="entry.rcss" />
+</head>
+<body template="prime-shell">
+    <div id="studio_page">
+        <div class="eyebrow">CREATION // PROJECT PRIME STUDIO</div>
+        <h1>BUILD YOUR NEXT HUNT</h1>
+        <p class="studio_intro">Map and Replay editing open in Project Prime Studio. Keep the game open for local playtests and Community publishing.</p>
+        <div class="studio_panels">
+            <div class="studio_panel">
+                <h2>MAP AND REPLAY WORKSPACES</h2>
+                <p>Create maps, edit replays and manage clips in the paired desktop application.</p>
+                <button id="studio_launch" class="play_action primary wide" data-action="studio:launch">OPEN PROJECT PRIME STUDIO</button>
+                <button id="studio_pick_map" class="play_action wide" data-action="studio:pick-map">CHOOSE MAP PROJECT</button>
+                <button id="studio_recover" class="play_action wide" data-action="studio:recover">RESTORE STUDIO SESSION</button>
+                <button id="studio_replay_library" class="play_action wide" data-action="route:theatre">REPLAY LIBRARY</button>
+                <p id="studio_availability" class="studio_notice" />
+            </div>
+            <div class="studio_panel studio_path_panel">
+                <h2>OPEN A DOCUMENT</h2>
+                <label for="studio_path">LOCAL FILE PATH</label>
+                <input id="studio_path" type="text" maxlength="32767" value="" />
+                <p class="studio_hint">MAP PROJECT .json // MAP PACKAGE .ppmap<br />REPLAY .ppdemo // CLIP .ppclip</p>
+                <button id="studio_open_path" class="play_action wide" data-action="studio:open-path">OPEN PATH IN STUDIO</button>
+                <p id="studio_picker_help" class="studio_notice">The system file picker is unavailable. Enter a document path above, or open Studio and choose File → Open.</p>
+                <p id="studio_document" class="studio_notice" />
+            </div>
+        </div>
+        <div id="studio_status" class="studio_notice studio_status" />
+        <div id="studio_error" class="studio_notice studio_error" />
+        <button id="studio_cancel" class="play_action" data-action="studio:cancel"><span id="studio_cancel_label">BACK</span></button>
+    </div>
+</body>
+</rml>

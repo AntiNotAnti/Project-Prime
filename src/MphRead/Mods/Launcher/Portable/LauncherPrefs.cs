@@ -6,6 +6,10 @@ using MphRead.Mods;
 
 namespace MphRead.Mods.Launcher
 {
+    public enum SocialPresenceVisibility { Everyone, Friends, Hidden }
+    public enum SocialActivityVisibility { Everyone, Friends, Private }
+    public enum SocialInvitePolicy { Everyone, Friends, Nobody }
+
     /// <summary>
     /// Launcher-only preferences, kept in their own file beside the
     /// executable.
@@ -128,10 +132,30 @@ namespace MphRead.Mods.Launcher
         /// </summary>
         public static bool AutoUpdate { get; set; } = true;
 
+        /// <summary>Who may see this account in the online-player directory.</summary>
+        public static SocialPresenceVisibility PresenceVisibility { get; set; }
+            = SocialPresenceVisibility.Everyone;
+        /// <summary>Who may see lobby/match/spectator details instead of a generic Online state.</summary>
+        public static SocialActivityVisibility ActivityVisibility { get; set; }
+            = SocialActivityVisibility.Friends;
+        /// <summary>Who may send social/game invites once invite delivery is enabled.</summary>
+        public static SocialInvitePolicy InvitePolicy { get; set; }
+            = SocialInvitePolicy.Friends;
+        /// <summary>Temporarily refuse game and party invites without hiding presence.</summary>
+        public static bool DoNotDisturb { get; set; }
+        /// <summary>
+        /// False on a fresh install so an existing recovered account may adopt
+        /// its server-side privacy choices before this device edits them.
+        /// </summary>
+        public static bool SocialPrivacyConfigured { get; set; }
+
         /// <summary>
         /// Suppress launcher transition motion while keeping hover/focus state changes.
         /// </summary>
         public static bool ReduceMotion { get; set; }
+        public static bool HighContrast { get; set; }
+        public static bool LargeText { get; set; }
+        public static bool TouchTargets { get; set; }
 
         /// <summary>Master gain for Project Prime combat-feedback cues, before the normal SFX volume.</summary>
         public static float CombatFeedbackVolume { get; set; } = 1f;
@@ -329,6 +353,42 @@ namespace MphRead.Mods.Launcher
                                 LastRole = role;
                             }
                             break;
+                        case "social_presence_visibility":
+                            if (Enum.TryParse(value, ignoreCase: true,
+                                out SocialPresenceVisibility presenceVisibility)
+                                && Enum.IsDefined(presenceVisibility))
+                            {
+                                PresenceVisibility = presenceVisibility;
+                            }
+                            break;
+                        case "social_activity_visibility":
+                            if (Enum.TryParse(value, ignoreCase: true,
+                                out SocialActivityVisibility activityVisibility)
+                                && Enum.IsDefined(activityVisibility))
+                            {
+                                ActivityVisibility = activityVisibility;
+                            }
+                            break;
+                        case "social_invite_policy":
+                            if (Enum.TryParse(value, ignoreCase: true,
+                                out SocialInvitePolicy invitePolicy)
+                                && Enum.IsDefined(invitePolicy))
+                            {
+                                InvitePolicy = invitePolicy;
+                            }
+                            break;
+                        case "social_do_not_disturb":
+                            if (Boolean.TryParse(value, out bool doNotDisturb))
+                            {
+                                DoNotDisturb = doNotDisturb;
+                            }
+                            break;
+                        case "social_privacy_configured":
+                            if (Boolean.TryParse(value, out bool privacyConfigured))
+                            {
+                                SocialPrivacyConfigured = privacyConfigured;
+                            }
+                            break;
                         case "hunter":
                             if (Enum.TryParse(value, ignoreCase: true, out Hunter hunter))
                             {
@@ -438,6 +498,15 @@ namespace MphRead.Mods.Launcher
                             {
                                 ReduceMotion = reduceMotion;
                             }
+                            break;
+                        case "high_contrast":
+                            if (Boolean.TryParse(value, out bool highContrast)) HighContrast = highContrast;
+                            break;
+                        case "large_text":
+                            if (Boolean.TryParse(value, out bool largeText)) LargeText = largeText;
+                            break;
+                        case "touch_targets":
+                            if (Boolean.TryParse(value, out bool touchTargets)) TouchTargets = touchTargets;
                             break;
                         case "combat_feedback_volume":
                             if (Single.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture,
@@ -625,12 +694,20 @@ namespace MphRead.Mods.Launcher
                     $"host_on_master={HostOnMaster.ToString().ToLowerInvariant()}",
                     $"last_kind={LastKind.ToString(CultureInfo.InvariantCulture)}",
                     $"auto_update={AutoUpdate.ToString().ToLowerInvariant()}",
+                    $"social_presence_visibility={PresenceVisibility}",
+                    $"social_activity_visibility={ActivityVisibility}",
+                    $"social_invite_policy={InvitePolicy}",
+                    $"social_do_not_disturb={DoNotDisturb.ToString().ToLowerInvariant()}",
+                    $"social_privacy_configured={SocialPrivacyConfigured.ToString().ToLowerInvariant()}",
                     $"debug_logs={DebugLogs.ToString().ToLowerInvariant()}",
                     $"bright_skins={RenderOptions.BrightSkins.ToString().ToLowerInvariant()}",
                     $"bright_skin_style={RenderOptions.BrightSkinStyle.ToString().ToLowerInvariant()}",
                     $"player_outline={RenderOptions.PlayerOutline.ToString().ToLowerInvariant()}",
                     $"player_outline_width={RenderOptions.PlayerOutlineWidth.ToString(CultureInfo.InvariantCulture)}",
                     $"reduce_motion={ReduceMotion.ToString().ToLowerInvariant()}",
+                    $"high_contrast={HighContrast.ToString().ToLowerInvariant()}",
+                    $"large_text={LargeText.ToString().ToLowerInvariant()}",
+                    $"touch_targets={TouchTargets.ToString().ToLowerInvariant()}",
                     $"combat_feedback_volume={CombatFeedbackVolume.ToString(CultureInfo.InvariantCulture)}",
                     $"combat_notifications_visible={CombatNotificationsVisible.ToString().ToLowerInvariant()}",
                     $"imperialist_headshot_sound={ImperialistHeadshotSound}",

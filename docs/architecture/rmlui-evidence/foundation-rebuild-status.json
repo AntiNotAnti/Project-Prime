@@ -1,0 +1,91 @@
+{
+  "format": 1,
+  "captured_at_utc": "2026-10-08T00:53:15.277806+00:00",
+  "evidence_kind": "historical-failure-fix-and-exact-current-head-status",
+  "original_baseline_failure": {
+    "head_sha": "d825362995d257ef92a1a60b8933a8bb28975111",
+    "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37701731078",
+    "workflow": "build",
+    "status": "completed",
+    "conclusion": "failure",
+    "identified_compile_failure": "CS0121 overload ambiguity: Math.Max(1, max) with ushort max on .NET10"
+  },
+  "baseline_compile_fix": {
+    "source_sha": "2a23fd76d7c4aab4b77afedeb715c8cb616895f8",
+    "path": "src/MphRead/Entities/Players/PlayerEntityMorphTouch.cs",
+    "change": "Cast max to int in Math.Max(1, (int)max); preserve existing arithmetic semantics."
+  },
+  "previous_passing_foundation": {
+    "head_sha": "4f8d0549de3fd621d4fffbdf3e70b79da2154217",
+    "tree_sha": "7b3c9b6bd1773f48339d4aadc37b31669aa2ea78",
+    "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37705225688",
+    "workflow": "build",
+    "status": "completed",
+    "conclusion": "success"
+  },
+  "rebuilt_foundation": {
+    "head_sha": "0ea0b886029e112f0a15fc851e9df868f2ddfe5c",
+    "tree_sha": "7b3c9b6bd1773f48339d4aadc37b31669aa2ea78",
+    "tree_equivalent_to_previous_passing_foundation": true,
+    "exact_head_runs": [
+      {
+        "conclusion": "success",
+        "createdAt": "2026-10-08T00:39:55Z",
+        "displayTitle": "RML-01: Extract native runtime and shared lobby ownership",
+        "headSha": "0ea0b886029e112f0a15fc851e9df868f2ddfe5c",
+        "status": "completed",
+        "updatedAt": "2026-10-08T00:40:24Z",
+        "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37708942637",
+        "workflowName": "semantic event foundation"
+      },
+      {
+        "conclusion": "",
+        "createdAt": "2026-10-08T00:39:55Z",
+        "displayTitle": "RML-01: Extract native runtime and shared lobby ownership",
+        "headSha": "0ea0b886029e112f0a15fc851e9df868f2ddfe5c",
+        "status": "queued",
+        "updatedAt": "2026-10-08T00:41:26Z",
+        "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37708942901",
+        "workflowName": "build"
+      },
+      {
+        "conclusion": "cancelled",
+        "createdAt": "2026-10-08T00:39:52Z",
+        "displayTitle": "Fix foundation startup guard, Android hooks and concurrent preview re\u2026",
+        "headSha": "0ea0b886029e112f0a15fc851e9df868f2ddfe5c",
+        "status": "completed",
+        "updatedAt": "2026-10-08T00:41:26Z",
+        "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37708938597",
+        "workflowName": "build"
+      },
+      {
+        "conclusion": "success",
+        "createdAt": "2026-10-08T00:39:52Z",
+        "displayTitle": "Fix foundation startup guard, Android hooks and concurrent preview re\u2026",
+        "headSha": "0ea0b886029e112f0a15fc851e9df868f2ddfe5c",
+        "status": "completed",
+        "updatedAt": "2026-10-08T00:40:18Z",
+        "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37708938541",
+        "workflowName": "semantic event foundation"
+      },
+      {
+        "conclusion": "success",
+        "createdAt": "2026-10-08T00:39:52Z",
+        "displayTitle": "Fix foundation startup guard, Android hooks and concurrent preview re\u2026",
+        "headSha": "0ea0b886029e112f0a15fc851e9df868f2ddfe5c",
+        "status": "completed",
+        "updatedAt": "2026-10-08T00:39:59Z",
+        "url": "https://github.com/AntiNotAnti/Project-Prime/actions/runs/37708938400",
+        "workflowName": "cancel stale builds"
+      }
+    ],
+    "full_build_accepted": false,
+    "reason": "Newest exact-head build is queued; prior exact-head build cancelled. Semantic/cancel-stale workflow success is not full matrix acceptance."
+  },
+  "previous_integration_source_sha": "2b77fdbbeb0424fa4f3c71c91c04d1c89872b793",
+  "current_frozen_aggregate_source_sha": "8e756a9c96d4bdd0ae7dc8bc41c772e7c73c7f9e",
+  "current_frozen_aggregate_tree_sha": "6eddf98b4f3ebcb6311b02f07ba810661518b6d1",
+  "aggregate_release_accepted": false,
+  "pending": "Current-head aggregate automatic gates, final54 Android fixture retry and corrected actual-Home paired performance validation are incomplete; further checks skipped per the latest user instruction. The default/cutover candidate is applied as unmerged development source; release acceptance is not claimed.",
+  "user_review_delivery": "One aggregate PR; skip further checks."
+}

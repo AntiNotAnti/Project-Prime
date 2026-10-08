@@ -1,0 +1,5 @@
+{
+  "status": "disqualified",
+  "reason": "All three Avalonia warmup screenshots show the PRESS START title screen while all three native screenshots show Home. Mode/backend/cap checks did not establish equivalent active page. No comparison acceptance decision is valid.",
+  "correction": "Collector report format2 requires actual Home presentation readiness; legacy diagnostics must execute the existing ContinueStartup transition and complete reveal before warmup begins."
+}

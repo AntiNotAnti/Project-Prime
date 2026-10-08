@@ -9,6 +9,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using MphRead.Mods.Network;
 using MphRead.Mods.Update;
+using MphRead.Mods.Launcher.Core;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -33,13 +34,15 @@ namespace MphRead.Mods.Launcher.Gui
         public event EventHandler<LaunchPlan>? Done;
         public event EventHandler<LaunchPlan>? MatchRequested;
         internal PrimeShell Prime => _prime;
+        internal LobbySessionController? LobbyController => _lobby?.Controller;
         public void ResumeLobby() { _lobby?.Resume(); _session.Start(); }
         public void SuspendLobby() { _lobby?.Suspend(); }
+        internal void YieldLobbyPumpToGameplay() => _lobby?.Controller.YieldPumpToGameplay();
 
-        public StartScreen(MenuSettings settings, IReadOnlyList<string> rooms)
+        public StartScreen(MenuSettings settings, IReadOnlyList<string> rooms, LauncherRouter? applicationRouter = null)
         {
             _settings = settings; _rooms = new List<string>(rooms); Focusable = true;
-            _prime = new PrimeShell(CreateWorkspace, OpenVersionManager);
+            _prime = new PrimeShell(CreateWorkspace, OpenVersionManager, applicationRouter);
             _prime.IsVisible = false; _prime.IsEnabled = false;
             _layers.Children.Add(_prime);
             _startup = new PrimeStartupScreen();
@@ -47,6 +50,15 @@ namespace MphRead.Mods.Launcher.Gui
             _layers.Children.Add(_startup);
             Content = _layers;
             _prime.Router.CanNavigate = CanNavigate;
+            // A private router belongs to this front screen even while startup
+            // hides the shell. A borrowed application router must only consult
+            // the legacy guard while the legacy surface owns presentation.
+            _prime.Router.NavigationGuardEnabled = () => applicationRouter == null
+                || (_startup != null || _prime.IsVisible && _prime.IsEnabled)
+#if MPHREAD_SHELL && !ANDROID
+                && UiSurface.Current?.Visible == true
+#endif
+                ;
             _prime.Router.Changed += _ => { UpdateReplayBackground(); TryShowUpdatePrompt(); };
             _prime.BackRequested = () =>
             {
@@ -66,7 +78,7 @@ namespace MphRead.Mods.Launcher.Gui
             AttachedToVisualTree += (_, _) => _session.Start();
             DetachedFromVisualTree += (_, _) => _session.Stop();
             _prime.Start();
-#if ANDROID
+#if ANDROID && !MPHREAD_RMLUI_ANDROID
             var navigation = new GamepadNavigation();
             var timer = new DispatcherTimer(TimeSpan.FromMilliseconds(16), DispatcherPriority.Input,
                 (_, _) => { if (Mods.Input.GamepadContexts.MenuVisible) navigation.Update(this); });
@@ -89,6 +101,13 @@ namespace MphRead.Mods.Launcher.Gui
             base.OnAttachedToVisualTree(e);
             if (_startup == null) ShowInitialPrompt();
         }
+        internal void BeginPerformanceHome()
+        {
+            if (LauncherUiPerformance.Enabled) ContinueStartup();
+        }
+        internal bool PerformanceHomeReady => _startup == null && _prime.IsVisible && _prime.IsEnabled
+            && !_prime.Overlays.IsOpen && _prime.Router.Current == PrimeRoute.News;
+
         private void ContinueStartup()
         {
             if (_startup == null) return;
@@ -242,7 +261,7 @@ namespace MphRead.Mods.Launcher.Gui
             _prime.Workspaces.Remove(PrimeRoute.Offline);
             if (rebuildCurrent) _prime.Workspaces.Show(_prime.Router.Current);
             if (_lobby != null && NetSession.Active) { ResumeLobby(); return; }
-            if (_lobby != null) { _session.Screen = null; _lobby = null; _lobbyContext = null; _prime.Workspaces.Remove(PrimeRoute.Lobby); _prime.Router.Forget(PrimeRoute.Lobby); }
+            if (_lobby != null) RetireLobby();
             Hunters.Reroll(); LauncherPrefs.Load(); RefreshRooms(); _prime.Refresh(); RefreshVersionLine();
             if (_prime.Router.Current == PrimeRoute.Lobby) _prime.Router.Navigate(PrimeRoute.Play);
             if (!GameFiles.Ready) OpenSetup();
@@ -258,6 +277,16 @@ namespace MphRead.Mods.Launcher.Gui
             });
         }
         public bool GoBack() { if (_startup == null) _prime.Back(); return true; }
+        internal void RetireLobby()
+        {
+            LobbyScreen? retired = _lobby;
+            _session.Screen = null; _lobby = null; _lobbyContext = null;
+            // The engine may already have joined another lobby. Detach the old
+            // backend before workspace removal disposes its presenter.
+            retired?.Retire();
+            _prime.Workspaces.Remove(PrimeRoute.Lobby);
+            _prime.Router.Forget(PrimeRoute.Lobby);
+        }
         public void Dispose() { _startup?.Dispose(); _startup = null; Content = null; _session.Dispose(); _updateWatcher.Dispose(); _prime.Overlays.Clear(); _prime.Dispose(); }
         private void ShowGround(bool show)
         {
@@ -306,13 +335,8 @@ namespace MphRead.Mods.Launcher.Gui
         // Shell calls this only after an actual native Play flow has joined
         // an authoritative session. Keep one source of truth for lobby
         // creation, match loading, owner commands and round transitions.
-        internal void OpenConnectedFromRml(LaunchPlan plan)
+        internal void OpenRouteFromRml(PrimeRoute route)
         {
-            // Native RmlUi already completed the setup/entry flow. The hidden
-            // Avalonia authority owner has not received its startup button,
-            // so bypass only that presentation gate before routing to Lobby.
-            // Without this, CanNavigate rejects the connected session because
-            // _startup is still non-null behind the RmlUi window.
             if (_startup != null)
             {
                 PrimeStartupScreen startup = _startup;
@@ -322,18 +346,36 @@ namespace MphRead.Mods.Launcher.Gui
                 _prime.IsVisible = true;
                 _prime.IsEnabled = true;
             }
-            ConnectedOrFinished(plan);
+            _prime.Router.Navigate(route);
+        }
+
+        internal void OpenConnectedFromRml(LaunchPlan plan, LobbySessionController? existingController = null)
+        {
+            // Explicit legacy fallback reuses the existing lobby controller.
+            // Bypass the legacy startup reveal before routing to its adapter.
+            if (_startup != null)
+            {
+                PrimeStartupScreen startup = _startup;
+                _startup = null;
+                _layers.Children.Remove(startup);
+                startup.Dispose();
+                _prime.IsVisible = true;
+                _prime.IsEnabled = true;
+            }
+            ConnectedOrFinished(plan, existingController);
         }
 #endif
 
-        private void ConnectedOrFinished(LaunchPlan plan)
+        private void ConnectedOrFinished(LaunchPlan plan, LobbySessionController? existingController = null)
         {
             if (NetSession.Active && NetSession.PersistentLobby)
             {
+                RetireLobby();
                 SpectatorMode.SetSessionPreference(plan.Spectate);
                 _spectateNextMatch = plan.Spectate;
                 _lobbyContext = plan.Lobby;
-                _lobby = new LobbyScreen(_rooms, plan.Lobby) { Overlays = _prime.Overlays };
+                _lobby = new LobbyScreen(_rooms, plan.Lobby, existingController) { Overlays = _prime.Overlays };
+                _lobby.Controller.TransferPumpOwnership(LobbyPumpOwner.Legacy);
                 _lobby.HubRequested += (_, _) => _prime.Router.Navigate(PrimeRoute.News);
                 _lobby.MatchRequested += (_, match) =>
                 {
@@ -341,32 +383,24 @@ namespace MphRead.Mods.Launcher.Gui
                     // any configuration draft, close sheets and show the countdown.
                     _prime.Overlays.Clear(); _bypassGuard = true;
                     _prime.Router.Navigate(PrimeRoute.Lobby); _bypassGuard = false;
-#if MPHREAD_RMLUI_POC
-                    // Scene loading and its barrier still use the authoritative
-                    // lobby screen. Restore that surface before handing the launch
-                    // plan to Shell so RmlUi cannot remain over the loading scene.
-                    RestoreAvaloniaLobbyFromRml();
-#endif
                     _spectateNextMatch = SpectatorMode.PreferSpectator;
                     MatchRequested?.Invoke(this, match with { Spectate = _spectateNextMatch });
                 };
                 _lobby.Closed += (_, reason) => LobbyClosed(reason);
                 _prime.Workspaces.Set(PrimeRoute.Lobby, _lobby);
-                _prime.Router.Navigate(PrimeRoute.Lobby); _prime.Refresh();
+                _prime.Router.Navigate(PrimeRoute.Lobby);
+                _prime.Workspaces.Show(PrimeRoute.Lobby);
+                _prime.Refresh();
                 // Assign the coordinator only after every handoff event is wired.
                 // Screen assignment performs an immediate hydration tick, and an
                 // already-running match can request its scene during that tick.
                 _session.Screen = _lobby;
-#if MPHREAD_RMLUI_POC
-                if (RmlUiPrototype.Requested && Shell.Window is { } rmlWindow)
-                    TryShowRmlLobby(rmlWindow);
-#endif
             }
             else Finish(plan);
         }
         private void LobbyClosed(string reason)
         {
-#if MPHREAD_RMLUI_POC
+#if MPHREAD_RMLUI_POC && !ANDROID
             if (RmlUiPrototype.LobbyMode)
                 RmlUiPrototype.ExitLobby();
 #endif
@@ -377,71 +411,6 @@ namespace MphRead.Mods.Launcher.Gui
             if (_prime.Workspaces.Get(PrimeRoute.Play) is PlayWorkspace play) play.SessionEnded(reason);
             _prime.Refresh();
         }
-#if MPHREAD_RMLUI_POC
-        internal bool TryShowRmlLobby(RenderWindow window)
-        {
-            if (_lobby == null || !NetSession.Active || !NetSession.PersistentLobby)
-                return false;
-
-            if (!RmlUiPrototype.EnterLobby(window,
-                    _lobbyContext?.ServerName, _lobbyContext?.Endpoint))
-                return false;
-
-            // Detaching this view stops LobbySessionCoordinator; Shell's
-            // Rml lobby tick keeps the same authoritative pump alive.
-            UiSurface.Current?.Hide();
-            return true;
-        }
-
-        private void RestoreAvaloniaLobbyFromRml()
-        {
-            if (!RmlUiPrototype.LobbyMode || _lobby == null)
-                return;
-
-            RmlUiPrototype.Shutdown();
-            if (UiSurface.Ensure() is not { } surface)
-                return;
-
-            _bypassGuard = true;
-            try
-            {
-                _prime.Router.Navigate(PrimeRoute.Lobby);
-            }
-            finally
-            {
-                _bypassGuard = false;
-            }
-            // Show reattaches StartScreen; its visual-tree hook restarts
-            // LobbySessionCoordinator exactly once after this callback unwinds.
-            surface.Show(this);
-        }
-
-        internal void RmlLobbyTick()
-        {
-            if (!RmlUiPrototype.LobbyMode || _lobby == null)
-                return;
-
-            // LobbySessionCoordinator is detached while the Avalonia surface is
-            // hidden. Keep the exact same server control plane running under the
-            // RmlUi presentation instead of inventing a parallel network path.
-            NetSession.Pump();
-            _lobby.SessionTick(foreground: true);
-        }
-
-        internal void RmlLobbyReady() => _lobby?.RmlToggleReady();
-        internal void RmlLobbyStart() => _lobby?.RmlStartMatch();
-        internal void RmlLobbyLeave() => _lobby?.RmlLeave();
-        internal void RmlLobbyNextHunter() => _lobby?.RmlNextHunter();
-        internal void RmlLobbyNextSuit() => _lobby?.RmlNextSuit();
-
-        internal void OpenClassicLobbyFromRml()
-        {
-            if (_lobby == null)
-                return;
-            RestoreAvaloniaLobbyFromRml();
-        }
-#endif
-
         private void OpenSetup()
         {
             var view = new SetupScreen();
@@ -611,7 +580,13 @@ namespace MphRead.Mods.Launcher.Gui
         /// map already having one.
         /// </summary>
         internal void BeginDeferredPreviewCatchup(CancellationToken cancel = default)
-            => _ = CatchUpPreviews(cancel);
+#if MPHREAD_RMLUI_ANDROID
+            { }
+#else
+        {
+            if (!LauncherUiPerformance.Enabled) _ = CatchUpPreviews(cancel);
+        }
+#endif
 
         private async Task CatchUpPreviews(CancellationToken cancel = default)
         {

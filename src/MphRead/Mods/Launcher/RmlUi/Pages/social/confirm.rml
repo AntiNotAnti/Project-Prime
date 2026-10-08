@@ -1,0 +1,11 @@
+<rml>
+<head><title>Confirm Social action</title><link type="text/template" href="../../components/dialog.rml" /><link type="text/rcss" href="social.rcss" /></head>
+<body template="prime-dialog">
+    <div id="social_confirmation" class="social_panel">
+        <div class="eyebrow">SOCIAL // CONFIRM ACTION</div><h2>REVIEW THIS CHANGE</h2>
+        <p id="social_confirmation_text" class="social_notice" />
+        <p>The selected player and party will be checked again before the action is sent.</p>
+        <div class="social_commands"><button id="social_confirm_cancel" data-action="social:dismiss">KEEP CURRENT STATE</button><button id="social_confirm_apply" class="social_danger" data-action="social:confirm">CONFIRM</button></div>
+    </div>
+</body>
+</rml>

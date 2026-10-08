@@ -6,11 +6,12 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Threading;
+using MphRead.Mods.Launcher.Core;
 namespace MphRead.Mods.Launcher.Gui
 {
     internal sealed class PrimeShell : UserControl, IDisposable
     {
-        public PrimeRouter Router { get; } = new();
+        public PrimeRouter Router { get; }
         public PrimeWorkspaceHost Workspaces { get; }
         public PrimeOverlayHost Overlays { get; } = new();
         public PrimeHeader Header { get; }
@@ -19,8 +20,9 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly LayoutTransformControl _canvas;
         private readonly PrimeUiPulse _pulse;
         private double _scale = 1;
-        public PrimeShell(Func<PrimeRoute, Control> create, Action update)
+        public PrimeShell(Func<PrimeRoute, Control> create, Action update, LauncherRouter? applicationRouter = null)
         {
+            Router = new(applicationRouter);
             Background = PrimeTheme.BackgroundBrush;
             Workspaces = new PrimeWorkspaceHost(create) { HasOverlay = () => Overlays.IsOpen };
             Header = new PrimeHeader(r => Router.Navigate(r));
@@ -39,9 +41,9 @@ namespace MphRead.Mods.Launcher.Gui
             _pulse = new PrimeUiPulse(TimeSpan.FromSeconds(1), Refresh);
             AttachedToVisualTree += (_, _) => { _pulse.Start(); Refresh(); };
             DetachedFromVisualTree += (_, _) => _pulse.Stop();
-            Header.SetRoute(PrimeRoute.News);
+            Header.SetRoute(Router.Current);
         }
-        public void Dispose() { Content = null; _pulse.Dispose(); Workspaces.Dispose(); }
+        public void Dispose() { Content = null; _pulse.Dispose(); Workspaces.Dispose(); Router.Dispose(); }
         public void Start() => Workspaces.Show(Router.Current);
         public void Refresh() { var state = PrimeGlobalState.Read(); Header.Refresh(state); Footer.Refresh(state); }
         public bool Back()

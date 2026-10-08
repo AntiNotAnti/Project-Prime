@@ -133,8 +133,19 @@ namespace MphRead.Mods.Launcher.Gui
 
         private async Task RunAsync(CancellationToken cancellationToken)
         {
+            SocialParty? party = SocialPartyClient.Current.Party;
+            bool partyQuickPlay = party is { IsLeader: true }
+                && party.Members.Count > 1;
+            int requiredSlots = partyQuickPlay ? party!.Members.Count : 1;
+            if (partyQuickPlay)
+            {
+                _status.Text = $"SCANNING FOR {requiredSlots} PARTY SLOTS";
+                _detail.Text = "Looking for a compatible lobby with room for the whole party...";
+            }
+
             QuickPlaySearchResult search =
-                await ServerBrowserService.FindBestAsync(cancellationToken);
+                await ServerBrowserService.FindBestAsync(
+                    requiredSlots, lobbyOnly: partyQuickPlay, cancellationToken: cancellationToken);
             if (cancellationToken.IsCancellationRequested)
                 return;
 
@@ -155,21 +166,59 @@ namespace MphRead.Mods.Launcher.Gui
                 + $"{entry.Status.Players}/{entry.Status.MaxPlayers} PLAYERS  /  "
                 + NetStatus.ModeName(entry.Status.Mode).ToUpperInvariant();
 
+            PartyReservedAdmission? partyAdmission = null;
+            if (partyQuickPlay)
+            {
+                _status.Text = "RESERVING PARTY SLOTS";
+                PartyReservationPreparation prepared =
+                    await SocialPartyClient.PrepareLeaderReservationAsync(
+                        entry, cancellationToken);
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    prepared.Admission?.Dispose();
+                    return;
+                }
+                if (!prepared.Success || prepared.Admission == null)
+                {
+                    _status.Text = "PARTY RESERVATION FAILED";
+                    _status.Foreground = HubTheme.DangerBrush;
+                    _detail.Text = prepared.Error.Replace('_', ' ').ToUpperInvariant();
+                    return;
+                }
+                partyAdmission = prepared.Admission;
+            }
+
             HubSnapshot player = HubState.Capture();
-            _status.Text = "JOINING";
-            OnlineJoinResult joined = await ServerBrowserService.JoinAsync(
-                entry.Listing.Address, entry.Listing.Port, player.PlayerName,
-                player.PreferredHunter, player.Suit, cancellationToken);
+            _status.Text = partyQuickPlay ? "JOINING RESERVED PARTY SLOT" : "JOINING";
+            OnlineJoinResult joined;
+            try
+            {
+                joined = await ServerBrowserService.JoinAsync(
+                    entry.Listing.Address, entry.Listing.Port, player.PlayerName,
+                    player.PreferredHunter, player.Suit, cancellationToken,
+                    partyAdmission: partyAdmission);
+            }
+            catch
+            {
+                partyAdmission?.Dispose();
+                throw;
+            }
 
             if (cancellationToken.IsCancellationRequested)
+            {
+                partyAdmission?.Dispose();
                 return;
+            }
             if (!joined.Joined)
             {
+                partyAdmission?.Dispose();
                 _status.Text = "COULD NOT JOIN";
                 _status.Foreground = HubTheme.DangerBrush;
                 _detail.Text = joined.Error;
                 return;
             }
+            if (partyQuickPlay)
+                SocialPartyClient.NoteQuickPlayTravel();
             Launched?.Invoke(this, joined.Plan);
         }
 

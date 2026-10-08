@@ -1,0 +1,2036 @@
+{
+  "schema_version": 1,
+  "assessment_kind": "immutable-aggregate-source-with-checkpoint-specific-evidence",
+  "aggregate_source_sha": "8e756a9c96d4bdd0ae7dc8bc41c772e7c73c7f9e",
+  "aggregate_tree_sha": "6eddf98b4f3ebcb6311b02f07ba810661518b6d1",
+  "captured_at_utc": "2026-10-08T00:55:48.736141+00:00",
+  "observed_git_head": "e9f4d3bd7429820cc1e24ae2e3f024815aecf8f1",
+  "frozen_source_sha": "6a24a39d9a37014f9ae4618da4af6361c1872203",
+  "immutable_baseline": "rmlui-acceptance-baseline-6a24a39d.json",
+  "workflow_count": 61,
+  "slices": [
+    {
+      "id": "RML-00",
+      "title": "Baseline, ownership map and reliable CI (required, first)",
+      "required_for": "game-client",
+      "acceptance": "Green native bridge compile on both macOS architectures plus Linux, content-free regression, basic direct input test, stable release baseline and explicitly recorded known failures.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-01",
+      "title": "Promote the proof to an engine-owned RmlUi runtime (required, foundation)",
+      "required_for": "game-client",
+      "acceptance": "Home/Play/Lobby/Rules retain current behavior using the new runtime. Documents can open/close 100 times without stale callbacks, leaked GPU resources, broken focus or extra network pumps. UI snapshots do not depend on Avalonia types.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-02",
+      "title": "Shared navigation, components and visual system (required)",
+      "required_for": "game-client",
+      "acceptance": "Every existing RmlUi page uses the new shell and common components; navigation, modal priority and focus history pass keyboard/gamepad tests.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-03",
+      "title": "Complete input, focus, text and accessibility contracts (required; begin with RML-01)",
+      "required_for": "game-client",
+      "acceptance": "Real physical input checks succeed across pointer DPI values (1.0, 1.25, 1.5, 2.0), gamepad, mouse, keyboard, touch and Unicode editing; no duplicate clicks and no dead focus states.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-04",
+      "title": "Extract the actual lobby controller from Avalonia (required, **critical path**)",
+      "required_for": "game-client",
+      "acceptance": "Create/join/ready/change Hunter/start/load/play/end/return/leave cycles work in an RmlUi-only *render mode*, with no hidden `LobbyScreen`, on a real dedicated server and local server. Simulated packet loss, multiple spectators, join-in-progress, Unicode roster entries and server restarts do not wedge the app.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-05",
+      "title": "Finish lobby owner/admin and matchmaking features (required; depends on RML-04)",
+      "required_for": "game-client",
+      "acceptance": "Two-client, four-client and eight-client dedicated-server tests cover every admin action and owner permission. Match begins and returns correctly; server authority rejects spoofed guest commands.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-06",
+      "title": "Complete Hunter selection, cosmetics, loadouts and teams (required)",
+      "required_for": "game-client",
+      "acceptance": "All Hunters/suits/loadouts can be selected with mouse/controller/touch; remote peers see the authoritative choice; high-refresh preview animation remains smooth; independent cosmetic previews do not leak resources.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-07",
+      "title": "Merge social, friends, parties and invites (required)",
+      "required_for": "game-client",
+      "acceptance": "Real multi-account clients can invite/accept/decline, travel as a party, join reserved slots, reconnect and leave without leaking auth tokens or corrupting lobby ownership.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-08",
+      "title": "Production Settings, setup and update UI (required)",
+      "required_for": "game-client",
+      "acceptance": "Every setting round-trips to existing persisted values and old-client preferences; never loses saved settings when navigating away or on failed apply; works on all target platforms.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-09",
+      "title": "Hunter License, profile, identity and account (required)",
+      "required_for": "game-client",
+      "acceptance": "Local/offline/online profile parity with the old UI, successful account flows and bounded retries; no security regressions.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-10",
+      "title": "Community browsing, sharing and publishing (required)",
+      "required_for": "game-client",
+      "acceptance": "Publish/revise/remove/download/install/join a community map using RmlUi and verify all the same authorization/validation semantics as legacy UI.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-11",
+      "title": "Offline battle, practice and Adventure entry (required)",
+      "required_for": "game-client",
+      "acceptance": "Full offline match → pause → end → rematch/home and Adventure save → play → return cycles pass on every desktop backend and on Android.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-12",
+      "title": "Replay library, Theatre and launch-to-Studio surface (required)",
+      "required_for": "game-client",
+      "acceptance": "Replay search/playback/seek/spectate/exit works without Avalonia client screens; fullscreen mouse/keyboard/gamepad focus survives tabbing and device changes.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-13",
+      "title": "All Avalonia-owned in-game menus and overlays (required)",
+      "required_for": "game-client",
+      "acceptance": "60/120/144/240 Hz and multiplayer smoke tests confirm functional parity and no fire/jump/aim input regression when menus open/close.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-14",
+      "title": "Map/HUD/creation-tool client entry migration (required, architecture decision)",
+      "required_for": "game-client",
+      "acceptance": "No user-facing edit/publish/save operation in the game requires an Avalonia screen. If editing was moved to Studio, there must be a working open-file deep link and explicit product acceptance for the separate application.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-15",
+      "title": "Modern-GPU RmlUi rendering backend (required; **start in parallel with RML-02/04**)",
+      "required_for": "game-client",
+      "acceptance": "Identical layout/input semantics and no validation errors on GL fallback, Windows DX12+Vulkan, Linux Vulkan, macOS Vulkan/MoltenVK or the designated Metal backend path, with lost-device/recovery tests. No game logic or UI behavior forks per backend.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-16",
+      "title": "Desktop platform production bridge and packaging (required; after RML-15 integration begins)",
+      "required_for": "game-client",
+      "acceptance": "Downloaded builds boot into RmlUi without manual native build steps on clean Windows, macOS and Linux machines and return from gameplay/replay without process restart.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-17",
+      "title": "Android RmlUi platform bridge (required, separate runtime work)",
+      "required_for": "game-client",
+      "acceptance": "On supported physical Android devices: create/join lobby, edit settings, chat, select Hunter, play, pause, spectate, return, background/resume, rotate if supported, disconnect/reconnect, and no native crash/leak/stuck keyboard.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-18",
+      "title": "Full parity audit, regressions, accessibility and performance (required)",
+      "required_for": "game-client",
+      "acceptance": "A signed-off parity matrix has **zero unexplained blocked workflows**, no critical regressions, passed native GPU validation on every shipping backend, and a reproducible performance/evidence report.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-19",
+      "title": "Make RmlUi the default, canary rollout and rollback (required)",
+      "required_for": "game-client",
+      "acceptance": "RmlUi is the shipping default for all supported game-client platforms and ordinary workflows; emergency rollback exists without using a development build.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "RML-20",
+      "title": "Remove Avalonia from the **game client** (required, last)",
+      "required_for": "game-client",
+      "acceptance": "Clean Windows/macOS/Linux/Android **game-client** builds and CI succeed with **no Avalonia UI assemblies required by that client**, with all user workflows and dedicated-server checks passing.",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "completed": false,
+      "implementation_state": "source-implemented"
+    },
+    {
+      "id": "STUDIO-RML-00",
+      "title": "Inventory and extract workspaces",
+      "required_for": "product-wide-zero-avalonia",
+      "acceptance": "Standalone Studio acceptance described by the supplied plan; requires separately validated workspace parity.",
+      "acceptance_status": "not-started",
+      "completed": false
+    },
+    {
+      "id": "STUDIO-RML-01",
+      "title": "Native multi-document/window host",
+      "required_for": "product-wide-zero-avalonia",
+      "acceptance": "Standalone Studio acceptance described by the supplied plan; requires separately validated workspace parity.",
+      "acceptance_status": "not-started",
+      "completed": false
+    },
+    {
+      "id": "STUDIO-RML-02",
+      "title": "Replay Studio native workspace",
+      "required_for": "product-wide-zero-avalonia",
+      "acceptance": "Standalone Studio acceptance described by the supplied plan; requires separately validated workspace parity.",
+      "acceptance_status": "not-started",
+      "completed": false
+    },
+    {
+      "id": "STUDIO-RML-03",
+      "title": "Map Studio native workspace",
+      "required_for": "product-wide-zero-avalonia",
+      "acceptance": "Standalone Studio acceptance described by the supplied plan; requires separately validated workspace parity.",
+      "acceptance_status": "not-started",
+      "completed": false
+    },
+    {
+      "id": "STUDIO-RML-04",
+      "title": "Desktop Studio packaging/validation",
+      "required_for": "product-wide-zero-avalonia",
+      "acceptance": "Standalone Studio acceptance described by the supplied plan; requires separately validated workspace parity.",
+      "acceptance_status": "not-started",
+      "completed": false
+    },
+    {
+      "id": "STUDIO-RML-05",
+      "title": "Remove Studio's Avalonia dependency",
+      "required_for": "product-wide-zero-avalonia",
+      "acceptance": "Standalone Studio acceptance described by the supplied plan; requires separately validated workspace parity.",
+      "acceptance_status": "not-started",
+      "completed": false
+    }
+  ],
+  "release_parity_accepted": false,
+  "current_user_acceptance_scope": {
+    "user_owns_live_testing": true,
+    "external_physical_and_screen_reader_runs_block_completion": false,
+    "rendered_multiplayer_live_coverage_user_owned": true,
+    "required_automated_environments": [
+      "local Mac",
+      "hosted CI/software GPU",
+      "Android emulator"
+    ],
+    "coverage_policy": "Do not claim unperformed physical/screen-reader/vendor-device runs; user-owned live coverage is not an implementation or default/removal blocker."
+  },
+  "evidence_policy": "Counts identify named local source/native harnesses and retain fake authority boundaries. Source hashes capture this audit, not an immutable test-head certificate. Canceled, stale or skipped CI is never passing evidence. Required automated integration gates and user-owned physical coverage remain distinct.",
+  "local_evidence_groups": {
+    "news": {
+      "contracts": 28,
+      "native": 348
+    },
+    "offline": {
+      "contracts": 50,
+      "native": 555
+    },
+    "adventure": {
+      "contracts": 31,
+      "native": 132
+    },
+    "community": {
+      "contracts": 129,
+      "native": 488
+    },
+    "theatre": {
+      "contracts": 36,
+      "native": 266
+    },
+    "hud": {
+      "contracts": 33,
+      "native": 376
+    },
+    "social": {
+      "contracts": 149,
+      "native": 343
+    },
+    "studio": {
+      "contracts": 136,
+      "native": 152,
+      "combined": 288
+    },
+    "settings": {
+      "contracts": 23,
+      "authoritative_engine": 29,
+      "native": 40,
+      "compact_layout": 765
+    },
+    "setup": {
+      "contracts": 27,
+      "native_engine_monitor": 34
+    },
+    "ingame": {
+      "contracts": 46,
+      "native_results_combined": 155
+    },
+    "results": {
+      "combined_with": "ingame"
+    },
+    "play": {
+      "injected_multiplayer_contracts": 72,
+      "real_server_queue_regressions": 9,
+      "actual_waitlist": 310,
+      "rendered_multiplayer_live_coverage": "user-owned and unperformed by this harness"
+    },
+    "lobby": {
+      "lobby_hunter_contracts": 92,
+      "native_admin_hunter": 67,
+      "fake_lifecycle_cycles": 50,
+      "real_native_udp_checks": 879,
+      "real_udp_lobby_cycles": 50,
+      "same_controllers_match_returns": 20,
+      "rendered_gpu_live_coverage": "user-owned;879-check fixture uses explicit empty scene bootstrap"
+    },
+    "hunters": {
+      "combined_with": "lobby"
+    },
+    "license": {
+      "contracts": 43,
+      "native": 60,
+      "production_account_operations": 0
+    },
+    "home": {
+      "router_contracts": 75,
+      "shared_theme_native": 610,
+      "native_only_shared_shell_routing": 645,
+      "transitional_shared_shell_routing": 645,
+      "native_home_candidate_captures": 16,
+      "representative_candidate_captures": 4
+    },
+    "input": {
+      "platform_provider_contracts": 150,
+      "native_semantic": 150,
+      "cocoa_accessibility": 218,
+      "cocoa_ime": 222,
+      "linux_ime_native_fake_bus": 219,
+      "linux_ime_hosted_real_ibus": 233,
+      "android_inputconnection": 13,
+      "android_provider_fixture": 16
+    }
+  },
+  "workflows": [
+    {
+      "id": "home.navigation",
+      "slice": "RML-02",
+      "legacy_behavior": "News/Home shell, tab navigation, back history and modal precedence",
+      "legacy_authority": "PrimeRouter / StartScreen navigation guards",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LauncherRouter.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiLinks.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiLauncherPages.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/home/home.rml"
+      ],
+      "local_evidence_group": "home",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "home.news",
+      "slice": "RML-02",
+      "legacy_behavior": "News dispatch list/detail and start shell",
+      "legacy_authority": "NewsWorkspace dispatch data",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/NewsCatalog.cs",
+        "src/MphRead/Mods/Launcher/Core/NewsController.cs",
+        "src/MphRead/Mods/Launcher/Core/NewsEngineBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/news/NewsPagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/news/news.rml"
+      ],
+      "local_evidence_group": "news",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "play.quick",
+      "slice": "RML-05",
+      "legacy_behavior": "Quick Play search/join, cancel, unavailable/failure states",
+      "legacy_authority": "ServerBrowserService / OnlineSessionLauncher / NetSession",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Gui/RmlMultiplayerController.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiQueue.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiLauncherPages.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/play/browser.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/play/queue.rml"
+      ],
+      "local_evidence_group": "play",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "play.directory",
+      "slice": "RML-05",
+      "legacy_behavior": "Directory refresh/filter/sort, details, favorite server and browser cancellation",
+      "legacy_authority": "ServerBrowserService / LauncherPrefs",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Gui/RmlMultiplayerController.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiQueue.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiLauncherPages.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/play/browser.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/play/queue.rml"
+      ],
+      "local_evidence_group": "play",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "play.direct",
+      "slice": "RML-05",
+      "legacy_behavior": "Direct connect, name/Hunter/suit/endpoint validation, spectator/password options",
+      "legacy_authority": "OnlineSessionLauncher / NetSession / LauncherPrefs",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Gui/RmlMultiplayerController.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiQueue.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiLauncherPages.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/play/browser.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/play/queue.rml"
+      ],
+      "local_evidence_group": "play",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "play.create",
+      "slice": "RML-05",
+      "legacy_behavior": "Create public/private lobby, advanced rules, bots, map rotation and host failures",
+      "legacy_authority": "LocalServer / LobbyRules / OnlineSessionLauncher",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Gui/RmlMultiplayerController.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiQueue.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiLauncherPages.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/play/browser.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/play/queue.rml"
+      ],
+      "local_evidence_group": "play",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "lobby.pump",
+      "slice": "RML-04",
+      "legacy_behavior": "One owner-thread lobby pump, attach/suspend/leave and exactly-once match handoff",
+      "legacy_authority": "NetSession / MatchStart",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LobbySessionController.cs",
+        "src/MphRead/Mods/Launcher/Core/NetLobbySessionBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlUiLobbyBindings.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlLobbyAdminPresenter.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUi.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/lobby.rml"
+      ],
+      "local_evidence_group": "lobby",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "lobby.roster",
+      "slice": "RML-05",
+      "legacy_behavior": "Eight-player roster, identity/latency/owner/ready/bot/spectator and disconnect",
+      "legacy_authority": "NetSession",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LobbySessionController.cs",
+        "src/MphRead/Mods/Launcher/Core/NetLobbySessionBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlUiLobbyBindings.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlLobbyAdminPresenter.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUi.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/lobby.rml"
+      ],
+      "local_evidence_group": "lobby",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "lobby.ready",
+      "slice": "RML-04",
+      "legacy_behavior": "Ready/unready, require-ready, countdown, start barrier and authoritative rejection",
+      "legacy_authority": "NetSession / MatchStart",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LobbySessionController.cs",
+        "src/MphRead/Mods/Launcher/Core/NetLobbySessionBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlUiLobbyBindings.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlLobbyAdminPresenter.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUi.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/lobby.rml"
+      ],
+      "local_evidence_group": "lobby",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "lobby.rules",
+      "slice": "RML-05",
+      "legacy_behavior": "Map/mode/matchup/time/score/advanced modifiers, local draft/apply/cancel and revision acknowledgement",
+      "legacy_authority": "LobbyRules / NetSession / LobbyRuleEditValues",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LobbySessionController.cs",
+        "src/MphRead/Mods/Launcher/Core/NetLobbySessionBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlUiLobbyBindings.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlLobbyAdminPresenter.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUi.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/lobby.rml"
+      ],
+      "local_evidence_group": "lobby",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "lobby.teams",
+      "slice": "RML-05",
+      "legacy_behavior": "Custom 2–4 teams, capacity/lock/auto/free choice and player handicap",
+      "legacy_authority": "NetSession / MatchTypeCatalog / PlayerHandicap",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LobbySessionController.cs",
+        "src/MphRead/Mods/Launcher/Core/NetLobbySessionBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlUiLobbyBindings.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlLobbyAdminPresenter.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUi.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/lobby.rml"
+      ],
+      "local_evidence_group": "lobby",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "lobby.admin",
+      "slice": "RML-05",
+      "legacy_behavior": "Kick, transfer ownership, close and confirmations",
+      "legacy_authority": "NetSession / LobbyCommandType",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LobbySessionController.cs",
+        "src/MphRead/Mods/Launcher/Core/NetLobbySessionBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlUiLobbyBindings.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlLobbyAdminPresenter.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUi.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/lobby.rml"
+      ],
+      "local_evidence_group": "lobby",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "lobby.bots",
+      "slice": "RML-05",
+      "legacy_behavior": "Bot add/remove/Hunter/team/difficulty management",
+      "legacy_authority": "NetSession / BotManager",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LobbySessionController.cs",
+        "src/MphRead/Mods/Launcher/Core/NetLobbySessionBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlUiLobbyBindings.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlLobbyAdminPresenter.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUi.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/lobby.rml"
+      ],
+      "local_evidence_group": "lobby",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "lobby.chat",
+      "slice": "RML-05",
+      "legacy_behavior": "Bounded Unicode chat, text focus and rate/message length constraints",
+      "legacy_authority": "ChatBox / ChatPacket / NetSession",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LobbySessionController.cs",
+        "src/MphRead/Mods/Launcher/Core/NetLobbySessionBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlUiLobbyBindings.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlLobbyAdminPresenter.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUi.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/lobby.rml"
+      ],
+      "local_evidence_group": "lobby",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "lobby.custommap",
+      "slice": "RML-05",
+      "legacy_behavior": "Community map readiness/download/prewarm, rotation/cache and compatibility",
+      "legacy_authority": "CommunityApi / CustomMapSync / LobbyRules",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LobbySessionController.cs",
+        "src/MphRead/Mods/Launcher/Core/NetLobbySessionBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlUiLobbyBindings.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlLobbyAdminPresenter.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUi.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/lobby.rml"
+      ],
+      "local_evidence_group": "lobby",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "lobby.return",
+      "slice": "RML-04",
+      "legacy_behavior": "Play/end/persistent-lobby return, late join/spectator and server loss/rejoin",
+      "legacy_authority": "NetSession / MatchStart / SpectatorMode",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LobbySessionController.cs",
+        "src/MphRead/Mods/Launcher/Core/NetLobbySessionBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlUiLobbyBindings.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlLobbyAdminPresenter.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUi.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/lobby.rml"
+      ],
+      "local_evidence_group": "lobby",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "hunters.preview",
+      "slice": "RML-06",
+      "legacy_behavior": "Playable Hunter and suit preview with engine model/lighting",
+      "legacy_authority": "LauncherPrefs / HunterStand / engine model renderer",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/HunterSelectionController.cs",
+        "src/MphRead/Mods/Launcher/Core/LauncherHunterSelectionBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlHunterSelectionPresenter.cs"
+      ],
+      "local_evidence_group": "hunters",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "hunters.selection",
+      "slice": "RML-06",
+      "legacy_behavior": "Pre-lobby and live Hunter/suit selection, owner constraints and acknowledgement",
+      "legacy_authority": "NetSession / LauncherPrefs / HunterLicenseClient",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/HunterSelectionController.cs",
+        "src/MphRead/Mods/Launcher/Core/LauncherHunterSelectionBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlHunterSelectionPresenter.cs"
+      ],
+      "local_evidence_group": "hunters",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "hunters.cosmetics",
+      "slice": "RML-06",
+      "legacy_behavior": "Owned custom assets/profile cosmetics, persistence and async failure",
+      "legacy_authority": "HunterLicenseClient / HD asset catalog",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/HunterSelectionController.cs",
+        "src/MphRead/Mods/Launcher/Core/LauncherHunterSelectionBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlHunterSelectionPresenter.cs"
+      ],
+      "local_evidence_group": "hunters",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "social.integration",
+      "slice": "RML-07",
+      "legacy_behavior": "Friends/presence/privacy/party/invites/Join Friend/reservations/travel",
+      "legacy_authority": "Existing unmerged social PR stack #365 → #366 → #368 → #369 → #370 → #371 → #373",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/SocialController.cs",
+        "src/MphRead/Mods/Launcher/Core/LauncherSocialBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/social/SocialPagePresenter.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiSocial.cs"
+      ],
+      "local_evidence_group": "social",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "settings.draft",
+      "slice": "RML-08",
+      "legacy_behavior": "Apply, discard, unsaved-navigation/quit prompt and reset category",
+      "legacy_authority": "SettingsPersistence / MenuSettings / LauncherPrefs / InputSettings / RenderOptions / GamepadRuntimeConfig / HudProfile",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
+      ],
+      "local_evidence_group": "settings",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "settings.display",
+      "slice": "RML-08",
+      "legacy_behavior": "Window/fullscreen/FOV/FPS/HUD/radar/crosshair/reduce motion",
+      "legacy_authority": "SettingsPersistence / MenuSettings / LauncherPrefs / InputSettings / RenderOptions / GamepadRuntimeConfig / HudProfile",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
+      ],
+      "local_evidence_group": "settings",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "settings.graphics",
+      "slice": "RML-08",
+      "legacy_behavior": "Renderer/preset/scale/AA/lighting/materials/shadows/textures/color/cosmetics",
+      "legacy_authority": "SettingsPersistence / MenuSettings / LauncherPrefs / InputSettings / RenderOptions / GamepadRuntimeConfig / HudProfile",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
+      ],
+      "local_evidence_group": "settings",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "settings.audio",
+      "slice": "RML-08",
+      "legacy_behavior": "Volumes, language and combat notification cues",
+      "legacy_authority": "SettingsPersistence / MenuSettings / LauncherPrefs / InputSettings / RenderOptions / GamepadRuntimeConfig / HudProfile",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
+      ],
+      "local_evidence_group": "settings",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "settings.keyboard",
+      "slice": "RML-08",
+      "legacy_behavior": "Mouse/zoom/stylus sensitivity and full keyboard/mouse bindings",
+      "legacy_authority": "SettingsPersistence / MenuSettings / LauncherPrefs / InputSettings / RenderOptions / GamepadRuntimeConfig / HudProfile",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
+      ],
+      "local_evidence_group": "settings",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "settings.gamepad",
+      "slice": "RML-08",
+      "legacy_behavior": "Controller bindings/profiles/deadzones/analog/setup/calibration",
+      "legacy_authority": "SettingsPersistence / MenuSettings / LauncherPrefs / InputSettings / RenderOptions / GamepadRuntimeConfig / HudProfile",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
+      ],
+      "local_evidence_group": "settings",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "settings.touch",
+      "slice": "RML-08",
+      "legacy_behavior": "Touch button placement/scale/opacity/reset and stylus placement",
+      "legacy_authority": "SettingsPersistence / MenuSettings / LauncherPrefs / InputSettings / RenderOptions / GamepadRuntimeConfig / HudProfile",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
+      ],
+      "local_evidence_group": "settings",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "settings.replays",
+      "slice": "RML-08",
+      "legacy_behavior": "Record/clip/killcam/storage/prune/replay keyboard/gamepad bindings",
+      "legacy_authority": "SettingsPersistence / MenuSettings / LauncherPrefs / InputSettings / RenderOptions / GamepadRuntimeConfig / HudProfile",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
+      ],
+      "local_evidence_group": "settings",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "settings.profile",
+      "slice": "RML-08",
+      "legacy_behavior": "Player name/glyphs/Hunter/suit/default endpoint/directory/update prefs",
+      "legacy_authority": "SettingsPersistence / MenuSettings / LauncherPrefs / InputSettings / RenderOptions / GamepadRuntimeConfig / HudProfile",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
+      ],
+      "local_evidence_group": "settings",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "settings.maintenance",
+      "slice": "RML-08",
+      "legacy_behavior": "Game-data verification/cache/thumbnail/perf operations and diagnostic logs",
+      "legacy_authority": "SettingsPersistence / MenuSettings / LauncherPrefs / InputSettings / RenderOptions / GamepadRuntimeConfig / HudProfile",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
+      ],
+      "local_evidence_group": "settings",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "settings.archive",
+      "slice": "RML-08",
+      "legacy_behavior": "Settings archive/import/export/recovery and persistence failure",
+      "legacy_authority": "SettingsPersistence / MenuSettings / LauncherPrefs / InputSettings / RenderOptions / GamepadRuntimeConfig / HudProfile",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
+      ],
+      "local_evidence_group": "settings",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "settings.credits",
+      "slice": "RML-08",
+      "legacy_behavior": "Credits/about/third-party acknowledgements",
+      "legacy_authority": "SettingsPersistence / MenuSettings / LauncherPrefs / InputSettings / RenderOptions / GamepadRuntimeConfig / HudProfile",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
+      ],
+      "local_evidence_group": "settings",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "setup.files",
+      "slice": "RML-08",
+      "legacy_behavior": "Missing-game-data prompt, ROM/file picker/extraction/progress/retry and preview generation",
+      "legacy_authority": "GameFiles / RomWhitelist / NativeFilePicker / ThumbnailGenerator",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/SetupController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/setup/EngineSetupBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/setup/SetupPagePresenter.cs"
+      ],
+      "local_evidence_group": "setup",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Successful user ROM extraction, update installation/rollback and platform picker/lifecycle acceptance were deliberately not executed."
+      ]
+    },
+    {
+      "id": "update.versions",
+      "slice": "RML-08",
+      "legacy_behavior": "Update prompt/install/cancel, release chooser/downgrade/switch/failure/restart",
+      "legacy_authority": "Mods.Update updater / UpdateInfo",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/SetupController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/setup/EngineSetupBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/setup/SetupPagePresenter.cs"
+      ],
+      "local_evidence_group": "setup",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Successful user ROM extraction, update installation/rollback and platform picker/lifecycle acceptance were deliberately not executed."
+      ]
+    },
+    {
+      "id": "app.quit",
+      "slice": "RML-08",
+      "legacy_behavior": "Quit confirmation including dirty settings, cancellation and shutdown cleanup",
+      "legacy_authority": "Shell / SettingsPersistence",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiPages.cs",
+        "src/MphRead/Mods/Launcher/Core/InGameController.cs"
+      ],
+      "local_evidence_group": "quit",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "license.overview",
+      "slice": "RML-09",
+      "legacy_behavior": "Overview/local/offline snapshot/online refresh and progress",
+      "legacy_authority": "HunterLicenseClient / existing auth services / local profile snapshot",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LicenseController.cs",
+        "src/MphRead/Mods/Launcher/Core/LauncherLicenseBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/license/LicensePagePresenter.cs"
+      ],
+      "local_evidence_group": "license",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated account recovery/linking/verification and service failures; live secure input coverage is user-owned."
+      ]
+    },
+    {
+      "id": "license.customization",
+      "slice": "RML-09",
+      "legacy_behavior": "Cosmetic ownership/Hunter/profile customization",
+      "legacy_authority": "HunterLicenseClient / existing auth services / local profile snapshot",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LicenseController.cs",
+        "src/MphRead/Mods/Launcher/Core/LauncherLicenseBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/license/LicensePagePresenter.cs"
+      ],
+      "local_evidence_group": "license",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated account recovery/linking/verification and service failures; live secure input coverage is user-owned."
+      ]
+    },
+    {
+      "id": "license.stats",
+      "slice": "RML-09",
+      "legacy_behavior": "Stats, recent form, pagination and failed refresh",
+      "legacy_authority": "HunterLicenseClient / existing auth services / local profile snapshot",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LicenseController.cs",
+        "src/MphRead/Mods/Launcher/Core/LauncherLicenseBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/license/LicensePagePresenter.cs"
+      ],
+      "local_evidence_group": "license",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated account recovery/linking/verification and service failures; live secure input coverage is user-owned."
+      ]
+    },
+    {
+      "id": "license.history",
+      "slice": "RML-09",
+      "legacy_behavior": "Match history/details/legacy data",
+      "legacy_authority": "HunterLicenseClient / existing auth services / local profile snapshot",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LicenseController.cs",
+        "src/MphRead/Mods/Launcher/Core/LauncherLicenseBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/license/LicensePagePresenter.cs"
+      ],
+      "local_evidence_group": "license",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated account recovery/linking/verification and service failures; live secure input coverage is user-owned."
+      ]
+    },
+    {
+      "id": "license.achievements",
+      "slice": "RML-09",
+      "legacy_behavior": "Achievements/emblems/titles/catalog",
+      "legacy_authority": "HunterLicenseClient / existing auth services / local profile snapshot",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LicenseController.cs",
+        "src/MphRead/Mods/Launcher/Core/LauncherLicenseBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/license/LicensePagePresenter.cs"
+      ],
+      "local_evidence_group": "license",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated account recovery/linking/verification and service failures; live secure input coverage is user-owned."
+      ]
+    },
+    {
+      "id": "license.comparison",
+      "slice": "RML-09",
+      "legacy_behavior": "Comparison and empty states",
+      "legacy_authority": "HunterLicenseClient / existing auth services / local profile snapshot",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LicenseController.cs",
+        "src/MphRead/Mods/Launcher/Core/LauncherLicenseBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/license/LicensePagePresenter.cs"
+      ],
+      "local_evidence_group": "license",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated account recovery/linking/verification and service failures; live secure input coverage is user-owned."
+      ]
+    },
+    {
+      "id": "license.account",
+      "slice": "RML-09",
+      "legacy_behavior": "Email link/password/OAuth/account recovery/security/privacy",
+      "legacy_authority": "HunterLicenseClient / existing auth services / local profile snapshot",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/LicenseController.cs",
+        "src/MphRead/Mods/Launcher/Core/LauncherLicenseBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/license/LicensePagePresenter.cs"
+      ],
+      "local_evidence_group": "license",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated account recovery/linking/verification and service failures; live secure input coverage is user-owned."
+      ]
+    },
+    {
+      "id": "community.browse",
+      "slice": "RML-10",
+      "legacy_behavior": "Community list/search/filter/details/previews/creator metadata",
+      "legacy_authority": "CommunityApi / CommunityMap / MapDocument / map build/validation services",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/CommunityController.cs",
+        "src/MphRead/Mods/Launcher/Core/CommunityEngineBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/community/CommunityPagePresenter.cs"
+      ],
+      "local_evidence_group": "community",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Authorized staging-account service/publication and real package/library/scene cycles; isolated authority boundaries are fake."
+      ]
+    },
+    {
+      "id": "community.install",
+      "slice": "RML-10",
+      "legacy_behavior": "Download/install/cache/identity/validation/prewarm/retry/cancel",
+      "legacy_authority": "CommunityApi / CommunityMap / MapDocument / map build/validation services",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/CommunityController.cs",
+        "src/MphRead/Mods/Launcher/Core/CommunityEngineBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/community/CommunityPagePresenter.cs"
+      ],
+      "local_evidence_group": "community",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Authorized staging-account service/publication and real package/library/scene cycles; isolated authority boundaries are fake."
+      ]
+    },
+    {
+      "id": "community.publish",
+      "slice": "RML-10",
+      "legacy_behavior": "Publish/upload/revise/remove and creator permissions/progress",
+      "legacy_authority": "CommunityApi / CommunityMap / MapDocument / map build/validation services",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/CommunityController.cs",
+        "src/MphRead/Mods/Launcher/Core/CommunityEngineBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/community/CommunityPagePresenter.cs"
+      ],
+      "local_evidence_group": "community",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Authorized staging-account service/publication and real package/library/scene cycles; isolated authority boundaries are fake."
+      ]
+    },
+    {
+      "id": "offline.match",
+      "slice": "RML-11",
+      "legacy_behavior": "Offline map/mode/matchup/bot/skill/Hunter/suit setup and rules validation",
+      "legacy_authority": "OfflineLaunch / MatchModifierRules / MapModeCapabilities / LauncherPrefs",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/OfflineController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/offline/OfflinePagePresenter.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiPages.cs"
+      ],
+      "local_evidence_group": "offline",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "offline.rematch",
+      "slice": "RML-11",
+      "legacy_behavior": "Offline launch/pause/end/next match/rematch/return home",
+      "legacy_authority": "OfflineRematch / OfflineLaunch / MatchStart",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/MatchResultsController.cs",
+        "src/MphRead/Mods/Launcher/Core/AimResultsController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/MatchResultsPagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/AimResultsPagePresenter.cs"
+      ],
+      "local_evidence_group": "results",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "offline.training",
+      "slice": "RML-11",
+      "legacy_behavior": "Training/Aim Lab configuration, launch failure and results",
+      "legacy_authority": "AimTrainerLaunch / AimTrainer session",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/OfflineController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/offline/OfflinePagePresenter.cs",
+        "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiPages.cs"
+      ],
+      "local_evidence_group": "offline",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "adventure.saves",
+      "slice": "RML-11",
+      "legacy_behavior": "Save slots/details/new run overwrite confirmation/continue/invalid save/return",
+      "legacy_authority": "AdventureSave / AdventureLaunch",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/AdventureController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/adventure/AdventurePagePresenter.cs"
+      ],
+      "local_evidence_group": "adventure",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "replay.library",
+      "slice": "RML-12",
+      "legacy_behavior": "Replay scan/search/sort/filter/favorite/thumbnail/detail/delete/batch validate/storage policy",
+      "legacy_authority": "DemoPlayback / ReplayArchive / ReplayStorageJobs / ReplayVirtualClips / ReplayAnnotations",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/TheatreController.cs",
+        "src/MphRead/Mods/Launcher/Core/TheatreEngineBackend.cs",
+        "src/MphRead/Mods/Launcher/Core/TheatrePlaybackController.cs",
+        "src/MphRead/Mods/Launcher/Core/TheatreViewportController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/theatre/TheatrePagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/theatre/TheatrePlaybackPagePresenter.cs"
+      ],
+      "local_evidence_group": "theatre",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "replay.theatre",
+      "slice": "RML-12",
+      "legacy_behavior": "Playback/seek/speed/camera/keybind/help/fullscreen/exit/failure",
+      "legacy_authority": "DemoPlayback / ReplayHud / ReplayStudio",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/TheatreController.cs",
+        "src/MphRead/Mods/Launcher/Core/TheatreEngineBackend.cs",
+        "src/MphRead/Mods/Launcher/Core/TheatrePlaybackController.cs",
+        "src/MphRead/Mods/Launcher/Core/TheatreViewportController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/theatre/TheatrePagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/theatre/TheatrePlaybackPagePresenter.cs"
+      ],
+      "local_evidence_group": "theatre",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "replay.studio",
+      "slice": "RML-12",
+      "legacy_behavior": "Launch replay to independent Studio, version/IPC/error feedback",
+      "legacy_authority": "StudioApplicationLauncher / Studio broker",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/StudioController.cs",
+        "src/MphRead/Mods/Launcher/Core/StudioEntryBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/studio/StudioPagePresenter.cs"
+      ],
+      "local_evidence_group": "studio",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Paired Studio process/picker/IPC acceptance; conditional Studio workspace RmlUi migration is not completed."
+      ]
+    },
+    {
+      "id": "ingame.pause",
+      "slice": "RML-13",
+      "legacy_behavior": "Resume/fullscreen/settings/leave/quit and modal focus restoration",
+      "legacy_authority": "PauseMenu / WindowMode / SettingsPersistence",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/InGameController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/InGamePagePresenter.cs"
+      ],
+      "local_evidence_group": "ingame",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "ingame.vote",
+      "slice": "RML-13",
+      "legacy_behavior": "Propose map and accept/deny vote/rejection",
+      "legacy_authority": "MapVote / NetSession",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/InGameController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/InGamePagePresenter.cs"
+      ],
+      "local_evidence_group": "ingame",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "ingame.spectator",
+      "slice": "RML-13",
+      "legacy_behavior": "Spectate/rejoin/owner return all to lobby with confirmation",
+      "legacy_authority": "SpectatorMode / NetSession",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/InGameController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/InGamePagePresenter.cs"
+      ],
+      "local_evidence_group": "ingame",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "ingame.record",
+      "slice": "RML-13",
+      "legacy_behavior": "Start/stop replay recording and pause replay controls",
+      "legacy_authority": "DemoRecorder / DemoPlayback",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/InGameController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/InGamePagePresenter.cs"
+      ],
+      "local_evidence_group": "ingame",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "ingame.results",
+      "slice": "RML-13",
+      "legacy_behavior": "End panel score/stat faces, next match/map and Aim Trainer results",
+      "legacy_authority": "OfflineRematch / match result state / AimTrainer",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/MatchResultsController.cs",
+        "src/MphRead/Mods/Launcher/Core/AimResultsController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/MatchResultsPagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/AimResultsPagePresenter.cs"
+      ],
+      "local_evidence_group": "results",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Automated native DOM/server/custom-map/queue/recovery and match-return invariants at the exact review head; rendered multiplayer live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "creation.mapentry",
+      "slice": "RML-14",
+      "legacy_behavior": "Open Map Studio/project/recover session/deep link/launch failure",
+      "legacy_authority": "StudioApplicationLauncher / MapDocument / existing Studio broker",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/StudioController.cs",
+        "src/MphRead/Mods/Launcher/Core/StudioEntryBackend.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/studio/StudioPagePresenter.cs"
+      ],
+      "local_evidence_group": "studio",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Paired Studio process/picker/IPC acceptance; conditional Studio workspace RmlUi migration is not completed."
+      ]
+    },
+    {
+      "id": "creation.hud",
+      "slice": "RML-14",
+      "legacy_behavior": "HUD Studio layout edit/preview/profile save/import/export and viewport focus",
+      "legacy_authority": "HudProfile / Hud renderer / SettingsPersistence",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/Core/HudEditorController.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/hud/HudEditorPagePresenter.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.Hud.cs"
+      ],
+      "local_evidence_group": "hud",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned."
+      ]
+    },
+    {
+      "id": "input.pointer",
+      "slice": "RML-03",
+      "legacy_behavior": "GLFW logical window → framebuffer pointer scaling exactly once at Retina/fractional DPI",
+      "legacy_authority": "RenderWindow / RmlUiPointerMapping",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiInput.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiDesktopInput.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiWindowsIme.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiCocoaIme.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiLinuxIme.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiIbusApi.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiAccessibility.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiCocoaAccessibility.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiWindowsAccessibility.cs",
+        "src/MphRead.Android/AndroidRmlUiInput.cs",
+        "src/MphRead.Android/AndroidRmlUiAccessibility.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiLinuxAccessibility.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiLinuxAccessibility.Protocol.cs"
+      ],
+      "local_evidence_group": "input",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Windows UIA and Linux AT-SPI source/native/GLib contracts exist; external actual OS fixtures await hosted CI.",
+        "Automated local/CI IME/provider and shifted punctuation/Wayland acceptance; physical vendor/screen-reader runs are user-owned coverage.",
+        "Six-language shared chrome is localized; per-route body translations remain open."
+      ]
+    },
+    {
+      "id": "input.complete",
+      "slice": "RML-03",
+      "legacy_behavior": "Text/Unicode/clipboard/IME/touch/gamepad/focus/capture/accessibility",
+      "legacy_authority": "Platform input / GamepadUiRouter / native RmlUi",
+      "implementation_state": "source-implemented",
+      "acceptance_status": "validation-incomplete-or-skipped-per-user",
+      "native_sources": [
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiInput.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiDesktopInput.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiWindowsIme.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiCocoaIme.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiLinuxIme.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiIbusApi.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiAccessibility.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiCocoaAccessibility.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiWindowsAccessibility.cs",
+        "src/MphRead.Android/AndroidRmlUiInput.cs",
+        "src/MphRead.Android/AndroidRmlUiAccessibility.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiLinuxAccessibility.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiLinuxAccessibility.Protocol.cs"
+      ],
+      "local_evidence_group": "input",
+      "remaining_gates": [
+        "Integrated success/failure/cancel/persistence/cleanup scenarios at an immutable review head.",
+        "Required automated golden/keyboard/gamepad/pointer/platform acceptance; external physical live coverage is user-owned.",
+        "Windows UIA and Linux AT-SPI source/native/GLib contracts exist; external actual OS fixtures await hosted CI.",
+        "Automated local/CI IME/provider and shifted punctuation/Wayland acceptance; physical vendor/screen-reader runs are user-owned coverage.",
+        "Six-language shared chrome is localized; per-route body translations remain open."
+      ]
+    }
+  ],
+  "source_manifest": [
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiAccessibility.cs",
+      "sha256": "03b055f0f274b92c773e1f10d803d2f838bfcd45ca6b66c471ae03398fa1a8ba"
+    },
+    {
+      "path": "src/MphRead.Android/AndroidRmlUiInput.cs",
+      "sha256": "5090f7b1482fffdcb608e1bfcc8a7d08e543b1ad5d62552da253c4832408a85d"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/AdventureController.cs",
+      "sha256": "ddf1cb460c3ed1896261df012bed7e801d58c1af863b12d876a04986d54b376c"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/AimResultsController.cs",
+      "sha256": "f21dba07d6942177a5ba9413f97654e517bcb509338820ecb3b35863cf0f72c4"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/CommunityController.cs",
+      "sha256": "07abc7459c4da772d6135c9d6cf99a87586d0df6f337dcc15500d816043553a3"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/CommunityEngineBackend.cs",
+      "sha256": "e0f979deb92065455b339568f79af70245023f17904ecf42d33c00febea60d6c"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/HudEditorController.cs",
+      "sha256": "7e2c4832d5845e1c3f4bf15b430fb464d13208b9d0472c4c684462481510b78a"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/HunterSelectionController.cs",
+      "sha256": "1c9b834889882c2e3569f14e318bc65ce38eebfd62ceef93a5fdb232f578535d"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/InGameController.cs",
+      "sha256": "5b527e1a400167e4c260fe19ab53f8423d776671b28a15c0846c48797bbc0be0"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/LauncherHunterSelectionBackend.cs",
+      "sha256": "82037ea5bac94e798d7cbb3d1d2f9ec05323df2521ca4bcc4a2049e80077bd8e"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/LauncherLicenseBackend.cs",
+      "sha256": "f11e26172d6dba457b28d60572fa66131db1ddc673c7085092d255605d87fc25"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/LauncherRouter.cs",
+      "sha256": "5272303f557ca0c36cc1ac0e433f89a17c50023b44b9a938c781427f6b78bee6"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/LauncherSocialBackend.cs",
+      "sha256": "4b01d79cffae7f6a6607074a5937bcfa217471e471911413a37f2b538c552bc7"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/LicenseController.cs",
+      "sha256": "cbe48147168f487c8d0b685feb18d8ca5fe3338472aca4d5be90e9c254915668"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/LobbySessionController.cs",
+      "sha256": "c4905635cdccb404a1a65806c929533ce56c97e7fb078a9d8ae2e494306c8f77"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/MatchResultsController.cs",
+      "sha256": "cc1ffba6eaabd092ced89e6823b99d6f21c77961dbdec0bab055cae7a32950f1"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/NetLobbySessionBackend.cs",
+      "sha256": "643c4d8b3badde998020d90d770cc7708764745254246c74b9a527615bddc700"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/NewsCatalog.cs",
+      "sha256": "d8cc4c7c838f112dc1e12410c2f44f06897c87cfac192f110383a3576cc10b1f"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/NewsController.cs",
+      "sha256": "73d500607c2ec42de984f24549b039774058fd467884a9b22da64a071c22da68"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/NewsEngineBackend.cs",
+      "sha256": "38e8b7f0ea0956ce2b391fba60aa8a87fd359edcff2a165e3303a300795ac575"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/OfflineController.cs",
+      "sha256": "445d74b86c33ddc3af77665c0624d9e6e91fd22d2590e6937ad91521536196f2"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
+      "sha256": "5bc01d3d54424a652ccf7ed6bdfcd3f93d5e3ac5f297760b0390c3644bbe5965"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/SetupController.cs",
+      "sha256": "23427d33db99f8b14e4019fa55ebe0f6b7cc839440ab768b7cf28ee0e43ecb86"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/SocialController.cs",
+      "sha256": "108130c99f9d84de35f398066698d9bc8d36ca161ac33bf28e9d07dacf77791a"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/StudioController.cs",
+      "sha256": "e89261dcec0fdb1c2ddac5bb689230354aa168d806899ef7e7c35ca780809b27"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/StudioEntryBackend.cs",
+      "sha256": "257495e8251123457ee85e887de38075956ab54b659c41429323c2160657cad2"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/TheatreController.cs",
+      "sha256": "56799e168593563439861ec59d4ff217066b71f1ee7dbfb860355f1ca0df1b9e"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/TheatreEngineBackend.cs",
+      "sha256": "69f8e27693c024d0a53489e799ca14522300cda510be65beafab66c850960062"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/TheatrePlaybackController.cs",
+      "sha256": "77039d9b54335418889968b2d27a42e1464ed9b3ebd0584427fb161ca088ed5f"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Core/TheatreViewportController.cs",
+      "sha256": "59aadcf77cc1b0e58277e4d00fdabd49038893238eb80257e912e6d5983c51b0"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/RmlMultiplayerController.cs",
+      "sha256": "91ca3c9c4263a28c15bb82f2689d9606f2a702a86024e0a1a8db524732728bb6"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/Shell.RmlUi.cs",
+      "sha256": "2a1827e6afa2d84a0d7d3c99f18ce535319e05cab7356354ee05558d840098aa"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiLinks.cs",
+      "sha256": "08feee628d4c6811b7ee2afcdb9d3d50ff2696e4d7273477c63b42c6bc9ec1f3"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiPages.cs",
+      "sha256": "ac8f50ae484a0be71e7eb36316e118ea79b55ca999c9d5b834855025613c7c8f"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiQueue.cs",
+      "sha256": "168c8d1461c904b7cc7f12575e9764a0e016ca7f601a1ca7d01e1eb49974a0ce"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiSocial.cs",
+      "sha256": "49e26aa1dff5fe81113e7cde70e1333aedc8415ccf31578bf5496341d075358b"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiAccessibility.cs",
+      "sha256": "e7be0919656896a21e733297707b90b7b4af617bca7ade41264376e21d2df11b"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiCocoaAccessibility.cs",
+      "sha256": "4cb00313b9590e3a080652732405d0393d15e7a496a1899d7810d34370bb45d3"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiLinuxAccessibility.Protocol.cs",
+      "sha256": "f8ae9ffd770c153c8f58e376957e01bf46941c48260afa4851907c124458fce6"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiLinuxAccessibility.cs",
+      "sha256": "c8d6db69d44977581baac37dcbd03123893f92c0fc1e41d40e8c60dcb4da9de5"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Components/RmlUiWindowsAccessibility.cs",
+      "sha256": "503e8f2f61f45a532f29088d86e24bcc300ec4d431a46eaa68add9a14b96ef79"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiCocoaIme.cs",
+      "sha256": "5b283a1698f1d34427e0c150adde56b149e07d2b7ab89e88bca90a3219b3c96a"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiDesktopInput.cs",
+      "sha256": "a5b24460c175ed03db455967859dbfa60acf57010ab84578d930a3007ac19223"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiIbusApi.cs",
+      "sha256": "9f2c3f934d8476a33d998100fbe5bc401044109442bf9c3aea9e8a272356e195"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiInput.cs",
+      "sha256": "93d6070963fc53d8e87176930c7946937324fb9d4ea495b088c1ca76822f0f67"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiLauncherPages.cs",
+      "sha256": "baed9c0fb87b0386f9676f07b5a83e0d1256e42058444efc8a47b830a58893f9"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiLinuxIme.cs",
+      "sha256": "e659938b6822a06ce1e33dfb064b93b3a0706024c2f0d2c0f4f2841e1d830569"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Host/RmlUiWindowsIme.cs",
+      "sha256": "01ea81234672211e0466ce696dc961ea9f418ea4ea86c1264de8d2a8ed1007c6"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/adventure/AdventurePagePresenter.cs",
+      "sha256": "4861097d700975b3643cfa7e1a398b0e7ef1f5c89e270fea430e24f0ddfdbdbe"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/community/CommunityPagePresenter.cs",
+      "sha256": "b03e6845077e94672467f1fb6e3056f0b8b42ffc1c224e9139c9903044c0e7a3"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/home/home.rml",
+      "sha256": "757f01d964f9cdb46f3a251ea093c4519b142e9f13254b64c806178cca07de64"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/hud/HudEditorPagePresenter.cs",
+      "sha256": "2d2af8684cd6bf36f207560735ac8481721dd9b96dcd8a37aa98d218246aeab6"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/AimResultsPagePresenter.cs",
+      "sha256": "e0dd47d7fe1c273524a4b27ef8d949a3c77fe9b54f1c2739c32be14a07ff8dce"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/InGamePagePresenter.cs",
+      "sha256": "9aa3f09c123a494ba24b5b99deb54343f10256f7475c0b99bf19989a821a654b"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/ingame/MatchResultsPagePresenter.cs",
+      "sha256": "43837df37dc932a7769fbb454953fc987f00320c02c3d6804adfc563e2248c83"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/license/LicensePagePresenter.cs",
+      "sha256": "f44b8fc793ca87f514bab662227e2402f51a8665615a11363876020ed5bcc885"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/lobby.rml",
+      "sha256": "f907593e0123165025d4b40ae1c21803dc89a2abe55e779b5f468df54739113f"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/news/NewsPagePresenter.cs",
+      "sha256": "826c9e9f95e9598ae96cd48926fffbf96c73136e14877bbf76526bc24457c092"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/news/news.rml",
+      "sha256": "1ae53921c24637d0e84727c8984072e13b3a93a4a9b5eeb983220cef250edd96"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/offline/OfflinePagePresenter.cs",
+      "sha256": "0061d59866ca104e7138e55fc14f87cb56812ce498f85fb7c1a9048dbdafcfdb"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/play/browser.rml",
+      "sha256": "04d8606961b1daf752d853f0d78b2469de5ec52f4f64d1ef6abc881aeb7c08b1"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/play/queue.rml",
+      "sha256": "f3b6d83e9879b40165cbbb0b53d62eada91e785202f8c40af5bd6c7e0c6eab9a"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss",
+      "sha256": "f82c971a61fe156946b521fea1d3834ca1748ba7522469ad76fdf7d5ec919630"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+      "sha256": "23033c5aa6526c0caad23ba025101e1401ba210ae53f8e237afb8d3d8259ddf2"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/setup/EngineSetupBackend.cs",
+      "sha256": "486b25129c18f291b4f1810aeedb0c3698988c2a920e6d99b1d97e047b0efefc"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/setup/SetupPagePresenter.cs",
+      "sha256": "43d6094e8e98f6430b707177d57b9f59b399c448c50e44ea5eb7c7207fee6491"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/social/SocialPagePresenter.cs",
+      "sha256": "d454b8bb36f127ed379e620fbe686598fe2cc67017eac1e49b9bbf33a22f336b"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/studio/StudioPagePresenter.cs",
+      "sha256": "51042caf8bdbd1e7b0b8fbc50b525adbaa3cc30d9b7a702b11299c5cd9b9cfb9"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/theatre/TheatrePagePresenter.cs",
+      "sha256": "10c033b6ec7b174b79d161a4f15b9b2a82de002ab8a8404f079b90473f4f8bea"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/theatre/TheatrePlaybackPagePresenter.cs",
+      "sha256": "187993a92a1ea19ae2bd0c6a20fad81461ec76b3ae7036570451347cfd7f892b"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlHunterSelectionPresenter.cs",
+      "sha256": "33e10625b97f476649b095c0a35af24c8d3cc912bc23e90b6fcc97e57ad93d91"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlLobbyAdminPresenter.cs",
+      "sha256": "7c7a3d97e09b757dd466776f34ac4b3132f9de7c17e650ca0825fca1239dc45d"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlUiLobbyBindings.cs",
+      "sha256": "3cf94e00dea6f99d2cc329ab0bfc464ae2bb4a59d5da4b9c38e50dd8c6c7d163"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.Hud.cs",
+      "sha256": "051bc11209e1410bd8732900eb170b261595d9779fb28a96c0b758fa32d65e19"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
+      "sha256": "79adbeb60de39b46b35a983aa6e88983c1ccabede913aac1d3930f2c1f97c500"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+      "sha256": "ed0e7d47cd7a6e5400a1adf9f6b73a0da64428b31c26f9064aebd73ba8e396c6"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
+      "sha256": "cb385a57d5e3d72591822954dadfec5176d3d848e4dbbb17208bff4d98daa1e3"
+    }
+  ],
+  "user_owned_live_coverage": [
+    "External physical device/vendor IME/VoiceOver/TalkBack/NVDA/Narrator/Orca",
+    "Rendered multiplayer/multiple real game windows/gameplay ergonomics; not exercised by the explicit empty-scene DOM/UDP fixture"
+  ],
+  "post_aggregate_candidate": {
+    "status": "applied-unmerged-development-candidate",
+    "release_accepted": false,
+    "native_source_fingerprint": "54bdf92e2ae8858de2cbc4ee7861b91ef9a17ba8d69b8443dd6265b7436bc3e6",
+    "files": [
+      {
+        "path": "src/MphRead.Android/AndroidRmlUi.NoAvalonia.targets",
+        "working_tree_sha256": "0db7a2939c96573eb27c6ddb1ddeff68277ba6a68d29e56c91e0c088bd6f2ae0",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "src/MphRead.Android/AndroidRmlUiView.cs",
+        "working_tree_sha256": "ec7215c2be3f2ff731a78c1c30344bca5c7619b87554ed1fd1d9bba5252a35f8",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "src/MphRead.Android/MphRead.Android.csproj",
+        "working_tree_sha256": "b9d6db9add84ba0cd9f8901ec023b5cf90173e2270eb1da723e3d5ed0df0974c",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "src/MphRead.Android/Native/MainActivity.RmlUi.cs",
+        "working_tree_sha256": "20bb023c11884d17578c4261053524f422ca7f3217dfbd862f6f5c20975f1c8a",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "src/MphRead/Mods/Launcher/Core/LauncherUiSelectionPolicy.cs",
+        "working_tree_sha256": "6ea04c77c291d0c4b6f02417d71b72023865e84b1b3ca8040b610e885b8c4afe",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "src/MphRead/Mods/Launcher/Gui/Shell.cs",
+        "working_tree_sha256": "5c23f2a4923de2c0a9e6f6ed2c96d82187290c3e13e833753798e8aa302c25ec",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "src/MphRead/Mods/Launcher/Native/NativeShell.cs",
+        "working_tree_sha256": "f38f606fd10a82dd971f31b9dab0c76005b45304ca6112b063037af16e206f15",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "src/MphRead/Mods/Launcher/Portable/LauncherUiRuntime.cs",
+        "working_tree_sha256": "e44f75cb9b0972feeba4f7cbb6b1962c5a0ec97e3c72d42900a2b6717a78f3f8",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "src/MphRead/Mods/Render/RendererCompatibilityRestart.cs",
+        "working_tree_sha256": "d62c1e6c5f6299638115b53231967afe3a8dfffbf0680ceaa819715dc344e8be",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "src/MphRead/MphRead.StudioEngine.csproj",
+        "working_tree_sha256": "f3add4f1f54f23522acfe24478501f8c523619bd883da92e9c1f2f5e29a296e5",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "src/MphRead/MphRead.csproj",
+        "working_tree_sha256": "dd669ebcf5d01f99c6d41a096a5f3c1c3bf60babea7b5a38a80af8c5e8b55d7b",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "src/ProjectPrime.Studio/ProjectPrime.Studio.csproj",
+        "working_tree_sha256": "45f74521aa6c320a88f3166ce20b1a3335bf6fad60651a59e0021a097bf70015",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "tools/default-client-check/README.md",
+        "working_tree_sha256": "5467a55286380a5dc2253284708fd3f11fc92cb1117c39e8a595bb8d2e21be24",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "tools/default-client-check/check.py",
+        "working_tree_sha256": "2287a7690ffbcc6ebb840616ee621a3cbc2277be12a3d776ec0c89c543f5ba3c",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "tools/launcher-ui-policy-check/Program.cs",
+        "working_tree_sha256": "52090f2f922817d235e8da45f3644c2fb7defb5860588395ca58e4e943c5d453",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "tools/launcher-ui-policy-check/launcher-ui-policy-check.csproj",
+        "working_tree_sha256": "1107315cdcb28bad0540b3853130de094aa34136e35bfd6c6f986cdc8ae4d8f0",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "tools/launcher-ui-policy-check/process-check.py",
+        "working_tree_sha256": "07a625f80eb9d88421b18b9aec5d48ff92da3b29c774d225422edb2ca9917ab0",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "tools/native-client-check/README.md",
+        "working_tree_sha256": "39c806d36e9abe598909f89dcd59acc63b6ea1960c8ec062fab26772ceaa7432",
+        "matches_reviewed_candidate_bytes": true
+      },
+      {
+        "path": "tools/native-client-check/check.py",
+        "working_tree_sha256": "2cee63bf9fdbe99ceb18b941bfc8a5a1d9c1bd09aa100dd2bc9ec669e00c101e",
+        "matches_reviewed_candidate_bytes": true
+      }
+    ]
+  },
+  "fixture_projection_barrier_in_aggregate": false,
+  "post_aggregate_fixture_changes": "Android CHECK initial-focus exact owner/provider projection barrier is a later fixture change; final54 actual retry pending, production revision guards unchanged.",
+  "conditional_studio_status": "game-client entry implemented; independent Studio retains its toolkit under the conditional track; standalone authoring migration is not claimed",
+  "open_release_gates": [
+    "Windows/Linux production runtime/packaging/clean-install/signing/CI matrix",
+    "Exact-head automated native DOM/UDP/server 2/4/8-player, custom-map, queue/admin/ready and match-return/recovery checks; rendered gameplay live coverage user-owned",
+    "Automated emulator safe-area/IME/controller/background/surface/device recovery; physical vendor-device runs are user-owned coverage",
+    "Complete legacy-vs-native golden/hit traces and same-machine cold/idle/p95/resource measurements",
+    "Per-route six-language body localization and automated platform-provider acceptance; physical screen readers are user-owned coverage",
+    "Accepted default/canary rollout, client dependency removal and conditional Studio acceptance"
+  ],
+  "review_delivery": {
+    "requested_by_user": "one aggregate PR to main; skip further checks",
+    "supersedes_attached_plan": "per-slice PR and check sequencing",
+    "candidate_state": "implemented-applied-unmerged-development-source",
+    "game_client_default": "RmlUi; Avalonia excluded from ordinary desktop and Android graphs",
+    "independent_studio": "retains Avalonia through isolated toolkit engine projection",
+    "release_parity_accepted": false,
+    "additional_checks": "skipped per user",
+    "performance": "No complete paired actual-Home sample set; native trace lost Home workload after route changed to Social, not a confirmed runtime hang."
+  },
+  "validation_policy": "User requests no further checks. Preserve named historical evidence and explicitly unperformed validation; do not infer current-head or release acceptance.",
+  "fixture_final54_validation": "Initial-focus exact owner/provider projection barrier added; final54 actual retry has not been reported passing at this observation. Production guards unchanged."
+}
