@@ -751,11 +751,11 @@ border-color: rgba(114,199,255,22%);
     margin-right: 4dp;
     background-color: rgba(43,158,247,24%);
 }
-.home_signal_meter i:nth-child(2) { height: 5dp; background-color: rgba(43,158,247,32%); }
-.home_signal_meter i:nth-child(3) { height: 8dp; background-color: rgba(114,199,255,42%); }
-.home_signal_meter i:nth-child(4) { height: 11dp; background-color: rgba(114,199,255,58%); }
-.home_signal_meter i:nth-child(5) { height: 7dp; background-color: rgba(43,158,247,38%); }
-.home_signal_meter i:nth-child(6) { height: 4dp; background-color: rgba(43,158,247,26%); }
+.home_signal_meter .meter_2 { height: 5dp; background-color: rgba(43,158,247,32%); }
+.home_signal_meter .meter_3 { height: 8dp; background-color: rgba(114,199,255,42%); }
+.home_signal_meter .meter_4 { height: 11dp; background-color: rgba(114,199,255,58%); }
+.home_signal_meter .meter_5 { height: 7dp; background-color: rgba(43,158,247,38%); }
+.home_signal_meter .meter_6 { height: 4dp; background-color: rgba(43,158,247,26%); }
 
 #home_social_activity {
     right: 46dp;
@@ -776,7 +776,6 @@ border-color: rgba(114,199,255,22%);
     text-align: center;
     border-right: 1dp rgba(114,199,255,8%);
 }
-.home_social_stat:last-child { border-right: 0; }
 .home_social_stat b {
     display: block;
     color: #ffffff;
@@ -832,7 +831,7 @@ border-color: rgba(114,199,255,22%);
     font-size: 7dp;
     line-height: 11dp;
     letter-spacing: 0.6dp;
-    border: 1dp dashed rgba(114,199,255,8%);
+    border: 1dp rgba(114,199,255,8%);
 }
 
 @media (max-width: 1500dp) {

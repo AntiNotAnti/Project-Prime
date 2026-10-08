@@ -275,6 +275,9 @@ namespace MphRead.Mods.Render
                     signal.R, signal.G, signal.B, 0.055f + (i % 3) * 0.012f);
             }
 
+            DrawHunterMotif(LauncherHunter.Hunter, theme, time,
+                centerX, centerY, spanX, spanY);
+
             // Floor runway pips travel toward the hero platform and make the
             // lower chamber feel operational rather than painted.
             float travel = LauncherPrefs.ReduceMotion
@@ -290,6 +293,123 @@ namespace MphRead.Mods.Render
                     activity.Accent.R, activity.Accent.G, activity.Accent.B, a);
                 DrawRadial(centerX + spread, y, 0.018f, 0.008f,
                     activity.Accent.R, activity.Accent.G, activity.Accent.B, a);
+            }
+
+            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+        }
+
+        private static void DrawHunterMotif(Hunter hunter,
+            LauncherHunterTheme theme, double time,
+            float centerX, float centerY, float spanX, float spanY)
+        {
+            float phase = LauncherPrefs.ReduceMotion ? 0f : (float)time;
+            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
+
+            switch (hunter)
+            {
+                case Hunter.Spire:
+                    // Slow ember orbit and a warm floor shimmer echo Spire's
+                    // volcanic silhouette without turning the whole bay orange.
+                    for (int i = 0; i < 12; i++)
+                    {
+                        float angle = i * (MathF.PI * 2f / 12f) + phase * 0.11f;
+                        float radiusX = spanX * (0.42f + (i % 3) * 0.035f);
+                        float radiusY = spanY * (0.30f + (i % 2) * 0.025f);
+                        float x = centerX + MathF.Cos(angle) * radiusX;
+                        float y = centerY + MathF.Sin(angle) * radiusY;
+                        float size = 0.004f + (i % 4) * 0.0015f;
+                        DrawRadial(x, y, size, size,
+                            theme.Particle.R, theme.Particle.G, theme.Particle.B,
+                            0.045f + (i % 3) * 0.014f);
+                    }
+                    DrawRadial(centerX, centerY + spanY * 0.44f,
+                        spanX * 0.54f, 0.030f,
+                        theme.Floor.R, theme.Floor.G, theme.Floor.B, 0.055f);
+                    break;
+
+                case Hunter.Trace:
+                    // A few red stealth scan slivers blink in alternating
+                    // columns, deliberately behind rather than over the model.
+                    for (int i = 0; i < 5; i++)
+                    {
+                        float pulse = 0.5f + 0.5f *
+                            MathF.Sin(phase * 0.68f + i * 1.47f);
+                        float x = centerX - spanX * 0.43f + i * spanX * 0.215f;
+                        float h = 0.030f + pulse * 0.065f;
+                        DrawSolidRect(x - 0.0015f, centerY - h * 0.5f,
+                            x + 0.0015f, centerY + h * 0.5f,
+                            theme.Rim.R, theme.Rim.G, theme.Rim.B,
+                            0.018f + pulse * 0.040f);
+                    }
+                    break;
+
+                case Hunter.Sylux:
+                    // Cold power nodes breathe around the rear rim.
+                    for (int i = 0; i < 6; i++)
+                    {
+                        float angle = i * (MathF.PI * 2f / 6f) - phase * 0.075f;
+                        float x = centerX + MathF.Cos(angle) * spanX * 0.46f;
+                        float y = centerY + MathF.Sin(angle) * spanY * 0.31f;
+                        float pulse = 0.5f + 0.5f * MathF.Sin(phase * 0.9f + i);
+                        DrawRadial(x, y, 0.009f + pulse * 0.005f,
+                            0.009f + pulse * 0.005f,
+                            theme.Rim.R, theme.Rim.G, theme.Rim.B,
+                            0.035f + pulse * 0.045f);
+                    }
+                    break;
+
+                case Hunter.Kanden:
+                    // Organic energy pulses, offset rather than perfectly
+                    // circular, keep Kanden's bay feeling unstable.
+                    for (int i = 0; i < 5; i++)
+                    {
+                        float pulse = 0.5f + 0.5f *
+                            MathF.Sin(phase * 0.52f + i * 1.31f);
+                        float x = centerX + (i - 2) * spanX * 0.12f;
+                        float y = centerY - spanY * 0.18f + (i % 2) * spanY * 0.24f;
+                        DrawRadial(x, y,
+                            0.010f + pulse * 0.012f, 0.010f + pulse * 0.008f,
+                            theme.Particle.R, theme.Particle.G, theme.Particle.B,
+                            0.020f + pulse * 0.040f);
+                    }
+                    break;
+
+                case Hunter.Noxus:
+                    // Sparse crystalline points stay colder and steadier than
+                    // the other hunter motifs.
+                    for (int i = 0; i < 6; i++)
+                    {
+                        float x = centerX + ((i % 3) - 1) * spanX * 0.28f;
+                        float y = centerY - spanY * 0.22f + (i / 3) * spanY * 0.42f;
+                        DrawRadial(x, y, 0.006f, 0.013f,
+                            theme.Rim.R, theme.Rim.G, theme.Rim.B, 0.052f);
+                    }
+                    break;
+
+                case Hunter.Weavel:
+                    // Split mechanical rails mirror Weavel's asymmetry.
+                    float split = 0.5f + 0.5f * MathF.Sin(phase * 0.42f);
+                    DrawSolidRect(centerX - spanX * 0.47f, centerY - 0.002f,
+                        centerX - spanX * (0.17f + split * 0.05f), centerY + 0.002f,
+                        theme.Rim.R, theme.Rim.G, theme.Rim.B, 0.050f);
+                    DrawSolidRect(centerX + spanX * (0.15f + split * 0.04f), centerY - 0.002f,
+                        centerX + spanX * 0.48f, centerY + 0.002f,
+                        theme.Rim.R, theme.Rim.G, theme.Rim.B, 0.050f);
+                    break;
+
+                case Hunter.Samus:
+                    // Heroic scanner bands climb gently behind the armor.
+                    for (int i = 0; i < 3; i++)
+                    {
+                        float travel = LauncherPrefs.ReduceMotion
+                            ? 0.5f
+                            : (float)((time * 0.045 + i / 3.0) % 1.0);
+                        float y = centerY + spanY * (0.32f - travel * 0.64f);
+                        DrawSolidRect(centerX - spanX * 0.32f, y - 0.0012f,
+                            centerX + spanX * 0.32f, y + 0.0012f,
+                            theme.Rim.R, theme.Rim.G, theme.Rim.B, 0.028f);
+                    }
+                    break;
             }
 
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);

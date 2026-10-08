@@ -47,6 +47,9 @@ run native-package-audit python3 tools/rmlui/verify-runtime.py --package "$evide
 
 project rmlui-runtime-check --native "$library" "$assets"
 project rmlui-page-check --native "$library"
+run rmlui-home-ux dotnet run --project tools/rmlui-ux-check -c Release \
+    -p:PrimeAssemblyDirectory="$native_assembly" -- \
+    "$library" "$assets" "$evidence/home-ux"
 project launcher-ui-policy-check
 project rmlui-settings-check
 project rmlui-settings-engine-check
