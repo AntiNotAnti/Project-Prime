@@ -82,6 +82,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly Image _preview = new() { Height = 124, Stretch = Stretch.UniformToFill };
         private readonly string[] _rooms;
         private readonly List<byte> _targetSlots = new();
+        private LobbySnapshot? _displayedRoster;
 
         private MatchDefinition? _shownMatch;
         private MatchDefinition? _submittedMatch => Controller.PendingRuleMatch;
@@ -123,8 +124,8 @@ namespace MphRead.Mods.Launcher.Gui
             _team.Changed += (_, _) =>
             {
                 if (!_syncing && NetSession.LocalSlot >= 0)
-                    Controller.Dispatch(Controller.Intent(LobbyIntentKind.SetTeam) with
-                        { TargetSlot = (byte)NetSession.LocalSlot, Team = (sbyte)(_team.Index - 1) });
+                    Controller.Dispatch(DisplayedTargetIntent(LobbyIntentKind.SetTeam, (byte)NetSession.LocalSlot) with
+                        { Team = (sbyte)(_team.Index - 1) });
             };
 
             _map = new PickRow("Map");
@@ -229,8 +230,8 @@ namespace MphRead.Mods.Launcher.Gui
                 if (target == byte.MaxValue) return;
                 byte reduction = (byte)Math.Clamp(_handicap.Index * PlayerHandicap.Step,
                     0, PlayerHandicap.MaxDamageReduction);
-                Controller.Dispatch(Controller.Intent(LobbyIntentKind.SetHandicap) with
-                    { TargetSlot = target, DamageReduction = reduction });
+                Controller.Dispatch(DisplayedTargetIntent(LobbyIntentKind.SetHandicap, target) with
+                    { DamageReduction = reduction });
             };
 
             // Team management is a one-click action now. The previous flow was:
@@ -662,6 +663,7 @@ namespace MphRead.Mods.Launcher.Gui
         private void Refresh()
         {
             if (NetSession.ServerSession is not { } session) return;
+            _displayedRoster = Controller.Snapshot();
             _syncing = true;
             RefreshHunterChoices(_draftDirty && NetSession.CanEditLobby ? _lowTier.On : session.Match.LowTier);
             _suit.Index = NetSession.LocalColor;
@@ -927,6 +929,15 @@ namespace MphRead.Mods.Launcher.Gui
                 ? _targetSlots[_target.Index]
                 : byte.MaxValue;
 
+        private LobbyIntent DisplayedTargetIntent(LobbyIntentKind kind, byte target)
+        {
+            LobbyIntent intent = Controller.Intent(kind, target);
+            if (_displayedRoster is not { } displayed) return intent;
+            return intent with { ExpectedRevision = displayed.SessionRevision, ExpectedRosterRevision = displayed.RosterRevision,
+                TargetGeneration = displayed.Players.Where(player => player.Slot == target)
+                    .Select(player => player.Generation).FirstOrDefault() };
+        }
+
         private static bool CanChangePlayerTeam(SessionStatePacket session, byte slot) =>
             PlayerChoosesTeam(session.Match) && NetSession.IsInLobby && !NetSession.LobbyCommandPending
             && (NetSession.LocalIsLobbyOwner || (slot == NetSession.LocalSlot && !session.LockTeams));
@@ -937,7 +948,7 @@ namespace MphRead.Mods.Launcher.Gui
             var roster = NetSession.LobbyRoster();
             var layout = LobbyRules.ResolveTeamLayout(session.Match);
             if (LobbyPlayerRow.NextTeam(roster, slot, layout, direction) is { } team)
-                Controller.Dispatch(Controller.Intent(LobbyIntentKind.SetTeam) with { TargetSlot = slot, Team = team });
+                Controller.Dispatch(DisplayedTargetIntent(LobbyIntentKind.SetTeam, slot) with { Team = team });
             Refresh();
         }
 
@@ -945,15 +956,15 @@ namespace MphRead.Mods.Launcher.Gui
         {
             byte target = SelectedTargetSlot();
             if (target != byte.MaxValue)
-                Controller.Dispatch(Controller.Intent(LobbyIntentKind.SetTeam) with { TargetSlot = target, Team = team });
+                Controller.Dispatch(DisplayedTargetIntent(LobbyIntentKind.SetTeam, target) with { Team = team });
         }
 
         private void Admin(LobbyCommandType type)
         {
             byte target = SelectedTargetSlot();
             if (target != byte.MaxValue)
-                Controller.Dispatch(Controller.Intent(type == LobbyCommandType.TransferOwner
-                    ? LobbyIntentKind.TransferOwner : LobbyIntentKind.KickPlayer) with { TargetSlot = target });
+                Controller.Dispatch(DisplayedTargetIntent(type == LobbyCommandType.TransferOwner
+                    ? LobbyIntentKind.TransferOwner : LobbyIntentKind.KickPlayer, target));
         }
 
         private void RefreshTeamOrganizer(SessionStatePacket session, RosterPacket roster,

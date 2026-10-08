@@ -1,0 +1,35 @@
+<Project>
+  <!-- Opt-in dependency boundary. The established Android entry stays the
+       default until platform and workflow acceptance permits cutover. -->
+  <PropertyGroup>
+    <MphReadAvalonia Condition="'$(MphReadAvalonia)' == ''">false</MphReadAvalonia>
+    <MphReadAndroidNativeClient Condition="'$(MphReadAvalonia)' == 'false' and '$(MphReadRmlUiAndroid)' == 'true'">true</MphReadAndroidNativeClient>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(MphReadAndroidNativeClient)' == 'true'">
+    <DefineConstants>$([System.String]::Copy('$(DefineConstants)').Replace('MPHREAD_AVALONIA', ''));MPHREAD_ANDROID_NATIVE_CLIENT</DefineConstants>
+    <AvaloniaAccessUnstablePrivateApis>false</AvaloniaAccessUnstablePrivateApis>
+    <EnableAvaloniaXamlCompilation>false</EnableAvaloniaXamlCompilation>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MphReadAndroidNativeClient)' == 'true'">
+    <Compile Remove="MainActivity.cs;MainActivity.RmlUi.cs;MainApplication.cs;AndroidApp.cs;AndroidUiSurface.cs" />
+    <Compile Remove="../MphRead/Mods/Launcher/Gui/**/*.cs" />
+    <!-- These adapters expose existing engine/session authority and contain
+         no toolkit types. Android's native page/session owner reuses them. -->
+    <Compile Include="../MphRead/Mods/Launcher/Gui/RmlMultiplayerController*.cs;../MphRead/Mods/Launcher/Gui/RmlLobbyRulesEditor.cs" />
+    <Compile Include="Native/**/*.cs" />
+    <PackageReference Remove="Avalonia;Avalonia.Android;Avalonia.Themes.Fluent;Avalonia.Fonts.Inter" />
+    <AvaloniaResource Remove="@(AvaloniaResource)" />
+    <!-- Raster previews share production Skia algorithms. FileProvider is
+         Android's existing archive/log sharing seam; neither needs Avalonia. -->
+    <PackageReference Include="SkiaSharp" Version="3.119.4" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Android" Version="3.119.4" />
+    <PackageReference Include="Xamarin.AndroidX.Core" Version="1.17.0.2" />
+    <AndroidResource Remove="Resources/values/styles.xml" />
+    <AndroidResource Include="Native/native_styles.xml" Link="Resources/values/native_styles.xml" />
+  </ItemGroup>
+  <Target Name="ValidatePrimeAndroidNativeClient" BeforeTargets="PrepareForBuild;CollectPackageReferences"
+          Condition="'$(MphReadAvalonia)' == 'false'">
+    <Error Condition="'$(MphReadRmlUiAndroid)' != 'true'"
+           Text="MphReadAvalonia=false requires MphReadRmlUiAndroid=true on Android. Use the native default, or explicitly build the compatibility APK with MphReadAvalonia=true." />
+  </Target>
+</Project>

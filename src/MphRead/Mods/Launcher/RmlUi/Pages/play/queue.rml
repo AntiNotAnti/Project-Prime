@@ -1,0 +1,23 @@
+<rml>
+<head>
+    <title>Project Prime // Player waitlist</title>
+    <link type="text/template" href="../../components/dialog.rml" />
+    <link type="text/rcss" href="queue.rcss" />
+</head>
+<body template="prime-dialog">
+    <div id="play_queue_panel">
+        <div class="eyebrow">PLAY // PLAYER WAITLIST</div>
+        <h2>WAIT FOR A PLAYER SLOT?</h2>
+        <p id="play_queue_status" />
+        <p id="play_queue_position" />
+        <p id="play_queue_offer">OFFER EXPIRES IN <span id="play_queue_seconds" /> SECONDS</p>
+        <p>Your player joins after the server offers a slot and you accept it.</p>
+        <div class="queue_actions">
+            <button id="play_queue_join" class="primary" data-action="play:queue-join" disabled="disabled">JOIN WAITLIST</button>
+            <button id="play_queue_accept" class="primary" data-action="play:queue-accept" disabled="disabled">ACCEPT PLAYER SLOT</button>
+            <button id="play_queue_decline" data-action="play:queue-decline" disabled="disabled">DECLINE</button>
+            <button id="play_queue_leave" data-action="play:queue-leave">LEAVE / CANCEL</button>
+        </div>
+    </div>
+</body>
+</rml>

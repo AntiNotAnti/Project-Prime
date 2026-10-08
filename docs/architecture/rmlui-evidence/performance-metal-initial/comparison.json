@@ -1,0 +1,573 @@
+{
+  "format": 1,
+  "backend": "metal",
+  "runsPerMode": 3,
+  "comparison": {
+    "coldFirstPresentationMs": {
+      "legacyMedian": 931.1832,
+      "legacyRange": [
+        918.34,
+        3456.896
+      ],
+      "nativeMedian": 885.578,
+      "nativeRange": [
+        877.2768,
+        1346.203
+      ],
+      "nativeMedianWithinMeasuredBaselineWorst": true
+    },
+    "idleCpuPercentOfOneCore": {
+      "legacyMedian": 15.861289356119682,
+      "legacyRange": [
+        14.015609544079428,
+        17.181478778376235
+      ],
+      "nativeMedian": 31.07959379183293,
+      "nativeRange": [
+        29.552780852099513,
+        31.787318739038184
+      ],
+      "nativeMedianWithinMeasuredBaselineWorst": false
+    },
+    "p95UiFrameMs": {
+      "legacyMedian": 0.2371,
+      "legacyRange": [
+        0.19569999999999999,
+        0.2597
+      ],
+      "nativeMedian": 1.2456,
+      "nativeRange": [
+        1.1463,
+        1.307
+      ],
+      "nativeMedianWithinMeasuredBaselineWorst": false
+    },
+    "managedAllocatedBytes": {
+      "legacyMedian": 368781432,
+      "legacyRange": [
+        356160096,
+        368997064
+      ],
+      "nativeMedian": 60399704,
+      "nativeRange": [
+        60332056,
+        60432120
+      ],
+      "nativeMedianWithinMeasuredBaselineWorst": true
+    }
+  },
+  "samples": [
+    {
+      "format": 1,
+      "mode": "Avalonia",
+      "platform": "macOS 27.0.0",
+      "architecture": "Arm64",
+      "logicalProcessors": 12,
+      "width": 2560,
+      "height": 1440,
+      "firstPresentationFromProcessStartMs": 3456.896,
+      "warmupSeconds": 5,
+      "sampleSeconds": 20.0084127,
+      "frames": 1167,
+      "framesPerSecond": 58.325466267496566,
+      "processCpuSeconds": 2.804301,
+      "processCpuPercentOfOneCore": 14.015609544079428,
+      "processCpuPercentOfMachine": 1.167967462006619,
+      "totalUiFrame": {
+        "count": 1167,
+        "meanMs": 0.1416114824335904,
+        "p50Ms": 0.0354,
+        "p95Ms": 0.19569999999999999,
+        "maxMs": 7.3711
+      },
+      "update": {
+        "count": 1167,
+        "meanMs": 0.11055972579263068,
+        "p50Ms": 0.0087,
+        "p95Ms": 0.1725,
+        "maxMs": 7.3319
+      },
+      "render": {
+        "count": 77,
+        "meanMs": 0.14904415584415584,
+        "p50Ms": 0.013,
+        "p95Ms": 0.7446,
+        "maxMs": 0.816
+      },
+      "bitmapUpload": {
+        "count": 28,
+        "meanMs": 3.113596428571428,
+        "p50Ms": 2.1991,
+        "p95Ms": 6.352,
+        "maxMs": 6.476
+      },
+      "redraws": 77,
+      "redrawsPerSecond": 3.8483812361587284,
+      "bitmapUploads": 28,
+      "bitmapUploadBytes": 232243200,
+      "managedAllocatedBytes": 356160096,
+      "processWorkingSetBytes": 310771712,
+      "processPrivateBytes": 0,
+      "backend": "Metal",
+      "frameRateCap": 60,
+      "gpuResources": {
+        "Textures": 4,
+        "Renderbuffers": 0,
+        "Geometry": 0,
+        "Pipelines": 2,
+        "Programs": 0,
+        "Lists": 0,
+        "Views": 4,
+        "Samplers": 3,
+        "Buffers": 4,
+        "ShaderModules": 7,
+        "BindGroups": 2,
+        "Surfaces": 1,
+        "QuerySets": 0
+      },
+      "rmlGpuResources": {
+        "Geometry": 0,
+        "Buffers": 0,
+        "BufferCapacityBytes": 0,
+        "Textures": 0,
+        "TextureCapacityBytes": 0,
+        "StencilTextures": 0,
+        "EstimatedStencilBytes": 0,
+        "Pipelines": 0,
+        "ShaderModules": 0
+      },
+      "scope": "Production launcher UI update (including IME/accessibility) and native draw or Avalonia bitmap redraw/upload; full-process idle CPU includes scene/background services. Diagnostic runs disable SocialRuntime account/presence start and automatic updater network requests; IME and accessibility stay enabled.",
+      "storageNote": "Tracked native resource capacity is not driver residency or total VRAM. GPU completion time is not inferred from CPU submission time.",
+      "run": 1,
+      "assemblySha256": "603431ec1c027443af225b5a5098ab40231c1844792ae12a73b750080736055f",
+      "report": "avalonia-metal-1.json"
+    },
+    {
+      "format": 1,
+      "mode": "RmlUi",
+      "platform": "macOS 27.0.0",
+      "architecture": "Arm64",
+      "logicalProcessors": 12,
+      "width": 2560,
+      "height": 1440,
+      "firstPresentationFromProcessStartMs": 1346.203,
+      "warmupSeconds": 5,
+      "sampleSeconds": 20.0033792,
+      "frames": 1173,
+      "framesPerSecond": 58.640092170026946,
+      "processCpuSeconds": 6.216969,
+      "processCpuPercentOfOneCore": 31.07959379183293,
+      "processCpuPercentOfMachine": 2.589966149319411,
+      "totalUiFrame": {
+        "count": 1173,
+        "meanMs": 0.49718891730605275,
+        "p50Ms": 0.4301,
+        "p95Ms": 1.1463,
+        "maxMs": 2.0685
+      },
+      "update": {
+        "count": 1173,
+        "meanMs": 0.33749360613810714,
+        "p50Ms": 0.29,
+        "p95Ms": 0.7761,
+        "maxMs": 1.5168
+      },
+      "render": {
+        "count": 1173,
+        "meanMs": 0.1596953111679453,
+        "p50Ms": 0.139,
+        "p95Ms": 0.3952,
+        "maxMs": 0.6104
+      },
+      "bitmapUpload": {
+        "count": 0,
+        "meanMs": null,
+        "p50Ms": null,
+        "p95Ms": null,
+        "maxMs": null
+      },
+      "redraws": 1173,
+      "redrawsPerSecond": 58.640092170026946,
+      "bitmapUploads": 0,
+      "bitmapUploadBytes": 0,
+      "managedAllocatedBytes": 60399704,
+      "processWorkingSetBytes": 371867648,
+      "processPrivateBytes": 0,
+      "backend": "Metal",
+      "frameRateCap": 60,
+      "gpuResources": {
+        "Textures": 5,
+        "Renderbuffers": 0,
+        "Geometry": 3,
+        "Pipelines": 25,
+        "Programs": 5,
+        "Lists": 3,
+        "Views": 5,
+        "Samplers": 4,
+        "Buffers": 29,
+        "ShaderModules": 18,
+        "BindGroups": 92,
+        "Surfaces": 1,
+        "QuerySets": 0
+      },
+      "rmlGpuResources": {
+        "Geometry": 61,
+        "Buffers": 122,
+        "BufferCapacityBytes": 126456,
+        "Textures": 17,
+        "TextureCapacityBytes": 4030464,
+        "StencilTextures": 1,
+        "EstimatedStencilBytes": 14745600,
+        "Pipelines": 1,
+        "ShaderModules": 1
+      },
+      "scope": "Production launcher UI update (including IME/accessibility) and native draw or Avalonia bitmap redraw/upload; full-process idle CPU includes scene/background services. Diagnostic runs disable SocialRuntime account/presence start and automatic updater network requests; IME and accessibility stay enabled.",
+      "storageNote": "Tracked native resource capacity is not driver residency or total VRAM. GPU completion time is not inferred from CPU submission time.",
+      "run": 1,
+      "assemblySha256": "377637797423f62929f11edbbb71de55d2e647e62221795ded1ca8b20f3c90cf",
+      "report": "rmlui-metal-1.json"
+    },
+    {
+      "format": 1,
+      "mode": "Avalonia",
+      "platform": "macOS 27.0.0",
+      "architecture": "Arm64",
+      "logicalProcessors": 12,
+      "width": 2560,
+      "height": 1440,
+      "firstPresentationFromProcessStartMs": 918.34,
+      "warmupSeconds": 5,
+      "sampleSeconds": 20.0010025,
+      "frames": 1168,
+      "framesPerSecond": 58.39707284672356,
+      "processCpuSeconds": 3.436468,
+      "processCpuPercentOfOneCore": 17.181478778376235,
+      "processCpuPercentOfMachine": 1.4317898981980195,
+      "totalUiFrame": {
+        "count": 1168,
+        "meanMs": 0.170336301369863,
+        "p50Ms": 0.036000000000000004,
+        "p95Ms": 0.2597,
+        "maxMs": 7.5639
+      },
+      "update": {
+        "count": 1168,
+        "meanMs": 0.13349614726027395,
+        "p50Ms": 0.0085,
+        "p95Ms": 0.2442,
+        "maxMs": 7.4957
+      },
+      "render": {
+        "count": 78,
+        "meanMs": 0.18618589743589745,
+        "p50Ms": 0.0153,
+        "p95Ms": 0.7485,
+        "maxMs": 1.0476
+      },
+      "bitmapUpload": {
+        "count": 28,
+        "meanMs": 3.9513,
+        "p50Ms": 3.9265,
+        "p95Ms": 6.4424,
+        "maxMs": 6.705
+      },
+      "redraws": 78,
+      "redrawsPerSecond": 3.89980452229832,
+      "bitmapUploads": 28,
+      "bitmapUploadBytes": 232243200,
+      "managedAllocatedBytes": 368781432,
+      "processWorkingSetBytes": 377323520,
+      "processPrivateBytes": 0,
+      "backend": "Metal",
+      "frameRateCap": 60,
+      "gpuResources": {
+        "Textures": 4,
+        "Renderbuffers": 0,
+        "Geometry": 0,
+        "Pipelines": 2,
+        "Programs": 0,
+        "Lists": 0,
+        "Views": 4,
+        "Samplers": 3,
+        "Buffers": 5,
+        "ShaderModules": 7,
+        "BindGroups": 2,
+        "Surfaces": 1,
+        "QuerySets": 0
+      },
+      "rmlGpuResources": {
+        "Geometry": 0,
+        "Buffers": 0,
+        "BufferCapacityBytes": 0,
+        "Textures": 0,
+        "TextureCapacityBytes": 0,
+        "StencilTextures": 0,
+        "EstimatedStencilBytes": 0,
+        "Pipelines": 0,
+        "ShaderModules": 0
+      },
+      "scope": "Production launcher UI update (including IME/accessibility) and native draw or Avalonia bitmap redraw/upload; full-process idle CPU includes scene/background services. Diagnostic runs disable SocialRuntime account/presence start and automatic updater network requests; IME and accessibility stay enabled.",
+      "storageNote": "Tracked native resource capacity is not driver residency or total VRAM. GPU completion time is not inferred from CPU submission time.",
+      "run": 2,
+      "assemblySha256": "603431ec1c027443af225b5a5098ab40231c1844792ae12a73b750080736055f",
+      "report": "avalonia-metal-2.json"
+    },
+    {
+      "format": 1,
+      "mode": "RmlUi",
+      "platform": "macOS 27.0.0",
+      "architecture": "Arm64",
+      "logicalProcessors": 12,
+      "width": 2560,
+      "height": 1440,
+      "firstPresentationFromProcessStartMs": 885.578,
+      "warmupSeconds": 5,
+      "sampleSeconds": 20.010376,
+      "frames": 1173,
+      "framesPerSecond": 58.6195881576638,
+      "processCpuSeconds": 6.360762,
+      "processCpuPercentOfOneCore": 31.787318739038184,
+      "processCpuPercentOfMachine": 2.648943228253182,
+      "totalUiFrame": {
+        "count": 1173,
+        "meanMs": 0.5239674339300942,
+        "p50Ms": 0.44730000000000003,
+        "p95Ms": 1.307,
+        "maxMs": 2.2713
+      },
+      "update": {
+        "count": 1173,
+        "meanMs": 0.3514248934356352,
+        "p50Ms": 0.2998,
+        "p95Ms": 0.9767,
+        "maxMs": 2.115
+      },
+      "render": {
+        "count": 1173,
+        "meanMs": 0.17254254049445858,
+        "p50Ms": 0.1454,
+        "p95Ms": 0.4795,
+        "maxMs": 1.0525
+      },
+      "bitmapUpload": {
+        "count": 0,
+        "meanMs": null,
+        "p50Ms": null,
+        "p95Ms": null,
+        "maxMs": null
+      },
+      "redraws": 1173,
+      "redrawsPerSecond": 58.6195881576638,
+      "bitmapUploads": 0,
+      "bitmapUploadBytes": 0,
+      "managedAllocatedBytes": 60432120,
+      "processWorkingSetBytes": 367607808,
+      "processPrivateBytes": 0,
+      "backend": "Metal",
+      "frameRateCap": 60,
+      "gpuResources": {
+        "Textures": 5,
+        "Renderbuffers": 0,
+        "Geometry": 3,
+        "Pipelines": 25,
+        "Programs": 5,
+        "Lists": 3,
+        "Views": 5,
+        "Samplers": 4,
+        "Buffers": 29,
+        "ShaderModules": 18,
+        "BindGroups": 92,
+        "Surfaces": 1,
+        "QuerySets": 0
+      },
+      "rmlGpuResources": {
+        "Geometry": 61,
+        "Buffers": 122,
+        "BufferCapacityBytes": 126456,
+        "Textures": 17,
+        "TextureCapacityBytes": 4030464,
+        "StencilTextures": 1,
+        "EstimatedStencilBytes": 14745600,
+        "Pipelines": 1,
+        "ShaderModules": 1
+      },
+      "scope": "Production launcher UI update (including IME/accessibility) and native draw or Avalonia bitmap redraw/upload; full-process idle CPU includes scene/background services. Diagnostic runs disable SocialRuntime account/presence start and automatic updater network requests; IME and accessibility stay enabled.",
+      "storageNote": "Tracked native resource capacity is not driver residency or total VRAM. GPU completion time is not inferred from CPU submission time.",
+      "run": 2,
+      "assemblySha256": "377637797423f62929f11edbbb71de55d2e647e62221795ded1ca8b20f3c90cf",
+      "report": "rmlui-metal-2.json"
+    },
+    {
+      "format": 1,
+      "mode": "Avalonia",
+      "platform": "macOS 27.0.0",
+      "architecture": "Arm64",
+      "logicalProcessors": 12,
+      "width": 2560,
+      "height": 1440,
+      "firstPresentationFromProcessStartMs": 931.1832,
+      "warmupSeconds": 5,
+      "sampleSeconds": 20.006482,
+      "frames": 1165,
+      "framesPerSecond": 58.23112729164478,
+      "processCpuSeconds": 3.173286,
+      "processCpuPercentOfOneCore": 15.861289356119682,
+      "processCpuPercentOfMachine": 1.3217741130099736,
+      "totalUiFrame": {
+        "count": 1165,
+        "meanMs": 0.15762274678111587,
+        "p50Ms": 0.0345,
+        "p95Ms": 0.2371,
+        "maxMs": 8.0587
+      },
+      "update": {
+        "count": 1165,
+        "meanMs": 0.12447184549356226,
+        "p50Ms": 0.0085,
+        "p95Ms": 0.2031,
+        "maxMs": 8.0163
+      },
+      "render": {
+        "count": 77,
+        "meanMs": 0.1741012987012987,
+        "p50Ms": 0.0151,
+        "p95Ms": 0.7874,
+        "maxMs": 1.0677
+      },
+      "bitmapUpload": {
+        "count": 28,
+        "meanMs": 3.411364285714286,
+        "p50Ms": 3.0418,
+        "p95Ms": 5.9319,
+        "maxMs": 6.433
+      },
+      "redraws": 77,
+      "redrawsPerSecond": 3.848752619276093,
+      "bitmapUploads": 28,
+      "bitmapUploadBytes": 232243200,
+      "managedAllocatedBytes": 368997064,
+      "processWorkingSetBytes": 386269184,
+      "processPrivateBytes": 0,
+      "backend": "Metal",
+      "frameRateCap": 60,
+      "gpuResources": {
+        "Textures": 4,
+        "Renderbuffers": 0,
+        "Geometry": 0,
+        "Pipelines": 2,
+        "Programs": 0,
+        "Lists": 0,
+        "Views": 4,
+        "Samplers": 3,
+        "Buffers": 5,
+        "ShaderModules": 7,
+        "BindGroups": 2,
+        "Surfaces": 1,
+        "QuerySets": 0
+      },
+      "rmlGpuResources": {
+        "Geometry": 0,
+        "Buffers": 0,
+        "BufferCapacityBytes": 0,
+        "Textures": 0,
+        "TextureCapacityBytes": 0,
+        "StencilTextures": 0,
+        "EstimatedStencilBytes": 0,
+        "Pipelines": 0,
+        "ShaderModules": 0
+      },
+      "scope": "Production launcher UI update (including IME/accessibility) and native draw or Avalonia bitmap redraw/upload; full-process idle CPU includes scene/background services. Diagnostic runs disable SocialRuntime account/presence start and automatic updater network requests; IME and accessibility stay enabled.",
+      "storageNote": "Tracked native resource capacity is not driver residency or total VRAM. GPU completion time is not inferred from CPU submission time.",
+      "run": 3,
+      "assemblySha256": "603431ec1c027443af225b5a5098ab40231c1844792ae12a73b750080736055f",
+      "report": "avalonia-metal-3.json"
+    },
+    {
+      "format": 1,
+      "mode": "RmlUi",
+      "platform": "macOS 27.0.0",
+      "architecture": "Arm64",
+      "logicalProcessors": 12,
+      "width": 2560,
+      "height": 1440,
+      "firstPresentationFromProcessStartMs": 877.2768,
+      "warmupSeconds": 5,
+      "sampleSeconds": 20.0056774,
+      "frames": 1172,
+      "framesPerSecond": 58.58336993877548,
+      "processCpuSeconds": 5.912234,
+      "processCpuPercentOfOneCore": 29.552780852099513,
+      "processCpuPercentOfMachine": 2.4627317376749596,
+      "totalUiFrame": {
+        "count": 1172,
+        "meanMs": 0.4873209897610921,
+        "p50Ms": 0.4168,
+        "p95Ms": 1.2456,
+        "maxMs": 2.5069999999999997
+      },
+      "update": {
+        "count": 1172,
+        "meanMs": 0.32794931740614375,
+        "p50Ms": 0.2798,
+        "p95Ms": 0.9119,
+        "maxMs": 1.4215
+      },
+      "render": {
+        "count": 1172,
+        "meanMs": 0.1593716723549489,
+        "p50Ms": 0.1331,
+        "p95Ms": 0.4688,
+        "maxMs": 1.0855
+      },
+      "bitmapUpload": {
+        "count": 0,
+        "meanMs": null,
+        "p50Ms": null,
+        "p95Ms": null,
+        "maxMs": null
+      },
+      "redraws": 1172,
+      "redrawsPerSecond": 58.58336993877548,
+      "bitmapUploads": 0,
+      "bitmapUploadBytes": 0,
+      "managedAllocatedBytes": 60332056,
+      "processWorkingSetBytes": 369033216,
+      "processPrivateBytes": 0,
+      "backend": "Metal",
+      "frameRateCap": 60,
+      "gpuResources": {
+        "Textures": 5,
+        "Renderbuffers": 0,
+        "Geometry": 3,
+        "Pipelines": 25,
+        "Programs": 5,
+        "Lists": 3,
+        "Views": 5,
+        "Samplers": 4,
+        "Buffers": 29,
+        "ShaderModules": 18,
+        "BindGroups": 92,
+        "Surfaces": 1,
+        "QuerySets": 0
+      },
+      "rmlGpuResources": {
+        "Geometry": 61,
+        "Buffers": 122,
+        "BufferCapacityBytes": 126456,
+        "Textures": 17,
+        "TextureCapacityBytes": 4030464,
+        "StencilTextures": 1,
+        "EstimatedStencilBytes": 14745600,
+        "Pipelines": 1,
+        "ShaderModules": 1
+      },
+      "scope": "Production launcher UI update (including IME/accessibility) and native draw or Avalonia bitmap redraw/upload; full-process idle CPU includes scene/background services. Diagnostic runs disable SocialRuntime account/presence start and automatic updater network requests; IME and accessibility stay enabled.",
+      "storageNote": "Tracked native resource capacity is not driver residency or total VRAM. GPU completion time is not inferred from CPU submission time.",
+      "run": 3,
+      "assemblySha256": "377637797423f62929f11edbbb71de55d2e647e62221795ded1ca8b20f3c90cf",
+      "report": "rmlui-metal-3.json"
+    }
+  ],
+  "method": "Same hardware, extracted data, window, 60 fps fixture and backend; alternating fresh processes with 5 second warmup then requested idle sample. IME/accessibility enabled. Account/presence start and automatic updater network calls disabled in explicit diagnostics. CPU timing is UI submission cost, not GPU completion time.",
+  "criterion": "Observed baseline worst across these runs is the measured upper comparison bound; this small sample is evidence, not a cross-platform release acceptance decision."
+}

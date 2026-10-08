@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><AssemblyName>nettest</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/MphRead/MphRead.csproj" />
+    <Compile Include="../rmlui-multiplayer-check/LiveQueueChecks.cs" Link="LiveRig.cs" />
+    <None Include="../../src/MphRead/Mods/Launcher/RmlUi/Pages/**/*" Link="rmlui/pages/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/MphRead/Mods/Launcher/RmlUi/Themes/**/*" Link="rmlui/themes/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/MphRead/Mods/Launcher/RmlUi/Components/**/*" Link="rmlui/components/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/MphRead/Mods/Launcher/RmlUi/Assets/**/*" Link="rmlui/%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/MphRead/Assets/Fonts/*.ttf" Link="rmlui/fonts/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

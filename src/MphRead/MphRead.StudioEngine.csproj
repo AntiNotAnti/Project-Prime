@@ -1,0 +1,18 @@
+<Project TreatAsLocalProperty="MphReadAvalonia;MphReadRmlUi;MphReadRmlUiPoc;MphReadRmlUiEnabled;MphReadNativeClient;MphReadNativeDefault;MphReadStudioEngine;MphReadServer;PublishSingleFile">
+  <!-- Independent restore/output identity for Studio's toolkit engine. Import
+       the authoritative engine project rather than copying source algorithms. -->
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>obj/StudioEngine/</BaseIntermediateOutputPath>
+    <BaseOutputPath>bin/StudioEngine/</BaseOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin/**;obj/**</DefaultItemExcludes>
+    <MphReadStudioEngine>true</MphReadStudioEngine>
+    <MphReadAvalonia>true</MphReadAvalonia>
+    <MphReadRmlUi>false</MphReadRmlUi>
+    <MphReadRmlUiPoc>false</MphReadRmlUiPoc>
+    <MphReadRmlUiEnabled>false</MphReadRmlUiEnabled>
+    <MphReadNativeClient>false</MphReadNativeClient>
+    <MphReadNativeDefault>false</MphReadNativeDefault>
+    <MphReadServer>false</MphReadServer>
+  </PropertyGroup>
+  <Import Project="MphRead.csproj" />
+</Project>

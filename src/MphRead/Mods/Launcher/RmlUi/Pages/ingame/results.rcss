@@ -1,0 +1,13 @@
+body { font-family: Rajdhani; font-size: 17dp; color: #d8edff; background-color: transparent; }
+.results-panel { position: absolute; right: 14dp; top: 14dp; width: 340dp; max-width: 92vw; max-height: 94vh; padding: 16dp; overflow: auto; background-color: rgba(7,23,39,94%); border: 1dp #356689; }
+.results-panel > div, .results-panel > h1, #results_ballot > div { display: block; width: 304dp; }
+h1 { display: block; font-size: 28dp; margin: 6dp 0 10dp; } .eyebrow { color: #78caff; font-size: 13dp; } .error { color: #ffb9aa; }
+button { tab-index: auto; min-height: 42dp; padding: 8dp 10dp; margin: 4dp 3dp 4dp 0; color: #d8edff; background-color: #123554; border: 1dp #356689; font-size: 15dp; }
+button:hover,button:focus { border-color: #8ed6ff; background-color: #225b81; } button.selected { border-color: #b9e7ff; background-color: #225b81; } button.leader { border-left: 4dp #82d399; }
+button.unavailable,button:disabled { color: #647d91; background-color: #102435; border-color: #253c4f; } button.primary { background-color: #1765a0; }
+input { display: block; tab-index: auto; width: 282dp; height: 40dp; color: #d8edff; background-color: #071b2d; border: 1dp #356689; padding: 5dp; }
+.result-maps button, .results-panel > button { display: block; width: 294dp; } .result-next { padding: 8dp 0; color: #a5dbff; } .result-pages { display: flex; align-items: center; } .result-pages span { margin: 0 4dp; }
+.aim-results { background-color: rgba(2,9,18,70%); } .aim-panel { width: 88vw; max-width: 960dp; max-height: 94vh; margin: 2vh auto; padding: 18dp; overflow: auto; background-color: rgba(7,23,39,94%); border: 1dp #356689; }
+.aim-panel > div, .aim-panel > h1, .aim-metrics { display: block; width: 82vw; max-width: 910dp; } .aim-metrics > div { display: block; width: 80vw; max-width: 890dp; margin: 7dp 0; }
+.aim-actions { display: flex; flex-wrap: wrap; } .aim-actions button { min-width: 200dp; flex-shrink: 0; }
+@media (max-width: 700dp) { .results-panel { width: 285dp; } .results-panel > div,.results-panel > h1,#results_ballot > div { width: 249dp; } input { width: 227dp; } .result-maps button,.results-panel > button { width: 239dp; } }

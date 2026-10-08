@@ -1,6 +1,6 @@
 # Shared shader generation
 
-World, deferred material and post-process WGSL are generated from the existing
+World, deferred material, post-process and launcher chamber WGSL are generated from the existing
 GLSL formulas. This keeps AA, shadow filtering, material maps, dynamic lights,
 depth effects and TAA rejection logic in one source of truth.
 

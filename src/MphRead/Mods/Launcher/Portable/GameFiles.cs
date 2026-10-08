@@ -63,7 +63,7 @@ namespace MphRead.Mods.Launcher
                     return "The extracted files are from an older version -- set up again";
                 }
             }
-            catch (IOException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
                 return "paths.txt could not be read";
             }
@@ -171,6 +171,12 @@ namespace MphRead.Mods.Launcher
             };
             // One argument, no switches: that is the form upstream's setup
             // recognises, and it is what dragging a ROM onto the exe produces.
+            // Framework-dependent development runs use dotnet as ProcessPath;
+            // that host needs this application assembly before the ROM argument.
+            if (Path.GetFileNameWithoutExtension(exe).Equals("dotnet", StringComparison.OrdinalIgnoreCase))
+            {
+                info.ArgumentList.Add(typeof(GameFiles).Assembly.Location);
+            }
             info.ArgumentList.Add(romPath);
             try
             {
@@ -270,16 +276,20 @@ namespace MphRead.Mods.Launcher
         /// Upstream's <c>Extract.Setup</c> writes to the console, so the
         /// console is pointed at the caller's report for the duration. It can
         /// also *read* from it -- once, to ask whether an existing path should
-        /// be replaced -- and there is no stdin here to answer with, so a
-        /// device that already has files set up is told to clear them rather
-        /// than left waiting on a question nobody can see.
+        /// be replaced. The graphical caller confirms replacement first, and
+        /// the same input answers as the desktop child cover that prompt.
         /// </summary>
         private static bool RunSetupHere(string romPath, Action<string> report)
         {
             TextWriter previous = Console.Out;
+            TextReader previousInput = Console.In;
             try
             {
                 Console.SetOut(new ReportWriter(report));
+                // The graphical setup action confirms replacement before this
+                // entry point. Feed the same answers as the desktop child so an
+                // existing Android extraction never waits on an invisible stdin.
+                Console.SetIn(new StringReader("y\n\n"));
                 if (!Extract.Setup(romPath))
                 {
                     return false;
@@ -293,6 +303,7 @@ namespace MphRead.Mods.Launcher
             finally
             {
                 Console.SetOut(previous);
+                Console.SetIn(previousInput);
             }
             string? problem = Problem();
             if (problem != null)

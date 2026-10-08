@@ -54,7 +54,7 @@ namespace MphRead.Droid
         // than plain Landscape so the phone can still be held either way up.
         ScreenOrientation = ScreenOrientation.SensorLandscape,
         LaunchMode = LaunchMode.SingleTop,
-        ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize
+        ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.SmallestScreenSize | ConfigChanges.ScreenLayout
             | ConfigChanges.UiMode | ConfigChanges.Density | ConfigChanges.KeyboardHidden)]
     public partial class MainActivity : AvaloniaMainActivity,
         Android.Hardware.Display.DisplayManager.IDisplayListener
@@ -550,6 +550,9 @@ namespace MphRead.Droid
             if (InMatch)
             {
                 if (Mods.KillCam.RequestSkip()) return;
+#if MPHREAD_RMLUI_ANDROID
+                if (_gameView?.NativeUiVisible == true) { _gameView.BackNativeMenu(); return; }
+#endif
                 // Back used to end the match outright, which is a gesture a
                 // phone makes by accident and an hour of adventure mode thrown
                 // away. It is what Escape is on the desktop now: the menu,
@@ -938,6 +941,25 @@ namespace MphRead.Droid
             // views -- still draw over the game.
             _gameView.SetZOrderMediaOverlay(true);
             _overlay = new TouchOverlayView(this, _controls);
+#if MPHREAD_RMLUI_ANDROID
+            _gameView.ConfigureNativeResults((training, action) =>
+            {
+                if (_matchGeneration != generation || _destroyed) return;
+                if (action == MphRead.Mods.Launcher.Core.AimResultsAction.Retry)
+                {
+                    var next = AimTrainerLaunch.Create(training.Definition.Retry(), training.Plan.Hunter, LauncherPrefs.LastColor);
+                    EndMatch(); StartMatch(next);
+                }
+                else
+                {
+                    EndMatch();
+                    _rmlLauncher?.Enqueue(session => session.OpenTraining(action == MphRead.Mods.Launcher.Core.AimResultsAction.ChangeDrill));
+                }
+            });
+            _overlay.NativeVisible = () => _gameView?.NativeUiVisible == true;
+            _overlay.NativeTouch = e => _gameView?.NativeTouch(e) == true;
+            _overlay.NativeHover = e => _gameView?.NativeHover(e) == true;
+#endif
             _content.AddView(_gameView);
             _content.AddView(_overlay);
             // The notice has been up since StartMatch. The GameView draws
@@ -1066,6 +1088,13 @@ namespace MphRead.Droid
                 _endPanelTick = null;
                 return;
             }
+#if MPHREAD_RMLUI_ANDROID
+            HideEndPanel();
+            MphRead.Mods.Input.GamepadContexts.MenuVisible = _pauseMenuOpen || _gameView?.NativeUiVisible == true;
+            if (_gameView?.NativeUiVisible == true) _controls.ReleaseEverything();
+            if (_endPanelTick != null) _content?.PostDelayed(_endPanelTick, 100);
+            return;
+#endif
             if (_gameView?.Scene?.AimTrainer is { Completed: true, ResultsShown: false } training
                 && AndroidUiSurface.Ensure() is { } trainingSurface)
             {
@@ -1230,6 +1259,16 @@ namespace MphRead.Droid
             // Two screens over one match is one too many, and the pause menu
             // is the one the player just asked for.
             HideEndPanel();
+#if MPHREAD_RMLUI_ANDROID
+            if (_gameView != null)
+            {
+                if (_launcherView != null) _launcherView.Visibility = ViewStates.Gone;
+                MphRead.Mods.Input.GamepadContexts.MenuVisible = true;
+                MphRead.Mods.Launcher.Gui.Deck.Asleep = true;
+                _gameView.OpenNativeMenu(ClosePauseMenu, () => { }, ShowReplayEditor, EndMatch, () => Finish());
+                _overlay?.Invalidate(); GoImmersive(true); return;
+            }
+#endif
             if (_overlay != null)
             {
                 _overlay.Visibility = ViewStates.Gone;
@@ -1274,6 +1313,9 @@ namespace MphRead.Droid
                 return;
             }
             _pauseMenuOpen = false;
+#if MPHREAD_RMLUI_ANDROID
+            _gameView?.CloseNativeMenu();
+#endif
             if (_launcherView != null)
             {
                 _launcherView.Visibility = ViewStates.Gone;

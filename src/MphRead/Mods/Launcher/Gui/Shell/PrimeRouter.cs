@@ -74,7 +74,7 @@ namespace MphRead.Mods.Launcher.Gui
         };
         internal static PrimeRoute FromCore(LauncherPage page) => page switch
         {
-            LauncherPage.Home => PrimeRoute.News, LauncherPage.Play => PrimeRoute.Play,
+            LauncherPage.Home or LauncherPage.News => PrimeRoute.News, LauncherPage.Play or LauncherPage.Social => PrimeRoute.Play,
             LauncherPage.License or LauncherPage.Hunters => PrimeRoute.HunterLicense,
             LauncherPage.Theatre => PrimeRoute.Theatre,
             LauncherPage.StudioLaunch or LauncherPage.Community => PrimeRoute.Forge,

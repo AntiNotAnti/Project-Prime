@@ -22,6 +22,7 @@ public:
     void BeginFrame() override
     {
         commands.clear();
+        if (!retired_geometries.empty() || !retired_textures.empty()) ++resource_revision;
         retired_geometries.clear(); retired_textures.clear();
         EnableScissorRegion(false);
         EnableClipMask(false);
@@ -37,6 +38,7 @@ public:
         geometry.vertices.assign(vertices.begin(), vertices.end());
         geometry.indices.assign(indices.begin(), indices.end());
         geometries.emplace(id, std::move(geometry));
+        ++resource_revision;
         return Rml::CompiledGeometryHandle(id);
     }
     void RenderGeometry(Rml::CompiledGeometryHandle geometry, Rml::Vector2f translation, Rml::TextureHandle texture) override
@@ -58,6 +60,7 @@ public:
         if (std::any_of(commands.begin(), commands.end(), [geometry](const PrimeDrawCommand& command) { return command.geometry == geometry; }))
             retired_geometries.emplace(geometry, std::move(found->second));
         geometries.erase(found);
+        ++resource_revision;
     }
     Rml::TextureHandle LoadTexture(Rml::Vector2i& dimensions, const Rml::String& source) override
     {
@@ -104,6 +107,7 @@ public:
         texture.dimensions = dimensions;
         texture.pixels.assign(source.begin(), source.end());
         textures.emplace(id, std::move(texture));
+        ++resource_revision;
         return Rml::TextureHandle(id);
     }
     void ReleaseTexture(Rml::TextureHandle texture) override
@@ -113,6 +117,7 @@ public:
         if (std::any_of(commands.begin(), commands.end(), [texture](const PrimeDrawCommand& command) { return command.texture == texture; }))
             retired_textures.emplace(texture, std::move(found->second));
         textures.erase(found);
+        ++resource_revision;
     }
     void EnableScissorRegion(bool enabled) override { Add(PrimeDrawCommandKind::ScissorEnable).enabled = enabled ? 1 : 0; }
     void SetScissorRegion(Rml::Rectanglei region) override
@@ -187,7 +192,9 @@ public:
         return true;
     }
     uint32_t UnsupportedFeatures() const override { return unsupported; }
+    uint64_t ResourceRevision() const override { return resource_revision; }
 private:
+    uint64_t resource_revision = 0;
     std::map<uint64_t, Geometry> geometries;
     std::map<uint64_t, Texture> textures;
     std::map<uint64_t, Geometry> retired_geometries;

@@ -19,6 +19,13 @@ namespace MphRead.Mods.Launcher.Core
         private LobbyIntent? _submittedRules;
         private string _rulesError = "";
         private string _commandError = "";
+        private (Hunter Hunter, byte Color, ushort Generation)? _requestedIdentity;
+        private bool? _requestedSpectator;
+        private double _identitySentAt, _identityRetryAt;
+        private string _identityMessage = "";
+        private double _spectatorSentAt, _spectatorRetryAt;
+        private ushort _spectatorGeneration;
+        private string _spectatorMessage = "";
         private bool _closed, _suspended, _closingLobby, _matchRequestIssued, _startAfterSave, _pumping;
         private bool _gameplayOwnsPump;
         private long? _lastPumpToken;
@@ -54,15 +61,35 @@ namespace MphRead.Mods.Launcher.Core
             return _snapshot;
         }
 
-        private LobbySnapshot Decorate(LobbySnapshot state) => state with
+        private LobbySnapshot Decorate(LobbySnapshot state)
         {
+            LobbyPlayerSnapshot? local = state.Players.Where(player => player.Slot == state.LocalSlot)
+                .Select(player => (LobbyPlayerSnapshot?)player).FirstOrDefault();
+            return state with
+            {
             Lifetime = _lifetime, Context = _context, Closed = _closed, Suspended = _suspended,
             RulesPending = _submittedRules.HasValue, RulesError = _rulesError,
             CommandError = _commandError,
-            ShouldLoadMatch = _backend.ShouldLoadMatch
-        };
+            ShouldLoadMatch = _backend.ShouldLoadMatch,
+            LocalHunter = _requestedIdentity?.Hunter ?? state.LocalHunter,
+            LocalColor = _requestedIdentity?.Color ?? state.LocalColor,
+            PreferSpectator = _requestedSpectator ?? state.PreferSpectator,
+            IdentityPending = _requestedIdentity.HasValue, SpectatorPending = _requestedSpectator.HasValue,
+            IdentityMessage = _identityMessage,
+            SpectatorMessage = _spectatorMessage,
+            AcknowledgedLocalHunter = local?.Hunter, AcknowledgedLocalColor = local?.Color,
+            AcknowledgedSpectator = local?.IsSpectator
+            };
+        }
 
-        public LobbyIntent Intent(LobbyIntentKind kind) => new(_lifetime, Snapshot().SessionRevision, kind);
+        public LobbyIntent Intent(LobbyIntentKind kind, byte targetSlot = byte.MaxValue)
+        {
+            LobbySnapshot state = Snapshot();
+            ushort generation = state.Players.Where(player => player.Slot == targetSlot)
+                .Select(player => player.Generation).FirstOrDefault();
+            return new(_lifetime, state.SessionRevision, kind, TargetSlot: targetSlot,
+                ExpectedRosterRevision: state.RosterRevision, TargetGeneration: generation);
+        }
 
         public void TransferPumpOwnership(LobbyPumpOwner owner)
         {
@@ -102,6 +129,7 @@ namespace MphRead.Mods.Launcher.Core
                 }
                 ObserveRules(state);
                 if (_closed) return true;
+                ObserveIdentity(state);
                 state = Snapshot();
                 // A server may abort its loading barrier while this client is
                 // still prewarming, before any local scene exists. Rearm that
@@ -112,12 +140,12 @@ namespace MphRead.Mods.Launcher.Core
                     _suspended = false;
                 }
                 if (_closingLobby && !state.CommandPending && state.Message.Length > 0) _closingLobby = false;
-                if (_startAfterSave && !_submittedRules.HasValue && !state.CommandPending)
+                if (_startAfterSave && !_submittedRules.HasValue && !state.CommandPending
+                    && !state.IdentityPending && !state.SpectatorPending)
                 {
                     _startAfterSave = false;
                     if (_rulesError.Length == 0 && state.CanEdit)
-                        _commandError = _backend.SendCommand(Intent(LobbyIntentKind.StartMatch))
-                            ? "" : "The lobby is busy. Retry after the server responds.";
+                        Dispatch(Intent(LobbyIntentKind.StartMatch));
                 }
                 RequestMatchLoadIfNeeded();
                 return true;
@@ -147,6 +175,72 @@ namespace MphRead.Mods.Launcher.Core
                 _rulesError = "The server did not confirm the rule changes. Review or retry.";
                 _startAfterSave = false;
             }
+        }
+
+        private void ObserveIdentity(LobbySnapshot state)
+        {
+            LobbyPlayerSnapshot? local = state.Players.Where(player => player.Slot == state.LocalSlot)
+                .Select(player => (LobbyPlayerSnapshot?)player).FirstOrDefault();
+            if (_requestedIdentity is { } requested && local is { } player)
+            {
+                if (player.Generation != requested.Generation && requested.Generation != 0)
+                {
+                    _requestedIdentity = null;
+                    _identityMessage = "The local player slot changed. Review Hunter selection.";
+                }
+                else if (player.Hunter == requested.Hunter && player.Color == requested.Color)
+                {
+                    _requestedIdentity = null;
+                    _identityMessage = "Hunter and suit confirmed by server.";
+                }
+                else if (state.Phase == SessionPhase.Lobby && _backend.Clock - _identityRetryAt >= 1
+                    && HunterRules.Allowed(requested.Hunter, state.Match?.LowTier ?? false))
+                {
+                    // Older roster packets can replace NetSession.LocalHunter.
+                    // Retry through the existing Identify path until echoed.
+                    _identityRetryAt = _backend.Clock;
+                    _backend.Identify(requested.Hunter, requested.Color);
+                }
+            }
+            if (_requestedIdentity.HasValue && (_backend.Clock - _identitySentAt > 8
+                || !HunterRules.Allowed(_requestedIdentity.Value.Hunter, state.Match?.LowTier ?? false)))
+            {
+                _requestedIdentity = null;
+                _identityMessage = "The server did not confirm this Hunter or suit. Review and retry.";
+            }
+            if (_requestedSpectator is { } spectator)
+            {
+                if (local is { } rolePlayer && _spectatorGeneration != 0 && rolePlayer.Generation != _spectatorGeneration)
+                {
+                    _requestedSpectator = null;
+                    _spectatorMessage = "The local player slot changed. Review spectator selection.";
+                }
+                else if (local?.IsSpectator == spectator)
+                {
+                    _requestedSpectator = null;
+                    _spectatorMessage = "Spectator role confirmed by server.";
+                }
+                else if (_backend.Clock - _spectatorSentAt > 8)
+                {
+                    _requestedSpectator = null;
+                    _spectatorMessage = "The server did not confirm spectator selection. Review and retry.";
+                }
+                else if (state.Phase == SessionPhase.Lobby && _backend.Clock - _spectatorRetryAt >= 1)
+                {
+                    _spectatorRetryAt = _backend.Clock;
+                    _backend.SetSpectator(spectator);
+                }
+            }
+        }
+
+        private void RequestIdentity(LobbySnapshot state, Hunter hunter, byte color)
+        {
+            ushort generation = state.Players.Where(player => player.Slot == state.LocalSlot)
+                .Select(player => player.Generation).FirstOrDefault();
+            _requestedIdentity = (hunter, color, generation);
+            _identitySentAt = _identityRetryAt = _backend.Clock;
+            _identityMessage = "Waiting for server to confirm Hunter and suit.";
+            _backend.Identify(hunter, color);
         }
 
         private void RequestMatchLoadIfNeeded()
@@ -181,6 +275,10 @@ namespace MphRead.Mods.Launcher.Core
             if (intent.Kind == LobbyIntentKind.SendChat)
             {
                 if (String.IsNullOrWhiteSpace(intent.Text)) return LobbyActionResult.Reject("Enter a message.");
+                if (intent.Text.Length > ChatPacket.MaxTextBytes)
+                    return LobbyActionResult.Reject($"Chat messages are limited to {ChatPacket.MaxTextBytes} characters.");
+                if (intent.Text.Any(character => character < 32 || character > 126))
+                    return LobbyActionResult.Reject("This server protocol supports printable ASCII chat only.");
                 _backend.SendChat(intent.Text); return LobbyActionResult.Ok;
             }
             if (state.Phase != SessionPhase.Lobby) return LobbyActionResult.Reject("The lobby is starting or playing a match.");
@@ -191,24 +289,52 @@ namespace MphRead.Mods.Launcher.Core
                 _startAfterSave = true; return LobbyActionResult.Ok;
             }
             if (state.CommandPending) return LobbyActionResult.Reject("Waiting for server acknowledgement.");
+            if (intent.Kind is LobbyIntentKind.SetTeam or LobbyIntentKind.SetHandicap or LobbyIntentKind.KickPlayer
+                or LobbyIntentKind.TransferOwner or LobbyIntentKind.RemoveBot or LobbyIntentKind.UpdateBot)
+            {
+                LobbyPlayerSnapshot? target = state.Players.Where(player => player.Slot == intent.TargetSlot)
+                    .Select(player => (LobbyPlayerSnapshot?)player).FirstOrDefault();
+                if (target == null) return LobbyActionResult.Reject("That player has left. Reselect a player.");
+                if (intent.ExpectedRosterRevision != state.RosterRevision
+                    || target.Value.Generation != intent.TargetGeneration)
+                    return LobbyActionResult.Reject("The roster changed. Reselect the player before retrying.");
+            }
             switch (intent.Kind)
             {
                 case LobbyIntentKind.ToggleSpectator:
-                    _backend.SetSpectator(!state.PreferSpectator); return LobbyActionResult.Ok;
+                    if (_requestedSpectator.HasValue) return LobbyActionResult.Reject("Waiting for server to confirm spectator selection.");
+                    if (state.LocalSlot < 0) return LobbyActionResult.Reject("Waiting for a player slot.");
+                    _requestedSpectator = !state.PreferSpectator;
+                    _spectatorSentAt = _spectatorRetryAt = _backend.Clock;
+                    _spectatorGeneration = state.Players.Where(player => player.Slot == state.LocalSlot)
+                        .Select(player => player.Generation).FirstOrDefault();
+                    _spectatorMessage = "Waiting for server to confirm spectator selection.";
+                    _backend.SetSpectator(_requestedSpectator.Value); return LobbyActionResult.Ok;
                 case LobbyIntentKind.Identify:
+                    if (!state.Players.Any(player => player.Slot == state.LocalSlot))
+                        return LobbyActionResult.Reject("Waiting for the server's player roster.");
                     if (!HunterRules.Pool(state.Match?.LowTier ?? false).Contains(intent.Hunter) || intent.Color > 3)
                         return LobbyActionResult.Reject("Invalid hunter or suit.");
-                    _backend.Identify(intent.Hunter, intent.Color); return LobbyActionResult.Ok;
+                    RequestIdentity(state, intent.Hunter, intent.Color); return LobbyActionResult.Ok;
                 case LobbyIntentKind.NextHunter:
+                    if (!state.Players.Any(player => player.Slot == state.LocalSlot))
+                        return LobbyActionResult.Reject("Waiting for the server's player roster.");
                     Hunter[] pool = HunterRules.Pool(state.Match?.LowTier ?? false).ToArray();
                     if (pool.Length == 0) return LobbyActionResult.Reject("No available hunters.");
                     int index = Array.IndexOf(pool, state.LocalHunter);
-                    _backend.Identify(pool[index < 0 ? 0 : (index + 1) % pool.Length], state.LocalColor);
+                    RequestIdentity(state, pool[index < 0 ? 0 : (index + 1) % pool.Length], state.LocalColor);
                     return LobbyActionResult.Ok;
                 case LobbyIntentKind.NextSuit:
-                    _backend.Identify(state.LocalHunter, (byte)((state.LocalColor + 1) & 3)); return LobbyActionResult.Ok;
+                    if (!state.Players.Any(player => player.Slot == state.LocalSlot))
+                        return LobbyActionResult.Reject("Waiting for the server's player roster.");
+                    RequestIdentity(state, state.LocalHunter, (byte)((state.LocalColor + 1) & 3)); return LobbyActionResult.Ok;
                 case LobbyIntentKind.ToggleReady:
                     if (state.LocalSlot < 0) return LobbyActionResult.Reject("Waiting for a player slot.");
+                    if (!state.RuleFlags.HasFlag(LobbyRuleFlags.RequireReady))
+                        return LobbyActionResult.Reject("This lobby does not require ready confirmation.");
+                    if (state.PreferSpectator || state.SpectatorPending
+                        || state.Players.Any(player => player.Slot == state.LocalSlot && player.IsSpectator))
+                        return LobbyActionResult.Reject("Spectators do not ready for combat.");
                     break;
                 case LobbyIntentKind.SetTeam:
                     if (state.Match is not { } teamMatch || !GameState.IsTeamMode(teamMatch.Mode)
@@ -216,9 +342,17 @@ namespace MphRead.Mods.Launcher.Core
                         || !state.Players.Any(player => player.Slot == intent.TargetSlot && !player.IsSpectator)
                         || (!state.IsOwner && (intent.TargetSlot != state.LocalSlot || state.RuleFlags.HasFlag(LobbyRuleFlags.LockTeams))))
                         return LobbyActionResult.Reject("Team selection is unavailable.");
+                    if (intent.Team >= 0 && state.Players.Count(player => player.Slot != intent.TargetSlot
+                        && !player.IsSpectator && player.Team == intent.Team) >= LobbyRules.TeamCapacity(teamMatch, intent.Team))
+                        return LobbyActionResult.Reject("That team is full. Choose another team or Auto.");
                     break;
                 default:
                     if (!state.CanEdit) return LobbyActionResult.Reject("Only the lobby owner can perform this action.");
+                    if (intent.Kind == LobbyIntentKind.StartMatch)
+                    {
+                        LobbyPresentation presentation = LobbyPresentation.From(state);
+                        if (!presentation.CanStart) return LobbyActionResult.Reject(presentation.StartReason);
+                    }
                     if (intent.Kind == LobbyIntentKind.UpdateRules)
                     {
                         if (intent.Match is not { } match) return LobbyActionResult.Reject("No rule draft.");
@@ -240,8 +374,21 @@ namespace MphRead.Mods.Launcher.Core
                         return LobbyActionResult.Reject("Select an existing bot.");
                     if (intent.Kind is LobbyIntentKind.AddBot or LobbyIntentKind.UpdateBot
                         && (intent.Color > 3 || intent.BotLevel > 3
+                            || intent.DamageReduction > PlayerHandicap.MaxDamageReduction
+                            || intent.DamageReduction % PlayerHandicap.Step != 0
                             || (intent.Hunter != Hunter.Random && !HunterRules.Allowed(intent.Hunter, state.Match?.LowTier ?? false))))
                         return LobbyActionResult.Reject("Invalid bot hunter, suit or difficulty.");
+                    if (intent.Kind == LobbyIntentKind.AddBot && state.Players.Length >= state.MaxPlayers)
+                        return LobbyActionResult.Reject("The lobby is full. Remove a bot or wait for a player to leave.");
+                    if (intent.Kind is LobbyIntentKind.AddBot or LobbyIntentKind.UpdateBot)
+                    {
+                        if (state.Match is not { } botMatch || intent.Team < -1
+                            || (intent.Team >= 0 && intent.Team >= LobbyRules.TeamCount(botMatch)))
+                            return LobbyActionResult.Reject("Choose a team for the current match format.");
+                        if (intent.Team >= 0 && state.Players.Count(player => player.Slot != intent.TargetSlot
+                            && !player.IsSpectator && player.Team == intent.Team) >= LobbyRules.TeamCapacity(botMatch, intent.Team))
+                            return LobbyActionResult.Reject("That team is full. Choose another team or Auto.");
+                    }
                     break;
             }
             if (!_backend.SendCommand(intent)) return LobbyActionResult.Reject("The lobby is busy. Retry after the server responds.");
@@ -270,6 +417,8 @@ namespace MphRead.Mods.Launcher.Core
             AssertOwnerThread();
             if (_closed) return;
             _closed = true; _submittedRules = null; _startAfterSave = false; _rulesError = ""; _commandError = "";
+            _requestedIdentity = null; _requestedSpectator = null; _identityMessage = "";
+            _spectatorMessage = "";
             _backend.Stop();
             Closed?.Invoke(this, reason);
         }
@@ -281,6 +430,8 @@ namespace MphRead.Mods.Launcher.Core
         {
             AssertOwnerThread();
             _closed = true; _submittedRules = null; _startAfterSave = false; _rulesError = ""; _commandError = "";
+            _requestedIdentity = null; _requestedSpectator = null; _identityMessage = "";
+            _spectatorMessage = "";
             MatchRequested = null; Closed = null; RulesConfirmed = null;
         }
         public void Dispose() => Leave();

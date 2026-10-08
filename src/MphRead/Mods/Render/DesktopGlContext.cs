@@ -34,13 +34,8 @@ namespace MphRead.Mods.Render
         // OpenTK 4.9.4 queries this handle with glfwGetVideoMode before it
         // calls glfwCreateWindow, including windowed and NoAPI windows. A null
         // primary monitor must be rejected in managed code before construction.
-        private static unsafe NativeWindowSettings RequirePrimaryMonitor(NativeWindowSettings settings)
+        private static NativeWindowSettings RequirePrimaryMonitor(NativeWindowSettings settings)
         {
-            // CurrentMonitor is an optional fullscreen preference and defaults
-            // to an empty handle. Resolve the real GLFW primary after init,
-            // before OpenTK's constructor queries its video mode.
-            if (settings.CurrentMonitor.Pointer == IntPtr.Zero)
-                settings.CurrentMonitor = new MonitorHandle((IntPtr)GLFW.GetPrimaryMonitor());
             if (settings.CurrentMonitor.Pointer == IntPtr.Zero)
                 throw new InvalidOperationException(
                     "GLFW did not report a primary monitor. A game window cannot be created while the display is unavailable.");

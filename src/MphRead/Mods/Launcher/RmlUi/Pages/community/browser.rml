@@ -1,0 +1,30 @@
+<rml>
+<head><title>Community maps</title><link type="text/template" href="../../components/app-shell.rml" /><link type="text/rcss" href="community.rcss" /></head>
+<body template="prime-shell"><div id="community_page" class="community_page">
+<div class="eyebrow">COMMUNITY // MAP LIBRARY</div><h1 id="community_heading">COMMUNITY MAPS</h1>
+<p id="community_description">Discover published maps, install an exact revision, and manage your own releases.</p>
+<div class="community_fields"><div class="community_field"><label for="community_address">Map service address</label><input id="community_address" type="text" maxlength="2048" /></div><button id="community_refresh" data-action="community:refresh" class="community_action">REFRESH</button></div>
+<div class="community_tabs"><button id="community_tab_0" data-action="community:tab:0">DISCOVER</button><button id="community_tab_1" data-action="community:tab:1">MY MAPS</button><button id="community_tab_2" data-action="community:tab:2">FAVORITES</button><button id="community_import_open" data-action="community:import">IMPORT LOCAL PACKAGE</button></div>
+<div class="community_fields"><div class="community_field"><label for="community_search">Search name, creator, version or mode</label><input id="community_search" type="text" maxlength="200" /></div><button id="community_search_apply" data-action="community:search" class="community_action">SEARCH</button></div>
+<div class="community_tabs"><span>Sort:</span><button id="community_sort_0" data-action="community:sort:0">NAME</button><button id="community_sort_1" data-action="community:sort:1">UPDATED</button><button id="community_sort_2" data-action="community:sort:2">FAVORITES</button></div>
+<div id="community_lifecycle_filters" class="community_tabs"><span>My maps:</span><button id="community_lifecycle_0" data-action="community:lifecycle:0">ALL</button><button id="community_lifecycle_1" data-action="community:lifecycle:1">ACTIVE</button><button id="community_lifecycle_2" data-action="community:lifecycle:2">ARCHIVED</button><button id="community_lifecycle_3" data-action="community:lifecycle:3">DELETED</button></div>
+<div id="community_status" class="community_notice" /><div id="community_error" class="community_error" /><div id="community_transfer" class="community_notice" /><button id="community_cancel_work" data-action="community:cancel-work" class="community_action">CANCEL OPERATION</button>
+<div id="community_columns" class="community_columns"><div id="community_catalog" class="community_catalog"><div id="community_count" class="community_notice" /><div id="community_row_0" class="community_row"><button id="community_select_0" data-action="community:select:0"><b id="community_name_0" /><span id="community_meta_0" /></button></div>
+<div id="community_row_1" class="community_row"><button id="community_select_1" data-action="community:select:1"><b id="community_name_1" /><span id="community_meta_1" /></button></div>
+<div id="community_row_2" class="community_row"><button id="community_select_2" data-action="community:select:2"><b id="community_name_2" /><span id="community_meta_2" /></button></div>
+<div id="community_row_3" class="community_row"><button id="community_select_3" data-action="community:select:3"><b id="community_name_3" /><span id="community_meta_3" /></button></div>
+<div id="community_row_4" class="community_row"><button id="community_select_4" data-action="community:select:4"><b id="community_name_4" /><span id="community_meta_4" /></button></div>
+<div id="community_row_5" class="community_row"><button id="community_select_5" data-action="community:select:5"><b id="community_name_5" /><span id="community_meta_5" /></button></div>
+<div id="community_row_6" class="community_row"><button id="community_select_6" data-action="community:select:6"><b id="community_name_6" /><span id="community_meta_6" /></button></div>
+<div id="community_row_7" class="community_row"><button id="community_select_7" data-action="community:select:7"><b id="community_name_7" /><span id="community_meta_7" /></button></div><div class="community_tabs"><button id="community_previous" data-action="community:page:previous">PREVIOUS</button><button id="community_next" data-action="community:page:next">NEXT</button></div></div>
+<div id="community_detail_panel" class="community_detail_panel"><h2 id="community_title" /><div id="community_detail" class="community_detail" /><button id="community_detail_0" data-action="community:detail:0" class="community_action">INSTALL EXACT REVISION</button>
+<button id="community_detail_1" data-action="community:detail:1" class="community_action">INSTALL AND HOST</button>
+<button id="community_detail_2" data-action="community:detail:2" class="community_action">TOGGLE FAVORITE</button>
+<button id="community_detail_3" data-action="community:detail:3" class="community_action">REVISION HISTORY</button>
+<button id="community_detail_4" data-action="community:detail:4" class="community_action">REPORT MAP</button>
+<button id="community_detail_5" data-action="community:detail:5" class="community_action">PUBLISH SAVED PROJECT</button>
+<button id="community_detail_6" data-action="community:detail:6" class="community_action">COPY PACKAGE LINK</button>
+<button id="community_detail_7" data-action="community:detail:7" class="community_action">ARCHIVE MAP</button>
+<button id="community_detail_8" data-action="community:detail:8" class="community_action">RESTORE MAP</button>
+<button id="community_detail_9" data-action="community:detail:9" class="community_action">DELETE MAP</button></div></div>
+</div></body></rml>

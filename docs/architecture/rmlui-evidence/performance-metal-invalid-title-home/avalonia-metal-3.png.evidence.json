@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "contract": "FinalCompositeCapture",
+  "scope": "Matched UI performance warmup: final composite before Present; excluded from measurement",
+  "requestedBackend": "Metal",
+  "actualBackend": "Metal",
+  "adapter": "Apple M4 Pro",
+  "driver": "",
+  "platform": "macOS 27.0.0",
+  "width": 2560,
+  "height": 1440,
+  "renderScale": 1,
+  "deviceLost": null,
+  "deviceGeneration": 1,
+  "resources": {
+    "Textures": 5,
+    "Renderbuffers": 0,
+    "Geometry": 0,
+    "Pipelines": 2,
+    "Programs": 0,
+    "Lists": 0,
+    "Views": 5,
+    "Samplers": 3,
+    "Buffers": 5,
+    "ShaderModules": 7,
+    "BindGroups": 2,
+    "Surfaces": 1,
+    "QuerySets": 0
+  },
+  "note": "Device loss and lifetime stability are not inferred from a successful capture."
+}

@@ -70,6 +70,34 @@ public static class RmlUiCompositorCheck
             ModernGraphicsCompat.DrawRmlUi(new RmlUiDrawListFrame(generation, commands, geometry, textures), width, height);
             ModernGraphicsCompat.ThrowIfDeviceFailedForCheck();
         }
+#if !ANDROID
+        ModernGraphicsCompat.Present();
+        GraphicsApi.Viewport(0, 0, width, height);
+        GraphicsApi.ClearColor(1, 1, 1, 1); GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+        bool chamberEnabled = LauncherBackdropComposer.Enabled;
+        bool reduceMotion = MphRead.Mods.Launcher.LauncherPrefs.ReduceMotion;
+        try
+        {
+            LauncherBackdropComposer.Enabled = true;
+            MphRead.Mods.Launcher.LauncherPrefs.ReduceMotion = true;
+            LauncherBackdropComposer.Draw(width, height);
+            byte[] chamber = FinalCompositeCapture.Read(width, height);
+            int corner = ((height - 1) * width) * 3;
+            int centre = ((height - 1 - height / 2) * width + width / 2) * 3;
+            Check(chamber[corner] < 96 && chamber[corner + 1] < 96 && chamber[corner + 2] < 96
+                && chamber[centre + 2] > chamber[corner + 2] + 5,
+                $"authored deployment chamber executes its shared shader instead of a white quad (corner={chamber[corner]},{chamber[corner+1]},{chamber[corner+2]} centre={chamber[centre]},{chamber[centre+1]},{chamber[centre+2]})");
+            ModernGraphicsCompat.DrawRmlUi(new RmlUiDrawListFrame(generation,
+                Array.Empty<RmlUiDrawCommand>(), geometry, textures), width, height);
+            Check(chamber.AsSpan().SequenceEqual(FinalCompositeCapture.Read(width, height)),
+                "transparent native UI composition preserves the authored chamber underlay");
+        }
+        finally
+        {
+            LauncherBackdropComposer.Enabled = chamberEnabled;
+            MphRead.Mods.Launcher.LauncherPrefs.ReduceMotion = reduceMotion;
+        }
+#endif
         RmlUiDrawCommand draw = Command(RmlUiDrawCommandKind.Geometry, 1);
         Draw(draw);
         byte[] pixels = FinalCompositeCapture.Read(width, height);

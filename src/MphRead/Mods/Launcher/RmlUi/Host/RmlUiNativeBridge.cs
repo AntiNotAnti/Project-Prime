@@ -16,6 +16,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         void Shutdown();
         void Resize(int width, int height, float density);
         void Update();
+        int UpdateState(ref RmlUiNativeUpdateState state) => 0;
         void Render(int width, int height);
         int TakeIntent(ref RmlUiNativeIntent packet);
         int TakeAction(byte[] buffer, int capacity);
@@ -43,6 +44,13 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         int FocusedElement(byte[] buffer, int capacity);
         void SetClipboard(string text);
         int ReadClipboard(byte[] buffer, int capacity);
+        int TextInputState(ref RmlUiNativeTextInputState state);
+        int TextSelectionUtf16(ulong generation, ulong document, ulong epoch, out int start, out int end)
+        { start = end = 0; return 0; }
+        int Composition(ulong generation, ulong document, ulong epoch, int stage, string text, int cursor, int selectionLength);
+        int HoveredElement(byte[] buffer, int capacity);
+        int DocumentElementBounds(ulong document, string element, out float x, out float y, out float width, out float height)
+        { x = y = width = height = 0; return 0; }
     }
 
     internal sealed class RmlUiNativeBridge : IRmlUiNativeBridge
@@ -59,6 +67,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         void IRmlUiNativeBridge.Shutdown() => NativeShutdown();
         void IRmlUiNativeBridge.Resize(int width, int height, float density) => NativeResize(width, height, density);
         void IRmlUiNativeBridge.Update() => NativeUpdate();
+        int IRmlUiNativeBridge.UpdateState(ref RmlUiNativeUpdateState state) => NativeUpdateState(ref state);
         void IRmlUiNativeBridge.Render(int width, int height) => NativeRender(width, height);
         int IRmlUiNativeBridge.TakeIntent(ref RmlUiNativeIntent packet) => NativeTakeIntent(ref packet);
         int IRmlUiNativeBridge.TakeAction(byte[] buffer, int capacity) => NativeTakeAction(buffer, capacity);
@@ -95,6 +104,14 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         int IRmlUiNativeBridge.FocusedElement(byte[] buffer, int capacity) => NativeFocusedElement(buffer, capacity);
         void IRmlUiNativeBridge.SetClipboard(string text) => NativeSetClipboard(text);
         int IRmlUiNativeBridge.ReadClipboard(byte[] buffer, int capacity) => NativeReadClipboard(buffer, capacity);
+        int IRmlUiNativeBridge.TextInputState(ref RmlUiNativeTextInputState state) => NativeTextInputState(ref state);
+        int IRmlUiNativeBridge.TextSelectionUtf16(ulong generation, ulong document, ulong epoch, out int start, out int end)
+            => NativeTextSelectionUtf16(generation, document, epoch, out start, out end);
+        int IRmlUiNativeBridge.Composition(ulong generation, ulong document, ulong epoch, int stage,
+            string text, int cursor, int selectionLength) => NativeComposition(generation, document, epoch, stage, text, cursor, selectionLength);
+        int IRmlUiNativeBridge.HoveredElement(byte[] buffer, int capacity) => NativeHoveredElement(buffer, capacity);
+        int IRmlUiNativeBridge.DocumentElementBounds(ulong document, string element, out float x, out float y, out float width, out float height)
+            => NativeDocumentElementBounds(document, element, out x, out y, out width, out height);
 
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_protocol_version")]
         private static extern uint NativeProtocolVersion();
@@ -114,6 +131,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         private static extern void NativeResize(int width, int height, float density);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_update")]
         private static extern void NativeUpdate();
+        [DllImport(Library, EntryPoint = "pp_rmlui_update_status", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int NativeUpdateState(ref RmlUiNativeUpdateState state);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_render")]
         private static extern void NativeRender(int width, int height);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_take_intent")]
@@ -177,5 +196,17 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         private static extern void NativeSetClipboard([MarshalAs(UnmanagedType.LPUTF8Str)] string text);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_read_clipboard")]
         private static extern int NativeReadClipboard([Out] byte[] buffer, int capacity);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_text_input_state")]
+        private static extern int NativeTextInputState(ref RmlUiNativeTextInputState state);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_text_selection_utf16")]
+        private static extern int NativeTextSelectionUtf16(ulong generation, ulong document, ulong epoch, out int start, out int end);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_composition")]
+        private static extern int NativeComposition(ulong generation, ulong document, ulong epoch, int stage,
+            [MarshalAs(UnmanagedType.LPUTF8Str)] string text, int cursor, int selectionLength);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_hovered_element")]
+        private static extern int NativeHoveredElement([Out] byte[] buffer, int capacity);
+        [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_document_element_bounds")]
+        private static extern int NativeDocumentElementBounds(ulong document, [MarshalAs(UnmanagedType.LPUTF8Str)] string element,
+            out float x, out float y, out float width, out float height);
     }
 }

@@ -8,10 +8,18 @@ namespace MphRead.Mods.Launcher.RmlUi.Render;
 internal static class RmlUiGpuCompositor
 {
     private static readonly RmlUiDrawListReader Reader = new();
+    internal static (long Requests, long Captured, long Reused) CaptureMetrics =>
+        (Reader.CaptureRequests, Reader.CapturedFrames, Reader.ReusedFrames);
     internal static void DrawNativeFrame(int width, int height)
     {
         if (width <= 0 || height <= 0) return;
-        ModernGraphicsCompat.DrawRmlUi(Reader.Capture(), width, height);
+        long capture=LauncherUiPerformance.Start();
+        var frame=Reader.Capture();
+        LauncherUiPerformance.RecordDrawListCapture(Reader.CaptureRequests,Reader.CapturedFrames,Reader.ReusedFrames);
+        LauncherUiPerformance.RecordPhase("drawListCapture",capture);
+        long submit=LauncherUiPerformance.Start();
+        ModernGraphicsCompat.DrawRmlUi(frame,width,height);
+        LauncherUiPerformance.RecordPhase("gpuCommandAuthoring",submit);
     }
     internal static void ReleaseNativeFrame()
     {

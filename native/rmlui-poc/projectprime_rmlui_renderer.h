@@ -19,6 +19,7 @@ public:
     virtual int TextureCount() const { return 0; }
     virtual bool ReadTexture(int, PrimeDrawTexture&) const { return false; }
     virtual uint32_t UnsupportedFeatures() const { return 0; }
+    virtual uint64_t ResourceRevision() const { return 0; }
 };
 std::unique_ptr<PrimeRenderer> CreatePrimeDrawListRenderer();
 #if defined(PP_RMLUI_GL2)

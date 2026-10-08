@@ -249,7 +249,7 @@ namespace MphRead.Mods
                 Environment.ExitCode = recovered ? 0 : 1;
                 return true;
             }
-#if MPHREAD_SHELL
+#if MPHREAD_SHELL && MPHREAD_AVALONIA
             if (HasFlag(args, "replayuicheck"))
             {
                 Environment.ExitCode = Launcher.Gui.ReplayUiCheck.Run();
@@ -282,11 +282,13 @@ namespace MphRead.Mods
                 Environment.ExitCode = Diagnostics.ThumbnailWindowCheck.Run(HasFlag(args, "legacyglcheck"));
                 return true;
             }
+#if MPHREAD_AVALONIA
             if (HasFlag(args, "windowcheck"))
             {
                 Environment.ExitCode = Diagnostics.LauncherWindowCheck.Run();
                 return true;
             }
+#endif
 #endif
             if (HasFlag(args, "smoketest"))
             {
@@ -360,7 +362,7 @@ namespace MphRead.Mods
             }
 
 
-#if MPHREAD_SHELL
+#if MPHREAD_SHELL && MPHREAD_AVALONIA
             if (HasFlag(args, "primeuicheck"))
             {
                 Environment.ExitCode = Launcher.Gui.PrimeUiChecks.Run(ValueAfter(args, "shots"));
@@ -391,7 +393,7 @@ namespace MphRead.Mods
 
             // Graphics presets, settings migration and source-texture enhancement
             // are deterministic and need neither a display nor extracted game data.
-#if MPHREAD_SHELL
+#if MPHREAD_SHELL && MPHREAD_AVALONIA
             if (ValueAfter(args, "hudradarpreview") is string radarOutput)
             {
                 Environment.ExitCode = Launcher.Gui.HudStudioPreview.ExportRadar(radarOutput);
@@ -709,7 +711,7 @@ namespace MphRead.Mods
                 }
             }
 
-#if MPHREAD_SHELL
+#if MPHREAD_SHELL && MPHREAD_AVALONIA
             if(ValueAfter(args,"mapstudioshot") is {} studioShots)
             {
                 Environment.ExitCode=Launcher.Gui.MapStudioScreen.Capture(System.IO.Path.GetFullPath(
@@ -816,6 +818,9 @@ namespace MphRead.Mods
             // On a headless Linux session GuiLauncher.TryRun() fails cleanly and
             // the text launcher below remains the fallback.
             bool defaultLauncher = args.Length == 0;
+#if MPHREAD_SHELL
+            defaultLauncher |= Launcher.Core.LauncherUiSelectionPolicy.HasSelectionOption(args);
+#endif
 #if MPHREAD_SERVER
             // Except in the server package, which has no launcher of either
             // kind and ships without game files: a bare invocation there is
@@ -842,7 +847,7 @@ namespace MphRead.Mods
             }
 #endif
             string? uiShot = ValueAfter(args, "uishot");
-#if MPHREAD_SHELL
+#if MPHREAD_SHELL && MPHREAD_AVALONIA
             if (ValueAfter(args, "mapviewportcheck") is string mapViewportCheck)
             {
                 Environment.ExitCode = Launcher.Gui.MapViewportCheck.Run(mapViewportCheck, ValueAfter(args, "mapproject"));
@@ -924,8 +929,10 @@ namespace MphRead.Mods
                 WindowMode.ForceStartup(WindowStartMode.Windowed);
             }
 #if MPHREAD_RMLUI_POC && MPHREAD_SHELL
-            bool rmlUiPrototypeLauncher = HasFlag(args, "rmluipoc")
-                || HasFlag(args, "rmluipocshot") || HasFlag(args, "rmlui");
+            bool rmlUiPrototypeLauncher = !HasFlag(args, "text")
+                && (defaultLauncher || HasFlag(args, "launcher") || HasFlag(args, "rmluipoc")
+                    || HasFlag(args, "rmluipocshot") || HasFlag(args, "rmlui"))
+                && Launcher.LauncherUiRuntime.UseNative;
             if (rmlUiPrototypeLauncher && !HasFlag(args, "menu"))
             {
                 // Enter the shell directly so the proof can establish that its
@@ -934,6 +941,8 @@ namespace MphRead.Mods
                 // native RmlUi bridge refuses to start.
                 if (!Launcher.ClientInstanceGuard.TryAcquireForProcess(TimeSpan.FromSeconds(5)))
                     return true;
+                Launcher.LauncherUiRuntime.ApplyAutomaticRendererRollback();
+                Launcher.LauncherUiRuntime.BeginNativeAttempt();
                 MapGen.CustomRooms.DeferInitialRegistration = true;
                 StudioIntegration.GameStudioIntegration.Start();
                 bool ran = Launcher.Gui.Shell.Run();
@@ -957,6 +966,12 @@ namespace MphRead.Mods
 #endif
             if ((HasFlag(args, "launcher") || defaultLauncher) && !HasFlag(args, "menu"))
             {
+#if MPHREAD_SHELL
+                if (!HasFlag(args, "text")) Launcher.LauncherUiRuntime.ApplyAutomaticRendererRollback();
+#endif
+#if MPHREAD_RMLUI && !MPHREAD_AVALONIA && MPHREAD_SHELL
+                if (!HasFlag(args, "text") && Launcher.Native.NativeClientEntry.TryRun()) return true;
+#endif
 #if MPHREAD_AVALONIA
                 if (!HasFlag(args, "text") && Launcher.Gui.GuiLauncher.TryRun())
                 {
@@ -1652,7 +1667,7 @@ namespace MphRead.Mods
             }
             if (HasFlag(args, "uinativeres"))
             {
-#if MPHREAD_SHELL
+#if MPHREAD_SHELL && MPHREAD_AVALONIA
                 // Rasterise the launcher's screens at the window's own
                 // resolution however big it is, rather than capping them at
                 // 1080p and magnifying. Crisper above 1080p, and a lot slower
@@ -2698,7 +2713,7 @@ namespace MphRead.Mods
             System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         private static int RunShellCapture(string directory)
         {
-#if MPHREAD_SHELL
+#if MPHREAD_SHELL && MPHREAD_AVALONIA
             Launcher.Gui.Shell.RequestShots(directory);
             if (!Launcher.Gui.GuiLauncher.TryRun())
             {
@@ -2756,7 +2771,7 @@ namespace MphRead.Mods
             System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
         private static int RunUiBench(string[] args)
         {
-#if MPHREAD_SHELL
+#if MPHREAD_SHELL && MPHREAD_AVALONIA
             try
             {
                 Launcher.Gui.UiBench.Slow = HasFlag(args, "uibenchslow");

@@ -24,6 +24,7 @@ namespace MphRead.Mods.Launcher.Gui
         private Hunter[] _hunters = Enumerable.Range(0, 7).Select(i => (Hunter)i).Append(Hunter.Random).ToArray();
         private bool? _lowTier;
         private byte[] _slots = Array.Empty<byte>();
+        private ushort[] _generations = Array.Empty<ushort>();
         private string _rosterKey = "";
         private readonly LobbySessionController? _lobby;
 
@@ -70,9 +71,12 @@ namespace MphRead.Mods.Launcher.Gui
                     LobbyCommandType.UpdateBot => LobbyIntentKind.UpdateBot,
                     _ => LobbyIntentKind.RemoveBot
                 };
-                LobbyActionResult result = lobby.Dispatch(lobby.Intent(kind) with
+                LobbyIntent intent = lobby.Intent(kind, target);
+                if (kind != LobbyIntentKind.AddBot && _target.SelectedIndex >= 0 && _target.SelectedIndex < _generations.Length)
+                    intent = intent with { TargetGeneration = _generations[_target.SelectedIndex] };
+                LobbyActionResult result = lobby.Dispatch(intent with
                 {
-                    TargetSlot = target, Team = (sbyte)(_team.SelectedIndex - 1), Hunter = hunter,
+                    Team = (sbyte)(_team.SelectedIndex - 1), Hunter = hunter,
                     Color = (byte)_suit.SelectedIndex, BotLevel = (byte)_level.SelectedIndex
                 });
                 if (!result.Accepted)
@@ -109,6 +113,7 @@ namespace MphRead.Mods.Launcher.Gui
                 byte selected = _target.SelectedIndex >= 0 && _target.SelectedIndex < _slots.Length ? _slots[_target.SelectedIndex] : (byte)255;
                 var entries = Enumerable.Range(0, roster.Count).Where(roster.IsBot).ToArray();
                 _slots = entries.Select(i => roster.Slots[i]).ToArray();
+                _generations = entries.Select(i => roster.Generations[i]).ToArray();
                 _target.ItemsSource = entries.Select(i => $"{roster.Names[i]} · {Difficulties[roster.BotLevels[i]]} · slot {roster.Slots[i] + 1}").ToArray();
                 _target.SelectedIndex = _slots.Length == 0 ? -1 : Math.Max(0, Array.IndexOf(_slots, selected));
                 _rosterKey = key;

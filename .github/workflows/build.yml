@@ -26,7 +26,7 @@ concurrency:
 jobs:
   studio-desktop:
     name: Studio desktop acceptance (${{ matrix.os }})
-    needs: patched-wgpu-native
+    needs: [patched-wgpu-native, rmlui-home-poc, rmlui-windows-package]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -48,12 +48,18 @@ jobs:
         with:
           name: patched-wgpu-${{ matrix.rid }}
           path: artifacts/wgpu-native-desktop/${{ matrix.rid }}/
+      - uses: actions/download-artifact@v8
+        if: runner.os != 'macOS'
+        with:
+          name: rmlui-gl2-${{ matrix.rid }}
+          path: artifacts/rmlui-native/${{ matrix.rid }}/
       - name: native dependencies for the canonical engine on macOS
         if: runner.os == 'macOS'
         run: |
           python3 tools/wgpu/test-build-shell.py
           tools/wgpu/build-native.sh "${{ matrix.rid }}"
           tools/ktx/build-native.sh "${{ matrix.rid }}"
+          tools/rmlui/build-native.sh "${{ matrix.rid }}"
       - name: cross-process map publication ownership
         run: dotnet run --project tools/map-publication-check -c Release
       - name: hosted cache process ownership and live archive protection
@@ -236,7 +242,7 @@ jobs:
           if-no-files-found: error
 
   modern-renderer-windows:
-    needs: patched-wgpu-native
+    needs: [patched-wgpu-native, rmlui-windows-package]
     name: modern renderer Windows ${{ matrix.renderer }} smoke
     runs-on: windows-latest
     strategy:
@@ -252,6 +258,10 @@ jobs:
         with:
           name: patched-wgpu-win-x64
           path: artifacts/wgpu-native-desktop/win-x64/
+      - uses: actions/download-artifact@v8
+        with:
+          name: rmlui-gl2-win-x64
+          path: artifacts/rmlui-native/win-x64/
       - name: publish focused renderer build
         id: renderer_publish
         shell: pwsh
@@ -388,7 +398,7 @@ jobs:
           if-no-files-found: warn
 
   modern-renderer-linux:
-    needs: patched-wgpu-native
+    needs: [patched-wgpu-native, rmlui-home-poc]
     name: modern renderer Vulkan smoke
     runs-on: ubuntu-latest
     steps:
@@ -404,6 +414,10 @@ jobs:
         with:
           name: patched-wgpu-linux-x64
           path: artifacts/wgpu-native-desktop/linux-x64/
+      - uses: actions/download-artifact@v8
+        with:
+          name: rmlui-gl2-linux-x64
+          path: artifacts/rmlui-native/linux-x64/
       - name: publish focused renderer build
         run: >
           dotnet publish src/MphRead/MphRead.csproj
@@ -450,6 +464,11 @@ jobs:
             xvfb xauth libgl1 libglx-mesa0 libxinerama1 libxcursor1 libxi6
       - name: build pinned RmlUi 6.3 bridge
         run: bash tools/rmlui/build-native.sh linux-x64
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-gl2-linux-x64
+          path: artifacts/rmlui-native/linux-x64
+          if-no-files-found: error
       - name: native RmlUi Studio keyboard, mouse and colour regressions
         run: |
           xvfb-run -a --server-args="-screen 0 4096x2304x24" \
@@ -526,6 +545,47 @@ jobs:
           dotnet build src/MphRead/MphRead.csproj
           -c Release -r "${{ matrix.rid }}"
           -p:MphReadRmlUiPoc=true
+
+  rmlui-full-source:
+    name: RmlUi full client, shared routes and module acceptance
+    needs: [assets, patched-wgpu-native, rmlui-home-poc]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/download-artifact@v8
+        with:
+          name: rmlui-gl2-linux-x64
+          path: artifacts/rmlui-native/linux-x64
+      - uses: actions/download-artifact@v8
+        with:
+          name: patched-wgpu-linux-x64
+          path: artifacts/wgpu-native-desktop/linux-x64
+      - name: native loader and software Vulkan display dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --no-install-recommends -y xvfb xauth mesa-vulkan-drivers \
+            libgl1 libglx-mesa0 libx11-6 libxrandr2 libxi6 libxcursor1 libxinerama1 libice6 libsm6 libfontconfig1
+      - name: current full source and real native page, Shell, UDP and compositor gates
+        run: |
+          bash tools/rmlui/full-source-check.sh \
+            artifacts/rmlui-native/linux-x64/libProjectPrime.RmlUi.Native.so \
+            linux-x64 "$RUNNER_TEMP/rmlui-full-source"
+      - name: full source acceptance diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-full-source-proof
+          path: |
+            ${{ runner.temp }}/rmlui-full-source/*.log
+            ${{ runner.temp }}/rmlui-full-source/*.json
+            ${{ runner.temp }}/rmlui-full-source/*-source/build.log
+            ${{ runner.temp }}/rmlui-full-source/native-package
+          if-no-files-found: warn
+
   rmlui-windows-package:
     name: RmlUi Windows x64 bridge and opt-in package
     needs: patched-wgpu-native
@@ -545,6 +605,11 @@ jobs:
       - name: build pinned RmlUi and FreeType into the Windows DLL
         shell: bash
         run: tools/rmlui/build-native.sh win-x64
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-gl2-win-x64
+          path: artifacts/rmlui-native/win-x64
+          if-no-files-found: error
       - name: publish the opt-in runtime feature as a single-file host
         run: >
           dotnet publish src/MphRead/MphRead.csproj
@@ -590,6 +655,33 @@ jobs:
         run: tools/rmlui/build-native.sh "${{ matrix.rid }}" draw-list
       - name: portable host ownership and route regressions
         run: dotnet run --project tools/rmlui-runtime-check -c Release
+      - name: isolated Linux IBus and virtual display dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y ibus libibus-1.0-5 gir1.2-ibus-1.0 python3-gi dbus-x11 xvfb xauth at-spi2-core python3-pyatspi libglib2.0-0
+      - name: actual Linux IBus composition and stale-focus transport
+        if: runner.os == 'Linux'
+        run: |
+          dbus-run-session -- xvfb-run -a /usr/bin/python3 tools/rmlui-linux-ime-check/run-ibus-check.py \
+            --native artifacts/rmlui-native/linux-x64/libProjectPrime.RmlUi.Native.so
+      - name: actual Windows UI Automation native provider
+        if: runner.os == 'Windows'
+        run: >
+          dotnet run --project tools/rmlui-platform-accessibility-check -c Release --
+          --native artifacts/rmlui-native/win-x64/ProjectPrime.RmlUi.Native.dll --windows
+      - name: actual Linux AT-SPI accessibility bus and external reader
+        if: runner.os == 'Linux'
+        run: >
+          dbus-run-session -- xvfb-run -a dotnet run --project tools/rmlui-platform-accessibility-check -c Release --
+          --native artifacts/rmlui-native/linux-x64/libProjectPrime.RmlUi.Native.so --atspi
+      - name: actual macOS text client and AppKit accessibility provider
+        if: runner.os == 'macOS'
+        run: |
+          dotnet run --project tools/rmlui-cocoa-check -c Release -- \
+            artifacts/rmlui-native/${{ matrix.rid }}/libProjectPrime.RmlUi.Native.dylib
+          dotnet run --project tools/rmlui-cocoa-accessibility-check -c Release -- \
+            artifacts/rmlui-native/${{ matrix.rid }}/libProjectPrime.RmlUi.Native.dylib
       - name: real native DOM, Unicode, clipboard, generation and draw-list regressions
         shell: bash
         run: |
@@ -652,6 +744,7 @@ jobs:
 
   modern-renderer-android:
     name: modern renderer Android Vulkan surface and lifecycle
+    needs: rmlui-android-native
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -669,6 +762,10 @@ jobs:
           echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
           ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/28.2.13676358" tools/wgpu/build-native.sh android-x64
           ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/28.2.13676358" tools/ktx/build-native.sh android-x64
+      - uses: actions/download-artifact@v8
+        with:
+          name: rmlui-native-android-x64
+          path: artifacts/rmlui-native-android
       - name: Vulkan surface, readback, present and surface recreation
         run: tools/render-check/android-check.sh
       - name: renderer acceptance logs
@@ -710,6 +807,7 @@ jobs:
         run: |
           tools/wgpu/build-native.sh "${{ matrix.rid }}"
           tools/ktx/build-native.sh "${{ matrix.rid }}"
+          tools/rmlui/build-native.sh "${{ matrix.rid }}"
       - name: publish focused renderer build
         run: |
           dotnet publish src/MphRead/MphRead.csproj -c Release -r "${{ matrix.rid }}" \
@@ -886,7 +984,7 @@ jobs:
 
   build:
     name: ${{ matrix.id }}
-    needs: [assets, patched-wgpu-native]
+    needs: [assets, patched-wgpu-native, rmlui-home-poc, rmlui-windows-package]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -974,6 +1072,11 @@ jobs:
         with:
           name: patched-wgpu-${{ matrix.rid }}
           path: artifacts/wgpu-native-desktop/${{ matrix.rid }}/
+      - uses: actions/download-artifact@v8
+        if: matrix.extra == ''
+        with:
+          name: rmlui-gl2-${{ matrix.rid }}
+          path: artifacts/rmlui-native/${{ matrix.rid }}/
       # Windows and Linux targets remain cross-published on Ubuntu.
       - name: publish ${{ matrix.summary }}
         run: |
@@ -1184,6 +1287,7 @@ jobs:
         run: |
           tools/wgpu/build-native.sh "$RID"
           tools/ktx/build-native.sh "$RID"
+          tools/rmlui/build-native.sh "$RID"
 
       - name: publish, sign and validate
         env:
@@ -1226,10 +1330,9 @@ jobs:
   # defined, so it stops building the moment they grow something desktop-only,
   # which is the whole reason it was in the tree before it could play anything.
   #
-  # No asset guard on the output: an APK is a zip this script cannot see into,
-  # and pointing it at a directory holding one would prove nothing. What
-  # actually rules game data out is the `assets` job above -- the APK is built
-  # from tracked sources and NuGet packages and nothing else.
+  # APK contents are inspected directly below for cartridge paths, native
+  # manifests, fonts and the compiled toolkit dependency boundary. The source
+  # asset guard remains a prerequisite for every package.
   android:
     name: android
     needs: [assets, rmlui-android-native]
@@ -1251,6 +1354,13 @@ jobs:
 
       - name: install the android workload
         run: dotnet workload install android
+      - name: evaluated native defaults and isolated Studio, server and compatibility graphs
+        run: python3 tools/default-client-check/check.py --output "$RUNNER_TEMP/default-client-boundary.json"
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: rmlui-native-android-*
+          path: artifacts/rmlui-native-android
+          merge-multiple: true
 
       # Cook every custom map into the one file it ships as. The recipe, the
       # level it converts and the textures baked from it go into a .ppmap,
@@ -1319,9 +1429,10 @@ jobs:
       # The same check, on the head it was written for: this is the project
       # whose asset list drifted from the desktop's, and the APK builds and
       # signs perfectly well without the fonts its every label asks for.
-      - name: the launcher's assets are in the APK
+      - name: compatibility launcher's Avalonia assets are in its APK
         run: >
           tools/check-avares.py src/MphRead.Android/MphRead.Android.csproj
+          -p:MphReadAvalonia=true -p:MphReadRmlUiAndroid=false
           -p:AndroidSdkDirectory="$ANDROID_HOME"
           -p:JavaSdkDirectory="$JAVA_HOME"
 
@@ -1337,17 +1448,24 @@ jobs:
           -p:AndroidSdkDirectory="$ANDROID_HOME"
           -p:JavaSdkDirectory="$JAVA_HOME"
           -o publish/android
-
-      - uses: actions/download-artifact@v8
+      - name: ordinary signed APK uses native documents and no toolkit assemblies
+        run: |
+          for apk in publish/android/*-Signed.apk; do
+            python3 tools/rmlui/verify-runtime.py --apk "$apk"
+            python3 tools/rmlui/verify-android-client.py --apk "$apk" \
+              --assets src/MphRead.Android/obj/project.assets.json --expect-avalonia false
+          done
+      - uses: actions/upload-artifact@v7
         with:
-          pattern: rmlui-native-android-*
-          path: artifacts/rmlui-native-android
-          merge-multiple: true
-      - name: publish Android RmlUi foundation APKs without changing UI selection
+          name: default-client-boundary
+          path: ${{ runner.temp }}/default-client-boundary.json
+          if-no-files-found: error
+      - name: publish compatibility Android APKs with the native payload
         run: |
           for rid in android-arm64 android-x64; do
             dotnet publish src/MphRead.Android/MphRead.Android.csproj \
               -c Release -r "$rid" -p:AndroidPackageFormat=apk -p:MphReadRmlUiNativeAssets=true \
+              -p:MphReadRmlUiAndroid=false -p:MphReadAvalonia=true \
               -p:AndroidSdkDirectory="$ANDROID_HOME" -p:JavaSdkDirectory="$JAVA_HOME" \
               -o "publish/rmlui-android/$rid"
           done
@@ -1356,6 +1474,8 @@ jobs:
           for rid in android-arm64 android-x64; do
             for apk in "publish/rmlui-android/$rid/"*-Signed.apk; do
               python3 tools/rmlui/verify-runtime.py --apk "$apk" "$rid"
+              python3 tools/rmlui/verify-android-client.py --apk "$apk" \
+                --assets src/MphRead.Android/obj/project.assets.json --expect-avalonia true
             done
           done
       - uses: actions/upload-artifact@v7
@@ -1363,6 +1483,70 @@ jobs:
           name: rmlui-foundation-android-apks
           path: publish/rmlui-android/**/*-Signed.apk
           if-no-files-found: error
+
+      - name: publish transitional Android native runtime APKs
+        run: |
+          for rid in android-arm64 android-x64; do
+            dotnet publish src/MphRead.Android/MphRead.Android.csproj \
+              -c Release -r "$rid" -p:AndroidPackageFormat=apk -p:MphReadRmlUiAndroid=true -p:MphReadAvalonia=true \
+              -p:AndroidSdkDirectory="$ANDROID_HOME" -p:JavaSdkDirectory="$JAVA_HOME" \
+              -o "publish/rmlui-android-runtime/$rid"
+            for apk in "publish/rmlui-android-runtime/$rid/"*-Signed.apk; do
+              python3 tools/rmlui/verify-runtime.py --apk "$apk" "$rid"
+            done
+          done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-opt-in-android-runtime-apks
+          path: publish/rmlui-android-runtime/**/*-Signed.apk
+          if-no-files-found: error
+
+      - name: publish Android native clients without Avalonia
+        run: |
+          for rid in android-arm64 android-x64; do
+            dotnet publish src/MphRead.Android/MphRead.Android.csproj \
+              -c Release -r "$rid" -p:AndroidPackageFormat=apk \
+              -p:MphReadRmlUiAndroid=true -p:MphReadAvalonia=false \
+              -p:AndroidSdkDirectory="$ANDROID_HOME" -p:JavaSdkDirectory="$JAVA_HOME" \
+              -o "publish/rmlui-android-native/$rid"
+            for apk in "publish/rmlui-android-native/$rid/"*-Signed.apk; do
+              python3 tools/rmlui/verify-runtime.py --apk "$apk" "$rid"
+              python3 tools/rmlui/verify-android-client.py --apk "$apk" \
+                --assets src/MphRead.Android/obj/project.assets.json --expect-avalonia false
+            done
+          done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-opt-in-android-native-client-apks
+          path: publish/rmlui-android-native/**/*-Signed.apk
+          if-no-files-found: error
+
+      - name: publish native Android framework acceptance APK
+        run: >
+          dotnet publish src/MphRead.Android/MphRead.Android.csproj
+          -c Release -r android-x64 -p:AndroidPackageFormat=apk
+          -p:MphReadRmlUiAndroid=true -p:MphReadAvalonia=false
+          -p:MphReadRmlUiAndroidCheck=true -p:RunAOTCompilation=false
+          -p:AndroidSdkDirectory="$ANDROID_HOME" -p:JavaSdkDirectory="$JAVA_HOME"
+          -o publish/rmlui-android-check
+      - name: canonical desktop to GLES shader translation source guard
+        run: dotnet run --project tools/rmlui-es-shader-check -c Release
+      - name: verify native Android framework acceptance package
+        run: |
+          python3 tools/rmlui/verify-runtime.py --apk publish/rmlui-android-check/com.projectprime.game-Signed.apk android-x64
+          python3 tools/rmlui/verify-android-client.py --apk publish/rmlui-android-check/com.projectprime.game-Signed.apk \
+            --assets src/MphRead.Android/obj/project.assets.json --expect-avalonia false
+      - name: actual Android native GPU, IME, accessibility and multitouch acceptance
+        run: bash tools/rmlui/android-check.sh publish/rmlui-android-check/com.projectprime.game-Signed.apk
+      - name: Android native framework acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-android-native-framework-proof
+          path: |
+            ${{ runner.temp }}/rmlui-android-proof
+            ${{ runner.temp }}/rmlui-android-emulator.log
+          if-no-files-found: warn
 
       # One APK, the one people install. An untrimmed Debug build was
       # collected beside it, as a way of telling a crash on a device apart
@@ -1453,3 +1637,56 @@ jobs:
           name: ProjectPrime-win-x64-server
           path: publish/win-x64-server
           if-no-files-found: error
+
+  rmlui-migration-acceptance:
+    name: RmlUi migration acceptance
+    if: always()
+    needs:
+      - assets
+      - engineering-contracts
+      - studio-desktop
+      - server-compile
+      - character-model-check
+      - fidelity-oracle
+      - patched-wgpu-native
+      - modern-renderer-windows
+      - modern-renderer-linux
+      - modern-renderer-macos
+      - modern-renderer-android
+      - modern-shader-source-check
+      - android-pacing-policy
+      - desktop-pacing-policy
+      - renderer-policy-foundation
+      - rmlui-home-poc
+      - rmlui-home-poc-macos
+      - rmlui-windows-package
+      - rmlui-neutral-native
+      - rmlui-android-native
+      - rmlui-full-source
+      - enhanced-hunter-checks
+      - map-editor-checks
+      - controller-checks
+      - build
+      - macos
+      - android
+      - windows-server
+    runs-on: ubuntu-latest
+    steps:
+      - name: require every source, package and actual platform gate for this revision
+        env:
+          REQUIRED_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          results = json.loads(os.environ['REQUIRED_RESULTS'])
+          failures = {name: result['result'] for name, result in results.items() if result['result'] != 'success'}
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('RmlUi migration acceptance for `' + os.environ['GITHUB_SHA'] + '`\n\n')
+              summary.write('| Required gate | Result |\n| --- | --- |\n')
+              for name, result in sorted(results.items()):
+                  summary.write('| ' + name + ' | ' + result['result'] + ' |\n')
+          if failures:
+              print('Migration acceptance failed: ' + ', '.join(name + '=' + result for name, result in sorted(failures.items())))
+              sys.exit(1)
+          print('PASS all required migration source, native platform, controller, server, renderer and Android framework gates')
+          PY

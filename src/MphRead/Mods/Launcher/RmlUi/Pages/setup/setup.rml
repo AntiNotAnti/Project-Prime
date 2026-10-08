@@ -1,0 +1,36 @@
+<rml><head><title>Project Prime Game Files and Updates</title><link type="text/template" href="../../components/app-shell.rml" /><link type="text/rcss" href="setup.rcss" /></head><body template="prime-shell">
+<div class="setup_workspace"><div class="setup_heading"><div><div class="eyebrow">PROJECT PRIME</div><h1>GAME FILES &amp; UPDATES</h1></div><button id="setup_back" class="play_action quiet" data-action="setup:action:0">BACK</button></div>
+<div class="setup_columns"><div class="setup_panel"><h2>GAME FILES</h2><p id="setup_files_status"/><p class="setup_hint">Use a dump from your own Metroid Prime Hunters cartridge. Project Prime does not download game files.</p><p id="setup_picker_status"/><button id="setup_pick_rom" class="play_action" data-action="setup:action:1">CHOOSE ROM DUMP</button>
+<div id="setup_desktop_paths"><label for="setup_rom_path">ROM file (.nds)</label><input id="setup_rom_path" type="text" class="input"/><button id="setup_install_rom" class="play_action" data-action="setup:action:2">INSTALL THIS ROM</button><h3>EXISTING EXTRACTED FILES</h3><label for="setup_revision">Game revision</label><input id="setup_revision" type="text" class="input"/><label for="setup_data_path">Extracted data directory</label><input id="setup_data_path" type="text" class="input"/><button id="setup_configure_path" class="play_action quiet" data-action="setup:action:14">VALIDATE AND USE THIS PATH</button></div>
+<h3>DATA FOLDER</h3><p id="setup_root" class="setup_path"/><button id="setup_open_folder" class="play_action quiet" data-action="setup:action:13">OPEN DATA FOLDER</button><button id="setup_refresh" class="play_action quiet" data-action="setup:action:3">CHECK GAME FILES</button><button id="setup_verify" class="play_action quiet" data-action="setup:action:4">VERIFY APPLICATION INSTALLATION</button><button id="setup_previews" class="play_action quiet" data-action="setup:action:5">RENDER MISSING MAP PREVIEWS</button></div>
+<div class="setup_panel"><h2>APPLICATION UPDATES</h2><p id="setup_build"/><div class="setup_update_buttons"><button id="setup_check_update" class="play_action" data-action="setup:action:6">CHECK FOR UPDATE</button><button id="setup_versions" class="play_action quiet" data-action="setup:action:7">PUBLISHED VERSIONS</button></div><div class="setup_versions"><button id="setup_release_0" class="setup_release" data-action="setup:release:0" />
+<button id="setup_release_1" class="setup_release" data-action="setup:release:1" />
+<button id="setup_release_2" class="setup_release" data-action="setup:release:2" />
+<button id="setup_release_3" class="setup_release" data-action="setup:release:3" />
+<button id="setup_release_4" class="setup_release" data-action="setup:release:4" />
+<button id="setup_release_5" class="setup_release" data-action="setup:release:5" />
+<button id="setup_release_6" class="setup_release" data-action="setup:release:6" />
+<button id="setup_release_7" class="setup_release" data-action="setup:release:7" />
+<button id="setup_release_8" class="setup_release" data-action="setup:release:8" />
+<button id="setup_release_9" class="setup_release" data-action="setup:release:9" />
+<button id="setup_release_10" class="setup_release" data-action="setup:release:10" />
+<button id="setup_release_11" class="setup_release" data-action="setup:release:11" />
+<button id="setup_release_12" class="setup_release" data-action="setup:release:12" />
+<button id="setup_release_13" class="setup_release" data-action="setup:release:13" />
+<button id="setup_release_14" class="setup_release" data-action="setup:release:14" />
+<button id="setup_release_15" class="setup_release" data-action="setup:release:15" />
+<button id="setup_release_16" class="setup_release" data-action="setup:release:16" />
+<button id="setup_release_17" class="setup_release" data-action="setup:release:17" />
+<button id="setup_release_18" class="setup_release" data-action="setup:release:18" />
+<button id="setup_release_19" class="setup_release" data-action="setup:release:19" />
+<button id="setup_release_20" class="setup_release" data-action="setup:release:20" />
+<button id="setup_release_21" class="setup_release" data-action="setup:release:21" />
+<button id="setup_release_22" class="setup_release" data-action="setup:release:22" />
+<button id="setup_release_23" class="setup_release" data-action="setup:release:23" />
+<button id="setup_release_24" class="setup_release" data-action="setup:release:24" />
+<button id="setup_release_25" class="setup_release" data-action="setup:release:25" />
+<button id="setup_release_26" class="setup_release" data-action="setup:release:26" />
+<button id="setup_release_27" class="setup_release" data-action="setup:release:27" />
+<button id="setup_release_28" class="setup_release" data-action="setup:release:28" />
+<button id="setup_release_29" class="setup_release" data-action="setup:release:29" /></div><h3 id="setup_selected"/><div id="setup_release_notes" class="setup_notes"/><button id="setup_prepare" class="play_action" data-action="setup:action:8">REVIEW SELECTED VERSION</button><button id="setup_release_page" class="play_action quiet" data-action="setup:action:12">OPEN RELEASE PAGE</button><button id="setup_install" class="play_action" data-action="setup:action:10">INSTALL AND RESTART</button></div></div>
+<div id="setup_status" class="setup_status"/><div id="setup_error" class="setup_error"/><div id="setup_progress" class="setup_progress"/><div id="setup_log" class="setup_log"/></div></body></rml>

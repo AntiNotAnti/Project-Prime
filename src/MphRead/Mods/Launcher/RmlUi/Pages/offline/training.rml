@@ -1,0 +1,22 @@
+<rml>
+<head>
+    <title>Aim Trainer options</title>
+    <link type="text/template" href="../../components/dialog.rml" />
+    <link type="text/rcss" href="offline.rcss" />
+</head>
+<body template="prime-dialog">
+    <div class="offline_dialog">
+        <h1>TRAINING OPTIONS</h1>
+        <p>These options are saved when training starts. Imperialist click reload skips each new click; holding fire keeps normal timing.</p>
+        <button id="offline_training_difficulty" class="offline_choice" data-action="offline:choice:13"><span>DIFFICULTY</span><b id="offline_training_difficulty_value" /></button>
+        <button class="offline_choice" data-action="offline:choice:14"><span>TARGET DISTANCE</span><b id="offline_training_distance_value" /></button>
+        <button class="offline_choice" data-action="offline:choice:15"><span>IMPERIALIST SCOPE</span><b id="offline_training_scope_value" /></button>
+        <button id="offline_training_toggle_0" class="offline_action" data-action="offline:training-toggle:0" />
+        <button id="offline_training_toggle_1" class="offline_action" data-action="offline:training-toggle:1" />
+        <button id="offline_training_toggle_2" class="offline_action" data-action="offline:training-toggle:2" />
+        <button id="offline_training_toggle_3" class="offline_action" data-action="offline:training-toggle:3" />
+        <button id="offline_training_toggle_4" class="offline_action" data-action="offline:training-toggle:4" />
+        <button id="offline_training_done" class="offline_action primary" data-action="offline:close-training-options">DONE</button>
+    </div>
+</body>
+</rml>

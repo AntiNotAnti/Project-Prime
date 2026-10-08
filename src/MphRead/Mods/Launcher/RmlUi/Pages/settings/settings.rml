@@ -1,0 +1,130 @@
+<rml>
+<head><title>Project Prime Settings</title><link type="text/template" href="../../components/app-shell.rml" /><link type="text/rcss" href="settings.rcss" /></head>
+<body template="prime-shell">
+<div id="settings_workspace" class="settings_workspace">
+    <div id="settings_navigation" class="settings_navigation">
+        <div class="eyebrow">PROJECT PRIME</div><h1>SETTINGS</h1>
+            <button id="settings_display_tab" class="settings_tab" data-action="settings:category:0">DISPLAY</button>
+            <button id="settings_graphics_tab" class="settings_tab" data-action="settings:category:1">GRAPHICS</button>
+            <button id="settings_audio_tab" class="settings_tab" data-action="settings:category:2">AUDIO</button>
+            <button id="settings_controls_tab" class="settings_tab" data-action="settings:category:3">CONTROLS</button>
+            <button id="settings_replays_tab" class="settings_tab" data-action="settings:category:4">REPLAYS</button>
+            <button id="settings_profile_tab" class="settings_tab" data-action="settings:category:5">PROFILE</button>
+            <button id="settings_system_tab" class="settings_tab" data-action="settings:category:6">SYSTEM</button>
+            <button id="settings_maintenance_tab" class="settings_tab" data-action="settings:category:7">MAINTENANCE</button>
+            <button id="settings_credits_tab" class="settings_tab" data-action="settings:category:8">CREDITS</button>
+        <button id="settings_back" class="play_action quiet" data-action="settings:close">BACK</button>
+    </div>
+    <div id="settings_content" class="settings_content">
+        <div class="settings_heading"><h2 id="settings_title">Display</h2><span id="settings_dirty">Saved settings</span></div>
+        <div class="settings_search"><input id="settings_search" type="text" class="input" placeholder="Search this category" /><button id="settings_search_button" class="choice" data-action="settings:action:54">SEARCH</button><button id="settings_clear_search" class="choice" data-action="settings:action:55">CLEAR</button></div>
+        <div id="settings_fields" class="settings_fields">
+            <div id="settings_hud_tools" class="settings_tools"><button id="settings_hud_edit" class="play_action" data-action="settings:action:28">EDIT HUD</button></div>
+            <div id="settings_controller_tools" class="settings_tools">
+                <p id="settings_controls_help" /><p id="settings_controller_device" />
+                <button class="play_action" data-action="settings:action:38">SELECT NEXT CONTROLLER</button>
+                <p id="settings_controller_library" />
+                <label for="settings_controller_selected">Saved controller profile</label><input id="settings_controller_selected" type="text" class="input" />
+                <label for="settings_controller_name">Profile name</label><input id="settings_controller_name" type="text" class="input" />
+                <div id="settings_controller_file_tools"><label for="settings_controller_file">Controller profile file</label><input id="settings_controller_file" type="text" class="input" /></div>
+                <button class="play_action" data-action="settings:action:39">SAVE CURRENT PROFILE</button>
+                <button class="play_action" data-action="settings:action:40">LOAD PROFILE INTO DRAFT</button>
+                <button class="play_action" data-action="settings:action:41">ASSIGN PROFILE TO CONTROLLER</button>
+                <button class="play_action" data-action="settings:action:42">REMOVE AUTOMATIC ASSIGNMENT</button>
+                <button class="play_action" data-action="settings:action:43">EXPORT CONTROLLER PROFILE</button>
+                <button class="play_action" data-action="settings:action:44">IMPORT CONTROLLER PROFILE</button>
+                <button class="play_action" data-action="settings:action:45">CALIBRATE STICKS AND TRIGGERS</button>
+                <div id="settings_manual_mapping"><button class="play_action" data-action="settings:action:46">MAP BUTTONS AND AXES</button><button class="play_action" data-action="settings:action:49">RESET CUSTOM MAPPINGS</button></div>
+                <label for="settings_capture_id">Binding action name</label><input id="settings_capture_id" type="text" class="input" />
+                <button id="settings_capture_button" class="play_action" data-action="settings:action:59">CAPTURE BINDING</button>
+            </div>
+            <div class="settings_row" id="settings_row_0">
+                <div class="settings_description"><label for="settings_value_0" id="settings_label_0">Setting</label><div class="settings_help" id="settings_help_0" /></div>
+                <input type="text" id="settings_value_0" class="input settings_value" />
+                <button id="settings_cycle_0" class="choice settings_cycle" data-action="settings:action:16">STAGE</button>
+            </div>
+            <div class="settings_row" id="settings_row_1">
+                <div class="settings_description"><label for="settings_value_1" id="settings_label_1">Setting</label><div class="settings_help" id="settings_help_1" /></div>
+                <input type="text" id="settings_value_1" class="input settings_value" />
+                <button id="settings_cycle_1" class="choice settings_cycle" data-action="settings:action:17">STAGE</button>
+            </div>
+            <div class="settings_row" id="settings_row_2">
+                <div class="settings_description"><label for="settings_value_2" id="settings_label_2">Setting</label><div class="settings_help" id="settings_help_2" /></div>
+                <input type="text" id="settings_value_2" class="input settings_value" />
+                <button id="settings_cycle_2" class="choice settings_cycle" data-action="settings:action:18">STAGE</button>
+            </div>
+            <div class="settings_row" id="settings_row_3">
+                <div class="settings_description"><label for="settings_value_3" id="settings_label_3">Setting</label><div class="settings_help" id="settings_help_3" /></div>
+                <input type="text" id="settings_value_3" class="input settings_value" />
+                <button id="settings_cycle_3" class="choice settings_cycle" data-action="settings:action:19">STAGE</button>
+            </div>
+            <div class="settings_row" id="settings_row_4">
+                <div class="settings_description"><label for="settings_value_4" id="settings_label_4">Setting</label><div class="settings_help" id="settings_help_4" /></div>
+                <input type="text" id="settings_value_4" class="input settings_value" />
+                <button id="settings_cycle_4" class="choice settings_cycle" data-action="settings:action:20">STAGE</button>
+            </div>
+            <div class="settings_row" id="settings_row_5">
+                <div class="settings_description"><label for="settings_value_5" id="settings_label_5">Setting</label><div class="settings_help" id="settings_help_5" /></div>
+                <input type="text" id="settings_value_5" class="input settings_value" />
+                <button id="settings_cycle_5" class="choice settings_cycle" data-action="settings:action:21">STAGE</button>
+            </div>
+            <div class="settings_row" id="settings_row_6">
+                <div class="settings_description"><label for="settings_value_6" id="settings_label_6">Setting</label><div class="settings_help" id="settings_help_6" /></div>
+                <input type="text" id="settings_value_6" class="input settings_value" />
+                <button id="settings_cycle_6" class="choice settings_cycle" data-action="settings:action:22">STAGE</button>
+            </div>
+            <div class="settings_row" id="settings_row_7">
+                <div class="settings_description"><label for="settings_value_7" id="settings_label_7">Setting</label><div class="settings_help" id="settings_help_7" /></div>
+                <input type="text" id="settings_value_7" class="input settings_value" />
+                <button id="settings_cycle_7" class="choice settings_cycle" data-action="settings:action:23">STAGE</button>
+            </div>
+            <div class="settings_row" id="settings_row_8">
+                <div class="settings_description"><label for="settings_value_8" id="settings_label_8">Setting</label><div class="settings_help" id="settings_help_8" /></div>
+                <input type="text" id="settings_value_8" class="input settings_value" />
+                <button id="settings_cycle_8" class="choice settings_cycle" data-action="settings:action:24">STAGE</button>
+            </div>
+            <div class="settings_row" id="settings_row_9">
+                <div class="settings_description"><label for="settings_value_9" id="settings_label_9">Setting</label><div class="settings_help" id="settings_help_9" /></div>
+                <input type="text" id="settings_value_9" class="input settings_value" />
+                <button id="settings_cycle_9" class="choice settings_cycle" data-action="settings:action:25">STAGE</button>
+            </div>
+            <div class="settings_row" id="settings_row_10">
+                <div class="settings_description"><label for="settings_value_10" id="settings_label_10">Setting</label><div class="settings_help" id="settings_help_10" /></div>
+                <input type="text" id="settings_value_10" class="input settings_value" />
+                <button id="settings_cycle_10" class="choice settings_cycle" data-action="settings:action:26">STAGE</button>
+            </div>
+            <div class="settings_row" id="settings_row_11">
+                <div class="settings_description"><label for="settings_value_11" id="settings_label_11">Setting</label><div class="settings_help" id="settings_help_11" /></div>
+                <input type="text" id="settings_value_11" class="input settings_value" />
+                <button id="settings_cycle_11" class="choice settings_cycle" data-action="settings:action:27">STAGE</button>
+            </div>
+            <div id="settings_profile_tools" class="settings_tools"><button id="settings_open_glyphs" class="play_action" data-action="settings:action:56">PLAYER NAME GLYPHS</button>
+                <button id="settings_share_logs" class="play_action" data-action="settings:action:53">SHARE DEBUGGING LOGS</button><div id="settings_files" /><button class="play_action" data-action="settings:action:10">GAME FILES</button>
+            </div>
+            <div id="settings_system" class="settings_tools">
+                <h3>SETTINGS BACKUP</h3><p>Preferences, controls, controller mappings and HUD profiles. Accounts, game files, saves and replays stay separate.</p>
+                <label for="settings_archive_path">Archive file</label><input id="settings_archive_path" type="text" class="input" />
+                <button class="play_action" data-action="settings:action:3">EXPORT SETTINGS</button>
+                <button id="settings_import" class="play_action" data-action="settings:action:4">IMPORT SETTINGS</button>
+                <button id="settings_reset" class="play_action danger" data-action="settings:action:5">RESET SETTINGS</button>
+                <button id="settings_open_folder" class="play_action quiet" data-action="settings:action:7">OPEN SETTINGS FOLDER</button>
+            </div>
+            <div id="settings_maintenance" class="settings_tools">
+                <h3>INSTALLATION AND PERFORMANCE</h3><p id="settings_installation" /><p id="settings_storage" />
+                <button class="play_action" data-action="settings:action:11">VERIFY INSTALLATION</button>
+                <button class="play_action" data-action="settings:action:12">CLEAN TEMPORARY CACHE</button>
+                <button class="play_action" data-action="settings:action:50">CLEAR MAP BUILD CACHE</button>
+                <button class="play_action" data-action="settings:action:51">CLEAR THUMBNAILS</button>
+                <button id="settings_render_thumbnails" class="play_action" data-action="settings:action:52">REBUILD THUMBNAILS</button>
+                <button class="play_action" data-action="settings:action:13">RESET PERFORMANCE DRAFT</button>
+                <button id="settings_diagnostic" class="play_action" data-action="settings:action:14">RUN PERFORMANCE DIAGNOSTIC</button>
+            </div>
+            <div id="settings_credits" class="settings_tools"><h3>CREDITS</h3><div id="settings_credits_text" class="settings_credits_text" /></div>
+            <div id="settings_restart" class="settings_tools"><p>Restart to activate imported or reset preferences. Current settings cannot overwrite those saved stores.</p><button class="play_action" data-action="settings:action:8">RESTART NOW</button></div>
+        </div>
+        <div class="settings_paging"><button id="settings_previous" class="choice" data-action="settings:action:0">PREVIOUS</button><span id="settings_paging">Page 1 of 1</span><button id="settings_next" class="choice" data-action="settings:action:1">NEXT</button></div>
+        <div id="settings_error" class="settings_error" /><div id="settings_status" class="settings_status" />
+        <div id="settings_actions" class="settings_actions"><button id="settings_revert_category" class="play_action quiet" data-action="settings:reset-category">REVERT CATEGORY</button><button id="settings_discard" class="play_action quiet" data-action="settings:discard">DISCARD</button><button id="settings_apply" class="play_action" data-action="settings:apply">APPLY</button></div>
+    </div>
+</div>
+</body></rml>

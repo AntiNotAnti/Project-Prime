@@ -47,11 +47,34 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         private RmlUiRenderBackend _backend;
         private volatile bool _active;
         private bool _lifetimeTransition;
+        private bool? _textInputAbi;
+        private bool? _hoverAbi;
+        private bool? _elementBoundsAbi;
+        private bool? _updateStateAbi;
+        private long _nativeUpdates, _skippedUpdates, _updateStateQueries;
 
         public bool Active => _active;
+        internal int FramebufferWidth => _width;
+        internal int FramebufferHeight => _height;
         public uint ProtocolVersion => _protocol;
         public RmlUiDocumentToken HomeDocument { get; private set; }
         public RmlUiInput Input { get; }
+        public RmlUiUpdateMetrics UpdateMetrics => new(_nativeUpdates, _skippedUpdates, _updateStateQueries);
+        public RmlUiDocumentToken CurrentInputDocument
+        {
+            get
+            {
+                VerifyOwnerThread();
+                if (!_active) return default;
+                for (int layer = (int)RmlUiDocumentLayer.Modal; layer >= (int)RmlUiDocumentLayer.Page; layer--)
+                    for (int i = _documentOrder.Count - 1; i >= 0; i--)
+                    {
+                        DocumentState state = _documents[_documentOrder[i]];
+                        if (state.Visible && (int)state.Layer == layer) return new(_generation, _documentOrder[i]);
+                    }
+                return default;
+            }
+        }
         public Exception? LastCleanupError { get; private set; }
         public event Action<Exception>? CleanupFailed;
 
@@ -101,6 +124,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 _documents.Add(home, new DocumentState(RmlUiDocumentLayer.Page));
                 _documentOrder.Add(home);
                 _nativeSequence = _managedSequence = 0;
+                _textInputAbi = _hoverAbi = _elementBoundsAbi = null;
+                _updateStateAbi = null;
+                _nativeUpdates = _skippedUpdates = _updateStateQueries = 0;
                 _active = true;
                 Input.Reset();
                 return true;
@@ -179,6 +205,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             return _active && document.Generation == _generation && _documents.ContainsKey(document.DocumentId);
         }
 
+        public bool IsVisible(RmlUiDocumentToken document) => IsAlive(document) && _documents[document.DocumentId].Visible;
+
         public CancellationToken DocumentCancellation(RmlUiDocumentToken document)
         {
             VerifyOwnerThread();
@@ -240,14 +268,17 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             else _native.DocumentSetField(document.DocumentId, id, value ?? "");
         }
 
-        public string ReadField(RmlUiDocumentToken document, string id)
+        public string ReadField(RmlUiDocumentToken document, string id, int maximumBytes = 4096)
         {
             VerifyNativeCallAllowed();
+            if (maximumBytes is <= 0 or > 128 * 1024) throw new ArgumentOutOfRangeException(nameof(maximumBytes));
             if (!IsAlive(document)) return "";
-            byte[] buffer = new byte[4096];
+            byte[] buffer = new byte[maximumBytes + 1];
             int length = _protocol == 0 ? _native.ReadField(id, buffer, buffer.Length)
                 : _native.DocumentReadField(document.DocumentId, id, buffer, buffer.Length);
-            return length <= 0 ? "" : Encoding.UTF8.GetString(buffer, 0, Math.Min(length, buffer.Length - 1));
+            if (length < 0 || length >= buffer.Length)
+                throw new InvalidOperationException("The native editable field exceeds its permitted UTF-8 byte length.");
+            return length == 0 ? "" : Encoding.UTF8.GetString(buffer, 0, length);
         }
 
         public void Resize(int width, int height, float density)
@@ -263,7 +294,39 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RequireActive();
             for (int i = 0; i < 256 && _pending.TryDequeue(out PendingSnapshot pending); i++)
                 if (!pending.Cancellation.IsCancellationRequested) Present(pending.Snapshot);
+            // Only an optional native capability can establish genuine idle
+            // state. Older bridges and invalid packets retain eager updates.
+            // Direct native accessibility/input mutations use the same dirty
+            // state, so managed caches cannot hide work from this decision.
+            if (TryGetUpdateState(out var state) && !state.Dirty && state.NextUpdateDelaySeconds > 0)
+            {
+                _skippedUpdates++;
+                return;
+            }
             _native.Update();
+            _nativeUpdates++;
+        }
+
+        public bool TryGetUpdateState(out RmlUiUpdateState state)
+        {
+            VerifyNativeCallAllowed();
+            state = default;
+            if (!_active || _protocol == 0 || _updateStateAbi == false) return false;
+            var packet = RmlUiNativeUpdateState.Request();
+            try
+            {
+                _updateStateQueries++;
+                if (_native.UpdateState(ref packet) == 0)
+                { _updateStateAbi = false; return false; }
+                if (packet.Size != 40 || packet.Version != 1 || packet.Generation != _generation
+                    || packet.VisualRevision == 0 || packet.Reserved != 0 || (packet.Flags & ~((RmlUiUpdateFlags)3)) != 0
+                    || double.IsNaN(packet.NextUpdateDelaySeconds) || packet.NextUpdateDelaySeconds < 0)
+                { _updateStateAbi = false; return false; }
+                _updateStateAbi = true;
+                state = new(packet.Generation, packet.VisualRevision, packet.NextUpdateDelaySeconds, packet.Flags);
+                return true;
+            }
+            catch (EntryPointNotFoundException) { _updateStateAbi = false; return false; }
         }
 
         public void Render(int width, int height)
@@ -292,7 +355,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                     if (!RmlUiIntentRegistry.TryDecode(packet, out intent)
                         || packet.Generation != _generation || packet.Sequence <= _nativeSequence) continue;
                     _nativeSequence = packet.Sequence;
-                    if (IsAlive(intent.Document)) return true;
+                    if (IsAlive(intent.Document)) { Input.RecordIntent(intent); return true; }
                 }
                 else
                 {
@@ -303,7 +366,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                     if (length >= _actionBuffer.Length) continue;
                     string action = Encoding.UTF8.GetString(_actionBuffer, 0, length);
                     if (RmlUiIntentRegistry.TryParseLegacy(action, HomeDocument, ++_managedSequence, out intent))
-                        return true;
+                    { Input.RecordIntent(intent); return true; }
                 }
             }
             intent = default;
@@ -368,6 +431,82 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             return length <= 0 ? "" : Encoding.UTF8.GetString(buffer, 0, Math.Min(length, buffer.Length - 1));
         }
 
+        public string HoveredElement()
+        {
+            VerifyNativeCallAllowed();
+            if (!_active || _protocol == 0 || _hoverAbi == false) return "";
+            byte[] buffer = new byte[1024];
+            try
+            {
+                int length = _native.HoveredElement(buffer, buffer.Length);
+                _hoverAbi = true;
+                return length <= 0 ? "" : Encoding.UTF8.GetString(buffer, 0, Math.Min(length, buffer.Length - 1));
+            }
+            catch (EntryPointNotFoundException) { _hoverAbi = false; return ""; }
+        }
+
+        /// <summary>Reads the visible authored element's border box in framebuffer pixels.</summary>
+        public bool TryGetElementBounds(RmlUiDocumentToken document, string element,
+            out float x, out float y, out float width, out float height)
+        {
+            VerifyNativeCallAllowed();
+            x = y = width = height = 0;
+            if (!_active || _protocol == 0 || _elementBoundsAbi == false || !IsVisible(document)
+                || String.IsNullOrWhiteSpace(element)) return false;
+            try
+            {
+                int result = _native.DocumentElementBounds(document.DocumentId, element, out x, out y, out width, out height);
+                _elementBoundsAbi = true;
+                if (result != 0 && Single.IsFinite(x) && Single.IsFinite(y) && Single.IsFinite(width)
+                    && Single.IsFinite(height) && width > 0 && height > 0) return true;
+                x = y = width = height = 0;
+                return false;
+            }
+            catch (EntryPointNotFoundException) { _elementBoundsAbi = false; return false; }
+        }
+
+        public bool TryGetTextInputState(out RmlUiTextInputState state)
+        {
+            VerifyNativeCallAllowed();
+            state = default;
+            if (!_active || _protocol == 0 || _textInputAbi == false) return false;
+            var packet = RmlUiNativeTextInputState.Request();
+            try
+            {
+                int result = _native.TextInputState(ref packet);
+                _textInputAbi = true;
+                if (result == 0 || packet.Size != 64 || packet.Version != 1 || packet.Generation != _generation
+                    || packet.FocusEpoch == 0 || !IsVisible(new(packet.Generation, packet.DocumentId))) return false;
+                state = new(new(packet.Generation, packet.DocumentId), packet.FocusEpoch,
+                    new(packet.X, packet.Y, packet.Width, packet.Height), packet.SelectionStart, packet.SelectionEnd,
+                    packet.Composing != 0, packet.Capabilities);
+                return true;
+            }
+            catch (EntryPointNotFoundException) { _textInputAbi = false; return false; }
+        }
+
+        /// <summary>Queries platform selection offsets without returning editable or password text.</summary>
+        public bool TryGetTextSelectionUtf16(in RmlUiTextInputState scope, out int start, out int end)
+        {
+            VerifyNativeCallAllowed();
+            start = end = 0;
+            if (!TryGetTextInputState(out var current) || current.Document != scope.Document
+                || current.FocusEpoch != scope.FocusEpoch) return false;
+            try
+            {
+                return _native.TextSelectionUtf16(scope.Document.Generation, scope.Document.DocumentId, scope.FocusEpoch,
+                    out start, out end) != 0 && start >= 0 && end >= start;
+            }
+            catch (EntryPointNotFoundException) { return false; }
+        }
+
+        internal bool Compose(in RmlUiPlatformInputEvent input, int stage)
+        {
+            VerifyNativeCallAllowed();
+            return _native.Composition(input.Document.Generation, input.Document.DocumentId, input.FocusEpoch,
+                stage, input.Text ?? "", input.Cursor, input.SelectionLength) != 0;
+        }
+
         public void SetClipboard(string text)
         {
             VerifyNativeCallAllowed();
@@ -378,9 +517,11 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         {
             VerifyNativeCallAllowed();
             if (!_active || _protocol == 0) return "";
-            byte[] buffer = new byte[65536];
+            byte[] buffer = new byte[128 * 1024 + 1];
             int length = _native.ReadClipboard(buffer, buffer.Length);
-            return length <= 0 ? "" : Encoding.UTF8.GetString(buffer, 0, Math.Min(length, buffer.Length - 1));
+            if (length < 0 || length >= buffer.Length)
+                throw new InvalidOperationException("The native clipboard exceeds its permitted UTF-8 byte length.");
+            return length == 0 ? "" : Encoding.UTF8.GetString(buffer, 0, length);
         }
 
         private void InvalidateNativeControlledBindings()

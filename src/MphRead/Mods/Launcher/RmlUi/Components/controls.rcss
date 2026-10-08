@@ -1,0 +1,137 @@
+/* Shared authored controls rules, extracted from prime_home.rcss. */
+.play_toolbar {
+display: flex;
+    align-items: stretch;
+    min-height: 38dp;
+    margin-bottom: 9dp;
+}
+
+.play_action {
+min-width: 95dp;
+    margin-right: 6dp;
+    padding: 8dp 13dp;
+    color: #b2cadc;
+    background-color: rgba(4,16,29,86%);
+    border: 1dp rgba(114,199,255,23%);
+    font-size: 11dp;
+    line-height: 15dp;
+    font-weight: bold;
+    letter-spacing: 0.6dp;
+}
+
+.play_action.primary {
+color: #ffffff;
+    border-bottom: 3dp #2b9ef7;
+    background-color: rgba(20,83,142,80%);
+}
+
+.play_action:hover,
+.play_action:focus {
+background-color: rgba(23,79,128,91%);
+    border-color: #72c7ff;
+    color: #ffffff;
+}
+
+.play_action.wide {
+width: 100%;
+    margin-top: 10dp;
+    margin-right: 0;
+}
+
+.play_form_label {
+margin-top: 13dp;
+    margin-bottom: 6dp;
+    color: #6999b7;
+    font-family: "JetBrains Mono";
+    font-size: 9dp;
+    line-height: 11dp;
+    letter-spacing: 0.7dp;
+}
+
+.play_input {
+width: 100%;
+    height: 36dp;
+    padding: 6dp 9dp;
+    color: #ffffff;
+    background-color: rgba(9,33,55,93%);
+    border: 1dp rgba(114,199,255,33%);
+    font-family: "JetBrains Mono";
+    font-size: 12dp;
+}
+
+.play_input:focus {
+border-color: #72c7ff;
+    background-color: rgba(14,48,78,95%);
+}
+
+.play_form_hint {
+margin-top: 11dp;
+    color: #91abc0;
+    font-family: "JetBrains Mono";
+    font-size: 8dp;
+    line-height: 12dp;
+}
+
+.play_section_title {
+color: #ffffff;
+    font-size: 25dp;
+    line-height: 28dp;
+    font-weight: bold;
+}
+
+.play_choice {
+display: flex;
+    width: 100%;
+    min-height: 39dp;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8dp 10dp;
+    color: #d5eaff;
+    text-align: left;
+    background-color: rgba(10,35,59,83%);
+    border: 1dp rgba(114,199,255,25%);
+    font-size: 13dp;
+    line-height: 16dp;
+    font-weight: bold;
+}
+
+.play_choice span {
+color: #63bbf0;
+    font-family: "JetBrains Mono";
+    font-size: 9dp;
+}
+
+.play_choice:hover,
+.play_choice:focus {
+border-color: #72c7ff;
+    background-color: rgba(21,69,110,90%);
+}
+
+@media (max-width: 1500dp) {
+.play_action {
+min-width: 82dp; padding-left: 9dp; padding-right: 9dp;
+}
+}
+
+@media (max-width: 900dp) {
+.play_action {
+min-width: 68dp; font-size: 9dp; padding-left: 7dp; padding-right: 7dp;
+}
+}
+
+/* Preserve the primary choice label when it is an independently bound text node. */
+.play_choice .bound_text { color: #d5eaff; font-family: Rajdhani; font-size: 13dp; }
+
+/* RmlUi has no built-in widget stylesheet. Explicit generated scrollbar sizes
+   preserve a scroll container's content width and keep its hit target narrow. */
+scrollbarvertical { width: 16dp; background-color: #07131e; }
+scrollbarvertical slidertrack { width: 16dp; background-color: #07131e; }
+scrollbarvertical sliderbar { width: 16dp; min-height: 32dp; background-color: #426983; border: 1dp #72c7ff; }
+scrollbarvertical sliderarrowdec, scrollbarvertical sliderarrowinc { width: 0dp; height: 0dp; }
+scrollbarhorizontal { height: 16dp; background-color: #07131e; }
+scrollbarhorizontal slidertrack { height: 16dp; background-color: #07131e; }
+scrollbarhorizontal sliderbar { height: 16dp; min-width: 32dp; background-color: #426983; border: 1dp #72c7ff; }
+scrollbarhorizontal sliderarrowdec, scrollbarhorizontal sliderarrowinc { width: 0dp; height: 0dp; }
+scrollbarcorner { width: 16dp; height: 16dp; background-color: #07131e; }
+scrollbarvertical sliderbar:hover, scrollbarvertical sliderbar:active,
+scrollbarhorizontal sliderbar:hover, scrollbarhorizontal sliderbar:active { background-color: #72c7ff; }

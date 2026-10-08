@@ -126,7 +126,10 @@ public sealed class LobbyQueueClient : IDisposable
             var leave = new QueueLeavePacket(id); leave.Write(_buffer);
             _transport.Send(_server, PacketType.QueueLeave, _buffer.AsSpan(0, QueueLeavePacket.Size));
         }
-        else _transport.Send(_server, PacketType.Bye, ReadOnlySpan<byte>.Empty);
+        // Promotion can reach the transport before the UI reads Welcome. Leave
+        // the queue and send the established-connection farewell so cancellation
+        // also retires a seat the server has already promoted in that interval.
+        _transport.Send(_server, PacketType.Bye, ReadOnlySpan<byte>.Empty);
         _transport.Dispose(); _transport = null;
     }
 }
