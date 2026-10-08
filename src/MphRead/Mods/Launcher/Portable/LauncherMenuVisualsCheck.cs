@@ -93,7 +93,11 @@ namespace MphRead.Mods.Launcher
                 LauncherActivityAmbience.QuickPlay,
                 LauncherActivityAmbience.ServerBrowser,
                 LauncherActivityAmbience.OfflineBattle,
-                LauncherActivityAmbience.Adventure
+                LauncherActivityAmbience.Adventure,
+                LauncherActivityAmbience.AimLab,
+                LauncherActivityAmbience.Lobby,
+                LauncherActivityAmbience.Community,
+                LauncherActivityAmbience.Studio
             };
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (LauncherActivityAmbience activity in activities)
@@ -115,6 +119,18 @@ namespace MphRead.Mods.Launcher
             Check(LauncherActivityAmbience.ServerBrowser.ParticleBias
                     < LauncherActivityAmbience.QuickPlay.ParticleBias,
                 "Server Browser remains the cleaner technical mood");
+            Check(LauncherActivityAmbience.AimLab.FloorGrid
+                    > LauncherActivityAmbience.OfflineBattle.FloorGrid,
+                "Aim Lab uses its own high-definition training grid");
+            Check(LauncherActivityAmbience.Lobby.StructureBias
+                    > LauncherActivityAmbience.QuickPlay.StructureBias,
+                "Actual lobby emphasizes operational formation structure");
+            Check(LauncherActivityAmbience.Studio.Accent.B
+                    > LauncherActivityAmbience.Studio.Accent.R,
+                "Studio has its own violet technical accent");
+            Check(LauncherMenuVisuals.Hunter(Hunter.Trace).Halo.R
+                    > LauncherMenuVisuals.Hunter(Hunter.Trace).Halo.B,
+                "Trace creates a warm crimson chamber identity");
 
             foreach (Hunter hunter in new[]
             {
@@ -134,6 +150,17 @@ namespace MphRead.Mods.Launcher
                     $"{hunter} identity colors are normalized");
             }
 
+            LauncherLobbyVisuals.Reset();
+            LauncherLobbyVisuals.SetHunter(0, Hunter.Trace);
+            LauncherLobbyVisuals.SetHunter(7, Hunter.Noxus);
+            Check(LauncherLobbyVisuals.HunterAt(0) == Hunter.Trace
+                && LauncherLobbyVisuals.HunterAt(7) == Hunter.Noxus,
+                "Eight lobby pads retain their own Hunter lighting identity");
+            LauncherLobbyVisuals.Reset();
+            Check(LauncherLobbyVisuals.OccupiedMask == 0
+                && LauncherLobbyVisuals.HunterAt(0) == Hunter.Samus,
+                "Lobby exit clears stale pad-light identities");
+
             LauncherBackdropScene oldScene = LauncherBackdrop.Scene;
             string oldRoom = LauncherBackdrop.RoomKey;
             try
@@ -150,6 +177,18 @@ namespace MphRead.Mods.Launcher
                 LauncherBackdrop.Set(LauncherBackdropScene.Adventure);
                 Check(LauncherMenuVisuals.Activity.Name == "adventure",
                     "Adventure resolves solo ambience");
+                LauncherBackdrop.Set(LauncherBackdropScene.Training);
+                Check(LauncherMenuVisuals.Activity.Name == "aim-lab",
+                    "Aim Lab uses a distinct training mood");
+                LauncherBackdrop.Set(LauncherBackdropScene.Lobby);
+                Check(LauncherMenuVisuals.Activity.Name == "live-lobby",
+                    "Live lobby is not the Home Quick Play preset");
+                LauncherBackdrop.Set(LauncherBackdropScene.MapEditor);
+                Check(LauncherMenuVisuals.Activity.Name == "community-forge",
+                    "Community has a teal authoring mood");
+                LauncherBackdrop.Set(LauncherBackdropScene.ReplayStudio);
+                Check(LauncherMenuVisuals.Activity.Name == "studio-technical",
+                    "Studio has a violet technical mood");
             }
             finally
             {

@@ -418,3 +418,98 @@ min-width: 62dp; font-size: 7dp;
 @media (max-height: 720dp) { .lobby_data_row { min-height: 23dp; padding-top: 3dp; padding-bottom: 3dp; } .lobby_small_button { margin-top: 5dp; padding: 5dp; } }
 @media (max-height: 650dp) { #lobby_left_panels { top: 12dp; } }
 @media (max-width: 900dp) { #lobby_left_panels { left: 14dp; top: 18dp; width: 170dp; } }
+
+/* Operational lobby layer: same authored chamber, meaningful live lobby state. */
+#lobby_brief {
+    position: absolute; left: 50%; top: 23dp;
+    margin-left: -177dp; width: 354dp; padding: 11dp 15dp 10dp;
+    background-color: rgba(3, 13, 23, 67%);
+    border-top: 1dp rgba(114, 199, 255, 20%);
+    border-bottom: 1dp rgba(114, 199, 255, 20%);
+    border-left: 2dp rgba(114, 199, 255, 40%);
+    border-right: 2dp rgba(114, 199, 255, 13%);
+    pointer-events: none;
+}
+.lobby_brief_header { display: flex; align-items: center; justify-content: space-between; }
+.lobby_brief_eyebrow, .lobby_brief_count {
+    color: #7db1ce; font-size: 8dp; font-family: "JetBrains Mono"; letter-spacing: 1dp;
+}
+.lobby_brief_count { color: #a9deef; }
+.lobby_brief_title {
+    color: #e4f7ff; font-size: 15dp; font-weight: bold;
+    letter-spacing: 0.7dp; margin-top: 5dp; margin-bottom: 7dp;
+}
+.lobby_brief_slots { display: flex; justify-content: space-between; width: 100%; gap: 4dp; }
+.lobby_brief_slot {
+    flex: 1; text-align: center; height: 12dp; line-height: 12dp;
+    color: #476078; font-family: "JetBrains Mono"; font-size: 7dp;
+    background-color: rgba(56, 84, 107, 30%);
+    border-bottom: 2dp rgba(97, 182, 246, 12%);
+}
+.lobby_brief_slot.active {
+    color: #c7e9ff; background-color: rgba(43, 158, 247, 28%);
+    border-bottom-color: #64b9e9;
+}
+.lobby_brief_slot.ready {
+    color: #e0ffed; background-color: rgba(52, 144, 104, 40%);
+    border-bottom-color: #55e18c;
+}
+.lobby_brief_slot.local { border-top: 2dp #ffffff; }
+.lobby_brief_detail {
+    margin-top: 7dp; color: #829bb0; line-height: 12dp;
+    font-family: "JetBrains Mono"; font-size: 9dp; letter-spacing: 0.3dp;
+}
+.lobby_field_status {
+    display: flex; align-items: center; margin-top: 9dp; padding: 7dp 5dp;
+    color: #9bc9df; font-family: "JetBrains Mono"; font-size: 9dp;
+    border-bottom: 1dp rgba(114, 199, 255, 14%);
+}
+.lobby_field_dot {
+    width: 7dp; height: 7dp; margin-right: 7dp;
+    border-radius: 4dp; background-color: #57d7ae;
+}
+#lobby_roster_panel { background-color: rgba(3, 13, 23, 85%); }
+#lobby_chat_panel { background-color: rgba(3, 13, 23, 86%); }
+.lobby_roster_social {
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; min-height: 30dp; text-align: left;
+    margin-bottom: 9dp; padding: 7dp 10dp;
+    color: #9bcee6; font-size: 9dp; font-weight: bold; letter-spacing: 0.5dp;
+    background-color: rgba(12, 52, 74, 58%);
+    border: 1dp rgba(114, 199, 255, 23%);
+}
+.lobby_roster_social span { color: #72c7ff; }
+.lobby_roster_social:hover, .lobby_roster_social:focus {
+    color: #fff; background-color: rgba(19, 78, 114, 84%);
+    border-color: #91daff;
+}
+.lobby_roster_row { background-color: rgba(10, 32, 49, 63%); }
+.lobby_roster_row.ready {
+    border-left-color: #55e18c;
+    background-color: rgba(15, 76, 62, 54%);
+}
+.lobby_roster_row.local {
+    border-left-color: #a3dcff;
+    background-color: rgba(22, 90, 145, 45%);
+}
+.lobby_nameplate.ready { border-top-color: #55e18c; }
+.lobby_nameplate.local.ready { border-top-color: #e0f7ff; }
+#lobby_social_access { nav-up: #nav_play; nav-down: #lobby_player0; }
+@media (max-width: 1500dp) {
+    #lobby_brief { width: 318dp; margin-left: -159dp; padding: 9dp 12dp; }
+}
+@media (max-width: 1120dp) {
+    #lobby_brief { width: 270dp; margin-left: -135dp; }
+    .lobby_brief_title { font-size: 13dp; }
+}
+@media (max-width: 980dp) {
+    #lobby_brief { display: none; }
+}
+@media (max-height: 760dp) {
+    #lobby_brief { top: 10dp; padding: 7dp 12dp; }
+    .lobby_brief_title { margin-top: 2dp; margin-bottom: 4dp; }
+    .lobby_brief_detail { margin-top: 4dp; font-size: 8dp; }
+    .lobby_roster_social { min-height: 26dp; margin-bottom: 5dp; padding: 4dp 7dp; }
+    .lobby_field_status { padding: 4dp; margin-top: 5dp; font-size: 8dp; }
+}
+@media (max-height: 545dp) { #lobby_brief { display: none; } }

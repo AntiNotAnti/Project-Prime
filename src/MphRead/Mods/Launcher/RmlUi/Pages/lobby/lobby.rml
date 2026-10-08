@@ -12,6 +12,25 @@
                 <div class="lobby_title" data-prime-text="{{lobby_name}}" id="text_lobby_name_1" />
                 <div class="lobby_status_line" data-prime-text="{{lobby_status}}" id="text_lobby_status_1" />
             </div>
+
+            <div id="lobby_brief" class="enter_top" role="status">
+                <div class="lobby_brief_header">
+                    <span class="lobby_brief_eyebrow">SQUAD STATUS</span>
+                    <span id="lobby_brief_count" class="lobby_brief_count" data-prime-text="{{lobby_brief_count}}" />
+                </div>
+                <div id="lobby_brief_title" class="lobby_brief_title" data-prime-text="{{lobby_brief_title}}" />
+                <div class="lobby_brief_slots">
+                    <span id="lobby_brief_slot0" class="lobby_brief_slot" data-prime-class-active="slot0_occupied" data-prime-class-ready="slot0_ready" data-prime-class-local="slot0_local">1</span>
+                    <span id="lobby_brief_slot1" class="lobby_brief_slot" data-prime-class-active="slot1_occupied" data-prime-class-ready="slot1_ready" data-prime-class-local="slot1_local">2</span>
+                    <span id="lobby_brief_slot2" class="lobby_brief_slot" data-prime-class-active="slot2_occupied" data-prime-class-ready="slot2_ready" data-prime-class-local="slot2_local">3</span>
+                    <span id="lobby_brief_slot3" class="lobby_brief_slot" data-prime-class-active="slot3_occupied" data-prime-class-ready="slot3_ready" data-prime-class-local="slot3_local">4</span>
+                    <span id="lobby_brief_slot4" class="lobby_brief_slot" data-prime-class-active="slot4_occupied" data-prime-class-ready="slot4_ready" data-prime-class-local="slot4_local">5</span>
+                    <span id="lobby_brief_slot5" class="lobby_brief_slot" data-prime-class-active="slot5_occupied" data-prime-class-ready="slot5_ready" data-prime-class-local="slot5_local">6</span>
+                    <span id="lobby_brief_slot6" class="lobby_brief_slot" data-prime-class-active="slot6_occupied" data-prime-class-ready="slot6_ready" data-prime-class-local="slot6_local">7</span>
+                    <span id="lobby_brief_slot7" class="lobby_brief_slot" data-prime-class-active="slot7_occupied" data-prime-class-ready="slot7_ready" data-prime-class-local="slot7_local">8</span>
+                </div>
+                <div id="lobby_brief_detail" class="lobby_brief_detail" data-prime-text="{{lobby_brief_detail}}" />
+            </div>
             <div id="lobby_left_panels">
             <div id="lobby_match_panel" class="lobby_side_panel enter_left">
                 <div class="eyebrow">NEXT MATCH</div>
@@ -34,6 +53,10 @@
                     <span>READY</span>
                     <b data-prime-text="{{lobby_ready_count}}" id="text_lobby_ready_count_1" />
                 </div>
+                <div id="lobby_field_status" class="lobby_field_status">
+                    <span class="lobby_field_dot"></span>
+                    <span id="lobby_field_caption" data-prime-text="{{lobby_field_caption}}">WAITING FOR SERVER</span>
+                </div>
                 <button id="lobby_manage" class="lobby_small_button" data-action="lobby:admin-open">PLAYERS &amp; BOTS &gt;</button>
                 <button id="lobby_match_rules" class="lobby_small_button" data-action="lobby:rules-open">LOBBY SETTINGS &gt;</button>
             </div>
@@ -42,9 +65,10 @@
             <div id="lobby_chat_panel" class="lobby_side_panel"><div class="eyebrow">LOBBY CHAT</div><div id="lobby_chat_history"/><div id="lobby_chat_status"/><div class="lobby_chat_compose"><input id="lobby_chat_input" type="text" maxlength="128" placeholder="Message the lobby"/><button id="lobby_chat_send" data-action="lobby:chat-send">SEND</button></div></div>
             <div id="lobby_roster_panel" class="lobby_side_panel enter_right">
                 <div class="lobby_roster_header">
-                    <div class="eyebrow">PLAYER SLOTS</div>
+                    <div class="eyebrow">CONNECTED HUNTERS</div>
                     <div class="lobby_roster_count" data-prime-text="{{lobby_player_count}}" id="text_lobby_player_count_2" />
                 </div>
+                <button id="lobby_social_access" class="lobby_roster_social" data-action="route:social">INVITE FRIENDS / PARTY <span>&gt;</span></button>
                 <div class="lobby_roster_row" id="visible_slot0_occupied_1" data-prime-class-ready="slot0_ready" data-prime-class-local="slot0_local">
                     <span class="lobby_roster_index">1</span>
                     <button id="lobby_player0" class="lobby_roster_copy" data-action="lobby:player:0">
@@ -110,35 +134,35 @@
                     <div class="lobby_roster_meta"><span class="lobby_roster_state" data-prime-text="{{slot7_state}}" id="text_slot7_state_1" /><button id="lobby_team7" class="lobby_team" data-action="lobby:slot-team:7" /></div>
                 </div>
             </div>
-            <button data-action="lobby:player:0" id="lobby_slot0" class="lobby_nameplate local">
+            <button data-action="lobby:player:0" id="lobby_slot0" data-prime-class-ready="slot0_ready" class="lobby_nameplate local">
                 <b data-prime-text="{{slot0_name}}" id="text_slot0_name_2" />
                 <span data-prime-text="{{slot0_hunter}} // {{slot0_state}}" id="text_slot0_hunter_2" />
             </button>
-            <button data-action="lobby:player:1" id="lobby_slot1" class="lobby_nameplate">
+            <button data-action="lobby:player:1" id="lobby_slot1" data-prime-class-ready="slot1_ready" class="lobby_nameplate">
                 <b data-prime-text="{{slot1_name}}" id="text_slot1_name_2" />
                 <span data-prime-text="{{slot1_hunter}}" id="text_slot1_hunter_2" />
             </button>
-            <button data-action="lobby:player:2" id="lobby_slot2" class="lobby_nameplate">
+            <button data-action="lobby:player:2" id="lobby_slot2" data-prime-class-ready="slot2_ready" class="lobby_nameplate">
                 <b data-prime-text="{{slot2_name}}" id="text_slot2_name_2" />
                 <span data-prime-text="{{slot2_hunter}}" id="text_slot2_hunter_2" />
             </button>
-            <button data-action="lobby:player:3" id="lobby_slot3" class="lobby_nameplate">
+            <button data-action="lobby:player:3" id="lobby_slot3" data-prime-class-ready="slot3_ready" class="lobby_nameplate">
                 <b data-prime-text="{{slot3_name}}" id="text_slot3_name_2" />
                 <span data-prime-text="{{slot3_hunter}}" id="text_slot3_hunter_2" />
             </button>
-            <button data-action="lobby:player:4" id="lobby_slot4" class="lobby_nameplate">
+            <button data-action="lobby:player:4" id="lobby_slot4" data-prime-class-ready="slot4_ready" class="lobby_nameplate">
                 <b data-prime-text="{{slot4_name}}" id="text_slot4_name_2" />
                 <span data-prime-text="{{slot4_hunter}}" id="text_slot4_hunter_2" />
             </button>
-            <button data-action="lobby:player:5" id="lobby_slot5" class="lobby_nameplate">
+            <button data-action="lobby:player:5" id="lobby_slot5" data-prime-class-ready="slot5_ready" class="lobby_nameplate">
                 <b data-prime-text="{{slot5_name}}" id="text_slot5_name_2" />
                 <span data-prime-text="{{slot5_hunter}}" id="text_slot5_hunter_2" />
             </button>
-            <button data-action="lobby:player:6" id="lobby_slot6" class="lobby_nameplate">
+            <button data-action="lobby:player:6" id="lobby_slot6" data-prime-class-ready="slot6_ready" class="lobby_nameplate">
                 <b data-prime-text="{{slot6_name}}" id="text_slot6_name_2" />
                 <span data-prime-text="{{slot6_hunter}}" id="text_slot6_hunter_2" />
             </button>
-            <button data-action="lobby:player:7" id="lobby_slot7" class="lobby_nameplate">
+            <button data-action="lobby:player:7" id="lobby_slot7" data-prime-class-ready="slot7_ready" class="lobby_nameplate">
                 <b data-prime-text="{{slot7_name}}" id="text_slot7_name_2" />
                 <span data-prime-text="{{slot7_hunter}}" id="text_slot7_hunter_2" />
             </button>

@@ -25,8 +25,14 @@ namespace MphRead.Mods.Render
             // The live chamber's per-slot GL pedestal pass already lays down
             // eight correctly aligned contact shadows from the formation table.
             // The single-hero stage shadow would otherwise float between pads.
-            if (!Enabled || LauncherLobbyVisuals.Active
-                || !LauncherHunter.Wanted || width <= 0 || height <= 0)
+            if (!Enabled || width <= 0 || height <= 0)
+                return;
+            if (LauncherLobbyVisuals.Active)
+            {
+                DrawLobbyAmbience();
+                return;
+            }
+            if (!LauncherHunter.Wanted)
                 return;
 
             EnsureTexture();
@@ -56,11 +62,11 @@ namespace MphRead.Mods.Render
             DrawRadial(centerX, centerY,
                 spanX * 1.34f * theme.HaloScale, spanY * 0.98f,
                 theme.Halo.R, theme.Halo.G, theme.Halo.B,
-                (0.055f + atmosphere * 0.24f) * theme.AccentStrength);
+                (0.090f + atmosphere * 0.36f) * theme.AccentStrength);
             DrawRadial(centerX + spanX * 0.025f, centerY - spanY * 0.01f,
                 spanX * 0.84f, spanY * 0.66f,
                 theme.Rim.R, theme.Rim.G, theme.Rim.B,
-                (0.025f + atmosphere * 0.11f) * theme.AccentStrength);
+                (0.042f + atmosphere * 0.18f) * theme.AccentStrength);
 
             // Slow low fog stays behind the model. It is made from broad alpha
             // fields rather than gameplay particles, so it cannot affect room
@@ -102,7 +108,7 @@ namespace MphRead.Mods.Render
                     theme.Particle, 0.46f);
                 DrawRadial(moteX, moteY, size, size * 1.15f,
                     mote.R, mote.G, mote.B,
-                    dust * (0.16f + Hash01(i * 13 + 2) * 0.32f));
+                    dust * (0.22f + Hash01(i * 13 + 2) * 0.39f));
             }
 
             // Grounding is shaped around feet rather than one broad ellipse.
@@ -118,7 +124,7 @@ namespace MphRead.Mods.Render
             // platform while two tighter pools make the boots feel planted.
             DrawRadial(centerX, floorY - 0.006f, spanX * 0.80f, 0.085f,
                 theme.Floor.R, theme.Floor.G, theme.Floor.B,
-                0.075f + style.FloorGlow * theme.AccentStrength * 0.11f);
+                0.105f + style.FloorGlow * theme.AccentStrength * 0.15f);
             DrawRadial(centerX - spread, floorY - 0.004f, spanX * 0.18f, 0.032f,
                 theme.Floor.R, theme.Floor.G, theme.Floor.B, 0.085f);
             DrawRadial(centerX + spread, floorY - 0.004f, spanX * 0.18f, 0.032f,
@@ -138,6 +144,49 @@ namespace MphRead.Mods.Render
             DrawRadial(centerX + spread, floorY, coreWidth, 0.020f,
                 0.00f, 0.00f, 0.00f, 0.56f);
 
+            EndScreenPass();
+        }
+
+        /// <summary>
+        /// Animate the same chamber in the real eight-player lobby. The preview
+        /// formation is the sole source of pad geometry, and each occupied pad
+        /// receives its own selected Hunter's color. No gameplay Scene is loaded.
+        /// </summary>
+        private static void DrawLobbyAmbience()
+        {
+            EnsureTexture();
+            LauncherActivityAmbience activity = LauncherMenuVisuals.Activity;
+            LauncherHunterTheme local = LauncherMenuVisuals.Hunter(LauncherHunter.Hunter);
+            double time = LauncherPrefs.ReduceMotion ? 0
+                : Environment.TickCount64 / 1000.0;
+            BeginScreenPass();
+            DrawAmbientSideBays(activity, local, time, 0.5f, 0.51f, 0.48f, 0.46f);
+
+            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
+            for (int slot = 0; slot < LauncherLobbyFormation.Capacity; slot++)
+            {
+                if ((LauncherLobbyVisuals.OccupiedMask & (1 << slot)) == 0)
+                    continue;
+
+                LobbyFormationSlot pad = LauncherLobbyFormation.At(slot);
+                LauncherHunterTheme theme = LauncherMenuVisuals.Hunter(LauncherLobbyVisuals.HunterAt(slot));
+                float phase = LauncherPrefs.ReduceMotion ? 0f
+                    : (float)time * (0.50f + slot * 0.025f);
+                float pulse = 0.90f + 0.10f * MathF.Sin(phase + slot * 0.72f);
+                float strength = slot == 0 ? 1.0f : 0.68f;
+                DrawRadial(pad.PadX, pad.PadY,
+                    pad.RadiusX * 0.80f, pad.RadiusY * 1.35f,
+                    theme.Floor.R, theme.Floor.G, theme.Floor.B,
+                    0.14f * strength * pulse);
+                DrawRadial(pad.PadX, pad.PadY - pad.RadiusY * 1.28f,
+                    pad.RadiusX * 0.78f, pad.RadiusY * 2.20f,
+                    theme.Halo.R, theme.Halo.G, theme.Halo.B,
+                    0.090f * strength * pulse);
+                DrawRadial(pad.PadX, pad.PadY - pad.RadiusY * 3.0f,
+                    pad.RadiusX * 0.57f, pad.RadiusY * 2.15f,
+                    theme.Rim.R, theme.Rim.G, theme.Rim.B,
+                    0.053f * strength * pulse);
+            }
             EndScreenPass();
         }
 
@@ -242,13 +291,13 @@ namespace MphRead.Mods.Render
                 float width = 0.026f + wave * 0.074f;
                 float y = 0.225f + fi * 0.038f;
                 DrawSolidRect(0.050f, y, 0.050f + width, y + 0.004f,
-                    signal.R, signal.G, signal.B, 0.08f + wave * 0.07f);
+                    signal.R, signal.G, signal.B, 0.11f + wave * 0.10f);
 
                 float rightWave = 0.5f + 0.5f * MathF.Sin((float)time * 0.29f + fi * 1.17f + 1.1f);
                 float rightWidth = 0.024f + rightWave * 0.068f;
                 float ry = 0.255f + fi * 0.045f;
                 DrawSolidRect(0.925f - rightWidth, ry, 0.925f, ry + 0.004f,
-                    signal.R, signal.G, signal.B, 0.06f + rightWave * 0.06f);
+                    signal.R, signal.G, signal.B, 0.09f + rightWave * 0.09f);
             }
 
             // A pair of slow scanner sweeps travels through the side bays.
@@ -259,9 +308,9 @@ namespace MphRead.Mods.Render
                 : 0.20f + (float)(time * 0.035 % 0.34);
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
             DrawRadial(0.105f, scan, 0.145f, 0.020f,
-                signal.R, signal.G, signal.B, 0.055f);
+                signal.R, signal.G, signal.B, 0.10f);
             DrawRadial(0.895f, 0.74f - scan * 0.50f, 0.135f, 0.018f,
-                signal.R, signal.G, signal.B, 0.045f);
+                signal.R, signal.G, signal.B, 0.075f);
 
             // Service lamps orbit the hero bay and provide gentle parallax.
             for (int i = 0; i < 8; i++)
@@ -272,7 +321,7 @@ namespace MphRead.Mods.Render
                 float oy = centerY + MathF.Sin(angle) * spanY * 0.38f;
                 float size = i % 2 == 0 ? 0.010f : 0.006f;
                 DrawRadial(ox, oy, size, size * 1.18f,
-                    signal.R, signal.G, signal.B, 0.055f + (i % 3) * 0.012f);
+                    signal.R, signal.G, signal.B, 0.088f + (i % 3) * 0.018f);
             }
 
             DrawHunterMotif(LauncherHunter.Hunter, theme, time,
@@ -288,7 +337,7 @@ namespace MphRead.Mods.Render
                 float phase = (i / 6f + travel) % 1f;
                 float y = 0.83f - phase * 0.22f;
                 float spread = 0.09f + phase * 0.16f;
-                float a = (1f - phase) * 0.055f;
+                float a = (1f - phase) * 0.082f;
                 DrawRadial(centerX - spread, y, 0.018f, 0.008f,
                     activity.Accent.R, activity.Accent.G, activity.Accent.B, a);
                 DrawRadial(centerX + spread, y, 0.018f, 0.008f,

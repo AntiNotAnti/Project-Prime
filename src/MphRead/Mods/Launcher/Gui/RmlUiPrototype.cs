@@ -828,6 +828,9 @@ namespace MphRead.Mods.Launcher.Gui
 
             LauncherLobbyVisuals.Active = true;
             LauncherLobbyVisuals.OccupiedMask = mask;
+            for (int slot = 0; slot < LauncherLobbyFormation.Capacity; slot++)
+                LauncherLobbyVisuals.SetHunter(slot,
+                    _lobbyPlayers[slot].Occupied ? _lobbyPlayers[slot].Hunter : Hunter.Samus);
 
             MatchDefinition? match = snapshot.Match;
             if (match is { } definition)
@@ -966,6 +969,15 @@ namespace MphRead.Mods.Launcher.Gui
             }
         }
 
+        // Restore the selected Home activity after a route owns the chamber.
+        // This also rebinds the real Hunter to the correct preview recipe.
+        internal static void RestoreHomeBackdrop()
+        {
+            if (!Active || _lobbyMode || _pages == null) return;
+            ApplyStageAction(new RmlUiIntent(RmlUiIntentKind.StageSelect,
+                _pages.SelectedActivityIndex, default, 0));
+        }
+
         private static void ApplyStageAction(RmlUiIntent intent)
         {
             string stage = intent.Argument switch
@@ -985,6 +997,9 @@ namespace MphRead.Mods.Launcher.Gui
                         "MP1 SANCTORUS");
                     break;
                 case "training":
+                    LauncherBackdrop.Set(LauncherBackdropScene.Training,
+                        "MP3 PROVING GROUND");
+                    break;
                 case "offline":
                     LauncherBackdrop.Set(LauncherBackdropScene.Offline,
                         "MP3 PROVING GROUND");

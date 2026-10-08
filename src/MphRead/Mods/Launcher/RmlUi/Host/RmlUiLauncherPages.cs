@@ -34,6 +34,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
 
         public RmlUiPageManager Manager { get; }
         public RmlUiMenuPage Page => _page;
+        public int SelectedActivityIndex => _activity;
         public bool Suspended => _suspended;
         public RmlUiDocumentToken Document => _pageDocument;
 

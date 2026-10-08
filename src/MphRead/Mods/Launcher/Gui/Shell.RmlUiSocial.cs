@@ -56,10 +56,17 @@ internal static partial class Shell
             int shownFriends = SocialPresenceClient.Running && !summary.Friends.IsDefault
                 ? Math.Min(3, summary.Friends.Length) : 0;
             bool hasAlerts = summary.UnreadCount > 0 || summary.TravelPending;
-            RmlUiPrototype.SetMenuBool("home_social_rail_visible",
-                shownFriends > 0 || summary.Party != null || hasAlerts);
+            // An empty social account still needs a useful, reachable entry.
+            RmlUiPrototype.SetMenuBool("home_social_rail_visible", true);
+            bool socialEmpty = shownFriends == 0 && summary.Party == null && !hasAlerts;
+            RmlUiPrototype.SetMenuBool("home_social_empty_visible", socialEmpty);
+            RmlUiPrototype.SetMenuText("home_social_empty_text",
+                !SocialPresenceClient.Running ? "SOCIAL UNAVAILABLE // OPEN SOCIAL TO RETRY"
+                : !summary.DirectoryLoaded ? "CONNECTING TO FRIENDS // OPEN SOCIAL"
+                : "NO FRIENDS ONLINE // OPEN SOCIAL TO INVITE YOUR SQUAD");
             RmlUiPrototype.SetMenuBool("home_social_alert_visible", hasAlerts);
-            RmlUiPrototype.SetMenuText("home_social_count", $"{summary.FriendsOnline} ONLINE");
+            RmlUiPrototype.SetMenuText("home_social_count",
+                SocialPresenceClient.Running ? $"{summary.FriendsOnline} ONLINE" : "OFFLINE");
             string alert = summary.InvitationCount > 0
                 ? $"{summary.InvitationCount} INVITE{(summary.InvitationCount == 1 ? "" : "S")}" : "";
             if (summary.IncomingRequests > 0)

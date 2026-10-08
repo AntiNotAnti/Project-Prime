@@ -298,8 +298,70 @@ public static class SocialRuntime
                 parties.Reservation?.Status ?? "", LauncherPrefs.DoNotDisturb);
         }
     }
-    public static void Start() { SocialPresenceClient.Start(); SocialInviteClient.Start(); SocialPartyClient.Start(); }
-    public static void Stop() { SocialPartyClient.Stop(); SocialInviteClient.Stop(); SocialPresenceClient.Stop(); }
+    private static readonly object DirectoryGate = new();
+    private static CancellationTokenSource? _directoryLifetime;
+
+    public static void Start()
+    {
+        SocialPresenceClient.Start();
+        SocialInviteClient.Start();
+        SocialPartyClient.Start();
+        // Presence starts eagerly but the friend-request directory previously
+        // loaded only after opening Social. Warm it off-thread so incoming
+        // requests and connection state are available on Home as well.
+        lock (DirectoryGate)
+        {
+            if (_directoryLifetime != null) return;
+            var lifetime = new CancellationTokenSource();
+            _directoryLifetime = lifetime;
+            _ = Task.Run(() => RefreshDirectoryAsync(lifetime));
+        }
+    }
+
+    public static void Stop()
+    {
+        lock (DirectoryGate)
+        {
+            _directoryLifetime?.Cancel();
+            _directoryLifetime = null;
+        }
+        SocialPartyClient.Stop();
+        SocialInviteClient.Stop();
+        SocialPresenceClient.Stop();
+    }
+
+    private static async Task RefreshDirectoryAsync(CancellationTokenSource lifetime)
+    {
+        try
+        {
+            while (!lifetime.Token.IsCancellationRequested)
+            {
+                try
+                {
+                    await SocialClient.LoadAsync(lifetime.Token).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (lifetime.Token.IsCancellationRequested) { break; }
+                catch (Exception)
+                {
+                    // Social remains navigable during an auth/network outage;
+                    // the next bounded refresh retries without blocking frames.
+                }
+                await Task.Delay(TimeSpan.FromSeconds(75), lifetime.Token)
+                    .ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+        finally
+        {
+            lock (DirectoryGate)
+            {
+                if (ReferenceEquals(_directoryLifetime, lifetime))
+                    _directoryLifetime = null;
+            }
+            lifetime.Dispose();
+        }
+    }
+
     public static void Suspend() => Stop();
     public static void Resume() => Start();
     public static void NotifySessionChanged() { SocialPresenceClient.RefreshNow(); SocialInviteClient.RefreshNow(); SocialPartyClient.RefreshNow(); }

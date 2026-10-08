@@ -14,7 +14,8 @@ namespace MphRead.Mods.Launcher
         MapEditor,
         CreateLobby,
         Lobby,
-        Setup
+        Setup,
+        Training
     }
 
     /// <summary>
@@ -100,7 +101,7 @@ namespace MphRead.Mods.Launcher
             LauncherBackdropScene.Home => "MP3 PROVING GROUND",
             LauncherBackdropScene.Play => "MP1 SANCTORUS",
             LauncherBackdropScene.Multiplayer => "MP3 PROVING GROUND",
-            LauncherBackdropScene.Offline => "MP3 PROVING GROUND",
+            LauncherBackdropScene.Offline or LauncherBackdropScene.Training => "MP3 PROVING GROUND",
             LauncherBackdropScene.Adventure => "UNIT1 ALINOS LANDFALL",
             LauncherBackdropScene.ReplayStudio => "MP11 BREAKTHROUGH",
             LauncherBackdropScene.Settings => "AD2 ALINOS PERCH",

@@ -654,203 +654,6 @@ border-color: rgba(114,199,255,22%);
 @media (max-width: 900dp) { #hunter_caption { left: 62%; width: 170dp; } #hunter_name { font-size: 21dp; } .hunter_rule { width: 24dp; } }
 
 
-/* Living chamber side modules. These deliberately read as translucent chamber
-   telemetry instead of full-width dashboard cards, so the Hunter remains the
-   visual anchor while the left/right negative space carries useful state. */
-.home_side_module {
-    position: absolute;
-    color: #9db0c0;
-    background-color: rgba(3,12,22,46%);
-    border-top: 1dp rgba(114,199,255,12%);
-    border-right: 1dp rgba(114,199,255,8%);
-    border-bottom: 1dp rgba(114,199,255,8%);
-    border-left: 2dp rgba(114,199,255,38%);
-    padding: 12dp 14dp;
-}
-
-.home_module_header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 9dp;
-}
-
-.home_module_header .eyebrow { margin-bottom: 0; }
-
-.home_module_live {
-    color: #55e18c;
-    font-family: "JetBrains Mono";
-    font-size: 8dp;
-    letter-spacing: 1.2dp;
-}
-
-.home_module_link {
-    color: #6f8da4;
-    font-size: 8dp;
-    font-weight: bold;
-    letter-spacing: 1dp;
-    padding: 5dp 7dp;
-    border: 1dp rgba(114,199,255,12%);
-    background-color: rgba(6,18,31,52%);
-}
-.home_module_link:hover,
-.home_module_link:focus {
-    color: #ffffff;
-    border-color: rgba(114,199,255,52%);
-    background-color: rgba(20,72,116,56%);
-}
-
-#home_signal_panel {
-    left: 52dp;
-    top: 46dp;
-    width: 292dp;
-    opacity: 0.86;
-}
-
-.home_signal_title {
-    color: #ffffff;
-    font-size: 19dp;
-    line-height: 21dp;
-    font-weight: bold;
-    letter-spacing: 0.7dp;
-}
-
-.home_signal_rule {
-    height: 1dp;
-    margin-top: 9dp;
-    margin-bottom: 8dp;
-    background-color: rgba(114,199,255,13%);
-}
-
-.home_signal_row {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 5dp;
-    color: #587289;
-    font-family: "JetBrains Mono";
-    font-size: 8dp;
-    letter-spacing: 0.8dp;
-}
-.home_signal_row b {
-    color: #adc1d1;
-    font-weight: normal;
-    text-align: right;
-}
-
-.home_signal_meter {
-    height: 13dp;
-    display: flex;
-    align-items: flex-end;
-    margin-top: 10dp;
-    padding-top: 2dp;
-}
-.home_signal_meter i {
-    display: block;
-    width: 26dp;
-    height: 3dp;
-    margin-right: 4dp;
-    background-color: rgba(43,158,247,24%);
-}
-.home_signal_meter .meter_2 { height: 5dp; background-color: rgba(43,158,247,32%); }
-.home_signal_meter .meter_3 { height: 8dp; background-color: rgba(114,199,255,42%); }
-.home_signal_meter .meter_4 { height: 11dp; background-color: rgba(114,199,255,58%); }
-.home_signal_meter .meter_5 { height: 7dp; background-color: rgba(43,158,247,38%); }
-.home_signal_meter .meter_6 { height: 4dp; background-color: rgba(43,158,247,26%); }
-
-#home_social_activity {
-    right: 46dp;
-    top: 250dp;
-    width: 304dp;
-}
-
-.home_social_stats {
-    display: flex;
-    margin-bottom: 9dp;
-    border-top: 1dp rgba(114,199,255,9%);
-    border-bottom: 1dp rgba(114,199,255,9%);
-}
-
-.home_social_stat {
-    flex: 1;
-    padding: 8dp 4dp 7dp 4dp;
-    text-align: center;
-    border-right: 1dp rgba(114,199,255,8%);
-}
-.home_social_stat b {
-    display: block;
-    color: #ffffff;
-    font-size: 18dp;
-    line-height: 20dp;
-}
-.home_social_stat span {
-    display: block;
-    margin-top: 2dp;
-    color: #526f86;
-    font-family: "JetBrains Mono";
-    font-size: 7dp;
-    letter-spacing: 0.8dp;
-}
-
-.home_friend_list { display: block; }
-
-.home_friend_row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    min-height: 36dp;
-    margin-top: 4dp;
-    padding: 6dp 8dp;
-    background-color: rgba(8,26,42,42%);
-    border-left: 1dp rgba(85,225,140,30%);
-}
-.home_friend_row span { display: block; }
-.home_friend_row b {
-    display: block;
-    color: #c5d5e2;
-    font-size: 11dp;
-    line-height: 13dp;
-}
-.home_friend_row small {
-    display: block;
-    margin-top: 1dp;
-    color: #607d92;
-    font-size: 8dp;
-    line-height: 10dp;
-}
-.home_friend_row i {
-    width: 6dp;
-    height: 6dp;
-    border-radius: 3dp;
-    background-color: #55e18c;
-}
-
-.home_social_empty {
-    padding: 10dp 8dp;
-    color: #4d687d;
-    font-family: "JetBrains Mono";
-    font-size: 7dp;
-    line-height: 11dp;
-    letter-spacing: 0.6dp;
-    border: 1dp rgba(114,199,255,8%);
-}
-
-@media (max-width: 1500dp) {
-    #home_signal_panel { left: 32dp; width: 265dp; }
-    #home_social_activity { right: 28dp; width: 270dp; }
-}
-
-@media (max-width: 1180dp) {
-    #home_signal_panel,
-    #home_social_activity { display: none; }
-}
-
-@media (max-height: 760dp) {
-    #home_signal_panel { top: 24dp; padding: 9dp 11dp; }
-    #home_social_activity { top: 205dp; padding: 9dp 11dp; }
-    .home_friend_row { min-height: 30dp; padding-top: 4dp; padding-bottom: 4dp; }
-    .home_signal_meter { margin-top: 6dp; }
-}
-
 /* Home Side Rails: low-contrast utility cards around the central Hunter, never over it. */
 #home_feature_rail {
     position: absolute; left: 52dp; bottom: 356dp; width: 400dp;
@@ -946,16 +749,71 @@ border-color: rgba(114,199,255,22%);
     .home_party_preview { min-height: 43dp; }
     .home_friend_row { min-height: 40dp; }
 }
-@media (max-height: 610dp) {
-    #home_feature_rail, #home_social_rail { display: none; }
+
+
+
+
+/* Live Social counters inherited from the retired Social Activity card. */
+#home_social_rail .home_social_stats {
+    display: flex; margin-bottom: 7dp;
+    border-top: 1dp rgba(114, 199, 255, 12%);
+    border-bottom: 1dp rgba(114, 199, 255, 12%);
+}
+#home_social_rail .home_social_stat {
+    flex: 1; padding: 6dp 4dp; text-align: center;
+    border-right: 1dp rgba(114, 199, 255, 11%);
+}
+#home_social_rail .home_social_stat b {
+    display: block; font-size: 17dp; line-height: 20dp;
+    font-weight: bold; color: #e4f5ff;
+}
+#home_social_rail .home_social_stat span {
+    display: block; margin-top: 2dp;
+    font-family: "JetBrains Mono"; font-size: 8dp;
+    color: #8aa8be; letter-spacing: 0.6dp;
 }
 
-/* Consolidated modules avoid the activity drawer and constrained Hunter layouts. */
-#home_signal_panel.hidden { display: none; }
-#home_social_rail .home_social_stats { margin-bottom: 6dp; }
-#home_social_rail .home_social_stat { padding-top: 5dp; padding-bottom: 5dp; }
-#home_social_rail .home_friend_row { min-height: 41dp; }
-#home_social_rail { top: 228dp; }
-@media (max-height: 850dp) {
+/* Live Home rails: keep relevant information at 720p without stealing the Hunter bay. */
+#home_feature_rail {
+    top: 30dp; bottom: auto; left: 52dp;
+    width: 372dp; padding: 14dp 16dp 12dp;
+    background-color: rgba(3, 13, 23, 73%);
+    border-left-color: rgba(114, 199, 255, 50%);
+}
+.home_feature_title { font-size: 18dp; line-height: 22dp; }
+.home_feature_summary { font-size: 11dp; line-height: 15dp; }
+#home_social_rail {
+    top: 254dp; right: 46dp; width: 304dp;
+    max-height: 370dp; overflow-y: auto;
+    background-color: rgba(3, 13, 23, 81%);
+}
+#home_social_rail .home_social_stats { margin-bottom: 7dp; }
+#home_social_rail .home_social_stat { padding-top: 6dp; padding-bottom: 5dp; }
+#home_social_rail .home_friend_row { min-height: 40dp; }
+.home_social_empty_hint {
+    display: block; padding: 9dp 10dp; margin-top: 5dp;
+    color: #91aec3; font-size: 10dp; line-height: 14dp;
+    background-color: rgba(12, 32, 49, 43%);
+    border: 1dp rgba(114, 199, 255, 15%);
+}
+@media (max-width: 1500dp) {
+    #home_feature_rail { left: 32dp; width: 350dp; }
+    #home_social_rail { right: 28dp; width: 270dp; }
+}
+@media (max-height: 760dp) {
+    #home_feature_rail { top: 17dp; bottom: auto; padding: 10dp 13dp; }
+    #home_feature_rail .home_feature_summary { font-size: 10dp; line-height: 13dp; }
+    #home_social_rail { top: 207dp; max-height: 250dp; padding: 9dp; }
+    #home_social_rail .home_friend_row { min-height: 36dp; padding-top: 4dp; padding-bottom: 4dp; }
+    #home_social_rail .home_social_stats { margin-bottom: 4dp; }
+}
+@media (max-height: 610dp) {
+    #home_feature_rail { top: 10dp; }
+    #home_social_rail { top: 166dp; max-height: 190dp; }
+}
+@media (max-height: 490dp) {
+    #home_feature_rail, #home_social_rail { display: none; }
+}
+@media (max-width: 1180dp) {
     #home_feature_rail, #home_social_rail { display: none; }
 }

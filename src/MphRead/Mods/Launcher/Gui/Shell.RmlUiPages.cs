@@ -180,6 +180,21 @@ internal static partial class Shell
                 _nativeNews.Open();
                 break;
         }
+        if (_window?.HasScene != true)
+        {
+            // The real game continues to own gameplay visuals. Content tabs
+            // select only a presentation recipe for the existing chamber.
+            LauncherBackdrop.Set(page switch
+            {
+                LauncherPage.Offline => LauncherBackdropScene.Offline,
+                LauncherPage.Adventure => LauncherBackdropScene.Adventure,
+                LauncherPage.Community => LauncherBackdropScene.MapEditor,
+                LauncherPage.Theatre or LauncherPage.StudioLaunch => LauncherBackdropScene.ReplayStudio,
+                LauncherPage.Settings => LauncherBackdropScene.Settings,
+                LauncherPage.Social => LauncherBackdropScene.Play,
+                _ => LauncherBackdropScene.Home
+            });
+        }
         if (composition.Manager.PageKey is not ("splash" or "pause" or "results" or "training-results"))
             composition.PresentChrome(composition.Manager.Page);
         WireNativePages();
@@ -196,7 +211,14 @@ internal static partial class Shell
         if (OpenNativePage(page, navigate: false)) return;
         composition.ShowBaseline(page == LauncherPage.Play ? RmlUiMenuPage.Play
             : _rmlLobby != null ? RmlUiMenuPage.Lobby : RmlUiMenuPage.Home);
-        if (page == LauncherPage.Play) composition.SetBool("play_browser_mode", true);
+        if (page == LauncherPage.Play)
+        {
+            composition.SetBool("play_browser_mode", true);
+            LauncherBackdrop.Set(LauncherBackdropScene.Play);
+        }
+        else if (_rmlLobby != null)
+            LauncherBackdrop.Set(LauncherBackdropScene.Lobby);
+        else RmlUiPrototype.RestoreHomeBackdrop();
         RmlUiPrototype.Show();
     }
 
@@ -415,7 +437,15 @@ internal static partial class Shell
             _rmlMultiplayer?.Cancel();
             RetireNativePages();
             composition.ShowBaseline(play ? RmlUiMenuPage.Play : _rmlLobby != null ? RmlUiMenuPage.Lobby : RmlUiMenuPage.Home);
-            if (play) { composition.SetBool("play_browser_mode", true); EnsureRmlMultiplayer().Open(quickPlay: false); }
+            if (play)
+            {
+                composition.SetBool("play_browser_mode", true);
+                LauncherBackdrop.Set(LauncherBackdropScene.Play);
+                EnsureRmlMultiplayer().Open(quickPlay: false);
+            }
+            else if (_rmlLobby != null)
+                LauncherBackdrop.Set(LauncherBackdropScene.Lobby);
+            else RmlUiPrototype.RestoreHomeBackdrop();
             return true;
         }
         if (route == RmlUiRouteArgument.Training)
