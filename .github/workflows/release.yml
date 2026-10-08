@@ -129,6 +129,30 @@ jobs:
               TAG="v$MAJOR.$MINOR.$PATCH"
               echo "Newest release is $LATEST; $BUMP bump gives $TAG."
             fi
+            # A previous failed patch release may have left a tag at an older
+            # commit. An automatic bump must never silently publish that old
+            # code. Keep the orphan immutable and use the next free patch
+            # number instead. Explicit tag rebuilds still pin the named tag.
+            if [ "$BUMP" = patch ]; then
+              while gh api "repos/$REPO/git/ref/tags/$TAG" >/dev/null 2>&1; do
+                EXISTING_SHA=$(gh api "repos/$REPO/commits/$TAG" --jq .sha)
+                if [[ ! "$EXISTING_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+                  echo "::error::Could not resolve existing $TAG to a commit."
+                  exit 1
+                fi
+                if [ "$EXISTING_SHA" = "$SHA" ]; then
+                  echo "Retrying $TAG on the same exact source commit."
+                  break
+                fi
+                if (( PATCH >= 999 )); then
+                  echo "::error::No patch number remains after stale $TAG; select another version."
+                  exit 1
+                fi
+                echo "::notice::Skipping stale tag $TAG at ${EXISTING_SHA:0:7}; selected source is ${SHA:0:7}. Existing tag is unchanged."
+                PATCH=$((PATCH + 1))
+                TAG="v$MAJOR.$MINOR.$PATCH"
+              done
+            fi
             CREATE_TAG=true
           else
             echo "::error::Give a tag to build, or pick a bump to create the next one."
@@ -157,6 +181,11 @@ jobs:
           # to retarget something that may already be published.
           if [ "$CREATE_TAG" = true ]; then
             if gh api "repos/$REPO/git/ref/tags/$TAG" >/dev/null 2>&1; then
+              EXISTING_SHA=$(gh api "repos/$REPO/commits/$TAG" --jq .sha)
+              if [ "$EXISTING_SHA" != "$SHA" ]; then
+                echo "::error::Auto-bump $TAG targets an older/different commit ($EXISTING_SHA), not $SHA. Use another version; the tag will not be moved."
+                exit 1
+              fi
               echo "Retrying existing $TAG without moving its commit."
             else
               gh api -X POST "repos/$REPO/git/refs" \
