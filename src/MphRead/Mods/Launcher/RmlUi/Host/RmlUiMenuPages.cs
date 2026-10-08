@@ -73,6 +73,13 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Text, "text_hunter_name_1", "{{hunter_name}} // READY"),
             new(RmlUiBindingKind.Text, "home_party_state", "{{home_party_state}}"),
             new(RmlUiBindingKind.Text, "home_social_summary", "{{home_social_summary}}"),
+            new(RmlUiBindingKind.Boolean, "class:home_signal_panel:hidden", "activity_selector_open"),
+            new(RmlUiBindingKind.Text, "home_signal_activity", "{{activity_title}}"),
+            new(RmlUiBindingKind.Text, "home_signal_hunter", "{{hunter_name}}"),
+            new(RmlUiBindingKind.Text, "home_signal_status", "{{activity_hint}}"),
+            new(RmlUiBindingKind.Text, "home_friends_online", "{{home_friends_online}}"),
+            new(RmlUiBindingKind.Text, "home_invites_count", "{{home_invites_count}}"),
+            new(RmlUiBindingKind.Text, "home_requests_count", "{{home_requests_count}}"),
 
             new(RmlUiBindingKind.Text, "home_session_state", "{{home_session_state}}"),
             new(RmlUiBindingKind.Boolean, "class:home_feature_rail:hidden", "activity_selector_open"),

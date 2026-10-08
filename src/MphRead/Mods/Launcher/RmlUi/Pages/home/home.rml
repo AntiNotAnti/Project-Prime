@@ -77,6 +77,21 @@
             </div>
         </div>
 
+        <div id="home_signal_panel" data-prime-class-hidden="activity_selector_open" class="home_side_module home_signal enter_left">
+            <div class="home_module_header">
+                <div class="eyebrow">DEPLOYMENT LINK</div>
+                <div class="home_module_live">LIVE</div>
+            </div>
+            <div class="home_signal_title" data-prime-text="{{activity_title}}" id="home_signal_activity" />
+            <div class="home_signal_rule" />
+            <div class="home_signal_row"><span>HUNTER</span><b data-prime-text="{{hunter_name}}" id="home_signal_hunter" /></div>
+            <div class="home_signal_row"><span>STATUS</span><b data-prime-text="{{activity_hint}}" id="home_signal_status" /></div>
+            <div class="home_signal_meter">
+                <i class="meter_1" /><i class="meter_2" /><i class="meter_3" />
+                <i class="meter_4" /><i class="meter_5" /><i class="meter_6" />
+            </div>
+        </div>
+
         <div id="home_feature_rail" class="enter_left" data-prime-class-hidden="activity_selector_open" data-prime-class-empty="!home_feature_available">
             <div class="home_rail_heading">
                 <span class="eyebrow">COMMUNITY DISPATCH</span>
@@ -117,6 +132,11 @@
             <div class="home_rail_heading">
                 <span class="eyebrow">YOUR SQUAD</span>
                 <span class="home_rail_tag" id="home_social_count">0 ONLINE</span>
+            </div>
+            <div class="home_social_stats">
+                <div class="home_social_stat"><b id="home_friends_online">0</b><span>FRIENDS</span></div>
+                <div class="home_social_stat"><b id="home_invites_count">0</b><span>INVITES</span></div>
+                <div class="home_social_stat"><b id="home_requests_count">0</b><span>REQUESTS</span></div>
             </div>
             <button id="home_social_alert" class="home_social_alert" data-prime-visible="home_social_alert_visible" data-action="route:social">
                 <span class="home_alert_icon">!</span>

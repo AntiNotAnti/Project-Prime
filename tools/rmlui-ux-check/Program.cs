@@ -28,7 +28,7 @@ int checks=0;
 void Check(bool ok,string message){if(!ok)throw new InvalidOperationException(message);checks++;}
 try
 {
- foreach(var size in new[]{(1280,720,1f),(2560,1440,2f),(960,600,1f)})
+ foreach(var size in new[]{(1280,720,1f),(1920,1080,1f),(2560,1440,2f),(960,600,1f)})
  {
   using var host=new RmlUiHost();Check(host.Initialize(size.Item1,size.Item2,size.Item3,assets,RmlUiRenderBackend.DrawList),"initialize");
   using var pages=new RmlUiLauncherPages(host);
@@ -42,6 +42,9 @@ try
   pages.SetBool("home_social_rail_visible",true);
   pages.SetBool("home_social_alert_visible",true);
   pages.SetText("home_social_count","6 ONLINE");
+  pages.SetText("home_friends_online","6");
+  pages.SetText("home_invites_count","2");
+  pages.SetText("home_requests_count","1");
   pages.SetText("home_social_alert_text","2 INVITES // 1 REQUEST");
   pages.SetBool("home_party_preview_visible",true);
   pages.SetText("home_party_preview_name","PARTY // 3 MEMBERS");
@@ -64,10 +67,11 @@ try
    Check(x>=0&&y>=0&&x+w<=size.Item1+1&&y+h<=size.Item2+1,$"{id} outside {size}: {x},{y},{w},{h}");
   }
   Draw("home");foreach(var id in new[]{"nav_play","nav_hunters","nav_community","nav_studio","profile"})Fits(pages.Document,id);
-  bool showRails=size.Item1/size.Item3>1180 && size.Item2/size.Item3>610;
+  bool showRails=size.Item1/size.Item3>1180 && size.Item2/size.Item3>850;
+  if(size.Item1/size.Item3>1180)Fits(pages.Document,"home_signal_panel");
   if(showRails)
   {
-   foreach(var id in new[]{"home_feature_open","home_social_open","home_social_alert","home_party_preview","home_friend0","home_friend1","home_friend2"})Fits(pages.Document,id);
+   foreach(var id in new[]{"home_feature_open","home_social_open","home_social_alert","home_party_preview","home_friends_online","home_friend0","home_friend1","home_friend2"})Fits(pages.Document,id);
    Check(host.FocusDocument(pages.Document,"home_friend0"),"joinable Home friend card accepts keyboard focus");
    host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
    Check(host.TryTakeIntent(out var social)&&social.Kind==RmlUiIntentKind.Navigate&&social.Argument==9,
@@ -79,6 +83,11 @@ try
    Check(!hasRail,"narrow and short layouts collapse Home social rail");
   }
   pages.SetBool("activity_selector_open",true);Draw("activities");Fits(pages.Document,"drawer_training");Fits(pages.Document,"drawer_adventure");
+  if(size.Item1/size.Item3>1180)
+  {
+   bool signalVisible=host.TryGetElementBounds(pages.Document,"home_signal_panel",out _,out _,out float sw,out float sh)&&sw>0&&sh>0;
+   Check(!signalVisible,"Activity drawer hides Deployment Link telemetry");
+  }
   if(showRails)
   {
    bool featureVisible=host.TryGetElementBounds(pages.Document,"home_feature_open",out _,out _,out float fw,out float fh)&&fw>0&&fh>0;

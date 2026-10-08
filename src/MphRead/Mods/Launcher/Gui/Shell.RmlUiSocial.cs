@@ -41,6 +41,9 @@ internal static partial class Shell
             if (summary.DoNotDisturb) status += " // DO NOT DISTURB";
             RmlUiPrototype.SetMenuText("home_party_state", party);
             RmlUiPrototype.SetMenuText("home_social_summary", status);
+            RmlUiPrototype.SetMenuText("home_friends_online", summary.FriendsOnline.ToString());
+            RmlUiPrototype.SetMenuText("home_invites_count", summary.InvitationCount.ToString());
+            RmlUiPrototype.SetMenuText("home_requests_count", summary.IncomingRequests.ToString());
             RmlUiPrototype.SetMenuText("home_session_state", summary.Party == null ? "SOLO" : "PARTY");
 
             RmlUiPrototype.SetMenuBool("home_feature_available", _homeFeaturedDispatch != null);
