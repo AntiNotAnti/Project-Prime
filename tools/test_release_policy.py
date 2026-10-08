@@ -33,9 +33,15 @@ if args[:2]==["release","view"]:
     if "--json" in args:print("true" if os.environ["RELEASE_STATE"]=="draft" else "false")
 elif args[:2]==["repo","view"]:print("PUBLIC")
 elif args and args[0]=="api":
-    if any("/commits/" in a for a in args):print(os.environ["TAG_SHA"])
+    if any("/commits/" in a for a in args):
+        tag=next(a.rsplit("/",1)[-1] for a in args if "/commits/" in a)
+        print(os.environ["TAG_SHA"] if tag==os.environ["EXISTING_TAG"] else os.environ["SHA"])
     elif any("generate-notes" in a for a in args):print("Local fixture notes")
-    elif any("/git/ref/" in a for a in args):print("{}")
+    elif "-X" in args and "POST" in args and any(a.endswith("/git/refs") for a in args):print("{}")
+    elif any("/git/ref/" in a for a in args):
+        tag=next(a.rsplit("/",1)[-1] for a in args if "/git/ref/" in a)
+        if tag!=os.environ["EXISTING_TAG"]:sys.exit(1)
+        print("{}")
     elif any(a.endswith("/releases") for a in args):print("v1.2.2")
     elif any("/releases/tags/" in a for a in args):sys.exit(1)
     else:sys.exit(2)
@@ -43,7 +49,7 @@ elif args and args[0]=="api":
             gh.chmod(0o755)
             env=dict(os.environ,PATH=str(directory)+os.pathsep+os.environ["PATH"],CALLS=str(directory/"calls.jsonl"),
                      RELEASE_STATE="missing",TAG_SHA="a"*40,RELEASE_SHA="a"*40,REPOSITORY="local/fixture",REPO="local/fixture",
-                     TAG="v1.2.3",INPUT_TAG="v1.2.3",PUSHED_TAG="",BUMP="none",SHA="a"*40,PUBLISH_NOW="true",
+                     TAG="v1.2.3",EXISTING_TAG="v1.2.3",INPUT_TAG="v1.2.3",PUSHED_TAG="",BUMP="none",SHA="a"*40,PUBLISH_NOW="true",
                      KEYSTORE="",RUNNER_TEMP=str(directory),GITHUB_OUTPUT=str(directory/"output"),GITHUB_STEP_SUMMARY=str(directory/"summary"))
             env.update(overrides)
             result=subprocess.run(["bash","-c",step_script(step)],cwd=directory,env=env,text=True,capture_output=True,timeout=5)
@@ -64,10 +70,21 @@ elif args and args[0]=="api":
         self.assertIn("sha="+"a"*40,output)
 
     def test_orphan_retry_preserves_existing_tag_commit(self):
-        result,calls,output=self.execute("resolve the tag",INPUT_TAG="",BUMP="patch",TAG_SHA="b"*40)
+        result,calls,output=self.execute("resolve the tag",INPUT_TAG="",BUMP="patch",SHA="b"*40,TAG_SHA="b"*40)
         self.assertEqual(0,result.returncode,result.stderr)
+        self.assertIn("tag=v1.2.3",output)
         self.assertIn("sha="+"b"*40,output)
         self.assertFalse(any("PATCH" in call or "POST" in call for call in calls))
+
+    def test_patch_bump_skips_stale_orphan_instead_of_rebuilding_old_commit(self):
+        result,calls,output=self.execute("resolve the tag",INPUT_TAG="",BUMP="patch",SHA="a"*40,TAG_SHA="b"*40)
+        self.assertEqual(0,result.returncode,result.stderr)
+        self.assertIn("Skipping stale tag v1.2.3",result.stdout)
+        self.assertIn("tag=v1.2.4",output)
+        self.assertIn("sha="+"a"*40,output)
+        self.assertTrue(any("POST" in call and "ref=refs/tags/v1.2.4" in call
+            and "sha="+"a"*40 in call for call in calls))
+        self.assertFalse(any("PATCH" in call for call in calls))
 
     def test_auto_bump_cannot_force_move_published_tag(self):
         result,calls,output=self.execute("resolve the tag",INPUT_TAG="",BUMP="patch",RELEASE_STATE="published")
