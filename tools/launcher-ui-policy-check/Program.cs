@@ -65,10 +65,10 @@ try
     Check(fallback.NativeBlocked && fallback.Failure == LauncherUiFailure.Runtime, "Successful fallback preserves native failure gating");
     Check(fallback.Resolve([]).RendererRollback == "opengl", "Fallback actual renderer becomes the durable usable renderer");
     var blockedNative = Policy("interrupted", legacy: false, accepted: ["osx-arm64"]);
-    Reject(() => blockedNative.Resolve([]), "Native-only auto stops instead of repeating a failed startup");
+    Check(blockedNative.Resolve([]) is { Selected: LauncherUiMode.RmlUi, NativeBlocked: true, RendererRollback: "opengl" }, "Native-only normal launch retries its available UI using the last presented renderer and preserves the failure record");
     Check(blockedNative.Resolve(["-ui=rmlui"]) is { Selected: LauncherUiMode.RmlUi, NativeBlocked: true }, "Explicit retry retains its durable native failure witness");
     blockedNative.BeginNativeAttempt();
-    Reject(() => Policy("interrupted", legacy: false, accepted: ["osx-arm64"]).Resolve([]), "An interrupted explicit retry remains blocked on next automatic startup");
+    Check(Policy("interrupted", legacy: false, accepted: ["osx-arm64"]).Resolve([]) is { Selected: LauncherUiMode.RmlUi, NativeBlocked: true }, "An interrupted native-only retry can reopen normally without erasing the failure record");
     blockedNative.ObservePresented(LauncherUiMode.RmlUi, "metal");
     Check(Policy("interrupted", legacy: false, accepted: ["osx-arm64"]).Resolve([]).Selected == LauncherUiMode.RmlUi, "Only a successful real surface presentation clears native-only recovery gating");
 

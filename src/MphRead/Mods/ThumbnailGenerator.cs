@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -137,8 +138,9 @@ namespace MphRead.Mods
             return rooms;
         }
 
-        private static readonly Dictionary<string, bool> _spawnCache =
-            new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+        // The launcher and background thumbnail worker both enumerate rooms.
+        private static readonly ConcurrentDictionary<string, bool> _spawnCache =
+            new ConcurrentDictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Whether a match in this room would have anywhere to put anybody.

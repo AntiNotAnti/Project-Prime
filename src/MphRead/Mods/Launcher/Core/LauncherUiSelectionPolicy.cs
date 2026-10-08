@@ -77,11 +77,13 @@ public sealed class LauncherUiSelectionPolicy
         LauncherUiMode selected = requested;
         if (requested == LauncherUiMode.Auto)
         {
-            if (!_legacyAvailable && _nativeAvailable && _state.NativeBlocked)
-                throw new InvalidOperationException("Automatic native UI startup is blocked after a previous failure. Install the previous Project Prime version or its transitional package. To attempt one native retry, start with -ui rmlui; a successfully presented frame clears the block.");
             if (!_legacyAvailable && _nativeAvailable && !_acceptedRids.Contains(_rid))
                 throw new InvalidOperationException("Automatic native UI startup is not accepted for this runtime identifier. Install its compatibility package, or explicitly start a native trial with -ui rmlui.");
-            selected = _nativeAvailable && _acceptedRids.Contains(_rid) && !_state.NativeBlocked
+            // A native-only release has no alternate UI to fall back to. Allow
+            // one attempt per normal launch, using the last presented renderer.
+            // Keep the failure record until an actual surface present succeeds.
+            selected = _nativeAvailable && _acceptedRids.Contains(_rid)
+                && (!_state.NativeBlocked || !_legacyAvailable)
                 ? LauncherUiMode.RmlUi : LauncherUiMode.Legacy;
         }
         if (selected == LauncherUiMode.RmlUi && !_nativeAvailable)
