@@ -19,7 +19,7 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
 {
     int count = kind switch
     {
-        RmlUiIntentKind.Navigate => 10,
+        RmlUiIntentKind.Navigate => 11,
         RmlUiIntentKind.ResultsAction => 6,
         RmlUiIntentKind.ResultsMap => 4096,
         RmlUiIntentKind.AimResultsAction => 3,
@@ -44,7 +44,7 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.CommunityReportReason => 6,
         RmlUiIntentKind.CommunityConflict => 5,
 
-        RmlUiIntentKind.StageSelect or RmlUiIntentKind.StagePreview => 4,
+        RmlUiIntentKind.StageSelect or RmlUiIntentKind.StagePreview => 5,
         RmlUiIntentKind.PlayQueueAction => 4,
         RmlUiIntentKind.PlayServer => 8,
         RmlUiIntentKind.HunterRotate or RmlUiIntentKind.HunterZoom => 2,
@@ -63,7 +63,7 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.HunterSelect => 7,
         RmlUiIntentKind.HunterSuit => 4,
         RmlUiIntentKind.HunterPreviewMode => 4,
-        RmlUiIntentKind.SettingsCategory => 9,
+        RmlUiIntentKind.SettingsCategory => 13,
         RmlUiIntentKind.SettingsAction => 63,
         RmlUiIntentKind.AdventureSelectSlot => 3,
         RmlUiIntentKind.OfflineChoice => 16,
@@ -81,7 +81,7 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         Require(RmlUiIntentRegistry.TryParseLegacy(action, intent.Document, intent.Sequence, out var parsed)
             && parsed == intent, $"Legacy registry roundtrip failed: {action}");
     }
-    Require(!RmlUiIntentRegistry.IsValid(kind, (kind == RmlUiIntentKind.SettingsAction ? 64 : first + count)), $"Out-of-range argument accepted for {kind}");
+    Require(!RmlUiIntentRegistry.IsValid(kind, (kind == RmlUiIntentKind.SettingsAction ? 256 : first + count)), $"Out-of-range argument accepted for {kind}");
 }
 foreach (string bad in new[] { "play:server:-1", "play:server:08", "play:server:8", "lobby:rules-toggle:16", "route:unexpected", "quit:extra" })
     Require(!RmlUiIntentRegistry.TryParseLegacy(bad, new(1, 1), 1, out _), "Invalid legacy intent accepted");
