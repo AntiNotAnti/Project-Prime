@@ -50,7 +50,11 @@ namespace MphRead.Mods.Launcher.Gui
             _layers.Children.Add(_startup);
             Content = _layers;
             _prime.Router.CanNavigate = CanNavigate;
-            _prime.Router.NavigationGuardEnabled = () => _prime.IsVisible && _prime.IsEnabled
+            // A private router belongs to this front screen even while startup
+            // hides the shell. A borrowed application router must only consult
+            // the legacy guard while the legacy surface owns presentation.
+            _prime.Router.NavigationGuardEnabled = () => applicationRouter == null
+                || (_startup != null || _prime.IsVisible && _prime.IsEnabled)
 #if MPHREAD_SHELL && !ANDROID
                 && UiSurface.Current?.Visible == true
 #endif
