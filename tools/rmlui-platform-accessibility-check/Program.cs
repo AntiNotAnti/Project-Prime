@@ -99,8 +99,24 @@ try {
     Check((tree with { ScreenCoordinates=false }).Rectangle(0,1).Width>0,"Wayland window coordinates remain real");
     Console.WriteLine($"PASS {checks} real-native OS provider contract checks");
     LinuxWireCheck.Run(service);
-    if(args.Contains("--windows")) WindowsFixture.Run(host,service,root,doc);
     if(args.Contains("--atspi")) LinuxFixture.Run(host,service,doc);
+    if(args.Contains("--windows")) {
+        // The preceding provider contract deliberately exercises stale COM
+        // elements, modal retirement and a forced failed HWND detach. Its
+        // document has been through multiple revisions and service.Retire().
+        // Actual OS acceptance must start from a fresh, unretired native UI
+        // lifetime while still demanding an external Invoke acknowledgment.
+        host.Dispose();
+        using var osHost = new RmlUiHost();
+        Check(osHost.Initialize(1280,720,1,root,RmlUiRenderBackend.DrawList),
+            "fresh Windows UIA owner host");
+        var osDocument = osHost.OpenDocument("provider.rml", RmlUiDocumentLayer.Page);
+        osHost.Update();
+        var osService = new RmlUiAccessibilityService();
+        Check(osService.Capture(osHost).Nodes.Any(n => n.Id == "save"),
+            "fresh Windows UIA owner exposes a real Save element");
+        WindowsFixture.Run(osHost,osService,root,osDocument);
+    }
 } finally { Directory.Delete(root,true);NativeLibrary.Free(module); }
 
 sealed class FakeWindow : IRmlUiUiaWindowApi {
