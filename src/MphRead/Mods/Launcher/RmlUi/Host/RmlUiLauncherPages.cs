@@ -54,6 +54,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             Put("home_invites_count", RmlUiBindingValue.FromText("0"));
             Put("home_requests_count", RmlUiBindingValue.FromText("0"));
             Put("home_social_empty", true);
+            Put("home_social_empty_text", RmlUiBindingValue.FromText("SOCIAL LINK STANDING BY"));
             for (int i = 0; i < 3; i++)
             {
                 Put($"home_friend{i}_visible", false);

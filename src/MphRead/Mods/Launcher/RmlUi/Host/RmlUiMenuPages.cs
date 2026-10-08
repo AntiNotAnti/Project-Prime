@@ -89,6 +89,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Text, "home_friend2_name", "{{home_friend2_name}}"),
             new(RmlUiBindingKind.Text, "home_friend2_state", "{{home_friend2_state}}"),
             new(RmlUiBindingKind.Boolean, "visible:home_social_empty", "home_social_empty"),
+            new(RmlUiBindingKind.Text, "home_social_empty", "{{home_social_empty_text}}"),
         };
 
         private static readonly Binding[] PlayBindings =
