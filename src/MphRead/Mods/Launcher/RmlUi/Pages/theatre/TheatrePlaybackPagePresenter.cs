@@ -44,7 +44,13 @@ public sealed class TheatrePlaybackPagePresenter : IDisposable
             || !Enum.IsDefined((TheatrePlaybackAction)intent.Argument) || !_pages.Accept(intent)) return false;
         int position = 0;
         if ((TheatrePlaybackAction)intent.Argument == TheatrePlaybackAction.Seek)
-            Int32.TryParse(_host.ReadField(_document, "replay_position"), NumberStyles.Integer, CultureInfo.InvariantCulture, out position);
+        {
+            // RmlUi range controls expose their value in floating-point form,
+            // including step-one values such as "125.000000".
+            if (!Double.TryParse(_host.ReadField(_document, "replay_position"), NumberStyles.Float,
+                CultureInfo.InvariantCulture, out double value) || !Double.IsFinite(value)) return false;
+            position = (int)Math.Round(Math.Clamp(value, 0, 1000), MidpointRounding.AwayFromZero);
+        }
         _controller.Dispatch((TheatrePlaybackAction)intent.Argument, position);
         Present(); return true;
     }

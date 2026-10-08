@@ -450,6 +450,11 @@ jobs:
             xvfb xauth libgl1 libglx-mesa0 libxinerama1 libxcursor1 libxi6
       - name: build pinned RmlUi 6.3 bridge
         run: bash tools/rmlui/build-native.sh linux-x64
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-gl2-linux-x64
+          path: artifacts/rmlui-native/linux-x64
+          if-no-files-found: error
       - name: native RmlUi Studio keyboard, mouse and colour regressions
         run: |
           xvfb-run -a --server-args="-screen 0 4096x2304x24" \
@@ -526,6 +531,47 @@ jobs:
           dotnet build src/MphRead/MphRead.csproj
           -c Release -r "${{ matrix.rid }}"
           -p:MphReadRmlUiPoc=true
+
+  rmlui-full-source:
+    name: RmlUi full client, shared routes and module acceptance
+    needs: [assets, patched-wgpu-native, rmlui-home-poc]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/download-artifact@v8
+        with:
+          name: rmlui-gl2-linux-x64
+          path: artifacts/rmlui-native/linux-x64
+      - uses: actions/download-artifact@v8
+        with:
+          name: patched-wgpu-linux-x64
+          path: artifacts/wgpu-native-desktop/linux-x64
+      - name: native loader and software Vulkan display dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --no-install-recommends -y xvfb xauth mesa-vulkan-drivers \
+            libgl1 libglx-mesa0 libx11-6 libxrandr2 libxi6 libxcursor1 libxinerama1 libice6 libsm6 libfontconfig1
+      - name: current full source and real native page, Shell, UDP and compositor gates
+        run: |
+          bash tools/rmlui/full-source-check.sh \
+            artifacts/rmlui-native/linux-x64/libProjectPrime.RmlUi.Native.so \
+            linux-x64 "$RUNNER_TEMP/rmlui-full-source"
+      - name: full source acceptance diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rmlui-full-source-proof
+          path: |
+            ${{ runner.temp }}/rmlui-full-source/*.log
+            ${{ runner.temp }}/rmlui-full-source/*.json
+            ${{ runner.temp }}/rmlui-full-source/*-source/build.log
+            ${{ runner.temp }}/rmlui-full-source/native-package
+          if-no-files-found: warn
+
   rmlui-windows-package:
     name: RmlUi Windows x64 bridge and opt-in package
     needs: patched-wgpu-native
@@ -610,6 +656,13 @@ jobs:
         run: >
           dbus-run-session -- xvfb-run -a dotnet run --project tools/rmlui-platform-accessibility-check -c Release --
           --native artifacts/rmlui-native/linux-x64/libProjectPrime.RmlUi.Native.so --atspi
+      - name: actual macOS text client and AppKit accessibility provider
+        if: runner.os == 'macOS'
+        run: |
+          dotnet run --project tools/rmlui-cocoa-check -c Release -- \
+            artifacts/rmlui-native/${{ matrix.rid }}/libProjectPrime.RmlUi.Native.dylib
+          dotnet run --project tools/rmlui-cocoa-accessibility-check -c Release -- \
+            artifacts/rmlui-native/${{ matrix.rid }}/libProjectPrime.RmlUi.Native.dylib
       - name: real native DOM, Unicode, clipboard, generation and draw-list regressions
         shell: bash
         run: |
@@ -1540,3 +1593,56 @@ jobs:
           name: ProjectPrime-win-x64-server
           path: publish/win-x64-server
           if-no-files-found: error
+
+  rmlui-migration-acceptance:
+    name: RmlUi migration acceptance
+    if: always()
+    needs:
+      - assets
+      - engineering-contracts
+      - studio-desktop
+      - server-compile
+      - character-model-check
+      - fidelity-oracle
+      - patched-wgpu-native
+      - modern-renderer-windows
+      - modern-renderer-linux
+      - modern-renderer-macos
+      - modern-renderer-android
+      - modern-shader-source-check
+      - android-pacing-policy
+      - desktop-pacing-policy
+      - renderer-policy-foundation
+      - rmlui-home-poc
+      - rmlui-home-poc-macos
+      - rmlui-windows-package
+      - rmlui-neutral-native
+      - rmlui-android-native
+      - rmlui-full-source
+      - enhanced-hunter-checks
+      - map-editor-checks
+      - controller-checks
+      - build
+      - macos
+      - android
+      - windows-server
+    runs-on: ubuntu-latest
+    steps:
+      - name: require every source, package and actual platform gate for this revision
+        env:
+          REQUIRED_RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          results = json.loads(os.environ['REQUIRED_RESULTS'])
+          failures = {name: result['result'] for name, result in results.items() if result['result'] != 'success'}
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('RmlUi migration acceptance for `' + os.environ['GITHUB_SHA'] + '`\n\n')
+              summary.write('| Required gate | Result |\n| --- | --- |\n')
+              for name, result in sorted(results.items()):
+                  summary.write('| ' + name + ' | ' + result['result'] + ' |\n')
+          if failures:
+              print('Migration acceptance failed: ' + ', '.join(name + '=' + result for name, result in sorted(failures.items())))
+              sys.exit(1)
+          print('PASS all required migration source, native platform, controller, server, renderer and Android framework gates')
+          PY

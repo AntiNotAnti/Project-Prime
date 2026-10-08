@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Build the actual opt-in client project from a live-source snapshot."""
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -38,6 +39,11 @@ def main():
     for name in ("artifacts", "maps", "tools"):
         if (repository / name).exists():
             (work / name).symlink_to(repository / name, target_is_directory=True)
+    manifest = {}
+    for path in sorted((work / "src").rglob("*")):
+        if path.is_file():
+            manifest[str(path.relative_to(work))] = hashlib.sha256(path.read_bytes()).hexdigest()
+    (work / "source-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"Live-source snapshot: {work}", flush=True)
     if arguments.snapshot_only:
         return
@@ -70,6 +76,10 @@ def main():
         raise RuntimeError("Dedicated server contains native UI documents or fonts.")
     label = "DEDICATED SERVER" if arguments.server else "TRANSITIONAL CLIENT" if arguments.legacy else "DEFAULT CLIENT" if arguments.default_client else "NATIVE CLIENT"
     boundary = "both presentation dependencies available" if arguments.legacy else "legacy presentation available" if arguments.default_client else "no Avalonia packages, dependency entries or output assemblies"
+    report = dict(label=label, dll=str(output / "ProjectPrime.dll"),
+                  sha256=hashlib.sha256((output / "ProjectPrime.dll").read_bytes()).hexdigest(),
+                  avaloniaEntriesAndFiles=len(toolkit), sourceManifest=str(work / "source-manifest.json"))
+    (work / "boundary-check.json").write_text(json.dumps(report, indent=2) + "\n")
     print(f"{label} PASS: actual project build; {boundary}.\nBinary: {output / 'ProjectPrime.dll'}\nDiagnostics: {log}")
 
 

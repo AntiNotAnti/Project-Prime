@@ -17,6 +17,7 @@ args.out.mkdir(parents=True,exist_ok=True)
 for path in [args.legacy,args.native]:
  if not path.is_file():parser.error(f'Missing full-build assembly: {path}')
  payload=path.read_bytes()
+ if b'homePresentationVerified' not in payload:parser.error(f'{path} lacks verified Home presentation diagnostics; refuse to benchmark a startup/title screen')
  for guard in ['Live account authentication is disabled in UI performance diagnostics.','Live account requests are disabled in UI performance diagnostics.']:
   if guard.encode('utf-16le') not in payload:parser.error(f'{path} lacks mandatory diagnostic account guards; refuse to launch')
 if not (args.data/'paths.txt').is_file():parser.error('Isolated data fixture must contain paths.txt for real extracted game data.')
@@ -36,11 +37,12 @@ for run in range(1,args.runs+1):
    completed=subprocess.run(command,env=env,stdout=output,stderr=subprocess.STDOUT,timeout=args.seconds+60)
   if completed.returncode!=0 or not report.is_file():raise RuntimeError(f'{name} failed to produce successful presentation evidence; see {log}')
   value=json.loads(report.read_text())
+  if value.get('format',0)<2 or value.get('workload')!='Home' or value.get('homePresentationVerified') is not True:raise RuntimeError(f'{name} did not verify its actual Home presentation; reject startup/title workload')
   if value['mode']!=mode:raise RuntimeError(f'{name} selected the wrong UI')
   if value.get('frameRateCap')!=60:raise RuntimeError(f'{name} requires a controlled 60 fps fixture')
   value['run']=run;value['assemblySha256']=hashlib.sha256(binary.read_bytes()).hexdigest();value['report']=report.name
   reports.append(value)
-  print(f"{name}: first present {value['firstPresentationFromProcessStartMs']:.1f}ms; CPU {value['processCpuPercentOfOneCore']:.1f}%; p95UI {value['totalUiFrame']['p95Ms']:.3f}ms",flush=True)
+  print(f"{name}: first verified Home present {value['firstPresentationFromProcessStartMs']:.1f}ms; CPU {value['processCpuPercentOfOneCore']:.1f}%; p95UI {value['totalUiFrame']['p95Ms']:.3f}ms",flush=True)
 legacy=[r for r in reports if r['mode']=='Avalonia'];native=[r for r in reports if r['mode']=='RmlUi']
 if len({(r['width'],r['height'],r.get('frameRateCap'),r['backend']) for r in reports})!=1:raise RuntimeError('Window size, frame cap or backend differed between samples')
 metrics={'coldFirstPresentationMs':lambda r:r['firstPresentationFromProcessStartMs'],'idleCpuPercentOfOneCore':lambda r:r['processCpuPercentOfOneCore'],'p95UiFrameMs':lambda r:r['totalUiFrame']['p95Ms'],'managedAllocatedBytes':lambda r:r['managedAllocatedBytes']}
@@ -48,6 +50,6 @@ comparison={}
 for metric,read in metrics.items():
  old=[read(r) for r in legacy];new=[read(r) for r in native]
  comparison[metric]={'legacyMedian':statistics.median(old),'legacyRange':[min(old),max(old)],'nativeMedian':statistics.median(new),'nativeRange':[min(new),max(new)],'nativeMedianWithinMeasuredBaselineWorst':statistics.median(new)<=max(old)}
-summary={'format':1,'backend':args.backend,'runsPerMode':args.runs,'comparison':comparison,'samples':reports,'method':'Same hardware, extracted data, window, 60 fps fixture and backend; alternating fresh processes with 5 second warmup then requested idle sample. IME/accessibility enabled. Account/presence start and automatic updater network calls disabled in explicit diagnostics. CPU timing is UI submission cost, not GPU completion time.','criterion':'Observed baseline worst across these runs is the measured upper comparison bound; this small sample is evidence, not a cross-platform release acceptance decision.'}
+summary={'format':2,'workload':'Home','backend':args.backend,'runsPerMode':args.runs,'comparison':comparison,'samples':reports,'method':'Same hardware, extracted data, window, 60 fps fixture and backend; alternating fresh processes with 5 second warmup after verified Home presentation, then requested idle sample. Cold boundary is process start to first verified Home frame, including the normal legacy startup reveal. IME/accessibility enabled. Explicit diagnostics disable account/presence start, authentication/HTTP, automatic updater requests, background startup maintenance and preview generation. CPU timing is UI submission cost, not GPU completion time.','criterion':'Observed baseline worst across these runs is the measured upper comparison bound; this small sample is evidence, not a cross-platform release acceptance decision.'}
 (args.out/'comparison.json').write_text(json.dumps(summary,indent=2)+'\n')
 print(f"Wrote {args.out/'comparison.json'}",flush=True)

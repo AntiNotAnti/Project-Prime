@@ -28,6 +28,12 @@ internal sealed class AndroidRmlUiHudSession : IDisposable
     internal bool Active => !_disposed && _presenter?.IsOpen == true;
     internal RmlUiDocumentToken Document => _presenter?.Document ?? default;
 #if MPHREAD_RMLUI_ANDROID_CHECK
+    private string? _acceptedProfileForCheck;
+    internal string AcceptedProfileForCheck()
+    {
+        VerifyOwner();
+        return _acceptedProfileForCheck ?? throw new InvalidOperationException("The actual HUD draft has not been accepted.");
+    }
     internal HudEditorSnapshot SnapshotForCheck()
     {
         VerifyOwner();
@@ -44,6 +50,9 @@ internal sealed class AndroidRmlUiHudSession : IDisposable
     {
         VerifyOwner(); ObjectDisposedException.ThrowIf(_disposed, this);
         if (Active) return true;
+#if MPHREAD_RMLUI_ANDROID_CHECK
+        _acceptedProfileForCheck = null;
+#endif
         if (_presenter != null || _controller != null) CloseEditor();
         var draft = _settings.CaptureHudDraft();
         if (!_settings.SuspendForHud()) return false;
@@ -77,6 +86,9 @@ internal sealed class AndroidRmlUiHudSession : IDisposable
                 _presenter.ReportFailure("The HUD draft could not be staged. Correct the settings and retry.");
                 return;
             }
+#if MPHREAD_RMLUI_ANDROID_CHECK
+            _acceptedProfileForCheck = MphRead.Mods.Render.Hud.HudProfileStore.Serialize(profile);
+#endif
             ReturnToSettings();
         }
         else if (_presenter.TryTakeCancelled()) ReturnToSettings();

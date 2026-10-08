@@ -10,6 +10,8 @@ dotnet run --project tools/theatre-controller-check -c Release -p:MphReadRmlUi=t
 
 The asset directory is the packaged runtime layout: `home.rml`, `components/`, `themes/`, `pages/`, and `fonts/`. Native mode runs 1280×720, 1920×1080, 960×540, and 1920×1080 at density 2. It does not require game data or a graphics context.
 
+Pass `-p:PrimeAssemblyDirectory=/absolute/path/to/complete/client/output` to test an already-built client without building the shared game project. The native playback fixture uses the real session and transport to verify that keyboard changes on the actual range control request exactly one seek to the decimal field's frame. Its controlled session is retired afterward; this establishes the UI-to-transport boundary, not replay scene simulation.
+
 The production default backend invokes the existing DemoLibrary, ReplayVirtualClips, ReplayAnnotations, ReplayArchive, ReplayStorageManager, NativeFilePicker and Studio IPC services. Replay controls use DemoPlayback's ReplayController; the viewport helper uses the engine Scene camera. The test boundary supplies copied metadata and controllable worker completions only inside this check executable. These checks do not establish physical input, full campaign/replay gameplay, GPU screenshot quality, or Android picker/export parity. Those require the platform and game route checks.
 
 Integration API:

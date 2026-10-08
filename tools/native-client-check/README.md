@@ -25,8 +25,10 @@ their own `bin` and `obj` directories. The check rejects Avalonia packages in
 the restored graph, runtime dependency entries and client output assemblies.
 It also requires the real Studio protocol and the independent Skia HUD bitmap
 dependency. Shared native artifacts and maps remain read-only build inputs.
+Each snapshot writes `source-manifest.json` with the copied source hashes and
+`boundary-check.json` with the built assembly hash and dependency result.
 
-The equivalent ordinary build is:
+The equivalent opt-in build is:
 
 ```sh
 dotnet build src/MphRead/MphRead.csproj -c Release \

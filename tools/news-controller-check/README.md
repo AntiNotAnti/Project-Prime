@@ -19,3 +19,9 @@ checks readable independently flowing headline/body/cards, modal focus/lifetime,
 both browser results and canonical Back. Its browser adapter is fake, so tests
 never open an external browser. Actual OS browser/picker/device acceptance and
 full golden parity remain separate requirements.
+
+Native mode uses the real game's News controller types, so it does not link a
+second copy of Core into the check assembly. To check an isolated existing full
+client without rebuilding it, add
+`-p:PrimeAssemblyDirectory=<full-client-directory>` and pass that client's
+complete current asset root. The real native check reports 348 assertions.

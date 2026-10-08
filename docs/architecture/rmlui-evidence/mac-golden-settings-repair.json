@@ -1,0 +1,85 @@
+{
+  "format": 1,
+  "checkpoint_kind": "same-frozen-assembly-with-repaired-Settings-assets",
+  "assembly_sha256": "c8d92c21d2801785a6022aeb2a5c4dc71ecd038a2675ceab321d8d9e6074d69f",
+  "asset_tree_sha256": "19d7231930e8f8e52da7cb4bc95c5bdbfe7dae06653415f0badb63a4de53dbd3",
+  "capture_count": 2,
+  "backend": "Metal",
+  "adapter": "Apple M4 Pro",
+  "platform": "macOS 27.0.0",
+  "prior_defect_evidence": "mac-golden-candidate-matrix.json",
+  "native_layout_assertions": 765,
+  "native_layout_tool": "tools/rmlui-settings-layout-check",
+  "native_layout_boundaries": "Five viewport/density cases, all category/Back/search/first+last field/page/commit focus-scroll-pointer reachability and exact native category/Apply commands; no services or persistence invoked.",
+  "limitations": [
+    "Forced native density2 is not an external physical-device run.",
+    "No legacy-versus-native golden, performance or full Settings persistence acceptance inferred."
+  ],
+  "cases": [
+    {
+      "format": 1,
+      "case": "settings-1440p-density2",
+      "route": "settings",
+      "assembly_sha256": "c8d92c21d2801785a6022aeb2a5c4dc71ecd038a2675ceab321d8d9e6074d69f",
+      "asset_tree_sha256": "19d7231930e8f8e52da7cb4bc95c5bdbfe7dae06653415f0badb63a4de53dbd3",
+      "requested_window_width": 1280,
+      "requested_window_height": 720,
+      "expected_retina_framebuffer_width": 2560,
+      "expected_retina_framebuffer_height": 1440,
+      "actual_framebuffer_width": 2560,
+      "actual_framebuffer_height": 1440,
+      "requested_native_density": 2,
+      "native_density_forced": true,
+      "png_sha256": "7e1b1f038cab2d4a85eef356f78260a5a64093ec6cadaf76fa6df5f8df8b3b44",
+      "actual_backend": "Metal",
+      "adapter": "Apple M4 Pro",
+      "platform": "macOS 27.0.0",
+      "requested_retina_size_observed": true,
+      "safe_fixture": "Fresh empty user data containing extraction paths.txt only; central diagnostic account/Social/updater guards enabled.",
+      "coverage": "Actual final client composite; forced native density is not a physical monitor-density run. No performance, device-loss or legacy-golden acceptance inferred.",
+      "visual_inspection": {
+        "status": "inspected-scroll-containment-repair-observed",
+        "method": "Actual saved final-composite PNG inspected with view_image; native focus-scroll-pointer assertions verify controls outside the initial scroll position.",
+        "notes": [
+          "Fixed workspace stays between the shared header and footer with independent sidebar/content scrollbars.",
+          "Category and content controls are clipped to their own scroll viewport instead of spilling behind the footer; all categories, Back, first/last fields, page and commit controls pass actual focus-scroll-pointer containment in765 native assertions at five sizes.",
+          "This is an initial scroll position capture, not an image claiming all controls are simultaneously visible."
+        ]
+      },
+      "artifact_directory": "artifacts/rmlui-golden-mac-settings-fixed-20261007/settings-1440p-density2"
+    },
+    {
+      "format": 1,
+      "case": "settings-720p-small-density2",
+      "route": "settings",
+      "assembly_sha256": "c8d92c21d2801785a6022aeb2a5c4dc71ecd038a2675ceab321d8d9e6074d69f",
+      "asset_tree_sha256": "19d7231930e8f8e52da7cb4bc95c5bdbfe7dae06653415f0badb63a4de53dbd3",
+      "requested_window_width": 640,
+      "requested_window_height": 360,
+      "expected_retina_framebuffer_width": 1280,
+      "expected_retina_framebuffer_height": 720,
+      "actual_framebuffer_width": 1280,
+      "actual_framebuffer_height": 720,
+      "requested_native_density": 2,
+      "native_density_forced": true,
+      "png_sha256": "769b1ac7577920dc5f3a14279630dfa16974f17c5d24b39296789f9a1005cde7",
+      "actual_backend": "Metal",
+      "adapter": "Apple M4 Pro",
+      "platform": "macOS 27.0.0",
+      "requested_retina_size_observed": true,
+      "safe_fixture": "Fresh empty user data containing extraction paths.txt only; central diagnostic account/Social/updater guards enabled.",
+      "coverage": "Actual final client composite; forced native density is not a physical monitor-density run. No performance, device-loss or legacy-golden acceptance inferred.",
+      "visual_inspection": {
+        "status": "inspected-scroll-containment-repair-observed",
+        "method": "Actual saved final-composite PNG inspected with view_image; native focus-scroll-pointer assertions verify controls outside the initial scroll position.",
+        "notes": [
+          "Fixed workspace stays between the shared header and footer with independent sidebar/content scrollbars.",
+          "Category and content controls are clipped to their own scroll viewport instead of spilling behind the footer; all categories, Back, first/last fields, page and commit controls pass actual focus-scroll-pointer containment in765 native assertions at five sizes.",
+          "This is an initial scroll position capture, not an image claiming all controls are simultaneously visible.",
+          "The actual initial focused first field scrolls the content header partly above the viewport; the left SETTINGS heading and scrollbar remain visible and earlier content is reachable by scroll."
+        ]
+      },
+      "artifact_directory": "artifacts/rmlui-golden-mac-settings-fixed-20261007/settings-720p-small-density2"
+    }
+  ]
+}

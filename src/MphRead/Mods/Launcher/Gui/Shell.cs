@@ -1268,6 +1268,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static void StartBackgroundStartupWork()
         {
+            if (LauncherUiPerformance.Enabled) return;
             var cancel = new CancellationTokenSource();
             CancellationTokenSource? previous = Interlocked.Exchange(
                 ref _startupWorkCancel, cancel);

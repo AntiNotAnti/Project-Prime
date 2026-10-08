@@ -26,4 +26,16 @@ if ($bounds.Width -le 0 -or $bounds.Height -le 0) { throw 'UIA screen bounds una
 $save = Find-Control 'save'
 $invoke = [System.Windows.Automation.InvokePattern]$save.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern)
 $invoke.Invoke()
+$deadline = [DateTime]::UtcNow.AddSeconds(10)
+$received = $false
+while ([DateTime]::UtcNow -lt $deadline) {
+  try {
+    $heading = Find-Control 'heading'
+    if ($heading.Current.Name -eq 'ACTION RECEIVED') { $received = $true; break }
+  } catch [System.Windows.Automation.ElementNotAvailableException] {
+    # The native acknowledgment retires the old revision. Reacquire it.
+  }
+  Start-Sleep -Milliseconds 30
+}
+if (-not $received) { throw 'UIA asynchronous invocation was not acknowledged by the native owner' }
 Write-Output 'PASS real Windows UIA client name/role/password/focus/Unicode value/geometry/invoke'

@@ -5,6 +5,13 @@ internal static partial class Shell
 {
     internal static void BeforePresent(RenderWindow window)
     {
+#if MPHREAD_AVALONIA
+        if (LauncherUiPerformance.Enabled
+#if MPHREAD_RMLUI_POC
+            && !RmlUiPrototype.Visible
+#endif
+            ) _front?.BeginPerformanceHome();
+#endif
         string? path = LauncherUiPerformance.TakeWarmupScreenshotPath();
         if (path is null) return;
         try
@@ -39,12 +46,30 @@ internal static partial class Shell
                     ? MphRead.Mods.Render.ModernGraphicsCompat.DeviceIdentity.Backend.ToString() : "opengl");
         LauncherUiPerformance.Presented(window.FramebufferSize.X, window.FramebufferSize.Y,
 #if MPHREAD_RMLUI_POC
-            RmlUiPrototype.Visible
+            RmlUiPrototype.Visible,
 #else
-            false
+            false,
 #endif
+            LauncherUiPerformance.Enabled && PerformanceHomeReady(window)
         );
         if (LauncherUiPerformance.ExitRequested) RequestQuit();
+    }
+
+    private static bool PerformanceHomeReady(RenderWindow window)
+    {
+        if (!UiVisible || window.HasScene) return false;
+#if MPHREAD_RMLUI_POC
+        if (RmlUiPrototype.Visible)
+            return !RmlUiPrototype.Failed && _nativeSetup == null
+                && RmlUiPrototype.Pages?.Manager.PageKey == "home"
+                && RmlUiPrototype.Pages.Manager.ModalCount == 0
+                && RmlUiPrototype.Runtime.CurrentInputDocument == RmlUiPrototype.Pages.Manager.Page;
+#endif
+#if MPHREAD_AVALONIA
+        return UiSurface.Current?.Visible == true && _front?.PerformanceHomeReady == true;
+#else
+        return false;
+#endif
     }
 }
 #endif

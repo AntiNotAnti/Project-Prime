@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using MphRead.Mods.Launcher.RmlUi.Host;
 
 // Uses real RmlUi core and DOM through the draw-list adapter: no display, GPU,
@@ -20,6 +21,8 @@ internal static unsafe class Program
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int SetText(ulong id, [MarshalAs(UnmanagedType.LPUTF8Str)] string name, [MarshalAs(UnmanagedType.LPUTF8Str)] string value);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int SetBool(ulong id, [MarshalAs(UnmanagedType.LPUTF8Str)] string name, int value);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int ReadField(ulong id, [MarshalAs(UnmanagedType.LPUTF8Str)] string name, [Out] byte[] buffer, int capacity);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int SemanticSnapshot(ulong id, [Out] byte[] buffer, int capacity);
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int SemanticSetText(ulong generation, ulong document, ulong revision, [MarshalAs(UnmanagedType.LPUTF8Str)] string key, [MarshalAs(UnmanagedType.LPUTF8Str)] string value);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int Take(ref Intent intent);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int Status(ref UpdateStatus status);
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)] private delegate int ReadBytes([Out] byte[] buffer, int capacity);
@@ -109,6 +112,8 @@ internal static unsafe class Program
         var bounds = Load<Bounds>("pp_rmlui_document_element_bounds");
         var setText = Load<SetText>("pp_rmlui_document_set_text"); var setBool = Load<SetBool>("pp_rmlui_document_set_bool"); var read = Load<ReadField>("pp_rmlui_document_read_field");
         var setField = Load<SetText>("pp_rmlui_document_set_field");
+        var semanticSnapshot = Load<SemanticSnapshot>("pp_rmlui_document_accessibility_snapshot");
+        var semanticSetText = Load<SemanticSetText>("pp_rmlui_accessibility_set_text");
         var count = Load<Count>("pp_rmlui_document_count"); var take = Load<Take>("pp_rmlui_take_intent"); var legacy = Load<ReadBytes>("pp_rmlui_take_action");
         var key = Load<Key>("pp_rmlui_key"); var text = Load<Text>("pp_rmlui_text"); var clipboard = Load<Clipboard>("pp_rmlui_set_clipboard"); var copied = Load<ReadBytes>("pp_rmlui_read_clipboard");
         var inputActive = Load<Count>("pp_rmlui_text_input_active"); var loseFocus = Load<Empty>("pp_rmlui_focus_lost"); var focused = Load<ReadBytes>("pp_rmlui_focused_element");
@@ -278,9 +283,38 @@ internal static unsafe class Program
                 }
             }
             Check(thumbnailLoaded, "Absolute local thumbnail resolves and captures checked RGBA pixels");
+            Intent authoritativeSeek = Intent.New();
+            for (int frame = 0; frame < 120; frame++)
+            {
+                Check(setField(registry, "seek", frame.ToString()) == 1, "Authoritative replay position binds each playback frame");
+                update(); render(1280, 720);
+                Check(take(ref authoritativeSeek) == 0, "Continuous presenter range updates never emit user seek commands");
+            }
+            UpdateStatus rangeIdle = State();
+            Check(setField(registry, "seek", "119") == 1, "Range integer bindings compare with RmlUi's formatted numeric value");
+            UpdateStatus rangeUnchanged = State();
+            Check(rangeUnchanged.Revision == rangeIdle.Revision && rangeUnchanged.Flags == 2,
+                "Unchanged authoritative range position preserves the captured native frame");
             Check(focus(registry, "seek") == 1, "Range input obtains native keyboard focus");
             Press(8); Intent seek = Intent.New();
             Check(take(ref seek) == 1 && seek.Kind == 170 && seek.Argument == 9 && seek.Document == registry, "Range keyboard change emits typed replay seek");
+            Check(take(ref seek) == 0, "Physical range edit dispatches exactly one seek");
+            byte[] semanticBytes = new byte[1024 * 1024 + 1024];
+            int semanticLength = semanticSnapshot(registry, semanticBytes, semanticBytes.Length);
+            Check(semanticLength > 0, "Real semantic snapshot exposes authored range control");
+            using (JsonDocument semantics = JsonDocument.Parse(semanticBytes.AsMemory(0, semanticLength)))
+            {
+                JsonElement seekNode = semantics.RootElement.GetProperty("nodes").EnumerateArray()
+                    .Single(node => node.GetProperty("id").GetString() == "seek");
+                Check(seekNode.GetProperty("role").GetString() == "slider" && (seekNode.GetProperty("actions").GetInt32() & 8) != 0,
+                    "Accessible native slider advertises actual SetText capability");
+                Check(semanticSetText(gen, registry, semantics.RootElement.GetProperty("revision").GetUInt64(),
+                    seekNode.GetProperty("key").GetString()!, "125") == 1, "Accessible slider applies one authoritative user value");
+                Intent accessibleSeek = Intent.New();
+                Check(take(ref accessibleSeek) == 1 && accessibleSeek.Kind == 170 && accessibleSeek.Argument == 9 && accessibleSeek.Document == registry,
+                    "Accessible slider edit dispatches a real typed seek");
+                Check(take(ref accessibleSeek) == 0, "A single accessible slider edit dispatches exactly one seek");
+            }
             Check(close(registry) == 1, "Registry document closes");
             foreach (float density in new[] { 1f, 1.25f, 2f })
             {

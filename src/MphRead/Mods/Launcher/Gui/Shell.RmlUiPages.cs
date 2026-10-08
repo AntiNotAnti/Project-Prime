@@ -503,6 +503,11 @@ internal static partial class Shell
             { OpenNativePage(LauncherPage.Settings); OpenNativeHud(); return; }
             if (!LauncherRouteCatalog.TryParse(arguments[index + 1], out LauncherRoute route))
                 throw new ArgumentException("Unknown native capture route.");
+            if (route.Page is LauncherPage.Home or LauncherPage.Play)
+            {
+                NavigateNativeRoute(route.Page == LauncherPage.Home ? RmlUiRouteArgument.Home : RmlUiRouteArgument.Play);
+                return;
+            }
             if (route.Page == LauncherPage.Hunters) { OpenNativeHunters(); return; }
             if (!OpenNativePage(route.Page, item: route.Item))
                 throw new InvalidOperationException("The selected native capture route has no registered presenter.");

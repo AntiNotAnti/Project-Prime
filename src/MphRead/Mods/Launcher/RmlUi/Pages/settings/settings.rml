@@ -1,24 +1,24 @@
 <rml>
 <head><title>Project Prime Settings</title><link type="text/template" href="../../components/app-shell.rml" /><link type="text/rcss" href="settings.rcss" /></head>
 <body template="prime-shell">
-<div class="settings_workspace">
-    <div class="settings_navigation">
+<div id="settings_workspace" class="settings_workspace">
+    <div id="settings_navigation" class="settings_navigation">
         <div class="eyebrow">PROJECT PRIME</div><h1>SETTINGS</h1>
-            <button class="settings_tab" data-action="settings:category:0">DISPLAY</button>
-            <button class="settings_tab" data-action="settings:category:1">GRAPHICS</button>
-            <button class="settings_tab" data-action="settings:category:2">AUDIO</button>
+            <button id="settings_display_tab" class="settings_tab" data-action="settings:category:0">DISPLAY</button>
+            <button id="settings_graphics_tab" class="settings_tab" data-action="settings:category:1">GRAPHICS</button>
+            <button id="settings_audio_tab" class="settings_tab" data-action="settings:category:2">AUDIO</button>
             <button id="settings_controls_tab" class="settings_tab" data-action="settings:category:3">CONTROLS</button>
-            <button class="settings_tab" data-action="settings:category:4">REPLAYS</button>
+            <button id="settings_replays_tab" class="settings_tab" data-action="settings:category:4">REPLAYS</button>
             <button id="settings_profile_tab" class="settings_tab" data-action="settings:category:5">PROFILE</button>
-            <button class="settings_tab" data-action="settings:category:6">SYSTEM</button>
-            <button class="settings_tab" data-action="settings:category:7">MAINTENANCE</button>
-            <button class="settings_tab" data-action="settings:category:8">CREDITS</button>
-        <button class="play_action quiet" data-action="settings:close">BACK</button>
+            <button id="settings_system_tab" class="settings_tab" data-action="settings:category:6">SYSTEM</button>
+            <button id="settings_maintenance_tab" class="settings_tab" data-action="settings:category:7">MAINTENANCE</button>
+            <button id="settings_credits_tab" class="settings_tab" data-action="settings:category:8">CREDITS</button>
+        <button id="settings_back" class="play_action quiet" data-action="settings:close">BACK</button>
     </div>
-    <div class="settings_content">
+    <div id="settings_content" class="settings_content">
         <div class="settings_heading"><h2 id="settings_title">Display</h2><span id="settings_dirty">Saved settings</span></div>
         <div class="settings_search"><input id="settings_search" type="text" class="input" placeholder="Search this category" /><button id="settings_search_button" class="choice" data-action="settings:action:54">SEARCH</button><button id="settings_clear_search" class="choice" data-action="settings:action:55">CLEAR</button></div>
-        <div class="settings_fields">
+        <div id="settings_fields" class="settings_fields">
             <div id="settings_hud_tools" class="settings_tools"><button id="settings_hud_edit" class="play_action" data-action="settings:action:28">EDIT HUD</button></div>
             <div id="settings_controller_tools" class="settings_tools">
                 <p id="settings_controls_help" /><p id="settings_controller_device" />
@@ -124,7 +124,7 @@
         </div>
         <div class="settings_paging"><button id="settings_previous" class="choice" data-action="settings:action:0">PREVIOUS</button><span id="settings_paging">Page 1 of 1</span><button id="settings_next" class="choice" data-action="settings:action:1">NEXT</button></div>
         <div id="settings_error" class="settings_error" /><div id="settings_status" class="settings_status" />
-        <div class="settings_actions"><button class="play_action quiet" data-action="settings:reset-category">REVERT CATEGORY</button><button id="settings_discard" class="play_action quiet" data-action="settings:discard">DISCARD</button><button id="settings_apply" class="play_action" data-action="settings:apply">APPLY</button></div>
+        <div id="settings_actions" class="settings_actions"><button id="settings_revert_category" class="play_action quiet" data-action="settings:reset-category">REVERT CATEGORY</button><button id="settings_discard" class="play_action quiet" data-action="settings:discard">DISCARD</button><button id="settings_apply" class="play_action" data-action="settings:apply">APPLY</button></div>
     </div>
 </div>
 </body></rml>

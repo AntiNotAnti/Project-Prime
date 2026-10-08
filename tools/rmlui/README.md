@@ -1,5 +1,26 @@
 # RmlUi native builds and opt-in packages
 
+The `RmlUi migration acceptance` CI job requires every build, platform, server,
+Studio, input and renderer gate for the same revision to succeed. Its Linux full
+source job reuses the compiled bridge, builds the actual client in isolated
+native, transitional, default and server snapshots, audits the native package,
+and runs shared Shell routing against the resulting `ProjectPrime.dll` files.
+It also runs the module/controller/native DOM checks, real local UDP lobby and
+queue fixtures, accessibility/draw-list caching, Vulkan recovery and 100 native
+page lifetime cycles. It never supplies cartridge files or production account
+state. To run that Linux job locally after building the bridge and patched
+wgpu-native payload:
+
+```sh
+bash tools/rmlui/full-source-check.sh \
+  artifacts/rmlui-native/linux-x64/libProjectPrime.RmlUi.Native.so \
+  linux-x64 /tmp/prime-rmlui-full-source-proof
+```
+
+Use a new evidence directory. Logs, real source snapshots, the audited native
+package and acceptance JSON remain there for review. Passing this gate proves
+the automated checks it runs; the user's live testing is separate.
+
 The game client still defaults to its existing launcher. `MphReadRmlUi=true`
 is the separate opt-in runtime build feature; `MphReadRmlUiPoc=true` remains a
 compatible development switch. Dedicated-server builds suppress both UI

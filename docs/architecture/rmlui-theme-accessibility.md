@@ -154,10 +154,10 @@ prevent idle reuse. Older bridges retain the tested eager path. These are local
 component diagnostics, not production UI timing, native allocation measurements
 or a same-machine Avalonia comparison.
 
-The [initial production comparison](rmlui-evidence/performance-metal-initial/comparison.json)
-measured native UI/CPU regressions with production accessibility enabled. Those
-results remain visible while native update scheduling and idle capture are
-optimized; only a fresh matching full-host comparison can accept that gate.
+The [title-vs-Home batches were disqualified](rmlui-evidence/performance-metal-invalid-title-home/DISQUALIFIED.json)
+after actual images revealed the legacy title screen and native Home. Those
+batches establish no Home performance comparison. Native-only diagnostics remain
+separate; only fresh matching Home runs can accept the comparison gate.
 
 Full body translation, automated font/glyph/provider cases, required goldens and
 production performance remain automated gates. Physical VoiceOver/TalkBack,

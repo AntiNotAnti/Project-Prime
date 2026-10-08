@@ -63,10 +63,11 @@ internal static class LauncherUiPerformance
         if(!Sampling)return;Draws.Add(milliseconds);_redraws++;
         if(uploadBytes>0){Uploads.Add(uploadMilliseconds);_uploadBytes+=uploadBytes;_bitmapUploads++;}
     }
-    /// <summary>Call once after a successful final surface presentation. The OS process start is the cold-start boundary.</summary>
-    internal static void Presented(int width,int height,bool native)
+    /// <summary>Call once after a successful, verified Home surface presentation.
+    /// A startup/title frame must not start the workload's warmup or counters.</summary>
+    internal static void Presented(int width,int height,bool native,bool homeReady)
     {
-        if(!Enabled||_written)return;
+        if(!Enabled||_written||!homeReady)return;
         long now=Stopwatch.GetTimestamp();
         if(_firstPresented==0)
         {
@@ -89,7 +90,7 @@ internal static class LauncherUiPerformance
         double cpuSeconds=TimeSpan.FromTicks(BenchmarkProcess.TotalProcessorTime.Ticks-_sampleCpuTicks).TotalSeconds;
         var report=new
         {
-            format=1,mode=_native?"RmlUi":"Avalonia",platform=System.Runtime.InteropServices.RuntimeInformation.OSDescription,
+            format=2,workload="Home",homePresentationVerified=true,mode=_native?"RmlUi":"Avalonia",platform=System.Runtime.InteropServices.RuntimeInformation.OSDescription,
             architecture=System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString(),logicalProcessors=Environment.ProcessorCount,
             width=_width,height=_height,firstPresentationFromProcessStartMs=_coldMs,warmupSeconds=5,
             sampleSeconds=elapsed,frames=_frames,framesPerSecond=_frames/elapsed,
@@ -108,7 +109,7 @@ internal static class LauncherUiPerformance
             rmlGpuResources=ModernGraphicsCompat.Active?(object)ModernGraphicsCompat.RmlUiResources:null,
 #endif
 #endif
-            scope="Production launcher UI update (including IME/accessibility) and native draw or Avalonia bitmap redraw/upload; full-process idle CPU includes scene/background services. Diagnostic runs disable SocialRuntime account/presence start and automatic updater network requests; IME and accessibility stay enabled.",
+            scope="Verified Home UI update (including IME/accessibility) and native draw or Avalonia bitmap redraw/upload; full-process idle CPU includes the live scene and presentation. Explicit diagnostics disable account/presence start, authentication/HTTP, automatic updater requests, background startup maintenance and preview generation. IME and accessibility stay enabled.",
             storageNote="Tracked native resource capacity is not driver residency or total VRAM. GPU completion time is not inferred from CPU submission time."
         };
         string path=Path.GetFullPath(Output!);Directory.CreateDirectory(Path.GetDirectoryName(path)!);

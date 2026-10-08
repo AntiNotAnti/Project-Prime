@@ -1,0 +1,194 @@
+{
+  "format": 1,
+  "mode": "RmlUi",
+  "platform": "macOS 27.0.0",
+  "architecture": "Arm64",
+  "logicalProcessors": 12,
+  "width": 2560,
+  "height": 1440,
+  "firstPresentationFromProcessStartMs": 910.827,
+  "warmupSeconds": 5,
+  "sampleSeconds": 20.0104913,
+  "frames": 1169,
+  "framesPerSecond": 58.4193552509128,
+  "processCpuSeconds": 6.248064,
+  "processCpuPercentOfOneCore": 31.223941013382316,
+  "processCpuPercentOfMachine": 2.6019950844485265,
+  "totalUiFrame": {
+    "count": 1169,
+    "meanMs": 0.20425808383233537,
+    "p50Ms": 0.119,
+    "p95Ms": 0.5528000000000001,
+    "maxMs": 2.4412000000000003
+  },
+  "update": {
+    "count": 1169,
+    "meanMs": 0.06814063301967493,
+    "p50Ms": 0.021,
+    "p95Ms": 0.376,
+    "maxMs": 1.299
+  },
+  "render": {
+    "count": 1169,
+    "meanMs": 0.13611745081266047,
+    "p50Ms": 0.0987,
+    "p95Ms": 0.3504,
+    "maxMs": 1.1972
+  },
+  "bitmapUpload": {
+    "count": 0,
+    "meanMs": null,
+    "p50Ms": null,
+    "p95Ms": null,
+    "maxMs": null
+  },
+  "phases": {
+    "viewport": {
+      "count": 1169,
+      "meanMs": 0.00419880239520958,
+      "p50Ms": 0.0026,
+      "p95Ms": 0.015,
+      "maxMs": 0.027
+    },
+    "stateRefresh": {
+      "count": 1169,
+      "meanMs": 0.011282805816937554,
+      "p50Ms": 0.0001,
+      "p95Ms": 0.001,
+      "maxMs": 1.0717
+    },
+    "gamepad": {
+      "count": 1169,
+      "meanMs": 0.001817621899059018,
+      "p50Ms": 0.0013,
+      "p95Ms": 0.0056,
+      "maxMs": 0.0092
+    },
+    "pageBindings": {
+      "count": 1169,
+      "meanMs": 0.003706501283147987,
+      "p50Ms": 0.0007,
+      "p95Ms": 0.0036,
+      "maxMs": 0.1262
+    },
+    "accessibilityDrain": {
+      "count": 1169,
+      "meanMs": 0.0005820359281437123,
+      "p50Ms": 0.0005,
+      "p95Ms": 0.0017,
+      "maxMs": 0.0044
+    },
+    "contextUpdate": {
+      "count": 1169,
+      "meanMs": 0.015037724550898206,
+      "p50Ms": 0.0011,
+      "p95Ms": 0.0077,
+      "maxMs": 0.8381
+    },
+    "pageFocus": {
+      "count": 1169,
+      "meanMs": 0.00015055603079555243,
+      "p50Ms": 0.0001,
+      "p95Ms": 0.0004,
+      "maxMs": 0.0071
+    },
+    "ime": {
+      "count": 1169,
+      "meanMs": 0.0006071000855431979,
+      "p50Ms": 0.0004,
+      "p95Ms": 0.002,
+      "maxMs": 0.0085
+    },
+    "accessibilityCapture": {
+      "count": 1169,
+      "meanMs": 0.014379469632164243,
+      "p50Ms": 0.0005,
+      "p95Ms": 0.1746,
+      "maxMs": 0.3268
+    },
+    "accessibilityPublish": {
+      "count": 1169,
+      "meanMs": 0.013039777587681788,
+      "p50Ms": 0.0094,
+      "p95Ms": 0.0404,
+      "maxMs": 0.0547
+    },
+    "intentDrain": {
+      "count": 1169,
+      "meanMs": 0.0003195038494439686,
+      "p50Ms": 0.0001,
+      "p95Ms": 0.0015,
+      "maxMs": 0.0042
+    },
+    "contextRender": {
+      "count": 1169,
+      "meanMs": 0.00624071856287425,
+      "p50Ms": 0.001,
+      "p95Ms": 0.0053,
+      "maxMs": 0.3821
+    },
+    "drawListCapture": {
+      "count": 1169,
+      "meanMs": 0.0014954662104362689,
+      "p50Ms": 0.0005,
+      "p95Ms": 0.003,
+      "maxMs": 0.0375
+    },
+    "gpuCommandAuthoring": {
+      "count": 1169,
+      "meanMs": 0.12747673224978617,
+      "p50Ms": 0.0967,
+      "p95Ms": 0.3253,
+      "maxMs": 0.7798
+    }
+  },
+  "redraws": 1169,
+  "redrawsPerSecond": 58.4193552509128,
+  "bitmapUploads": 0,
+  "bitmapUploadBytes": 0,
+  "managedAllocatedBytes": 46629640,
+  "accessibilityCapture": {
+    "requests": 1169,
+    "nativeReads": 76,
+    "decoded": 0,
+    "reused": 1169,
+    "idleSkips": 1093
+  },
+  "drawListCapture": {
+    "requests": 1169,
+    "captured": 38,
+    "reused": 1131
+  },
+  "processWorkingSetBytes": 394084352,
+  "processPrivateBytes": null,
+  "backend": "Metal",
+  "frameRateCap": 60,
+  "gpuResources": {
+    "Textures": 5,
+    "Renderbuffers": 0,
+    "Geometry": 3,
+    "Pipelines": 25,
+    "Programs": 5,
+    "Lists": 3,
+    "Views": 5,
+    "Samplers": 4,
+    "Buffers": 29,
+    "ShaderModules": 18,
+    "BindGroups": 92,
+    "Surfaces": 1,
+    "QuerySets": 0
+  },
+  "rmlGpuResources": {
+    "Geometry": 61,
+    "Buffers": 122,
+    "BufferCapacityBytes": 126456,
+    "Textures": 17,
+    "TextureCapacityBytes": 4030464,
+    "StencilTextures": 1,
+    "EstimatedStencilBytes": 14745600,
+    "Pipelines": 1,
+    "ShaderModules": 1
+  },
+  "scope": "Production launcher UI update (including IME/accessibility) and native draw or Avalonia bitmap redraw/upload; full-process idle CPU includes scene/background services. Diagnostic runs disable SocialRuntime account/presence start and automatic updater network requests; IME and accessibility stay enabled.",
+  "storageNote": "Tracked native resource capacity is not driver residency or total VRAM. GPU completion time is not inferred from CPU submission time."
+}

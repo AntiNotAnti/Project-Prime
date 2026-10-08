@@ -26,6 +26,8 @@ internal sealed partial class AndroidRmlUiSession
     internal HudEditorSnapshot HudCheckSnapshot()
         => _hud?.SnapshotForCheck() ?? throw new InvalidOperationException("The native HUD editor was not opened.");
     internal string HudCheckGesture() => _hud?.PointerStateForCheck() ?? "editor closed";
+    internal string HudCheckAcceptedProfile() => _hud?.AcceptedProfileForCheck()
+        ?? throw new InvalidOperationException("The actual HUD editor handoff is unavailable.");
     internal string HudCheckSettingsDraft()
         => HudProfileStore.Serialize(_settingsPage?.CaptureHudDraft()
             ?? throw new InvalidOperationException("The actual Settings draft is unavailable."));
@@ -116,10 +118,11 @@ internal sealed partial class AndroidRmlUiView
 
             await OpenEditor();
             await Activate("hud_unlock_all"); await Activate("hud_pick13"); await Activate("hud_nudge_left");
-            string accepted = (await CheckOwner(s => s.HudCheckSnapshot())).ProfileJson;
-            Check(accepted != original, "actual native nudge edits the detached profile");
+            string edited = (await CheckOwner(s => s.HudCheckSnapshot())).ProfileJson;
+            Check(edited != original, "actual native nudge edits the detached profile");
             await Activate("hud_use");
             await WaitSnapshot(v => !v.HudCanvas.HasValue);
+            string accepted = await CheckOwner(s => s.HudCheckAcceptedProfile());
             Check(await CheckOwner(s => s.HudCheckSettingsDraft()) == accepted, "Use stages full HUD into retained Settings without publishing");
 
             await OpenEditor(); canvas = await Canvas();

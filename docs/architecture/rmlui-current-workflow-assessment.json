@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "assessment_kind": "mutable-working-tree-source-and-local-evidence",
-  "captured_at_utc": "2026-10-07T23:56:26.994317+00:00",
+  "captured_at_utc": "2026-10-08T00:28:20.096669+00:00",
   "observed_git_head": "e9f4d3bd7429820cc1e24ae2e3f024815aecf8f1",
   "frozen_source_sha": "6a24a39d9a37014f9ae4618da4af6361c1872203",
   "immutable_baseline": "rmlui-acceptance-baseline-6a24a39d.json",
@@ -273,7 +273,8 @@
     "settings": {
       "contracts": 23,
       "authoritative_engine": 29,
-      "native": 40
+      "native": 40,
+      "compact_layout": 765
     },
     "setup": {
       "contracts": 27,
@@ -312,8 +313,10 @@
     "home": {
       "router_contracts": 75,
       "shared_theme_native": 610,
-      "native_only_shared_shell_routing": 343,
-      "transitional_shared_shell_routing": "pending final rerun"
+      "native_only_shared_shell_routing": 645,
+      "transitional_shared_shell_routing": 645,
+      "native_home_candidate_captures": 16,
+      "representative_candidate_captures": 4
     },
     "input": {
       "platform_provider_contracts": 150,
@@ -321,6 +324,7 @@
       "cocoa_accessibility": 218,
       "cocoa_ime": 222,
       "linux_ime_native_fake_bus": 219,
+      "linux_ime_hosted_real_ibus": 233,
       "android_inputconnection": 13,
       "android_provider_fixture": 16
     }
@@ -754,7 +758,9 @@
         "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
-        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs"
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
       ],
       "local_evidence_group": "settings",
       "remaining_gates": [
@@ -773,7 +779,9 @@
         "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
-        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs"
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
       ],
       "local_evidence_group": "settings",
       "remaining_gates": [
@@ -792,7 +800,9 @@
         "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
-        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs"
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
       ],
       "local_evidence_group": "settings",
       "remaining_gates": [
@@ -811,7 +821,9 @@
         "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
-        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs"
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
       ],
       "local_evidence_group": "settings",
       "remaining_gates": [
@@ -830,7 +842,9 @@
         "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
-        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs"
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
       ],
       "local_evidence_group": "settings",
       "remaining_gates": [
@@ -849,7 +863,9 @@
         "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
-        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs"
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
       ],
       "local_evidence_group": "settings",
       "remaining_gates": [
@@ -868,7 +884,9 @@
         "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
-        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs"
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
       ],
       "local_evidence_group": "settings",
       "remaining_gates": [
@@ -887,7 +905,9 @@
         "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
-        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs"
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
       ],
       "local_evidence_group": "settings",
       "remaining_gates": [
@@ -906,7 +926,9 @@
         "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
-        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs"
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
       ],
       "local_evidence_group": "settings",
       "remaining_gates": [
@@ -925,7 +947,9 @@
         "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
-        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs"
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
       ],
       "local_evidence_group": "settings",
       "remaining_gates": [
@@ -944,7 +968,9 @@
         "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
-        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs"
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
       ],
       "local_evidence_group": "settings",
       "remaining_gates": [
@@ -963,7 +989,9 @@
         "src/MphRead/Mods/Launcher/Core/SettingsController.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/EngineSettingsBackend.cs",
         "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.cs",
-        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs"
+        "src/MphRead/Mods/Launcher/RmlUi/Settings/SettingsPagePresenter.Tools.cs",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+        "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss"
       ],
       "local_evidence_group": "settings",
       "remaining_gates": [
@@ -1677,7 +1705,7 @@
     },
     {
       "path": "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiPages.cs",
-      "sha256": "73719674e57993d247f4922440c9d108429153bf10a03b8b698208734c411897"
+      "sha256": "ac8f50ae484a0be71e7eb36316e118ea79b55ca999c9d5b834855025613c7c8f"
     },
     {
       "path": "src/MphRead/Mods/Launcher/Gui/Shell.RmlUiQueue.cs",
@@ -1792,6 +1820,14 @@
       "sha256": "f3b6d83e9879b40165cbbb0b53d62eada91e785202f8c40af5bd6c7e0c6eab9a"
     },
     {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rcss",
+      "sha256": "f82c971a61fe156946b521fea1d3834ca1748ba7522469ad76fdf7d5ec919630"
+    },
+    {
+      "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/settings/settings.rml",
+      "sha256": "23033c5aa6526c0caad23ba025101e1401ba210ae53f8e237afb8d3d8259ddf2"
+    },
+    {
       "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/setup/EngineSetupBackend.cs",
       "sha256": "486b25129c18f291b4f1810aeedb0c3698988c2a920e6d99b1d97e047b0efefc"
     },
@@ -1813,7 +1849,7 @@
     },
     {
       "path": "src/MphRead/Mods/Launcher/RmlUi/Pages/theatre/TheatrePlaybackPagePresenter.cs",
-      "sha256": "74282f6ebe563c51ac0da3301dc78ebba21de3ff08f3198c1d615f721d9301e1"
+      "sha256": "187993a92a1ea19ae2bd0c6a20fad81461ec76b3ae7036570451347cfd7f892b"
     },
     {
       "path": "src/MphRead/Mods/Launcher/RmlUi/Presenters/RmlHunterSelectionPresenter.cs",

@@ -138,6 +138,7 @@ internal static class NativeTheatreCheck
                     Check(host.TryTakeIntent(out var back) && back.Kind == RmlUiIntentKind.ReplayAction && playback.HandleIntent(back)
                         && playback.TryTakeEngineCommand(out var command) && command == TheatrePlaybackAction.Back && !playback.TryTakeEngineCommand(out _),
                         "native replay Back hands one command to engine owner");
+                    CheckActiveSlider(host, playback, Check);
                     host.Render(viewport.Item1, viewport.Item2); Check(commands() > 0, "playback controls emit native draw commands");
                 }
             }
@@ -145,6 +146,55 @@ internal static class NativeTheatreCheck
             Console.WriteLine($"THEATRE NATIVE PASS {checks} checks (real DOM/library actions/modal/focus/viewport/image cache; 720p,1080p,small,2x density).");
         }
         finally { NativeLibrary.Free(module); }
+    }
+
+    // A controlled session establishes the real transport's seek boundary without
+    // rendering a replay scene. The native range and production presenter remain
+    // unchanged, and the fixture retires the session before returning.
+    private static void CheckActiveSlider(RmlUiHost host, TheatrePlaybackPagePresenter playback,
+        Action<bool, string> check)
+    {
+        const System.Reflection.BindingFlags all = System.Reflection.BindingFlags.Instance
+            | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic;
+        object session = typeof(MphRead.Mods.Network.DemoPlayback).GetProperty("Session",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.GetValue(null)!;
+        Type sessionType = session.GetType();
+        check(!MphRead.Mods.Network.DemoPlayback.IsActive, "seek fixture starts with an inactive authoritative session");
+        try
+        {
+            sessionType.GetProperty("LastFrame", all)!.SetValue(session, 1000u);
+            sessionType.GetProperty("IsActive", all)!.SetValue(session, true);
+            object transport = sessionType.GetProperty("Transport", all)!.GetValue(session)!;
+            Type transportType = transport.GetType();
+            transportType.GetMethod("Begin", all)!.Invoke(transport, null);
+            playback.Present(); host.Update();
+            check(host.FocusDocument(playback.Document, "replay_position"), "active real playback enables the native range");
+            foreach (var sample in new[] { (Start: "125", Key: 8, Target: 126u), (Start: "475", Key: 7, Target: 474u), (Start: "999", Key: 8, Target: 1000u) })
+            {
+                host.SetField(playback.Document, "replay_position", sample.Start);
+                host.Update();
+                while (host.TryTakeIntent(out _)) { }
+                long generation = (long)transportType.GetProperty("SeekGeneration", all)!.GetValue(transport)!;
+                host.Input.Key(sample.Key, true); host.Input.Key(sample.Key, false); host.Update();
+                string nativeValue = host.ReadField(playback.Document, "replay_position");
+                check(nativeValue.Contains('.') && Double.TryParse(nativeValue, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double value) && value == sample.Target,
+                    "real step-one range exposes a floating-point value " + nativeValue);
+                check(host.TryTakeIntent(out var seek) && seek.Kind == RmlUiIntentKind.ReplayAction
+                    && seek.Argument == (int)TheatrePlaybackAction.Seek && seek.Document == playback.Document
+                    && playback.HandleIntent(seek), "keyboard range change dispatches the native seek action");
+                check((uint?)transportType.GetProperty("RequestedSeekTarget", all)!.GetValue(transport) == sample.Target
+                    && (long)transportType.GetProperty("SeekGeneration", all)!.GetValue(transport)! == generation + 1,
+                    "native decimal range requests the exact authoritative seek frame once");
+                check(!host.TryTakeIntent(out _), "range gesture does not enqueue a second seek");
+            }
+        }
+        finally
+        {
+            sessionType.GetMethod("Stop", all)!.Invoke(session, null);
+            playback.Present(); host.Update();
+        }
+        check(!MphRead.Mods.Network.DemoPlayback.IsActive, "seek fixture retires the actual session");
     }
 }
 #endif

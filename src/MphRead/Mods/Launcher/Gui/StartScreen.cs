@@ -101,6 +101,13 @@ namespace MphRead.Mods.Launcher.Gui
             base.OnAttachedToVisualTree(e);
             if (_startup == null) ShowInitialPrompt();
         }
+        internal void BeginPerformanceHome()
+        {
+            if (LauncherUiPerformance.Enabled) ContinueStartup();
+        }
+        internal bool PerformanceHomeReady => _startup == null && _prime.IsVisible && _prime.IsEnabled
+            && !_prime.Overlays.IsOpen && _prime.Router.Current == PrimeRoute.News;
+
         private void ContinueStartup()
         {
             if (_startup == null) return;
@@ -576,7 +583,9 @@ namespace MphRead.Mods.Launcher.Gui
 #if MPHREAD_RMLUI_ANDROID
             { }
 #else
-            => _ = CatchUpPreviews(cancel);
+        {
+            if (!LauncherUiPerformance.Enabled) _ = CatchUpPreviews(cancel);
+        }
 #endif
 
         private async Task CatchUpPreviews(CancellationToken cancel = default)

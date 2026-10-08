@@ -396,6 +396,7 @@ internal static partial class Shell
 
     private static void StartBackgroundStartupWork()
     {
+        if (LauncherUiPerformance.Enabled) return;
         var cancellation = new CancellationTokenSource();
         var previous = Interlocked.Exchange(ref _startupWorkCancel, cancellation);
         previous?.Cancel(); previous?.Dispose();

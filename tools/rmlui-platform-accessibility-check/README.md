@@ -17,7 +17,10 @@ provider through `WM_GETOBJECT`, and starts an external Windows PowerShell
 `UIAutomationClient` process. That client discovers actual controls through UIA,
 reads name/type/password metadata and screen bounds, focuses an input, sets a
 Unicode value, and invokes a real button. The engine checks the resulting native
-field and typed intent. The HWND callback remains rooted when removal fails and
+field and typed intent. The external client waits for the real typed intent to
+change an accessible heading before it exits: UIA invocation is asynchronous.
+The field is reset first, so this check cannot reuse a preceding fixture's edit.
+The HWND callback remains rooted when removal fails and
 retires on `WM_NCDESTROY`.
 
 On Linux, install `at-spi2-core`, `python3-pyatspi`, GLib/GIO, `dbus-x11`, and
@@ -33,8 +36,11 @@ metadata, focus, Unicode text setting, screen bounds, and actual activation. No
 fixture accessibility tree is substituted for RmlUi. D-Bus registration is async:
 `Socket.Embed` can call back into writable `Application.Id` before its reply.
 
-The Windows and Linux OS modes have not been executed on the macOS authoring
-host. Hosted OS CI and physical NVDA/Narrator/Orca acceptance remain required.
+The Windows and Linux OS modes cannot run on the macOS authoring host. The first
+hosted run exposed a pyatspi API spelling error and a Windows action completion
+failure. The corrected external clients use `get_interfaces()` and wait for an
+owner acknowledgment; their hosted rerun remains required. Physical
+NVDA/Narrator/Orca acceptance also remains required.
 Ordinary and protected edit values are absent from shared semantic metadata;
 UIA Value readback is denied, and AT-SPI deliberately omits `Text`. Full text
 review/selection patterns therefore remain outside the published capability.
@@ -46,6 +52,7 @@ coordinates are explicitly unavailable; actual window-relative bounds remain.
 Primary interface sources:
 
 - [Microsoft server-side provider contract](https://learn.microsoft.com/en-us/windows/win32/winauto/uiauto-serversideprovider)
+- [Microsoft asynchronous Invoke contract](https://learn.microsoft.com/en-us/windows/win32/api/uiautomationcore/nf-uiautomationcore-iinvokeprovider-invoke)
 - [Microsoft HWND provider lifetime](https://learn.microsoft.com/en-us/windows/win32/api/uiautomationcoreapi/nf-uiautomationcoreapi-uiareturnrawelementprovider)
 - [Windows SDK COM interface definitions](https://github.com/microsoft/win32metadata/blob/main/generation/WinSDK/RecompiledIdlHeaders/um/UIAutomationCore.idl)
 - [GNOME AT-SPI standard D-Bus XML](https://github.com/GNOME/at-spi2-core/tree/main/xml)

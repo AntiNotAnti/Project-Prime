@@ -1,7 +1,9 @@
+using System.Collections;
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Runtime.InteropServices;
+using System.Text;
 using MphRead;
 using MphRead.Mods;
 using MphRead.Mods.Launcher;
@@ -45,6 +47,16 @@ static class Program
 
     private static int Run(string library, string assets)
     {
+        byte[] actualAssembly = File.ReadAllBytes(typeof(GameState).Assembly.Location);
+        foreach (string guard in new[]
+        {
+            "Live account authentication is disabled in UI performance diagnostics.",
+            "Live account requests are disabled in UI performance diagnostics."
+        })
+        {
+            if (actualAssembly.AsSpan().IndexOf(Encoding.Unicode.GetBytes(guard)) < 0)
+                throw new InvalidOperationException("Unverified actual client assembly: central diagnostic account guard missing.");
+        }
         LauncherPrefs.Directory = GameFiles.Root = _fixture;
         Paths.SetPath("Export", Path.Combine(_fixture, "export"));
         LauncherPrefs.DebugLogs = false; LauncherPrefs.ReplayAutoPrune = false;
@@ -70,6 +82,7 @@ static class Program
             Put(typeof(Shell), "<Active>k__BackingField", true);
             Invoke(typeof(Shell), "WireNativePages");
             Home();
+            PresentationPolicyChurn();
             foreach (LauncherPage destination in new[] { LauncherPage.Home, LauncherPage.Offline })
                 foreach (bool save in new[] { false, true }) DirtyRoute(destination, save);
             RequiredSetup();
@@ -81,7 +94,8 @@ static class Program
             Check(!NetSession.Active && !NetHostSession.Running, "routing fixture never starts gameplay/network transport");
             Check(!Directory.EnumerateFiles(_fixture, "*", SearchOption.AllDirectories)
                 .Any(p => Path.GetFileName(p).Contains("session", StringComparison.OrdinalIgnoreCase)
-                    || Path.GetFileName(p).Contains("token", StringComparison.OrdinalIgnoreCase)), "fixture never writes account session/token files");
+                    || Path.GetFileName(p).Contains("ticket", StringComparison.OrdinalIgnoreCase)
+                    || Path.GetFileName(p).Contains("token", StringComparison.OrdinalIgnoreCase)), "fixture never writes account session/ticket/token files");
             Console.WriteLine($"Shared Shell native routing PASS: {_checks} assertions; real DOM/intents and engine Settings persistence, reflective presenter initialization, no RenderWindow/gameplay or production account operations.");
             return 0;
         }
@@ -127,6 +141,30 @@ static class Program
         Click("footer_settings", mouse: true);
         Check(Get<object>("_nativeSettings") != null && Pages.Manager.PageKey == "settings", "future Home control opens fresh Settings without swallowed input");
         Console.WriteLine($"Shell route decision passed: {destination}, {(save ? "Apply" : "Discard")}.");
+    }
+
+    private static void PresentationPolicyChurn()
+    {
+        Home(); var page = Pages.Manager.Page;
+        var policies = (IDictionary)Get<object>("_nativePresentationPolicy")!;
+        int peak = policies.Count;
+        for (int cycle = 0; cycle < 100; cycle++)
+        {
+            var modal = Pages.Manager.OpenModal(new("policy-churn-" + cycle,
+                "pages/settings/unsaved.rml", "settings_close_cancel"));
+            Host.Update(); Host.Render(1280, 720);
+            Invoke(typeof(Shell), "ApplyNativePresentationPolicy");
+            Check(policies.Contains(modal) && Host.IsVisible(modal), "actual Shell policy applies to current native modal");
+            peak = Math.Max(peak, policies.Count);
+            Check(Pages.Manager.CloseModal(), "actual native modal closes");
+            Invoke(typeof(Shell), "ApplyNativePresentationPolicy");
+            Check(!Host.IsAlive(modal) && Pages.Manager.Page == page && Pages.Manager.PageKey == "home",
+                "modal retirement preserves same persistent native page");
+        }
+        Console.WriteLine($"Shell actual policy churn:100 modals on same page, cache peak={peak}, retained={policies.Count}.");
+        Check(peak <= 3 && policies.Count <= 3, "actual Shell presentation policy cache stays bounded under modal churn");
+        for (int idle = 0; idle < 50; idle++) Invoke(typeof(Shell), "ApplyNativePresentationPolicy");
+        Check(policies.Count <= 3, "known-document idle policy checks retain bounded cache");
     }
 
     private static void RequiredSetup()

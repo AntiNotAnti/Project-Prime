@@ -78,6 +78,11 @@ uint64_t g_next_sequence = 0;
 std::filesystem::path g_asset_root;
 struct QueuedAction { PrimeIntent intent; std::string legacy; };
 std::deque<QueuedAction> g_actions;
+int g_programmatic_field_mutations = 0;
+struct ProgrammaticFieldMutation {
+    ProgrammaticFieldMutation() { ++g_programmatic_field_mutations; }
+    ~ProgrammaticFieldMutation() { --g_programmatic_field_mutations; }
+};
 struct Document {
     Rml::ElementDocument* element = nullptr;
     std::string relative_path;
@@ -423,6 +428,11 @@ public:
     void ProcessEvent(Rml::Event& event) override
     {
         const bool change = event.GetType() == "change";
+        // Range SetValue emits the same synchronous change event as user input.
+        // Presenter bindings must not feed their authoritative position back as
+        // a user seek command. Keyboard, pointer and accessibility edits remain
+        // outside this scope and still dispatch through the real DOM listener.
+        if (change && g_programmatic_field_mutations != 0) return;
         const bool click = event.GetType() == "click";
         const bool range = event.GetTargetElement()->GetTagName() == "input"
             && event.GetTargetElement()->GetAttribute<Rml::String>("type", "") == "range";
@@ -552,7 +562,7 @@ void EnsureUpdated(bool scheduled)
         ++g_visual_revision;
         g_draw_list_valid = false;
         PositionLobbyNameplates();
-        if (g_model) g_model->ApplyPendingFocus();
+        if (g_model) { ProgrammaticFieldMutation binding; g_model->ApplyPendingFocus(); }
         SyncResources();
         if (!g_update_dirty) break;
     }
@@ -1071,7 +1081,16 @@ PP_EXPORT int pp_rmlui_document_set_field(uint64_t document_id, const char* elem
     if (!element && document_id == g_home_id && g_model) { g_model->SetInputText(element_id, value ? value : ""); DirtyVisual(); return 1; }
     if (!element) return 0;
     const Rml::String text = value ? value : "";
-    if (element->GetValue() != text) { element->SetValue(text); DirtyVisual(); }
+    const Rml::String previous = element->GetValue();
+    bool changed = previous != text;
+    if (changed && element->GetTagName() == "input" && element->GetAttribute<Rml::String>("type", "") == "range") {
+        // RmlUi formats range values with six decimals. Compare numeric values
+        // so an unchanged integer presenter binding does not dirty every frame.
+        float previous_number = 0.f, next_number = 0.f;
+        if (ReadFiniteNumbers(previous, &previous_number, 1) && ReadFiniteNumbers(text, &next_number, 1))
+            changed = previous_number != next_number;
+    }
+    if (changed) { ProgrammaticFieldMutation binding; element->SetValue(text); DirtyVisual(); }
     return 1;
 }
 PP_EXPORT int pp_rmlui_document_read_field(uint64_t document_id, const char* element_id, unsigned char* buffer, int capacity)
@@ -1229,7 +1248,9 @@ PP_EXPORT int pp_rmlui_accessibility_set_text(uint64_t generation, uint64_t docu
         text.resize(size_t(Rml::StringUtilities::ConvertCharacterOffsetToByteOffset(text, std::min(length, maximum))));
     }
     g_text_input.Cancel();
-    field->SetValue(text);
+    // Accessibility is one user edit. Range SetValue already emits change;
+    // silence that binding side effect before the single explicit DOM event.
+    { ProgrammaticFieldMutation binding; field->SetValue(text); }
     Rml::Dictionary parameters; parameters["value"] = text;
     element->DispatchEvent("change", parameters);
     DirtyVisual();

@@ -16,22 +16,31 @@ static class WindowsFixture
         try {
             using var provider=new RmlUiWindowsAccessibility(GLFW.GetWin32Window(window),service);
             if(!provider.Attached)throw new InvalidOperationException("real HWND UIA hook failed");
+            // The portable contract check already wrote the expected Unicode.
+            // Reset it so this OS check proves a fresh external SetValue call.
+            host.SetField(document,"email","OS_FIXTURE_PENDING");
+            host.SetText(document,"heading","ACCOUNT");
             host.FocusDocument(document,"email");host.Update();provider.Publish(service.Capture(host));
             var start=new ProcessStartInfo("powershell.exe"){UseShellExecute=false,RedirectStandardOutput=true,RedirectStandardError=true};
             foreach(string arg in new[]{"-NoProfile","-ExecutionPolicy","Bypass","-File",Path.Combine(AppContext.BaseDirectory,"windows-client.ps1"),GLFW.GetWin32Window(window).ToInt64().ToString()})start.ArgumentList.Add(arg);
             using var process=Process.Start(start)!;
-            var timer=Stopwatch.StartNew();bool invoked=false;
+            var timer=Stopwatch.StartNew();bool invoked=false;int accepted=0;
             while(!process.HasExited&&timer.Elapsed<TimeSpan.FromSeconds(30)) {
-                GLFW.PollEvents();service.Drain(host);host.Update();provider.Publish(service.Capture(host));
-                while(host.TryTakeIntent(out var intent))invoked|=intent.Kind==RmlUiIntentKind.Navigate;
+                GLFW.PollEvents();accepted+=service.Drain(host);host.Update();
+                while(host.TryTakeIntent(out var intent)) {
+                    if(intent.Kind!=RmlUiIntentKind.Navigate)continue;
+                    invoked=true;host.SetText(document,"heading","ACTION RECEIVED");
+                }
+                provider.Publish(service.Capture(host));
                 Thread.Sleep(5);
             }
             if(!process.HasExited){process.Kill();throw new TimeoutException("UI Automation client fixture timed out");}
             string output=process.StandardOutput.ReadToEnd();string errors=process.StandardError.ReadToEnd();
-            if(process.ExitCode!=0)throw new InvalidOperationException("UIA OS client failed: "+errors);
+            bool edited=host.ReadField(document,"email")=="日本語 😀";
+            if(process.ExitCode!=0)throw new InvalidOperationException($"UIA OS client failed (accepted={accepted}, invoked={invoked}, UnicodeApplied={edited}): "+errors);
             // Drain the final queued request after the external client exits.
             service.Drain(host);host.Update();while(host.TryTakeIntent(out var intent))invoked|=intent.Kind==RmlUiIntentKind.Navigate;
-            if(!invoked||host.ReadField(document,"email")!="日本語 😀")throw new InvalidOperationException("external UIA did not reach real controls");
+            if(!invoked||!edited)throw new InvalidOperationException($"external UIA did not reach real controls (accepted={accepted}, invoked={invoked}, UnicodeApplied={edited})");
             Console.WriteLine(output.Trim());Console.WriteLine("PASS actual Windows UIAutomationClient -> HWND COM -> guarded owner/native focus/value/invoke");
         } finally { GLFW.DestroyWindow(window);GLFW.Terminate(); }
     }

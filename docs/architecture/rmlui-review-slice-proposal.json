@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "proposal_only": true,
-  "captured_at_utc": "2026-10-07T23:55:38.628962+00:00",
+  "captured_at_utc": "2026-10-08T00:29:50.987080+00:00",
   "observed_git_head": "e9f4d3bd7429820cc1e24ae2e3f024815aecf8f1",
   "scope": "Current diff versus HEAD (staged and unstaged) and nonignored untracked files only; not a reconstruction of commits already present in HEAD.",
   "git_mutations_performed": false,
-  "file_count": 400,
-  "assigned_file_count": 391,
+  "file_count": 426,
+  "assigned_file_count": 417,
   "excluded_parent_integration": [
     {
       "path": "src/MphRead/Mods/Launcher/Gui/Shell.RmlUi.cs",
@@ -57,21 +57,21 @@
   "counts_by_proposed_slice": {
     "RML-01": 25,
     "RML-02": 31,
-    "RML-03": 42,
+    "RML-03": 43,
     "RML-04": 11,
     "RML-05": 19,
     "RML-06": 5,
-    "RML-08": 42,
+    "RML-08": 45,
     "RML-09": 13,
     "RML-10": 11,
     "RML-11": 22,
-    "RML-12": 30,
+    "RML-12": 31,
     "RML-13": 15,
     "RML-14": 10,
     "RML-15": 27,
-    "RML-16": 8,
+    "RML-16": 9,
     "RML-17": 27,
-    "RML-18": 29,
+    "RML-18": 49,
     "RML-19": 5,
     "RML-20": 19
   },
@@ -152,6 +152,22 @@
       "whole_file_ready_for_early_slice": true
     },
     {
+      "path": "docs/architecture/rmlui-evidence/mac-golden-candidate-matrix.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/mac-golden-settings-repair.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
       "path": "docs/architecture/rmlui-evidence/performance-metal-initial/avalonia-metal-1.json",
       "change_kind": "untracked",
       "proposed_slice": "RML-18",
@@ -201,6 +217,134 @@
     },
     {
       "path": "docs/architecture/rmlui-evidence/performance-metal-initial/rmlui-metal-3.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/DISQUALIFIED.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/avalonia-metal-1.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/avalonia-metal-1.png",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/avalonia-metal-1.png.evidence.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/avalonia-metal-2.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/avalonia-metal-2.png.evidence.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/avalonia-metal-3.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/avalonia-metal-3.png.evidence.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/comparison.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/rmlui-metal-1.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/rmlui-metal-1.png",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/rmlui-metal-1.png.evidence.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/rmlui-metal-2.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/rmlui-metal-2.png.evidence.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/rmlui-metal-3.json",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "docs/architecture/rmlui-evidence/performance-metal-invalid-title-home/rmlui-metal-3.png.evidence.json",
       "change_kind": "untracked",
       "proposed_slice": "RML-18",
       "rationale": "Architecture/evidence documentation; frozen baseline history is retained.",
@@ -2368,6 +2512,16 @@
       "whole_file_ready_for_early_slice": false
     },
     {
+      "path": "src/MphRead/Mods/ThumbnailBatch.cs",
+      "change_kind": "modified",
+      "proposed_slice": "RML-12",
+      "rationale": "Existing preview-worker authority retirement race fix discovered by integrated client runs.",
+      "shared_or_late_dependencies": [
+        "RML-18 capture/performance guards exercise this shared authority; retain serialized process shutdown without backdating validation."
+      ],
+      "whole_file_ready_for_early_slice": false
+    },
+    {
       "path": "src/MphRead/Mods/Training/AimTrainerChecks.cs",
       "change_kind": "modified",
       "proposed_slice": "RML-20",
@@ -2431,6 +2585,16 @@
       "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
       "shared_or_late_dependencies": [],
       "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/asset-guard-allow.txt",
+      "change_kind": "modified",
+      "proposed_slice": "RML-03",
+      "rationale": "Licensed Noto Sans JP font guard allow entry.",
+      "shared_or_late_dependencies": [
+        "RML-16/17 packages must preserve the matching OFL/source attribution."
+      ],
+      "whole_file_ready_for_early_slice": false
     },
     {
       "path": "tools/community-controller-check/NativeCommunityCheck.cs",
@@ -3217,6 +3381,30 @@
       "whole_file_ready_for_early_slice": true
     },
     {
+      "path": "tools/rmlui-settings-layout-check/Program.cs",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-settings-layout-check/README.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui-settings-layout-check/rmlui-settings-layout-check.csproj",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-08",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
       "path": "tools/rmlui-setup-check/Program.cs",
       "change_kind": "untracked",
       "proposed_slice": "RML-08",
@@ -3329,6 +3517,14 @@
       "whole_file_ready_for_early_slice": true
     },
     {
+      "path": "tools/rmlui/GOLDEN_CAPTURE.md",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
       "path": "tools/rmlui/README.md",
       "change_kind": "modified",
       "proposed_slice": "RML-16",
@@ -3356,6 +3552,22 @@
       "path": "tools/rmlui/build-native.sh",
       "change_kind": "modified",
       "proposed_slice": "RML-16",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui/full-source-check.sh",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-16",
+      "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
+      "shared_or_late_dependencies": [],
+      "whole_file_ready_for_early_slice": true
+    },
+    {
+      "path": "tools/rmlui/golden-capture.py",
+      "change_kind": "untracked",
+      "proposed_slice": "RML-18",
       "rationale": "Named contract/native/platform evidence tool matching its implementation slice.",
       "shared_or_late_dependencies": [],
       "whole_file_ready_for_early_slice": true

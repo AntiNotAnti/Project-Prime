@@ -1,0 +1,948 @@
+{
+  "format": 1,
+  "backend": "metal",
+  "runsPerMode": 3,
+  "comparison": {
+    "coldFirstPresentationMs": {
+      "legacyMedian": 943.086,
+      "legacyRange": [
+        919.815,
+        1486.9118
+      ],
+      "nativeMedian": 910.827,
+      "nativeRange": [
+        906.333,
+        1137.462
+      ],
+      "nativeMedianWithinMeasuredBaselineWorst": true
+    },
+    "idleCpuPercentOfOneCore": {
+      "legacyMedian": 17.394842751530334,
+      "legacyRange": [
+        17.269057538057858,
+        29.99704383396992
+      ],
+      "nativeMedian": 31.39004078945441,
+      "nativeRange": [
+        31.223941013382316,
+        32.07332445073223
+      ],
+      "nativeMedianWithinMeasuredBaselineWorst": false
+    },
+    "p95UiFrameMs": {
+      "legacyMedian": 0.2812,
+      "legacyRange": [
+        0.2522,
+        3.3543000000000003
+      ],
+      "nativeMedian": 0.5528000000000001,
+      "nativeRange": [
+        0.4697,
+        0.8192
+      ],
+      "nativeMedianWithinMeasuredBaselineWorst": true
+    },
+    "managedAllocatedBytes": {
+      "legacyMedian": 421302240,
+      "legacyRange": [
+        368965416,
+        1924847400
+      ],
+      "nativeMedian": 46629640,
+      "nativeRange": [
+        46524952,
+        89956888
+      ],
+      "nativeMedianWithinMeasuredBaselineWorst": true
+    }
+  },
+  "samples": [
+    {
+      "format": 1,
+      "mode": "Avalonia",
+      "platform": "macOS 27.0.0",
+      "architecture": "Arm64",
+      "logicalProcessors": 12,
+      "width": 2560,
+      "height": 1440,
+      "firstPresentationFromProcessStartMs": 1486.9118,
+      "warmupSeconds": 5,
+      "sampleSeconds": 20.0191585,
+      "frames": 1164,
+      "framesPerSecond": 58.14430211939228,
+      "processCpuSeconds": 3.45712,
+      "processCpuPercentOfOneCore": 17.269057538057858,
+      "processCpuPercentOfMachine": 1.4390881281714882,
+      "totalUiFrame": {
+        "count": 1164,
+        "meanMs": 0.3345350515463917,
+        "p50Ms": 0.034699999999999995,
+        "p95Ms": 0.2522,
+        "maxMs": 88.22909999999999
+      },
+      "update": {
+        "count": 1164,
+        "meanMs": 0.3036213917525773,
+        "p50Ms": 0.0042,
+        "p95Ms": 0.1934,
+        "maxMs": 88.21
+      },
+      "render": {
+        "count": 197,
+        "meanMs": 0.922386802030457,
+        "p50Ms": 0.0004,
+        "p95Ms": 7.807,
+        "maxMs": 11.5692
+      },
+      "bitmapUpload": {
+        "count": 30,
+        "meanMs": 1.8098066666666663,
+        "p50Ms": 1.6357,
+        "p95Ms": 2.5532,
+        "maxMs": 5.4123
+      },
+      "phases": {},
+      "redraws": 197,
+      "redrawsPerSecond": 9.840573468660034,
+      "bitmapUploads": 30,
+      "bitmapUploadBytes": 248832000,
+      "managedAllocatedBytes": 421302240,
+      "accessibilityCapture": {
+        "requests": 0,
+        "nativeReads": 0,
+        "decoded": 0,
+        "reused": 0,
+        "idleSkips": 0
+      },
+      "drawListCapture": {
+        "requests": 0,
+        "captured": 0,
+        "reused": 0
+      },
+      "processWorkingSetBytes": 422821888,
+      "processPrivateBytes": null,
+      "backend": "Metal",
+      "frameRateCap": 60,
+      "gpuResources": {
+        "Textures": 4,
+        "Renderbuffers": 0,
+        "Geometry": 0,
+        "Pipelines": 2,
+        "Programs": 0,
+        "Lists": 0,
+        "Views": 4,
+        "Samplers": 3,
+        "Buffers": 5,
+        "ShaderModules": 7,
+        "BindGroups": 2,
+        "Surfaces": 1,
+        "QuerySets": 0
+      },
+      "rmlGpuResources": {
+        "Geometry": 0,
+        "Buffers": 0,
+        "BufferCapacityBytes": 0,
+        "Textures": 0,
+        "TextureCapacityBytes": 0,
+        "StencilTextures": 0,
+        "EstimatedStencilBytes": 0,
+        "Pipelines": 0,
+        "ShaderModules": 0
+      },
+      "scope": "Production launcher UI update (including IME/accessibility) and native draw or Avalonia bitmap redraw/upload; full-process idle CPU includes scene/background services. Diagnostic runs disable SocialRuntime account/presence start and automatic updater network requests; IME and accessibility stay enabled.",
+      "storageNote": "Tracked native resource capacity is not driver residency or total VRAM. GPU completion time is not inferred from CPU submission time.",
+      "run": 1,
+      "assemblySha256": "ff6f67e5027b4908d45043347266fd24f20d953dc6683a4175f9ddeeeccb71cd",
+      "report": "avalonia-metal-1.json"
+    },
+    {
+      "format": 1,
+      "mode": "RmlUi",
+      "platform": "macOS 27.0.0",
+      "architecture": "Arm64",
+      "logicalProcessors": 12,
+      "width": 2560,
+      "height": 1440,
+      "firstPresentationFromProcessStartMs": 1137.462,
+      "warmupSeconds": 5,
+      "sampleSeconds": 20.001003,
+      "frames": 1167,
+      "framesPerSecond": 58.347073894244204,
+      "processCpuSeconds": 6.278323,
+      "processCpuPercentOfOneCore": 31.39004078945441,
+      "processCpuPercentOfMachine": 2.615836732454534,
+      "totalUiFrame": {
+        "count": 1167,
+        "meanMs": 0.20407686375321338,
+        "p50Ms": 0.12340000000000001,
+        "p95Ms": 0.4697,
+        "maxMs": 2.3916
+      },
+      "update": {
+        "count": 1167,
+        "meanMs": 0.06744747215081406,
+        "p50Ms": 0.022,
+        "p95Ms": 0.31,
+        "maxMs": 1.3988
+      },
+      "render": {
+        "count": 1167,
+        "meanMs": 0.13662939160239923,
+        "p50Ms": 0.1015,
+        "p95Ms": 0.3356,
+        "maxMs": 1.0503
+      },
+      "bitmapUpload": {
+        "count": 0,
+        "meanMs": null,
+        "p50Ms": null,
+        "p95Ms": null,
+        "maxMs": null
+      },
+      "phases": {
+        "viewport": {
+          "count": 1167,
+          "meanMs": 0.004681833761782356,
+          "p50Ms": 0.003,
+          "p95Ms": 0.0155,
+          "maxMs": 0.0449
+        },
+        "stateRefresh": {
+          "count": 1167,
+          "meanMs": 0.010399914310197088,
+          "p50Ms": 0.0001,
+          "p95Ms": 0.0007,
+          "maxMs": 0.9317
+        },
+        "gamepad": {
+          "count": 1167,
+          "meanMs": 0.0021563838903170514,
+          "p50Ms": 0.0016,
+          "p95Ms": 0.0062,
+          "maxMs": 0.0098
+        },
+        "pageBindings": {
+          "count": 1167,
+          "meanMs": 0.003736075407026565,
+          "p50Ms": 0.0008,
+          "p95Ms": 0.0034,
+          "maxMs": 0.1704
+        },
+        "accessibilityDrain": {
+          "count": 1167,
+          "meanMs": 0.00066778063410454,
+          "p50Ms": 0.0005,
+          "p95Ms": 0.002,
+          "maxMs": 0.007
+        },
+        "contextUpdate": {
+          "count": 1167,
+          "meanMs": 0.014350471293916027,
+          "p50Ms": 0.0011,
+          "p95Ms": 0.0067,
+          "maxMs": 0.9085
+        },
+        "pageFocus": {
+          "count": 1167,
+          "meanMs": 0.00010839760068551776,
+          "p50Ms": 0,
+          "p95Ms": 0.0004,
+          "maxMs": 0.0036
+        },
+        "ime": {
+          "count": 1167,
+          "meanMs": 0.0006908311910882593,
+          "p50Ms": 0.0005,
+          "p95Ms": 0.0019,
+          "maxMs": 0.0046
+        },
+        "accessibilityCapture": {
+          "count": 1167,
+          "meanMs": 0.013216195372750636,
+          "p50Ms": 0.0005,
+          "p95Ms": 0.1665,
+          "maxMs": 0.3099
+        },
+        "accessibilityPublish": {
+          "count": 1167,
+          "meanMs": 0.01417437874892888,
+          "p50Ms": 0.0099,
+          "p95Ms": 0.0405,
+          "maxMs": 0.5597
+        },
+        "intentDrain": {
+          "count": 1167,
+          "meanMs": 0.00043410454155955386,
+          "p50Ms": 0.0003,
+          "p95Ms": 0.0014,
+          "maxMs": 0.0062
+        },
+        "contextRender": {
+          "count": 1167,
+          "meanMs": 0.006056555269922874,
+          "p50Ms": 0.0011,
+          "p95Ms": 0.0053,
+          "maxMs": 0.2922
+        },
+        "drawListCapture": {
+          "count": 1167,
+          "meanMs": 0.0016853470437017963,
+          "p50Ms": 0.0006,
+          "p95Ms": 0.0033,
+          "maxMs": 0.0649
+        },
+        "gpuCommandAuthoring": {
+          "count": 1167,
+          "meanMs": 0.1279432733504713,
+          "p50Ms": 0.0992,
+          "p95Ms": 0.3098,
+          "maxMs": 0.726
+        }
+      },
+      "redraws": 1167,
+      "redrawsPerSecond": 58.347073894244204,
+      "bitmapUploads": 0,
+      "bitmapUploadBytes": 0,
+      "managedAllocatedBytes": 46524952,
+      "accessibilityCapture": {
+        "requests": 1167,
+        "nativeReads": 74,
+        "decoded": 0,
+        "reused": 1167,
+        "idleSkips": 1093
+      },
+      "drawListCapture": {
+        "requests": 1167,
+        "captured": 37,
+        "reused": 1130
+      },
+      "processWorkingSetBytes": 394805248,
+      "processPrivateBytes": null,
+      "backend": "Metal",
+      "frameRateCap": 60,
+      "gpuResources": {
+        "Textures": 5,
+        "Renderbuffers": 0,
+        "Geometry": 3,
+        "Pipelines": 25,
+        "Programs": 5,
+        "Lists": 3,
+        "Views": 5,
+        "Samplers": 4,
+        "Buffers": 29,
+        "ShaderModules": 18,
+        "BindGroups": 92,
+        "Surfaces": 1,
+        "QuerySets": 0
+      },
+      "rmlGpuResources": {
+        "Geometry": 61,
+        "Buffers": 122,
+        "BufferCapacityBytes": 126456,
+        "Textures": 17,
+        "TextureCapacityBytes": 4030464,
+        "StencilTextures": 1,
+        "EstimatedStencilBytes": 14745600,
+        "Pipelines": 1,
+        "ShaderModules": 1
+      },
+      "scope": "Production launcher UI update (including IME/accessibility) and native draw or Avalonia bitmap redraw/upload; full-process idle CPU includes scene/background services. Diagnostic runs disable SocialRuntime account/presence start and automatic updater network requests; IME and accessibility stay enabled.",
+      "storageNote": "Tracked native resource capacity is not driver residency or total VRAM. GPU completion time is not inferred from CPU submission time.",
+      "run": 1,
+      "assemblySha256": "c8d92c21d2801785a6022aeb2a5c4dc71ecd038a2675ceab321d8d9e6074d69f",
+      "report": "rmlui-metal-1.json"
+    },
+    {
+      "format": 1,
+      "mode": "Avalonia",
+      "platform": "macOS 27.0.0",
+      "architecture": "Arm64",
+      "logicalProcessors": 12,
+      "width": 2560,
+      "height": 1440,
+      "firstPresentationFromProcessStartMs": 919.815,
+      "warmupSeconds": 5,
+      "sampleSeconds": 20.0129547,
+      "frames": 1169,
+      "framesPerSecond": 58.4121643966945,
+      "processCpuSeconds": 3.481222,
+      "processCpuPercentOfOneCore": 17.394842751530334,
+      "processCpuPercentOfMachine": 1.4495702292941945,
+      "totalUiFrame": {
+        "count": 1169,
+        "meanMs": 0.17198272027373826,
+        "p50Ms": 0.0363,
+        "p95Ms": 0.2812,
+        "maxMs": 7.9154
+      },
+      "update": {
+        "count": 1169,
+        "meanMs": 0.13580025662959794,
+        "p50Ms": 0.0087,
+        "p95Ms": 0.2541,
+        "maxMs": 7.8784
+      },
+      "render": {
+        "count": 78,
+        "meanMs": 0.1923512820512821,
+        "p50Ms": 0.0157,
+        "p95Ms": 0.8588,
+        "maxMs": 1.4505
+      },
+      "bitmapUpload": {
+        "count": 28,
+        "meanMs": 3.8218928571428568,
+        "p50Ms": 3.4786,
+        "p95Ms": 6.6581,
+        "maxMs": 6.9725
+      },
+      "phases": {},
+      "redraws": 78,
+      "redrawsPerSecond": 3.8974754687272637,
+      "bitmapUploads": 28,
+      "bitmapUploadBytes": 232243200,
+      "managedAllocatedBytes": 368965416,
+      "accessibilityCapture": {
+        "requests": 0,
+        "nativeReads": 0,
+        "decoded": 0,
+        "reused": 0,
+        "idleSkips": 0
+      },
+      "drawListCapture": {
+        "requests": 0,
+        "captured": 0,
+        "reused": 0
+      },
+      "processWorkingSetBytes": 451067904,
+      "processPrivateBytes": null,
+      "backend": "Metal",
+      "frameRateCap": 60,
+      "gpuResources": {
+        "Textures": 4,
+        "Renderbuffers": 0,
+        "Geometry": 0,
+        "Pipelines": 2,
+        "Programs": 0,
+        "Lists": 0,
+        "Views": 4,
+        "Samplers": 3,
+        "Buffers": 5,
+        "ShaderModules": 7,
+        "BindGroups": 2,
+        "Surfaces": 1,
+        "QuerySets": 0
+      },
+      "rmlGpuResources": {
+        "Geometry": 0,
+        "Buffers": 0,
+        "BufferCapacityBytes": 0,
+        "Textures": 0,
+        "TextureCapacityBytes": 0,
+        "StencilTextures": 0,
+        "EstimatedStencilBytes": 0,
+        "Pipelines": 0,
+        "ShaderModules": 0
+      },
+      "scope": "Production launcher UI update (including IME/accessibility) and native draw or Avalonia bitmap redraw/upload; full-process idle CPU includes scene/background services. Diagnostic runs disable SocialRuntime account/presence start and automatic updater network requests; IME and accessibility stay enabled.",
+      "storageNote": "Tracked native resource capacity is not driver residency or total VRAM. GPU completion time is not inferred from CPU submission time.",
+      "run": 2,
+      "assemblySha256": "ff6f67e5027b4908d45043347266fd24f20d953dc6683a4175f9ddeeeccb71cd",
+      "report": "avalonia-metal-2.json"
+    },
+    {
+      "format": 1,
+      "mode": "RmlUi",
+      "platform": "macOS 27.0.0",
+      "architecture": "Arm64",
+      "logicalProcessors": 12,
+      "width": 2560,
+      "height": 1440,
+      "firstPresentationFromProcessStartMs": 910.827,
+      "warmupSeconds": 5,
+      "sampleSeconds": 20.0104913,
+      "frames": 1169,
+      "framesPerSecond": 58.4193552509128,
+      "processCpuSeconds": 6.248064,
+      "processCpuPercentOfOneCore": 31.223941013382316,
+      "processCpuPercentOfMachine": 2.6019950844485265,
+      "totalUiFrame": {
+        "count": 1169,
+        "meanMs": 0.20425808383233537,
+        "p50Ms": 0.119,
+        "p95Ms": 0.5528000000000001,
+        "maxMs": 2.4412000000000003
+      },
+      "update": {
+        "count": 1169,
+        "meanMs": 0.06814063301967493,
+        "p50Ms": 0.021,
+        "p95Ms": 0.376,
+        "maxMs": 1.299
+      },
+      "render": {
+        "count": 1169,
+        "meanMs": 0.13611745081266047,
+        "p50Ms": 0.0987,
+        "p95Ms": 0.3504,
+        "maxMs": 1.1972
+      },
+      "bitmapUpload": {
+        "count": 0,
+        "meanMs": null,
+        "p50Ms": null,
+        "p95Ms": null,
+        "maxMs": null
+      },
+      "phases": {
+        "viewport": {
+          "count": 1169,
+          "meanMs": 0.00419880239520958,
+          "p50Ms": 0.0026,
+          "p95Ms": 0.015,
+          "maxMs": 0.027
+        },
+        "stateRefresh": {
+          "count": 1169,
+          "meanMs": 0.011282805816937554,
+          "p50Ms": 0.0001,
+          "p95Ms": 0.001,
+          "maxMs": 1.0717
+        },
+        "gamepad": {
+          "count": 1169,
+          "meanMs": 0.001817621899059018,
+          "p50Ms": 0.0013,
+          "p95Ms": 0.0056,
+          "maxMs": 0.0092
+        },
+        "pageBindings": {
+          "count": 1169,
+          "meanMs": 0.003706501283147987,
+          "p50Ms": 0.0007,
+          "p95Ms": 0.0036,
+          "maxMs": 0.1262
+        },
+        "accessibilityDrain": {
+          "count": 1169,
+          "meanMs": 0.0005820359281437123,
+          "p50Ms": 0.0005,
+          "p95Ms": 0.0017,
+          "maxMs": 0.0044
+        },
+        "contextUpdate": {
+          "count": 1169,
+          "meanMs": 0.015037724550898206,
+          "p50Ms": 0.0011,
+          "p95Ms": 0.0077,
+          "maxMs": 0.8381
+        },
+        "pageFocus": {
+          "count": 1169,
+          "meanMs": 0.00015055603079555243,
+          "p50Ms": 0.0001,
+          "p95Ms": 0.0004,
+          "maxMs": 0.0071
+        },
+        "ime": {
+          "count": 1169,
+          "meanMs": 0.0006071000855431979,
+          "p50Ms": 0.0004,
+          "p95Ms": 0.002,
+          "maxMs": 0.0085
+        },
+        "accessibilityCapture": {
+          "count": 1169,
+          "meanMs": 0.014379469632164243,
+          "p50Ms": 0.0005,
+          "p95Ms": 0.1746,
+          "maxMs": 0.3268
+        },
+        "accessibilityPublish": {
+          "count": 1169,
+          "meanMs": 0.013039777587681788,
+          "p50Ms": 0.0094,
+          "p95Ms": 0.0404,
+          "maxMs": 0.0547
+        },
+        "intentDrain": {
+          "count": 1169,
+          "meanMs": 0.0003195038494439686,
+          "p50Ms": 0.0001,
+          "p95Ms": 0.0015,
+          "maxMs": 0.0042
+        },
+        "contextRender": {
+          "count": 1169,
+          "meanMs": 0.00624071856287425,
+          "p50Ms": 0.001,
+          "p95Ms": 0.0053,
+          "maxMs": 0.3821
+        },
+        "drawListCapture": {
+          "count": 1169,
+          "meanMs": 0.0014954662104362689,
+          "p50Ms": 0.0005,
+          "p95Ms": 0.003,
+          "maxMs": 0.0375
+        },
+        "gpuCommandAuthoring": {
+          "count": 1169,
+          "meanMs": 0.12747673224978617,
+          "p50Ms": 0.0967,
+          "p95Ms": 0.3253,
+          "maxMs": 0.7798
+        }
+      },
+      "redraws": 1169,
+      "redrawsPerSecond": 58.4193552509128,
+      "bitmapUploads": 0,
+      "bitmapUploadBytes": 0,
+      "managedAllocatedBytes": 46629640,
+      "accessibilityCapture": {
+        "requests": 1169,
+        "nativeReads": 76,
+        "decoded": 0,
+        "reused": 1169,
+        "idleSkips": 1093
+      },
+      "drawListCapture": {
+        "requests": 1169,
+        "captured": 38,
+        "reused": 1131
+      },
+      "processWorkingSetBytes": 394084352,
+      "processPrivateBytes": null,
+      "backend": "Metal",
+      "frameRateCap": 60,
+      "gpuResources": {
+        "Textures": 5,
+        "Renderbuffers": 0,
+        "Geometry": 3,
+        "Pipelines": 25,
+        "Programs": 5,
+        "Lists": 3,
+        "Views": 5,
+        "Samplers": 4,
+        "Buffers": 29,
+        "ShaderModules": 18,
+        "BindGroups": 92,
+        "Surfaces": 1,
+        "QuerySets": 0
+      },
+      "rmlGpuResources": {
+        "Geometry": 61,
+        "Buffers": 122,
+        "BufferCapacityBytes": 126456,
+        "Textures": 17,
+        "TextureCapacityBytes": 4030464,
+        "StencilTextures": 1,
+        "EstimatedStencilBytes": 14745600,
+        "Pipelines": 1,
+        "ShaderModules": 1
+      },
+      "scope": "Production launcher UI update (including IME/accessibility) and native draw or Avalonia bitmap redraw/upload; full-process idle CPU includes scene/background services. Diagnostic runs disable SocialRuntime account/presence start and automatic updater network requests; IME and accessibility stay enabled.",
+      "storageNote": "Tracked native resource capacity is not driver residency or total VRAM. GPU completion time is not inferred from CPU submission time.",
+      "run": 2,
+      "assemblySha256": "c8d92c21d2801785a6022aeb2a5c4dc71ecd038a2675ceab321d8d9e6074d69f",
+      "report": "rmlui-metal-2.json"
+    },
+    {
+      "format": 1,
+      "mode": "Avalonia",
+      "platform": "macOS 27.0.0",
+      "architecture": "Arm64",
+      "logicalProcessors": 12,
+      "width": 2560,
+      "height": 1440,
+      "firstPresentationFromProcessStartMs": 943.086,
+      "warmupSeconds": 5,
+      "sampleSeconds": 20.009025,
+      "frames": 1150,
+      "framesPerSecond": 57.47406482824625,
+      "processCpuSeconds": 6.002116,
+      "processCpuPercentOfOneCore": 29.99704383396992,
+      "processCpuPercentOfMachine": 2.4997536528308264,
+      "totalUiFrame": {
+        "count": 1150,
+        "meanMs": 0.9474709565217393,
+        "p50Ms": 0.19469999999999998,
+        "p95Ms": 3.3543000000000003,
+        "maxMs": 91.78869999999999
+      },
+      "update": {
+        "count": 1150,
+        "meanMs": 0.9205761739130434,
+        "p50Ms": 0.17,
+        "p95Ms": 3.334,
+        "maxMs": 91.7606
+      },
+      "render": {
+        "count": 721,
+        "meanMs": 0.42629056865464643,
+        "p50Ms": 0.0007,
+        "p95Ms": 2.3619,
+        "maxMs": 11.9974
+      },
+      "bitmapUpload": {
+        "count": 182,
+        "meanMs": 2.147349999999999,
+        "p50Ms": 1.9147,
+        "p95Ms": 2.9102,
+        "maxMs": 14.8824
+      },
+      "phases": {},
+      "redraws": 721,
+      "redrawsPerSecond": 36.03373977492656,
+      "bitmapUploads": 182,
+      "bitmapUploadBytes": 1509580800,
+      "managedAllocatedBytes": 1924847400,
+      "accessibilityCapture": {
+        "requests": 0,
+        "nativeReads": 0,
+        "decoded": 0,
+        "reused": 0,
+        "idleSkips": 0
+      },
+      "drawListCapture": {
+        "requests": 0,
+        "captured": 0,
+        "reused": 0
+      },
+      "processWorkingSetBytes": 608485376,
+      "processPrivateBytes": null,
+      "backend": "Metal",
+      "frameRateCap": 60,
+      "gpuResources": {
+        "Textures": 6,
+        "Renderbuffers": 0,
+        "Geometry": 3,
+        "Pipelines": 24,
+        "Programs": 4,
+        "Lists": 3,
+        "Views": 6,
+        "Samplers": 5,
+        "Buffers": 12,
+        "ShaderModules": 16,
+        "BindGroups": 6,
+        "Surfaces": 1,
+        "QuerySets": 0
+      },
+      "rmlGpuResources": {
+        "Geometry": 0,
+        "Buffers": 0,
+        "BufferCapacityBytes": 0,
+        "Textures": 0,
+        "TextureCapacityBytes": 0,
+        "StencilTextures": 0,
+        "EstimatedStencilBytes": 0,
+        "Pipelines": 0,
+        "ShaderModules": 0
+      },
+      "scope": "Production launcher UI update (including IME/accessibility) and native draw or Avalonia bitmap redraw/upload; full-process idle CPU includes scene/background services. Diagnostic runs disable SocialRuntime account/presence start and automatic updater network requests; IME and accessibility stay enabled.",
+      "storageNote": "Tracked native resource capacity is not driver residency or total VRAM. GPU completion time is not inferred from CPU submission time.",
+      "run": 3,
+      "assemblySha256": "ff6f67e5027b4908d45043347266fd24f20d953dc6683a4175f9ddeeeccb71cd",
+      "report": "avalonia-metal-3.json"
+    },
+    {
+      "format": 1,
+      "mode": "RmlUi",
+      "platform": "macOS 27.0.0",
+      "architecture": "Arm64",
+      "logicalProcessors": 12,
+      "width": 2560,
+      "height": 1440,
+      "firstPresentationFromProcessStartMs": 906.333,
+      "warmupSeconds": 5,
+      "sampleSeconds": 20.0155335,
+      "frames": 1171,
+      "framesPerSecond": 58.50456097010854,
+      "processCpuSeconds": 6.419647,
+      "processCpuPercentOfOneCore": 32.07332445073223,
+      "processCpuPercentOfMachine": 2.672777037561019,
+      "totalUiFrame": {
+        "count": 1171,
+        "meanMs": 0.3546947907771137,
+        "p50Ms": 0.229,
+        "p95Ms": 0.8192,
+        "maxMs": 2.8118000000000003
+      },
+      "update": {
+        "count": 1171,
+        "meanMs": 0.14820256191289494,
+        "p50Ms": 0.0258,
+        "p95Ms": 0.52,
+        "maxMs": 1.005
+      },
+      "render": {
+        "count": 1171,
+        "meanMs": 0.2064922288642188,
+        "p50Ms": 0.172,
+        "p95Ms": 0.4892,
+        "maxMs": 2.7351
+      },
+      "bitmapUpload": {
+        "count": 0,
+        "meanMs": null,
+        "p50Ms": null,
+        "p95Ms": null,
+        "maxMs": null
+      },
+      "phases": {
+        "viewport": {
+          "count": 1171,
+          "meanMs": 0.0030769427839453366,
+          "p50Ms": 0.0024,
+          "p95Ms": 0.0066,
+          "maxMs": 0.0232
+        },
+        "stateRefresh": {
+          "count": 1171,
+          "meanMs": 0.005129632792485055,
+          "p50Ms": 0.0001,
+          "p95Ms": 0.0005,
+          "maxMs": 0.5234
+        },
+        "gamepad": {
+          "count": 1171,
+          "meanMs": 0.0013649017933390197,
+          "p50Ms": 0.0012,
+          "p95Ms": 0.0024,
+          "maxMs": 0.0094
+        },
+        "pageBindings": {
+          "count": 1171,
+          "meanMs": 0.0021637916310845396,
+          "p50Ms": 0.0007,
+          "p95Ms": 0.0022,
+          "maxMs": 0.106
+        },
+        "accessibilityDrain": {
+          "count": 1171,
+          "meanMs": 0.00042544833475661667,
+          "p50Ms": 0.0004,
+          "p95Ms": 0.001,
+          "maxMs": 0.0045
+        },
+        "contextUpdate": {
+          "count": 1171,
+          "meanMs": 0.03387335610589239,
+          "p50Ms": 0.002,
+          "p95Ms": 0.1307,
+          "maxMs": 0.4969
+        },
+        "pageFocus": {
+          "count": 1171,
+          "meanMs": 5.021349274124668e-05,
+          "p50Ms": 0,
+          "p95Ms": 0.0002,
+          "maxMs": 0.001
+        },
+        "ime": {
+          "count": 1171,
+          "meanMs": 0.0006381725021349235,
+          "p50Ms": 0.0005,
+          "p95Ms": 0.0014,
+          "maxMs": 0.0051
+        },
+        "accessibilityCapture": {
+          "count": 1171,
+          "meanMs": 0.08749692570452605,
+          "p50Ms": 0.0007,
+          "p95Ms": 0.3523,
+          "maxMs": 0.6839
+        },
+        "accessibilityPublish": {
+          "count": 1171,
+          "meanMs": 0.011354995730145178,
+          "p50Ms": 0.0081,
+          "p95Ms": 0.0222,
+          "maxMs": 0.2163
+        },
+        "intentDrain": {
+          "count": 1171,
+          "meanMs": 0.0004389410760034144,
+          "p50Ms": 0.0004,
+          "p95Ms": 0.0011,
+          "maxMs": 0.008
+        },
+        "contextRender": {
+          "count": 1171,
+          "meanMs": 0.024985226302305732,
+          "p50Ms": 0.0013,
+          "p95Ms": 0.0677,
+          "maxMs": 1.5181
+        },
+        "drawListCapture": {
+          "count": 1171,
+          "meanMs": 0.0049341588385994894,
+          "p50Ms": 0.0008,
+          "p95Ms": 0.0171,
+          "maxMs": 0.0933
+        },
+        "gpuCommandAuthoring": {
+          "count": 1171,
+          "meanMs": 0.17588659265584972,
+          "p50Ms": 0.154,
+          "p95Ms": 0.3667,
+          "maxMs": 1.3247
+        }
+      },
+      "redraws": 1171,
+      "redrawsPerSecond": 58.50456097010854,
+      "bitmapUploads": 0,
+      "bitmapUploadBytes": 0,
+      "managedAllocatedBytes": 89956888,
+      "accessibilityCapture": {
+        "requests": 1171,
+        "nativeReads": 413,
+        "decoded": 15,
+        "reused": 1156,
+        "idleSkips": 758
+      },
+      "drawListCapture": {
+        "requests": 1171,
+        "captured": 393,
+        "reused": 778
+      },
+      "processWorkingSetBytes": 418267136,
+      "processPrivateBytes": null,
+      "backend": "Metal",
+      "frameRateCap": 60,
+      "gpuResources": {
+        "Textures": 5,
+        "Renderbuffers": 0,
+        "Geometry": 3,
+        "Pipelines": 25,
+        "Programs": 5,
+        "Lists": 3,
+        "Views": 5,
+        "Samplers": 4,
+        "Buffers": 29,
+        "ShaderModules": 18,
+        "BindGroups": 120,
+        "Surfaces": 1,
+        "QuerySets": 0
+      },
+      "rmlGpuResources": {
+        "Geometry": 89,
+        "Buffers": 178,
+        "BufferCapacityBytes": 256272,
+        "Textures": 26,
+        "TextureCapacityBytes": 6127616,
+        "StencilTextures": 1,
+        "EstimatedStencilBytes": 14745600,
+        "Pipelines": 1,
+        "ShaderModules": 1
+      },
+      "scope": "Production launcher UI update (including IME/accessibility) and native draw or Avalonia bitmap redraw/upload; full-process idle CPU includes scene/background services. Diagnostic runs disable SocialRuntime account/presence start and automatic updater network requests; IME and accessibility stay enabled.",
+      "storageNote": "Tracked native resource capacity is not driver residency or total VRAM. GPU completion time is not inferred from CPU submission time.",
+      "run": 3,
+      "assemblySha256": "c8d92c21d2801785a6022aeb2a5c4dc71ecd038a2675ceab321d8d9e6074d69f",
+      "report": "rmlui-metal-3.json"
+    }
+  ],
+  "method": "Same hardware, extracted data, window, 60 fps fixture and backend; alternating fresh processes with 5 second warmup then requested idle sample. IME/accessibility enabled. Account/presence start and automatic updater network calls disabled in explicit diagnostics. CPU timing is UI submission cost, not GPU completion time.",
+  "criterion": "Observed baseline worst across these runs is the measured upper comparison bound; this small sample is evidence, not a cross-platform release acceptance decision."
+}
