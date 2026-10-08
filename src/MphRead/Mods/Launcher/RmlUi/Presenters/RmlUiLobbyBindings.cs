@@ -40,6 +40,25 @@ public static class RmlUiLobbyBindings
         pages.SetText("lobby_chat_history",snapshot.Chat.Length==0?"No messages yet.":string.Join("\n",snapshot.Chat.TakeLast(6)));
         var players = snapshot.Players.OrderByDescending(player => player.Slot == snapshot.LocalSlot).ToArray();
         LobbyPresentation model = LobbyPresentation.From(snapshot);
+        bool requireReady = (snapshot.RuleFlags & LobbyRuleFlags.RequireReady) != 0;
+        int readyCombatants = players.Count(player => player.Ready && !player.IsSpectator);
+        bool starting = snapshot.Phase == SessionPhase.Starting;
+        string phase = starting ? "DEPLOYMENT IN PROGRESS"
+            : snapshot.Match == null ? "WAITING FOR MATCH RULES"
+            : !snapshot.RequiredMapReady ? "PREPARING NEXT ARENA"
+            : requireReady && readyCombatants < model.CombatantCount ? "READY CHECK IN PROGRESS"
+            : model.CanStart ? "READY TO DEPLOY"
+            : "ASSEMBLING HUNTERS";
+        pages.SetText("lobby_brief_title", phase);
+        pages.SetText("lobby_brief_count", $"{players.Length} / {snapshot.MaxPlayers} HUNTERS");
+        pages.SetText("lobby_brief_detail", starting ? "SYNCHRONIZING THE FORMATION"
+            : requireReady ? $"{readyCombatants} / {model.CombatantCount} COMBATANTS READY"
+            : $"{model.CombatantCount} COMBATANTS // READY CHECK OFF");
+        pages.SetText("lobby_field_caption", starting ? "DEPLOYMENT IMMINENT"
+            : snapshot.Match == null ? "AWAITING SERVER RULES"
+            : !snapshot.RequiredMapReady ? "ARENA PREPARING"
+            : model.BotCount > 0 ? $"ARENA READY // {model.BotCount} BOTS"
+            : "ARENA VERIFIED // READY");
         for (int index = 0; index < 8; index++)
             PresentSlot((id, value) => pages.SetText(id, value), (id, value) => pages.SetBool(id, value),
                 snapshot, model, index, index < players.Length ? players[index] : null);

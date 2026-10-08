@@ -50,6 +50,8 @@ try
   pages.SetText("home_party_preview_name","PARTY // 3 MEMBERS");
   pages.SetText("home_party_preview_role","YOU ARE PARTY LEADER");
   pages.SetBool("home_friends_visible",true);
+  pages.SetBool("home_social_empty_visible",false);
+  pages.SetText("home_social_empty_text","NO FRIENDS ONLINE // OPEN SOCIAL");
   pages.SetText("home_friend_count","6 ONLINE");
   for(int i=0;i<3;i++)
   {
@@ -67,8 +69,11 @@ try
    Check(x>=0&&y>=0&&x+w<=size.Item1+1&&y+h<=size.Item2+1,$"{id} outside {size}: {x},{y},{w},{h}");
   }
   Draw("home");foreach(var id in new[]{"nav_play","nav_hunters","nav_community","nav_studio","profile"})Fits(pages.Document,id);
-  bool showRails=size.Item1/size.Item3>1180 && size.Item2/size.Item3>850;
-  if(size.Item1/size.Item3>1180)Fits(pages.Document,"home_signal_panel");
+  // Regression for the actual compact-height 720p window: the previous
+  // 850dp cutoff hid every useful rail while showing Deployment Link.
+  bool showRails=size.Item1/size.Item3>1180 && size.Item2/size.Item3>490;
+  Check(!host.TryGetElementBounds(pages.Document,"home_signal_panel",out _,out _,out _,out _),
+      "redundant Deployment Link is removed from Home");
   if(showRails)
   {
    foreach(var id in new[]{"home_feature_open","home_social_open","home_social_alert","home_party_preview","home_friends_online","home_friend0","home_friend1","home_friend2"})Fits(pages.Document,id);
@@ -76,6 +81,15 @@ try
    host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
    Check(host.TryTakeIntent(out var social)&&social.Kind==RmlUiIntentKind.Navigate&&social.Argument==9,
        "Home friend preview routes through authorized Social instead of joining directly");
+   pages.SetBool("home_friends_visible",false);
+   pages.SetBool("home_social_alert_visible",false);
+   pages.SetBool("home_party_preview_visible",false);
+   pages.SetBool("home_social_empty_visible",true);
+   Draw("home-empty");Fits(pages.Document,"home_social_empty");
+   pages.SetBool("home_friends_visible",true);
+   pages.SetBool("home_social_alert_visible",true);
+   pages.SetBool("home_party_preview_visible",true);
+   pages.SetBool("home_social_empty_visible",false);
   }
   else
   {
@@ -83,11 +97,6 @@ try
    Check(!hasRail,"narrow and short layouts collapse Home social rail");
   }
   pages.SetBool("activity_selector_open",true);Draw("activities");Fits(pages.Document,"drawer_training");Fits(pages.Document,"drawer_adventure");
-  if(size.Item1/size.Item3>1180)
-  {
-   bool signalVisible=host.TryGetElementBounds(pages.Document,"home_signal_panel",out _,out _,out float sw,out float sh)&&sw>0&&sh>0;
-   Check(!signalVisible,"Activity drawer hides Deployment Link telemetry");
-  }
   if(showRails)
   {
    bool featureVisible=host.TryGetElementBounds(pages.Document,"home_feature_open",out _,out _,out float fw,out float fh)&&fw>0&&fh>0;
@@ -124,7 +133,11 @@ try
   Draw("community");foreach(var id in new[]{"community_previous","community_next","community_select_3","community_detail_9"})Fits(community,id);
   host.SetBool(community,"visible:community_lifecycle_filters",true);Draw("community-owned");Fits(community,"community_detail_9");Fits(community,"community_select_3");
   pages.ShowBaseline(RmlUiMenuPage.Lobby);pages.SetText("lobby_name","JARRETT'S LOBBY");pages.SetText("lobby_map","TRANSFER LOCK");pages.SetText("lobby_mode_name","BATTLE");pages.SetText("lobby_player_count","8 / 8");pages.SetText("lobby_chat_history","Jarrett: Ready for the next round?\nHunter: Ready!");
-  for(int i=0;i<8;i++){pages.SetBool($"slot{i}_occupied",true);pages.SetText($"slot{i}_name","HUNTER "+i);pages.SetText($"slot{i}_hunter","SAMUS");}
+  pages.SetText("lobby_brief_title","READY CHECK IN PROGRESS");
+  pages.SetText("lobby_brief_count","8 / 8 HUNTERS");
+  pages.SetText("lobby_brief_detail","4 / 8 COMBATANTS READY");
+  pages.SetText("lobby_field_caption","ARENA VERIFIED // READY");
+  for(int i=0;i<8;i++){pages.SetBool($"slot{i}_occupied",true);pages.SetBool($"slot{i}_ready",i<4);pages.SetBool($"slot{i}_local",i==0);pages.SetText($"slot{i}_name","HUNTER "+i);pages.SetText($"slot{i}_hunter","SAMUS");}
   Directory.CreateDirectory(ThumbnailGenerator.CacheDirectory);
   using(var thumbnail=new SKBitmap(320,180))
   {
@@ -134,7 +147,13 @@ try
   bool previewReady=false;
   new LobbyMapPreview().Present("TRANSFER LOCK",pages.SetText,(id,value)=>{pages.SetBool(id,value);if(id=="lobby_map_image_ready")previewReady=value;});
   Check(previewReady,"lobby decodes cached map preview");
-  Draw("lobby");foreach(var id in new[]{"lobby_match_rules","lobby_map_preview","lobby_chat_input","lobby_chat_send"})Fits(pages.Document,id);
+  Draw("lobby");foreach(var id in new[]{"lobby_match_rules","lobby_map_preview","lobby_chat_input","lobby_chat_send","lobby_social_access","lobby_field_caption"})Fits(pages.Document,id);
+  if(size.Item1/size.Item3>980 && size.Item2/size.Item3>545)
+   foreach(var id in new[]{"lobby_brief","lobby_brief_title","lobby_brief_slot0","lobby_brief_slot7"})Fits(pages.Document,id);
+  Check(host.FocusDocument(pages.Document,"lobby_social_access"),"Lobby party/invite entry has keyboard focus");
+  host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
+  Check(host.TryTakeIntent(out var lobbySocial)&&lobbySocial.Kind==RmlUiIntentKind.Navigate&&lobbySocial.Argument==9,
+      "Lobby invite entry opens verified Social route without bypassing permissions");
 
   Check(!host.TryGetElementBounds(pages.Document,"footer_settings",out _,out _,out _,out _),"only one Settings entry");
   Fits(pages.Document,"header_settings");

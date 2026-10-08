@@ -133,6 +133,15 @@ static class Program
         pages.Flush(); host.Update(); pages.AfterUpdate(); host.Render(1280, 720);
         Check(host.TryGetElementBounds(pages.Manager.Page, "lobby_ready", out _, out _, out float width, out float height) && width > 0 && height > 0,
             "actual native lobby renders ready control from live state");
+        Check(host.TryGetElementBounds(pages.Manager.Page, "lobby_brief", out _, out _, out float briefWidth, out float briefHeight)
+            && briefWidth > 0 && briefHeight > 0,
+            "actual live 2/4/8-player lobby exposes its squad readiness formation");
+        Check(host.TryGetElementBounds(pages.Manager.Page, "lobby_brief_slot7", out _, out _, out float markerWidth, out _)
+            && markerWidth > 0,
+            "eighth readiness slot is present even before that seat is occupied");
+        Check(host.TryGetElementBounds(pages.Manager.Page, "lobby_social_access", out _, out _, out float socialWidth, out float socialHeight)
+            && socialWidth > 0 && socialHeight > 0,
+            "actual native lobby exposes the authorized Invite Friends / Party route");
     }
     private static void ShowAndClick(RmlUiHost host, Client client, string id, RmlUiIntentKind expected, LobbyIntentKind command)
     {

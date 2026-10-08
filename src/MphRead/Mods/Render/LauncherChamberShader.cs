@@ -97,12 +97,12 @@ void main()
     vec3 col = mix(base_top, base_mid, upper);
     col = mix(col, base_bottom, smoothstep(0.58, 1.0, uv.y));
     float horizon = exp(-pow((uv.y - 0.52) * 4.8, 2.0));
-    col += activity_accent * horizon * 0.035 * energy;
+    col += mix(activity_accent, hunter_halo, 0.35) * horizon * 0.087 * energy;
 
     // Distant central bay. It is intentionally broad and low-detail so Hunter
     // silhouettes remain the only detailed subject in the middle of the frame.
     float bay = box_mask(uv, vec2(0.305, 0.14), vec2(0.855, 0.72), 0.035);
-    col += mix(activity_accent, hunter_halo, 0.28) * bay * 0.040 * structure_amount;
+    col += mix(activity_accent, hunter_halo, 0.64) * bay * 0.075 * structure_amount;
 
     // Neutral torso-level lift keeps the selected Hunter readable without
     // painting Hunter identity color through the model itself. This is the
@@ -119,7 +119,7 @@ void main()
     float innerEdges = line(uv.x - 0.355, 0.0022) + line(uv.x - 0.455, 0.0022)
         + line(uv.x - 0.775, 0.0022) + line(uv.x - 0.855, 0.0022);
     float innerGate = smoothstep(0.27, 0.34, uv.y) * (1.0 - smoothstep(0.68, 0.74, uv.y));
-    col += activity_secondary * innerEdges * innerGate * 0.018 * structure_amount;
+    col += mix(activity_secondary, hunter_rim, 0.42) * innerEdges * innerGate * 0.043 * structure_amount;
 
     // A deeper, deliberately asymmetric wall plane prevents the chamber from
     // reading as a row of evenly spaced primitives. These broad silhouettes
@@ -139,7 +139,7 @@ void main()
         float x = 0.16 + fi * 0.135;
         float rib = line(uv.x - x, 0.0018 + 0.001 * uv.y);
         float gate = smoothstep(0.10, 0.20, uv.y) * (1.0 - smoothstep(0.76, 0.90, uv.y));
-        col += activity_accent * rib * gate * 0.045 * structure_amount;
+        col += mix(activity_accent, hunter_halo, 0.25) * rib * gate * 0.065 * structure_amount;
     }
 
     // Angled architectural braces. The opposing slopes frame the hero instead
@@ -148,7 +148,7 @@ void main()
     float rightBrace = line((0.91 - uv.x) - (0.64 - uv.y) * 0.22, 0.006);
     float braceGate = smoothstep(0.16, 0.30, uv.y) * (1.0 - smoothstep(0.66, 0.82, uv.y));
     col += activity_secondary * (leftBrace + rightBrace) * braceGate
-        * 0.06 * structure_amount;
+        * 0.092 * structure_amount;
 
     // Technical light rail: a dark recessed channel first, then the segmented
     // emitters. The channel makes the upper blocks feel installed in the room
@@ -159,8 +159,8 @@ void main()
     col += activity_accent * railSpine * 0.028 * structure_amount;
     float railBand = box_mask(uv, vec2(0.36, 0.20), vec2(0.82, 0.24), 0.008);
     float railPattern = step(0.58, fract(uv.x * 22.0));
-    col += activity_secondary * railBand * railPattern
-        * (0.075 + 0.075 * energy);
+    col += mix(activity_secondary, hunter_rim, 0.30) * railBand * railPattern
+        * (0.095 + 0.10 * energy);
 
     // A very slow light sweep crosses only the distant architecture. Reduce
     // Motion supplies time_value == 0, which freezes this at a stable position.
@@ -172,6 +172,15 @@ void main()
     col += vec3(0.17, 0.25, 0.32) * wallSweep * wallSweepGate
         * 0.034 * energy * structure_amount;
 
+    // Operational pulse travels through the architectural seam, not over the
+    // model. Activity-specific intensity/speed makes browser, training, and
+    // lobby meaningfully different while Reduce Motion locks time to zero.
+    float signalGate = box_mask(uv, vec2(0.31, 0.275), vec2(0.855, 0.305), 0.008);
+    float signalPhase = sin(uv.x * 36.0 - time_value * (0.45 + pulse_speed * 0.65));
+    float activeSignal = 0.5 + 0.5 * signalPhase;
+    col += mix(activity_secondary, hunter_rim, 0.44)
+        * signalGate * activeSignal * (0.045 + 0.040 * energy);
+
     // Hero halo behind the selected Hunter. Hunter theme drives the hue while
     // activity mood decides how energetic the chamber feels.
     vec2 heroCenter = vec2(stageHeroX, 0.49);
@@ -180,12 +189,12 @@ void main()
     if (time_value > 0.0)
         pulse += sin(time_value * (0.55 + pulse_speed * 0.45)) * 0.035;
     col += hunter_halo * hero * halo_strength * hero_light
-        * (0.095 + 0.035 * energy) * pulse;
+        * (0.215 + 0.090 * energy) * pulse;
 
     // Narrow rear rim column gives shoulders/head a clean edge without turning
     // the whole background into a glowing circle.
     float rimColumn = ellipse_mask(uv, vec2(stageHeroX, 0.43), vec2(0.105, 0.32));
-    col += hunter_rim * rimColumn * 0.040 * hero_light;
+    col += hunter_rim * rimColumn * 0.090 * hero_light;
 
     // Neutral cool key behind the head and upper torso. It raises local
     // contrast without recoloring the Hunter's authored red/orange/blue/etc.
@@ -210,13 +219,19 @@ void main()
     float centeredX = (uv.x - stageHeroX) / max(fy + 0.20, 0.20);
     float vertical = line(fract(centeredX * 4.5) - 0.5, 0.035);
     float grid = max(horizontal, vertical) * floorMask;
-    col += activity_accent * grid * 0.038 * floor_grid;
+    col += mix(activity_accent, hunter_halo, 0.26) * grid * 0.058 * floor_grid;
 
     // Every lobby pad, real Hunter frame, and player plate reads the one
     // authored LauncherLobbyFormation table. There are no shader-local
     // guesses about the positions anymore.
     if (lobby_mode > 0.5)
     {
+        // Team assembly changes the architecture, not just the roster UI.
+        // The V-shaped service spine communicates the multiplayer formation.
+        float serviceSpine = line(abs(uv.x - 0.5) - (0.79 - uv.y) * 0.42, 0.0035);
+        float serviceGate = smoothstep(0.29, 0.43, uv.y)
+            * (1.0 - smoothstep(0.75, 0.83, uv.y));
+        col += activity_secondary * serviceSpine * serviceGate * 0.13 * energy;
         for (int slot = 7; slot >= 0; slot--)
         {
             vec4 geometry = lobby_pad_geometry[slot];
@@ -245,8 +260,8 @@ void main()
                              clamp((1.0 - foot.y) * 0.34, 0.0, 1.0));
             col = mix(col, metal, body * 0.85);
             col += vec3(0.075, 0.118, 0.150) * raisedEdge * 0.18;
-            vec3 activeLight = mix(activity_secondary, hunter_halo, 0.16);
-            col += activeLight * lip * (0.025 + occupied * 0.14);
+            vec3 activeLight = mix(activity_secondary, hunter_halo, 0.38);
+            col += activeLight * lip * (0.034 + occupied * 0.20);
             col += vec3(0.075, 0.135, 0.170) * innerDish
                 * (0.014 + occupied * 0.017);
 
@@ -259,7 +274,7 @@ void main()
             float segments = smoothstep(0.06, 0.15, phase)
                 * (1.0 - smoothstep(0.73, 0.86, phase));
             col += activeLight * max(ring1, ring2) * segments
-                * (0.024 + occupied * 0.063);
+                * (0.034 + occupied * 0.084);
 
             // Contact darkening happens at the exact same pad coordinates as
             // the models' authored stance, before those models are rendered.
@@ -284,8 +299,8 @@ void main()
         col = mix(col, vec3(0.006, 0.012, 0.022), platformFill * 0.70);
         float platformCore = 1.0 - smoothstep(0.08, 0.70, platformQ);
         col += mix(activity_accent, hunter_halo, 0.30)
-            * platformCore * floor_glow * 0.045;
-        col += hunter_halo * platformEdge * floor_glow * 0.22;
+            * platformCore * floor_glow * 0.092;
+        col += hunter_halo * platformEdge * floor_glow * 0.30;
         col += activity_secondary * platformEdge * floor_glow * 0.075;
         float ringA = 1.0 - smoothstep(0.018, 0.050, abs(platformQ - 0.20));
         float ringB = 1.0 - smoothstep(0.018, 0.050, abs(platformQ - 0.40));
@@ -321,15 +336,15 @@ void main()
     float shafts = exp(-pow((uv.x - 0.36 - drift + uv.y * 0.07) * 29.0, 2.0))
         + exp(-pow((uv.x - 0.66 + drift - uv.y * 0.05) * 34.0, 2.0));
     float reactorShaftGate = smoothstep(0.18, 0.30, uv.y) * (1.0 - smoothstep(0.64, 0.84, uv.y));
-    col += mix(vec3(0.14, 0.58, 0.85), activity_accent, 0.35) * shafts * reactorShaftGate * 0.11 * energy;
+    col += mix(activity_secondary, hunter_rim, 0.38) * shafts * reactorShaftGate * 0.17 * energy;
     vec2 haloUv = vec2((uv.x - stageHeroX) * aspect, (uv.y - 0.46));
     float haloRadius = length(haloUv);
     float haloAngle = atan(haloUv.y, haloUv.x);
     float haloRing = 1.0 - smoothstep(0.0015, 0.004, abs(haloRadius - 0.275));
     float haloGlow = exp(-abs(haloRadius - 0.275) * 90.0);
     float haloSegments = smoothstep(0.1, 0.5, sin(haloAngle * 12.0 + time_value * 0.08));
-    col += mix(activity_accent, vec3(0.22, 0.70, 0.86), 0.55)
-        * (haloRing * haloSegments * 0.19 + haloGlow * 0.035) * energy;
+    col += mix(activity_accent, hunter_halo, 0.76)
+        * (haloRing * haloSegments * 0.30 + haloGlow * 0.075) * energy;
 
     // Slowly rising energy dust, with a soft halo around each bright core.
     vec2 dustUv = uv + vec2(sin(time_value * 0.09) * 0.008, time_value * 0.006);

@@ -45,13 +45,13 @@ namespace MphRead.Mods.Launcher
             Mid: new MenuRgb(0.036f, 0.098f, 0.148f),
             Bottom: new MenuRgb(0.010f, 0.024f, 0.043f),
             StructureOpacity: 0.82f,
-            HeroHalo: 0.46f,
-            Fog: 0.19f,
-            Particles: 0.15f,
-            FloorGlow: 0.44f,
-            LeftUiDarken: 0.48f,
-            RightUiDarken: 0.28f,
-            BeamIntensity: 0.27f,
+            HeroHalo: 0.62f,
+            Fog: 0.22f,
+            Particles: 0.20f,
+            FloorGlow: 0.64f,
+            LeftUiDarken: 0.42f,
+            RightUiDarken: 0.25f,
+            BeamIntensity: 0.43f,
             BackgroundSoftness: 0.13f);
     }
 
@@ -119,6 +119,60 @@ namespace MphRead.Mods.Launcher
             HeroLightBias: 0.92f,
             PulseSpeed: 0.36f,
             Warmth: 0.28f);
+
+        // Lobby has its own operational mood: active formation hardware and
+        // a brighter signal grid, distinct from the solitary Home chamber.
+        public static LauncherActivityAmbience Lobby => new(
+            "live-lobby",
+            new MenuRgb(0.14f, 0.68f, 0.88f),
+            new MenuRgb(0.24f, 0.96f, 0.76f),
+            Energy: 1.18f,
+            FogBias: 0.84f,
+            ParticleBias: 1.12f,
+            StructureBias: 1.18f,
+            FloorGrid: 0.83f,
+            HeroLightBias: 1.13f,
+            PulseSpeed: 0.84f,
+            Warmth: 0.00f);
+
+        public static LauncherActivityAmbience AimLab => new(
+            "aim-lab",
+            new MenuRgb(0.20f, 0.80f, 0.56f),
+            new MenuRgb(0.34f, 1.00f, 0.77f),
+            Energy: 0.84f,
+            FogBias: 0.45f,
+            ParticleBias: 0.38f,
+            StructureBias: 1.14f,
+            FloorGrid: 1.28f,
+            HeroLightBias: 1.02f,
+            PulseSpeed: 0.96f,
+            Warmth: 0.00f);
+
+        public static LauncherActivityAmbience Community => new(
+            "community-forge",
+            new MenuRgb(0.25f, 0.75f, 0.69f),
+            new MenuRgb(0.49f, 0.94f, 0.76f),
+            Energy: 0.72f,
+            FogBias: 0.68f,
+            ParticleBias: 0.55f,
+            StructureBias: 1.00f,
+            FloorGrid: 0.91f,
+            HeroLightBias: 0.90f,
+            PulseSpeed: 0.40f,
+            Warmth: 0.02f);
+
+        public static LauncherActivityAmbience Studio => new(
+            "studio-technical",
+            new MenuRgb(0.45f, 0.38f, 0.92f),
+            new MenuRgb(0.53f, 0.74f, 1.00f),
+            Energy: 0.62f,
+            FogBias: 0.55f,
+            ParticleBias: 0.35f,
+            StructureBias: 1.13f,
+            FloorGrid: 0.38f,
+            HeroLightBias: 0.98f,
+            PulseSpeed: 0.31f,
+            Warmth: 0.00f);
     }
 
     public readonly record struct LauncherHunterTheme(
@@ -139,49 +193,49 @@ namespace MphRead.Mods.Launcher
                 new MenuRgb(1.00f, 0.30f, 0.16f),
                 new MenuRgb(0.62f, 0.08f, 0.06f),
                 new MenuRgb(1.00f, 0.22f, 0.16f),
-                0.86f, 1.02f, 0.92f),
+                1.12f, 1.12f, 1.00f),
             Hunter.Samus => new(
                 "samus",
                 new MenuRgb(0.94f, 0.42f, 0.10f),
                 new MenuRgb(1.00f, 0.72f, 0.24f),
                 new MenuRgb(0.72f, 0.30f, 0.08f),
                 new MenuRgb(1.00f, 0.62f, 0.20f),
-                0.80f, 1.00f, 0.78f),
+                1.05f, 1.07f, 0.85f),
             Hunter.Sylux => new(
                 "sylux",
                 new MenuRgb(0.06f, 0.62f, 0.92f),
                 new MenuRgb(0.20f, 0.90f, 1.00f),
                 new MenuRgb(0.04f, 0.38f, 0.72f),
                 new MenuRgb(0.20f, 0.82f, 1.00f),
-                0.88f, 1.08f, 0.98f),
+                1.13f, 1.16f, 1.07f),
             Hunter.Kanden => new(
                 "kanden",
                 new MenuRgb(0.26f, 0.78f, 0.20f),
                 new MenuRgb(0.58f, 1.00f, 0.24f),
                 new MenuRgb(0.16f, 0.54f, 0.12f),
                 new MenuRgb(0.46f, 1.00f, 0.22f),
-                0.82f, 1.04f, 1.08f),
+                1.08f, 1.13f, 1.15f),
             Hunter.Noxus => new(
                 "noxus",
                 new MenuRgb(0.24f, 0.58f, 0.92f),
                 new MenuRgb(0.58f, 0.88f, 1.00f),
                 new MenuRgb(0.16f, 0.40f, 0.74f),
                 new MenuRgb(0.66f, 0.92f, 1.00f),
-                0.74f, 1.10f, 0.72f),
+                0.99f, 1.16f, 0.81f),
             Hunter.Spire => new(
                 "spire",
                 new MenuRgb(0.94f, 0.28f, 0.08f),
                 new MenuRgb(1.00f, 0.60f, 0.18f),
                 new MenuRgb(0.74f, 0.18f, 0.05f),
                 new MenuRgb(1.00f, 0.42f, 0.12f),
-                0.84f, 1.06f, 0.92f),
+                1.10f, 1.13f, 1.04f),
             Hunter.Weavel => new(
                 "weavel",
                 new MenuRgb(0.82f, 0.16f, 0.08f),
                 new MenuRgb(1.00f, 0.46f, 0.18f),
                 new MenuRgb(0.60f, 0.10f, 0.05f),
                 new MenuRgb(1.00f, 0.34f, 0.12f),
-                0.82f, 1.00f, 0.92f),
+                1.07f, 1.08f, 1.00f),
             _ => new(
                 "neutral",
                 new MenuRgb(0.15f, 0.54f, 0.90f),
@@ -202,11 +256,25 @@ namespace MphRead.Mods.Launcher
     {
         public static bool Active { get; set; }
         public static byte OccupiedMask { get; set; }
+        // One visual identity per presentation slot, copied on the render thread
+        // alongside the same formation/occupancy snapshot. No network state is
+        // owned by this class.
+        private static readonly Hunter[] SlotHunters = new Hunter[LauncherLobbyFormation.Capacity];
+
+        public static Hunter HunterAt(int slot) =>
+            (uint)slot < LauncherLobbyFormation.Capacity ? SlotHunters[slot] : Hunter.Samus;
+
+        public static void SetHunter(int slot, Hunter hunter)
+        {
+            if ((uint)slot < LauncherLobbyFormation.Capacity)
+                SlotHunters[slot] = hunter;
+        }
 
         public static void Reset()
         {
             Active = false;
             OccupiedMask = 0;
+            Array.Clear(SlotHunters);
         }
     }
 
@@ -217,8 +285,12 @@ namespace MphRead.Mods.Launcher
         public static LauncherActivityAmbience Activity => LauncherBackdrop.Scene switch
         {
             LauncherBackdropScene.Play => LauncherActivityAmbience.ServerBrowser,
+            LauncherBackdropScene.CreateLobby or LauncherBackdropScene.Lobby => LauncherActivityAmbience.Lobby,
+            LauncherBackdropScene.Training => LauncherActivityAmbience.AimLab,
             LauncherBackdropScene.Offline => LauncherActivityAmbience.OfflineBattle,
             LauncherBackdropScene.Adventure => LauncherActivityAmbience.Adventure,
+            LauncherBackdropScene.MapEditor => LauncherActivityAmbience.Community,
+            LauncherBackdropScene.ReplayStudio => LauncherActivityAmbience.Studio,
             _ => LauncherActivityAmbience.QuickPlay
         };
 

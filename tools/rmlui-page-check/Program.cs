@@ -58,6 +58,8 @@ launcher.SetBool("home_feature_available",true);
 launcher.SetBool("home_social_rail_visible",true);
 launcher.SetBool("home_social_alert_visible",true);
 launcher.SetText("home_social_alert_text","2 INVITES // 1 REQUEST");
+launcher.SetBool("home_social_empty_visible",true);
+launcher.SetText("home_social_empty_text","NO FRIENDS ONLINE");
 launcher.SetBool("home_friend0_visible",true);
 launcher.SetBool("home_friend0_joinable",true);
 launcher.SetText("home_friend0_name","Hunter Ω");
@@ -66,6 +68,9 @@ Check(native.Texts[(home.DocumentId,"home_feature_title")]=="Community <News> & 
 Check(native.Bools[(home.DocumentId,"visible:home_social_rail")] && native.Bools[(home.DocumentId,"visible:home_social_alert")], "Home social rail and inbox indicator project visible state");
 Check(native.Bools[(home.DocumentId,"visible:home_friend0")] && native.Bools[(home.DocumentId,"class:home_friend0:joinable")], "Joinable friend preview state is projected without bypassing Social authority");
 Check(native.Texts[(home.DocumentId,"home_friend0_name")]=="Hunter Ω", "Unicode friend identity is preserved");
+Check(native.Bools[(home.DocumentId,"visible:home_social_empty")]
+   && native.Texts[(home.DocumentId,"home_social_empty")]=="NO FRIENDS ONLINE",
+   "An empty Home social account retains a useful, visible status card");
 launcher.SetBool("home_social_rail_visible",false);
 launcher.SetBool("home_friend0_visible",false);
 launcher.Flush();
@@ -99,8 +104,22 @@ Check(launcher.ReadField("play_create_name")=="Unsaved draft", "Draft preserved 
 launcher.SetBool("lobby_mode",true);
 launcher.SetBool("lobby_require_ready",false);
 launcher.SetBool("lobby_can_start",false);
+launcher.SetText("lobby_brief_title","READY CHECK IN PROGRESS");
+launcher.SetText("lobby_brief_count","4 / 8 HUNTERS");
+launcher.SetText("lobby_brief_detail","2 / 4 COMBATANTS READY");
+launcher.SetText("lobby_field_caption","ARENA VERIFIED // READY");
+launcher.SetBool("slot0_occupied",true);
+launcher.SetBool("slot0_ready",true);
+launcher.SetBool("slot0_local",true);
 launcher.Flush();
 Check(launcher.Page==RmlUiMenuPage.Lobby && manager.PageKey=="lobby", "Lobby controller switches composed document");
+Check(native.Texts[(launcher.Document.DocumentId,"lobby_brief_title")]=="READY CHECK IN PROGRESS"
+    && native.Texts[(launcher.Document.DocumentId,"lobby_field_caption")]=="ARENA VERIFIED // READY",
+    "Live lobby operational readouts project to authored controls");
+Check(native.Bools[(launcher.Document.DocumentId,"class:lobby_brief_slot0:ready")]
+    && native.Bools[(launcher.Document.DocumentId,"class:lobby_brief_slot0:local")]
+    && native.Bools[(launcher.Document.DocumentId,"class:lobby_slot0:ready")],
+    "Lobby readiness and local identity color the formation and nameplate");
 Check(native.Bools[(launcher.Document.DocumentId,"disabled:lobby_start")], "Start guard rendered from authoritative capability");
 launcher.SetBool("lobby_rules_open",true);
 launcher.SetBool("rules_owner",true);
