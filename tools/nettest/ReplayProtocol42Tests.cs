@@ -23,7 +23,7 @@ internal static class ReplayProtocol42Tests
         try
         {
             _checks = 0;
-            Snapshots(); Intent(); ConfigurationAndRoster(); Claims(); Checkpoints();
+            Snapshots(); Intent(); ConfigurationAndRoster(); Claims(); Checkpoints(); ReplayWorldCompatibilityTests.Run(Check);
             Console.WriteLine($"PASS: {_checks} protocol-42 historical replay packet/checkpoint assertions");
             return 0;
         }
@@ -124,25 +124,29 @@ internal static class ReplayProtocol42Tests
 
     private static void Checkpoints()
     {
-        foreach (int protocol in new[] { 24, 26, 28, 29, 30, 38, 39, 41 })
+        foreach (int protocol in new[] { 16, 17, 18, 19, 20, 23, 24, 26, 28, 29, 30, 38, 39, 41 })
         {
             using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream);
             writer.Write(0x43525050u); writer.Write((ushort)1); writer.Write((byte)protocol);
             for (int i = 0; i < 5; i++) writer.Write(0u);
             writer.Write(0L); writer.Write(0L);
-            writer.Write(false); writer.Write(false); writer.Write(false); writer.Write(false);
+            writer.Write(false); writer.Write(false); writer.Write(false); writer.Write(protocol < 24);
+            if (protocol < 24) writer.Write(new byte[(protocol < 17 ? 35 : protocol < 19 ? 40 : 41) + HostRequestPacket.MaxRoomBytes]);
             int rosterSize = protocol >= 33 ? RosterPacket.Protocol41Size : protocol >= 27 ? RosterPacket.LegacySize
                 : protocol == 26 ? 18 + 27 * RosterPacket.MaxSlots : 17 + 25 * RosterPacket.MaxSlots;
             writer.Write(new byte[rosterSize]);
-            int playerSize = protocol >= 29 ? PlayerState.Protocol41Size : PlayerState.LegacySize;
-            int intentSize = protocol >= 39 ? IntentPacket.Protocol41FullSize : protocol >= 30 ? IntentPacket.Protocol38FullSize : IntentPacket.LegacyFullSize;
+            int playerSize = protocol >= 29 ? PlayerState.Protocol41Size : protocol < 19 ? 114 : protocol < 24 ? 117 : PlayerState.LegacySize;
+            int intentSize = protocol >= 39 ? IntentPacket.Protocol41FullSize : protocol >= 30 ? IntentPacket.Protocol38FullSize : protocol >= 24 ? IntentPacket.LegacyFullSize
+                : 88 + (protocol < 19 ? 4 : protocol == 19 ? 8 : protocol == 20 ? 10 : 14);
             for (int i = 0; i < RosterPacket.MaxSlots; i++)
             {
                 writer.Write((ushort)0); writer.Write((ushort)0); writer.Write((byte)NetworkPlayerState.Empty); writer.Write(false);
                 writer.Write(false); writer.Write(new byte[playerSize]); writer.Write(false); writer.Write(new byte[intentSize]); writer.Write(0u);
             }
             writer.Write(0); writer.Flush();
-            var state = new ReplayReplicaState(); state.RestoreCheckpoint(new ReplayReplicaCheckpoint(stream.ToArray()));
+            var state = new ReplayReplicaState();
+            try { state.RestoreCheckpoint(new ReplayReplicaCheckpoint(stream.ToArray())); }
+            catch (InvalidDataException ex) { throw new InvalidDataException("Historical checkpoint protocol " + protocol, ex); }
             Check(state.AcceptedPackets == 0 && state.Occupant(0).Generation == 0, "historical checkpoint exact widths " + protocol);
         }
     }

@@ -110,15 +110,19 @@ internal sealed partial class ReplayReplicaState
             {
                 if (protocol >= 42) return PlayerState.Read(Read(PlayerState.Size));
                 byte[] upgraded = new byte[PlayerState.Size];
+                if (protocol < 24)
+                {
+                    ReplayIdentityCompatibility.ConvertLegacyPlayer(Read(protocol < 19 ? 114 : 117), upgraded, protocol);
+                    return PlayerState.Read(upgraded);
+                }
                 Read(protocol >= 29 ? PlayerState.Protocol41Size : PlayerState.LegacySize).CopyTo(upgraded, 0);
                 if (protocol < 29) upgraded[PlayerState.LegacySize + 1] = byte.MaxValue;
                 upgraded[PlayerState.Protocol41Size] = byte.MaxValue;
                 return PlayerState.Read(upgraded);
             }
-            // Replay packet compatibility reaches back to protocol 4, but this
-            // detached checkpoint schema was introduced much later. Do not confuse
-            // permissive packet playback with binary checkpoint compatibility.
-            if (version is < 1 or > CheckpointVersion || protocol < 24
+            // Detached world checkpoints first shipped with protocol 16.
+            // Earlier packet-only recordings do not contain this component.
+            if (version is < 1 or > CheckpointVersion || protocol < 16
                 || !ReplayIdentityCompatibility.Supports(protocol))
                 throw new InvalidDataException("Incompatible replica checkpoint.");
             restored.RecordingFrame = reader.ReadUInt32(); restored.MatchRecordingFrame = reader.ReadUInt32();
@@ -134,12 +138,18 @@ internal sealed partial class ReplayReplicaState
             }
             if (reader.ReadBoolean())
             {
-                int size = protocol == 24 ? 41 + HostRequestPacket.MaxRoomBytes : protocol < 31 ? SessionStatePacket.Protocol28Size
+                int size = protocol < 17 ? 35 + HostRequestPacket.MaxRoomBytes
+                    : protocol < 19 ? 40 + HostRequestPacket.MaxRoomBytes
+                    : protocol <= 24 ? 41 + HostRequestPacket.MaxRoomBytes : protocol < 31 ? SessionStatePacket.Protocol28Size
                     : protocol < 42 ? SessionStatePacket.Protocol41Size : SessionStatePacket.Size;
                 byte[] packet = new byte[size + 1]; packet[0] = (byte)PacketType.SessionState;
                 Read(size).CopyTo(packet, 1);
-                if (!SessionStatePacket.TryRead(ReplayIdentityCompatibility.Convert(packet, protocol)[1..], out var configuration)) throw Malformed();
-                restored.Configuration = configuration;
+                var converted = ReplayIdentityCompatibility.Convert(packet, protocol);
+                if (!converted.IsEmpty)
+                {
+                    if (!SessionStatePacket.TryRead(converted[1..], out var configuration)) throw Malformed();
+                    restored.Configuration = configuration;
+                }
             }
             int rosterSize = protocol >= 42 ? RosterPacket.Size : protocol >= 33 ? RosterPacket.Protocol41Size
                 : protocol >= 27 ? RosterPacket.LegacySize
@@ -164,7 +174,8 @@ internal sealed partial class ReplayReplicaState
                 restored._hasPlayer[i] = reader.ReadBoolean(); restored._players[i] = ReadPlayer();
                 restored._hasIntent[i] = reader.ReadBoolean();
                 int intentSize = protocol >= 42 ? IntentPacket.FullSize : protocol >= 39 ? IntentPacket.Protocol41FullSize
-                    : protocol >= 30 ? IntentPacket.Protocol38FullSize : IntentPacket.LegacyFullSize;
+                    : protocol >= 30 ? IntentPacket.Protocol38FullSize : protocol >= 24 ? IntentPacket.LegacyFullSize
+                    : 88 + (protocol < 19 ? 4 : protocol == 19 ? 8 : protocol == 20 ? 10 : 14);
                 byte[] intentPacket = new byte[2 + intentSize]; intentPacket[0] = (byte)PacketType.SlotIntent; intentPacket[1] = (byte)i;
                 Read(intentSize).CopyTo(intentPacket, 2);
                 restored._intents[i] = IntentPacket.Read(ReplayIdentityCompatibility.Convert(intentPacket, protocol)[2..]);

@@ -4,7 +4,8 @@ namespace MphRead.Mods.Replay;
 
 // Explicit checkpoint field contract. Asset data, native handles, sockets, delegates,
 // hardware input and foreground HUD resources are deliberately not traversed.
-// Changing this list changes the contract fingerprint and invalidates old capsules.
+// Changing this list changes the contract fingerprint. Archive the outgoing layout
+// in ReplayWorldLayouts.json before changing fields so old capsules remain readable.
 internal static class ReplayWorldSchemas
 {
     internal static readonly IReadOnlyDictionary<string, string[]> Fields = new Dictionary<string, string[]>

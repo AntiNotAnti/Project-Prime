@@ -455,7 +455,7 @@ internal static class ReplayIdentityCompatibility
         return result;
     }
 
-    private static void ConvertLegacyPlayer(ReadOnlySpan<byte> source, Span<byte> destination, int protocol)
+    internal static void ConvertLegacyPlayer(ReadOnlySpan<byte> source, Span<byte> destination, int protocol)
     {
         destination.Clear();
         destination[PlayerState.Protocol41Size] = byte.MaxValue;
