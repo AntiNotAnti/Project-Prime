@@ -501,7 +501,7 @@ namespace MphRead.Mods.Network
             _scratch[1] = (byte)PlayerColors.Clamp(RespawnChoice.IdentifyColor);
             _transport.Send(_hostEndPoint, PacketType.Identify, _scratch.AsSpan(0, count + 2));
             SendCosmetics();
-#if MPHREAD_AVALONIA
+#if !MPHREAD_SERVER
             // A separate additive packet keeps old Identify/name parsing intact.
             // Acquisition is asynchronous: the existing identity retry starts
             // it, then a later pass sends the cached short-lived ticket.

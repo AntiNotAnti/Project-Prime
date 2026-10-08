@@ -92,7 +92,7 @@ namespace MphRead.Droid
         private ScreenOrientation _orientationBefore = ScreenOrientation.SensorLandscape;
 
         internal bool InMatch => _gameView != null;
-        internal bool GraphicsOwnedByMatch => InMatch || _pending != null || !_rendererStop.IsCompleted;
+        internal bool GraphicsOwnedByMatch => InMatch || _pending != null || !_rendererStop.IsCompleted || NativeRmlOwnsGraphics;
         internal bool HunterPreviewBlocked => GraphicsOwnedByMatch || _renderingHere || _destroyed;
 
         protected override void OnCreate(Bundle? savedInstanceState)
@@ -108,6 +108,7 @@ namespace MphRead.Droid
             // still be saturating storage/CPU when START was pressed.
             _content = FindViewById(Android.Resource.Id.Content) as ViewGroup;
             _launcherView = _content?.GetChildAt(0);
+            BeginNativeLauncher();
         }
 
         /// <summary>
@@ -391,6 +392,7 @@ namespace MphRead.Droid
             AndroidPerformance.SetForeground(false);
             GamepadBridge.Clear();
             _gameView?.OnPause();
+            PauseNativeLauncher(true);
             base.OnPause();
         }
 
@@ -418,6 +420,7 @@ namespace MphRead.Droid
                 manager.RegisterDisplayListener(this, null);
             }
             _gameView?.OnResume();
+            PauseNativeLauncher(false);
         }
 
         /// <summary>
@@ -519,6 +522,7 @@ namespace MphRead.Droid
             // to shut itself down on its own thread, which is what
             // Scene.DoCleanup does at the end of the loop.
             _gameView?.StopAsync();
+            DestroyNativeLauncher();
             _hunterStop = AndroidHunterShot.Current?.RetireAsync() ?? Task.CompletedTask;
             GamepadBridge.Stop();
             base.OnDestroy();
@@ -557,10 +561,12 @@ namespace MphRead.Droid
             // The same question Escape asks the desktop launcher: close the
             // overlay, or go back one card. Only when the front screen has
             // nothing left to go back to does this leave the app.
+            if (NativeRmlOwnsGraphics && NativeLauncherBack()) return;
             if (AndroidApp.Home?.GoBack() == true)
             {
                 return;
             }
+            if (NativeLauncherBack()) return;
             base.OnBackPressed();
         }
 #pragma warning restore CA1422
@@ -584,6 +590,7 @@ namespace MphRead.Droid
                 Console.WriteLine("[android] a match is already starting; ignoring");
                 return;
             }
+            RetireNativeLauncherForMatch();
             _spectateOnLoad = plan.Spectate;
             _replayEditorOnLoad = plan.Kind == LaunchKind.Demo;
             AndroidApp.Home?.SuspendLobby();
@@ -806,6 +813,7 @@ namespace MphRead.Droid
             Window?.ClearFlags(WindowManagerFlags.KeepScreenOn);
             GoImmersive(true);
             RequestedOrientation = _orientationBefore;
+            RestoreNativeLauncher(false);
             Toast.MakeText(this, $"Could not start the match: {reason}",
                 ToastLength.Long)?.Show();
         }
@@ -1402,6 +1410,7 @@ namespace MphRead.Droid
             Window?.ClearFlags(WindowManagerFlags.KeepScreenOn);
             GoImmersive(true);
             RequestedOrientation = _orientationBefore;
+            RestoreNativeLauncher(keepSession);
         }
 
         /// <summary>
