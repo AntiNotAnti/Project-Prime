@@ -20,13 +20,13 @@ CommunityController New(FakeCommunityBackend backend) { var result = new Communi
 var backend = new FakeCommunityBackend();
 using (var controller = New(backend))
 {
-    var first = controller.Snapshot(); Check(first.State == CommunityPageState.Ready && first.Total == 17 && first.Maps.Length == 8, "bounded copied service catalog");
+    var first = controller.Snapshot(); Check(first.State == CommunityPageState.Ready && first.Total == 17 && first.Maps.Length == CommunityController.PageSize, "bounded copied service catalog");
     Check(ReferenceEquals(first, controller.Snapshot()), "unchanged snapshot revision is cached");
     Check(Task.Run(() => { try { controller.Snapshot(); return false; } catch (InvalidOperationException) { return true; } }).Result, "foreign thread cannot access controller");
     controller.SetSort(CommunitySort.Name); Check(controller.Snapshot().Maps[0].Name == "Map 00", "name sort uses real catalog metadata");
-    controller.Page(1); Check(controller.Snapshot().First == 9 && controller.Snapshot().Maps[0].Name == "Map 08", "next catalog page uses distinct authoritative identities");
-    controller.Page(1); Check(controller.Snapshot().Maps.Length == 1 && !controller.Snapshot().NextPage, "last catalog page bounded");
-    controller.Page(-1); Check(controller.Snapshot().First == 9, "previous page preserves signed command");
+    controller.Page(1); Check(controller.Snapshot().First == 5 && controller.Snapshot().Maps[0].Name == "Map 04", "next catalog page uses distinct authoritative identities");
+    controller.Page(1);controller.Page(1);controller.Page(1); Check(controller.Snapshot().Maps.Length == 1 && !controller.Snapshot().NextPage, "last catalog page bounded");
+    controller.Page(-1); Check(controller.Snapshot().First == 13, "previous page preserves signed command");
     controller.Search("Prime"); Check(controller.Snapshot().Total == 17, "mode-aware search matches supported modes");
     controller.Search("not present"); Check(controller.Snapshot().Maps.IsEmpty && controller.Snapshot().First == 0, "real empty search contains no fabricated cards");
     controller.Search(""); controller.SetSort(CommunitySort.Favorites); Check(controller.Snapshot().Maps[0].Name == "Map 16", "favorite count sort");

@@ -15,6 +15,7 @@ internal static class SettingsArchiveRegistry
     {
         new("Savedata/settings.json", "General", 2 * 1024 * 1024, SceneGameState.ValidateSettingsArchive),
         new("launcher.txt", "Launcher", 2 * 1024 * 1024, text => SettingsArchiveValidator.ValidatePreferences(text, launcher: true)),
+        new("map-community.txt", "Online services", 4096, text => { using var client = new MapGen.MapCommunityClient(text.Trim()); }),
         new("controls.txt", "Controls", 2 * 1024 * 1024, text => SettingsArchiveValidator.ValidatePreferences(text, launcher: false)),
         new("controller-profiles.json", "Controls", 1024 * 1024, text => Input.GamepadProfiles.ParseLibrary(text)),
         new("gamecontrollerdb.txt", "Controls", 2 * 1024 * 1024, SettingsArchiveValidator.ValidateMappings)

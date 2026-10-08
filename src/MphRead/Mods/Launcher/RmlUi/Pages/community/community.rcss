@@ -64,3 +64,44 @@
  .community_dialog .community_row b, .community_dialog .community_row span { width: 82vw; }
  .community_dialog .community_creator > .community_action { width: 86vw; }
 }
+
+/* Four results per page; the pager and map actions stay in the viewport. */
+.community_page { position: absolute; left: 2%; top: 2%; width: 96%; height: 96%; padding: 12dp; overflow: hidden; background-color: rgba(3,13,23,96%); }
+.community_page h1 { font-size: 24dp; margin-bottom: 4dp; }
+#community_description { font-size: 13dp; margin-bottom: 8dp; }
+.community_page > .community_tabs { margin-bottom: 5dp; }
+.community_page .community_tabs button { padding: 5dp 10dp; font-size: 13dp; }
+.community_page .community_field { margin-bottom: 4dp; }
+.community_page .community_field label { font-size: 12dp; margin-bottom: 3dp; }
+.community_page .community_field input { padding: 6dp; }
+.community_page > .community_notice, .community_page > .community_error { margin: 2dp 0dp; font-size: 12dp; }
+#community_columns { position: absolute; left: 12dp; right: 12dp; top: 210dp; bottom: 10dp; width: auto; height: auto; flex-direction: row; }
+.community_catalog { width: 56%; height: 100%; padding-bottom: 38dp; }
+.community_catalog > .community_tabs { position: absolute; left: 0dp; bottom: 0dp; }
+.community_catalog .community_row { width: 100%; height: 20%; margin-bottom: 4dp; }
+.community_catalog .community_row button { width: 100%; height: 100%; padding: 8dp; }
+.community_catalog .community_row b, .community_catalog .community_row span { width: 100%; overflow: hidden; white-space: nowrap; }
+.community_catalog .community_row b { font-size: 16dp; }
+.community_catalog .community_row span { font-size: 11dp; }
+.community_detail_panel { width: 42%; margin-left: 2%; padding: 12dp; height: 100%; }
+.community_detail_panel h2, .community_detail_panel .community_detail { width: 100%; }
+.community_detail_panel h2 { margin: 0dp 0dp 6dp; font-size: 19dp; }
+.community_detail_panel .community_detail { margin: 5dp 0dp 10dp; font-size: 12dp; }
+.community_detail_panel .community_action { display: inline-block; width: 48%; margin-right: 1%; padding: 7dp; min-height: 32dp; font-size: 11dp; }
+@media (max-height: 650dp) { #community_description { display: none; } #community_columns { top: 180dp; } .community_page { padding-top: 5dp; } .community_catalog .community_row button { padding: 4dp 7dp; } .community_detail_panel .community_action { padding: 5dp; min-height: 28dp; } }
+
+.community_page { display: flex; flex-direction: column; }
+.community_page > * { flex-shrink: 0; }
+#community_columns { position: relative; left: auto; right: auto; top: auto; bottom: auto; width: 100%; flex: 1; min-height: 0dp; margin-top: 6dp; }
+.community_detail_panel .community_action { margin-bottom: 4dp; }
+@media (max-height: 650dp) { .community_detail_panel .community_action { width: 31%; font-size: 10dp; padding: 4dp; min-height: 26dp; } .community_detail_panel .community_detail { line-height: 13dp; margin: 4dp 0dp; } }
+
+@media (max-height: 650dp) {
+ .community_page .community_tabs { margin-bottom: 3dp; }
+ .community_page .community_tabs button { padding: 3dp 8dp; font-size: 11dp; }
+ .community_page .community_field label { display: none; }
+ .community_page .community_field input { padding: 4dp; }
+ .community_catalog .community_row b { font-size: 14dp; line-height: 15dp; }
+ .community_catalog .community_row span { margin-top: 1dp; font-size: 10dp; line-height: 11dp; }
+ #community_count { font-size: 12dp; margin: 3dp 0dp; }
+}

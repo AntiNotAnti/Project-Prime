@@ -172,7 +172,7 @@ namespace MphRead.Mods.Launcher.Gui
 #if MPHREAD_RMLUI_POC
             _nativeCapturePageApplied = false;
             _nativeCommandLineRouteApplied = false;
-            _nativeInitialSetupApplied = false;
+            _nativeInitialSetupApplied = false; _nativeSplashShown = false;
             if (!RmlUiPrototype.CaptureRequested && !LauncherUiPerformance.Enabled) Core.SocialRuntime.Start();
 #endif
             _settings = GameState.LoadSettings();
@@ -824,7 +824,7 @@ namespace MphRead.Mods.Launcher.Gui
                 controller.ToggleHost();
             else if (command == "play:create")
                 controller.Create(RmlUiPrototype.ReadFieldValue("play_create_name"),
-                    RmlUiPrototype.ReadFieldValue("play_create_player_name"));
+                    LauncherPrefs.PlayerName);
             else if (command == "play:join")
                 controller.JoinEndpoint(
                     RmlUiPrototype.ReadFieldValue("play_join_address"), spectate: false);

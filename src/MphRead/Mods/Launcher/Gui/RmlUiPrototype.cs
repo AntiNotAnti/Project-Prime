@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using MphRead.Mods.Input;
 using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Launcher.RmlUi.Host;
@@ -779,6 +780,7 @@ namespace MphRead.Mods.Launcher.Gui
                 }
             }
 
+            SetText("lobby_chat_history", snapshot.Chat.Length == 0 ? "No messages yet." : string.Join("\n", snapshot.Chat.TakeLast(6)));
             int display = 0;
             void AddRosterPlayer(int rosterIndex)
             {
@@ -839,6 +841,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 LauncherBackdrop.Set(LauncherBackdropScene.Lobby, definition.RoomKey);
                 SetText("lobby_map", definition.RoomKey.ToUpperInvariant());
+                _lobbyPreview.Present(definition.RoomKey, SetText, SetBool, _pages!.Manager.Lifetime(_pages.Document));
                 SetText("lobby_mode_name", definition.Mode.ToString().ToUpperInvariant());
                 SetText("lobby_format", definition.Format.ToString().ToUpperInvariant());
             }
@@ -895,6 +898,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
         }
 
+        private static readonly RmlUi.Presenters.LobbyMapPreview _lobbyPreview = new();
         private static void ConfigureLobbyHunter(
             LobbyDisplayPlayer player, LobbyFormationSlot placement)
         {
@@ -932,9 +936,10 @@ namespace MphRead.Mods.Launcher.Gui
             // Changing activity can therefore move the map camera and Hunter
             // together without duplicating presentation constants in UI code.
             MenuStageProfile stage = LauncherMenuStage.Current;
-            LauncherHunter.Left = stage.HunterLeft;
+            float halfWidth = (stage.HunterRight - stage.HunterLeft) * 0.5f;
+            LauncherHunter.Left = 0.5f - halfWidth;
             LauncherHunter.Top = stage.HunterTop;
-            LauncherHunter.Right = stage.HunterRight;
+            LauncherHunter.Right = 0.5f + halfWidth;
             LauncherHunter.Bottom = stage.HunterBottom;
             LauncherHunter.DistanceScale = stage.HunterDistanceScale;
             LauncherHunter.TransparentBackground = true;
@@ -972,7 +977,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             string stage = intent.Argument switch
             {
-                0 => "quick", 1 => "browser", 2 => "offline", 3 => "adventure", _ => ""
+                0 => "quick", 1 => "browser", 2 => "offline", 3 => "adventure", 4 => "training", _ => ""
             };
             bool preview = intent.Kind == RmlUiIntentKind.StagePreview;
 
@@ -986,6 +991,7 @@ namespace MphRead.Mods.Launcher.Gui
                     LauncherBackdrop.Set(LauncherBackdropScene.Play,
                         "MP1 SANCTORUS");
                     break;
+                case "training":
                 case "offline":
                     LauncherBackdrop.Set(LauncherBackdropScene.Offline,
                         "MP3 PROVING GROUND");

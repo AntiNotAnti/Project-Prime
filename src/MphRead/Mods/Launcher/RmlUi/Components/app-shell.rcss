@@ -426,3 +426,16 @@ color: #6b879c;
     #footerbar { padding-left: 8dp; padding-right: 8dp; }
     .footer_button { min-width: 68dp; margin-left: 4dp; padding-left: 7dp; padding-right: 7dp; font-size: 11dp; }
 }
+
+/* Consistent header alignment at every density. */
+#brand { width: 220dp; margin-right: 24dp; }
+#primary_nav { align-items: stretch; justify-content: flex-start; }
+#primary_nav .nav { display: block; text-align: center; line-height: 88dp; width: 122dp; min-width: 0dp; padding: 0dp 14dp; margin: 0dp 4dp; }
+#account_cluster { width: 180dp; justify-content: flex-end; margin-left: 20dp; }
+#profile { min-width: 120dp; max-width: 180dp; overflow: hidden; }
+@media (max-width: 1100dp) { #brand { width: 175dp; margin-right: 12dp; } #primary_nav .nav { width: 100dp; padding: 0dp 8dp; margin: 0dp 2dp; } #account_cluster { width: 130dp; margin-left: 8dp; } }
+@media (max-width: 800dp) { #brand { width: 130dp; margin-right: 6dp; } #primary_nav .nav { width: 80dp; font-size: 14dp; padding: 0dp 4dp; } #account_cluster { width: 100dp; } #profile { min-width: 80dp; } }
+@media (max-width: 600dp) { #brand { display: none; } #primary_nav .nav { width: 70dp; font-size: 12dp; } }
+
+@media (max-width: 900dp) { #primary_nav .nav { line-height: 78dp; } }
+@media (max-height: 760dp) { #primary_nav .nav { line-height: 74dp; } }

@@ -2,24 +2,221 @@
 <head><title>Project Prime Settings</title><link type="text/template" href="../../components/app-shell.rml" /><link type="text/rcss" href="settings.rcss" /></head>
 <body template="prime-shell">
 <div id="settings_workspace" class="settings_workspace">
+        <button id="settings_back" class="play_action quiet" data-action="settings:close">BACK</button>
     <div id="settings_navigation" class="settings_navigation">
         <div class="eyebrow">PROJECT PRIME</div><h1>SETTINGS</h1>
             <button id="settings_display_tab" class="settings_tab" data-action="settings:category:0">DISPLAY</button>
             <button id="settings_graphics_tab" class="settings_tab" data-action="settings:category:1">GRAPHICS</button>
             <button id="settings_audio_tab" class="settings_tab" data-action="settings:category:2">AUDIO</button>
-            <button id="settings_controls_tab" class="settings_tab" data-action="settings:category:3">CONTROLS</button>
+            <button id="settings_controls_tab" class="settings_tab" data-action="settings:category:3">KEYBOARD / MOUSE</button>
+            <button id="settings_controller_tab" class="settings_tab" data-action="settings:category:10">CONTROLLER</button>
+            <button id="settings_touch_tab" class="settings_tab" data-action="settings:category:11">TOUCH / STYLUS</button>
+            <button id="settings_hud_tab" class="settings_tab" data-action="settings:category:9">HUD / CROSSHAIR</button>
+            <button id="settings_online_tab" class="settings_tab" data-action="settings:category:12">ONLINE SERVICES</button>
             <button id="settings_replays_tab" class="settings_tab" data-action="settings:category:4">REPLAYS</button>
             <button id="settings_profile_tab" class="settings_tab" data-action="settings:category:5">PROFILE</button>
             <button id="settings_system_tab" class="settings_tab" data-action="settings:category:6">SYSTEM</button>
             <button id="settings_maintenance_tab" class="settings_tab" data-action="settings:category:7">MAINTENANCE</button>
             <button id="settings_credits_tab" class="settings_tab" data-action="settings:category:8">CREDITS</button>
-        <button id="settings_back" class="play_action quiet" data-action="settings:close">BACK</button>
+
     </div>
+    <div class="settings_groups"><button id="settings_group_0" class="settings_group" data-action="settings:action:64" />
+        <button id="settings_group_1" class="settings_group" data-action="settings:action:65" />
+        <button id="settings_group_2" class="settings_group" data-action="settings:action:66" />
+        <button id="settings_group_3" class="settings_group" data-action="settings:action:67" />
+        <button id="settings_group_4" class="settings_group" data-action="settings:action:68" />
+        <button id="settings_group_5" class="settings_group" data-action="settings:action:69" />
+        <button id="settings_group_6" class="settings_group" data-action="settings:action:70" />
+        <button id="settings_group_7" class="settings_group" data-action="settings:action:71" />
+        <button id="settings_group_8" class="settings_group" data-action="settings:action:72" />
+        <button id="settings_group_9" class="settings_group" data-action="settings:action:73" />
+        <button id="settings_group_10" class="settings_group" data-action="settings:action:74" />
+        <button id="settings_group_11" class="settings_group" data-action="settings:action:75" />
+        <button id="settings_group_12" class="settings_group" data-action="settings:action:76" />
+        <button id="settings_group_13" class="settings_group" data-action="settings:action:77" />
+        <button id="settings_group_14" class="settings_group" data-action="settings:action:78" />
+        <button id="settings_group_15" class="settings_group" data-action="settings:action:79" />
+        <button id="settings_group_16" class="settings_group" data-action="settings:action:80" />
+        <button id="settings_group_17" class="settings_group" data-action="settings:action:81" />
+        <button id="settings_group_18" class="settings_group" data-action="settings:action:82" />
+        <button id="settings_group_19" class="settings_group" data-action="settings:action:83" />
+        <button id="settings_group_20" class="settings_group" data-action="settings:action:84" />
+        <button id="settings_group_21" class="settings_group" data-action="settings:action:85" />
+        <button id="settings_group_22" class="settings_group" data-action="settings:action:86" />
+        <button id="settings_group_23" class="settings_group" data-action="settings:action:87" />
+        <button id="settings_group_24" class="settings_group" data-action="settings:action:88" />
+        <button id="settings_group_25" class="settings_group" data-action="settings:action:89" />
+        <button id="settings_group_26" class="settings_group" data-action="settings:action:90" />
+        <button id="settings_group_27" class="settings_group" data-action="settings:action:91" />
+        <button id="settings_group_28" class="settings_group" data-action="settings:action:92" />
+        <button id="settings_group_29" class="settings_group" data-action="settings:action:93" />
+        <button id="settings_group_30" class="settings_group" data-action="settings:action:94" />
+        <button id="settings_group_31" class="settings_group" data-action="settings:action:95" />
+        <button id="settings_group_32" class="settings_group" data-action="settings:action:96" />
+        <button id="settings_group_33" class="settings_group" data-action="settings:action:97" />
+        <button id="settings_group_34" class="settings_group" data-action="settings:action:98" />
+        <button id="settings_group_35" class="settings_group" data-action="settings:action:99" />
+        <button id="settings_group_36" class="settings_group" data-action="settings:action:100" />
+        <button id="settings_group_37" class="settings_group" data-action="settings:action:101" />
+        <button id="settings_group_38" class="settings_group" data-action="settings:action:102" />
+        <button id="settings_group_39" class="settings_group" data-action="settings:action:103" />
+        <button id="settings_group_40" class="settings_group" data-action="settings:action:104" />
+        <button id="settings_group_41" class="settings_group" data-action="settings:action:105" />
+        <button id="settings_group_42" class="settings_group" data-action="settings:action:106" />
+        <button id="settings_group_43" class="settings_group" data-action="settings:action:107" />
+        <button id="settings_group_44" class="settings_group" data-action="settings:action:108" />
+        <button id="settings_group_45" class="settings_group" data-action="settings:action:109" />
+        <button id="settings_group_46" class="settings_group" data-action="settings:action:110" />
+        <button id="settings_group_47" class="settings_group" data-action="settings:action:111" />
+        <button id="settings_group_48" class="settings_group" data-action="settings:action:112" />
+        <button id="settings_group_49" class="settings_group" data-action="settings:action:113" />
+        <button id="settings_group_50" class="settings_group" data-action="settings:action:114" />
+        <button id="settings_group_51" class="settings_group" data-action="settings:action:115" />
+        <button id="settings_group_52" class="settings_group" data-action="settings:action:116" />
+        <button id="settings_group_53" class="settings_group" data-action="settings:action:117" />
+        <button id="settings_group_54" class="settings_group" data-action="settings:action:118" />
+        <button id="settings_group_55" class="settings_group" data-action="settings:action:119" />
+        <button id="settings_group_56" class="settings_group" data-action="settings:action:120" />
+        <button id="settings_group_57" class="settings_group" data-action="settings:action:121" />
+        <button id="settings_group_58" class="settings_group" data-action="settings:action:122" />
+        <button id="settings_group_59" class="settings_group" data-action="settings:action:123" />
+        <button id="settings_group_60" class="settings_group" data-action="settings:action:124" />
+        <button id="settings_group_61" class="settings_group" data-action="settings:action:125" />
+        <button id="settings_group_62" class="settings_group" data-action="settings:action:126" />
+        <button id="settings_group_63" class="settings_group" data-action="settings:action:127" />
+        <button id="settings_group_64" class="settings_group" data-action="settings:action:128" />
+        <button id="settings_group_65" class="settings_group" data-action="settings:action:129" />
+        <button id="settings_group_66" class="settings_group" data-action="settings:action:130" />
+        <button id="settings_group_67" class="settings_group" data-action="settings:action:131" />
+        <button id="settings_group_68" class="settings_group" data-action="settings:action:132" />
+        <button id="settings_group_69" class="settings_group" data-action="settings:action:133" />
+        <button id="settings_group_70" class="settings_group" data-action="settings:action:134" />
+        <button id="settings_group_71" class="settings_group" data-action="settings:action:135" />
+        <button id="settings_group_72" class="settings_group" data-action="settings:action:136" />
+        <button id="settings_group_73" class="settings_group" data-action="settings:action:137" />
+        <button id="settings_group_74" class="settings_group" data-action="settings:action:138" />
+        <button id="settings_group_75" class="settings_group" data-action="settings:action:139" />
+        <button id="settings_group_76" class="settings_group" data-action="settings:action:140" />
+        <button id="settings_group_77" class="settings_group" data-action="settings:action:141" />
+        <button id="settings_group_78" class="settings_group" data-action="settings:action:142" />
+        <button id="settings_group_79" class="settings_group" data-action="settings:action:143" />
+        <button id="settings_group_80" class="settings_group" data-action="settings:action:144" />
+        <button id="settings_group_81" class="settings_group" data-action="settings:action:145" />
+        <button id="settings_group_82" class="settings_group" data-action="settings:action:146" />
+        <button id="settings_group_83" class="settings_group" data-action="settings:action:147" />
+        <button id="settings_group_84" class="settings_group" data-action="settings:action:148" />
+        <button id="settings_group_85" class="settings_group" data-action="settings:action:149" />
+        <button id="settings_group_86" class="settings_group" data-action="settings:action:150" />
+        <button id="settings_group_87" class="settings_group" data-action="settings:action:151" />
+        <button id="settings_group_88" class="settings_group" data-action="settings:action:152" />
+        <button id="settings_group_89" class="settings_group" data-action="settings:action:153" />
+        <button id="settings_group_90" class="settings_group" data-action="settings:action:154" />
+        <button id="settings_group_91" class="settings_group" data-action="settings:action:155" />
+        <button id="settings_group_92" class="settings_group" data-action="settings:action:156" />
+        <button id="settings_group_93" class="settings_group" data-action="settings:action:157" />
+        <button id="settings_group_94" class="settings_group" data-action="settings:action:158" />
+        <button id="settings_group_95" class="settings_group" data-action="settings:action:159" />
+        <button id="settings_group_96" class="settings_group" data-action="settings:action:160" />
+        <button id="settings_group_97" class="settings_group" data-action="settings:action:161" />
+        <button id="settings_group_98" class="settings_group" data-action="settings:action:162" />
+        <button id="settings_group_99" class="settings_group" data-action="settings:action:163" />
+        <button id="settings_group_100" class="settings_group" data-action="settings:action:164" />
+        <button id="settings_group_101" class="settings_group" data-action="settings:action:165" />
+        <button id="settings_group_102" class="settings_group" data-action="settings:action:166" />
+        <button id="settings_group_103" class="settings_group" data-action="settings:action:167" />
+        <button id="settings_group_104" class="settings_group" data-action="settings:action:168" />
+        <button id="settings_group_105" class="settings_group" data-action="settings:action:169" />
+        <button id="settings_group_106" class="settings_group" data-action="settings:action:170" />
+        <button id="settings_group_107" class="settings_group" data-action="settings:action:171" />
+        <button id="settings_group_108" class="settings_group" data-action="settings:action:172" />
+        <button id="settings_group_109" class="settings_group" data-action="settings:action:173" />
+        <button id="settings_group_110" class="settings_group" data-action="settings:action:174" />
+        <button id="settings_group_111" class="settings_group" data-action="settings:action:175" />
+        <button id="settings_group_112" class="settings_group" data-action="settings:action:176" />
+        <button id="settings_group_113" class="settings_group" data-action="settings:action:177" />
+        <button id="settings_group_114" class="settings_group" data-action="settings:action:178" />
+        <button id="settings_group_115" class="settings_group" data-action="settings:action:179" />
+        <button id="settings_group_116" class="settings_group" data-action="settings:action:180" />
+        <button id="settings_group_117" class="settings_group" data-action="settings:action:181" />
+        <button id="settings_group_118" class="settings_group" data-action="settings:action:182" />
+        <button id="settings_group_119" class="settings_group" data-action="settings:action:183" />
+        <button id="settings_group_120" class="settings_group" data-action="settings:action:184" />
+        <button id="settings_group_121" class="settings_group" data-action="settings:action:185" />
+        <button id="settings_group_122" class="settings_group" data-action="settings:action:186" />
+        <button id="settings_group_123" class="settings_group" data-action="settings:action:187" />
+        <button id="settings_group_124" class="settings_group" data-action="settings:action:188" />
+        <button id="settings_group_125" class="settings_group" data-action="settings:action:189" />
+        <button id="settings_group_126" class="settings_group" data-action="settings:action:190" />
+        <button id="settings_group_127" class="settings_group" data-action="settings:action:191" />
+        <button id="settings_group_128" class="settings_group" data-action="settings:action:192" />
+        <button id="settings_group_129" class="settings_group" data-action="settings:action:193" />
+        <button id="settings_group_130" class="settings_group" data-action="settings:action:194" />
+        <button id="settings_group_131" class="settings_group" data-action="settings:action:195" />
+        <button id="settings_group_132" class="settings_group" data-action="settings:action:196" />
+        <button id="settings_group_133" class="settings_group" data-action="settings:action:197" />
+        <button id="settings_group_134" class="settings_group" data-action="settings:action:198" />
+        <button id="settings_group_135" class="settings_group" data-action="settings:action:199" />
+        <button id="settings_group_136" class="settings_group" data-action="settings:action:200" />
+        <button id="settings_group_137" class="settings_group" data-action="settings:action:201" />
+        <button id="settings_group_138" class="settings_group" data-action="settings:action:202" />
+        <button id="settings_group_139" class="settings_group" data-action="settings:action:203" />
+        <button id="settings_group_140" class="settings_group" data-action="settings:action:204" />
+        <button id="settings_group_141" class="settings_group" data-action="settings:action:205" />
+        <button id="settings_group_142" class="settings_group" data-action="settings:action:206" />
+        <button id="settings_group_143" class="settings_group" data-action="settings:action:207" />
+        <button id="settings_group_144" class="settings_group" data-action="settings:action:208" />
+        <button id="settings_group_145" class="settings_group" data-action="settings:action:209" />
+        <button id="settings_group_146" class="settings_group" data-action="settings:action:210" />
+        <button id="settings_group_147" class="settings_group" data-action="settings:action:211" />
+        <button id="settings_group_148" class="settings_group" data-action="settings:action:212" />
+        <button id="settings_group_149" class="settings_group" data-action="settings:action:213" />
+        <button id="settings_group_150" class="settings_group" data-action="settings:action:214" />
+        <button id="settings_group_151" class="settings_group" data-action="settings:action:215" />
+        <button id="settings_group_152" class="settings_group" data-action="settings:action:216" />
+        <button id="settings_group_153" class="settings_group" data-action="settings:action:217" />
+        <button id="settings_group_154" class="settings_group" data-action="settings:action:218" />
+        <button id="settings_group_155" class="settings_group" data-action="settings:action:219" />
+        <button id="settings_group_156" class="settings_group" data-action="settings:action:220" />
+        <button id="settings_group_157" class="settings_group" data-action="settings:action:221" />
+        <button id="settings_group_158" class="settings_group" data-action="settings:action:222" />
+        <button id="settings_group_159" class="settings_group" data-action="settings:action:223" />
+        <button id="settings_group_160" class="settings_group" data-action="settings:action:224" />
+        <button id="settings_group_161" class="settings_group" data-action="settings:action:225" />
+        <button id="settings_group_162" class="settings_group" data-action="settings:action:226" />
+        <button id="settings_group_163" class="settings_group" data-action="settings:action:227" />
+        <button id="settings_group_164" class="settings_group" data-action="settings:action:228" />
+        <button id="settings_group_165" class="settings_group" data-action="settings:action:229" />
+        <button id="settings_group_166" class="settings_group" data-action="settings:action:230" />
+        <button id="settings_group_167" class="settings_group" data-action="settings:action:231" />
+        <button id="settings_group_168" class="settings_group" data-action="settings:action:232" />
+        <button id="settings_group_169" class="settings_group" data-action="settings:action:233" />
+        <button id="settings_group_170" class="settings_group" data-action="settings:action:234" />
+        <button id="settings_group_171" class="settings_group" data-action="settings:action:235" />
+        <button id="settings_group_172" class="settings_group" data-action="settings:action:236" />
+        <button id="settings_group_173" class="settings_group" data-action="settings:action:237" />
+        <button id="settings_group_174" class="settings_group" data-action="settings:action:238" />
+        <button id="settings_group_175" class="settings_group" data-action="settings:action:239" />
+        <button id="settings_group_176" class="settings_group" data-action="settings:action:240" />
+        <button id="settings_group_177" class="settings_group" data-action="settings:action:241" />
+        <button id="settings_group_178" class="settings_group" data-action="settings:action:242" />
+        <button id="settings_group_179" class="settings_group" data-action="settings:action:243" />
+        <button id="settings_group_180" class="settings_group" data-action="settings:action:244" />
+        <button id="settings_group_181" class="settings_group" data-action="settings:action:245" />
+        <button id="settings_group_182" class="settings_group" data-action="settings:action:246" />
+        <button id="settings_group_183" class="settings_group" data-action="settings:action:247" />
+        <button id="settings_group_184" class="settings_group" data-action="settings:action:248" />
+        <button id="settings_group_185" class="settings_group" data-action="settings:action:249" />
+        <button id="settings_group_186" class="settings_group" data-action="settings:action:250" />
+        <button id="settings_group_187" class="settings_group" data-action="settings:action:251" />
+        <button id="settings_group_188" class="settings_group" data-action="settings:action:252" />
+        <button id="settings_group_189" class="settings_group" data-action="settings:action:253" />
+        <button id="settings_group_190" class="settings_group" data-action="settings:action:254" />
+        <button id="settings_group_191" class="settings_group" data-action="settings:action:255" /></div>
     <div id="settings_content" class="settings_content">
         <div class="settings_heading"><h2 id="settings_title">Display</h2><span id="settings_dirty">Saved settings</span></div>
-        <div class="settings_search"><input id="settings_search" type="text" class="input" placeholder="Search this category" /><button id="settings_search_button" class="choice" data-action="settings:action:54">SEARCH</button><button id="settings_clear_search" class="choice" data-action="settings:action:55">CLEAR</button></div>
+        <div class="settings_search"><input id="settings_search" type="text" class="input" placeholder="Search all settings" /><button id="settings_search_button" class="choice" data-action="settings:action:54">SEARCH</button><button id="settings_clear_search" class="choice" data-action="settings:action:55">CLEAR</button></div>
         <div id="settings_fields" class="settings_fields">
-            <div id="settings_hud_tools" class="settings_tools"><button id="settings_hud_edit" class="play_action" data-action="settings:action:28">EDIT HUD</button></div>
+            <div id="settings_hud_tools" class="settings_tools"><button id="settings_hud_edit" class="play_action" data-action="settings:action:28">VISUAL HUD / CROSSHAIR EDITOR</button></div>
             <div id="settings_controller_tools" class="settings_tools">
                 <p id="settings_controls_help" /><p id="settings_controller_device" />
                 <button class="play_action" data-action="settings:action:38">SELECT NEXT CONTROLLER</button>

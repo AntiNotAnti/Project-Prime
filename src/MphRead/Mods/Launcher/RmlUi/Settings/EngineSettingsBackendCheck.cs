@@ -8,6 +8,7 @@ using MphRead.Mods.Input;
 using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Render;
 using MphRead.Mods.Render.Hud;
+using MphRead.Mods.Settings;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace MphRead.Mods.Launcher.RmlUi.Settings;
@@ -35,6 +36,24 @@ public static class EngineSettingsBackendCheck
             Check(backend.Definitions.All(f=>values.ContainsKey(f.Id)),"every field captures an authoritative runtime value");
             Check(values["binding."+InputSettings.Bindings[0].Name]==$"{ButtonType.Mouse}:{Keys.W}:{MouseButton.Right}","unused key field is preserved in binding snapshot");
             var settings=new SettingsController(backend);
+            foreach(var category in Enum.GetValues<SettingsCategory>())
+            {
+                settings.SelectCategory(category);
+                Check(settings.Groups.Count<=192,category+" groups fit the native navigation");
+                var reachable=new System.Collections.Generic.HashSet<string>();
+                for(int group=0;group<settings.Groups.Count;group++)
+                {
+                    settings.SelectGroup(group);
+                    var first=settings.Snapshot();
+                    Console.WriteLine($"SETTINGS GROUP {category} / {settings.Group}: {first.PageCount} pages");
+                    for(int page=0;page<first.PageCount;page++)
+                    { foreach(var field in settings.Snapshot().Fields)reachable.Add(field.Definition.Id);settings.MovePage(1); }
+                }
+                Check(reachable.SetEquals(backend.Definitions.Where(f=>f.Category==category).Select(f=>f.Id)),category+" grouping retains every setting");
+            }
+            settings.SelectCategory(SettingsCategory.Display);
+            Check(!settings.Set("prefs.MapServiceAddress","not-a-service"),"map service rejects invalid URL");
+            Check(settings.Set("prefs.MapServiceAddress","https://maps.example.test/"),"map service stages in settings draft");
             Check(settings.Set("input.MouseSensitivity","0.37"),"mouse draft accepts production range");
             Check(InputSettings.MouseSensitivity!=.37f,"mouse draft does not mutate runtime");
             Check(settings.Set("pad.gamepad_look_x","1.75"),"controller sensitivity staged");
@@ -44,6 +63,17 @@ public static class EngineSettingsBackendCheck
             Check(bind.Type==ButtonType.Mouse&&bind.Key==Keys.W&&bind.MouseButton==MouseButton.Right,"unmodified exact binding tuple survives apply");
             Check(PadBindings.Preset=="Custom","controller preset survives slot load ordering");
             Check(HudProfiles.CopyCurrent().WeaponCrosshairs.All(c=>c==null)&&HudProfiles.CopyCurrent().ZoomCrosshair==null,"unused crosshair overrides remain null across input saves");
+            Check(File.ReadAllText("map-community.txt")=="https://maps.example.test/","Community uses persisted settings service address");
+            using (var archive = new MemoryStream())
+            {
+                SettingsArchive.Export(fixture,archive,"ui-check");
+                archive.Position=0;
+                using var zip=new System.IO.Compression.ZipArchive(archive,System.IO.Compression.ZipArchiveMode.Read);
+                var service=zip.GetEntry("map-community.txt");
+                Check(service!=null,"Community service is included in settings export");
+                using var reader=new StreamReader(service!.Open());
+                Check(reader.ReadToEnd()=="https://maps.example.test/","settings export preserves the configured service");
+            }
             Check(File.Exists("Savedata/settings.json")&&File.Exists("launcher.txt")&&File.Exists("controls.txt"),"legacy file names are retained");
             settings.Set("prefs.HighContrast","true");settings.Set("prefs.LargeText","true");settings.Set("prefs.TouchTargets","true");
             Check(settings.Apply()&&LauncherPrefs.HighContrast&&LauncherPrefs.LargeText&&LauncherPrefs.TouchTargets&&File.ReadAllText("launcher.txt").Contains("high_contrast=true"),"native accessibility preferences use the existing authoritative launcher store");
@@ -71,7 +101,7 @@ public static class EngineSettingsBackendCheck
             var detached=backend.DraftHud(settings.Draft);string savedBase=detached.BasePreset;
             detached.Name="Detached editor";detached.BasePreset=savedBase=="Classic"?"Project Prime":"Classic";
             Check(settings.StageSnapshot(backend.StageHud(settings.Draft,detached))&&HudProfiles.CopyCurrent().Name!="Detached editor","HUD editor handoff remains detached until Apply");
-            settings.SelectCategory(SettingsCategory.Display);settings.RevertCategory();
+            settings.SelectCategory(SettingsCategory.Hud);settings.RevertCategory();
             Check(!settings.Dirty&&backend.DraftHud(settings.Draft).BasePreset==savedBase,"category revert restores full HUD carrier including preset metadata");
             string style=backend.Definitions.First(f=>f.Id=="legacy.CrosshairStyle").Choices.First(v=>v!=settings.Draft["legacy.CrosshairStyle"]);
             settings.Set("legacy.CrosshairStyle",style);

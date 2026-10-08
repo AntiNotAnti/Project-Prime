@@ -93,6 +93,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Presenters
                 Enabled("hunter_team" + index, local != null && presentation!.CanAssignTeam(local.Player.Slot, (sbyte)index));
                 Bool($"class:hunter_team{index}:selected", local?.Player.Team == index);
             }
+            Bool("visible:hunter_spectator", lobby != null);
+            Bool("visible:hunter_team_next", local?.CanChangeTeam == true);
+            Bool("visible:hunter_team_state", lobby != null);
             Enabled("hunter_team_next", local?.CanChangeTeam == true);
             Enabled("hunter_apply", state.CanApplyIdentity && !state.IdentityPending);
             Enabled("hunter_cosmetics_save", state.CanEquip);

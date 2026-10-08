@@ -53,7 +53,7 @@ internal static partial class Shell
         LauncherPrefs.Load();
         _nativeCapturePageApplied = false;
         _nativeCommandLineRouteApplied = false;
-        _nativeInitialSetupApplied = false;
+        _nativeInitialSetupApplied = false; _nativeSplashShown = false;
         if (!RmlUiPrototype.CaptureRequested && !LauncherUiPerformance.Enabled) SocialRuntime.Start();
         _settings = GameState.LoadSettings();
         Mods.GameSettings.Apply(_settings);
@@ -258,7 +258,7 @@ internal static partial class Shell
             case "play:next-map": controller.NextMap(); break;
             case "play:next-mode": controller.NextMode(); break;
             case "play:toggle-host": controller.ToggleHost(); break;
-            case "play:create": controller.Create(RmlUiPrototype.ReadFieldValue("play_create_name"), RmlUiPrototype.ReadFieldValue("play_create_player_name")); break;
+            case "play:create": controller.Create(RmlUiPrototype.ReadFieldValue("play_create_name"), LauncherPrefs.PlayerName); break;
             case "play:join": controller.JoinEndpoint(RmlUiPrototype.ReadFieldValue("play_join_address"), spectate: false); break;
             default:
                 if (command.StartsWith("play:server:", StringComparison.Ordinal) && Int32.TryParse(command["play:server:".Length..], out int index)) controller.JoinSelected(index);

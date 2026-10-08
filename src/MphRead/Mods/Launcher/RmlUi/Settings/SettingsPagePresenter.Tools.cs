@@ -46,7 +46,7 @@ internal sealed partial class SettingsPagePresenter
                 var devices=GamepadManager.Devices;
                 int current=devices.ToList().FindIndex(d=>d.DeviceId==GamepadManager.SelectedDeviceId);
                 GamepadManager.SelectDevice(current+1<devices.Count?devices[current+1].DeviceId:null);
-                _backend=new(_menu,_state,_inGame,_players);_controller=new(_backend);_controller.SelectCategory(SettingsCategory.Controls);
+                _backend=new(_menu,_state,_inGame,_players);_controller=new(_backend);_controller.SelectCategory(SettingsCategory.Controller);
                 _operationStatus="Selected controller changed.";break;
             case 39:
                 if(!ArchiveReady())return;
@@ -97,7 +97,7 @@ internal sealed partial class SettingsPagePresenter
         // Assign/Unassign replaces the selected device's Runtime object. A clean
         // Settings transaction must now capture that authoritative replacement.
         _backend=new(_menu,_state,_inGame,_players);_controller=new(_backend);
-        _controller.SelectCategory(SettingsCategory.Controls);_resetNativeFields=true;
+        _controller.SelectCategory(SettingsCategory.Controller);_resetNativeFields=true;
     }
     private static async Task<string> RebuildThumbnails()
     {

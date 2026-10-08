@@ -175,7 +175,8 @@ internal static partial class Shell
                 _nativeNews.Open();
                 break;
         }
-        composition.PresentChrome(composition.Manager.Page);
+        if (composition.Manager.PageKey is not ("splash" or "pause" or "results" or "training-results"))
+            composition.PresentChrome(composition.Manager.Page);
         WireNativePages();
         RmlUiPrototype.Show();
         return true;
@@ -281,6 +282,14 @@ internal static partial class Shell
 
     private static bool HandleNativePageIntent(in RmlUiIntent intent)
     {
+        if (intent.Kind == RmlUiIntentKind.LobbyChatSend && _rmlLobby is { } chatLobby
+            && RmlUiPrototype.Pages is { Suspended: false } chatPages && intent.Document == chatPages.Document)
+        {
+            var result=chatLobby.Dispatch(chatLobby.Intent(LobbyIntentKind.SendChat) with { Text=RmlUiPrototype.Runtime.ReadField(intent.Document,"lobby_chat_input") });
+            if(result.Accepted)RmlUiPrototype.Runtime.SetField(intent.Document,"lobby_chat_input","");
+            chatPages.SetText("lobby_chat_status",result.Accepted?"":result.Message);
+            return true;
+        }
         if (HandleNativeQueue(intent)) return true;
         if (_nativeHunters?.Active == true) { _nativeHunters.Handle(intent); return true; }
         if (_nativeAdmin?.Active == true) { _nativeAdmin.Handle(intent); return true; }
@@ -330,6 +339,12 @@ internal static partial class Shell
             if (play) { composition.SetBool("play_browser_mode", true); EnsureRmlMultiplayer().Open(quickPlay: false); }
             return true;
         }
+        if (route == RmlUiRouteArgument.Training)
+        {
+            bool opened = OpenNativePage(LauncherPage.Offline);
+            if (opened) _nativeOffline?.FocusTraining();
+            return opened;
+        }
         LauncherPage? page = route switch
         {
             RmlUiRouteArgument.Offline => LauncherPage.Offline,
@@ -374,6 +389,7 @@ internal static partial class Shell
         _nativeAdmin?.Update();
         _nativeHunters?.Update();
         if (HasNativePage && RmlUiPrototype.Pages is { } composition)
+            if (composition.Manager.PageKey is not ("splash" or "pause" or "results" or "training-results"))
             composition.PresentChrome(composition.Manager.Page);
         DrainNativePageEffects();
         DrainNativeResultEffects();
@@ -499,6 +515,8 @@ internal static partial class Shell
         for (int index = 0; index + 1 < arguments.Length; index++)
         {
             if (!arguments[index].Equals("-rmluipage", StringComparison.OrdinalIgnoreCase)) continue;
+            if (arguments[index + 1].Equals("splash", StringComparison.OrdinalIgnoreCase))
+            { RmlSplashPage.Open(RmlUiPrototype.Runtime,RmlUiPrototype.Pages!); return; }
             if (arguments[index + 1].Equals("hud", StringComparison.OrdinalIgnoreCase))
             { OpenNativePage(LauncherPage.Settings); OpenNativeHud(); return; }
             if (!LauncherRouteCatalog.TryParse(arguments[index + 1], out LauncherRoute route))

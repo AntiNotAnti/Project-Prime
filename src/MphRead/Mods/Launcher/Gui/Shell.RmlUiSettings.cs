@@ -1,5 +1,6 @@
 #if MPHREAD_RMLUI_POC && !ANDROID
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using MphRead.Mods.Input;
 using MphRead.Mods.Launcher.Core;
@@ -18,7 +19,7 @@ internal static partial class Shell
     private static HudEditorController? _nativeHudController;
     private static bool _nativeSettingsInGame, _nativeHudPointer;
     private static SetupPagePresenter? _nativeSetup;
-    private static bool _nativeInitialSetupApplied;
+    private static bool _nativeInitialSetupApplied, _nativeSplashShown;
     private static NativeUpdateMonitor? _nativeUpdates;
     private static Task? _nativePostSetupPreviews;
     internal static bool NativeKeyCaptureActive => _nativeSettings?.IsCapturingInput == true;
@@ -105,6 +106,17 @@ internal static partial class Shell
     private static void EnsureNativeStartupSetup()
     {
         if (_nativeInitialSetupApplied || !RmlUiPrototype.Active) return;
+        if (RmlUiPrototype.Pages is { } composition)
+        {
+            if (composition.Manager.PageKey == "splash") { RmlUi.Presenters.RmlSplashPage.Layout(RmlUiPrototype.Runtime,composition); return; }
+            if (!_nativeSplashShown && !RmlUiPrototype.CaptureRequested && !LauncherUiPerformance.Enabled
+                && !_nativeCommandLineRouteApplied)
+            {
+                _nativeSplashShown = true;
+                RmlUi.Presenters.RmlSplashPage.Open(RmlUiPrototype.Runtime,composition);
+                return;
+            }
+        }
         _nativeInitialSetupApplied = true;
         if (!GameFiles.Ready && !RmlUiPrototype.CaptureRequested) OpenNativeSetupPage(required: true);
     }

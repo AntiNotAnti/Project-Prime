@@ -33,7 +33,6 @@ public sealed class CommunityPagePresenter : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _page = _pages.OpenPage(new("community", "pages/community/browser.rml", "community_search"));
-        _host.SetField(_page, "community_address", _controller.Snapshot().Address);
         _host.SetField(_page, "community_search", "");
         _presented = null; _controller.Refresh(); Refresh();
     }
@@ -45,7 +44,7 @@ public sealed class CommunityPagePresenter : IDisposable
         switch (intent.Kind)
         {
             case RmlUiIntentKind.CommunityRefresh:
-                if (_controller.SetAddress(_host.ReadField(_page, "community_address", AddressBytes)).Accepted) _controller.Refresh();
+                _controller.Refresh();
                 break;
             case RmlUiIntentKind.CommunityTab: _controller.SetTab((CommunityTab)intent.Argument); break;
             case RmlUiIntentKind.CommunitySort: _controller.SetSort((CommunitySort)intent.Argument); break;
@@ -116,7 +115,7 @@ public sealed class CommunityPagePresenter : IDisposable
         var b = new Dictionary<string, RmlUiBindingValue>();
         Text(b, "community_status", s.State + " // " + s.Status);
         Text(b, "community_error", s.Error);
-        Text(b, "community_count", s.Total == 0 ? "No maps match this view." : $"{s.First}–{Math.Min(s.First + 7, s.Total)} of {s.Total} maps");
+        Text(b, "community_count", s.Total == 0 ? "No maps match this view." : $"{s.First}–{Math.Min(s.First + CommunityController.PageSize - 1, s.Total)} of {s.Total} maps");
         Text(b, "community_title", s.Title); Text(b, "community_detail", s.Detail);
         Text(b, "community_detail_2", s.Favorited ? "REMOVE FAVORITE" : "ADD FAVORITE");
         Text(b, "community_transfer", Transfer(s.Progress));

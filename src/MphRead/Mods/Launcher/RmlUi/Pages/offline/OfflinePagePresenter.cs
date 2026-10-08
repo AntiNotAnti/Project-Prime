@@ -25,7 +25,7 @@ public sealed class OfflinePagePresenter : IDisposable
     private string _arenaSearch = "";
     private int _arenaOffset, _arenaCount;
     private OfflineArenaSnapshot[] _arenaRows = Array.Empty<OfflineArenaSnapshot>();
-    private bool _disposed;
+    private bool _disposed, _trainingOnly;
     public RmlUiDocumentToken Document => _page;
     public OfflineController Controller => _controller;
 
@@ -38,11 +38,25 @@ public sealed class OfflinePagePresenter : IDisposable
         _page = _pages.OpenPage(new("offline", "pages/offline/setup.rml", "offline_arena"));
         _presentedRevision = -1;
         Refresh();
+        PresentActivity();
     }
 
-    public bool FocusTraining() => !_disposed && _page != default && _pages.Page == _page
-        && _pages.Top == _page && _host.IsVisible(_page) && _host.CurrentInputDocument == _page
-        && _host.FocusDocument(_page, "offline_training_start");
+    private void PresentActivity()
+    {
+        _host.SetBool(_page,"visible:offline_match_panel",!_trainingOnly);
+        _host.SetBool(_page,"visible:offline_training_panel",_trainingOnly);
+        _host.SetText(_page,"offline_heading",_trainingOnly?"AIM LAB":"OFFLINE BATTLE");
+        _host.SetText(_page,"offline_description",_trainingOnly?"Choose a drill and refine your aim and movement.":"Build a local match with bots and custom rules.");
+    }
+
+    public bool FocusTraining()
+    {
+        if (_disposed || _page == default || _pages.Page != _page || _pages.Top != _page) return false;
+        _trainingOnly = true;
+        PresentActivity();
+        _host.Update();
+        return _host.FocusDocument(_page, "offline_training_start");
+    }
 
     public bool HandleAction(in RmlUiIntent intent)
     {

@@ -338,16 +338,16 @@ nav-up: #nav_play; nav-down: #deploy; nav-right: #nav_play;
 nav-up: #activity_selector;
 }
 
-#drawer_quick {
-nav-up: #drawer_close; nav-down: #drawer_browser;
+#drawer_training {
+nav-up: #drawer_browser; nav-down: #drawer_offline;
 }
 
 #drawer_browser {
-nav-up: #drawer_quick; nav-down: #drawer_offline;
+nav-up: #drawer_close; nav-down: #drawer_training;
 }
 
 #drawer_offline {
-nav-up: #drawer_browser; nav-down: #drawer_adventure;
+nav-up: #drawer_training; nav-down: #drawer_adventure;
 }
 
 #drawer_adventure {
@@ -355,7 +355,7 @@ nav-up: #drawer_offline; nav-down: #drawer_close;
 }
 
 #drawer_close {
-nav-down: #drawer_quick;
+nav-down: #drawer_browser;
 }
 
 #hunter_caption {
@@ -647,3 +647,5 @@ border-color: rgba(114,199,255,22%);
     #activity_drawer { padding: 10dp; }
     .drawer_item { min-height: 48dp; }
 }
+
+#hunter_caption { left: 50%; }

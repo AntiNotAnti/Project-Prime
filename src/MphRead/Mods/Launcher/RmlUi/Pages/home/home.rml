@@ -41,35 +41,27 @@
                     <button id="drawer_close" data-action="home:drawer-close">CLOSE</button>
                 </div>
                 <div class="drawer_section">MULTIPLAYER</div>
-                <button id="drawer_quick" class="drawer_item" data-prime-class-selected="activity_index == 0" data-preview="stage-preview:quick" data-action="stage:quick">
+                <button id="drawer_browser" class="drawer_item" data-prime-class-selected="activity_index == 1" data-preview="stage-preview:browser" data-action="stage:browser">
                     <span class="drawer_code">01</span>
                     <span class="drawer_copy">
-                        <span class="drawer_name">QUICK PLAY</span>
-                        <span class="drawer_meta">Automatic public matchmaking</span>
-                    </span>
-                    <span class="drawer_state" data-prime-visible="activity_index == 0" id="visible_activity_index____0_1">ACTIVE</span>
-                    <span class="drawer_arrow">›</span>
-                </button>
-                <button id="drawer_browser" class="drawer_item" data-prime-class-selected="activity_index == 1" data-preview="stage-preview:browser" data-action="stage:browser">
-                    <span class="drawer_code">02</span>
-                    <span class="drawer_copy">
-                        <span class="drawer_name">SERVER BROWSER</span>
+                        <span class="drawer_name">LOBBY BROWSER</span>
                         <span class="drawer_meta">Browse public and private sessions</span>
                     </span>
                     <span class="drawer_state" data-prime-visible="activity_index == 1" id="visible_activity_index____1_1">ACTIVE</span>
                     <span class="drawer_arrow">›</span>
                 </button>
-                <div class="drawer_section">LOCAL</div>
+                <div class="drawer_section">AIM LAB</div><button id="drawer_training" class="drawer_item" data-prime-class-selected="activity_index == 4" data-action="stage:training" data-preview="stage-preview:training"><span class="drawer_code">02</span><span class="drawer_copy"><span class="drawer_name">AIM LAB</span><span class="drawer_meta">Dedicated aim and movement drills</span></span><span id="drawer_training_active" class="drawer_state" data-prime-visible="activity_index == 4">ACTIVE</span><span class="drawer_arrow">&gt;</span></button>
+                    <div class="drawer_section">OFFLINE BATTLE</div>
                 <button id="drawer_offline" class="drawer_item" data-prime-class-selected="activity_index == 2" data-preview="stage-preview:offline" data-action="stage:offline">
                     <span class="drawer_code">03</span>
                     <span class="drawer_copy">
                         <span class="drawer_name">OFFLINE BATTLE</span>
-                        <span class="drawer_meta">Bots, training and custom rules</span>
+                        <span class="drawer_meta">Bots and custom match rules</span>
                     </span>
                     <span class="drawer_state" data-prime-visible="activity_index == 2" id="visible_activity_index____2_1">ACTIVE</span>
                     <span class="drawer_arrow">›</span>
                 </button>
-                <div class="drawer_section">SOLO</div>
+                <div class="drawer_section">ADVENTURE</div>
                 <button id="drawer_adventure" class="drawer_item" data-prime-class-selected="activity_index == 3" data-preview="stage-preview:adventure" data-action="stage:adventure">
                     <span class="drawer_code">04</span>
                     <span class="drawer_copy">
@@ -98,7 +90,7 @@
                 <div class="session_state">SOLO</div>
             </div>
             <div class="session_player">
-                <div class="session_badge">P</div>
+
                 <div class="session_copy">
                     <div class="session_name" data-prime-text="{{player_name}}" id="text_player_name_2" />
                     <div class="session_meta" data-prime-text="{{hunter_name}} // READY" id="text_hunter_name_1" />

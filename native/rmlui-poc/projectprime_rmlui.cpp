@@ -160,7 +160,7 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     struct Mapping { const char* text; PrimeIntentKind kind; int argument; };
     static constexpr Mapping mappings[] = {
         {"route:home", PrimeIntentKind::Navigate, 0}, {"route:play", PrimeIntentKind::Navigate, 1},
-        {"route:offline", PrimeIntentKind::Navigate, 2}, {"route:hunter", PrimeIntentKind::Navigate, 3},
+        {"route:training", PrimeIntentKind::Navigate, 10}, {"route:offline", PrimeIntentKind::Navigate, 2}, {"route:hunter", PrimeIntentKind::Navigate, 3},
         {"route:forge", PrimeIntentKind::Navigate, 4}, {"route:community", PrimeIntentKind::Navigate, 4},
         {"route:theatre", PrimeIntentKind::Navigate, 5}, {"route:settings", PrimeIntentKind::Navigate, 6},
         {"route:news", PrimeIntentKind::Navigate, 7}, {"route:adventure", PrimeIntentKind::Navigate, 8},
@@ -252,8 +252,8 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (const auto& mapping : mappings) if (action == mapping.text) {
         intent.kind = uint32_t(mapping.kind); intent.argument = mapping.argument; return true;
     }
-    const char* stages[] = {"quick", "browser", "offline", "adventure"};
-    for (int index = 0; index < 4; ++index) {
+    const char* stages[] = {"quick", "browser", "offline", "adventure", "training"};
+    for (int index = 0; index < 5; ++index) {
         if (action == std::string("stage:") + stages[index]) {
             intent.kind = uint32_t(PrimeIntentKind::StageSelect); intent.argument = index; return true;
         }
@@ -279,10 +279,10 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 0; index < 4; ++index) if (action == "hunter:preview-mode:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::HunterPreviewMode); intent.argument = index; return true;
     }
-    for (int index = 0; index < 64; ++index) if (index != 15 && action == "settings:action:" + std::to_string(index)) {
+    for (int index = 0; index < 256; ++index) if (index != 15 && action == "settings:action:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::SettingsAction); intent.argument = index; return true;
     }
-    for (int index = 0; index < 9; ++index) if (action == "settings:category:" + std::to_string(index)) {
+    for (int index = 0; index < 13; ++index) if (action == "settings:category:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::SettingsCategory); intent.argument = index; return true;
     }
     for (int index = 1; index < 4; ++index) if (action == "adventure:slot:" + std::to_string(index)) {

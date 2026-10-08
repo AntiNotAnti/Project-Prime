@@ -7,8 +7,9 @@
 <body template="prime-shell">
     <div id="offline_page" class="offline_page">
         <div id="offline_eyebrow" class="eyebrow">OPERATIONS // OFFLINE</div>
-        <h1 id="offline_heading">OFFLINE MATCH SETUP</h1>
-        <p id="offline_description">Configure a local match, train your aim, or continue an Adventure run.</p>
+        <h1 id="offline_heading">OFFLINE BATTLE</h1>
+        <p id="offline_description">Build a local match with bots and custom rules.</p>
+        <button id="offline_back" class="offline_back" data-action="route:home">BACK TO PLAY</button>
         <div id="offline_availability" class="offline_notice" />
         <div id="offline_error" class="offline_error" />
         <div id="offline_columns" class="offline_columns">
@@ -27,7 +28,7 @@
                 <button id="offline_start" class="offline_action primary" data-action="offline:launch-match">INITIATE BOT SIMULATION</button>
             </div>
             <div id="offline_training_panel" class="offline_panel">
-                <h2 id="offline_training_heading">AIM TRAINER</h2>
+                <h2 id="offline_training_heading">AIM LAB</h2>
                 <p id="offline_training_description">Timed Flick requires a hit within 1.5 seconds. Multi Target Flick uses four or five ground and elevated targets.</p>
                 <button class="offline_choice" data-action="offline:choice:7"><span>HUNTER</span><b id="offline_training_hunter_value" /></button>
                 <button class="offline_choice" data-action="offline:choice:8"><span>DRILL</span><b id="offline_drill_value" /></button>
@@ -37,9 +38,6 @@
                 <button class="offline_choice" data-action="offline:choice:12"><span>MOVEMENT</span><b id="offline_movement_value" /></button>
                 <button id="offline_training_options" class="offline_action" data-action="offline:open-training-options">ADVANCED TRAINING OPTIONS</button>
                 <button id="offline_training_start" class="offline_action primary" data-action="offline:launch-training">INITIATE TRAINING</button>
-                <h2 id="offline_adventure_heading">ADVENTURE RUNS</h2>
-                <p id="offline_adventure_description">Explore the Alimbic Cluster and recover the Octoliths.</p>
-                <button class="offline_action" data-action="route:adventure">OPEN ADVENTURE SAVES</button>
             </div>
         </div>
     </div>

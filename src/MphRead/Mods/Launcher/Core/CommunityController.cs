@@ -63,7 +63,7 @@ public sealed class CommunityController : IDisposable
         Verify();
         if (_cached?.Revision == _revision) return _cached;
         var maps = Filtered();
-        _offset = Math.Min(_offset, Math.Max(0, (maps.Length - 1) / 8 * 8));
+        _offset = Math.Min(_offset, Math.Max(0, (maps.Length - 1) / PageSize * PageSize));
         _revisionOffset = Math.Min(_revisionOffset, Math.Max(0, (_revisions.Length - 1) / 8 * 8));
         var package = _package;
         string installed = package == null ? "" : _backend.Installed(package.MapId) is not { } identity ? "Not installed"
@@ -88,11 +88,11 @@ public sealed class CommunityController : IDisposable
                     + (_publication.Existing == null ? "New Community map" : "Based on latest revision " + _publication.Existing.LatestRevision.RevisionNumber),
             CanPublish = _publication != null && _publishRequest != null && !_busy && _publication.Existing?.DeletedAt == null,
             Conflict = _conflict?.Message ?? "", ConflictCode = _conflict?.Code ?? "",
-            First = maps.Length == 0 ? 0 : _offset + 1, Total = maps.Length, PreviousPage = _offset > 0, NextPage = _offset + 8 < maps.Length,
+            First = maps.Length == 0 ? 0 : _offset + 1, Total = maps.Length, PreviousPage = _offset > 0, NextPage = _offset + PageSize < maps.Length,
             RevisionFirst = _revisions.Length == 0 ? 0 : _revisionOffset + 1, RevisionTotal = _revisions.Length,
             PreviousRevisionPage = _revisionOffset > 0, NextRevisionPage = _revisionOffset + 8 < _revisions.Length,
             Progress = _progress,
-            Maps = maps.Skip(_offset).Take(8).Select(p => new CommunityMapRow(p.MapId, p.DisplayName ?? p.Name,
+            Maps = maps.Skip(_offset).Take(PageSize).Select(p => new CommunityMapRow(p.MapId, p.DisplayName ?? p.Name,
                 (p.Author ?? "Unknown author") + " // " + Lifecycle(p) + " // " + Visibility(Presentation(p))
                     + " // Revision " + PresentationRevision(p).RevisionNumber + " // " + Presentation(p).FavoriteCount + " favorites"
                     + (_backend.Installed(p.MapId)?.PackageHash.ToString() == Presentation(p).Hash ? " // Installed" : ""), p.MapId == _selected?.MapId)).ToImmutableArray(),
@@ -131,7 +131,8 @@ public sealed class CommunityController : IDisposable
     public void SetSort(CommunitySort sort) { Verify(); if (Enum.IsDefined(sort)) { _sort = sort; _offset = 0; Touch(); } }
     public void SetLifecycle(CommunityLifecycle lifecycle) { Verify(); if (Enum.IsDefined(lifecycle)) { _lifecycle = lifecycle; _offset = 0; Touch(); } }
     public void Search(string query) { Verify(); _search = query.Trim(); _offset = 0; Touch(); }
-    public void Page(int direction) { Verify(); if (direction is -1 or 1) { _offset = Math.Max(0, _offset + direction * 8); Touch(); } }
+    public const int PageSize = 4;
+    public void Page(int direction) { Verify(); if (direction is -1 or 1) { _offset = Math.Max(0, _offset + direction * PageSize); Touch(); } }
     public void RevisionPage(int direction) { Verify(); if (direction is -1 or 1) { _revisionOffset = Math.Max(0, _revisionOffset + direction * 8); Touch(); } }
     public CommunityActionResult SelectRow(int index, long expectedRevision)
     {

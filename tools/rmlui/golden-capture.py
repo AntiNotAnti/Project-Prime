@@ -25,7 +25,7 @@ SIZES = {
 CASES = [(f'home-{name}-density{density}', 'home', size, density)
     for name, size in SIZES.items() for density in (1, 2)]
 CASES += [(f'{route}-{name}-density2', route, SIZES[name], 2)
-    for route in ('news', 'settings') for name in ('720p-small', '1440p')]
+    for route in ('news', 'settings', 'hunters', 'community', 'splash', 'offline') for name in ('720p-small', '1440p')]
 
 
 def digest(path):
