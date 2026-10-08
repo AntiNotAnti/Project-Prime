@@ -118,6 +118,7 @@ jobs:
               # (CLAUDE.md), so that is the first tag whichever bump was asked
               # for -- a "patch" off an imagined v0.0.0 would give v0.0.1.
               TAG=v0.1.0
+              IFS=. read -r MAJOR MINOR PATCH <<< "${TAG#v}"
               echo "No release tag exists yet; starting at $TAG."
             else
               IFS=. read -r MAJOR MINOR PATCH <<< "${LATEST#v}"
