@@ -336,7 +336,10 @@ internal static partial class Shell
     }
     private static void EndNetworkMatchToLobby(RenderWindow window)
     {
-        _matchLoading = false; CloseMenu(); window.EndScene(); MatchStart.AfterMatch();
+        _matchLoading = false;
+        RetireNativePages();
+        CloseMenu(); window.EndScene(); MatchStart.AfterMatch();
+        _played = null;
         NetSession.ResetMatchState(); PauseMenu.Reset();
         if (_rmlLobby is not { } lobby) { EndMatch(window); return; }
         lobby.Resume(); lobby.TransferPumpOwnership(LobbyPumpOwner.Native);

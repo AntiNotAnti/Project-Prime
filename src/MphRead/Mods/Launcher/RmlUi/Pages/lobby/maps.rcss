@@ -7,3 +7,13 @@ button:hover, button:focus { background-color: #225778; border-color: #a7e5ff; }
 .map_card { width: 31%; height: 46%; margin: 0dp 1% 1%; padding: 8dp; display: flex; flex-direction: column; }
 .map_card img { width: 100%; height: 68%; } .map_card b { font-size: 16dp; margin-top: 4dp; } .map_card span { font-size: 12dp; color: #83c5eb; }
 #map_pager { display: flex; align-items: center; justify-content: center; } #map_page { margin: 0dp 20dp; }
+
+#map_categories { display: flex; margin: 8dp 0dp 12dp; }
+#map_categories button { margin-right: 8dp; min-width: 120dp; }
+#map_categories .selected { background-color: #225778; border-bottom: 3dp #82daff; }
+#map_grid { height: 65%; }
+.map_art { position: relative; width: 100%; height: 68%; background-color: #091d2b; }
+.map_art img { width: 100%; height: 100%; }
+#map_empty { position: absolute; left: 25dp; top: 44%; color: #a7c7dd; }
+
+.map_art_label { position: absolute; left: 0dp; top: 43%; width: 100%; text-align: center; font-size: 10dp; color: #6b8ca5; letter-spacing: 1dp; }

@@ -150,27 +150,15 @@ void main()
     col += activity_secondary * (leftBrace + rightBrace) * braceGate
         * 0.092 * structure_amount;
 
-    // Technical light rail: a dark recessed channel first, then the segmented
-    // emitters. The channel makes the upper blocks feel installed in the room
-    // instead of floating over the backdrop.
-    float railChannel = box_mask(uv, vec2(0.335, 0.185), vec2(0.845, 0.255), 0.010);
-    col = mix(col, base_bottom * 0.38, railChannel * 0.76);
-    float railSpine = box_mask(uv, vec2(0.345, 0.211), vec2(0.835, 0.222), 0.004);
-    col += activity_accent * railSpine * 0.028 * structure_amount;
-    float railBand = box_mask(uv, vec2(0.36, 0.20), vec2(0.82, 0.24), 0.008);
-    float railPattern = step(0.58, fract(uv.x * 22.0));
-    col += mix(activity_secondary, hunter_rim, 0.30) * railBand * railPattern
-        * (0.095 + 0.10 * energy);
-
     // A very slow light sweep crosses only the distant architecture. Reduce
     // Motion supplies time_value == 0, which freezes this at a stable position.
     float sweepCenter = time_value > 0.0
-        ? mod(time_value * 0.018, 1.16) - 0.08
+        ? mod(time_value * 0.045, 1.16) - 0.08
         : 0.53;
     float wallSweep = 1.0 - smoothstep(0.015, 0.095, abs(uv.x - sweepCenter));
     float wallSweepGate = box_mask(uv, vec2(0.29, 0.27), vec2(0.91, 0.70), 0.035);
     col += vec3(0.17, 0.25, 0.32) * wallSweep * wallSweepGate
-        * 0.034 * energy * structure_amount;
+        * 0.24 * energy * structure_amount;
 
     // Operational pulse travels through the architectural seam, not over the
     // model. Activity-specific intensity/speed makes browser, training, and
@@ -321,7 +309,7 @@ void main()
     if (time_value > 0.0)
         fogWave += sin(uv.x * 8.0 + time_value * 0.18) * 0.10;
     vec3 fogColor = mix(activity_accent, vec3(0.16, 0.24, 0.31), 0.58);
-    col = mix(col, fogColor, lowFog * fog_amount * 0.10 * fogWave);
+    col = mix(col, fogColor, lowFog * fog_amount * 0.16 * fogWave);
 
     // Local rear haze sits under the model pass, so it gives the legs depth
     // while the Hunter itself remains crisp and materially neutral.
@@ -330,24 +318,15 @@ void main()
     col = mix(col, rearFogColor,
         rearLegFog * fog_amount * (0.045 + 0.020 * energy));
 
-    // Soft moving light shafts and a segmented reactor halo add depth behind
+    // Soft moving light shafts add depth behind
     // the hero. All animation uses the same reduced-motion-aware clock.
-    float drift = sin(time_value * 0.14) * 0.015;
+    float drift = sin(time_value * 0.23) * 0.040;
     float shafts = exp(-pow((uv.x - 0.36 - drift + uv.y * 0.07) * 29.0, 2.0))
         + exp(-pow((uv.x - 0.66 + drift - uv.y * 0.05) * 34.0, 2.0));
     float reactorShaftGate = smoothstep(0.18, 0.30, uv.y) * (1.0 - smoothstep(0.64, 0.84, uv.y));
-    col += mix(activity_secondary, hunter_rim, 0.38) * shafts * reactorShaftGate * 0.17 * energy;
-    vec2 haloUv = vec2((uv.x - stageHeroX) * aspect, (uv.y - 0.46));
-    float haloRadius = length(haloUv);
-    float haloAngle = atan(haloUv.y, haloUv.x);
-    float haloRing = 1.0 - smoothstep(0.0015, 0.004, abs(haloRadius - 0.275));
-    float haloGlow = exp(-abs(haloRadius - 0.275) * 90.0);
-    float haloSegments = smoothstep(0.1, 0.5, sin(haloAngle * 12.0 + time_value * 0.08));
-    col += mix(activity_accent, hunter_halo, 0.76)
-        * (haloRing * haloSegments * 0.30 + haloGlow * 0.075) * energy;
-
+    col += mix(activity_secondary, hunter_rim, 0.38) * shafts * reactorShaftGate * 0.34 * energy;
     // Slowly rising energy dust, with a soft halo around each bright core.
-    vec2 dustUv = uv + vec2(sin(time_value * 0.09) * 0.008, time_value * 0.006);
+    vec2 dustUv = uv + vec2(sin(time_value * 0.09) * 0.008, time_value * 0.014);
     vec2 cells = floor(dustUv * vec2(64.0, 36.0));
     vec2 cellUv = fract(dustUv * vec2(64.0, 36.0)) - 0.5;
     float seed = hash21(cells);
@@ -358,7 +337,7 @@ void main()
     if (time_value > 0.0)
         twinkle += 0.25 * sin(time_value * (0.7 + seed) + seed * 18.0);
     col += mix(activity_secondary, hunter_rim, 0.45)
-        * mote * sparkle * twinkle * particle_amount * 0.60;
+        * mote * sparkle * twinkle * particle_amount * 1.15;
 
     // Adventure can warm the distance without recoloring the Hunter itself.
     col = mix(col, col * vec3(1.10, 0.97, 0.84), warmth * 0.30);

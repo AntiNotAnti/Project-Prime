@@ -24,7 +24,7 @@ internal static class NativeThemeCheck
             Check(panel.Y>=top.Y+top.H-1&&panel.Y+panel.H<=footer.Y+1,"Home activity viewport stays between chrome");
             foreach(int language in Enumerable.Range(0,6)) {
                 RmlUiChromeLocalization.Apply(host,doc,language);host.Update();
-                foreach(string id in new[]{"nav_hunters","profile","footer_social","footer_settings","footer_quit"}) {
+                foreach(string id in new[]{"nav_hunters","profile","header_settings","footer_quit"}) {
                     var b=Bounds(id);Check(b.X>=-1&&b.X+b.W<=viewport.Item1+1,"localized chrome within viewport "+id);
                 }
             }
@@ -48,8 +48,8 @@ internal static class NativeThemeCheck
                 }
                 Check(correct,"actual native primary navigation highlight follows "+route+" contrast="+contrast);
             }
-            var social=Bounds("footer_social");host.Input.PointerMoved(social.X+social.W/2,social.Y+social.H/2);host.Input.PointerButton(0,social.X+social.W/2,social.Y+social.H/2,true);host.Input.PointerButton(0,social.X+social.W/2,social.Y+social.H/2,false);host.Update();
-            Check(host.TryTakeIntent(out var action)&&RmlUiIntentRegistry.ToLegacy(action)=="route:social","real compact Social footer pointer action");
+            var social=Bounds("header_settings");host.Input.PointerMoved(social.X+social.W/2,social.Y+social.H/2);host.Input.PointerButton(0,social.X+social.W/2,social.Y+social.H/2,true);host.Input.PointerButton(0,social.X+social.W/2,social.Y+social.H/2,false);host.Update();
+            Check(host.TryTakeIntent(out var action)&&RmlUiIntentRegistry.ToLegacy(action)=="route:settings","real compact Settings header pointer action");
             var hunter=Bounds("nav_hunters");host.Input.PointerMoved(hunter.X+hunter.W/2,hunter.Y+hunter.H/2);host.Input.PointerButton(0,hunter.X+hunter.W/2,hunter.Y+hunter.H/2,true);host.Input.PointerButton(0,hunter.X+hunter.W/2,hunter.Y+hunter.H/2,false);host.Update();
             Check(host.TryTakeIntent(out action)&&action.Kind==RmlUiIntentKind.HunterOpen,"shared HUNTERS opens actual Hunter selection");
             if(viewport.Item2/viewport.Item3<=480) {
@@ -59,7 +59,7 @@ internal static class NativeThemeCheck
                 Check(after.Y<=before.Y,"short Home scroll preserves ordered activity flow");
             }
             RmlUiVisualPolicy.Apply(host,doc,new(true,true,true,true));host.Update();
-            Check(Bounds("footer_social").H>=48*viewport.Item3,"touch policy supplies48dp Social target");
+            Check(Bounds("header_settings").H>=48*viewport.Item3,"touch policy supplies48dp Settings target");
             Check(Bounds("nav_hunters").H>=48*viewport.Item3,"touch policy supplies48dp Hunter target");
             host.Render(viewport.Item1,viewport.Item2);
             Check(DrawFeatures()==0,"shared theme renders without unsupported layer/filter/shader features");
