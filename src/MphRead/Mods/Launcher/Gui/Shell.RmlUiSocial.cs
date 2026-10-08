@@ -48,7 +48,9 @@ internal static partial class Shell
             RmlUiPrototype.SetMenuText("home_feature_title", _homeFeaturedDispatch?.Title ?? "");
             RmlUiPrototype.SetMenuText("home_feature_summary", _homeFeaturedDispatch?.Summary ?? "");
 
-            int shownFriends = summary.DirectoryLoaded && !summary.Friends.IsDefault
+            // Presence starts with the launcher; the friends-directory snapshot is lazy
+            // and must not gate real online friend previews before Social is opened.
+            int shownFriends = SocialPresenceClient.Running && !summary.Friends.IsDefault
                 ? Math.Min(3, summary.Friends.Length) : 0;
             bool hasAlerts = summary.UnreadCount > 0 || summary.TravelPending;
             RmlUiPrototype.SetMenuBool("home_social_rail_visible",
