@@ -108,8 +108,8 @@ jobs:
             echo "Building the existing tag $TAG."
           elif [ "${BUMP:-none}" != none ]; then
             # Bump from actual releases, not bare tag refs. A failed release can
-            # leave its workflow-created tag behind before any Release exists; counting
-            # that orphan would burn a version number on every retry.
+            # leave an orphan before any Release exists. Retry the same tag for
+            # the same commit, but skip the orphan when packaging newer source.
             LATEST=$(gh api "repos/$REPO/releases" --paginate --jq '.[].tag_name' 2>/dev/null \
               | grep -E "$RELEASE_TAG" \
               | sort -V | tail -1 || true)
@@ -175,10 +175,10 @@ jobs:
             exit 1
           fi
 
-          # A failed workflow can leave its tag behind. Rebuild that exact
-          # commit on retry; never force-move an existing tag. In particular,
-          # a failed Release API lookup must not be interpreted as permission
-          # to retarget something that may already be published.
+          # A failed workflow can leave its tag behind. Reuse it only for
+          # the same exact source commit; never force-move an existing tag.
+          # A failed Release API lookup is never permission to retarget a tag
+          # that may already have been published.
           if [ "$CREATE_TAG" = true ]; then
             if gh api "repos/$REPO/git/ref/tags/$TAG" >/dev/null 2>&1; then
               EXISTING_SHA=$(gh api "repos/$REPO/commits/$TAG" --jq .sha)
