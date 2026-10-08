@@ -12,6 +12,15 @@ internal static partial class Shell
 #endif
             ) _front?.BeginPerformanceHome();
 #endif
+        if (LauncherUiPerformance.Enabled && _performanceTrace)
+        {
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            if (_lastPerformanceTrace == 0 || System.Diagnostics.Stopwatch.GetElapsedTime(_lastPerformanceTrace, now).TotalSeconds >= 5)
+            {
+                _lastPerformanceTrace = now;
+                System.Console.WriteLine($"[ui-perf] present heartbeat home={PerformanceHomeReadyState(window)} visible={UiVisible} scene={window.HasScene}");
+            }
+        }
         string? path = LauncherUiPerformance.TakeWarmupScreenshotPath();
         if (path is null) return;
         try
@@ -34,7 +43,15 @@ internal static partial class Shell
 #if MPHREAD_RMLUI_POC
         _nativeSettings?.ObservePresentedFrame(presented && RmlUiPrototype.Visible && !RmlUiPrototype.Failed);
 #endif
-        if (!presented) return;
+        if (!presented)
+        {
+            if (LauncherUiPerformance.Enabled && _performanceTrace && !_reportedFailedPerformancePresent && _lastPerformanceHomeReady == true)
+            {
+                _reportedFailedPerformancePresent = true;
+                System.Console.WriteLine("[ui-perf] surface presentation failed after verified Home");
+            }
+            return;
+        }
         if (UiVisible)
             LauncherUiRuntime.ObservePresented(
 #if MPHREAD_RMLUI_POC
@@ -55,7 +72,32 @@ internal static partial class Shell
         if (LauncherUiPerformance.ExitRequested) RequestQuit();
     }
 
+    private static readonly bool _performanceTrace = System.Environment.GetEnvironmentVariable("PROJECT_PRIME_UI_PERF_TRACE") == "1";
+    private static long _lastPerformanceTrace;
+    private static bool _reportedFailedPerformancePresent;
+    private static bool? _lastPerformanceHomeReady;
     private static bool PerformanceHomeReady(RenderWindow window)
+    {
+        bool ready = PerformanceHomeReadyState(window);
+        if (_lastPerformanceHomeReady != ready)
+        {
+            _lastPerformanceHomeReady = ready;
+            string state = $"visible={UiVisible} scene={window.HasScene}";
+#if MPHREAD_RMLUI_POC
+            var pages = RmlUiPrototype.Pages;
+            state += $" native={RmlUiPrototype.Visible} failed={RmlUiPrototype.Failed} setup={_nativeSetup != null}"
+                + $" page={pages?.Manager.PageKey} modals={pages?.Manager.ModalCount}"
+                + $" inputIsPage={pages != null && RmlUiPrototype.Runtime.CurrentInputDocument == pages.Manager.Page}";
+#endif
+#if MPHREAD_AVALONIA
+            state += $" legacy={UiSurface.Current?.Visible == true} legacyHome={_front?.PerformanceHomeReady == true}";
+#endif
+            System.Console.WriteLine($"[ui-perf] Home eligibility {ready}: {state}");
+        }
+        return ready;
+    }
+
+    private static bool PerformanceHomeReadyState(RenderWindow window)
     {
         if (!UiVisible || window.HasScene) return false;
 #if MPHREAD_RMLUI_POC

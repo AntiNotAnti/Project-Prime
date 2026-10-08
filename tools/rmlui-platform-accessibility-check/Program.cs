@@ -40,6 +40,8 @@ try {
         throw new InvalidOperationException("missing node "+id);
     }
     var email = Find("email");var password = Find("password");var save = Find("save");
+    Check((provider.Provider.ProviderOptions&16)==0,"UIA owns native HWND focus before fragment focus");
+    Check((email.ProviderOptions&16)==0,"child fragment does not claim HWND focus ownership");
     Check(provider.ElementCount == service.Snapshot.Nodes.Count,"real immutable native controls exposed");
     Check((string?)email.GetPropertyValue(30005)=="Email address","real field label");
     Check((int?)email.GetPropertyValue(30003)==50004,"UIA Edit control mapping");

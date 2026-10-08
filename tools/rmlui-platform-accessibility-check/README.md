@@ -5,7 +5,9 @@ checks the real RmlUi semantic snapshot and guarded actions through the Windows
 provider contract with an injectable HWND seam. It covers Unicode writes, actual
 native focus and typed button intents, readonly/disabled controls, modal and
 revision retirement, screen bounds, worker callbacks, failed HWND uninstall,
-and 100 attach/detach lifetimes. The current fixture passes **150 assertions**.
+and 100 attach/detach lifetimes. The current fixture passes **152 assertions**,
+including checks that UIA retains HWND focus ownership; the provider queues the
+fragment's internal focus only.
 
 On Linux, or macOS with the optional Homebrew GLib libraries, the same command
 also parses the standard AT-SPI introspection through actual GIO and checks the
@@ -53,6 +55,7 @@ Primary interface sources:
 
 - [Microsoft server-side provider contract](https://learn.microsoft.com/en-us/windows/win32/winauto/uiauto-serversideprovider)
 - [Microsoft asynchronous Invoke contract](https://learn.microsoft.com/en-us/windows/win32/api/uiautomationcore/nf-uiautomationcore-iinvokeprovider-invoke)
+- [Microsoft HWND and fragment focus ownership](https://learn.microsoft.com/en-us/windows/win32/api/uiautomationcore/nf-uiautomationcore-irawelementproviderfragment-setfocus)
 - [Microsoft HWND provider lifetime](https://learn.microsoft.com/en-us/windows/win32/api/uiautomationcoreapi/nf-uiautomationcoreapi-uiareturnrawelementprovider)
 - [Windows SDK COM interface definitions](https://github.com/microsoft/win32metadata/blob/main/generation/WinSDK/RecompiledIdlHeaders/um/UIAutomationCore.idl)
 - [GNOME AT-SPI standard D-Bus XML](https://github.com/GNOME/at-spi2-core/tree/main/xml)

@@ -14,12 +14,23 @@ parser.add_argument('--seconds',type=int,default=20)
 args=parser.parse_args()
 if not 3<=args.runs<=10 or not 5<=args.seconds<=120:parser.error('Use 3..10 runs and 5..120 sample seconds.')
 args.out.mkdir(parents=True,exist_ok=True)
+def asset_digest(root):
+ digest=hashlib.sha256()
+ for path in sorted(root.rglob('*')):
+  if path.is_file():
+   digest.update(path.relative_to(root).as_posix().encode());digest.update(b'\0');digest.update(path.read_bytes())
+ return digest.hexdigest()
+checkpoints={}
 for path in [args.legacy,args.native]:
  if not path.is_file():parser.error(f'Missing full-build assembly: {path}')
  payload=path.read_bytes()
  if b'homePresentationVerified' not in payload:parser.error(f'{path} lacks verified Home presentation diagnostics; refuse to benchmark a startup/title screen')
  for guard in ['Live account authentication is disabled in UI performance diagnostics.','Live account requests are disabled in UI performance diagnostics.']:
   if guard.encode('utf-16le') not in payload:parser.error(f'{path} lacks mandatory diagnostic account guards; refuse to launch')
+ library=next((path.parent/name for name in ['libProjectPrime.RmlUi.Native.dylib','ProjectPrime.RmlUi.Native.dll','libProjectPrime.RmlUi.Native.so'] if (path.parent/name).is_file()),None)
+ assets=path.parent/'rmlui'
+ if library is None or not assets.is_dir():parser.error(f'{path} lacks its packaged native bridge or authored asset root')
+ checkpoints[path]={'assemblySha256':hashlib.sha256(payload).hexdigest(),'nativeBridgeSha256':hashlib.sha256(library.read_bytes()).hexdigest(),'assetSha256':asset_digest(assets)}
 if not (args.data/'paths.txt').is_file():parser.error('Isolated data fixture must contain paths.txt for real extracted game data.')
 for path in args.data.rglob('*'):
  if path.is_file() and ('session' in path.name.lower() or 'ticket' in path.name.lower()):parser.error('Benchmark fixture must not contain authentication session or ticket files.')
@@ -28,6 +39,7 @@ reports=[]
 for run in range(1,args.runs+1):
  for mode,binary,selection in [('Avalonia',args.legacy,'legacy'),('RmlUi',args.native,'rmlui')]:
   name=f'{mode.lower()}-{args.backend}-{run}'
+  if hashlib.sha256(binary.read_bytes()).hexdigest()!=checkpoints[binary]['assemblySha256']:raise RuntimeError(f'{binary} changed after preflight; refuse mixed checkpoints')
   report=args.out/(name+'.json');log=args.out/(name+'.log')
   report.unlink(missing_ok=True)
   env=dict(os.environ,PROJECT_PRIME_USER_DATA=str(args.data.resolve()),PROJECT_PRIME_UI_PERF=str(report.resolve()),PROJECT_PRIME_UI_PERF_SECONDS=str(args.seconds),PROJECT_PRIME_UI_PERF_EXIT='1',PROJECT_PRIME_UI_PERF_SCREENSHOT=str((args.out/(name+'.png')).resolve()))
@@ -40,7 +52,7 @@ for run in range(1,args.runs+1):
   if value.get('format',0)<2 or value.get('workload')!='Home' or value.get('homePresentationVerified') is not True:raise RuntimeError(f'{name} did not verify its actual Home presentation; reject startup/title workload')
   if value['mode']!=mode:raise RuntimeError(f'{name} selected the wrong UI')
   if value.get('frameRateCap')!=60:raise RuntimeError(f'{name} requires a controlled 60 fps fixture')
-  value['run']=run;value['assemblySha256']=hashlib.sha256(binary.read_bytes()).hexdigest();value['report']=report.name
+  value['run']=run;value.update(checkpoints[binary]);value['report']=report.name
   reports.append(value)
   print(f"{name}: first verified Home present {value['firstPresentationFromProcessStartMs']:.1f}ms; CPU {value['processCpuPercentOfOneCore']:.1f}%; p95UI {value['totalUiFrame']['p95Ms']:.3f}ms",flush=True)
 legacy=[r for r in reports if r['mode']=='Avalonia'];native=[r for r in reports if r['mode']=='RmlUi']

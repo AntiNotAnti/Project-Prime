@@ -48,15 +48,19 @@
       "rid": "android-arm64",
       "configuration": "Debug-check",
       "apk": "/tmp/prime-android-noava/arm64-check-apk/com.projectprime.game-Signed.apk",
-      "sha256": "c323c17382b714f4d064c49926a1fec944c40a50a51eca64add5e1cd7df5c085",
+      "sha256": "2a7f5747bc42b479c109c731b222f518549ac977077eaee3570fbd1f51bf5d8d",
       "managedAssemblies": 226,
       "avaloniaAssemblies": 0,
       "signedApkVerification": "passed",
-      "nativeManifestAndPayloadVerification": "passed for6db checkpoint; final AX slider exact-one refresh pending",
+      "nativeManifestAndPayloadVerification": "passed against current54b source and exact restored assets graph",
       "restoredAvaloniaPackages": 0,
       "apkCartridgeExtractionPaths": [],
-      "nativeSourceFingerprint": "6db876ccc6b13516ad3a145957d5a221655f592cb9737749c51752660ffaedfe",
-      "runAotCompilation": false
+      "nativeSourceFingerprint": "54bdf92e2ae8858de2cbc4ee7861b91ef9a17ba8d69b8443dd6265b7436bc3e6",
+      "runAotCompilation": false,
+      "assetsGraph": "/tmp/prime-android-noava-arm64/MphRead.Android/obj/project.assets.json",
+      "gameAssetGuard": "passed",
+      "currentCheckpoint": true,
+      "publishLog": "/tmp/prime-rmlui-axrange-debug-check-publish.log"
     },
     {
       "rid": "android-arm64",
@@ -75,32 +79,40 @@
       "rid": "android-x64",
       "configuration": "Release",
       "apk": "/tmp/prime-android-noava/x64-release-apk/com.projectprime.game-Signed.apk",
-      "sha256": "4240fecccf1706838147732c77c21ecc2b1e7dc6dfb55801a1dca43f172c0c3b",
+      "sha256": "8899c4357329945f5aef2a030eefb7ae2d4996cc1d9b6861d9efa0980a645ee6",
       "managedAssemblies": 93,
       "avaloniaAssemblies": 0,
       "signedApkVerification": "passed",
-      "nativeManifestAndPayloadVerification": "passed for6db checkpoint; final AX slider exact-one refresh pending",
+      "nativeManifestAndPayloadVerification": "passed against current54b source and exact restored assets graph",
       "restoredAvaloniaPackages": 0,
       "apkCartridgeExtractionPaths": [],
-      "nativeSourceFingerprint": "6db876ccc6b13516ad3a145957d5a221655f592cb9737749c51752660ffaedfe",
+      "nativeSourceFingerprint": "54bdf92e2ae8858de2cbc4ee7861b91ef9a17ba8d69b8443dd6265b7436bc3e6",
       "privateLicenseDtoTrimmerWarnings": 0,
-      "runAotCompilation": true
+      "runAotCompilation": true,
+      "assetsGraph": "/tmp/prime-android-noava-x64/MphRead.Android/obj/project.assets.json",
+      "gameAssetGuard": "passed",
+      "currentCheckpoint": true,
+      "publishLog": "/tmp/prime-rmlui-axrange-release-x64-publish.log"
     },
     {
       "rid": "android-arm64",
       "configuration": "Release-check",
       "apk": "/tmp/prime-android-noava/arm64-release-check-apk/com.projectprime.game-Signed.apk",
-      "sha256": "c34376693508e14647c110b3f3108b101cb90b53911a2c9fa885ef81ca4857a1",
+      "sha256": "ff815a6fac72a1816b0f2d6fe086c32fd18c002db7ca5e583aa60608424eeed3",
       "managedAssemblies": 93,
       "avaloniaAssemblies": 0,
       "signedApkVerification": "passed",
-      "nativeManifestAndPayloadVerification": "passed for6db checkpoint; final AX slider exact-one refresh pending",
-      "nativeSourceFingerprint": "6db876ccc6b13516ad3a145957d5a221655f592cb9737749c51752660ffaedfe",
+      "nativeManifestAndPayloadVerification": "passed against current54b source and exact restored assets graph",
+      "nativeSourceFingerprint": "54bdf92e2ae8858de2cbc4ee7861b91ef9a17ba8d69b8443dd6265b7436bc3e6",
       "restoredAvaloniaPackages": 0,
       "apkCartridgeExtractionPaths": [],
       "privateLicenseDtoTrimmerWarnings": 0,
       "runAotCompilation": false,
-      "trimmed": true
+      "trimmed": true,
+      "assetsGraph": "/tmp/prime-android-noava-arm64/MphRead.Android/obj/project.assets.json",
+      "gameAssetGuard": "passed",
+      "currentCheckpoint": true,
+      "publishLog": "/tmp/prime-rmlui-axrange-release-check-publish.log"
     }
   ],
   "positiveControls": [
@@ -133,11 +145,12 @@
       "Flow": "Real three-bot match \u2192 native pause \u2192 native Settings and system IME \u2192 Back/Resume \u2192 pause \u2192 leave confirmation \u2192 retained launcher."
     },
     "pending": [
-      "HUD canonical accepted-profile fixture confirmation",
-      "Release and Debug real replay validation",
-      "Default cutover current CI/performance gate"
+      "Final54b HUD canonical accepted-profile fixture confirmation",
+      "Final54b Release and Debug real replay validation",
+      "Default cutover current CI/performance gate",
+      "Normal ARM54b Release+AOT signed package refresh after measurement lease"
     ],
-    "nextPackage": "Final54bdf92e CHECKRelease/Debug refresh pending strict native payload; includes canonical HUD acceptance fixture and exact-one semantic range fix.",
+    "nextPackage": "Final54b signed Release and Debug CHECK packages are built and audited; actual final emulator checks remain assigned to platform owner.",
     "frameworkReleaseCheckpoint": {
       "nativeFingerprint": "6db876ccc6b13516ad3a145957d5a221655f592cb9737749c51752660ffaedfe",
       "reports": "artifacts/rmlui-android-proof/release-quiet/runtime-evidence.json",
@@ -146,15 +159,20 @@
         "Input": 13,
         "Accessibility": 16
       },
-      "lifecycle": "Actual trimmed Release unchanged quiet retry and same-process background/resume passed."
+      "lifecycle": "Actual trimmed Release unchanged quiet retry and same-process background/resume passed.",
+      "scope": "Historical6db unchanged trimmed Release framework checkpoint; current54b APK runtime checks remain separate."
     },
-    "physicalDeviceGate": "Waived by the user; no physical-device pass claimed."
+    "physicalDeviceGate": "Waived by the user; no physical-device pass claimed.",
+    "replayHistoricalCheckpoint": {
+      "nativeFingerprint": "6db876ccc6b13516ad3a145957d5a221655f592cb9737749c51752660ffaedfe",
+      "passed": "Platform owner observed actual real recording Play/Pause, +10 second seek, fullscreen and API36 Back returning to retained Home. Final54b replay validation remains separate."
+    }
   },
   "nativeSchedulingRegression": {
     "sourceFingerprint": "54bdf92e2ae8858de2cbc4ee7861b91ef9a17ba8d69b8443dd6265b7436bc3e6",
     "nativeCoreAssertions": 5429,
     "actualManagedNativeScheduleAssertions": 122,
-    "actualDrawListReaderCacheAssertions": 12,
+    "actualDrawListReaderCacheAssertions": 15,
     "behavior": [
       "Authored HUD canvas focus preserves its geometry while ordinary controls retain nearest scrolling.",
       "Optional 40-byte status preserves intent protocol v1 and owner thread rejection.",
@@ -167,7 +185,8 @@
       "baseline6db": "Actual semantic slider edit emitted two seeks; exact-one test failed.",
       "programmatic": "120 authoritative range writes emit zero user seek; numeric-equal idle position retains captured revision.",
       "user": "One physical keyboard range edit and one semantic slider SetText each emit exactly one typed replay seek."
-    }
+    },
+    "actualDrawListReaderCacheLog": "/tmp/prime-rmlui-drawlist-cache-54b-check.log"
   },
   "androidPredictiveBack": {
     "activityManifestEnableOnBackInvokedCallback": true,
@@ -180,13 +199,18 @@
     "applied": false,
     "patch": "/tmp/prime-rmlui-cutover-candidate/cutover.patch",
     "msbuildEvaluatedCases": 13,
-    "isolatedPolicyContracts": 42,
+    "isolatedPolicyContracts": 48,
     "actualOrdinaryDesktopBuild": "passed;zero Avalonia restored/dependency/output entries",
     "actualStudioBuild": "passed with independent importedengine projection; toolkit retained; no native RmlUi page/library output",
     "gates": [
       "current matched Home performance",
       "current full CI aggregate",
       "actual paired Studio/package validation after application"
+    ],
+    "outsideReviewCorrections": [
+      "Only a successfully presented modern surface acknowledges startup or settings usability",
+      "Bounded native OpenGL recovery preserves explicit UI selection",
+      "Clean startup retirement is acknowledged on the Activity owner thread only after successful renderer stop"
     ]
   }
 }

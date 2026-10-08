@@ -154,7 +154,9 @@ public sealed class RmlUiWindowsAccessibility : IDisposable
     {
         private readonly RmlUiWindowsAccessibility _owner;
         internal RootProvider(RmlUiWindowsAccessibility owner) => _owner = owner;
-        public int ProviderOptions => 2 | 16 | 32; // ServerSide, ProviderOwnsSetFocus, UseComThreading.
+        // UIA focuses the nearest HWND before calling Fragment.SetFocus.
+        // This provider queues only the RmlUi element's internal focus state.
+        public int ProviderOptions => 2 | 32; // ServerSide, UseComThreading.
         public object? GetPatternProvider(int patternId) => null;
         public object? GetPropertyValue(int propertyId) => propertyId switch {
             30003 => 50026, 30005 => "Project Prime", 30012 => "ProjectPrime.RmlUi", 30024 => "RmlUi",
@@ -193,7 +195,7 @@ public sealed class RmlUiWindowsAccessibility : IDisposable
         }
         private void Live() { if (!_owner.Attached || !ReferenceEquals(Volatile.Read(ref _owner._graph), _graph))
             throw new COMException("UI element is no longer available", unchecked((int)0x80040201)); }
-        public int ProviderOptions => 2 | 16 | 32;
+        public int ProviderOptions => 2 | 32;
         public object? GetPatternProvider(int patternId) {
             Live(); return patternId switch {
                 10000 when (Node.Actions & RmlUiAccessibilityActions.Press) != 0 => (IRmlUiUiaInvoke)this,

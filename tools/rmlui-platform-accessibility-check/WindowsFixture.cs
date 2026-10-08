@@ -37,11 +37,13 @@ static class WindowsFixture
             if(!process.HasExited){process.Kill();throw new TimeoutException("UI Automation client fixture timed out");}
             string output=process.StandardOutput.ReadToEnd();string errors=process.StandardError.ReadToEnd();
             bool edited=host.ReadField(document,"email")=="日本語 😀";
-            if(process.ExitCode!=0)throw new InvalidOperationException($"UIA OS client failed (accepted={accepted}, invoked={invoked}, UnicodeApplied={edited}): "+errors);
+            bool windowFocused=GetFocus()==GLFW.GetWin32Window(window);
+            if(process.ExitCode!=0)throw new InvalidOperationException($"UIA OS client failed (accepted={accepted}, invoked={invoked}, UnicodeApplied={edited}, HwndFocused={windowFocused}): "+errors);
             // Drain the final queued request after the external client exits.
             service.Drain(host);host.Update();while(host.TryTakeIntent(out var intent))invoked|=intent.Kind==RmlUiIntentKind.Navigate;
-            if(!invoked||!edited)throw new InvalidOperationException($"external UIA did not reach real controls (accepted={accepted}, invoked={invoked}, UnicodeApplied={edited})");
+            if(!invoked||!edited||!windowFocused)throw new InvalidOperationException($"external UIA did not reach real controls (accepted={accepted}, invoked={invoked}, UnicodeApplied={edited}, HwndFocused={windowFocused})");
             Console.WriteLine(output.Trim());Console.WriteLine("PASS actual Windows UIAutomationClient -> HWND COM -> guarded owner/native focus/value/invoke");
         } finally { GLFW.DestroyWindow(window);GLFW.Terminate(); }
     }
+    [DllImport("user32.dll")] private static extern nint GetFocus();
 }
