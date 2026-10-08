@@ -76,6 +76,7 @@ internal sealed partial class EngineSettingsBackend : ISettingsBackend
                 _state.CommitSettings(_menu);
                 InputSettings.Save(); LauncherPrefs.Save();
                 HudProfiles.Save(BuildHud(values));
+                File.WriteAllText(CommunityPath,_mapServiceAddress);
                 VerifySaved(values);
                 PreserveUnknownPreferences(files!);
             }
@@ -141,7 +142,13 @@ internal sealed partial class EngineSettingsBackend : ISettingsBackend
         Func<string,string> validate, SettingsValueKind kind = SettingsValueKind.Text,
         string[]? choices = null, string help = "", bool video = false, bool restart = false,
         string store = "", string key = "")
-        => _fields.Add(new(new(id,category,label,kind,help,choices ?? Array.Empty<string>(),validate,video,restart),read,write,store,key));
+    {
+        if(id.StartsWith("hud",StringComparison.Ordinal)||id.StartsWith("legacy.Crosshair",StringComparison.Ordinal))category=SettingsCategory.Hud;
+        else if(id.StartsWith("pad.",StringComparison.Ordinal))category=SettingsCategory.Controller;
+        else if(id.StartsWith("touch.",StringComparison.Ordinal)||id.StartsWith("stylus.",StringComparison.Ordinal)||id.StartsWith("pointer.",StringComparison.Ordinal))category=SettingsCategory.Touch;
+        else if(id is "prefs.MapServiceAddress" or "prefs.ServerAddress" or "prefs.ServerPort" or "prefs.MasterHost" or "prefs.MasterPort")category=SettingsCategory.Online;
+        _fields.Add(new(new(id,category,SettingsGroups.Words(label),kind,help,choices ?? Array.Empty<string>(),validate,video,restart),read,write,store,key));
+    }
     private void Flag(string id, SettingsCategory category, string label, Func<bool> read, Action<bool> write,
         string store = "", string key = "") => Add(id,category,label,()=>read()?"true":"false",v=>write(bool.Parse(v)),
             SettingsValueValidation.Boolean,SettingsValueKind.Boolean,new[]{"false","true"},store:store,key:key);
@@ -160,6 +167,7 @@ internal sealed partial class EngineSettingsBackend : ISettingsBackend
         Action<string> write,string[] choices,bool restart=false) => Choice("menu."+name,category,label,read,write,
             choices,restart:restart,store:"menu",key:name);
     private static string[] Names<T>() where T:struct,Enum => Enum.GetNames<T>();
+    private string _mapServiceAddress = new CommunityEngineBackend().DefaultAddress;
     private void AddGeneral()
     {
         MenuNumber(nameof(MenuSettings.ResolutionScale),SettingsCategory.Graphics,"Render scale",()=>_menu.ResolutionScale,v=>_menu.ResolutionScale=v,25,800,video:true);
@@ -217,6 +225,8 @@ internal sealed partial class EngineSettingsBackend : ISettingsBackend
         Flag("prefs.TouchTargets",SettingsCategory.Display,"Large touch targets",()=>LauncherPrefs.TouchTargets,v=>LauncherPrefs.TouchTargets=v,"launcher","touch_targets");
         Flag("prefs.AutoUpdate",SettingsCategory.Profile,"AutoUpdate",()=>LauncherPrefs.AutoUpdate,v=>LauncherPrefs.AutoUpdate=v,"launcher","auto_update");
         Flag("prefs.DebugLogs",SettingsCategory.Profile,"DebugLogs",()=>LauncherPrefs.DebugLogs,v=>LauncherPrefs.DebugLogs=v,"launcher","debug_logs");
+        Add("prefs.MapServiceAddress",SettingsCategory.Profile,"Community map service",()=>_mapServiceAddress,v=>_mapServiceAddress=v,
+            v=>{v=v.Trim();using var client=new MapGen.MapCommunityClient(v);return v;},store:"community",key:"address",help:"Service used to discover and download Community maps.");
         Flag("prefs.CombatNotificationsVisible",SettingsCategory.Audio,"CombatNotificationsVisible",()=>LauncherPrefs.CombatNotificationsVisible,v=>LauncherPrefs.CombatNotificationsVisible=v,"launcher","combat_notifications_visible");
         Flag("prefs.ReplayAutoPrune",SettingsCategory.Replays,"ReplayAutoPrune",()=>LauncherPrefs.ReplayAutoPrune,v=>LauncherPrefs.ReplayAutoPrune=v,"launcher","replay_auto_prune");
         Flag("prefs.ReplayDeleteClips",SettingsCategory.Replays,"ReplayDeleteClips",()=>LauncherPrefs.ReplayDeleteClips,v=>LauncherPrefs.ReplayDeleteClips=v,"launcher","replay_delete_clips");

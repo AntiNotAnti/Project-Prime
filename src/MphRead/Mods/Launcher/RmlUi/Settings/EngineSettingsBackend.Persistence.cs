@@ -16,11 +16,12 @@ internal sealed partial class EngineSettingsBackend
     private static string MenuPath=>Path.GetFullPath(Path.Combine("Savedata","settings.json"));
     private static string HudPath=>Path.GetFullPath(Path.Combine("Savedata","hud-profiles","active.json"));
     private static string LauncherPath=>Path.Combine(LauncherPrefs.Directory,"launcher.txt");
+    private static string CommunityPath=>Path.Combine(LauncherPrefs.Directory,"map-community.txt");
     private static string ControlsPath=>Path.Combine(LauncherPrefs.Directory,"controls.txt");
     private Dictionary<string,byte[]?> BackupStores()
     {
         var backups=new Dictionary<string,byte[]?>(StringComparer.Ordinal);
-        foreach(string path in new[]{MenuPath,LauncherPath,ControlsPath,HudPath,HudPath+".bak"})
+        foreach(string path in new[]{MenuPath,LauncherPath,ControlsPath,CommunityPath,HudPath,HudPath+".bak"})
             backups[path]=File.Exists(path)?File.ReadAllBytes(path):null;
         return backups;
     }
@@ -34,6 +35,7 @@ internal sealed partial class EngineSettingsBackend
         foreach(Field field in _fields)
         {
             string expected=values[field.Definition.Id];string? actual=null;
+            if(field.Store=="community")actual=File.ReadAllText(CommunityPath).Trim();
             if(field.Store=="menu")actual=menu[field.Key]!.GetValue<string>();
             if(field.Store=="launcher")launcher.TryGetValue(field.Key,out actual);
             if(field.Store=="controls")controls.TryGetValue(field.Key,out actual);

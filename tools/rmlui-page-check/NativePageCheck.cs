@@ -56,11 +56,15 @@ internal static class NativePageCheck
                 InViewport(launcher.Document,"activity_selector");
                 InViewport(launcher.Document,"deploy");
                 Click(launcher.Document,"activity_selector","home:drawer-open");
+                Click(launcher.Document,"drawer_training","stage:training");
+                var training=Click(launcher.Document,"deploy","home:deploy");
+                Check(training.Kind==RmlUiIntentKind.Navigate && training.Argument==(int)RmlUiRouteArgument.Training,"Aim Lab deploy emits dedicated route");
+                launcher.ShowBaseline();
+                Click(launcher.Document,"activity_selector","home:drawer-open");
                 Click(launcher.Document,"drawer_browser","stage:browser");
                 var deployed=Click(launcher.Document,"deploy","home:deploy");
                 Check(deployed.Kind==RmlUiIntentKind.PlayBrowse && deployed.Document==launcher.Document,"Deploy rewrites live page token");
                 launcher.SetField("play_player_name","Real Player");
-                launcher.SetField("play_create_player_name","Real Player");
                 launcher.SetField("play_create_name","Real lobby");
                 launcher.SetText("play_status","REAL DIRECTORY EMPTY");
                 launcher.SetBool("play_no_servers",true);
@@ -85,8 +89,12 @@ internal static class NativePageCheck
                 launcher.SetText("slot0_hunter","SAMUS");
                 Update();
                 Click(launcher.Document,"lobby_ready","lobby:ready");
-                Click(launcher.Document,"lobby_rules","lobby:rules-open");
+                host.SetField(launcher.Document,"lobby_chat_input","Ready for the next round?");
+                Click(launcher.Document,"lobby_chat_send","lobby:chat-send");
+                Check(host.ReadField(launcher.Document,"lobby_chat_input")=="Ready for the next round?","chat submission retains the editable message for the lobby controller");
+                Click(launcher.Document,"lobby_match_rules","lobby:rules-open");
                 launcher.SetBool("lobby_rules_open",true);
+                launcher.SetBool("lobby_mode",true); // a live refresh must not dismiss the dialog
                 launcher.SetBool("rules_owner",true);
                 launcher.SetText("rules_map","MP3 PROVING GROUND");
                 launcher.SetText("rules_mode","BATTLE");

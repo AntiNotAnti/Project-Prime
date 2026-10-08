@@ -70,20 +70,8 @@
             <div id="play_create" class="enter_left" data-prime-visible="play_create_mode">
                 <div class="eyebrow">DEPLOYMENT // CREATE LOBBY</div>
                 <div class="play_section_title">NEW MULTIPLAYER LOBBY</div>
-                <div class="play_form_label">YOUR PLAYER NAME</div>
-                <input id="play_create_player_name" class="play_input" type="text" maxlength="24" value="Player" />
                 <div class="play_form_label">LOBBY NAME</div>
                 <input id="play_create_name" class="play_input" type="text" maxlength="48" value="Project Prime lobby" />
-                <div class="play_form_label">FIRST ARENA</div>
-                <button id="play_next_map" class="play_choice" data-action="play:next-map">
-                    <span class="bound_text" id="text_play_create_map_1" data-prime-text="{{play_create_map}} " />
-                    <span>CHANGE &gt;</span>
-                </button>
-                <div class="play_form_label">GAME TYPE</div>
-                <button id="play_next_mode" class="play_choice" data-action="play:next-mode">
-                    <span class="bound_text" id="text_play_create_mode_name_1" data-prime-text="{{play_create_mode_name}} " />
-                    <span>CHANGE &gt;</span>
-                </button>
                 <div class="play_form_label">HOST LOCATION</div>
                 <button id="play_toggle_host" class="play_choice" data-action="play:toggle-host">
                     <span class="bound_text" id="text_play_create_host_1" data-prime-text="{{play_create_host}} " />

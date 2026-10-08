@@ -15,6 +15,7 @@ internal sealed partial class AndroidRmlUiSession
     private RmlLobbyAdminPresenter? _admin;
     private RmlLobbyRulesEditor? _rules;
     private long _lobbyFrame;
+    private readonly LobbyMapPreview _mapPreview = new(new MphRead.Mods.Launcher.RmlUi.Pages.Theatre.TheatreImageCache(decode: AndroidRmlUiImages.Decode));
     private (Guid Lifetime, ushort Match, ulong Epoch, uint Start)? _pendingStart;
     private bool _graphicsSuspended;
 
@@ -43,6 +44,7 @@ internal sealed partial class AndroidRmlUiSession
         if (!ReferenceEquals(_lobby, lobby)) return;
         _rules?.Tick(); _admin?.Update();
         RmlUiLobbyBindings.Present(Pages, lobby.Snapshot());
+        if(lobby.Snapshot().Match is {} map) _mapPreview.Present(map.RoomKey,Pages.SetText,Pages.SetBool,Pages.Manager.Lifetime(Pages.Document));
     }
     private void MatchRequested(object? sender, LaunchPlan plan)
     {
@@ -84,6 +86,10 @@ internal sealed partial class AndroidRmlUiSession
         }
         switch (intent.Kind)
         {
+            case RmlUiIntentKind.LobbyChatSend:
+                var sent=lobby.Dispatch(lobby.Intent(LobbyIntentKind.SendChat) with {Text=Host.ReadField(intent.Document,"lobby_chat_input")});
+                if(sent.Accepted)Host.SetField(intent.Document,"lobby_chat_input","");
+                Pages.SetText("lobby_chat_status",sent.Accepted?"":sent.Message); break;
             case RmlUiIntentKind.LobbyAdminOpen:
                 if (_admin?.Active != true) { _admin?.Dispose(); _admin = new(Host, lobby); _admin.Open(); } break;
             case RmlUiIntentKind.LobbyRulesOpen: _rules?.Open(); break;
@@ -123,7 +129,9 @@ internal sealed partial class AndroidRmlUiSession
         if (_lobby is { } lobby && NetSession.Active && NetSession.PersistentLobby)
         {
             lobby.Resume(); _rules?.BindSession(lobby);
-            RmlUiLobbyBindings.Present(Pages, lobby.Snapshot()); Pages.ShowBaseline(RmlUiMenuPage.Lobby);
+            RmlUiLobbyBindings.Present(Pages, lobby.Snapshot());
+            if(lobby.Snapshot().Match is {} map) _mapPreview.Present(map.RoomKey,Pages.SetText,Pages.SetBool,Pages.Manager.Lifetime(Pages.Document));
+            Pages.ShowBaseline(RmlUiMenuPage.Lobby);
         }
         else { RetireLobby(stopConnection: false); _route = RmlUiRouteArgument.Home; Pages.ShowBaseline(); }
         Console.WriteLine("[rmlui-android] same owner resumed documents and lobby authority");

@@ -196,8 +196,12 @@ internal static class ReplayPreparationChecks
         try
         {
             check(Task.Run(() => DemoPlayback.Join(path)).GetAwaiter().GetResult(), "production Studio Join prepares on a worker");
+            // Historical clips can have a required hidden lead-in. Publication
+            // follows bounded owner updates after that world finishes warming.
+            Wait(() => { DemoPlayback.Update(shell); return DemoPlayback.PresentationScene != null; }, "production replay publication");
             DemoPlayback.Update(shell); var presented = DemoPlayback.PresentationScene;
             check(presented != null, "production owner update adopts the prepared world");
+            DemoPlayback.Session.Transport.Pause();
             uint presentedFrame = DemoPlayback.CurrentFrame; string presentedHash = ReplayStateHash.Compute(presented!, presentedFrame);
             check(!Task.Run(() => DemoPlayback.Join(Path.Combine(folder, "missing.ppdemo"))).GetAwaiter().GetResult()
                 && ReferenceEquals(DemoPlayback.PresentationScene, presented) && ReplayStateHash.Compute(presented!, presentedFrame) == presentedHash,
@@ -206,19 +210,27 @@ internal static class ReplayPreparationChecks
             var rejectedMatch = staged.Current.State.Match!.Value;
             byte[] rejectedMatchPacket = new byte[1 + MatchStatePacket.Size]; rejectedMatchPacket[0] = (byte)PacketType.MatchState;
             rejectedMatch.Write(rejectedMatchPacket.AsSpan(1));
+            var currentBootstrap = new ReplayBootstrap
+                { Packets = [.. ReplayBootstrap.FromConstruction(staged.Current.InitialState).Packets, rejectedMatchPacket] };
             string invalid = Path.Combine(folder, "wrong-map.ppdemo");
             using (var reader = DemoReader.Open(path)!)
             using (var writer = new ReplayWriterV3(invalid, new ReplayMetadata { RoomKey = metadata.RoomKey, Mode = metadata.Mode,
                 MapHash = ReplayMapIdentity.Compute(metadata.RoomKey) ^ 1UL,
-                Bootstrap = new ReplayBootstrap { Packets = [.. metadata.Bootstrap.Packets, rejectedMatchPacket] } }))
-            { var firstRecord = reader.ReadNext()!.Value; writer.WriteRecord(firstRecord.Frame, firstRecord.Data); }
-            check(Task.Run(() => DemoPlayback.Join(invalid)).GetAwaiter().GetResult(), "map-mismatch candidate reaches explicit owner validation");
+                Bootstrap = currentBootstrap }))
+            {
+                var firstRecord = reader.ReadNext()!.Value;
+                writer.WriteRecord(firstRecord.Frame, ReplayIdentityCompatibility.Convert(firstRecord.Data, reader.ProtocolVersion));
+            }
+            // Map preparation can refuse a bad map before owner adoption.
+            // Both paths must keep the previously published world intact.
+            _ = Task.Run(() => DemoPlayback.Join(invalid)).GetAwaiter().GetResult();
             DemoPlayback.Update(shell);
             check(DemoPlayback.LastResult == ReplayOpenResult.MapHashMismatch && ReferenceEquals(DemoPlayback.PresentationScene, presented)
-                && ReplayStateHash.Compute(presented!, presentedFrame) == presentedHash, "failed owner candidate validation preserves the old presented world");
+                && ReplayStateHash.Compute(presented!, presentedFrame) == presentedHash,
+                "failed owner candidate validation preserves the old presented world: " + DemoPlayback.LastResult + " / " + DemoPlayback.LastError);
             string malformed = Path.Combine(folder, "malformed-origin.ppdemo");
             using (var writer = new ReplayWriterV3(malformed, new ReplayMetadata { FormatVersion = 4, RoomKey = metadata.RoomKey,
-                Mode = metadata.Mode, MapHash = metadata.MapHash, Bootstrap = metadata.Bootstrap,
+                Mode = metadata.Mode, MapHash = metadata.MapHash, Bootstrap = currentBootstrap,
                 OriginRecordingFrame = capsule.Frame, LeadInFrames = 1, WorldCheckpoint = capsule.Bytes[..^1].ToArray() }))
             { writer.WriteRecord(1, rejectedMatchPacket); writer.WriteCheckpoint(0, capsule.Bytes); }
             bool syncRejected = false;
@@ -240,7 +252,7 @@ internal static class ReplayPreparationChecks
                 "required-origin failure with valid optional capsule preserves the old published world");
             string warming = Path.Combine(folder, "warming.ppdemo");
             using (var writer = new ReplayWriterV3(warming, new ReplayMetadata { FormatVersion = 4, RoomKey = metadata.RoomKey,
-                Mode = metadata.Mode, MapHash = metadata.MapHash, Bootstrap = metadata.Bootstrap,
+                Mode = metadata.Mode, MapHash = metadata.MapHash, Bootstrap = currentBootstrap,
                 OriginRecordingFrame = capsule.Frame, LeadInFrames = 300, WorldCheckpoint = capsule.Bytes.ToArray() }))
                 for (uint frame = 1; frame <= 301; frame++) writer.WriteRecord(frame, rejectedMatchPacket);
             check(Task.Run(() => DemoPlayback.Join(warming)).GetAwaiter().GetResult(), "supersession fixture prepares a required hidden lead-in");

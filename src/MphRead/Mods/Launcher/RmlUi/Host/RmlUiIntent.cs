@@ -130,7 +130,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
     public enum RmlUiRouteArgument
     {
         Home = 0, Play = 1, Offline = 2, HunterLicense = 3, Community = 4,
-        Theatre = 5, Settings = 6, News = 7, Adventure = 8, Social = 9
+        Theatre = 5, Settings = 6, News = 7, Adventure = 8, Social = 9, Training = 10
     }
 
     public readonly record struct RmlUiDocumentToken(ulong Generation, ulong DocumentId);
@@ -158,7 +158,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         private static readonly string[] Routes =
         {
             "home", "play", "offline", "hunter", "forge", "theatre", "settings",
-            "news", "adventure", "social"
+            "news", "adventure", "social", "training"
         };
         private static readonly string[] PlayQueueActions = { "queue-join", "queue-accept", "queue-decline", "queue-leave" };
         private static readonly string[] InGameActions = { "resume", "fullscreen", "settings", "replay", "vote", "spectate", "rejoin", "recorder", "return-lobby", "leave", "quit", "confirm", "cancel", "map-next", "vote-submit", "vote-yes", "vote-no", "bots", "bot-select", "bot-hunter", "bot-suit", "bot-skill", "bot-team", "bot-handicap", "bot-remove", "bot-add", "bot-apply" };
@@ -170,7 +170,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         private static readonly string[] ResultsActions = { "close", "search", "previous-page", "next-page", "rematch", "clear-search" };
         private static readonly string[] AimResultsActions = { "retry", "change-drill", "exit" };
         private static readonly string[] HudActions = { "open", "use", "cancel", "next-preset", "undo", "redo", "lock-all", "unlock-all", "align-left", "align-top", "native-elements", "reset-hud", "toggle-visible", "toggle-lock", "next-anchor", "next-visibility", "reset-element", "reset-section", "next-aspect", "next-hunter", "next-scenario", "next-grid", "toggle-guides", "save-named", "load-named", "export-json", "import-json", "property-previous", "property-next", "property-apply", "property-reset", "next-palette", "next-crosshair-target", "toggle-crosshair-override", "next-crosshair-preset", "share-crosshair", "import-crosshair", "next-radar-preset", "nudge-left", "nudge-right", "nudge-up", "nudge-down", "scale-down", "scale-up", "apply-layout" };
-        private static readonly string[] Stages = { "quick", "browser", "offline", "adventure" };
+        private static readonly string[] Stages = { "quick", "browser", "offline", "adventure", "training" };
         private static readonly IReadOnlyDictionary<RmlUiIntentKind, string> LegacyActions =
             new Dictionary<RmlUiIntentKind, string>
             {
@@ -292,15 +292,15 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RmlUiIntentKind.NewsAction => argument is >= 0 and < 12,
             RmlUiIntentKind.PlayQueueAction => argument is >= 0 and < 4,
             RmlUiIntentKind.Navigate => argument >= 0 && argument < Routes.Length,
-            RmlUiIntentKind.StageSelect or RmlUiIntentKind.StagePreview => argument is >= 0 and < 4,
+            RmlUiIntentKind.StageSelect or RmlUiIntentKind.StagePreview => argument is >= 0 and < 5,
             RmlUiIntentKind.PlayServer => argument is >= 0 and < 8,
             RmlUiIntentKind.LobbyRulesToggle => argument is >= 0 and < 16,
             RmlUiIntentKind.LobbyPlayerSelect => argument is >= 0 and < 8,
             RmlUiIntentKind.HunterSelect => argument is >= 0 and < 7,
             RmlUiIntentKind.HunterSuit => argument is >= 0 and < 4,
             RmlUiIntentKind.HunterPreviewMode => argument is >= 0 and < 4,
-            RmlUiIntentKind.SettingsAction => argument is >= 0 and <= 14 or >= 16 and <= 63,
-            RmlUiIntentKind.SettingsCategory => argument is >= 0 and < 9,
+            RmlUiIntentKind.SettingsAction => argument is >= 0 and <= 14 or >= 16 and <= 255,
+            RmlUiIntentKind.SettingsCategory => argument is >= 0 and < 13,
             RmlUiIntentKind.AdventureSelectSlot => argument is >= 1 and < 4,
             RmlUiIntentKind.OfflineChoice => argument is >= 0 and < 16,
             RmlUiIntentKind.OfflineRuleToggle => argument is >= 0 and < 12,
@@ -366,9 +366,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 intent = new(RmlUiIntentKind.HunterSuit, argument, document, sequence);
             else if (TryIndex(action, "hunter:preview-mode:", 4, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.HunterPreviewMode, argument, document, sequence);
-            else if (TryIndex(action, "settings:action:", 64, out argument) && argument != 15)
+            else if (TryIndex(action, "settings:action:", 256, out argument) && argument != 15)
                 intent = new(RmlUiIntentKind.SettingsAction, argument, document, sequence);
-            else if (TryIndex(action, "settings:category:", 9, out argument) && argument >= 0)
+            else if (TryIndex(action, "settings:category:", 13, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.SettingsCategory, argument, document, sequence);
             else if (TryIndex(action, "adventure:slot:", 4, out argument) && argument >= 1)
                 intent = new(RmlUiIntentKind.AdventureSelectSlot, argument, document, sequence);

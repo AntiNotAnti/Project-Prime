@@ -30,8 +30,10 @@
                     <span>READY</span>
                     <b data-prime-text="{{lobby_ready_count}}" id="text_lobby_ready_count_1" />
                 </div>
-                <button id="lobby_match_rules" class="lobby_small_button" data-action="lobby:rules-open">MAP / RULES &gt;</button>
+                <button id="lobby_match_rules" class="lobby_small_button" data-action="lobby:rules-open">LOBBY SETTINGS &gt;</button>
             </div>
+            <div id="lobby_map_preview" class="lobby_side_panel"><div class="eyebrow">MAP PREVIEW</div><img id="lobby_map_image"/><div id="lobby_map_preview_status" /></div>
+            <div id="lobby_chat_panel" class="lobby_side_panel"><div class="eyebrow">LOBBY CHAT</div><div id="lobby_chat_history"/><div id="lobby_chat_status"/><div class="lobby_chat_compose"><input id="lobby_chat_input" type="text" maxlength="128" placeholder="Message the lobby"/><button id="lobby_chat_send" data-action="lobby:chat-send">SEND</button></div></div>
             <div id="lobby_roster_panel" class="lobby_side_panel enter_right">
                 <div class="lobby_roster_header">
                     <div class="eyebrow">CONNECTED HUNTERS</div>
@@ -138,7 +140,6 @@
                 <button id="lobby_ready" class="lobby_action primary" data-prime-visible="lobby_require_ready" data-action="lobby:ready" data-prime-text="{{lobby_ready_action}}" />
                 <button id="lobby_hunter" class="lobby_action" data-action="lobby:next-hunter" data-prime-text="HUNTER // {{lobby_local_hunter}}" />
                 <button id="lobby_suit" class="lobby_action" data-action="lobby:next-suit">NEXT SUIT</button>
-                <button id="lobby_rules" class="lobby_action" data-action="lobby:rules-open">LOBBY RULES</button>
                 <button id="lobby_leave" class="lobby_action danger" data-action="lobby:leave">LEAVE</button>
                 <button id="lobby_start" class="lobby_action start" data-prime-visible="lobby_owner" data-action="lobby:start" data-prime-disabled="!lobby_can_start">START MATCH</button>
             </div>

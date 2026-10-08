@@ -643,9 +643,6 @@ namespace MphRead.Mods.Launcher.Gui
                 _busy = false;
                 _pendingActivity = PendingActivity.None;
             }
-            _setField("play_create_player_name",
-                String.IsNullOrWhiteSpace(LauncherPrefs.PlayerName)
-                    ? "Player" : LauncherPrefs.PlayerName);
             Status("CONFIGURE YOUR LOBBY");
         }
 

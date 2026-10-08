@@ -8,6 +8,20 @@ namespace MphRead;
 
 public partial class Scene
 {
+    // Older engines left the previous owner on free effect elements. New
+    // engines require the pool to be detached before an element is reused.
+    // This touches only inactive presentation resources in a private replica.
+    internal void MigrateHistoricalReplayPools()
+    {
+        if (!Services.IsReplica) throw new InvalidOperationException("World restoration requires a private replica.");
+        var active = _activeElements.ToHashSet();
+        foreach (EffectElementEntry element in _inactiveElements)
+        {
+            if (active.Contains(element)) throw new InvalidDataException("Replay effect is both active and pooled.");
+            element.EffectEntry?.Elements.Remove(element);
+            element.EffectEntry = null;
+        }
+    }
     internal void FinishReplayWorldRestore()
     {
         if (!Services.IsReplica) throw new InvalidOperationException("World restoration requires a private replica.");

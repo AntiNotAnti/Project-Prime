@@ -51,7 +51,8 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
     }
     internal uint Frame { get; }
     private readonly string _sourceContract;
-    private ReplayWorldCheckpoint(ReplayPayload data, uint frame, string? sourceContract = null) { _data = data; Frame = frame; _sourceContract = sourceContract ?? Contract; }
+    private readonly ReplayWorldLayout? _layout;
+    private ReplayWorldCheckpoint(ReplayPayload data, uint frame, string? sourceContract = null, ReplayWorldLayout? layout = null) { _data = data; Frame = frame; _sourceContract = sourceContract ?? Contract; _layout = layout; }
     private bool _disposed;
     public void Dispose() { if (!_disposed) { _disposed = true; _data.Release(); GC.SuppressFinalize(this); } }
     ~ReplayWorldCheckpoint() => Dispose();
@@ -65,10 +66,12 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
             if (reader.ReadUInt32() != Magic || reader.ReadUInt16() is < 1 or > Version)
                 throw new InvalidDataException("Unsupported replay world checkpoint format.");
             string sourceContract = reader.ReadString();
-            if (!SupportsContract(sourceContract, producerBuild))
+            bool current = CurrentContract(sourceContract, producerBuild);
+            var layout = current ? null : ReplayWorldLayout.Find(sourceContract, producerBuild);
+            if (!current && layout == null)
                 throw new InvalidDataException("This replay uses a different saved-world layout. Open it with the game version that recorded it.");
             reader.ReadString(); reader.ReadInt32(); reader.ReadUInt64();
-            return new(data, reader.ReadUInt32(), sourceContract);
+            return new(data, reader.ReadUInt32(), sourceContract, layout);
         }
         catch { data.Release(); throw; }
     }
@@ -97,6 +100,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
     private static readonly ConcurrentDictionary<Type, FieldInfo[]> StructFields = new();
     private static readonly Dictionary<Type, FieldInfo[]> Fields = CreateFields();
     private static readonly Dictionary<string, Type> Types = CreateTypes();
+    internal static Type? ValueType(string name) => Types.GetValueOrDefault(name);
     private static readonly Type[] ObjectTypes = Types.Values
         .Where(t => Fields.ContainsKey(t) || Collection(t) || t == typeof(ModelInstance) || t == typeof(WeaponInfo))
         .OrderBy(t => t.ToString(), StringComparer.Ordinal).ToArray();
@@ -128,6 +132,8 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(schema)));
     }
     internal static bool SupportsContract(string contract, string? producerBuild = null)
+        => CurrentContract(contract, producerBuild) || ReplayWorldLayout.Find(contract, producerBuild) != null;
+    private static bool CurrentContract(string contract, string? producerBuild)
         => contract.Length == 64 && (contract == Contract || contract == LegacyContract
             || (producerBuild != null && contract == ComputeContract(stable: false, producerBuild)));
     private static Dictionary<Type, FieldInfo[]> CreateFields()
@@ -343,14 +349,15 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
                 player.ModPrepareHunterResources(occupant.Hunter); player.ModSetHunter(occupant.Hunter); player.Initialize();
             }
         }
+        var objectTypes = _layout?.ObjectTypes ?? ObjectTypes;
         int count = Count(reader, MaximumObjects);
         var nodes = new Node[count]; var types = new Type[count]; var objects = new object[count];
         for (int i = 0; i < count; i++)
         {
             ushort typeId = reader.ReadUInt16(); ulong anchor = reader.ReadUInt64();
-            if (typeId >= ObjectTypes.Length)
+            if (typeId >= objectTypes.Length)
                 throw new InvalidDataException("Unknown replay object contract.");
-            nodes[i] = new(typeId, anchor, ReadBytes(reader, MaximumBytes)); types[i] = ObjectTypes[typeId];
+            nodes[i] = new(typeId, anchor, ReadBytes(reader, MaximumBytes)); types[i] = objectTypes[typeId];
         }
         byte[]? assets = version >= 2 ? ReadBytes(reader, MaximumBytes) : null;
         byte[]? cosmetics = version >= 3 ? ReadBytes(reader, 4096) : null;
@@ -363,7 +370,11 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
             if (node.Anchor != 0)
             {
                 if (!replay.CheckpointBindings.Objects.TryGetValue(node.Anchor, out object? anchor) || anchor.GetType() != type)
-                    throw new InvalidDataException($"Construction anchor differs for {type.Name}.");
+                {
+                    if (_layout?.IsRetiredAnchor(node.Anchor, type) != true)
+                        throw new InvalidDataException($"Construction anchor differs for {type.Name}.");
+                    anchor = Create(type, node.Data, replay.Scene);
+                }
                 objects[i] = Collection(type) ? Create(type, node.Data, replay.Scene) : anchor;
             }
             else objects[i] = Create(type, node.Data, replay.Scene);
@@ -407,7 +418,8 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
                     var add = type.IsArray || target is IList ? null : type.GetMethod(type.GetGenericTypeDefinition() == typeof(Queue<>) ? "Enqueue" : "AddLast", [Element(type)]);
                     for (int n = 0; n < length; n++)
                     {
-                        object? value = ReadValue(input, Element(type), Resolve);
+                        object? value = _layout == null ? ReadValue(input, Element(type), Resolve)
+                            : _layout.ReadValue(input, Element(type).ToString(), Resolve);
                         if (target is Array array)
                         {
                             var indices = new int[rank]; int remainder = n;
@@ -418,10 +430,12 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
                         else add!.Invoke(target, [value]);
                     }
                 }
+                else if (_layout != null) _layout.ReadFields(input, target, Resolve, decoded);
                 else foreach (var field in Fields[type]) field.SetValue(target, ReadValue(input, field.FieldType, Resolve));
             }
             if (data.Position != data.Length) throw new InvalidDataException($"Trailing replay fields in {type.Name}.");
         }
+        if (_layout != null) replay.Scene.MigrateHistoricalReplayPools();
         replay.Scene.FinishReplayWorldRestore();
         if (assets != null) ReplayAssetCheckpoint.Restore(replay.Scene, assets);
         if (!replay.Session.Reposition(playbackFrame ?? frame, 0, sourceClock: playbackFrame.HasValue))
@@ -504,7 +518,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         else if (type.IsValueType) foreach (var field in ValueFields(type)) WriteValue(writer, field.FieldType, field.GetValue(value), reference);
         else writer.Write(reference(value));
     }
-    private static object? ReadValue(BinaryReader reader, Type type, Func<int, Type, object?> reference)
+    internal static object? ReadValue(BinaryReader reader, Type type, Func<int, Type, object?> reference)
     {
         if (type == typeof(object))
         {

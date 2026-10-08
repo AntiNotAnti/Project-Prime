@@ -421,6 +421,7 @@
        game API. -->
   <ItemGroup>
     <InternalsVisibleTo Include="nettest" />
+    <EmbeddedResource Include="Mods/Replay/ReplayWorldLayouts.json" LogicalName="MphRead.Mods.Replay.ReplayWorldLayouts.json" />
     <InternalsVisibleTo Include="settings-archive-check" />
     <InternalsVisibleTo Include="fidelity-oracle" />
     <InternalsVisibleTo Include="final-composite-check" />

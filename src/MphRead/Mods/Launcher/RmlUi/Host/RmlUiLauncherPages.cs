@@ -8,16 +8,17 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
     /// Network/rules controllers retain authority. Editable values are copied only on explicit field writes or document retirement.</summary>
     public sealed class RmlUiLauncherPages : IDisposable
     {
-        private static readonly string[] ActivityNames = { "quick", "browser", "offline", "adventure" };
+        private static readonly string[] ActivityNames = { "quick", "browser", "offline", "adventure", "training" };
         private static readonly string[][] ActivityCopy =
         {
             new[] { "MULTIPLAYER", "QUICK PLAY", "Find the best compatible public hunt.", "PUBLIC MATCHMAKING", "DEPLOY" },
-            new[] { "MULTIPLAYER", "SERVER BROWSER", "Browse live public and private sessions.", "LIVE DIRECTORY", "BROWSE SERVERS" },
-            new[] { "LOCAL PLAY", "OFFLINE BATTLE", "Bots, training and custom rules.", "LOCAL SESSION", "CONFIGURE MATCH" },
-            new[] { "SOLO", "ADVENTURE", "Continue or load a solo save.", "SAVE DATA", "CONTINUE" }
+            new[] { "MULTIPLAYER", "LOBBY BROWSER", "Browse live public and private sessions.", "LIVE DIRECTORY", "BROWSE LOBBIES" },
+            new[] { "LOCAL PLAY", "OFFLINE BATTLE", "Bots and custom match rules.", "LOCAL SESSION", "CONFIGURE MATCH" },
+            new[] { "SOLO", "ADVENTURE", "Continue or load a solo save.", "SAVE DATA", "CONTINUE" },
+            new[] { "TRAINING", "AIM LAB", "Practice your aim with dedicated drills.", "PERSONAL TRAINING", "CHOOSE DRILL" }
         };
         private static readonly string[] PlayFields =
-            { "play_player_name", "play_join_address", "play_create_player_name", "play_create_name" };
+            { "play_player_name", "play_join_address", "play_create_name" };
         private static readonly string[] RulesFields = { "rules_time", "rules_goal" };
         private readonly RmlUiHost _host;
         private readonly bool _ownsManager;
@@ -47,7 +48,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             Put("play_browser_mode", false);
             Put("play_create_mode", false);
             Put("lobby_rules_open", false);
-            SelectActivity(0);
+            SelectActivity(1);
         }
 
         public void SetText(string name, string value)
@@ -61,6 +62,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         public void SetBool(string name, bool value)
         {
             Verify();
+            bool wasLobby = Bool("lobby_mode");
             Put(name, value);
             if (name == "lobby_mode")
             {
@@ -70,7 +72,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                     Put("multiplayer_mode", false);
                     Put("play_create_mode", false);
                     Put("play_browser_mode", false);
-                    Put("lobby_rules_open", false);
+                    if (!wasLobby) Put("lobby_rules_open", false);
                 }
             }
             else if (name == "multiplayer_mode")
@@ -214,7 +216,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                     }
                     forwarded = Forward(_activity switch
                     {
-                        0 => "play:quick", 1 => "play:browse", 2 => "route:offline", _ => "route:adventure"
+                        0 => "play:quick", 1 => "play:browse", 2 => "route:offline", 4 => "route:training", _ => "route:adventure"
                     }, intent.Sequence);
                     return true;
                 case "play:create-open":
@@ -296,7 +298,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
 
         private void SelectActivity(int index)
         {
-            if (index is < 0 or > 3) throw new ArgumentOutOfRangeException(nameof(index));
+            if (index < 0 || index >= ActivityNames.Length) throw new ArgumentOutOfRangeException(nameof(index));
             _activity = index;
             Put("activity_index", RmlUiBindingValue.FromText(index.ToString(CultureInfo.InvariantCulture)));
             string[] keys = { "activity_group", "activity_title", "activity_description", "activity_hint", "activity_action" };

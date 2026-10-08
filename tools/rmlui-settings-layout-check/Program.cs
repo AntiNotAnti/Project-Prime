@@ -11,10 +11,12 @@ foreach(var size in new[]{(1280,720,2f),(640,320,1f),(640,360,1f),(2560,1440,2f)
     using var host=new RmlUiHost();
     Check(host.Initialize(size.Item1,size.Item2,size.Item3,Path.GetFullPath(args[1]),RmlUiRenderBackend.DrawList),"actual Settings layout initializes");
     var doc=host.OpenDocument("pages/settings/settings.rml",RmlUiDocumentLayer.Page);
-    foreach(string id in new[]{"settings_controller_tools","settings_profile_tools","settings_system","settings_maintenance","settings_credits","settings_restart"})
+    foreach(string id in new[]{"settings_hud_tools","settings_controller_tools","settings_profile_tools","settings_system","settings_maintenance","settings_credits","settings_restart"})
         host.SetBool(doc,"visible:"+id,false);
+    for(int group=0;group<192;group++)host.SetBool(doc,"visible:settings_group_"+group,group==0);
+    host.SetText(doc,"settings_group_0","General");
     host.SetText(doc,"settings_status","Changes are applied together when you choose Apply.");
-    host.SetText(doc,"settings_paging","Page 1 of 69");
+    host.SetText(doc,"settings_paging","Page 1 of 2");
     for(int row=0;row<12;row++)
     {
         host.SetText(doc,"settings_label_"+row,"Field of view");
@@ -40,16 +42,16 @@ foreach(var size in new[]{(1280,720,2f),(640,320,1f),(640,360,1f),(2560,1440,2f)
         var b=Bounds(id);host.Input.PointerMoved(b.X+b.W/2,b.Y+b.H/2);host.Update();
         Check(host.HoveredElement()==id,"Settings visible control receives actual pointer "+id);
     }
-    string[] categories={"display","graphics","audio","controls","replays","profile","system","maintenance","credits"};
+    string[] categories={"display","graphics","audio","controls","replays","profile","system","maintenance","credits","hud","controller","touch","online"};
     for(int category=0;category<categories.Length;category++)
     {
         string id="settings_"+categories[category]+"_tab";FocusVisible(id,"settings_navigation");
         host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
         Check(host.TryTakeIntent(out var intent)&&intent.Kind==RmlUiIntentKind.SettingsCategory&&intent.Argument==category,"Settings real typed category "+category);
     }
-    FocusVisible("settings_back","settings_navigation");
+    FocusVisible("settings_back","settings_workspace");
     foreach(string id in new[]{"settings_search","settings_search_button","settings_clear_search","settings_value_0","settings_cycle_0","settings_value_11","settings_cycle_11","settings_previous","settings_next","settings_revert_category","settings_discard","settings_apply"})
-        FocusVisible(id,"settings_content");
+        FocusVisible(id,id.StartsWith("settings_value_")||id.StartsWith("settings_cycle_")?"settings_fields":"settings_content");
     host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
     Check(host.TryTakeIntent(out var apply)&&apply.Kind==RmlUiIntentKind.SettingsApply,"Settings actual focused Apply emits typed command");
     var actionBounds=Bounds("settings_actions");var contentBounds=Bounds("settings_content");

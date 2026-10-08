@@ -1,6 +1,7 @@
 #if (MPHREAD_RMLUI_POC || MPHREAD_RMLUI) && !MPHREAD_SERVER
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using MphRead.Entities;
 using MphRead.Mods.Launcher.Core;
@@ -58,6 +59,9 @@ public static class SettingsNativePageCheck
             Check(presenter.Controller.Snapshot().Fields.Count>0&&presenter.Controller.Snapshot().Fields[0].Definition.Id.StartsWith("input.",StringComparison.Ordinal),"native search presents control fields");
             Click("settings_clear_search");
             var binding=InputSettings.Bind(InputSettings.Bindings[0]);var oldMouse=binding.MouseButton;
+            Click("settings_controller_tab");
+            int toolsGroup=presenter.Controller.Groups.ToList().IndexOf("Controller / preferences");
+            Click("settings_group_"+toolsGroup);
             host.SetField(document,"settings_capture_id",InputSettings.Bindings[0].Name);Click("settings_capture_button");
             Thread.Sleep(210);Check(presenter.TryCaptureKey(Keys.Space),"physical key capture consumed while binding modal is active");
             Check(presenter.Controller.Dirty&&binding.Key!=Keys.Space&&pages.ModalCount==0,"captured key remains a detached draft");

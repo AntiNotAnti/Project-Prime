@@ -17,9 +17,10 @@ public readonly record struct TheatrePreviewPixels(int Width, int Height, byte[]
 public sealed class TheatreImageCache
 {
     private readonly string _directory;
+    private readonly int _maximumDimension;
     private readonly Func<string, CancellationToken, TheatrePreviewPixels>? _decode;
-    public TheatreImageCache(string? directory = null, Func<string, CancellationToken, TheatrePreviewPixels>? decode = null)
-        => (_directory, _decode) = (directory ?? Path.Combine(LauncherPrefs.Directory, "rmlui-thumbnail-cache"), decode);
+    public TheatreImageCache(string? directory = null, Func<string, CancellationToken, TheatrePreviewPixels>? decode = null, int maximumDimension = 512)
+        => (_directory, _decode, _maximumDimension) = (directory ?? Path.Combine(LauncherPrefs.Directory, "rmlui-thumbnail-cache"), decode, Math.Clamp(maximumDimension, 64, 4096));
 
     public string Load(string source, CancellationToken cancellation)
     {
@@ -28,7 +29,7 @@ public sealed class TheatreImageCache
         var info = new FileInfo(path);
         if (!info.Exists) throw new FileNotFoundException("Replay preview was removed.", path);
         if (info.Length > 32 * 1024 * 1024) throw new InvalidDataException("Replay preview is too large.");
-        string signature = $"{path}|{info.Length}|{info.LastWriteTimeUtc.Ticks}|tga-v1";
+        string signature = $"{path}|{info.Length}|{info.LastWriteTimeUtc.Ticks}|tga-v1|{_maximumDimension}";
         string name = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(signature)));
         string output = Path.Combine(_directory, name + ".tga");
         if (File.Exists(output)) return output;
@@ -37,7 +38,7 @@ public sealed class TheatreImageCache
             || (long)image.Width * image.Height > 16 * 1024 * 1024 || image.Rgb == null || image.Rgb.Length != (long)image.Width * image.Height * 3)
             throw new InvalidDataException("Replay preview has invalid dimensions.");
         byte[] pixels = image.Rgb;
-        float scale = Math.Min(1, 512f / Math.Max(image.Width, image.Height));
+        float scale = Math.Min(1, (float)_maximumDimension / Math.Max(image.Width, image.Height));
         int width = Math.Max(1, (int)(image.Width * scale)), height = Math.Max(1, (int)(image.Height * scale));
         byte[] tga = new byte[18 + width * height * 3];
         tga[2] = 2; tga[12] = (byte)width; tga[13] = (byte)(width >> 8);

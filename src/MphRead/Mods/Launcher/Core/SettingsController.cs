@@ -6,11 +6,15 @@ using System.Linq;
 
 namespace MphRead.Mods.Launcher.Core;
 
-internal enum SettingsCategory { Display, Graphics, Audio, Controls, Replays, Profile, System, Maintenance, Credits }
+internal enum SettingsCategory { Display, Graphics, Audio, Controls, Replays, Profile, System, Maintenance, Credits, Hud, Controller, Touch, Online }
 internal enum SettingsValueKind { Text, Boolean, Number, Choice, Structured }
 internal sealed record SettingsFieldDefinition(string Id, SettingsCategory Category, string Label,
     SettingsValueKind Kind, string Help, IReadOnlyList<string> Choices,
-    Func<string, string> Validate, bool Video = false, bool RequiresRestart = false);
+    Func<string, string> Validate, bool Video = false, bool RequiresRestart = false)
+{
+    private string? _group;
+    public string Group => _group ??= SettingsGroups.For(this);
+}
 internal sealed record SettingsFieldSnapshot(SettingsFieldDefinition Definition, string Value, bool Changed);
 internal sealed record SettingsSnapshot(long Revision, SettingsCategory Category, int Page, int PageCount,
     IReadOnlyList<SettingsFieldSnapshot> Fields, bool Dirty, string Status, string Error,
@@ -44,6 +48,10 @@ internal sealed class SettingsController
     private long _revision;
     internal SettingsCategory Category { get; private set; }
     internal int Page { get; private set; }
+    internal string Group { get; private set; } = "";
+    private readonly Dictionary<SettingsCategory,string[]> _groups = new();
+    internal IReadOnlyList<string> Groups => _groups.TryGetValue(Category,out var groups)?groups:_groups[Category]=_backend.Definitions.Where(f => f.Category == Category).Select(f => f.Group).Distinct().OrderBy(g=>g is "Controller / preferences" or "Appearance and scale"?0:1).ToArray();
+    internal void SelectGroup(int index) { var groups=Groups; if(index<0||index>=groups.Count)return; Group=groups[index]; Query=""; Page=0; _revision++; }
     internal string Query { get; private set; } = "";
     internal bool Dirty => _draft.Any(value => !_saved.TryGetValue(value.Key, out string? saved) || saved != value.Value);
     internal bool PendingVideoConfirmation => _previewBefore != null;
@@ -63,9 +71,13 @@ internal sealed class SettingsController
     internal SettingsSnapshot Snapshot()
     {
         Tick();
-        var fields = _backend.Definitions.Where(field => field.Category == Category
-            && (Query.Length==0 || field.Label.Contains(Query,StringComparison.OrdinalIgnoreCase)
-                || field.Id.Contains(Query,StringComparison.OrdinalIgnoreCase))).ToArray();
+        var groups=Groups;
+        if (!groups.Contains(Group)) Group=groups.FirstOrDefault() ?? "";
+        // Search spans every category; group browsing never hides an editable field.
+        var fields = _backend.Definitions.Where(field => Query.Length > 0
+            ? field.Label.Contains(Query,StringComparison.OrdinalIgnoreCase) || field.Id.Contains(Query,StringComparison.OrdinalIgnoreCase)
+                || field.Group.Contains(Query,StringComparison.OrdinalIgnoreCase)
+            : field.Category == Category && field.Group == Group).ToArray();
         int pages = Math.Max(1, (fields.Length + RowsPerPage - 1) / RowsPerPage);
         Page = Math.Clamp(Page, 0, pages - 1);
         var rows = fields.Skip(Page * RowsPerPage).Take(RowsPerPage)
@@ -94,7 +106,7 @@ internal sealed class SettingsController
     internal void SelectCategory(SettingsCategory category)
     {
         if (!Enum.IsDefined(category)) throw new ArgumentOutOfRangeException(nameof(category));
-        Category = category; Page = 0; _revision++;
+        Category = category; Group=""; Query=""; Page = 0; _revision++;
     }
     internal void MovePage(int delta) { Page = Math.Max(0, Page + delta); _revision++; }
     internal void Search(string query){Query=query.Trim();Page=0;_revision++;}
@@ -118,7 +130,7 @@ internal sealed class SettingsController
     {
         if (_backend.RestartRequired || PendingVideoConfirmation) return;
         foreach (var field in _backend.Definitions.Where(field => field.Category == Category)) _draft[field.Id] = _saved[field.Id];
-        if(Category==SettingsCategory.Display)
+        if(Category==SettingsCategory.Hud)
             foreach(var saved in _saved.Where(value=>value.Key.StartsWith("$hud",StringComparison.Ordinal)||value.Key.StartsWith("$legacy",StringComparison.Ordinal)))
                 _draft[saved.Key]=saved.Value;
         _error = ""; _status = "Category restored to its last saved values."; _revision++;

@@ -13,6 +13,7 @@ public static class RmlUiLobbyBindings
     public static void Present(RmlUiLauncherPages pages, LobbySnapshot snapshot)
     {
         pages.SetBool("lobby_mode", true);
+        pages.SetText("lobby_chat_history",snapshot.Chat.Length==0?"No messages yet.":string.Join("\n",snapshot.Chat.TakeLast(6)));
         var players = snapshot.Players.OrderByDescending(player => player.Slot == snapshot.LocalSlot).ToArray();
         for (int index = 0; index < 8; index++)
         {

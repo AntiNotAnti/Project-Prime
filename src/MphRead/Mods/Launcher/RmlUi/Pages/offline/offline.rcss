@@ -62,3 +62,17 @@
  .offline_actions button { width: 41vw; }
  .offline_arena_row { width: 84vw; } .offline_arena_row button, .offline_arena_reason { width: 78vw; }
 }
+
+/* Activities each own their setup section and retain the shared launch controller. */
+.offline_page { padding: 20dp 4%; }
+.offline_columns { width: 100%; }
+.offline_columns > .offline_panel { width: 100%; padding: 12dp; }
+.offline_columns .offline_choice { display: inline-flex; width: 47%; margin-right: 2%; padding: 8dp; }
+.offline_choice span { width: 40%; } .offline_choice b { width: 60%; }
+.offline_columns .offline_action, .offline_columns .offline_summary, .offline_columns .offline_error { width: 97%; }
+.offline_panel h2, .offline_panel p { width: 97%; }
+.offline_back { position: absolute; right: 4%; top: 18dp; padding: 10dp 16dp; background-color: #10283a; color: #bcd8ed; border: 1dp #365c79; }
+@media (max-height: 650dp) { .offline_page { padding-top: 10dp; } .offline_choice b { font-size: 14dp; } .offline_columns .offline_choice { padding: 5dp 8dp; } .offline_action { padding: 7dp 10dp; } }
+
+.offline_panel h2 { margin: 4dp 0dp 8dp; }
+.offline_summary { margin: 8dp 0dp; }

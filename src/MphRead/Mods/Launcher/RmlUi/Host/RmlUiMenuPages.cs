@@ -32,8 +32,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         {
             new(RmlUiBindingKind.Boolean, "class:screen:reduce-motion", "reduce_motion"),
             new(RmlUiBindingKind.Boolean, "class:screen:lobby", "lobby_mode"),
-            new(RmlUiBindingKind.Text, "account_name", "{{player_name}}"),
-            new(RmlUiBindingKind.Text, "profile_state", "{{profile_state}}"),
+            new(RmlUiBindingKind.Text, "profile", "{{player_name}}"),
             new(RmlUiBindingKind.Text, "system_status_toast", "{{system_status}}"),
             new(RmlUiBindingKind.Boolean, "class:diagnostics_panel:open", "diagnostics_visible"),
             new(RmlUiBindingKind.Text, "text_renderer_name_1", "{{renderer_name}}"),
@@ -52,6 +51,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
 
         private static readonly Binding[] HomeBindings =
         {
+            new(RmlUiBindingKind.Boolean, "class:drawer_training:selected", "activity_index == 4"),
+            new(RmlUiBindingKind.Boolean, "visible:drawer_training_active", "activity_index == 4"),
             new(RmlUiBindingKind.Boolean, "class:activity_compact:hidden", "activity_selector_open"),
             new(RmlUiBindingKind.Text, "text_activity_group_1", "{{activity_group}}"),
             new(RmlUiBindingKind.Text, "text_activity_title_1", "{{activity_title}}"),
@@ -61,8 +62,6 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Text, "text_activity_group_2", "{{activity_group}} ACTIVITY"),
             new(RmlUiBindingKind.Text, "text_activity_action_1", "{{activity_action}}"),
             new(RmlUiBindingKind.Boolean, "class:activity_drawer:open", "activity_selector_open"),
-            new(RmlUiBindingKind.Boolean, "class:drawer_quick:selected", "activity_index == 0"),
-            new(RmlUiBindingKind.Boolean, "visible:visible_activity_index____0_1", "activity_index == 0"),
             new(RmlUiBindingKind.Boolean, "class:drawer_browser:selected", "activity_index == 1"),
             new(RmlUiBindingKind.Boolean, "visible:visible_activity_index____1_1", "activity_index == 1"),
             new(RmlUiBindingKind.Boolean, "class:drawer_offline:selected", "activity_index == 2"),
@@ -108,13 +107,16 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "visible:play_browser_empty", "play_no_servers"),
             new(RmlUiBindingKind.Boolean, "visible:play_connect", "play_browser_mode"),
             new(RmlUiBindingKind.Boolean, "visible:play_create", "play_create_mode"),
-            new(RmlUiBindingKind.Text, "text_play_create_map_1", "{{play_create_map}} "),
-            new(RmlUiBindingKind.Text, "text_play_create_mode_name_1", "{{play_create_mode_name}} "),
             new(RmlUiBindingKind.Text, "text_play_create_host_1", "{{play_create_host}} "),
         };
 
         private static readonly Binding[] LobbyBindings =
         {
+            new(RmlUiBindingKind.Text, "lobby_chat_history", "{{lobby_chat_history}}"),
+            new(RmlUiBindingKind.Text, "lobby_chat_status", "{{lobby_chat_status}}"),
+            new(RmlUiBindingKind.Text, "image:lobby_map_image", "{{lobby_map_image}}"),
+            new(RmlUiBindingKind.Text, "lobby_map_preview_status", "{{lobby_map_preview_status}}"),
+            new(RmlUiBindingKind.Boolean, "visible:lobby_map_image", "lobby_map_image_ready"),
             new(RmlUiBindingKind.Text, "text_lobby_name_1", "{{lobby_name}}"),
             new(RmlUiBindingKind.Text, "text_lobby_status_1", "{{lobby_status}}"),
             new(RmlUiBindingKind.Text, "text_lobby_mode_name_1", "{{lobby_mode_name}}"),

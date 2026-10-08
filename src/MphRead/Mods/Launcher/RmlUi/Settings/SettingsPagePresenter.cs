@@ -54,6 +54,8 @@ internal sealed partial class SettingsPagePresenter : IDisposable
         foreach(var field in _retainedUiFields)_host.SetField(_page,field.Key,field.Value);
         RefreshSummaries();
         Refresh();
+        _host.Update();
+        _host.FocusDocument(_page,"settings_value_0");
     }
     internal bool HandleAction(in RmlUiIntent intent)
     {
@@ -69,7 +71,7 @@ internal sealed partial class SettingsPagePresenter : IDisposable
                 if(_controller.Apply()&&!_controller.PendingVideoConfirmation&&_closing)Close();break;
             case RmlUiIntentKind.SettingsDiscard:
                 _controller.Discard();_resetNativeFields=true;if(_closing)Close();break;
-            case RmlUiIntentKind.SettingsCategory:_controller.SelectCategory((SettingsCategory)intent.Argument);break;
+            case RmlUiIntentKind.SettingsCategory:_controller.SelectCategory((SettingsCategory)intent.Argument);_host.SetField(_page,"settings_search","");_operationStatus="";break;
             case RmlUiIntentKind.SettingsResetCategory:_controller.RevertCategory();_resetNativeFields=true;break;
             case RmlUiIntentKind.SettingsClose:RequestClose();break;
             case RmlUiIntentKind.SettingsKeepVideo:
@@ -77,10 +79,22 @@ internal sealed partial class SettingsPagePresenter : IDisposable
             case RmlUiIntentKind.SettingsRevertVideo:_controller.RevertVideo();CloseModal();break;
             case RmlUiIntentKind.SettingsAction:Action(intent.Argument);break;
         }
-        Refresh();return true;
+        Refresh();
+        if (intent.Kind == RmlUiIntentKind.SettingsCategory || intent.Kind == RmlUiIntentKind.SettingsAction
+            && (intent.Argument >= 64 || intent.Argument is 0 or 1 or 54 or 55))
+        {
+            _host.Update();
+            _host.FocusDocument(_page,"settings_value_0");
+        }
+        return true;
     }
     private void Action(int action)
     {
+        if(action>=64)
+        {
+            _controller.SelectGroup(action-64); _host.SetField(_page,"settings_search","");
+            _operationStatus=""; return;
+        }
         if(action>=16&&action<28)
         {
             int index=action-16;if(_presented==null||index>=_presented.Fields.Count)return;
@@ -187,7 +201,16 @@ internal sealed partial class SettingsPagePresenter : IDisposable
         var b=new Dictionary<string,RmlUiBindingValue>();
         void Text(string id,string value)=>b[id]=RmlUiBindingValue.FromText(value);
         void Flag(string id,bool value)=>b[id]=RmlUiBindingValue.FromBoolean(value);
-        Text("settings_title",s.Category.ToString());Text("settings_paging",$"Page {s.Page+1} of {s.PageCount}");
+        Text("settings_title",_controller.Query.Length>0?"Search results":(s.Category==SettingsCategory.Hud?"HUD":s.Category.ToString())+" / "+_controller.Group);
+        var groups=_controller.Groups;
+        for(int i=0;i<192;i++)
+        {
+            Flag("visible:settings_group_"+i,i<groups.Count);
+            if(i<groups.Count){Text("settings_group_"+i,groups[i]);Flag("class:settings_group_"+i+":selected",groups[i]==_controller.Group&&_controller.Query.Length==0);}
+        }
+        foreach(SettingsCategory category in Enum.GetValues<SettingsCategory>())
+            Flag("class:settings_"+category.ToString().ToLowerInvariant()+"_tab:selected",category==s.Category);
+        Text("settings_paging",$"Page {s.Page+1} of {s.PageCount}");
         Text("settings_status",_operation!=null?"Working...":_operationStatus.Length>0?_operationStatus:s.Status);
         Text("settings_error",_operationError.Length>0?_operationError:s.Error);
         Text("settings_dirty",s.Dirty||nativeDraft?"Unsaved changes":"Saved settings");
@@ -197,8 +220,8 @@ internal sealed partial class SettingsPagePresenter : IDisposable
         Flag("visible:settings_system",s.Category==SettingsCategory.System);
         Flag("visible:settings_maintenance",s.Category==SettingsCategory.Maintenance);
         Flag("visible:settings_profile_tools",s.Category==SettingsCategory.Profile);
-        Flag("visible:settings_controller_tools",s.Category==SettingsCategory.Controls);
-        Flag("visible:settings_hud_tools",s.Category==SettingsCategory.Display);
+        Flag("visible:settings_controller_tools",s.Category==SettingsCategory.Controller&&_controller.Group=="Controller / preferences"&&_controller.Query.Length==0);
+        Flag("visible:settings_hud_tools",s.Category==SettingsCategory.Hud&&_controller.Query.Length==0);
         Flag("disabled:settings_hud_edit",_editHud==null||s.RestartRequired||s.VideoConfirmation);
         Flag("visible:settings_credits",s.Category==SettingsCategory.Credits);
         Flag("visible:settings_restart",s.RestartRequired);

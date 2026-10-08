@@ -9,7 +9,6 @@
             <div id="top_rule" />
             <div id="topbar" class="enter_top">
                 <div id="brand">
-                    <div id="brand_mark">P</div>
                     <div id="brand_copy">
                         <div class="brand_title">PROJECT PRIME</div>
                         <div class="brand_subtitle">HUNTERS ONLINE</div>
@@ -22,12 +21,7 @@
                     <button id="nav_studio" class="nav" data-action="studio:open">STUDIO</button>
                 </div>
                 <div id="account_cluster">
-                    <div class="online_dot" />
-                    <div class="account_copy">
-                        <div class="account_name" data-prime-text="{{player_name}}" id="account_name" />
-                        <div class="account_meta" data-prime-text="{{profile_state}}" id="profile_state" />
-                    </div>
-                    <button id="profile" class="utility" data-action="route:hunter">PROFILE</button>
+                    <button id="profile" class="utility" data-action="route:hunter" data-prime-text="{{player_name}}">PROFILE</button>
                 </div>
             </div>
             <div id="stage">

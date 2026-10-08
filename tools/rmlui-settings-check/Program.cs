@@ -35,6 +35,11 @@ settings.Search("field11");Check(settings.Snapshot().Fields.Count==1&&settings.S
 settings.Search("");Check(settings.Snapshot().PageCount==2,"clearing search restores category pages");
 Check(!settings.StageSnapshot(new Dictionary<string,string>{{"unknown","x"}})&&!settings.Dirty,"unregistered profile carrier cannot alter the draft");
 Check(!settings.StageSnapshot(new Dictionary<string,string>{{"flag","false"},{"field0","7"}})&&settings.Draft["flag"]=="true","invalid profile staging leaves the complete previous draft intact");
+settings.SelectCategory(SettingsCategory.Controls);settings.Search("Render scale");
+Check(settings.Snapshot().Fields.Single().Definition.Id=="scale","search reaches settings in other categories");
+settings.Search("");settings.SelectGroup(0);settings.Set("binding","Key:Space:Right");
+settings.SelectCategory(SettingsCategory.Display);settings.SelectGroup(0);
+Check(settings.Draft["binding"]=="Key:Space:Right","category and group navigation preserve pending edits");
 Console.WriteLine($"PASS {checks} settings draft, range, persistence, exact binding and last-good-video checks");
 
 sealed class FakeSettings : ISettingsBackend

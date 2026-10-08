@@ -82,7 +82,7 @@ internal sealed partial class AndroidRmlUiSession : IDisposable
         _gamepad.Action += Gamepad; _gamepad.Reset();
         RefreshChrome(); Pages.ShowBaseline();
         InitializeLobby();
-        if (!GameFiles.Ready && _lobby == null) OpenSetup(required: true);
+        if (_lobby == null) RmlSplashPage.Open(Host,Pages,new TheatreImageCache(decode: AndroidRmlUiImages.Decode,maximumDimension:2048));
     }
     private void RefreshChrome()
     {
@@ -131,7 +131,8 @@ internal sealed partial class AndroidRmlUiSession : IDisposable
         }
         _updates.Tick(_setup == null && _lobby == null && _route == RmlUiRouteArgument.Home && !Pages.Suspended && Pages.Manager.ModalCount == 0);
         if (_updates.TryTakeAvailable(out var update)) { OpenSetup(required: false); _setup!.OpenLatest(update, automatic: true); }
-        if (Pages.Manager.Page != default) Pages.PresentChrome(Pages.Manager.Page);
+        if (Pages.Manager.PageKey=="splash")RmlSplashPage.Layout(Host,Pages);
+        else if (Pages.Manager.Page != default) Pages.PresentChrome(Pages.Manager.Page);
         _visualPolicy.Apply(Host, _settings, Host.HomeDocument, Pages.Manager.Page, Pages.Manager.Top,
             _hunter?.Document ?? default, _admin?.Document ?? default);
         _visualPolicy.ApplyRoute(Host, Host.HomeDocument, "home");
@@ -152,7 +153,7 @@ internal sealed partial class AndroidRmlUiSession : IDisposable
             case RmlUiIntentKind.PlayQuick: EnsurePlay(true); break;
             case RmlUiIntentKind.PlayBrowse: EnsurePlay(false); break;
             case RmlUiIntentKind.PlayCreateOpen: EnsurePlay(false); _multiplayer.OpenCreate(); break;
-            case RmlUiIntentKind.PlayCreate: _multiplayer.Create(Pages.ReadField("play_create_name"), Pages.ReadField("play_create_player_name")); break;
+            case RmlUiIntentKind.PlayCreate: _multiplayer.Create(Pages.ReadField("play_create_name"), LauncherPrefs.PlayerName); break;
             case RmlUiIntentKind.PlayJoin: _multiplayer.JoinEndpoint(Pages.ReadField("play_join_address"), false); break;
             case RmlUiIntentKind.PlayServer: _multiplayer.JoinSelected(intent.Argument); break;
             case RmlUiIntentKind.PlayNextMap: _multiplayer.NextMap(); break;
@@ -170,7 +171,9 @@ internal sealed partial class AndroidRmlUiSession : IDisposable
             _settingsPage.RequestLeave(() => _afterDispatch.Enqueue(() => { _settingsPage?.Dispose(); _settingsPage = null; Open(route, refreshLicense); }));
             return;
         }
+        bool leavingSplash=Pages.Manager.PageKey=="splash";
         ClosePresenters(); _route = route;
+        if(leavingSplash&&!GameFiles.Ready){OpenSetup(required:true);return;}
         switch (route)
         {
             case RmlUiRouteArgument.Home: _route = RmlUiRouteArgument.Home; Pages.ShowBaseline(RmlUiMenuPage.Home); break;
@@ -178,6 +181,8 @@ internal sealed partial class AndroidRmlUiSession : IDisposable
                 Pages.Suspend(); _newsController = new(new BundledNewsProvider(), new NewsEngineLinkLauncher());
                 _news = new(Host, Pages.Manager, _newsController); _news.Open(); break;
             case RmlUiRouteArgument.Play: Pages.ShowBaseline(RmlUiMenuPage.Play); _multiplayer.Open(false); break;
+            case RmlUiRouteArgument.Training:
+                Open(RmlUiRouteArgument.Offline); _offline?.FocusTraining(); break;
             case RmlUiRouteArgument.Offline:
                 Pages.Suspend(); _offlineController = new(_settings, _rooms); _offline = new(Host, Pages.Manager, _offlineController); _offline.Open(); break;
             case RmlUiRouteArgument.Adventure:
