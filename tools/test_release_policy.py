@@ -42,14 +42,14 @@ elif args and args[0]=="api":
         tag=next(a.rsplit("/",1)[-1] for a in args if "/git/ref/" in a)
         if tag!=os.environ["EXISTING_TAG"]:sys.exit(1)
         print("{}")
-    elif any(a.endswith("/releases") for a in args):print("v1.2.2")
+    elif any(a.endswith("/releases") for a in args):print(os.environ["LATEST_RELEASE"])
     elif any("/releases/tags/" in a for a in args):sys.exit(1)
     else:sys.exit(2)
 ''')
             gh.chmod(0o755)
             env=dict(os.environ,PATH=str(directory)+os.pathsep+os.environ["PATH"],CALLS=str(directory/"calls.jsonl"),
                      RELEASE_STATE="missing",TAG_SHA="a"*40,RELEASE_SHA="a"*40,REPOSITORY="local/fixture",REPO="local/fixture",
-                     TAG="v1.2.3",EXISTING_TAG="v1.2.3",INPUT_TAG="v1.2.3",PUSHED_TAG="",BUMP="none",SHA="a"*40,PUBLISH_NOW="true",
+                     TAG="v1.2.3",EXISTING_TAG="v1.2.3",LATEST_RELEASE="v1.2.2",INPUT_TAG="v1.2.3",PUSHED_TAG="",BUMP="none",SHA="a"*40,PUBLISH_NOW="true",
                      KEYSTORE="",RUNNER_TEMP=str(directory),GITHUB_OUTPUT=str(directory/"output"),GITHUB_STEP_SUMMARY=str(directory/"summary"))
             env.update(overrides)
             result=subprocess.run(["bash","-c",step_script(step)],cwd=directory,env=env,text=True,capture_output=True,timeout=5)
@@ -84,6 +84,14 @@ elif args and args[0]=="api":
         self.assertIn("sha="+"a"*40,output)
         self.assertTrue(any("POST" in call and "ref=refs/tags/v1.2.4" in call
             and "sha="+"a"*40 in call for call in calls))
+        self.assertFalse(any("PATCH" in call for call in calls))
+
+    def test_first_release_patch_bump_skips_stale_initial_tag(self):
+        result,calls,output=self.execute("resolve the tag",INPUT_TAG="",BUMP="patch",
+            LATEST_RELEASE="",EXISTING_TAG="v0.1.0",SHA="a"*40,TAG_SHA="b"*40)
+        self.assertEqual(0,result.returncode,result.stderr)
+        self.assertIn("tag=v0.1.1",output)
+        self.assertIn("sha="+"a"*40,output)
         self.assertFalse(any("PATCH" in call for call in calls))
 
     def test_auto_bump_cannot_force_move_published_tag(self):
