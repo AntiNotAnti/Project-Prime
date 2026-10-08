@@ -70,8 +70,11 @@ was verified through native RmlUi and controller tests; a completed network matc
 with the live scoreboard still needs the user's gameplay pass. Cross-platform
 physical display/high-refresh acceptance remains with that live testing pass.
 
-Selected captures are in `rmlui-evidence/cinematic-motion-2026-10-08/`.
-The reproducible harness is documented in `tools/menu-motion-check/README.md`.
+Text-only performance captures remain in `rmlui-evidence/cinematic-motion-2026-10-08/`.
+Rendered screenshots containing game-derived Hunter models are local validation artifacts,
+not distributable source assets. The repository's asset guard intentionally excludes
+those images from git and release packages. Regenerate captures locally with the
+reproducible harness documented in `tools/menu-motion-check/README.md`.
 
 ## Performance
 
