@@ -201,13 +201,31 @@ namespace MphRead.Mods.Network
                 var config = owner.State!.Value;
                 config.Match = config.Match with { RoomKey = room };
                 rig.Expect(owner, owner.Command(LobbyCommandType.UpdateMatch, config: config), LobbyResultCode.Ok);
+                if (Metadata.IsBuiltInRoom(room))
+                    Check(owner.State!.Value.StockGameplayHash == NetworkMapIdentity.StockGameplayHash(room)
+                        && !owner.State.Value.StockGameplayHash.IsZero,
+                        "selected vanilla map outside the initial rotation advertises its gameplay identity");
                 rig.ReadyAll();
                 rig.Expect(owner, owner.Command(LobbyCommandType.StartMatch), LobbyResultCode.Ok);
                 Check(rig.Server.Simulating, "real authority loaded custom room");
                 foreach (Client client in rig.Clients) client.Loaded();
                 rig.Wait(() => rig.Clients.All(c => c.State?.Phase == SessionPhase.InMatch),
                     "all three peers released into match", 15000);
-                Console.WriteLine($"[netlobbytest] PASS: {room} real server, lobby prewarm, three UDP peers and start barrier.");
+                var simulation = (ServerSim)typeof(DedicatedServer).GetField("_sim",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(rig.Server)!;
+                rig.EndMatchForTest();
+                rig.Wait(() => rig.Clients.All(c => c.State?.Phase == SessionPhase.Lobby),
+                    "real authority returns all peers to lobby", PostMatchWaitMilliseconds);
+                rig.Stable();
+                Check(simulation.StepFailures == 0, "match end and lobby return have no authority simulation faults");
+                Check(rig.Clients.All(c => c.State!.Value.Match.RoomKey == room),
+                    "selected map survives real scene teardown and lobby restoration");
+                rig.ReadyAll();
+                rig.Expect(owner, owner.Command(LobbyCommandType.StartMatch), LobbyResultCode.Ok);
+                foreach (Client client in rig.Clients) client.Loaded();
+                rig.Wait(() => rig.Clients.All(c => c.State?.Phase == SessionPhase.InMatch),
+                    "same lobby starts a second match on its selected map", 15000);
+                Console.WriteLine($"[netlobbytest] PASS: {room} real server, content identity, three UDP peers, start/return/restart on selected map.");
                 return 0;
             }
             catch (Exception ex)
@@ -1215,6 +1233,8 @@ namespace MphRead.Mods.Network
                 "custom time and point limits survive the match-to-lobby cycle");
             Check(rig.Clients.All(c => c.State!.Value.Match.HideOpponentHealth),
                 "custom match rules survive the match-to-lobby cycle");
+            Check(rig.Clients.All(c => c.State!.Value.Match.RoomKey == Rooms()[1]),
+                "host-selected map survives the match-to-lobby cycle without advancing rotation");
             Check(ReferenceEquals(originalA, a.Transport) && ReferenceEquals(originalB, b.Transport)
                 && a.Slot == slotA && b.Slot == slotB, "same UDP transports and slots across rounds");
             Check(a.Roster.LobbyReady.Take(a.Roster.Count).All(r => !r), "return clears lobby ready");

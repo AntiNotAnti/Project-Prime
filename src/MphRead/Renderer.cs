@@ -2888,6 +2888,20 @@ namespace MphRead
             // positions they had then, until the 200-entry table filled up and
             // started dropping the new ones.
             _singleParticleCount = 0;
+            PrepareDrawCamera();
+            if (Services.IsReplica)
+                GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref _viewMatrix);
+            UpdateProjection();
+            GetDrawItems();
+            DrawStudioReplayOverlays();
+            using (Mods.Render.FrameRenderTelemetry.Measure(Mods.Render.FrameRenderTelemetry.Phase.RetainedExtraction))
+                CaptureRetainedRenderWorld();
+        }
+
+        // Runs after frame-local poses are invalidated and before draw items
+        // consume them. Studio and Theatre share this preparation boundary.
+        internal void PrepareDrawCamera()
+        {
             if ((!Services.IsReplica || Mods.Network.DemoPlayback.Owns(this)) && (ProcessFrame || CameraMode != CameraMode.Player || Services.IsReplica))
             {
                 ModReplayCamera();
@@ -2897,13 +2911,14 @@ namespace MphRead
                 TransformCamera();
                 UpdateCameraPosition();
             }
-            if (Services.IsReplica)
-                GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref _viewMatrix);
-            UpdateProjection();
-            GetDrawItems();
-            DrawStudioReplayOverlays();
-            using (Mods.Render.FrameRenderTelemetry.Measure(Mods.Render.FrameRenderTelemetry.Phase.RetainedExtraction))
-                CaptureRetainedRenderWorld();
+            else if (Services.IsReplica && CameraMode == CameraMode.Player)
+            {
+                // Studio chooses the POV before extraction. Prepare the camera
+                // and its camera-local cannon after this draw invalidates poses,
+                // just as Theatre does, using the private replay clock.
+                TransformCamera();
+                UpdateCameraPosition();
+            }
         }
 
         public Matrix4 GetPerspectiveMatrix(float fov)

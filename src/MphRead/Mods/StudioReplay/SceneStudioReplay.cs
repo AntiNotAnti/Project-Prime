@@ -81,6 +81,7 @@ public partial class Scene
             if (!main.HudReady) main.SetUpHud();
             main.PrepareReplicaHudPresentation();
         }
-        TransformCamera(); UpdateCameraPosition();
+        // OnDrawFrame prepares the selected camera after invalidating the prior
+        // picture's viewmodel pose. Preparing it here would be discarded there.
     }
 }

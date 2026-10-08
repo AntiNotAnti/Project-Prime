@@ -62,7 +62,7 @@ enum class PrimeIntentKind : uint32_t {
     HunterZoom = 84,
     LobbyTeamSelect = 88,
     LobbySlotTeamNext = 89,
-        LobbyMapOpen = 90, LobbyMapSelect = 91, LobbyMapPrevious = 92, LobbyMapNext = 93, LobbyMapClose = 94,
+        LobbyMapOpen = 90, LobbyMapSelect = 91, LobbyMapPrevious = 92, LobbyMapNext = 93, LobbyMapClose = 94, LobbyMapCategory = 95,
     SettingsApply = 100,
     SettingsDiscard = 101,
     SettingsCategory = 102,

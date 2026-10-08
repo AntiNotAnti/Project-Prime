@@ -37,7 +37,7 @@ namespace MphRead.Mods.Launcher.Core
         public int ChatLimit => ChatPacket.MaxTextBytes;
         public bool UnicodeChatAvailable => false;
         public bool MapRotationEditingAvailable => false;
-        public string MapRotationUnavailableReason => "The existing lobby protocol exposes one next arena. Rotation order is configured when creating a server.";
+        public string MapRotationUnavailableReason => "Select a map from the lobby preview. Every match returns here with the selected map and rules.";
 
         public static LobbyPresentation From(LobbySnapshot state)
         {

@@ -95,6 +95,7 @@ namespace MphRead.Mods.Render
                         return 1;
                     }
 
+                    StudioReplayCameraCheck.Verify();
                     RunSurfaceLifecycleCheck();
                     RunScissorBoundsCheck();
                     RunCopyFormatCheck();

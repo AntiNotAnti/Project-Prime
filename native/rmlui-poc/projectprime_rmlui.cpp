@@ -178,6 +178,8 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
         {"lobby:leave", PrimeIntentKind::LobbyLeave, 0}, {"lobby:next-hunter", PrimeIntentKind::LobbyNextHunter, 0},
         {"lobby:next-suit", PrimeIntentKind::LobbyNextSuit, 0}, {"lobby:classic", PrimeIntentKind::LobbyClassic, 0},
         {"lobby:rules-open", PrimeIntentKind::LobbyRulesOpen, 0}, {"lobby:rules-close", PrimeIntentKind::LobbyRulesClose, 0},
+        {"lobby:map-category:0", PrimeIntentKind::LobbyMapCategory, 0},
+        {"lobby:map-category:1", PrimeIntentKind::LobbyMapCategory, 1},
         {"lobby:map-open", PrimeIntentKind::LobbyMapOpen, 0}, {"lobby:map-previous", PrimeIntentKind::LobbyMapPrevious, 0},
         {"lobby:map-next", PrimeIntentKind::LobbyMapNext, 0}, {"lobby:map-close", PrimeIntentKind::LobbyMapClose, 0},
         {"lobby:rules-apply", PrimeIntentKind::LobbyRulesApply, 0}, {"lobby:rules-map", PrimeIntentKind::LobbyRulesMap, 0},
@@ -435,6 +437,17 @@ class DocumentActionListener final : public Rml::EventListener {
 public:
     void ProcessEvent(Rml::Event& event) override
     {
+        if (event.GetType() == "keydown") {
+            const auto key = event.GetParameter<int>("key_identifier", 0);
+            if (key != Rml::Input::KI_RETURN && key != Rml::Input::KI_NUMPADENTER) return;
+            auto* target = event.GetTargetElement();
+            const Rml::String submit = target->GetAttribute<Rml::String>("data-submit", "");
+            if (!submit.empty() && !target->HasAttribute("disabled")) {
+                QueueAction(submit, DocumentId(target->GetOwnerDocument()));
+                event.StopPropagation();
+            }
+            return;
+        }
         const bool change = event.GetType() == "change";
         // Range SetValue emits the same synchronous change event as user input.
         // Presenter bindings must not feed their authoritative position back as
@@ -472,6 +485,7 @@ uint64_t RegisterDocument(Rml::ElementDocument* element, const std::string& path
     DirtyVisual();
     element->AddEventListener("click", &g_action_listener);
     element->AddEventListener("change", &g_action_listener);
+    element->AddEventListener("keydown", &g_action_listener, true);
     element->AddEventListener("mouseover", &g_action_listener);
     element->AddEventListener("focus", &g_action_listener, true);
     element->Show(layer == 1 ? Rml::ModalFlag::Modal : Rml::ModalFlag::None);
@@ -701,6 +715,7 @@ PP_EXPORT void pp_rmlui_shutdown()
     for (auto& entry : g_documents) {
         entry.second.element->RemoveEventListener("click", &g_action_listener);
     entry.second.element->RemoveEventListener("change", &g_action_listener);
+    entry.second.element->RemoveEventListener("keydown", &g_action_listener, true);
     entry.second.element->RemoveEventListener("mouseover", &g_action_listener);
     entry.second.element->RemoveEventListener("focus", &g_action_listener, true);
         entry.second.element->Close();
@@ -945,6 +960,7 @@ PP_EXPORT int pp_rmlui_document_close(uint64_t document_id)
     const std::string restore_element = document->restore_element;
     document->element->RemoveEventListener("click", &g_action_listener);
     document->element->RemoveEventListener("change", &g_action_listener);
+    document->element->RemoveEventListener("keydown", &g_action_listener, true);
     document->element->RemoveEventListener("mouseover", &g_action_listener);
     document->element->RemoveEventListener("focus", &g_action_listener, true);
     document->element->Close();
@@ -1117,6 +1133,7 @@ PP_EXPORT int pp_rmlui_document_reload(uint64_t document_id)
     if (!replacement) return 0;
     document->element->RemoveEventListener("click", &g_action_listener);
     document->element->RemoveEventListener("change", &g_action_listener);
+    document->element->RemoveEventListener("keydown", &g_action_listener, true);
     document->element->RemoveEventListener("mouseover", &g_action_listener);
     document->element->RemoveEventListener("focus", &g_action_listener, true);
     document->element->Close();
@@ -1125,6 +1142,7 @@ PP_EXPORT int pp_rmlui_document_reload(uint64_t document_id)
     document->texts.clear(); document->booleans.clear();
     replacement->AddEventListener("click", &g_action_listener);
     replacement->AddEventListener("change", &g_action_listener);
+    replacement->AddEventListener("keydown", &g_action_listener, true);
     replacement->AddEventListener("mouseover", &g_action_listener);
     replacement->AddEventListener("focus", &g_action_listener, true);
     replacement->Show(document->layer == 1 ? Rml::ModalFlag::Modal : Rml::ModalFlag::None);

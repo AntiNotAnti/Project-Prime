@@ -443,7 +443,8 @@ color: #6b879c;
 /* Equal side columns keep navigation centered in the window. */
 #brand, #account_cluster { width: 260dp; flex: 1; min-width: 0dp; margin: 0dp; }
 #primary_nav { flex: 0 0 auto; justify-content: center; }
-#header_settings { margin-right: 8dp; }
+#header_settings { margin-left: 8dp; nav-left: #profile; }
+#profile { nav-right: #header_settings; }
 #profile { min-width: 85dp; }
 @media (max-width: 1100dp) { #primary_nav .nav { width: 88dp; } #brand { width: auto; } #account_cluster { width: auto; } .brand_title { font-size: 16dp; } #header_settings, #profile { font-size: 11dp; padding: 8dp; min-width: 0dp; } }
 @media (max-width: 800dp) { #brand { display: none; } #primary_nav { flex: 1; } #account_cluster { flex: 0 0 auto; } #primary_nav .nav { width: 74dp; } }

@@ -58,7 +58,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         HunterZoom = 84,
         LobbyTeamSelect = 88,
         LobbySlotTeamNext = 89,
-        LobbyMapOpen = 90, LobbyMapSelect = 91, LobbyMapPrevious = 92, LobbyMapNext = 93, LobbyMapClose = 94,
+        LobbyMapOpen = 90, LobbyMapSelect = 91, LobbyMapPrevious = 92, LobbyMapNext = 93, LobbyMapClose = 94, LobbyMapCategory = 95,
         SettingsApply = 100,
         SettingsDiscard = 101,
         SettingsCategory = 102,
@@ -300,6 +300,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RmlUiIntentKind.Navigate => argument >= 0 && argument < Routes.Length,
             RmlUiIntentKind.StageSelect or RmlUiIntentKind.StagePreview => argument is >= 0 and < 5,
             RmlUiIntentKind.LobbyMapSelect => argument is >= 0 and < 6,
+            RmlUiIntentKind.LobbyMapCategory => argument is >= 0 and < 2,
             RmlUiIntentKind.PlayServer => argument is >= 0 and < 8,
             RmlUiIntentKind.LobbyRulesToggle => argument is >= 0 and < 16,
             RmlUiIntentKind.LobbyPlayerSelect or RmlUiIntentKind.LobbySlotTeamNext => argument is >= 0 and < 8,
@@ -365,6 +366,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 intent = new(RmlUiIntentKind.PlayServer, argument, document, sequence);
             else if (TryIndex(action, "lobby:rules-toggle:", 16, out argument))
                 intent = new(RmlUiIntentKind.LobbyRulesToggle, argument, document, sequence);
+            else if (TryIndex(action, "lobby:map-category:", 2, out argument) && argument >= 0)
+                intent = new(RmlUiIntentKind.LobbyMapCategory, argument, document, sequence);
             else if (TryIndex(action, "lobby:map-select:", 6, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.LobbyMapSelect, argument, document, sequence);
             else if (TryIndex(action, "lobby:slot-team:", 8, out argument) && argument >= 0)
@@ -479,6 +482,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 RmlUiIntentKind.PlayQueueAction => "play:" + PlayQueueActions[intent.Argument],
                 RmlUiIntentKind.PlayServer => "play:server:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.LobbyRulesToggle => "lobby:rules-toggle:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
+                RmlUiIntentKind.LobbyMapCategory => "lobby:map-category:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.LobbyMapSelect => "lobby:map-select:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.LobbySlotTeamNext => "lobby:slot-team:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.LobbyPlayerSelect => "lobby:player:" + intent.Argument.ToString(CultureInfo.InvariantCulture),

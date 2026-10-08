@@ -278,7 +278,7 @@ nav-left: #lobby_ready; nav-right: #lobby_suit;
 }
 
 #lobby_suit {
-nav-left: #lobby_hunter; nav-right: #lobby_leave;
+nav-left: #lobby_hunter; nav-right: auto;
 }
 
 #lobby_rules {
@@ -286,12 +286,21 @@ nav-left: #lobby_suit; nav-right: #lobby_leave;
 }
 
 #lobby_leave {
-nav-left: #lobby_suit; nav-right: #lobby_start;
+position: absolute;
+right: 24dp;
+bottom: 10dp;
+height: 42dp;
+margin: 0dp;
+nav-left: auto;
 }
 
 #lobby_start {
-nav-left: #lobby_leave;
+nav-left: #lobby_suit; nav-right: #lobby_leave;
 }
+
+@media (max-width: 1100dp) { #lobby_leave { right: 12dp; } }
+@media (max-width: 900dp) { #lobby_leave { height: 38dp; } }
+@media (max-width: 480dp) { #lobby_actions { bottom: 56dp; } }
 
 
 
@@ -513,3 +522,16 @@ min-width: 62dp; font-size: 7dp;
     .lobby_field_status { padding: 4dp; margin-top: 5dp; font-size: 8dp; }
 }
 @media (max-height: 545dp) { #lobby_brief { display: none; } }
+
+/* Eight slots share the available height, including the invitation control. */
+#lobby_roster_panel { display: flex; flex-direction: column; overflow: hidden; }
+.lobby_roster_header, .lobby_roster_social { flex-shrink: 0; }
+.lobby_roster_row { flex: 1; min-height: 0dp; padding: 2dp; }
+.lobby_roster_copy { padding: 2dp 4dp; }
+.lobby_roster_social span { display: block; }
+@media (max-height: 760dp) {
+    .lobby_roster_copy b { font-size: 10dp; line-height: 10dp; }
+    .lobby_roster_hunter { font-size: 7dp; line-height: 7dp; }
+    .lobby_roster_state { font-size: 6dp; }
+    .lobby_team { font-size: 7dp; padding: 1dp 3dp; margin-top: 1dp; }
+}

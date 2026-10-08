@@ -69,6 +69,11 @@ try
    Check(x>=0&&y>=0&&x+w<=size.Item1+1&&y+h<=size.Item2+1,$"{id} outside {size}: {x},{y},{w},{h}");
   }
   Draw("home");foreach(var id in new[]{"nav_play","nav_hunters","nav_community","nav_studio","profile"})Fits(pages.Document,id);
+  host.TryGetElementBounds(pages.Document,"profile",out float profileX,out _,out _,out _);
+  host.TryGetElementBounds(pages.Document,"header_settings",out float settingsX,out _,out _,out _);
+  Check(profileX<settingsX,"profile precedes Settings in header");
+  foreach(string removed in new[]{"footer_news","footer_social"})
+   Check(!host.TryGetElementBounds(pages.Document,removed,out _,out _,out _,out _),"removed redundant footer entry "+removed);
   // Regression for the actual compact-height 720p window: the previous
   // 850dp cutoff hid every useful rail while showing Deployment Link.
   bool showRails=size.Item1/size.Item3>1180 && size.Item2/size.Item3>490;
@@ -132,6 +137,7 @@ try
   host.SetText(community,"community_status","Ready // Community catalog refreshed.");
   Draw("community");foreach(var id in new[]{"community_previous","community_next","community_select_3","community_detail_9"})Fits(community,id);
   host.SetBool(community,"visible:community_lifecycle_filters",true);Draw("community-owned");Fits(community,"community_detail_9");Fits(community,"community_select_3");
+  for(int i=0;i<8;i++){var slot=LauncherLobbyFormation.At(i);host.SetLobbyAnchor(i,slot.LabelX,slot.LabelY);}
   pages.ShowBaseline(RmlUiMenuPage.Lobby);pages.SetText("lobby_name","JARRETT'S LOBBY");pages.SetText("lobby_map","TRANSFER LOCK");pages.SetText("lobby_mode_name","BATTLE");pages.SetText("lobby_player_count","8 / 8");pages.SetText("lobby_chat_history","Jarrett: Ready for the next round?\nHunter: Ready!");
   pages.SetText("lobby_brief_title","READY CHECK IN PROGRESS");
   pages.SetText("lobby_brief_count","8 / 8 HUNTERS");
@@ -155,6 +161,25 @@ try
   Check(host.TryTakeIntent(out var lobbySocial)&&lobbySocial.Kind==RmlUiIntentKind.Navigate&&lobbySocial.Argument==9,
       "Lobby invite entry opens verified Social route without bypassing permissions");
 
+  Check(host.FocusDocument(pages.Document,"lobby_chat_input"),"chat field receives keyboard input");
+  host.Input.Text("Ready for the next map?");host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
+  Check(host.TryTakeIntent(out var chat)&&chat.Kind==RmlUiIntentKind.LobbyChatSend,"Enter in lobby chat submits typed intent");
+  Check(host.ReadField(pages.Document,"lobby_chat_input")=="Ready for the next map?","Enter preserves message for send handler");
+  Check(!host.TryTakeIntent(out _),"Enter submits exactly once");
+  host.TryGetElementBounds(pages.Document,"lobby_roster_panel",out _,out float rosterY,out _,out float rosterH);
+  for(int i=0;i<8;i++)
+  {
+   Fits(pages.Document,"lobby_player"+i);
+   host.TryGetElementBounds(pages.Document,"lobby_player"+i,out _,out float rowY,out _,out float rowH);
+   Check(rowY>=rosterY&&rowY+rowH<=rosterY+rosterH,$"slot {i+1} fits roster without scrolling: {rowY},{rowH} in {rosterY},{rosterH}");
+  }
+  if(size.Item1/size.Item3>1180)
+  {
+   host.TryGetElementBounds(pages.Document,"lobby_brief",out _,out float briefY,out _,out float briefH);
+   host.TryGetElementBounds(pages.Document,"lobby_slot7",out _,out float rearY,out _,out float rearH);
+   Check(rearY>=briefY+briefH+4,"rear nameplate clears squad status");
+   Check(rearY+rearH<LauncherLobbyFormation.At(7).PadY*size.Item2,"rear nameplate is above eighth hunter's pedestal");
+  }
   Check(!host.TryGetElementBounds(pages.Document,"footer_settings",out _,out _,out _,out _),"only one Settings entry");
   Fits(pages.Document,"header_settings");
   host.TryGetElementBounds(pages.Document,"lobby_match_panel",out _,out float panelY,out _,out float panelH);
@@ -166,12 +191,21 @@ try
   Check(host.FocusDocument(pages.Document,"lobby_map_preview"),"map preview is keyboard selectable");
   host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
   Check(host.TryTakeIntent(out var mapOpen)&&mapOpen.Kind==RmlUiIntentKind.LobbyMapOpen,"map preview opens typed picker");
-  using(var maps=new RmlLobbyMapPicker(host,lobby,ThumbnailGenerator.MultiplayerRooms()))
+  using(var maps=new RmlLobbyMapPicker(host,lobby,ThumbnailGenerator.MultiplayerRooms().Where(Metadata.IsBuiltInRoom).Take(7).Append("Community category fixture").ToArray()))
   {
    maps.Open();Draw("map-picker");var doc=host.CurrentInputDocument;
    foreach(var id in new[]{"map_close","map_previous","map_next","map_choice0","map_choice5"})Fits(doc,id);
    Check(host.FocusDocument(doc,"map_next"),"map next focus");host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
    Check(host.TryTakeIntent(out var next)&&next.Kind==RmlUiIntentKind.LobbyMapNext&&maps.Handle(next),"map paging uses native action");
+   host.Update();
+   Check(!host.TryGetElementBounds(doc,"map_choice1",out _,out _,out _,out float secondH)||secondH==0,"Vanilla pagination excludes the community map");
+   Check(host.FocusDocument(doc,"map_community"),"Community category focus");host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
+   Check(host.TryTakeIntent(out var category)&&category.Kind==RmlUiIntentKind.LobbyMapCategory&&category.Argument==1&&maps.Handle(category),"native Community category action");
+   Draw("map-community");Fits(doc,"map_choice0");
+   Check(!host.TryGetElementBounds(doc,"map_choice1",out _,out _,out _,out secondH)||secondH==0,"Community contains only custom maps and resets pagination");
+   Check(host.FocusDocument(doc,"map_vanilla"),"Vanilla category focus");host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
+   Check(host.TryTakeIntent(out category)&&category.Argument==0&&maps.Handle(category),"native Vanilla category action");
+   Draw("map-vanilla");Fits(doc,"map_choice5");
    Check(host.FocusDocument(doc,"map_close"),"map close focus");host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
    Check(host.TryTakeIntent(out var closeMap)&&maps.Handle(closeMap)&&!maps.Active,"map picker closes");
   }

@@ -62,13 +62,13 @@
             </div>
             <button id="lobby_map_preview" class="lobby_side_panel" tabindex="0" data-action="lobby:map-open"><div class="eyebrow">MAP PREVIEW</div><img id="lobby_map_image"/><div id="lobby_map_preview_status" /></button>
             </div>
-            <div id="lobby_chat_panel" class="lobby_side_panel"><div class="eyebrow">LOBBY CHAT</div><div id="lobby_chat_history"/><div id="lobby_chat_status"/><div class="lobby_chat_compose"><input id="lobby_chat_input" type="text" maxlength="128" placeholder="Message the lobby"/><button id="lobby_chat_send" data-action="lobby:chat-send">SEND</button></div></div>
+            <div id="lobby_chat_panel" class="lobby_side_panel"><div class="eyebrow">LOBBY CHAT</div><div id="lobby_chat_history"/><div id="lobby_chat_status"/><div class="lobby_chat_compose"><input id="lobby_chat_input" data-submit="lobby:chat-send" type="text" maxlength="128" placeholder="Message the lobby"/><button id="lobby_chat_send" data-action="lobby:chat-send">SEND</button></div></div>
             <div id="lobby_roster_panel" class="lobby_side_panel enter_right">
                 <div class="lobby_roster_header">
                     <div class="eyebrow">CONNECTED HUNTERS</div>
                     <div class="lobby_roster_count" data-prime-text="{{lobby_player_count}}" id="text_lobby_player_count_2" />
                 </div>
-                <button id="lobby_social_access" class="lobby_roster_social" data-action="route:social">INVITE FRIENDS / PARTY <span>&gt;</span></button>
+                <button id="lobby_social_access" class="lobby_roster_social" data-action="route:social"><span>INVITE FRIENDS / PARTY</span><span>&gt;</span></button>
                 <div class="lobby_roster_row" id="visible_slot0_occupied_1" data-prime-class-ready="slot0_ready" data-prime-class-local="slot0_local">
                     <span class="lobby_roster_index">1</span>
                     <button id="lobby_player0" class="lobby_roster_copy" data-action="lobby:player:0">
@@ -170,9 +170,9 @@
                 <button id="lobby_ready" class="lobby_action primary" data-prime-visible="lobby_require_ready" data-action="lobby:ready" data-prime-text="{{lobby_ready_action}}" />
                 <button id="lobby_hunter" class="lobby_action" data-action="hunter:open" data-prime-text="HUNTER // {{lobby_local_hunter}}" />
                 <button id="lobby_suit" class="lobby_action" data-action="lobby:next-suit">NEXT SUIT</button>
-                <button id="lobby_leave" class="lobby_action danger" data-action="lobby:leave">LEAVE</button>
                 <button id="lobby_start" class="lobby_action start" data-prime-visible="lobby_owner" data-action="lobby:start" data-prime-disabled="!lobby_can_start">START MATCH</button>
             </div>
+            <button id="lobby_leave" class="lobby_action danger enter_bottom" data-action="lobby:leave">LEAVE</button>
         </div>
     </body>
 </rml>

@@ -17,7 +17,9 @@ internal sealed class RmlLobbyMapPicker : IDisposable
     private readonly RmlUiHost _host;
     private readonly LobbySessionController _lobby;
     private readonly Guid _lifetime;
-    private readonly string[] _rooms;
+    private readonly string[][] _categories;
+    private int _category;
+    private string[] Rooms => _categories[_category];
     private readonly TheatreImageCache _images;
     private readonly Dictionary<string, (MatchDefinition Match, int Players, bool Valid)> _compatibility = new(StringComparer.OrdinalIgnoreCase);
     private RmlUiDocumentToken _document;
@@ -27,7 +29,8 @@ internal sealed class RmlLobbyMapPicker : IDisposable
     public RmlLobbyMapPicker(RmlUiHost host, LobbySessionController lobby, IReadOnlyList<string> rooms, TheatreImageCache? images = null)
     {
         _images=images ?? new(); _host=host; _lobby=lobby; _lifetime=lobby.Snapshot().Lifetime;
-        _rooms=rooms.Concat(CustomRooms.Definitions.Select(d=>d.Name)).Where(r=>!string.IsNullOrWhiteSpace(r)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(r=>r).ToArray();
+        var all=rooms.Concat(CustomRooms.Definitions.Select(d=>d.Name)).Where(r=>!string.IsNullOrWhiteSpace(r)).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(r=>r).ToArray();
+        _categories = new[] { all.Where(Metadata.IsBuiltInRoom).ToArray(), all.Where(r=>!Metadata.IsBuiltInRoom(r)).ToArray() };
     }
     public void Open() { _document=_host.OpenDocument("pages/lobby/maps.rml",RmlUiDocumentLayer.Modal); Update(); _host.FocusDocument(_document,"map_close"); }
     private bool Compatible(string room, LobbySnapshot state, out MatchDefinition match, bool refresh = false)
@@ -52,34 +55,41 @@ internal sealed class RmlLobbyMapPicker : IDisposable
         if(!Active)return;
         var state=_lobby.Snapshot();
         if(state.Lifetime!=_lifetime||state.Closed||!state.Active||state.Phase!=SessionPhase.Lobby){Dispose();return;}
-        _page=Math.Clamp(_page,0,Math.Max(0,(_rooms.Length-1)/6));
+        _host.SetBool(_document,"class:map_vanilla:selected",_category==0);
+        _host.SetBool(_document,"class:map_community:selected",_category==1);
+        _host.SetBool(_document,"visible:map_empty",Rooms.Length==0);
+        _host.SetText(_document,"map_empty",_category==1?"No Community maps installed. Discover maps on the Community page.":"No Vanilla maps available.");
+        _page=Math.Clamp(_page,0,Math.Max(0,(Rooms.Length-1)/6));
         _host.SetText(_document,"map_status",state.CommandError.Length>0?state.CommandError:!state.CanEdit?"Only the host can change the map.":_status);
-        _host.SetText(_document,"map_page",$"{_page+1} / {Math.Max(1,(_rooms.Length+5)/6)}");
+        _host.SetText(_document,"map_page",$"{_page+1} / {Math.Max(1,(Rooms.Length+5)/6)}");
         _host.SetBool(_document,"disabled:map_previous",_page==0);
-        _host.SetBool(_document,"disabled:map_next",(_page+1)*6>=_rooms.Length);
+        _host.SetBool(_document,"disabled:map_next",(_page+1)*6>=Rooms.Length);
         for(int i=0;i<6;i++)
         {
-            int index=_page*6+i;bool shown=index<_rooms.Length;
+            int index=_page*6+i;bool shown=index<Rooms.Length;
             _host.SetBool(_document,"visible:map_choice"+i,shown);if(!shown)continue;
-            string room=_rooms[index]; bool valid=Compatible(room,state,out _);
+            string room=Rooms[index]; bool valid=Compatible(room,state,out _);
             _host.SetText(_document,"map_name"+i,room);
             _host.SetText(_document,"map_hint"+i,valid?state.Match?.RoomKey==room?"CURRENT MAP":"SELECT MAP":"Unavailable for these rules");
             _host.SetBool(_document,"disabled:map_choice"+i,!valid||!state.CanEdit||state.CommandPending||state.RulesPending);
             string path=ThumbnailGenerator.PathFor(room),image="";
             if(File.Exists(path))try{image=_images.Load(path,default);}catch(Exception){}
             _host.SetText(_document,"image:map_image"+i,image);_host.SetBool(_document,"visible:map_image"+i,image.Length>0);
+            _host.SetBool(_document,"visible:map_art_label"+i,image.Length==0);
         }
     }
     public bool Handle(RmlUiIntent intent)
     {
         if(!Active||intent.Document!=_document)return false;
         if(intent.Kind==RmlUiIntentKind.LobbyMapClose){Dispose();return true;}
-        if(intent.Kind==RmlUiIntentKind.LobbyMapPrevious)_page--;
+        if(intent.Kind==RmlUiIntentKind.LobbyMapCategory && intent.Argument is >= 0 and < 2)
+        { _category=intent.Argument; _page=0; }
+        else if(intent.Kind==RmlUiIntentKind.LobbyMapPrevious)_page--;
         else if(intent.Kind==RmlUiIntentKind.LobbyMapNext)_page++;
         else if(intent.Kind==RmlUiIntentKind.LobbyMapSelect)
         {
             int index=_page*6+intent.Argument;var state=_lobby.Snapshot();
-            if((uint)index<(uint)_rooms.Length && state.CanEdit && Compatible(_rooms[index],state,out var match, refresh:true))
+            if((uint)index<(uint)Rooms.Length && state.CanEdit && Compatible(Rooms[index],state,out var match, refresh:true))
             {
                 var result=_lobby.Dispatch(_lobby.Intent(LobbyIntentKind.UpdateRules) with {Match=match,RuleFlags=state.RuleFlags, DraftVersion=1});
                 _status=result.Message;if(result.Accepted){Dispose();return true;}

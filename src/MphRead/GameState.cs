@@ -676,14 +676,14 @@ namespace MphRead
                         && Mods.Network.NetSession.AppliedSnapshotFrame != 0
                             ? Mods.Network.NetSession.AppliedSnapshotFrame
                             : Mods.Network.NetSession.NetFrame;
-                    if (!scene.Services.IsReplica) Mods.KillCam.BeginFinal(finalFrame);
-                    Sfx.Instance.StopFreeSfxScripts();
-                    Sfx.Instance.StopAllSound();
-                    _players.Main.StopLongSfx();
-                    // sfxtodo: stop more kinds of SFX? fade for 1P mode?
-                    if (!this.SinglePlayer)
+                    if (scene.Services.AllowsPresentationSideEffects)
                     {
-                        Music.PlaySeq(SeqId.TIMEOUT);
+                        Mods.KillCam.BeginFinal(finalFrame);
+                        Sfx.Instance.StopFreeSfxScripts();
+                        Sfx.Instance.StopAllSound();
+                        _players.Main.StopLongSfx();
+                        // sfxtodo: stop more kinds of SFX? fade for 1P mode?
+                        if (!this.SinglePlayer) Music.PlaySeq(SeqId.TIMEOUT);
                     }
                 }
             }

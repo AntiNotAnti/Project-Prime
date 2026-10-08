@@ -296,7 +296,12 @@ namespace MphRead.Mods.Network
                     { reason = "The layout must fit the connected roster and server player limit."; return LobbyResultCode.InvalidConfiguration; }
                     bool topologyChanged = proposedLayout != LobbyRules.ResolveTeamLayout(_lobbyMatch);
                     NetworkMapIdentity required;
-                    try { NetworkMapIdentity.StageRoom(room); required = NetworkMapIdentity.ForRoom(room); }
+                    try
+                    {
+                        NetworkMapIdentity.StageRoom(room);
+                        required = NetworkMapIdentity.ForRoom(room);
+                        if (!required.IsCustom && !_controlPlaneOnlyForTests) RememberStockGameplayHash(room);
+                    }
                     catch (Exception ex) { reason = ex.Message; return LobbyResultCode.MapUnavailable; }
                     if (proposed.MapIdentity.IsCustom && proposed.MapIdentity != required)
                     { reason = "The server does not have the requested package version."; return LobbyResultCode.MapUnavailable; }
@@ -475,6 +480,7 @@ namespace MphRead.Mods.Network
             CancelMapVote(_now);
             NetworkMapIdentity.StageRoom(match.RoomKey);
             NetworkMapIdentity identity = NetworkMapIdentity.ForRoom(match.RoomKey);
+            if (!identity.IsCustom && !_controlPlaneOnlyForTests) RememberStockGameplayHash(match.RoomKey);
             if (_lobbyMatch.MapIdentity != identity || _lobbyMatch.RoomKey != match.RoomKey) InvalidateMapReadiness();
             _lobbyMatch = match with { MapIdentity = identity };
             if (!_controlPlaneOnlyForTests) Mods.RoomPrewarm.Begin(_lobbyMatch.RoomKey);
@@ -684,11 +690,9 @@ namespace MphRead.Mods.Network
 
         private void ReturnToLobby()
         {
-            RotationEntry next = _rotation.Advance();
-            // Preserve the complete configured match. Only the room advances.
-            // Rebuilding from RotationEntry here was the source of time/goal/mode
-            // and other rule toggles silently snapping back to defaults.
-            EnterLobby(_frozenMatch with { RoomKey = next.RoomKey });
+            // Persistent lobbies keep the selected map until the host changes it.
+            // Rotation remains a policy of continuous dedicated servers only.
+            EnterLobby(_frozenMatch);
         }
 
         private void LobbyPeerRemoved(Peer peer)

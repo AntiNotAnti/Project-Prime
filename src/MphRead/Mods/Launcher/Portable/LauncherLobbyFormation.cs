@@ -44,7 +44,7 @@ namespace MphRead.Mods.Launcher
             new(.680f, .590f, .115f, .033f, .630f, .325f, .765f, .655f, .76f, .620f),
             new(.270f, .505f, .100f, .029f, .190f, .285f, .305f, .565f, .72f, .534f),
             new(.730f, .505f, .100f, .029f, .695f, .285f, .810f, .565f, .72f, .534f),
-            new(.500f, .430f, .090f, .026f, .440f, .235f, .560f, .505f, .72f, .458f)
+            new(.500f, .430f, .090f, .026f, .440f, .235f, .560f, .505f, .72f, .260f)
         };
 
         public static LobbyFormationSlot At(int presentationSlot)
