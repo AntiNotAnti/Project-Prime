@@ -133,7 +133,9 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
     }
     internal static bool SupportsContract(string contract, string? producerBuild = null)
         => CurrentContract(contract, producerBuild) || ReplayWorldLayout.Find(contract, producerBuild) != null;
-    private static bool CurrentContract(string contract, string? producerBuild)
+    // A supported archived fingerprint does not imply the current reflection
+    // schema can decode it. Keep this distinct from SupportsContract.
+    internal static bool CurrentContract(string contract, string? producerBuild)
         => contract.Length == 64 && (contract == Contract || contract == LegacyContract
             || (producerBuild != null && contract == ComputeContract(stable: false, producerBuild)));
     private static Dictionary<Type, FieldInfo[]> CreateFields()

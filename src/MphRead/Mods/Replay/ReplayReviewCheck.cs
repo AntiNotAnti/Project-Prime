@@ -12,10 +12,17 @@ internal static class ReplayReviewCheck
     internal static void Run(Action<bool, string> check)
     {
         const string releaseContract = "455910DAF1D71841346B1B2692A3ACC3A4B742660CC34A485CCFF66999C2E273";
-        check(!ReplayWorldCheckpoint.SupportsContract(releaseContract, "0.1.34+f0e01e09"),
+        const string releaseBuild = "0.1.34+f0e01e09e08467974b8a5ea359d690ebe0a7e3a4";
+        // The shipped v0.1.34 schema is intentionally supported through its
+        // archived layout. It must never be decoded as the current field schema.
+        check(!ReplayWorldCheckpoint.CurrentContract(releaseContract, releaseBuild),
             "archived v0.1.34 layout was incorrectly treated as the current saved world");
-        check(ReplayWorldCheckpoint.SupportsContract(ReplayWorldCheckpoint.ComputeContract(false, "0.1.34+f0e01e09"),
-                "0.1.34+f0e01e09"),
+        check(ReplayWorldLayout.Find(releaseContract, releaseBuild) != null
+            && ReplayWorldCheckpoint.SupportsContract(releaseContract, releaseBuild),
+            "archived v0.1.34 layout was not accepted through its migration decoder");
+        string versionedCurrentContract = ReplayWorldCheckpoint.ComputeContract(false, releaseBuild);
+        check(ReplayWorldCheckpoint.CurrentContract(versionedCurrentContract, releaseBuild)
+            && ReplayWorldCheckpoint.SupportsContract(versionedCurrentContract, releaseBuild),
             "current layout with an older assembly version was rejected");
         check(!ReplayWorldCheckpoint.SupportsContract(new string('0', 64), "0.1.34+f0e01e09"),
             "unknown replay layout bypassed schema validation");
