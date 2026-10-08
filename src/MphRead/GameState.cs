@@ -1892,9 +1892,10 @@ namespace MphRead
             if (settings.MenuSettings != null) SettingsMigration.Apply(settings.MenuSettings, out _);
         }
 
-        public MenuSettings LoadSettings()
+        public MenuSettings LoadSettings(string? saveDirectory = null)
         {
-            string path = GetSettingsPath();
+            string directory = saveDirectory ?? _saveFolder;
+            string path = Path.Combine(directory, "settings.json");
             if (File.Exists(path))
             {
                 SerializedSettings? settings = JsonSerializer.Deserialize<SerializedSettings>(File.ReadAllText(path), _jsonOpt);
@@ -1904,14 +1905,14 @@ namespace MphRead
                     {
                         Features.Load(settings.Features);
                     }
-                    Mods.Render.Hud.HudProfiles.Load(Path.Combine(_saveFolder, "hud-profiles"));
+                    Mods.Render.Hud.HudProfiles.Load(Path.Combine(directory, "hud-profiles"));
                     if (settings.MenuSettings != null)
                     {
                         MenuSettings menu = settings.MenuSettings;
                         if (SettingsMigration.Apply(menu, out string migration))
                         {
                             DebugLog.Line("settings", migration);
-                            try { CommitSettings(menu); }
+                            try { CommitSettings(menu, directory); }
                             catch (Exception ex)
                             {
                                 DebugLog.Line("settings", "could not persist migration: " + ex.Message);
@@ -1921,7 +1922,7 @@ namespace MphRead
                     }
                 }
             }
-            Mods.Render.Hud.HudProfiles.Load(Path.Combine(_saveFolder, "hud-profiles"));
+            Mods.Render.Hud.HudProfiles.Load(Path.Combine(directory, "hud-profiles"));
             var defaults = new MenuSettings
             {
                 SettingsSchemaVersion = SettingsMigration.CurrentSchema
@@ -1929,21 +1930,23 @@ namespace MphRead
             return defaults;
         }
 
-        public void CommitSettings(MenuSettings menuSettings)
+        public void CommitSettings(MenuSettings menuSettings) => CommitSettings(menuSettings, _saveFolder);
+
+        private void CommitSettings(MenuSettings menuSettings, string directory)
         {
             using var settingsWrite = MphRead.Mods.Settings.SettingsPersistence.BeginWrite();
             if (settingsWrite == null) return;
             // sktodo: commit menu options, including save slot
-            if (!Directory.Exists(_saveFolder))
+            if (!Directory.Exists(directory))
             {
-                Directory.CreateDirectory(_saveFolder);
+                Directory.CreateDirectory(directory);
             }
             var settings = new SerializedSettings
             {
                 Features = Features.Commit(),
                 MenuSettings = menuSettings
             };
-            File.WriteAllText(GetSettingsPath(), JsonSerializer.Serialize(settings, _jsonOpt));
+            File.WriteAllText(Path.Combine(directory, "settings.json"), JsonSerializer.Serialize(settings, _jsonOpt));
         }
 
         public void Reset()

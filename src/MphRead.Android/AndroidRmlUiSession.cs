@@ -105,7 +105,7 @@ internal sealed partial class AndroidRmlUiSession : IDisposable
         Pages.Flush(); Host.Update(); Pages.AfterUpdate();
         for (int i = 0; i < 128 && Host.TryTakeIntent(out var intent); i++)
         {
-            if (HandleQueue(intent) || _hud?.HandleIntent(intent) == true || _admin?.Handle(intent) == true || _hunter?.Handle(intent) == true || _offline?.HandleAction(intent) == true
+            if (_mapPicker?.Handle(intent) == true || HandleQueue(intent) || _hud?.HandleIntent(intent) == true || _admin?.Handle(intent) == true || _hunter?.Handle(intent) == true || _offline?.HandleAction(intent) == true
                 || _adventure?.HandleIntent(intent) == true || _license?.Handle(intent) == true
                 || _community?.HandleAction(intent) == true || _theatre?.HandleIntent(intent) == true || _studio?.Handle(intent) == true
                 || _settingsPage?.HandleAction(intent) == true || _social?.Handle(intent) == true || _setup?.HandleAction(intent) == true || _news?.HandleAction(intent) == true) continue;
@@ -160,6 +160,7 @@ internal sealed partial class AndroidRmlUiSession : IDisposable
             case RmlUiIntentKind.PlayNextMode: _multiplayer.NextMode(); break;
             case RmlUiIntentKind.PlayToggleHost: _multiplayer.ToggleHost(); break;
             case RmlUiIntentKind.PlayCancel: _multiplayer.Cancel(); if (Pages.Page == RmlUiMenuPage.Home) _route = RmlUiRouteArgument.Home; break;
+            case RmlUiIntentKind.LobbyMapOpen: HandleLobby(intent); break;
             case >= RmlUiIntentKind.LobbyReady and <= RmlUiIntentKind.LobbyBotLevelNext: HandleLobby(intent); break;
             case RmlUiIntentKind.OpenStudio: OpenStudio(); break;
         }
@@ -268,6 +269,7 @@ internal sealed partial class AndroidRmlUiSession : IDisposable
     internal void Back()
     {
         if (_multiplayer.QueueSnapshot.Visible) { _multiplayer.QueueLeave(); PresentQueue(); return; }
+        if (_mapPicker?.Active == true) { _mapPicker.Dispose(); _mapPicker=null; return; }
         if (_hud?.Back() == true) return;
         if (_admin?.Active == true) { _admin.Back(); return; }
         if (_hunter?.Active == true) { _hunter.Dispose(); _hunter = null; return; }
@@ -305,6 +307,7 @@ internal sealed partial class AndroidRmlUiSession : IDisposable
     }
     private void ClosePresenters()
     {
+        _mapPicker?.Dispose(); _mapPicker=null;
         _hud?.Dispose(); _hud = null;
         _multiplayer.Cancel();
         PresentQueue();

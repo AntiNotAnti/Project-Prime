@@ -134,3 +134,27 @@
  .settings_navigation h1 { margin-bottom: 4dp; font-size: 16dp; }
  .settings_navigation { height: 83%; }
 }
+
+/* Familiar category sidebar, full-width form and persistent commit bar. */
+.settings_workspace { left: 3%; top: 3%; width: 94%; height: 94%; background-color: #081522; }
+.settings_navigation { width: 210dp; flex-shrink: 0; height: 100%; padding: 18dp 12dp 66dp; }
+.settings_tab { min-height: 36dp; height: auto; font-size: 14dp; padding: 8dp 10dp; margin-bottom: 4dp; }
+.settings_content { flex: 1; width: auto; min-width: 0dp; padding: 20dp; }
+.settings_groups { display: flex; flex-wrap: wrap; width: 100%; height: auto; max-height: 110dp; flex-shrink: 0; overflow-y: auto; padding: 6dp 0dp; margin-bottom: 10dp; background-color: transparent; border-right: 0dp; border-bottom: 1dp #284258; }
+.settings_group { width: auto; min-height: 32dp; margin: 0dp 6dp 6dp 0dp; padding: 7dp 12dp; }
+.settings_heading { height: 38dp; }
+.settings_heading h2 { font-size: 24dp; }
+.settings_row { min-height: 62dp; padding: 10dp 8dp; }
+.settings_description label { font-size: 16dp; }
+.settings_help { font-size: 12dp; }
+.settings_value { height: 36dp; }
+.settings_cycle { height: 36dp; line-height: 34dp; }
+.settings_status, .settings_error { min-height: 18dp; font-size: 13dp; }
+.settings_actions { height: 44dp; margin-top: 10dp; }
+.settings_actions button { min-height: 40dp; width: 30%; font-size: 14dp; }
+#settings_back { width: 182dp; left: 12dp; bottom: 14dp; }
+@media (max-width: 800dp) { .settings_navigation { width: 154dp; padding: 10dp 8dp 58dp; } .settings_tab { font-size: 12dp; padding: 7dp 5dp; } .settings_content { padding: 12dp; } #settings_back { width: 130dp; } .settings_row { min-height: 60dp; } .settings_description label { font-size: 13dp; } .settings_group { font-size: 12dp; padding: 6dp; } .settings_heading h2 { font-size: 18dp; } }
+
+.settings_navigation { position: absolute; left: 0dp; top: 0dp; bottom: 64dp; height: auto; padding-bottom: 12dp; }
+.settings_content { margin-left: 210dp; }
+@media (max-width: 800dp) { .settings_navigation { bottom: 54dp; } .settings_content { margin-left: 154dp; } }

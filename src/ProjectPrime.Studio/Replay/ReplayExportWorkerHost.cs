@@ -91,7 +91,7 @@ public static class ReplayExportWorkerHost
             // local presentation settings independently of the editor process.
             // Do this after restoring the replay's runtime keys so language and
             // render policy observe the same environment as normal playback.
-            MphRead.Mods.GameSettings.Apply(MphRead.GameState.LoadSettings());
+            MphRead.Mods.GameSettings.Apply(MphRead.GameState.LoadSettings(Path.Combine(MphRead.Mods.Launcher.GameFiles.Root, "Savedata")));
             Directory.CreateDirectory(Ticket.CacheRoot);
             string snapshot = Path.Combine(Ticket.CacheRoot, "source.ppdemo");
             using (var source = new FileStream(Ticket.ReplayPath, FileMode.Open, FileAccess.Read, FileShare.Read))

@@ -178,6 +178,8 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
         {"lobby:leave", PrimeIntentKind::LobbyLeave, 0}, {"lobby:next-hunter", PrimeIntentKind::LobbyNextHunter, 0},
         {"lobby:next-suit", PrimeIntentKind::LobbyNextSuit, 0}, {"lobby:classic", PrimeIntentKind::LobbyClassic, 0},
         {"lobby:rules-open", PrimeIntentKind::LobbyRulesOpen, 0}, {"lobby:rules-close", PrimeIntentKind::LobbyRulesClose, 0},
+        {"lobby:map-open", PrimeIntentKind::LobbyMapOpen, 0}, {"lobby:map-previous", PrimeIntentKind::LobbyMapPrevious, 0},
+        {"lobby:map-next", PrimeIntentKind::LobbyMapNext, 0}, {"lobby:map-close", PrimeIntentKind::LobbyMapClose, 0},
         {"lobby:rules-apply", PrimeIntentKind::LobbyRulesApply, 0}, {"lobby:rules-map", PrimeIntentKind::LobbyRulesMap, 0},
         {"lobby:rules-mode", PrimeIntentKind::LobbyRulesMode, 0}, {"lobby:rules-format", PrimeIntentKind::LobbyRulesFormat, 0},
         {"lobby:admin-open", PrimeIntentKind::LobbyAdminOpen, 0},
@@ -266,6 +268,12 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     }
     for (int index = 0; index < 16; ++index) if (action == "lobby:rules-toggle:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::LobbyRulesToggle); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 6; ++index) if (action == "lobby:map-select:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::LobbyMapSelect); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 8; ++index) if (action == "lobby:slot-team:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::LobbySlotTeamNext); intent.argument = index; return true;
     }
     for (int index = 0; index < 8; ++index) if (action == "lobby:player:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::LobbyPlayerSelect); intent.argument = index; return true;

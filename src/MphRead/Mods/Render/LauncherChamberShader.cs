@@ -87,9 +87,8 @@ float platform_fill_mask(vec2 uv, vec2 center, vec2 radius)
 void main()
 {
     vec2 uv = chamber_uv;
-    // The standalone Play/home hero remains right-offset to make room for
-    // the activity selector. The actual eight-player lobby is centered.
-    float stageHeroX = lobby_mode > 0.5 ? 0.5 : 0.615;
+    // Shared with the centered solo preview and lobby formation.
+    float stageHeroX = 0.5;
     float aspect = max(resolution.x / max(resolution.y, 1.0), 1.0);
     vec2 p = vec2((uv.x - 0.5) * aspect, uv.y - 0.5);
 
@@ -275,11 +274,8 @@ void main()
     }
     else
     {
-        // Home keeps the original full-size solo hero platform.
-        // Home's solo-stage hero remains offset for its left activity menu.
-        // The separate live-lobby formation is centered at 0.5 and must not
-        // pull the home-only pedestal away from the single-Hunter preview.
-        vec4 soloPad = vec4(0.615, 0.805, 0.235, 0.060);
+        // The solo pad shares the preview's horizontal center.
+        vec4 soloPad = vec4(0.5, 0.805, 0.235, 0.060);
         vec2 platformDelta = (uv - soloPad.xy) / soloPad.zw;
         float platformQ = dot(platformDelta, platformDelta);
         float platformFill = 1.0 - smoothstep(0.62, 1.0, platformQ);
@@ -319,17 +315,35 @@ void main()
     col = mix(col, rearFogColor,
         rearLegFog * fog_amount * (0.045 + 0.020 * energy));
 
-    // Sparse energy dust. Large cells make this cheap and intentionally subtle.
-    vec2 cells = floor(uv * vec2(80.0, 45.0));
-    vec2 cellUv = fract(uv * vec2(80.0, 45.0)) - 0.5;
+    // Soft moving light shafts and a segmented reactor halo add depth behind
+    // the hero. All animation uses the same reduced-motion-aware clock.
+    float drift = sin(time_value * 0.14) * 0.015;
+    float shafts = exp(-pow((uv.x - 0.36 - drift + uv.y * 0.07) * 29.0, 2.0))
+        + exp(-pow((uv.x - 0.66 + drift - uv.y * 0.05) * 34.0, 2.0));
+    float reactorShaftGate = smoothstep(0.18, 0.30, uv.y) * (1.0 - smoothstep(0.64, 0.84, uv.y));
+    col += mix(vec3(0.14, 0.58, 0.85), activity_accent, 0.35) * shafts * reactorShaftGate * 0.11 * energy;
+    vec2 haloUv = vec2((uv.x - stageHeroX) * aspect, (uv.y - 0.46));
+    float haloRadius = length(haloUv);
+    float haloAngle = atan(haloUv.y, haloUv.x);
+    float haloRing = 1.0 - smoothstep(0.0015, 0.004, abs(haloRadius - 0.275));
+    float haloGlow = exp(-abs(haloRadius - 0.275) * 90.0);
+    float haloSegments = smoothstep(0.1, 0.5, sin(haloAngle * 12.0 + time_value * 0.08));
+    col += mix(activity_accent, vec3(0.22, 0.70, 0.86), 0.55)
+        * (haloRing * haloSegments * 0.19 + haloGlow * 0.035) * energy;
+
+    // Slowly rising energy dust, with a soft halo around each bright core.
+    vec2 dustUv = uv + vec2(sin(time_value * 0.09) * 0.008, time_value * 0.006);
+    vec2 cells = floor(dustUv * vec2(64.0, 36.0));
+    vec2 cellUv = fract(dustUv * vec2(64.0, 36.0)) - 0.5;
     float seed = hash21(cells);
     float mote = step(0.955 - particle_amount * 0.018, seed);
-    float sparkle = 1.0 - smoothstep(0.02, 0.12, length(cellUv));
+    float sparkle = 1.0 - smoothstep(0.015, 0.09, length(cellUv));
+    sparkle += (1.0 - smoothstep(0.03, 0.28, length(cellUv))) * 0.16;
     float twinkle = 0.75;
     if (time_value > 0.0)
         twinkle += 0.25 * sin(time_value * (0.7 + seed) + seed * 18.0);
     col += mix(activity_secondary, hunter_rim, 0.45)
-        * mote * sparkle * twinkle * particle_amount * 0.30;
+        * mote * sparkle * twinkle * particle_amount * 0.60;
 
     // Adventure can warm the distance without recoloring the Hunter itself.
     col = mix(col, col * vec3(1.10, 0.97, 0.84), warmth * 0.30);

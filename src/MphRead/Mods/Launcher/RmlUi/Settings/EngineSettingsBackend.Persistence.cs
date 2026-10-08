@@ -52,8 +52,16 @@ internal sealed partial class EngineSettingsBackend
                 expected=_padValues.GetValueOrDefault(field.Key,expected);
             }
             bool equivalent=string.Equals(actual,expected,StringComparison.OrdinalIgnoreCase);
-            if(!equivalent&&float.TryParse(actual,NumberStyles.Float,Invariant,out float a)
-                &&float.TryParse(expected,NumberStyles.Float,Invariant,out float b))equivalent=Math.Abs(a-b)<=.00051f;
+            if (!equivalent && actual != null)
+            {
+                // Touch layouts and the stylus rectangle are saved as rounded
+                // comma-separated floats by the existing controls writer.
+                string[] stored = actual.Split(','), wanted = expected.Split(',');
+                equivalent = stored.Length == wanted.Length && stored.Zip(wanted).All(pair =>
+                    float.TryParse(pair.First, NumberStyles.Float, Invariant, out float a)
+                    && float.TryParse(pair.Second, NumberStyles.Float, Invariant, out float b)
+                    && float.IsFinite(a) && float.IsFinite(b) && Math.Abs(a - b) <= .00051f);
+            }
             if(!equivalent)throw new IOException("The settings writer did not persist "+field.Definition.Label+".");
         }
         HudProfileStore.Parse(File.ReadAllText(HudPath));

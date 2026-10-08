@@ -13,6 +13,7 @@ internal sealed partial class AndroidRmlUiSession
 {
     private LobbySessionController? _lobby;
     private RmlLobbyAdminPresenter? _admin;
+    private RmlLobbyMapPicker? _mapPicker;
     private RmlLobbyRulesEditor? _rules;
     private long _lobbyFrame;
     private readonly LobbyMapPreview _mapPreview = new(new MphRead.Mods.Launcher.RmlUi.Pages.Theatre.TheatreImageCache(decode: AndroidRmlUiImages.Decode));
@@ -42,7 +43,7 @@ internal sealed partial class AndroidRmlUiSession
         if (_lobby is not { } lobby) return;
         lobby.PumpOnce(LobbyPumpOwner.Native, ++_lobbyFrame);
         if (!ReferenceEquals(_lobby, lobby)) return;
-        _rules?.Tick(); _admin?.Update();
+        _rules?.Tick(); _admin?.Update(); _mapPicker?.Update();
         RmlUiLobbyBindings.Present(Pages, lobby.Snapshot());
         if(lobby.Snapshot().Match is {} map) _mapPreview.Present(map.RoomKey,Pages.SetText,Pages.SetBool,Pages.Manager.Lifetime(Pages.Document));
     }
@@ -86,6 +87,9 @@ internal sealed partial class AndroidRmlUiSession
         }
         switch (intent.Kind)
         {
+            case RmlUiIntentKind.LobbyMapOpen:
+                _mapPicker?.Dispose(); _mapPicker = new(Host,lobby,_rooms,new MphRead.Mods.Launcher.RmlUi.Pages.Theatre.TheatreImageCache(decode: AndroidRmlUiImages.Decode));
+                _mapPicker.Open(); break;
             case RmlUiIntentKind.LobbyChatSend:
                 var sent=lobby.Dispatch(lobby.Intent(LobbyIntentKind.SendChat) with {Text=Host.ReadField(intent.Document,"lobby_chat_input")});
                 if(sent.Accepted)Host.SetField(intent.Document,"lobby_chat_input","");

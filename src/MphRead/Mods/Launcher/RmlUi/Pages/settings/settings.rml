@@ -11,7 +11,7 @@
             <button id="settings_controls_tab" class="settings_tab" data-action="settings:category:3">KEYBOARD / MOUSE</button>
             <button id="settings_controller_tab" class="settings_tab" data-action="settings:category:10">CONTROLLER</button>
             <button id="settings_touch_tab" class="settings_tab" data-action="settings:category:11">TOUCH / STYLUS</button>
-            <button id="settings_hud_tab" class="settings_tab" data-action="settings:category:9">HUD / CROSSHAIR</button>
+            <button id="settings_hud_tab" class="settings_tab" data-action="settings:category:9">HUD STUDIO</button>
             <button id="settings_online_tab" class="settings_tab" data-action="settings:category:12">ONLINE SERVICES</button>
             <button id="settings_replays_tab" class="settings_tab" data-action="settings:category:4">REPLAYS</button>
             <button id="settings_profile_tab" class="settings_tab" data-action="settings:category:5">PROFILE</button>
@@ -20,6 +20,9 @@
             <button id="settings_credits_tab" class="settings_tab" data-action="settings:category:8">CREDITS</button>
 
     </div>
+    <div id="settings_content" class="settings_content">
+        <div class="settings_heading"><h2 id="settings_title">Display</h2><span id="settings_dirty">Saved settings</span></div>
+        <div class="settings_search"><input id="settings_search" type="text" class="input" placeholder="Search all settings" /><button id="settings_search_button" class="choice" data-action="settings:action:54">SEARCH</button><button id="settings_clear_search" class="choice" data-action="settings:action:55">CLEAR</button></div>
     <div class="settings_groups"><button id="settings_group_0" class="settings_group" data-action="settings:action:64" />
         <button id="settings_group_1" class="settings_group" data-action="settings:action:65" />
         <button id="settings_group_2" class="settings_group" data-action="settings:action:66" />
@@ -212,11 +215,8 @@
         <button id="settings_group_189" class="settings_group" data-action="settings:action:253" />
         <button id="settings_group_190" class="settings_group" data-action="settings:action:254" />
         <button id="settings_group_191" class="settings_group" data-action="settings:action:255" /></div>
-    <div id="settings_content" class="settings_content">
-        <div class="settings_heading"><h2 id="settings_title">Display</h2><span id="settings_dirty">Saved settings</span></div>
-        <div class="settings_search"><input id="settings_search" type="text" class="input" placeholder="Search all settings" /><button id="settings_search_button" class="choice" data-action="settings:action:54">SEARCH</button><button id="settings_clear_search" class="choice" data-action="settings:action:55">CLEAR</button></div>
         <div id="settings_fields" class="settings_fields">
-            <div id="settings_hud_tools" class="settings_tools"><button id="settings_hud_edit" class="play_action" data-action="settings:action:28">VISUAL HUD / CROSSHAIR EDITOR</button></div>
+            <div id="settings_hud_tools" class="settings_tools"><p>Move and resize HUD elements, customize crosshairs, and manage profiles in HUD Studio. Apply your settings to activate the finished layout.</p><button id="settings_hud_edit" class="play_action" data-action="settings:action:28">OPEN HUD STUDIO</button></div>
             <div id="settings_controller_tools" class="settings_tools">
                 <p id="settings_controls_help" /><p id="settings_controller_device" />
                 <button class="play_action" data-action="settings:action:38">SELECT NEXT CONTROLLER</button>
@@ -319,7 +319,7 @@
             <div id="settings_credits" class="settings_tools"><h3>CREDITS</h3><div id="settings_credits_text" class="settings_credits_text" /></div>
             <div id="settings_restart" class="settings_tools"><p>Restart to activate imported or reset preferences. Current settings cannot overwrite those saved stores.</p><button class="play_action" data-action="settings:action:8">RESTART NOW</button></div>
         </div>
-        <div class="settings_paging"><button id="settings_previous" class="choice" data-action="settings:action:0">PREVIOUS</button><span id="settings_paging">Page 1 of 1</span><button id="settings_next" class="choice" data-action="settings:action:1">NEXT</button></div>
+        <div id="settings_pager" class="settings_paging"><button id="settings_previous" class="choice" data-action="settings:action:0">PREVIOUS</button><span id="settings_paging">Page 1 of 1</span><button id="settings_next" class="choice" data-action="settings:action:1">NEXT</button></div>
         <div id="settings_error" class="settings_error" /><div id="settings_status" class="settings_status" />
         <div id="settings_actions" class="settings_actions"><button id="settings_revert_category" class="play_action quiet" data-action="settings:reset-category">REVERT CATEGORY</button><button id="settings_discard" class="play_action quiet" data-action="settings:discard">DISCARD</button><button id="settings_apply" class="play_action" data-action="settings:apply">APPLY</button></div>
     </div>

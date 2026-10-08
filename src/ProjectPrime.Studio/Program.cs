@@ -41,7 +41,7 @@ public static class Program
             // expected to use the same local visual choices. Without applying the
             // game's settings here, HD character/viewmodel replacements, cosmetics
             // and other render options stay at their static defaults in Studio.
-            MphRead.Mods.GameSettings.Apply(MphRead.GameState.LoadSettings());
+            MphRead.Mods.GameSettings.Apply(MphRead.GameState.LoadSettings(Path.Combine(MphRead.Mods.Launcher.GameFiles.Root, "Savedata")));
 
             guard = StudioInstanceGuard.TryAcquireAsync(paths.InstallationDirectory, paths.UserDataDirectory, request,
                 async (forwarded, token) =>

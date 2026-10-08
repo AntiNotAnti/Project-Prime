@@ -31,12 +31,12 @@ namespace MphRead.Mods.Launcher.RmlUi.Presenters
         {
             _host = host; _controller = controller; _lifetime = controller.Snapshot().Lifetime;
         }
-        public void Open()
+        public void Open(int? selectedSlot = null)
         {
             _host.VerifyOwnerThread();
             if (_disposed) throw new ObjectDisposedException(nameof(RmlLobbyAdminPresenter));
             if (!Active) _document = _host.OpenDocument("pages/lobby/admin.rml", RmlUiDocumentLayer.Modal);
-            Select(_controller.Snapshot().LocalSlot); Update();
+            Select(selectedSlot ?? _controller.Snapshot().LocalSlot); Update();
             _host.FocusDocument(_document, "admin_close");
         }
         public void Update()

@@ -21,6 +21,7 @@
                     <button id="nav_studio" class="nav" data-action="studio:open">STUDIO</button>
                 </div>
                 <div id="account_cluster">
+                    <button id="header_settings" class="utility" data-action="route:settings">SETTINGS</button>
                     <button id="profile" class="utility" data-action="route:hunter" data-prime-text="{{player_name}}">PROFILE</button>
                 </div>
             </div>
@@ -59,7 +60,6 @@
                 <div id="footer_actions" data-prime-visible="home_mode">
                     <button id="footer_news" class="footer_button" data-action="route:news">NEWS</button>
                     <button id="footer_social" class="footer_button" data-action="route:social">SOCIAL</button>
-                    <button id="footer_settings" class="footer_button" data-action="route:settings">SETTINGS</button>
                     <button id="footer_quit" class="footer_button danger" data-action="quit">QUIT</button>
                 </div>
                 <div id="lobby_footer_state" data-prime-visible="lobby_mode" data-prime-text="{{lobby_status}}" />

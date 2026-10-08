@@ -40,6 +40,11 @@ Check(settings.Snapshot().Fields.Single().Definition.Id=="scale","search reaches
 settings.Search("");settings.SelectGroup(0);settings.Set("binding","Key:Space:Right");
 settings.SelectCategory(SettingsCategory.Display);settings.SelectGroup(0);
 Check(settings.Draft["binding"]=="Key:Space:Right","category and group navigation preserve pending edits");
+settings.SelectCategory(SettingsCategory.Hud);
+Check(settings.Snapshot().Fields.Count==0 && settings.Groups.Count==0,"HUD details belong to HUD Studio, not Settings rows");
+settings.Search("Health position");
+Check(settings.Snapshot().Fields.Count==0,"Settings search does not expose HUD Studio properties");
+Check(settings.Set("hud/elements/core.health/offsetX","20"),"detached HUD handoff retains authoritative validation");
 Console.WriteLine($"PASS {checks} settings draft, range, persistence, exact binding and last-good-video checks");
 
 sealed class FakeSettings : ISettingsBackend
@@ -55,6 +60,8 @@ sealed class FakeSettings : ISettingsBackend
             new("flag", SettingsCategory.Display, "Flag", SettingsValueKind.Boolean, "", Array.Empty<string>(), SettingsValueValidation.Boolean),
             new("binding", SettingsCategory.Controls, "Binding", SettingsValueKind.Text, "", Array.Empty<string>(), SettingsValueValidation.Text) };
         for (int i=0;i<12;i++) { string id="field"+i; Values[id]="0"; fields.Add(new(id,SettingsCategory.Display,id,SettingsValueKind.Number,"",Array.Empty<string>(),v=>SettingsValueValidation.Integer(v,0,1))); }
+        Values["hud/elements/core.health/offsetX"]="10";
+        fields.Add(new("hud/elements/core.health/offsetX",SettingsCategory.Hud,"Health position",SettingsValueKind.Number,"",Array.Empty<string>(),v=>SettingsValueValidation.Integer(v,0,100)));
         Definitions=fields;
     }
     public IReadOnlyDictionary<string,string> Capture() => new Dictionary<string,string>(Values);

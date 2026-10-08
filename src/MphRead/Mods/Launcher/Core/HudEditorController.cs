@@ -348,6 +348,7 @@ public sealed class HudEditorController : IDisposable
     public bool PointerDown(long pointer,float x,float y,bool shift=false,bool alt=false,bool touch=false)
     {
         Verify(); if(_closed) return false; Vector2 point=new(x,y); if(!Surface.Contains(point)) return false;
+        if (_axisGesture) EndGesture();
         if(touch) { _touches[pointer]=point;if(_touches.Count==2&&_before!=null) { _pinchDistance=TouchDistance();_pinchScale=_history.Draft.Elements[HudProfileDefaults.ElementIds[_selected]].Scale;return true; } }
         for(int step=0;step<HudProfileDefaults.ElementIds.Length;step++)
         {
@@ -394,10 +395,15 @@ public sealed class HudEditorController : IDisposable
         for(int i=1;i<HudProfileDefaults.ElementIds.Length;i++) if(i!=_selected&&!_selection.Contains(i)&&_history.Draft.Elements[HudProfileDefaults.ElementIds[i]].Enabled)Target(Bounds(i));
         var element=_history.Draft.Elements[HudProfileDefaults.ElementIds[_selected]];if(_guideX!=null)element.OffsetX+=dx/Transform.UnitScale;if(_guideY!=null)element.OffsetY+=dy/Transform.UnitScale;
     }
-    private void EndGesture() { _guideX=_guideY=null;if(_before==null)return;_history.Commit(_before);_before=null;Touch(); }
+    private bool _axisGesture;
+    private void EndGesture() { _axisGesture=false;_guideX=_guideY=null;if(_before==null)return;_history.Commit(_before);_before=null;Touch(); }
     public void HandleControllerAxes(GamepadSnapshot snapshot,long now)
     {
-        Verify();var state=snapshot.State;var pressed=_padEdges.Update(snapshot);
+        Verify();
+        // The owner polls gamepads every frame, including while a mouse/touch
+        // gesture owns the draft. Idle/disconnected pads must not commit it.
+        if (_before != null && !_axisGesture) { _padTime=now; return; }
+        var state=snapshot.State;var pressed=_padEdges.Update(snapshot);
         if(snapshot.Revision!=_padRevision||!state.Connected) { EndGesture();_padRevision=snapshot.Revision;_padNeutral=false;_padTime=now;return; }
         float dt=Math.Clamp((now-_padTime)/1000f,0,.05f);_padTime=now;
         bool moving=Math.Abs(state.LeftX)>.25f||Math.Abs(state.LeftY)>.25f||Math.Abs(state.RightX)>.25f||Math.Abs(state.RightY)>.25f;
@@ -406,7 +412,7 @@ public sealed class HudEditorController : IDisposable
         if((pressed&GamepadButtons.X)!=0) { EndGesture();Edit(p=>p.ResetElement(id));Touch(); }
         if((pressed&GamepadButtons.Y)!=0) { EndGesture();Edit(p=>p.Elements[id].Enabled=!p.Elements[id].Enabled);Touch(); }
         var element=_history.Draft.Elements[id];if(!moving||element.Locked){EndGesture();return;}
-        _before??=_history.Capture();float Axis(float v)=>Math.Abs(v)>.25f?v:0;
+        _axisGesture=true;_before??=_history.Capture();float Axis(float v)=>Math.Abs(v)>.25f?v:0;
         if(_selected!=0) { element.OffsetX+=(Axis(state.LeftX)*180+Axis(state.RightX)*20)*dt;element.OffsetY-=Axis(state.LeftY)*180*dt; }
         element.Scale=Math.Clamp(element.Scale+Axis(state.RightY)*dt,.1f,8);_history.Draft.Mode=HudMode.Custom;Touch();
     }

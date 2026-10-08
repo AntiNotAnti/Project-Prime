@@ -21,6 +21,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Presenters
         private string _previewStatus = "PREPARING HUNTER PREVIEW.";
         private long _revision;
         private bool _disposed;
+        public bool Compact { get; }
         public bool Active => !_disposed && _host.IsAlive(_document);
         public RmlUiDocumentToken Document => _document;
         public HunterSelectionSnapshot Snapshot => _selection.Snapshot;
@@ -28,9 +29,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Presenters
         public event Action? Closed;
 
         public RmlHunterSelectionPresenter(RmlUiHost host, LobbySessionController? lobby = null, IHunterSelectionBackend? backend = null,
-            HunterSelectionController? existingSelection = null)
+            HunterSelectionController? existingSelection = null, bool compact = false)
         {
-            _host = host; _lobby = lobby; _lobbyLifetime = lobby?.Snapshot().Lifetime;
+            Compact = compact; _host = host; _lobby = lobby; _lobbyLifetime = lobby?.Snapshot().Lifetime;
             _ownsSelection = existingSelection == null;
             _selection = existingSelection ?? new(lobby, backend);
         }
@@ -38,7 +39,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Presenters
         {
             _host.VerifyOwnerThread();
             if (_disposed) throw new ObjectDisposedException(nameof(RmlHunterSelectionPresenter));
-            if (!Active) _document = _host.OpenDocument("pages/hunters/selection.rml", RmlUiDocumentLayer.Modal);
+            if (!Active) _document = _host.OpenDocument(Compact ? "pages/hunters/strip.rml" : "pages/hunters/selection.rml", RmlUiDocumentLayer.Modal);
             Update(); _host.FocusDocument(_document, "hunter_choice" + (int)_selection.Snapshot.Hunter);
         }
         public void SetPreviewStatus(string status)
@@ -56,6 +57,19 @@ namespace MphRead.Mods.Launcher.RmlUi.Presenters
             void Text(string id, string value) => bindings[id] = RmlUiBindingValue.FromText(value);
             void Bool(string id, bool value) => bindings[id] = RmlUiBindingValue.FromBoolean(value);
             void Enabled(string id, bool value) => Bool("disabled:" + id, !value);
+            if (Compact)
+            {
+                Text("hunter_status", state.CommandError.Length > 0 ? state.CommandError : "Choose a Hunter for this lobby.");
+                Text("hunter_restriction", "Select a Hunter to equip it. Unavailable Hunters are dimmed.");
+                for (int i=0; i<7; i++)
+                {
+                    Bool($"class:hunter_choice{i}:selected", (int)state.Hunter==i);
+                    Enabled("hunter_choice"+i, state.AllowedHunters.Contains((Hunter)i) && state.CanApplyIdentity && !state.IdentityPending);
+                }
+                _host.Present(new(_document,++_revision,bindings));
+                PreviewChanged?.Invoke(state);
+                return;
+            }
             Text("hunter_name", state.Hunter.ToString().ToUpperInvariant() + " // SUIT " + (state.Color + 1));
             Text("hunter_status", state.CommandError.Length > 0 ? state.CommandError
                 : lobby?.CommandError.Length > 0 ? lobby.CommandError
@@ -67,7 +81,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Presenters
                 Enabled("hunter_choice" + index, state.AllowedHunters.Contains((Hunter)index) && !state.Saving);
             }
             for (int index = 0; index < 4; index++) { Bool($"class:hunter_suit{index}:selected", state.Color == index); Enabled("hunter_suit" + index, !state.Saving); }
-            Text("hunter_restriction", state.AllowedHunters.Length < 7
+            Text("hunter_restriction", Compact ? "Select a Hunter to equip it. Unavailable Hunters are dimmed." : state.AllowedHunters.Length < 7
                 ? "LOW-TIER LOBBY // ONLY KANDEN, SPIRE, NOXUS AND WEAVEL ARE AVAILABLE. A DRAFT IS NEVER SILENTLY CHANGED BY SERVER REFRESH."
                 : "SELECT A HUNTER AND SUIT, THEN APPLY. COSMETIC DRAFTS EQUIP SEPARATELY.");
             Text("hunter_skin", "SKIN: " + Name(state.Skins, state.Draft.SkinKey));
@@ -126,7 +140,10 @@ namespace MphRead.Mods.Launcher.RmlUi.Presenters
             switch (intent.Kind)
             {
                 case RmlUiIntentKind.HunterCancel: Dispose(); return true;
-                case RmlUiIntentKind.HunterSelect: _selection.SelectHunter((Hunter)intent.Argument); break;
+                case RmlUiIntentKind.HunterSelect:
+                    if (_selection.SelectHunter((Hunter)intent.Argument).Accepted && Compact && _selection.ApplyIdentity().Accepted)
+                    { Dispose(); return true; }
+                    break;
                 case RmlUiIntentKind.HunterSuit: _selection.SelectSuit((byte)intent.Argument); break;
                 case RmlUiIntentKind.HunterApply: _selection.ApplyIdentity(); break;
                 case RmlUiIntentKind.HunterSkinNext: if (Next(state.Skins, state.Draft.SkinKey) is { } skin) _selection.SelectSkin(skin); break;

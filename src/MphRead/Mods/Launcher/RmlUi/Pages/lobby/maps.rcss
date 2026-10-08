@@ -1,0 +1,9 @@
+body { background-color: rgba(2,9,18,85%); color: #d8edff; font-family: Rajdhani; }
+#map_panel { position: absolute; left: 6%; top: 8%; width: 88%; height: 84%; padding: 18dp; background-color: #071a29; border: 1dp #397394; }
+h1 { font-size: 27dp; margin: 0dp; } #map_close { position: absolute; top: 14dp; right: 14dp; }
+button { tab-index: auto; padding: 8dp 14dp; color: #d8edff; background-color: #102e45; border: 1dp #397394; }
+button:hover, button:focus { background-color: #225778; border-color: #a7e5ff; } button:disabled { opacity: 0.5; }
+#map_status { height: 30dp; color: #a7c7dd; } #map_grid { display: flex; flex-wrap: wrap; height: 74%; width: 100%; }
+.map_card { width: 31%; height: 46%; margin: 0dp 1% 1%; padding: 8dp; display: flex; flex-direction: column; }
+.map_card img { width: 100%; height: 68%; } .map_card b { font-size: 16dp; margin-top: 4dp; } .map_card span { font-size: 12dp; color: #83c5eb; }
+#map_pager { display: flex; align-items: center; justify-content: center; } #map_page { margin: 0dp 20dp; }
