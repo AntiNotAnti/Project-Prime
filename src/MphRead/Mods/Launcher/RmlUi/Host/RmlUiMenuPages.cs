@@ -73,6 +73,23 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Text, "text_hunter_name_1", "{{hunter_name}} // READY"),
             new(RmlUiBindingKind.Text, "home_party_state", "{{home_party_state}}"),
             new(RmlUiBindingKind.Text, "home_social_summary", "{{home_social_summary}}"),
+            new(RmlUiBindingKind.Text, "home_signal_activity", "{{activity_title}}"),
+            new(RmlUiBindingKind.Text, "home_signal_hunter", "{{hunter_name}}"),
+            new(RmlUiBindingKind.Text, "home_signal_status", "{{activity_hint}}"),
+            new(RmlUiBindingKind.Text, "home_friends_online", "{{home_friends_online}}"),
+            new(RmlUiBindingKind.Text, "home_invites_count", "{{home_invites_count}}"),
+            new(RmlUiBindingKind.Text, "home_requests_count", "{{home_requests_count}}"),
+            new(RmlUiBindingKind.Boolean, "visible:home_friend0", "home_friend0_visible"),
+            new(RmlUiBindingKind.Text, "home_friend0_name", "{{home_friend0_name}}"),
+            new(RmlUiBindingKind.Text, "home_friend0_state", "{{home_friend0_state}}"),
+            new(RmlUiBindingKind.Boolean, "visible:home_friend1", "home_friend1_visible"),
+            new(RmlUiBindingKind.Text, "home_friend1_name", "{{home_friend1_name}}"),
+            new(RmlUiBindingKind.Text, "home_friend1_state", "{{home_friend1_state}}"),
+            new(RmlUiBindingKind.Boolean, "visible:home_friend2", "home_friend2_visible"),
+            new(RmlUiBindingKind.Text, "home_friend2_name", "{{home_friend2_name}}"),
+            new(RmlUiBindingKind.Text, "home_friend2_state", "{{home_friend2_state}}"),
+            new(RmlUiBindingKind.Boolean, "visible:home_social_empty", "home_social_empty"),
+            new(RmlUiBindingKind.Text, "home_social_empty", "{{home_social_empty_text}}"),
         };
 
         private static readonly Binding[] PlayBindings =

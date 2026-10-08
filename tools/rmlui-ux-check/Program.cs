@@ -33,6 +33,9 @@ try
   using var host=new RmlUiHost();Check(host.Initialize(size.Item1,size.Item2,size.Item3,assets,RmlUiRenderBackend.DrawList),"initialize");
   using var pages=new RmlUiLauncherPages(host);
   pages.SetText("player_name","JARRETT");pages.SetText("hunter_name","SAMUS");pages.SetText("build_version","UI REVIEW");pages.SetBool("reduce_motion",true);
+  pages.SetText("home_friends_online","3");pages.SetText("home_invites_count","1");pages.SetText("home_requests_count","2");
+  pages.SetBool("home_social_empty",false);pages.SetText("home_social_empty_text","");
+  for(int i=0;i<3;i++){pages.SetBool($"home_friend{i}_visible",true);pages.SetText($"home_friend{i}_name","HUNTER "+(i+1));pages.SetText($"home_friend{i}_state",i==0?"IN LOBBY // JOINABLE":"ONLINE");}
   pages.ShowBaseline();
   void Draw(string name){pages.Flush();host.Update();pages.AfterUpdate();host.Render(size.Item1,size.Item2);SoftwarePreview.Save(new RmlUiDrawListReader().Capture(),size.Item1,size.Item2,Path.Combine(output,$"{name}-{size.Item1}x{size.Item2}.png"));}
   void Fits(RmlUiDocumentToken doc,string id)
@@ -41,6 +44,7 @@ try
    Check(x>=0&&y>=0&&x+w<=size.Item1+1&&y+h<=size.Item2+1,$"{id} outside {size}: {x},{y},{w},{h}");
   }
   Draw("home");foreach(var id in new[]{"nav_play","nav_hunters","nav_community","nav_studio","profile"})Fits(pages.Document,id);
+  if(size.Item1>1180){foreach(var id in new[]{"home_signal_panel","home_social_activity","home_friend0","home_friend1","home_friend2"})Fits(pages.Document,id);}
   pages.SetBool("activity_selector_open",true);Draw("activities");Fits(pages.Document,"drawer_training");Fits(pages.Document,"drawer_adventure");
   RmlSplashPage.Open(host,pages);Draw("splash");Check(Directory.GetFiles(Path.Combine(fixture,"rmlui-thumbnail-cache"),"*.tga").Length>0,"original splash art decoded");Fits(pages.Manager.Page,"splash_continue");
   Check(host.FocusDocument(pages.Manager.Page,"splash_continue"),"splash initial action focus");

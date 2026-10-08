@@ -48,6 +48,19 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             Put("play_browser_mode", false);
             Put("play_create_mode", false);
             Put("lobby_rules_open", false);
+            Put("home_party_state", RmlUiBindingValue.FromText("FRIENDS AND PARTY"));
+            Put("home_social_summary", RmlUiBindingValue.FromText("SOCIAL LINK STANDING BY"));
+            Put("home_friends_online", RmlUiBindingValue.FromText("0"));
+            Put("home_invites_count", RmlUiBindingValue.FromText("0"));
+            Put("home_requests_count", RmlUiBindingValue.FromText("0"));
+            Put("home_social_empty", true);
+            Put("home_social_empty_text", RmlUiBindingValue.FromText("SOCIAL LINK STANDING BY"));
+            for (int i = 0; i < 3; i++)
+            {
+                Put($"home_friend{i}_visible", false);
+                Put($"home_friend{i}_name", RmlUiBindingValue.FromText("—"));
+                Put($"home_friend{i}_state", RmlUiBindingValue.FromText("STANDING BY"));
+            }
             SelectActivity(1);
         }
 
