@@ -12,6 +12,7 @@ namespace MphRead.Mods.Launcher
         public static MenuRgb Lerp(MenuRgb a, MenuRgb b, float amount)
         {
             float t = Math.Clamp(amount, 0f, 1f);
+            if (t >= 1) return b;
             return new MenuRgb(
                 a.R + (b.R - a.R) * t,
                 a.G + (b.G - a.G) * t,
@@ -256,6 +257,12 @@ namespace MphRead.Mods.Launcher
     {
         public static bool Active { get; set; }
         public static byte OccupiedMask { get; set; }
+        public static byte ReadyMask { get; set; }
+        public static bool Starting { get; set; }
+        public static double CountdownSeconds { get; set; }
+        private static readonly int[] SlotIdentities = new int[8];
+        public static int IdentityAt(int slot) => SlotIdentities[slot];
+        public static void SetIdentity(int slot, int identity) => SlotIdentities[slot] = identity;
         // One visual identity per presentation slot, copied on the render thread
         // alongside the same formation/occupancy snapshot. No network state is
         // owned by this class.
@@ -273,7 +280,7 @@ namespace MphRead.Mods.Launcher
         public static void Reset()
         {
             Active = false;
-            OccupiedMask = 0;
+            OccupiedMask = ReadyMask = 0; Starting = false; CountdownSeconds = 0;
             Array.Clear(SlotHunters);
         }
     }

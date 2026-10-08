@@ -82,6 +82,7 @@ static class Program
             Put(typeof(Shell), "<Active>k__BackingField", true);
             Invoke(typeof(Shell), "WireNativePages");
             Home();
+            HuntersPageRouting();
             PresentationPolicyChurn();
             foreach (LauncherPage destination in new[] { LauncherPage.Home, LauncherPage.Offline })
                 foreach (bool save in new[] { false, true }) DirtyRoute(destination, save);
@@ -108,6 +109,25 @@ static class Program
             NetSession.Stop(); NetSession.IdentityTicketSourceForChecks = oldTicket;
             NativeLibrary.Free(native);
         }
+    }
+
+    private static void HuntersPageRouting()
+    {
+        Home(); Click("nav_hunters", mouse: true);
+        var hunters = Pages.Manager.Page;
+        Check(Shell.ApplicationRouter.Current.Page == LauncherPage.Hunters
+            && Pages.Manager.PageKey == "hunters" && Pages.Manager.ModalCount == 0,
+            "Hunters top navigation opens a full page without a modal");
+        Click("hunter_choice2"); Click("hunter_suit1");
+        Click("header_settings", mouse: true);
+        Check(Pages.Manager.PageKey == "settings" && !Host.IsAlive(hunters)
+            && Get<object>("_nativeHunters") == null, "Hunters page retires when its shared Settings navigation is used");
+        Home(); Click("nav_hunters", mouse: true); hunters = Pages.Manager.Page;
+        Click("hunter_close", mouse: true);
+        Check(Pages.Manager.PageKey == "home" && !Host.IsAlive(hunters), "Hunters Back returns to a fresh Home page");
+        Home(); Click("nav_hunters"); hunters = Pages.Manager.Page;
+        Check((bool)Invoke(typeof(Shell), "BackNativePage")!, "Escape/back handled by the full Hunters page"); Pump();
+        Check(Pages.Manager.PageKey == "home" && !Host.IsAlive(hunters), "Escape/back retires the Hunters page and restores Home");
     }
 
     private static void DirtyRoute(LauncherPage destination, bool save)

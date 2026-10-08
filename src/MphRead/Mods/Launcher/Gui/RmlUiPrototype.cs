@@ -61,6 +61,7 @@ namespace MphRead.Mods.Launcher.Gui
         private static string _lobbyEndpoint = "";
         private static readonly LobbyDisplayPlayer[] _lobbyPlayers = new LobbyDisplayPlayer[8];
         private static int _lobbyPlayerCount;
+        private static readonly LobbyDisplayPlayer[] _fadingPlayers = new LobbyDisplayPlayer[8];
 
         private readonly record struct LobbyDisplayPlayer(
             int NetSlot, Hunter Hunter, int Suit, string Name,
@@ -215,6 +216,7 @@ namespace MphRead.Mods.Launcher.Gui
             _multiplayerMode = false;
             _lobbyPlayerCount = 0;
             Array.Clear(_lobbyPlayers);
+            Array.Clear(_fadingPlayers);
             LauncherLobbyVisuals.Reset();
             SetBool("lobby_mode", false);
             _pages?.ShowBaseline(RmlUiMenuPage.Home);
@@ -249,11 +251,11 @@ namespace MphRead.Mods.Launcher.Gui
             ReadOnlySpan<int> drawOrder = stackalloc int[] { 7, 5, 6, 3, 4, 1, 2, 0 };
             foreach (int i in drawOrder)
             {
-                if (i >= _lobbyPlayerCount || i >= LauncherLobbyFormation.Capacity)
-                    continue;
                 LobbyDisplayPlayer player = _lobbyPlayers[i];
-                if (!player.Occupied)
-                    continue;
+                if (player.Occupied) _fadingPlayers[i] = player;
+                else if (LauncherPresentation.Motion.Occupancy[i] > .02f) player = _fadingPlayers[i];
+                else { _fadingPlayers[i] = default; continue; }
+                if (!player.Occupied) continue;
 
                 LobbyFormationSlot placement = LauncherLobbyFormation.At(i);
                 LauncherHunter.Wanted = true;
@@ -267,7 +269,9 @@ namespace MphRead.Mods.Launcher.Gui
                 LauncherHunter.Bottom = placement.HunterBottom;
                 LauncherHunter.DistanceScale = placement.HunterDistance;
                 LauncherHunter.TransparentBackground = true;
-                LauncherHunter.Draw(window, width, height);
+                LauncherHunter.Formation = true;
+                try { LauncherHunter.Draw(window, width, height); }
+                finally { LauncherHunter.Formation = Scene.LauncherPreviewFormation = false; }
             }
 
             // Restore the local/front configuration because the chamber theme
@@ -739,6 +743,7 @@ namespace MphRead.Mods.Launcher.Gui
             BackRequested = null;
             GamepadActionOverride = null; InputReleaseRequested = null; PresentationRetiring = null;
             Array.Clear(_lobbyPlayers);
+            Array.Clear(_fadingPlayers);
             RmlUiCleanup.Run(ReportCleanup, _gamepad.Reset, LauncherLobbyVisuals.Reset,
                 LauncherHunter.Reset, () => GamepadContexts.MenuVisible = false);
         }
@@ -814,6 +819,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             byte mask = 0;
             int readyCount = 0;
+            byte readyMask = 0;
             for (int i = 0; i < _lobbyPlayers.Length; i++)
             {
                 LobbyDisplayPlayer player = _lobbyPlayers[i];
@@ -821,13 +827,17 @@ namespace MphRead.Mods.Launcher.Gui
                 if (occupied)
                 {
                     mask |= (byte)(1 << i);
-                    if (player.Ready) readyCount++;
+                    if (player.Ready) { readyCount++; readyMask |= (byte)(1 << i); }
                 }
 
             }
 
             LauncherLobbyVisuals.Active = true;
             LauncherLobbyVisuals.OccupiedMask = mask;
+            LauncherLobbyVisuals.ReadyMask = readyMask;
+            LauncherLobbyVisuals.Starting = snapshot.Phase == SessionPhase.Starting;
+            LauncherLobbyVisuals.CountdownSeconds = snapshot.CountdownSeconds;
+            for (int slot = 0; slot < 8; slot++) LauncherLobbyVisuals.SetIdentity(slot, _lobbyPlayers[slot].NetSlot);
             for (int slot = 0; slot < LauncherLobbyFormation.Capacity; slot++)
                 LauncherLobbyVisuals.SetHunter(slot,
                     _lobbyPlayers[slot].Occupied ? _lobbyPlayers[slot].Hunter : Hunter.Samus);

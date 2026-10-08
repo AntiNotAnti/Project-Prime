@@ -44,6 +44,8 @@ namespace MphRead.Mods
         /// even though map selection remains authoritative in the lobby itself.
         /// </summary>
         public static bool PanelAvailable => Available;
+        public static float NativeReportLeft { get; set; }
+        public static float NativeReportTop { get; set; }
         /// <summary>
         /// Whether the results screen is up and this machine has a player who
         /// could pick something.

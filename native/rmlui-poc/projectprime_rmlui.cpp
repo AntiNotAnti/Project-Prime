@@ -550,7 +550,15 @@ void PositionLobbyNameplates()
         const float desiredTop = g_lobby_anchors[index].y * float(dimensions.y)
             - stageOrigin.y - size.y * 0.5f;
         const float maxTop = actionTop - stageOrigin.y - size.y - 8.f;
-        const float top = std::max(0.f, std::min(desiredTop, maxTop));
+        float top = std::max(0.f, std::min(desiredTop, maxTop));
+        if (index == 7) {
+            if (auto* brief = document->GetElementById("lobby_brief")) {
+                const auto briefSize = brief->GetBox().GetSize(Rml::BoxArea::Border);
+                if (briefSize.y > 0.f)
+                    top = std::max(top, brief->GetAbsoluteOffset(Rml::BoxArea::Border).y
+                        + briefSize.y - stageOrigin.y + 8.f * g_context->GetDensityIndependentPixelRatio());
+            }
+        }
         label->SetProperty("left", std::to_string(left) + "px");
         label->SetProperty("top", std::to_string(top) + "px");
         DirtyVisual();

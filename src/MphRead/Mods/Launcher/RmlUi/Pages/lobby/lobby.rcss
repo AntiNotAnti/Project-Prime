@@ -535,3 +535,8 @@ min-width: 62dp; font-size: 7dp;
     .lobby_roster_state { font-size: 6dp; }
     .lobby_team { font-size: 7dp; padding: 1dp 3dp; margin-top: 1dp; }
 }
+
+/* Reserve a label-height gap between command status and the rear Hunter. */
+#lobby_brief { top: 12dp; padding: 7dp 13dp; }
+.lobby_brief_title { margin-top: 3dp; margin-bottom: 4dp; }
+.lobby_brief_detail { display: none; }

@@ -42,9 +42,56 @@ public sealed class CommunityEngineBackend : ICommunityBackend
         MapRuntimeUsage.RequireInstallationAllowed(package?.Name);
         GameFiles.ApplyPaths();
     }
-    public Task<CommunityMapProject[]> BrowseAsync(CommunityTab tab, CancellationToken cancellation) =>
-        Client(tab != CommunityTab.Discover, cancellation, client => client.BrowseProjectsAsync(cancellation,
-            mine: tab == CommunityTab.MyMaps, favorites: tab == CommunityTab.Favorites, sort: "name"));
+    private static readonly object CatalogGate = new();
+    private static string _catalogAddress = "";
+    private static Task<CommunityMapProject[]>? _catalog;
+    private static long _catalogUntil;
+    private static Task? _installedWarm;
+    private static Task WarmInstalled()
+    {
+        lock (CatalogGate)
+            return _installedWarm is { IsFaulted: false, IsCanceled: false } ? _installedWarm
+                : _installedWarm = Task.Run(() => { _ = CustomRooms.Installed; });
+    }
+    public void InvalidateCatalog() { lock (CatalogGate) { _catalogUntil = 0; _catalog = null; } }
+    public static void WarmPublicCatalog()
+    {
+        if (LauncherUiPerformance.Enabled) return;
+        var backend = new CommunityEngineBackend();
+        _ = WarmInstalled().ContinueWith(t => { _ = t.Exception; }, TaskScheduler.Default);
+        _ = backend.PublicCatalog(CancellationToken.None).ContinueWith(t => { _ = t.Exception; }, TaskScheduler.Default);
+    }
+    private Task<CommunityMapProject[]> PublicCatalog(CancellationToken cancellation)
+    {
+        Task<CommunityMapProject[]> task;
+        lock (CatalogGate)
+        {
+            long now = Environment.TickCount64;
+            if (_catalog == null || _catalogAddress != _address || _catalog.IsFaulted || _catalog.IsCanceled
+                || _catalog.IsCompleted && now >= _catalogUntil)
+            {
+                string address = _address;
+                _catalogAddress = address; _catalogUntil = now + 30000;
+                _catalog = Task.Run(async () => {
+                    using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                    using var client = new MapCommunityClient(address);
+                    return await client.BrowseProjectsAsync(timeout.Token, sort: "name").ConfigureAwait(false);
+                });
+            }
+            task = _catalog;
+        }
+        return task.WaitAsync(cancellation);
+    }
+    public async Task<CommunityMapProject[]> BrowseAsync(CommunityTab tab, CancellationToken cancellation)
+    {
+        var catalog = tab == CommunityTab.Discover ? PublicCatalog(cancellation) :
+            Client(true, cancellation, client => client.BrowseProjectsAsync(cancellation,
+                mine: tab == CommunityTab.MyMaps, favorites: tab == CommunityTab.Favorites, sort: "name"));
+        // Package validation/hashing must finish off-thread before the first
+        // Snapshot asks for installed badges on the render/input thread.
+        await Task.WhenAll(catalog, WarmInstalled().WaitAsync(cancellation)).ConfigureAwait(false);
+        return await catalog.ConfigureAwait(false);
+    }
     public Task<CommunityMapRevision[]> RevisionsAsync(Guid map, bool authenticated, CancellationToken cancellation) =>
         Client(authenticated, cancellation, client => client.GetRevisionsAsync(map, cancellation));
     public async Task<ICommunityInstallation> PrepareInstallAsync(CommunityMap package, Action<CommunityTransferProgress> progress, CancellationToken cancellation)

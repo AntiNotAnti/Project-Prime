@@ -18,6 +18,7 @@ namespace MphRead.Mods.Render
         public static bool Enabled { get; set; }
 
         private const int TextureSize = 96;
+        private static float _motifOpacity = 1;
         private static int _radialTexture;
 
         public static void DrawUnderHunter(int width, int height)
@@ -38,8 +39,8 @@ namespace MphRead.Mods.Render
             EnsureTexture();
             MenuStageProfile stage = LauncherMenuStage.Current;
             LauncherBackdropStyle style = LauncherMenuVisuals.Style;
-            LauncherActivityAmbience activity = LauncherMenuVisuals.Activity;
-            LauncherHunterTheme theme = LauncherMenuVisuals.Hunter(LauncherHunter.Hunter);
+            LauncherActivityAmbience activity = LauncherPresentation.Motion.Activity;
+            LauncherHunterTheme theme = LauncherPresentation.Motion.Theme;
 
             float left = LauncherHunter.Left;
             float right = LauncherHunter.Right;
@@ -72,7 +73,7 @@ namespace MphRead.Mods.Render
             // fields rather than gameplay particles, so it cannot affect room
             // simulation or turn into combat smoke.
             double time = LauncherPrefs.ReduceMotion ? 0
-                : Environment.TickCount64 / 1000.0;
+                : LauncherPresentation.Seconds;
 
             // Side-bay telemetry, scanner light and orbiting service lamps turn
             // the large negative-space walls into a living deployment chamber
@@ -92,7 +93,7 @@ namespace MphRead.Mods.Render
             float dust = Math.Clamp(
                 style.Particles * activity.ParticleBias * theme.ParticleScale
                 + stage.Dust * 0.12f, 0f, 0.34f);
-            for (int i = 0; i < 22; i++)
+            for (int i = 0, count = RenderOptions.CosmeticQuality switch { Mods.Cosmetics.CosmeticEffectQuality.Off => 0, Mods.Cosmetics.CosmeticEffectQuality.Low => 8, Mods.Cosmetics.CosmeticEffectQuality.Medium => 14, _ => 22 }; i < count; i++)
             {
                 float seedX = Hash01(i * 17 + 3);
                 float seedY = Hash01(i * 29 + 11);
@@ -155,36 +156,36 @@ namespace MphRead.Mods.Render
         private static void DrawLobbyAmbience()
         {
             EnsureTexture();
-            LauncherActivityAmbience activity = LauncherMenuVisuals.Activity;
-            LauncherHunterTheme local = LauncherMenuVisuals.Hunter(LauncherHunter.Hunter);
+            LauncherActivityAmbience activity = LauncherPresentation.Motion.Activity;
+            LauncherHunterTheme local = LauncherPresentation.Motion.Theme;
             double time = LauncherPrefs.ReduceMotion ? 0
-                : Environment.TickCount64 / 1000.0;
+                : LauncherPresentation.Seconds;
             BeginScreenPass();
             DrawAmbientSideBays(activity, local, time, 0.5f, 0.51f, 0.48f, 0.46f);
 
             GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
             for (int slot = 0; slot < LauncherLobbyFormation.Capacity; slot++)
             {
-                if ((LauncherLobbyVisuals.OccupiedMask & (1 << slot)) == 0)
+                if (LauncherPresentation.Motion.Occupancy[slot] < .01f)
                     continue;
 
                 LobbyFormationSlot pad = LauncherLobbyFormation.At(slot);
-                LauncherHunterTheme theme = LauncherMenuVisuals.Hunter(LauncherLobbyVisuals.HunterAt(slot));
+                MenuRgb light = LauncherPresentation.Motion.SlotColors[slot];
                 float phase = LauncherPrefs.ReduceMotion ? 0f
                     : (float)time * (0.50f + slot * 0.025f);
                 float pulse = 0.90f + 0.10f * MathF.Sin(phase + slot * 0.72f);
-                float strength = slot == 0 ? 1.0f : 0.68f;
+                float strength = (slot == 0 ? 1.0f : 0.68f) * LauncherPresentation.Motion.Occupancy[slot];
                 DrawRadial(pad.PadX, pad.PadY,
                     pad.RadiusX * 0.80f, pad.RadiusY * 1.35f,
-                    theme.Floor.R, theme.Floor.G, theme.Floor.B,
+                    light.R, light.G, light.B,
                     0.14f * strength * pulse);
                 DrawRadial(pad.PadX, pad.PadY - pad.RadiusY * 1.28f,
                     pad.RadiusX * 0.78f, pad.RadiusY * 2.20f,
-                    theme.Halo.R, theme.Halo.G, theme.Halo.B,
+                    light.R, light.G, light.B,
                     0.090f * strength * pulse);
                 DrawRadial(pad.PadX, pad.PadY - pad.RadiusY * 3.0f,
                     pad.RadiusX * 0.57f, pad.RadiusY * 2.15f,
-                    theme.Rim.R, theme.Rim.G, theme.Rim.B,
+                    light.R, light.G, light.B,
                     0.053f * strength * pulse);
             }
             EndScreenPass();
@@ -203,8 +204,8 @@ namespace MphRead.Mods.Render
 
             MenuStageProfile stage = LauncherMenuStage.Current;
             LauncherBackdropStyle style = LauncherMenuVisuals.Style;
-            LauncherActivityAmbience activity = LauncherMenuVisuals.Activity;
-            LauncherHunterTheme theme = LauncherMenuVisuals.Hunter(LauncherHunter.Hunter);
+            LauncherActivityAmbience activity = LauncherPresentation.Motion.Activity;
+            LauncherHunterTheme theme = LauncherPresentation.Motion.Theme;
             float amount = Math.Clamp(
                 stage.ForegroundHaze * 0.32f
                 + style.Fog * activity.FogBias * 0.055f,
@@ -324,8 +325,14 @@ namespace MphRead.Mods.Render
                     signal.R, signal.G, signal.B, 0.088f + (i % 3) * 0.018f);
             }
 
-            DrawHunterMotif(LauncherHunter.Hunter, theme, time,
-                centerX, centerY, spanX, spanY);
+            for (int i = 0; i < 7; i++)
+            {
+                float weight = LauncherPresentation.Motion.HunterWeights[i];
+                if (weight < .01f) continue;
+                _motifOpacity = weight * 2.5f;
+                DrawHunterMotif((Hunter)i, LauncherHunterTheme.For((Hunter)i), time, centerX, centerY, spanX, spanY);
+            }
+            _motifOpacity = 1;
 
             // Floor runway pips travel toward the hero platform and make the
             // lower chamber feel operational rather than painted.
@@ -467,6 +474,7 @@ namespace MphRead.Mods.Render
         private static void DrawSolidRect(float x0, float y0, float x1, float y1,
             float r, float g, float b, float a)
         {
+            a *= _motifOpacity;
             if (a <= 0 || x1 <= x0 || y1 <= y0) return;
             GL.Disable(EnableCap.Texture2D);
             GL.Color4(r, g, b, a);
@@ -612,6 +620,7 @@ namespace MphRead.Mods.Render
         private static void DrawRadial(float centerX, float centerY,
             float width, float height, float r, float g, float b, float a)
         {
+            a *= _motifOpacity;
             if (a <= 0 || width <= 0 || height <= 0)
                 return;
 

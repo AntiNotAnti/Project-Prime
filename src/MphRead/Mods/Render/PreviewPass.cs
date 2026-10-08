@@ -96,6 +96,7 @@ namespace MphRead
         /// ModelInstance back and forth every display frame.
         /// </summary>
         public static int LauncherPreviewSlot { get; set; } = -1;
+        public static bool LauncherPreviewFormation { get; set; }
 
         /// <summary>Did anybody ask for a preview this frame?</summary>
         private static bool PreviewAsked => Mods.EndScreen.Available || LauncherPreview;
@@ -206,9 +207,17 @@ namespace MphRead
             preview.Step();
         }
 
+        private bool _sharedPreviewClock;
         private void ModStepLauncherPreview()
         {
-            double now = _launcherPreviewClock.Elapsed.TotalSeconds;
+            if (_sharedPreviewClock != Mods.Launcher.LauncherPresentation.Active)
+            {
+                _sharedPreviewClock = Mods.Launcher.LauncherPresentation.Active;
+                _launcherPreviewClockHunter = Hunter.Random;
+                Array.Clear(_launcherSlotClockSet);
+            }
+            double now = Mods.Launcher.LauncherPresentation.Active
+                ? Mods.Launcher.LauncherPresentation.Motion.Time : _launcherPreviewClock.Elapsed.TotalSeconds;
             int slot = LauncherPreviewSlot >= 0
                 && LauncherPreviewSlot < _launcherSlotPreviews.Length
                 ? LauncherPreviewSlot : -1;
@@ -415,6 +424,11 @@ namespace MphRead
             {
                 RefreshTextureQuality();
                 ModStepLauncherPreview();
+                int presentationSlot = LauncherPreviewSlot;
+                double next = presentationSlot >= 0 ? _launcherSlotNextStep[presentationSlot] : _launcherPreviewNextStep;
+                double now = Mods.Launcher.LauncherPresentation.Active ? Mods.Launcher.LauncherPresentation.Motion.Time : _launcherPreviewClock.Elapsed.TotalSeconds;
+                _activePreview?.SamplePresentation(Mods.Launcher.LauncherPrefs.ReduceMotion ? 0
+                    : (float)Math.Clamp(1 - (next - now) / LauncherPreviewStepSeconds, 0, 1));
                 ModCollectPreview();
                 if (!ModPreviewDrawn)
                 {
@@ -524,6 +538,18 @@ namespace MphRead
             Matrix4 view = PreviewView(_activePreview?.Mode == Mods.Cosmetics.SkinContext.Biped
                 ? _activePreview.Shown : Hunter.Samus, width / (float)height,
                 LauncherPreview ? LauncherPreviewDistanceScale : 1f);
+            if (LauncherPreview && LauncherPreviewFormation && Mods.Launcher.LauncherLobbyVisuals.Active && LauncherPreviewSlot >= 0
+                && _activePreview?.Mode == Mods.Cosmetics.SkinContext.Biped)
+            {
+                var pad = Mods.Launcher.LauncherLobbyFormation.At(LauncherPreviewSlot);
+                // Project the model's ground origin, not its bounding-box midpoint.
+                // Trace's height and the viewport aspect otherwise shift the feet.
+                Vector4 ground = new Vector4(0, 0, 0, 1) * view * projection;
+                float targetX = (pad.PadX * target.X - x) / width * 2 - 1;
+                float targetY = ((1 - pad.PadY) * target.Y - y) / height * 2 - 1;
+                projection.M31 += ground.X / ground.W - targetX;
+                projection.M32 += ground.Y / ground.W - targetY;
+            }
             GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref projection);
             GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref view);
             // No fog, whatever the room does with it: a preview window is not

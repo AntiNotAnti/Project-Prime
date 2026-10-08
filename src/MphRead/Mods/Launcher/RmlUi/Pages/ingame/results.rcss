@@ -1,5 +1,5 @@
 body { font-family: Rajdhani; font-size: 17dp; color: #d8edff; background-color: transparent; }
-.results-panel { position: absolute; right: 14dp; top: 14dp; width: 340dp; max-width: 92vw; max-height: 94vh; padding: 16dp; overflow: auto; background-color: rgba(7,23,39,94%); border: 1dp #356689; }
+.results-panel { position: absolute; right: 24dp; top: 8vh; width: 340dp; max-width: 92vw; max-height: 94vh; padding: 16dp; overflow: auto; background-color: rgba(7,23,39,94%); border: 1dp #356689; }
 .results-panel > div, .results-panel > h1, #results_ballot > div { display: block; width: 304dp; }
 h1 { display: block; font-size: 28dp; margin: 6dp 0 10dp; } .eyebrow { color: #78caff; font-size: 13dp; } .error { color: #ffb9aa; }
 button { tab-index: auto; min-height: 42dp; padding: 8dp 10dp; margin: 4dp 3dp 4dp 0; color: #d8edff; background-color: #123554; border: 1dp #356689; font-size: 15dp; }

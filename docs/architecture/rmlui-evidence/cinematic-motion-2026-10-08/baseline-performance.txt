@@ -1,0 +1,4 @@
+2560x1440 Metal Immediate chamber + FX serialized CPU + GPU completion (Finish); present separately
+median=9.675ms p95=13.283ms allocation=8489B/frame
+Present median=0.101ms p95=0.140ms
+GPU timestamp samples=119 median=0.000ms p95=0.000ms

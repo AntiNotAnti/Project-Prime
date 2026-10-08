@@ -34,7 +34,7 @@ public sealed class CommunityPagePresenter : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         _page = _pages.OpenPage(new("community", "pages/community/browser.rml", "community_search"));
         _host.SetField(_page, "community_search", "");
-        _presented = null; _controller.Refresh(); Refresh();
+        _presented = null; _controller.Refresh(force: false); Refresh();
     }
 
     public bool HandleAction(in RmlUiIntent intent)

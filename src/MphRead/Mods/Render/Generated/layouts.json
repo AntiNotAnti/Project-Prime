@@ -1378,8 +1378,48 @@
         "integer": false
       },
       {
-        "name": "base_top",
+        "name": "energy_time",
         "offset": 32,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "launch_amount",
+        "offset": 48,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "hunter_weights_a",
+        "offset": 64,
+        "components": 4,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "hunter_weights_b",
+        "offset": 80,
+        "components": 4,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "slot_light",
+        "offset": 96,
+        "components": 4,
+        "count": 8,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "base_top",
+        "offset": 224,
         "components": 3,
         "count": 1,
         "stride": 16,
@@ -1387,7 +1427,7 @@
       },
       {
         "name": "base_mid",
-        "offset": 48,
+        "offset": 240,
         "components": 3,
         "count": 1,
         "stride": 16,
@@ -1395,7 +1435,7 @@
       },
       {
         "name": "base_bottom",
-        "offset": 64,
+        "offset": 256,
         "components": 3,
         "count": 1,
         "stride": 16,
@@ -1403,7 +1443,7 @@
       },
       {
         "name": "activity_accent",
-        "offset": 80,
+        "offset": 272,
         "components": 3,
         "count": 1,
         "stride": 16,
@@ -1411,7 +1451,7 @@
       },
       {
         "name": "activity_secondary",
-        "offset": 96,
+        "offset": 288,
         "components": 3,
         "count": 1,
         "stride": 16,
@@ -1419,7 +1459,7 @@
       },
       {
         "name": "hunter_halo",
-        "offset": 112,
+        "offset": 304,
         "components": 3,
         "count": 1,
         "stride": 16,
@@ -1427,7 +1467,7 @@
       },
       {
         "name": "hunter_rim",
-        "offset": 128,
+        "offset": 320,
         "components": 3,
         "count": 1,
         "stride": 16,
@@ -1435,102 +1475,6 @@
       },
       {
         "name": "energy",
-        "offset": 144,
-        "components": 1,
-        "count": 1,
-        "stride": 16,
-        "integer": false
-      },
-      {
-        "name": "fog_amount",
-        "offset": 160,
-        "components": 1,
-        "count": 1,
-        "stride": 16,
-        "integer": false
-      },
-      {
-        "name": "particle_amount",
-        "offset": 176,
-        "components": 1,
-        "count": 1,
-        "stride": 16,
-        "integer": false
-      },
-      {
-        "name": "structure_amount",
-        "offset": 192,
-        "components": 1,
-        "count": 1,
-        "stride": 16,
-        "integer": false
-      },
-      {
-        "name": "floor_grid",
-        "offset": 208,
-        "components": 1,
-        "count": 1,
-        "stride": 16,
-        "integer": false
-      },
-      {
-        "name": "hero_light",
-        "offset": 224,
-        "components": 1,
-        "count": 1,
-        "stride": 16,
-        "integer": false
-      },
-      {
-        "name": "pulse_speed",
-        "offset": 240,
-        "components": 1,
-        "count": 1,
-        "stride": 16,
-        "integer": false
-      },
-      {
-        "name": "warmth",
-        "offset": 256,
-        "components": 1,
-        "count": 1,
-        "stride": 16,
-        "integer": false
-      },
-      {
-        "name": "halo_strength",
-        "offset": 272,
-        "components": 1,
-        "count": 1,
-        "stride": 16,
-        "integer": false
-      },
-      {
-        "name": "floor_glow",
-        "offset": 288,
-        "components": 1,
-        "count": 1,
-        "stride": 16,
-        "integer": false
-      },
-      {
-        "name": "left_darken",
-        "offset": 304,
-        "components": 1,
-        "count": 1,
-        "stride": 16,
-        "integer": false
-      },
-      {
-        "name": "right_darken",
-        "offset": 320,
-        "components": 1,
-        "count": 1,
-        "stride": 16,
-        "integer": false
-      },
-      {
-        "name": "beam_intensity",
         "offset": 336,
         "components": 1,
         "count": 1,
@@ -1538,7 +1482,7 @@
         "integer": false
       },
       {
-        "name": "background_softness",
+        "name": "fog_amount",
         "offset": 352,
         "components": 1,
         "count": 1,
@@ -1546,7 +1490,7 @@
         "integer": false
       },
       {
-        "name": "lobby_mode",
+        "name": "particle_amount",
         "offset": 368,
         "components": 1,
         "count": 1,
@@ -1554,8 +1498,104 @@
         "integer": false
       },
       {
-        "name": "lobby_occupancy_a",
+        "name": "structure_amount",
         "offset": 384,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "floor_grid",
+        "offset": 400,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "hero_light",
+        "offset": 416,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "pulse_speed",
+        "offset": 432,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "warmth",
+        "offset": 448,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "halo_strength",
+        "offset": 464,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "floor_glow",
+        "offset": 480,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "left_darken",
+        "offset": 496,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "right_darken",
+        "offset": 512,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "beam_intensity",
+        "offset": 528,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "background_softness",
+        "offset": 544,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "lobby_mode",
+        "offset": 560,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "lobby_occupancy_a",
+        "offset": 576,
         "components": 4,
         "count": 1,
         "stride": 16,
@@ -1563,7 +1603,7 @@
       },
       {
         "name": "lobby_occupancy_b",
-        "offset": 400,
+        "offset": 592,
         "components": 4,
         "count": 1,
         "stride": 16,
@@ -1571,7 +1611,7 @@
       },
       {
         "name": "lobby_pad_geometry",
-        "offset": 416,
+        "offset": 608,
         "components": 4,
         "count": 8,
         "stride": 16,
@@ -1579,7 +1619,7 @@
       },
       {
         "name": "prime_viewport",
-        "offset": 544,
+        "offset": 736,
         "components": 4,
         "count": 1,
         "stride": 16,
@@ -1587,7 +1627,7 @@
       }
     ],
     "samplers": [],
-    "size": 576,
-    "flipOffset": 560
+    "size": 768,
+    "flipOffset": 752
   }
 ]

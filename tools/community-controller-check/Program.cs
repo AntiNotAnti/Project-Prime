@@ -17,6 +17,16 @@ void Select(CommunityController controller, int index = 0) => Check(controller.S
 void Detail(CommunityController controller, CommunityDetailAction action) => Check(controller.Detail(action, controller.Snapshot().SelectedPackageHash).Accepted, "accept " + action);
 CommunityController New(FakeCommunityBackend backend) { var result = new CommunityController(backend); result.Refresh(); Drain(result); return result; }
 
+var cacheBackend = new FakeCommunityBackend();
+using (var cached = new CommunityController(cacheBackend))
+{
+    cached.Refresh(force: false); Drain(cached);
+    Check(cacheBackend.Invalidations == 0, "opening reuses a warmed public catalog");
+    cached.Refresh(); Drain(cached);
+    Check(cacheBackend.Invalidations == 1, "explicit refresh invalidates the public catalog");
+    Select(cached); Detail(cached, CommunityDetailAction.Favorite); Drain(cached);
+    Check(cacheBackend.Invalidations == 2, "successful mutations invalidate cached catalog metadata");
+}
 var backend = new FakeCommunityBackend();
 using (var controller = New(backend))
 {
@@ -156,6 +166,8 @@ Console.WriteLine($"Community controller: {checks} checks passed.");
 
 internal sealed class FakeCommunityBackend : ICommunityBackend
 {
+    public int Invalidations;
+    public void InvalidateCatalog() => Interlocked.Increment(ref Invalidations);
     public string DefaultAddress => "http://127.0.0.1:47800/";
     public CommunityMapProject[] Projects = Enumerable.Range(0, 17).Select(Project).ToArray();
     public CommunityMapRevision[]? History = null;

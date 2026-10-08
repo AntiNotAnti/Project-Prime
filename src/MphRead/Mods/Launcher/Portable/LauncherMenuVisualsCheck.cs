@@ -76,6 +76,51 @@ namespace MphRead.Mods.Launcher
                 && chamberLives == 2,
                 "one-in-the-chamber retains its fixed stock goal");
 
+            double expected = -1;
+            foreach (int hz in new[] { 60, 120, 144, 165, 240, 360 })
+            {
+                var motion = new MenuMotionState();
+                motion.Advance(100000000, true, false, LauncherActivityAmbience.ServerBrowser, Hunter.Samus);
+                for (int frame = 1; frame <= hz; frame++)
+                    motion.Advance(100000000 + frame / (double)hz, true, false, LauncherActivityAmbience.Adventure, Hunter.Trace);
+                Check(Math.Abs(motion.Time - 1) < .00001, $"{hz} Hz motion retains subframe precision at long uptime");
+                if (expected >= 0) Check(Math.Abs(motion.Theme.Halo.R - expected) < .00001, $"{hz} Hz palette is time-based");
+                expected = motion.Theme.Halo.R;
+                double phase = motion.Time;
+                motion.Advance(100000010, true, false, LauncherActivityAmbience.Studio, Hunter.Noxus);
+                Check(motion.Time == phase, "suspension does not jump animation phase");
+                motion.Advance(100000010.01, true, true, LauncherActivityAmbience.Studio, Hunter.Noxus);
+                Check(motion.Time == phase && motion.Theme == LauncherHunterTheme.For(Hunter.Noxus), "Reduce Motion freezes time and settles state");
+            }
+            for (int slot = 0; slot < 8; slot++)
+            {
+                var placement = LauncherLobbyFormation.At(slot);
+                Check(Math.Abs((placement.HunterLeft + placement.HunterRight) / 2 - placement.PadX) < .00001,
+                    $"hunter {slot} viewport and nameplate centered on platform");
+            }
+            var lobbyMotion = new MenuMotionState();
+            LauncherLobbyVisuals.Active = true;
+            LauncherLobbyVisuals.OccupiedMask = 1;
+            LauncherLobbyVisuals.SetIdentity(0, 42);
+            lobbyMotion.Advance(0, true, false, LauncherActivityAmbience.Lobby, Hunter.Samus);
+            LauncherLobbyVisuals.ReadyMask = 1;
+            lobbyMotion.Advance(.01, true, false, LauncherActivityAmbience.Lobby, Hunter.Samus);
+            float readyPulse = lobbyMotion.ReadyPulse[0];
+            lobbyMotion.Advance(.02, true, false, LauncherActivityAmbience.Lobby, Hunter.Samus);
+            Check(readyPulse > 0 && lobbyMotion.ReadyPulse[0] < readyPulse, "ready pulse triggers once and decays while ready stays true");
+            LauncherLobbyVisuals.Starting = true; LauncherLobbyVisuals.CountdownSeconds = 1;
+            lobbyMotion.Advance(.12, true, false, LauncherActivityAmbience.Lobby, Hunter.Samus);
+            float launch = lobbyMotion.Launch;
+            LauncherLobbyVisuals.Starting = false;
+            lobbyMotion.Advance(.22, true, false, LauncherActivityAmbience.Lobby, Hunter.Samus);
+            Check(launch > 0 && lobbyMotion.Launch < launch, "countdown cancellation settles launch without independent timer");
+            LauncherLobbyVisuals.OccupiedMask = 0;
+            lobbyMotion.Advance(.32, true, false, LauncherActivityAmbience.Lobby, Hunter.Samus);
+            Check(lobbyMotion.Occupancy[0] is > 0 and < 1, "departure fades without retaining authoritative occupancy");
+            double focusedTime = lobbyMotion.Time;
+            lobbyMotion.Advance(.4, false, false, LauncherActivityAmbience.Lobby, Hunter.Samus);
+            Check(lobbyMotion.Time == focusedTime, "focus loss freezes presentation phase");
+            LauncherLobbyVisuals.Reset();
             LauncherBackdropStyle style = LauncherMenuVisuals.Style;
             Check(style.Name == "deployment-chamber",
                 "universal deployment chamber is the default RmlUi backdrop");

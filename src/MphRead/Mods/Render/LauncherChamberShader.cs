@@ -18,6 +18,11 @@ varying vec2 chamber_uv;
 
 uniform vec2 resolution;
 uniform float time_value;
+uniform float energy_time;
+uniform float launch_amount;
+uniform vec4 hunter_weights_a;
+uniform vec4 hunter_weights_b;
+uniform vec4 slot_light[8];
 uniform vec3 base_top;
 uniform vec3 base_mid;
 uniform vec3 base_bottom;
@@ -132,6 +137,44 @@ void main()
     col = mix(col, base_bottom * 0.44, farCrossbeam * 0.70 * structure_amount);
     col += activity_accent * farCrossbeam * 0.020 * structure_amount;
 
+    // Far gantries oscillate on a slower depth plane than the service light.
+    float gantryTravel = sin(time_value * 0.065) * 0.022;
+    float gantryGate = box_mask(uv, vec2(0.22, 0.17), vec2(0.88, 0.65), 0.025);
+    float gantry = line(abs(uv.x - 0.5) - (0.255 + gantryTravel + (uv.y - 0.3) * 0.13), 0.010);
+    col = mix(col, base_bottom, gantry * gantryGate * 0.58);
+    float gantryEdge = line(abs(uv.x - 0.5) - (0.244 + gantryTravel + (uv.y - 0.3) * 0.13), 0.0012);
+    col += hunter_rim * gantryEdge * gantryGate * 0.16;
+
+    // Sequenced vertical power conduits: staggered cycles, restrained surges.
+    float surge = pow(0.5 + 0.5 * sin(energy_time * 0.57), 8.0);
+    for (int channel = 0; channel < 4; channel++) {
+        float fi = float(channel);
+        float cx = 0.285 + fi * 0.145;
+        float travel = 0.5 + 0.5 * sin(energy_time * 0.7 - uv.y * 12.0 + fi * 1.6);
+        float conduit = line(uv.x - cx, 0.0013) * box_mask(uv, vec2(0.20, 0.22), vec2(0.86, 0.70), 0.025);
+        col += mix(activity_secondary, hunter_rim, 0.7) * conduit * (0.035 + pow(travel, 5.0) * (0.26 + surge * 0.16));
+    }
+
+    // Seven identities crossfade as weights; model textures are never tinted.
+    float samus = hunter_weights_a.x;
+    float kanden = hunter_weights_a.y;
+    float trace = hunter_weights_a.z;
+    float sylux = hunter_weights_a.w;
+    float noxus = hunter_weights_b.x;
+    float spire = hunter_weights_b.y;
+    float weavel = hunter_weights_b.z;
+    float scanY = 0.44 + sin(time_value * 0.32) * 0.17;
+    float tactical = line(uv.y - scanY - abs(uv.x - 0.5) * 0.23, 0.0018);
+    float bio = pow(0.5 + 0.5 * sin(uv.y * 27.0 + sin(time_value * 1.7) * 2.0 + energy_time), 6.0);
+    float electric = pow(0.5 + 0.5 * sin(uv.y * 35.0 - energy_time * 3.0), 14.0);
+    float thermal = 0.5 + 0.5 * sin(uv.x * 28.0 + sin(time_value * 0.3 + uv.y * 8.0));
+    float motifGate = ellipse_mask(uv, vec2(0.5, 0.47), vec2(0.34, 0.34));
+    float sideGate = smoothstep(0.10, 0.22, abs(uv.x - 0.5));
+    col += hunter_rim * motifGate * (trace * tactical * 0.40 + kanden * bio * sideGate * 0.10
+        + sylux * electric * sideGate * 0.18 + samus * surge * 0.065
+        + noxus * thermal * 0.030 + spire * thermal * smoothstep(0.4, 0.78, uv.y) * 0.13
+        + weavel * tactical * sideGate * (0.18 + step(0.5, uv.x) * 0.15));
+
     // Vertical chamber ribs and recessed side panels.
     for (int i = 0; i < 7; i++)
     {
@@ -164,7 +207,7 @@ void main()
     // model. Activity-specific intensity/speed makes browser, training, and
     // lobby meaningfully different while Reduce Motion locks time to zero.
     float signalGate = box_mask(uv, vec2(0.31, 0.275), vec2(0.855, 0.305), 0.008);
-    float signalPhase = sin(uv.x * 36.0 - time_value * (0.45 + pulse_speed * 0.65));
+    float signalPhase = sin(uv.x * 36.0 - time_value * 0.45 - energy_time * 0.65);
     float activeSignal = 0.5 + 0.5 * signalPhase;
     col += mix(activity_secondary, hunter_rim, 0.44)
         * signalGate * activeSignal * (0.045 + 0.040 * energy);
@@ -175,7 +218,7 @@ void main()
     float hero = ellipse_mask(uv, heroCenter, vec2(0.205, 0.39));
     float pulse = 1.0;
     if (time_value > 0.0)
-        pulse += sin(time_value * (0.55 + pulse_speed * 0.45)) * 0.035;
+        pulse += sin(time_value * 0.55 + energy_time * 0.45) * 0.035;
     col += hunter_halo * hero * halo_strength * hero_light
         * (0.215 + 0.090 * energy) * pulse;
 
@@ -219,7 +262,7 @@ void main()
         float serviceSpine = line(abs(uv.x - 0.5) - (0.79 - uv.y) * 0.42, 0.0035);
         float serviceGate = smoothstep(0.29, 0.43, uv.y)
             * (1.0 - smoothstep(0.75, 0.83, uv.y));
-        col += activity_secondary * serviceSpine * serviceGate * 0.13 * energy;
+        col += activity_secondary * serviceSpine * serviceGate * (0.13 + launch_amount * (0.18 + 0.10 * sin(uv.y * 40.0 - energy_time * 5.0))) * energy;
         for (int slot = 7; slot >= 0; slot--)
         {
             vec4 geometry = lobby_pad_geometry[slot];
@@ -248,7 +291,8 @@ void main()
                              clamp((1.0 - foot.y) * 0.34, 0.0, 1.0));
             col = mix(col, metal, body * 0.85);
             col += vec3(0.075, 0.118, 0.150) * raisedEdge * 0.18;
-            vec3 activeLight = mix(activity_secondary, hunter_halo, 0.38);
+            vec3 activeLight = mix(activity_secondary * 0.28, slot_light[slot].rgb, occupied);
+            float confirmation = slot_light[slot].a;
             col += activeLight * lip * (0.034 + occupied * 0.20);
             col += vec3(0.075, 0.135, 0.170) * innerDish
                 * (0.014 + occupied * 0.017);
@@ -258,11 +302,11 @@ void main()
             float ring1 = 1.0 - smoothstep(0.026, 0.052, abs(q - 0.22));
             float ring2 = 1.0 - smoothstep(0.025, 0.050, abs(q - 0.43));
             float angle = atan(foot.y, foot.x);
-            float phase = fract((angle + 3.14159265) / 6.28318530 * 12.0);
+            float phase = fract((angle + 3.14159265) / 6.28318530 * 12.0 - energy_time * 0.10 + float(slot) * 0.37);
             float segments = smoothstep(0.06, 0.15, phase)
                 * (1.0 - smoothstep(0.73, 0.86, phase));
             col += activeLight * max(ring1, ring2) * segments
-                * (0.034 + occupied * 0.084);
+                * (0.034 + occupied * (0.12 + confirmation * 0.32 + launch_amount * 0.22));
 
             // Contact darkening happens at the exact same pad coordinates as
             // the models' authored stance, before those models are rendered.
@@ -294,12 +338,13 @@ void main()
         float ringB = 1.0 - smoothstep(0.018, 0.050, abs(platformQ - 0.40));
         float ringC = 1.0 - smoothstep(0.018, 0.050, abs(platformQ - 0.60));
         float ringAngle = atan(platformDelta.y, platformDelta.x);
-        float ringPhase = fract((ringAngle + 3.14159265) / 6.28318530 * 12.0);
+        float ringPhase = fract((ringAngle + 3.14159265) / 6.28318530 * 12.0 - energy_time * 0.12);
         float ringSegments = smoothstep(0.08, 0.18, ringPhase)
             * (1.0 - smoothstep(0.72, 0.82, ringPhase));
-        float serviceRings = max(ringA, max(ringB, ringC)) * ringSegments;
+        float counterPhase = 0.5 + 0.5 * sin(ringAngle * 5.0 + energy_time * 0.64);
+        float serviceRings = max(ringA * ringSegments, max(ringB * counterPhase, ringC * ringSegments));
         col += mix(activity_secondary, hunter_halo, 0.22)
-            * serviceRings * floor_glow * 0.11;
+            * serviceRings * floor_glow * 0.22;
     }
 
     // Low chamber haze.
@@ -354,7 +399,7 @@ void main()
     col *= 1.0 - vignette * (0.20 + background_softness * 0.18);
 
     // Tiny film grain prevents large gradients from banding at dark values.
-    float grain = hash21(gl_FragCoord.xy + vec2(time_value * 3.0, 0.0)) - 0.5;
+    float grain = hash21(gl_FragCoord.xy) - 0.5;
     col += grain * 0.006;
 
     gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);

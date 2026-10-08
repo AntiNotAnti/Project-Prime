@@ -174,3 +174,13 @@ body.large-text #screen p, body.large-text #dialog_content p { font-size: 16dp; 
 body.touch-targets #screen button, body.touch-targets #screen input, body.touch-targets #screen textarea,
 body.touch-targets #dialog_content button, body.touch-targets #dialog_content input,
 body.touch-targets #dialog_content textarea { min-height: 48dp; }
+
+button { transition: background-color 0.14s quadratic-out, border-color 0.14s quadratic-out, color 0.12s quadratic-out; }
+.reduce-motion button, body.reduce-motion button { transition: none; }
+@keyframes ready-confirm { from { opacity: 0.55; } to { opacity: 1; } }
+.lobby_roster_row.ready, .lobby_nameplate.ready { animation: 0.3s quadratic-out 1 ready-confirm; }
+.reduce-motion .lobby_roster_row.ready, .reduce-motion .lobby_nameplate.ready { animation: none; }
+
+@keyframes platform-arrival { from { opacity: 0; transform: translateY(4dp); } to { opacity: 1; transform: translateY(0dp); } }
+.lobby_nameplate.occupied { animation: 0.24s quadratic-out 1 platform-arrival; }
+.reduce-motion .lobby_nameplate.occupied { animation: none; }
