@@ -58,7 +58,9 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.OfflineSelectArena => 16,
         RmlUiIntentKind.OfflineArenaPage => 2,
         RmlUiIntentKind.LobbyRulesToggle => 16,
-        RmlUiIntentKind.LobbyPlayerSelect => 8,
+        RmlUiIntentKind.LobbyPlayerSelect or RmlUiIntentKind.LobbySlotTeamNext => 8,
+        RmlUiIntentKind.LobbyMapSelect => 6,
+        RmlUiIntentKind.LobbyMapCategory => 2,
         RmlUiIntentKind.LobbyTeamSelect => 4,
         RmlUiIntentKind.HunterSelect => 7,
         RmlUiIntentKind.HunterSuit => 4,
@@ -83,7 +85,9 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
     }
     Require(!RmlUiIntentRegistry.IsValid(kind, (kind == RmlUiIntentKind.SettingsAction ? 256 : first + count)), $"Out-of-range argument accepted for {kind}");
 }
-foreach (string bad in new[] { "play:server:-1", "play:server:08", "play:server:8", "lobby:rules-toggle:16", "route:unexpected", "quit:extra" })
+foreach (string bad in new[] { "play:server:-1", "play:server:08", "play:server:8", "lobby:rules-toggle:16",
+    "lobby:slot-team:-1", "lobby:slot-team:08", "lobby:slot-team:8",
+    "lobby:map-select:6", "lobby:map-category:2", "route:unexpected", "quit:extra" })
     Require(!RmlUiIntentRegistry.TryParseLegacy(bad, new(1, 1), 1, out _), "Invalid legacy intent accepted");
 
 var native = new FakeBridge();
