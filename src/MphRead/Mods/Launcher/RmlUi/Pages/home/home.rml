@@ -76,6 +76,20 @@
                     </div>
             </div>
         </div>
+        <div id="home_signal_panel" class="home_side_module home_signal enter_left">
+            <div class="home_module_header">
+                <div class="eyebrow">DEPLOYMENT LINK</div>
+                <div class="home_module_live">LIVE</div>
+            </div>
+            <div class="home_signal_title" data-prime-text="{{activity_title}}" id="home_signal_activity" />
+            <div class="home_signal_rule" />
+            <div class="home_signal_row"><span>HUNTER</span><b data-prime-text="{{hunter_name}}" id="home_signal_hunter" /></div>
+            <div class="home_signal_row"><span>STATUS</span><b data-prime-text="{{activity_hint}}" id="home_signal_status" /></div>
+            <div class="home_signal_meter">
+                <i /><i /><i /><i /><i /><i />
+            </div>
+        </div>
+
         <div id="hunter_caption" class="enter_hunter">
             <div class="hunter_rule" />
             <div>
@@ -101,6 +115,30 @@
                 <span id="home_party_state">FRIENDS AND PARTY</span>
             </button>
             <div id="home_social_summary" class="session_hint">OPEN SOCIAL TO MANAGE FRIENDS, INVITES AND YOUR PARTY.</div>
+        </div>
+
+        <div id="home_social_activity" class="home_side_module home_social_activity enter_right">
+            <div class="home_module_header">
+                <div class="eyebrow">SOCIAL ACTIVITY</div>
+                <button class="home_module_link" data-action="route:social">OPEN SOCIAL &gt;</button>
+            </div>
+            <div class="home_social_stats">
+                <div class="home_social_stat"><b id="home_friends_online">0</b><span>FRIENDS</span></div>
+                <div class="home_social_stat"><b id="home_invites_count">0</b><span>INVITES</span></div>
+                <div class="home_social_stat"><b id="home_requests_count">0</b><span>REQUESTS</span></div>
+            </div>
+            <div class="home_friend_list">
+                <div id="home_friend0" class="home_friend_row">
+                    <span><b id="home_friend0_name">—</b><small id="home_friend0_state">OFFLINE</small></span><i />
+                </div>
+                <div id="home_friend1" class="home_friend_row">
+                    <span><b id="home_friend1_name">—</b><small id="home_friend1_state">OFFLINE</small></span><i />
+                </div>
+                <div id="home_friend2" class="home_friend_row">
+                    <span><b id="home_friend2_name">—</b><small id="home_friend2_state">OFFLINE</small></span><i />
+                </div>
+                <div id="home_social_empty" class="home_social_empty">NO FRIENDS ONLINE // SOCIAL LINK STANDING BY</div>
+            </div>
         </div>
     </body>
 </rml>

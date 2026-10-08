@@ -652,3 +652,202 @@ border-color: rgba(114,199,255,22%);
 
 #hunter_caption { left: 63%; bottom: 40dp; width: 250dp; pointer-events: none; }
 @media (max-width: 900dp) { #hunter_caption { left: 62%; width: 170dp; } #hunter_name { font-size: 21dp; } .hunter_rule { width: 24dp; } }
+
+
+/* Living chamber side modules. These deliberately read as translucent chamber
+   telemetry instead of full-width dashboard cards, so the Hunter remains the
+   visual anchor while the left/right negative space carries useful state. */
+.home_side_module {
+    position: absolute;
+    color: #9db0c0;
+    background-color: rgba(3,12,22,46%);
+    border-top: 1dp rgba(114,199,255,12%);
+    border-right: 1dp rgba(114,199,255,8%);
+    border-bottom: 1dp rgba(114,199,255,8%);
+    border-left: 2dp rgba(114,199,255,38%);
+    padding: 12dp 14dp;
+}
+
+.home_module_header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 9dp;
+}
+
+.home_module_header .eyebrow { margin-bottom: 0; }
+
+.home_module_live {
+    color: #55e18c;
+    font-family: "JetBrains Mono";
+    font-size: 8dp;
+    letter-spacing: 1.2dp;
+}
+
+.home_module_link {
+    color: #6f8da4;
+    font-size: 8dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+    padding: 5dp 7dp;
+    border: 1dp rgba(114,199,255,12%);
+    background-color: rgba(6,18,31,52%);
+}
+.home_module_link:hover,
+.home_module_link:focus {
+    color: #ffffff;
+    border-color: rgba(114,199,255,52%);
+    background-color: rgba(20,72,116,56%);
+}
+
+#home_signal_panel {
+    left: 52dp;
+    top: 46dp;
+    width: 292dp;
+    opacity: 0.86;
+}
+
+.home_signal_title {
+    color: #ffffff;
+    font-size: 19dp;
+    line-height: 21dp;
+    font-weight: bold;
+    letter-spacing: 0.7dp;
+}
+
+.home_signal_rule {
+    height: 1dp;
+    margin-top: 9dp;
+    margin-bottom: 8dp;
+    background-color: rgba(114,199,255,13%);
+}
+
+.home_signal_row {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5dp;
+    color: #587289;
+    font-family: "JetBrains Mono";
+    font-size: 8dp;
+    letter-spacing: 0.8dp;
+}
+.home_signal_row b {
+    color: #adc1d1;
+    font-weight: normal;
+    text-align: right;
+}
+
+.home_signal_meter {
+    height: 13dp;
+    display: flex;
+    align-items: flex-end;
+    margin-top: 10dp;
+    padding-top: 2dp;
+}
+.home_signal_meter i {
+    display: block;
+    width: 26dp;
+    height: 3dp;
+    margin-right: 4dp;
+    background-color: rgba(43,158,247,24%);
+}
+.home_signal_meter i:nth-child(2) { height: 5dp; background-color: rgba(43,158,247,32%); }
+.home_signal_meter i:nth-child(3) { height: 8dp; background-color: rgba(114,199,255,42%); }
+.home_signal_meter i:nth-child(4) { height: 11dp; background-color: rgba(114,199,255,58%); }
+.home_signal_meter i:nth-child(5) { height: 7dp; background-color: rgba(43,158,247,38%); }
+.home_signal_meter i:nth-child(6) { height: 4dp; background-color: rgba(43,158,247,26%); }
+
+#home_social_activity {
+    right: 46dp;
+    top: 250dp;
+    width: 304dp;
+}
+
+.home_social_stats {
+    display: flex;
+    margin-bottom: 9dp;
+    border-top: 1dp rgba(114,199,255,9%);
+    border-bottom: 1dp rgba(114,199,255,9%);
+}
+
+.home_social_stat {
+    flex: 1;
+    padding: 8dp 4dp 7dp 4dp;
+    text-align: center;
+    border-right: 1dp rgba(114,199,255,8%);
+}
+.home_social_stat:last-child { border-right: 0; }
+.home_social_stat b {
+    display: block;
+    color: #ffffff;
+    font-size: 18dp;
+    line-height: 20dp;
+}
+.home_social_stat span {
+    display: block;
+    margin-top: 2dp;
+    color: #526f86;
+    font-family: "JetBrains Mono";
+    font-size: 7dp;
+    letter-spacing: 0.8dp;
+}
+
+.home_friend_list { display: block; }
+
+.home_friend_row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 36dp;
+    margin-top: 4dp;
+    padding: 6dp 8dp;
+    background-color: rgba(8,26,42,42%);
+    border-left: 1dp rgba(85,225,140,30%);
+}
+.home_friend_row span { display: block; }
+.home_friend_row b {
+    display: block;
+    color: #c5d5e2;
+    font-size: 11dp;
+    line-height: 13dp;
+}
+.home_friend_row small {
+    display: block;
+    margin-top: 1dp;
+    color: #607d92;
+    font-size: 8dp;
+    line-height: 10dp;
+}
+.home_friend_row i {
+    width: 6dp;
+    height: 6dp;
+    border-radius: 3dp;
+    background-color: #55e18c;
+}
+
+.home_social_empty {
+    padding: 10dp 8dp;
+    color: #4d687d;
+    font-family: "JetBrains Mono";
+    font-size: 7dp;
+    line-height: 11dp;
+    letter-spacing: 0.6dp;
+    border: 1dp dashed rgba(114,199,255,8%);
+}
+
+@media (max-width: 1500dp) {
+    #home_signal_panel { left: 32dp; width: 265dp; }
+    #home_social_activity { right: 28dp; width: 270dp; }
+}
+
+@media (max-width: 1180dp) {
+    #home_signal_panel,
+    #home_social_activity { display: none; }
+}
+
+@media (max-height: 760dp) {
+    #home_signal_panel { top: 24dp; padding: 9dp 11dp; }
+    #home_social_activity { top: 205dp; padding: 9dp 11dp; }
+    .home_friend_row { min-height: 30dp; padding-top: 4dp; padding-bottom: 4dp; }
+    .home_signal_meter { margin-top: 6dp; }
+}
