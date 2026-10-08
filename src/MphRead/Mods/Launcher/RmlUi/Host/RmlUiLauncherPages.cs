@@ -53,13 +53,27 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             Put("home_friends_online", RmlUiBindingValue.FromText("0"));
             Put("home_invites_count", RmlUiBindingValue.FromText("0"));
             Put("home_requests_count", RmlUiBindingValue.FromText("0"));
-            Put("home_social_empty", true);
-            Put("home_social_empty_text", RmlUiBindingValue.FromText("SOCIAL LINK STANDING BY"));
+            Put("home_session_state", RmlUiBindingValue.FromText("SOLO"));
+            Put("home_feature_available", false);
+            Put("home_feature_category", RmlUiBindingValue.FromText(""));
+            Put("home_feature_title", RmlUiBindingValue.FromText(""));
+            Put("home_feature_summary", RmlUiBindingValue.FromText(""));
+            Put("home_social_rail_visible", false);
+            Put("home_social_alert_visible", false);
+            Put("home_social_count", RmlUiBindingValue.FromText("0 ONLINE"));
+            Put("home_social_alert_text", RmlUiBindingValue.FromText(""));
+            Put("home_party_preview_visible", false);
+            Put("home_party_preview_name", RmlUiBindingValue.FromText(""));
+            Put("home_party_preview_role", RmlUiBindingValue.FromText(""));
+            Put("home_friends_visible", false);
+            Put("home_friend_count", RmlUiBindingValue.FromText("0 ONLINE"));
             for (int i = 0; i < 3; i++)
             {
                 Put($"home_friend{i}_visible", false);
-                Put($"home_friend{i}_name", RmlUiBindingValue.FromText("—"));
-                Put($"home_friend{i}_state", RmlUiBindingValue.FromText("STANDING BY"));
+                Put($"home_friend{i}_joinable", false);
+                Put($"home_friend{i}_name", RmlUiBindingValue.FromText(""));
+                Put($"home_friend{i}_activity", RmlUiBindingValue.FromText(""));
+                Put($"home_friend{i}_status", RmlUiBindingValue.FromText(""));
             }
             SelectActivity(1);
         }

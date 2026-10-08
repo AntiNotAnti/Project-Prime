@@ -850,3 +850,112 @@ border-color: rgba(114,199,255,22%);
     .home_friend_row { min-height: 30dp; padding-top: 4dp; padding-bottom: 4dp; }
     .home_signal_meter { margin-top: 6dp; }
 }
+
+/* Home Side Rails: low-contrast utility cards around the central Hunter, never over it. */
+#home_feature_rail {
+    position: absolute; left: 52dp; bottom: 356dp; width: 400dp;
+    padding: 15dp 17dp 14dp;
+    background-color: rgba(4, 15, 26, 78%);
+    border-left: 2dp rgba(97, 182, 246, 58%);
+    border-top: 1dp rgba(114, 199, 255, 18%);
+    border-right: 1dp rgba(114, 199, 255, 10%);
+    border-bottom: 1dp rgba(114, 199, 255, 13%);
+}
+#home_feature_rail.hidden, #home_feature_rail.empty { display: none; }
+.home_rail_heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9dp; }
+.home_rail_heading .eyebrow { margin-bottom: 0; }
+.home_rail_tag {
+    color: #7da7c7; font-family: "JetBrains Mono"; font-size: 9dp; letter-spacing: 0.8dp;
+}
+.home_feature_title {
+    color: #ecf8ff; font-size: 20dp; line-height: 24dp; font-weight: bold;
+    letter-spacing: 0.35dp; margin-bottom: 6dp;
+}
+.home_feature_summary {
+    color: #819caf; font-size: 11dp; line-height: 16dp; max-width: 360dp;
+}
+.home_rail_link {
+    display: flex; align-items: center; justify-content: space-between; width: 100%;
+    margin-top: 11dp; padding: 8dp 10dp; text-align: left;
+    color: #99bed9; background-color: rgba(25, 70, 108, 26%);
+    border: 1dp rgba(114, 199, 255, 17%);
+    font-size: 10dp; font-weight: bold; letter-spacing: 0.9dp;
+    transition: color background-color border-color 0.13s quadratic-out;
+}
+.home_rail_link span { color: #72c7ff; }
+.home_rail_link:hover, .home_rail_link:focus {
+    color: #fff; border-color: #72c7ff; background-color: rgba(24, 83, 138, 54%);
+}
+#home_social_rail {
+    position: absolute; top: 238dp; right: 46dp; width: 304dp;
+    padding: 13dp; color: #dcebf7; background-color: rgba(4, 14, 25, 66%);
+    border-left: 2dp rgba(114, 199, 255, 38%);
+    border-top: 1dp rgba(97, 182, 246, 11%);
+    border-right: 1dp rgba(97, 182, 246, 11%);
+    border-bottom: 1dp rgba(97, 182, 246, 11%);
+}
+.home_social_alert, .home_party_preview, .home_friend_row {
+    display: flex; align-items: center; width: 100%; text-align: left;
+    color: #e3f1fb; background-color: rgba(10, 31, 51, 63%);
+    border: 1dp rgba(97, 182, 246, 13%);
+    transition: background-color border-color 0.12s quadratic-out;
+}
+.home_social_alert:hover, .home_social_alert:focus,
+.home_party_preview:hover, .home_party_preview:focus,
+.home_friend_row:hover, .home_friend_row:focus {
+    color: #fff; background-color: rgba(18, 68, 106, 85%); border-color: rgba(114, 199, 255, 62%);
+}
+.home_social_alert { min-height: 37dp; margin-bottom: 7dp; padding: 8dp; font-size: 9dp; font-weight: bold; letter-spacing: 0.6dp; }
+.home_alert_icon {
+    width: 20dp; height: 20dp; line-height: 20dp; margin-right: 9dp; text-align: center;
+    color: #071829; font-size: 13dp; font-weight: bold; background-color: #f2c970;
+}
+.home_alert_arrow { margin-left: auto; color: #72c7ff; font-size: 15dp; }
+.home_party_preview { min-height: 51dp; margin-bottom: 8dp; padding: 8dp; }
+.home_party_symbol { width: 31dp; margin-right: 8dp; color: #72c7ff; font-size: 22dp; }
+.home_party_copy { display: block; flex: 1; overflow: hidden; }
+.home_party_title { display: block; font-size: 11dp; font-weight: bold; line-height: 14dp; }
+.home_party_role { display: block; margin-top: 3dp; font-size: 9dp; color: #81a4bc; }
+.home_friends_header {
+    display: flex; justify-content: space-between; padding: 6dp 2dp 7dp;
+    color: #708fa6; font-family: "JetBrains Mono"; font-size: 9dp; letter-spacing: 0.6dp;
+}
+.home_friend_row { min-height: 47dp; margin-bottom: 4dp; padding: 6dp 8dp; }
+.home_friend_dot { width: 7dp; height: 7dp; margin-right: 10dp; background-color: #55e18c; border-radius: 4dp; }
+.home_friend_copy { display: block; flex: 1; min-width: 0dp; overflow: hidden; }
+.home_friend_name { display: block; max-width: 178dp; overflow: hidden; white-space: nowrap; font-size: 11dp; font-weight: bold; line-height: 14dp; }
+.home_friend_activity { display: block; max-width: 178dp; overflow: hidden; white-space: nowrap; color: #7794a9; font-size: 9dp; line-height: 12dp; }
+.home_friend_status { margin-left: 5dp; color: #65839a; font-size: 8dp; letter-spacing: 0.4dp; }
+.home_friend_row.joinable .home_friend_status { color: #55e18c; }
+#home_social_rail .home_rail_link { margin-top: 8dp; }
+#home_feature_open { nav-up: #nav_play; nav-down: #activity_selector; }
+
+@media (max-width: 1500dp) {
+    #home_feature_rail { left: 32dp; width: 380dp; }
+    #home_social_rail { right: 28dp; width: 270dp; }
+    .home_friend_name, .home_friend_activity { max-width: 142dp; }
+}
+@media (max-width: 1180dp) {
+    #home_feature_rail, #home_social_rail { display: none; }
+}
+@media (max-height: 760dp) {
+    #home_feature_rail { bottom: 319dp; padding: 11dp 13dp; }
+    .home_feature_title { font-size: 17dp; line-height: 19dp; }
+    .home_feature_summary { font-size: 10dp; line-height: 13dp; }
+    #home_social_rail { top: 221dp; padding: 9dp; }
+    .home_party_preview { min-height: 43dp; }
+    .home_friend_row { min-height: 40dp; }
+}
+@media (max-height: 610dp) {
+    #home_feature_rail, #home_social_rail { display: none; }
+}
+
+/* Consolidated modules avoid the activity drawer and constrained Hunter layouts. */
+#home_signal_panel.hidden { display: none; }
+#home_social_rail .home_social_stats { margin-bottom: 6dp; }
+#home_social_rail .home_social_stat { padding-top: 5dp; padding-bottom: 5dp; }
+#home_social_rail .home_friend_row { min-height: 41dp; }
+#home_social_rail { top: 228dp; }
+@media (max-height: 850dp) {
+    #home_feature_rail, #home_social_rail { display: none; }
+}

@@ -76,7 +76,8 @@
                     </div>
             </div>
         </div>
-        <div id="home_signal_panel" class="home_side_module home_signal enter_left">
+
+        <div id="home_signal_panel" data-prime-class-hidden="activity_selector_open" class="home_side_module home_signal enter_left">
             <div class="home_module_header">
                 <div class="eyebrow">DEPLOYMENT LINK</div>
                 <div class="home_module_live">LIVE</div>
@@ -91,6 +92,15 @@
             </div>
         </div>
 
+        <div id="home_feature_rail" class="enter_left" data-prime-class-hidden="activity_selector_open" data-prime-class-empty="!home_feature_available">
+            <div class="home_rail_heading">
+                <span class="eyebrow">COMMUNITY DISPATCH</span>
+                <span class="home_rail_tag" id="home_feature_category">NEWS</span>
+            </div>
+            <div class="home_feature_title" id="home_feature_title">PROJECT PRIME UPDATE</div>
+            <div class="home_feature_summary" id="home_feature_summary">Catch up with the Project Prime community.</div>
+            <button id="home_feature_open" class="home_rail_link" data-action="route:news">READ DISPATCH <span>&gt;</span></button>
+        </div>
         <div id="hunter_caption" class="enter_hunter">
             <div class="hunter_rule" />
             <div>
@@ -102,7 +112,7 @@
         <div id="session_panel" class="enter_right">
             <div class="session_header">
                 <div class="eyebrow">CURRENT SESSION</div>
-                <div class="session_state">SOLO</div>
+                <div class="session_state" id="home_session_state" data-prime-text="{{home_session_state}}">SOLO</div>
             </div>
             <div class="session_player">
 
@@ -118,28 +128,48 @@
             <div id="home_social_summary" class="session_hint">OPEN SOCIAL TO MANAGE FRIENDS, INVITES AND YOUR PARTY.</div>
         </div>
 
-        <div id="home_social_activity" class="home_side_module home_social_activity enter_right">
-            <div class="home_module_header">
-                <div class="eyebrow">SOCIAL ACTIVITY</div>
-                <button class="home_module_link" data-action="route:social">OPEN SOCIAL &gt;</button>
+        <div id="home_social_rail" class="enter_right" data-prime-visible="home_social_rail_visible">
+            <div class="home_rail_heading">
+                <span class="eyebrow">YOUR SQUAD</span>
+                <span class="home_rail_tag" id="home_social_count">0 ONLINE</span>
             </div>
             <div class="home_social_stats">
                 <div class="home_social_stat"><b id="home_friends_online">0</b><span>FRIENDS</span></div>
                 <div class="home_social_stat"><b id="home_invites_count">0</b><span>INVITES</span></div>
                 <div class="home_social_stat"><b id="home_requests_count">0</b><span>REQUESTS</span></div>
             </div>
-            <div class="home_friend_list">
-                <div id="home_friend0" class="home_friend_row">
-                    <span><b id="home_friend0_name">—</b><small id="home_friend0_state">OFFLINE</small></span><i />
-                </div>
-                <div id="home_friend1" class="home_friend_row">
-                    <span><b id="home_friend1_name">—</b><small id="home_friend1_state">OFFLINE</small></span><i />
-                </div>
-                <div id="home_friend2" class="home_friend_row">
-                    <span><b id="home_friend2_name">—</b><small id="home_friend2_state">OFFLINE</small></span><i />
-                </div>
-                <div id="home_social_empty" class="home_social_empty">NO FRIENDS ONLINE // SOCIAL LINK STANDING BY</div>
+            <button id="home_social_alert" class="home_social_alert" data-prime-visible="home_social_alert_visible" data-action="route:social">
+                <span class="home_alert_icon">!</span>
+                <span id="home_social_alert_text">NEW SOCIAL ACTIVITY</span>
+                <span class="home_alert_arrow">&gt;</span>
+            </button>
+            <button id="home_party_preview" class="home_party_preview" data-prime-visible="home_party_preview_visible" data-action="route:social">
+                <span class="home_party_symbol">◆</span>
+                <span class="home_party_copy">
+                    <span id="home_party_preview_name" class="home_party_title">HUNTER PARTY</span>
+                    <span id="home_party_preview_role" class="home_party_role">PARTY MEMBER</span>
+                </span>
+                <span class="home_alert_arrow">&gt;</span>
+            </button>
+            <div id="home_friend_section" data-prime-visible="home_friends_visible">
+                <div class="home_friends_header">ONLINE FRIENDS <span id="home_friend_count"></span></div>
+                <button id="home_friend0" class="home_friend_row" data-prime-visible="home_friend0_visible" data-prime-class-joinable="home_friend0_joinable" data-action="route:social">
+                    <span class="home_friend_dot"></span>
+                    <span class="home_friend_copy"><span id="home_friend0_name" class="home_friend_name"></span><span id="home_friend0_activity" class="home_friend_activity"></span></span>
+                    <span id="home_friend0_status" class="home_friend_status"></span>
+                </button>
+                <button id="home_friend1" class="home_friend_row" data-prime-visible="home_friend1_visible" data-prime-class-joinable="home_friend1_joinable" data-action="route:social">
+                    <span class="home_friend_dot"></span>
+                    <span class="home_friend_copy"><span id="home_friend1_name" class="home_friend_name"></span><span id="home_friend1_activity" class="home_friend_activity"></span></span>
+                    <span id="home_friend1_status" class="home_friend_status"></span>
+                </button>
+                <button id="home_friend2" class="home_friend_row" data-prime-visible="home_friend2_visible" data-prime-class-joinable="home_friend2_joinable" data-action="route:social">
+                    <span class="home_friend_dot"></span>
+                    <span class="home_friend_copy"><span id="home_friend2_name" class="home_friend_name"></span><span id="home_friend2_activity" class="home_friend_activity"></span></span>
+                    <span id="home_friend2_status" class="home_friend_status"></span>
+                </button>
             </div>
+            <button id="home_social_open" class="home_rail_link" data-action="route:social">OPEN SOCIAL <span>&gt;</span></button>
         </div>
     </body>
 </rml>

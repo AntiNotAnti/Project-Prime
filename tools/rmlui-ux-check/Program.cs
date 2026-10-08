@@ -28,14 +28,37 @@ int checks=0;
 void Check(bool ok,string message){if(!ok)throw new InvalidOperationException(message);checks++;}
 try
 {
- foreach(var size in new[]{(1280,720,1f),(2560,1440,2f),(960,600,1f)})
+ foreach(var size in new[]{(1280,720,1f),(1920,1080,1f),(2560,1440,2f),(960,600,1f)})
  {
   using var host=new RmlUiHost();Check(host.Initialize(size.Item1,size.Item2,size.Item3,assets,RmlUiRenderBackend.DrawList),"initialize");
   using var pages=new RmlUiLauncherPages(host);
   pages.SetText("player_name","JARRETT");pages.SetText("hunter_name","SAMUS");pages.SetText("build_version","UI REVIEW");pages.SetBool("reduce_motion",true);
-  pages.SetText("home_friends_online","3");pages.SetText("home_invites_count","1");pages.SetText("home_requests_count","2");
-  pages.SetBool("home_social_empty",false);pages.SetText("home_social_empty_text","");
-  for(int i=0;i<3;i++){pages.SetBool($"home_friend{i}_visible",true);pages.SetText($"home_friend{i}_name","HUNTER "+(i+1));pages.SetText($"home_friend{i}_state",i==0?"IN LOBBY // JOINABLE":"ONLINE");}
+  // Exercise actual Home Side Rails in the native draw-list/layout gate, not only fake bindings.
+  pages.SetBool("home_feature_available",true);
+  pages.SetText("home_feature_category","NEWS");
+  pages.SetText("home_feature_title","PROJECT PRIME COMMUNITY UPDATE");
+  pages.SetText("home_feature_summary","New hunts, announcements, and community news.");
+  pages.SetText("home_session_state","PARTY");
+  pages.SetBool("home_social_rail_visible",true);
+  pages.SetBool("home_social_alert_visible",true);
+  pages.SetText("home_social_count","6 ONLINE");
+  pages.SetText("home_friends_online","6");
+  pages.SetText("home_invites_count","2");
+  pages.SetText("home_requests_count","1");
+  pages.SetText("home_social_alert_text","2 INVITES // 1 REQUEST");
+  pages.SetBool("home_party_preview_visible",true);
+  pages.SetText("home_party_preview_name","PARTY // 3 MEMBERS");
+  pages.SetText("home_party_preview_role","YOU ARE PARTY LEADER");
+  pages.SetBool("home_friends_visible",true);
+  pages.SetText("home_friend_count","6 ONLINE");
+  for(int i=0;i<3;i++)
+  {
+   pages.SetBool($"home_friend{i}_visible",true);
+   pages.SetBool($"home_friend{i}_joinable",i<2);
+   pages.SetText($"home_friend{i}_name",i==0?"Hunter Ω":$"HUNTER {i+1}");
+   pages.SetText($"home_friend{i}_activity",i<2?"IN LOBBY":"IN MATCH");
+   pages.SetText($"home_friend{i}_status",i<2?"JOINABLE":"ONLINE");
+  }
   pages.ShowBaseline();
   void Draw(string name){pages.Flush();host.Update();pages.AfterUpdate();host.Render(size.Item1,size.Item2);SoftwarePreview.Save(new RmlUiDrawListReader().Capture(),size.Item1,size.Item2,Path.Combine(output,$"{name}-{size.Item1}x{size.Item2}.png"));}
   void Fits(RmlUiDocumentToken doc,string id)
@@ -44,8 +67,32 @@ try
    Check(x>=0&&y>=0&&x+w<=size.Item1+1&&y+h<=size.Item2+1,$"{id} outside {size}: {x},{y},{w},{h}");
   }
   Draw("home");foreach(var id in new[]{"nav_play","nav_hunters","nav_community","nav_studio","profile"})Fits(pages.Document,id);
-  if(size.Item1>1180){foreach(var id in new[]{"home_signal_panel","home_social_activity","home_friend0","home_friend1","home_friend2"})Fits(pages.Document,id);}
+  bool showRails=size.Item1/size.Item3>1180 && size.Item2/size.Item3>850;
+  if(size.Item1/size.Item3>1180)Fits(pages.Document,"home_signal_panel");
+  if(showRails)
+  {
+   foreach(var id in new[]{"home_feature_open","home_social_open","home_social_alert","home_party_preview","home_friends_online","home_friend0","home_friend1","home_friend2"})Fits(pages.Document,id);
+   Check(host.FocusDocument(pages.Document,"home_friend0"),"joinable Home friend card accepts keyboard focus");
+   host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
+   Check(host.TryTakeIntent(out var social)&&social.Kind==RmlUiIntentKind.Navigate&&social.Argument==9,
+       "Home friend preview routes through authorized Social instead of joining directly");
+  }
+  else
+  {
+   bool hasRail=host.TryGetElementBounds(pages.Document,"home_social_rail",out _,out _,out float rw,out float rh)&&rw>0&&rh>0;
+   Check(!hasRail,"narrow and short layouts collapse Home social rail");
+  }
   pages.SetBool("activity_selector_open",true);Draw("activities");Fits(pages.Document,"drawer_training");Fits(pages.Document,"drawer_adventure");
+  if(size.Item1/size.Item3>1180)
+  {
+   bool signalVisible=host.TryGetElementBounds(pages.Document,"home_signal_panel",out _,out _,out float sw,out float sh)&&sw>0&&sh>0;
+   Check(!signalVisible,"Activity drawer hides Deployment Link telemetry");
+  }
+  if(showRails)
+  {
+   bool featureVisible=host.TryGetElementBounds(pages.Document,"home_feature_open",out _,out _,out float fw,out float fh)&&fw>0&&fh>0;
+   Check(!featureVisible,"Activity drawer hides its competing Home featured rail");
+  }
   RmlSplashPage.Open(host,pages);Draw("splash");Check(Directory.GetFiles(Path.Combine(fixture,"rmlui-thumbnail-cache"),"*.tga").Length>0,"original splash art decoded");Fits(pages.Manager.Page,"splash_continue");
   Check(host.FocusDocument(pages.Manager.Page,"splash_continue"),"splash initial action focus");
   host.Input.Key(2,true);host.Input.Key(2,false);host.Update();

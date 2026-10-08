@@ -284,7 +284,9 @@ public static class SocialRuntime
             SocialInviteSnapshot invites = SocialInviteClient.Current;
             SocialPartySnapshot parties = SocialPartyClient.Current;
             DateTimeOffset now = DateTimeOffset.UtcNow;
-            var friends = presence.Players.Where(player => player.IsFriend).OrderBy(player => player.DisplayName, StringComparer.OrdinalIgnoreCase).ToArray();
+            var friends = presence.Players.Where(player => player.IsFriend)
+                .OrderByDescending(player => player.Joinable)
+                .ThenBy(player => player.DisplayName, StringComparer.OrdinalIgnoreCase).ToArray();
             SocialParty? party = parties.Party;
             return new(directory != null, directory?.IncomingRequests.Count ?? 0,
                 invites.Incoming.Count(invite => invite.ExpiresAt > now && invite.Status is "pending" or "accepted"),
