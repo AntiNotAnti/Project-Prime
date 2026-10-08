@@ -37,14 +37,14 @@ namespace MphRead.Mods.Launcher
         // Pad positions and camera rectangles share one authored frame.
         private static readonly LobbyFormationSlot[] _slots =
         {
-            new(.500f, .805f, .235f, .060f, .315f, .100f, .675f, .940f, .93f, .832f),
-            new(.380f, .690f, .130f, .038f, .290f, .365f, .440f, .755f, .78f, .723f),
-            new(.620f, .690f, .130f, .038f, .560f, .365f, .710f, .755f, .78f, .723f),
-            new(.320f, .590f, .115f, .033f, .235f, .325f, .370f, .655f, .76f, .620f),
-            new(.680f, .590f, .115f, .033f, .630f, .325f, .765f, .655f, .76f, .620f),
-            new(.270f, .505f, .100f, .029f, .190f, .285f, .305f, .565f, .72f, .534f),
-            new(.730f, .505f, .100f, .029f, .695f, .285f, .810f, .565f, .72f, .534f),
-            new(.500f, .430f, .090f, .026f, .440f, .235f, .560f, .505f, .72f, .260f)
+            new(.500f, .805f, .235f, .060f, .320f, .100f, .680f, .940f, .93f, .832f),
+            new(.380f, .690f, .130f, .038f, .305f, .365f, .455f, .755f, .78f, .723f),
+            new(.620f, .690f, .130f, .038f, .545f, .365f, .695f, .755f, .78f, .723f),
+            new(.320f, .590f, .115f, .033f, .2525f, .325f, .3875f, .655f, .76f, .620f),
+            new(.680f, .590f, .115f, .033f, .6125f, .325f, .7475f, .655f, .76f, .620f),
+            new(.290f, .505f, .100f, .029f, .2325f, .285f, .3475f, .565f, .72f, .534f),
+            new(.710f, .505f, .100f, .029f, .6525f, .285f, .7675f, .565f, .72f, .534f),
+            new(.500f, .430f, .090f, .026f, .440f, .235f, .560f, .505f, .84f, .237f)
         };
 
         public static LobbyFormationSlot At(int presentationSlot)

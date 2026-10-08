@@ -32,16 +32,18 @@ namespace MphRead.Entities
             float right = EndScreen.PanelAvailable
                 ? 254f - EndPanelWidth * aspect - 3f * aspect
                 : 252f;
-            float minimumRight = left + 142f * aspect;
+            if (EndScreen.PanelUp && EndScreen.NativeReportLeft > 0)
+                right = EndScreen.NativeReportLeft * 256f - 3f * aspect;
+            float minimumRight = left + 90f * aspect;
             if (right < minimumRight)
             {
                 right = Math.Min(252f, minimumRight);
             }
             float width = right - left;
 
-            const float titleY = 20f;
-            const float headerY = 34f;
-            const float firstRowY = 44f;
+            float titleY = EndScreen.NativeReportTop > 0 ? EndScreen.NativeReportTop * 192f + 2f : 20f;
+            float headerY = titleY + 14f;
+            float firstRowY = titleY + 24f;
             const float rowHeight = 15.6f;
             const float contentHeight = 13.5f;
 

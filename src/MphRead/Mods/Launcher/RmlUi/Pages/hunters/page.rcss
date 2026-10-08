@@ -1,0 +1,5 @@
+body { background-color: transparent; }
+.hunter-panel { left: 2%; top: 12dp; width: 96%; height: auto; bottom: 12dp; border: 0dp; background-color: rgba(5,19,31,94%); }
+#nav_hunters { color: #ffffff; background-color: #0b2942; border-bottom: 3dp #78caff; }
+.hunter-panel .hint { line-height: 12dp; }
+@media (max-height: 760dp) { .hunter-grid { top: 90dp; } .hunter-grid button { min-height: 26dp; padding: 3dp 6dp; font-size: 12dp; } .hunter-preview .hunter-actions button { width: 30%; } .hunter-panel .hint { font-size: 10dp; line-height: 11dp; } }

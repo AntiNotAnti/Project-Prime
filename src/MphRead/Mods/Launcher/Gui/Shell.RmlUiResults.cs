@@ -1,4 +1,5 @@
 #if MPHREAD_RMLUI_POC && !ANDROID
+using System;
 using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Launcher.RmlUi.Pages.InGame;
 using MphRead.Mods.Training;
@@ -21,6 +22,7 @@ internal static partial class Shell
         RetireNativeOwner(ref _nativeAimResultsController);
         _nativeTrainingResults = null;
         EndScreen.PanelUp = false;
+        EndScreen.NativeReportLeft = EndScreen.NativeReportTop = 0;
     }
 
     private static bool TickNativeEndPanel()
@@ -34,6 +36,8 @@ internal static partial class Shell
             _nativeResultsController = new();
             _nativeResults = new(RmlUiPrototype.Runtime, composition.Manager, _nativeResultsController);
             _nativeResults.Open();
+            // Resolve the native panel before the first scoreboard draw.
+            RmlUiPrototype.Runtime.Update();
             EndScreen.PanelUp = true;
             WireNativePages(); RmlUiPrototype.ShowGameplayMenu();
         }
@@ -43,6 +47,12 @@ internal static partial class Shell
             if (!HasNativePage) RmlUiPrototype.Hide();
         }
         _nativeResults?.Refresh();
+        if (_nativeResults?.Active == true && _window != null
+            && RmlUiPrototype.Runtime.TryGetElementBounds(_nativeResults.Document, "results_panel", out float x, out float y, out _, out _))
+        {
+            EndScreen.NativeReportLeft = x / Math.Max(1, _window.FramebufferSize.X);
+            EndScreen.NativeReportTop = y / Math.Max(1, _window.FramebufferSize.Y);
+        }
         DrainNativeResultEffects();
         return true;
     }

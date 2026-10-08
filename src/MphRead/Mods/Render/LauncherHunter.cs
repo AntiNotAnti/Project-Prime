@@ -84,6 +84,7 @@ namespace MphRead.Mods.Render
         /// 0-7 select persistent cached preview entities for the live lobby.
         /// </summary>
         public static int PreviewSlot { get; set; } = -1;
+        public static bool Formation { get; set; }
 
         /// <summary>
         /// Where it goes, in fractions of the window: left, top, right,
@@ -164,6 +165,7 @@ namespace MphRead.Mods.Render
             DistanceScale = 1f;
             CinematicLighting = false;
             PreviewSlot = -1;
+            Formation = Scene.LauncherPreviewFormation = false;
             Scene.LauncherPreviewSlot = -1;
             Scene.LauncherPreviewTransparent = false;
             Scene.LauncherPreviewDistanceScale = 1f;
@@ -234,6 +236,7 @@ namespace MphRead.Mods.Render
                 Scene.LauncherPreviewDistanceScale = Math.Clamp(DistanceScale, 0.65f, 1.25f);
                 Scene.LauncherPreviewCinematicLighting = CinematicLighting;
                 Scene.LauncherPreviewSlot = PreviewSlot;
+                Scene.LauncherPreviewFormation = Formation;
                 Scene.PreviewWanted = true;
                 Scene.PreviewLeft = Left;
                 Scene.PreviewTop = Top;

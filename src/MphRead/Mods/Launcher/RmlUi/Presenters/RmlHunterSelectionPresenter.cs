@@ -13,6 +13,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Presenters
     internal sealed class RmlHunterSelectionPresenter : IDisposable
     {
         private readonly RmlUiHost _host;
+        private readonly RmlUiPageManager? _pages;
+        public bool FullPage => _pages != null;
         private readonly HunterSelectionController _selection;
         private readonly bool _ownsSelection;
         private readonly LobbySessionController? _lobby;
@@ -29,9 +31,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Presenters
         public event Action? Closed;
 
         public RmlHunterSelectionPresenter(RmlUiHost host, LobbySessionController? lobby = null, IHunterSelectionBackend? backend = null,
-            HunterSelectionController? existingSelection = null, bool compact = false)
+            HunterSelectionController? existingSelection = null, bool compact = false, RmlUiPageManager? pages = null)
         {
-            Compact = compact; _host = host; _lobby = lobby; _lobbyLifetime = lobby?.Snapshot().Lifetime;
+            _pages = pages; Compact = compact; _host = host; _lobby = lobby; _lobbyLifetime = lobby?.Snapshot().Lifetime;
             _ownsSelection = existingSelection == null;
             _selection = existingSelection ?? new(lobby, backend);
         }
@@ -39,7 +41,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Presenters
         {
             _host.VerifyOwnerThread();
             if (_disposed) throw new ObjectDisposedException(nameof(RmlHunterSelectionPresenter));
-            if (!Active) _document = _host.OpenDocument(Compact ? "pages/hunters/strip.rml" : "pages/hunters/selection.rml", RmlUiDocumentLayer.Modal);
+            if (!Active) _document = _pages != null
+                ? _pages.OpenPage(new("hunters", "pages/hunters/page.rml", "hunter_choice" + (int)_selection.Snapshot.Hunter))
+                : _host.OpenDocument(Compact ? "pages/hunters/strip.rml" : "pages/hunters/selection.rml", RmlUiDocumentLayer.Modal);
             Update(); _host.FocusDocument(_document, "hunter_choice" + (int)_selection.Snapshot.Hunter);
         }
         public void SetPreviewStatus(string status)
@@ -185,7 +189,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Presenters
             if (_disposed) return;
             _host.VerifyOwnerThread(); _disposed = true;
             if (_ownsSelection) _selection.Dispose();
-            if (_host.IsAlive(_document)) _host.CloseDocument(_document);
+            if (_pages?.Page == _document) _pages.ClosePage();
+            else if (_host.IsAlive(_document)) _host.CloseDocument(_document);
             Closed?.Invoke();
         }
     }

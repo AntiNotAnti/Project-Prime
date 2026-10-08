@@ -298,6 +298,17 @@ namespace MphRead.Mods.Render
                 _death.Preview(_cosmetics, _cosmeticTime);
         }
 
+        public void SamplePresentation(float fraction)
+        {
+            if (_model != null)
+            {
+                var info = _model.AnimInfo;
+                // Only continuing idle loops interpolate ahead. Paused weapon poses,
+                // reverse/ping-pong clips and terminal death frames stay authoritative.
+                info.NodePresentationFraction = info.Flags[info.Node.Slot] == AnimFlags.None ? fraction : 0;
+            }
+        }
+
         public void Reset()
         {
             _death.Reset();
@@ -449,6 +460,8 @@ namespace MphRead.Mods.Render
             Matrix4 particlePose = pose;
             var surface = Mods.Cosmetics.CosmeticRuntime.Surface(_cosmetics, _cosmeticTime, false,
                 firstPerson: Mode == Mods.Cosmetics.SkinContext.ViewModel, alt: Mode == Mods.Cosmetics.SkinContext.AltForm);
+            if (Scene.LauncherPreview && Scene.LauncherPreviewFormation && Scene.LauncherPreviewSlot >= 0 && Mods.Launcher.LauncherLobbyVisuals.Active)
+                surface = surface with { Dissolve = 1 - Mods.Launcher.LauncherPresentation.Motion.Occupancy[Scene.LauncherPreviewSlot], PreservePalette = true };
             bool presentingDeath = Mode == Mods.Cosmetics.SkinContext.Biped && _death.Active && Mods.RenderOptions.ShowCustomCosmetics
                 && Mods.RenderOptions.CosmeticQuality != Mods.Cosmetics.CosmeticEffectQuality.Off
                 && _cosmeticTime - _death.StartTime < _cosmetics.Death.Duration;

@@ -102,6 +102,7 @@ namespace MphRead.Mods.Render
                 LauncherPhoto.StageFxEnabled = false;
                 LauncherBackdropComposer.Enabled = true;
                 LauncherStageFx.Enabled = true;
+                Mods.Launcher.LauncherPresentation.BeginFrame(LauncherHunter.Hunter, window.IsFocused);
                 LauncherBackdropComposer.Draw(width, height);
 
                 // Grounding and atmosphere remain separate passes around the
@@ -117,6 +118,7 @@ namespace MphRead.Mods.Render
                 }
                 finally
                 {
+                    Mods.Launcher.LauncherPresentation.Active = false;
                     LauncherHunter.CinematicLighting = false;
                     Scene.LauncherPreviewCinematicLighting = false;
                 }
@@ -129,6 +131,7 @@ namespace MphRead.Mods.Render
                 return;
             }
 #endif
+            Mods.Launcher.LauncherPresentation.Active = false;
             LauncherBackdropComposer.Enabled = false;
             LauncherStageFx.Enabled = false;
             LauncherPhoto.StageFxEnabled = false;

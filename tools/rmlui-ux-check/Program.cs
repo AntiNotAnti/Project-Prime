@@ -5,6 +5,7 @@ using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Launcher.RmlUi.Presenters;
 using MphRead.Mods.Launcher.RmlUi.Pages.Offline;
+using MphRead.Mods.Launcher.RmlUi.Pages.InGame;
 using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Launcher.RmlUi.Render;
 using MphRead.Mods.Launcher.RmlUi.Settings;
@@ -112,9 +113,11 @@ try
   host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
   Check(host.TryTakeIntent(out var start)&&start.Kind==RmlUiIntentKind.Navigate&&start.Argument==0,"splash emits Home route");
   pages.ShowBaseline();
-  using(var hunters=new RmlHunterSelectionPresenter(host,backend:new FakeHunters()))
+  using(var hunters=new RmlHunterSelectionPresenter(host,backend:new FakeHunters(),pages:pages.Manager))
   {
-   hunters.Open();hunters.Update();Draw("hunters");
+   hunters.Open();pages.PresentChrome(hunters.Document);hunters.Update();Draw("hunters");
+   Check(pages.Manager.PageKey=="hunters" && pages.Manager.ModalCount==0,"Hunters is a page");
+   Fits(hunters.Document,"nav_community");
    foreach(var id in new[]{"hunter_close","hunter_apply","hunter_cancel","hunter_preview_space","hunter_cosmetics_save","hunter_preview_death"})Fits(hunters.Document,id);
    Check(host.FocusDocument(hunters.Document,"hunter_close"),"Hunter close focus");host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
    Check(host.TryTakeIntent(out var close)&&hunters.Handle(close)&&!hunters.Active,"Hunter closes using native action");
@@ -166,7 +169,7 @@ try
   Check(host.TryTakeIntent(out var chat)&&chat.Kind==RmlUiIntentKind.LobbyChatSend,"Enter in lobby chat submits typed intent");
   Check(host.ReadField(pages.Document,"lobby_chat_input")=="Ready for the next map?","Enter preserves message for send handler");
   Check(!host.TryTakeIntent(out _),"Enter submits exactly once");
-  host.TryGetElementBounds(pages.Document,"lobby_roster_panel",out _,out float rosterY,out _,out float rosterH);
+  host.TryGetElementBounds(pages.Document,"lobby_roster_panel",out float rosterX,out float rosterY,out _,out float rosterH);
   for(int i=0;i<8;i++)
   {
    Fits(pages.Document,"lobby_player"+i);
@@ -179,6 +182,12 @@ try
    host.TryGetElementBounds(pages.Document,"lobby_slot7",out _,out float rearY,out _,out float rearH);
    Check(rearY>=briefY+briefH+4,"rear nameplate clears squad status");
    Check(rearY+rearH<LauncherLobbyFormation.At(7).PadY*size.Item2,"rear nameplate is above eighth hunter's pedestal");
+   for(int i=0;i<8;i++)
+   {
+    host.TryGetElementBounds(pages.Document,"lobby_slot"+i,out float labelX,out _,out float labelW,out _);
+    Check(Math.Abs(labelX+labelW/2-LauncherLobbyFormation.At(i).PadX*size.Item1)<1,$"slot {i+1} label is centered on its platform");
+    Check(labelX+labelW<rosterX,$"slot {i+1} label clears the roster");
+   }
   }
   Check(!host.TryGetElementBounds(pages.Document,"footer_settings",out _,out _,out _,out _),"only one Settings entry");
   Fits(pages.Document,"header_settings");
@@ -187,6 +196,7 @@ try
   Check(previewY>=panelY+panelH,"map preview does not overlap rules");
   var backend=new FakeLobby();using var lobby=new LobbySessionController(backend);
   RmlUiLobbyBindings.Present(pages,lobby.Snapshot());Draw("lobby-occupied");
+
   Check(!host.TryGetElementBounds(pages.Document,"lobby_slot7",out _,out _,out _,out float emptyH)||emptyH==0,"empty floating labels cannot cover main hunter");
   Check(host.FocusDocument(pages.Document,"lobby_map_preview"),"map preview is keyboard selectable");
   host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
@@ -229,8 +239,24 @@ try
   using(var settings=new SettingsPagePresenter(host,pages.Manager,new MenuSettings(),new SceneGameState(new()),()=>{},()=>{},editHud:()=>{}))
   { settings.Open();pages.PresentChrome(settings.Document);host.FocusDocument(settings.Document,"settings_hud_tab");host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
     if(host.TryTakeIntent(out var hudTab))settings.HandleAction(hudTab);Draw("hud-settings");Fits(settings.Document,"settings_hud_edit"); }
+  using(var reportController=new MatchResultsController(new ReportBackend()))
+  using(var report=new MatchResultsPagePresenter(host,pages.Manager,reportController))
+  {
+   report.Open();Draw("post-match");
+   Fits(report.Document,"results_panel");Fits(report.Document,"results_close");
+   Check(host.TryGetElementBounds(report.Document,"results_panel",out float reportX,out float reportY,out float reportW,out float reportH),"results bounds exposed to scoreboard");
+   Check(reportY>=size.Item2*.07f&&reportX>size.Item1*.5f,"report leaves scoreboard its own left column and clears HUD diagnostics");
+   Check(reportX+reportW<=size.Item1&&reportY+reportH<=size.Item2,"post-match panel contained");
+  }
   Console.WriteLine($"PASS native UX layout {size}");
  }
  Console.WriteLine($"PASS {checks} native UX layout/input checks; PNGs rasterize the actual RmlUi draw list without a game renderer.");
 }
 finally{Directory.SetCurrentDirectory(previous);Directory.Delete(fixture,true);NativeLibrary.Free(module);}
+
+internal sealed class ReportBackend : IMatchResultsBackend
+{
+ public MatchResultsFacts Capture()=>new(true,true,true,false,3,"","","",8,[]);
+ public string Choose(string key)=>"";
+ public string Rematch()=>"";
+}

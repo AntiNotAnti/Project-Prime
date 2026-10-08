@@ -20,6 +20,8 @@ namespace MphRead.Mods.Render
         public static bool Enabled { get; set; }
 
         private static int _program;
+        private static int _energyTime, _launch, _hunterWeightsA, _hunterWeightsB;
+        private static readonly int[] _slotLight = new int[8];
         private static int _time;
         private static int _resolution;
         private static int _top;
@@ -60,13 +62,23 @@ namespace MphRead.Mods.Render
                 return;
 
             LauncherBackdropStyle style = LauncherMenuVisuals.Style;
-            LauncherActivityAmbience activity = LauncherMenuVisuals.Activity;
-            LauncherHunterTheme hunter = LauncherMenuVisuals.Hunter(LauncherHunter.Hunter);
+            LauncherActivityAmbience activity = LauncherPresentation.Motion.Activity;
+            LauncherHunterTheme hunter = LauncherPresentation.Motion.Theme;
             float time = LauncherPrefs.ReduceMotion
                 ? 0f
-                : (float)(Environment.TickCount64 / 1000.0);
+                : (float)LauncherPresentation.Seconds;
 
             GL.UseProgram(_program);
+            var motion = LauncherPresentation.Motion;
+            GL.Uniform1(_energyTime, LauncherPrefs.ReduceMotion ? 0f : (float)motion.EnergyTime);
+            GL.Uniform1(_launch, motion.Launch);
+            GL.Uniform4(_hunterWeightsA, new Vector4(motion.HunterWeights[0], motion.HunterWeights[1], motion.HunterWeights[2], motion.HunterWeights[3]));
+            GL.Uniform4(_hunterWeightsB, new Vector4(motion.HunterWeights[4], motion.HunterWeights[5], motion.HunterWeights[6], 0));
+            for (int i = 0; i < 8; i++)
+            {
+                var color = motion.SlotColors[i];
+                GL.Uniform4(_slotLight[i], new Vector4(color.R, color.G, color.B, motion.ReadyPulse[i]));
+            }
             GL.Disable(EnableCap.DepthTest);
             GL.Disable(EnableCap.CullFace);
             GL.Disable(EnableCap.AlphaTest);
@@ -113,15 +125,15 @@ namespace MphRead.Mods.Render
                     _packedLobbyPads[offset + 2], _packedLobbyPads[offset + 3]));
             }
             GL.Uniform4(_lobbyOccupancyA, new Vector4(
-                (occupied & 0x01) != 0 ? 1f : 0f,
-                (occupied & 0x02) != 0 ? 1f : 0f,
-                (occupied & 0x04) != 0 ? 1f : 0f,
-                (occupied & 0x08) != 0 ? 1f : 0f));
+                motion.Occupancy[0],
+                motion.Occupancy[1],
+                motion.Occupancy[2],
+                motion.Occupancy[3]));
             GL.Uniform4(_lobbyOccupancyB, new Vector4(
-                (occupied & 0x10) != 0 ? 1f : 0f,
-                (occupied & 0x20) != 0 ? 1f : 0f,
-                (occupied & 0x40) != 0 ? 1f : 0f,
-                (occupied & 0x80) != 0 ? 1f : 0f));
+                motion.Occupancy[4],
+                motion.Occupancy[5],
+                motion.Occupancy[6],
+                motion.Occupancy[7]));
 
             GL.Begin(PrimitiveType.TriangleStrip);
             GL.TexCoord2(0f, 0f); GL.Vertex2(-1f, 1f);
@@ -188,6 +200,11 @@ namespace MphRead.Mods.Render
 
                 _program = program;
                 _time = GL.GetUniformLocation(program, "time_value");
+                _energyTime = GL.GetUniformLocation(program, "energy_time");
+                _launch = GL.GetUniformLocation(program, "launch_amount");
+                _hunterWeightsA = GL.GetUniformLocation(program, "hunter_weights_a");
+                _hunterWeightsB = GL.GetUniformLocation(program, "hunter_weights_b");
+                for (int i = 0; i < 8; i++) _slotLight[i] = GL.GetUniformLocation(program, $"slot_light[{i}]");
                 _resolution = GL.GetUniformLocation(program, "resolution");
                 _top = GL.GetUniformLocation(program, "base_top");
                 _mid = GL.GetUniformLocation(program, "base_mid");
@@ -250,6 +267,8 @@ namespace MphRead.Mods.Render
 
         private static void ResetLocations()
         {
+            _energyTime = _launch = _hunterWeightsA = _hunterWeightsB = -1;
+            Array.Fill(_slotLight, -1);
             _time = _resolution = _top = _mid = _bottom = -1;
             _activityAccent = _activitySecondary = _hunterHalo = _hunterRim = -1;
             _energy = _fog = _particles = _structure = _floorGrid = -1;

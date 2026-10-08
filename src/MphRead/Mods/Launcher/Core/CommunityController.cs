@@ -114,10 +114,11 @@ public sealed class CommunityController : IDisposable
         _confirmed = null; _confirmation = "";
         Touch(); return CommunityActionResult.Ok;
     }
-    public void Refresh()
+    public void Refresh(bool force = true)
     {
         Verify();
         if (_busy) return;
+        if (force) _backend.InvalidateCatalog();
         var tab = _tab;
         Start("Loading Community maps…", async (token, progress) => new Catalog(await _backend.BrowseAsync(tab, token).ConfigureAwait(false), "Community catalog refreshed."));
     }
@@ -392,7 +393,11 @@ public sealed class CommunityController : IDisposable
             return await _backend.PublishAsync(publication, request, visibility, progress, token).ConfigureAwait(false);
         });
     }
-    private async Task<Catalog> Reload(CommunityTab tab, CancellationToken token, string message) => new(await _backend.BrowseAsync(tab, token).ConfigureAwait(false), message);
+    private async Task<Catalog> Reload(CommunityTab tab, CancellationToken token, string message)
+    {
+        _backend.InvalidateCatalog();
+        return new(await _backend.BrowseAsync(tab, token).ConfigureAwait(false), message);
+    }
     private void Start(string status, Func<CancellationToken, Action<CommunityTransferProgress>, Task<object?>> action)
     {
         if (_busy || _disposed) return;

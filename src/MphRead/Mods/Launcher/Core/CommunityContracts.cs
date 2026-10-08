@@ -90,6 +90,7 @@ public interface ICommunityPublication : IDisposable
 public interface ICommunityBackend
 {
     string DefaultAddress { get; }
+    void InvalidateCatalog() { }
     void SetAddress(string address);
     MapContentIdentity? Installed(Guid mapId);
     void ValidateInstallation(CommunityMap? package);

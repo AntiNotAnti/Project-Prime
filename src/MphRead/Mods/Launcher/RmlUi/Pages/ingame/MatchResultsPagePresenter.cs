@@ -66,7 +66,7 @@ public sealed class MatchResultsPagePresenter : IDisposable
         Text("results_message", facts.Persistent ? "The session stays connected. Choose the next arena and Hunter from the lobby."
             : !facts.BallotOpen ? "Waiting for the server to open the arena ballot."
             : state.Rows.Length == 0 ? "No arenas match the search." : "Choose again to remove your selection.");
-        Text("results_tally", facts.Online && !facts.Persistent ? "ELIGIBLE VOTERS // " + facts.Eligible : "LOCAL MATCH");
+        Text("results_tally", facts.Persistent ? "SESSION CONNECTED" : facts.Online ? "ELIGIBLE VOTERS // " + facts.Eligible : "LOCAL MATCH");
         Text("results_paging", $"{state.Page + 1} / {state.PageCount}");
         Text("results_error", state.Error);
         Bool("visible:results_error", state.Error.Length > 0);
