@@ -100,6 +100,10 @@ Require(!IsSharedProtocolSource(linkFixture, Path.Combine(linkFixture, "src", "P
     "../MphRead/Mods/Update/DesktopInstallationIdentity.cs"), "source contract grants the Protocol-only link to Studio");
 Require(!IsSharedProtocolSource(linkFixture, protocolFixture, "$(EngineRoot)/Mods/Update/DesktopInstallationIdentity.cs"),
     "source contract permits an unevaluated shared source path");
+Require(!IsStudioEngineProjection(XDocument.Parse("<Project><Import Project='MphRead.csproj'/></Project>")),
+    "Studio engine projection accepts a canonical import without isolated output and mode flags");
+Require(!IsStudioEngineProjection(XDocument.Parse("<Project><Import Project='../other/engine.csproj'/></Project>")),
+    "Studio engine projection accepts an unrelated engine import");
 
 string androidCreatorRemoval = "../MphRead/Mods/Launcher/Gui/MapStudio*.cs;../MphRead/Mods/Launcher/Gui/MapViewport*.cs;../MphRead/AvaloniaShared/IMapStudioHostServices.cs;../MphRead/AvaloniaShared/AvaloniaMapStudioHost.cs";
 XDocument AndroidFixture(string removal, string suffix = "") => XDocument.Parse(
@@ -436,8 +440,14 @@ if (!args.Contains("--self-test"))
             string target = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(projectPath)!, normalized));
             string canonicalProtocol = Path.Combine(repository, "src", "ProjectPrime.Studio.Protocol", "ProjectPrime.Studio.Protocol.csproj");
             string canonicalEngine = Path.Combine(repository, "src", "MphRead", "MphRead.csproj");
-            Require(!protocol && (target == canonicalProtocol || target == canonicalEngine),
-                $"{relative} references neither the canonical engine nor Studio protocol: {include}");
+            string studioEngine = Path.Combine(repository, "src", "MphRead", "MphRead.StudioEngine.csproj");
+            // Studio's isolated output/restore projection imports the same canonical
+            // engine sources. Accept only that exact project and verify its flags,
+            // imports and boundary; do not permit an arbitrary engine fork.
+            bool verifiedProjection = target == studioEngine && File.Exists(studioEngine)
+                && IsStudioEngineProjection(XDocument.Load(studioEngine));
+            Require(!protocol && (target == canonicalProtocol || target == canonicalEngine || verifiedProjection),
+                $"{relative} references neither the canonical engine, verified Studio engine projection nor Studio protocol: {include}");
         }
         foreach (var reference in document.Descendants("Reference"))
         {
@@ -476,6 +486,33 @@ static async Task<bool> RejectFrame(int count, byte[] body)
     stream.Write(prefix); stream.Write(body); stream.Position = 0;
     try { await StudioIpcFraming.ReadAsync(stream); return false; }
     catch (StudioProtocolException) { return true; }
+}
+
+// Standalone Studio must reuse the canonical engine project, but it needs
+// separate obj/bin paths and cannot inherit client, RmlUi, or server modes.
+static bool IsStudioEngineProjection(XDocument project)
+{
+    var imports = project.Descendants().Where(x => x.Name.LocalName == "Import").ToArray();
+    if (imports.Length != 1 || (string?)imports[0].Attribute("Project") != "MphRead.csproj"
+        || imports[0].Attribute("Condition") != null) return false;
+    if (project.Descendants().Any(x => x.Name.LocalName is "ProjectReference" or "Reference"
+        or "PackageReference" or "Compile")) return false;
+    bool Fixed(string name, string value)
+    {
+        var properties = project.Descendants().Where(x => x.Name.LocalName == name).ToArray();
+        return properties.Length == 1 && properties[0].Attribute("Condition") == null
+            && properties[0].Value.Trim() == value;
+    }
+    return Fixed("BaseIntermediateOutputPath", "obj/StudioEngine/")
+        && Fixed("BaseOutputPath", "bin/StudioEngine/")
+        && Fixed("MphReadStudioEngine", "true")
+        && Fixed("MphReadAvalonia", "true")
+        && Fixed("MphReadRmlUi", "false")
+        && Fixed("MphReadRmlUiPoc", "false")
+        && Fixed("MphReadRmlUiEnabled", "false")
+        && Fixed("MphReadNativeClient", "false")
+        && Fixed("MphReadNativeDefault", "false")
+        && Fixed("MphReadServer", "false");
 }
 
 static bool ReferencesCreator(string value)
