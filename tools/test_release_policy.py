@@ -140,7 +140,10 @@ args=sys.argv[1:]
 with open(os.environ["CALLS"],"a") as log:log.write(json.dumps(args)+"\\n")
 if args[:2]==["release","view"]:
     if os.environ["RELEASE_STATE"]=="missing":sys.exit(1)
-    if "--json" in args:print("true" if os.environ["RELEASE_STATE"]=="draft" else "false")
+    if "--json" in args:
+        kind=args[args.index("--json")+1]
+        if kind=="assets":print(os.environ.get("EXISTING_ASSETS",""))
+        else:print("true" if os.environ["RELEASE_STATE"]=="draft" else "false")
 elif args[:2]==["repo","view"]:print("PUBLIC")
 elif args and args[0]=="api":
     if any("/commits/" in a for a in args):
@@ -267,6 +270,23 @@ elif args and args[0]=="api":
             self.assertNotEqual(result.returncode,0)
             self.assertFalse(any(call[:2] in (["release","upload"],["release","create"],["release","edit"])
                                  for call in calls))
+
+    def test_retry_prunes_only_known_native_intermediates_from_draft(self):
+        unwanted={"PRIME-RMLUI.json","RMLUI-POC.txt","ProjectPrime.RmlUi.Native.dll",
+                  "libProjectPrime.RmlUi.Native.so"}
+        existing="\\n".join(sorted(unwanted)+["ProjectPrime-v1.2.3-android.apk"])
+        result,calls,_=self.execute("release",RELEASE_STATE="draft",EXISTING_ASSETS=existing)
+        self.assertEqual(result.returncode,0,result.stderr)
+        removed={call[3] for call in calls if call[:2]==["release","delete-asset"]}
+        self.assertEqual(removed,unwanted)
+        self.assertTrue(any(call[:2]==["release","upload"] for call in calls))
+
+    def test_draft_rejects_unknown_preexisting_asset(self):
+        result,calls,_=self.execute("release",RELEASE_STATE="draft",EXISTING_ASSETS="unexpected.jar")
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn("Unexpected asset on draft",result.stdout)
+        self.assertFalse(any(call[:2] in (["release","upload"],["release","edit"],["release","delete-asset"])
+                             for call in calls))
 
     def test_missing_public_android_key_is_rejected(self):
         result,_,_=self.execute("unlock the android keystore")
