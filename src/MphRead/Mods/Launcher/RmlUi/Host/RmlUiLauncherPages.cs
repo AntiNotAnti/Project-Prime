@@ -24,6 +24,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         private readonly bool _ownsManager;
         private readonly Dictionary<string, RmlUiBindingValue> _model = new(StringComparer.Ordinal);
         private readonly Dictionary<string, string> _fields = new(StringComparer.Ordinal);
+        private readonly RmlUiNoticeCenter _notices = new();
         private RmlUiDocumentToken _pageDocument, _rulesDocument;
         private RmlUiMenuPage _page = RmlUiMenuPage.Home;
         private long _revision;
@@ -77,7 +78,24 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 Put($"home_friend{i}_status", RmlUiBindingValue.FromText(""));
             }
             SelectActivity(1);
+            PublishNotices();
         }
+
+        /// <summary>Local, session-only notices; the updater and social clients remain authoritative.</summary>
+        public bool NoticeOpen => _notices.Open;
+        public void ObserveRelease(string? tag)
+        { Verify(); _notices.ObserveRelease(tag); PublishNotices(); }
+        public void ObserveSocialNotices(int invites, int requests, bool travelPending, bool loaded)
+        { Verify(); _notices.ObserveSocial(invites, requests, travelPending, loaded); PublishNotices(); }
+        public void ObserveNewsNotice(string? title, string? summary)
+        { Verify(); _notices.ObserveNews(title, summary); PublishNotices(); }
+        public void ReportSystemNotice(string? error)
+        { Verify(); _notices.ReportError(error); PublishNotices(); }
+        public void CloseNotices()
+        { Verify(); _notices.Close(); PublishNotices(); }
+        /// <summary>Returns updates, social, news, or null; the platform owner handles navigation.</summary>
+        public string? HandleNoticeAction(int argument)
+        { Verify(); string? destination = _notices.Handle(argument); PublishNotices(); return destination; }
 
         public void SetText(string name, string value)
         {
@@ -218,6 +236,14 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             if (_suspended || (intent.Document != _pageDocument && intent.Document != _rulesDocument)) return false;
             if (!Manager.Accept(intent)) return true;
             _lastSequence = Math.Max(_lastSequence, intent.Sequence);
+            if (intent.Kind == RmlUiIntentKind.NoticeAction)
+            {
+                string? destination = HandleNoticeAction(intent.Argument);
+                if (destination == "updates") forwarded = intent;
+                else if (destination is "social" or "news")
+                    forwarded = Forward("route:" + destination, intent.Sequence);
+                return true;
+            }
             string action = RmlUiIntentRegistry.ToLegacy(intent);
             switch (action)
             {
@@ -284,6 +310,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             Verify();
             forwarded = default;
             if (_suspended) return false;
+            if (_notices.Open) { CloseNotices(); return true; }
             if (_host.IsAlive(_rulesDocument))
             {
                 Put("lobby_rules_open", false);
@@ -379,10 +406,130 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             _dirty = true;
         }
 
+        private void PublishNotices()
+        {
+            Put("notice_open", _notices.Open);
+            Put("notice_update_available", _notices.UpdateAvailable);
+            Put("notice_unread_visible", _notices.UnreadCount > 0);
+            Put("notice_unread_count", RmlUiBindingValue.FromText(Math.Min(9, _notices.UnreadCount).ToString(CultureInfo.InvariantCulture)));
+            Put("notice_empty", _notices.Items.Count == 0);
+            for (int i = 0; i < 4; i++)
+            {
+                var item = i < _notices.Items.Count ? _notices.Items[i] : null;
+                string id = "notice_" + i.ToString(CultureInfo.InvariantCulture);
+                Put(id + "_visible", item != null);
+                Put(id + "_unread", item?.Unread ?? false);
+                Put(id + "_type", RmlUiBindingValue.FromText(item?.Type ?? ""));
+                Put(id + "_title", RmlUiBindingValue.FromText(item?.Title ?? ""));
+                Put(id + "_message", RmlUiBindingValue.FromText(item?.Message ?? ""));
+                Put(id + "_action", RmlUiBindingValue.FromText(item?.Target switch {
+                    "updates" => "VIEW UPDATE", "social" => "OPEN SOCIAL",
+                    "news" => "READ NEWS", _ => "READ"
+                }));
+            }
+        }
+
         private void Verify()
         {
             _host.VerifyOwnerThread();
             if (_disposed) throw new ObjectDisposedException(nameof(RmlUiLauncherPages));
         }
     }
+    /// <summary>Bounded owner-thread-only inbox. Never fetches data or initiates an install.</summary>
+    internal sealed class RmlUiNoticeCenter
+    {
+        internal sealed record Entry(string Key, string Type, string Title, string Message, string Target, bool Unread);
+        private readonly List<Entry> _items = new();
+        private int _lastInvites = -1, _lastRequests = -1;
+        private bool _lastTravel, _socialLoaded;
+        private string _release = "", _news = "", _lastError = "";
+        internal IReadOnlyList<Entry> Items => _items;
+        internal bool Open { get; private set; }
+        internal bool UpdateAvailable => _release.Length != 0;
+        internal int UnreadCount { get { int count = 0; foreach (var item in _items) if (item.Unread) count++; return count; } }
+
+        private void Remove(string key) => _items.RemoveAll(item => item.Key == key);
+        private void Upsert(string key, string type, string title, string message, string target, bool unread)
+        {
+            Entry? existing = _items.Find(item => item.Key == key);
+            if (existing != null && existing.Type == type && existing.Title == title && existing.Message == message) return;
+            Remove(key);
+            _items.Insert(0, new Entry(key, type, title, message.Length > 240 ? message[..240] : message, target,
+                unread && !Open && (existing?.Unread ?? true)));
+            if (_items.Count > 8) _items.RemoveRange(8, _items.Count - 8);
+        }
+        internal void ObserveRelease(string? tag)
+        {
+            string next = (tag ?? "").Trim();
+            if (next == _release) return;
+            _release = next;
+            Remove("update");
+            if (next.Length != 0)
+                Upsert("update", "VERSION", "UPDATE AVAILABLE", "Project Prime " + next + " is ready to review.", "updates", true);
+        }
+        internal void ObserveSocial(int invites, int requests, bool travel, bool loaded)
+        {
+            if (!loaded)
+            {
+                Remove("invites"); Remove("requests"); Remove("travel");
+                _socialLoaded = false; _lastInvites = _lastRequests = -1; _lastTravel = false;
+                return;
+            }
+            invites = Math.Max(0, invites); requests = Math.Max(0, requests);
+            if (!_socialLoaded || invites != _lastInvites)
+            {
+                if (invites == 0) Remove("invites");
+                else Upsert("invites", "SOCIAL", "GAME INVITES", invites == 1 ? "1 invitation awaits your response." : invites + " invitations await your response.", "social", invites > _lastInvites);
+            }
+            if (!_socialLoaded || requests != _lastRequests)
+            {
+                if (requests == 0) Remove("requests");
+                else Upsert("requests", "SOCIAL", "FRIEND REQUESTS", requests == 1 ? "1 friend request is waiting." : requests + " friend requests are waiting.", "social", requests > _lastRequests);
+            }
+            if (!travel) Remove("travel");
+            else if (!_lastTravel) Upsert("travel", "PARTY", "PARTY TRAVEL", "Your party has a pending travel decision.", "social", true);
+            _socialLoaded = true; _lastInvites = invites; _lastRequests = requests; _lastTravel = travel;
+        }
+        internal void ObserveNews(string? title, string? summary)
+        {
+            string next = (title ?? "").Trim();
+            if (next == _news) return;
+            _news = next; Remove("news");
+            if (next.Length != 0) Upsert("news", "DISPATCH", next,
+                String.IsNullOrWhiteSpace(summary) ? "Read a Project Prime dispatch." : summary!, "news", false);
+        }
+        internal void ReportError(string? text)
+        {
+            string next = (text ?? "").Trim();
+            if (next.Length == 0 || next == _lastError) return;
+            _lastError = next;
+            Upsert("error", "SYSTEM", "ACTION REQUIRED", next, "", true);
+        }
+        internal void Close() => Open = false;
+        internal string? Handle(int action)
+        {
+            if (action == 0)
+            {
+                Open = !Open;
+                if (Open) MarkSeen();
+                return null;
+            }
+            if (action == 1) { Close(); return null; }
+            if (action == 2) { Close(); return "updates"; }
+            int index = action >= 3 && action <= 6 ? action - 3 : -1;
+            if (index >= 0)
+            {
+                if (!Open || index >= Math.Min(4, _items.Count)) return null;
+                string target = _items[index].Target;
+                if (target.Length == 0) return null;
+                Close(); return target;
+            }
+            index = action >= 7 && action <= 10 ? action - 7 : -1;
+            if (index >= 0 && Open && index < Math.Min(4, _items.Count)) _items.RemoveAt(index);
+            return null;
+        }
+        private void MarkSeen()
+        { for (int i = 0; i < _items.Count; i++) _items[i] = _items[i] with { Unread = false }; }
+    }
+
 }
