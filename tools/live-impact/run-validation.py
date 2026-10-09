@@ -21,7 +21,7 @@ def run(label, command):
     results.append(row); print(json.dumps(row), flush=True)
 for check in checks: run(check, [a.dotnet, a.binary, "--"+check])
 if a.assets:
-    for check in ["authority-combat", "accepted-fire-context"]:
+    for check in (["authority-combat", "accepted-fire-context"] + ([] if a.baseline else ["impact-claim-native"])):
         run(check, [a.dotnet, a.binary, "--"+check, a.assets, "MP1 SANCTORUS"])
     for players in [2,4,8]:
         run("server-"+str(players), [a.dotnet, a.binary, "--server-performance", a.assets, "MP1 SANCTORUS", str(players), str(out / ("server-"+str(players)+".json")), "10"])

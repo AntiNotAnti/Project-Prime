@@ -620,7 +620,7 @@ namespace MphRead.Mods
             if (ValueAfter(args, "claimfastpath") is string earlyMode && !Network.NetClaimEarlySettlement.Configure(earlyMode))
             {
                 Environment.ExitCode = 2;
-                Console.WriteLine("[net] -claimfastpath accepts off or shadow; enabled is unavailable until exact component suppression and attack ordering are proven.");
+                Console.WriteLine("[net] -claimfastpath accepts off, shadow or enabled.");
                 return true;
             }
             Network.NetPredictedKillPresentation.Enabled = HasFlag(args, "predictedkillvisuals") && !HasFlag(args, "nohitprediction");

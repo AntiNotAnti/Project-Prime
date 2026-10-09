@@ -460,7 +460,9 @@ namespace MphRead.Mods.Network
                     if (owner != null && rescued.Beam == BeamType.ShockCoil && rescued.ModHasSharedContinuousPhase
                         && NetHitClaims.ContinuousAlreadyResolved(owner.SlotIndex, victim.SlotIndex, (uint)rescued.ModContinuousPhase)) return true;
                     if (owner != null && NetHitClaims.AlreadyRescued(
-                        owner.SlotIndex, victim.SlotIndex, rescued.ModShotId, rescued.ModLaunchKey))
+                        owner.SlotIndex, victim.SlotIndex, rescued.ModShotId, rescued.ModLaunchKey,
+                        NetHitClaims.ComponentKey(rescued.ModWitnessComponent, rescued.EnhancedDirectHit,
+                            flags.TestFlag(DamageFlags.Halfturret))))
                     {
                         return true;
                     }

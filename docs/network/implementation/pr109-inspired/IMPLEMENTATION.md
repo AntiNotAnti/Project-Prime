@@ -5,8 +5,8 @@ Upstream Fruity PR109: `1756af902f960c82edde28bd31e6895f8bcb8198`, open and conf
 
 **Delivery status: gated partial implementation, not release acceptance.** Seven draft PRs
 implement transport, conservative cosmetics, shadow decisions, kill tickets, profiling and
-reproducible evidence. The requested enabled early-settlement path is blocked by missing
-component/order proofs. Full visual acceptance and a collision optimization win are outstanding.
+reproducible evidence. The follow-up claim proof adds opt-in early settlement for isolated Imperialist direct hits;
+other categories keep existing grace arbitration. Full visual acceptance and a collision optimization win are outstanding.
 
 This implementation retains dedicated-server combat authority, existing movement ownership,
 claim grace/arbitration, shot/lifecycle identity and replay v1 facts. No release or merge is authorized.
@@ -55,7 +55,7 @@ rendered multiplayer acceptance. Before/after records never imply unexecuted pla
 | 0 Baseline | done | exact baseline, coverage audit, bounded diagnostics, original and matched benchmark records |
 | 1 Live transport | partial | canonical seam, protocol 45, independent bounded delivery and native ingress verified; child identities and complete fact coverage remain limited |
 | 2 Presentation | partial | pure endpoint cues, full primary-shot matching and fallback contracts; no corrected trails or weapon-specific effect campaign |
-| 3 Fast claims | blocked | shadow implemented; native component suppression and closed attack-order fence absent; enabled mode refused |
+| 3 Fast claims | partial | opt-in Imperialist path with exact component suppression and conservative admission/order proof; native deterministic parity verified, broader impaired campaign pending |
 | 4 Predicted kills | partial | opt-in Imperialist render-only tickets; authored animation and impaired rendered reversal campaign outstanding |
 | 5 Collision performance | partial | bounded profiling, native and synthetic samples; no new collision optimization or parity win |
 | 6 Acceptance | unverified | local contracts and real UDP evidence retained; full platform/rendered/bot/weapon matrix not accepted |
@@ -136,27 +136,45 @@ weapon-specific particles/audio remain unverified; default stays off.
 
 Slice 1 PR: https://github.com/AntiNotAnti/Project-Prime/pull/411 (depends on #410).
 
-## Slice 3: shadow evaluation, enabled settlement blocked
+## Slice 3 and follow-up: proof-driven early settlement
 
-`ClaimEarlySettlementDecision` requires independent reserved proof, supported direct
-category, exact native-component duplicate suppression and a closed attack-order fence.
-The production observer samples only evidence the existing `Tick` already reserves;
-it never invokes another reservation, applies damage or changes the grace window.
-A 512-sample ring records full shot/victim identity, wait age and hypothetical health.
-Default is shadow; `-claimfastpath off` removes sampling. An `enabled` request is
-explicitly refused, rather than pretending the safety prerequisites exist.
+`-claimfastpath off|shadow|enabled` defaults to shadow. The enabled path is restricted to
+independently reserved Imperialist direct/head hits. It uses the same `ApplyOne` damage,
+death/lifecycle, spawn protection, resource and CombatAck path as ordinary arbitration.
+It never shortens the grace constant. Unsupported or ambiguous hits retain existing grace.
 
-Source-backed blockers: `NetRescueIndex.Entry` keys ShotKey and victim lifecycle with
-an aggregate `Owed` count, not the native witness component. `NetAcceptedAttacks` has
-accepted/emitted attacks but no closed admission frontier proving that an earlier
-conflicting attack cannot still arrive. Checking only currently pending claims does
-not establish that frontier. Enabling an alternate damage path here would contradict
-the plan's P0 ordering/duplicate invariants. This slice is **partial**, not an enabled
-fast path or a measured latency improvement. It needs a separately verified ordering
-and exact-component suppression design before continuation into enabled settlement.
+`TryReserveClaim` now retains the native witness component. The rescue index keys full
+ShotKey + victim generation/life + native component + direct/splash + turret category.
+An exact paid marker survives repeated native callbacks for the existing 720-frame
+retention. Unknown component zero preserves the legacy aggregate fixture contract.
+Capacity is checked after proof reservation and before applying damage.
 
-39 decision/bounded-history assertions pass; existing claim-stress and health-shot
-arbitration fixtures are rerun unchanged. Slice 2 PR: https://github.com/AntiNotAnti/Project-Prime/pull/412.
+An order proof requires all of the following:
+
+- The fractional launch admission horizon has expired, including one conservative guard frame.
+- No other earlier/equal accepted attack remains in the full 512-frame retention window,
+  including already emitted or paid attacks that could still fund a delayed claim/head upgrade.
+- No older deferred launch, native flight, retained alternate attack, bomb or active burn exists.
+- This is the oldest currently pending claim, with an exact native witness already reserved.
+
+The authority seals that admission frontier before early application. Raising the rewind
+budget later cannot re-admit a new attack behind a settled frontier. Existing admitted
+claims still use their ordinary validation; the frontier is not a blanket claim rejection.
+Anonymous alternate claims require the producer's zero launch frame, preventing a forged
+beam launch time from bypassing alternate-contact ordering. Match/room/session reset clears
+the frontier. `off` returns subsequent claims to grace; the already sealed expired frontier
+remains until reset. No additional wire or replay format change is needed.
+
+The native fixture uses actual resource-backed emissions and detached historical bodies,
+then the production claim receive/reservation/arbitration path. Off, shadow and enabled
+converge on one damage application, including lethal shots and repeated native callbacks.
+At simulated 250 ms RTT, an isolated claim arriving 30 frames after its launch settles at
+launch + 47 instead of arrival + 35: **18 saved frames (300 ms)**. An older retained attack
+blocks that saving. This deliberately conservative path is expected to have low eligibility
+in sustained combat; the fixture is not a claim of measured real-network latency improvement.
+The follow-up passes 570 asset-free safety/component assertions, 178 native early-settlement
+assertions and all 21 local validation checks. Raw checks and build identity are in
+`validation/live-impact/claim-proof/`.
 
 ## Slice 4: opt-in render-only kill tickets
 
@@ -178,8 +196,7 @@ trade/render acceptance remains unverified, so no default enablement is justifie
 
 18 ticket and integration assertions pass (including idempotence, wrong identities,
 expiry/wrap, double hits, smooth recovery and unchanged snapshot health/pose/flags).
-The existing 3,338,739 health/shot assertions still pass. Source proof that enabled
-claim settlement remains blocked is independent of this strictly cosmetic prototype.
+The existing 3,338,739 health/shot assertions still pass. The claim fast path has separate proof and rollout controls from this cosmetic prototype.
 Slice 3 PR: https://github.com/AntiNotAnti/Project-Prime/pull/413.
 
 ## Slice 5: bounded historical-combat profiling

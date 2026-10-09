@@ -70,6 +70,7 @@ internal static class NetAcceptedAttacks
     private readonly record struct SourceBody(uint Frame, Vector3 Position, Vector3 Up, byte Flags);
     private static readonly Slot[] Slots = Create();
     public static long Accepted, Refused, ResourceRefused, ClaimsWithoutEvidence, GeometryRefused;
+    internal static uint LastResolvedComponent { get; private set; }
     internal static Vector3 LastResolvedImpact { get; private set; }
     internal static Vector3 LastResolvedDirection { get; private set; }
     private static Slot[] Create()
@@ -111,6 +112,42 @@ internal static class NetAcceptedAttacks
             state.EmissionCount = 0;
         }
         Accepted = Refused = ResourceRefused = ClaimsWithoutEvidence = GeometryRefused = 0;
+    }
+    /// <summary>A deliberately conservative, bounded order proof. Accepted attacks
+    /// remain blockers even after native emission/payment: a delayed claim or head
+    /// upgrade can still name them. Empty pending queues alone prove nothing.</summary>
+    internal static bool OrderClosed(in ShotKey candidate, uint launch)
+    {
+        uint now = NetSession.NetFrame;
+        if (!NetClaimEarlySettlement.HorizonClosed(now, launch, NetUnlagged.MaxRewindFrames)) return false;
+        for (int slot = 0; slot < Slots.Length; slot++)
+        {
+            Slot state = For(slot);
+            foreach (ref readonly Attack attack in state.Attacks.AsSpan())
+                if (attack.Valid && unchecked(now - attack.Arrived) <= LifetimeFrames
+                    && attack.Fire.AckFrame <= launch
+                    && ShotKey.For(slot, attack.Fire.ShotId) != candidate) return false;
+            foreach (ref readonly Attack attack in state.Deferred.AsSpan())
+                if (attack.Valid && unchecked(now - attack.Arrived) <= NetFireEvents.RetentionFrames
+                    && attack.Fire.AckFrame <= launch) return false;
+            // Alternate attacks are intentionally unsupported. Keep their entire
+            // retained admission window, including paid/ended contacts, fenced.
+            for (int i = 0; i < state.AltGroups.Length; i++)
+                if (state.AltGroups[i] != 0 && unchecked(now - state.AltArrivals[i]) <= 124) return false;
+            foreach (var bomb in state.NativeBombs)
+                if (bomb.Born != 0 && unchecked(now - bomb.Seen) <= 124) return false;
+        }
+        foreach (var player in PlayerEntity.Players)
+            if (player != null && player.ModBurning) return false;
+        if (PlayerEntity.Players.Count == 0) return false;
+        var scene = PlayerEntity.Players[0].OwningScene;
+        foreach (var beam in scene.GetBeamProjectileEntities())
+            if (beam.Lifespan > 0 && !beam.Flags.TestFlag(BeamFlags.Collided)
+                && beam.ModLaunchKey != candidate
+                && (beam.ModLaunchFrame == 0 || beam.ModLaunchFrame <= launch)) return false;
+        // Includes native bot/bomb sources without accepted FireEvents.
+        foreach (var bomb in scene.GetBombEntities()) return false;
+        return true;
     }
     internal static int AllowedCharge(int slot) => (uint)slot < 8 ? For(slot).Charge : 0;
     private static float ChargePercent(WeaponInfo weapon, int charge)
@@ -157,7 +194,7 @@ internal static class NetAcceptedAttacks
             state.LastId = fire.ShotId; state.SeenId = true;
             BeamType beam = (BeamType)fire.Weapon;
             bool turret = fire.Kind == FireEventKind.TurretFire;
-            if (!clock || !fire.HasPose
+            if (!clock || !fire.HasPose || !NetClaimEarlySettlement.AdmissionOpen(fire.AckFrame)
                 || !LagCompensationPolicy.TryAdmitTime(now, fire.AckFrame, fire.AckSubFrame, out _)
                 || !SourcePoseSupported(player, state, fire)
                 || !WeaponResourceRules.AllowsBeam(beam, player.OwningScene.GameState.InstaGib,
@@ -223,7 +260,7 @@ internal static class NetAcceptedAttacks
         state.Holding = intent.Buttons.HasFlag(IntentButtons.Shoot);
         if (!state.Holding) state.Charge = 0;
         state.Weapon = intent.WeaponSelect; state.LastSource = intent.Frame; state.LastArrival = now; state.SeenIntent = true;
-        if (!clock || !LagCompensationPolicy.TryAdmitTime(now, intent.AckFrame, intent.AckSubFrame, out _)) return;
+        if (!clock || !NetClaimEarlySettlement.AdmissionOpen(intent.AckFrame) || !LagCompensationPolicy.TryAdmitTime(now, intent.AckFrame, intent.AckSubFrame, out _)) return;
         bool alt = intent.Buttons.HasFlag(IntentButtons.AltFormState);
         bool altHeld = alt && intent.Buttons.HasFlag(IntentButtons.AltAttack);
         bool boost = alt && player.Hunter == Hunter.Samus
@@ -529,7 +566,7 @@ internal static class NetAcceptedAttacks
         => ValidateClaimCore(slot, claim, pay, admittedTime: false);
     private static bool ValidateClaimCore(int slot, in HitClaimPacket claim, bool pay, bool admittedTime)
     {
-        if (pay) LastResolvedImpact = LastResolvedDirection = default;
+        if (pay) { LastResolvedImpact = LastResolvedDirection = default; LastResolvedComponent = 0; }
         if ((uint)slot >= 8 || slot >= PlayerEntity.Players.Count) return false;
         if ((uint)claim.VictimSlot >= PlayerEntity.Players.Count
             || !admittedTime && !LagCompensationPolicy.TryAdmitTime(NetSession.NetFrame,
@@ -572,7 +609,7 @@ internal static class NetAcceptedAttacks
         if (pay)
         {
             if (component != 0) components[state.Outcomes[at, claim.VictimSlot]] = component;
-            state.Outcomes[at, claim.VictimSlot]++; LastResolvedImpact = resolvedPoint; LastResolvedDirection = resolvedDirection;
+            state.Outcomes[at, claim.VictimSlot]++; LastResolvedComponent = component; LastResolvedImpact = resolvedPoint; LastResolvedDirection = resolvedDirection;
         }
         return true;
     }
@@ -580,11 +617,11 @@ internal static class NetAcceptedAttacks
     /// <summary>Reserve the proven native component and its resource payment
     /// once, while historical geometry is available. Pending arbitration owns
     /// the immutable witness; no geometry or time budget is re-read after grace.</summary>
-    internal static bool TryReserveClaim(int slot, in HitClaimPacket claim, out Vector3 point, out Vector3 direction)
+    internal static bool TryReserveClaim(int slot, in HitClaimPacket claim, out Vector3 point, out Vector3 direction, out uint component)
     {
-        point = direction = default;
+        point = direction = default; component = 0;
         if (!ValidateClaimCore(slot, claim, pay: true, admittedTime: true)) return false;
-        point = LastResolvedImpact; direction = LastResolvedDirection;
+        point = LastResolvedImpact; direction = LastResolvedDirection; component = LastResolvedComponent;
         return true;
     }
     private static bool ValidateGeometry(PlayerEntity shooter, PlayerEntity victim,
@@ -661,7 +698,7 @@ internal static class NetAcceptedAttacks
         Slot state = For(slot);
         if (pay) LastResolvedDirection = Vector3.Zero;
         double claimTime = claim.AckFrame + claim.AckSubFrame / 256.0;
-        if (!NetIntentPolicy.Sane(claim.HitPoint)
+        if (claim.LaunchFrame != 0 || !NetIntentPolicy.Sane(claim.HitPoint)
             || !NetUnlagged.TryHistoricalPose(victim, claimTime, out var pose)
             || (claim.HitPoint - pose.Position).LengthSquared > NetHitClaims.ClaimRadius * NetHitClaims.ClaimRadius
             || !SourceTimeSupported(state, claim.Frame)) return false;

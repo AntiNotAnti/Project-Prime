@@ -438,7 +438,7 @@ public static class NetworkAuthorityPolicyCheck
             shooter.Health = 0; NetAcceptedAttacks.EmitPending(); NetAcceptedAttacks.AfterNativePickups(bombFrame);
             Check(shooter.ModBombAmmo == bombsBefore - 1, "native deferred bomb pays one authority-owned resource after death");
             var bombClaim = deferredClaim; bombClaim.ClaimId = 20; bombClaim.ShotId = 0;
-            bombClaim.Beam = HitClaimPacket.NoBeam; bombClaim.Flags = 0; bombClaim.Damage = 1;
+            bombClaim.Beam = HitClaimPacket.NoBeam; bombClaim.LaunchFrame = 0; bombClaim.Flags = 0; bombClaim.Damage = 1;
             bombClaim.Frame = bombClaim.AckFrame = bombFrame; bombClaim.HitPoint = victim.Position;
             Check(NetAcceptedAttacks.ValidateClaim(0, bombClaim), "native bomb sphere supports producer-shaped historical claim");
             SetFrame(bombFrame + 1);
