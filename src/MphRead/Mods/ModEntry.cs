@@ -617,6 +617,11 @@ namespace MphRead.Mods
             // worth, this asks what not waiting for it is worth. On by
             // default, and inert on the machine running the match, which
             // never waited for anybody.
+            if (ValueAfter(args, "claimfastpath") is string earlyMode && !Network.NetClaimEarlySettlement.Configure(earlyMode))
+            {
+                Console.WriteLine("[net] -claimfastpath accepts off or shadow; enabled is unavailable until exact component suppression and attack ordering are proven.");
+                return true;
+            }
             Network.NetImpactDiagnostics.Enabled = HasFlag(args, "liveimpactdebug");
             Network.NetCombatFactPublisher.LiveEnabled = HasFlag(args, "liveimpacts") && !HasFlag(args, "noliveimpacts");
             if (HasFlag(args, "nohitprediction"))
