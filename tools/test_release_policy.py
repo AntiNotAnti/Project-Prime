@@ -274,7 +274,7 @@ elif args and args[0]=="api":
     def test_retry_prunes_only_known_native_intermediates_from_draft(self):
         unwanted={"PRIME-RMLUI.json","RMLUI-POC.txt","ProjectPrime.RmlUi.Native.dll",
                   "libProjectPrime.RmlUi.Native.so"}
-        existing="\\n".join(sorted(unwanted)+["ProjectPrime-v1.2.3-android.apk"])
+        existing="\n".join(sorted(unwanted)+["ProjectPrime-v1.2.3-android.apk"])
         result,calls,_=self.execute("release",RELEASE_STATE="draft",EXISTING_ASSETS=existing)
         self.assertEqual(result.returncode,0,result.stderr)
         removed={call[3] for call in calls if call[:2]==["release","delete-asset"]}
