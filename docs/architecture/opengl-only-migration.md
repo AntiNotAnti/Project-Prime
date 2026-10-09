@@ -1,0 +1,71 @@
+# OpenGL-only architecture migration
+
+**Baseline:** published `v0.1.47`, commit `0351ef6f707ab0369c95d8d4185869f6e02622f8`.
+**Status:** phase 1 (runtime retirement). This is an intentionally staged removal.
+
+## Phase 1: OpenGL is the only launchable game renderer
+
+- Windows, Linux and macOS use desktop compatibility OpenGL. Android uses the
+  shared engine's OpenGL ES 3.0 adapter.
+- `Auto` and absent preferences resolve to OpenGL everywhere. Persisted
+  DirectX 12, Vulkan and Metal selections are migrated to OpenGL on settings
+  load. The retired renderer startup-recovery marker is cleared.
+- Explicit `-renderer dx12`, `vulkan`, `metal` and their aliases fail with a
+  descriptive error. The old enum values remain solely to diagnose historic
+  requests while the WebGPU assembly references still compile.
+- The renderer selector is removed from the settings view. There is no longer a
+  modern-device startup or NoAPI window path for desktop auxiliary windows.
+- The mandatory renderer-policy test now rejects modern selections on every
+  supported platform, and CI runs an actual Linux Mesa/OpenGL framebuffer
+  smoke instead of modern-native smoke jobs. The macOS build/release jobs
+  retain the content-free policy check and an Intel OpenGL texture fixture.
+
+## Not removed in phase 1
+
+This change **does not yet delete** `ModernGraphicsCompat*`, WebGPU shader
+generation, WebGPU bindings, the pinned native libraries or legacy advanced
+post-processing. Those symbols are still referenced throughout the client,
+Android head, launcher/Studio tooling and older acceptance checks. Deleting
+them in the first cut would obscure compile/runtime failures in a very large
+changeset. Release packaging may still contain unused native renderer
+dependencies until phase 2. The runtime policy refuses to select them.
+
+## Phase 2: physical removal (next changeset)
+
+1. Replace all `ModernGraphicsCompat.Active` dual-path call sites with the
+   direct desktop OpenGL / Android GLES implementation.
+2. Delete modern-only renderer classes, WGSL shader generation, device/surface
+   adapters, GPU-indirect/visibility machinery and modern-only diagnostics;
+   preserve the shared `LegacyGeometryBatch`, room culling, retained packet
+   extraction and state/material caches for GL.
+3. Remove Silk.NET WebGPU and MoltenVK package references, bundled native
+   `wgpu_native`/`MoltenVK` libraries, Android Vulkan packaging, modern-only
+   CI and macOS notarization/signing assumptions.
+4. Update `tools/check-macos-build.sh`, `tools/test-macos-tools.sh`, and release
+   APK/runtime validation to expect only necessary OpenGL and KTX assets.
+5. Validate main-window, launcher, thumbnails, Map Studio, Replay Studio,
+   replay export, fullscreen/focus/resize and Android pause/resume. Only then
+   remove the temporary policy shims.
+
+## Phase 3: graphics cleanup and performance engineering
+
+- Retire optional post effects and remove their framebuffers and user-facing
+  controls only after proving native world/depth/stencil, player outlines,
+  beam/glow, HUD and compositor remain visually correct.
+- Adapt retained geometry packet submission to GL VBO/IBO + compatible draw
+  batching, preserve order-sensitive translucent/stencil passes, and profile
+  persistent geometry and texture residency.
+- Measure actual frame wall time, p95/p99/1% lows, CPU submissions, GL state
+  changes and present costs at 60/120/144/240+ FPS on real hardware. Keep the
+  fixed 60 Hz gameplay/network/replay simulation clock unchanged.
+- Verify transparent walls and pickup occlusion, shadow persistence, custom
+  maps, viewmodels, scene transition and high-refresh camera/HUD coherence.
+
+## Release gates
+
+An OpenGL-only release requires compiled Windows/Linux/macOS/Android targets,
+native GL/GLES smoke or clearly documented unavailable hardware gates, a
+device-level high-refresh and Android lifecycle pass, and no accidental WebGPU
+native dependencies in shipped artifacts after phase 2. Do not infer a speedup
+from code removal alone. Preserve the original v0.1.47 rendering baseline for
+before/after metrics.

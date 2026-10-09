@@ -116,53 +116,31 @@ jobs:
       - name: verify reviewed normalized baselines
         run: dotnet run --project tools/fidelity-oracle -c Release --no-build -- verify all -baselines tools/fidelity-oracle/baselines
 
-  modern-renderer-windows:
-    name: modern renderer Windows ${{ matrix.renderer }} smoke
-    runs-on: windows-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        renderer: [dx12, vulkan]
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: '10.0.x'
-      - name: publish focused renderer build
-        shell: pwsh
-        run: >
-          dotnet publish src/MphRead/MphRead.csproj
-          -c Release -r win-x64 --self-contained true
-          -p:PublishSingleFile=true -o publish/modern-win
-      - name: backend policy, device, draw and window present
-        shell: pwsh
-        run: |
-          publish/modern-win/ProjectPrime.exe -renderfullcheck -renderer ${{ matrix.renderer }}
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-  modern-renderer-linux:
-    name: modern renderer Vulkan smoke
+  opengl-renderer-linux:
+    name: OpenGL compatibility and retained graph smoke
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
-      - name: install software Vulkan and X11
+      - name: install software OpenGL and X11
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y xvfb xauth mesa-vulkan-drivers libx11-6 libxrandr2 libxi6 libxcursor1 libxinerama1
-      - name: publish focused renderer build
+          sudo apt-get install -y xvfb xauth libgl1-mesa-dri libgl1 libx11-6 libxrandr2 libxi6 libxcursor1 libxinerama1
+      - name: publish focused OpenGL build
         run: >
           dotnet publish src/MphRead/MphRead.csproj
           -c Release -r linux-x64 --self-contained true
-          -p:PublishSingleFile=true -o publish/modern-linux
-      - name: retained render graph structure
-        run: publish/modern-linux/ProjectPrime -rendergraphcheck
-      - name: Vulkan full compatibility check through GLFW
+          -p:PublishSingleFile=true -o publish/opengl-linux
+      - name: OpenGL-only backend and retained graph contracts
+        run: |
+          publish/opengl-linux/ProjectPrime -renderbackendcheck
+          publish/opengl-linux/ProjectPrime -rendergraphcheck
+      - name: OpenGL native texture and framebuffer smoke
         run: |
           xvfb-run -a --server-args="-screen 0 640x480x24" \
-            publish/modern-linux/ProjectPrime -renderfullcheck -renderer vulkan
+            publish/opengl-linux/ProjectPrime -textureupdatecheck -renderer opengl
 
   android-pacing-policy:
     name: Android frame pacing and governor policy
@@ -194,83 +172,6 @@ jobs:
           dotnet-version: '10.0.x'
       - name: content-free renderer state and lifecycle contracts
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -renderbackendcheck
-
-  modern-renderer-android:
-    name: modern renderer Android Vulkan surface and lifecycle
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: '10.0.x'
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-      - name: install Android workload and native toolchain
-        run: |
-          dotnet workload install android
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "ndk;28.2.13676358" "platforms;android-36" "build-tools;36.0.0"
-          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
-          ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/28.2.13676358" tools/wgpu/build-native.sh android-x64
-          ANDROID_NDK_ROOT="$ANDROID_HOME/ndk/28.2.13676358" tools/ktx/build-native.sh android-x64
-      - name: Vulkan surface, readback, present and surface recreation
-        run: tools/render-check/android-check.sh
-      - name: renderer acceptance logs
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: renderer-acceptance-android
-          path: ${{ runner.temp }}/renderer-android-*
-          if-no-files-found: warn
-
-  modern-shader-source-check:
-    name: modern shaders match shared rendering sources
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: '10.0.x'
-      - name: regenerate and check WGSL
-        run: tools/modern-shaders/check.sh
-
-  modern-renderer-macos:
-    name: modern renderer macOS ${{ matrix.rid }}
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - rid: osx-arm64
-            runner: macos-latest
-          - rid: osx-x64
-            runner: macos-15-intel
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: '10.0.x'
-      - name: build pinned modern renderer and KTX runtimes
-        run: |
-          tools/wgpu/build-native.sh "${{ matrix.rid }}"
-          tools/ktx/build-native.sh "${{ matrix.rid }}"
-      - name: publish focused renderer build
-        run: |
-          dotnet publish src/MphRead/MphRead.csproj -c Release -r "${{ matrix.rid }}" \
-            --self-contained true -p:PublishSingleFile=true -o "publish/modern-${{ matrix.rid }}"
-          chmod +x "publish/modern-${{ matrix.rid }}/ProjectPrime"
-      - name: OpenGL texture-update compatibility reference
-        # GitHub's Apple-Silicon hosted runner may expose no NSGL pixel format
-        # at all. Keep one real macOS OpenGL reference on the Intel runner;
-        # Metal and MoltenVK remain exercised on both architectures below.
-        if: matrix.rid == 'osx-x64'
-        run: '"publish/modern-${{ matrix.rid }}/ProjectPrime" -textureupdatecheck -renderer opengl'
-      - name: Metal device, draw and window present
-        run: |
-          "publish/modern-${{ matrix.rid }}/ProjectPrime" -renderfullcheck -renderer metal
-      - name: MoltenVK device, draw and window present
-        run: tools/check-macos-modern-vulkan.sh "publish/modern-${{ matrix.rid }}/ProjectPrime" --window
 
   enhanced-hunter-checks:
     name: enhanced hunter regressions
@@ -665,8 +566,12 @@ jobs:
           dotnet publish src/MphRead/MphRead.csproj -c Release -r "$RID" \
             --self-contained true -p:PublishSingleFile=true -o "publish/$RID"
           chmod +x "publish/$RID/ProjectPrime"
-          "publish/$RID/ProjectPrime" -renderbackendprobe -renderer metal
-          tools/check-macos-modern-vulkan.sh "publish/$RID/ProjectPrime"
+          "publish/$RID/ProjectPrime" -renderbackendcheck
+          # Hosted Apple Silicon can lack an NSGL pixel format. Exercise a
+          # hardware OpenGL fixture only on the existing Intel acceptance host.
+          if [ "$RID" = "osx-x64" ]; then
+            "publish/$RID/ProjectPrime" -textureupdatecheck -renderer opengl
+          fi
           tools/sign-macos.sh "publish/$RID"
           tools/check-macos-build.sh "publish/$RID" "$RID"
           tools/run-macos-smoke.sh "publish/$RID" "$RID"
