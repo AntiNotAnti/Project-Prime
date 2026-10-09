@@ -5367,6 +5367,7 @@ namespace MphRead
                     }
                 }
             }
+            Mods.Network.NetLiveImpactPresenter.Draw(this);
             for (int i = 0; i < _singleParticleCount; i++)
             {
                 SingleParticle single = _singleParticles[i];

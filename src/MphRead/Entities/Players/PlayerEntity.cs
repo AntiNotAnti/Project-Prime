@@ -2092,6 +2092,7 @@ namespace MphRead.Entities
             BeamType replayWeapon = BeamType.None;
             ShotKey replayKey = default;
             Vector3 replayImpact = default;
+            var impactPresentation = Mods.Network.ImpactPresentationData.Unknown;
             var replayFactFlags = Mods.Network.ReplayShotFactFlags.None;
             if (Mods.Network.NetSession.IsAuthority && attacker != null
                 && replayDamageEventId != 0 && damage > 0)
@@ -2132,6 +2133,19 @@ namespace MphRead.Entities
                             replayFactFlags |= Mods.Network.ReplayShotFactFlags.Continuous;
                         if (beam?.EnhancedMicroSeeker == true)
                             replayFactFlags |= Mods.Network.ReplayShotFactFlags.EnhancedChild;
+                        var kind = (replayFactFlags & Mods.Network.ReplayShotFactFlags.Continuous) != 0
+                            ? Mods.Network.CombatImpactKind.Continuous
+                            : beam?.EnhancedMicroSeeker == true ? Mods.Network.CombatImpactKind.Child
+                            : fromHalfturret ? Mods.Network.CombatImpactKind.Turret
+                            : beam?.EnhancedDirectHit == true || Mods.Network.NetHitClaims.CurrentClaimDirect
+                                ? Mods.Network.CombatImpactKind.Direct : Mods.Network.CombatImpactKind.Splash;
+                        bool bodyOffset = kind == Mods.Network.CombatImpactKind.Direct
+                            && !Mods.Network.NetDamage.ApplyingClaim && beam?.ModResolvedHitPointValid == true
+                            && !flags.TestFlag(DamageFlags.Halfturret);
+                        // This is still the native collision's rewound victim pose, before restore/death motion.
+                        impactPresentation = new(kind, beam?.ModPresentationComponent is > 0 ? beam.ModPresentationComponent
+                            : beam?.ModWitnessComponent is > 0 ? beam.ModWitnessComponent | 0x80000000u : 0,
+                            bodyOffset, bodyOffset ? replayImpact - Position : default);
                         replayShotFactEligible = true;
                     }
                 }
@@ -3079,7 +3093,7 @@ namespace MphRead.Entities
                         healthAfter,
                         turretDamage,
                         turretHealthAfter,
-                        replayImpact), Mods.Network.ImpactPresentationData.Unknown);
+                        replayImpact), impactPresentation);
                 }
             }
             if (combatSequence != combatSequenceBefore && beam?.EnhancedMicroSeeker != true)

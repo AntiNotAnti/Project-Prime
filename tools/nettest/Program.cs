@@ -33,6 +33,7 @@ namespace MphRead.NetTest
             NetSession.IdentityTicketSourceForChecks = (uint _, out string ticket) => { ticket = ""; return false; };
             if (args.Length > 0 && args[0] == "--live-impact") return LiveImpactTests.Run();
             if (args.Length > 0 && args[0] == "--impact-transport") return LiveImpactTests.Run(true, args.Length > 1 ? args[1] : null);
+            if (args.Length > 0 && args[0] == "--impact-crossview") return ImpactPresentationTests.Run();
             if (args.Length > 0 && args[0] == "--impact-baseline") return ImpactBaselineTests.Run();
             if (args.Length > 0 && args[0] == "--authority-policy") return NetworkAuthorityPolicyCheck.Run();
             if (args.Length > 0 && args[0] == "--transport-lifecycle") return TransportLifecycleTests.Run();

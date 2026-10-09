@@ -653,9 +653,7 @@ internal sealed class ReplayPoseStream : IDisposable
                         color, alpha: 0.65f, scale: 0.13f);
                 }
             }
-            scene.AddSingleParticle(SingleType.Fuzzball,
-                fact.ImpactPoint, color, alpha: 1f,
-                scale: fact.Headshot ? 0.46f : 0.32f);
+            CombatImpactDrawing.Draw(scene, fact, fact.ImpactPoint);
         }
 
         DrawCombatDiagnosticPresentation(scene);
