@@ -1,0 +1,32 @@
+[
+  {
+    "arm": "0-on",
+    "semanticDisconnects": 7,
+    "validPerformanceAcceptance": false
+  },
+  {
+    "arm": "1-on",
+    "semanticDisconnects": 7,
+    "validPerformanceAcceptance": false
+  },
+  {
+    "arm": "2-off",
+    "semanticDisconnects": 7,
+    "validPerformanceAcceptance": false
+  },
+  {
+    "arm": "1-off",
+    "semanticDisconnects": 8,
+    "validPerformanceAcceptance": false
+  },
+  {
+    "arm": "0-off",
+    "semanticDisconnects": 7,
+    "validPerformanceAcceptance": false
+  },
+  {
+    "arm": "2-on",
+    "semanticDisconnects": 7,
+    "validPerformanceAcceptance": false
+  }
+]

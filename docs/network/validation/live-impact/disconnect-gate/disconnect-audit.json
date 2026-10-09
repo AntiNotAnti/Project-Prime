@@ -1,0 +1,7 @@
+[
+  {
+    "arm": "pr109-disconnect-gate",
+    "semanticDisconnects": 8,
+    "validPerformanceAcceptance": false
+  }
+]

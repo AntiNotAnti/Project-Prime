@@ -35,6 +35,7 @@ for repeat in range(a.repeats):
         command = ['python3', str(repo/'tools/hitrig/run-networking-slices.py'),
             '--runtime', a.runtime, '--data', a.data, '--map', a.map, '--mapdir', a.mapdir,
             '--output', str(output), '--seconds', str(a.seconds), '--dotnet', a.dotnet,
+            '--owner-grace', '8',
             '--players', '8', '--modes', 'shockcoil-all', '--profiles', 'rtt250-loss2',
             '--jitter-ms', '40', '--impacts', '--fixture-loadout', '--require-combat', '--claim-mode', 'shadow']
         if not live: command.append('--no-live')

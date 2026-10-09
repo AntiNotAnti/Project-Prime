@@ -1,0 +1,18 @@
+  Determining projects to restore...
+  Restored /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/MphRead.Protocol.Generator/MphRead.Protocol.Generator.csproj (in 125 ms).
+  Restored /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/NcsfPlay/NcsfPlay.csproj (in 125 ms).
+  3 of 5 projects are up-to-date for restore.
+  NcsfPlay -> /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/NcsfPlay/bin/Release/net10.0/NcsfPlay.dll
+  ProjectPrime.Studio.Protocol -> /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/ProjectPrime.Studio.Protocol/bin/Release/net10.0/ProjectPrime.Studio.Protocol.dll
+  MphRead.Protocol.Generator -> /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/MphRead.Protocol.Generator/bin/Release/netstandard2.0/MphRead.Protocol.Generator.dll
+MSBUILD : error MSB4166: Child node "3" exited prematurely. Shutting down. Diagnostic information may be found in files in "/var/folders/8x/m8p269sd5dl015jr01kkpzbr0000gn/T/MSBuildTempZBFsni/" and will be named MSBuild_*.failure.txt. This location can be changed by setting the MSBUILDDEBUGPATH environment variable to a different directory.
+MSBUILD : error MSB4166: Child node "2" exited prematurely. Shutting down. Diagnostic information may be found in files in "/var/folders/8x/m8p269sd5dl015jr01kkpzbr0000gn/T/MSBuildTempZBFsni/" and will be named MSBuild_*.failure.txt. This location can be changed by setting the MSBUILDDEBUGPATH environment variable to a different directory.
+
+Build FAILED.
+
+MSBUILD : error MSB4166: Child node "3" exited prematurely. Shutting down. Diagnostic information may be found in files in "/var/folders/8x/m8p269sd5dl015jr01kkpzbr0000gn/T/MSBuildTempZBFsni/" and will be named MSBuild_*.failure.txt. This location can be changed by setting the MSBUILDDEBUGPATH environment variable to a different directory.
+MSBUILD : error MSB4166: Child node "2" exited prematurely. Shutting down. Diagnostic information may be found in files in "/var/folders/8x/m8p269sd5dl015jr01kkpzbr0000gn/T/MSBuildTempZBFsni/" and will be named MSBuild_*.failure.txt. This location can be changed by setting the MSBUILDDEBUGPATH environment variable to a different directory.
+    0 Warning(s)
+    2 Error(s)
+
+Time Elapsed 00:00:16.81

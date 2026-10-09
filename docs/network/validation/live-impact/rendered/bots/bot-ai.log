@@ -1,0 +1,21 @@
+[bot-ai] PASS persistent bots ignore story destroy, fade, despawn and invulnerability actions
+[bot-ai] PASS single-player scripted hunters retain native lifecycle actions
+[bot-ai] PASS viewport accepts center
+[bot-ai] PASS viewport rejects negative and overflow coordinates
+[bot-ai] PASS self-damage weapons require target and wall blast clearance
+[bot-ai] PASS close range favors Shock Coil over Imperialist
+[bot-ai] PASS long range favors Imperialist over Shock Coil
+[bot-ai] PASS Trace strongly prefers long-range Imperialist play
+[bot-ai] PASS Noxus recognizes frozen-target finish opportunities
+[bot-ai] PASS objective and recent threat raise target priority
+[bot-ai] PASS Headhunter prioritizes enemies carrying larger token banks
+[bot-ai] PASS Hardpoint prioritizes enemies occupying the active objective
+[bot-ai] PASS Relic prioritizes the current carrier
+[bot-ai] PASS jump destination infers aerial node
+[bot-ai] PASS teleporter endpoint infers special node
+[bot-ai] PASS authored alt-form node overrides automatic semantics
+[bot-ai] PASS target-based jump pad contributes an aerial navigation link
+[bot-ai] PASS damaging terrain generates hazard nodes
+[bot-ai] PASS elevated ledge generates vantage nodes
+[bot-ai] PASS generated drop does not become an impossible reverse climb
+[bot-ai] 20 checks passed

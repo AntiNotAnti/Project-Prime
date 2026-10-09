@@ -1,0 +1,30 @@
+[map] 2ad6ea5ea9904fd8b558101987cdfea2.ppmap FP-MAP-010: Duplicate runtime name: MY ARENA.
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] validation_summary.json FP-MAP-001: At least one material is required.
+[map] validation_summary.json FP-MAP-014: At least one player spawn is required.
+[map] my arena.json FP-MAP-010: Duplicate runtime name: MY ARENA.
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (ALT0) -- 1 player(s) in scene
+[net] slot 1 activated (ALT1) -- 2 player(s) in scene
+[net] slot 2 activated (ALT2) -- 3 player(s) in scene
+[net] slot 3 activated (ALT3) -- 4 player(s) in scene
+[net] slot 4 activated (ALT4) -- 5 player(s) in scene
+[net] slot 5 activated (ALT5) -- 6 player(s) in scene
+[net] slot 6 activated (ALT6) -- 7 player(s) in scene
+[net] slot 7 activated (ALT7) -- 8 player(s) in scene
+[net] slot 0 (Samus) wears suit 1
+[net] slot 1 (Kanden) wears suit 1
+[net] slot 2 (Trace) wears suit 1
+[net] slot 3 (Sylux) wears suit 1
+[net] slot 4 (Noxus) wears suit 1
+[net] slot 5 (Spire) wears suit 1
+[net] slot 6 (Weavel) wears suit 1
+[net] slot 7 (Samus) wears suit 2 -- asked for 1
+ALT MATRIX LAN rtt=0 jitter=0 loss=0% reorder=0% attempts=239 visible=119 authority=119 beamDisagreeBefore=0 beamDisagreeAfter=0 contactVisible=119 contactHistorical=119 contactLive=0 historicalOnly=119 liveOnly=0 historyMisses=0 meanRewind=0.00 sweepDistance=4
+ALT MATRIX moderate rtt=100 jitter=20 loss=1% reorder=1% attempts=232 visible=113 authority=113 beamDisagreeBefore=7 beamDisagreeAfter=0 contactVisible=113 contactHistorical=113 contactLive=21 historicalOnly=92 liveOnly=0 historyMisses=0 meanRewind=8.38 sweepDistance=4
+ALT MATRIX severe rtt=250 jitter=40 loss=2% reorder=1% attempts=222 visible=110 authority=110 beamDisagreeBefore=20 beamDisagreeAfter=0 contactVisible=110 contactHistorical=110 contactLive=5 historicalOnly=105 liveOnly=0 historyMisses=0 meanRewind=18.36 sweepDistance=4
+ALT MATRIX extreme rtt=320 jitter=80 loss=5% reorder=3% attempts=209 visible=106 authority=106 beamDisagreeBefore=24 beamDisagreeAfter=0 contactVisible=106 contactHistorical=106 contactLive=5 historicalOnly=101 liveOnly=0 historyMisses=0 meanRewind=25.20 sweepDistance=4
+ALT SCENE PASS 995 checks; history+contact 0.0207 ms/frame, 0 bytes; alt contact: attempts 3, visible checks 0, visible overlaps 0, checks 56, historical 5, live 3, historical-only 2, live-only 0, unavailable 9, noxus-live-fallback 7, sweep-only 1, rewind total 123.50, sweep distance 28.00

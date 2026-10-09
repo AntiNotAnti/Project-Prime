@@ -1,0 +1,33 @@
+[debug] standard error is being written to /tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer0/logs/ProjectPrime-20261009-011652-45491-native.txt
+Project Prime a local build
+OS: macOS 27.0.0
+OS architecture: Arm64
+Process architecture: Arm64
+RID: osx-arm64
+Runtime: .NET 10.0.12
+Base directory: /private/tmp/pr109-native-final-eight/runtime/
+Launch directory: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online
+Current directory: /private/tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer0
+User data: /tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer0
+Native: /private/tmp/pr109-native-final-eight/runtime/libopenal.1.dylib
+Native: /private/tmp/pr109-native-final-eight/runtime/libglfw.3.dylib
+Native: /private/tmp/pr109-native-final-eight/runtime/libSkiaSharp.dylib
+Native: /private/tmp/pr109-native-final-eight/runtime/libminiaudio.dylib
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[replaycadence] PASS 60 Hz: 600 identical gameplay frames, 600 GL pictures; sim 60.00 Hz / draw 60.0 Hz, 600 steps over 600 frames, 0 dropped, 0 stalls, steps per frame [0, 600, 0, 0, 0, 0], cap 60, presentation 60 Hz, interpolation off
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[replaycadence] PASS 120 Hz: 600 identical gameplay frames, 1199 GL pictures; sim 60.25 Hz / draw 120.0 Hz, 600 steps over 1200 frames, 0 dropped, 0 stalls, steps per frame [600, 600, 0, 0, 0, 0], cap 120, presentation 120 Hz, interpolation on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[replaycadence] PASS 144 Hz: 600 identical gameplay frames, 1439 GL pictures; sim 59.79 Hz / draw 144.0 Hz, 600 steps over 1441 frames, 0 dropped, 0 stalls, steps per frame [841, 600, 0, 0, 0, 0], cap 144, presentation 144 Hz, interpolation on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[replaycadence] PASS 240 Hz: 600 identical gameplay frames, 2397 GL pictures; sim 60.37 Hz / draw 240.0 Hz, 600 steps over 2400 frames, 0 dropped, 0 stalls, steps per frame [1800, 600, 0, 0, 0, 0], cap 240, presentation 240 Hz, interpolation on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[replaycadence] PASS 360 Hz: 600 identical gameplay frames, 3595 GL pictures; sim 59.92 Hz / draw 360.0 Hz, 600 steps over 3600 frames, 0 dropped, 0 stalls, steps per frame [3000, 600, 0, 0, 0, 0], cap 360, presentation 360 Hz, interpolation on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[replaycadence] PASS 540 Hz: 600 identical gameplay frames, 5392 GL pictures; sim 59.94 Hz / draw 540.0 Hz, 600 steps over 5401 frames, 0 dropped, 0 stalls, steps per frame [4801, 600, 0, 0, 0, 0], cap 500, presentation 500 Hz, interpolation on

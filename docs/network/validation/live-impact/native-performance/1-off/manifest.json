@@ -1,0 +1,45 @@
+{
+  "seed": 431,
+  "runtime_source": "/private/tmp/pr109-complete-native-runtime",
+  "runtime_sha256": "3a91c888c2ba90ebca3ae2443746dcfc77b2e31fa81bb735cde69a3b68868729",
+  "ownerGraceSeconds": 8,
+  "liveDelivery": false,
+  "paths_source": "/Users/jarrett/Library/Application Support/Project Prime/paths.txt",
+  "map": "TEST ARENA",
+  "modes": [
+    "shockcoil-all"
+  ],
+  "profiles": [
+    {
+      "name": "rtt250-loss2",
+      "rtt_ms": 250,
+      "loss_percent": 2,
+      "jitter_ms": 40,
+      "reorder_percent": 2,
+      "duplicate_percent": 1
+    }
+  ],
+  "seconds": 30,
+  "players": 8,
+  "observer": false,
+  "rendered": false,
+  "renderView": "all",
+  "screenshotCapture": true,
+  "fps": null,
+  "backend": null,
+  "impacts": true,
+  "fixtureLoadout": true,
+  "serverScratch": false,
+  "claimMode": "shadow",
+  "freezeSource": {
+    "src/MphRead/Mods/Network/HitRig.cs": "008eae8a749a6cf5a2f50f4eb1084f322f9adefe0fbd9bbc700f8005f180292e",
+    "src/MphRead/Mods/Network/NetCheckSimulation.cs": "7e02ed7ad9579425ff81375219604a6ac08086e84fd930ebb7bd5c2fe7f9f0a0",
+    "src/MphRead/Entities/Players/PlayerInput.cs": "d720ca2a04a04ff520f43f08ef8e3ef2287bd5d44f622eb4c2903c3f145e9712",
+    "src/MphRead/Mods/Network/PlayerEntityNetAim.cs": "1bcf94a1dd1f05645ff7a072e1b06fa898a1be9edf15a873da81558604b14dde",
+    "src/MphRead/Mods/Network/NetFireEvents.cs": "6293cc30f85870097222bda3d1cf943779bfe7184993f32723dbf587ba35fb88"
+  },
+  "native_gates": "unchanged existing netcheck simulation/scenario gates",
+  "evidence_scope": "real native simulation and UDP; no rendered/device acceptance",
+  "freezeSourceUnchanged": true,
+  "frozen_runtime_unchanged": true
+}

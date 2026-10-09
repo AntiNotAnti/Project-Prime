@@ -1,0 +1,55 @@
+[debug] standard error is being written to /tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer0/logs/ProjectPrime-20261009-011541-45059-native.txt
+Project Prime a local build
+OS: macOS 27.0.0
+OS architecture: Arm64
+Process architecture: Arm64
+RID: osx-arm64
+Runtime: .NET 10.0.12
+Base directory: /private/tmp/pr109-native-final-eight/runtime/
+Launch directory: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online
+Current directory: /private/tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer0
+User data: /tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer0
+Native: /private/tmp/pr109-native-final-eight/runtime/libopenal.1.dylib
+Native: /private/tmp/pr109-native-final-eight/runtime/libglfw.3.dylib
+Native: /private/tmp/pr109-native-final-eight/runtime/libSkiaSharp.dylib
+Native: /private/tmp/pr109-native-final-eight/runtime/libminiaudio.dylib
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[input] gamepad mappings: 2275 from /private/tmp/pr109-native-final-eight/runtime/gamecontrollerdb.txt
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[render] field of view 78 degrees (the DS's own)
+[render] cel shading off, 8 bands, outline 0.50, fog on
+[replayexport] PASS: foreground-shell capture, native 720p/4K HUD targets, repeated identical 24/30/48/60/90/120/144 FPS samples, fractional frames, gameplay invariance, seek/cadence independence, serialized three-job queue, multi-segment reel and render cancellation.

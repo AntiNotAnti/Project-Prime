@@ -1,0 +1,1 @@
+[renderbackendprobe] PASS backend=Metal adapter="Apple M4 Pro" driver="" wgpu=0x00000000 offscreen=red(25/25) indices=6
