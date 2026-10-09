@@ -54,6 +54,8 @@ jobs:
           dotnet-version: '10.0.x'
       - name: verify legacy and cross-version updater, recovery and worker ownership
         run: dotnet run --project tools/updatecheck -c Release
+      - name: portable hotfix packaging and hidden file guards
+        run: python3 -m unittest discover -s tools -p 'test_release_manifest_writer.py'
       - name: published v0.1.46 -> v0.1.52 archive upgrade on Linux
         if: runner.os == 'Linux'
         shell: bash
