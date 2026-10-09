@@ -151,6 +151,11 @@ namespace MphRead.Mods.Update
                     return false;
                 }
                 MakeExecutable(binary);
+                // V0.1.52's released Windows archive lacks required hidden
+                // Game/Studio metadata, while its Linux manifest owns a
+                // forbidden updater lock. Reject those packages *before*
+                // ending the current game session, not after a failed copy.
+                ReleaseInstallation.ValidateIncoming(StagedBuild, AppContext.BaseDirectory);
                 return true;
             }
             catch (Exception ex)
@@ -192,6 +197,8 @@ namespace MphRead.Mods.Update
                 // before we have installed it. Run our own small, known-working
                 // updater from a detached copy of the current single-file
                 // executable; it is not one of the files to be replaced.
+                // A staged archive may have changed since its preparation.
+                ReleaseInstallation.ValidateIncoming(StagedBuild, AppContext.BaseDirectory);
                 string binary = PrepareUpdateWorker(AppContext.BaseDirectory,
                     UpdateWorker, UpdateCheck.BinaryName());
                 var start = new ProcessStartInfo(binary)
