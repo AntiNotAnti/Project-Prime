@@ -19,7 +19,7 @@ if __name__ == '__main__':
     a = p.parse_args(); rows = join(a.inputs)
     Path(a.output + '.json').write_text(json.dumps({'schema': 1, 'events': rows}, indent=2)+'\n')
     with open(a.output + '.csv', 'w', newline='') as output:
-        w = csv.writer(output); w.writerow(['identity','view','stage','weapon','local_frame','process_timestamp'])
+        w = csv.writer(output, lineterminator="\n"); w.writerow(['identity','view','stage','weapon','local_frame','process_timestamp'])
         for row in rows:
             for view, events in row['views'].items():
                 for e in events: w.writerow([json.dumps(row['identity'],sort_keys=True),view,e['Stage'],e['Weapon'],e['LocalFrame'],e['Timestamp']])

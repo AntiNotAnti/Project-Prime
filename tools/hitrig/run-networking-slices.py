@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Ordinary native two-client networking smoke matrix, with isolated preferences.
+"""Ordinary native 2/4/8-client networking smoke matrix, with isolated preferences.
 
 Runs the existing real server and -netcheck -nographics hitrig modes. No native
 weapon/source gate or scenario code is changed. A private runtime copy freezes
@@ -17,7 +17,7 @@ import socket
 import subprocess
 import time
 
-RTTS = (0, 25, 50, 100, 150, 250, 500)
+RTTS = (0, 25, 50, 100, 150, 250, 350, 500)
 LOSSES = (0, 1, 2, 5, 10)
 PROFILES = [dict(name=f"rtt{rtt}-loss{loss}", rtt_ms=rtt, loss_percent=loss,
                  jitter_ms=min(60, rtt // 5), reorder_percent=0 if rtt == loss == 0 else 2,
@@ -70,7 +70,9 @@ def main():
     parser.add_argument("--seconds", type=int, default=30)
     parser.add_argument("--seed", type=int, default=431)
     parser.add_argument("--modes", default="jump")
-    parser.add_argument("--profiles", default="rtt0-loss0,rtt100-loss2,rtt500-loss10", help="Comma-separated names or all (35 profiles)")
+    parser.add_argument("--profiles", default="rtt0-loss0,rtt100-loss2,rtt500-loss10", help="Comma-separated names or all (40 profiles)")
+    parser.add_argument("--players", type=int, choices=(2,4,8), default=2)
+    parser.add_argument("--impacts", action="store_true", help="Opt in to impact delivery/debug/profile; no rendered success claim")
     parser.add_argument("--hunter", default="Samus")
     parser.add_argument("--map", default="MP1 SANCTORUS")
     parser.add_argument("--mapdir", type=Path)
@@ -112,7 +114,7 @@ def main():
     manifest = dict(seed=args.seed, runtime_source=str(runtime), runtime_sha256=sha(frozen / "ProjectPrime.dll"),
                     paths_source=str(data / "paths.txt"), map=args.map, modes=modes,
                     profiles=[profile for profile in PROFILES if profile["name"] in requested],
-                    seconds=args.seconds, freezeSource=source_hashes, native_gates="unchanged existing netcheck simulation/scenario gates",
+                    seconds=args.seconds, players=args.players, impacts=args.impacts, freezeSource=source_hashes, native_gates="unchanged existing netcheck simulation/scenario gates",
                     evidence_scope="real native simulation and UDP; no rendered/device acceptance")
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     mapdir = args.mapdir.resolve() if args.mapdir else output / "empty-maps"
@@ -135,6 +137,9 @@ def main():
                 config = user / "telemetry-config.json"
                 config.write_text(json.dumps(dict(enabled=False, detail="Off", upload=False)))
                 env = dict(os.environ, PROJECT_PRIME_USER_DATA=str(user), ALSOFT_DRIVERS="null", PRIME_TELEMETRY_CONFIG=str(config))
+                if args.impacts:
+                    env["PRIME_IMPACT_LOG"] = str(folder / f"{role}-impacts.json")
+                    options += ["-liveimpacts", "-liveimpactdebug", "-impactprofile"]
                 command = [args.dotnet, str(frozen / "ProjectPrime.dll"), "-mapdir", str(mapdir), *options]
                 row["commands"][role] = command
                 log = open(folder / f"{role}.log", "w")
@@ -143,14 +148,14 @@ def main():
                 children.append(child)
                 return child
             try:
-                server = launch("server", ["-server", "-port", port, "-players", "2", "-nomaster", "-serverreplays", "off", "-debuglog"])
+                server = launch("server", ["-server", "-port", port, "-players", str(args.players), "-nomaster", "-serverreplays", "off", "-debuglog"])
                 deadline = time.monotonic() + args.startup_timeout
                 while "authoritative server ready" not in text(folder / "server.log"):
                     if server.poll() is not None or time.monotonic() > deadline:
                         raise RuntimeError("real server failed readiness; inspect server.log")
                     time.sleep(.1)
                 peers = {}
-                for index in range(2):
+                for index in range(args.players):
                     role = f"peer{index}"
                     peers[role] = launch(role, ["-netcheck", "127.0.0.1", "-port", port, "-name", role,
                         "-hunter", args.hunter, "-seconds", str(args.seconds), "-nographics", "-hitrig", mode,
@@ -166,7 +171,7 @@ def main():
                 while any(peer.poll() is None for peer in peers.values()):
                     elapsed = time.monotonic() - started
                     loaded_slots = set(re.findall(r"\bslot (\d+) synchronizing\b", text(folder / "server.log")))
-                    if ready_at is None and len(loaded_slots) >= 2:
+                    if ready_at is None and len(loaded_slots) >= args.players:
                         ready_at = time.monotonic()
                         row["both_clients_loaded_seconds"] = elapsed
                     target = peers[args.pause_role]

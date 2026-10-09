@@ -84,8 +84,10 @@ internal static class LiveImpactTests
         var queue = new NetPacketQueue(512,128); var ep = new IPEndPoint(IPAddress.Loopback,1);
         for(int i=0;i<1000;i++) queue.TryEnqueue(new(ep,new[]{(byte)PacketType.LiveCombatImpact},1));
         Check(queue.Count==64,"cosmetic ingress reserve");
-        for(int i=0;i<256;i++) Check(queue.TryEnqueue(new(ep,new[]{(byte)PacketType.Intent},1)),"gameplay realtime admission survives cosmetics");
+        for(int i=0;i<384;i++) Check(queue.TryEnqueue(new(ep,new[]{(byte)PacketType.Intent},1)),"gameplay realtime admission survives cosmetics");
         for(int i=0;i<128;i++) Check(queue.TryEnqueue(new(ep,new[]{(byte)PacketType.MatchState},1)),"critical admission survives cosmetics");
+        Check(queue.Count==576,"cosmetics have a separate 64-entry reserve; full gameplay capacity remains available");
+        Check(queue.TryDequeue(NetPacketPriority.Realtime,out var first) && first.Type==PacketType.Intent,"gameplay drains before cosmetics");
     }
     private static void Matrix(string? output)
     {

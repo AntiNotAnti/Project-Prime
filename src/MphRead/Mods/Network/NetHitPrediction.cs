@@ -805,6 +805,10 @@ namespace MphRead.Mods.Network
                 bool lethal = victim.Health > 0
                     && (damage >= (uint)victim.Health || flags.TestFlag(DamageFlags.Death));
                 // Keep feedback immediate while reserving remote death for authority.
+                if (NetImpactDiagnostics.Enabled && !self && attacker != null && shotId != 0)
+                    NetImpactDiagnostics.Record(new CombatImpactIdentity(shotKey ?? ShotKey.For(attacker.SlotIndex, shotId),
+                        (byte)victim.SlotIndex, NetPlayerLifecycle.Generation(victim.SlotIndex), NetPlayerLifecycle.Get(victim.SlotIndex),
+                        0, 0, 0), ImpactStage.LocalHit, (byte)beam, NetSession.NetFrame);
                 uint claimedDamage = damage;
                 int weapon = NetShotDiagnostics.Bucket(beam);
                 NetShotDiagnostics.LocalHits[weapon]++;

@@ -1,0 +1,447 @@
+{
+  "schema": 1,
+  "scenarios": [
+    {
+      "scenario": "powerbeam-rtt0-loss0",
+      "rendered": false,
+      "authorityFactsRetained": 16,
+      "authorityRingOverwritten": 0,
+      "authorityByWeapon": {
+        "0": 16
+      },
+      "peers": [
+        {
+          "view": "peer0-impacts",
+          "liveIngressUnique": 16,
+          "authorityBacked": 16,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "0": 16
+          },
+          "localPredictionsRetained": 14,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 14,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        },
+        {
+          "view": "peer1-impacts",
+          "liveIngressUnique": 16,
+          "authorityBacked": 16,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "0": 16
+          },
+          "localPredictionsRetained": 0,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        }
+      ],
+      "limitations": [
+        "Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.",
+        "Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.",
+        "No impact-render latency, visual correlation, observer view, or predicted-kill reversal rate is measured."
+      ]
+    },
+    {
+      "scenario": "powerbeam-rtt250-loss2",
+      "rendered": false,
+      "authorityFactsRetained": 16,
+      "authorityRingOverwritten": 0,
+      "authorityByWeapon": {
+        "0": 16
+      },
+      "peers": [
+        {
+          "view": "peer0-impacts",
+          "liveIngressUnique": 16,
+          "authorityBacked": 16,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "0": 16
+          },
+          "localPredictionsRetained": 16,
+          "latencySamples": 14,
+          "negativeCandidateLatencies": 2,
+          "localHitToIngressP90Ms": 217.445208,
+          "localHitToIngressP99Ms": 949.417292,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            16.157875,
+            32.186708,
+            32.930042,
+            115.425792,
+            132.369209,
+            150.817667,
+            182.826208,
+            182.831584,
+            183.154375,
+            200.882542,
+            215.889583,
+            216.8215,
+            217.445208,
+            949.417292
+          ]
+        },
+        {
+          "view": "peer1-impacts",
+          "liveIngressUnique": 12,
+          "authorityBacked": 12,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "0": 12
+          },
+          "localPredictionsRetained": 0,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        }
+      ],
+      "limitations": [
+        "Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.",
+        "Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.",
+        "No impact-render latency, visual correlation, observer view, or predicted-kill reversal rate is measured."
+      ]
+    },
+    {
+      "scenario": "powerbeam-rtt350-loss2",
+      "rendered": false,
+      "authorityFactsRetained": 18,
+      "authorityRingOverwritten": 0,
+      "authorityByWeapon": {
+        "0": 18
+      },
+      "peers": [
+        {
+          "view": "peer0-impacts",
+          "liveIngressUnique": 18,
+          "authorityBacked": 18,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "0": 18
+          },
+          "localPredictionsRetained": 18,
+          "latencySamples": 18,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 350.068958,
+          "localHitToIngressP99Ms": 350.431583,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            126.605875,
+            150.253917,
+            233.908584,
+            249.514125,
+            249.867917,
+            249.973291,
+            266.846625,
+            282.754375,
+            299.796333,
+            300.18425,
+            300.987667,
+            302.570125,
+            315.939708,
+            317.246375,
+            332.764958,
+            349.566792,
+            350.068958,
+            350.431583
+          ]
+        },
+        {
+          "view": "peer1-impacts",
+          "liveIngressUnique": 18,
+          "authorityBacked": 18,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "0": 18
+          },
+          "localPredictionsRetained": 0,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        }
+      ],
+      "limitations": [
+        "Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.",
+        "Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.",
+        "No impact-render latency, visual correlation, observer view, or predicted-kill reversal rate is measured."
+      ]
+    },
+    {
+      "scenario": "shockcoil-rtt0-loss0",
+      "rendered": false,
+      "authorityFactsRetained": 1,
+      "authorityRingOverwritten": 0,
+      "authorityByWeapon": {
+        "2": 1
+      },
+      "peers": [
+        {
+          "view": "peer0-impacts",
+          "liveIngressUnique": 1,
+          "authorityBacked": 1,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "2": 1
+          },
+          "localPredictionsRetained": 160,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 1,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        },
+        {
+          "view": "peer1-impacts",
+          "liveIngressUnique": 1,
+          "authorityBacked": 1,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "2": 1
+          },
+          "localPredictionsRetained": 0,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        }
+      ],
+      "limitations": [
+        "Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.",
+        "Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.",
+        "No impact-render latency, visual correlation, observer view, or predicted-kill reversal rate is measured."
+      ]
+    },
+    {
+      "scenario": "shockcoil-rtt250-loss2",
+      "rendered": false,
+      "authorityFactsRetained": 0,
+      "authorityRingOverwritten": 0,
+      "authorityByWeapon": {},
+      "peers": [
+        {
+          "view": "peer0-impacts",
+          "liveIngressUnique": 0,
+          "authorityBacked": 0,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {},
+          "localPredictionsRetained": 129,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        },
+        {
+          "view": "peer1-impacts",
+          "liveIngressUnique": 0,
+          "authorityBacked": 0,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {},
+          "localPredictionsRetained": 0,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        }
+      ],
+      "limitations": [
+        "Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.",
+        "Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.",
+        "No impact-render latency, visual correlation, observer view, or predicted-kill reversal rate is measured."
+      ]
+    },
+    {
+      "scenario": "shockcoil-rtt350-loss2",
+      "rendered": false,
+      "authorityFactsRetained": 0,
+      "authorityRingOverwritten": 0,
+      "authorityByWeapon": {},
+      "peers": [
+        {
+          "view": "peer0-impacts",
+          "liveIngressUnique": 0,
+          "authorityBacked": 0,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {},
+          "localPredictionsRetained": 139,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        },
+        {
+          "view": "peer1-impacts",
+          "liveIngressUnique": 0,
+          "authorityBacked": 0,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {},
+          "localPredictionsRetained": 0,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        }
+      ],
+      "limitations": [
+        "Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.",
+        "Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.",
+        "No impact-render latency, visual correlation, observer view, or predicted-kill reversal rate is measured."
+      ]
+    },
+    {
+      "scenario": "sniper-rtt0-loss0",
+      "rendered": false,
+      "authorityFactsRetained": 0,
+      "authorityRingOverwritten": 0,
+      "authorityByWeapon": {},
+      "peers": [
+        {
+          "view": "peer0-impacts",
+          "liveIngressUnique": 0,
+          "authorityBacked": 0,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {},
+          "localPredictionsRetained": 6,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        },
+        {
+          "view": "peer1-impacts",
+          "liveIngressUnique": 0,
+          "authorityBacked": 0,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {},
+          "localPredictionsRetained": 0,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        }
+      ],
+      "limitations": [
+        "Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.",
+        "Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.",
+        "No impact-render latency, visual correlation, observer view, or predicted-kill reversal rate is measured."
+      ]
+    },
+    {
+      "scenario": "sniper-rtt250-loss2",
+      "rendered": false,
+      "authorityFactsRetained": 0,
+      "authorityRingOverwritten": 0,
+      "authorityByWeapon": {},
+      "peers": [
+        {
+          "view": "peer0-impacts",
+          "liveIngressUnique": 0,
+          "authorityBacked": 0,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {},
+          "localPredictionsRetained": 5,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        },
+        {
+          "view": "peer1-impacts",
+          "liveIngressUnique": 0,
+          "authorityBacked": 0,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {},
+          "localPredictionsRetained": 0,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        }
+      ],
+      "limitations": [
+        "Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.",
+        "Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.",
+        "No impact-render latency, visual correlation, observer view, or predicted-kill reversal rate is measured."
+      ]
+    },
+    {
+      "scenario": "sniper-rtt350-loss2",
+      "rendered": false,
+      "authorityFactsRetained": 2,
+      "authorityRingOverwritten": 0,
+      "authorityByWeapon": {
+        "2": 2
+      },
+      "peers": [
+        {
+          "view": "peer0-impacts",
+          "liveIngressUnique": 2,
+          "authorityBacked": 2,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "2": 2
+          },
+          "localPredictionsRetained": 6,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 2,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        },
+        {
+          "view": "peer1-impacts",
+          "liveIngressUnique": 2,
+          "authorityBacked": 2,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "2": 2
+          },
+          "localPredictionsRetained": 0,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        }
+      ],
+      "limitations": [
+        "Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.",
+        "Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.",
+        "No impact-render latency, visual correlation, observer view, or predicted-kill reversal rate is measured."
+      ]
+    }
+  ]
+}

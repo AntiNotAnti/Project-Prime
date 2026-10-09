@@ -19,6 +19,7 @@ public sealed class NetPacketQueue
     private readonly object _lock = new();
     private readonly Queue<ReceivedPacket>[] _queues = { new(128), new(2048), new(32) };
     private readonly int _capacity, _normalLimit;
+    private readonly Queue<ReceivedPacket> _cosmeticQueue = new(64);
     private int _count, _high, _cosmetics;
     private long _drops;
     public NetPacketQueue(int capacity = 2048, int criticalReserve = 128)
@@ -29,14 +30,14 @@ public sealed class NetPacketQueue
     public int Count => Volatile.Read(ref _count);
     public int HighWater { get { lock (_lock) return _high; } }
     public long Drops { get { lock (_lock) return _drops; } }
-    public bool CanAcceptCritical { get { lock (_lock) return _count < _capacity; } }
+    public bool CanAcceptCritical { get { lock (_lock) return _count - _cosmetics < _capacity; } }
     public bool CanAccept(PacketType type)
     {
         lock (_lock) return Accepts(type);
     }
     private bool Accepts(PacketType type) => type == PacketType.LiveCombatImpact
-        ? _cosmetics < 64 && _count < Math.Max(0, _normalLimit - 128)
-        : _count < (Priority(type) == NetPacketPriority.Critical ? _capacity : _normalLimit);
+        ? _cosmetics < 64 && _count - _cosmetics < Math.Max(0, _normalLimit - 128)
+        : _count - _cosmetics < (Priority(type) == NetPacketPriority.Critical ? _capacity : _normalLimit);
     public static NetPacketPriority Priority(PacketType type) => type switch
     {
         PacketType.MatchSemanticEvent or PacketType.MatchAward or PacketType.ReplayShotFact
@@ -60,15 +61,18 @@ public sealed class NetPacketQueue
         lock (_lock)
         {
             if (!Accepts(packet.Type)) { _drops++; return false; }
-            if (packet.Type == PacketType.LiveCombatImpact) _cosmetics++;
-            _queues[(int)priority].Enqueue(packet); _count++; _high = Math.Max(_high, _count); return true;
+            if (packet.Type == PacketType.LiveCombatImpact)
+            { _cosmetics++; _cosmeticQueue.Enqueue(packet); }
+            else _queues[(int)priority].Enqueue(packet);
+            _count++; _high = Math.Max(_high, _count); return true;
         }
     }
     public bool TryDequeue(NetPacketPriority priority, out ReceivedPacket packet)
     {
         lock (_lock)
         {
-            if (!_queues[(int)priority].TryDequeue(out packet)) return false;
+            if (!_queues[(int)priority].TryDequeue(out packet)
+                && (priority != NetPacketPriority.Realtime || !_cosmeticQueue.TryDequeue(out packet))) return false;
             if (packet.Type == PacketType.LiveCombatImpact) _cosmetics--;
             _count--; return true;
         }

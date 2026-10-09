@@ -1,0 +1,34 @@
+{
+  "seed": 431,
+  "runtime_source": "/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/src/MphRead/bin/Release/net10.0",
+  "runtime_sha256": "275986d15990be3eee63f964241402627a70f3bb6f86dec5a1b62622083ae5e3",
+  "paths_source": "/Users/jarrett/Library/Application Support/Project Prime/paths.txt",
+  "map": "MP1 SANCTORUS",
+  "modes": [
+    "powerbeam"
+  ],
+  "profiles": [
+    {
+      "name": "rtt250-loss2",
+      "rtt_ms": 250,
+      "loss_percent": 2,
+      "jitter_ms": 50,
+      "reorder_percent": 2,
+      "duplicate_percent": 1
+    }
+  ],
+  "seconds": 30,
+  "players": 8,
+  "impacts": true,
+  "freezeSource": {
+    "src/MphRead/Mods/Network/HitRig.cs": "3aee41556a8b981c761ca4d74a41d200f22cd8e40b8a5c19f941b059e70d2cc6",
+    "src/MphRead/Mods/Network/NetCheckSimulation.cs": "f7cfd6bf44565e94b55c3f9705bcebe22a3f17b7e54d11c4791bfd2dffb987c1",
+    "src/MphRead/Entities/Players/PlayerInput.cs": "d720ca2a04a04ff520f43f08ef8e3ef2287bd5d44f622eb4c2903c3f145e9712",
+    "src/MphRead/Mods/Network/PlayerEntityNetAim.cs": "1bcf94a1dd1f05645ff7a072e1b06fa898a1be9edf15a873da81558604b14dde",
+    "src/MphRead/Mods/Network/NetFireEvents.cs": "6293cc30f85870097222bda3d1cf943779bfe7184993f32723dbf587ba35fb88"
+  },
+  "native_gates": "unchanged existing netcheck simulation/scenario gates",
+  "evidence_scope": "real native simulation and UDP; no rendered/device acceptance",
+  "freezeSourceUnchanged": true,
+  "frozen_runtime_unchanged": true
+}

@@ -11,7 +11,11 @@ permissions:
   contents: read
 jobs:
   asset-free:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
@@ -28,5 +32,5 @@ jobs:
       - uses: actions/upload-artifact@v6
         if: always()
         with:
-          name: live-impact-evidence
+          name: live-impact-evidence-${{ matrix.os }}
           path: artifacts/live-impact

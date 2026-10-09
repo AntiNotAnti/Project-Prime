@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 
 namespace MphRead.Mods.Network;
@@ -55,8 +56,22 @@ internal static class NetImpactDiagnostics
     internal static void Export(string path) => File.WriteAllText(path, JsonSerializer.Serialize(new
     {
         schema = 1, clock = "process-monotonic; compare frames across processes, not timestamps",
-        timestampFrequency = Stopwatch.Frequency, overwritten = Overwritten, events = Snapshot()
+        timestampFrequency = Stopwatch.Frequency, overwritten = Overwritten, events = Snapshot(),
+        counts = Enumerable.Range(0, 9).Select(weapon => new { weapon,
+            stages = Enum.GetValues<ImpactStage>().Select(stage => new { stage = stage.ToString(), count = Counts[weapon, (int)stage] }).ToArray() }).ToArray(),
+        claimShadow = NetClaimEarlySettlement.Snapshot(),
+        predictedKills = new { NetPredictedKillPresentation.Started, NetPredictedKillPresentation.Confirmed,
+            NetPredictedKillPresentation.Rejected, NetPredictedKillPresentation.Expired },
+        profile = NetCombatProfile.Enabled ? NetCombatProfile.Capture() : null
     }, new JsonSerializerOptions { WriteIndented = true }));
+    internal static void ExportRequested()
+    {
+        if (!Enabled || Environment.GetEnvironmentVariable("PRIME_IMPACT_LOG") is not string path) return;
+        if (_count == 0 && File.Exists(path)) return; // Preserve the just-finished match during shutdown reset.
+        try { Export(path); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { Console.WriteLine($"[impact] diagnostic export failed: {ex.Message}"); }
+    }
     internal static void Reset()
     {
         Array.Clear(Events); Array.Clear(Counts); _cursor = _count = 0; Overwritten = 0;

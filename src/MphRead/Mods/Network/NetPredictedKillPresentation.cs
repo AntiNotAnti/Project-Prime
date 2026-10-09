@@ -108,5 +108,5 @@ internal static class NetPredictedKillPresentation
         if(pending && ticket.State is PredictedKillState.Expired or PredictedKillState.None) Expired++;
         return Matrix4.CreateRotationX(-MathF.PI*.45f*pose);
     }
-    internal static void Reset(){foreach(var ticket in Tickets)ticket.Clear();}
+    internal static void Reset(){foreach(var ticket in Tickets)ticket.Clear();Started=Confirmed=Rejected=Expired=0;}
 }

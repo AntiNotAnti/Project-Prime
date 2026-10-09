@@ -1,0 +1,165 @@
+2026-10-09T04:37:31.3929166Z Current runner version: '2.337.0'
+2026-10-09T04:37:31.3954497Z ##[group]Runner Image Provisioner
+2026-10-09T04:37:31.3955594Z Hosted Compute Agent
+2026-10-09T04:37:31.3956202Z Version: 20261002.596
+2026-10-09T04:37:31.3956881Z Commit: c3d12f3313a95f25162a1503be624f3b0617f8c0
+2026-10-09T04:37:31.3957659Z Build Date: 2026-10-02T22:28:27Z
+2026-10-09T04:37:31.3958342Z Worker ID: {8a53560a-9f44-497a-b194-1faaf2d9a696}
+2026-10-09T04:37:31.3959093Z Region: eastus
+2026-10-09T04:37:31.3959632Z Cloud: Azure
+2026-10-09T04:37:31.3960145Z ##[endgroup]
+2026-10-09T04:37:31.3962306Z ##[group]Operating System
+2026-10-09T04:37:31.3963017Z Ubuntu
+2026-10-09T04:37:31.3964062Z 24.04.5
+2026-10-09T04:37:31.3964992Z LTS
+2026-10-09T04:37:31.3965549Z ##[endgroup]
+2026-10-09T04:37:31.3966196Z ##[group]Runner Image
+2026-10-09T04:37:31.3966800Z Image: ubuntu-24.04
+2026-10-09T04:37:31.3967401Z Version: 20261004.327.1
+2026-10-09T04:37:31.3968684Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261004.327/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-09T04:37:31.3970357Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261004.327
+2026-10-09T04:37:31.3971338Z ##[endgroup]
+2026-10-09T04:37:31.3972501Z ##[group]GITHUB_TOKEN Permissions
+2026-10-09T04:37:31.3974934Z Contents: read
+2026-10-09T04:37:31.3975669Z Metadata: read
+2026-10-09T04:37:31.3976270Z ##[endgroup]
+2026-10-09T04:37:31.3978443Z Secret source: Actions
+2026-10-09T04:37:31.3979528Z Cache mode: write
+2026-10-09T04:37:31.3980529Z Prepare workflow directory
+2026-10-09T04:37:31.4399119Z Prepare all required actions
+2026-10-09T04:37:31.4560751Z Complete job name: RmlUi migration acceptance
+2026-10-09T04:37:31.5444819Z ##[group]Run python3 - <<'PY'
+2026-10-09T04:37:31.5445758Z [36;1mpython3 - <<'PY'[0m
+2026-10-09T04:37:31.5446388Z [36;1mimport json, os, sys[0m
+2026-10-09T04:37:31.5447606Z [36;1mresults = json.loads(os.environ['REQUIRED_RESULTS'])[0m
+2026-10-09T04:37:31.5448900Z [36;1mfailures = {name: result['result'] for name, result in results.items() if result['result'] != 'success'}[0m
+2026-10-09T04:37:31.5450090Z [36;1mwith open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:[0m
+2026-10-09T04:37:31.5451357Z [36;1m    summary.write('RmlUi migration acceptance for `' + os.environ['GITHUB_SHA'] + '`\n\n')[0m
+2026-10-09T04:37:31.5452535Z [36;1m    summary.write('| Required gate | Result |\n| --- | --- |\n')[0m
+2026-10-09T04:37:31.5453497Z [36;1m    for name, result in sorted(results.items()):[0m
+2026-10-09T04:37:31.5454823Z [36;1m        summary.write('| ' + name + ' | ' + result['result'] + ' |\n')[0m
+2026-10-09T04:37:31.5455857Z [36;1mif failures:[0m
+2026-10-09T04:37:31.5456925Z [36;1m    print('Migration acceptance failed: ' + ', '.join(name + '=' + result for name, result in sorted(failures.items())))[0m
+2026-10-09T04:37:31.5458078Z [36;1m    sys.exit(1)[0m
+2026-10-09T04:37:31.5459196Z [36;1mprint('PASS all required migration source, native platform, controller, server, renderer and Android framework gates')[0m
+2026-10-09T04:37:31.5460318Z [36;1mPY[0m
+2026-10-09T04:37:31.6669065Z shell: /usr/bin/bash -e {0}
+2026-10-09T04:37:31.6670149Z env:
+2026-10-09T04:37:31.6680499Z   REQUIRED_RESULTS: {
+  "assets": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "engineering-contracts": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "studio-desktop": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "server-compile": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "character-model-check": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "fidelity-oracle": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "patched-wgpu-native": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "modern-renderer-windows": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "modern-renderer-linux": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "modern-renderer-macos": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "modern-renderer-android": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "modern-shader-source-check": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "android-pacing-policy": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "desktop-pacing-policy": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "renderer-policy-foundation": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "rmlui-home-poc": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "rmlui-home-poc-macos": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "rmlui-windows-package": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "rmlui-neutral-native": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "rmlui-android-native": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "rmlui-full-source": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "enhanced-hunter-checks": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "map-editor-checks": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "controller-checks": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "build": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "macos": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "android": {
+    "result": "cancelled",
+    "outputs": {}
+  },
+  "windows-server": {
+    "result": "cancelled",
+    "outputs": {}
+  }
+}
+2026-10-09T04:37:31.6690994Z ##[endgroup]
+2026-10-09T04:37:31.7149496Z Migration acceptance failed: android=cancelled, android-pacing-policy=cancelled, assets=cancelled, build=cancelled, character-model-check=cancelled, controller-checks=cancelled, desktop-pacing-policy=cancelled, engineering-contracts=cancelled, enhanced-hunter-checks=cancelled, fidelity-oracle=cancelled, macos=cancelled, map-editor-checks=cancelled, modern-renderer-android=cancelled, modern-renderer-linux=cancelled, modern-renderer-macos=cancelled, modern-renderer-windows=cancelled, modern-shader-source-check=cancelled, patched-wgpu-native=cancelled, renderer-policy-foundation=cancelled, rmlui-android-native=cancelled, rmlui-full-source=cancelled, rmlui-home-poc=cancelled, rmlui-home-poc-macos=cancelled, rmlui-neutral-native=cancelled, rmlui-windows-package=cancelled, server-compile=cancelled, studio-desktop=cancelled, windows-server=cancelled
+2026-10-09T04:37:31.7185624Z ##[error]Process completed with exit code 1.
+2026-10-09T04:37:31.7459569Z Cleaning up orphan processes

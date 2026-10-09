@@ -66,6 +66,7 @@ internal static class NetCheckSimulation
             using var traceWriter = System.IO.File.CreateText(tracePath);
             NetContinuousTargetDiagnostics.WriteTraces(traceWriter);
         }
+        NetImpactDiagnostics.ExportRequested();
         Console.WriteLine(NetUnlagged.Describe());
         Console.WriteLine(ReplayPerfTelemetry.Summary(ReplayCapture.Recorder.Timeline));
         bool stationaryTarget = HitRig.IsSniper && (HitRig.Mode == HitRig.RigMode.AltStatic || HitRig.Mode == HitRig.RigMode.AltContact);

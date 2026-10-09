@@ -79,7 +79,9 @@ internal static class NetLiveImpactPresenter
     internal static void NoteNativeImpact(BeamProjectileEntity beam, Vector3 point)
     {
         if (!NetCombatFactPublisher.LiveEnabled || beam.OwningScene.Services.IsReplica
+            || !beam.OwningScene.Services.AllowsPresentationSideEffects
             || NetSession.Role != NetRole.Client || beam.ModShotId == 0) return;
+        if (_scene != beam.OwningScene) { Reset(); _scene = beam.OwningScene; }
         ObservedImpacts[_observedCursor] = new(beam.ModLaunchKey,beam.ModPresentationComponent,(byte)beam.Beam,point,NetSession.NetFrame);
         _observedCursor=(_observedCursor+1)%ObservedImpacts.Length;
     }

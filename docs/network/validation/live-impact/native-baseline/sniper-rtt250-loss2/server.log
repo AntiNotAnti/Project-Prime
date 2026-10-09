@@ -1,0 +1,52 @@
+[debug] standard error is being written to /private/tmp/pr109-baseline-native/sniper-rtt250-loss2/server/logs/ProjectPrime-20261008-234213-97200-native.txt
+[update] this is a local build, so it is left alone
+[23:42:13] [server] listening on UDP 60402, up to 2 players
+[23:42:13] [server] server hot paths prewarmed in 117.6 ms
+[replay] canonical server recording disabled
+[career] reporting disabled: PROJECT_PRIME_CAREER_SERVER_KEY is not configured
+[23:42:13] [server] authoritative server ready; simulation wakes on first player
+[23:42:13] [server] rotation: 1 map(s), starting on MP1 SANCTORUS (Battle, 15 min, 99 pts)
+[23:42:13] [server] not starting games for anybody (no host port range)
+[prewarm] MP1 SANCTORUS: 6 files, 0.5 MiB in 0.00s
+[net] server map: MP1 SANCTORUS (Battle, 900 s left)
+[net] player slots built, main player = slot 0
+[23:42:13] [server] 127.0.0.1:54657 joined as slot 0
+[23:42:13] [server] [lobby] revision 1 -> 2: peer slot 0 connected
+[23:42:13] [server] [lobby] revision 2 -> 3: peer slot 0 connected
+[career] tracking match f1a190d3-43fa-4a55-96b7-a4dc00349d91 (wire 2) on MP1 SANCTORUS
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] match clock synced to server: 900 s remaining on MP1 SANCTORUS
+[net] slot 0 activated (Player1) -- 1 player(s) in scene
+[net] slot 0 (Samus) wears suit 1
+[23:42:14] [server] 127.0.0.1:65448 joined as slot 1
+[23:42:14] [server] [lobby] revision 3 -> 4: peer slot 1 connected
+[23:42:14] [server] [lobby] revision 4 -> 5: peer slot 1 connected
+[net] slot 1 activated (Player2) -- 2 player(s) in scene
+[net] slot 1 (Samus) wears suit 2 -- asked for 1
+[23:42:14] [server] slot 0 is "peer0" playing Samus in suit 1
+[23:42:14] [server] [lobby] revision 5 -> 6: slot 0 identity changed
+[23:42:14] [server] [lobby] revision 6 -> 7: slot 0 next-life hunter committed
+[23:42:14] [server] slot 1 is "peer1" playing Samus in suit 1
+[23:42:14] [server] [lobby] revision 7 -> 8: slot 1 identity changed
+[23:42:14] [server] [lobby] revision 8 -> 9: slot 1 next-life hunter committed
+[23:42:14] [server] [lobby] revision 9 -> 10: slot 0 synchronizing
+[23:42:15] [server] [lobby] revision 10 -> 11: slot 1 synchronizing
+[23:42:15] [server] [lobby] slot 0 applied world revision 1, frame 35
+[23:42:15] [server] [lobby] slot 1 applied world revision 2, frame 54
+[23:42:43] [server] 2 peer(s) connected, authority = this server, map MP1 SANCTORUS, 870 s left
+[23:42:43] [server] sim: MP1 SANCTORUS (Battle), 1761 step(s), 0.61 ms mean, 0.78 ms p95, 1.99 ms p99, 290.8 ms worst, 24528968 allocated bytes, 1 overrun, 3 dropped, 1 stall(s)
+[23:42:43] [server] sim: pacing sleep=15635 yield=562251 spin=1425, wake-p99=8.800ms
+[23:42:43] [server] sim: lag compensation: 9 shots rewound, mean 24.7 frames (411 ms), worst 27, catch-up 192 steps / 3 hits, history misses 0; ceiling 45 frames (750 ms), clamped 0, worst asked 27; stale presses 0; shadow Shadow: 4/9 timed shots would clamp, 5.4 frames refused, geometry unavailable 1/9; catch-up maximum 27, truncations 0; form rewinds 195, mismatches 0, Kanden checks 0/hits 0; alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00
+weapon attempted spawned localHits authorityHits predictions claims rescues refusals predictedDamage authorityDamage localHeadshots authorityHeadshots meanRewind clamp%
+Missile 9 9 0 0 0 0 0 0 0 0 0 0 24.67 0.0
+positions: snapshots=0 fallback entries=0 frames=0 longest=0; pre-input puppet correction: 0 mean=0.0000 worst=0.0000 units; presentation correction: 0 mean=0.0000 worst=0.0000 units; timing ms: snapshot=0.0 worst=0.0 simulation=16.7 worst=82.9; playout snaps: after local stall=0 without local stall=0
+[23:42:43] [server] sim: rewind depths asked (frames: shots): 23:2 24:3 25:1 26:2 27:1
+[23:42:43] [server] sim: shots spawned here (slot: beams): 0:9
+[23:42:43] [server] sim: predicted vs resolved damage: nothing paired
+[23:42:45] [server] [lobby] revision 11 -> 12: slot 1 left; owner 0
+[net] slot 1 deactivated -- player left
+[23:42:45] [server] 127.0.0.1:65448 left (slot 1)
+[23:42:45] [server] [lobby] revision 12 -> 13: slot 0 left; owner 0
+[net] slot 0 deactivated -- player left
+[23:42:45] [server] 127.0.0.1:54657 left (slot 0)
+[23:42:45] [server] last player left continuous server; suspending empty world
