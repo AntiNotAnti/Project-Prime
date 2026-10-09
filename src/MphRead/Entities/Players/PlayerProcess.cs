@@ -1428,6 +1428,22 @@ namespace MphRead.Entities
                     continue;
                 }
 
+                // The original pickup-radius check can straddle a thin wall.
+                // Only the gameplay authority may award resources, and it must
+                // not do so through room collision or a closed dynamic door.
+                // Match the player's collision profile rather than beam
+                // collision, which can pass through player-blocking surfaces.
+                Vector3 pickupOrigin = IsAltForm ? _volume.SpherePosition
+                    : Position.AddY(Fixed.ToFloat(Values.MinPickupHeight)
+                        + Fixed.ToFloat(Values.BipedColRadius));
+                CollisionResult pickupObstruction = default;
+                if (CollisionDetection.CheckBetweenPoints(
+                    pickupOrigin, item.Position, TestFlags.Players, _scene,
+                    ref pickupObstruction))
+                {
+                    continue;
+                }
+
                 void PlaySfx(SfxId sfx)
                 {
                     if (IsMainPlayer && Sfx.TimedSfxMute == 0)
