@@ -79,11 +79,11 @@ class NativeReleasePackagingTests(unittest.TestCase):
                 sources=verifier.ROOT/"native/rmlui-poc"
                 sources.mkdir(parents=True)
                 source=sources/"projectprime_rmlui.cpp"
-                source.write_bytes(b"line one\\nline two\\n")
+                source.write_bytes(b"line one\nline two\n")
                 lf=verifier.fingerprint()
-                source.write_bytes(b"line one\\r\\nline two\\r\\n")
+                source.write_bytes(b"line one\r\nline two\r\n")
                 self.assertEqual(lf,verifier.fingerprint())
-                source.write_bytes(b"line one\\r\\nline modified\\r\\n")
+                source.write_bytes(b"line one\r\nline modified\r\n")
                 self.assertNotEqual(lf,verifier.fingerprint())
             finally:
                 verifier.ROOT=old_root
