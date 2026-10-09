@@ -229,6 +229,8 @@ internal static partial class Shell
 
     private static bool BackNativePage()
     {
+        if (RmlUiPrototype.Pages?.NoticeOpen == true)
+        { RmlUiPrototype.Pages.CloseNotices(); return true; }
         if (_nativeQueue != default && RmlUiPrototype.Pages?.Manager.Top == _nativeQueue)
         { _rmlMultiplayer?.QueueLeave(); TickNativeQueue(); return true; }
         if (_nativeMaps?.Active == true) { _nativeMaps.Dispose(); _nativeMaps = null; return true; }
@@ -399,6 +401,25 @@ internal static partial class Shell
             if (_nativeHunters.Handle(intent) || !fullPage) return true;
         }
         if (_nativeAdmin?.Active == true) { _nativeAdmin.Handle(intent); return true; }
+        if (intent.Kind == RmlUiIntentKind.NoticeAction)
+        {
+            if (RmlUiPrototype.Pages is not { } pages || intent.Document != pages.Manager.Top) return true;
+            // Baseline pages already accepted the intent. Suspended independent pages have not.
+            if (pages.Suspended && !pages.Manager.Accept(intent)) return true;
+            string? destination = pages.HandleNoticeAction(intent.Argument);
+            if (destination == "updates")
+            {
+                if (_window?.HasScene == true || Network.NetSession.Active || NativeSetupBlocksNavigation)
+                { RmlUiPrototype.SetMenuText("system_status", "Return to the hub before managing application versions."); return true; }
+                if (_nativeSetup == null) OpenNativeSetupPage(required: !GameFiles.Ready);
+                return true;
+            }
+            if (destination == "social" && (Network.NetSession.Active || _rmlLobby != null))
+            { RmlUiPrototype.SetMenuText("system_status", "Leave the active lobby before opening Social."); return true; }
+            if (destination == "social") return OpenNativePage(LauncherPage.Social);
+            if (destination == "news") return OpenNativePage(LauncherPage.News);
+            return true;
+        }
         if (HasNativePage && RmlUiPrototype.Pages is { } activePages && intent.Document != activePages.Manager.Top) return true;
         if (_nativeOffline?.HandleAction(intent) == true || _nativeAdventure?.HandleIntent(intent) == true
             || _nativeLicense?.Handle(intent) == true || _nativePause?.Handle(intent) == true

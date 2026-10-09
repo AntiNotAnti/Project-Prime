@@ -76,6 +76,59 @@ launcher.SetBool("home_friend0_visible",false);
 launcher.Flush();
 Check(!native.Bools[(home.DocumentId,"visible:home_social_rail")] && !native.Bools[(home.DocumentId,"visible:home_friend0")], "Empty or disconnected Home social content collapses");
 
+// Notification inbox: real source projections, bounded slots, suppression and typed routes.
+launcher.ObserveNewsNotice("PATCH NOTES", "A bundled update dispatch.");
+launcher.ObserveSocialNotices(2,1,true,true);
+launcher.ObserveRelease("v99.0.0");
+launcher.Flush();
+Check(native.Bools[(home.DocumentId,"class:build_button:available")]
+    && native.Texts[(home.DocumentId,"notice_0_title")]=="UPDATE AVAILABLE"
+    && native.Bools[(home.DocumentId,"visible:notice_badge")], "Published release and social activity display a live unread badge");
+Check(!RmlUiIntentRegistry.IsValid(RmlUiIntentKind.NoticeAction,11)
+    && RmlUiIntentRegistry.TryParseLegacy("notice:versions",home,1,out var typedVersion)
+    && typedVersion.Kind==RmlUiIntentKind.NoticeAction && typedVersion.Argument==2,
+    "New notification actions are ABI-validated and bounded");
+Check(launcher.HandleIntent(Action("notice:toggle",home,1),out var openedNotice) && openedNotice.Kind==0
+    && launcher.NoticeOpen, "Bell opens the notice drawer locally");
+launcher.Flush();
+Check(native.Bools[(home.DocumentId,"visible:notice_panel")]
+    && !native.Bools[(home.DocumentId,"visible:notice_badge")], "Opening the drawer marks active notices seen");
+Check(launcher.HandleIntent(Action("notice:open:0",home,2),out var reviewUpdate)
+    && reviewUpdate.Kind==RmlUiIntentKind.NoticeAction && reviewUpdate.Argument==2
+    && !launcher.NoticeOpen, "Update notice forwards to guarded Version Manager owner");
+launcher.ObserveRelease(null);
+launcher.Flush();
+Check(!native.Bools[(home.DocumentId,"class:build_button:available")], "Update chip clears after release is no longer available");
+launcher.HandleIntent(Action("notice:toggle",home,3),out _);
+launcher.Flush();
+Check(native.Texts[(home.DocumentId,"notice_0_title")]=="PARTY TRAVEL", "Real social travel appears ahead of older notices");
+Check(launcher.HandleIntent(Action("notice:dismiss:0",home,4),out var dismissed) && dismissed.Kind==0, "Dismiss consumes only its own notice");
+launcher.Flush();
+Check(native.Texts[(home.DocumentId,"notice_0_title")]=="FRIEND REQUESTS", "Dismissing a notice reveals the next entry");
+Check(launcher.Back(out _) && !launcher.NoticeOpen, "Back dismisses the overlay before changing routes");
+launcher.ObserveSocialNotices(0,0,false,true);
+launcher.ObserveNewsNotice(null,null);
+launcher.ReportSystemNotice("Installer recovery requires attention.");
+launcher.Flush();
+Check(native.Texts[(home.DocumentId,"notice_0_title")]=="ACTION REQUIRED", "Authoritative error is retained as a system notice");
+launcher.HandleIntent(Action("notice:toggle",home,5),out _);
+launcher.HandleIntent(Action("notice:dismiss:0",home,6),out _);
+launcher.Flush();
+Check(native.Bools[(home.DocumentId,"visible:notice_empty")], "Dismissing the last alert restores an empty inbox");
+Check(launcher.Back(out _) && !launcher.NoticeOpen, "Notice Back restores launcher navigation ownership");
+launcher.ObserveSocialNotices(1,0,false,true);
+launcher.Flush();
+Check(native.Bools[(home.DocumentId,"visible:notice_badge")], "First incoming invite generates an unread alert");
+launcher.HandleIntent(Action("notice:toggle",home,7),out _);
+launcher.Flush();
+Check(!native.Bools[(home.DocumentId,"visible:notice_badge")], "Opening notices acknowledges the previous invite count");
+launcher.HandleIntent(Action("notice:close",home,8),out _);
+launcher.ObserveSocialNotices(2,0,false,true);
+launcher.Flush();
+Check(native.Bools[(home.DocumentId,"visible:notice_badge")], "A newly arrived invite reactivates the badge after previous acknowledgement");
+launcher.ObserveSocialNotices(0,0,false,true);
+launcher.Flush();
+
 Check(launcher.HandleIntent(Action("home:drawer-open",home,10),out var consumed) && consumed.Kind==0, "Drawer opens locally");
 launcher.AfterUpdate();
 Check(native.Focus.Element=="drawer_browser", "Drawer focus follows selected activity");

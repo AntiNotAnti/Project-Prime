@@ -53,6 +53,28 @@ internal static class NativePageCheck
                     return matched;
                 }
                 Update();
+                launcher.ObserveRelease("v99.0.0"); Update();
+                InViewport(launcher.Document,"build_button");
+                var openVersions=Click(launcher.Document,"build_button","notice:versions");
+                Check(openVersions.Kind==RmlUiIntentKind.NoticeAction && openVersions.Argument==2,
+                    "Real native clickable build chip forwards Version Manager intent");
+                InViewport(launcher.Document,"notice_button");
+                Check(host.FocusDocument(launcher.Document,"notice_button"),"notice button receives focus");
+                host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
+                bool toggled=false;
+                while(host.TryTakeIntent(out var notificationIntent))
+                {
+                    if(notificationIntent.Kind==RmlUiIntentKind.NoticeAction && notificationIntent.Argument==0)
+                    {
+                        Check(launcher.HandleIntent(notificationIntent,out var local) && local.Kind==0,
+                            "Real native notification toggle stays within shell owner");
+                        toggled=true;
+                    }
+                }
+                Check(toggled && launcher.NoticeOpen,"Real RmlUi bell can open drawer using keyboard action");
+                Update();
+                InViewport(launcher.Document,"notice_0_open");
+                launcher.CloseNotices();Update();
                 InViewport(launcher.Document,"activity_selector");
                 InViewport(launcher.Document,"deploy");
                 Click(launcher.Document,"activity_selector","home:drawer-open");

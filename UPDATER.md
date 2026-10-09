@@ -82,3 +82,30 @@ The client never carries a GitHub token. It only consumes the public GitHub Rele
 For one-click installation, the selected release asset must also have GitHub's `sha256:` digest. The downloaded bytes are hashed and compared before the package is unpacked or executed. A release whose asset has no supported digest can still be announced, but it falls back to the release page rather than silently executing an unverifiable package.
 
 The release workflow also verifies that the repository remains public before publishing. This protects the updater contract from an accidental repository-visibility change.
+
+## Native RmlUi update and notification UX
+
+The shared RmlUi shell now exposes a clickable **BUILD** chip in its footer.
+When a newer verified release has been discovered by the existing updater monitor,
+it becomes an amber **UPDATE AVAILABLE** chip. Clicking it opens the
+**Game Files & Updates** page, where **Check for Update** and **Published Versions**
+are available even if there is no newer release.
+
+The header's **ALERTS** bell opens a bounded, local-only notification center.
+It uses the updater's discovered version, authenticated social summary
+(invites, requests and pending party travel), and the existing bundled News dispatch.
+Error notices are created from reported launcher/setup failures. Bundled News is
+informational and does not masquerade as an unread real-time announcement.
+Opening the drawer acknowledges unread notices. Individual notices can be dismissed
+without cancelling invites, removing updates or mutating any authoritative service.
+
+Preparing a release displays a dedicated in-app overlay with the actual
+download percentage reported by `SetupController`, a verified-ready state, an
+explicit **Install and Restart** action, and an actionable error/release-page
+fallback. The overlay does not independently install, cancel, retry or replace
+packages. Signed macOS bundles and Android downgrades still follow the existing
+platform-specific release-page behavior.
+
+A notification may not open update management during a match or active lobby,
+and closing the drawer is independent of installing an update. The Windows
+worker's relaunch is still subject to a real release-package smoke test.

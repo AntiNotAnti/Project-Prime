@@ -1192,7 +1192,12 @@ namespace MphRead.Mods.Launcher.Gui
         // Presentation-neutral services are only allowed to publish through
         // these render-thread entry points. Their worker tasks never invoke
         // native RmlUi or touch the OpenGL context directly.
-        internal static void SetMenuText(string name, string value) => SetText(name, value);
+        internal static void SetMenuText(string name, string value)
+        {
+            SetText(name, value);
+            if (name == "system_status" && !String.IsNullOrWhiteSpace(value))
+                _pages?.ReportSystemNotice(value);
+        }
         internal static void SetMenuBool(string name, bool value) => SetBool(name, value);
 
         internal static void SetFieldValue(string id, string value)

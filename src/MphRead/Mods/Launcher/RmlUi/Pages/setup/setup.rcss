@@ -23,3 +23,16 @@
 .setup_dialog { position: absolute; left: 22%; top: 26%; width: 56%; padding: 28dp; background-color: #07121f; border: 1dp #284d68; }
 .setup_dialog h1 { font-size: 25dp; margin-bottom: 15dp; }.setup_dialog p { white-space: pre-wrap; color: #b3c8da; line-height: 1.4; margin-bottom: 18dp; }
 .setup_dialog .dialog_actions { display: flex; justify-content: flex-end; width: 100%; }.setup_dialog button { width: 42%; height: 42dp; margin-left: 10dp; }
+
+/* In-app progress/status, driven only by the verified installer controller. */
+#setup_update_overlay { position: absolute; right: 5%; bottom: 9%; width: 42%; min-width: 290dp; padding: 20dp; background-color: #091e2c; border: 1dp #69bce4; border-top: 3dp #74caff; border-radius: 4dp; box-shadow: 0 10dp 28dp rgba(0,0,0,65%); z-index: 20; }
+.setup_update_heading { display: flex; justify-content: space-between; color: #91c9e9; font-size: 11dp; letter-spacing: 1dp; font-weight: bold; }
+#setup_update_stage { color: #ffffff; margin: 12dp 0; font-size: 19dp; }
+#setup_update_message { color: #bfd4e2; font-size: 13dp; line-height: 19dp; margin: 11dp 0; white-space: pre-wrap; }
+.setup_progress_segments { display: flex; gap: 4dp; height: 10dp; width: 100%; }
+.setup_progress_segment { display: inline-block; flex: 1; height: 8dp; border-radius: 2dp; background-color: #213b4c; border: 1dp #355064; }
+.setup_progress_segment.filled { background-color: #66c5f2; border-color: #99e0ff; }
+.setup_update_actions { display: flex; gap: 10dp; }
+.setup_update_actions button { flex: 1; min-width: 0; padding: 9dp; font-size: 11dp; border-radius: 3dp; }
+@media (max-width: 800dp) { #setup_update_overlay { width: 86%; left: 7%; right: 7%; bottom: 8%; min-width: 0; } }
+@media (max-height: 710dp) { #setup_update_overlay { bottom: 5%; padding: 12dp; } }

@@ -66,7 +66,7 @@ internal static partial class Shell
                 ReleaseRmlLobby(retirePages: false);
                 _rmlMultiplayer?.Cancel();
                 Network.NetSession.Stop(); Network.NetHostSession.Stop();
-            });
+            }, reportFailure: message => RmlUiPrototype.Pages?.ReportSystemNotice(message));
         _nativeSetup.Open();
         WireNativePages();
         if (_window?.HasScene == true) RmlUiPrototype.ShowGameplayMenu();
@@ -155,6 +155,8 @@ internal static partial class Shell
                 && _rmlMultiplayer?.Visible != true && _nativeHunters?.Active != true && _nativeAdmin?.Active != true
                 && RmlUiPrototype.Pages?.Manager.ModalCount == 0;
             _nativeUpdates.Tick(mayPrompt);
+            RmlUiPrototype.Pages?.ObserveRelease(LauncherPrefs.AutoUpdate && !MphRead.Mods.Update.Updater.Disabled
+                ? MphRead.Mods.Update.Updater.Available?.Tag : null);
             if (_nativeUpdates.TryTakeAvailable(out var update) && OpenNativeSetupPage())
                 _nativeSetup?.OpenLatest(update, automatic: true);
         }

@@ -33,4 +33,14 @@
 <button id="setup_release_27" class="setup_release" data-action="setup:release:27" />
 <button id="setup_release_28" class="setup_release" data-action="setup:release:28" />
 <button id="setup_release_29" class="setup_release" data-action="setup:release:29" /></div><h3 id="setup_selected"/><div id="setup_release_notes" class="setup_notes"/><button id="setup_prepare" class="play_action" data-action="setup:action:8">REVIEW SELECTED VERSION</button><button id="setup_release_page" class="play_action quiet" data-action="setup:action:12">OPEN RELEASE PAGE</button><button id="setup_install" class="play_action" data-action="setup:action:10">INSTALL AND RESTART</button></div></div>
+<div id="setup_update_overlay" role="status" aria-live="polite" data-prime-visible="setup_update_overlay">
+    <div class="setup_update_heading"><span>APPLICATION UPDATE</span><span id="setup_update_percent">WORKING</span></div>
+    <h2 id="setup_update_stage">DOWNLOADING &amp; VERIFYING</h2>
+    <div class="setup_progress_segments"><span id="setup_progress_segment_0" class="setup_progress_segment" /><span id="setup_progress_segment_1" class="setup_progress_segment" /><span id="setup_progress_segment_2" class="setup_progress_segment" /><span id="setup_progress_segment_3" class="setup_progress_segment" /><span id="setup_progress_segment_4" class="setup_progress_segment" /><span id="setup_progress_segment_5" class="setup_progress_segment" /><span id="setup_progress_segment_6" class="setup_progress_segment" /><span id="setup_progress_segment_7" class="setup_progress_segment" /><span id="setup_progress_segment_8" class="setup_progress_segment" /><span id="setup_progress_segment_9" class="setup_progress_segment" /><span id="setup_progress_segment_10" class="setup_progress_segment" /><span id="setup_progress_segment_11" class="setup_progress_segment" /></div>
+    <p id="setup_update_message">Preparing your selected release.</p>
+    <div class="setup_update_actions">
+        <button id="setup_update_install" class="play_action" data-action="setup:action:10">INSTALL AND RESTART</button>
+        <button id="setup_update_release_page" class="play_action quiet" data-action="setup:action:12">OPEN RELEASE PAGE</button>
+    </div>
+</div>
 <div id="setup_status" class="setup_status"/><div id="setup_error" class="setup_error"/><div id="setup_progress" class="setup_progress"/><div id="setup_log" class="setup_log"/></div></body></rml>

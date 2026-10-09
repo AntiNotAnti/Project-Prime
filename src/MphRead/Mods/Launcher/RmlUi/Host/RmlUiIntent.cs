@@ -126,7 +126,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         SetupRelease = 261,
         HudAction = 270,
         HudElement = 271,
-        HudProperty = 272
+        HudProperty = 272,
+        NoticeAction = 280
     }
 
     public enum RmlUiRouteArgument
@@ -168,6 +169,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         private static readonly string[] ReplayActions = { "toggle-pause", "jump-back", "jump-forward", "restart", "step", "next-rate", "next-camera", "previous-player", "next-player", "seek", "studio", "back", "fullscreen" };
         private static readonly string[] LicenseActions = { "overview", "customization", "stats", "history", "achievements", "emblems", "titles", "comparison", "account", "refresh", "cancel-refresh", "previous-page", "next-page", "send-verification", "finish-password", "recover", "link-google", "link-github", "link-discord", "refresh-account", "back" };
         private static readonly string[] StudioActions = { "launch", "pick-map", "open-path", "recover", "cancel" };
+        private static readonly string[] NoticeActions = { "toggle", "close", "versions", "open:0", "open:1", "open:2", "open:3", "dismiss:0", "dismiss:1", "dismiss:2", "dismiss:3" };
         private static readonly string[] SocialActions = { "friends", "players", "requests", "invites", "party", "recent", "blocked", "refresh", "cancel", "lookup", "search", "previous-page", "next-page", "select-0", "select-1", "select-2", "select-3", "select-4", "select-5", "select-6", "select-7", "send-friend-request", "accept-friend-request", "decline-friend-request", "cancel-friend-request", "remove-friend", "block-player", "unblock-player", "send-game-invite", "join-friend", "accept-game-invite", "decline-game-invite", "cancel-game-invite", "invite-party", "accept-party-invite", "decline-party-invite", "cancel-party-invite", "leave-party", "disband-party", "kick-party-member", "promote-party-member", "invite-party-lobby", "follow-party-travel", "join-party-leader", "decline-party-travel", "cancel-reservation", "confirm", "dismiss", "presence-next", "activity-next", "invites-next", "dnd", "back" };
         private static readonly string[] ResultsActions = { "close", "search", "previous-page", "next-page", "rematch", "clear-search" };
         private static readonly string[] AimResultsActions = { "retry", "change-drill", "exit" };
@@ -288,6 +290,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RmlUiIntentKind.CommunityConflict => argument is >= 0 and < 5,
             RmlUiIntentKind.ResultsAction => argument is >= 0 and < 6,
             RmlUiIntentKind.AimResultsAction => argument is >= 0 and < 3,
+            RmlUiIntentKind.NoticeAction => argument is >= 0 and < 11,
             RmlUiIntentKind.SetupAction => argument is >= 0 and < 15,
             RmlUiIntentKind.SetupRelease => argument is >= 0 and < 30,
             RmlUiIntentKind.HudAction => argument is >= 0 and < 45,
@@ -444,6 +447,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 intent = new(RmlUiIntentKind.ResultsAction, argument, document, sequence);
             else if (TryNamed(action, "aim-results:", AimResultsActions, out argument))
                 intent = new(RmlUiIntentKind.AimResultsAction, argument, document, sequence);
+            else if (TryNamed(action, "notice:", NoticeActions, out argument))
+                intent = new(RmlUiIntentKind.NoticeAction, argument, document, sequence);
             else if (TryIndex(action, "setup:action:", 15, out argument))
                 intent = new(RmlUiIntentKind.SetupAction, argument, document, sequence);
             else if (TryIndex(action, "setup:release:", 30, out argument))
@@ -521,6 +526,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 RmlUiIntentKind.CommunityConflict => "community:conflict:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.ResultsAction => "results:" + ResultsActions[intent.Argument],
                 RmlUiIntentKind.AimResultsAction => "aim-results:" + AimResultsActions[intent.Argument],
+                RmlUiIntentKind.NoticeAction => "notice:" + NoticeActions[intent.Argument],
                 RmlUiIntentKind.SetupAction => "setup:action:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.SetupRelease => "setup:release:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.HudAction => "hud:" + HudActions[intent.Argument],

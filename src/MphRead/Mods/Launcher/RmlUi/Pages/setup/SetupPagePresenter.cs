@@ -17,19 +17,22 @@ internal sealed class SetupPagePresenter : IDisposable
     private readonly SetupController _controller;
     private readonly Action _closed, _quit;
     private readonly Action? _beforeInstall;
+    private readonly Action<string>? _reportFailure;
     private readonly bool _inGame;
     private RmlUiDocumentToken _page, _modal;
     private string _modalKind = "";
     private long _revision;
     private long _lastSnapshotRevision;
-    private bool _disposed, _quitRequested, _automaticPrompt;
+    private bool _disposed, _quitRequested, _automaticPrompt, _releaseFlow;
+    private string _lastReportedFailure = "";
     internal RmlUiDocumentToken Document => _page;
     internal SetupController Controller => _controller;
     internal bool Busy => _controller.Busy;
     internal SetupPagePresenter(RmlUiHost host, RmlUiPageManager pages, Action closed, Action quit,
-        Func<Task<Stream?>>? pickRom = null, bool inGame = false, bool required = false, Action? beforeInstall = null)
+        Func<Task<Stream?>>? pickRom = null, bool inGame = false, bool required = false, Action? beforeInstall = null,
+        Action<string>? reportFailure = null)
     {
-        _host = host; _pages = pages; _closed = closed; _quit = quit; _inGame = inGame; _beforeInstall = beforeInstall;
+        _host = host; _pages = pages; _closed = closed; _quit = quit; _inGame = inGame; _beforeInstall = beforeInstall; _reportFailure = reportFailure;
         _backend = new(pickRom); _controller = new(_backend, inGame, required);
     }
     internal void Open()
@@ -43,7 +46,7 @@ internal sealed class SetupPagePresenter : IDisposable
     }
     internal void OpenLatest(UpdateInfo release, bool automatic = false)
     {
-        Open(); _automaticPrompt = automatic;
+        Open(); _automaticPrompt = automatic; _releaseFlow = true;
         SetupResult available = _backend.UseAvailableRelease(release);
         _controller.PresentPublishedReleases(available.Releases!, available.Message);
         _controller.RequestPrepare(); Refresh();
@@ -64,14 +67,14 @@ internal sealed class SetupPagePresenter : IDisposable
             case 3: _controller.RefreshFiles(); break;
             case 4: _controller.Verify(); break;
             case 5: _controller.RenderPreviews(); break;
-            case 6: _controller.CheckLatest(); break;
-            case 7: _controller.LoadReleases(); break;
-            case 8: _controller.RequestPrepare(); break;
-            case 9: if (_modalKind == "update" && intent.Document == _modal) { _automaticPrompt = false; _controller.ConfirmPrepare(); } break;
+            case 6: _releaseFlow = false; _controller.CheckLatest(); break;
+            case 7: _releaseFlow = false; _controller.LoadReleases(); break;
+            case 8: _releaseFlow = true; _controller.RequestPrepare(); break;
+            case 9: if (_modalKind == "update" && intent.Document == _modal) { _automaticPrompt = false; _releaseFlow = true; _controller.ConfirmPrepare(); } break;
             case 10:
-                if (_controller.Snapshot().Prepared && !_inGame) { _beforeInstall?.Invoke(); _controller.InstallPrepared(); } break;
+                if (_controller.Snapshot().Prepared && !_inGame) { _releaseFlow = true; _beforeInstall?.Invoke(); _controller.InstallPrepared(); } break;
             case 11:
-                _controller.CancelConfirmation();
+                _controller.CancelConfirmation(); _releaseFlow = false;
                 if (_automaticPrompt) { _automaticPrompt = false; CloseModal(); Back(); } break;
             case 12: _controller.OpenRelease(); break;
             case 13: _controller.OpenFolder(); break;
@@ -98,6 +101,11 @@ internal sealed class SetupPagePresenter : IDisposable
         _controller.Tick(); SetupSnapshot state = _controller.Snapshot();
         if (state.Revision == _lastSnapshotRevision) return;
         _lastSnapshotRevision = state.Revision;
+        if (!String.IsNullOrWhiteSpace(state.Error) && state.Error != _lastReportedFailure)
+        {
+            _lastReportedFailure = state.Error;
+            _reportFailure?.Invoke(state.Error);
+        }
         string modal = state.ConfirmingRom ? "rom" : state.ConfirmingUpdate ? "update" : "";
         if (_modal != default && !_host.IsAlive(_modal)) { _modal = default; _modalKind = ""; _controller.CancelConfirmation(); modal = ""; }
         if (modal != _modalKind)
@@ -128,6 +136,32 @@ internal sealed class SetupPagePresenter : IDisposable
         Bool("visible:setup_install", state.Prepared); Bool("disabled:setup_install", state.Busy || !state.Prepared || _inGame);
         Text("setup_selected", state.SelectedRelease >= 0 ? state.Releases[state.SelectedRelease].Tag : "No published release selected");
         Text("setup_release_notes", state.SelectedRelease >= 0 ? state.Releases[state.SelectedRelease].Notes : "Check for updates or load published versions.");
+        // Display the controller's actual progress. The overlay has no installer authority.
+        bool flowVisible = _releaseFlow && (state.Busy || state.Prepared || state.WaitingForInstaller
+            || !String.IsNullOrEmpty(state.Error));
+        bool failed = !String.IsNullOrEmpty(state.Error);
+        string progress = state.Progress;
+        int percent = -1, marker = progress.LastIndexOf('%');
+        if (marker > 0)
+        {
+            int start = marker - 1;
+            while (start >= 0 && char.IsAsciiDigit(progress[start])) start--;
+            if (start + 1 < marker && int.TryParse(progress[(start + 1)..marker], out int parsed))
+                percent = Math.Clamp(parsed, 0, 100);
+        }
+        Bool("visible:setup_update_overlay", flowVisible);
+        Bool("visible:setup_update_install", state.Prepared && !failed && !_inGame);
+        Bool("visible:setup_update_release_page", failed && state.SelectedRelease >= 0);
+        Bool("disabled:setup_update_install", state.Busy || !state.Prepared || _inGame);
+        Text("setup_update_stage", failed ? "UPDATE FAILED" : state.Prepared ? "READY TO INSTALL"
+            : state.WaitingForInstaller ? "WAITING FOR SYSTEM INSTALLER" : "DOWNLOADING & VERIFYING");
+        Text("setup_update_percent", state.Prepared ? "VERIFIED" : percent < 0 ? "WORKING" : percent.ToString() + "%");
+        Text("setup_update_message", failed ? state.Error : state.Prepared
+            ? "The downloaded package passed verification. Install to complete the version switch."
+            : state.WaitingForInstaller ? "Complete the system installer to finish the update."
+            : progress.Length > 0 ? progress : state.Status);
+        for (int i = 0; i < 12; i++)
+            Bool("class:setup_progress_segment_" + i + ":filled", state.Prepared || percent >= (i + 1) * 100 / 12);
         for (int i = 0; i < 30; i++)
         {
             bool active = i < state.Releases.Count;
