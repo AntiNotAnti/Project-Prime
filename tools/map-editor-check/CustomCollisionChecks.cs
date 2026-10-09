@@ -16,6 +16,10 @@ static class CustomCollisionChecks
     public static void Run(Action<bool, string> check)
     {
         CollisionDetection.Init();
+        // This content-free fixture constructs Scene with initializeRuntime:
+        // false. Populate the real immutable hunter collision volumes before
+        // checking morph/unmorph clearance, without loading game models.
+        PlayerEntity.GeneratePlayerVolumes();
         var scene = new Scene(new Vector2i(256, 192), SyntheticInput.CreateKeyboard(),
             SyntheticInput.CreateMouse(), _ => { }, () => { }, initializeRuntime: false);
         var room = new RoomEntity(scene);

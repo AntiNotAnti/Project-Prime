@@ -430,10 +430,13 @@ namespace MphRead.Mods.Launcher.Gui
             var administration = (Control)target.Parent!;
             typeof(LobbyScreen).GetMethod("ShowSheet", flags)!.Invoke(lobby,
                 new object[] { "PLAYER MANAGEMENT", administration });
+            // No Window is attached in this UI composition fixture. The
+            // visual ScrollViewer presenter has not been materialized; the
+            // commands exist in the logical tree until it gets a Window.
             Check(overlays.GetLogicalDescendants().Contains(target)
-                && overlays.GetVisualDescendants().OfType<HubNavButton>()
+                && overlays.GetLogicalDescendants().OfType<HubNavButton>()
                     .Any(button => button.Label == "TRANSFER OWNER")
-                && overlays.GetVisualDescendants().OfType<HubNavButton>()
+                && overlays.GetLogicalDescendants().OfType<HubNavButton>()
                     .Any(button => button.Label == "KICK"),
                 "player management is contextual and retains owner actions");
             overlays.Close();
