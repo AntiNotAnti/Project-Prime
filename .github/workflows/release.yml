@@ -37,7 +37,12 @@ on:
       publish:
         description: Publish to clients after successful builds (off leaves a draft)
         required: false
-        default: true
+        default: false
+        type: boolean
+      retarget_unpublished:
+        description: Explicitly retarget an existing unpublished v0.1.47 tag to the selected hotfix branch
+        required: false
+        default: false
         type: boolean
 
 permissions:
@@ -75,6 +80,7 @@ jobs:
           # instead of failing. PUSHED_TAG is empty unless a tag push is what
           # started this, which is the only event where ref_name is a tag.
           INPUT_TAG: ${{ github.event.inputs.tag }}
+          RETARGET_UNPUBLISHED: ${{ github.event.inputs.retarget_unpublished }}
           BUMP: ${{ github.event.inputs.bump }}
           PUSHED_TAG: ${{ github.event_name == 'push' && github.ref_name || '' }}
           REPO: ${{ github.repository }}
@@ -97,6 +103,26 @@ jobs:
               echo "::error::No tag '$TAG' exists in $REPO. Push one first:"
               echo "::error::  git tag $TAG && git push origin $TAG"
               exit 1
+            fi
+            if [ "${RETARGET_UNPUBLISHED:-false}" = "true" ]; then
+              # v0.1.47 was tagged at an unrelated RmlUi commit but never
+              # published. Only a manual run from our hotfix branch may reuse
+              # it, and only while GitHub has no Release for that tag.
+              if [ "$TAG" != "v0.1.47" ]; then
+                echo "::error::Only the unpublished v0.1.47 hotfix tag may be retargeted."
+                exit 1
+              fi
+              if [ "${{ github.ref_type }}" != "branch" ] || [[ "${{ github.ref_name }}" != hotfix/v0.1.47-* ]]; then
+                echo "::error::Select the v0.1.46-based hotfix branch for the tag recovery workflow."
+                exit 1
+              fi
+              if gh api "repos/$REPO/releases/tags/$TAG" >/dev/null 2>&1; then
+                echo "::error::$TAG already has a Release. Never mutate a released tag."
+                exit 1
+              fi
+              gh api -X PATCH "repos/$REPO/git/refs/tags/$TAG" \
+                -f sha="$SHA" -F force=true >/dev/null
+              echo "Retargeted previously unpublished $TAG to ${SHA:0:7}."
             fi
             echo "Building the existing tag $TAG."
           elif [ "${BUMP:-none}" != none ]; then
@@ -733,15 +759,46 @@ jobs:
           and Android can install a matching package in-app; macOS opens this release page.
           NOTE
 
-          # Generate the changelog from the same repository that owns the tag
-          # and release.
-          CHANGES=$(gh api -X POST \
-            "repos/$REPOSITORY/releases/generate-notes" \
-            -f tag_name="$TAG" --jq .body 2>/dev/null || true)
-          if [ -n "$CHANGES" ]; then
-            printf '\n---\n\n%s\n' "$CHANGES" >> notes.md
+          # The v0.1.47 hotfix deliberately starts from v0.1.46, NOT v0.1.52.
+          # A generated comparison against the later stable release would be
+          # misleading, so publish explicit hotfix notes for this one tag.
+          if [ "$TAG" = "v0.1.47" ]; then
+            cat >> notes.md <<'HOTFIX'
+
+          ---
+
+          ## v0.1.47 compatibility hotfix (based on v0.1.46)
+
+          This is v0.1.46 gameplay/UI with a backported Windows + Linux desktop
+          updater. It does not include the v0.1.52 Studio/RmlUi migration.
+
+          - Installs releases using a detached copy of the **currently installed**
+            executable instead of executing the incoming release before its files
+            have been installed.
+          - Requires a live helper acknowledgement before closing the launcher.
+          - Uses a verified, journaled file transaction, rollback after failure,
+            longer parent shutdown wait, retries for transient Windows sharing
+            violations and persistent updater failure logging.
+          - Protects user settings/maps/replays and prevents an old standalone
+            release from replacing a newer paired Game + Studio installation.
+
+          This is an **intermediary compatibility build**, not the newest release.
+          It is intentionally not marked Latest. Open Version Manager in
+          v0.1.46 to switch explicitly to v0.1.47, or download this hotfix
+          separately. Then test upgrading to a newer build from v0.1.47.
+
+          On Windows and Linux, failed updates log to
+          `logs/ProjectPrime-updater.log` in the game installation directory.
+          HOTFIX
           else
-            echo "::warning::No changelog could be generated for $TAG."
+            CHANGES=$(gh api -X POST \
+              "repos/$REPOSITORY/releases/generate-notes" \
+              -f tag_name="$TAG" --jq .body 2>/dev/null || true)
+            if [ -n "$CHANGES" ]; then
+              printf '\n---\n\n%s\n' "$CHANGES" >> notes.md
+            else
+              echo "::warning::No changelog could be generated for $TAG."
+            fi
           fi
 
           if gh release view "$TAG" \
@@ -758,8 +815,25 @@ jobs:
           else
             args=(release create "$TAG" dist/* --repo "$REPOSITORY" \
               --verify-tag --title "Project Prime $TAG" --notes-file notes.md)
+            if [ "$TAG" = "v0.1.47" ]; then
+              args+=(--latest=false)
+            fi
             if [ "$PUBLISH_NOW" != "true" ]; then
               args+=(--draft)
             fi
             gh "${args[@]}"
+          fi
+          if [ "$TAG" = "v0.1.47" ]; then
+            # Publishing an older hotfix must never redirect existing players'
+            # auto-update channel away from v0.1.52 (or later stable versions).
+            release_id=$(gh api "repos/$REPOSITORY/releases/tags/$TAG" --jq '.id')
+            gh api -X PATCH "repos/$REPOSITORY/releases/$release_id" \
+              -f make_latest=false >/dev/null
+            if [ "$PUBLISH_NOW" = "true" ]; then
+              latest=$(gh api "repos/$REPOSITORY/releases/latest" --jq '.tag_name')
+              if [ "$latest" = "$TAG" ]; then
+                echo "::error::Hotfix $TAG unexpectedly became releases/latest."
+                exit 1
+              fi
+            fi
           fi
