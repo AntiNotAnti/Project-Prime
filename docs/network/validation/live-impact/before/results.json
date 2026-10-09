@@ -1,0 +1,89 @@
+{
+  "schema": 1,
+  "sourceCommit": "0127fab5ffd411529a5c69a40e5467e140f50a60",
+  "host": "macOS-27.0-arm64-arm-64bit",
+  "results": [
+    {
+      "check": "architecture",
+      "exitCode": 0,
+      "seconds": 0.186,
+      "log": "architecture.log"
+    },
+    {
+      "check": "health-shots",
+      "exitCode": 0,
+      "seconds": 6.858,
+      "log": "health-shots.log"
+    },
+    {
+      "check": "claim-stress",
+      "exitCode": 0,
+      "seconds": 0.084,
+      "log": "claim-stress.log"
+    },
+    {
+      "check": "lagcomp-shadow",
+      "exitCode": 0,
+      "seconds": 0.035,
+      "log": "lagcomp-shadow.log"
+    },
+    {
+      "check": "weapon-policy",
+      "exitCode": 0,
+      "seconds": 0.106,
+      "log": "weapon-policy.log"
+    },
+    {
+      "check": "transport-stress",
+      "exitCode": 0,
+      "seconds": 8.967,
+      "log": "transport-stress.log"
+    },
+    {
+      "check": "network-lifecycle",
+      "exitCode": 0,
+      "seconds": 1.373,
+      "log": "network-lifecycle.log"
+    },
+    {
+      "check": "replay-protocol42",
+      "exitCode": 0,
+      "seconds": 0.165,
+      "log": "replay-protocol42.log"
+    },
+    {
+      "check": "authority-combat",
+      "exitCode": 0,
+      "seconds": 1.131,
+      "log": "authority-combat.log"
+    },
+    {
+      "check": "accepted-fire-context",
+      "exitCode": 0,
+      "seconds": 2.913,
+      "log": "accepted-fire-context.log"
+    },
+    {
+      "check": "server-2",
+      "exitCode": 0,
+      "seconds": 1.888,
+      "log": "server-2.log"
+    },
+    {
+      "check": "server-4",
+      "exitCode": 0,
+      "seconds": 2.023,
+      "log": "server-4.log"
+    },
+    {
+      "check": "server-8",
+      "exitCode": 0,
+      "seconds": 2.252,
+      "log": "server-8.log"
+    }
+  ],
+  "limitations": [
+    "Headless synthetic intent simulation is not a rendered or impaired multiplayer acceptance run.",
+    "Other OS/backend coverage requires their runners."
+  ]
+}

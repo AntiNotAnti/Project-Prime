@@ -176,6 +176,7 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
+            NetImpactDiagnostics.Record(fact, ImpactStage.Authority);
             Span<byte> payload = stackalloc byte[ReplayShotFactPacket.Size];
             ReplayShotFactPacket.Write(fact, payload);
             if (!Recorder.AcceptShotFact(payload, NetSession.NetFrame)) return;
@@ -185,6 +186,8 @@ namespace MphRead.Mods.Network
         internal static void AcceptedShotFact(ReadOnlySpan<byte> payload, uint frame)
         {
             if (DemoPlayback.IsActive) return;
+            if (NetImpactDiagnostics.Enabled && ReplayShotFactPacket.TryRead(payload, out var fact))
+                NetImpactDiagnostics.Record(fact, ImpactStage.ReplayIngress);
             Recorder.AcceptShotFact(payload, frame);
         }
 
