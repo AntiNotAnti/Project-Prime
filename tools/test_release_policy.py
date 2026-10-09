@@ -66,6 +66,19 @@ class NativeReleasePackagingTests(unittest.TestCase):
             script.index('dotnet publish src/MphRead/MphRead.csproj'))
         self.assertIn('tools/rmlui/verify-runtime.py --package "publish/$RID" "$RID"',script)
 
+    def test_macos_app_bundle_seals_ui_data_as_resources(self):
+        root=WORKFLOW.parents[2]
+        pack=(root/"tools/package-macos.sh").read_text()
+        launcher=(root/"src/MphRead/Mods/Launcher/Gui/RmlUiPrototype.cs").read_text()
+        # Strict app-bundle signing treats nested data in Contents/MacOS as
+        # unsigned code. The shared native bridge remains beside the apphost.
+        self.assertIn("PRIME-RMLUI.json licenses rmlui; do",pack)
+        self.assertLess(pack.index("PRIME-RMLUI.json licenses rmlui; do"),
+                        pack.index('codesign --force --sign - --entitlements "$platform/$executable.entitlements" "$app"'))
+        self.assertIn('"$contents/Resources/rmlui/prime_home.rml"',pack)
+        self.assertIn('OperatingSystem.IsMacOS()',launcher)
+        self.assertIn('"..", "Resources", "rmlui"',launcher)
+
 
 class ReleasePolicyTests(unittest.TestCase):
     def execute(self, step, **overrides):
