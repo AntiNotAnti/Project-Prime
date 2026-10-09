@@ -263,8 +263,7 @@ namespace MphRead.Entities
 
         public override void GetDrawInfo()
         {
-            bool visible = !Mods.ThumbnailMode.SuppressPickupPresentation
-                && IsVisible(NodeRef) && IsPickupVisuallyVisible();
+            bool visible = IsVisible(NodeRef) && IsPickupVisuallyVisible();
             // Artifact-key auras are effects, not part of the model draw.
             // Keep them tied to the exact same visible/hidden decision.
             _effectEntry?.SetDrawEnabled(visible);
