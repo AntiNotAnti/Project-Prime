@@ -1037,6 +1037,32 @@ jobs:
               echo "::error::$TAG is already published; its assets cannot be replaced."
               exit 1
             fi
+            # A previous failed upload using dist/* might already have put
+            # native bridge intermediates on this draft before reaching the
+            # licenses/ directory. Prune only those known accidental assets;
+            # preserve valid packages and refuse unrelated/manual additions.
+            current_assets=$(gh release view "$TAG" --repo "$REPOSITORY" --json assets --jq '.assets[].name')
+            while IFS= read -r existing; do
+              [[ -n "$existing" ]] || continue
+              case "$existing" in
+                PRIME-RMLUI.json|RMLUI-POC.txt|ProjectPrime.RmlUi.Native.dll|libProjectPrime.RmlUi.Native.so)
+                  gh release delete-asset "$TAG" "$existing" --yes --repo "$REPOSITORY"
+                  ;;
+                *)
+                  expected=false
+                  for asset in "${release_assets[@]}"; do
+                    if [[ "$existing" == "${asset##*/}" ]]; then
+                      expected=true
+                      break
+                    fi
+                  done
+                  if [[ "$expected" != true ]]; then
+                    echo "::error::Unexpected asset on draft $TAG: $existing. Review it before publishing."
+                    exit 1
+                  fi
+                  ;;
+              esac
+            done <<< "$current_assets"
             gh release upload "$TAG" "${release_assets[@]}" --clobber \
               --repo "$REPOSITORY"
             gh release edit "$TAG" \
