@@ -10,6 +10,7 @@ public sealed class NetRescueIndex
     private struct Entry
     {
         public ShotKey Key;
+        public ulong Component;
         public ushort VictimGeneration, VictimLife;
         public uint At;
         public int Owed;
@@ -18,12 +19,13 @@ public sealed class NetRescueIndex
     public int Count { get; private set; }
     public long LookupProbes { get; private set; }
     public int LookupHighWater { get; private set; }
-    private static int Home(in ShotKey key)
+    private static int Home(in ShotKey key, ulong component)
     {
         unchecked
         {
             ulong h = key.AuthorityEpoch ^ ((ulong)key.MatchId << 32) ^ ((ulong)key.Generation << 16) ^ key.LifeId;
             h ^= key.ShotId * 0x9e3779b97f4a7c15UL;
+            h ^= component * 0x94d049bb133111ebUL;
             h = (h ^ (h >> 30)) * 0xbf58476d1ce4e5b9UL;
             return (int)(h ^ (h >> 32)) & (Partition - 1);
         }
@@ -36,14 +38,14 @@ public sealed class NetRescueIndex
             int scan = (offset + n) & (Partition - 1);
             ref var entry = ref _entries[start + scan];
             if (entry.Owed == 0) break;
-            int home = Home(entry.Key);
+            int home = Home(entry.Key, entry.Component);
             if (((hole - home) & (Partition - 1)) < ((scan - home) & (Partition - 1)))
             { _entries[start + hole] = entry; entry = default; hole = scan; }
         }
     }
-    private int Find(int attacker, int victim, in ShotKey key, ushort generation, ushort life, uint now)
+    private int Find(int attacker, int victim, in ShotKey key, ushort generation, ushort life, uint now, ulong component = 0)
     {
-        int start = (attacker * 8 + victim) * Partition, home = Home(key);
+        int start = (attacker * 8 + victim) * Partition, home = Home(key, component);
         int probes = 0;
         for (int n = 0; n < Partition;)
         {
@@ -58,27 +60,31 @@ public sealed class NetRescueIndex
                 if (probes < 2 * Partition) continue;
                 break;
             }
-            if (entry.Key == key) { Record(probes); return start + offset; }
+            if (entry.Key == key && entry.Component == component) { Record(probes); return start + offset; }
             n++;
         }
         Record(probes); return int.MinValue;
     }
     private void Record(int probes) { LookupProbes += probes; LookupHighWater = Math.Max(LookupHighWater, probes); }
-    public bool CanInsert(int attacker, int victim, in ShotKey key, ushort generation, ushort life, uint now)
-        => Find(attacker, victim, key, generation, life, now) != int.MinValue;
-    public bool Insert(int attacker, int victim, in ShotKey key, ushort generation, ushort life, uint now)
+    public bool CanInsert(int attacker, int victim, in ShotKey key, ushort generation, ushort life, uint now, ulong component = 0)
+        => Find(attacker, victim, key, generation, life, now, component) != int.MinValue;
+    public bool Insert(int attacker, int victim, in ShotKey key, ushort generation, ushort life, uint now, ulong component = 0)
     {
-        int index = Find(attacker, victim, key, generation, life, now);
+        int index = Find(attacker, victim, key, generation, life, now, component);
         if (index == int.MinValue) return false;
         if (index < 0) { index = ~index; Count++; }
         ref var entry = ref _entries[index];
-        entry.Key = key; entry.VictimGeneration = generation; entry.VictimLife = life; entry.At = now; entry.Owed++;
+        entry.Key = key; entry.Component = component; entry.VictimGeneration = generation; entry.VictimLife = life; entry.At = now; entry.Owed = component == 0 ? entry.Owed + 1 : 1;
         return true;
     }
-    public bool Consume(int attacker, int victim, in ShotKey key, ushort generation, ushort life, uint now)
+    public bool Consume(int attacker, int victim, in ShotKey key, ushort generation, ushort life, uint now, ulong component = 0)
     {
-        int index = Find(attacker, victim, key, generation, life, now);
+        int index = Find(attacker, victim, key, generation, life, now, component);
         if (index < 0) return false;
+        // A proven component stays paid until expiry. Retransmitted/native duplicate
+        // callbacks must not turn a consumed marker back into permission to damage.
+        // Component zero retains the legacy aggregate multiplicity contract.
+        if (component != 0) return true;
         if (_entries[index].Owed == 1) Delete(index / Partition * Partition, index % Partition);
         else _entries[index].Owed--;
         return true;

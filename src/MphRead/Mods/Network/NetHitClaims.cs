@@ -700,8 +700,10 @@ namespace MphRead.Mods.Network
             public bool Live;
             public bool RequireAttackEvidence;
             public bool EvidenceReserved;
-            public bool ShadowObserved, ShadowProof;
+            public bool ShadowObserved;
+            public EarlyClaimBlockers ShadowBlockers;
             public Vector3 WitnessPoint, WitnessDirection;
+            public uint WitnessComponent;
         }
 
         private static readonly Pending[] _pending = new Pending[PendingCapacity];
@@ -1345,7 +1347,8 @@ namespace MphRead.Mods.Network
                 return HitVerdictPacket.ResultRefused;
             }
             uint now = NetSession.NetFrame;
-            if (!LagCompensationPolicy.TryAdmitTime(now, claim.AckFrame, claim.AckSubFrame, out double claimTime))
+            if (!LagCompensationPolicy.TryAdmitTime(now, claim.AckFrame, claim.AckSubFrame, out double claimTime)
+                || claim.Beam == HitClaimPacket.NoBeam && !NetClaimEarlySettlement.AdmissionOpen(claim.AckFrame))
             {
                 TooOldHere++;
                 return HitVerdictPacket.ResultTooOld;
@@ -1829,14 +1832,6 @@ namespace MphRead.Mods.Network
                     }
                     int resolved;
                     bool evidence = TryRetainEvidence(ref entry);
-                    if (NetClaimEarlySettlement.Mode != EarlyClaimMode.Off
-                        && (!entry.ShadowObserved || evidence != entry.ShadowProof))
-                    {
-                        entry.ShadowObserved = true; entry.ShadowProof = evidence;
-                        NetClaimEarlySettlement.Observe(ClaimFor(entry), entry.ShooterSlot,
-                            entry.RequireAttackEvidence && evidence, now - entry.Arrived,
-                            entry.VictimSlot < PlayerEntity.Players.Count ? PlayerEntity.Players[entry.VictimSlot].Health : 0);
-                    }
                     bool trustedAnonymousPair = entry.Beam == HitClaimPacket.NoBeam
                         && (entry.Flags & HitClaimPacket.FlagHeadshot) == 0;
                     if ((evidence || trustedAnonymousPair) && (entry.ContinuousPhase != 0
@@ -1869,9 +1864,29 @@ namespace MphRead.Mods.Network
                 {
                     break;
                 }
+                ref Pending chosen = ref _pending[next];
+                bool early = false;
+                if (NetClaimEarlySettlement.Mode != EarlyClaimMode.Off)
+                {
+                    var claim = ClaimFor(chosen);
+                    bool reserved = chosen.RequireAttackEvidence && chosen.EvidenceReserved;
+                    bool order = now - chosen.Arrived < (uint)chosen.Grace
+                        && reserved && chosen.WitnessComponent != 0
+                        && chosen.Beam == (byte)BeamType.Imperialist
+                        && NetAcceptedAttacks.OrderClosed(ShotKey.For(chosen.ShooterSlot, chosen.ShotId), chosen.LaunchFrame);
+                    int health = chosen.VictimSlot < PlayerEntity.Players.Count ? PlayerEntity.Players[chosen.VictimSlot].Health : 0;
+                    var decision = NetClaimEarlySettlement.Evaluate(claim, reserved, chosen.WitnessComponent, order, health);
+                    if (!chosen.ShadowObserved || chosen.ShadowBlockers != decision.Blockers)
+                    {
+                        chosen.ShadowObserved = true; chosen.ShadowBlockers = decision.Blockers;
+                        NetClaimEarlySettlement.Observe(claim, chosen.ShooterSlot, reserved, now - chosen.Arrived,
+                            health, chosen.WitnessComponent, order);
+                    }
+                    early = NetClaimEarlySettlement.Mode == EarlyClaimMode.Enabled && decision.Eligible;
+                }
                 // A known earlier shot still inside its grace must be decided first.
                 // Packet arrival order must not turn a one-frame winner into a trade.
-                if (now - _pending[next].Arrived < (uint)_pending[next].Grace)
+                if (!early && now - _pending[next].Arrived < (uint)_pending[next].Grace)
                 {
                     // A stream of newly arriving older claims must not starve a
                     // completed grace window indefinitely. Late evidence cannot
@@ -1879,7 +1894,16 @@ namespace MphRead.Mods.Network
                     if (overdue < 0) break;
                     next = overdue;
                 }
-                ApplyOne(ref _pending[next]);
+                if (early && now - chosen.Arrived < (uint)chosen.Grace)
+                {
+                    // Seal before application. All ingress and Tick run on the
+                    // simulation thread; reservation, suppression and payment are atomic.
+                    NetClaimEarlySettlement.Seal(chosen.LaunchFrame);
+                    long applied = AppliedHere;
+                    ApplyOne(ref chosen);
+                    if (AppliedHere > applied) NetClaimEarlySettlement.Applied((uint)chosen.Grace - (now - chosen.Arrived));
+                }
+                else ApplyOne(ref _pending[next]);
                 DeactivatePending(ref _pending[next]);
                 TrackDeaths();
             }
@@ -1950,10 +1974,29 @@ namespace MphRead.Mods.Network
                 NetPlayerLifecycle.Generation(victim), NetPlayerLifecycle.Get(victim), NetSession.NetFrame))
                 throw new InvalidOperationException("Rescue capacity must be reserved before applying damage");
         }
-        public static bool AlreadyRescued(int attacker, int victim, uint launch, ShotKey? launchKey = null)
+        internal static ulong ComponentKey(uint witness, bool direct, bool turret)
+            => witness == 0 ? 0 : ((ulong)witness << 3) | (direct ? 1UL : 2UL) | (turret ? 4UL : 0UL);
+        private static ulong ComponentKey(in Pending entry) => ComponentKey(entry.WitnessComponent,
+            (entry.Flags & (HitClaimPacket.FlagDirect | HitClaimPacket.FlagHeadshot)) != 0,
+            (entry.Flags & HitClaimPacket.FlagHalfturret) != 0);
+        private static bool CanRememberComponentRescue(in Pending entry)
+            => entry.ShotId == 0 || _rescueIndex.CanInsert(entry.ShooterSlot, entry.VictimSlot,
+                ShotKey.For(entry.ShooterSlot, entry.ShotId), entry.VictimGeneration, entry.VictimLifeId,
+                NetSession.NetFrame, ComponentKey(entry));
+        private static void NoteComponentRescue(in Pending entry)
+        {
+            if (entry.ShotId != 0 && !_rescueIndex.Insert(entry.ShooterSlot, entry.VictimSlot,
+                ShotKey.For(entry.ShooterSlot, entry.ShotId), entry.VictimGeneration, entry.VictimLifeId,
+                NetSession.NetFrame, ComponentKey(entry)))
+                throw new InvalidOperationException("Component rescue capacity must be checked before damage");
+        }
+        public static bool AlreadyRescued(int attacker, int victim, uint launch, ShotKey? launchKey = null, ulong component = 0)
         {
             if (!Arbitrating || launch == 0 || ApplyingClaim || (uint)attacker >= Slots || (uint)victim >= Slots) return false;
-            if (!_rescueIndex.Consume(attacker, victim, launchKey ?? ShotKey.For(attacker, launch),
+            ShotKey key = launchKey ?? ShotKey.For(attacker, launch);
+            bool exact = component != 0 && _rescueIndex.Consume(attacker, victim, key,
+                NetPlayerLifecycle.Generation(victim), NetPlayerLifecycle.Get(victim), NetSession.NetFrame, component);
+            if (!exact && !_rescueIndex.Consume(attacker, victim, key,
                 NetPlayerLifecycle.Generation(victim), NetPlayerLifecycle.Get(victim), NetSession.NetFrame)) return false;
             SuppressedHere++;
             return true;
@@ -1982,8 +2025,8 @@ namespace MphRead.Mods.Network
         {
             if (!entry.RequireAttackEvidence || entry.EvidenceReserved) return true;
             if (!NetAcceptedAttacks.TryReserveClaim(entry.ShooterSlot, ClaimFor(entry),
-                out Vector3 point, out Vector3 direction)) return false;
-            entry.WitnessPoint = point; entry.WitnessDirection = direction;
+                out Vector3 point, out Vector3 direction, out uint component)) return false;
+            entry.WitnessPoint = point; entry.WitnessDirection = direction; entry.WitnessComponent = component;
             entry.EvidenceReserved = true;
             return true;
         }
@@ -2025,18 +2068,18 @@ namespace MphRead.Mods.Network
                 Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultDeadShooter);
                 return;
             }
-            if (!CanRememberRescue(shooterSlot, victimSlot, entry.ShotId)
+            if (!TryRetainEvidence(ref entry))
+            {
+                RefusedHere++;
+                Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultInvalidLaunch);
+                return;
+            }
+            if (!CanRememberComponentRescue(entry)
                 || (_ledgerUnsafeUntil[shooterSlot, victimSlot] != 0
                     && (int)(_ledgerUnsafeUntil[shooterSlot, victimSlot] - NetSession.NetFrame) >= 0))
             {
                 ClaimsCapacityRefused++;
                 Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultClaimCapacity);
-                return;
-            }
-            if (!TryRetainEvidence(ref entry))
-            {
-                RefusedHere++;
-                Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultInvalidLaunch);
                 return;
             }
             DamageFlags flags = DamageFlags.NoDmgInvuln;
@@ -2132,7 +2175,7 @@ namespace MphRead.Mods.Network
             // Remember the shot, so the authority's own copy of it -- which
             // for a slow projectile can still be in the air -- is refused when
             // it lands rather than paid a second time.
-            NoteRescued(shooterSlot, victimSlot, entry.ShotId);
+            NoteComponentRescue(entry);
             RescuedDamage += before - (uint)Math.Max(0, victim.Health);
             if ((entry.Flags & HitClaimPacket.FlagHeadshot) != 0)
             {

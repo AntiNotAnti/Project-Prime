@@ -2,7 +2,7 @@ using System;
 
 namespace MphRead.Mods.Network;
 
-internal enum EarlyClaimMode : byte { Off, Shadow }
+internal enum EarlyClaimMode : byte { Off, Shadow, Enabled }
 [Flags]
 internal enum EarlyClaimBlockers : byte
 {
@@ -25,7 +25,7 @@ internal readonly record struct ClaimEarlySettlementDecision(EarlyClaimBlockers 
 internal readonly record struct ClaimShadowSample(ShotKey Shot, byte Victim, ushort VictimGeneration,
     ushort VictimLife, ushort ClaimId, uint Frame, uint Waited, ClaimEarlySettlementDecision Decision);
 
-/// <summary>Observes proof already reserved by the existing arbitration. Never reserves or applies damage.</summary>
+/// <summary>Bounded proof decisions and admission frontier; damage remains in ordinary claim arbitration.</summary>
 internal static class NetClaimEarlySettlement
 {
     internal static EarlyClaimMode Mode { get; set; }=EarlyClaimMode.Shadow;
@@ -34,22 +34,35 @@ internal static class NetClaimEarlySettlement
     internal static long Observed { get; private set; }
     internal static long Proven { get; private set; }
     internal static long Eligible { get; private set; }
+    internal static long AppliedEarly { get; private set; }
+    internal static long SavedWaitFrames { get; private set; }
+    // Once a world is closed it stays closed even if an operator later raises
+    // the rewind budget. This only seals times already outside admission.
+    internal static uint ClosedThrough { get; private set; }
+    internal static bool AdmissionOpen(uint frame) => ClosedThrough == 0 || frame > ClosedThrough;
+    internal static bool HorizonClosed(uint now, uint launch, int ceiling)
+        => launch != 0 && now > launch && (ulong)now - launch > (ulong)Math.Max(0, ceiling) + 1;
+    internal static void Seal(uint launch) => ClosedThrough = Math.Max(ClosedThrough, launch);
+    internal static void Applied(uint saved) { AppliedEarly++; SavedWaitFrames += saved; }
     internal static bool Configure(string value)
     {
         if(value=="off"){Mode=EarlyClaimMode.Off;return true;}
         if(value=="shadow"){Mode=EarlyClaimMode.Shadow;return true;}
-        // An enabled flag must not lie about a missing safety proof or weaken the fallback.
+        if(value=="enabled"){Mode=EarlyClaimMode.Enabled;return true;}
         return false;
     }
-    internal static void Observe(in HitClaimPacket claim,int shooter,bool reserved,uint waited,int health)
+    internal static ClaimEarlySettlementDecision Evaluate(in HitClaimPacket claim, bool reserved,
+        uint component, bool orderClosed, int health)
+    {
+        bool direct=claim.Beam==(byte)BeamType.Imperialist && (claim.Flags&HitClaimPacket.FlagDirect)!=0
+            && (claim.Flags&~(HitClaimPacket.FlagDirect|HitClaimPacket.FlagHeadshot))==0;
+        return ClaimEarlySettlementDecision.Evaluate(reserved,direct,component!=0,orderClosed,health,claim.Damage);
+    }
+    internal static void Observe(in HitClaimPacket claim,int shooter,bool reserved,uint waited,int health,
+        uint component=0,bool orderClosed=false)
     {
         if(Mode==EarlyClaimMode.Off) return;
-        bool direct=claim.Beam==(byte)BeamType.Imperialist && (claim.Flags&HitClaimPacket.FlagDirect)!=0
-            && (claim.Flags&(HitClaimPacket.FlagContinuousTick|HitClaimPacket.FlagHalfturret))==0;
-        var decision=ClaimEarlySettlementDecision.Evaluate(reserved,direct,
-            exactNativeSuppression:false,sourceOrderClosed:false,health,claim.Damage);
-        // Current NetRescueIndex is shot/victim scoped. Native witness serials do not
-        // flow into that suppression key, and admission has no closed source frontier.
+        var decision=Evaluate(claim,reserved,component,orderClosed,health);
         Samples[_cursor]=new(new(claim.AuthorityEpoch,claim.MatchId,shooter,claim.ShooterGeneration,
             claim.ShooterLifeId,claim.ShotId),claim.VictimSlot,claim.VictimGeneration,claim.VictimLifeId,
             claim.ClaimId,NetSession.NetFrame,waited,decision);
@@ -62,5 +75,5 @@ internal static class NetClaimEarlySettlement
         for(int i=0;i<_count;i++)result[i]=Samples[(_cursor-_count+Samples.Length+i)%Samples.Length];
         return result;
     }
-    internal static void Reset(){Array.Clear(Samples);_cursor=_count=0;Observed=Proven=Eligible=0;}
+    internal static void Reset(){Array.Clear(Samples);_cursor=_count=0;Observed=Proven=Eligible=AppliedEarly=SavedWaitFrames=0;ClosedThrough=0;}
 }
