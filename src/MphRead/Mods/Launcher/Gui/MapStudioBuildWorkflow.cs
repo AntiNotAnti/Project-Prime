@@ -116,7 +116,14 @@ namespace MphRead.Mods.Launcher.Gui
             var result=await _services.BuildScheduler.BuildAsync(MapBuildSnapshot.Capture(p),token);
             GuardJob(token);Problems(result.Validation());if(!result.Succeeded)return;
             await _services.PublishBuildAsync(result,p.Definition,token);
-            GuardJob(token); if (_services.IsStandalone) await _services.RequestPlaytestAsync(p, token); else PlayRequested?.Invoke(this,p.Definition);
+            GuardJob(token);
+            if (_services.IsStandalone)
+            {
+                _status.Text="Waiting for Project Prime to load the playtest…";
+                await _services.RequestPlaytestAsync(p,token);
+                GuardJob(token);_status.Text="Playtest started in Project Prime.";
+            }
+            else PlayRequested?.Invoke(this,p.Definition);
             });
         }
         private Task Audit()=>Work("Running map audit",async(p,token)=>
