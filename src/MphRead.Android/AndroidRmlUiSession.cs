@@ -130,6 +130,10 @@ internal sealed partial class AndroidRmlUiSession : IDisposable
             { if (ReferenceEquals(_socialController, social)) social.ReportJoinFailure(error); });
         }
         _updates.Tick(_setup == null && _lobby == null && _route == RmlUiRouteArgument.Home && !Pages.Suspended && Pages.Manager.ModalCount == 0);
+        Pages.ObserveRelease(LauncherPrefs.AutoUpdate && !Mods.Update.Updater.Disabled
+            ? Mods.Update.Updater.Available?.Tag : null);
+        var social = SocialRuntime.Summary;
+        Pages.ObserveSocialNotices(social.InvitationCount, social.IncomingRequests, social.TravelPending, social.DirectoryLoaded);
         if (_updates.TryTakeAvailable(out var update)) { OpenSetup(required: false); _setup!.OpenLatest(update, automatic: true); }
         if (Pages.Manager.PageKey=="splash")RmlSplashPage.Layout(Host,Pages);
         else if (Pages.Manager.Page != default) Pages.PresentChrome(Pages.Manager.Page);
@@ -145,6 +149,17 @@ internal sealed partial class AndroidRmlUiSession : IDisposable
     {
         switch (intent.Kind)
         {
+            case RmlUiIntentKind.NoticeAction:
+                string? destination = Pages.HandleNoticeAction(intent.Argument);
+                if (destination == "updates")
+                {
+                    if (_lobby != null || _setup?.Busy == true)
+                        Pages.ReportSystemNotice("Leave the lobby or finish the current setup operation before changing versions.");
+                    else if (_setup == null) OpenSetup(required: !GameFiles.Ready);
+                }
+                else if (destination == "social") Open(RmlUiRouteArgument.Social);
+                else if (destination == "news") Open(RmlUiRouteArgument.News);
+                break;
             case RmlUiIntentKind.Navigate:
                 if (_lobby != null) { Pages.SetText("lobby_status", "LEAVE THE LOBBY BEFORE CHANGING ACTIVITY."); break; }
                 Open((RmlUiRouteArgument)intent.Argument); break;
@@ -273,6 +288,7 @@ internal sealed partial class AndroidRmlUiSession : IDisposable
         if (_hud?.Back() == true) return;
         if (_admin?.Active == true) { _admin.Back(); return; }
         if (_hunter?.Active == true) { _hunter.Dispose(); _hunter = null; return; }
+        if (Pages.NoticeOpen) { Pages.CloseNotices(); return; }
         if (_setup?.Back() == true || _settingsPage?.Back() == true || _social?.Back() == true || _theatre?.Back() == true || _adventure?.Back() == true || _news?.Back() == true || Pages.Manager.Back()) return;
         if (!Pages.Suspended && Pages.Back(out var forwarded)) { if (forwarded.Kind != 0) Handle(forwarded); return; }
         if (_route != RmlUiRouteArgument.Home) { Open(RmlUiRouteArgument.Home); return; }
