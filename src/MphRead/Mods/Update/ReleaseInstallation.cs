@@ -123,6 +123,11 @@ internal static class ReleaseInstallation
     /// </summary>
     internal static void ValidateIncoming(string source, string target)
     {
+        // Internal lock files are non-portable packaging state and must not
+        // be part of the incoming archive (as happened on Linux v0.1.52).
+        if (File.Exists(Path.Combine(source, ".project-prime-update.lock")))
+            throw new InvalidDataException(
+                "The published release contains an updater-internal lock file. Wait for a corrected release.");
         EnsureManifest(source);
         Manifest next = ReadManifest(source)
             ?? throw new InvalidDataException("The incoming release manifest is missing.");
