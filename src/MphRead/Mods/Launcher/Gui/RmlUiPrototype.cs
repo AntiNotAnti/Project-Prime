@@ -95,6 +95,16 @@ namespace MphRead.Mods.Launcher.Gui
 
             LauncherUiRuntime.BeginNativeAttempt();
             string root = Path.Combine(AppContext.BaseDirectory, "rmlui");
+            // App bundles must seal UI documents as Resources, not nested
+            // unsigned code under Contents/MacOS. Loose desktop releases keep
+            // the original sibling rmlui directory.
+            if (OperatingSystem.IsMacOS() && !File.Exists(Path.Combine(root, "prime_home.rml")))
+            {
+                string bundleRoot = Path.GetFullPath(Path.Combine(
+                    AppContext.BaseDirectory, "..", "Resources", "rmlui"));
+                if (File.Exists(Path.Combine(bundleRoot, "prime_home.rml")))
+                    root = bundleRoot;
+            }
             string document = Path.Combine(root, "prime_home.rml");
             if (!File.Exists(document))
             {
