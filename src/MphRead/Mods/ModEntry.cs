@@ -79,6 +79,16 @@ namespace MphRead.Mods
             bool serverInvocation = HasFlag(args, "server")
                 || HasFlag(args, "dedicated") || HasFlag(args, "masterserver");
             bool hostedChild = HasFlag(args, "hostedchild");
+            if (ValueAfter(args, "hitrigloadout") is string fixtureWeapon
+                && !Network.NetCombatFixture.Configure(fixtureWeapon,
+                    HasFlag(args, "server") || HasFlag(args, "dedicated"),
+                    HasFlag(args, "nomaster") || HasFlag(args, "unlisted")))
+            {
+                Console.WriteLine("[combat-fixture] -hitrigloadout requires a weapon name and an unlisted dedicated server; grants apply only to loopback peers.");
+                Environment.ExitCode = 2;
+                return true;
+            }
+
 
             if (HasFlag(args, "settingsarchive"))
             {
@@ -2316,6 +2326,12 @@ namespace MphRead.Mods
                 // A real window and a picture of it, for the half of this
                 // client's output that is HUD -- see NetCheckClient.ShowWindow.
                 Network.NetCheckClient.ShowWindow = HasFlag(args, "hudshots");
+                if (ValueAfter(args, "netchecklobbyplayers") is string lobbyPlayers)
+                {
+                    if (!int.TryParse(lobbyPlayers, out int expectedPlayers) || expectedPlayers is < 1 or > 8)
+                    { Environment.ExitCode = 2; Console.WriteLine("[netcheck] lobby players must be 1..8."); return true; }
+                    Network.NetCheckClient.AutoStartPlayers = expectedPlayers;
+                }
                 string? mapVote = ValueAfter(args, "mapvote");
                 if (mapVote != null && Int32.TryParse(mapVote, out int mapVoteRow))
                 {

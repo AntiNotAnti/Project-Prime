@@ -136,17 +136,37 @@ namespace MphRead.Mods.Network
         }
 
         public static bool Join(string address, int port, string playerName, Hunter hunter,
-            int timeoutMs = 8000, int color = -1)
+            int timeoutMs = 8000, int color = -1, int autoStartPlayers = 0)
         {
             if (!Connect(address, port, playerName, hunter, timeoutMs, color)) return false;
             _terminalLobby = NetSession.PersistentLobby;
             if (!NetSession.ShouldLoadMatch)
                 Console.WriteLine("Connected to lobby. Waiting for the lobby owner to start... Commands: ready, start, leave.");
+            var lobbyWait = Stopwatch.StartNew();
+            long lastLobbyRequest = -1000;
             while (NetSession.Active && !NetSession.ShouldLoadMatch)
             {
                 NetSession.Pump();
                 if (NetSession.Refused || NetSession.SessionTimedOut) { NetSession.Stop(); return false; }
-                PollTerminalInput();
+                if (autoStartPlayers > 0)
+                {
+                    // Explicit netcheck fixture only. Use ordinary ready/start commands;
+                    // the server still enforces ownership, map readiness and start barriers.
+                    if (lobbyWait.Elapsed.TotalSeconds > 90) { NetSession.Stop(); return false; }
+                    if (NetSession.IsInLobby && NetSession.RequiredMapReady
+                        && lobbyWait.ElapsedMilliseconds - lastLobbyRequest >= 1000)
+                    {
+                        lastLobbyRequest = lobbyWait.ElapsedMilliseconds;
+                        if (!NetSession.SlotLobbyReady[NetSession.LocalSlot])
+                        { NetSession.SendLobbyCommand(LobbyCommandType.SetReady, ready: true); continue; }
+                        int occupied = 0; bool ready = true;
+                        for (int i = 0; i < NetSession.SlotOccupied.Length; i++)
+                            if (NetSession.SlotOccupied[i]) { occupied++; ready &= NetSession.SlotLobbyReady[i]; }
+                        if (NetSession.LocalIsLobbyOwner && ready && occupied >= autoStartPlayers)
+                            NetSession.SendLobbyCommand(LobbyCommandType.StartMatch);
+                    }
+                }
+                else PollTerminalInput();
                 Thread.Sleep(20);
             }
             DisableCheatsForMatch();

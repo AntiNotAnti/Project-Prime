@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Ordinary native 2/4/8-client networking smoke matrix, with isolated preferences.
 
-Runs the existing real server and -netcheck -nographics hitrig modes. No native
-weapon/source gate or scenario code is changed. A private runtime copy freezes
+Runs the existing real server and -netcheck -nographics hitrig modes. Optional explicit loopback loadouts exercise the intended weapon without trusting
+client inventory. Native source/resource/proof gates remain enabled. A private runtime copy freezes
 the build for the entire run; only this runner's child processes are signalled.
 """
 import argparse
@@ -61,6 +61,11 @@ def stop_children(children, stopped):
             child.wait()
 
 
+WEAPONS = {"jump":"Imperialist", "sniper":"Imperialist", "duel":"Imperialist", "missile":"Missile",
+    "magmaul":"Magmaul", "judicator":"Judicator", "battlehammer":"Battlehammer", "shockcoil":"ShockCoil",
+    "voltdriver":"VoltDriver", "powerbeam":"PowerBeam"}
+WEAPON_IDS = {name:i for i,name in enumerate(("PowerBeam","VoltDriver","Missile","Battlehammer","Imperialist","Judicator","Magmaul","ShockCoil","OmegaCannon"))}
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--runtime", type=Path, help="Built/staged directory containing ProjectPrime.dll and native dependencies")
@@ -71,8 +76,12 @@ def main():
     parser.add_argument("--seed", type=int, default=431)
     parser.add_argument("--modes", default="jump")
     parser.add_argument("--profiles", default="rtt0-loss0,rtt100-loss2,rtt500-loss10", help="Comma-separated names or all (40 profiles)")
+    parser.add_argument("--jitter-ms", type=int, help="Override configured jitter for nonzero RTT profiles")
     parser.add_argument("--players", type=int, choices=(2,4,8), default=2)
     parser.add_argument("--impacts", action="store_true", help="Opt in to impact delivery/debug/profile; no rendered success claim")
+    parser.add_argument("--fixture-loadout", action="store_true", help="Explicit unlisted loopback authority loadout for the selected weapon")
+    parser.add_argument("--server-scratch", action="store_true", help="Enable measured server scratch optimizations")
+    parser.add_argument("--claim-mode", choices=("off","shadow","enabled"), default="shadow")
     parser.add_argument("--hunter", default="Samus")
     parser.add_argument("--map", default="MP1 SANCTORUS")
     parser.add_argument("--mapdir", type=Path)
@@ -89,6 +98,8 @@ def main():
         return 0
     if not all((args.runtime, args.data, args.output)):
         parser.error("--runtime, --data, and --output are required for execution")
+    if args.fixture_loadout and args.require_combat and not args.impacts: parser.error("fixture combat proof requires --impacts")
+    if args.jitter_ms is not None and not 0 <= args.jitter_ms <= 250: parser.error("jitter must be 0..250 ms")
     if args.seconds < 5 or args.startup_timeout <= 0 or args.pause_seconds <= 0 or args.pause_after < 0:
         parser.error("invalid duration/deadline")
     if args.pause_after and (os.name != "posix" or args.pause_after + args.pause_seconds >= args.seconds):
@@ -113,8 +124,8 @@ def main():
     source_hashes = {name: sha(repo / name) for name in GATES if (repo / name).is_file()}
     manifest = dict(seed=args.seed, runtime_source=str(runtime), runtime_sha256=sha(frozen / "ProjectPrime.dll"),
                     paths_source=str(data / "paths.txt"), map=args.map, modes=modes,
-                    profiles=[profile for profile in PROFILES if profile["name"] in requested],
-                    seconds=args.seconds, players=args.players, impacts=args.impacts, freezeSource=source_hashes, native_gates="unchanged existing netcheck simulation/scenario gates",
+                    profiles=[dict(profile, jitter_ms=args.jitter_ms) if args.jitter_ms is not None and profile["rtt_ms"] else profile for profile in PROFILES if profile["name"] in requested],
+                    seconds=args.seconds, players=args.players, impacts=args.impacts, fixtureLoadout=args.fixture_loadout, serverScratch=args.server_scratch, claimMode=args.claim_mode, freezeSource=source_hashes, native_gates="unchanged existing netcheck simulation/scenario gates",
                     evidence_scope="real native simulation and UDP; no rendered/device acceptance")
     (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     mapdir = args.mapdir.resolve() if args.mapdir else output / "empty-maps"
@@ -148,7 +159,10 @@ def main():
                 children.append(child)
                 return child
             try:
-                server = launch("server", ["-server", "-port", port, "-players", str(args.players), "-nomaster", "-serverreplays", "off", "-debuglog"])
+                server_options=["-server", "-port", port, "-players", str(args.players), "-nomaster", "-serverreplays", "off", "-debuglog", "-claimfastpath", args.claim_mode]
+                if args.fixture_loadout and mode in WEAPONS: server_options += ["-hitrigloadout", WEAPONS[mode]]
+                if args.server_scratch: server_options += ["-impactserverscratch"]
+                server = launch("server", server_options)
                 deadline = time.monotonic() + args.startup_timeout
                 while "authoritative server ready" not in text(folder / "server.log"):
                     if server.poll() is not None or time.monotonic() > deadline:
@@ -159,6 +173,7 @@ def main():
                     role = f"peer{index}"
                     peers[role] = launch(role, ["-netcheck", "127.0.0.1", "-port", port, "-name", role,
                         "-hunter", args.hunter, "-seconds", str(args.seconds), "-nographics", "-hitrig", mode,
+                        "-netchecklobbyplayers", str(args.players),
                         "-netlag", f"{profile['rtt_ms']}:{profile['jitter_ms']}", "-netloss", f"{profile['loss_percent']}%",
                         "-netreorder", f"{profile['reorder_percent']}%", "-netduplicate", f"{profile['duplicate_percent']}%",
                         "-netseed", str(args.seed + index), "-debuglog"])
@@ -209,6 +224,15 @@ def main():
                 stop_children(children, stopped)
                 for log in logs: log.close()
                 row["server_exit_code"] = children[0].returncode if children else None
+            authority_path=folder / "server-impacts.json"
+            if authority_path.is_file():
+                events=json.loads(authority_path.read_text())["events"]
+                row["authority_facts_by_weapon"]={name:sum(e["Stage"]==1 and e["Weapon"]==code for e in events) for name,code in WEAPON_IDS.items()}
+                if args.fixture_loadout and args.require_combat and mode in WEAPONS:
+                    row["intended_weapon_exercised"]=row["authority_facts_by_weapon"][WEAPONS[mode]]>0
+                    row["passed"] = row["passed"] and row["intended_weapon_exercised"]
+            elif args.fixture_loadout and args.require_combat and mode in WEAPONS:
+                row["passed"]=False;row["intended_weapon_exercised"]=False
             results.append(row)
             (output / "summary.json").write_text(json.dumps(results, indent=2) + "\n")
             print(json.dumps(row), flush=True)

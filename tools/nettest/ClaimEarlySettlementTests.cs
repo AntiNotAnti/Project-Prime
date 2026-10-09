@@ -30,6 +30,11 @@ internal static class ClaimEarlySettlementTests
             Check(NetClaimEarlySettlement.Proven==1000 && NetClaimEarlySettlement.Eligible==0,"native proof alone never licenses early application");
             Check(NetClaimEarlySettlement.Snapshot().Length==512,"bounded shadow history");
             Check(NetClaimEarlySettlement.Snapshot()[0].Decision.Blockers==(EarlyClaimBlockers.UnfencedNativeComponent|EarlyClaimBlockers.OpenAttackOrder),"current production blockers explicit");
+            Check(!NetCombatFixture.Configure("Imperialist",false,true) && !NetCombatFixture.Configure("Imperialist",true,false),"fixture requires explicit unlisted authority");
+            Check(!NetCombatFixture.Configure("Enemy",true,true) && !NetCombatFixture.Configure("garbage",true,true),"fixture refuses non-player weapon");
+            Check(NetCombatFixture.Configure("Imperialist",true,true) && NetCombatFixture.Allows(System.Net.IPAddress.Loopback)
+                && NetCombatFixture.Allows(System.Net.IPAddress.IPv6Loopback) && !NetCombatFixture.Allows(System.Net.IPAddress.Parse("192.0.2.1")),"fixture grants are loopback only");
+            NetCombatFixture.Disable(); Check(!NetCombatFixture.Allows(System.Net.IPAddress.Loopback),"ordinary server has no fixture grant");
             var index = new NetRescueIndex();
             var key = new ShotKey(1,2,0,3,4,5);
             ulong direct=NetHitClaims.ComponentKey(10,true,false), splash=NetHitClaims.ComponentKey(10,false,false),
@@ -48,6 +53,6 @@ internal static class ClaimEarlySettlementTests
             Console.WriteLine($"PASS: {checks} early settlement safety assertions");return 0;
         }
         catch(Exception e){Console.Error.WriteLine(e);return 1;}
-        finally{NetClaimEarlySettlement.Reset();NetClaimEarlySettlement.Mode=EarlyClaimMode.Shadow;}
+        finally{NetCombatFixture.Disable();NetClaimEarlySettlement.Reset();NetClaimEarlySettlement.Mode=EarlyClaimMode.Shadow;}
     }
 }
