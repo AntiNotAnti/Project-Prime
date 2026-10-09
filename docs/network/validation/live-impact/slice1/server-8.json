@@ -1,0 +1,67 @@
+{
+  "commit": "working-tree",
+  "protocol": 45,
+  "runtime": ".NET 10.0.12",
+  "environment": {
+    "machine": "Jarretts-MBP",
+    "cpu": "Apple M4 Pro",
+    "processors": 12,
+    "os": "macOS 27.0.0",
+    "architecture": "Arm64"
+  },
+  "scenario": {
+    "players": 8,
+    "room": "MP1 SANCTORUS",
+    "steps": 600,
+    "warmupSteps": 300,
+    "kind": "asset-backed synthetic-intent server simulation; no transport"
+  },
+  "mean": 0.29697633333333323,
+  "p50": 0.2421,
+  "p95": 0.6482,
+  "p99": 1.0027,
+  "worst": 10.3432,
+  "unit": "milliseconds",
+  "allocations": 1345296,
+  "allocationsPerStep": 2242.16,
+  "gen0": 1,
+  "gen1": 0,
+  "gen2": 0,
+  "overruns": 0,
+  "dropped": 0,
+  "stalls": 0,
+  "failures": 0,
+  "lag": {
+    "compensated": 360,
+    "rewind": 2160,
+    "maxRewind": 6,
+    "catchupSteps": 1400,
+    "shadowEligible": 360,
+    "shadowSampled": 25,
+    "shadowSteps": 198,
+    "shadowTicks": 6774293
+  },
+  "geometry": {
+    "considered": 0,
+    "applied": 0,
+    "historyMisses": 0,
+    "interpolations": 0,
+    "skipped": 0
+  },
+  "historicalCollision": {
+    "queries": 25185,
+    "hits": 3485,
+    "misses": 21700,
+    "buildTicks": 1240001
+  },
+  "arbitration": {
+    "pending": 0,
+    "resolved": 2,
+    "rescued": 0,
+    "probes": 2
+  },
+  "unavailable": [
+    "network impairment",
+    "transport lock contention (no transport in this workload)"
+  ]
+}

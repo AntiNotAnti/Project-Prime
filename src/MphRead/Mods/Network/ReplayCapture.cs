@@ -176,7 +176,6 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            NetImpactDiagnostics.Record(fact, ImpactStage.Authority);
             Span<byte> payload = stackalloc byte[ReplayShotFactPacket.Size];
             ReplayShotFactPacket.Write(fact, payload);
             if (!Recorder.AcceptShotFact(payload, NetSession.NetFrame)) return;

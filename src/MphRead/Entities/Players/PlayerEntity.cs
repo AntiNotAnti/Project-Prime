@@ -3060,7 +3060,7 @@ namespace MphRead.Entities
                         replayFactFlags |= Mods.Network.ReplayShotFactFlags.Lethal;
                     else
                         replayFactFlags &= ~Mods.Network.ReplayShotFactFlags.Lethal;
-                    Mods.Network.ReplayCapture.AcceptedShotFact(new Mods.Network.ReplayShotFact(
+                    Mods.Network.NetCombatFactPublisher.Publish(new Mods.Network.ReplayShotFact(
                         Mods.Network.NetSession.CurrentMatchId,
                         Mods.Network.NetSession.AuthorityEpoch,
                         Mods.Network.NetSession.NetFrame,
@@ -3079,7 +3079,7 @@ namespace MphRead.Entities
                         healthAfter,
                         turretDamage,
                         turretHealthAfter,
-                        replayImpact));
+                        replayImpact), Mods.Network.ImpactPresentationData.Unknown);
                 }
             }
             if (combatSequence != combatSequenceBefore && beam?.EnhancedMicroSeeker != true)

@@ -18,6 +18,8 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - run: dotnet run --project tools/nettest -c Release -- --impact-baseline
+      - run: dotnet run --project tools/nettest -c Release --no-build -- --live-impact
+      - run: dotnet run --project tools/nettest -c Release --no-build -- --impact-transport
       - run: python3 tools/live-impact/run-validation.py --output artifacts/live-impact
       - uses: actions/upload-artifact@v6
         if: always()
