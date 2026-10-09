@@ -130,21 +130,10 @@ try
         Require(!File.Exists(Path.Combine(root, "Savedata/hud-profiles/orphan.json.bak")));
         Require(File.ReadAllText(Path.Combine(root, "career.env")) == "private" && File.ReadAllText(Path.Combine(root, "Savedata/auth.json")) == "private");
     });
-    if (args.Contains("--ui")) Test("reset confirmation can be cancelled", () =>
-    {
-        Require(MphRead.Mods.Launcher.Gui.GuiLauncher.EnsureSetup(requireDisplay: false));
-        Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
-        {
-            var view = new MphRead.Mods.Launcher.Gui.SettingsView(new MphRead.MenuSettings());
-            object? previous = view.Content;
-            typeof(MphRead.Mods.Launcher.Gui.SettingsView).GetMethod("ShowResetConfirmation", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(view, null);
-            var panel = (Avalonia.Controls.StackPanel)view.Content!;
-            Require(panel.Children.OfType<MphRead.Mods.Launcher.Gui.HubNavButton>().Any(b => b.Label == "CONFIRM RESET"));
-            var cancel = panel.Children.OfType<MphRead.Mods.Launcher.Gui.HubNavButton>().Single(b => b.Label == "CANCEL");
-            MphRead.Mods.Launcher.Gui.FocusNavigator.Key(cancel, Avalonia.Input.Key.Enter);
-            Require(ReferenceEquals(previous, view.Content) && !SettingsPersistence.RestartRequired);
-        });
-    });
+    // The retired Avalonia launcher tests belonged to GuiLauncher/SettingsView,
+    // neither of which ships in the native client. Native Settings UI contracts
+    // run in rmlui-settings-check and rmlui-settings-engine-check. Keep the
+    // persistence, archive, rollback, and restart-fence tests here.
     Test("failed replacement releases write fence", () =>
     {
         try { SettingsPersistence.Replace(() => throw new IOException("Before installation")); } catch (IOException) { }
@@ -167,25 +156,6 @@ try
             using var lease = SettingsPersistence.BeginWrite(); Require(lease == null);
         }
         finally { MphRead.Mods.Launcher.LauncherPrefs.Directory = prior; }
-    });
-    if (args.Contains("--ui")) Test("reopened editor offers restart now and later", () =>
-    {
-        Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
-        {
-            var view = new MphRead.Mods.Launcher.Gui.SettingsView(new MphRead.MenuSettings());
-            var panel = (Avalonia.Controls.StackPanel)view.Content!;
-            var buttons = panel.Children.OfType<MphRead.Mods.Launcher.Gui.HubNavButton>().ToArray();
-            bool restarted = false, closed = false;
-            SettingsArchivePlatform.RestartApplication = () => restarted = true;
-            view.Closed += (_, _) => closed = true;
-            try
-            {
-                MphRead.Mods.Launcher.Gui.FocusNavigator.Key(buttons.Single(b => b.Label == "RESTART NOW"), Avalonia.Input.Key.Enter);
-                MphRead.Mods.Launcher.Gui.FocusNavigator.Key(buttons.Single(b => b.Label == "RESTART LATER"), Avalonia.Input.Key.Enter);
-                Require(restarted && closed && !view.IsDirty);
-            }
-            finally { SettingsArchivePlatform.RestartApplication = null; }
-        });
     });
     Console.WriteLine($"{passed} settings archive checks passed.");
 }

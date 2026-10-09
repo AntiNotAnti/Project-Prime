@@ -1,5 +1,6 @@
 """Execute actual release workflow shell gates with a local GitHub CLI fixture."""
 import os
+import importlib.util
 from pathlib import Path
 import re
 import subprocess
@@ -65,6 +66,27 @@ class NativeReleasePackagingTests(unittest.TestCase):
         self.assertLess(script.index('tools/rmlui/build-native.sh "$RID" gl2'),
             script.index('dotnet publish src/MphRead/MphRead.csproj'))
         self.assertIn('tools/rmlui/verify-runtime.py --package "publish/$RID" "$RID"',script)
+
+    def test_native_fingerprint_is_portable_across_windows_checkout_newlines(self):
+        runtime_file=WORKFLOW.parents[2]/"tools/rmlui/verify-runtime.py"
+        spec=importlib.util.spec_from_file_location("rmlui_verify_runtime",runtime_file)
+        verifier=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(verifier)
+        with tempfile.TemporaryDirectory() as directory:
+            old_root=verifier.ROOT
+            try:
+                verifier.ROOT=Path(directory)
+                sources=verifier.ROOT/"native/rmlui-poc"
+                sources.mkdir(parents=True)
+                source=sources/"projectprime_rmlui.cpp"
+                source.write_bytes(b"line one\\nline two\\n")
+                lf=verifier.fingerprint()
+                source.write_bytes(b"line one\\r\\nline two\\r\\n")
+                self.assertEqual(lf,verifier.fingerprint())
+                source.write_bytes(b"line one\\r\\nline modified\\r\\n")
+                self.assertNotEqual(lf,verifier.fingerprint())
+            finally:
+                verifier.ROOT=old_root
 
     def test_macos_app_bundle_seals_ui_data_as_resources(self):
         root=WORKFLOW.parents[2]
