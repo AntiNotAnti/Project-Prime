@@ -364,6 +364,11 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
+      - name: install Linux RmlUi GL2 development dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --no-install-recommends -y build-essential cmake libgl1-mesa-dev libx11-dev
       - name: build pinned desktop RmlUi and FreeType
         shell: bash
         run: |
