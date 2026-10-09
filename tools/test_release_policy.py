@@ -42,7 +42,7 @@ class NativeReleasePackagingTests(unittest.TestCase):
         self.assertIn("tools/rmlui/verify-runtime.py",native)
         self.assertIn("name: release-rmlui-${{ matrix.rid }}",native)
         self.assertIn("release-rmlui-native]",client)
-        self.assertIn("if: matrix.server == false\\n        with:\\n          name: release-rmlui-${{ matrix.rid }}",client)
+        self.assertIn("if: matrix.server == false\n        with:\n          name: release-rmlui-${{ matrix.rid }}",client)
         self.assertIn("path: artifacts/rmlui-native/${{ matrix.rid }}/",client)
         publish=step_script("publish target")
         self.assertLess(publish.index('tools/rmlui/verify-runtime.py "artifacts/'),
