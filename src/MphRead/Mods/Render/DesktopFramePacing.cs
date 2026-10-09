@@ -10,12 +10,17 @@ internal static class DesktopFramePacing
 {
     internal const double NativeRefreshToleranceHz = 0.75;
 
-    internal static bool NativeRefreshMatches(int cap, double refreshRate) =>
-        cap > 0 && refreshRate > 0
-        && Math.Abs(cap - refreshRate) <= NativeRefreshToleranceHz;
-
+    /// <summary>
+    /// Only explicit Display/VSync uses compositor pacing. Even when an FPS
+    /// cap equals the monitor refresh, the cap remains a software deadline
+    /// whenever presentation is nonblocking. Drivers and VRR may otherwise
+    /// exceed a numeric limit (such as 240 on a 240 Hz monitor).
+    ///
+    /// Keep this check independent of FrameTiming: the stand-alone policy
+    /// regression executable compiles this source without the whole game.
+    /// </summary>
     internal static bool UseDisplayPacing(int cap, double refreshRate) =>
-        cap == 0 || NativeRefreshMatches(cap, refreshRate);
+        cap == 0;
 
     internal static bool LinuxVSyncIgnored(bool isLinux, int cap, double refreshRate,
         double measuredFrameRate, bool alreadyLatched)

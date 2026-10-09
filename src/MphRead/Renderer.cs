@@ -8862,11 +8862,11 @@ localCenter *= _profileHudScale;
         }
 
         /// <summary>
-        /// Apply exactly one presentation clock. Display mode and an explicit
-        /// cap matching the active monitor use the monitor/compositor clock.
-        /// Other numeric caps use OpenTK only when presentation is genuinely
-        /// non-blocking. Linux additionally detects drivers that ignore swap
-        /// interval and latches a software display-rate fallback.
+        /// Apply exactly one presentation clock. Only Display mode delegates
+        /// frame pacing to the monitor/compositor; every numeric FPS cap uses
+        /// an explicit software deadline when presentation is nonblocking,
+        /// including a cap matching the monitor refresh. Linux also detects
+        /// ignored swap interval and falls back to software display pacing.
         /// </summary>
         private void ApplyFrameRateSettings()
         {
@@ -8911,7 +8911,7 @@ localCenter *= _profileHudScale;
             if (modern)
             {
                 // A NoAPI GLFW window has no GL swap interval. Ask WebGPU for a
-                // non-blocking mode only when a non-native explicit cap needs
+                // non-blocking mode whenever an explicit numeric cap needs
                 // software pacing. If the backend can offer only FIFO, never
                 // stack OpenTK's cap on top of that blocking presentation clock.
                 Mods.Render.ModernGraphicsCompat.SetVSync(displayPaced);
