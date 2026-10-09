@@ -130,7 +130,8 @@ enum class PrimeIntentKind : uint32_t {
     SetupRelease = 261,
     HudAction = 270,
     HudElement = 271,
-    HudProperty = 272
+    HudProperty = 272,
+    NoticeAction = 280
 };
 // Navigate arguments: Home=0 Play=1 Offline=2 HunterLicense=3 Community=4
 // Theatre=5 Settings=6 News=7 Adventure=8 Social=9.
