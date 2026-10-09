@@ -127,6 +127,54 @@ internal static class InstallationChecks
             check(rejected && Original(digest.Target),
                 "modified staged payload is rejected before publication");
 
+            // Confirm the worker bytes are taken from the installed release
+            // even when the incoming staged release has a broken executable.
+            string workerRoot = Path.Combine(root, "helper-fixture");
+            string currentRoot = Path.Combine(workerRoot, "current");
+            string nextRoot = Path.Combine(workerRoot, "next");
+            string copyRoot = Path.Combine(workerRoot, "worker");
+            string currentName = OperatingSystem.IsWindows() ? "ProjectPrime.exe" : "ProjectPrime";
+            Directory.CreateDirectory(currentRoot);
+            Directory.CreateDirectory(nextRoot);
+            File.WriteAllText(Path.Combine(currentRoot, currentName), "current release worker");
+            File.WriteAllText(Path.Combine(nextRoot, currentName), "broken incoming worker");
+            string copied = DesktopUpdate.PrepareUpdateWorker(currentRoot, copyRoot, currentName);
+            check(File.ReadAllText(copied) == "current release worker"
+                && File.ReadAllText(copied) != File.ReadAllText(Path.Combine(nextRoot, currentName)),
+                "update uses known-good installed helper instead of broken incoming release");
+
+            string studioName = OperatingSystem.IsWindows()
+                ? "ProjectPrimeStudio.exe" : "ProjectPrimeStudio";
+            var prohibited = Fixture("unpaired-downgrade");
+            File.WriteAllText(Path.Combine(prohibited.Target, studioName), "installed Studio");
+            rejected = false;
+            try { ReleaseInstallation.Apply(prohibited.Source, prohibited.Target); }
+            catch (InvalidDataException ex)
+            {
+                rejected = ex.Message.Contains("separate folder", StringComparison.OrdinalIgnoreCase);
+            }
+            check(rejected && Original(prohibited.Target)
+                && File.ReadAllText(Path.Combine(prohibited.Target, studioName)) == "installed Studio",
+                "older build cannot silently remove newer installed Studio");
+
+            var paired = Fixture("forward-paired");
+            File.WriteAllText(Path.Combine(paired.Source, currentName), "new game");
+            File.WriteAllText(Path.Combine(paired.Source, studioName), "new Studio");
+            File.WriteAllText(Path.Combine(paired.Source, ".project-prime-desktop.json"),
+                System.Text.Json.JsonSerializer.Serialize(new {
+                    Version = 1,
+                    GameVersion = "0.1.52",
+                    StudioVersion = "0.1.52",
+                    IpcVersion = 1
+                }));
+            File.Delete(Path.Combine(paired.Source, ReleaseInstallation.ManifestName));
+            ReleaseInstallation.EnsureManifest(paired.Source);
+            ReleaseInstallation.Apply(paired.Source, paired.Target);
+            check(File.ReadAllText(Path.Combine(paired.Target, currentName)) == "new game"
+                && File.ReadAllText(Path.Combine(paired.Target, studioName)) == "new Studio"
+                && File.ReadAllText(Path.Combine(paired.Target, "settings.json")) == "player settings",
+                "legacy game can transactionally upgrade to a paired Game and Studio release");
+
             var locked = Fixture("running");
             rejected = false;
             try
