@@ -18,6 +18,22 @@ files = sorted(
     for p in root.rglob("*")
     if p.is_file() and p.name != MANIFEST
 )
+
+# Match ReleaseInstallation.OwnedPath: a published manifest must never own
+# updater-internal files or non-portable paths. Detect this before publishing
+# another release that cannot be installed via the updater.
+for relative in files:
+    parts = relative.split("/")
+    if (len(relative) > 1024 or relative.startswith("/")
+            or any(part in ("", ".", "..") or part.endswith((" ", "."))
+                   or ":" in part or "\\" in part for part in parts)
+            or parts[0] in (".project-prime-update.lock",
+                            ".project-prime-update-transaction")):
+        raise SystemExit(f"unsafe file in release manifest: {relative!r}")
+    path = root / relative
+    if path.is_symlink():
+        raise SystemExit(f"symlink is not allowed in a release manifest: {relative!r}")
+
 hashes = {}
 for relative in files:
     digest = hashlib.sha256()

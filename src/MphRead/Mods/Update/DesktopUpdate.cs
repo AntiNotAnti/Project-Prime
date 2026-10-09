@@ -5,6 +5,7 @@ using System.Formats.Tar;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading;
@@ -39,10 +40,19 @@ namespace MphRead.Mods.Update
         /// <summary>The argument that turns a launch into the copying half.</summary>
         public const string ApplyFlag = "applyupdate";
 
+        /// <summary>Temporary acknowledgement sent before the existing process exits.</summary>
+        public const string ReadyFlag = "updateready";
+
         /// <summary>Where the download and the unpacked build wait.</summary>
         private static string Staging => Path.Combine(AppContext.BaseDirectory, ".update");
 
         private static string StagedBuild => Path.Combine(Staging, "staged");
+
+        // Use the currently installed and tested updater to apply an incoming
+        // archive. Some newer builds cannot run their own -applyupdate
+        // entry point before their additional native/Studio startup completes.
+        // This is especially important on Linux, not only Windows.
+        private static string UpdateWorker => Path.Combine(Staging, "worker");
 
         /// <summary>
         /// Where a staged build sits, for an installer that is not this one.
@@ -141,6 +151,11 @@ namespace MphRead.Mods.Update
                     return false;
                 }
                 MakeExecutable(binary);
+                // V0.1.52's released Windows archive lacks required hidden
+                // Game/Studio metadata, while its Linux manifest owns a
+                // forbidden updater lock. Reject those packages *before*
+                // ending the current game session, not after a failed copy.
+                ReleaseInstallation.ValidateIncoming(StagedBuild, AppContext.BaseDirectory);
                 return true;
             }
             catch (Exception ex)
@@ -171,37 +186,121 @@ namespace MphRead.Mods.Update
         /// </param>
         public static bool Launch(IReadOnlyList<string>? relaunchArgs = null)
         {
+            LastError = null;
+            // Process.Start only proves that Windows created a process. It does
+            // not prove the self-contained staged executable reached its apply
+            // entry point. Do not close the running game until it acknowledges.
+            string ready = Path.Combine(Staging, "handoff-" + Guid.NewGuid().ToString("N") + ".ready");
             try
             {
-                string binary = Path.Combine(StagedBuild, UpdateCheck.BinaryName());
+                // Do not execute the incoming (possibly incompatible) version
+                // before we have installed it. Run our own small, known-working
+                // updater from a detached copy of the current single-file
+                // executable; it is not one of the files to be replaced.
+                // A staged archive may have changed since its preparation.
+                ReleaseInstallation.ValidateIncoming(StagedBuild, AppContext.BaseDirectory);
+                string binary = PrepareUpdateWorker(AppContext.BaseDirectory,
+                    UpdateWorker, UpdateCheck.BinaryName());
                 var start = new ProcessStartInfo(binary)
                 {
-                    WorkingDirectory = StagedBuild,
-                    UseShellExecute = false
+                    WorkingDirectory = UpdateWorker,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
                 };
                 start.ArgumentList.Add("-" + ApplyFlag);
                 start.ArgumentList.Add(AppContext.BaseDirectory);
                 start.ArgumentList.Add(Environment.ProcessId.ToString());
+                start.ArgumentList.Add("-updatesource");
+                start.ArgumentList.Add(StagedBuild);
+                start.ArgumentList.Add("-" + ReadyFlag);
+                start.ArgumentList.Add(ready);
                 if (relaunchArgs != null)
                 {
-                    // Last, and behind a separator, because everything before
-                    // it is read by position: the copying half takes the two
-                    // values it needs and hands the rest to the build it
-                    // starts.
                     start.ArgumentList.Add(RelaunchSeparator);
                     for (int i = 0; i < relaunchArgs.Count; i++)
                     {
                         start.ArgumentList.Add(relaunchArgs[i]);
                     }
                 }
-                return Process.Start(start) != null;
+                using Process? helper = Process.Start(start);
+                if (helper == null)
+                {
+                    LastError = "Windows could not create the update helper process.";
+                    return false;
+                }
+                if (!WaitForHelperReady(helper, ready, TimeSpan.FromSeconds(15)))
+                {
+                    Diagnostic(AppContext.BaseDirectory, "handoff refused: " + LastError);
+                    return false;
+                }
+                Diagnostic(AppContext.BaseDirectory, "staged helper acknowledged startup; closing original process");
+                return true;
             }
             catch (Exception ex)
             {
                 LastError = ex.Message;
-                Console.WriteLine($"[update] could not start the update: {ex}");
+                Diagnostic(AppContext.BaseDirectory, "could not start update helper: " + ex);
                 return false;
             }
+            finally
+            {
+                try { File.Delete(ready); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+            }
+        }
+
+        /// <summary>
+        /// The worker must be the executable that the user currently has, not
+        /// the executable from the release being installed. Desktop releases
+        /// are published self-contained/single-file; no game resources are
+        /// loaded when the worker enters -applyupdate.
+        /// </summary>
+        internal static string PrepareUpdateWorker(string installedDirectory,
+            string workerDirectory, string binaryName)
+        {
+            string installed = Path.Combine(installedDirectory, binaryName);
+            string worker = Path.Combine(workerDirectory, binaryName);
+            if (!File.Exists(installed))
+                throw new FileNotFoundException("The current release executable is missing.", installed);
+            Directory.CreateDirectory(workerDirectory);
+            File.Copy(installed, worker, overwrite: true);
+            MakeExecutable(worker);
+            // Prevent accidental execution of the incoming release instead.
+            if (!File.Exists(worker) || new FileInfo(worker).Length != new FileInfo(installed).Length)
+                throw new IOException("Could not stage the current update worker.");
+            return worker;
+        }
+
+        /// <summary>
+        /// An unacknowledged helper is never allowed to linger, waiting for an
+        /// unrelated future game exit and then unexpectedly replacing files.
+        /// Kept separate so process handoff can be tested without installing.
+        /// </summary>
+        internal static bool WaitForHelperReady(Process helper, string readyFile, TimeSpan timeout)
+        {
+            var clock = Stopwatch.StartNew();
+            while (clock.Elapsed < timeout)
+            {
+                if (File.Exists(readyFile)) return true;
+                if (helper.HasExited)
+                {
+                    LastError = $"The update helper exited before it was ready (exit code {helper.ExitCode}).";
+                    return false;
+                }
+                Thread.Sleep(50);
+            }
+            if (File.Exists(readyFile)) return true;
+            LastError = "The update helper did not confirm startup before its deadline; the game has not been closed.";
+            try
+            {
+                if (!helper.HasExited)
+                {
+                    helper.Kill();
+                    helper.WaitForExit(2000);
+                }
+            }
+            catch (InvalidOperationException) { }
+            catch (System.ComponentModel.Win32Exception) { }
+            return false;
         }
 
         /// <summary>
@@ -222,120 +321,172 @@ namespace MphRead.Mods.Update
         public const string RelaunchSeparator = "--relaunch";
 
         public static int Apply(string target, int waitFor,
-            IReadOnlyList<string>? relaunchArgs = null)
+            IReadOnlyList<string>? relaunchArgs = null, string? readyFile = null,
+            string? stagedSource = null)
         {
-            Console.WriteLine($"[update] applying to {target}");
-            WaitForExit(waitFor);
-            string source = AppContext.BaseDirectory;
-            try
+            // For an update initiated by v0.1.47, the temporary worker is
+            // copied from the *current* release and the new release is merely
+            // payload. Older versions still launch the staged release directly
+            // and pass no stagedSource; preserve that older protocol.
+            string source = stagedSource ?? AppContext.BaseDirectory;
+            if (!Directory.Exists(source) ||
+                !File.Exists(Path.Combine(source, UpdateCheck.BinaryName())))
             {
-                EnsureReleaseManifest(source);
-                RemoveObsoleteReleaseFiles(source, target);
-                Copy(source, target);
-            }
-            catch (Exception ex)
-            {
-                // Half a copy is the one outcome worth being loud about: the
-                // installation may be a mix of two builds, and the staged one
-                // is still on disk to finish by hand.
-                Console.WriteLine($"[update] the copy failed: {ex.Message}");
-                Console.WriteLine($"[update] the new build is in {source} -- "
-                    + $"copy it over {target} by hand");
+                Diagnostic(target, "the staged release payload is missing: " + source);
                 return 1;
             }
-            try
-            {
-                string binary = Path.Combine(target, UpdateCheck.BinaryName());
-                MakeExecutable(binary);
-                var restart = new ProcessStartInfo(binary)
-                {
-                    WorkingDirectory = target,
-                    UseShellExecute = false
-                };
-                for (int i = 0; relaunchArgs != null && i < relaunchArgs.Count; i++)
-                {
-                    restart.ArgumentList.Add(relaunchArgs[i]);
-                }
-                Process.Start(restart);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[update] updated, but could not restart: {ex.Message}");
-                return 1;
-            }
-            Console.WriteLine("[update] done");
-            return 0;
-        }
-
-        /// <summary>
-        /// Wait for the old process to be gone, and give up rather than hang.
-        ///
-        /// Thirty seconds is far longer than a launcher takes to close and
-        /// short enough that a process which is never going to exit -- one
-        /// stuck on a dialog, one already replaced by something else with the
-        /// same id -- does not leave this waiting for ever with nothing on
-        /// screen.
-        /// </summary>
-        private static void WaitForExit(int pid)
-        {
-            try
-            {
-                using Process old = Process.GetProcessById(pid);
-                if (!old.WaitForExit(30_000))
-                {
-                    Console.WriteLine($"[update] process {pid} is still running; carrying on");
-                }
-            }
-            catch (ArgumentException)
-            {
-                // Already gone, which is the normal case: it exits the moment
-                // it has started this one.
-            }
-            // Windows keeps a file handle a moment past exit, and virus
-            // scanners keep it longer. The copy retries anyway; this is the
-            // cheap part of not needing to.
-            Thread.Sleep(400);
-        }
-
-        private static void Copy(string source, string target)
-        {
-            foreach (string path in Directory.EnumerateFiles(source, "*",
-                SearchOption.AllDirectories))
-            {
-                string relative = Path.GetRelativePath(source, path);
-                string destination = Path.Combine(target, relative);
-                string? directory = Path.GetDirectoryName(destination);
-                if (!String.IsNullOrEmpty(directory))
-                {
-                    Directory.CreateDirectory(directory);
-                }
-                CopyWithRetries(path, destination);
-            }
-        }
-
-        /// <summary>
-        /// A file that is still held is a file that will be free in a moment,
-        /// not a failed update. The binary itself is the one this happens to.
-        /// </summary>
-        private static void CopyWithRetries(string from, string to)
-        {
-            for (int attempt = 0; ; attempt++)
+            Diagnostic(target, $"apply worker started: source={source}, target={target}, parent={waitFor}");
+            // Older installed versions do not pass a ready file. Preserve that
+            // protocol so they can still update to this version.
+            if (readyFile != null)
             {
                 try
                 {
-                    File.Copy(from, to, overwrite: true);
+                    File.WriteAllText(readyFile, "ready");
+                }
+                catch (Exception ex)
+                {
+                    Diagnostic(target, "could not acknowledge update worker: " + ex);
+                    return 1;
+                }
+            }
+
+            bool oldProcessExited = false;
+            try
+            {
+                // Closing the native renderer, audio and Studio broker can take
+                // longer than the original 30-second deadline on Windows.
+                ReleaseInstallation.WaitForExit(waitFor, timeoutMs: 120000);
+                oldProcessExited = true;
+                Diagnostic(target, "old process exited; applying the verified release");
+                ApplyWithSharingRetries(source, target);
+                Diagnostic(target, "release transaction committed");
+            }
+            catch (Exception ex)
+            {
+                Diagnostic(target, "installation was not committed: " + ex);
+                bool restored = false;
+                if (oldProcessExited)
+                {
+                    try
+                    {
+                        ReleaseInstallation.Recover(target);
+                        restored = File.Exists(Path.Combine(target, UpdateCheck.BinaryName()));
+                        Diagnostic(target, restored
+                            ? "existing installation is available after recovery"
+                            : "the existing executable is missing after recovery");
+                    }
+                    catch (Exception recovery)
+                    {
+                        Diagnostic(target, "automatic rollback verification failed: " + recovery);
+                    }
+                }
+                if (restored)
+                {
+                    try
+                    {
+                        // Preserve the usable old installation, but avoid
+                        // immediately showing the same update prompt again.
+                        StartInstalled(target, new[] { "-launcher", "-noupdate" });
+                        Diagnostic(target, "restarted the unchanged installation with automatic updates disabled for this session");
+                    }
+                    catch (Exception restart)
+                    {
+                        Diagnostic(target, "could not restore the launcher: " + restart);
+                    }
+                }
+                AlertFailure(target, "Project Prime could not install this update. "
+                    + (restored ? "The previous version was restarted." : "The installed version was not restarted automatically.")
+                    + "\n\nReason: " + ex.Message);
+                return 1;
+            }
+            try
+            {
+                StartInstalled(target, relaunchArgs);
+            }
+            catch (Exception ex)
+            {
+                Diagnostic(target, "the update installed, but relaunch failed: " + ex);
+                AlertFailure(target, "The update installed successfully, but Project Prime could not restart. "
+                    + "Open ProjectPrime.exe manually.\n\nReason: " + ex.Message);
+                return 1;
+            }
+            Diagnostic(target, "updated installation relaunched successfully");
+            return 0;
+        }
+
+        private static void ApplyWithSharingRetries(string source, string target)
+        {
+            for (int attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    ReleaseInstallation.Apply(source, target);
                     return;
                 }
-                catch (IOException) when (attempt < 20)
+                catch (IOException ex) when (OperatingSystem.IsWindows()
+                    && (ex.HResult & 0xffff) is 32 or 33 && attempt < 6)
                 {
-                    Thread.Sleep(250);
-                }
-                catch (UnauthorizedAccessException) when (attempt < 20)
-                {
-                    Thread.Sleep(250);
+                    // Windows may briefly retain an image/DLL sharing lock after
+                    // the owning game process has exited. The transaction must
+                    // be fully recovered before trying the complete copy again.
+                    ReleaseInstallation.Recover(target);
+                    Diagnostic(target, $"Windows sharing violation; retrying verified update ({attempt}/5): {ex.Message}");
+                    Thread.Sleep(attempt * 300);
                 }
             }
         }
+
+        private static void StartInstalled(string target, IReadOnlyList<string>? args)
+        {
+            string binary = Path.Combine(target, UpdateCheck.BinaryName());
+            MakeExecutable(binary);
+            var start = new ProcessStartInfo(binary)
+            {
+                WorkingDirectory = target,
+                UseShellExecute = false
+            };
+            if (args != null)
+                foreach (string arg in args) start.ArgumentList.Add(arg);
+            using Process? process = Process.Start(start);
+            if (process == null) throw new IOException("Windows did not create the updated process.");
+        }
+
+        /// <summary>
+        /// Independent of game preferences and of the ephemeral staged folder.
+        /// Failure logs survive both rollback and the next startup's stage sweep.
+        /// </summary>
+        private static void Diagnostic(string target, string message)
+        {
+            Console.WriteLine("[update] " + message);
+            try
+            {
+                string path = DiagnosticPath(target);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                if (File.Exists(path) && new FileInfo(path).Length > 1024 * 1024)
+                    File.Delete(path);
+                File.AppendAllText(path, $"{DateTimeOffset.Now:O} pid={Environment.ProcessId} {message}{Environment.NewLine}");
+            }
+            catch (Exception) { /* Diagnostics must not prevent recovery. */ }
+        }
+
+        public static string DiagnosticPath(string installation)
+            => Path.Combine(installation, "logs", "ProjectPrime-updater.log");
+
+        private static void AlertFailure(string target, string message)
+        {
+            if (!OperatingSystem.IsWindows()
+                || Environment.GetEnvironmentVariable("PROJECT_PRIME_UPDATER_SILENT") == "1") return;
+            try
+            {
+                MessageBoxW(IntPtr.Zero, message + "\n\nDetails: " + DiagnosticPath(target),
+                    "Project Prime updater", 0x00000010u | 0x00040000u);
+            }
+            catch (Exception) { /* The persistent log is the fallback. */ }
+        }
+
+        [DllImport("user32.dll", CharSet = CharSet.Unicode, EntryPoint = "MessageBoxW")]
+        private static extern int MessageBoxW(IntPtr owner, string message, string title, uint flags);
 
         /// <summary>
         /// Remove what a previous update left behind.
@@ -347,6 +498,10 @@ namespace MphRead.Mods.Update
         public static void Clean()
         {
             if (OperatingSystem.IsMacOS()) { return; }
+            // A crash can leave an interrupted copy journal. Restore the
+            // previous release before clearing its staging payload, otherwise
+            // recovery evidence can be destroyed or an installation mixed.
+            ReleaseInstallation.Recover(AppContext.BaseDirectory);
             try
             {
                 if (Directory.Exists(Staging))

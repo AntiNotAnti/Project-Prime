@@ -72,3 +72,32 @@ The client never carries a GitHub token. It only consumes the public GitHub Rele
 For one-click installation, the selected release asset must also have GitHub's `sha256:` digest. The downloaded bytes are hashed and compared before the package is unpacked or executed. A release whose asset has no supported digest can still be announced, but it falls back to the release page rather than silently executing an unverifiable package.
 
 The release workflow also verifies that the repository remains public before publishing. This protects the updater contract from an accidental repository-visibility change.
+
+
+## v0.1.47 interim Windows/Linux hotfix
+
+v0.1.47 deliberately keeps the v0.1.46 gameplay, UI and protocol. It backports
+the verified transactional installer and replaces the cross-version launch
+handoff: once a newer archive is downloaded, hash-checked and unpacked, the
+running v0.1.47 client copies its **own** self-contained executable to
+`.update/worker/`. The known-good worker acknowledges startup, waits for the
+client to exit and installs the payload from `.update/staged/` before
+relaunching the version in the original installation folder. The incoming
+executable is not run before the transaction. This is essential on Linux too.
+
+Release packages are preflighted while the game is still open; missing paired
+Game/Studio metadata, invalid file manifests and unsafe downgrades are rejected
+before shutdown. A failed apply restores the prior release where possible and
+records `logs/ProjectPrime-updater.log`.
+
+**Withdrawing v0.1.52:** The previously published Windows package lost its
+hidden `.project-prime-desktop.json` during artifact transport; Linux also
+shipped the forbidden runtime `.project-prime-update.lock` inside the release
+manifest. That release's downloadable assets were subsequently removed.
+v0.1.47 still tests these failure classes and rejects them safely. The next
+full release requires rebuilt, verified archives after the packaging repair.
+
+With v0.1.52 withdrawn, `releases/latest` now points to v0.1.46. After
+successful validation, publishing v0.1.47 will make it the next **Latest**
+release, so users can upgrade automatically from v0.1.46. Until then,
+the untested hotfix must not be advertised as an available download.

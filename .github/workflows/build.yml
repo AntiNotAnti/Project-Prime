@@ -39,6 +39,48 @@ jobs:
       - name: every custom map has the level it converts
         run: tools/check-maps-shipped.sh
 
+
+  updater-regressions:
+    name: Windows/Linux release updater and rollback
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: verify legacy and cross-version updater, recovery and worker ownership
+        run: dotnet run --project tools/updatecheck -c Release
+      - name: portable hotfix packaging and hidden file guards
+        run: python3 -m unittest discover -s tools -p 'test_release_manifest_writer.py'
+      - name: v0.1.46 published archive plus future-release failure fixtures (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/prime-old"
+          curl --retry 3 --fail --location \
+            https://github.com/AntiNotAnti/Project-Prime/releases/download/v0.1.46/ProjectPrime-v0.1.46-linux-x64.tar.gz \
+            --output "$RUNNER_TEMP/old.tar.gz"
+          printf '2ad56d54ca274a5d310899e260e83c76242cb46bc179c75e456d90eb01d5f77d  %s\n' "$RUNNER_TEMP/old.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/old.tar.gz" -C "$RUNNER_TEMP/prime-old"
+          dotnet run --project tools/updatecheck -c Release -- --published-legacy-fixture "$RUNNER_TEMP/prime-old"
+      - name: v0.1.46 published archive plus future-release failure fixtures (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $oldZip = Join-Path $env:RUNNER_TEMP 'old.zip'
+          $old = Join-Path $env:RUNNER_TEMP 'prime-old'
+          Invoke-WebRequest -Uri 'https://github.com/AntiNotAnti/Project-Prime/releases/download/v0.1.46/ProjectPrime-v0.1.46-win-x64.zip' -OutFile $oldZip
+          if ((Get-FileHash $oldZip -Algorithm SHA256).Hash -ne '74A9ABB0679F294AC00EA14EC76D5426B4BADD520DF3D360899FD593EA519324') { throw 'v0.1.46 Windows release digest mismatch' }
+          Expand-Archive -LiteralPath $oldZip -DestinationPath $old
+          dotnet run --project tools/updatecheck -c Release -- --published-legacy-fixture $old
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
   server-compile:
     name: dedicated server compile gate
     runs-on: ubuntu-latest

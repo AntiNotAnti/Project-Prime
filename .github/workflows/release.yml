@@ -20,6 +20,10 @@ name: release
 on:
   push:
     tags: ["v*"]
+    # The review branch is the only permitted source of the one-time v0.1.47
+    # recovery release. Its first merge triggers the full release test matrix;
+    # the original unrelated and unpublished tag is retargeted only then.
+    branches: ["release/v0.1.47"]
   workflow_dispatch:
     inputs:
       # Neither is required: give a tag to rebuild one that exists, or leave it
@@ -37,7 +41,12 @@ on:
       publish:
         description: Publish to clients after successful builds (off leaves a draft)
         required: false
-        default: true
+        default: false
+        type: boolean
+      retarget_unpublished:
+        description: Explicitly retarget an existing unpublished v0.1.47 tag to the selected hotfix branch
+        required: false
+        default: false
         type: boolean
 
 permissions:
@@ -75,13 +84,18 @@ jobs:
           # instead of failing. PUSHED_TAG is empty unless a tag push is what
           # started this, which is the only event where ref_name is a tag.
           INPUT_TAG: ${{ github.event.inputs.tag }}
+          RETARGET_UNPUBLISHED: ${{ github.event.inputs.retarget_unpublished }}
           BUMP: ${{ github.event.inputs.bump }}
-          PUSHED_TAG: ${{ github.event_name == 'push' && github.ref_name || '' }}
+          PUSHED_TAG: ${{ github.event_name == 'push' && github.ref_type == 'tag' && github.ref_name || '' }}
+          PUSHED_HOTFIX: ${{ github.event_name == 'push' && github.ref == 'refs/heads/release/v0.1.47' && 'v0.1.47' || '' }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          TAG="${INPUT_TAG:-$PUSHED_TAG}"
+          TAG="${INPUT_TAG:-${PUSHED_TAG:-$PUSHED_HOTFIX}}"
+          if [ -n "$PUSHED_HOTFIX" ]; then
+            RETARGET_UNPUBLISHED=true
+          fi
           CREATE_TAG=false
           # Bound each component before doing Bash arithmetic (which can wrap).
           RELEASE_TAG='^v(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})$'
@@ -97,6 +111,35 @@ jobs:
               echo "::error::No tag '$TAG' exists in $REPO. Push one first:"
               echo "::error::  git tag $TAG && git push origin $TAG"
               exit 1
+            fi
+            if [ "${RETARGET_UNPUBLISHED:-false}" = "true" ]; then
+              # v0.1.47 was tagged at an unrelated RmlUi commit but never
+              # published. Only a manual run from our hotfix branch may reuse
+              # it, and only while GitHub has no Release for that tag.
+              if [ "$TAG" != "v0.1.47" ]; then
+                echo "::error::Only the unpublished v0.1.47 hotfix tag may be retargeted."
+                exit 1
+              fi
+              if [ "${{ github.ref_type }}" != "branch" ] || [ "${{ github.ref_name }}" != "release/v0.1.47" ]; then
+                echo "::error::Only the reviewed release/v0.1.47 branch may retarget the unpublished tag."
+                exit 1
+              fi
+              if gh api "repos/$REPO/releases/tags/$TAG" >/dev/null 2>&1; then
+                echo "::error::$TAG already has a Release. Never mutate a released tag."
+                exit 1
+              fi
+              gh api -X PATCH "repos/$REPO/git/refs/tags/$TAG" \
+                -f sha="$SHA" -F force=true >/dev/null
+              echo "Retargeted previously unpublished $TAG to ${SHA:0:7}."
+            elif [ "$TAG" = "v0.1.47" ]; then
+              # An unreviewed manual run must never build the orphan tag from
+              # an unrelated October 8 RmlUi commit.
+              release_branch=$(gh api "repos/$REPO/branches/release/v0.1.47" --jq '.commit.sha')
+              selected_tag=$(gh api "repos/$REPO/git/ref/tags/v0.1.47" --jq '.object.sha')
+              if [ "$selected_tag" != "$release_branch" ]; then
+                echo "::error::v0.1.47 still points to an unrelated commit. Merge the hotfix into release/v0.1.47 first."
+                exit 1
+              fi
             fi
             echo "Building the existing tag $TAG."
           elif [ "${BUMP:-none}" != none ]; then
@@ -198,6 +241,10 @@ jobs:
       # Release can be dispatched while the normal build workflow is cancelled
       # by a newer push. Run the asset-free lobby suite here too so wire-format
       # regressions in Create Lobby cannot ship behind a green packaging smoke.
+      - name: updater handoff and rollback regressions
+        run: dotnet run --project tools/updatecheck -c Release
+      - name: release manifest portability regression
+        run: python3 -m unittest discover -s tools -p 'test_release_manifest_writer.py'
       - name: hosted lobby allocation protocol
         run: dotnet run --project tools/nettest/nettest.csproj -c Release -- --lobby
       - name: cook the map bundles
@@ -460,6 +507,15 @@ jobs:
           TAG: ${{ needs.resolve.outputs.tag }}
         run: |
           set -euo pipefail
+          # Real smoke can create the updater's coordination lock in the
+          # publish folder. Never distribute/own that internal runtime file.
+          for target in win-x64 linux-x64 linux-arm64 win-x64-server linux-x64-server; do
+            rm -f "publish/$target/.project-prime-update.lock"
+            test ! -e "publish/$target/.project-prime-update-transaction" || {
+              echo "::error::$target contains a stale updater transaction"
+              exit 1
+            }
+          done
           mkdir -p dist
           cp LICENSE publish/win-x64/ 2>/dev/null || true
           cat > publish/win-x64/README.txt <<'NOTE'
@@ -682,8 +738,38 @@ jobs:
           path: dist/*.tar.gz
           if-no-files-found: error
 
+  v47-release-updater-acceptance:
+    name: Published v0.1.46 to v0.1.47 binary update and relaunch
+    needs: [resolve, package-release]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-desktop
+          path: dist
+      - name: exercise the actual release helper and transactional installer
+        env:
+          TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/v46" "$RUNNER_TEMP/v47"
+          curl --retry 3 --fail --location \
+            https://github.com/AntiNotAnti/Project-Prime/releases/download/v0.1.46/ProjectPrime-v0.1.46-linux-x64.tar.gz \
+            --output "$RUNNER_TEMP/v46.tar.gz"
+          printf '2ad56d54ca274a5d310899e260e83c76242cb46bc179c75e456d90eb01d5f77d  %s\n' "$RUNNER_TEMP/v46.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/v46.tar.gz" -C "$RUNNER_TEMP/v46"
+          tar -xzf "dist/ProjectPrime-$TAG-linux-x64.tar.gz" -C "$RUNNER_TEMP/v47"
+          dotnet run --project tools/updatecheck -c Release -- --candidate-release-swap \
+            "$RUNNER_TEMP/v46" "$RUNNER_TEMP/v47"
+
   publish:
-    needs: [resolve, package-release, release-android, macos-release]
+    needs: [resolve, package-release, release-android, macos-release, v47-release-updater-acceptance]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -731,15 +817,62 @@ jobs:
           and Android can install a matching package in-app; macOS opens this release page.
           NOTE
 
-          # Generate the changelog from the same repository that owns the tag
-          # and release.
-          CHANGES=$(gh api -X POST \
-            "repos/$REPOSITORY/releases/generate-notes" \
-            -f tag_name="$TAG" --jq .body 2>/dev/null || true)
-          if [ -n "$CHANGES" ]; then
-            printf '\n---\n\n%s\n' "$CHANGES" >> notes.md
+          # The v0.1.47 hotfix deliberately starts from v0.1.46, NOT v0.1.52.
+          # A generated comparison against the later stable release would be
+          # misleading, so publish explicit hotfix notes for this one tag.
+          if [ "$TAG" = "v0.1.47" ]; then
+            cat >> notes.md <<'HOTFIX'
+
+          ---
+
+          ## v0.1.47 compatibility hotfix (based on v0.1.46)
+
+          This is v0.1.46 gameplay/UI with a backported Windows + Linux desktop
+          updater. It does not include the v0.1.52 Studio/RmlUi migration.
+
+          - Installs releases using a detached copy of the **currently installed**
+            executable instead of executing the incoming release before its files
+            have been installed.
+          - Requires a live helper acknowledgement before closing the launcher.
+          - Uses a verified, journaled file transaction, rollback after failure,
+            longer parent shutdown wait, retries for transient Windows sharing
+            violations and persistent updater failure logging.
+          - Protects user settings/maps/replays and prevents an old standalone
+            release from replacing a newer paired Game + Studio installation.
+
+          The withdrawn **v0.1.52 desktop packages were malformed**:
+          Windows lacked hidden Game/Studio compatibility metadata, while
+          Linux carried an internal updater lock in its file manifest.
+          v0.1.47 rejects both failure classes before closing the game.
+          Future paired releases must pass fixed packaging checks.
+
+          **v0.1.47 is the next stable release after v0.1.46.** Once
+          published, the launcher will offer this hotfix automatically.
+          Gameplay/UI are unchanged from v0.1.46; this release concentrates
+          on updater reliability, recovery and safe future upgrades.
+
+          On Windows and Linux, failed updates log to
+          `logs/ProjectPrime-updater.log` in the game installation directory.
+          HOTFIX
           else
-            echo "::warning::No changelog could be generated for $TAG."
+            CHANGES=$(gh api -X POST \
+              "repos/$REPOSITORY/releases/generate-notes" \
+              -f tag_name="$TAG" --jq .body 2>/dev/null || true)
+            if [ -n "$CHANGES" ]; then
+              printf '\n---\n\n%s\n' "$CHANGES" >> notes.md
+            else
+              echo "::warning::No changelog could be generated for $TAG."
+            fi
+          fi
+
+          if [ "$TAG" = "v0.1.47" ] && [ "$PUBLISH_NOW" = "true" ]; then
+            # Never downgrade the latest channel if another newer public
+            # release appears while the hotfix build is running.
+            current_latest=$(gh api "repos/$REPOSITORY/releases/latest" --jq '.tag_name')
+            if [ "$current_latest" != "v0.1.46" ] && [ "$current_latest" != "v0.1.47" ]; then
+              echo "::error::Unexpected latest $current_latest; refuse to supersede a newer published release."
+              exit 1
+            fi
           fi
 
           if gh release view "$TAG" \
@@ -760,4 +893,17 @@ jobs:
               args+=(--draft)
             fi
             gh "${args[@]}"
+          fi
+          if [ "$TAG" = "v0.1.47" ] && [ "$PUBLISH_NOW" = "true" ]; then
+            # v0.1.52 was withdrawn, leaving v0.1.46 as releases/latest.
+            # The reviewed v0.1.47 hotfix becomes the next stable channel,
+            # but never replaces a newer published release (guarded above).
+            release_id=$(gh api "repos/$REPOSITORY/releases/tags/$TAG" --jq '.id')
+            gh api -X PATCH "repos/$REPOSITORY/releases/$release_id" \
+              -f make_latest=true >/dev/null
+            latest=$(gh api "repos/$REPOSITORY/releases/latest" --jq '.tag_name')
+            if [ "$latest" != "$TAG" ]; then
+              echo "::error::Expected $TAG as the latest published release; got $latest."
+              exit 1
+            fi
           fi

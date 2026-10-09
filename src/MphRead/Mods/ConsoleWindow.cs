@@ -87,7 +87,7 @@ namespace MphRead.Mods
             }
             bool forced = HasFlag(args, "console");
             // No arguments means the launcher, and the launcher is a window.
-            bool guiOnly = args.Length == 0 || HasFlag(args, "launcher");
+            bool guiOnly = args.Length == 0 || HasFlag(args, "launcher") || HasFlag(args, "applyupdate");
             if (guiOnly && !forced)
             {
                 return;
