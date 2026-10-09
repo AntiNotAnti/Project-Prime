@@ -750,6 +750,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static void BeginShot(PlayerEntity shooter, Vector3 origin = default, Vector3 direction = default)
         {
+            using var combatProfile = NetCombatProfile.Measure(CombatProfileSection.BeginShot);
             if (shooter.SceneServices.IsReplica) return;
             if (_inProgress)
             {
@@ -1076,6 +1077,7 @@ namespace MphRead.Mods.Network
         public static void EndShot(PlayerEntity shooter)
 
         {
+            using var combatProfile = NetCombatProfile.Measure(CombatProfileSection.EndShot);
             try { EndShotCore(shooter); }
             finally { AbortShot(); }
         }
@@ -1113,6 +1115,7 @@ namespace MphRead.Mods.Network
                 _inProgress = false;
                 return;
             }
+            using var catchupProfile = NetCombatProfile.Measure(CombatProfileSection.NativeCatchup);
             int steps = _shotPolicy.CatchUpFrames(_rewind);
             CatchUpShots++;
             if (steps < _rewind) CatchUpTruncations++;

@@ -402,7 +402,7 @@ namespace MphRead.Mods.Network
             SpectatorMode.Reset();
             DemoRecorder.Stop();
             NetCosmetics.Live.Reset();
-            ReplayCapture.Reset(); NetImpactDiagnostics.Reset(); NetLiveImpactInbox.Reset(); NetLiveImpactPresenter.Reset(); NetPredictedKillPresentation.Reset(); NetCombatFactPublisher.Reset();
+            ReplayCapture.Reset(); NetImpactDiagnostics.Reset(); NetCombatProfile.Reset(); NetLiveImpactInbox.Reset(); NetLiveImpactPresenter.Reset(); NetPredictedKillPresentation.Reset(); NetCombatFactPublisher.Reset();
             NetMatchSync.Reset();
             NetSlotManager.Reset();
             NetDamage.Reset();
@@ -1606,7 +1606,7 @@ namespace MphRead.Mods.Network
             bool newEpoch = !previous.HasValue || state.AuthorityEpoch != previous.Value.AuthorityEpoch;
             ServerMatch = state;
             if (newMatch || newEpoch || previous?.RoomKey != state.RoomKey)
-            { ReplayCapture.Reset(); NetImpactDiagnostics.Reset(); NetLiveImpactInbox.Reset(); NetLiveImpactPresenter.Reset(); NetPredictedKillPresentation.Reset(); NetCombatFactPublisher.Reset(); }
+            { ReplayCapture.Reset(); NetImpactDiagnostics.Reset(); NetCombatProfile.Reset(); NetLiveImpactInbox.Reset(); NetLiveImpactPresenter.Reset(); NetPredictedKillPresentation.Reset(); NetCombatFactPublisher.Reset(); }
             ReplayCapture.AcceptedMatch(state);
             if (newMatch) ReplayCapture.Event(ReplayEventType.MatchStarted);
             if (state.Ending && previous?.Ending != true) ReplayCapture.Event(ReplayEventType.MatchEnded);

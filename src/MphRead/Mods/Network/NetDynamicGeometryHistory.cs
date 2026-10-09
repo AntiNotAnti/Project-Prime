@@ -235,6 +235,7 @@ public sealed class NetDynamicGeometryHistory
     internal static bool TryTraceDistanceAtFrame(Scene scene, Vector3 start, Vector3 end,
         double frame, out float closest)
     {
+            using var combatProfile = NetCombatProfile.Measure(CombatProfileSection.HistoricalGeometry);
         closest = 1;
         if (_room == null) return false;
         if (frame >= NetSession.NetFrame) { closest = TraceDistance(scene, start, end); return true; }

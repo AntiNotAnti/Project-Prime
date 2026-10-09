@@ -88,6 +88,7 @@ internal static class NetAttackPaths
     internal static bool Supports(PlayerEntity shooter, PlayerEntity victim,
         in HitClaimPacket claim, in FireEvent fire, ReadOnlySpan<uint> used, out uint component, out Vector3 resolvedPoint, out Vector3 resolvedDirection)
     {
+            using var combatProfile = NetCombatProfile.Measure(CombatProfileSection.Supports);
         component = 0; resolvedPoint = resolvedDirection = default;
         ShotKey key = new(claim.AuthorityEpoch, claim.MatchId, shooter.SlotIndex,
             claim.ShooterGeneration, claim.ShooterLifeId, claim.ShotId);
