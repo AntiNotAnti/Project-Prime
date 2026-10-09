@@ -457,7 +457,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             if (existing != null && existing.Type == type && existing.Title == title && existing.Message == message) return;
             Remove(key);
             _items.Insert(0, new Entry(key, type, title, message.Length > 240 ? message[..240] : message, target,
-                unread && !Open && (existing?.Unread ?? true)));
+                unread && !Open));
             if (_items.Count > 8) _items.RemoveRange(8, _items.Count - 8);
         }
         internal void ObserveRelease(string? tag)
