@@ -1,6 +1,7 @@
-# Build every target on every push using GitHub-hosted runners, and refuse to
-# publish anything that came out of the cartridge. Public repositories can use
-# the standard hosted runner pool without consuming private-repository minutes.
+# Full CI runs on pull requests and protected-branch pushes, not twice
+# for every feature-branch commit. Feature branches without a PR can use
+# workflow_dispatch to request the full matrix. All release artifacts continue
+# to be checked against proprietary-game-asset exclusion rules.
 #
 # The guard runs twice on purpose: once over what git is tracking, and once
 # over what the build produced. The first catches a map preview committed by
@@ -9,7 +10,7 @@ name: build
 
 on:
   push:
-    branches: ["**"]
+    branches: ["main", "release/**"]
   pull_request:
   workflow_dispatch:
 
@@ -52,6 +53,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      # Cache restored NuGet assets independently per host architecture.
+      - name: cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
+          restore-keys: |
+            nuget-net10-${{ runner.os }}-${{ runner.arch }}-
       - name: verify legacy and cross-version updater, recovery and worker ownership
         run: dotnet run --project tools/updatecheck -c Release
       - name: portable hotfix packaging and hidden file guards
@@ -89,6 +98,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      # Cache restored NuGet assets independently per host architecture.
+      - name: cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
+          restore-keys: |
+            nuget-net10-${{ runner.os }}-${{ runner.arch }}-
       - name: compile server-only surface
         run: dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadServer=true
 
@@ -100,6 +117,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      # Cache restored NuGet assets independently per host architecture.
+      - name: cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
+          restore-keys: |
+            nuget-net10-${{ runner.os }}-${{ runner.arch }}-
       - name: rigid and Weighted4 asset contract
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -charactermodelcheck
 
@@ -111,6 +136,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      # Cache restored NuGet assets independently per host architecture.
+      - name: cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
+          restore-keys: |
+            nuget-net10-${{ runner.os }}-${{ runner.arch }}-
       - name: framework and presentation-rate checks
         run: dotnet run --project tools/fidelity-oracle -c Release
       - name: verify reviewed normalized baselines
@@ -124,6 +157,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      # Cache restored NuGet assets independently per host architecture.
+      - name: cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
+          restore-keys: |
+            nuget-net10-${{ runner.os }}-${{ runner.arch }}-
       - name: install software OpenGL and X11
         run: |
           sudo apt-get update -qq
@@ -165,6 +206,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      # Cache restored NuGet assets independently per host architecture.
+      - name: cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
+          restore-keys: |
+            nuget-net10-${{ runner.os }}-${{ runner.arch }}-
       - run: dotnet run --project tools/android-pacing-check -c Release
 
   desktop-pacing-policy:
@@ -175,6 +224,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      # Cache restored NuGet assets independently per host architecture.
+      - name: cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
+          restore-keys: |
+            nuget-net10-${{ runner.os }}-${{ runner.arch }}-
       - run: dotnet run --project tools/desktop-pacing-check -c Release
 
   renderer-policy-foundation:
@@ -185,6 +242,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      # Cache restored NuGet assets independently per host architecture.
+      - name: cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
+          restore-keys: |
+            nuget-net10-${{ runner.os }}-${{ runner.arch }}-
       - name: content-free renderer state and lifecycle contracts
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -renderbackendcheck
 
@@ -197,6 +262,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      # Cache restored NuGet assets independently per host architecture.
+      - name: cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
+          restore-keys: |
+            nuget-net10-${{ runner.os }}-${{ runner.arch }}-
       - name: generated packet schema and malformed wire checks
         run: dotnet run --project tools/protocol-generator-check -c Release
       - name: waitlist policy and synthetic UDP wire checks
@@ -212,11 +285,6 @@ jobs:
       - name: replay format compatibility
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -replayformatcheck
 
-      - name: modern renderer policy, retained graph and geometry bridge
-        run: |
-          dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -renderbackendcheck
-          dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -rendergraphcheck
-          dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -charactermodelcheck
   map-editor-checks:
     name: map editor regressions (${{ matrix.os }})
     needs: assets
@@ -231,18 +299,25 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      # Cache restored NuGet assets independently per host architecture.
+      - name: cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
+          restore-keys: |
+            nuget-net10-${{ runner.os }}-${{ runner.arch }}-
 
       - name: map editor history and PK3 import regressions
         run: dotnet run --project tools/map-editor-check -c Release
 
-      - name: model import, collision and community focused checks
-        shell: bash
-        run: |
-          dotnet run --no-build --project tools/map-editor-check -c Release -- --model-import-only
-          dotnet run --no-build --project tools/map-editor-check -c Release -- --collision-only
-          dotnet run --no-build --project tools/map-editor-check -c Release -- --community-only
+      # The default map-editor check already runs model import and collision
+      # fixtures. Community publishing is a distinct opt-in check.
+      - name: community map publishing focused check
+        run: dotnet run --no-build --project tools/map-editor-check -c Release -- --community-only
 
       - name: isolated multiplayer and historical package acceptance
+        timeout-minutes: 10
         run: dotnet run --project tools/map-multiplayer-check -c Release -- "${{ runner.temp }}/map-multiplayer-check"
 
       - name: Linux viewport with real GL
@@ -279,6 +354,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      # Cache restored NuGet assets independently per host architecture.
+      - name: cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
+          restore-keys: |
+            nuget-net10-${{ runner.os }}-${{ runner.arch }}-
 
       - name: deterministic graphics preset and texture checks
         if: matrix.os == 'windows-latest'
@@ -331,6 +414,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      # Cache restored NuGet assets independently per host architecture.
+      - name: cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
+          restore-keys: |
+            nuget-net10-${{ runner.os }}-${{ runner.arch }}-
 
 
       # Cook every custom map into the one file it ships as. The recipe, the
@@ -352,31 +443,32 @@ jobs:
 
       - name: netcode lifecycle and health/shot regressions
         if: matrix.id == 'linux-x64'
+        timeout-minutes: 20
         run: |
           dotnet run --project tools/settings-archive-check -c Release
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --lifecycle
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --health-shots
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --architecture
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --bot-ai
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --lobby
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --custom-map-download
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --allocations
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --protocol17
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --protocol18
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --protocol19
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --continuous-targets
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --alt-hits
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --claim-stress
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --input-edges
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --dynamic-geometry
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --netcode-performance
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --reliable
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --queue-budget
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --load-lifecycle
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --lagcomp-shadow
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --weapon-policy
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --transport-stress
-          dotnet run --project tools/nettest/nettest.csproj -c Release -- --network-benchmark --smoke
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --health-shots
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --architecture
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --bot-ai
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --lobby
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --custom-map-download
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --allocations
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --protocol17
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --protocol18
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --protocol19
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --continuous-targets
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --alt-hits
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --claim-stress
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --input-edges
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --dynamic-geometry
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --netcode-performance
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --reliable
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --queue-budget
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --load-lifecycle
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --lagcomp-shadow
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --weapon-policy
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --transport-stress
+          dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --network-benchmark --smoke
 
       # Windows and Linux targets remain cross-published on Ubuntu.
       - name: publish ${{ matrix.summary }}
@@ -402,11 +494,15 @@ jobs:
         if: matrix.id == 'linux-x64'
         run: dotnet run --project tools/thumbnail-batch-check/thumbnail-batch-check.csproj -c Release
 
-      - name: legacy thumbnail diagnostics without KHR_debug
+      - name: install Linux GL and Xvfb acceptance prerequisites once
         if: matrix.id == 'linux-x64'
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y xvfb xauth libgl1-mesa-dri libglx-mesa0 libxinerama1 libxcursor1 libxi6
+          sudo apt-get install --no-install-recommends -y xvfb xauth libgl1-mesa-dri libgl1 libglx-mesa0 libxinerama1 libxcursor1 libxi6
+
+      - name: legacy thumbnail diagnostics without KHR_debug
+        if: matrix.id == 'linux-x64'
+        run: |
           chmod +x publish/linux-x64/ProjectPrime
           xvfb-run -a env LIBGL_ALWAYS_SOFTWARE=1 GALLIUM_DRIVER=llvmpipe \
             MESA_GL_VERSION_OVERRIDE=2.1 MESA_EXTENSION_OVERRIDE=-GL_KHR_debug \
@@ -458,8 +554,6 @@ jobs:
       - name: the headless UI layouts render
         if: matrix.id == 'linux-x64'
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y xvfb libgl1 libglx-mesa0
           xvfb-run -a --server-args="-screen 0 1280x800x24" \
             publish/${{ matrix.id }}/ProjectPrime -uishot "$RUNNER_TEMP/uishot"
 
@@ -488,8 +582,6 @@ jobs:
       - name: the launcher opens
         if: matrix.id == 'linux-x64'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb libgl1 libglx-mesa0
           xvfb-run -a --server-args="-screen 0 1280x800x24" \
             publish/${{ matrix.id }}/ProjectPrime -shellshot "$RUNNER_TEMP/shellshot"
 
@@ -550,6 +642,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      # Cache restored NuGet assets independently per host architecture.
+      - name: cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
+          restore-keys: |
+            nuget-net10-${{ runner.os }}-${{ runner.arch }}-
 
       - name: bounded thumbnail worker regression
         run: dotnet run --project tools/thumbnail-batch-check/thumbnail-batch-check.csproj -c Release
@@ -625,6 +725,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      # Cache restored NuGet assets independently per host architecture.
+      - name: cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
+          restore-keys: |
+            nuget-net10-${{ runner.os }}-${{ runner.arch }}-
 
 
       # The Android workload brings the .NET side of the toolchain. It does not
@@ -689,6 +797,7 @@ jobs:
           ANDROID_NDK_ROOT="$ndk" tools/ktx/build-native.sh android-x64
 
       - name: Android custom-map package, download and runtime acceptance
+        timeout-minutes: 30
         run: bash tools/map-multiplayer-check/android-check.sh
 
       - name: Android map acceptance logs
@@ -781,6 +890,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      # Cache restored NuGet assets independently per host architecture.
+      - name: cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-net10-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'src/**/*.csproj', 'tools/**/*.csproj') }}
+          restore-keys: |
+            nuget-net10-${{ runner.os }}-${{ runner.arch }}-
 
 
       - name: publish the dedicated server, for Windows

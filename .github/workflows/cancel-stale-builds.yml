@@ -2,11 +2,11 @@ name: cancel stale builds
 
 on:
   push:
-    branches: ["**"]
+    branches: ["main", "release/**"]
 
 # Existing queued/running builds created before build.yml gained a concurrency
 # group do not retroactively join that group. This tiny workflow drains those
-# stale runs as well. It only targets build.yml on the branch that was pushed,
+# stale runs as well. It only targets full-CI branches (main and release/*),
 # and always keeps the build for this exact commit.
 permissions:
   actions: write
