@@ -392,6 +392,7 @@ tools/hitrig/bin/
 # authoring scripts and manifests in docs/rendering/samus-hd-kit, but never track
 # generated meshes, Blender working files, textures, or glTF payloads.
 /samus-hd-kit
+/docs/audits
 /docs/rendering/samus-hd-kit/**/*.blend*
 /docs/rendering/samus-hd-kit/**/*.glb
 /docs/rendering/samus-hd-kit/**/*.gltf
