@@ -391,5 +391,7 @@
     "expectedResult": "failed despite client exit zero; explicit semantic-history disconnects now fail the harness",
     "positiveControl": "disconnect-gate-control/summary.json",
     "positiveControlResult": "20-second eight-player 250\u00b180 ms/2% loss arm passes with zero forced disconnects and 792..796 exact authority-backed ingress events per client"
-  }
+  },
+  "acceptanceCommit": "1a0db7f8353961827a7cbbb74c852e5aef25fcf6",
+  "acceptancePr": "https://github.com/AntiNotAnti/Project-Prime/pull/423"
 }

@@ -4,7 +4,7 @@ Base: `0127fab5ffd411529a5c69a40e5467e140f50a60`, protocol 44.
 Upstream Fruity PR109: `1756af902f960c82edde28bd31e6895f8bcb8198`, open and conflicting when checked on 2026-10-08 (America/Chicago).
 
 **Delivery status: implementation and local validation delivered behind independent gates;
-release acceptance remains partial.** Eleven stacked draft PRs implement diagnostics,
+release acceptance remains partial.** Twelve stacked draft PRs implement diagnostics,
 canonical transport, presentation, proof-driven claims, optional kill tickets, bounded
 server optimization, native fixtures and rendered acceptance. CI review is skipped by
 user request. No PR is merged and no feature is promoted to an unproven default.
@@ -83,6 +83,7 @@ Per-campaign manifests preserve their actual build hashes; later evidence never 
 | 8 Server scratch | [#419](https://github.com/AntiNotAnti/Project-Prime/pull/419) | `codex/impact-08-server-scratch` | `d7bd5749` |
 | 9 Native fixtures | [#421](https://github.com/AntiNotAnti/Project-Prime/pull/421) | `codex/impact-09-native-fixtures` | `c47f05c1` |
 | 10 Rendered reconciliation | [#422](https://github.com/AntiNotAnti/Project-Prime/pull/422) | `codex/impact-10-rendered-reconciliation` | `9b739b8f` |
+| 11 Final acceptance | [#423](https://github.com/AntiNotAnti/Project-Prime/pull/423) | `codex/impact-11-final-acceptance` | `1a0db7f8` |
 
 ## Slice 1: independent live fact transport
 
