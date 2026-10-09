@@ -159,6 +159,10 @@ namespace MphRead.Mods.Network
             or PacketType.HostChallenge or PacketType.HostChallengeReply
             or PacketType.HostRequest or PacketType.HostReply;
         private readonly UdpClient? _socket;
+        // Preserve the real socket across UdpClient.Dispose, which clears Client.
+        // Worker and sender use this stable reference so shutdown throws a
+        // handled ObjectDisposedException instead of NullReferenceException.
+        private readonly Socket? _nativeSocket;
         private readonly Thread? _worker;
         // Playback remains lossless and ordered. Live queue reserves 128 control
         // slots plus nine bounded coalescing cells within the 2048 packet ceiling.
@@ -302,6 +306,7 @@ namespace MphRead.Mods.Network
             // A replay cannot receive real datagrams or send gameplay traffic.
             if (playbackOnly) return;
             _socket = new UdpClient(AddressFamily.InterNetwork);
+            _nativeSocket = _socket.Client;
             if (OperatingSystem.IsWindows())
             {
                 // SIO_UDP_CONNRESET. Without it, a peer that vanishes makes
@@ -376,6 +381,8 @@ namespace MphRead.Mods.Network
 
         private void ReceiveLoop()
         {
+            Socket? socket = _nativeSocket;
+            if (socket == null) return;
             var any = new IPEndPoint(IPAddress.Any, 0);
             while (_running)
             {
@@ -385,7 +392,7 @@ namespace MphRead.Mods.Network
                     // Poll sleeps in the kernel until a datagram arrives or the
                     // maintenance interval expires. It wakes immediately for
                     // traffic without using timeout exceptions as an idle timer.
-                    if (!_socket!.Client.Poll(50_000, SelectMode.SelectRead))
+                    if (!socket.Poll(50_000, SelectMode.SelectRead))
                     {
                         continue;
                     }
@@ -394,7 +401,7 @@ namespace MphRead.Mods.Network
                     try
                     {
                         EndPoint remote = any;
-                        int length = _socket.Client.ReceiveFrom(data, 0,
+                        int length = socket.ReceiveFrom(data, 0,
                             NetConfig.MaxPacketSize + 1, SocketFlags.None, ref remote);
                         Telemetry.Received(length);
                         if (length == 0 || length > NetConfig.MaxPacketSize
@@ -951,14 +958,15 @@ namespace MphRead.Mods.Network
 
         private void SendNow(IPEndPoint target, ReadOnlySpan<byte> datagram)
         {
-            if (_socket == null) return;
+            Socket? socket = _nativeSocket;
+            if (socket == null) return;
             try
             {
                 SocketAddress address;
                 long lockStamp = EnterConnectionLock();
                 try { address = _connections.TryGetValue(target, out var connection) ? connection.SendAddress : target.Serialize(); }
                 finally { ExitConnectionLock(lockStamp); }
-                _socket.Client.SendTo(datagram, SocketFlags.None, address);
+                socket.SendTo(datagram, SocketFlags.None, address);
                 Telemetry.Sent(datagram.Length);
                 Interlocked.Increment(ref TotalPacketsSent);
             }
