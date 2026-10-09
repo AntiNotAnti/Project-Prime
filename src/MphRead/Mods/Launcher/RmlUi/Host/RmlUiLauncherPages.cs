@@ -418,6 +418,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 var item = i < _notices.Items.Count ? _notices.Items[i] : null;
                 string id = "notice_" + i.ToString(CultureInfo.InvariantCulture);
                 Put(id + "_visible", item != null);
+                Put(id + "_action_visible", !String.IsNullOrEmpty(item?.Target));
                 Put(id + "_unread", item?.Unread ?? false);
                 Put(id + "_type", RmlUiBindingValue.FromText(item?.Type ?? ""));
                 Put(id + "_title", RmlUiBindingValue.FromText(item?.Title ?? ""));
