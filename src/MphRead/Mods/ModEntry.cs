@@ -617,6 +617,7 @@ namespace MphRead.Mods
             // worth, this asks what not waiting for it is worth. On by
             // default, and inert on the machine running the match, which
             // never waited for anybody.
+            Network.NetImpactDiagnostics.Enabled = HasFlag(args, "liveimpactdebug");
             if (HasFlag(args, "nohitprediction"))
             {
                 Network.NetHitPrediction.Enabled = false;

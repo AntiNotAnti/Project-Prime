@@ -1,0 +1,26 @@
+name: authoritative impact contracts
+on:
+  pull_request:
+    paths:
+      - 'src/MphRead/**'
+      - 'tools/nettest/**'
+      - 'tools/live-impact/**'
+      - '.github/workflows/live-impact.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  asset-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet run --project tools/nettest -c Release -- --impact-baseline
+      - run: python3 tools/live-impact/run-validation.py --output artifacts/live-impact
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: live-impact-evidence
+          path: artifacts/live-impact

@@ -401,7 +401,7 @@ namespace MphRead.Mods.Network
             SpectatorMode.Reset();
             DemoRecorder.Stop();
             NetCosmetics.Live.Reset();
-            ReplayCapture.Reset();
+            ReplayCapture.Reset(); NetImpactDiagnostics.Reset();
             NetMatchSync.Reset();
             NetSlotManager.Reset();
             NetDamage.Reset();
@@ -1599,7 +1599,8 @@ namespace MphRead.Mods.Network
             bool newMatch = !previous.HasValue || state.MatchId != previous.Value.MatchId;
             bool newEpoch = !previous.HasValue || state.AuthorityEpoch != previous.Value.AuthorityEpoch;
             ServerMatch = state;
-            if (newMatch || newEpoch || previous?.RoomKey != state.RoomKey) ReplayCapture.Reset();
+            if (newMatch || newEpoch || previous?.RoomKey != state.RoomKey)
+            { ReplayCapture.Reset(); NetImpactDiagnostics.Reset(); }
             ReplayCapture.AcceptedMatch(state);
             if (newMatch) ReplayCapture.Event(ReplayEventType.MatchStarted);
             if (state.Ending && previous?.Ending != true) ReplayCapture.Event(ReplayEventType.MatchEnded);
