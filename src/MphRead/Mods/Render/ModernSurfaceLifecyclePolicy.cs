@@ -45,4 +45,10 @@ internal static class ModernSurfaceLifecyclePolicy
     internal static bool PresentModeChangeRequiresReconfigure(
         bool oldVsync, bool newVsync, int width, int height, bool surfaceAvailable) =>
         oldVsync != newVsync && CanConfigure(width, height, surfaceAvailable);
+
+    // A recreated surface may recover a different present mode without a
+    // settings change. Check both the saved VSync request and the live mode.
+    internal static bool PresentModeNeedsReapply(
+        bool appliedVsync, bool requestedVsync, int activeMode, int requestedMode) =>
+        appliedVsync != requestedVsync || activeMode != requestedMode;
 }

@@ -288,9 +288,22 @@ namespace MphRead.Mods
             }
         }
 
-        private static void SetTopmost(NativeWindow window, bool topmost)
+        /// <summary>
+        /// Update borderless Z order at the actual focus event as well as in
+        /// the normal frame sync. A capture utility can lose and regain focus
+        /// between polls; force the GLFW floating flag once in that case so
+        /// cached focus never leaves the native window stuck behind the taskbar.
+        /// No window recreation or render-surface swap is involved.
+        /// </summary>
+        public static void FocusChanged(NativeWindow window, bool focused)
         {
-            if (_topmost == topmost) return;
+            if (_changing || Current != WindowStartMode.BorderlessFullscreen) return;
+            SetTopmost(window, focused, force: true);
+        }
+
+        private static void SetTopmost(NativeWindow window, bool topmost, bool force = false)
+        {
+            if (_topmost == topmost && !force) return;
             _topmost = topmost;
             try
             {

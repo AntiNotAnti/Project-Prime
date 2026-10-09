@@ -8841,6 +8841,8 @@ localCenter *= _profileHudScale;
         private bool _linuxVSyncFallback;
         private bool _appliedLinuxVSyncFallback;
         private bool _reportedModernBlockingFallback;
+        private bool _appliedModernBackend;
+        private bool _presentationPolicyDirty = true;
         private long _presentationInputRevision = Mods.Input.GamepadContexts.Revision;
 
         private static unsafe double MonitorRefreshRate(NativeWindow window)
@@ -8872,19 +8874,26 @@ localCenter *= _profileHudScale;
         {
             int cap = Mods.Render.FrameTiming.FrameRateCap;
             double refreshRate = MonitorRefreshRate(this);
-            bool sourceChanged = cap != _appliedFrameRateCap
+            bool sourceChanged = _presentationPolicyDirty || cap != _appliedFrameRateCap
                 || Math.Abs(refreshRate - _appliedMonitorRefreshRate)
                     > Mods.Render.DesktopFramePacing.NativeRefreshToleranceHz;
-            if (sourceChanged)
-            {
-                _linuxVSyncFallback = false;
-                _reportedModernBlockingFallback = false;
-            }
 
 #if !MPHREAD_SERVER
             bool modern = Mods.Render.ModernGraphicsCompat.Active;
 #else
             const bool modern = false;
+#endif
+            bool backendChanged = modern != _appliedModernBackend;
+            if (sourceChanged || backendChanged)
+            {
+                _linuxVSyncFallback = false;
+                _reportedModernBlockingFallback = false;
+            }
+            bool displayPaced = Mods.Render.DesktopFramePacing.UseDisplayPacing(cap, refreshRate);
+#if !MPHREAD_SERVER
+            bool presentModeDrift = modern && Mods.Render.ModernGraphicsCompat.NeedsVSyncUpdate(displayPaced);
+#else
+            const bool presentModeDrift = false;
 #endif
             bool linuxFallback = !modern && Mods.Render.DesktopFramePacing.LinuxVSyncIgnored(
                 OperatingSystem.IsLinux(), cap, refreshRate,
@@ -8898,15 +8907,16 @@ localCenter *= _profileHudScale;
             }
             _linuxVSyncFallback = linuxFallback;
 
-            if (!sourceChanged && linuxFallback == _appliedLinuxVSyncFallback)
+            if (!sourceChanged && !backendChanged && !presentModeDrift
+                && linuxFallback == _appliedLinuxVSyncFallback)
             {
                 return;
             }
             _appliedFrameRateCap = cap;
             _appliedMonitorRefreshRate = refreshRate;
             _appliedLinuxVSyncFallback = linuxFallback;
-
-            bool displayPaced = Mods.Render.DesktopFramePacing.UseDisplayPacing(cap, refreshRate);
+            _appliedModernBackend = modern;
+            _presentationPolicyDirty = false;
 #if !MPHREAD_SERVER
             if (modern)
             {
@@ -9240,6 +9250,7 @@ localCenter *= _profileHudScale;
 
         protected override void OnResize(ResizeEventArgs e)
         {
+            _presentationPolicyDirty = true;
             // The shape first, and outside the _sceneReady guard: a window
             // resized before the scene exists is still a window the player
             // resized, and this only touches memory.
@@ -9332,6 +9343,8 @@ localCenter *= _profileHudScale;
 
         protected override void OnFocusedChanged(FocusedChangedEventArgs e)
         {
+            Mods.WindowMode.FocusChanged(this, e.IsFocused);
+            _presentationPolicyDirty = true;
             Mods.Input.GamepadContexts.Focused = e.IsFocused;
             if (!e.IsFocused)
             {
