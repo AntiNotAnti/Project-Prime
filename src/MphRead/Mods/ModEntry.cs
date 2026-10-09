@@ -51,7 +51,8 @@ namespace MphRead.Mods
                 int separator = Array.IndexOf(args, Update.DesktopUpdate.RelaunchSeparator, applyAt + 3);
                 string[] relaunch = separator < 0 ? Array.Empty<string>() : args.Skip(separator + 1).ToArray();
                 Environment.ExitCode = Update.DesktopUpdate.Apply(args[applyAt + 1], parentPid,
-                    relaunch, ValueAfter(args, Update.DesktopUpdate.ReadyFlag));
+                    relaunch, ValueAfter(args, Update.DesktopUpdate.ReadyFlag),
+                    ValueAfter(args, "updatesource"));
                 return true;
             }
 
