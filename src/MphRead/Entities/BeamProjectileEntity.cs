@@ -2765,7 +2765,6 @@ namespace MphRead.Entities
 
         private void SpawnCollisionEffect(CollisionResult colRes, bool noSplat)
         {
-            NetLiveImpactPresenter.NoteNativeImpact(this, colRes.Position);
             if (_scene.Services.IsReplica && _replayImpactHidden) return;
             if (CollisionEffect != 255)
             {
@@ -2800,6 +2799,7 @@ namespace MphRead.Entities
                             ent.Scale = new Vector3(SplashRadius);
                         }
                         _scene.AddEntity(ent);
+                        NetLiveImpactPresenter.NoteNativeImpact(this, colRes.Position);
                     }
                 }
                 // there are actually effect IDs to cover platform/enemy beams in these arrays (although most are 255)

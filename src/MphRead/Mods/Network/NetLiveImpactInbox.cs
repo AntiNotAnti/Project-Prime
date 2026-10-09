@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace MphRead.Mods.Network;
 
@@ -6,13 +7,16 @@ internal sealed class ImpactIdentityWindow
 {
     private readonly CombatImpactIdentity[] _keys = new CombatImpactIdentity[512];
     private int _count, _cursor;
+    private readonly HashSet<CombatImpactIdentity> _seen = new(512);
     internal bool Add(in CombatImpactIdentity key)
     {
-        for (int i = 0; i < _count; i++) if (_keys[i] == key) return false;
+        if (_seen.Contains(key)) return false;
+        if (_count == _keys.Length) _seen.Remove(_keys[_cursor]);
+        _seen.Add(key);
         _keys[_cursor] = key; _cursor = (_cursor + 1) % _keys.Length;
         _count = Math.Min(_count + 1, _keys.Length); return true;
     }
-    internal void Reset() { Array.Clear(_keys); _count = _cursor = 0; }
+    internal void Reset() { Array.Clear(_keys); _seen.Clear(); _count = _cursor = 0; }
 }
 
 internal static class NetLiveImpactInbox

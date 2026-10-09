@@ -327,6 +327,7 @@ namespace MphRead.Mods.Network
 
         public static void RewindPlayback()
         {
+            ResetCombatPresentation();
             ContinuousPhase.Reset();
             NetContinuousTargeting.Reset();
             NetContinuousTargetDiagnostics.Reset();
@@ -384,6 +385,17 @@ namespace MphRead.Mods.Network
             throw new InvalidOperationException($"{address} has no IPv4 address");
         }
 
+        private static void ResetCombatPresentation()
+        {
+            NetImpactDiagnostics.Reset();
+            NetCombatProfile.Reset();
+            NetLiveImpactInbox.Reset();
+            NetLiveImpactPresenter.Reset();
+            NetPredictedKillPresentation.Reset();
+            NetCombatFactPublisher.Reset();
+            NetClaimEarlySettlement.Reset();
+        }
+
         public static void Stop() => Stop(preserveRoomPrewarm: false);
 
         // The dedicated lobby owns its bounded room cache across authority
@@ -402,7 +414,7 @@ namespace MphRead.Mods.Network
             SpectatorMode.Reset();
             DemoRecorder.Stop();
             NetCosmetics.Live.Reset();
-            ReplayCapture.Reset(); NetImpactDiagnostics.Reset(); NetCombatProfile.Reset(); NetLiveImpactInbox.Reset(); NetLiveImpactPresenter.Reset(); NetPredictedKillPresentation.Reset(); NetCombatFactPublisher.Reset();
+            ReplayCapture.Reset(); ResetCombatPresentation();
             NetMatchSync.Reset();
             NetSlotManager.Reset();
             NetDamage.Reset();
@@ -1606,7 +1618,7 @@ namespace MphRead.Mods.Network
             bool newEpoch = !previous.HasValue || state.AuthorityEpoch != previous.Value.AuthorityEpoch;
             ServerMatch = state;
             if (newMatch || newEpoch || previous?.RoomKey != state.RoomKey)
-            { ReplayCapture.Reset(); NetImpactDiagnostics.Reset(); NetCombatProfile.Reset(); NetLiveImpactInbox.Reset(); NetLiveImpactPresenter.Reset(); NetPredictedKillPresentation.Reset(); NetCombatFactPublisher.Reset(); }
+            { ReplayCapture.Reset(); ResetCombatPresentation(); }
             ReplayCapture.AcceptedMatch(state);
             if (newMatch) ReplayCapture.Event(ReplayEventType.MatchStarted);
             if (state.Ending && previous?.Ending != true) ReplayCapture.Event(ReplayEventType.MatchEnded);

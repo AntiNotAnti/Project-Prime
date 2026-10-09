@@ -78,6 +78,8 @@ internal static class NetCombatFactPublisher
     {
         if (NetSession.Role != NetRole.Server || !NetSession.IsAuthority || DemoPlayback.IsActive
             || !NetSession.MatchesStream(fact.MatchId, fact.AuthorityEpoch)) return;
+        if (!LiveEnabled && !NetImpactDiagnostics.Enabled)
+        { ReplayCapture.AcceptedShotFact(fact); return; }
         if (!Published.Add(CombatImpactIdentity.From(fact, presentation.Component))) return;
         NetImpactDiagnostics.Record(fact, ImpactStage.Authority, presentation.Component);
         if (LiveEnabled)
