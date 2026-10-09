@@ -1,0 +1,304 @@
+[
+  {
+    "mode": "duel",
+    "profile": {
+      "name": "rtt350-loss5",
+      "rtt_ms": 350,
+      "loss_percent": 5,
+      "jitter_ms": 80,
+      "reorder_percent": 2,
+      "duplicate_percent": 1
+    },
+    "seed": 431,
+    "port": 49173,
+    "commands": {
+      "server": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-kills-long/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-server",
+        "-port",
+        "49173",
+        "-players",
+        "3",
+        "-nomaster",
+        "-serverreplays",
+        "off",
+        "-debuglog",
+        "-claimfastpath",
+        "enabled",
+        "-hitrigloadout",
+        "Imperialist",
+        "-impactserverscratch",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile",
+        "-netdebug"
+      ],
+      "peer0": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-kills-long/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "49173",
+        "-name",
+        "peer0",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "60",
+        "-netchecklobbyplayers",
+        "3",
+        "-netlag",
+        "350:80",
+        "-netloss",
+        "5%",
+        "-netreorder",
+        "2%",
+        "-netduplicate",
+        "1%",
+        "-netseed",
+        "431",
+        "-debuglog",
+        "-hitrig",
+        "duel",
+        "-netcheckfps",
+        "60",
+        "-renderer",
+        "metal",
+        "-size",
+        "640x360",
+        "-shots",
+        "/private/tmp/pr109-kills-long/duel-rtt350-loss5/peer0-shots",
+        "-predictedkillvisuals",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer1": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-kills-long/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "49173",
+        "-name",
+        "peer1",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "60",
+        "-netchecklobbyplayers",
+        "3",
+        "-netlag",
+        "350:80",
+        "-netloss",
+        "5%",
+        "-netreorder",
+        "2%",
+        "-netduplicate",
+        "1%",
+        "-netseed",
+        "432",
+        "-debuglog",
+        "-hitrig",
+        "duel",
+        "-netcheckfps",
+        "60",
+        "-renderer",
+        "metal",
+        "-size",
+        "640x360",
+        "-shots",
+        "/private/tmp/pr109-kills-long/duel-rtt350-loss5/peer1-shots",
+        "-predictedkillvisuals",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer2": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-kills-long/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "49173",
+        "-name",
+        "peer2",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "60",
+        "-netchecklobbyplayers",
+        "3",
+        "-netlag",
+        "350:80",
+        "-netloss",
+        "5%",
+        "-netreorder",
+        "2%",
+        "-netduplicate",
+        "1%",
+        "-netseed",
+        "433",
+        "-debuglog",
+        "-spectate",
+        "0",
+        "-netcheckfps",
+        "60",
+        "-renderer",
+        "metal",
+        "-size",
+        "640x360",
+        "-shots",
+        "/private/tmp/pr109-kills-long/duel-rtt350-loss5/peer2-shots",
+        "-predictedkillvisuals",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ]
+    },
+    "pause": null,
+    "both_clients_loaded_seconds": 4.763658917,
+    "client_exit_codes": {
+      "peer0": 0,
+      "peer1": 0,
+      "peer2": 0
+    },
+    "reports": {
+      "peer0": {
+        "rendered": "[netcheck] rendered frames=3400 elapsed=60.062s targetFps=60 actualFps=56.6 impactCaptures=3",
+        "simulation": null,
+        "scenario": null,
+        "rig": "hit rig: Duel as sniper, 17 triggers, 1067 frames on target, mean range 11.4 units",
+        "hits": "hit prediction: 4 predicted, 4 confirmed (100.0%), 0 denied, 1 unpredicted, 4 lethal hits held (4 confirmed, 0 denied)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": null
+      },
+      "peer1": {
+        "rendered": "[netcheck] rendered frames=3396 elapsed=60.063s targetFps=60 actualFps=56.5 impactCaptures=5",
+        "simulation": null,
+        "scenario": null,
+        "rig": "hit rig: Duel as sniper, 15 triggers, 909 frames on target, mean range 11.6 units",
+        "hits": "hit prediction: 3 predicted, 3 confirmed (100.0%), 0 denied, 0 unpredicted, 3 lethal hits held (3 confirmed, 0 denied)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": null
+      },
+      "peer2": {
+        "rendered": "[netcheck] rendered frames=3385 elapsed=60.061s targetFps=60 actualFps=56.4 impactCaptures=8",
+        "simulation": null,
+        "scenario": null,
+        "rig": null,
+        "hits": "hit prediction: on, nothing predicted here (0 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": null
+      }
+    },
+    "shot_replication_pairs": [
+      {
+        "shooter": "peer0",
+        "view": "peer1",
+        "owner": 13.0,
+        "observed": 13.0
+      },
+      {
+        "shooter": "peer0",
+        "view": "peer2",
+        "owner": 13.0,
+        "observed": 13.0
+      },
+      {
+        "shooter": "peer1",
+        "view": "peer0",
+        "owner": 12.0,
+        "observed": 10.0
+      },
+      {
+        "shooter": "peer1",
+        "view": "peer2",
+        "owner": 12.0,
+        "observed": 11.0
+      }
+    ],
+    "shot_replication_observed": true,
+    "native_checks_passed": true,
+    "trigger_attempts": 32,
+    "authority_confirmed_hits": 7,
+    "authority_arrived_hits": 8,
+    "combat_confirmation_observed": true,
+    "passed": true,
+    "server_exit_code": -2,
+    "native_emissions": [
+      {
+        "weapon": 0,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 1,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 2,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 3,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 4,
+        "uncharged": 25,
+        "charged": 0
+      },
+      {
+        "weapon": 5,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 6,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 7,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 8,
+        "uncharged": 0,
+        "charged": 0
+      }
+    ],
+    "authority_facts_by_weapon": {
+      "PowerBeam": 0,
+      "VoltDriver": 0,
+      "Missile": 0,
+      "Battlehammer": 0,
+      "Imperialist": 8,
+      "Judicator": 0,
+      "Magmaul": 0,
+      "ShockCoil": 0,
+      "OmegaCannon": 0
+    },
+    "authority_backed_live_ingress": {
+      "peer0": 7,
+      "peer1": 8,
+      "peer2": 8
+    },
+    "intended_weapon_exercised": true
+  }
+]

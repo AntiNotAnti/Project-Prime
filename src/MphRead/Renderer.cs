@@ -4075,14 +4075,22 @@ namespace MphRead
             _inactiveBombs.Enqueue(entry);
         }
 
+        internal int ModEffectElementCount => _activeElements.Count;
+
         public void AddSingleParticle(SingleType type, Vector3 position, Vector3 color, float alpha, float scale, bool cosmeticTint = false)
+        {
+            if (_singleParticleCount < _singleParticleMax)
+                AddCosmeticParticle(Read.GetSingleParticle(type), position, color, alpha, scale, cosmeticTint);
+        }
+
+        internal bool AddCosmeticParticle(Particle definition, Vector3 position, Vector3 color, float alpha, float scale, bool cosmeticTint = false)
         {
             // note: skipping the room size limit check; singles get cleared every frame anyway
             if (_singleParticleCount < _singleParticleMax)
             {
                 SingleParticle entry = _singleParticles[_singleParticleCount++];
                 entry.CosmeticTint = cosmeticTint;
-                entry.ParticleDefinition = Read.GetSingleParticle(type);
+                entry.ParticleDefinition = definition;
                 entry.Position = position;
                 entry.Color = color;
                 entry.Alpha = alpha;
@@ -4091,7 +4099,9 @@ namespace MphRead
                 {
                     InitTextures(OwnModel(entry.ParticleDefinition.Model));
                 }
+                return true;
             }
+            return false;
         }
 
         private EffectEntry? InitEffectEntry()
@@ -5301,6 +5311,7 @@ namespace MphRead
                     player.GetDisplayVolumes();
                 }
             }
+            Mods.Network.NetLiveImpactPresenter.Prepare(this);
             foreach (EntityBase entity in Entities)
             {
                 if (!entity.Initialized || entity.Type == EntityType.Player || entity.Type == EntityType.Room)

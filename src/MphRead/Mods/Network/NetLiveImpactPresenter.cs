@@ -1,6 +1,7 @@
 using System;
 using MphRead.Entities;
 using MphRead.Formats;
+using MphRead.Effects;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network;
@@ -18,10 +19,10 @@ internal static class ImpactPresentationRules
     internal static bool CanCorrelate(Vector3 position, Vector3 velocity, Vector3 point)
     {
         Vector3 delta = point - position;
-        if (!float.IsFinite(delta.LengthSquared) || delta.LengthSquared > 16) return false;
+        if (!float.IsFinite(delta.LengthSquared) || delta.LengthSquared > ImpactVisualOptions.MaxDistance * ImpactVisualOptions.MaxDistance) return false;
         if (delta.LengthSquared <= .0625f) return true;
         return velocity.LengthSquared > .000001f
-            && Vector3.Dot(delta.Normalized(), velocity.Normalized()) >= .5f;
+            && Vector3.Dot(delta.Normalized(), velocity.Normalized()) >= ImpactVisualOptions.MinDirectionDot;
     }
     internal static bool SameBlast(in LiveCombatImpact a, in LiveCombatImpact b)
         => (a.Presentation.Kind == CombatImpactKind.Splash || b.Presentation.Kind == CombatImpactKind.Splash)
@@ -68,14 +69,15 @@ internal sealed class NetLiveProjectileIndex
 /// <summary>Only submits transient draw particles. Never calls TakeDamage or changes an entity transform.</summary>
 internal static class NetLiveImpactPresenter
 {
-    internal const uint HoldFrames = 3, CueFrames = 6;
-    private struct Pending { internal LiveCombatImpact Impact; internal uint Arrived, Presented; internal bool Live, Ready, Suppressed; }
+    internal const uint CueFrames = 6;
+    private struct Pending { internal LiveCombatImpact Impact; internal uint Arrived, Presented; internal Vector3 DrawPoint; internal bool Live, Ready, Suppressed, Drawn; }
     private readonly record struct Observed(ShotKey Shot, uint Component, byte Weapon, Vector3 Point, uint Frame);
     private static readonly Pending[] PendingEvents = new Pending[128];
     private static readonly Observed[] ObservedImpacts = new Observed[128];
     private static readonly NetLiveProjectileIndex Index = new();
     private static int _observedCursor;
     private static Scene? _scene;
+    internal static ulong CueSerial { get; private set; }
     internal static void NoteNativeImpact(BeamProjectileEntity beam, Vector3 point)
     {
         if (!NetCombatFactPublisher.LiveEnabled || beam.OwningScene.Services.IsReplica
@@ -87,6 +89,8 @@ internal static class NetLiveImpactPresenter
     }
     private static bool AlreadyVisible(in LiveCombatImpact impact)
     {
+        // Continuous ticks share a launch/component; a prior tick is not this tick.
+        if (impact.Presentation.Kind == CombatImpactKind.Continuous) return false;
         foreach (var observed in ObservedImpacts)
             if (observed.Component!=0 && observed.Component==impact.Presentation.Component
                 && observed.Shot==impact.Identity.Shot && observed.Weapon==impact.Fact.Weapon
@@ -94,7 +98,9 @@ internal static class NetLiveImpactPresenter
                 && (observed.Point-impact.Fact.ImpactPoint).LengthSquared<=.0625f) return true;
         return false;
     }
-    internal static void Draw(Scene scene)
+    private static bool CanDraw(Scene scene) => NetCombatFactPublisher.LiveEnabled && NetSession.Role == NetRole.Client
+        && !scene.Services.IsReplica && scene.Services.AllowsPresentationSideEffects && !DemoPlayback.IsActive;
+    internal static void Prepare(Scene scene)
     {
         if (!NetCombatFactPublisher.LiveEnabled || NetSession.Role!=NetRole.Client || scene.Services.IsReplica
             || !scene.Services.AllowsPresentationSideEffects || DemoPlayback.IsActive) return;
@@ -113,40 +119,75 @@ internal static class NetLiveImpactPresenter
             if(!NetLiveImpactInbox.Current(impact) || now-pending.Arrived>NetLiveImpactInbox.MaxAgeFrames
                 || pending.Ready && now-pending.Presented>=CueFrames)
             { pending=default; continue; }
+            Vector3 victimPosition=scene.Players.Items[impact.Fact.VictimSlot].Position;
+            if(NetSmoothing.SamplePresentation(impact.Fact.VictimSlot,out Vector3 smooth,out _)) victimPosition=smooth;
+            pending.DrawPoint=ImpactPresentationRules.Point(impact,victimPosition);
+            var beam=Index.Find(impact,out bool ambiguous);
+            bool correlated=beam!=null && beam.ModSupportsLiveTrail
+                && ImpactPresentationRules.CanCorrelate(beam.Position,beam.Velocity,pending.DrawPoint);
+            // Validate the actual, smoothed endpoint and the segment that will be drawn.
+            // Recheck every draw: a moving body offset may cross cover after arrival.
+            if(correlated)
+            {
+                CollisionResult collision=default;
+                correlated=!CollisionDetection.CheckBetweenPoints(beam!.Position,pending.DrawPoint,TestFlags.Beams,scene,ref collision)
+                    && !CollisionDetection.CheckBetweenPoints(beam.ModLiveTrailOrigin,pending.DrawPoint,TestFlags.Beams,scene,ref collision);
+            }
             if(!pending.Ready)
             {
-                var beam=Index.Find(impact,out bool ambiguous);
-                if(beam==null && now-pending.Arrived<HoldFrames) continue;
+                if(beam==null && now-pending.Arrived<ImpactVisualOptions.HoldFrames) continue;
                 pending.Ready=true;pending.Presented=now;
                 pending.Suppressed=AlreadyVisible(impact);
                 // A single native blast reaching multiple victims needs one cue.
                 foreach(var other in PendingEvents)
                     if(other.Live && other.Ready && !other.Suppressed && other.Impact.Identity!=impact.Identity
                         && ImpactPresentationRules.SameBlast(other.Impact,impact)) pending.Suppressed=true;
-                bool correlated=beam!=null && ImpactPresentationRules.CanCorrelate(beam.Position,beam.Velocity,impact.Fact.ImpactPoint);
-                // There is no corrected tracer: a discrepant or blocked path gets only its truthful endpoint cue.
-                if(correlated)
-                {
-                    CollisionResult collision=default;
-                    correlated=!CollisionDetection.CheckBetweenPoints(beam!.Position,impact.Fact.ImpactPoint,TestFlags.Beams,scene,ref collision);
-                }
                 NetImpactDiagnostics.Record(impact.Fact,pending.Suppressed?ImpactStage.AlreadyVisible
                     :ambiguous?ImpactStage.Ambiguous:correlated?ImpactStage.Matched:ImpactStage.Synthesized,impact.Presentation.Component);
             }
-            if(pending.Suppressed) continue;
-            Vector3 victimPosition=scene.Players.Items[impact.Fact.VictimSlot].Position;
-            if(NetSmoothing.SamplePresentation(impact.Fact.VictimSlot,out Vector3 smooth,out _)) victimPosition=smooth;
-            Vector3 point=ImpactPresentationRules.Point(impact,victimPosition);
-            CombatImpactDrawing.Draw(scene,impact.Fact,point,1-(now-pending.Presented)/(float)CueFrames);
+            if(!pending.Suppressed && correlated) beam!.ModSetLiveDrawPoint(impact,pending.DrawPoint);
         }
     }
+    internal static void Draw(Scene scene)
+    {
+        if(!CanDraw(scene) || _scene != scene) return;
+        uint now=NetSession.NetFrame;
+        foreach(ref var pending in PendingEvents.AsSpan())
+            if(pending.Live && pending.Ready && !pending.Suppressed
+                && CombatImpactDrawing.Draw(scene,pending.Impact.Fact,pending.DrawPoint,1-(now-pending.Presented)/(float)CueFrames)
+                && !pending.Drawn)
+            {
+                pending.Drawn=true; CueSerial++;
+                NetImpactDiagnostics.Record(pending.Impact.Fact,ImpactStage.DrawSubmitted,pending.Impact.Presentation.Component);
+            }
+    }
     internal static void Reset()
-    { Array.Clear(PendingEvents);Array.Clear(ObservedImpacts);Index.Reset();_observedCursor=0;_scene=null; }
+    { Array.Clear(PendingEvents);Array.Clear(ObservedImpacts);Index.Reset();_observedCursor=0;_scene=null;CueSerial=0; }
 }
 
 internal static class CombatImpactDrawing
 {
-    internal static void Draw(Scene scene,in ReplayShotFact fact,Vector3 point,float alpha=1)
-        => scene.AddSingleParticle(SingleType.Fuzzball,point,BeamProjectileEntity.ModReplayImpactColor(scene,fact),
-            alpha,fact.Headshot?.46f:.32f);
+    internal static bool Draw(Scene scene,in ReplayShotFact fact,Vector3 point,float alpha=1)
+    {
+        // Read authored per-weapon multiplayer hit sprites without creating an
+        // EffectEntry, advancing match RNG, playing sound, or touching simulation
+        // effect counts. At most two sprites use the existing per-draw bounded pool.
+        int effectId = fact.Weapon < 8 ? 154+fact.Weapon : scene.WeaponRules[fact.Weapon].CollisionEffects[0]-3;
+        var effect=Read.GetEffect(effectId);
+        int drawn=0;
+        if(effect!=null)
+            foreach(var element in effect.Elements)
+            {
+                if(element.Flags.TestFlag(EffElemFlags.UseMesh)) continue;
+                foreach(var particle in element.Particles)
+                {
+                    if(scene.AddCosmeticParticle(particle,point,Vector3.One,alpha,fact.Headshot?.46f:.32f)) drawn++;
+                    if(drawn==2) return true;
+                }
+            }
+        if(drawn==0)
+            return scene.AddCosmeticParticle(Read.GetSingleParticle(SingleType.Fuzzball),point,BeamProjectileEntity.ModReplayImpactColor(scene,fact),
+                alpha,fact.Headshot?.46f:.32f);
+        return true;
+    }
 }

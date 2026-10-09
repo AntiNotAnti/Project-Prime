@@ -806,6 +806,7 @@ namespace MphRead.Mods.Network
             Release("transport", () => _transport?.Dispose());
             _transport = null;
             Release("replay recorder", () => ServerReplayRecorder.Stop());
+            Release("server impact metrics", () => NetImpactDiagnostics.ExportServerRequested(_sim, LoopDiagnostics));
             Release("impact diagnostics", NetImpactDiagnostics.ExportRequested);
             Release("simulation", () => _sim?.Stop());
             _sim = null;
@@ -2609,6 +2610,7 @@ namespace MphRead.Mods.Network
                 Log("last player left continuous server; suspending empty world");
                 AbandonCareerMatch();
                 ServerReplayRecorder.Stop(matchEnded: false);
+                NetImpactDiagnostics.ExportServerRequested(_sim, LoopDiagnostics);
                 NetImpactDiagnostics.ExportRequested();
                 _sim.Stop(preserveRoomPrewarm: true);
                 _sim = null;

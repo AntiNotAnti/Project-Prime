@@ -96,6 +96,7 @@ namespace MphRead.Mods.Network
 
         /// <summary>The weapon a <see cref="RigMode.Volley"/> run empties.</summary>
         public static BeamType VolleyWeapon { get; private set; } = BeamType.Missile;
+        internal static bool ChargedVolley { get; private set; }
 
         private static int _continuousShooters = -1;
         private static bool _continuousMorph;
@@ -110,7 +111,10 @@ namespace MphRead.Mods.Network
         public static bool Configure(string? value)
         {
             _continuousShooters = -1; _continuousMorph = false;
-            switch (value?.Trim().ToLowerInvariant())
+            value = value?.Trim().ToLowerInvariant();
+            ChargedVolley = value is "powerbeam-charged" or "missile-charged" or "voltdriver-charged" or "judicator-charged" or "magmaul-charged";
+            if (ChargedVolley) value = value![..^8];
+            switch (value)
             {
                 case "alt-static": Mode = RigMode.AltStatic; return true;
                 case "alt":
@@ -160,6 +164,14 @@ namespace MphRead.Mods.Network
                     Mode = RigMode.Volley;
                     VolleyWeapon = BeamType.VoltDriver;
                     return true;
+                case "omega":
+                    Mode = RigMode.Volley;
+                    VolleyWeapon = BeamType.OmegaCannon;
+                    return true;
+                case "imperialist-unscoped":
+                    Mode = RigMode.Volley;
+                    VolleyWeapon = BeamType.Imperialist;
+                    return true;
                 case "powerbeam":
                     Mode = RigMode.Volley;
                     VolleyWeapon = BeamType.PowerBeam;
@@ -207,6 +219,7 @@ namespace MphRead.Mods.Network
         private const float FiringCone = 2.5f;
 
         private static int _frame;
+        private static int _lastTriggerWindow = -1;
         private static int _stuckFrames;
         private static bool _stuckDirection;
         private static Vector3 _lastPosition;
@@ -235,6 +248,7 @@ namespace MphRead.Mods.Network
         public static void Reset()
         {
             _frame = 0;
+            _lastTriggerWindow = -1;
             _stuckFrames = 0;
             _lastPosition = Vector3.Zero;
             AimDeltaX = 0;
@@ -469,9 +483,18 @@ namespace MphRead.Mods.Network
             int clock = Mode == RigMode.Duel && NetSession.LastSnapshotFrame != 0
                 ? (int)NetSession.LastSnapshotFrame
                 : _frame;
-            c.Shoot.IsDown = onTarget && clock % tap < 3;
-            if (c.Shoot.IsDown && clock % tap == 0)
+            if (Mode == RigMode.Volley && ChargedVolley)
             {
+                int chargeFrames = Weapons.Current[(int)VolleyWeapon].FullCharge * 2 + 2;
+                tap += chargeFrames;
+                c.Shoot.IsDown = onTarget && clock % tap < chargeFrames;
+            }
+            else c.Shoot.IsDown = onTarget && clock % tap < 3;
+            // Snapshot clocks may skip residue zero. Count a firing window
+            // once when any of its held frames was actually sampled.
+            if (c.Shoot.IsDown && clock / tap != _lastTriggerWindow)
+            {
+                _lastTriggerWindow = clock / tap;
                 Triggers++;
             }
         }

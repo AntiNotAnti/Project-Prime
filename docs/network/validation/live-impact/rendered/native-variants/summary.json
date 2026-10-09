@@ -1,0 +1,2798 @@
+[
+  {
+    "mode": "powerbeam-charged",
+    "profile": {
+      "name": "rtt0-loss0",
+      "rtt_ms": 0,
+      "loss_percent": 0,
+      "jitter_ms": 0,
+      "reorder_percent": 0,
+      "duplicate_percent": 0
+    },
+    "seed": 431,
+    "port": 49768,
+    "commands": {
+      "server": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-server",
+        "-port",
+        "49768",
+        "-players",
+        "2",
+        "-nomaster",
+        "-serverreplays",
+        "off",
+        "-debuglog",
+        "-claimfastpath",
+        "enabled",
+        "-hitrigloadout",
+        "PowerBeam",
+        "-impactserverscratch",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer0": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "49768",
+        "-name",
+        "peer0",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "0:0",
+        "-netloss",
+        "0%",
+        "-netreorder",
+        "0%",
+        "-netduplicate",
+        "0%",
+        "-netseed",
+        "431",
+        "-debuglog",
+        "-hitrig",
+        "powerbeam-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer1": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "49768",
+        "-name",
+        "peer1",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "0:0",
+        "-netloss",
+        "0%",
+        "-netreorder",
+        "0%",
+        "-netduplicate",
+        "0%",
+        "-netseed",
+        "432",
+        "-debuglog",
+        "-hitrig",
+        "powerbeam-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ]
+    },
+    "pause": null,
+    "both_clients_loaded_seconds": 1.180037583,
+    "client_exit_codes": {
+      "peer0": 0,
+      "peer1": 0
+    },
+    "reports": {
+      "peer0": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1180 remoteFrames=1177 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as sniper, 12 triggers, 887 frames on target, mean range 16.0 units",
+        "hits": "hit prediction: 15 predicted, 15 confirmed (100.0%), 0 denied, 4 unpredicted, 2 lethal hits held (1 confirmed, 1 denied)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      },
+      "peer1": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1180 remoteFrames=1176 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as runner, 679 frames airborne, mean |vertical speed| 0.108 units/frame, worst 0.368",
+        "hits": "hit prediction: on, nothing predicted here (0 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      }
+    },
+    "native_checks_passed": true,
+    "trigger_attempts": 12,
+    "authority_confirmed_hits": 15,
+    "combat_confirmation_observed": true,
+    "passed": true,
+    "server_exit_code": -2,
+    "native_emissions": [
+      {
+        "weapon": 0,
+        "uncharged": 52,
+        "charged": 11
+      },
+      {
+        "weapon": 1,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 2,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 3,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 4,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 5,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 6,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 7,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 8,
+        "uncharged": 0,
+        "charged": 0
+      }
+    ],
+    "authority_facts_by_weapon": {
+      "PowerBeam": 16,
+      "VoltDriver": 0,
+      "Missile": 0,
+      "Battlehammer": 0,
+      "Imperialist": 0,
+      "Judicator": 0,
+      "Magmaul": 0,
+      "ShockCoil": 0,
+      "OmegaCannon": 0
+    },
+    "intended_weapon_exercised": true,
+    "charged_native_emission_observed": true
+  },
+  {
+    "mode": "powerbeam-charged",
+    "profile": {
+      "name": "rtt250-loss2",
+      "rtt_ms": 250,
+      "loss_percent": 2,
+      "jitter_ms": 40,
+      "reorder_percent": 2,
+      "duplicate_percent": 1
+    },
+    "seed": 431,
+    "port": 52357,
+    "commands": {
+      "server": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-server",
+        "-port",
+        "52357",
+        "-players",
+        "2",
+        "-nomaster",
+        "-serverreplays",
+        "off",
+        "-debuglog",
+        "-claimfastpath",
+        "enabled",
+        "-hitrigloadout",
+        "PowerBeam",
+        "-impactserverscratch",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer0": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "52357",
+        "-name",
+        "peer0",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "250:40",
+        "-netloss",
+        "2%",
+        "-netreorder",
+        "2%",
+        "-netduplicate",
+        "1%",
+        "-netseed",
+        "431",
+        "-debuglog",
+        "-hitrig",
+        "powerbeam-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer1": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "52357",
+        "-name",
+        "peer1",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "250:40",
+        "-netloss",
+        "2%",
+        "-netreorder",
+        "2%",
+        "-netduplicate",
+        "1%",
+        "-netseed",
+        "432",
+        "-debuglog",
+        "-hitrig",
+        "powerbeam-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ]
+    },
+    "pause": null,
+    "both_clients_loaded_seconds": 2.808299583,
+    "client_exit_codes": {
+      "peer0": 0,
+      "peer1": 0
+    },
+    "reports": {
+      "peer0": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1180 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as sniper, 13 triggers, 1005 frames on target, mean range 16.0 units",
+        "hits": "hit prediction: 17 predicted, 16 confirmed (94.1%), 1 denied, 0 unpredicted, 2 lethal hits held (1 confirmed, 0 denied)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      },
+      "peer1": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1181 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as runner, 745 frames airborne, mean |vertical speed| 0.111 units/frame, worst 0.377",
+        "hits": "hit prediction: on, nothing predicted here (0 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      }
+    },
+    "native_checks_passed": true,
+    "trigger_attempts": 13,
+    "authority_confirmed_hits": 16,
+    "combat_confirmation_observed": true,
+    "passed": true,
+    "server_exit_code": -2,
+    "native_emissions": [
+      {
+        "weapon": 0,
+        "uncharged": 60,
+        "charged": 13
+      },
+      {
+        "weapon": 1,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 2,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 3,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 4,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 5,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 6,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 7,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 8,
+        "uncharged": 0,
+        "charged": 0
+      }
+    ],
+    "authority_facts_by_weapon": {
+      "PowerBeam": 16,
+      "VoltDriver": 0,
+      "Missile": 0,
+      "Battlehammer": 0,
+      "Imperialist": 0,
+      "Judicator": 0,
+      "Magmaul": 0,
+      "ShockCoil": 0,
+      "OmegaCannon": 0
+    },
+    "intended_weapon_exercised": true,
+    "charged_native_emission_observed": true
+  },
+  {
+    "mode": "missile-charged",
+    "profile": {
+      "name": "rtt0-loss0",
+      "rtt_ms": 0,
+      "loss_percent": 0,
+      "jitter_ms": 0,
+      "reorder_percent": 0,
+      "duplicate_percent": 0
+    },
+    "seed": 431,
+    "port": 49377,
+    "commands": {
+      "server": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-server",
+        "-port",
+        "49377",
+        "-players",
+        "2",
+        "-nomaster",
+        "-serverreplays",
+        "off",
+        "-debuglog",
+        "-claimfastpath",
+        "enabled",
+        "-hitrigloadout",
+        "Missile",
+        "-impactserverscratch",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer0": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "49377",
+        "-name",
+        "peer0",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "0:0",
+        "-netloss",
+        "0%",
+        "-netreorder",
+        "0%",
+        "-netduplicate",
+        "0%",
+        "-netseed",
+        "431",
+        "-debuglog",
+        "-hitrig",
+        "missile-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer1": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "49377",
+        "-name",
+        "peer1",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "0:0",
+        "-netloss",
+        "0%",
+        "-netreorder",
+        "0%",
+        "-netduplicate",
+        "0%",
+        "-netseed",
+        "432",
+        "-debuglog",
+        "-hitrig",
+        "missile-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ]
+    },
+    "pause": null,
+    "both_clients_loaded_seconds": 0.9061427079999973,
+    "client_exit_codes": {
+      "peer0": 0,
+      "peer1": 0
+    },
+    "reports": {
+      "peer0": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1198 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as sniper, 6 triggers, 922 frames on target, mean range 16.1 units",
+        "hits": "hit prediction: 3 predicted, 3 confirmed (100.0%), 0 denied, 4 unpredicted, 2 lethal hits held (0 confirmed, 2 denied)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      },
+      "peer1": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1199 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as runner, 686 frames airborne, mean |vertical speed| 0.112 units/frame, worst 0.377",
+        "hits": "hit prediction: on, nothing predicted here (0 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      }
+    },
+    "native_checks_passed": true,
+    "trigger_attempts": 6,
+    "authority_confirmed_hits": 3,
+    "combat_confirmation_observed": true,
+    "passed": true,
+    "server_exit_code": -2,
+    "native_emissions": [
+      {
+        "weapon": 0,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 1,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 2,
+        "uncharged": 7,
+        "charged": 6
+      },
+      {
+        "weapon": 3,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 4,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 5,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 6,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 7,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 8,
+        "uncharged": 0,
+        "charged": 0
+      }
+    ],
+    "authority_facts_by_weapon": {
+      "PowerBeam": 0,
+      "VoltDriver": 0,
+      "Missile": 4,
+      "Battlehammer": 0,
+      "Imperialist": 0,
+      "Judicator": 0,
+      "Magmaul": 0,
+      "ShockCoil": 0,
+      "OmegaCannon": 0
+    },
+    "intended_weapon_exercised": true,
+    "charged_native_emission_observed": true
+  },
+  {
+    "mode": "missile-charged",
+    "profile": {
+      "name": "rtt250-loss2",
+      "rtt_ms": 250,
+      "loss_percent": 2,
+      "jitter_ms": 40,
+      "reorder_percent": 2,
+      "duplicate_percent": 1
+    },
+    "seed": 431,
+    "port": 56727,
+    "commands": {
+      "server": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-server",
+        "-port",
+        "56727",
+        "-players",
+        "2",
+        "-nomaster",
+        "-serverreplays",
+        "off",
+        "-debuglog",
+        "-claimfastpath",
+        "enabled",
+        "-hitrigloadout",
+        "Missile",
+        "-impactserverscratch",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer0": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "56727",
+        "-name",
+        "peer0",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "250:40",
+        "-netloss",
+        "2%",
+        "-netreorder",
+        "2%",
+        "-netduplicate",
+        "1%",
+        "-netseed",
+        "431",
+        "-debuglog",
+        "-hitrig",
+        "missile-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer1": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "56727",
+        "-name",
+        "peer1",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "250:40",
+        "-netloss",
+        "2%",
+        "-netreorder",
+        "2%",
+        "-netduplicate",
+        "1%",
+        "-netseed",
+        "432",
+        "-debuglog",
+        "-hitrig",
+        "missile-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ]
+    },
+    "pause": null,
+    "both_clients_loaded_seconds": 2.8444792500000062,
+    "client_exit_codes": {
+      "peer0": 0,
+      "peer1": 0
+    },
+    "reports": {
+      "peer0": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1163 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as sniper, 5 triggers, 870 frames on target, mean range 16.6 units",
+        "hits": "hit prediction: 2 predicted, 1 confirmed (50.0%), 0 denied, 4 unpredicted, 1 lethal hits held (0 confirmed, 1 denied), 2 self-hits predicted (1 confirmed)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      },
+      "peer1": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1180 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as runner, 702 frames airborne, mean |vertical speed| 0.115 units/frame, worst 0.341",
+        "hits": "hit prediction: on, nothing predicted here (0 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      }
+    },
+    "native_checks_passed": true,
+    "trigger_attempts": 5,
+    "authority_confirmed_hits": 1,
+    "combat_confirmation_observed": true,
+    "passed": true,
+    "server_exit_code": -2,
+    "native_emissions": [
+      {
+        "weapon": 0,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 1,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 2,
+        "uncharged": 7,
+        "charged": 5
+      },
+      {
+        "weapon": 3,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 4,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 5,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 6,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 7,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 8,
+        "uncharged": 0,
+        "charged": 0
+      }
+    ],
+    "authority_facts_by_weapon": {
+      "PowerBeam": 0,
+      "VoltDriver": 0,
+      "Missile": 5,
+      "Battlehammer": 0,
+      "Imperialist": 0,
+      "Judicator": 0,
+      "Magmaul": 0,
+      "ShockCoil": 0,
+      "OmegaCannon": 0
+    },
+    "intended_weapon_exercised": true,
+    "charged_native_emission_observed": true
+  },
+  {
+    "mode": "judicator-charged",
+    "profile": {
+      "name": "rtt0-loss0",
+      "rtt_ms": 0,
+      "loss_percent": 0,
+      "jitter_ms": 0,
+      "reorder_percent": 0,
+      "duplicate_percent": 0
+    },
+    "seed": 431,
+    "port": 62618,
+    "commands": {
+      "server": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-server",
+        "-port",
+        "62618",
+        "-players",
+        "2",
+        "-nomaster",
+        "-serverreplays",
+        "off",
+        "-debuglog",
+        "-claimfastpath",
+        "enabled",
+        "-hitrigloadout",
+        "Judicator",
+        "-impactserverscratch",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer0": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "62618",
+        "-name",
+        "peer0",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "0:0",
+        "-netloss",
+        "0%",
+        "-netreorder",
+        "0%",
+        "-netduplicate",
+        "0%",
+        "-netseed",
+        "431",
+        "-debuglog",
+        "-hitrig",
+        "judicator-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer1": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "62618",
+        "-name",
+        "peer1",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "0:0",
+        "-netloss",
+        "0%",
+        "-netreorder",
+        "0%",
+        "-netduplicate",
+        "0%",
+        "-netseed",
+        "432",
+        "-debuglog",
+        "-hitrig",
+        "judicator-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ]
+    },
+    "pause": null,
+    "both_clients_loaded_seconds": 0.9557788330000108,
+    "client_exit_codes": {
+      "peer0": 0,
+      "peer1": 0
+    },
+    "reports": {
+      "peer0": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1199 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as sniper, 7 triggers, 1098 frames on target, mean range 16.0 units",
+        "hits": "hit prediction: on, nothing predicted here (1 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      },
+      "peer1": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1198 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as runner, 802 frames airborne, mean |vertical speed| 0.110 units/frame, worst 0.377",
+        "hits": "hit prediction: on, nothing predicted here (0 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      }
+    },
+    "native_checks_passed": true,
+    "trigger_attempts": 7,
+    "authority_confirmed_hits": 0,
+    "combat_confirmation_observed": false,
+    "passed": false,
+    "server_exit_code": -2,
+    "native_emissions": [
+      {
+        "weapon": 0,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 1,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 2,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 3,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 4,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 5,
+        "uncharged": 8,
+        "charged": 18
+      },
+      {
+        "weapon": 6,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 7,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 8,
+        "uncharged": 0,
+        "charged": 0
+      }
+    ],
+    "authority_facts_by_weapon": {
+      "PowerBeam": 0,
+      "VoltDriver": 0,
+      "Missile": 0,
+      "Battlehammer": 0,
+      "Imperialist": 0,
+      "Judicator": 1,
+      "Magmaul": 0,
+      "ShockCoil": 0,
+      "OmegaCannon": 0
+    },
+    "intended_weapon_exercised": true,
+    "charged_native_emission_observed": true
+  },
+  {
+    "mode": "judicator-charged",
+    "profile": {
+      "name": "rtt250-loss2",
+      "rtt_ms": 250,
+      "loss_percent": 2,
+      "jitter_ms": 40,
+      "reorder_percent": 2,
+      "duplicate_percent": 1
+    },
+    "seed": 431,
+    "port": 57997,
+    "commands": {
+      "server": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-server",
+        "-port",
+        "57997",
+        "-players",
+        "2",
+        "-nomaster",
+        "-serverreplays",
+        "off",
+        "-debuglog",
+        "-claimfastpath",
+        "enabled",
+        "-hitrigloadout",
+        "Judicator",
+        "-impactserverscratch",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer0": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "57997",
+        "-name",
+        "peer0",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "250:40",
+        "-netloss",
+        "2%",
+        "-netreorder",
+        "2%",
+        "-netduplicate",
+        "1%",
+        "-netseed",
+        "431",
+        "-debuglog",
+        "-hitrig",
+        "judicator-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer1": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "57997",
+        "-name",
+        "peer1",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "250:40",
+        "-netloss",
+        "2%",
+        "-netreorder",
+        "2%",
+        "-netduplicate",
+        "1%",
+        "-netseed",
+        "432",
+        "-debuglog",
+        "-hitrig",
+        "judicator-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ]
+    },
+    "pause": null,
+    "both_clients_loaded_seconds": 2.7576102080000027,
+    "client_exit_codes": {
+      "peer0": 0,
+      "peer1": 0
+    },
+    "reports": {
+      "peer0": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1159 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as sniper, 6 triggers, 1033 frames on target, mean range 15.9 units",
+        "hits": "hit prediction: 1 predicted, 1 confirmed (100.0%), 0 denied, 0 unpredicted, 0 lethal hits held (0 confirmed, 0 denied)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      },
+      "peer1": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1143 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as runner, 772 frames airborne, mean |vertical speed| 0.110 units/frame, worst 0.377",
+        "hits": "hit prediction: on, nothing predicted here (0 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      }
+    },
+    "native_checks_passed": true,
+    "trigger_attempts": 6,
+    "authority_confirmed_hits": 1,
+    "combat_confirmation_observed": true,
+    "passed": true,
+    "server_exit_code": -2,
+    "native_emissions": [
+      {
+        "weapon": 0,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 1,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 2,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 3,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 4,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 5,
+        "uncharged": 7,
+        "charged": 15
+      },
+      {
+        "weapon": 6,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 7,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 8,
+        "uncharged": 0,
+        "charged": 0
+      }
+    ],
+    "authority_facts_by_weapon": {
+      "PowerBeam": 0,
+      "VoltDriver": 0,
+      "Missile": 0,
+      "Battlehammer": 0,
+      "Imperialist": 0,
+      "Judicator": 1,
+      "Magmaul": 0,
+      "ShockCoil": 0,
+      "OmegaCannon": 0
+    },
+    "intended_weapon_exercised": true,
+    "charged_native_emission_observed": true
+  },
+  {
+    "mode": "voltdriver-charged",
+    "profile": {
+      "name": "rtt0-loss0",
+      "rtt_ms": 0,
+      "loss_percent": 0,
+      "jitter_ms": 0,
+      "reorder_percent": 0,
+      "duplicate_percent": 0
+    },
+    "seed": 431,
+    "port": 55835,
+    "commands": {
+      "server": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-server",
+        "-port",
+        "55835",
+        "-players",
+        "2",
+        "-nomaster",
+        "-serverreplays",
+        "off",
+        "-debuglog",
+        "-claimfastpath",
+        "enabled",
+        "-hitrigloadout",
+        "VoltDriver",
+        "-impactserverscratch",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer0": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "55835",
+        "-name",
+        "peer0",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "0:0",
+        "-netloss",
+        "0%",
+        "-netreorder",
+        "0%",
+        "-netduplicate",
+        "0%",
+        "-netseed",
+        "431",
+        "-debuglog",
+        "-hitrig",
+        "voltdriver-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer1": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "55835",
+        "-name",
+        "peer1",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "0:0",
+        "-netloss",
+        "0%",
+        "-netreorder",
+        "0%",
+        "-netduplicate",
+        "0%",
+        "-netseed",
+        "432",
+        "-debuglog",
+        "-hitrig",
+        "voltdriver-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ]
+    },
+    "pause": null,
+    "both_clients_loaded_seconds": 0.9763674579999986,
+    "client_exit_codes": {
+      "peer0": 0,
+      "peer1": 0
+    },
+    "reports": {
+      "peer0": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1198 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as sniper, 8 triggers, 1097 frames on target, mean range 15.9 units",
+        "hits": "hit prediction: 5 predicted, 4 confirmed (80.0%), 1 denied, 6 unpredicted, 0 lethal hits held (0 confirmed, 0 denied)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      },
+      "peer1": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1198 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as runner, 817 frames airborne, mean |vertical speed| 0.111 units/frame, worst 0.377",
+        "hits": "hit prediction: on, nothing predicted here (0 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      }
+    },
+    "native_checks_passed": true,
+    "trigger_attempts": 8,
+    "authority_confirmed_hits": 4,
+    "combat_confirmation_observed": true,
+    "passed": true,
+    "server_exit_code": -2,
+    "native_emissions": [
+      {
+        "weapon": 0,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 1,
+        "uncharged": 9,
+        "charged": 7
+      },
+      {
+        "weapon": 2,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 3,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 4,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 5,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 6,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 7,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 8,
+        "uncharged": 0,
+        "charged": 0
+      }
+    ],
+    "authority_facts_by_weapon": {
+      "PowerBeam": 0,
+      "VoltDriver": 6,
+      "Missile": 0,
+      "Battlehammer": 0,
+      "Imperialist": 0,
+      "Judicator": 0,
+      "Magmaul": 0,
+      "ShockCoil": 0,
+      "OmegaCannon": 0
+    },
+    "intended_weapon_exercised": true,
+    "charged_native_emission_observed": true
+  },
+  {
+    "mode": "voltdriver-charged",
+    "profile": {
+      "name": "rtt250-loss2",
+      "rtt_ms": 250,
+      "loss_percent": 2,
+      "jitter_ms": 40,
+      "reorder_percent": 2,
+      "duplicate_percent": 1
+    },
+    "seed": 431,
+    "port": 52892,
+    "commands": {
+      "server": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-server",
+        "-port",
+        "52892",
+        "-players",
+        "2",
+        "-nomaster",
+        "-serverreplays",
+        "off",
+        "-debuglog",
+        "-claimfastpath",
+        "enabled",
+        "-hitrigloadout",
+        "VoltDriver",
+        "-impactserverscratch",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer0": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "52892",
+        "-name",
+        "peer0",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "250:40",
+        "-netloss",
+        "2%",
+        "-netreorder",
+        "2%",
+        "-netduplicate",
+        "1%",
+        "-netseed",
+        "431",
+        "-debuglog",
+        "-hitrig",
+        "voltdriver-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer1": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "52892",
+        "-name",
+        "peer1",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "250:40",
+        "-netloss",
+        "2%",
+        "-netreorder",
+        "2%",
+        "-netduplicate",
+        "1%",
+        "-netseed",
+        "432",
+        "-debuglog",
+        "-hitrig",
+        "voltdriver-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ]
+    },
+    "pause": null,
+    "both_clients_loaded_seconds": 2.857359250000002,
+    "client_exit_codes": {
+      "peer0": 0,
+      "peer1": 0
+    },
+    "reports": {
+      "peer0": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1163 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as sniper, 7 triggers, 1050 frames on target, mean range 15.9 units",
+        "hits": "hit prediction: 5 predicted, 4 confirmed (80.0%), 1 denied, 0 unpredicted, 1 lethal hits held (0 confirmed, 1 denied)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      },
+      "peer1": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1180 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as runner, 788 frames airborne, mean |vertical speed| 0.111 units/frame, worst 0.377",
+        "hits": "hit prediction: on, nothing predicted here (0 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      }
+    },
+    "native_checks_passed": true,
+    "trigger_attempts": 7,
+    "authority_confirmed_hits": 4,
+    "combat_confirmation_observed": true,
+    "passed": true,
+    "server_exit_code": -2,
+    "native_emissions": [
+      {
+        "weapon": 0,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 1,
+        "uncharged": 10,
+        "charged": 6
+      },
+      {
+        "weapon": 2,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 3,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 4,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 5,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 6,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 7,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 8,
+        "uncharged": 0,
+        "charged": 0
+      }
+    ],
+    "authority_facts_by_weapon": {
+      "PowerBeam": 0,
+      "VoltDriver": 4,
+      "Missile": 0,
+      "Battlehammer": 0,
+      "Imperialist": 0,
+      "Judicator": 0,
+      "Magmaul": 0,
+      "ShockCoil": 0,
+      "OmegaCannon": 0
+    },
+    "intended_weapon_exercised": true,
+    "charged_native_emission_observed": true
+  },
+  {
+    "mode": "magmaul-charged",
+    "profile": {
+      "name": "rtt0-loss0",
+      "rtt_ms": 0,
+      "loss_percent": 0,
+      "jitter_ms": 0,
+      "reorder_percent": 0,
+      "duplicate_percent": 0
+    },
+    "seed": 431,
+    "port": 62606,
+    "commands": {
+      "server": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-server",
+        "-port",
+        "62606",
+        "-players",
+        "2",
+        "-nomaster",
+        "-serverreplays",
+        "off",
+        "-debuglog",
+        "-claimfastpath",
+        "enabled",
+        "-hitrigloadout",
+        "Magmaul",
+        "-impactserverscratch",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer0": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "62606",
+        "-name",
+        "peer0",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "0:0",
+        "-netloss",
+        "0%",
+        "-netreorder",
+        "0%",
+        "-netduplicate",
+        "0%",
+        "-netseed",
+        "431",
+        "-debuglog",
+        "-hitrig",
+        "magmaul-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer1": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "62606",
+        "-name",
+        "peer1",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "0:0",
+        "-netloss",
+        "0%",
+        "-netreorder",
+        "0%",
+        "-netduplicate",
+        "0%",
+        "-netseed",
+        "432",
+        "-debuglog",
+        "-hitrig",
+        "magmaul-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ]
+    },
+    "pause": null,
+    "both_clients_loaded_seconds": 1.1882174590000147,
+    "client_exit_codes": {
+      "peer0": 0,
+      "peer1": 0
+    },
+    "reports": {
+      "peer0": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1198 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as sniper, 6 triggers, 1096 frames on target, mean range 16.0 units",
+        "hits": "hit prediction: 2 predicted, 2 confirmed (100.0%), 0 denied, 3 unpredicted, 0 lethal hits held (0 confirmed, 0 denied)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      },
+      "peer1": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1199 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as runner, 860 frames airborne, mean |vertical speed| 0.116 units/frame, worst 0.424",
+        "hits": "hit prediction: on, nothing predicted here (0 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      }
+    },
+    "native_checks_passed": true,
+    "trigger_attempts": 6,
+    "authority_confirmed_hits": 2,
+    "combat_confirmation_observed": true,
+    "passed": true,
+    "server_exit_code": -2,
+    "native_emissions": [
+      {
+        "weapon": 0,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 1,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 2,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 3,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 4,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 5,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 6,
+        "uncharged": 7,
+        "charged": 5
+      },
+      {
+        "weapon": 7,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 8,
+        "uncharged": 0,
+        "charged": 0
+      }
+    ],
+    "authority_facts_by_weapon": {
+      "PowerBeam": 0,
+      "VoltDriver": 0,
+      "Missile": 0,
+      "Battlehammer": 0,
+      "Imperialist": 0,
+      "Judicator": 0,
+      "Magmaul": 3,
+      "ShockCoil": 0,
+      "OmegaCannon": 0
+    },
+    "intended_weapon_exercised": true,
+    "charged_native_emission_observed": true
+  },
+  {
+    "mode": "magmaul-charged",
+    "profile": {
+      "name": "rtt250-loss2",
+      "rtt_ms": 250,
+      "loss_percent": 2,
+      "jitter_ms": 40,
+      "reorder_percent": 2,
+      "duplicate_percent": 1
+    },
+    "seed": 431,
+    "port": 50035,
+    "commands": {
+      "server": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-server",
+        "-port",
+        "50035",
+        "-players",
+        "2",
+        "-nomaster",
+        "-serverreplays",
+        "off",
+        "-debuglog",
+        "-claimfastpath",
+        "enabled",
+        "-hitrigloadout",
+        "Magmaul",
+        "-impactserverscratch",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer0": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "50035",
+        "-name",
+        "peer0",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "250:40",
+        "-netloss",
+        "2%",
+        "-netreorder",
+        "2%",
+        "-netduplicate",
+        "1%",
+        "-netseed",
+        "431",
+        "-debuglog",
+        "-hitrig",
+        "magmaul-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer1": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "50035",
+        "-name",
+        "peer1",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "250:40",
+        "-netloss",
+        "2%",
+        "-netreorder",
+        "2%",
+        "-netduplicate",
+        "1%",
+        "-netseed",
+        "432",
+        "-debuglog",
+        "-hitrig",
+        "magmaul-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ]
+    },
+    "pause": null,
+    "both_clients_loaded_seconds": 3.955840791000014,
+    "client_exit_codes": {
+      "peer0": 0,
+      "peer1": 0
+    },
+    "reports": {
+      "peer0": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1164 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as sniper, 6 triggers, 995 frames on target, mean range 16.1 units",
+        "hits": "hit prediction: 1 predicted, 1 confirmed (100.0%), 0 denied, 0 unpredicted, 0 lethal hits held (0 confirmed, 0 denied)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      },
+      "peer1": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1109 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as runner, 740 frames airborne, mean |vertical speed| 0.111 units/frame, worst 0.377",
+        "hits": "hit prediction: on, nothing predicted here (0 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      }
+    },
+    "native_checks_passed": true,
+    "trigger_attempts": 6,
+    "authority_confirmed_hits": 1,
+    "combat_confirmation_observed": true,
+    "passed": true,
+    "server_exit_code": -2,
+    "native_emissions": [
+      {
+        "weapon": 0,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 1,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 2,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 3,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 4,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 5,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 6,
+        "uncharged": 7,
+        "charged": 5
+      },
+      {
+        "weapon": 7,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 8,
+        "uncharged": 0,
+        "charged": 0
+      }
+    ],
+    "authority_facts_by_weapon": {
+      "PowerBeam": 0,
+      "VoltDriver": 0,
+      "Missile": 0,
+      "Battlehammer": 0,
+      "Imperialist": 0,
+      "Judicator": 0,
+      "Magmaul": 2,
+      "ShockCoil": 0,
+      "OmegaCannon": 0
+    },
+    "intended_weapon_exercised": true,
+    "charged_native_emission_observed": true
+  },
+  {
+    "mode": "imperialist-unscoped",
+    "profile": {
+      "name": "rtt0-loss0",
+      "rtt_ms": 0,
+      "loss_percent": 0,
+      "jitter_ms": 0,
+      "reorder_percent": 0,
+      "duplicate_percent": 0
+    },
+    "seed": 431,
+    "port": 51688,
+    "commands": {
+      "server": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-server",
+        "-port",
+        "51688",
+        "-players",
+        "2",
+        "-nomaster",
+        "-serverreplays",
+        "off",
+        "-debuglog",
+        "-claimfastpath",
+        "enabled",
+        "-hitrigloadout",
+        "Imperialist",
+        "-impactserverscratch",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer0": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "51688",
+        "-name",
+        "peer0",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "0:0",
+        "-netloss",
+        "0%",
+        "-netreorder",
+        "0%",
+        "-netduplicate",
+        "0%",
+        "-netseed",
+        "431",
+        "-debuglog",
+        "-hitrig",
+        "imperialist-unscoped",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer1": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "51688",
+        "-name",
+        "peer1",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "0:0",
+        "-netloss",
+        "0%",
+        "-netreorder",
+        "0%",
+        "-netduplicate",
+        "0%",
+        "-netseed",
+        "432",
+        "-debuglog",
+        "-hitrig",
+        "imperialist-unscoped",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ]
+    },
+    "pause": null,
+    "both_clients_loaded_seconds": 0.9596541249999859,
+    "client_exit_codes": {
+      "peer0": 0,
+      "peer1": 0
+    },
+    "reports": {
+      "peer0": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1198 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as sniper, 5 triggers, 418 frames on target, mean range 16.3 units",
+        "hits": "hit prediction: 4 predicted, 4 confirmed (100.0%), 0 denied, 0 unpredicted, 4 lethal hits held (4 confirmed, 0 denied)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      },
+      "peer1": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1198 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as runner, 242 frames airborne, mean |vertical speed| 0.079 units/frame, worst 0.330",
+        "hits": "hit prediction: on, nothing predicted here (0 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      }
+    },
+    "native_checks_passed": true,
+    "trigger_attempts": 5,
+    "authority_confirmed_hits": 4,
+    "combat_confirmation_observed": true,
+    "passed": true,
+    "server_exit_code": -2,
+    "native_emissions": [
+      {
+        "weapon": 0,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 1,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 2,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 3,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 4,
+        "uncharged": 5,
+        "charged": 0
+      },
+      {
+        "weapon": 5,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 6,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 7,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 8,
+        "uncharged": 0,
+        "charged": 0
+      }
+    ],
+    "authority_facts_by_weapon": {
+      "PowerBeam": 0,
+      "VoltDriver": 0,
+      "Missile": 0,
+      "Battlehammer": 0,
+      "Imperialist": 4,
+      "Judicator": 0,
+      "Magmaul": 0,
+      "ShockCoil": 0,
+      "OmegaCannon": 0
+    },
+    "intended_weapon_exercised": true
+  },
+  {
+    "mode": "imperialist-unscoped",
+    "profile": {
+      "name": "rtt250-loss2",
+      "rtt_ms": 250,
+      "loss_percent": 2,
+      "jitter_ms": 40,
+      "reorder_percent": 2,
+      "duplicate_percent": 1
+    },
+    "seed": 431,
+    "port": 64901,
+    "commands": {
+      "server": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-server",
+        "-port",
+        "64901",
+        "-players",
+        "2",
+        "-nomaster",
+        "-serverreplays",
+        "off",
+        "-debuglog",
+        "-claimfastpath",
+        "enabled",
+        "-hitrigloadout",
+        "Imperialist",
+        "-impactserverscratch",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer0": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "64901",
+        "-name",
+        "peer0",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "250:40",
+        "-netloss",
+        "2%",
+        "-netreorder",
+        "2%",
+        "-netduplicate",
+        "1%",
+        "-netseed",
+        "431",
+        "-debuglog",
+        "-hitrig",
+        "imperialist-unscoped",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer1": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "64901",
+        "-name",
+        "peer1",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "250:40",
+        "-netloss",
+        "2%",
+        "-netreorder",
+        "2%",
+        "-netduplicate",
+        "1%",
+        "-netseed",
+        "432",
+        "-debuglog",
+        "-hitrig",
+        "imperialist-unscoped",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ]
+    },
+    "pause": null,
+    "both_clients_loaded_seconds": 3.2517765000000054,
+    "client_exit_codes": {
+      "peer0": 0,
+      "peer1": 0
+    },
+    "reports": {
+      "peer0": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1162 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as sniper, 5 triggers, 441 frames on target, mean range 15.5 units",
+        "hits": "hit prediction: 4 predicted, 3 confirmed (75.0%), 1 denied, 1 unpredicted, 4 lethal hits held (3 confirmed, 1 denied)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      },
+      "peer1": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1180 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as runner, 302 frames airborne, mean |vertical speed| 0.093 units/frame, worst 0.330",
+        "hits": "hit prediction: on, nothing predicted here (0 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      }
+    },
+    "native_checks_passed": true,
+    "trigger_attempts": 5,
+    "authority_confirmed_hits": 3,
+    "combat_confirmation_observed": true,
+    "passed": true,
+    "server_exit_code": -2,
+    "native_emissions": [
+      {
+        "weapon": 0,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 1,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 2,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 3,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 4,
+        "uncharged": 5,
+        "charged": 0
+      },
+      {
+        "weapon": 5,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 6,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 7,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 8,
+        "uncharged": 0,
+        "charged": 0
+      }
+    ],
+    "authority_facts_by_weapon": {
+      "PowerBeam": 0,
+      "VoltDriver": 0,
+      "Missile": 0,
+      "Battlehammer": 0,
+      "Imperialist": 4,
+      "Judicator": 0,
+      "Magmaul": 0,
+      "ShockCoil": 0,
+      "OmegaCannon": 0
+    },
+    "intended_weapon_exercised": true
+  },
+  {
+    "mode": "omega",
+    "profile": {
+      "name": "rtt0-loss0",
+      "rtt_ms": 0,
+      "loss_percent": 0,
+      "jitter_ms": 0,
+      "reorder_percent": 0,
+      "duplicate_percent": 0
+    },
+    "seed": 431,
+    "port": 57448,
+    "commands": {
+      "server": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-server",
+        "-port",
+        "57448",
+        "-players",
+        "2",
+        "-nomaster",
+        "-serverreplays",
+        "off",
+        "-debuglog",
+        "-claimfastpath",
+        "enabled",
+        "-hitrigloadout",
+        "OmegaCannon",
+        "-impactserverscratch",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer0": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "57448",
+        "-name",
+        "peer0",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "0:0",
+        "-netloss",
+        "0%",
+        "-netreorder",
+        "0%",
+        "-netduplicate",
+        "0%",
+        "-netseed",
+        "431",
+        "-debuglog",
+        "-hitrig",
+        "omega",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer1": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "57448",
+        "-name",
+        "peer1",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "0:0",
+        "-netloss",
+        "0%",
+        "-netreorder",
+        "0%",
+        "-netduplicate",
+        "0%",
+        "-netseed",
+        "432",
+        "-debuglog",
+        "-hitrig",
+        "omega",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ]
+    },
+    "pause": null,
+    "both_clients_loaded_seconds": 0.9839440000000081,
+    "client_exit_codes": {
+      "peer0": 0,
+      "peer1": 0
+    },
+    "reports": {
+      "peer0": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1198 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as sniper, 5 triggers, 727 frames on target, mean range 15.5 units",
+        "hits": "hit prediction: on, nothing predicted here (2 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      },
+      "peer1": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1198 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as runner, 542 frames airborne, mean |vertical speed| 0.105 units/frame, worst 0.377",
+        "hits": "hit prediction: on, nothing predicted here (0 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      }
+    },
+    "native_checks_passed": true,
+    "trigger_attempts": 5,
+    "authority_confirmed_hits": 0,
+    "combat_confirmation_observed": false,
+    "passed": false,
+    "server_exit_code": -2,
+    "native_emissions": [
+      {
+        "weapon": 0,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 1,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 2,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 3,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 4,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 5,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 6,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 7,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 8,
+        "uncharged": 5,
+        "charged": 0
+      }
+    ],
+    "authority_facts_by_weapon": {
+      "PowerBeam": 0,
+      "VoltDriver": 0,
+      "Missile": 0,
+      "Battlehammer": 0,
+      "Imperialist": 0,
+      "Judicator": 0,
+      "Magmaul": 0,
+      "ShockCoil": 0,
+      "OmegaCannon": 2
+    },
+    "intended_weapon_exercised": true
+  },
+  {
+    "mode": "omega",
+    "profile": {
+      "name": "rtt250-loss2",
+      "rtt_ms": 250,
+      "loss_percent": 2,
+      "jitter_ms": 40,
+      "reorder_percent": 2,
+      "duplicate_percent": 1
+    },
+    "seed": 431,
+    "port": 59800,
+    "commands": {
+      "server": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-server",
+        "-port",
+        "59800",
+        "-players",
+        "2",
+        "-nomaster",
+        "-serverreplays",
+        "off",
+        "-debuglog",
+        "-claimfastpath",
+        "enabled",
+        "-hitrigloadout",
+        "OmegaCannon",
+        "-impactserverscratch",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer0": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "59800",
+        "-name",
+        "peer0",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "250:40",
+        "-netloss",
+        "2%",
+        "-netreorder",
+        "2%",
+        "-netduplicate",
+        "1%",
+        "-netseed",
+        "431",
+        "-debuglog",
+        "-hitrig",
+        "omega",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer1": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-variants/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "59800",
+        "-name",
+        "peer1",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "20",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "250:40",
+        "-netloss",
+        "2%",
+        "-netreorder",
+        "2%",
+        "-netduplicate",
+        "1%",
+        "-netseed",
+        "432",
+        "-debuglog",
+        "-hitrig",
+        "omega",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ]
+    },
+    "pause": null,
+    "both_clients_loaded_seconds": 2.8141910420000045,
+    "client_exit_codes": {
+      "peer0": 0,
+      "peer1": 0
+    },
+    "reports": {
+      "peer0": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1163 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as sniper, 6 triggers, 832 frames on target, mean range 15.6 units",
+        "hits": "hit prediction: on, nothing predicted here (2 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      },
+      "peer1": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=1200 remoteFrames=1180 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as runner, 620 frames airborne, mean |vertical speed| 0.102 units/frame, worst 0.330",
+        "hits": "hit prediction: on, nothing predicted here (0 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      }
+    },
+    "native_checks_passed": true,
+    "trigger_attempts": 6,
+    "authority_confirmed_hits": 0,
+    "combat_confirmation_observed": false,
+    "passed": false,
+    "server_exit_code": -2,
+    "native_emissions": [
+      {
+        "weapon": 0,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 1,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 2,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 3,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 4,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 5,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 6,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 7,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 8,
+        "uncharged": 6,
+        "charged": 0
+      }
+    ],
+    "authority_facts_by_weapon": {
+      "PowerBeam": 0,
+      "VoltDriver": 0,
+      "Missile": 0,
+      "Battlehammer": 0,
+      "Imperialist": 0,
+      "Judicator": 0,
+      "Magmaul": 0,
+      "ShockCoil": 0,
+      "OmegaCannon": 4
+    },
+    "intended_weapon_exercised": true
+  }
+]

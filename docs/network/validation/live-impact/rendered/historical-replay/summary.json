@@ -1,0 +1,38 @@
+[
+  {
+    "name": "protocol44-fixture",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "/tmp/pr109-baseline-native-runtime/ProjectPrime.dll",
+      "-replayworldcheck",
+      "room:MP3 PROVING GROUND",
+      "-output",
+      "/tmp/pr109-replay-old/fixtures"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "old-theatre",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "/tmp/pr109-final-native-runtime/ProjectPrime.dll",
+      "-replaytheatrecheck",
+      "/tmp/pr109-replay-old/fixtures/Battle.ppdemo",
+      "-shots",
+      "/tmp/pr109-replay-old/theatre"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "old-export",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "/tmp/pr109-final-native-runtime/ProjectPrime.dll",
+      "-replayexportcheck",
+      "/tmp/pr109-replay-old/fixtures/Battle.ppdemo",
+      "-output",
+      "/tmp/pr109-replay-old/export"
+    ],
+    "exit": 1
+  }
+]

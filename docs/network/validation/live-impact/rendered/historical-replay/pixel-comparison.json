@@ -1,0 +1,58 @@
+[
+  {
+    "fps": 24,
+    "frame": "frame_00000000.png",
+    "currentRepeatPixels": 0,
+    "baselineRepeatPixels": 0,
+    "currentVsBaseline0": 0,
+    "currentVsBaseline1": 0
+  },
+  {
+    "fps": 24,
+    "frame": "frame_00000001.png",
+    "currentRepeatPixels": 0,
+    "baselineRepeatPixels": 0,
+    "currentVsBaseline0": 0,
+    "currentVsBaseline1": 0
+  },
+  {
+    "fps": 24,
+    "frame": "frame_00000002.png",
+    "currentRepeatPixels": 0,
+    "baselineRepeatPixels": 0,
+    "currentVsBaseline0": 0,
+    "currentVsBaseline1": 0
+  },
+  {
+    "fps": 30,
+    "frame": "frame_00000000.png",
+    "currentRepeatPixels": 0,
+    "baselineRepeatPixels": 0,
+    "currentVsBaseline0": 0,
+    "currentVsBaseline1": 0
+  },
+  {
+    "fps": 30,
+    "frame": "frame_00000001.png",
+    "currentRepeatPixels": 2,
+    "baselineRepeatPixels": 2,
+    "currentVsBaseline0": 0,
+    "currentVsBaseline1": 0
+  },
+  {
+    "fps": 30,
+    "frame": "frame_00000002.png",
+    "currentRepeatPixels": 1,
+    "baselineRepeatPixels": 1,
+    "currentVsBaseline0": 0,
+    "currentVsBaseline1": 0
+  },
+  {
+    "fps": 30,
+    "frame": "frame_00000003.png",
+    "currentRepeatPixels": 0,
+    "baselineRepeatPixels": 0,
+    "currentVsBaseline0": 0,
+    "currentVsBaseline1": 0
+  }
+]

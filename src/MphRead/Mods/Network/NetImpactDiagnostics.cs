@@ -18,7 +18,7 @@ internal readonly record struct CombatImpactIdentity(ShotKey Shot, byte Victim,
 }
 
 internal enum ImpactStage : byte { LocalHit, Authority, ReplayIngress, LiveIngress, Matched,
-    Synthesized, AlreadyVisible, Invalid, Stale, Duplicate, Ambiguous, Expired, KillConfirmed, KillRejected }
+    Synthesized, AlreadyVisible, Invalid, Stale, Duplicate, Ambiguous, Expired, KillConfirmed, KillRejected, DrawSubmitted }
 
 internal readonly record struct ImpactDiagnostic(CombatImpactIdentity Identity, ImpactStage Stage,
     byte Weapon, uint LocalFrame, long Timestamp);
@@ -30,6 +30,10 @@ internal static class NetImpactDiagnostics
     private static readonly ImpactDiagnostic[] Events = new ImpactDiagnostic[Capacity];
     private static readonly long[,] Counts = new long[9, Enum.GetValues<ImpactStage>().Length];
     private static int _cursor, _count;
+    internal static long DrawInvariantChecks, DrawInvariantFailures;
+    private static readonly long[,] Emissions = new long[9,2];
+    internal static void NativeEmission(byte weapon, bool charged)
+    { if (Enabled && weapon < 9) Emissions[weapon,charged?1:0]++; }
     internal static bool Enabled { get; set; }
     internal static long Overwritten { get; private set; }
     internal static int Count => _count;
@@ -59,6 +63,8 @@ internal static class NetImpactDiagnostics
         timestampFrequency = Stopwatch.Frequency, overwritten = Overwritten, events = Snapshot(),
         counts = Enumerable.Range(0, 9).Select(weapon => new { weapon,
             stages = Enum.GetValues<ImpactStage>().Select(stage => new { stage = stage.ToString(), count = Counts[weapon, (int)stage] }).ToArray() }).ToArray(),
+        drawInvariants = new { checks=DrawInvariantChecks, failures=DrawInvariantFailures },
+        nativeEmissions = Enumerable.Range(0,9).Select(weapon => new { weapon, uncharged=Emissions[weapon,0], charged=Emissions[weapon,1] }).ToArray(),
         claimShadow = NetClaimEarlySettlement.Snapshot(),
         predictedKills = new { NetPredictedKillPresentation.Started, NetPredictedKillPresentation.Confirmed,
             NetPredictedKillPresentation.Rejected, NetPredictedKillPresentation.Expired },
@@ -72,8 +78,30 @@ internal static class NetImpactDiagnostics
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         { Console.WriteLine($"[impact] diagnostic export failed: {ex.Message}"); }
     }
+    // Explicit match teardown only. Reuse existing bounded sim/loop histograms;
+    // this adds no per-frame timing or allocation to the normal server path.
+    internal static void ExportServerRequested(ServerSim? sim, ServerLoopDiagnostics loop)
+    {
+        if (!Enabled || sim == null || sim.Frames == 0
+            || Environment.GetEnvironmentVariable("PRIME_IMPACT_LOG") is not string path) return;
+        try
+        {
+            File.WriteAllText(path + ".server.json", JsonSerializer.Serialize(new {
+                schema = 1, scope = "whole match including startup; loop excludes deliberate pacing wait",
+                frames = sim.Frames, meanMs = sim.StepSeconds * 1000 / sim.Frames,
+                p50Ms = sim.StepPercentile(.5), p95Ms = sim.StepPercentile(.95),
+                p99Ms = sim.StepPercentile(.99), p999Ms = sim.StepPercentile(.999),
+                worstMs = sim.WorstStepSeconds * 1000,
+                allocatedBytes = sim.StepAllocatedBytes, allocatedBytesPerFrame = (double)sim.StepAllocatedBytes / sim.Frames,
+                sim.StepFailures, sim.DroppedSteps, sim.Stalls, sim.OverrunSteps,
+                loop = loop.Capture(includeHistogram: false)
+            }, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        { Console.WriteLine($"[impact] server metric export failed: {ex.Message}"); }
+    }
     internal static void Reset()
     {
-        Array.Clear(Events); Array.Clear(Counts); _cursor = _count = 0; Overwritten = 0;
+        Array.Clear(Events); Array.Clear(Counts); Array.Clear(Emissions); DrawInvariantChecks=DrawInvariantFailures=0; _cursor = _count = 0; Overwritten = 0;
     }
 }

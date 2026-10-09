@@ -1,0 +1,203 @@
+[
+  {
+    "mode": "judicator-charged",
+    "profile": {
+      "name": "rtt0-loss0",
+      "rtt_ms": 0,
+      "loss_percent": 0,
+      "jitter_ms": 0,
+      "reorder_percent": 0,
+      "duplicate_percent": 0
+    },
+    "seed": 431,
+    "port": 54804,
+    "commands": {
+      "server": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-judicator-recheck/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-server",
+        "-port",
+        "54804",
+        "-players",
+        "2",
+        "-nomaster",
+        "-serverreplays",
+        "off",
+        "-debuglog",
+        "-claimfastpath",
+        "enabled",
+        "-hitrigloadout",
+        "Judicator",
+        "-impactserverscratch",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer0": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-judicator-recheck/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "54804",
+        "-name",
+        "peer0",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "40",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "0:0",
+        "-netloss",
+        "0%",
+        "-netreorder",
+        "0%",
+        "-netduplicate",
+        "0%",
+        "-netseed",
+        "431",
+        "-debuglog",
+        "-hitrig",
+        "judicator-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ],
+      "peer1": [
+        "/Users/jarrett/.dotnet/dotnet",
+        "/private/tmp/pr109-native-judicator-recheck/runtime/ProjectPrime.dll",
+        "-mapdir",
+        "/private/tmp/pr109-arena-packages",
+        "-netcheck",
+        "127.0.0.1",
+        "-port",
+        "54804",
+        "-name",
+        "peer1",
+        "-hunter",
+        "Samus",
+        "-seconds",
+        "40",
+        "-netchecklobbyplayers",
+        "2",
+        "-netlag",
+        "0:0",
+        "-netloss",
+        "0%",
+        "-netreorder",
+        "0%",
+        "-netduplicate",
+        "0%",
+        "-netseed",
+        "432",
+        "-debuglog",
+        "-hitrig",
+        "judicator-charged",
+        "-nographics",
+        "-liveimpacts",
+        "-liveimpactdebug",
+        "-impactprofile"
+      ]
+    },
+    "pause": null,
+    "both_clients_loaded_seconds": 0.9956870419999999,
+    "client_exit_codes": {
+      "peer0": 0,
+      "peer1": 0
+    },
+    "reports": {
+      "peer0": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=2383 remoteFrames=2381 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as sniper, 12 triggers, 2090 frames on target, mean range 16.3 units",
+        "hits": "hit prediction: 5 predicted, 5 confirmed (100.0%), 0 denied, 6 unpredicted, 1 lethal hits held (0 confirmed, 1 denied)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      },
+      "peer1": {
+        "rendered": null,
+        "simulation": "[netchecksim] steps=2384 remoteFrames=2383 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none",
+        "scenario": "[netchecksim] altScenarioExercised=True stationaryTarget=False",
+        "rig": "hit rig: Volley as runner, 1505 frames airborne, mean |vertical speed| 0.106 units/frame, worst 0.377",
+        "hits": "hit prediction: on, nothing predicted here (0 hits arrived from the authority)",
+        "rewind": "lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00",
+        "contact": "alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00"
+      }
+    },
+    "native_checks_passed": true,
+    "trigger_attempts": 12,
+    "authority_confirmed_hits": 5,
+    "authority_arrived_hits": 11,
+    "combat_confirmation_observed": true,
+    "passed": true,
+    "server_exit_code": -2,
+    "native_emissions": [
+      {
+        "weapon": 0,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 1,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 2,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 3,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 4,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 5,
+        "uncharged": 14,
+        "charged": 36
+      },
+      {
+        "weapon": 6,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 7,
+        "uncharged": 0,
+        "charged": 0
+      },
+      {
+        "weapon": 8,
+        "uncharged": 0,
+        "charged": 0
+      }
+    ],
+    "authority_facts_by_weapon": {
+      "PowerBeam": 0,
+      "VoltDriver": 0,
+      "Missile": 0,
+      "Battlehammer": 0,
+      "Imperialist": 0,
+      "Judicator": 6,
+      "Magmaul": 0,
+      "ShockCoil": 0,
+      "OmegaCannon": 0
+    },
+    "intended_weapon_exercised": true,
+    "charged_native_emission_observed": true
+  }
+]
