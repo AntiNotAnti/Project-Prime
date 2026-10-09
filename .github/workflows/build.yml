@@ -66,8 +66,8 @@ jobs:
           curl --retry 3 --fail --location \
             https://github.com/AntiNotAnti/Project-Prime/releases/download/v0.1.52/ProjectPrime-v0.1.52-linux-x64.tar.gz \
             --output "$RUNNER_TEMP/next.tar.gz"
-          printf '2ad56d54ca274a5d310899e260e83c76242cb46bc179c75e456d90eb01d5f77d  %s\\n' "$RUNNER_TEMP/old.tar.gz" | sha256sum --check
-          printf '03af85b9c75244178a3eee705d3f5f0cacf041d447e8794c63f3caf620a8c45c  %s\\n' "$RUNNER_TEMP/next.tar.gz" | sha256sum --check
+          printf '2ad56d54ca274a5d310899e260e83c76242cb46bc179c75e456d90eb01d5f77d  %s\n' "$RUNNER_TEMP/old.tar.gz" | sha256sum --check
+          printf '03af85b9c75244178a3eee705d3f5f0cacf041d447e8794c63f3caf620a8c45c  %s\n' "$RUNNER_TEMP/next.tar.gz" | sha256sum --check
           tar -xzf "$RUNNER_TEMP/old.tar.gz" -C "$RUNNER_TEMP/prime-old"
           tar -xzf "$RUNNER_TEMP/next.tar.gz" -C "$RUNNER_TEMP/prime-next"
           dotnet run --project tools/updatecheck -c Release -- --real-release-swap "$RUNNER_TEMP/prime-old" "$RUNNER_TEMP/prime-next"
