@@ -164,6 +164,8 @@ jobs:
       - uses: actions/checkout@v7
       - name: telemetry collector and report checks
         run: python3 -m unittest discover -s tools/telemetry -p 'test_*.py'
+      - name: portable published manifest safety and hidden metadata
+        run: python3 -m unittest discover -s tools -p 'test_release_manifest_writer.py'
 
 
       - name: nothing from the game is tracked
