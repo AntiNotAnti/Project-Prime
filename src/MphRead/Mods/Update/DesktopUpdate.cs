@@ -48,6 +48,12 @@ namespace MphRead.Mods.Update
 
         private static string StagedBuild => Path.Combine(Staging, "staged");
 
+        // Use the currently installed and tested updater to apply an incoming
+        // archive. Some newer builds cannot run their own -applyupdate
+        // entry point before their additional native/Studio startup completes.
+        // This is especially important on Linux, not only Windows.
+        private static string UpdateWorker => Path.Combine(Staging, "worker");
+
         /// <summary>
         /// Where a staged build sits, for an installer that is not this one.
         /// <see cref="ServerUpdate"/> stages with the code here and then
@@ -182,15 +188,23 @@ namespace MphRead.Mods.Update
             string ready = Path.Combine(Staging, "handoff-" + Guid.NewGuid().ToString("N") + ".ready");
             try
             {
-                string binary = Path.Combine(StagedBuild, UpdateCheck.BinaryName());
+                // Do not execute the incoming (possibly incompatible) version
+                // before we have installed it. Run our own small, known-working
+                // updater from a detached copy of the current single-file
+                // executable; it is not one of the files to be replaced.
+                string binary = PrepareUpdateWorker(AppContext.BaseDirectory,
+                    UpdateWorker, UpdateCheck.BinaryName());
                 var start = new ProcessStartInfo(binary)
                 {
-                    WorkingDirectory = StagedBuild,
-                    UseShellExecute = false
+                    WorkingDirectory = UpdateWorker,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
                 };
                 start.ArgumentList.Add("-" + ApplyFlag);
                 start.ArgumentList.Add(AppContext.BaseDirectory);
                 start.ArgumentList.Add(Environment.ProcessId.ToString());
+                start.ArgumentList.Add("-updatesource");
+                start.ArgumentList.Add(StagedBuild);
                 start.ArgumentList.Add("-" + ReadyFlag);
                 start.ArgumentList.Add(ready);
                 if (relaunchArgs != null)
@@ -225,6 +239,28 @@ namespace MphRead.Mods.Update
             {
                 try { File.Delete(ready); } catch (IOException) { } catch (UnauthorizedAccessException) { }
             }
+        }
+
+        /// <summary>
+        /// The worker must be the executable that the user currently has, not
+        /// the executable from the release being installed. Desktop releases
+        /// are published self-contained/single-file; no game resources are
+        /// loaded when the worker enters -applyupdate.
+        /// </summary>
+        internal static string PrepareUpdateWorker(string installedDirectory,
+            string workerDirectory, string binaryName)
+        {
+            string installed = Path.Combine(installedDirectory, binaryName);
+            string worker = Path.Combine(workerDirectory, binaryName);
+            if (!File.Exists(installed))
+                throw new FileNotFoundException("The current release executable is missing.", installed);
+            Directory.CreateDirectory(workerDirectory);
+            File.Copy(installed, worker, overwrite: true);
+            MakeExecutable(worker);
+            // Prevent accidental execution of the incoming release instead.
+            if (!File.Exists(worker) || new FileInfo(worker).Length != new FileInfo(installed).Length)
+                throw new IOException("Could not stage the current update worker.");
+            return worker;
         }
 
         /// <summary>
@@ -278,9 +314,20 @@ namespace MphRead.Mods.Update
         public const string RelaunchSeparator = "--relaunch";
 
         public static int Apply(string target, int waitFor,
-            IReadOnlyList<string>? relaunchArgs = null, string? readyFile = null)
+            IReadOnlyList<string>? relaunchArgs = null, string? readyFile = null,
+            string? stagedSource = null)
         {
-            string source = AppContext.BaseDirectory;
+            // For an update initiated by v0.1.47, the temporary worker is
+            // copied from the *current* release and the new release is merely
+            // payload. Older versions still launch the staged release directly
+            // and pass no stagedSource; preserve that older protocol.
+            string source = stagedSource ?? AppContext.BaseDirectory;
+            if (!Directory.Exists(source) ||
+                !File.Exists(Path.Combine(source, UpdateCheck.BinaryName())))
+            {
+                Diagnostic(target, "the staged release payload is missing: " + source);
+                return 1;
+            }
             Diagnostic(target, $"apply worker started: source={source}, target={target}, parent={waitFor}");
             // Older installed versions do not pass a ready file. Preserve that
             // protocol so they can still update to this version.
@@ -444,6 +491,10 @@ namespace MphRead.Mods.Update
         public static void Clean()
         {
             if (OperatingSystem.IsMacOS()) { return; }
+            // A crash can leave an interrupted copy journal. Restore the
+            // previous release before clearing its staging payload, otherwise
+            // recovery evidence can be destroyed or an installation mixed.
+            ReleaseInstallation.Recover(AppContext.BaseDirectory);
             try
             {
                 if (Directory.Exists(Staging))
