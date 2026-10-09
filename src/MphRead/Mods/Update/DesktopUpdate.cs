@@ -246,7 +246,7 @@ namespace MphRead.Mods.Update
                 Thread.Sleep(50);
             }
             if (File.Exists(readyFile)) return true;
-            LastError = "The update helper did not confirm startup within 15 seconds; the game has not been closed.";
+            LastError = "The update helper did not confirm startup before its deadline; the game has not been closed.";
             try
             {
                 if (!helper.HasExited)
@@ -305,7 +305,7 @@ namespace MphRead.Mods.Update
                 ReleaseInstallation.WaitForExit(waitFor, timeoutMs: 120000);
                 oldProcessExited = true;
                 Diagnostic(target, "old process exited; applying the verified release");
-                ReleaseInstallation.Apply(source, target);
+                ApplyWithSharingRetries(source, target);
                 Diagnostic(target, "release transaction committed");
             }
             catch (Exception ex)
@@ -359,6 +359,28 @@ namespace MphRead.Mods.Update
             }
             Diagnostic(target, "updated installation relaunched successfully");
             return 0;
+        }
+
+        private static void ApplyWithSharingRetries(string source, string target)
+        {
+            for (int attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    ReleaseInstallation.Apply(source, target);
+                    return;
+                }
+                catch (IOException ex) when (OperatingSystem.IsWindows()
+                    && (ex.HResult & 0xffff) is 32 or 33 && attempt < 6)
+                {
+                    // Windows may briefly retain an image/DLL sharing lock after
+                    // the owning game process has exited. The transaction must
+                    // be fully recovered before trying the complete copy again.
+                    ReleaseInstallation.Recover(target);
+                    Diagnostic(target, $"Windows sharing violation; retrying verified update ({attempt}/5): {ex.Message}");
+                    Thread.Sleep(attempt * 300);
+                }
+            }
         }
 
         private static void StartInstalled(string target, IReadOnlyList<string>? args)
