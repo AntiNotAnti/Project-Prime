@@ -90,13 +90,14 @@ Game/Studio metadata, invalid file manifests and unsafe downgrades are rejected
 before shutdown. A failed apply restores the prior release where possible and
 records `logs/ProjectPrime-updater.log`.
 
-**Known packaging problem with the published v0.1.52:** the Windows package
-lost its hidden `.project-prime-desktop.json` during artifact transport, and
-the Linux release manifest includes the forbidden runtime
-`.project-prime-update.lock`. v0.1.47 intentionally refuses these published
-assets. The next full release must ship rebuilt, verified archives after the
-release-pipeline repair; do not bypass these checks or install v0.1.52 in place.
+**Withdrawing v0.1.52:** The previously published Windows package lost its
+hidden `.project-prime-desktop.json` during artifact transport; Linux also
+shipped the forbidden runtime `.project-prime-update.lock` inside the release
+manifest. That release's downloadable assets were subsequently removed.
+v0.1.47 still tests these failure classes and rejects them safely. The next
+full release requires rebuilt, verified archives after the packaging repair.
 
-v0.1.47 is an older opt-in hotfix, *not* `releases/latest`. Select it explicitly
-in Version Manager from v0.1.46 or extract it into a separate directory. The
-release is intentionally published with `make_latest=false`.
+With v0.1.52 withdrawn, `releases/latest` now points to v0.1.46. After
+successful validation, publishing v0.1.47 will make it the next **Latest**
+release, so users can upgrade automatically from v0.1.46. Until then,
+the untested hotfix must not be advertised as an available download.
