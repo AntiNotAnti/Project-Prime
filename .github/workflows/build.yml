@@ -54,6 +54,40 @@ jobs:
           dotnet-version: '10.0.x'
       - name: verify legacy and cross-version updater, recovery and worker ownership
         run: dotnet run --project tools/updatecheck -c Release
+      - name: published v0.1.46 -> v0.1.52 archive upgrade on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/prime-old" "$RUNNER_TEMP/prime-next"
+          curl --retry 3 --fail --location \
+            https://github.com/AntiNotAnti/Project-Prime/releases/download/v0.1.46/ProjectPrime-v0.1.46-linux-x64.tar.gz \
+            --output "$RUNNER_TEMP/old.tar.gz"
+          curl --retry 3 --fail --location \
+            https://github.com/AntiNotAnti/Project-Prime/releases/download/v0.1.52/ProjectPrime-v0.1.52-linux-x64.tar.gz \
+            --output "$RUNNER_TEMP/next.tar.gz"
+          printf '2ad56d54ca274a5d310899e260e83c76242cb46bc179c75e456d90eb01d5f77d  %s\\n' "$RUNNER_TEMP/old.tar.gz" | sha256sum --check
+          printf '03af85b9c75244178a3eee705d3f5f0cacf041d447e8794c63f3caf620a8c45c  %s\\n' "$RUNNER_TEMP/next.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/old.tar.gz" -C "$RUNNER_TEMP/prime-old"
+          tar -xzf "$RUNNER_TEMP/next.tar.gz" -C "$RUNNER_TEMP/prime-next"
+          dotnet run --project tools/updatecheck -c Release -- --real-release-swap "$RUNNER_TEMP/prime-old" "$RUNNER_TEMP/prime-next"
+      - name: published v0.1.46 -> v0.1.52 archive upgrade on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $oldZip = Join-Path $env:RUNNER_TEMP 'old.zip'
+          $nextZip = Join-Path $env:RUNNER_TEMP 'next.zip'
+          $old = Join-Path $env:RUNNER_TEMP 'prime-old'
+          $next = Join-Path $env:RUNNER_TEMP 'prime-next'
+          Invoke-WebRequest -Uri 'https://github.com/AntiNotAnti/Project-Prime/releases/download/v0.1.46/ProjectPrime-v0.1.46-win-x64.zip' -OutFile $oldZip
+          Invoke-WebRequest -Uri 'https://github.com/AntiNotAnti/Project-Prime/releases/download/v0.1.52/ProjectPrime-v0.1.52-win-x64.zip' -OutFile $nextZip
+          if ((Get-FileHash $oldZip -Algorithm SHA256).Hash -ne '74A9ABB0679F294AC00EA14EC76D5426B4BADD520DF3D360899FD593EA519324') { throw 'v0.1.46 Windows release digest mismatch' }
+          if ((Get-FileHash $nextZip -Algorithm SHA256).Hash -ne '11484E87E0282F0662EA37141BE140F85F2817F9285F463A3B0D87B48B659890') { throw 'v0.1.52 Windows release digest mismatch' }
+          Expand-Archive -LiteralPath $oldZip -DestinationPath $old
+          Expand-Archive -LiteralPath $nextZip -DestinationPath $next
+          dotnet run --project tools/updatecheck -c Release -- --real-release-swap $old $next
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
   server-compile:
     name: dedicated server compile gate
