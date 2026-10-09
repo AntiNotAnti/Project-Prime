@@ -2489,6 +2489,7 @@ namespace MphRead.Mods.Network
                     connection?.MinimumRttMilliseconds,
                     peer.TimingMatch == _matchId && peer.TimingEpoch == _authorityEpoch
                         && now - peer.TimingReportedAt <= 3 ? peer.PresentationDelay : null));
+                NetCombatFixture.Apply(peer.SlotIndex, packet.Sender.Address);
                 if (!NetSession.AcceptSlotIntent(peer.SlotIndex, intent)) return;
                 // UDP reorders; an older frame must not replace a newer one.
                 //
