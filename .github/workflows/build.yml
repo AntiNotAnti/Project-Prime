@@ -135,8 +135,23 @@ jobs:
           -p:PublishSingleFile=true -o publish/opengl-linux
       - name: OpenGL-only backend and retained graph contracts
         run: |
-          publish/opengl-linux/ProjectPrime -renderbackendcheck
+          publish/opengl-linux/ProjectPrime -renderbackendcheck -renderer auto
           publish/opengl-linux/ProjectPrime -rendergraphcheck
+          publish/opengl-linux/ProjectPrime -graphicscheck
+      - name: reject retired renderer flags before graphics initialization
+        run: |
+          set -euo pipefail
+          for renderer in dx12 vulkan metal; do
+            set +e
+            output=$(publish/opengl-linux/ProjectPrime -renderbackendprobe -renderer "$renderer" 2>&1)
+            result=$?
+            set -e
+            printf '%s\n' "$output"
+            if [ "$result" -ne 2 ] || ! grep -q "has been retired" <<<"$output"; then
+              echo "Failed to reject retired $renderer renderer (exit $result)" >&2
+              exit 1
+            fi
+          done
       - name: OpenGL native texture and framebuffer smoke
         run: |
           xvfb-run -a --server-args="-screen 0 640x480x24" \
