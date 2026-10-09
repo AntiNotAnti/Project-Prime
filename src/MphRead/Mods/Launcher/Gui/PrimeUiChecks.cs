@@ -209,7 +209,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Check(texts.Any(text => text.Contains("3 W / 1 L / 1 T", StringComparison.Ordinal)),
                     "Hunter License recent form is computed from accepted matches");
                 Check(texts.Any(text => text.Contains("LATEST // WIN", StringComparison.Ordinal)
-                    && text.Contains("SANCTORUS", StringComparison.OrdinalIgnoreCase)),
+                    && text.Contains("DATA SHRINE", StringComparison.OrdinalIgnoreCase)),
                     "Hunter License identifies the latest accepted match");
                 Check(license.GetVisualDescendants().OfType<HunterStand>().Single().Name2
                     == Hunter.Trace.ToString(),
@@ -430,10 +430,13 @@ namespace MphRead.Mods.Launcher.Gui
             var administration = (Control)target.Parent!;
             typeof(LobbyScreen).GetMethod("ShowSheet", flags)!.Invoke(lobby,
                 new object[] { "PLAYER MANAGEMENT", administration });
+            // No Window is attached in this UI composition fixture. The
+            // visual ScrollViewer presenter has not been materialized; the
+            // commands exist in the logical tree until it gets a Window.
             Check(overlays.GetLogicalDescendants().Contains(target)
-                && overlays.GetVisualDescendants().OfType<HubNavButton>()
+                && overlays.GetLogicalDescendants().OfType<HubNavButton>()
                     .Any(button => button.Label == "TRANSFER OWNER")
-                && overlays.GetVisualDescendants().OfType<HubNavButton>()
+                && overlays.GetLogicalDescendants().OfType<HubNavButton>()
                     .Any(button => button.Label == "KICK"),
                 "player management is contextual and retains owner actions");
             overlays.Close();
@@ -801,11 +804,47 @@ namespace MphRead.Mods.Launcher.Gui
                     }
                     shell.Dispose();
                     CheckStartup(directory);
-                    Deck.Still = false;
+                    // Motion begins only when Avalonia attaches the control to
+                    // a TopLevel and receives compositor frames. A detached
+                    // control must not complete just because RunJobs drained.
+                    bool oldReduceMotion = LauncherPrefs.ReduceMotion;
                     var animated = new PrimePanel(PrimeChrome.Text("motion"));
-                    HubMotion.Enter(animated); Dispatcher.UIThread.RunJobs();
-                    Check(animated.Opacity == 1 && animated.RenderTransform == null, "headless frame clock completes route motion");
-                    Deck.Still = true;
+                    var motionWindow = new Window
+                    {
+                        Width = 320, Height = 240, ShowInTaskbar = false,
+                        Position = new PixelPoint(-4000, -4000),
+                        WindowStartupLocation = WindowStartupLocation.Manual
+                    };
+                    try
+                    {
+                        Deck.Still = false;
+                        LauncherPrefs.ReduceMotion = false;
+                        HubMotion.Enter(animated);
+                        Dispatcher.UIThread.RunJobs();
+                        Check(TopLevel.GetTopLevel(animated) == null && animated.Opacity == 0
+                            && animated.RenderTransform != null,
+                            "detached route motion waits for visual attachment");
+                        motionWindow.Content = animated;
+                        motionWindow.Show();
+                        Drain(motionWindow);
+                        var motionDeadline = System.Diagnostics.Stopwatch.StartNew();
+                        while ((animated.Opacity != 1 || animated.RenderTransform != null)
+                            && motionDeadline.Elapsed < TimeSpan.FromSeconds(5))
+                        {
+                            System.Threading.Thread.Sleep(10);
+                            Drain(motionWindow);
+                        }
+                        Check(ReferenceEquals(TopLevel.GetTopLevel(animated), motionWindow)
+                            && animated.Opacity == 1 && animated.RenderTransform == null,
+                            "headless frame clock completes route motion after visual attachment");
+                    }
+                    finally
+                    {
+                        motionWindow.Content = null;
+                        motionWindow.Close();
+                        LauncherPrefs.ReduceMotion = oldReduceMotion;
+                        Deck.Still = true;
+                    }
                     int pulses = 0;
                     using var pulse = new PrimeUiPulse(TimeSpan.FromMilliseconds(10), () =>
                     { Check(Dispatcher.UIThread.CheckAccess(), "wall-clock pulse runs on UI thread"); pulses++; });

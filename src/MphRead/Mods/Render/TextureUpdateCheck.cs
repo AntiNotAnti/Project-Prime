@@ -23,6 +23,14 @@ internal static class TextureUpdateCheck
             Console.WriteLine($"[textureupdatecheck] PASS {GraphicsBackendPolicy.Resolved}");
             return 0;
         }
+        catch (InvalidOperationException exception)
+            when (DesktopGlContext.HostedMacLacksNsgl(exception))
+        {
+            // Hosted runner lacks a usable OpenGL pixel format. Metal/Vulkan
+            // run actual texture-update and readback acceptance separately.
+            Console.WriteLine("[textureupdatecheck] SKIP hosted macOS NSGL unavailable");
+            return 0;
+        }
         catch (Exception exception)
         {
             Console.Error.WriteLine($"[textureupdatecheck] FAIL {exception}");

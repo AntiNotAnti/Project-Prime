@@ -202,8 +202,17 @@ public static partial class NetLobbyTest
             Check(!read(bytes.Concat(new byte[]{0}).ToArray()), "production queue trailing bytes " + bytes[0]);
             bytes[0] = 255; Check(!read(bytes), "production queue wrong kind");
         }
-        Fixture(QueueHelloPacket.Size, b => new QueueHelloPacket(35,1,2).Write(b), b => QueueHelloPacket.TryRead(b,out _), "3923010000000200000000000000");
-        Fixture(QueueWelcomePacket.Size, b => new QueueWelcomePacket(35,1,2).Write(b), b => QueueWelcomePacket.TryRead(b,out _), "3A23010000000200000000000000");
+        // The production generator rejects obsolete queue protocol numbers.
+        // Match the current wire version while freezing every other golden byte.
+        string protocolHex = NetConfig.ProtocolVersion.ToString("X2", System.Globalization.CultureInfo.InvariantCulture);
+        Fixture(QueueHelloPacket.Size, b => new QueueHelloPacket(NetConfig.ProtocolVersion,1,2).Write(b),
+            b => QueueHelloPacket.TryRead(b,out _), "39" + protocolHex + "010000000200000000000000");
+        Fixture(QueueWelcomePacket.Size, b => new QueueWelcomePacket(NetConfig.ProtocolVersion,1,2).Write(b),
+            b => QueueWelcomePacket.TryRead(b,out _), "3A" + protocolHex + "010000000200000000000000");
+        byte[] obsoleteHello = new byte[QueueHelloPacket.Size];
+        new QueueHelloPacket(NetConfig.ProtocolVersion,1,2).Write(obsoleteHello);
+        obsoleteHello[1] = (byte)(NetConfig.ProtocolVersion - 1);
+        Check(!QueueHelloPacket.TryRead(obsoleteHello, out _), "obsolete queue protocol is refused");
         Fixture(QueueJoinPacket.Size, b => new QueueJoinPacket(2).Write(b), b => QueueJoinPacket.TryRead(b,out _), "3B0200000000000000");
         Fixture(QueueLeavePacket.Size, b => new QueueLeavePacket(2).Write(b), b => QueueLeavePacket.TryRead(b,out _), "3C0200000000000000");
         Fixture(QueueStatePacket.Size, b => new QueueStatePacket(1,2,1,3,LobbyQueueWireState.Waiting).Write(b), b => QueueStatePacket.TryRead(b,out _), "3D0100000002000000000000000100030000");

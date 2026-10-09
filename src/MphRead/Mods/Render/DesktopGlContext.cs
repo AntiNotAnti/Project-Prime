@@ -23,6 +23,20 @@ namespace MphRead.Mods.Render
 
         internal static void InstallErrorCallback() => GLFW.SetErrorCallback(_errorCallback);
 
+        /// <summary>
+        /// Some headless macOS CI hosts expose Metal/Vulkan but no NSGL pixel
+        /// format. Only this specific platform failure makes a GL-only smoke
+        /// unavailable. Other exceptions, local runs, and GPU failures still fail.
+        /// </summary>
+        internal static bool HostedMacLacksNsgl(Exception error) =>
+            OperatingSystem.IsMacOS()
+            && String.Equals(Environment.GetEnvironmentVariable("CI"),
+                "true", StringComparison.OrdinalIgnoreCase)
+            && error is InvalidOperationException
+            && error.Message.Contains("NSGL: Failed to find a suitable pixel format",
+                StringComparison.Ordinal);
+
+
         public static void PreserveWorkingDirectory()
         {
             // GLFW otherwise changes a bundled Mac app to Contents/Resources,
