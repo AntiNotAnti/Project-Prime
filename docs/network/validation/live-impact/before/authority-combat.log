@@ -1,0 +1,14 @@
+[map] 2ad6ea5ea9904fd8b558101987cdfea2.ppmap FP-MAP-010: Duplicate runtime name: MY ARENA.
+[map] validation_summary.json FP-MAP-001: At least one material is required.
+[map] validation_summary.json FP-MAP-014: At least one player spawn is required.
+[map] my arena.json FP-MAP-010: Duplicate runtime name: MY ARENA.
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Policy) -- 1 player(s) in scene
+[net] slot 1 activated (Policy) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+[net] slot 0 (Samus) wears suit 1
+[net] slot 1 (Samus) wears suit 2 -- asked for 1
+PASS: 57 real authority attack/resource policy assertions

@@ -54,3 +54,33 @@ rendered multiplayer acceptance. Before/after records never imply unexecuted pla
 | 4 Predicted kills | pending; actual remote predicted death remains disabled | |
 | 5 Collision performance | pending | |
 | 6 Acceptance | pending | Cross-platform rendered campaign requires those environments |
+
+## Slice 1: independent live fact transport
+
+`NetCombatFactPublisher.Publish` receives the single final applied-damage fact. Its
+server-only live fanout runs before optional recorder admission. A separate packet
+71, protocol 45, carries the unchanged 61-byte replay fact plus version, kind,
+component and a 1/4096-unit body offset descriptor (74-byte payload, 98-byte framed
+datagram). Unknown offsets are encoded explicitly; claims and splash cannot pretend
+to have a certified body offset. No snapshot payload grows.
+
+`-liveimpacts` opts in on server and client. `-noliveimpacts` overrides it. Default is
+off. Per ready peer: 64 retained live events, two unreliable attempts three simulation
+frames apart, 12-frame sender expiry, at most four transmissions per simulation frame.
+The ceiling is 240 datagrams/23,520 framed bytes per second per peer, excluding UDP/IP;
+8 peers at saturation add at most 188,160 framed bytes/s. Pressure drops cosmetics;
+no reliable retry window, replay history or match state waits for these events.
+The receiver reserves admission for gameplay and limits queued cosmetics to 64.
+
+The deterministic matrix uses the production outbox/codec over the fault scheduler:
+2/4/8 peers, 0/50/150/250/350ms RTT, 0/40/80ms positive FIFO jitter, 2% loss, 3%
+reorder and 1% duplication. It is **not** a symmetric-jitter UDP/rendered campaign.
+All 45 scenarios pass >=98% unique delivery at 10 events/s/peer. Saturation explicitly
+drops expired cosmetics. `--impact-transport` passes 484 assertions; baseline contracts
+and both asset-backed authority checks remain green. See `transport.json` and `slice1/`.
+
+The full engineering script passed network/replay checks then stopped at authored-mip
+because this new macOS worktree lacked the pinned native libktx. Building the documented
+runtime is the next verification step; this is not reported as a passing engineering gate.
+
+PR chain: slice 0 https://github.com/AntiNotAnti/Project-Prime/pull/410, base main.

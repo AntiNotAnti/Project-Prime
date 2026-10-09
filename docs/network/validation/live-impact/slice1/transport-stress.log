@@ -1,0 +1,10 @@
+peer 0: configured RTT=0, snapshots=204, queueHigh=16, ACK RTT=20.2
+peer 1: configured RTT=50, snapshots=203, queueHigh=15, ACK RTT=64.7
+peer 2: configured RTT=100, snapshots=203, queueHigh=9, ACK RTT=164.5
+peer 3: configured RTT=150, snapshots=203, queueHigh=9, ACK RTT=222.6
+peer 4: configured RTT=250, snapshots=203, queueHigh=9, ACK RTT=355.0
+peer 5: configured RTT=320, snapshots=203, queueHigh=9, ACK RTT=403.9
+peer 6: configured RTT=400, snapshots=203, queueHigh=9, ACK RTT=461.6
+peer 7: configured RTT=150, snapshots=203, queueHigh=24, ACK RTT=222.8
+LOCK acquisitions=23532 contentions=12 ratio=0.051% waitTotalMs=0.718 waitMaxMs=0.012 holdTotalMs=12.189 holdMaxMs=0.264
+PASS: eight mixed-quality UDP peers, 1720 intents, 128 exact-once controls, 400ms client pump stall

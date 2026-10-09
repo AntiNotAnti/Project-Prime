@@ -618,6 +618,7 @@ namespace MphRead.Mods
             // default, and inert on the machine running the match, which
             // never waited for anybody.
             Network.NetImpactDiagnostics.Enabled = HasFlag(args, "liveimpactdebug");
+            Network.NetCombatFactPublisher.LiveEnabled = HasFlag(args, "liveimpacts") && !HasFlag(args, "noliveimpacts");
             if (HasFlag(args, "nohitprediction"))
             {
                 Network.NetHitPrediction.Enabled = false;

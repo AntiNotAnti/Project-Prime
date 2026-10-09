@@ -34,6 +34,8 @@ namespace MphRead.Mods.Network
         {
             internal NetRetainedDelivery.Cursor? SemanticCursor;
             internal NetRetainedDelivery.Cursor? ReplayShotCursor;
+            internal readonly NetLiveImpactOutbox LiveImpacts = new();
+            internal NetLiveImpactOutbox.Sender? LiveImpactSender;
             internal byte[]? SemanticBaseline;
             public readonly NetPeerTelemetry Telemetry = new();
             public IPEndPoint EndPoint = null!;
@@ -512,6 +514,7 @@ namespace MphRead.Mods.Network
                     PumpReplayShotDelivery();
                     LoopDiagnostics.MarkPhase(ServerLoopPhase.Simulation);
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
+                    PumpLiveImpacts();
                     LoopDiagnostics.MarkPhase(ServerLoopPhase.PostIngress);
                     EnsureCareerMatchStarted(now);
                     foreach (ReceivedPacket packet in _transport.Drain(NetPumpBudget.AfterSimulation)) Handle(packet, now);
@@ -1108,6 +1111,7 @@ namespace MphRead.Mods.Network
                 foreach (var peer in _peers) _transport?.Send(peer.EndPoint, PacketType.ReplayWorld, payload);
             };
             NetSession.ReplayShotSink = AppendReplayShotDelivery;
+            NetSession.LiveImpactSink = AppendLiveImpact;
             NetSession.MatchSemanticSink = AppendSemanticDelivery;
             // Keep the bounded one-room prewarm cache for same-map rematches.
             // It is replaced automatically if the lobby selects another room.

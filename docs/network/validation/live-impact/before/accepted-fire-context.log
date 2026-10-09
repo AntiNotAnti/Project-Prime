@@ -1,0 +1,170 @@
+[map] 2ad6ea5ea9904fd8b558101987cdfea2.ppmap FP-MAP-010: Duplicate runtime name: MY ARENA.
+[map] validation_summary.json FP-MAP-001: At least one material is required.
+[map] validation_summary.json FP-MAP-014: At least one player spawn is required.
+[map] my arena.json FP-MAP-010: Duplicate runtime name: MY ARENA.
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Context) -- 1 player(s) in scene
+[net] slot 1 activated (Context) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+[net] slot 0 (Samus) wears suit 1
+[net] slot 1 (Samus) wears suit 2 -- asked for 1
+FIRE CONTEXT PASS native fixture actor spawned
+FIRE CONTEXT PASS ordinary source native spawn/PowerBeam/False/False
+FIRE CONTEXT PASS successful native source emits one event/PowerBeam/False
+FIRE CONTEXT PASS native mid-step body supports native muzzle/PowerBeam/False
+FIRE CONTEXT PASS compact source body/up round trip/PowerBeam/False
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/PowerBeam/False
+FIRE CONTEXT PASS ordinary repeated fire admitted/PowerBeam/False
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/PowerBeam/False
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/PowerBeam/False
+FIRE CONTEXT PASS normal admitted native launch/PowerBeam
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/PowerBeam/False
+FIRE CONTEXT PASS repeated carrier cannot launch twice/PowerBeam/False
+FIRE CONTEXT PASS ordinary source native spawn/PowerBeam/False/True
+FIRE CONTEXT PASS successful native source emits one event/PowerBeam/True
+FIRE CONTEXT PASS native mid-step body supports native muzzle/PowerBeam/True
+FIRE CONTEXT PASS compact source body/up round trip/PowerBeam/True
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/PowerBeam/True
+FIRE CONTEXT PASS ordinary repeated fire admitted/PowerBeam/True
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/PowerBeam/True
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/PowerBeam/True
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/PowerBeam/True
+FIRE CONTEXT PASS repeated carrier cannot launch twice/PowerBeam/True
+FIRE CONTEXT PASS ordinary source native spawn/PowerBeam/True/False
+FIRE CONTEXT PASS successful native source emits one event/PowerBeam/False
+FIRE CONTEXT PASS native mid-step body supports native muzzle/PowerBeam/False
+FIRE CONTEXT PASS compact source body/up round trip/PowerBeam/False
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/PowerBeam/False
+FIRE CONTEXT PASS ordinary repeated fire admitted/PowerBeam/False
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/PowerBeam/False
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/PowerBeam/False
+FIRE CONTEXT PASS normal admitted native launch/PowerBeam
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/PowerBeam/False
+FIRE CONTEXT PASS repeated carrier cannot launch twice/PowerBeam/False
+FIRE CONTEXT PASS ordinary source native spawn/PowerBeam/True/True
+FIRE CONTEXT PASS successful native source emits one event/PowerBeam/True
+FIRE CONTEXT PASS native mid-step body supports native muzzle/PowerBeam/True
+FIRE CONTEXT PASS compact source body/up round trip/PowerBeam/True
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/PowerBeam/True
+FIRE CONTEXT PASS ordinary repeated fire admitted/PowerBeam/True
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/PowerBeam/True
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/PowerBeam/True
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/PowerBeam/True
+FIRE CONTEXT PASS repeated carrier cannot launch twice/PowerBeam/True
+FIRE CONTEXT PASS ordinary source native spawn/Missile/False/False
+FIRE CONTEXT PASS successful native source emits one event/Missile/False
+FIRE CONTEXT PASS native mid-step body supports native muzzle/Missile/False
+FIRE CONTEXT PASS compact source body/up round trip/Missile/False
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/Missile/False
+FIRE CONTEXT PASS ordinary repeated fire admitted/Missile/False
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/Missile/False
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/Missile/False
+FIRE CONTEXT PASS normal admitted native launch/Missile
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/Missile/False
+FIRE CONTEXT PASS repeated carrier cannot launch twice/Missile/False
+FIRE CONTEXT PASS ordinary source native spawn/Missile/False/True
+FIRE CONTEXT PASS successful native source emits one event/Missile/True
+FIRE CONTEXT PASS native mid-step body supports native muzzle/Missile/True
+FIRE CONTEXT PASS compact source body/up round trip/Missile/True
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/Missile/True
+FIRE CONTEXT PASS ordinary repeated fire admitted/Missile/True
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/Missile/True
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/Missile/True
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/Missile/True
+FIRE CONTEXT PASS repeated carrier cannot launch twice/Missile/True
+FIRE CONTEXT PASS ordinary source native spawn/Missile/True/False
+FIRE CONTEXT PASS successful native source emits one event/Missile/False
+FIRE CONTEXT PASS native mid-step body supports native muzzle/Missile/False
+FIRE CONTEXT PASS compact source body/up round trip/Missile/False
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/Missile/False
+FIRE CONTEXT PASS ordinary repeated fire admitted/Missile/False
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/Missile/False
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/Missile/False
+FIRE CONTEXT PASS normal admitted native launch/Missile
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/Missile/False
+FIRE CONTEXT PASS repeated carrier cannot launch twice/Missile/False
+FIRE CONTEXT PASS ordinary source native spawn/Missile/True/True
+FIRE CONTEXT PASS successful native source emits one event/Missile/True
+FIRE CONTEXT PASS native mid-step body supports native muzzle/Missile/True
+FIRE CONTEXT PASS compact source body/up round trip/Missile/True
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/Missile/True
+FIRE CONTEXT PASS ordinary repeated fire admitted/Missile/True
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/Missile/True
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/Missile/True
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/Missile/True
+FIRE CONTEXT PASS repeated carrier cannot launch twice/Missile/True
+FIRE CONTEXT PASS ordinary source native spawn/Imperialist/False/False
+FIRE CONTEXT PASS successful native source emits one event/Imperialist/False
+FIRE CONTEXT PASS native mid-step body supports native muzzle/Imperialist/False
+FIRE CONTEXT PASS compact source body/up round trip/Imperialist/False
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/Imperialist/False
+FIRE CONTEXT PASS ordinary repeated fire admitted/Imperialist/False
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/Imperialist/False
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/Imperialist/False
+FIRE CONTEXT PASS normal admitted native launch/Imperialist
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/Imperialist/False
+FIRE CONTEXT PASS repeated carrier cannot launch twice/Imperialist/False
+FIRE CONTEXT PASS ordinary source native spawn/Imperialist/False/True
+FIRE CONTEXT PASS successful native source emits one event/Imperialist/True
+FIRE CONTEXT PASS native mid-step body supports native muzzle/Imperialist/True
+FIRE CONTEXT PASS compact source body/up round trip/Imperialist/True
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/Imperialist/True
+FIRE CONTEXT PASS ordinary repeated fire admitted/Imperialist/True
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/Imperialist/True
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/Imperialist/True
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/Imperialist/True
+FIRE CONTEXT PASS repeated carrier cannot launch twice/Imperialist/True
+FIRE CONTEXT PASS ordinary source native spawn/ShockCoil/False/False
+FIRE CONTEXT PASS successful native source emits one event/ShockCoil/False
+FIRE CONTEXT PASS native mid-step body supports native muzzle/ShockCoil/False
+FIRE CONTEXT PASS compact source body/up round trip/ShockCoil/False
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/ShockCoil/False
+FIRE CONTEXT PASS ordinary repeated fire admitted/ShockCoil/False
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/ShockCoil/False
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/ShockCoil/False
+FIRE CONTEXT PASS normal admitted native launch/ShockCoil
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/ShockCoil/False
+FIRE CONTEXT PASS repeated carrier cannot launch twice/ShockCoil/False
+FIRE CONTEXT PASS ordinary source native spawn/ShockCoil/False/True
+FIRE CONTEXT PASS successful native source emits one event/ShockCoil/True
+FIRE CONTEXT PASS native mid-step body supports native muzzle/ShockCoil/True
+FIRE CONTEXT PASS compact source body/up round trip/ShockCoil/True
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/ShockCoil/True
+FIRE CONTEXT PASS ordinary repeated fire admitted/ShockCoil/True
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/ShockCoil/True
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/ShockCoil/True
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/ShockCoil/True
+FIRE CONTEXT PASS repeated carrier cannot launch twice/ShockCoil/True
+FIRE CONTEXT PASS native capped landing camera reaches its source displacement
+FIRE CONTEXT PASS ordinary native landing-camera source spawn
+FIRE CONTEXT PASS landing camera produces one non-transition native body event
+FIRE CONTEXT PASS ordinary landing muzzle exceeds a zero-current-bob allowance
+FIRE CONTEXT PASS native source landing muzzle remains valid after current camera bob resets
+FIRE CONTEXT PASS delayed native landing source admitted with its original body
+FIRE CONTEXT PASS delayed native landing launch preserves original muzzle
+FIRE CONTEXT PASS ordinary native turret source spawn
+FIRE CONTEXT PASS native turret produces original body event
+FIRE CONTEXT PASS delayed native turret binds to retained ACK body after relocation
+FIRE CONTEXT PASS delayed native turret keeps original body/muzzle relationship
+FIRE CONTEXT PASS ordinary native pre-pause beam spawn
+FIRE CONTEXT PASS pre-pause native beam retains authored identity
+FIRE CONTEXT PASS ordinary native pre-pause bomb spawn
+FIRE CONTEXT PASS pre-pause bomb is in native scene pool
+FIRE CONTEXT PASS pause cancels held charge and continuous shooting without release
+FIRE CONTEXT PASS resume silently retires native beams and bombs
+FIRE CONTEXT PASS resume attack cleanup preserves life hunter health and ammunition
+FIRE CONTEXT PASS resume cleanup creates no native hit damage or claim
+FIRE CONTEXT PASS pause discards only queued outgoing fire history
+FIRE CONTEXT PASS ordinary native fresh shot after pause cleanup
+FIRE CONTEXT PASS same-life next authored fire ID stays monotonic after pause
+FIRE CONTEXT PASS 45-frame boundary admitted exactly
+FIRE CONTEXT PASS one fractional tick outside 45 frames refused
+FIRE CONTEXT PASS fractional point inside 45 frames admitted
+FIRE CONTEXT PASS fractional future ACK refused
+FIRE CONTEXT PASS absent exact ACK refused
+FIRE CONTEXT PASS configured launch/contact/claim ceiling honored fractionally
+FIRE CONTEXT PASS native fixture has no scene step failures
+FIRE CONTEXT PASS 156 assertions (native fixture; no live network prediction assertion)

@@ -29,7 +29,7 @@ internal static class Protocol19Tests
     }
     private static void Codecs()
     {
-        Check(NetConfig.ProtocolVersion == 44 && SnapshotFast.MaximumEncodedSize <= NetConfig.MaxPacketSize, "current version and eight-player fast packet budget");
+        Check(NetConfig.ProtocolVersion == 45 && SnapshotFast.MaximumEncodedSize <= NetConfig.MaxPacketSize, "current version and eight-player fast packet budget");
         Span<byte> bytes = stackalloc byte[PlayerState.Size];
         foreach (ushort health in new ushort[] { 0, 1, 37, 100, ushort.MaxValue })
         {

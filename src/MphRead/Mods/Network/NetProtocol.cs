@@ -27,6 +27,7 @@ namespace MphRead.Mods.Network
         QueueHello = 57, QueueWelcome = 58, QueueJoin = 59, QueueLeave = 60,
         QueueState = 61, QueueSeatOffer = 62, QueueAccept = 63, QueueDecline = 64,
         HostChallenge = 65, HostChallengeReply = 66,
+        LiveCombatImpact = 71, // protocol45 bounded authority-only cosmetic impact
         ReplayShotFact = 67, // authority -> recorders, optional accepted shot result
         PartyReserveClaim = 68, // queue transport -> server, authenticated party seat claim
         PartyReserveState = 69, // server -> reservation claimant, authoritative group state
@@ -2578,7 +2579,7 @@ namespace MphRead.Mods.Network
         // silently ignore those packet kinds while still appearing compatible,
         // which would strand party matchmaking in validation. Mixed v43/v44
         // peers are therefore refused at the normal protocol boundary.
-        public const int ProtocolVersion = 44;
+        public const int ProtocolVersion = 45;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

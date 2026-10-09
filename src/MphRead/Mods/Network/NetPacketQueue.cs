@@ -19,7 +19,7 @@ public sealed class NetPacketQueue
     private readonly object _lock = new();
     private readonly Queue<ReceivedPacket>[] _queues = { new(128), new(2048), new(32) };
     private readonly int _capacity, _normalLimit;
-    private int _count, _high;
+    private int _count, _high, _cosmetics;
     private long _drops;
     public NetPacketQueue(int capacity = 2048, int criticalReserve = 128)
     {
@@ -32,13 +32,16 @@ public sealed class NetPacketQueue
     public bool CanAcceptCritical { get { lock (_lock) return _count < _capacity; } }
     public bool CanAccept(PacketType type)
     {
-        lock (_lock) return _count < (Priority(type) == NetPacketPriority.Critical ? _capacity : _normalLimit);
+        lock (_lock) return Accepts(type);
     }
+    private bool Accepts(PacketType type) => type == PacketType.LiveCombatImpact
+        ? _cosmetics < 64 && _count < Math.Max(0, _normalLimit - 128)
+        : _count < (Priority(type) == NetPacketPriority.Critical ? _capacity : _normalLimit);
     public static NetPacketPriority Priority(PacketType type) => type switch
     {
         PacketType.MatchSemanticEvent or PacketType.MatchAward or PacketType.ReplayShotFact
             => NetPacketPriority.Background,
-        PacketType.Intent or PacketType.SlotIntent or PacketType.Snapshot or PacketType.SnapshotFast or PacketType.PlayerSlowState or PacketType.WorldState or PacketType.HitClaim or PacketType.HitVerdict
+        PacketType.LiveCombatImpact or PacketType.Intent or PacketType.SlotIntent or PacketType.Snapshot or PacketType.SnapshotFast or PacketType.PlayerSlowState or PacketType.WorldState or PacketType.HitClaim or PacketType.HitVerdict
             or PacketType.ReplayWorld or PacketType.MatchStartCommit => NetPacketPriority.Realtime,
         PacketType.QueueHello or PacketType.QueueWelcome or PacketType.QueueJoin or PacketType.QueueLeave
             or PacketType.QueueState or PacketType.QueueSeatOffer or PacketType.QueueAccept or PacketType.QueueDecline
@@ -56,7 +59,8 @@ public sealed class NetPacketQueue
         var priority = Priority(packet.Type);
         lock (_lock)
         {
-            if (_count >= (priority == NetPacketPriority.Critical ? _capacity : _normalLimit)) { _drops++; return false; }
+            if (!Accepts(packet.Type)) { _drops++; return false; }
+            if (packet.Type == PacketType.LiveCombatImpact) _cosmetics++;
             _queues[(int)priority].Enqueue(packet); _count++; _high = Math.Max(_high, _count); return true;
         }
     }
@@ -65,6 +69,7 @@ public sealed class NetPacketQueue
         lock (_lock)
         {
             if (!_queues[(int)priority].TryDequeue(out packet)) return false;
+            if (packet.Type == PacketType.LiveCombatImpact) _cosmetics--;
             _count--; return true;
         }
     }
