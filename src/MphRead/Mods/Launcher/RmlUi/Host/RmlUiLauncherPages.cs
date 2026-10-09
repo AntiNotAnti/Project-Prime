@@ -141,7 +141,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         }
 
         /// <summary>Other route presenters use the same manager; periodic baseline publishers continue to update the cache.</summary>
-        public void Suspend() { Verify(); CaptureFields(); _suspended = true; }
+        public void Suspend() { Verify(); CloseNotices(); CaptureFields(); _suspended = true; }
         public void Resume() => ShowBaseline();
         public void SetVisible(bool visible) { Verify(); Manager.SetVisible(visible); }
 
@@ -362,6 +362,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
 
         private void SwitchMode(RmlUiMenuPage page)
         {
+            CloseNotices();
             Put("home_mode", page == RmlUiMenuPage.Home);
             Put("multiplayer_mode", page == RmlUiMenuPage.Play);
             Put("lobby_mode", page == RmlUiMenuPage.Lobby);
