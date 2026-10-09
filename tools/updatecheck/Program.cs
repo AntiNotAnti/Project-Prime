@@ -77,9 +77,9 @@ Check(history.Count > 1 && history[1].Version == new Version(1, 1, 0),
     "version manager includes older releases for explicit downgrade");
 Check(history.Count > 1 && UpdateDownload.SupportsDigest(history[1].AssetDigest),
     "older release keeps its verified package digest");
-if (args.Length == 3 && args[0] == "--real-release-swap")
+if (args.Length == 2 && args[0] == "--published-legacy-fixture")
 {
-    InstallationChecks.RunRealReleaseSwap(args[1], args[2], Check);
+    InstallationChecks.RunPublishedLegacyFixture(args[1], Check);
     return failures == 0 ? 0 : 1;
 }
 if (args.Length == 0)
