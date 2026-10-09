@@ -412,6 +412,8 @@ internal static partial class Shell
                 if (_nativeSetup == null) OpenNativeSetupPage(required: !GameFiles.Ready);
                 return true;
             }
+            if (destination == "social" && (Network.NetSession.Active || _rmlLobby != null))
+            { RmlUiPrototype.SetMenuText("system_status", "Leave the active lobby before opening Social."); return true; }
             if (destination == "social") return OpenNativePage(LauncherPage.Social);
             if (destination == "news") return OpenNativePage(LauncherPage.News);
             return true;
