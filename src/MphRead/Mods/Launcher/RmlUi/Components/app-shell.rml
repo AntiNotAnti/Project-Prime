@@ -23,9 +23,41 @@
                 <div id="account_cluster">
                     <button id="profile" class="utility" data-action="route:hunter" data-prime-text="{{player_name}}">PROFILE</button>
                     <button id="header_settings" class="utility" data-action="route:settings">SETTINGS</button>
+                    <button id="notice_button" class="utility" data-action="notice:toggle" aria-label="Open notifications" title="Notifications">
+                        <span id="notice_bell_icon">&#128276;</span><span class="notice_button_text">ALERTS</span><span id="notice_badge" data-prime-visible="notice_unread_visible" data-prime-text="{{notice_unread_count}}" />
+                    </button>
                 </div>
             </div>
             <div id="stage">
+            </div>
+            <div id="notice_panel" data-prime-visible="notice_open">
+                <div class="notice_heading"><span>NOTIFICATION CENTER</span><button id="notice_close" data-action="notice:close" aria-label="Close notifications">CLOSE ×</button></div>
+                <p class="notice_caption">Release updates, social activity, and system alerts.</p>
+                <div id="notice_empty" data-prime-visible="notice_empty">YOU'RE ALL CAUGHT UP</div>
+                <div id="notice_0" class="notice_entry" data-prime-visible="notice_0_visible">
+                    <div class="notice_entry_top"><span id="notice_0_type" data-prime-text="{{notice_0_type}}" /><span id="notice_0_dot" data-prime-visible="notice_0_unread">NEW</span></div>
+                    <div class="notice_entry_title" id="notice_0_title" data-prime-text="{{notice_0_title}}" />
+                    <p id="notice_0_message" data-prime-text="{{notice_0_message}}" />
+                    <div class="notice_entry_actions"><button id="notice_0_open" data-prime-visible="notice_0_action_visible" data-action="notice:open:0"><span id="notice_0_action" data-prime-text="{{notice_0_action}}" /></button><button id="notice_0_dismiss" data-action="notice:dismiss:0">DISMISS</button></div>
+                </div>
+                <div id="notice_1" class="notice_entry" data-prime-visible="notice_1_visible">
+                    <div class="notice_entry_top"><span id="notice_1_type" data-prime-text="{{notice_1_type}}" /><span id="notice_1_dot" data-prime-visible="notice_1_unread">NEW</span></div>
+                    <div class="notice_entry_title" id="notice_1_title" data-prime-text="{{notice_1_title}}" />
+                    <p id="notice_1_message" data-prime-text="{{notice_1_message}}" />
+                    <div class="notice_entry_actions"><button id="notice_1_open" data-prime-visible="notice_1_action_visible" data-action="notice:open:1"><span id="notice_1_action" data-prime-text="{{notice_1_action}}" /></button><button id="notice_1_dismiss" data-action="notice:dismiss:1">DISMISS</button></div>
+                </div>
+                <div id="notice_2" class="notice_entry" data-prime-visible="notice_2_visible">
+                    <div class="notice_entry_top"><span id="notice_2_type" data-prime-text="{{notice_2_type}}" /><span id="notice_2_dot" data-prime-visible="notice_2_unread">NEW</span></div>
+                    <div class="notice_entry_title" id="notice_2_title" data-prime-text="{{notice_2_title}}" />
+                    <p id="notice_2_message" data-prime-text="{{notice_2_message}}" />
+                    <div class="notice_entry_actions"><button id="notice_2_open" data-prime-visible="notice_2_action_visible" data-action="notice:open:2"><span id="notice_2_action" data-prime-text="{{notice_2_action}}" /></button><button id="notice_2_dismiss" data-action="notice:dismiss:2">DISMISS</button></div>
+                </div>
+                <div id="notice_3" class="notice_entry" data-prime-visible="notice_3_visible">
+                    <div class="notice_entry_top"><span id="notice_3_type" data-prime-text="{{notice_3_type}}" /><span id="notice_3_dot" data-prime-visible="notice_3_unread">NEW</span></div>
+                    <div class="notice_entry_title" id="notice_3_title" data-prime-text="{{notice_3_title}}" />
+                    <p id="notice_3_message" data-prime-text="{{notice_3_message}}" />
+                    <div class="notice_entry_actions"><button id="notice_3_open" data-prime-visible="notice_3_action_visible" data-action="notice:open:3"><span id="notice_3_action" data-prime-text="{{notice_3_action}}" /></button><button id="notice_3_dismiss" data-action="notice:dismiss:3">DISMISS</button></div>
+                </div>
             </div>
             <div id="system_status_toast" role="status" aria-live="polite" data-prime-text="{{system_status}}" />
             <div id="diagnostics_panel" data-prime-class-open="diagnostics_visible">
@@ -53,7 +85,10 @@
             </div>
             <div id="footerbar" class="enter_bottom">
                 <div id="build_info">
-                    <span class="blue" data-prime-text="BUILD {{build_version}}" id="build_version" />
+                    <button id="build_button" data-action="notice:versions" data-prime-class-available="notice_update_available" title="Open published versions">
+                        <span class="blue" data-prime-text="BUILD {{build_version}}" id="build_version" />
+                        <span id="build_alert" data-prime-visible="notice_update_available">UPDATE AVAILABLE &#8250;</span>
+                    </button>
                     <span class="divider">//</span>
                     <span id="client_label">PROJECT PRIME CLIENT</span>
                 </div>
