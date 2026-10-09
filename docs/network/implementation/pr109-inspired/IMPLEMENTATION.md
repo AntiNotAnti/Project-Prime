@@ -111,3 +111,25 @@ engineering checks are being resumed. Rendered first-person/spectator/high-refre
 weapon-specific particles/audio remain unverified; default stays off.
 
 Slice 1 PR: https://github.com/AntiNotAnti/Project-Prime/pull/411 (depends on #410).
+
+## Slice 3: shadow evaluation, enabled settlement blocked
+
+`ClaimEarlySettlementDecision` requires independent reserved proof, supported direct
+category, exact native-component duplicate suppression and a closed attack-order fence.
+The production observer samples only evidence the existing `Tick` already reserves;
+it never invokes another reservation, applies damage or changes the grace window.
+A 512-sample ring records full shot/victim identity, wait age and hypothetical health.
+Default is shadow; `-claimfastpath off` removes sampling. An `enabled` request is
+explicitly refused, rather than pretending the safety prerequisites exist.
+
+Source-backed blockers: `NetRescueIndex.Entry` keys ShotKey and victim lifecycle with
+an aggregate `Owed` count, not the native witness component. `NetAcceptedAttacks` has
+accepted/emitted attacks but no closed admission frontier proving that an earlier
+conflicting attack cannot still arrive. Checking only currently pending claims does
+not establish that frontier. Enabling an alternate damage path here would contradict
+the plan's P0 ordering/duplicate invariants. This slice is **partial**, not an enabled
+fast path or a measured latency improvement. It needs a separately verified ordering
+and exact-component suppression design before continuation into enabled settlement.
+
+39 decision/bounded-history assertions pass; existing claim-stress and health-shot
+arbitration fixtures are rerun unchanged. Slice 2 PR: https://github.com/AntiNotAnti/Project-Prime/pull/412.

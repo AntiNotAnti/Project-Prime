@@ -700,6 +700,7 @@ namespace MphRead.Mods.Network
             public bool Live;
             public bool RequireAttackEvidence;
             public bool EvidenceReserved;
+            public bool ShadowObserved, ShadowProof;
             public Vector3 WitnessPoint, WitnessDirection;
         }
 
@@ -1828,6 +1829,14 @@ namespace MphRead.Mods.Network
                     }
                     int resolved;
                     bool evidence = TryRetainEvidence(ref entry);
+                    if (NetClaimEarlySettlement.Mode != EarlyClaimMode.Off
+                        && (!entry.ShadowObserved || evidence != entry.ShadowProof))
+                    {
+                        entry.ShadowObserved = true; entry.ShadowProof = evidence;
+                        NetClaimEarlySettlement.Observe(ClaimFor(entry), entry.ShooterSlot,
+                            entry.RequireAttackEvidence && evidence, now - entry.Arrived,
+                            entry.VictimSlot < PlayerEntity.Players.Count ? PlayerEntity.Players[entry.VictimSlot].Health : 0);
+                    }
                     bool trustedAnonymousPair = entry.Beam == HitClaimPacket.NoBeam
                         && (entry.Flags & HitClaimPacket.FlagHeadshot) == 0;
                     if ((evidence || trustedAnonymousPair) && (entry.ContinuousPhase != 0
@@ -2252,6 +2261,7 @@ namespace MphRead.Mods.Network
 
         public static void Reset()
         {
+            NetClaimEarlySettlement.Reset();
             Array.Clear(_outbox);
             Array.Clear(_pending); _claimsPendingCurrent = 0;
             Array.Clear(_seenIds);
