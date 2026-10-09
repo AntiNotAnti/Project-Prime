@@ -47,6 +47,24 @@ internal static class InstallationChecks
         check(File.Exists(Path.Combine(next, studio))
             && File.Exists(Path.Combine(next, ".project-prime-desktop.json")),
             "v0.1.52 published release has paired Game + Studio payload");
+        void DiagnoseManifest(string directory)
+        {
+            string manifestPath = Path.Combine(directory, ReleaseInstallation.ManifestName);
+            using var raw = System.Text.Json.JsonDocument.Parse(File.ReadAllText(manifestPath));
+            foreach (var entry in raw.RootElement.GetProperty("Files").EnumerateArray())
+            {
+                string item = entry.GetString()!;
+                try { ReleaseInstallation.OwnedPath(directory, item); }
+                catch (InvalidDataException ex)
+                {
+                    Console.WriteLine("PUBLISHED ARCHIVE INCOMPATIBLE PATH: "
+                        + System.Text.Json.JsonSerializer.Serialize(item)
+                        + " // " + ex.Message);
+                }
+            }
+        }
+        DiagnoseManifest(installed);
+        DiagnoseManifest(next);
         var older = ReleaseInstallation.ReadManifest(installed);
         var newer = ReleaseInstallation.ReadManifest(next);
         check(older?.Files.Contains(game) == true
