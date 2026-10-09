@@ -34,6 +34,26 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+            // A staged updater is not a game launch. Dispatch it before
+            // loading input, preferences, logging or any files from its
+            // temporary directory. In particular, this path must not acquire
+            // the Studio installation lease it is about to replace.
+            int applyAt = IndexOfFlag(args, Update.DesktopUpdate.ApplyFlag);
+            if (applyAt >= 0)
+            {
+                if (applyAt + 2 >= args.Length
+                    || !Int32.TryParse(args[applyAt + 2], out int parentPid) || parentPid <= 0)
+                {
+                    Console.Error.WriteLine("[update] missing target or valid parent PID");
+                    Environment.ExitCode = 1;
+                    return true;
+                }
+                int separator = Array.IndexOf(args, Update.DesktopUpdate.RelaunchSeparator, applyAt + 3);
+                string[] relaunch = separator < 0 ? Array.Empty<string>() : args.Skip(separator + 1).ToArray();
+                Environment.ExitCode = Update.DesktopUpdate.Apply(args[applyAt + 1], parentPid,
+                    relaunch, ValueAfter(args, Update.DesktopUpdate.ReadyFlag));
+                return true;
+            }
 #if MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
             if (HasFlag(args, "studioversion"))
             {
@@ -434,34 +454,6 @@ namespace MphRead.Mods
                 return true;
             }
 
-            // The copying half of a desktop update, which is this build
-            // started by the *previous* one. First, and before anything reads
-            // a file or draws a window: it is not the game, it waits for the
-            // old process to exit and copies itself over the installation.
-            // See Mods/Update/DesktopUpdate.cs.
-            int applyAt = IndexOfFlag(args, Update.DesktopUpdate.ApplyFlag);
-            if (applyAt >= 0 && applyAt + 2 < args.Length)
-            {
-                // Two values, read by position rather than by name: the first
-                // is a directory, and a directory is exactly the kind of
-                // argument that can begin with a dash.
-                //
-                // Anything after the separator is what the updated build is to
-                // be started with -- empty for a launcher, and the server's own
-                // command line for a server, which is otherwise restarted as a
-                // launcher on a machine with nobody at it.
-                var relaunch = new System.Collections.Generic.List<string>();
-                int separator = Array.IndexOf(args, Update.DesktopUpdate.RelaunchSeparator,
-                    applyAt + 3);
-                for (int i = separator + 1; separator >= 0 && i < args.Length; i++)
-                {
-                    relaunch.Add(args[i]);
-                }
-                Environment.ExitCode = Update.DesktopUpdate.Apply(args[applyAt + 1],
-                    Int32.TryParse(args[applyAt + 2], out int parsed) ? parsed : -1,
-                    relaunch);
-                return true;
-            }
             // Housekeeping is synchronous for command-line/server paths, but
             // the graphical shell defers it until after its first presented
             // frame. That keeps cache scans and stale update cleanup out of the
