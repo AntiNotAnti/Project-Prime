@@ -201,8 +201,8 @@ internal sealed class HostedMapRequests : IDisposable
                 {
                     try
                     {
-                        using var package = new MapPackageReader(cachedPath);
-                        MapPackageManifest? manifest = package.Manifest;
+                        using var cachedPackage = new MapPackageReader(cachedPath);
+                        MapPackageManifest? manifest = cachedPackage.Manifest;
                         if (manifest != null && manifest.MinimumProtocol <= NetConfig.ProtocolVersion
                             && StringComparer.OrdinalIgnoreCase.Equals(manifest.Name, entry.RoomKey)
                             && MapHash256.HashFile(cachedPath) == entry.PackageHash)
