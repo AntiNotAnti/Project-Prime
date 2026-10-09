@@ -35,6 +35,13 @@ namespace MphRead.Entities
         private EntityBase? _parent = null;
         private Vector3 _invPos;
 
+        // Pickup visibility is presentation-only. Cache world-collision probes
+        // across high-refresh draw frames without delaying actual item logic.
+        private ulong _occlusionFrame = ulong.MaxValue;
+        private Vector3 _occlusionCamera;
+        private Vector3 _occlusionPosition;
+        private bool _occlusionVisible = true;
+
         public int DespawnTimer { get; set; } = -1;
         public ItemSpawnEntity? Owner { get; set; }
         public NodeData3? ClosestNode { get; set; } = null;
@@ -185,9 +192,83 @@ namespace MphRead.Entities
             }
         }
 
+        // Room-node visibility is only portal culling. It does not establish
+        // that a solid wall separates the viewer from the spinning pickup.
+        // Normally world depth hides it, but alpha/stencil depth reconstruction
+        // can expose the otherwise hidden pickup sprite (notably on ice maps).
+        // Reject only fully obstructed pickup models; leave partially visible
+        // pickups for the depth buffer to clip per pixel.
+        private bool IsPickupVisuallyVisible()
+        {
+            if (_scene.Room == null || (_scene.CameraMode != CameraMode.Player
+                && !_scene.Services.IsReplica))
+            {
+                return true;
+            }
+
+            Vector3 camera = _scene.CameraPosition;
+            Vector3 direction = Position - camera;
+            if (direction.LengthSquared <= 0.25f)
+            {
+                return true;
+            }
+
+            // The picture can be drawn hundreds of times per second while
+            // simulation runs at 60 Hz. Recheck at most every three simulation
+            // steps unless the camera or a moving pickup changed position.
+            const float movementThresholdSquared = 0.01f;
+            if (_occlusionFrame != ulong.MaxValue
+                && _occlusionFrame <= _scene.FrameCount
+                && _scene.FrameCount - _occlusionFrame < 3
+                && (camera - _occlusionCamera).LengthSquared < movementThresholdSquared
+                && (Position - _occlusionPosition).LengthSquared < movementThresholdSquared)
+            {
+                return _occlusionVisible;
+            }
+
+            _occlusionFrame = _scene.FrameCount;
+            _occlusionCamera = camera;
+            _occlusionPosition = Position;
+
+            // Use world/player-blocking collision, not projectile collision.
+            // Side/top samples prevent a hard pop when only part of the model
+            // peeks around an edge. Fully hidden items perform five cheap,
+            // cached probes; unobstructed ones usually perform just one.
+            Vector3 right = Vector3.Cross(direction, Vector3.UnitY);
+            right = right.LengthSquared > 0.0001f ? right.Normalized() : Vector3.UnitX;
+            const float sampleRadius = 0.27f;
+            _occlusionVisible = !PickupSampleBlocked(camera, Position)
+                || !PickupSampleBlocked(camera, Position + right * sampleRadius)
+                || !PickupSampleBlocked(camera, Position - right * sampleRadius)
+                || !PickupSampleBlocked(camera, Position + Vector3.UnitY * sampleRadius)
+                || !PickupSampleBlocked(camera, Position - Vector3.UnitY * sampleRadius);
+            return _occlusionVisible;
+        }
+
+        private bool PickupSampleBlocked(Vector3 camera, Vector3 sample)
+        {
+            float distance = (sample - camera).Length;
+            if (distance <= 0.25f)
+            {
+                return false;
+            }
+
+            CollisionResult hit = default;
+            return CollisionDetection.CheckBetweenPoints(
+                camera, sample, TestFlags.Players, _scene, ref hit)
+                // Avoid classifying a pickup resting on a wall or floor as
+                // hidden solely because its sample touches that surface.
+                && hit.Distance < 1f - MathF.Min(0.10f / distance, 0.25f);
+        }
+
         public override void GetDrawInfo()
         {
-            if (IsVisible(NodeRef))
+            bool visible = !Mods.ThumbnailMode.SuppressPickupPresentation
+                && IsVisible(NodeRef) && IsPickupVisuallyVisible();
+            // Artifact-key auras are effects, not part of the model draw.
+            // Keep them tied to the exact same visible/hidden decision.
+            _effectEntry?.SetDrawEnabled(visible);
+            if (visible)
             {
                 base.GetDrawInfo();
             }
