@@ -793,16 +793,16 @@ jobs:
           - Protects user settings/maps/replays and prevents an old standalone
             release from replacing a newer paired Game + Studio installation.
 
-          The originally published **v0.1.52 desktop archives are malformed**:
-          Windows lacks required hidden Game/Studio metadata and Linux owns an
-          internal updater lock in its manifest. v0.1.47 refuses both archives
-          *before closing the game*. Install the next corrected stable release
-          once its packaging regression tests pass; do not force v0.1.52.
+          The withdrawn **v0.1.52 desktop packages were malformed**:
+          Windows lacked hidden Game/Studio compatibility metadata, while
+          Linux carried an internal updater lock in its file manifest.
+          v0.1.47 rejects both failure classes before closing the game.
+          Future paired releases must pass fixed packaging checks.
 
-          This is an **intermediary compatibility build**, not the newest release.
-          It is intentionally not marked Latest. Open Version Manager in
-          v0.1.46 to switch explicitly to v0.1.47, or download this hotfix
-          separately. Then test upgrading to a newer build from v0.1.47.
+          **v0.1.47 is the next stable release after v0.1.46.** Once
+          published, the launcher will offer this hotfix automatically.
+          Gameplay/UI are unchanged from v0.1.46; this release concentrates
+          on updater reliability, recovery and safe future upgrades.
 
           On Windows and Linux, failed updates log to
           `logs/ProjectPrime-updater.log` in the game installation directory.
@@ -815,6 +815,16 @@ jobs:
               printf '\n---\n\n%s\n' "$CHANGES" >> notes.md
             else
               echo "::warning::No changelog could be generated for $TAG."
+            fi
+          fi
+
+          if [ "$TAG" = "v0.1.47" ] && [ "$PUBLISH_NOW" = "true" ]; then
+            # Never downgrade the latest channel if another newer public
+            # release appears while the hotfix build is running.
+            current_latest=$(gh api "repos/$REPOSITORY/releases/latest" --jq '.tag_name')
+            if [ "$current_latest" != "v0.1.46" ] && [ "$current_latest" != "v0.1.47" ]; then
+              echo "::error::Unexpected latest $current_latest; refuse to supersede a newer published release."
+              exit 1
             fi
           fi
 
@@ -832,25 +842,21 @@ jobs:
           else
             args=(release create "$TAG" dist/* --repo "$REPOSITORY" \
               --verify-tag --title "Project Prime $TAG" --notes-file notes.md)
-            if [ "$TAG" = "v0.1.47" ]; then
-              args+=(--latest=false)
-            fi
             if [ "$PUBLISH_NOW" != "true" ]; then
               args+=(--draft)
             fi
             gh "${args[@]}"
           fi
-          if [ "$TAG" = "v0.1.47" ]; then
-            # Publishing an older hotfix must never redirect existing players'
-            # auto-update channel away from v0.1.52 (or later stable versions).
+          if [ "$TAG" = "v0.1.47" ] && [ "$PUBLISH_NOW" = "true" ]; then
+            # v0.1.52 was withdrawn, leaving v0.1.46 as releases/latest.
+            # The reviewed v0.1.47 hotfix becomes the next stable channel,
+            # but never replaces a newer published release (guarded above).
             release_id=$(gh api "repos/$REPOSITORY/releases/tags/$TAG" --jq '.id')
             gh api -X PATCH "repos/$REPOSITORY/releases/$release_id" \
-              -f make_latest=false >/dev/null
-            if [ "$PUBLISH_NOW" = "true" ]; then
-              latest=$(gh api "repos/$REPOSITORY/releases/latest" --jq '.tag_name')
-              if [ "$latest" = "$TAG" ]; then
-                echo "::error::Hotfix $TAG unexpectedly became releases/latest."
-                exit 1
-              fi
+              -f make_latest=true >/dev/null
+            latest=$(gh api "repos/$REPOSITORY/releases/latest" --jq '.tag_name')
+            if [ "$latest" != "$TAG" ]; then
+              echo "::error::Expected $TAG as the latest published release; got $latest."
+              exit 1
             fi
           fi
