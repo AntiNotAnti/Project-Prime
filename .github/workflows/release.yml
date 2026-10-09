@@ -710,6 +710,18 @@ jobs:
           TAG: ${{ needs.resolve.outputs.tag }}
         run: |
           set -euo pipefail
+          # Running the Linux release smoke leaves .project-prime-update.lock
+          # in the publish directory. It is runtime coordination state, NOT a
+          # distributable file; the installer explicitly rejects it in any
+          # release ownership manifest. Remove it after all executable smoke
+          # and BEFORE generating the manifest/archive.
+          for target in win-x64 linux-x64 linux-arm64 win-x64-server linux-x64-server; do
+            rm -f "publish/$target/.project-prime-update.lock"
+            test ! -e "publish/$target/.project-prime-update-transaction" || {
+              echo "::error::$target has an unfinished update transaction in its release output"
+              exit 1
+            }
+          done
           mkdir -p dist
           cp LICENSE publish/win-x64/ 2>/dev/null || true
           cat > publish/win-x64/README.txt <<'NOTE'
