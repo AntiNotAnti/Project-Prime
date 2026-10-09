@@ -1256,7 +1256,25 @@ PP_EXPORT int pp_rmlui_accessibility_action(uint64_t generation, uint64_t docume
         ScrollFocusedElement(element);
     } else if (action == 1) {
         if (!(mask & PrimeAccessibilityTree::Press)) return 0;
+        const size_t before = g_actions.size();
+        // Send the ordinary RmlUi click first. Depending on the platform UIA
+        // invocation path, a synthetic Element::Click need not bubble through
+        // the document listener, even though the native action was accepted.
         element->Click();
+        if (g_actions.size() == before) {
+            // Preserve accessibility authority: only the current foreground
+            // document, resolved semantic revision and enabled Press control
+            // can reach this branch. Use the same action registry as pointer
+            // clicks, and never double-submit an event that already queued.
+            for (auto* target = element; target; target = target->GetParentNode()) {
+                const Rml::String bound = target->GetAttribute<Rml::String>("data-action", "");
+                if (!bound.empty()) {
+                    if (!target->HasAttribute("disabled"))
+                        QueueAction(bound, document_id);
+                    break;
+                }
+            }
+        }
     } else {
         if (!(mask & PrimeAccessibilityTree::Scroll)) return 0;
         const float distance = std::max(1.f, element->GetClientHeight() * .8f);
