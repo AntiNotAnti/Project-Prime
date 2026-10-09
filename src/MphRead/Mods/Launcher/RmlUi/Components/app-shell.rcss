@@ -483,3 +483,11 @@ color: #6b879c;
     #notice_button { margin-left: 3dp; }
     #build_button { font-size: 9dp; padding: 4dp 5dp; }
 }
+
+/* Preserve a compact actionable build chip on narrow Android and handheld layouts. */
+@media (max-width: 540dp) {
+    #build_info { display: block; }
+    #build_button { max-width: 210dp; gap: 5dp; }
+    #build_alert { font-size: 8dp; }
+    #build_info .divider, #client_label { display: none; }
+}
