@@ -39,6 +39,22 @@ jobs:
       - name: every custom map has the level it converts
         run: tools/check-maps-shipped.sh
 
+
+  updater-regressions:
+    name: Windows/Linux release updater and rollback
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: verify legacy and cross-version updater, recovery and worker ownership
+        run: dotnet run --project tools/updatecheck -c Release
+
   server-compile:
     name: dedicated server compile gate
     runs-on: ubuntu-latest
