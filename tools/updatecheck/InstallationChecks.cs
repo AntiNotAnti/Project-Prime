@@ -4,12 +4,22 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using System.Threading;
 using MphRead.Mods.Update;
 
 internal static class InstallationChecks
 {
     internal static int? RunChild(string[] args)
     {
+        if (args.Length == 3 && args[0] == "--updater-ready-fixture")
+        {
+            if (args[2] == "exit") return 41;
+            if (args[2] == "hang") { Thread.Sleep(10000); return 0; }
+            Thread.Sleep(120);
+            File.WriteAllText(args[1], "ready");
+            Thread.Sleep(250);
+            return 0;
+        }
         if (args.Length == 2 && args[0] == "--hold-installation")
         {
             using var lifetime = InstallationLifetime.AcquireApplication(args[1]);
@@ -168,6 +178,33 @@ internal static class InstallationChecks
             }
             catch (UnauthorizedAccessException) when (OperatingSystem.IsWindows())
             { Console.WriteLine("SKIP symlink creation requires developer mode on this Windows runner"); }
+            // Real child processes verify the explicit start acknowledgement:
+            // a launched-but-dead helper must not cause the game to exit, and
+            // a hung helper must be reaped rather than applying later.
+            void CheckHandoff(string outcome, bool expected, TimeSpan timeout)
+            {
+                string signal = Path.Combine(root, "handoff-" + outcome + ".ready");
+                var start = new ProcessStartInfo(processPath) { UseShellExecute = false, CreateNoWindow = true };
+                if (dotnetHost) start.ArgumentList.Add(Assembly.GetExecutingAssembly().Location);
+                start.ArgumentList.Add("--updater-ready-fixture");
+                start.ArgumentList.Add(signal);
+                start.ArgumentList.Add(outcome);
+                using var helper = Process.Start(start)!;
+                bool acknowledged = DesktopUpdate.WaitForHelperReady(helper, signal, timeout);
+                check(acknowledged == expected,
+                    "updater handoff " + outcome + (expected ? " confirms readiness" : " refuses to close original app"));
+                if (outcome == "exit")
+                    check(DesktopUpdate.LastError?.Contains("exited", StringComparison.OrdinalIgnoreCase) == true,
+                        "early helper death retains a readable failure reason");
+                if (outcome == "hang")
+                    check(helper.HasExited && DesktopUpdate.LastError?.Contains("did not confirm", StringComparison.OrdinalIgnoreCase) == true,
+                        "timed-out helper is killed instead of applying on a later process exit");
+                if (!helper.HasExited && !helper.WaitForExit(5000)) helper.Kill(entireProcessTree: true);
+                if (File.Exists(signal)) File.Delete(signal);
+            }
+            CheckHandoff("signal", expected: true, TimeSpan.FromSeconds(5));
+            CheckHandoff("exit", expected: false, TimeSpan.FromSeconds(5));
+            CheckHandoff("hang", expected: false, TimeSpan.FromMilliseconds(200));
             var wait = Fixture("wait");
             rejected = false;
             try { ReleaseInstallation.WaitForExit(Environment.ProcessId, 1); ReleaseInstallation.Apply(wait.Source, wait.Target); }
