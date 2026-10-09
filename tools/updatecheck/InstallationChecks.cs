@@ -273,6 +273,19 @@ internal static class InstallationChecks
                 && File.ReadAllText(Path.Combine(paired.Target, "settings.json")) == "player data",
                 "after Studio crash the kernel lease releases and the paired update commits both apps preserving user data");
             var downgrade = Fixture("unpaired-downgrade");
+            File.WriteAllText(Path.Combine(downgrade.Source, game), "legacy game");
+            File.Delete(Path.Combine(downgrade.Source, ReleaseInstallation.ManifestName));
+            ReleaseInstallation.EnsureManifest(downgrade.Source);
+            rejected = false;
+            try { DesktopUpdate.ValidateStagedCompatibility(downgrade.Source, paired.Target); }
+            catch (InvalidDataException ex) { rejected = ex.Message.Contains("separate folder", StringComparison.OrdinalIgnoreCase); }
+            check(rejected && File.ReadAllText(Path.Combine(paired.Target, studio)) == "studio 1.2.3+abc"
+                && File.ReadAllText(Path.Combine(paired.Target, game)) == "game 1.2.3+abc",
+                "legacy downgrade is refused during staging before the paired installation closes");
+            var olderInstallation = Fixture("unpaired-installed");
+            DesktopUpdate.ValidateStagedCompatibility(paired.Source, olderInstallation.Target);
+            check(Original(olderInstallation.Target),
+                "paired game and Studio can stage against a legacy installation without touching installed files");
             rejected = false;
             try { ReleaseInstallation.Apply(downgrade.Source, paired.Target); } catch (InvalidDataException) { rejected = true; }
             check(rejected && File.ReadAllText(Path.Combine(paired.Target, studio)) == "studio 1.2.3+abc",

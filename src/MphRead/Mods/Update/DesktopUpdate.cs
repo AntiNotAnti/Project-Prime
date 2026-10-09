@@ -145,6 +145,11 @@ namespace MphRead.Mods.Update
                     return false;
                 }
                 MakeExecutable(binary);
+                // The staged executable will perform the copy, and may be an
+                // older release with none of our current paired-app safeguards.
+                // Reject incompatible archives while this launcher can still
+                // explain the problem and remain open.
+                ValidateStagedCompatibility(StagedBuild, AppContext.BaseDirectory);
                 return true;
             }
             catch (Exception ex)
@@ -153,6 +158,21 @@ namespace MphRead.Mods.Update
                 Console.WriteLine($"[update] could not stage the update: {ex}");
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Check release compatibility before starting the staged executable.
+        /// This runs while the existing launcher is alive: a legacy helper
+        /// cannot be trusted to enforce Studio pairing after the old app exits.
+        /// Only staging metadata is created; installed files stay untouched.
+        /// </summary>
+        internal static void ValidateStagedCompatibility(string stagedDirectory, string installationDirectory)
+        {
+            ReleaseInstallation.EnsureManifest(stagedDirectory);
+            ReleaseInstallation.Manifest incoming = ReleaseInstallation.ReadManifest(stagedDirectory)
+                ?? throw new InvalidDataException("The extracted release has no file manifest.");
+            ReleaseInstallation.Manifest? installed = ReleaseInstallation.ReadManifest(installationDirectory);
+            DesktopReleasePair.ValidateUpdate(stagedDirectory, installationDirectory, incoming, installed);
         }
 
         /// <summary>
@@ -182,6 +202,9 @@ namespace MphRead.Mods.Update
             string ready = Path.Combine(Staging, "handoff-" + Guid.NewGuid().ToString("N") + ".ready");
             try
             {
+                // Re-check just before committing to shutdown, in case an
+                // installation or staged file changed since preparation.
+                ValidateStagedCompatibility(StagedBuild, AppContext.BaseDirectory);
                 string binary = Path.Combine(StagedBuild, UpdateCheck.BinaryName());
                 var start = new ProcessStartInfo(binary)
                 {

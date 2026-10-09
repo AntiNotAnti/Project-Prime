@@ -61,6 +61,17 @@ Automatic updates remain forward-only. Version Manager is the explicit path that
 - macOS opens the selected release page for both upgrades and downgrades because copying individual files into a signed app bundle invalidates its resource seal.
 - Dedicated servers keep the existing safe-update behavior and only swap when the server lifecycle says it is safe. The client Version Manager does not change server auto-update policy.
 
+Legacy desktop downgrade safety: releases that predate the separately packaged
+**Project Prime Studio** (for example v0.1.46) cannot safely replace a newer
+paired Game + Studio installation in place. The launcher now checks staged
+release compatibility **before it exits**, including when the selected release
+contains an older updater worker that does not know the current pairing rules.
+If it is incompatible, the existing game and Studio are left untouched and the
+user is told to extract the chosen older release into a **separate folder**.
+Do not overwrite a newer paired installation with a legacy ZIP; that can leave
+newer Studio binaries beside older game files. This is separate from the
+forward-only automatic update path.
+
 Desktop replacement is manifest-driven. Every new desktop package records the files owned by that release. During an in-app update, files owned by the previous release but absent from the new one are removed before the new files are copied. Player-owned data is never inferred from the package manifest and is preserved: settings, controls, saves, extracted game data, replays, custom maps and user-created media remain untouched.
 
 The first upgrade from a pre-manifest build uses a conservative legacy cleanup that only removes historical Project Prime/Fruity Prime/MphRead executable/runtime names. The staged package also generates a manifest defensively, so Version Manager and older release packages converge on the same clean-install layout after one manifest-aware update.
