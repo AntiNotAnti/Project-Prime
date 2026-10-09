@@ -197,14 +197,17 @@ internal static class InstallationChecks
                     check(DesktopUpdate.LastError?.Contains("exited", StringComparison.OrdinalIgnoreCase) == true,
                         "early helper death retains a readable failure reason");
                 if (outcome == "hang")
+                {
+                    helper.WaitForExit(5000);
                     check(helper.HasExited && DesktopUpdate.LastError?.Contains("did not confirm", StringComparison.OrdinalIgnoreCase) == true,
                         "timed-out helper is killed instead of applying on a later process exit");
+                }
                 if (!helper.HasExited && !helper.WaitForExit(5000)) helper.Kill(entireProcessTree: true);
                 if (File.Exists(signal)) File.Delete(signal);
             }
-            CheckHandoff("signal", expected: true, TimeSpan.FromSeconds(5));
-            CheckHandoff("exit", expected: false, TimeSpan.FromSeconds(5));
-            CheckHandoff("hang", expected: false, TimeSpan.FromMilliseconds(200));
+            CheckHandoff("signal", expected: true, timeout: TimeSpan.FromSeconds(5));
+            CheckHandoff("exit", expected: false, timeout: TimeSpan.FromSeconds(5));
+            CheckHandoff("hang", expected: false, timeout: TimeSpan.FromMilliseconds(200));
             var wait = Fixture("wait");
             rejected = false;
             try { ReleaseInstallation.WaitForExit(Environment.ProcessId, 1); ReleaseInstallation.Apply(wait.Source, wait.Target); }
