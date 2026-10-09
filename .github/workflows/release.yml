@@ -198,6 +198,8 @@ jobs:
       # Release can be dispatched while the normal build workflow is cancelled
       # by a newer push. Run the asset-free lobby suite here too so wire-format
       # regressions in Create Lobby cannot ship behind a green packaging smoke.
+      - name: updater handoff and rollback regressions
+        run: dotnet run --project tools/updatecheck -c Release
       - name: hosted lobby allocation protocol
         run: dotnet run --project tools/nettest/nettest.csproj -c Release -- --lobby
       - name: cook the map bundles
