@@ -1,0 +1,37 @@
+[debug] standard error is being written to /private/tmp/pr109-baseline-native/shockcoil-rtt250-loss2/peer1/logs/ProjectPrime-20261008-234246-97243-native.txt
+Project Prime a local build
+OS: macOS 27.0.0
+OS architecture: Arm64
+Process architecture: Arm64
+RID: osx-arm64
+Runtime: .NET 10.0.12
+Base directory: /private/tmp/pr109-baseline-native/runtime/
+Launch directory: /private/tmp/pr109-baseline-native/runtime
+Current directory: /private/tmp/pr109-baseline-native/shockcoil-rtt250-loss2/peer1
+User data: /private/tmp/pr109-baseline-native/shockcoil-rtt250-loss2/peer1
+Native: /private/tmp/pr109-baseline-native/runtime/libopenal.1.dylib
+Native: /private/tmp/pr109-baseline-native/runtime/libglfw.3.dylib
+Native: /private/tmp/pr109-baseline-native/runtime/libSkiaSharp.dylib
+Native: /private/tmp/pr109-baseline-native/runtime/libminiaudio.dylib
+[net] simulating a bad line: +250 ms round trip (jitter up to 50 ms each way), 2% packet loss each way, reorder 2.0 %, duplicate 1.0 %, seed 432
+[net] hit rig: Volley
+[net] joining 127.0.0.1:60288 as "peer1"
+[net] joined as slot 1
+[net] server map: MP1 SANCTORUS (Battle, 900 s left)
+[net] connected in InMatch, slot 1
+[netcheck] peer1 joined slot 1, loading MP1 SANCTORUS (Battle)
+[net] slot 0 (Samus) wears suit 1
+[net] slot 1 (Samus) wears suit 2 -- asked for 1
+[net] player slots built, main player = slot 1
+[net] slot 0 activated (peer0) -- 2 player(s) in scene
+[net] slot 1 activated (peer1) -- 2 player(s) in scene
+[net] player slots prepared -- local slot 1, 2 active, AI enabled only on authoritative bot slots
+[net] match clock synced to server: 899 s remaining on MP1 SANCTORUS
+[netchecksim] steps=1800 remoteFrames=1780 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none
+hit rig: Volley as runner, 1333 frames airborne, mean |vertical speed| 0.109 units/frame, worst 0.377
+alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00
+continuous target: eval=0 reports=0 accepted=0 none=0 rejected=0 agreed=0 owner-only=0 authority-only=0 different=0 lifecycle=0 collision=0 stale=0 history=0 angle=0 form=0
+hit prediction: on, nothing predicted here (0 hits arrived from the authority)
+lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00
+[replayperf] Capture=0.000ms max=0.000ms alloc=0B n=0 Step=0.000ms max=0.000ms alloc=0B n=0 Checkpoint=0.000ms max=0.000ms alloc=0B n=0 AuthorityCapture=0.000ms max=0.000ms alloc=0B n=0 AuthorityEncode=0.000ms max=0.000ms alloc=0B n=0 Timeline=0.000ms max=0.000ms alloc=0B n=0 Enqueue=0.000ms max=0.000ms alloc=0B n=0 ArchiveOpen=0.000ms max=0.000ms alloc=0B n=0 WorldConstruction=0.000ms max=0.000ms alloc=0B n=0 WorldRestore=0.000ms max=0.000ms alloc=0B n=0 Lookahead=0.000ms max=0.000ms alloc=0B n=0 DecodeChunk=0.000ms max=0.000ms alloc=0B n=0 MapValidation=0.000ms max=0.000ms alloc=0B n=0 MapPublication=0.000ms max=0.000ms alloc=0B n=0 checkpoint=0B timeline=0B facts=0 GC=8/3/2
+[netchecksim] altScenarioExercised=True stationaryTarget=False

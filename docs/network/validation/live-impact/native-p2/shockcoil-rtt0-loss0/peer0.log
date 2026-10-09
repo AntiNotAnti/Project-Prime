@@ -1,0 +1,36 @@
+[debug] standard error is being written to /private/tmp/pr109-native-p2/shockcoil-rtt0-loss0/peer0/logs/ProjectPrime-20261008-233542-95266-native.txt
+Project Prime a local build
+OS: macOS 27.0.0
+OS architecture: Arm64
+Process architecture: Arm64
+RID: osx-arm64
+Runtime: .NET 10.0.12
+Base directory: /private/tmp/pr109-native-p2/runtime/
+Launch directory: /private/tmp/pr109-native-p2/runtime
+Current directory: /private/tmp/pr109-native-p2/shockcoil-rtt0-loss0/peer0
+User data: /private/tmp/pr109-native-p2/shockcoil-rtt0-loss0/peer0
+Native: /private/tmp/pr109-native-p2/runtime/libopenal.1.dylib
+Native: /private/tmp/pr109-native-p2/runtime/libglfw.3.dylib
+Native: /private/tmp/pr109-native-p2/runtime/libSkiaSharp.dylib
+Native: /private/tmp/pr109-native-p2/runtime/libminiaudio.dylib
+[net] hit rig: Volley
+[net] joining 127.0.0.1:57943 as "peer0"
+[net] joined as slot 0
+[net] server map: MP1 SANCTORUS (Battle, 900 s left)
+[net] connected in InMatch, slot 0
+[netcheck] peer0 joined slot 0, loading MP1 SANCTORUS (Battle)
+[net] slot 0 (Samus) wears suit 1
+[net] player slots built, main player = slot 0
+[net] slot 0 activated (peer0) -- 1 player(s) in scene
+[net] slot 1 activated (peer1) -- 2 player(s) in scene
+[net] player slots prepared -- local slot 0, 2 active, AI enabled only on authoritative bot slots
+[net] match clock synced to server: 900 s remaining on MP1 SANCTORUS
+[net] slot 1 (Samus) wears suit 2 -- asked for 1
+[netchecksim] steps=1800 remoteFrames=1799 movingPeers=1 clips=0 clipsPassed=True recordingError=none captureError=none
+hit rig: Volley as sniper, 598 triggers, 1795 frames on target, mean range 10.0 units
+alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00
+continuous target: eval=1496 reports=0 accepted=0 none=0 rejected=0 agreed=0 owner-only=0 authority-only=0 different=0 lifecycle=0 collision=1496 stale=0 history=0 angle=0 form=0
+hit prediction: 160 predicted, 1 confirmed (0.6%), 157 denied, 1 unpredicted, 0 lethal hits held (0 confirmed, 0 denied)
+lag compensation: on, nothing to compensate (history misses 0); alt contact: attempts 0, visible checks 0, visible overlaps 0, checks 0, historical 0, live 0, historical-only 0, live-only 0, unavailable 0, noxus-live-fallback 0, sweep-only 0, rewind total 0.00, sweep distance 0.00
+[replayperf] Capture=0.000ms max=0.000ms alloc=0B n=0 Step=0.000ms max=0.000ms alloc=0B n=0 Checkpoint=0.000ms max=0.000ms alloc=0B n=0 AuthorityCapture=0.000ms max=0.000ms alloc=0B n=0 AuthorityEncode=0.000ms max=0.000ms alloc=0B n=0 Timeline=0.000ms max=0.000ms alloc=0B n=0 Enqueue=0.000ms max=0.000ms alloc=0B n=0 ArchiveOpen=0.000ms max=0.000ms alloc=0B n=0 WorldConstruction=0.000ms max=0.000ms alloc=0B n=0 WorldRestore=0.000ms max=0.000ms alloc=0B n=0 Lookahead=0.000ms max=0.000ms alloc=0B n=0 DecodeChunk=0.000ms max=0.000ms alloc=0B n=0 MapValidation=0.000ms max=0.000ms alloc=0B n=0 MapPublication=0.000ms max=0.000ms alloc=0B n=0 checkpoint=0B timeline=0B facts=0 GC=8/3/2
+[netchecksim] altScenarioExercised=True stationaryTarget=False

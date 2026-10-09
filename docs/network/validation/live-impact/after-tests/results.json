@@ -1,0 +1,133 @@
+{
+  "schema": 1,
+  "sourceCommit": "411796006e28c350ca4adafc3d50bada2b1baaf1",
+  "host": "macOS-27.0-arm64-arm-64bit",
+  "sourceDirty": true,
+  "assemblySha256": "275986d15990be3eee63f964241402627a70f3bb6f86dec5a1b62622083ae5e3",
+  "results": [
+    {
+      "check": "architecture",
+      "exitCode": 0,
+      "seconds": 0.193,
+      "log": "architecture.log"
+    },
+    {
+      "check": "health-shots",
+      "exitCode": 0,
+      "seconds": 6.576,
+      "log": "health-shots.log"
+    },
+    {
+      "check": "claim-stress",
+      "exitCode": 0,
+      "seconds": 0.086,
+      "log": "claim-stress.log"
+    },
+    {
+      "check": "lagcomp-shadow",
+      "exitCode": 0,
+      "seconds": 0.038,
+      "log": "lagcomp-shadow.log"
+    },
+    {
+      "check": "weapon-policy",
+      "exitCode": 0,
+      "seconds": 0.109,
+      "log": "weapon-policy.log"
+    },
+    {
+      "check": "transport-stress",
+      "exitCode": 0,
+      "seconds": 8.921,
+      "log": "transport-stress.log"
+    },
+    {
+      "check": "network-lifecycle",
+      "exitCode": 0,
+      "seconds": 1.285,
+      "log": "network-lifecycle.log"
+    },
+    {
+      "check": "replay-protocol42",
+      "exitCode": 0,
+      "seconds": 0.17,
+      "log": "replay-protocol42.log"
+    },
+    {
+      "check": "impact-baseline",
+      "exitCode": 0,
+      "seconds": 0.035,
+      "log": "impact-baseline.log"
+    },
+    {
+      "check": "live-impact",
+      "exitCode": 0,
+      "seconds": 0.075,
+      "log": "live-impact.log"
+    },
+    {
+      "check": "impact-transport",
+      "exitCode": 0,
+      "seconds": 0.133,
+      "log": "impact-transport.log"
+    },
+    {
+      "check": "impact-crossview",
+      "exitCode": 0,
+      "seconds": 0.085,
+      "log": "impact-crossview.log"
+    },
+    {
+      "check": "impact-claim-fastpath",
+      "exitCode": 0,
+      "seconds": 0.034,
+      "log": "impact-claim-fastpath.log"
+    },
+    {
+      "check": "impact-visual-kills",
+      "exitCode": 0,
+      "seconds": 0.086,
+      "log": "impact-visual-kills.log"
+    },
+    {
+      "check": "impact-profile",
+      "exitCode": 0,
+      "seconds": 0.039,
+      "log": "impact-profile.log"
+    },
+    {
+      "check": "authority-combat",
+      "exitCode": 0,
+      "seconds": 0.925,
+      "log": "authority-combat.log"
+    },
+    {
+      "check": "accepted-fire-context",
+      "exitCode": 0,
+      "seconds": 0.888,
+      "log": "accepted-fire-context.log"
+    },
+    {
+      "check": "server-2",
+      "exitCode": 0,
+      "seconds": 0.993,
+      "log": "server-2.log"
+    },
+    {
+      "check": "server-4",
+      "exitCode": 0,
+      "seconds": 1.059,
+      "log": "server-4.log"
+    },
+    {
+      "check": "server-8",
+      "exitCode": 0,
+      "seconds": 1.22,
+      "log": "server-8.log"
+    }
+  ],
+  "limitations": [
+    "Headless synthetic intent simulation is not a rendered or impaired multiplayer acceptance run.",
+    "Other OS/backend coverage requires their runners."
+  ]
+}

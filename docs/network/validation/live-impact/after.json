@@ -1,0 +1,210 @@
+{
+  "schema": 1,
+  "implementationCommit": "c463c14a7f5a926c223f3e5393ca8a03506a0e1b",
+  "sourceNote": "C# tests and frozen native runtime built from the exact source subsequently committed as c463c14a. Original after-tests/results.json retains its pre-commit dirty-build label and assembly hash.",
+  "protocol": 45,
+  "replayFactVersion": 1,
+  "host": "macOS-27.0-arm64-arm-64bit",
+  "assemblySha256": "275986d15990be3eee63f964241402627a70f3bb6f86dec5a1b62622083ae5e3",
+  "status": "partial; release acceptance not achieved",
+  "localChecks": {
+    "passed": 20,
+    "total": 20,
+    "report": "after-tests/results.json"
+  },
+  "transport": {
+    "scenarios": 45,
+    "assertions": 614,
+    "report": "after-transport.json",
+    "scope": "seeded production codec/outbox; not UDP/rendered"
+  },
+  "native": {
+    "runs": [
+      {
+        "players": 2,
+        "manifest": "native-p2/manifest.json",
+        "summary": "native-p2/summary.json",
+        "report": "native-p2/report.json",
+        "scenarioCount": 9,
+        "frozenRuntimeUnchanged": true,
+        "sourceFreezeUnchanged": true
+      },
+      {
+        "players": 4,
+        "manifest": "native-p4/manifest.json",
+        "summary": "native-p4/summary.json",
+        "report": "native-p4/report.json",
+        "scenarioCount": 1,
+        "frozenRuntimeUnchanged": true,
+        "sourceFreezeUnchanged": true
+      },
+      {
+        "players": 8,
+        "manifest": "native-p8/manifest.json",
+        "summary": "native-p8/summary.json",
+        "report": "native-p8/report.json",
+        "scenarioCount": 1,
+        "frozenRuntimeUnchanged": true,
+        "sourceFreezeUnchanged": true
+      }
+    ],
+    "passed": 7,
+    "total": 11,
+    "failed": [
+      {
+        "players": 2,
+        "mode": "sniper",
+        "profile": "rtt0-loss0",
+        "authorityConfirmedHits": 0,
+        "nativeChecksPassed": true
+      },
+      {
+        "players": 2,
+        "mode": "sniper",
+        "profile": "rtt250-loss2",
+        "authorityConfirmedHits": 0,
+        "nativeChecksPassed": true
+      },
+      {
+        "players": 2,
+        "mode": "shockcoil",
+        "profile": "rtt250-loss2",
+        "authorityConfirmedHits": 0,
+        "nativeChecksPassed": true
+      },
+      {
+        "players": 2,
+        "mode": "shockcoil",
+        "profile": "rtt350-loss2",
+        "authorityConfirmedHits": 0,
+        "nativeChecksPassed": true
+      }
+    ],
+    "authorityFactsRetained": 175,
+    "uniquePeerIngress": 934,
+    "authorityBackedPeerIngress": 934,
+    "unbackedPeerIngress": 0,
+    "rendered": false,
+    "limits": [
+      "Peer readiness and shutdown/lifecycle censor denominators; not an eligible-delivery SLA.",
+      "No ring overwrites occurred. Headless clients did not render/dequeue presentation cues; these runs stayed below the 128-event inbox capacity.",
+      "Zero-confirmation sniper/Shock Coil arms remain failed; locally arming a rig weapon does not override authority admission.",
+      "Small conditional latency samples exclude negative arrival-before-local-hit pairs and cannot establish a global confirmation percentile.",
+      "Rig modes are not weapon proof: no Imperialist or Shock Coil fact was emitted; generic nonzero-combat passes in those modes contain Missile facts."
+    ],
+    "authorityByWeapon": {
+      "PowerBeam": 172,
+      "Missile": 3
+    },
+    "baselineControls": {
+      "sourceCommit": "0127fab5ffd411529a5c69a40e5467e140f50a60",
+      "summary": "native-baseline/summary.json",
+      "manifest": "native-baseline/manifest.json",
+      "result": "Both 250ms/2% sniper and Shock Coil arms also produce zero confirmed combat on pristine baseline; native simulation checks pass. Fixture gap is reproducible before the impact changes."
+    }
+  },
+  "performance": {
+    "report": "matched/comparison.json",
+    "comparison": [
+      {
+        "players": 2,
+        "medianOfRuns": {
+          "before": {
+            "p99": 0.2681,
+            "allocationsPerStep": 1670.2,
+            "mean": 0.11651238888888915
+          },
+          "after": {
+            "p99": 0.268,
+            "allocationsPerStep": 1670.2,
+            "mean": 0.1168702777777778
+          }
+        },
+        "p99ChangePercent": -0.037299515106303804,
+        "allocationChangeBytesPerStep": 0.0
+      },
+      {
+        "players": 4,
+        "medianOfRuns": {
+          "before": {
+            "p99": 0.4549,
+            "allocationsPerStep": 1858.2711111111112,
+            "mean": 0.1777667777777774
+          },
+          "after": {
+            "p99": 0.4825,
+            "allocationsPerStep": 1858.2711111111112,
+            "mean": 0.18491127777777777
+          }
+        },
+        "p99ChangePercent": 6.06726753132556,
+        "allocationChangeBytesPerStep": 0.0
+      },
+      {
+        "players": 8,
+        "medianOfRuns": {
+          "before": {
+            "p99": 0.9848,
+            "allocationsPerStep": 2238.4133333333334,
+            "mean": 0.3040252222222222
+          },
+          "after": {
+            "p99": 0.9666,
+            "allocationsPerStep": 2238.4133333333334,
+            "mean": 0.2979026666666661
+          }
+        },
+        "p99ChangePercent": -1.8480909829406977,
+        "allocationChangeBytesPerStep": 0.0
+      }
+    ],
+    "features": "defaults; live impacts/predicted kills/profiling off; shadow claims default",
+    "enabledEightPlayerGate": "unverified",
+    "collisionOptimization": "not implemented"
+  },
+  "blockers": [
+    "Early settlement lacks a native component paid/suppression fence and closed attack admission/order frontier.",
+    "Weapon-specific/child fidelity, rendered multi-view/high-refresh/platform/replay acceptance and predicted-kill reversal campaign are incomplete.",
+    "No measured collision optimization/parity win; no enabled eight-player allocation/p99 acceptance campaign."
+  ],
+  "platforms": {
+    "macOSArm64": {
+      "contracts": "passed; after-tests/results.json",
+      "renderedAcceptance": "unverified",
+      "engineeringContracts": {
+        "exitCode": 0,
+        "command": "PATH=/Users/jarrett/.dotnet:$PATH bash tools/check-engineering-contracts.sh",
+        "log": "platforms/engineering-contracts.log",
+        "includes": "full script, replay format/control, input/lobby/health/transport, map/replay preparation, dedicated-server compile"
+      }
+    },
+    "androidArm64": {
+      "configuration": "Debug net10.0-android36.0, embedded assemblies, RmlUi enabled",
+      "command": "dotnet build src/MphRead.Android/MphRead.Android.csproj -c Debug -r android-arm64 -p:AndroidSdkDirectory=SDK -p:JavaSdkDirectory=JDK17 -p:EmbedAssembliesIntoApk=true",
+      "buildExitCode": 0,
+      "warnings": 128,
+      "errors": 0,
+      "log": "platforms/android-arm64-build.log",
+      "nativeBridge": "rebuilt from pinned sources; platforms/android-arm64-native.log",
+      "apkRmlUiVerification": "passed via tools/rmlui/verify-runtime.py --apk APK android-arm64",
+      "apkSha256": "7543466e08137474a3e26d9bdacee217c151abdce2f991cdfc8edb4ed8e1e2b0",
+      "deviceRenderedAcceptance": "not run"
+    },
+    "ci": {
+      "implementationCommit": "c463c14a7f5a926c223f3e5393ca8a03506a0e1b",
+      "snapshot": "ci/slice6-checks.json",
+      "impactContracts": {
+        "ubuntu": "success",
+        "windows": "success",
+        "macOS": "queued at snapshot"
+      },
+      "overall": "not green; Windows native UIA invocation unacknowledged, plus a superseded-run migration aggregator treats cancelled dependencies as failure",
+      "failureLogs": [
+        "ci/slice6-windows-uia-failure.log",
+        "ci/slice6-cancelled-migration.log"
+      ],
+      "scope": "Native UI bridge failures are outside changed combat code; not asserted to be pre-existing without a baseline CI comparison."
+    }
+  },
+  "logNormalization": "New retained text logs/CSV use LF and omit trailing whitespace/BOM for repository review. Numeric/JSON payloads, event order and substantive stdout are unchanged."
+}

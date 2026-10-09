@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "scenarios": [
+    {
+      "scenario": "powerbeam-rtt250-loss2",
+      "rendered": false,
+      "authorityFactsRetained": 26,
+      "authorityRingOverwritten": 0,
+      "authorityByWeapon": {
+        "0": 26
+      },
+      "peers": [
+        {
+          "view": "peer0-impacts",
+          "liveIngressUnique": 26,
+          "authorityBacked": 26,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "0": 26
+          },
+          "localPredictionsRetained": 26,
+          "latencySamples": 25,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 300.762792,
+          "localHitToIngressP99Ms": 966.750875,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            132.495625,
+            149.760625,
+            150.097208,
+            150.196916,
+            166.74625,
+            183.063875,
+            183.357625,
+            199.489875,
+            199.5685,
+            200.042541,
+            216.088542,
+            216.17925,
+            216.544084,
+            216.752625,
+            228.264791,
+            232.286291,
+            233.013458,
+            233.160292,
+            233.320625,
+            233.459041,
+            250.370875,
+            284.57525,
+            300.762792,
+            523.5725,
+            966.750875
+          ]
+        },
+        {
+          "view": "peer1-impacts",
+          "liveIngressUnique": 26,
+          "authorityBacked": 26,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "0": 26
+          },
+          "localPredictionsRetained": 0,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        },
+        {
+          "view": "peer2-impacts",
+          "liveIngressUnique": 26,
+          "authorityBacked": 26,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "0": 26
+          },
+          "localPredictionsRetained": 0,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        },
+        {
+          "view": "peer3-impacts",
+          "liveIngressUnique": 26,
+          "authorityBacked": 26,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "0": 26
+          },
+          "localPredictionsRetained": 0,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": []
+        }
+      ],
+      "limitations": [
+        "Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.",
+        "Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.",
+        "No impact-render latency, visual correlation, observer view, or predicted-kill reversal rate is measured."
+      ]
+    }
+  ]
+}

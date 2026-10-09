@@ -1,0 +1,15 @@
+[map] 2ad6ea5ea9904fd8b558101987cdfea2.ppmap FP-MAP-010: Duplicate runtime name: MY ARENA.
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] validation_summary.json FP-MAP-001: At least one material is required.
+[map] validation_summary.json FP-MAP-014: At least one player spawn is required.
+[map] my arena.json FP-MAP-010: Duplicate runtime name: MY ARENA.
+[23:32:11] [server] 127.0.0.1:45001 joined as slot 0
+[23:32:11] [server] [lobby] revision 1 -> 2: peer slot 0 connected
+[23:32:11] [server] [lobby] revision 2 -> 3: slot 0 synchronizing
+[23:32:11] [server] [lobby] slot 0 applied world revision 1, frame 100
+[23:32:11] [server] [lobby] revision 3 -> 4: slot 0 synchronizing
+[23:32:11] [server] [lobby] revision 4 -> 5: slot 0 synchronizing
+[23:32:11] [server] [lobby] revision 5 -> 6: slot 0 synchronizing
+[23:32:11] [server] [lobby] slot 0 applied world revision 3, frame 100
+[network-lifecycle] PASS: 48 asset/rotation/headless/lease/signal and owned subprocess assertions

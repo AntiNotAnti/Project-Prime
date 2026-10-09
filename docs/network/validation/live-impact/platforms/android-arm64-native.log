@@ -1,0 +1,380 @@
+DIAGNOSTIC RMLUI START phase=rmlui-clone target=android-arm64 renderer=draw-list jobs=4
+Cloning into '/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-src/RmlUi-6.3'...
+DIAGNOSTIC RMLUI DONE phase=rmlui-clone target=android-arm64 elapsedSeconds=1
+DIAGNOSTIC RMLUI START phase=rmlui-fetch target=android-arm64 renderer=draw-list jobs=4
+From https://github.com/mikke89/RmlUi
+ * branch              ba95ffe8bfb6370efb2cdcca927eaad4710c5413 -> FETCH_HEAD
+DIAGNOSTIC RMLUI DONE phase=rmlui-fetch target=android-arm64 elapsedSeconds=0
+DIAGNOSTIC RMLUI START phase=rmlui-checkout target=android-arm64 renderer=draw-list jobs=4
+HEAD is now at ba95ffe8 RmlUi release 6.3
+DIAGNOSTIC RMLUI DONE phase=rmlui-checkout target=android-arm64 elapsedSeconds=2
+DIAGNOSTIC RMLUI START phase=freetype-clone target=android-arm64 renderer=draw-list jobs=4
+Cloning into '/Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-src/freetype-VER-2-13-3'...
+DIAGNOSTIC RMLUI DONE phase=freetype-clone target=android-arm64 elapsedSeconds=3
+DIAGNOSTIC RMLUI START phase=freetype-fetch target=android-arm64 renderer=draw-list jobs=4
+From https://github.com/freetype/freetype
+ * branch              42608f77f20749dd6ddc9e0536788eaad70ea4b5 -> FETCH_HEAD
+DIAGNOSTIC RMLUI DONE phase=freetype-fetch target=android-arm64 elapsedSeconds=1
+DIAGNOSTIC RMLUI START phase=freetype-checkout target=android-arm64 renderer=draw-list jobs=4
+HEAD is now at 42608f77 * Version 2.13.3 released. ==========================
+DIAGNOSTIC RMLUI DONE phase=freetype-checkout target=android-arm64 elapsedSeconds=2
+DIAGNOSTIC RMLUI START phase=freetype-configure target=android-arm64 renderer=draw-list jobs=4
+CMake Warning (deprecated) at CMakeLists.txt:113 (cmake_minimum_required):
+  Compatibility with CMake < 3.10 will be removed from a future version of
+  CMake.
+
+  Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+  to tell CMake that the project requires at least <min> but has been updated
+  to work with policies introduced by <max> or earlier.
+This warning is for project developers.  Use -Wno-author or -Wno-deprecated
+to suppress it.
+
+-- The C compiler identification is Clang 19.0.1
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /Users/jarrett/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Found PkgConfig: /opt/homebrew/bin/pkg-config (found version "3.0.7")
+-- Looking for unistd.h
+-- Looking for unistd.h - found
+-- Looking for fcntl.h
+-- Looking for fcntl.h - found
+-- Configuring done (0.7s)
+-- Generating done (0.0s)
+-- Build files have been written to: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-build/freetype-android-arm64
+DIAGNOSTIC RMLUI DONE phase=freetype-configure target=android-arm64 elapsedSeconds=1
+DIAGNOSTIC RMLUI START phase=freetype-build target=android-arm64 renderer=draw-list jobs=4
+[  2%] Building C object CMakeFiles/freetype.dir/src/base/ftbbox.c.o
+[  9%] Building C object CMakeFiles/freetype.dir/src/base/ftbase.c.o
+[  9%] Building C object CMakeFiles/freetype.dir/src/base/ftbdf.c.o
+[  9%] Building C object CMakeFiles/freetype.dir/src/autofit/autofit.c.o
+[ 11%] Building C object CMakeFiles/freetype.dir/src/base/ftbitmap.c.o
+[ 13%] Building C object CMakeFiles/freetype.dir/src/base/ftcid.c.o
+[ 16%] Building C object CMakeFiles/freetype.dir/src/base/ftfstype.c.o
+[ 18%] Building C object CMakeFiles/freetype.dir/src/base/ftgasp.c.o
+[ 20%] Building C object CMakeFiles/freetype.dir/src/base/ftglyph.c.o
+[ 23%] Building C object CMakeFiles/freetype.dir/src/base/ftgxval.c.o
+[ 25%] Building C object CMakeFiles/freetype.dir/src/base/ftinit.c.o
+[ 27%] Building C object CMakeFiles/freetype.dir/src/base/ftmm.c.o
+[ 30%] Building C object CMakeFiles/freetype.dir/src/base/ftotval.c.o
+[ 32%] Building C object CMakeFiles/freetype.dir/src/base/ftpatent.c.o
+[ 34%] Building C object CMakeFiles/freetype.dir/src/base/ftpfr.c.o
+[ 37%] Building C object CMakeFiles/freetype.dir/src/base/ftstroke.c.o
+[ 39%] Building C object CMakeFiles/freetype.dir/src/base/ftsynth.c.o
+[ 41%] Building C object CMakeFiles/freetype.dir/src/base/fttype1.c.o
+[ 44%] Building C object CMakeFiles/freetype.dir/src/base/ftwinfnt.c.o
+[ 46%] Building C object CMakeFiles/freetype.dir/src/bdf/bdf.c.o
+[ 48%] Building C object CMakeFiles/freetype.dir/src/bzip2/ftbzip2.c.o
+[ 51%] Building C object CMakeFiles/freetype.dir/src/cache/ftcache.c.o
+[ 53%] Building C object CMakeFiles/freetype.dir/src/cff/cff.c.o
+[ 55%] Building C object CMakeFiles/freetype.dir/src/cid/type1cid.c.o
+[ 58%] Building C object CMakeFiles/freetype.dir/src/gzip/ftgzip.c.o
+[ 60%] Building C object CMakeFiles/freetype.dir/src/lzw/ftlzw.c.o
+[ 62%] Building C object CMakeFiles/freetype.dir/src/pcf/pcf.c.o
+[ 65%] Building C object CMakeFiles/freetype.dir/src/pfr/pfr.c.o
+[ 67%] Building C object CMakeFiles/freetype.dir/src/psaux/psaux.c.o
+[ 69%] Building C object CMakeFiles/freetype.dir/src/pshinter/pshinter.c.o
+[ 72%] Building C object CMakeFiles/freetype.dir/src/psnames/psnames.c.o
+[ 74%] Building C object CMakeFiles/freetype.dir/src/raster/raster.c.o
+[ 76%] Building C object CMakeFiles/freetype.dir/src/sdf/sdf.c.o
+[ 79%] Building C object CMakeFiles/freetype.dir/src/sfnt/sfnt.c.o
+[ 81%] Building C object CMakeFiles/freetype.dir/src/smooth/smooth.c.o
+[ 83%] Building C object CMakeFiles/freetype.dir/src/svg/svg.c.o
+[ 86%] Building C object CMakeFiles/freetype.dir/src/truetype/truetype.c.o
+[ 88%] Building C object CMakeFiles/freetype.dir/src/type1/type1.c.o
+[ 90%] Building C object CMakeFiles/freetype.dir/src/type42/type42.c.o
+[ 93%] Building C object CMakeFiles/freetype.dir/src/winfonts/winfnt.c.o
+[ 95%] Building C object CMakeFiles/freetype.dir/builds/unix/ftsystem.c.o
+[ 97%] Building C object CMakeFiles/freetype.dir/src/base/ftdebug.c.o
+[100%] Linking C static library libfreetype.a
+[100%] Built target freetype
+DIAGNOSTIC RMLUI DONE phase=freetype-build target=android-arm64 elapsedSeconds=4
+DIAGNOSTIC RMLUI START phase=freetype-install target=android-arm64 renderer=draw-list jobs=4
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftsnames.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftwinfnt.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftsizes.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/fttypes.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftparams.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftmm.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/config
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/config/integer-types.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/config/ftstdlib.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/config/ftheader.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/config/mac-support.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/config/ftmodule.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/config/public-macros.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftcolor.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftmodapi.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftbzip2.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/fttrigon.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftbbox.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftlogging.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftgzip.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftdriver.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftoutln.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftadvanc.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftsynth.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/fterrors.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftgasp.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftstroke.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftcache.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftotval.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/freetype.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftincrem.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftfntfmt.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/fterrdef.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ttnameid.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftpfr.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftgxval.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftchapters.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/tttags.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftlzw.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftsystem.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/t1tables.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/otsvg.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftimage.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/tttables.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftcid.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftglyph.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftmoderr.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftbitmap.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftlist.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftmac.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftlcdfil.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftbdf.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/ftrender.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/ft2build.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/config/ftconfig.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/include/freetype2/freetype/config/ftoption.h
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/lib/pkgconfig/freetype2.pc
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/lib/libfreetype.a
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/lib/cmake/freetype/freetype-config.cmake
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/lib/cmake/freetype/freetype-config-release.cmake
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/lib/cmake/freetype/freetype-config-version.cmake
+DIAGNOSTIC RMLUI DONE phase=freetype-install target=android-arm64 elapsedSeconds=0
+DIAGNOSTIC RMLUI START phase=bridge-configure target=android-arm64 renderer=draw-list jobs=4
+-- The CXX compiler identification is Clang 19.0.1
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /Users/jarrett/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found Freetype: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-deps/freetype-android-arm64/lib/libfreetype.a (found version "2.13.3")
+-- The C compiler identification is Clang 19.0.1
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /Users/jarrett/Library/Android/sdk/ndk/28.2.13676358/toolchains/llvm/prebuilt/darwin-x86_64/bin/clang - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Found Freetype::Freetype v2.13.3 - Freetype font engine enabled
+-- Configuring done (0.7s)
+-- Generating done (0.1s)
+-- Build files have been written to: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-poc-build/bridge-android-arm64-draw-list
+DIAGNOSTIC RMLUI DONE phase=bridge-configure target=android-arm64 elapsedSeconds=1
+DIAGNOSTIC RMLUI START phase=bridge-build target=android-arm64 renderer=draw-list jobs=4
+[  0%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/BaseXMLParser.cpp.o
+[  1%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Box.cpp.o
+[  2%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/CallbackTexture.cpp.o
+[  2%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/BoxShadowCache.cpp.o
+[  2%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Clock.cpp.o
+[  3%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/CompiledFilterShader.cpp.o
+[  3%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ComputedValues.cpp.o
+[  4%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ComputeProperty.cpp.o
+[  4%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Context.cpp.o
+[  5%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ContextInstancer.cpp.o
+[  5%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ContextInstancerDefault.cpp.o
+[  6%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ConvolutionFilter.cpp.o
+[  6%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Core.cpp.o
+[  7%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DataController.cpp.o
+[  7%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DataControllerDefault.cpp.o
+[  8%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DataExpression.cpp.o
+[  8%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DataModel.cpp.o
+[  9%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DataModelHandle.cpp.o
+[  9%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DataTypeRegister.cpp.o
+[ 10%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DataVariable.cpp.o
+[ 10%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DataView.cpp.o
+[ 11%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DataViewDefault.cpp.o
+[ 11%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Decorator.cpp.o
+[ 12%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DecoratorGradient.cpp.o
+[ 12%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DecoratorNinePatch.cpp.o
+[ 13%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DecoratorShader.cpp.o
+[ 13%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DecoratorText.cpp.o
+[ 14%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DecoratorTiled.cpp.o
+[ 14%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DecoratorTiledBox.cpp.o
+[ 15%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DecoratorTiledHorizontal.cpp.o
+[ 15%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DecoratorTiledImage.cpp.o
+[ 16%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DecoratorTiledVertical.cpp.o
+[ 16%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DecoratorUtilities.cpp.o
+[ 17%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/DocumentHeader.cpp.o
+[ 17%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/EffectSpecification.cpp.o
+[ 18%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Element.cpp.o
+[ 18%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ElementAnimation.cpp.o
+[ 20%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ElementBackgroundBorder.cpp.o
+[ 20%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ElementDefinition.cpp.o
+[ 20%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ElementDocument.cpp.o
+[ 21%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ElementEffects.cpp.o
+[ 21%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ElementHandle.cpp.o
+[ 22%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ElementInstancer.cpp.o
+[ 22%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ElementMeta.cpp.o
+[ 23%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ElementScroll.cpp.o
+[ 23%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ElementStyle.cpp.o
+[ 24%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ElementText.cpp.o
+[ 24%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ElementUtilities.cpp.o
+[ 25%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Event.cpp.o
+[ 25%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/EventDispatcher.cpp.o
+[ 26%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/EventInstancer.cpp.o
+[ 26%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/EventInstancerDefault.cpp.o
+[ 27%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/EventListenerInstancer.cpp.o
+[ 27%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/EventSpecification.cpp.o
+[ 28%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Factory.cpp.o
+[ 28%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FileInterface.cpp.o
+[ 29%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FileInterfaceDefault.cpp.o
+[ 29%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Filter.cpp.o
+[ 30%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FilterBasic.cpp.o
+[ 30%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FilterBlur.cpp.o
+[ 31%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FilterDropShadow.cpp.o
+[ 31%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FontEffect.cpp.o
+[ 32%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FontEffectBlur.cpp.o
+[ 32%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FontEffectGlow.cpp.o
+[ 33%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FontEffectInstancer.cpp.o
+[ 33%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FontEffectOutline.cpp.o
+[ 34%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FontEffectShadow.cpp.o
+[ 34%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FontEngineInterface.cpp.o
+[ 35%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Geometry.cpp.o
+[ 35%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/GeometryBackgroundBorder.cpp.o
+[ 36%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/GeometryBoxShadow.cpp.o
+[ 36%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Log.cpp.o
+[ 37%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/LogDefault.cpp.o
+[ 37%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Math.cpp.o
+[ 38%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Memory.cpp.o
+[ 38%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/MeshUtilities.cpp.o
+[ 40%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ObserverPtr.cpp.o
+[ 40%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Plugin.cpp.o
+[ 41%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/PluginRegistry.cpp.o
+[ 41%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Profiling.cpp.o
+[ 41%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/PropertiesIteratorView.cpp.o
+[ 42%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Property.cpp.o
+[ 42%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/PropertyDefinition.cpp.o
+[ 43%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/PropertyDictionary.cpp.o
+[ 43%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/PropertyParserAnimation.cpp.o
+[ 44%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/PropertyParserBoxShadow.cpp.o
+[ 44%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/PropertyParserColorStopList.cpp.o
+[ 45%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/PropertyParserColour.cpp.o
+[ 45%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/PropertyParserDecorator.cpp.o
+[ 46%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/PropertyParserFilter.cpp.o
+[ 46%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/PropertyParserFontEffect.cpp.o
+[ 47%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/PropertyParserKeyword.cpp.o
+[ 47%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/PropertyParserNumber.cpp.o
+[ 48%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/PropertyParserRatio.cpp.o
+[ 48%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/PropertyParserString.cpp.o
+[ 49%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/PropertyParserTransform.cpp.o
+[ 49%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/PropertySpecification.cpp.o
+[ 50%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/RenderInterface.cpp.o
+[ 50%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/RenderInterfaceCompatibility.cpp.o
+[ 51%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/RenderManager.cpp.o
+[ 51%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/RenderManagerAccess.cpp.o
+[ 52%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ScriptInterface.cpp.o
+[ 52%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/ScrollController.cpp.o
+[ 53%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Spritesheet.cpp.o
+[ 53%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Stream.cpp.o
+[ 54%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/StreamFile.cpp.o
+[ 54%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/StreamMemory.cpp.o
+[ 55%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/StringUtilities.cpp.o
+[ 55%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/StyleSheet.cpp.o
+[ 56%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/StyleSheetContainer.cpp.o
+[ 56%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/StyleSheetFactory.cpp.o
+[ 57%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/StyleSheetNode.cpp.o
+[ 57%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/StyleSheetParser.cpp.o
+[ 58%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/StyleSheetSelector.cpp.o
+[ 58%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/StyleSheetSpecification.cpp.o
+[ 60%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/SystemInterface.cpp.o
+[ 60%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Template.cpp.o
+[ 61%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/TemplateCache.cpp.o
+[ 61%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Texture.cpp.o
+[ 62%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/TextureDatabase.cpp.o
+[ 62%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/TextureLayout.cpp.o
+[ 62%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/TextureLayoutRectangle.cpp.o
+[ 63%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/TextureLayoutRow.cpp.o
+[ 63%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/TextureLayoutTexture.cpp.o
+[ 64%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Traits.cpp.o
+[ 64%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Transform.cpp.o
+[ 65%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/TransformPrimitive.cpp.o
+[ 65%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/TransformState.cpp.o
+[ 66%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/TransformUtilities.cpp.o
+[ 66%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Tween.cpp.o
+[ 67%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/TypeConverter.cpp.o
+[ 67%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/URL.cpp.o
+[ 68%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Variant.cpp.o
+[ 68%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/WidgetScroll.cpp.o
+[ 69%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/XMLNodeHandler.cpp.o
+[ 69%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/XMLNodeHandlerBody.cpp.o
+[ 70%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/XMLNodeHandlerDefault.cpp.o
+[ 70%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/XMLNodeHandlerHead.cpp.o
+[ 71%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/XMLNodeHandlerTemplate.cpp.o
+[ 71%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/XMLParser.cpp.o
+[ 72%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/XMLParseTools.cpp.o
+[ 72%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/ElementFormControl.cpp.o
+[ 73%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/ElementFormControlInput.cpp.o
+[ 73%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/ElementFormControlSelect.cpp.o
+[ 74%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/ElementFormControlTextArea.cpp.o
+[ 74%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/ElementForm.cpp.o
+[ 75%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/ElementImage.cpp.o
+[ 75%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/ElementLabel.cpp.o
+[ 76%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/ElementProgress.cpp.o
+[ 76%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/ElementTabSet.cpp.o
+[ 77%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/ElementTextSelection.cpp.o
+[ 77%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/InputTypeButton.cpp.o
+[ 78%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/InputTypeCheckbox.cpp.o
+[ 78%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/InputType.cpp.o
+[ 80%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/InputTypeRadio.cpp.o
+[ 80%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/InputTypeRange.cpp.o
+[ 81%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/InputTypeSubmit.cpp.o
+[ 81%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/InputTypeText.cpp.o
+[ 82%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/WidgetDropDown.cpp.o
+[ 82%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/WidgetSlider.cpp.o
+[ 83%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/WidgetTextInput.cpp.o
+[ 83%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/WidgetTextInputMultiLine.cpp.o
+[ 83%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/WidgetTextInputSingleLine.cpp.o
+[ 84%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/WidgetTextInputSingleLinePassword.cpp.o
+[ 84%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/XMLNodeHandlerSelect.cpp.o
+[ 85%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/XMLNodeHandlerTextArea.cpp.o
+[ 85%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Elements/XMLNodeHandlerTabSet.cpp.o
+[ 86%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Layout/BlockContainer.cpp.o
+[ 86%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Layout/BlockFormattingContext.cpp.o
+[ 87%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Layout/ContainerBox.cpp.o
+[ 87%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Layout/FlexFormattingContext.cpp.o
+[ 88%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Layout/FloatedBoxSpace.cpp.o
+[ 88%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Layout/FormattingContext.cpp.o
+[ 89%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Layout/InlineBox.cpp.o
+[ 89%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Layout/InlineContainer.cpp.o
+[ 90%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Layout/InlineLevelBox.cpp.o
+[ 90%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Layout/LayoutBox.cpp.o
+[ 91%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Layout/LayoutDetails.cpp.o
+[ 91%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Layout/LayoutEngine.cpp.o
+[ 92%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Layout/LayoutPools.cpp.o
+[ 92%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Layout/LineBox.cpp.o
+[ 93%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Layout/ReplacedFormattingContext.cpp.o
+[ 93%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Layout/TableFormattingContext.cpp.o
+[ 94%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/Layout/TableFormattingDetails.cpp.o
+[ 94%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FontEngineDefault/FontEngineInterfaceDefault.cpp.o
+[ 95%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FontEngineDefault/FontFace.cpp.o
+[ 95%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FontEngineDefault/FontFaceHandleDefault.cpp.o
+[ 96%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FontEngineDefault/FontFaceLayer.cpp.o
+[ 96%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FontEngineDefault/FontFamily.cpp.o
+[ 97%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FontEngineDefault/FontProvider.cpp.o
+[ 97%] Building CXX object rmlui/Source/Core/CMakeFiles/rmlui_core.dir/FontEngineDefault/FreeTypeInterface.cpp.o
+[ 98%] Linking CXX static library ../../../librmlui.a
+[ 98%] Built target rmlui_core
+[ 98%] Building CXX object CMakeFiles/ProjectPrimeRmlUiNative.dir/projectprime_rmlui.cpp.o
+[ 98%] Building CXX object CMakeFiles/ProjectPrimeRmlUiNative.dir/projectprime_rmlui_draw_list.cpp.o
+[100%] Linking CXX shared library libProjectPrime.RmlUi.Native.so
+[100%] Built target ProjectPrimeRmlUiNative
+DIAGNOSTIC RMLUI DONE phase=bridge-build target=android-arm64 elapsedSeconds=51
+DIAGNOSTIC RMLUI START phase=bridge-install target=android-arm64 renderer=draw-list jobs=4
+-- Installing: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-native-android/lib/arm64-v8a/libProjectPrime.RmlUi.Native.so
+DIAGNOSTIC RMLUI DONE phase=bridge-install target=android-arm64 elapsedSeconds=0
+verified RmlUi runtime: /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-native-android/lib/arm64-v8a/libProjectPrime.RmlUi.Native.so (android-arm64, draw-list)
+RmlUi native runtime -> /Users/jarrett/.codex/worktrees/pr109-combat-impacts/Prime Hunters Online/artifacts/rmlui-native-android/lib/arm64-v8a

@@ -294,5 +294,10 @@
         "transport lock contention (no transport in this workload)"
       ]
     }
+  },
+  "nativeRegressionControls": {
+    "summary": "native-baseline/summary.json",
+    "manifest": "native-baseline/manifest.json",
+    "scope": "Two failed current fixture arms repeated on the frozen pristine protocol-44 assembly; both reproduce zero authoritative confirmations. This is not a visual acceptance baseline."
   }
 }

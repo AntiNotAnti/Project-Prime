@@ -1,0 +1,681 @@
+2026-10-09T04:23:57.5152855Z Current runner version: '2.337.0'
+2026-10-09T04:23:57.5175571Z ##[group]Runner Image Provisioner
+2026-10-09T04:23:57.5176256Z Hosted Compute Agent
+2026-10-09T04:23:57.5176703Z Version: 20260901.588
+2026-10-09T04:23:57.5177174Z Commit: f88ec8081b781fac6c440065ac7ff9e710ce3d0b
+2026-10-09T04:23:57.5177751Z Build Date: 2026-09-01T19:56:44Z
+2026-10-09T04:23:57.5178259Z Worker ID: {63b23953-56db-45ea-bc54-6f8c3a687652}
+2026-10-09T04:23:57.5178808Z Azure Region: mexicocentral
+2026-10-09T04:23:57.5179258Z ##[endgroup]
+2026-10-09T04:23:57.5180385Z ##[group]Operating System
+2026-10-09T04:23:57.5180874Z Microsoft Windows Server 2025
+2026-10-09T04:23:57.5181327Z 10.0.26100
+2026-10-09T04:23:57.5181719Z Datacenter
+2026-10-09T04:23:57.5182109Z ##[endgroup]
+2026-10-09T04:23:57.5182501Z ##[group]Runner Image
+2026-10-09T04:23:57.5182961Z Image: windows-2025-vs2026
+2026-10-09T04:23:57.5183454Z Version: 20260925.250.1
+2026-10-09T04:23:57.5184634Z Included Software: https://github.com/actions/runner-images/blob/win25-vs2026/20260925.250/images/windows/Windows2025-VS2026-Readme.md
+2026-10-09T04:23:57.5185896Z Image Release: https://github.com/actions/runner-images/releases/tag/win25-vs2026%2F20260925.250
+2026-10-09T04:23:57.5186668Z ##[endgroup]
+2026-10-09T04:23:57.5187509Z ##[group]GITHUB_TOKEN Permissions
+2026-10-09T04:23:57.5189149Z Contents: read
+2026-10-09T04:23:57.5189630Z Metadata: read
+2026-10-09T04:23:57.5190056Z ##[endgroup]
+2026-10-09T04:23:57.5191718Z Secret source: Actions
+2026-10-09T04:23:57.5192397Z Cache mode: write
+2026-10-09T04:23:57.5192923Z Prepare workflow directory
+2026-10-09T04:23:57.5508109Z Prepare all required actions
+2026-10-09T04:23:57.5565162Z Getting action download info
+2026-10-09T04:23:57.8351163Z Download action repository 'actions/checkout@v7' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+2026-10-09T04:23:57.9413470Z Download action repository 'actions/setup-dotnet@v6' (SHA:a98b56852c35b8e3190ac28c8c2271da59106c68)
+2026-10-09T04:23:58.5787526Z Download action repository 'actions/setup-python@v6' (SHA:ece7cb06caefa5fff74198d8649806c4678c61a1)
+2026-10-09T04:23:58.7229582Z Download action repository 'actions/upload-artifact@v7' (SHA:cf430e030ddbb5b0abf93d22962f4752f3646cd9)
+2026-10-09T04:23:59.4676451Z Complete job name: RmlUi without a desktop OpenGL dependency (win-x64)
+2026-10-09T04:23:59.6598164Z ##[group]Run actions/checkout@v7
+2026-10-09T04:23:59.6600723Z with:
+2026-10-09T04:23:59.6601145Z   repository: AntiNotAnti/Project-Prime
+2026-10-09T04:23:59.6603732Z   token: ***
+2026-10-09T04:23:59.6604071Z   ssh-strict: true
+2026-10-09T04:23:59.6604389Z   ssh-user: git
+2026-10-09T04:23:59.6604783Z   persist-credentials: true
+2026-10-09T04:23:59.6605150Z   clean: true
+2026-10-09T04:23:59.6605721Z   sparse-checkout-cone-mode: true
+2026-10-09T04:23:59.6606113Z   fetch-depth: 1
+2026-10-09T04:23:59.6606586Z   fetch-tags: false
+2026-10-09T04:23:59.6606955Z   show-progress: true
+2026-10-09T04:23:59.6607312Z   lfs: false
+2026-10-09T04:23:59.6607754Z   submodules: false
+2026-10-09T04:23:59.6608715Z   set-safe-directory: true
+2026-10-09T04:23:59.6609139Z   allow-unsafe-pr-checkout: false
+2026-10-09T04:23:59.6609981Z ##[endgroup]
+2026-10-09T04:23:59.8235184Z Syncing repository: AntiNotAnti/Project-Prime
+2026-10-09T04:23:59.8236504Z ##[group]Getting Git version info
+2026-10-09T04:23:59.8237002Z Working directory is 'D:\a\Project-Prime\Project-Prime'
+2026-10-09T04:23:59.8855624Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-10-09T04:24:00.2242359Z git version 2.55.0.windows.5
+2026-10-09T04:24:00.2290680Z ##[endgroup]
+2026-10-09T04:24:00.2306673Z Temporarily overriding HOME='D:\a\_temp\c7b3b717-6ad7-40e3-927b-65fdd6d0069e' before making global git config changes
+2026-10-09T04:24:00.2307445Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-09T04:24:00.2316595Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\Project-Prime\Project-Prime
+2026-10-09T04:24:00.2884258Z Deleting the contents of 'D:\a\Project-Prime\Project-Prime'
+2026-10-09T04:24:00.2889084Z ##[group]Determining repository object format
+2026-10-09T04:24:00.2890830Z ##[endgroup]
+2026-10-09T04:24:00.2891183Z ##[group]Initializing the repository
+2026-10-09T04:24:00.2898558Z [command]"C:\Program Files\Git\bin\git.exe" init D:\a\Project-Prime\Project-Prime
+2026-10-09T04:24:00.3653166Z Initialized empty Git repository in D:/a/Project-Prime/Project-Prime/.git/
+2026-10-09T04:24:00.3702648Z [command]"C:\Program Files\Git\bin\git.exe" remote add origin https://github.com/AntiNotAnti/Project-Prime
+2026-10-09T04:24:00.4282709Z ##[endgroup]
+2026-10-09T04:24:00.4283328Z ##[group]Disabling automatic garbage collection
+2026-10-09T04:24:00.4290996Z [command]"C:\Program Files\Git\bin\git.exe" config --local gc.auto 0
+2026-10-09T04:24:00.4569092Z ##[endgroup]
+2026-10-09T04:24:00.4569661Z ##[group]Setting up auth
+2026-10-09T04:24:00.4570111Z Removing SSH command configuration
+2026-10-09T04:24:00.4579946Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-10-09T04:24:00.4848624Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-10-09T04:24:01.8917754Z Removing HTTP extra header
+2026-10-09T04:24:01.8927373Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-09T04:24:01.9194108Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-10-09T04:24:02.4097997Z Removing includeIf entries pointing to credentials config files
+2026-10-09T04:24:02.4108919Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-09T04:24:02.4379289Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-10-09T04:24:02.9383848Z [command]"C:\Program Files\Git\bin\git.exe" config --file D:\a\_temp\git-credentials-8fcac509-fbd5-4444-9c6e-e3747cad3cb4.config http.https://github.com/.extraheader "AUTHORIZATION: basic ***"
+2026-10-09T04:24:02.9664128Z [command]"C:\Program Files\Git\bin\git.exe" config --local includeIf.gitdir:D:/a/Project-Prime/Project-Prime/.git.path D:\a\_temp\git-credentials-8fcac509-fbd5-4444-9c6e-e3747cad3cb4.config
+2026-10-09T04:24:02.9933432Z [command]"C:\Program Files\Git\bin\git.exe" config --local includeIf.gitdir:D:/a/Project-Prime/Project-Prime/.git/worktrees/*.path D:\a\_temp\git-credentials-8fcac509-fbd5-4444-9c6e-e3747cad3cb4.config
+2026-10-09T04:24:03.0253098Z [command]"C:\Program Files\Git\bin\git.exe" config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-8fcac509-fbd5-4444-9c6e-e3747cad3cb4.config
+2026-10-09T04:24:03.0529959Z [command]"C:\Program Files\Git\bin\git.exe" config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-8fcac509-fbd5-4444-9c6e-e3747cad3cb4.config
+2026-10-09T04:24:03.0816704Z ##[endgroup]
+2026-10-09T04:24:03.0817142Z ##[group]Fetching the repository
+2026-10-09T04:24:03.0833242Z [command]"C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +b857be352fc9efc1a98ab0c8513b600a88dc1527:refs/remotes/pull/415/merge
+2026-10-09T04:24:05.6250527Z From https://github.com/AntiNotAnti/Project-Prime
+2026-10-09T04:24:05.6252262Z  * [new ref]         b857be352fc9efc1a98ab0c8513b600a88dc1527 -> pull/415/merge
+2026-10-09T04:24:05.6298016Z ##[endgroup]
+2026-10-09T04:24:05.6298375Z ##[group]Determining the checkout info
+2026-10-09T04:24:05.6298824Z ##[endgroup]
+2026-10-09T04:24:05.6307178Z [command]"C:\Program Files\Git\bin\git.exe" sparse-checkout disable
+2026-10-09T04:24:05.6712540Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset-all extensions.worktreeConfig
+2026-10-09T04:24:05.6983319Z ##[group]Checking out the ref
+2026-10-09T04:24:05.6992550Z [command]"C:\Program Files\Git\bin\git.exe" checkout --progress --force refs/remotes/pull/415/merge
+2026-10-09T04:24:06.7165018Z Note: switching to 'refs/remotes/pull/415/merge'.
+2026-10-09T04:24:06.7165395Z
+2026-10-09T04:24:06.7165624Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-10-09T04:24:06.7166167Z changes and commit them, and you can discard any commits you make in this
+2026-10-09T04:24:06.7166706Z state without impacting any branches by switching back to a branch.
+2026-10-09T04:24:06.7167038Z
+2026-10-09T04:24:06.7167275Z If you want to create a new branch to retain commits you create, you may
+2026-10-09T04:24:06.7167846Z do so (now or later) by using -c with the switch command. Example:
+2026-10-09T04:24:06.7168188Z
+2026-10-09T04:24:06.7168337Z   git switch -c <new-branch-name>
+2026-10-09T04:24:06.7168585Z
+2026-10-09T04:24:06.7168704Z Or undo this operation with:
+2026-10-09T04:24:06.7168891Z
+2026-10-09T04:24:06.7168983Z   git switch -
+2026-10-09T04:24:06.7169116Z
+2026-10-09T04:24:06.7169381Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-10-09T04:24:06.7169759Z
+2026-10-09T04:24:06.7736736Z HEAD is now at b857be3 Merge 411796006e28c350ca4adafc3d50bada2b1baaf1 into c939be7b614adb782c33450d719ce5281dad9415
+2026-10-09T04:24:06.8022315Z ##[endgroup]
+2026-10-09T04:24:06.8398242Z [command]"C:\Program Files\Git\bin\git.exe" log -1 --format=%H
+2026-10-09T04:24:06.8634907Z b857be352fc9efc1a98ab0c8513b600a88dc1527
+2026-10-09T04:24:06.9023879Z ##[group]Run actions/setup-dotnet@v6
+2026-10-09T04:24:06.9024154Z with:
+2026-10-09T04:24:06.9024309Z   dotnet-version: 10.0.x
+2026-10-09T04:24:06.9024557Z   cache: false
+2026-10-09T04:24:06.9024702Z ##[endgroup]
+2026-10-09T04:24:07.1144317Z [command]"C:\Program Files\PowerShell\7\pwsh.exe" -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command & 'D:\a\_actions\actions\setup-dotnet\v6\externals\install-dotnet.ps1' -SkipNonVersionedFiles -Runtime dotnet -Channel LTS
+2026-10-09T04:24:08.5439821Z dotnet-install: .NET Core Runtime with version '10.0.12' is already installed.
+2026-10-09T04:24:08.6481834Z [command]"C:\Program Files\PowerShell\7\pwsh.exe" -NoLogo -Sta -NoProfile -NonInteractive -ExecutionPolicy Unrestricted -Command & 'D:\a\_actions\actions\setup-dotnet\v6\externals\install-dotnet.ps1' -SkipNonVersionedFiles -Channel 10.0
+2026-10-09T04:24:09.4805195Z dotnet-install: .NET Core SDK with version '10.0.401' is already installed.
+2026-10-09T04:24:09.5733762Z ##[group]Run actions/setup-python@v6
+2026-10-09T04:24:09.5734040Z with:
+2026-10-09T04:24:09.5734202Z   python-version: 3.12
+2026-10-09T04:24:09.5734381Z   check-latest: false
+2026-10-09T04:24:09.5736320Z   token: ***
+2026-10-09T04:24:09.5736505Z   update-environment: true
+2026-10-09T04:24:09.5736701Z   allow-prereleases: false
+2026-10-09T04:24:09.5736872Z   freethreaded: false
+2026-10-09T04:24:09.5737027Z env:
+2026-10-09T04:24:09.5737190Z   DOTNET_ROOT: C:\Program Files\dotnet
+2026-10-09T04:24:09.5737387Z ##[endgroup]
+2026-10-09T04:24:09.7183817Z ##[group]Installed versions
+2026-10-09T04:24:09.7371540Z Successfully set up CPython (3.12.10)
+2026-10-09T04:24:09.7372207Z ##[endgroup]
+2026-10-09T04:24:09.7646405Z ##[group]Run tools/rmlui/build-native.sh "win-x64" draw-list
+2026-10-09T04:24:09.7646843Z [36;1mtools/rmlui/build-native.sh "win-x64" draw-list[0m
+2026-10-09T04:24:09.7665133Z shell: C:\Program Files\Git\bin\bash.EXE --noprofile --norc -e -o pipefail {0}
+2026-10-09T04:24:09.7665443Z env:
+2026-10-09T04:24:09.7665606Z   DOTNET_ROOT: C:\Program Files\dotnet
+2026-10-09T04:24:09.7665872Z   pythonLocation: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-10-09T04:24:09.7666232Z   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.12.10\x64/lib/pkgconfig
+2026-10-09T04:24:09.7666816Z   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-10-09T04:24:09.7667122Z   Python2_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-10-09T04:24:09.7667429Z   Python3_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-10-09T04:24:09.7667660Z ##[endgroup]
+2026-10-09T04:24:10.1147206Z DIAGNOSTIC RMLUI START phase=rmlui-clone target=win-x64 renderer=draw-list jobs=2
+2026-10-09T04:24:10.1853704Z Cloning into 'D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-src/RmlUi-6.3'...
+2026-10-09T04:24:11.0556513Z DIAGNOSTIC RMLUI DONE phase=rmlui-clone target=win-x64 elapsedSeconds=1
+2026-10-09T04:24:11.0557447Z DIAGNOSTIC RMLUI START phase=rmlui-fetch target=win-x64 renderer=draw-list jobs=2
+2026-10-09T04:24:11.5429144Z From https://github.com/mikke89/RmlUi
+2026-10-09T04:24:11.5429800Z  * branch              ba95ffe8bfb6370efb2cdcca927eaad4710c5413 -> FETCH_HEAD
+2026-10-09T04:24:11.6057535Z DIAGNOSTIC RMLUI DONE phase=rmlui-fetch target=win-x64 elapsedSeconds=0
+2026-10-09T04:24:11.6058400Z DIAGNOSTIC RMLUI START phase=rmlui-checkout target=win-x64 renderer=draw-list jobs=2
+2026-10-09T04:24:13.2983613Z HEAD is now at ba95ffe8 RmlUi release 6.3
+2026-10-09T04:24:13.3038202Z DIAGNOSTIC RMLUI DONE phase=rmlui-checkout target=win-x64 elapsedSeconds=2
+2026-10-09T04:24:13.4917264Z DIAGNOSTIC RMLUI START phase=freetype-clone target=win-x64 renderer=draw-list jobs=2
+2026-10-09T04:24:13.5145533Z Cloning into 'D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-src/freetype-VER-2-13-3'...
+2026-10-09T04:24:14.5706037Z DIAGNOSTIC RMLUI DONE phase=freetype-clone target=win-x64 elapsedSeconds=1
+2026-10-09T04:24:14.5706967Z DIAGNOSTIC RMLUI START phase=freetype-fetch target=win-x64 renderer=draw-list jobs=2
+2026-10-09T04:24:15.7017157Z From https://github.com/freetype/freetype
+2026-10-09T04:24:15.7017589Z  * branch              42608f77f20749dd6ddc9e0536788eaad70ea4b5 -> FETCH_HEAD
+2026-10-09T04:24:15.7336449Z DIAGNOSTIC RMLUI DONE phase=freetype-fetch target=win-x64 elapsedSeconds=1
+2026-10-09T04:24:15.7337261Z DIAGNOSTIC RMLUI START phase=freetype-checkout target=win-x64 renderer=draw-list jobs=2
+2026-10-09T04:24:17.5503729Z HEAD is now at 42608f77 * Version 2.13.3 released. ==========================
+2026-10-09T04:24:17.5556394Z DIAGNOSTIC RMLUI DONE phase=freetype-checkout target=win-x64 elapsedSeconds=2
+2026-10-09T04:24:17.7171018Z DIAGNOSTIC RMLUI START phase=freetype-configure target=win-x64 renderer=draw-list jobs=2
+2026-10-09T04:24:18.4256812Z CMake Warning (deprecated) at CMakeLists.txt:113 (cmake_minimum_required):
+2026-10-09T04:24:18.4257543Z -- Building for: Visual Studio 18 2026
+2026-10-09T04:24:18.4258036Z   Compatibility with CMake < 3.10 will be removed from a future version of
+2026-10-09T04:24:18.4258425Z   CMake.
+2026-10-09T04:24:18.4258542Z
+2026-10-09T04:24:18.4258787Z   Update the VERSION argument <min> value.  Or, use the <min>...<max> syntax
+2026-10-09T04:24:18.4259350Z   to tell CMake that the project requires at least <min> but has been updated
+2026-10-09T04:24:18.4259888Z   to work with policies introduced by <max> or earlier.
+2026-10-09T04:24:18.4260368Z This warning is for project developers.  Use -Wno-author or -Wno-deprecated
+2026-10-09T04:24:18.4260786Z to suppress it.
+2026-10-09T04:24:18.4260920Z
+2026-10-09T04:24:30.7210812Z -- The C compiler identification is MSVC 19.51.36260.0
+2026-10-09T04:24:30.8529476Z -- Detecting C compiler ABI info
+2026-10-09T04:24:33.9683319Z -- Detecting C compiler ABI info - done
+2026-10-09T04:24:34.0126340Z -- Check for working C compiler: C:/Program Files/Microsoft Visual Studio/18/Enterprise/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/cl.exe - skipped
+2026-10-09T04:24:34.0140640Z -- Detecting C compile features
+2026-10-09T04:24:34.0149734Z -- Detecting C compile features - done
+2026-10-09T04:24:34.9146819Z -- Could NOT find PkgConfig (missing: PKG_CONFIG_EXECUTABLE)
+2026-10-09T04:24:34.9741587Z -- Configuring done (16.6s)
+2026-10-09T04:24:35.0355744Z CMake Warning (unused-cli):
+2026-10-09T04:24:35.0356201Z   Manually-specified variables were not used by the project:
+2026-10-09T04:24:35.0356420Z
+2026-10-09T04:24:35.0356499Z     CMAKE_BUILD_TYPE
+2026-10-09T04:24:35.0356610Z
+2026-10-09T04:24:35.0356614Z
+2026-10-09T04:24:35.0356730Z -- Generating done (0.1s)
+2026-10-09T04:24:35.0365803Z -- Build files have been written to: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-build/freetype-win-x64
+2026-10-09T04:24:35.0555127Z DIAGNOSTIC RMLUI DONE phase=freetype-configure target=win-x64 elapsedSeconds=18
+2026-10-09T04:24:35.0556322Z DIAGNOSTIC RMLUI START phase=freetype-build target=win-x64 renderer=draw-list jobs=2
+2026-10-09T04:24:35.1700004Z MSBuild version 18.10.1-1.26427.6+3cd27c13e for .NET Framework
+2026-10-09T04:24:35.2598840Z
+2026-10-09T04:24:35.8366001Z   1>Checking Build System
+2026-10-09T04:24:36.0902872Z   Building Custom Rule D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-src/freetype-VER-2-13-3/CMakeLists.txt
+2026-10-09T04:24:36.2407859Z   autofit.c
+2026-10-09T04:24:37.3168538Z   ftbase.c
+2026-10-09T04:24:37.3960037Z   ftbbox.c
+2026-10-09T04:24:37.4481515Z   ftbdf.c
+2026-10-09T04:24:37.4984012Z   ftbitmap.c
+2026-10-09T04:24:37.5508357Z   ftcid.c
+2026-10-09T04:24:37.6011379Z   ftfstype.c
+2026-10-09T04:24:37.6527938Z   ftgasp.c
+2026-10-09T04:24:37.7052383Z   ftglyph.c
+2026-10-09T04:24:37.7572643Z   ftgxval.c
+2026-10-09T04:24:37.8090091Z   ftinit.c
+2026-10-09T04:24:37.8586744Z   ftmm.c
+2026-10-09T04:24:37.9082950Z   ftotval.c
+2026-10-09T04:24:37.9576148Z   ftpatent.c
+2026-10-09T04:24:38.0072933Z   ftpfr.c
+2026-10-09T04:24:38.0563750Z   ftstroke.c
+2026-10-09T04:24:38.1098284Z   ftsynth.c
+2026-10-09T04:24:38.1577354Z   fttype1.c
+2026-10-09T04:24:38.2081841Z   ftwinfnt.c
+2026-10-09T04:24:38.2570631Z   bdf.c
+2026-10-09T04:24:38.3159787Z   Generating Code...
+2026-10-09T04:24:40.3382278Z   Compiling...
+2026-10-09T04:24:40.3382812Z   ftbzip2.c
+2026-10-09T04:24:40.3900377Z   ftcache.c
+2026-10-09T04:24:40.4491288Z   cff.c
+2026-10-09T04:24:40.5218764Z   type1cid.c
+2026-10-09T04:24:40.5842680Z   ftgzip.c
+2026-10-09T04:24:40.6439826Z   ftlzw.c
+2026-10-09T04:24:40.6952845Z   pcf.c
+2026-10-09T04:24:40.7515315Z   pfr.c
+2026-10-09T04:24:40.8120923Z   psaux.c
+2026-10-09T04:24:40.8960359Z   pshinter.c
+2026-10-09T04:24:40.9530567Z   psnames.c
+2026-10-09T04:24:41.0367310Z   raster.c
+2026-10-09T04:24:41.0972927Z   sdf.c
+2026-10-09T04:24:41.1555581Z   sfnt.c
+2026-10-09T04:24:41.2477735Z   smooth.c
+2026-10-09T04:24:41.3120340Z   svg.c
+2026-10-09T04:24:41.3637587Z   truetype.c
+2026-10-09T04:24:41.4489119Z   type1.c
+2026-10-09T04:24:41.4877505Z ##[warning]D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-src\freetype-VER-2-13-3\src\psaux\t1decode.c(1996,23): warning C4267: '=': conversion from 'size_t' to 'FT_Int', possible loss of data [D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\freetype.vcxproj]
+2026-10-09T04:24:41.4886588Z   (compiling source file '../../rmlui-poc-src/freetype-VER-2-13-3/src/psaux/psaux.c')
+2026-10-09T04:24:41.4887161Z
+2026-10-09T04:24:41.4889522Z ##[warning]D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-src\freetype-VER-2-13-3\src\psaux\psintrp.c(1012,25): warning C4267: '=': conversion from 'size_t' to 'FT_Fast', possible loss of data [D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\freetype.vcxproj]
+2026-10-09T04:24:41.4892839Z   (compiling source file '../../rmlui-poc-src/freetype-VER-2-13-3/src/psaux/psaux.c')
+2026-10-09T04:24:41.4893390Z
+2026-10-09T04:24:41.4895724Z ##[warning]D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-src\freetype-VER-2-13-3\src\sfnt\sfdriver.c(884,13): warning C4267: '=': conversion from 'size_t' to 'FT_UInt', possible loss of data [D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\freetype.vcxproj]
+2026-10-09T04:24:41.4897827Z   (compiling source file '../../rmlui-poc-src/freetype-VER-2-13-3/src/sfnt/sfnt.c')
+2026-10-09T04:24:41.4898328Z
+2026-10-09T04:24:41.4901079Z ##[warning]D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-src\freetype-VER-2-13-3\src\sfnt\sfdriver.c(1036,36): warning C4244: 'function': conversion from '__int64' to 'const unsigned int', possible loss of data [D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\freetype.vcxproj]
+2026-10-09T04:24:41.4903250Z   (compiling source file '../../rmlui-poc-src/freetype-VER-2-13-3/src/sfnt/sfnt.c')
+2026-10-09T04:24:41.4903721Z
+2026-10-09T04:24:41.4906226Z ##[warning]D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-src\freetype-VER-2-13-3\src\smooth\ftgrays.c(1898,20): warning C4267: '+=': conversion from 'size_t' to 'TCoord', possible loss of data [D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\freetype.vcxproj]
+2026-10-09T04:24:41.4908413Z   (compiling source file '../../rmlui-poc-src/freetype-VER-2-13-3/src/smooth/smooth.c')
+2026-10-09T04:24:41.4908918Z
+2026-10-09T04:24:41.5073355Z ##[warning]D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-src\freetype-VER-2-13-3\src\type1\t1driver.c(292,48): warning C4267: '=': conversion from 'size_t' to 'FT_ULong', possible loss of data [D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\freetype.vcxproj]
+2026-10-09T04:24:41.5076789Z   (compiling source file '../../rmlui-poc-src/freetype-VER-2-13-3/src/type1/type1.c')
+2026-10-09T04:24:41.5077112Z
+2026-10-09T04:24:41.5078467Z ##[warning]D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-src\freetype-VER-2-13-3\src\type1\t1driver.c(313,55): warning C4267: '=': conversion from 'size_t' to 'FT_ULong', possible loss of data [D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\freetype.vcxproj]
+2026-10-09T04:24:41.5079862Z   (compiling source file '../../rmlui-poc-src/freetype-VER-2-13-3/src/type1/type1.c')
+2026-10-09T04:24:41.5080166Z
+2026-10-09T04:24:41.5081470Z ##[warning]D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-src\freetype-VER-2-13-3\src\type1\t1driver.c(342,62): warning C4267: '=': conversion from 'size_t' to 'FT_ULong', possible loss of data [D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\freetype.vcxproj]
+2026-10-09T04:24:41.5082793Z   (compiling source file '../../rmlui-poc-src/freetype-VER-2-13-3/src/type1/type1.c')
+2026-10-09T04:24:41.5083091Z
+2026-10-09T04:24:41.5084209Z ##[warning]D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-src\freetype-VER-2-13-3\src\type1\t1driver.c(369,19): warning C4267: '=': conversion from 'size_t' to 'FT_UInt', possible loss of data [D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\freetype.vcxproj]
+2026-10-09T04:24:41.5085446Z   (compiling source file '../../rmlui-poc-src/freetype-VER-2-13-3/src/type1/type1.c')
+2026-10-09T04:24:41.5085746Z
+2026-10-09T04:24:41.5087133Z ##[warning]D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-src\freetype-VER-2-13-3\src\type1\t1driver.c(578,56): warning C4267: '=': conversion from 'size_t' to 'FT_ULong', possible loss of data [D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\freetype.vcxproj]
+2026-10-09T04:24:41.5088411Z   (compiling source file '../../rmlui-poc-src/freetype-VER-2-13-3/src/type1/type1.c')
+2026-10-09T04:24:41.5088717Z
+2026-10-09T04:24:41.5090267Z ##[warning]D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-src\freetype-VER-2-13-3\src\type1\t1driver.c(587,55): warning C4267: '=': conversion from 'size_t' to 'FT_ULong', possible loss of data [D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\freetype.vcxproj]
+2026-10-09T04:24:41.5091570Z   (compiling source file '../../rmlui-poc-src/freetype-VER-2-13-3/src/type1/type1.c')
+2026-10-09T04:24:41.5091867Z
+2026-10-09T04:24:41.5092954Z ##[warning]D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-src\freetype-VER-2-13-3\src\type1\t1driver.c(596,58): warning C4267: '=': conversion from 'size_t' to 'FT_ULong', possible loss of data [D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\freetype.vcxproj]
+2026-10-09T04:24:41.5094372Z   (compiling source file '../../rmlui-poc-src/freetype-VER-2-13-3/src/type1/type1.c')
+2026-10-09T04:24:41.5094670Z
+2026-10-09T04:24:41.5095743Z ##[warning]D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-src\freetype-VER-2-13-3\src\type1\t1driver.c(605,60): warning C4267: '=': conversion from 'size_t' to 'FT_ULong', possible loss of data [D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\freetype.vcxproj]
+2026-10-09T04:24:41.5097003Z   (compiling source file '../../rmlui-poc-src/freetype-VER-2-13-3/src/type1/type1.c')
+2026-10-09T04:24:41.5097301Z
+2026-10-09T04:24:41.5098328Z ##[warning]D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-src\freetype-VER-2-13-3\src\type1\t1driver.c(615,55): warning C4267: '=': conversion from 'size_t' to 'FT_ULong', possible loss of data [D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\freetype.vcxproj]
+2026-10-09T04:24:41.5099575Z   (compiling source file '../../rmlui-poc-src/freetype-VER-2-13-3/src/type1/type1.c')
+2026-10-09T04:24:41.5099875Z
+2026-10-09T04:24:41.5134823Z ##[warning]D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-src\freetype-VER-2-13-3\src\type1\t1load.c(1780,64): warning C4244: '=': conversion from '__int64' to 'FT_Int', possible loss of data [D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\freetype.vcxproj]
+2026-10-09T04:24:41.5137200Z   (compiling source file '../../rmlui-poc-src/freetype-VER-2-13-3/src/type1/type1.c')
+2026-10-09T04:24:41.5137723Z
+2026-10-09T04:24:41.5139821Z ##[warning]D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-src\freetype-VER-2-13-3\src\type1\t1load.c(1953,36): warning C4244: '=': conversion from '__int64' to 'FT_Int', possible loss of data [D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\freetype.vcxproj]
+2026-10-09T04:24:41.5142024Z   (compiling source file '../../rmlui-poc-src/freetype-VER-2-13-3/src/type1/type1.c')
+2026-10-09T04:24:41.5142508Z
+2026-10-09T04:24:41.5224563Z   type42.c
+2026-10-09T04:24:41.5801392Z ##[warning]D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-src\freetype-VER-2-13-3\src\type42\t42parse.c(878,62): warning C4244: '=': conversion from '__int64' to 'FT_Int', possible loss of data [D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\freetype.vcxproj]
+2026-10-09T04:24:41.5803269Z   (compiling source file '../../rmlui-poc-src/freetype-VER-2-13-3/src/type42/type42.c')
+2026-10-09T04:24:41.5803842Z
+2026-10-09T04:24:41.5835355Z   winfnt.c
+2026-10-09T04:24:41.6392917Z   Generating Code...
+2026-10-09T04:24:46.7405025Z   Compiling...
+2026-10-09T04:24:46.7405267Z   ftsystem.c
+2026-10-09T04:24:47.8949366Z   ftdebug.c
+2026-10-09T04:24:47.9441514Z   Generating Code...
+2026-10-09T04:24:48.2199905Z   freetype.vcxproj -> D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\freetype-win-x64\Release\freetype.lib
+2026-10-09T04:24:48.2656647Z   Building Custom Rule D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-src/freetype-VER-2-13-3/CMakeLists.txt
+2026-10-09T04:24:48.3220571Z DIAGNOSTIC RMLUI DONE phase=freetype-build target=win-x64 elapsedSeconds=13
+2026-10-09T04:24:48.3221405Z DIAGNOSTIC RMLUI START phase=freetype-install target=win-x64 renderer=draw-list jobs=2
+2026-10-09T04:24:48.3493153Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2
+2026-10-09T04:24:48.3497307Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype
+2026-10-09T04:24:48.3501660Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/config
+2026-10-09T04:24:48.3506082Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/config/ftheader.h
+2026-10-09T04:24:48.3511767Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/config/ftmodule.h
+2026-10-09T04:24:48.3516516Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/config/ftstdlib.h
+2026-10-09T04:24:48.3521207Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/config/integer-types.h
+2026-10-09T04:24:48.3525698Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/config/mac-support.h
+2026-10-09T04:24:48.3530331Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/config/public-macros.h
+2026-10-09T04:24:48.3535030Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/freetype.h
+2026-10-09T04:24:48.3541365Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftadvanc.h
+2026-10-09T04:24:48.3545771Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftbbox.h
+2026-10-09T04:24:48.3550639Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftbdf.h
+2026-10-09T04:24:48.3554945Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftbitmap.h
+2026-10-09T04:24:48.3559313Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftbzip2.h
+2026-10-09T04:24:48.3565597Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftcache.h
+2026-10-09T04:24:48.3571212Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftchapters.h
+2026-10-09T04:24:48.3575338Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftcid.h
+2026-10-09T04:24:48.3579944Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftcolor.h
+2026-10-09T04:24:48.3584945Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftdriver.h
+2026-10-09T04:24:48.3590556Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/fterrdef.h
+2026-10-09T04:24:48.3595149Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/fterrors.h
+2026-10-09T04:24:48.3599569Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftfntfmt.h
+2026-10-09T04:24:48.3603553Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftgasp.h
+2026-10-09T04:24:48.3608008Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftglyph.h
+2026-10-09T04:24:48.3612743Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftgxval.h
+2026-10-09T04:24:48.3617987Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftgzip.h
+2026-10-09T04:24:48.3621662Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftimage.h
+2026-10-09T04:24:48.3626419Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftincrem.h
+2026-10-09T04:24:48.3631284Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftlcdfil.h
+2026-10-09T04:24:48.3635623Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftlist.h
+2026-10-09T04:24:48.3640325Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftlogging.h
+2026-10-09T04:24:48.3644621Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftlzw.h
+2026-10-09T04:24:48.3648738Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftmac.h
+2026-10-09T04:24:48.3653377Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftmm.h
+2026-10-09T04:24:48.3658185Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftmodapi.h
+2026-10-09T04:24:48.3662559Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftmoderr.h
+2026-10-09T04:24:48.3668076Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftotval.h
+2026-10-09T04:24:48.3673113Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftoutln.h
+2026-10-09T04:24:48.3677596Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftparams.h
+2026-10-09T04:24:48.3681900Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftpfr.h
+2026-10-09T04:24:48.3686261Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftrender.h
+2026-10-09T04:24:48.3691318Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftsizes.h
+2026-10-09T04:24:48.3695384Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftsnames.h
+2026-10-09T04:24:48.3699448Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftstroke.h
+2026-10-09T04:24:48.3703857Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftsynth.h
+2026-10-09T04:24:48.3708757Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftsystem.h
+2026-10-09T04:24:48.3712899Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/fttrigon.h
+2026-10-09T04:24:48.3718558Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/fttypes.h
+2026-10-09T04:24:48.3722653Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ftwinfnt.h
+2026-10-09T04:24:48.3726804Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/otsvg.h
+2026-10-09T04:24:48.3731425Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/t1tables.h
+2026-10-09T04:24:48.3736279Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/ttnameid.h
+2026-10-09T04:24:48.3741738Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/tttables.h
+2026-10-09T04:24:48.3746284Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/tttags.h
+2026-10-09T04:24:48.3750942Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/ft2build.h
+2026-10-09T04:24:48.3755540Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/config/ftconfig.h
+2026-10-09T04:24:48.3761051Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/include/freetype2/freetype/config/ftoption.h
+2026-10-09T04:24:48.3770121Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/lib/pkgconfig/freetype2.pc
+2026-10-09T04:24:48.3774744Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/lib/freetype.lib
+2026-10-09T04:24:48.3814084Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/lib/cmake/freetype/freetype-config.cmake
+2026-10-09T04:24:48.3819420Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/lib/cmake/freetype/freetype-config-release.cmake
+2026-10-09T04:24:48.3824446Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/lib/cmake/freetype/freetype-config-version.cmake
+2026-10-09T04:24:48.3877160Z DIAGNOSTIC RMLUI DONE phase=freetype-install target=win-x64 elapsedSeconds=0
+2026-10-09T04:24:49.9211691Z DIAGNOSTIC RMLUI START phase=bridge-configure target=win-x64 renderer=draw-list jobs=2
+2026-10-09T04:24:51.9416644Z -- Building for: Visual Studio 18 2026
+2026-10-09T04:24:51.9417025Z -- The CXX compiler identification is MSVC 19.51.36260.0
+2026-10-09T04:24:51.9703806Z -- Detecting CXX compiler ABI info
+2026-10-09T04:24:52.6733748Z -- Detecting CXX compiler ABI info - done
+2026-10-09T04:24:52.7041614Z -- Check for working CXX compiler: C:/Program Files/Microsoft Visual Studio/18/Enterprise/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/cl.exe - skipped
+2026-10-09T04:24:52.7045417Z -- Detecting CXX compile features
+2026-10-09T04:24:52.7053229Z -- Detecting CXX compile features - done
+2026-10-09T04:24:53.8549161Z -- Found Freetype: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-deps/freetype-win-x64/lib/freetype.lib (found version "2.13.3")
+2026-10-09T04:24:54.3967494Z -- The C compiler identification is MSVC 19.51.36260.0
+2026-10-09T04:24:54.4062698Z -- Detecting C compiler ABI info
+2026-10-09T04:24:58.3721267Z -- Detecting C compiler ABI info - done
+2026-10-09T04:24:58.4126190Z -- Check for working C compiler: C:/Program Files/Microsoft Visual Studio/18/Enterprise/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/cl.exe - skipped
+2026-10-09T04:24:58.4129819Z -- Detecting C compile features
+2026-10-09T04:24:58.4135155Z -- Detecting C compile features - done
+2026-10-09T04:24:58.4252010Z -- Found Freetype::Freetype v2.13.3 - Freetype font engine enabled
+2026-10-09T04:24:58.4367740Z -- Configuring done (8.5s)
+2026-10-09T04:24:58.5260637Z CMake Warning (unused-cli):
+2026-10-09T04:24:58.5261179Z   Manually-specified variables were not used by the project:
+2026-10-09T04:24:58.5261398Z
+2026-10-09T04:24:58.5261503Z     CMAKE_POLICY_DEFAULT_CMP0091
+2026-10-09T04:24:58.5261633Z
+2026-10-09T04:24:58.5261637Z
+2026-10-09T04:24:58.5261758Z -- Generating done (0.1s)
+2026-10-09T04:24:58.5270161Z -- Build files have been written to: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-build/bridge-win-x64-draw-list
+2026-10-09T04:24:58.5382041Z DIAGNOSTIC RMLUI DONE phase=bridge-configure target=win-x64 elapsedSeconds=9
+2026-10-09T04:24:58.5382847Z DIAGNOSTIC RMLUI START phase=bridge-build target=win-x64 renderer=draw-list jobs=2
+2026-10-09T04:24:58.6429166Z MSBuild version 18.10.1-1.26427.6+3cd27c13e for .NET Framework
+2026-10-09T04:24:58.6769942Z
+2026-10-09T04:24:58.9172536Z   1>Checking Build System
+2026-10-09T04:24:59.0285940Z   Building Custom Rule D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-src/RmlUi-6.3/Source/Core/CMakeLists.txt
+2026-10-09T04:24:59.2149666Z   BaseXMLParser.cpp
+2026-10-09T04:24:59.2156481Z   Box.cpp
+2026-10-09T04:24:59.2156785Z   BoxShadowCache.cpp
+2026-10-09T04:24:59.2166955Z   CallbackTexture.cpp
+2026-10-09T04:25:01.7518673Z   Clock.cpp
+2026-10-09T04:25:02.0669808Z   CompiledFilterShader.cpp
+2026-10-09T04:25:02.6617020Z   ComputedValues.cpp
+2026-10-09T04:25:02.7978896Z   ComputeProperty.cpp
+2026-10-09T04:25:03.0078605Z   Context.cpp
+2026-10-09T04:25:03.2631210Z   ContextInstancer.cpp
+2026-10-09T04:25:03.9133363Z   ContextInstancerDefault.cpp
+2026-10-09T04:25:03.9558520Z   ConvolutionFilter.cpp
+2026-10-09T04:25:04.1048688Z   Core.cpp
+2026-10-09T04:25:04.9367140Z   DataController.cpp
+2026-10-09T04:25:04.9693189Z   DataControllerDefault.cpp
+2026-10-09T04:25:05.8999543Z   DataExpression.cpp
+2026-10-09T04:25:06.3522035Z   DataModel.cpp
+2026-10-09T04:25:06.5369682Z   DataModelHandle.cpp
+2026-10-09T04:25:06.6003413Z   DataTypeRegister.cpp
+2026-10-09T04:25:07.6832788Z   DataVariable.cpp
+2026-10-09T04:25:08.3027325Z   DataView.cpp
+2026-10-09T04:25:08.5126344Z   DataViewDefault.cpp
+2026-10-09T04:25:09.3863682Z   Decorator.cpp
+2026-10-09T04:25:09.5596208Z   DecoratorGradient.cpp
+2026-10-09T04:25:10.6393464Z   DecoratorNinePatch.cpp
+2026-10-09T04:25:11.0032927Z   DecoratorShader.cpp
+2026-10-09T04:25:11.1891370Z   DecoratorText.cpp
+2026-10-09T04:25:12.3140578Z   DecoratorTiled.cpp
+2026-10-09T04:25:12.9246904Z   DecoratorTiledBox.cpp
+2026-10-09T04:25:13.1116358Z   DecoratorTiledHorizontal.cpp
+2026-10-09T04:25:13.3451254Z   DecoratorTiledImage.cpp
+2026-10-09T04:25:14.2326066Z   DecoratorTiledVertical.cpp
+2026-10-09T04:25:14.4530171Z   DecoratorUtilities.cpp
+2026-10-09T04:25:14.4731863Z   DocumentHeader.cpp
+2026-10-09T04:25:14.6820416Z   EffectSpecification.cpp
+2026-10-09T04:25:15.3924772Z   Element.cpp
+2026-10-09T04:25:15.5832187Z   ElementAnimation.cpp
+2026-10-09T04:25:15.6412923Z   ElementBackgroundBorder.cpp
+2026-10-09T04:25:15.7366861Z   ElementDefinition.cpp
+2026-10-09T04:25:16.7434946Z   ElementDocument.cpp
+2026-10-09T04:25:17.0715238Z   ElementEffects.cpp
+2026-10-09T04:25:17.8515060Z   ElementHandle.cpp
+2026-10-09T04:25:19.4663535Z   ElementInstancer.cpp
+2026-10-09T04:25:19.9440104Z   ElementMeta.cpp
+2026-10-09T04:25:20.0084953Z   ElementScroll.cpp
+2026-10-09T04:25:20.5517392Z   ElementStyle.cpp
+2026-10-09T04:25:20.8824290Z   ElementText.cpp
+2026-10-09T04:25:21.3239959Z   ElementUtilities.cpp
+2026-10-09T04:25:21.3569239Z   Event.cpp
+2026-10-09T04:25:22.9317225Z   EventDispatcher.cpp
+2026-10-09T04:25:22.9635896Z   EventInstancer.cpp
+2026-10-09T04:25:23.8277472Z   EventInstancerDefault.cpp
+2026-10-09T04:25:23.9328798Z   EventListenerInstancer.cpp
+2026-10-09T04:25:24.1196796Z   EventSpecification.cpp
+2026-10-09T04:25:24.8666478Z   Factory.cpp
+2026-10-09T04:25:24.9159772Z   FileInterface.cpp
+2026-10-09T04:25:25.0518234Z   FileInterfaceDefault.cpp
+2026-10-09T04:25:25.6014975Z   Filter.cpp
+2026-10-09T04:25:25.8666681Z   FilterBasic.cpp
+2026-10-09T04:25:25.9376437Z   FilterBlur.cpp
+2026-10-09T04:25:26.5028280Z   FilterDropShadow.cpp
+2026-10-09T04:25:27.7283578Z   FontEffect.cpp
+2026-10-09T04:25:27.7624062Z   FontEffectBlur.cpp
+2026-10-09T04:25:27.9481458Z   FontEffectGlow.cpp
+2026-10-09T04:25:28.4701595Z   FontEffectInstancer.cpp
+2026-10-09T04:25:28.7441156Z   FontEffectOutline.cpp
+2026-10-09T04:25:28.9531230Z   FontEffectShadow.cpp
+2026-10-09T04:25:29.2947160Z   FontEngineInterface.cpp
+2026-10-09T04:25:29.5186837Z   Geometry.cpp
+2026-10-09T04:25:29.8785490Z   GeometryBackgroundBorder.cpp
+2026-10-09T04:25:30.1561602Z   GeometryBoxShadow.cpp
+2026-10-09T04:25:30.1836152Z   Log.cpp
+2026-10-09T04:25:30.5579311Z   LogDefault.cpp
+2026-10-09T04:25:30.8649481Z   Math.cpp
+2026-10-09T04:25:31.1600452Z   Memory.cpp
+2026-10-09T04:25:31.8042190Z   MeshUtilities.cpp
+2026-10-09T04:25:31.9569408Z   ObserverPtr.cpp
+2026-10-09T04:25:32.0419772Z   Plugin.cpp
+2026-10-09T04:25:32.6699255Z   PluginRegistry.cpp
+2026-10-09T04:25:32.7136260Z   Profiling.cpp
+2026-10-09T04:25:32.7317216Z   PropertiesIteratorView.cpp
+2026-10-09T04:25:32.8083492Z   Property.cpp
+2026-10-09T04:25:32.8822815Z   PropertyDefinition.cpp
+2026-10-09T04:25:33.5131523Z   PropertyDictionary.cpp
+2026-10-09T04:25:33.8256607Z   PropertyParserAnimation.cpp
+2026-10-09T04:25:34.2525399Z   PropertyParserBoxShadow.cpp
+2026-10-09T04:25:34.2935234Z   PropertyParserColorStopList.cpp
+2026-10-09T04:25:35.0911232Z   PropertyParserColour.cpp
+2026-10-09T04:25:35.6458418Z   PropertyParserDecorator.cpp
+2026-10-09T04:25:35.8402186Z   PropertyParserFilter.cpp
+2026-10-09T04:25:35.8791268Z   PropertyParserFontEffect.cpp
+2026-10-09T04:25:36.8054478Z   PropertyParserKeyword.cpp
+2026-10-09T04:25:37.6212154Z   PropertyParserNumber.cpp
+2026-10-09T04:25:37.6630218Z   PropertyParserRatio.cpp
+2026-10-09T04:25:37.7789888Z   PropertyParserString.cpp
+2026-10-09T04:25:38.0976681Z   PropertyParserTransform.cpp
+2026-10-09T04:25:38.5802673Z   PropertySpecification.cpp
+2026-10-09T04:25:38.7728429Z   RenderInterface.cpp
+2026-10-09T04:25:38.7946930Z   RenderInterfaceCompatibility.cpp
+2026-10-09T04:25:39.2378949Z   RenderManager.cpp
+2026-10-09T04:25:39.6090875Z   RenderManagerAccess.cpp
+2026-10-09T04:25:39.8981973Z   ScriptInterface.cpp
+2026-10-09T04:25:40.7881993Z   ScrollController.cpp
+2026-10-09T04:25:41.0517861Z   Spritesheet.cpp
+2026-10-09T04:25:41.1192673Z   Stream.cpp
+2026-10-09T04:25:41.1726364Z   StreamFile.cpp
+2026-10-09T04:25:42.0018210Z   StreamMemory.cpp
+2026-10-09T04:25:42.1027018Z   StringUtilities.cpp
+2026-10-09T04:25:42.2071949Z   StyleSheet.cpp
+2026-10-09T04:25:42.2894513Z   StyleSheetContainer.cpp
+2026-10-09T04:25:42.8584789Z   StyleSheetFactory.cpp
+2026-10-09T04:25:43.9289787Z   StyleSheetNode.cpp
+2026-10-09T04:25:44.0045519Z   StyleSheetParser.cpp
+2026-10-09T04:25:44.9800973Z   StyleSheetSelector.cpp
+2026-10-09T04:25:45.0516255Z   StyleSheetSpecification.cpp
+2026-10-09T04:25:46.3874979Z   SystemInterface.cpp
+2026-10-09T04:25:46.5674235Z   Template.cpp
+2026-10-09T04:25:48.0978292Z   TemplateCache.cpp
+2026-10-09T04:25:48.2464965Z   Texture.cpp
+2026-10-09T04:25:48.4605866Z   TextureDatabase.cpp
+2026-10-09T04:25:48.6828277Z   TextureLayout.cpp
+2026-10-09T04:25:49.2154907Z   TextureLayoutRectangle.cpp
+2026-10-09T04:25:49.3497097Z   TextureLayoutRow.cpp
+2026-10-09T04:25:49.8687173Z   TextureLayoutTexture.cpp
+2026-10-09T04:25:50.0051241Z   Traits.cpp
+2026-10-09T04:25:50.2900388Z   Transform.cpp
+2026-10-09T04:25:50.4359633Z   TransformPrimitive.cpp
+2026-10-09T04:25:50.8011686Z   TransformState.cpp
+2026-10-09T04:25:50.8699823Z   TransformUtilities.cpp
+2026-10-09T04:25:51.3543367Z   Tween.cpp
+2026-10-09T04:25:51.4829449Z   TypeConverter.cpp
+2026-10-09T04:25:51.6967463Z   URL.cpp
+2026-10-09T04:25:52.6911833Z   Variant.cpp
+2026-10-09T04:25:53.2537330Z   WidgetScroll.cpp
+2026-10-09T04:25:53.4588548Z   XMLNodeHandler.cpp
+2026-10-09T04:25:53.5268222Z   XMLNodeHandlerBody.cpp
+2026-10-09T04:25:54.3615955Z   XMLNodeHandlerDefault.cpp
+2026-10-09T04:25:54.4105918Z   XMLNodeHandlerHead.cpp
+2026-10-09T04:25:54.8192037Z   XMLNodeHandlerTemplate.cpp
+2026-10-09T04:25:54.8732608Z   XMLParser.cpp
+2026-10-09T04:25:55.7254314Z   XMLParseTools.cpp
+2026-10-09T04:25:55.8262636Z   ElementFormControl.cpp
+2026-10-09T04:25:56.1434134Z   ElementFormControlInput.cpp
+2026-10-09T04:25:56.3767793Z   ElementFormControlSelect.cpp
+2026-10-09T04:25:56.8999484Z   ElementFormControlTextArea.cpp
+2026-10-09T04:25:57.3022456Z   ElementForm.cpp
+2026-10-09T04:25:57.7317062Z   ElementImage.cpp
+2026-10-09T04:25:57.9776308Z   ElementLabel.cpp
+2026-10-09T04:25:58.7624590Z   ElementProgress.cpp
+2026-10-09T04:25:59.0998274Z   ElementTabSet.cpp
+2026-10-09T04:25:59.5038441Z   ElementTextSelection.cpp
+2026-10-09T04:25:59.5830572Z   InputTypeButton.cpp
+2026-10-09T04:26:00.6087403Z   InputTypeCheckbox.cpp
+2026-10-09T04:26:00.7615189Z   InputType.cpp
+2026-10-09T04:26:00.9172152Z   InputTypeRadio.cpp
+2026-10-09T04:26:01.0306086Z   InputTypeRange.cpp
+2026-10-09T04:26:01.9888612Z   InputTypeSubmit.cpp
+2026-10-09T04:26:02.1529224Z   InputTypeText.cpp
+2026-10-09T04:26:02.5720525Z   WidgetDropDown.cpp
+2026-10-09T04:26:02.7339653Z   WidgetSlider.cpp
+2026-10-09T04:26:03.4915705Z   WidgetTextInput.cpp
+2026-10-09T04:26:03.6823607Z   WidgetTextInputMultiLine.cpp
+2026-10-09T04:26:04.6164380Z   WidgetTextInputSingleLine.cpp
+2026-10-09T04:26:04.6277130Z   WidgetTextInputSingleLinePassword.cpp
+2026-10-09T04:26:05.0423346Z   XMLNodeHandlerSelect.cpp
+2026-10-09T04:26:05.9242611Z   XMLNodeHandlerTabSet.cpp
+2026-10-09T04:26:05.9282927Z   XMLNodeHandlerTextArea.cpp
+2026-10-09T04:26:06.0263777Z   BlockContainer.cpp
+2026-10-09T04:26:06.3226990Z   BlockFormattingContext.cpp
+2026-10-09T04:26:06.8823177Z   ContainerBox.cpp
+2026-10-09T04:26:06.9496806Z   FlexFormattingContext.cpp
+2026-10-09T04:26:07.3555270Z   FloatedBoxSpace.cpp
+2026-10-09T04:26:07.6475479Z   FormattingContext.cpp
+2026-10-09T04:26:08.2705519Z   InlineBox.cpp
+2026-10-09T04:26:08.6187450Z   InlineContainer.cpp
+2026-10-09T04:26:08.8130404Z   InlineLevelBox.cpp
+2026-10-09T04:26:08.9181648Z   LayoutBox.cpp
+2026-10-09T04:26:09.3696205Z   LayoutDetails.cpp
+2026-10-09T04:26:09.7281848Z   LayoutEngine.cpp
+2026-10-09T04:26:09.9857448Z   LayoutPools.cpp
+2026-10-09T04:26:10.0543694Z   LineBox.cpp
+2026-10-09T04:26:10.7176924Z   ReplacedFormattingContext.cpp
+2026-10-09T04:26:10.8898575Z   TableFormattingContext.cpp
+2026-10-09T04:26:11.2149905Z   TableFormattingDetails.cpp
+2026-10-09T04:26:11.2840516Z   FontEngineInterfaceDefault.cpp
+2026-10-09T04:26:11.8396780Z   FontFace.cpp
+2026-10-09T04:26:12.2469780Z   FontFaceHandleDefault.cpp
+2026-10-09T04:26:12.3147870Z   FontFaceLayer.cpp
+2026-10-09T04:26:12.9463583Z   FontFamily.cpp
+2026-10-09T04:26:13.0811374Z   FontProvider.cpp
+2026-10-09T04:26:14.1037332Z   FreeTypeInterface.cpp
+2026-10-09T04:26:15.7051227Z   rmlui_core.vcxproj -> D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\bridge-win-x64-draw-list\Release\rmlui.lib
+2026-10-09T04:26:15.7461189Z   Building Custom Rule D:/a/Project-Prime/Project-Prime/native/rmlui-poc/CMakeLists.txt
+2026-10-09T04:26:15.8066366Z   projectprime_rmlui.cpp
+2026-10-09T04:26:17.4166515Z   projectprime_rmlui_draw_list.cpp
+2026-10-09T04:26:18.1328762Z   Generating Code...
+2026-10-09T04:26:23.2795172Z      Creating library D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-build/bridge-win-x64-draw-list/Release/ProjectPrime.RmlUi.Native.lib and object D:/a/Project-Prime/Project-Prime/artifacts/rmlui-poc-build/bridge-win-x64-draw-list/Release/ProjectPrime.RmlUi.Native.exp
+2026-10-09T04:26:23.4667931Z   ProjectPrimeRmlUiNative.vcxproj -> D:\a\Project-Prime\Project-Prime\artifacts\rmlui-poc-build\bridge-win-x64-draw-list\Release\ProjectPrime.RmlUi.Native.dll
+2026-10-09T04:26:23.4964027Z DIAGNOSTIC RMLUI DONE phase=bridge-build target=win-x64 elapsedSeconds=85
+2026-10-09T04:26:23.4965226Z DIAGNOSTIC RMLUI START phase=bridge-install target=win-x64 renderer=draw-list jobs=2
+2026-10-09T04:26:23.5225328Z -- Installing: D:/a/Project-Prime/Project-Prime/artifacts/rmlui-native/win-x64/ProjectPrime.RmlUi.Native.dll
+2026-10-09T04:26:23.5307656Z DIAGNOSTIC RMLUI DONE phase=bridge-install target=win-x64 elapsedSeconds=0
+2026-10-09T04:26:23.7764481Z verified RmlUi runtime: D:\a\Project-Prime\Project-Prime\artifacts\rmlui-native\win-x64\ProjectPrime.RmlUi.Native.dll (win-x64, draw-list)
+2026-10-09T04:26:23.7833123Z RmlUi native runtime -> /d/a/Project-Prime/Project-Prime/artifacts/rmlui-native/win-x64
+2026-10-09T04:26:23.8011474Z ##[group]Run dotnet run --project tools/rmlui-runtime-check -c Release
+2026-10-09T04:26:23.8012109Z [36;1mdotnet run --project tools/rmlui-runtime-check -c Release[0m
+2026-10-09T04:26:23.8066735Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-09T04:26:23.8067007Z env:
+2026-10-09T04:26:23.8067165Z   DOTNET_ROOT: C:\Program Files\dotnet
+2026-10-09T04:26:23.8067442Z   pythonLocation: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-10-09T04:26:23.8067791Z   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.12.10\x64/lib/pkgconfig
+2026-10-09T04:26:23.8068138Z   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-10-09T04:26:23.8068442Z   Python2_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-10-09T04:26:23.8068743Z   Python3_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-10-09T04:26:23.8068984Z ##[endgroup]
+2026-10-09T04:26:50.0525476Z PASS 28 scheduled-update correctness checks
+2026-10-09T04:26:50.0527824Z RmlUi runtime checks passed: typed ABI, owner thread, immutable revisioned snapshots, cancellation, document lifecycle, DPI, Unicode, clipboard, resilient teardown, and 100 reinitializations.
+2026-10-09T04:26:50.4472964Z ##[group]Run dotnet run --project tools/rmlui-platform-accessibility-check -c Release -- --native artifacts/rmlui-native/win-x64/ProjectPrime.RmlUi.Native.dll --windows
+2026-10-09T04:26:50.4474010Z [36;1mdotnet run --project tools/rmlui-platform-accessibility-check -c Release -- --native artifacts/rmlui-native/win-x64/ProjectPrime.RmlUi.Native.dll --windows[0m
+2026-10-09T04:26:50.4531341Z shell: C:\Program Files\PowerShell\7\pwsh.EXE -command ". '{0}'"
+2026-10-09T04:26:50.4531624Z env:
+2026-10-09T04:26:50.4531785Z   DOTNET_ROOT: C:\Program Files\dotnet
+2026-10-09T04:26:50.4532054Z   pythonLocation: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-10-09T04:26:50.4532731Z   PKG_CONFIG_PATH: C:\hostedtoolcache\windows\Python\3.12.10\x64/lib/pkgconfig
+2026-10-09T04:26:50.4533115Z   Python_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-10-09T04:26:50.4533434Z   Python2_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-10-09T04:26:50.4533775Z   Python3_ROOT_DIR: C:\hostedtoolcache\windows\Python\3.12.10\x64
+2026-10-09T04:26:50.4534018Z ##[endgroup]
+2026-10-09T04:26:55.7723840Z PASS 152 real-native OS provider contract checks
+2026-10-09T04:27:10.9858000Z Unhandled exception. System.InvalidOperationException: UIA OS client failed (accepted=4, observed=0, lastIntent=none, invoked=False, UnicodeApplied=True, HwndFocused=True): UIA asynchronous invocation was not acknowledged by the native owner
+2026-10-09T04:27:10.9859637Z At D:\a\Project-Prime\Project-Prime\tools\rmlui-platform-accessibility-check\bin\Release\net10.0\windows-client.ps1:40
+2026-10-09T04:27:10.9860287Z char:23
+2026-10-09T04:27:10.9860677Z + ... received) { throw 'UIA asynchronous invocation was not acknowledged b ...
+2026-10-09T04:27:10.9861250Z +                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2026-10-09T04:27:10.9861967Z     + CategoryInfo          : OperationStopped: (UIA asynchronou...he native owner:String) [], RuntimeException
+2026-10-09T04:27:10.9863280Z     + FullyQualifiedErrorId : UIA asynchronous invocation was not acknowledged by the native owner
+2026-10-09T04:27:10.9863774Z
+2026-10-09T04:27:10.9863888Z
+2026-10-09T04:27:10.9864915Z    at WindowsFixture.Run(RmlUiHost host, RmlUiAccessibilityService service, String root, RmlUiDocumentToken document) in D:\a\Project-Prime\Project-Prime\tools\rmlui-platform-accessibility-check\WindowsFixture.cs:line 50
+2026-10-09T04:27:10.9866564Z    at Program.<Main>$(String[] args) in D:\a\Project-Prime\Project-Prime\tools\rmlui-platform-accessibility-check\Program.cs:line 118
+2026-10-09T04:27:11.4442143Z ##[error]Process completed with exit code 1.
+2026-10-09T04:27:11.4646031Z Post job cleanup.
+2026-10-09T04:27:11.6158055Z [command]"C:\Program Files\Git\bin\git.exe" version
+2026-10-09T04:27:11.6403764Z git version 2.55.0.windows.5
+2026-10-09T04:27:11.6459644Z Temporarily overriding HOME='D:\a\_temp\9e6e2835-d80a-4cf3-953e-7535b35057ef' before making global git config changes
+2026-10-09T04:27:11.6460366Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-09T04:27:11.6468790Z [command]"C:\Program Files\Git\bin\git.exe" config --global --add safe.directory D:\a\Project-Prime\Project-Prime
+2026-10-09T04:27:11.6781865Z Removing SSH command configuration
+2026-10-09T04:27:11.6793214Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp core\.sshCommand
+2026-10-09T04:27:11.7092443Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :\""
+2026-10-09T04:27:12.2704230Z Removing HTTP extra header
+2026-10-09T04:27:12.2714267Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-09T04:27:12.3021209Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "sh -c \"git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :\""
+2026-10-09T04:27:12.8000532Z Removing includeIf entries pointing to credentials config files
+2026-10-09T04:27:12.8016819Z [command]"C:\Program Files\Git\bin\git.exe" config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-09T04:27:12.8263408Z includeif.gitdir:D:/a/Project-Prime/Project-Prime/.git.path
+2026-10-09T04:27:12.8264342Z includeif.gitdir:D:/a/Project-Prime/Project-Prime/.git/worktrees/*.path
+2026-10-09T04:27:12.8264839Z includeif.gitdir:/github/workspace/.git.path
+2026-10-09T04:27:12.8265295Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-09T04:27:12.8305090Z [command]"C:\Program Files\Git\bin\git.exe" config --local --get-all includeif.gitdir:D:/a/Project-Prime/Project-Prime/.git.path
+2026-10-09T04:27:12.8561762Z D:\a\_temp\git-credentials-8fcac509-fbd5-4444-9c6e-e3747cad3cb4.config
+2026-10-09T04:27:12.8604094Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset includeif.gitdir:D:/a/Project-Prime/Project-Prime/.git.path D\:\\a\\_temp\\git\-credentials\-8fcac509\-fbd5\-4444\-9c6e\-e3747cad3cb4\.config
+2026-10-09T04:27:12.8885449Z [command]"C:\Program Files\Git\bin\git.exe" config --local --get-all includeif.gitdir:D:/a/Project-Prime/Project-Prime/.git/worktrees/*.path
+2026-10-09T04:27:12.9123438Z D:\a\_temp\git-credentials-8fcac509-fbd5-4444-9c6e-e3747cad3cb4.config
+2026-10-09T04:27:12.9164185Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset includeif.gitdir:D:/a/Project-Prime/Project-Prime/.git/worktrees/*.path D\:\\a\\_temp\\git\-credentials\-8fcac509\-fbd5\-4444\-9c6e\-e3747cad3cb4\.config
+2026-10-09T04:27:12.9479508Z [command]"C:\Program Files\Git\bin\git.exe" config --local --get-all includeif.gitdir:/github/workspace/.git.path
+2026-10-09T04:27:12.9732870Z /github/runner_temp/git-credentials-8fcac509-fbd5-4444-9c6e-e3747cad3cb4.config
+2026-10-09T04:27:12.9777717Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-8fcac509\-fbd5\-4444\-9c6e\-e3747cad3cb4\.config
+2026-10-09T04:27:13.0051550Z [command]"C:\Program Files\Git\bin\git.exe" config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+2026-10-09T04:27:13.0299491Z /github/runner_temp/git-credentials-8fcac509-fbd5-4444-9c6e-e3747cad3cb4.config
+2026-10-09T04:27:13.0369754Z [command]"C:\Program Files\Git\bin\git.exe" config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-8fcac509\-fbd5\-4444\-9c6e\-e3747cad3cb4\.config
+2026-10-09T04:27:13.0665058Z [command]"C:\Program Files\Git\bin\git.exe" submodule foreach --recursive "git config --local --show-origin --name-only --get-regexp remote.origin.url"
+2026-10-09T04:27:13.5798335Z Removing credentials config 'D:\a\_temp\git-credentials-8fcac509-fbd5-4444-9c6e-e3747cad3cb4.config'
+2026-10-09T04:27:13.6018632Z Cleaning up orphan processes
+2026-10-09T04:27:13.6280925Z Terminate orphan process: pid (4524) (vctip)
+2026-10-09T04:27:13.6385007Z Terminate orphan process: pid (5464) (VBCSCompiler)
+2026-10-09T04:27:13.6480645Z Terminate orphan process: pid (7276) (conhost)

@@ -3,6 +3,11 @@
 Base: `0127fab5ffd411529a5c69a40e5467e140f50a60`, protocol 44.
 Upstream Fruity PR109: `1756af902f960c82edde28bd31e6895f8bcb8198`, open and conflicting when checked on 2026-10-08 (America/Chicago).
 
+**Delivery status: gated partial implementation, not release acceptance.** Seven draft PRs
+implement transport, conservative cosmetics, shadow decisions, kill tickets, profiling and
+reproducible evidence. The requested enabled early-settlement path is blocked by missing
+component/order proofs. Full visual acceptance and a collision optimization win are outstanding.
+
 This implementation retains dedicated-server combat authority, existing movement ownership,
 claim grace/arbitration, shot/lifecycle identity and replay v1 facts. No release or merge is authorized.
 
@@ -24,9 +29,9 @@ and current authority/match identity. It does not publish a fact for every kind 
 | Burn, self/environment | Burn/environment commonly lack a valid beam/shot identity. A beam self-hit can publish when it has a legal identity. Do not advertise general coverage. |
 | Rescued claims | Uses independently validated claim witness at final application; body-relative collision pose is not retained in v1. World point must remain the fallback. |
 
-The live receive case only calls `ReplayCapture.AcceptedShotFact`. Authority publication
-currently returns when recorder admission fails. The existing reliable replay lane is
-background priority; a separate bounded live lane is required.
+At the baseline, the live receive case only called `ReplayCapture.AcceptedShotFact`, and
+authority publication returned when recorder admission failed. Slice 1 adds an independent
+bounded live lane; the replay lane remains background priority.
 
 ## Measurement contract
 
@@ -47,13 +52,30 @@ rendered multiplayer acceptance. Before/after records never imply unexecuted pla
 
 | Slice | Status | Evidence |
 | --- | --- | --- |
-| 0 Baseline | in progress | coverage audit, diagnostic ring, baseline contracts and headless runs |
-| 1 Live transport | pending | |
-| 2 Presentation | pending | |
-| 3 Fast claims | pending; default remains existing arbitration | |
-| 4 Predicted kills | pending; actual remote predicted death remains disabled | |
-| 5 Collision performance | pending | |
-| 6 Acceptance | pending | Cross-platform rendered campaign requires those environments |
+| 0 Baseline | done | exact baseline, coverage audit, bounded diagnostics, original and matched benchmark records |
+| 1 Live transport | partial | canonical seam, protocol 45, independent bounded delivery and native ingress verified; child identities and complete fact coverage remain limited |
+| 2 Presentation | partial | pure endpoint cues, full primary-shot matching and fallback contracts; no corrected trails or weapon-specific effect campaign |
+| 3 Fast claims | blocked | shadow implemented; native component suppression and closed attack-order fence absent; enabled mode refused |
+| 4 Predicted kills | partial | opt-in Imperialist render-only tickets; authored animation and impaired rendered reversal campaign outstanding |
+| 5 Collision performance | partial | bounded profiling, native and synthetic samples; no new collision optimization or parity win |
+| 6 Acceptance | unverified | local contracts and real UDP evidence retained; full platform/rendered/bot/weapon matrix not accepted |
+
+## Reviewable PR chain
+
+All are drafts, explicitly stacked on the previous branch, with #410 based on the
+verified main SHA above. None has been merged. Exact base/implementation SHAs and
+per-slice changed files are in [pr-chain.json](pr-chain.json). Slice 6 adds the final
+evidence/docs after its implementation audit; its PR exposes the current complete diff.
+
+| Slice | PR | Branch | Implementation head |
+| --- | --- | --- | --- |
+| 0 | [#410](https://github.com/AntiNotAnti/Project-Prime/pull/410) | `codex/impact-00-baseline` | `85a376fa` |
+| 1 | [#411](https://github.com/AntiNotAnti/Project-Prime/pull/411) | `codex/impact-01-authority-facts` | `ed3a5234` |
+| 2 | [#412](https://github.com/AntiNotAnti/Project-Prime/pull/412) | `codex/impact-02-live-presentation` | `4bf31597` |
+| 3 | [#413](https://github.com/AntiNotAnti/Project-Prime/pull/413) | `codex/impact-03-claim-shadow` | `cb495dd8` |
+| 4 | [#414](https://github.com/AntiNotAnti/Project-Prime/pull/414) | `codex/impact-04-predicted-visuals` | `c939be7b` |
+| 5 | [#415](https://github.com/AntiNotAnti/Project-Prime/pull/415) | `codex/impact-05-collision-profile` | `41179600` |
+| 6 | [#416](https://github.com/AntiNotAnti/Project-Prime/pull/416) | `codex/impact-06-acceptance` | `c463c14a` |
 
 ## Slice 1: independent live fact transport
 
@@ -70,18 +92,20 @@ frames apart, 12-frame sender expiry, at most four transmissions per simulation 
 The ceiling is 240 datagrams/23,520 framed bytes per second per peer, excluding UDP/IP;
 8 peers at saturation add at most 188,160 framed bytes/s. Pressure drops cosmetics;
 no reliable retry window, replay history or match state waits for these events.
-The receiver reserves admission for gameplay and limits queued cosmetics to 64.
+The receiver has a separate 64-packet cosmetic allowance, preserves the full original
+gameplay/critical capacity, and drains ordinary realtime gameplay before cosmetics.
+Saturation of cosmetics cannot consume the gameplay receive reserve.
 
 The deterministic matrix uses the production outbox/codec over the fault scheduler:
 2/4/8 peers, 0/50/150/250/350ms RTT, 0/40/80ms positive FIFO jitter, 2% loss, 3%
 reorder and 1% duplication. It is **not** a symmetric-jitter UDP/rendered campaign.
 All 45 scenarios pass >=98% unique delivery at 10 events/s/peer. Saturation explicitly
-drops expired cosmetics. `--impact-transport` passes 484 assertions; baseline contracts
+drops expired cosmetics. `--impact-transport` now passes 614 assertions (569 codec/identity/queue + 45 scenarios); baseline contracts
 and both asset-backed authority checks remain green. See `transport.json` and `slice1/`.
 
-The full engineering script passed network/replay checks then stopped at authored-mip
-because this new macOS worktree lacked the pinned native libktx. Building the documented
-runtime is the next verification step; this is not reported as a passing engineering gate.
+The initial engineering attempt stopped at authored-mip because this new macOS worktree
+lacked pinned libktx. The documented native runtime was then built and the remaining
+contracts resumed successfully. Final verification outcomes are recorded in `after.json`.
 
 PR chain: slice 0 https://github.com/AntiNotAnti/Project-Prime/pull/410, base main.
 
@@ -106,8 +130,8 @@ These conservative thresholds are provisional, not empirically tuned recommendat
 
 `--impact-crossview` currently means 22 **asset-free presentation contracts**, not an
 observed multi-camera success rate. Existing replay format/control checks pass after
-sharing the drawing helper. The pinned macOS libktx runtime now builds and the remaining
-engineering checks are being resumed. Rendered first-person/spectator/high-refresh and
+sharing the drawing helper. The pinned macOS libktx runtime builds and the remaining
+engineering contracts passed after installation. Rendered first-person/spectator/high-refresh and
 weapon-specific particles/audio remain unverified; default stays off.
 
 Slice 1 PR: https://github.com/AntiNotAnti/Project-Prime/pull/411 (depends on #410).
@@ -180,3 +204,73 @@ campaign would not satisfy the requested safety gate. This slice is **partial**:
 instrumentation is implemented and measured; optimization/parity and mixed-bot load
 remain unverified. Three profiler contracts cover zero disabled allocation, bounds and
 scope invalidation. Slice 4 PR: https://github.com/AntiNotAnti/Project-Prime/pull/414.
+
+## Acceptance evidence and reproduction
+
+See [after.json](../../validation/live-impact/after.json) and
+[COMPARISON.md](../../validation/live-impact/COMPARISON.md) for the measured outcomes,
+failed native arms, benchmark limits, CI snapshot, and raw evidence paths. No percentage
+from a synthetic queue test or headless ingress join is labeled visual success.
+The final local runner passed 20 checks, including 3,338,739 health/shot assertions,
+614 transport assertions, 57 real authority/resource assertions and 156 fire-context
+assertions. Visual contracts inspect unchanged gameplay state; they do not inspect pixels.
+
+```sh
+dotnet build tools/nettest -c Release
+python3 tools/live-impact/run-validation.py --dotnet dotnet \
+  --output /tmp/impact-contracts --assets /absolute/path/to/game-data
+python3 tools/hitrig/run-networking-slices.py \
+  --runtime /absolute/path/to/frozen-runtime --data /absolute/path/to/game-data \
+  --dotnet /absolute/path/to/dotnet --output /tmp/impact-native \
+  --players 2 --seconds 30 --impacts --modes powerbeam \
+  --profiles rtt0-loss0,rtt250-loss2,rtt350-loss2 --require-combat
+python3 tools/live-impact/report-native.py /tmp/impact-native --output /tmp/impact-native/report.json
+python3 tools/live-impact/benchmark-pair.py \
+  --before /absolute/path/to/baseline/nettest.dll --before-commit BASE_SHA \
+  --after /absolute/path/to/current/nettest.dll --after-commit HEAD_SHA \
+  --assets /absolute/path/to/game-data --output /tmp/impact-benchmark \
+  --dotnet /absolute/path/to/dotnet --seconds 30 --repeats 3
+```
+
+The native runner isolates preferences, disables master registration and freezes its
+runtime. It retains failures and checks source hashes after execution. Weapon admission
+must stay intact: a locally armed rig weapon is not automatically a legal server attack.
+Exports use `PRIME_IMPACT_LOG` with `-liveimpactdebug` at native harness/server teardown.
+The diagnostic ring is 4096 events; any overwrite invalidates a full-run denominator.
+Monotonic timestamp subtraction is only within one process. Missing peer facts can be
+outside readiness/lifecycle windows, so the join cannot assert an eligible-delivery SLA.
+
+## Gates and rollback
+
+| Gate | Default | Rollback and scope |
+| --- | --- | --- |
+| `-liveimpacts` | off | `-noliveimpacts` overrides; disables live publication/consumption; ordinary visuals and replay remain |
+| `-liveimpactdebug` | off | omit to remove detailed hot-path logging; exports happen only on explicit diagnostic paths |
+| `-claimfastpath off\|shadow` | shadow | `off` removes the bounded observer and retains original arbitration; `enabled` fails with exit code 2 |
+| `-predictedkillvisuals` | off | omit, or use `-nohitprediction`; actual predicted remote death remains hardcoded off |
+| `-impactprofile` | off | omit to disable timing/allocation probes |
+| Historical collision replacement | absent | original server native/rewind validation remains active |
+
+Protocol 45 is a strict client/server boundary. Rebuild paired binaries together if this
+chain is eventually released. ReplayShotFact v1 and historical replay/checkpoint layouts
+are unchanged. No automatic configuration migration, release or deployment is performed.
+
+## Prioritized remaining work
+
+- **Security/correctness (blocker):** design and verify an exact native-component paid/
+  suppression ledger and a closed admission/order frontier before enabling early claim
+  settlement. Add trade, delayed earlier shot, continuous multiplicity and consumed-component
+  adversarial parity fixtures. Keep the original grace/arbitration until these pass.
+- **Fidelity:** carry stable repeated-child lineage, extend source-backed facts for turret-only,
+  bomb/alt/burn paths, and distinguish every charged/affinity/homing/ricochet case. Never guess
+  component identity from proximity. Correct the native fixture's legal weapon acquisition
+  through ordinary authority rules before treating all-weapon runs as acceptance.
+- **Visuals:** implement and inspect weapon-specific impacts/trails, observer/first/third-person
+  views, moving-pose offsets and duplicate splash behavior; tune provisional hold/cone/range
+  thresholds from measured views. Run 60–360 Hz, seeks/export, dynamic cover/custom maps,
+  physical Android focus/resume and repeated high-loss predicted-kill reversals. Features
+  remain off until the requested denominators and false-impact gates are demonstrated.
+- **Performance:** use the retained native profiles to isolate catch-up work, then parity-test
+  a bounded cache or read-only query on supported shots. Demonstrate an actual hotspot win
+  and the enabled eight-player <=5% p99 gate with mixed bots/humans. Current default-off
+  microbenchmarks and fixed bandwidth ceilings cannot establish that enabled release gate.

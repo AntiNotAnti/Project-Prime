@@ -1,0 +1,671 @@
+{
+  "schema": 1,
+  "clock": "process-monotonic; compare frames across processes, not timestamps",
+  "timestampFrequency": 1000000000,
+  "overwritten": 0,
+  "events": [],
+  "counts": [
+    {
+      "weapon": 0,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 0
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 0
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 0
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "weapon": 1,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 0
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 0
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 0
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "weapon": 2,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 0
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 0
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 0
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "weapon": 3,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 0
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 0
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 0
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "weapon": 4,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 0
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 0
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 0
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "weapon": 5,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 0
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 0
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 0
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "weapon": 6,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 0
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 0
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 0
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "weapon": 7,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 0
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 0
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 0
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "weapon": 8,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 0
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 0
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 0
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    }
+  ],
+  "claimShadow": [],
+  "predictedKills": {
+    "Started": 0,
+    "Confirmed": 0,
+    "Rejected": 0,
+    "Expired": 0
+  },
+  "profile": [
+    {
+      "Section": "BeginShot",
+      "Calls": 15,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0.094254,
+      "WindowSamples": 15,
+      "P50": 0.000667,
+      "P95": 0.084917,
+      "P99": 0.084917,
+      "P999": 0.084917,
+      "WindowTicks": [
+        167,
+        417,
+        542,
+        625,
+        625,
+        667,
+        667,
+        667,
+        708,
+        709,
+        750,
+        792,
+        834,
+        1167,
+        84917
+      ]
+    },
+    {
+      "Section": "EndShot",
+      "Calls": 15,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0.23929,
+      "WindowSamples": 15,
+      "P50": 0.0005,
+      "P95": 0.232708,
+      "P99": 0.232708,
+      "P999": 0.232708,
+      "WindowTicks": [
+        125,
+        292,
+        417,
+        417,
+        500,
+        500,
+        500,
+        500,
+        500,
+        541,
+        541,
+        541,
+        583,
+        625,
+        232708
+      ]
+    },
+    {
+      "Section": "HistoricalGeometry",
+      "Calls": 0,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0,
+      "WindowSamples": 0,
+      "P50": null,
+      "P95": null,
+      "P99": null,
+      "P999": null,
+      "WindowTicks": []
+    },
+    {
+      "Section": "EmitPending",
+      "Calls": 0,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0,
+      "WindowSamples": 0,
+      "P50": null,
+      "P95": null,
+      "P99": null,
+      "P999": null,
+      "WindowTicks": []
+    },
+    {
+      "Section": "NativeCatchup",
+      "Calls": 0,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0,
+      "WindowSamples": 0,
+      "P50": null,
+      "P95": null,
+      "P99": null,
+      "P999": null,
+      "WindowTicks": []
+    },
+    {
+      "Section": "Supports",
+      "Calls": 0,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0,
+      "WindowSamples": 0,
+      "P50": null,
+      "P95": null,
+      "P99": null,
+      "P999": null,
+      "WindowTicks": []
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Join native diagnostic exports. Never infer rendered success from a headless run."""
 import argparse, json, math
+from collections import Counter
 from pathlib import Path
 
 def identity(event):
@@ -14,7 +15,8 @@ def report(folder):
     server=json.loads((folder/'server-impacts.json').read_text())
     authority={identity(e) for e in server['events'] if e['Stage']==1}
     result={'scenario':folder.name, 'rendered':False, 'authorityFactsRetained':len(authority),
-            'authorityRingOverwritten':server['overwritten'], 'peers':[],
+            'authorityRingOverwritten':server['overwritten'],
+            'authorityByWeapon':dict(Counter(e['Weapon'] for e in server['events'] if e['Stage']==1)), 'peers':[],
             'limitations':['Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.',
                 'Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.',
                 'No impact-render latency, visual correlation, observer view, or predicted-kill reversal rate is measured.']}
@@ -34,6 +36,7 @@ def report(folder):
         q=lambda p:latencies[min(len(latencies)-1,math.ceil(len(latencies)*p)-1)] if latencies else None
         result['peers'].append({'view':path.stem,'liveIngressUnique':len(keys),
             'authorityBacked':len(keys&authority), 'authorityAbsent':len(keys-authority),
+            'liveIngressByWeapon':dict(Counter(e['Weapon'] for e in ingress)),
             'localPredictionsRetained':sum(map(len,local.values())), 'latencySamples':len(latencies),
             'negativeCandidateLatencies':negative, 'localHitToIngressP90Ms':q(.9),'localHitToIngressP99Ms':q(.99),
             'ringOverwritten':data['overwritten'], 'latenciesMs':latencies})

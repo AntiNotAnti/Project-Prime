@@ -1,0 +1,2068 @@
+{
+  "schema": 1,
+  "clock": "process-monotonic; compare frames across processes, not timestamps",
+  "timestampFrequency": 1000000000,
+  "overwritten": 0,
+  "events": [
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 2
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 1,
+        "ResolveTick": 154,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 107,
+      "Timestamp": 370815123496166
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 2
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 1,
+        "ResolveTick": 154,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 107,
+      "Timestamp": 370815123722583
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 2
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 1,
+        "ResolveTick": 154,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 111,
+      "Timestamp": 370815188652291
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 3
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 2,
+        "ResolveTick": 168,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 120,
+      "Timestamp": 370815338678750
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 3
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 2,
+        "ResolveTick": 168,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 121,
+      "Timestamp": 370815355374041
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 3
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 2,
+        "ResolveTick": 168,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 124,
+      "Timestamp": 370815405128250
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 7
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 3,
+        "ResolveTick": 218,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 170,
+      "Timestamp": 370816172204875
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 7
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 3,
+        "ResolveTick": 218,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 171,
+      "Timestamp": 370816188455458
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 7
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 3,
+        "ResolveTick": 218,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 174,
+      "Timestamp": 370816238011458
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 19
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 4,
+        "ResolveTick": 374,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 327,
+      "Timestamp": 370818788008500
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 19
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 4,
+        "ResolveTick": 374,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 328,
+      "Timestamp": 370818804201750
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 19
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 4,
+        "ResolveTick": 374,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 330,
+      "Timestamp": 370818838129166
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 28
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 5,
+        "ResolveTick": 493,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 446,
+      "Timestamp": 370820770892625
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 28
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 5,
+        "ResolveTick": 493,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 446,
+      "Timestamp": 370820770906250
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 28
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 5,
+        "ResolveTick": 493,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 449,
+      "Timestamp": 370820821756666
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 29
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 6,
+        "ResolveTick": 504,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 456,
+      "Timestamp": 370820937729375
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 29
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 6,
+        "ResolveTick": 504,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 457,
+      "Timestamp": 370820955073958
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 29
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 6,
+        "ResolveTick": 504,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 461,
+      "Timestamp": 370821021769833
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 30
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 7,
+        "ResolveTick": 520,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 473,
+      "Timestamp": 370821221824083
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 30
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 7,
+        "ResolveTick": 520,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 474,
+      "Timestamp": 370821238697791
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 30
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 7,
+        "ResolveTick": 520,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 477,
+      "Timestamp": 370821287566833
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 31
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 8,
+        "ResolveTick": 533,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 486,
+      "Timestamp": 370821438351291
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 31
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 8,
+        "ResolveTick": 533,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 486,
+      "Timestamp": 370821438358916
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 31
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 8,
+        "ResolveTick": 533,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 489,
+      "Timestamp": 370821488004833
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 36
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 9,
+        "ResolveTick": 597,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 549,
+      "Timestamp": 370822487587625
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 36
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 9,
+        "ResolveTick": 597,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 550,
+      "Timestamp": 370822504851125
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 36
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 9,
+        "ResolveTick": 597,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 553,
+      "Timestamp": 370822555500958
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 37
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 10,
+        "ResolveTick": 609,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 563,
+      "Timestamp": 370822721690958
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 37
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 10,
+        "ResolveTick": 609,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 563,
+      "Timestamp": 370822721704708
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 37
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 10,
+        "ResolveTick": 609,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 566,
+      "Timestamp": 370822772008916
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 38
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 11,
+        "ResolveTick": 621,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 573,
+      "Timestamp": 370822887595916
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 38
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 11,
+        "ResolveTick": 621,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 577,
+      "Timestamp": 370822955157208
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 40
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 12,
+        "ResolveTick": 649,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 602,
+      "Timestamp": 370823371928041
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 40
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 12,
+        "ResolveTick": 649,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 603,
+      "Timestamp": 370823388224416
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 38
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 11,
+        "ResolveTick": 621,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 603,
+      "Timestamp": 370823388237416
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 40
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 12,
+        "ResolveTick": 649,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 606,
+      "Timestamp": 370823437613833
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 41
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 13,
+        "ResolveTick": 662,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 615,
+      "Timestamp": 370823589038750
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 41
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 13,
+        "ResolveTick": 662,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 615,
+      "Timestamp": 370823589069458
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 41
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 13,
+        "ResolveTick": 662,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 618,
+      "Timestamp": 370823638064916
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 43
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 14,
+        "ResolveTick": 687,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 641,
+      "Timestamp": 370824021683041
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 43
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 14,
+        "ResolveTick": 687,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 641,
+      "Timestamp": 370824021689041
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 43
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 14,
+        "ResolveTick": 687,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 643,
+      "Timestamp": 370824054714208
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 51
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 15,
+        "ResolveTick": 791,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 743,
+      "Timestamp": 370825721499291
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 51
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 15,
+        "ResolveTick": 791,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 745,
+      "Timestamp": 370825755602500
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 51
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 15,
+        "ResolveTick": 791,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 747,
+      "Timestamp": 370825788715750
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 52
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 16,
+        "ResolveTick": 804,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 758,
+      "Timestamp": 370825972446916
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 52
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 16,
+        "ResolveTick": 804,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 758,
+      "Timestamp": 370825974424166
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 52
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 1,
+        "DamageEvent": 16,
+        "ResolveTick": 804,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 760,
+      "Timestamp": 370826004609583
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 79
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 2,
+        "DamageEvent": 1,
+        "ResolveTick": 1339,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 1291,
+      "Timestamp": 370834855419500
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 79
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 2,
+        "DamageEvent": 1,
+        "ResolveTick": 1339,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 1292,
+      "Timestamp": 370834870908125
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 79
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 2,
+        "DamageEvent": 1,
+        "ResolveTick": 1339,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 1293,
+      "Timestamp": 370834888503125
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 100
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 2,
+        "DamageEvent": 2,
+        "ResolveTick": 1611,
+        "Component": 1
+      },
+      "Stage": 3,
+      "Weapon": 0,
+      "LocalFrame": 1564,
+      "Timestamp": 370839404893041
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 100
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 2,
+        "DamageEvent": 2,
+        "ResolveTick": 1611,
+        "Component": 0
+      },
+      "Stage": 2,
+      "Weapon": 0,
+      "LocalFrame": 1564,
+      "Timestamp": 370839404905291
+    },
+    {
+      "Identity": {
+        "Shot": {
+          "AuthorityEpoch": 639271173090868910,
+          "MatchId": 2,
+          "ShooterSlot": 0,
+          "Generation": 1,
+          "LifeId": 1,
+          "ShotId": 100
+        },
+        "Victim": 1,
+        "VictimGeneration": 1,
+        "VictimLife": 2,
+        "DamageEvent": 2,
+        "ResolveTick": 1611,
+        "Component": 0
+      },
+      "Stage": 9,
+      "Weapon": 0,
+      "LocalFrame": 1566,
+      "Timestamp": 370839438079250
+    }
+  ],
+  "counts": [
+    {
+      "weapon": 0,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 18
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 18
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 18
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "weapon": 1,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 0
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 0
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 0
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "weapon": 2,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 0
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 0
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 0
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "weapon": 3,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 0
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 0
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 0
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "weapon": 4,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 0
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 0
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 0
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "weapon": 5,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 0
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 0
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 0
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "weapon": 6,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 0
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 0
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 0
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "weapon": 7,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 0
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 0
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 0
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    },
+    {
+      "weapon": 8,
+      "stages": [
+        {
+          "stage": "LocalHit",
+          "count": 0
+        },
+        {
+          "stage": "Authority",
+          "count": 0
+        },
+        {
+          "stage": "ReplayIngress",
+          "count": 0
+        },
+        {
+          "stage": "LiveIngress",
+          "count": 0
+        },
+        {
+          "stage": "Matched",
+          "count": 0
+        },
+        {
+          "stage": "Synthesized",
+          "count": 0
+        },
+        {
+          "stage": "AlreadyVisible",
+          "count": 0
+        },
+        {
+          "stage": "Invalid",
+          "count": 0
+        },
+        {
+          "stage": "Stale",
+          "count": 0
+        },
+        {
+          "stage": "Duplicate",
+          "count": 0
+        },
+        {
+          "stage": "Ambiguous",
+          "count": 0
+        },
+        {
+          "stage": "Expired",
+          "count": 0
+        },
+        {
+          "stage": "KillConfirmed",
+          "count": 0
+        },
+        {
+          "stage": "KillRejected",
+          "count": 0
+        }
+      ]
+    }
+  ],
+  "claimShadow": [],
+  "predictedKills": {
+    "Started": 0,
+    "Confirmed": 0,
+    "Rejected": 0,
+    "Expired": 0
+  },
+  "profile": [
+    {
+      "Section": "BeginShot",
+      "Calls": 119,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0.182916,
+      "WindowSamples": 119,
+      "P50": 0.000375,
+      "P95": 0.00125,
+      "P99": 0.025709,
+      "P999": 0.088042,
+      "WindowTicks": [
+        84,
+        125,
+        125,
+        125,
+        166,
+        166,
+        167,
+        167,
+        167,
+        167,
+        208,
+        208,
+        208,
+        208,
+        208,
+        208,
+        208,
+        208,
+        208,
+        208,
+        208,
+        209,
+        209,
+        209,
+        250,
+        250,
+        250,
+        250,
+        250,
+        291,
+        292,
+        292,
+        292,
+        292,
+        292,
+        292,
+        292,
+        333,
+        333,
+        333,
+        333,
+        333,
+        333,
+        333,
+        333,
+        333,
+        333,
+        333,
+        333,
+        333,
+        334,
+        334,
+        334,
+        334,
+        334,
+        375,
+        375,
+        375,
+        375,
+        375,
+        416,
+        417,
+        417,
+        417,
+        458,
+        458,
+        458,
+        458,
+        459,
+        500,
+        500,
+        500,
+        500,
+        500,
+        500,
+        541,
+        541,
+        541,
+        542,
+        542,
+        542,
+        583,
+        583,
+        583,
+        583,
+        625,
+        625,
+        666,
+        667,
+        667,
+        709,
+        750,
+        750,
+        750,
+        750,
+        792,
+        792,
+        833,
+        834,
+        834,
+        875,
+        917,
+        917,
+        917,
+        958,
+        958,
+        958,
+        959,
+        959,
+        1041,
+        1041,
+        1041,
+        1208,
+        1250,
+        4375,
+        5250,
+        6125,
+        25709,
+        88042
+      ]
+    },
+    {
+      "Section": "EndShot",
+      "Calls": 119,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0.350162,
+      "WindowSamples": 119,
+      "P50": 0.000333,
+      "P95": 0.001167,
+      "P99": 0.009416,
+      "P999": 0.292,
+      "WindowTicks": [
+        83,
+        83,
+        83,
+        84,
+        84,
+        125,
+        125,
+        125,
+        166,
+        166,
+        166,
+        167,
+        167,
+        167,
+        167,
+        167,
+        208,
+        208,
+        208,
+        208,
+        208,
+        208,
+        208,
+        208,
+        208,
+        209,
+        250,
+        250,
+        250,
+        250,
+        250,
+        250,
+        250,
+        250,
+        250,
+        250,
+        291,
+        291,
+        291,
+        291,
+        291,
+        291,
+        291,
+        291,
+        292,
+        292,
+        292,
+        292,
+        292,
+        292,
+        292,
+        292,
+        292,
+        292,
+        292,
+        292,
+        292,
+        292,
+        333,
+        333,
+        333,
+        333,
+        333,
+        333,
+        334,
+        334,
+        334,
+        334,
+        375,
+        375,
+        375,
+        375,
+        375,
+        375,
+        375,
+        375,
+        375,
+        375,
+        375,
+        375,
+        375,
+        375,
+        375,
+        375,
+        416,
+        416,
+        416,
+        416,
+        416,
+        416,
+        416,
+        416,
+        417,
+        417,
+        417,
+        417,
+        417,
+        417,
+        417,
+        417,
+        458,
+        458,
+        459,
+        500,
+        500,
+        500,
+        541,
+        542,
+        583,
+        584,
+        625,
+        625,
+        791,
+        1167,
+        1292,
+        2792,
+        7209,
+        9416,
+        292000
+      ]
+    },
+    {
+      "Section": "HistoricalGeometry",
+      "Calls": 0,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0,
+      "WindowSamples": 0,
+      "P50": null,
+      "P95": null,
+      "P99": null,
+      "P999": null,
+      "WindowTicks": []
+    },
+    {
+      "Section": "EmitPending",
+      "Calls": 0,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0,
+      "WindowSamples": 0,
+      "P50": null,
+      "P95": null,
+      "P99": null,
+      "P999": null,
+      "WindowTicks": []
+    },
+    {
+      "Section": "NativeCatchup",
+      "Calls": 0,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0,
+      "WindowSamples": 0,
+      "P50": null,
+      "P95": null,
+      "P99": null,
+      "P999": null,
+      "WindowTicks": []
+    },
+    {
+      "Section": "Supports",
+      "Calls": 0,
+      "AllocatedBytes": 0,
+      "TotalMilliseconds": 0,
+      "WindowSamples": 0,
+      "P50": null,
+      "P95": null,
+      "P99": null,
+      "P999": null,
+      "WindowTicks": []
+    }
+  ]
+}
