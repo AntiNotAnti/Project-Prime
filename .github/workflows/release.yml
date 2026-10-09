@@ -20,6 +20,10 @@ name: release
 on:
   push:
     tags: ["v*"]
+    # The review branch is the only permitted source of the one-time v0.1.47
+    # recovery release. Its first merge triggers the full release test matrix;
+    # the original unrelated and unpublished tag is retargeted only then.
+    branches: ["release/v0.1.47"]
   workflow_dispatch:
     inputs:
       # Neither is required: give a tag to rebuild one that exists, or leave it
@@ -82,12 +86,16 @@ jobs:
           INPUT_TAG: ${{ github.event.inputs.tag }}
           RETARGET_UNPUBLISHED: ${{ github.event.inputs.retarget_unpublished }}
           BUMP: ${{ github.event.inputs.bump }}
-          PUSHED_TAG: ${{ github.event_name == 'push' && github.ref_name || '' }}
+          PUSHED_TAG: ${{ github.event_name == 'push' && github.ref_type == 'tag' && github.ref_name || '' }}
+          PUSHED_HOTFIX: ${{ github.event_name == 'push' && github.ref == 'refs/heads/release/v0.1.47' && 'v0.1.47' || '' }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          TAG="${INPUT_TAG:-$PUSHED_TAG}"
+          TAG="${INPUT_TAG:-${PUSHED_TAG:-$PUSHED_HOTFIX}}"
+          if [ -n "$PUSHED_HOTFIX" ]; then
+            RETARGET_UNPUBLISHED=true
+          fi
           CREATE_TAG=false
           # Bound each component before doing Bash arithmetic (which can wrap).
           RELEASE_TAG='^v(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})$'
@@ -123,6 +131,15 @@ jobs:
               gh api -X PATCH "repos/$REPO/git/refs/tags/$TAG" \
                 -f sha="$SHA" -F force=true >/dev/null
               echo "Retargeted previously unpublished $TAG to ${SHA:0:7}."
+            elif [ "$TAG" = "v0.1.47" ]; then
+              # An unreviewed manual run must never build the orphan tag from
+              # an unrelated October 8 RmlUi commit.
+              release_branch=$(gh api "repos/$REPO/branches/release/v0.1.47" --jq '.commit.sha')
+              selected_tag=$(gh api "repos/$REPO/git/ref/tags/v0.1.47" --jq '.object.sha')
+              if [ "$selected_tag" != "$release_branch" ]; then
+                echo "::error::v0.1.47 still points to an unrelated commit. Merge the hotfix into release/v0.1.47 first."
+                exit 1
+              fi
             fi
             echo "Building the existing tag $TAG."
           elif [ "${BUMP:-none}" != none ]; then
