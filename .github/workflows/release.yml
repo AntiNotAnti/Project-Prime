@@ -268,7 +268,9 @@ jobs:
           dotnet run --project tools/map-prefab-check -c Release
           dotnet run --project tools/studio-modeling-check -c Release
           dotnet run --project tools/map-gameplay-check -c Release
-          dotnet run --project tools/studio-lifecycle-check -c Release
+          # Avoid parallel Avalonia resource generation into StudioEngine/obj.
+          dotnet build tools/studio-lifecycle-check -c Release -m:1
+          dotnet run --project tools/studio-lifecycle-check -c Release --no-build
           dotnet run --project tools/studio-diagnostics-check -c Release
           dotnet run --project tools/studio-launch-check -c Release
           dotnet run --project tools/studio-render-check -c Release

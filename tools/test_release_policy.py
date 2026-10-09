@@ -88,6 +88,11 @@ class NativeReleasePackagingTests(unittest.TestCase):
             finally:
                 verifier.ROOT=old_root
 
+    def test_studio_lifecycle_release_build_is_serialized(self):
+        script=step_script("Studio authoring, lifecycle, diagnostics and launcher regressions")
+        self.assertIn("dotnet build tools/studio-lifecycle-check -c Release -m:1",script)
+        self.assertIn("dotnet run --project tools/studio-lifecycle-check -c Release --no-build",script)
+
     def test_macos_app_bundle_seals_ui_data_as_resources(self):
         root=WORKFLOW.parents[2]
         pack=(root/"tools/package-macos.sh").read_text()
