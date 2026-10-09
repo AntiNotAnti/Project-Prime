@@ -239,7 +239,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             if (intent.Kind == RmlUiIntentKind.NoticeAction)
             {
                 string? destination = HandleNoticeAction(intent.Argument);
-                if (destination == "updates") forwarded = intent;
+                if (destination == "updates") forwarded = Forward("notice:versions", intent.Sequence);
                 else if (destination is "social" or "news")
                     forwarded = Forward("route:" + destination, intent.Sequence);
                 return true;
