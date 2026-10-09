@@ -24,7 +24,7 @@
                     <button id="profile" class="utility" data-action="route:hunter" data-prime-text="{{player_name}}">PROFILE</button>
                     <button id="header_settings" class="utility" data-action="route:settings">SETTINGS</button>
                     <button id="notice_button" class="utility" data-action="notice:toggle" aria-label="Open notifications" title="Notifications">
-                        <span id="notice_bell_icon">&#128276;</span><span class="notice_button_text">ALERTS</span><span id="notice_badge" data-prime-visible="notice_unread_visible" data-prime-text="{{notice_unread_count}}" />
+                        <span id="notice_bell_icon"><span id="notice_bell_clapper" /></span><span class="notice_button_text">ALERTS</span><span id="notice_badge" data-prime-visible="notice_unread_visible" data-prime-text="{{notice_unread_count}}" />
                     </button>
                 </div>
             </div>
