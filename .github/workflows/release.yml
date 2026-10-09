@@ -112,8 +112,8 @@ jobs:
                 echo "::error::Only the unpublished v0.1.47 hotfix tag may be retargeted."
                 exit 1
               fi
-              if [ "${{ github.ref_type }}" != "branch" ] || [[ "${{ github.ref_name }}" != hotfix/v0.1.47-* ]]; then
-                echo "::error::Select the v0.1.46-based hotfix branch for the tag recovery workflow."
+              if [ "${{ github.ref_type }}" != "branch" ] || [ "${{ github.ref_name }}" != "release/v0.1.47" ]; then
+                echo "::error::Only the reviewed release/v0.1.47 branch may retarget the unpublished tag."
                 exit 1
               fi
               if gh api "repos/$REPO/releases/tags/$TAG" >/dev/null 2>&1; then
@@ -781,6 +781,12 @@ jobs:
             violations and persistent updater failure logging.
           - Protects user settings/maps/replays and prevents an old standalone
             release from replacing a newer paired Game + Studio installation.
+
+          The originally published **v0.1.52 desktop archives are malformed**:
+          Windows lacks required hidden Game/Studio metadata and Linux owns an
+          internal updater lock in its manifest. v0.1.47 refuses both archives
+          *before closing the game*. Install the next corrected stable release
+          once its packaging regression tests pass; do not force v0.1.52.
 
           This is an **intermediary compatibility build**, not the newest release.
           It is intentionally not marked Latest. Open Version Manager in
