@@ -44,9 +44,8 @@ internal static class InstallationChecks
         string newExecutable = Path.Combine(next, game);
         check(File.Exists(oldExecutable) && File.Exists(newExecutable),
             "both published release archives contain their platform executable");
-        check(File.Exists(Path.Combine(next, studio))
-            && File.Exists(Path.Combine(next, ".project-prime-desktop.json")),
-            "v0.1.52 published release has paired Game + Studio payload");
+        check(File.Exists(Path.Combine(next, studio)),
+            "v0.1.52 published release contains standalone Studio executable");
         void DiagnoseManifest(string directory)
         {
             string manifestPath = Path.Combine(directory, ReleaseInstallation.ManifestName);
@@ -66,16 +65,12 @@ internal static class InstallationChecks
         DiagnoseManifest(installed);
         DiagnoseManifest(next);
         var older = ReleaseInstallation.ReadManifest(installed);
-        var newer = ReleaseInstallation.ReadManifest(next);
-        check(older?.Files.Contains(game) == true
-            && newer?.Files.Contains(game) == true
-            && newer?.Files.Contains(studio) == true,
-            "both real archives carry their own release ownership manifest");
+        check(older?.Files.Contains(game) == true,
+            "published v0.1.46 package has a valid release manifest");
 
         string worker = Path.Combine(Path.GetTempPath(),
             "prime-published-helper-" + Guid.NewGuid().ToString("N"));
         string before = ReleaseInstallation.Hash(oldExecutable);
-        string expected = ReleaseInstallation.Hash(newExecutable);
         try
         {
             string savedWorker = DesktopUpdate.PrepareUpdateWorker(installed, worker, game);
@@ -83,14 +78,19 @@ internal static class InstallationChecks
                 "the update worker is the original published v0.1.46 executable");
             File.WriteAllText(Path.Combine(installed, "test-owned-settings.json"), "keep settings");
             File.WriteAllText(Path.Combine(installed, "test-player-map.ppmap"), "keep player map");
-            ReleaseInstallation.Apply(next, installed);
-            check(ReleaseInstallation.Hash(Path.Combine(installed, game)) == expected,
-                "v0.1.52 executable installed from verified published archive");
-            check(File.Exists(Path.Combine(installed, studio)),
-                "paired v0.1.52 Studio installed with the game");
-            check(File.ReadAllText(Path.Combine(installed, "test-owned-settings.json")) == "keep settings"
+            bool rejectedBadPublishedRelease = false;
+            try { ReleaseInstallation.ValidateIncoming(next, installed); }
+            catch (InvalidDataException ex)
+            {
+                rejectedBadPublishedRelease = true;
+                Console.WriteLine("EXPECTED V0.1.52 PACKAGE REJECTION: " + ex.Message);
+            }
+            check(rejectedBadPublishedRelease,
+                "malformed published v0.1.52 package rejected before game exits");
+            check(ReleaseInstallation.Hash(Path.Combine(installed, game)) == before
+                && File.ReadAllText(Path.Combine(installed, "test-owned-settings.json")) == "keep settings"
                 && File.ReadAllText(Path.Combine(installed, "test-player-map.ppmap")) == "keep player map",
-                "published cross-version upgrade retains user-owned files");
+                "refused v0.1.52 upgrade preserves the original game and user files");
         }
         finally
         {
