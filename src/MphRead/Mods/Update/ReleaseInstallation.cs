@@ -124,6 +124,31 @@ internal static class ReleaseInstallation
         EnsureManifest(source);
         var next = ReadManifest(source)!;
         var previous = ReadManifest(target);
+        // Do not permit a backport of the old standalone game to silently
+        // remove Project Prime Studio from a later paired installation.
+        // A v0.1.52 -> v0.1.47 switch is therefore rejected before changes.
+        bool incomingStudio = next.Files.Any(p => Path.GetFileName(p) is
+            "ProjectPrimeStudio" or "ProjectPrimeStudio.exe");
+        bool installedStudio = previous?.Files.Any(p => Path.GetFileName(p) is
+                "ProjectPrimeStudio" or "ProjectPrimeStudio.exe") == true
+            || File.Exists(Path.Combine(target, "ProjectPrimeStudio"))
+            || File.Exists(Path.Combine(target, "ProjectPrimeStudio.exe"));
+        if (installedStudio && !incomingStudio)
+            throw new InvalidDataException("The selected release does not include the paired Project Prime Studio. Extract the older release into a separate folder.");
+        if (incomingStudio)
+        {
+            string paired = Path.Combine(source, ".project-prime-desktop.json");
+            if (!next.Files.Contains(".project-prime-desktop.json", Names) || !File.Exists(paired))
+                throw new InvalidDataException("The paired desktop release is missing compatibility metadata.");
+            using var pairDocument = JsonDocument.Parse(File.ReadAllText(paired));
+            JsonElement pairRoot = pairDocument.RootElement;
+            if (pairRoot.ValueKind != JsonValueKind.Object
+                || !pairRoot.TryGetProperty("GameVersion", out JsonElement gameVersion)
+                || !pairRoot.TryGetProperty("StudioVersion", out JsonElement studioVersion)
+                || !String.Equals(gameVersion.GetString(), studioVersion.GetString(), StringComparison.Ordinal)
+                || String.IsNullOrWhiteSpace(gameVersion.GetString()))
+                throw new InvalidDataException("Game and Project Prime Studio release versions do not match.");
+        }
         var keep = next.Files.ToHashSet(Names);
         var obsolete = previous?.Files.Where(p => !keep.Contains(p))
             ?? Directory.EnumerateFiles(target).Select(Path.GetFileName).Where(p => p != null && Legacy(p) && !keep.Contains(p)).Select(p => p!);
