@@ -13,6 +13,9 @@ namespace MphRead.Entities
     {
         private readonly PlatformEntityData _data;
         private readonly PlatformMetadata _meta;
+        private bool _useDelano7;
+        private bool _delano7TakingOff;
+        private bool _delano7Hidden;
 
         // used for ID 2 (energyBeam, arcWelder)
         protected override Vector4? OverrideColor { get; } = new ColorRgb(0x2F, 0x4F, 0x4F).AsVector4();
@@ -142,6 +145,22 @@ namespace MphRead.Entities
                     SetCollision(Collision.GetCollision(modelMeta), attach: inst);
                 }
             }
+
+            _useDelano7 = _scene.GameState.Mode == GameMode.SinglePlayer
+                && Flags.TestFlag(PlatformFlags.SamusShip)
+                && _meta.Name == "SamusShip"
+                && _scene.Players.Main.Hunter == Hunter.Sylux;
+            if (_useDelano7)
+            {
+                // Keep SamusShip as the authored story/collision rig. Delano 7
+                // supplies the visible ship, and the Weapons Complex turret
+                // follows its root attachment.
+                SetUpModel("SyluxShip", animIndex: -1);
+                PlatformMetadata turret = Metadata.GetPlatformById(21)!;
+                SetUpModel(turret.Name,
+                    turret.AnimationIds[(int)PlatAnimId.InstantSleep]);
+            }
+
             if (EntityCollision[0] == null)
             {
                 // needed for child entities to track
@@ -277,7 +296,8 @@ namespace MphRead.Entities
         public override void Initialize()
         {
             base.Initialize();
-            if (Flags.TestFlag(PlatformFlags.SamusShip))
+            // Delano 7 has no Samus gunship nozzle attachments.
+            if (Flags.TestFlag(PlatformFlags.SamusShip) && !_useDelano7)
             {
                 _effectNodeIds[0] = _models[0].Model.GetNodeIndexByName("R_Turret");
                 _effectNodeIds[1] = _models[0].Model.GetNodeIndexByName("R_Turret1");
@@ -423,6 +443,14 @@ namespace MphRead.Entities
             {
                 Debug.Assert(!_models[0].IsPlaceholder);
                 _models[0].SetAnimation(index, flags);
+            }
+            if (_useDelano7)
+            {
+                _delano7TakingOff = index == GetAnimation(PlatAnimId.Sleep);
+                _delano7Hidden = index == GetAnimation(PlatAnimId.InstantSleep);
+                PlatformMetadata delano = Metadata.GetPlatformById(8)!;
+                _models[1].SetAnimation(_delano7TakingOff
+                    ? delano.AnimationIds[(int)PlatAnimId.Sleep] : -1, flags);
             }
         }
 
@@ -809,7 +837,17 @@ namespace MphRead.Entities
             {
                 UpdateAnimFrames(_models[0]);
             }
-            if (_currentAnimState != -2 && _models[0].AnimInfo.Flags[0].TestFlag(AnimFlags.Ended))
+            if (_delano7TakingOff)
+            {
+                UpdateAnimFrames(_models[1]);
+            }
+            if (_useDelano7)
+            {
+                UpdateAnimFrames(_models[2]);
+            }
+            ModelInstance animationModel = _useDelano7 && _delano7TakingOff
+                ? _models[1] : _models[0];
+            if (_currentAnimState != -2 && animationModel.AnimInfo.Flags[0].TestFlag(AnimFlags.Ended))
             {
                 SetPlatAnimation(_currentAnimState, AnimFlags.None);
                 _currentAnimState = -2;
@@ -895,13 +933,36 @@ namespace MphRead.Entities
                         draw = false;
                     }
                 }
-                if (_animFlags.TestFlag(PlatAnimFlags.HasAnim) && _currentAnimId < 0)
+                if ((_animFlags.TestFlag(PlatAnimFlags.HasAnim) && _currentAnimId < 0)
+                    || (_useDelano7 && _delano7Hidden))
                 {
                     draw = false;
                 }
                 if (draw)
                 {
-                    base.GetDrawInfo();
+                    if (_useDelano7)
+                    {
+                        // Update the hidden story rig first because Delano's
+                        // intro transform follows its animated root.
+                        UpdateTransforms(_models[0], 0);
+                        UpdateTransforms(_models[1], 1);
+                        UpdateTransforms(_models[2], 2);
+                        if (!Hidden)
+                        {
+                            GetDrawItems(_models[1], 1);
+                            GetDrawItems(_models[2], 2);
+                        }
+                        if (_scene.ShowCollision
+                            && (_scene.ColEntDisplay == EntityType.All
+                                || _scene.ColEntDisplay == Type))
+                        {
+                            GetCollisionDrawInfo();
+                        }
+                    }
+                    else
+                    {
+                        base.GetDrawInfo();
+                    }
                     _animFlags |= PlatAnimFlags.WasDrawn;
                 }
                 if (Flags.TestFlag(PlatformFlags.SamusShip))
@@ -1270,6 +1331,20 @@ namespace MphRead.Entities
 
         protected override Matrix4 GetModelTransform(ModelInstance inst, int index)
         {
+            if (_useDelano7 && index == 2)
+            {
+                // The turret is authored at Delano 7's root attachment.
+                Node attachment = _models[1].Model.Nodes[0];
+                return Matrix4.CreateScale(inst.Model.Scale) * attachment.Animation;
+            }
+            if (_useDelano7 && index == 1 && !_delano7TakingOff)
+            {
+                // During the planet intro, follow the original gunship rig.
+                // During departure Delano 7 runs its own root animation so the
+                // two flight clips are not applied on top of one another.
+                Node root = _models[0].Model.Nodes[0];
+                return Matrix4.CreateScale(inst.Model.Scale) * root.Animation;
+            }
             return Matrix4.CreateScale(inst.Model.Scale) * GetTransform();
         }
 

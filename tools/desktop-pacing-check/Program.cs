@@ -10,10 +10,14 @@ void Check(bool result, string name)
 foreach (double hz in new[] { 59.94, 60.0, 90.0, 120.0, 144.0, 165.0, 240.0 })
 {
     int cap = (int)Math.Round(hz);
-    Check(DesktopFramePacing.UseDisplayPacing(cap, hz),
-        $"native {cap} cap uses the {hz:0.##} Hz display clock");
+    Check(!DesktopFramePacing.UseDisplayPacing(cap, hz),
+        $"native {cap} cap stays a strict numeric limit at {hz:0.##} Hz");
 }
 Check(DesktopFramePacing.UseDisplayPacing(0, 144), "Display always uses display pacing");
+Check(!DesktopFramePacing.UseDisplayPacing(500, 540),
+    "500 cap remains explicit on high-refresh 540 Hz displays");
+Check(!DesktopFramePacing.UseDisplayPacing(240, 239.76),
+    "VRR fluctuations never silently disable numeric caps");
 Check(!DesktopFramePacing.UseDisplayPacing(-1, 144),
     "Unlimited never aliases Display/VSync");
 Check(!DesktopFramePacing.UseDisplayPacing(120, 144),
@@ -33,8 +37,8 @@ Check(!DesktopFramePacing.LinuxVSyncIgnored(true, 120, 144, 300, false),
     "non-native numeric caps never trigger the Linux display fallback");
 Check(!DesktopFramePacing.LinuxVSyncIgnored(true, -1, 144, 300, false),
     "Unlimited never triggers the Linux VSync fallback");
-Check(DesktopFramePacing.LinuxVSyncIgnored(true, 144, 144, 180, false),
-    "native explicit caps inherit the Linux ignored-VSync fallback");
+Check(!DesktopFramePacing.LinuxVSyncIgnored(true, 144, 144, 180, false),
+    "native explicit caps never alias the Linux ignored-VSync fallback");
 
 Check(DesktopFramePacing.SoftwareFrequency(120, 144,
         displayPaced: false, modernPresentationBlocks: false,
@@ -49,9 +53,9 @@ Check(DesktopFramePacing.SoftwareFrequency(120, 144,
         linuxVSyncFallback: false) == 0,
     "FIFO fallback never stacks a software cap on blocking presentation");
 Check(DesktopFramePacing.SoftwareFrequency(144, 144,
-        displayPaced: true, modernPresentationBlocks: true,
-        linuxVSyncFallback: false) == 0,
-    "native cap has exactly one display pacing clock");
+        displayPaced: false, modernPresentationBlocks: false,
+        linuxVSyncFallback: false) == 144,
+    "native cap keeps a software deadline with nonblocking present");
 Check(Math.Abs(DesktopFramePacing.SoftwareFrequency(0, 144,
         displayPaced: false, modernPresentationBlocks: false,
         linuxVSyncFallback: true) - 144) < 0.001,

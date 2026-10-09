@@ -8841,6 +8841,9 @@ localCenter *= _profileHudScale;
         private bool _linuxVSyncFallback;
         private bool _appliedLinuxVSyncFallback;
         private bool _reportedModernBlockingFallback;
+        private bool _appliedModernBackend;
+        private bool _presentationPolicyDirty = true;
+        private bool _restorePresentationAfterFocus;
         private long _presentationInputRevision = Mods.Input.GamepadContexts.Revision;
 
         private static unsafe double MonitorRefreshRate(NativeWindow window)
@@ -8862,29 +8865,38 @@ localCenter *= _profileHudScale;
         }
 
         /// <summary>
-        /// Apply exactly one presentation clock. Display mode and an explicit
-        /// cap matching the active monitor use the monitor/compositor clock.
-        /// Other numeric caps use OpenTK only when presentation is genuinely
-        /// non-blocking. Linux additionally detects drivers that ignore swap
-        /// interval and latches a software display-rate fallback.
+        /// Apply exactly one presentation clock. Only Display mode delegates
+        /// frame pacing to the monitor/compositor; every numeric FPS cap uses
+        /// an explicit software deadline when presentation is nonblocking,
+        /// including a cap matching the monitor refresh. Linux also detects
+        /// ignored swap interval and falls back to software display pacing.
         /// </summary>
         private void ApplyFrameRateSettings()
         {
             int cap = Mods.Render.FrameTiming.FrameRateCap;
             double refreshRate = MonitorRefreshRate(this);
-            bool sourceChanged = cap != _appliedFrameRateCap
+            bool sourceChanged = _presentationPolicyDirty || cap != _appliedFrameRateCap
                 || Math.Abs(refreshRate - _appliedMonitorRefreshRate)
                     > Mods.Render.DesktopFramePacing.NativeRefreshToleranceHz;
-            if (sourceChanged)
-            {
-                _linuxVSyncFallback = false;
-                _reportedModernBlockingFallback = false;
-            }
 
 #if !MPHREAD_SERVER
             bool modern = Mods.Render.ModernGraphicsCompat.Active;
 #else
             const bool modern = false;
+#endif
+            bool backendChanged = modern != _appliedModernBackend;
+            if (sourceChanged || backendChanged)
+            {
+                _linuxVSyncFallback = false;
+                _reportedModernBlockingFallback = false;
+            }
+            bool displayPaced = Mods.Render.DesktopFramePacing.UseDisplayPacing(cap, refreshRate);
+#if !MPHREAD_SERVER
+            bool presentModeDrift = modern && Mods.Render.ModernGraphicsCompat.NeedsVSyncUpdate(displayPaced);
+            bool restorePresentation = modern && _restorePresentationAfterFocus && IsFocused;
+#else
+            const bool presentModeDrift = false;
+            const bool restorePresentation = false;
 #endif
             bool linuxFallback = !modern && Mods.Render.DesktopFramePacing.LinuxVSyncIgnored(
                 OperatingSystem.IsLinux(), cap, refreshRate,
@@ -8898,23 +8910,29 @@ localCenter *= _profileHudScale;
             }
             _linuxVSyncFallback = linuxFallback;
 
-            if (!sourceChanged && linuxFallback == _appliedLinuxVSyncFallback)
+            if (!sourceChanged && !backendChanged && !presentModeDrift && !restorePresentation
+                && linuxFallback == _appliedLinuxVSyncFallback)
             {
                 return;
             }
             _appliedFrameRateCap = cap;
             _appliedMonitorRefreshRate = refreshRate;
             _appliedLinuxVSyncFallback = linuxFallback;
-
-            bool displayPaced = Mods.Render.DesktopFramePacing.UseDisplayPacing(cap, refreshRate);
+            _appliedModernBackend = modern;
+            _presentationPolicyDirty = false;
 #if !MPHREAD_SERVER
             if (modern)
             {
                 // A NoAPI GLFW window has no GL swap interval. Ask WebGPU for a
-                // non-blocking mode only when a non-native explicit cap needs
+                // non-blocking mode whenever an explicit numeric cap needs
                 // software pacing. If the backend can offer only FIFO, never
                 // stack OpenTK's cap on top of that blocking presentation clock.
-                Mods.Render.ModernGraphicsCompat.SetVSync(displayPaced);
+                // A temporary focus loss can invalidate a swapchain's actual
+                // presentation state without changing the saved settings.
+                // Reconfigure once on focus regain; never per rendered frame.
+                Mods.Render.ModernGraphicsCompat.SetVSync(displayPaced,
+                    restoreSurface: restorePresentation);
+                _restorePresentationAfterFocus = false;
                 bool blocks = Mods.Render.ModernGraphicsCompat.PresentationBlocks;
                 UpdateFrequency = Mods.Render.DesktopFramePacing.SoftwareFrequency(
                     cap, refreshRate, displayPaced, blocks, linuxVSyncFallback: false);
@@ -9240,6 +9258,7 @@ localCenter *= _profileHudScale;
 
         protected override void OnResize(ResizeEventArgs e)
         {
+            _presentationPolicyDirty = true;
             // The shape first, and outside the _sceneReady guard: a window
             // resized before the scene exists is still a window the player
             // resized, and this only touches memory.
@@ -9332,6 +9351,9 @@ localCenter *= _profileHudScale;
 
         protected override void OnFocusedChanged(FocusedChangedEventArgs e)
         {
+            Mods.WindowMode.FocusChanged(this, e.IsFocused);
+            _presentationPolicyDirty = true;
+            if (e.IsFocused) _restorePresentationAfterFocus = true;
             Mods.Input.GamepadContexts.Focused = e.IsFocused;
             if (!e.IsFocused)
             {

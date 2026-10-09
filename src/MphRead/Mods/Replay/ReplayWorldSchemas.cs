@@ -553,6 +553,9 @@ internal static class ReplayWorldSchemas
             "<ConnectorInactive>k__BackingField",
         ],
         ["MphRead.Entities.PlatformEntity"] = [
+            "_useDelano7",
+            "_delano7TakingOff",
+            "_delano7Hidden",
             "<Flags>k__BackingField",
             "_effectNodeIds",
             "_effects",

@@ -185,17 +185,35 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         private PresentMode _presentMode = PresentMode.Fifo;
         private readonly HashSet<PresentMode> _presentModes = new();
 
-        internal static void SetVSync(bool enabled)
+        // Unlike a settings-only comparison, this also notices an internal
+        // surface/present-mode reset following fullscreen or focus recovery.
+        internal static bool NeedsVSyncUpdate(bool enabled)
         {
             var self = Current;
-            if (self._vsync == enabled) return;
-            bool reconfigure = ModernSurfaceLifecyclePolicy.PresentModeChangeRequiresReconfigure(
-                self._vsync, enabled, (int)self._width, (int)self._height,
-                self._device.Surface != null);
+            return ModernSurfaceLifecyclePolicy.PresentModeNeedsReapply(
+                self._vsync, enabled, (int)self._presentMode,
+                (int)self.DesiredPresentMode(enabled));
+        }
+
+        internal static void SetVSync(bool enabled, bool restoreSurface = false)
+        {
+            var self = Current;
+            PresentMode requestedMode = self.DesiredPresentMode(enabled);
+            if (!ModernSurfaceLifecyclePolicy.PresentModeNeedsReapply(
+                    self._vsync, enabled, (int)self._presentMode, (int)requestedMode,
+                    restoreSurface))
+                return;
+            bool reconfigure = ModernSurfaceLifecyclePolicy.CanConfigure(
+                (int)self._width, (int)self._height, self._device.Surface != null);
             self._vsync = enabled;
             self.ReleaseSurfaceTexture();
-            self.SelectPresentMode();
-            if (reconfigure) self.ConfigureSurface();
+            self._presentMode = requestedMode;
+            if (reconfigure)
+            {
+                Mods.DebugLog.Line("frametiming",
+                    $"restoring modern present mode {requestedMode} (focus={restoreSurface})");
+                self.ConfigureSurface();
+            }
         }
 
         /// <summary>
@@ -207,11 +225,12 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
         internal static string ActivePresentMode => Current._presentMode.ToString();
 
-        private void SelectPresentMode()
-        {
-            _presentMode = !_vsync && _presentModes.Contains(PresentMode.Immediate) ? PresentMode.Immediate
-                : !_vsync && _presentModes.Contains(PresentMode.Mailbox) ? PresentMode.Mailbox : PresentMode.Fifo;
-        }
+        private PresentMode DesiredPresentMode(bool vsync) =>
+            !vsync && _presentModes.Contains(PresentMode.Immediate) ? PresentMode.Immediate
+            : !vsync && _presentModes.Contains(PresentMode.Mailbox) ? PresentMode.Mailbox
+            : PresentMode.Fifo;
+
+        private void SelectPresentMode() => _presentMode = DesiredPresentMode(_vsync);
 
         private void ConfigureSurface()
         {
