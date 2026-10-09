@@ -36,6 +36,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--impact-crossview") return ImpactPresentationTests.Run();
             if (args.Length > 0 && args[0] == "--impact-claim-fastpath") return ClaimEarlySettlementTests.Run();
             if (args.Length > 0 && args[0] == "--impact-visual-kills") return PredictedKillVisualTests.Run();
+            if (args.Length > 0 && args[0] == "--impact-profile") return CombatProfileTests.Run();
             if (args.Length > 0 && args[0] == "--impact-baseline") return ImpactBaselineTests.Run();
             if (args.Length > 0 && args[0] == "--authority-policy") return NetworkAuthorityPolicyCheck.Run();
             if (args.Length > 0 && args[0] == "--transport-lifecycle") return TransportLifecycleTests.Run();

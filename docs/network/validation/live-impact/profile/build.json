@@ -1,0 +1,17 @@
+{
+  "baseCommit": "c939be7b614adb782c33450d719ce5281dad9415",
+  "workingTreeInstrumentation": true,
+  "assemblySha256": "acaa380dbec202efe003051faaabb9712db31d3b6bba0680d8063a2222415e9f",
+  "trackedPatchSha256": "f622032dc4bd6d487361288710a17008e264017574d6bf6bfa7b259940a106a3",
+  "command": "dotnet tools/nettest/bin/Release/net10.0/nettest.dll --server-performance DATA \"MP1 SANCTORUS\" PLAYERS OUTPUT 30 --impact-profile",
+  "players": [
+    2,
+    4,
+    8
+  ],
+  "limitations": [
+    "No mixed bots or transport; native path Supports was not exercised.",
+    "Scopes overlap; do not add totals. Percentiles use last 2048 calls.",
+    "No new collision optimization or speedup claim."
+  ]
+}

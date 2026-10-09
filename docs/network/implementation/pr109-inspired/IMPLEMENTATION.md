@@ -157,3 +157,26 @@ expiry/wrap, double hits, smooth recovery and unchanged snapshot health/pose/fla
 The existing 3,338,739 health/shot assertions still pass. Source proof that enabled
 claim settlement remains blocked is independent of this strictly cosmetic prototype.
 Slice 3 PR: https://github.com/AntiNotAnti/Project-Prime/pull/413.
+
+## Slice 5: bounded historical-combat profiling
+
+`-impactprofile` measures BeginShot/EndShot, native catch-up, historical geometry,
+accepted-fire emission and path Supports. Disabled scopes allocate nothing; enabled
+scopes use fixed 2048-entry timing rings with all-call allocation/time totals. Reset
+invalidates open scopes. Exported percentile windows overlap/nest and are not additive.
+The asset-backed server benchmark now records p99.9, peak working set and these samples
+with `--impact-profile` after its duration argument.
+
+On macOS ARM64, 1800 measured steps after 300 warm-up steps in MP1 SANCTORUS yielded
+p99 0.2772/0.5345/0.9795ms for 2/4/8 synthetic-intent players. In the eight-player run,
+BeginShot totaled 6.068ms, EndShot 29.236ms (including 29.046ms catch-up), historical
+geometry 1.682ms and EmitPending 20.244ms. Supports had **zero calls**: this workload
+cannot establish claim-validation cost. Raw samples/build identity are in `profile/`.
+
+No additional historical-collision optimization is enabled or claimed as a win.
+The baseline already has a per-shot, fractional-frame/lifecycle pose cache; replacing
+rewind or adding a geometry cache without an exercised claim/dynamic-world parity
+campaign would not satisfy the requested safety gate. This slice is **partial**:
+instrumentation is implemented and measured; optimization/parity and mixed-bot load
+remain unverified. Three profiler contracts cover zero disabled allocation, bounds and
+scope invalidation. Slice 4 PR: https://github.com/AntiNotAnti/Project-Prime/pull/414.

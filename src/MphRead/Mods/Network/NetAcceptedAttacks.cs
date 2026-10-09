@@ -423,6 +423,7 @@ internal static class NetAcceptedAttacks
     /// and resource ownership. This does not require an authority victim hit.</summary>
     internal static void EmitPending()
     {
+            using var combatProfile = NetCombatProfile.Measure(CombatProfileSection.EmitPending);
         if (!NetSession.IsAuthority) return;
         for (int slot = 0; slot < PlayerEntity.Players.Count && slot < 8; slot++)
         {
