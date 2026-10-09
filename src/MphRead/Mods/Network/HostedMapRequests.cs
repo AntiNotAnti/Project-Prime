@@ -190,21 +190,46 @@ internal sealed class HostedMapRequests : IDisposable
             }
             else
             {
-                using var lookup = new MapCommunityClient(address);
-                CommunityMap? metadata = await lookup.GetPackageAsync(
-                    entry.PackageHash.ToString(), token).ConfigureAwait(false);
-                if (metadata == null)
-                    throw new InvalidDataException("A rotation map is no longer available from Community: " + entry.RoomKey);
-                if (!StringComparer.OrdinalIgnoreCase.Equals(metadata.Name, entry.RoomKey)
-                    || metadata.Hash != entry.PackageHash.ToString())
+                // Rotation entries name their exact immutable SHA-256 package.
+                // Before contacting Community, look up a valid cached archive.
+                // Do not trust its filename: FromPackage hashes the bytes and
+                // reads its manifest, and both the requested name and SHA must
+                // match. A damaged cache still falls through to Community.
+                MapContentIdentity? cachedIdentity = null;
+                string cachedPath = Path.Combine(directory, entry.PackageHash + ".ppmap");
+                if (File.Exists(cachedPath))
                 {
-                    throw new InvalidDataException("Community metadata does not match rotation map " + entry.RoomKey + ".");
+                    try
+                    {
+                        MapContentIdentity found = MapContentIdentity.FromPackage(cachedPath);
+                        if (found.PackageHash == entry.PackageHash
+                            && StringComparer.OrdinalIgnoreCase.Equals(found.RoomKey, entry.RoomKey))
+                            cachedIdentity = found;
+                    }
+                    catch (InvalidDataException) { }
                 }
-                if (metadata.MinimumProtocol > NetConfig.ProtocolVersion)
-                    throw new InvalidDataException("A rotation map requires a newer Project Prime protocol: " + entry.RoomKey);
-                identity = new MapContentIdentity(metadata.MapId, metadata.Name,
-                    MapHash256.Parse(metadata.ContentHash),
-                    MapHash256.Parse(metadata.Hash), true);
+                if (cachedIdentity is { } exact)
+                {
+                    identity = exact;
+                }
+                else
+                {
+                    using var lookup = new MapCommunityClient(address);
+                    CommunityMap? metadata = await lookup.GetPackageAsync(
+                        entry.PackageHash.ToString(), token).ConfigureAwait(false);
+                    if (metadata == null)
+                        throw new InvalidDataException("A rotation map is no longer available from Community: " + entry.RoomKey);
+                    if (!StringComparer.OrdinalIgnoreCase.Equals(metadata.Name, entry.RoomKey)
+                        || metadata.Hash != entry.PackageHash.ToString())
+                    {
+                        throw new InvalidDataException("Community metadata does not match rotation map " + entry.RoomKey + ".");
+                    }
+                    if (metadata.MinimumProtocol > NetConfig.ProtocolVersion)
+                        throw new InvalidDataException("A rotation map requires a newer Project Prime protocol: " + entry.RoomKey);
+                    identity = new MapContentIdentity(metadata.MapId, metadata.Name,
+                        MapHash256.Parse(metadata.ContentHash),
+                        MapHash256.Parse(metadata.Hash), true);
+                }
             }
 
             string? installed = i == 0 && firstInstalledOverride != null
