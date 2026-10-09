@@ -159,7 +159,11 @@ internal sealed partial class AndroidRmlUiSession : IDisposable
                         Pages.ReportSystemNotice("Leave the lobby or finish the current setup operation before changing versions.");
                     else if (_setup == null) OpenSetup(required: !GameFiles.Ready);
                 }
-                else if (destination == "social") Open(RmlUiRouteArgument.Social);
+                else if (destination == "social")
+                {
+                    if (_lobby != null) Pages.ReportSystemNotice("Leave the lobby before opening Social.");
+                    else Open(RmlUiRouteArgument.Social);
+                }
                 else if (destination == "news") Open(RmlUiRouteArgument.News);
                 break;
             case RmlUiIntentKind.Navigate:
