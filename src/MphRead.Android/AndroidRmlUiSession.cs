@@ -255,7 +255,7 @@ internal sealed partial class AndroidRmlUiSession : IDisposable
     {
         ClosePresenters(); Pages.Suspend();
         _setup = new(Host, Pages.Manager, () => _afterDispatch.Enqueue(() => { RefreshRoomCatalog(); Open(RmlUiRouteArgument.Home); }),
-            _quit, _pickRom, required: required);
+            _quit, _pickRom, required: required, reportFailure: message => Pages.ReportSystemNotice(message));
         _setup.Open();
     }
     private RmlMultiplayerController CreateMultiplayer()
