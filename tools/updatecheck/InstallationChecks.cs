@@ -119,6 +119,77 @@ internal static class InstallationChecks
         }
     }
 
+    /// <summary>
+    /// Run the actual v0.1.47 published executable in its original
+    /// v0.1.46-compatible three-argument apply-update protocol, against a
+    /// genuine v0.1.46 installed archive and the candidate release payload.
+    /// This is an asset-free Linux release gate, not a simulated transaction.
+    /// </summary>
+    internal static void RunCandidateReleaseSwap(string oldDirectory,
+        string candidateDirectory, Action<bool, string> check)
+    {
+        string game = OperatingSystem.IsWindows() ? "ProjectPrime.exe" : "ProjectPrime";
+        string oldRoot = Path.GetFullPath(oldDirectory);
+        string incomingRoot = Path.GetFullPath(candidateDirectory);
+        string oldGame = Path.Combine(oldRoot, game);
+        string incomingGame = Path.Combine(incomingRoot, game);
+        check(File.Exists(oldGame) && File.Exists(incomingGame),
+            "genuine old release and newly built candidate both contain game apphosts");
+        ReleaseInstallation.Manifest? oldManifest = ReleaseInstallation.ReadManifest(oldRoot);
+        ReleaseInstallation.Manifest? newManifest = ReleaseInstallation.ReadManifest(incomingRoot);
+        check(oldManifest?.Files.Contains(game) == true
+            && newManifest?.Files.Contains(game) == true,
+            "both real release packages have valid owned-file manifests");
+
+        // User-owned files are outside both release manifests and must never
+        // disappear when the newer transaction prunes obsolete owned files.
+        string settings = Path.Combine(oldRoot, "hotfix-acceptance-settings.json");
+        string map = Path.Combine(oldRoot, "hotfix-acceptance-map.ppmap");
+        File.WriteAllText(settings, "player preferences");
+        File.WriteAllText(map, "player map");
+        ReleaseInstallation.ValidateIncoming(incomingRoot, oldRoot);
+        string original = ReleaseInstallation.Hash(oldGame);
+        string expected = ReleaseInstallation.Hash(incomingGame);
+        check(!original.Equals(expected, StringComparison.OrdinalIgnoreCase),
+            "v0.1.47 updater application is distinct from the published v0.1.46 binary");
+
+        var start = new ProcessStartInfo(incomingGame)
+        {
+            WorkingDirectory = incomingRoot,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+        start.ArgumentList.Add("-" + DesktopUpdate.ApplyFlag);
+        start.ArgumentList.Add(oldRoot);
+        // No live launcher to close in this isolated release test. The
+        // deliberately nonexistent PID makes WaitForExit return immediately.
+        start.ArgumentList.Add(Int32.MaxValue.ToString());
+        start.ArgumentList.Add(DesktopUpdate.RelaunchSeparator);
+        start.ArgumentList.Add("-frametimingcheck");
+        using Process helper = Process.Start(start)
+            ?? throw new IOException("Could not start v0.1.47 staged update executable.");
+        if (!helper.WaitForExit(90000))
+        {
+            helper.Kill(entireProcessTree: true);
+            helper.WaitForExit(5000);
+            throw new TimeoutException("v0.1.47 released updater worker exceeded 90 seconds.");
+        }
+        string standardOut = helper.StandardOutput.ReadToEnd();
+        string standardError = helper.StandardError.ReadToEnd();
+        if (helper.ExitCode != 0)
+            Console.WriteLine("RELEASE WORKER ERROR: " + standardOut + standardError);
+        check(helper.ExitCode == 0, "published v0.1.47 worker applies original updater protocol");
+        check(ReleaseInstallation.Hash(oldGame) == expected,
+            "published v0.1.47 executable replaced the installed v0.1.46 executable");
+        check(File.ReadAllText(settings) == "player preferences"
+            && File.ReadAllText(map) == "player map",
+            "real release upgrade retains player settings and custom maps");
+        check(File.Exists(Path.Combine(oldRoot, "logs", "ProjectPrime-updater.log")),
+            "real release updater writes persistent diagnostic log during handoff");
+    }
+
     internal static void Run(Action<bool, string> check)
     {
         string executable = Environment.ProcessPath
