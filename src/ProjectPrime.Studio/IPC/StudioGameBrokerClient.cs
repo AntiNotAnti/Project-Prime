@@ -131,8 +131,10 @@ public sealed class StudioGameBrokerClient : IDisposable
                 try
                 {
                     var next = LocalIpcEndpointStore.Read(_installationDirectory, _userDataDirectory, StudioEndpointRole.Game);
-                    if (endpoint == null || next.Secret != endpoint.Secret
-                        || await IsResponsiveAsync(next, token).ConfigureAwait(false)) return next;
+                    // A descriptor is published before the game shell becomes ready.
+                    // Never hand an unresponsive newly launched endpoint to the first
+                    // playtest request, or it can race the game's IPC pipe startup.
+                    if (await IsResponsiveAsync(next, token).ConfigureAwait(false)) return next;
                 }
                 catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException) { }
                 if (process.HasExited && process.ExitCode != 0) return null;

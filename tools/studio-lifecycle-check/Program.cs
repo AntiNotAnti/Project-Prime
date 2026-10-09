@@ -26,6 +26,7 @@ internal static partial class Program
         {
             CheckLaunchParsing(directory);
             CheckPersistence(directory);
+            await CheckStudioPlaytestHandoffAsync();
             await CheckDocumentLifecycleAsync(directory);
             await CheckJobsAsync();
             await CheckProcessIsolationAsync(directory);
