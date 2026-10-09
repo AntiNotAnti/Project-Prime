@@ -268,7 +268,9 @@ jobs:
           dotnet run --project tools/map-prefab-check -c Release
           dotnet run --project tools/studio-modeling-check -c Release
           dotnet run --project tools/map-gameplay-check -c Release
-          dotnet run --project tools/studio-lifecycle-check -c Release
+          # Avoid parallel Avalonia resource generation into StudioEngine/obj.
+          dotnet build tools/studio-lifecycle-check -c Release -m:1
+          dotnet run --project tools/studio-lifecycle-check -c Release --no-build
           dotnet run --project tools/studio-diagnostics-check -c Release
           dotnet run --project tools/studio-launch-check -c Release
           dotnet run --project tools/studio-render-check -c Release
@@ -342,9 +344,56 @@ jobs:
           path: artifacts/wgpu-native-desktop/${{ matrix.rid }}/
           if-no-files-found: error
 
+  # Desktop release clients require a native RmlUi bridge in addition to
+  # patched wgpu. Produce each RID once on its actual compiler host, then
+  # transport the pinned manifest, DLL/.so, and attributions together.
+  release-rmlui-native:
+    name: release RmlUi native ${{ matrix.rid }}
+    needs: resolve
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            runner: windows-latest
+          - rid: linux-x64
+            runner: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: install Linux RmlUi GL2 development dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --no-install-recommends -y build-essential cmake libgl1-mesa-dev libx11-dev
+      - name: build pinned desktop RmlUi and FreeType
+        shell: bash
+        run: |
+          set -euo pipefail
+          tools/rmlui/build-native.sh "${{ matrix.rid }}" gl2
+      - name: validate native RmlUi release bridge
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${{ matrix.rid }}" in
+            win-x64) lib=ProjectPrime.RmlUi.Native.dll ;;
+            linux-x64) lib=libProjectPrime.RmlUi.Native.so ;;
+          esac
+          python tools/rmlui/verify-runtime.py "artifacts/rmlui-native/${{ matrix.rid }}/$lib" "${{ matrix.rid }}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-rmlui-${{ matrix.rid }}
+          path: artifacts/rmlui-native/${{ matrix.rid }}/
+          if-no-files-found: error
+
   release-linux:
     name: publish ${{ matrix.target }}
-    needs: [resolve, prepare-release, patched-wgpu-native]
+    needs: [resolve, prepare-release, patched-wgpu-native, release-rmlui-native]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -387,6 +436,11 @@ jobs:
         with:
           name: patched-wgpu-${{ matrix.rid }}
           path: artifacts/wgpu-native-desktop/${{ matrix.rid }}/
+      - uses: actions/download-artifact@v8
+        if: matrix.server == false
+        with:
+          name: release-rmlui-${{ matrix.rid }}
+          path: artifacts/rmlui-native/${{ matrix.rid }}/
       - name: publish target
         env:
           TARGET: ${{ matrix.target }}
@@ -398,6 +452,13 @@ jobs:
           args=(--self-contained true -p:PublishSingleFile=true)
           if [ "$SERVER" = "true" ]; then
             args+=(-p:MphReadServer=true)
+          else
+            case "$RID" in
+              win-x64) lib=ProjectPrime.RmlUi.Native.dll ;;
+              linux-x64) lib=libProjectPrime.RmlUi.Native.so ;;
+              *) echo "::error::Unexpected desktop client RID: $RID"; exit 1 ;;
+            esac
+            python3 tools/rmlui/verify-runtime.py "artifacts/rmlui-native/$RID/$lib" "$RID"
           fi
           dotnet publish src/MphRead/MphRead.csproj -c Release -r "$RID" \
             -p:Version="$VERSION" -p:InformationalVersion="$VERSION" \
@@ -407,6 +468,7 @@ jobs:
               -p:Version="$VERSION" -p:InformationalVersion="$VERSION" -p:IncludeSourceRevisionInInformationalVersion=false \
               --self-contained true -p:PublishSingleFile=true -o "publish/studio-$TARGET"
             python3 tools/studio-pair.py merge "publish/$TARGET" "publish/studio-$TARGET" "$VERSION"
+            python3 tools/rmlui/verify-runtime.py --package "publish/$TARGET" "$RID"
           fi
       - uses: actions/upload-artifact@v7
         with:
@@ -494,6 +556,10 @@ jobs:
           ANDROID_NDK_ROOT="$ndk" tools/wgpu/build-native.sh android-x64
           ANDROID_NDK_ROOT="$ndk" tools/ktx/build-native.sh android-arm64
           ANDROID_NDK_ROOT="$ndk" tools/ktx/build-native.sh android-x64
+          ANDROID_NDK_ROOT="$ndk" tools/rmlui/build-native.sh android-arm64 draw-list
+          ANDROID_NDK_ROOT="$ndk" tools/rmlui/build-native.sh android-x64 draw-list
+          python3 tools/rmlui/verify-runtime.py artifacts/rmlui-native-android/lib/arm64-v8a/libProjectPrime.RmlUi.Native.so android-arm64
+          python3 tools/rmlui/verify-runtime.py artifacts/rmlui-native-android/lib/x86_64/libProjectPrime.RmlUi.Native.so android-x64
           dotnet publish "$proj" -c Release -p:AndroidPackageFormat=apk "${sdk[@]}" \
             "${signing[@]}" \
             -p:Version="$VERSION" -p:InformationalVersion="$VERSION" \
@@ -510,12 +576,15 @@ jobs:
             lib/arm64-v8a/libwgpu_native.so \
             lib/x86_64/libwgpu_native.so \
             lib/arm64-v8a/libktx.so \
-            lib/x86_64/libktx.so; do
+            lib/x86_64/libktx.so \
+            lib/arm64-v8a/libProjectPrime.RmlUi.Native.so \
+            lib/x86_64/libProjectPrime.RmlUi.Native.so; do
             grep -Fxq "$native" "$entries" || {
               echo "::error::release APK is missing $native"
               exit 1
             }
           done
+          python3 tools/rmlui/verify-runtime.py --apk "$apk"
       - name: report the APK's signer
         run: |
           set -euo pipefail
@@ -822,9 +891,11 @@ jobs:
           set -euo pipefail
           tools/wgpu/build-native.sh "$RID"
           tools/ktx/build-native.sh "$RID"
+          tools/rmlui/build-native.sh "$RID" gl2
           dotnet publish src/MphRead/MphRead.csproj -c Release -r "$RID" \
             -p:Version="$VERSION" -p:InformationalVersion="$VERSION" -p:IncludeSourceRevisionInInformationalVersion=false \
             --self-contained true -p:PublishSingleFile=true -o "publish/$RID"
+          python3 tools/rmlui/verify-runtime.py --package "publish/$RID" "$RID"
           dotnet publish src/ProjectPrime.Studio/ProjectPrime.Studio.csproj -c Release -r "$RID" \
             -p:Version="$VERSION" -p:InformationalVersion="$VERSION" -p:IncludeSourceRevisionInInformationalVersion=false \
             --self-contained true -p:PublishSingleFile=true -o "publish/studio-$RID"

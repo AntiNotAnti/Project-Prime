@@ -39,7 +39,12 @@ def fingerprint() -> str:
     sources += [ROOT / "native/rmlui-poc/CMakeLists.txt"]
     result = hashlib.sha256()
     for source in sources:
-        result.update(source.name.encode() + b"\0" + source.read_bytes() + b"\0")
+        # Git for Windows can checkout the very same pinned .cpp/.h files
+        # with CRLF, while the Linux release packager checks out LF. The
+        # provenance fingerprint must represent source, not the host's EOL
+        # convention. Binary library SHA-256 remains byte-exact separately.
+        normalized = source.read_bytes().replace(b"\r\n", b"\n")
+        result.update(source.name.encode() + b"\0" + normalized + b"\0")
     return result.hexdigest()
 
 

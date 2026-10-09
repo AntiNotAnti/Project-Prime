@@ -15,8 +15,18 @@ internal sealed partial class AndroidRmlUiSession
     {
         // Inspect the actual local controller and document without starting
         // profile HTTP work whose completion can change the semantic revision.
+        // Content-free framework acceptance starts at the setup splash.
+        // Enter the real native Home page before navigating to Account; the
+        // production splash guard intentionally blocks ordinary navigation
+        // until game files are installed.
+        if (Pages.Manager.PageKey == "splash")
+            Pages.ShowBaseline(RmlUiMenuPage.Home);
         Open(RmlUiRouteArgument.HunterLicense, refreshLicense: false);
-        _licenseController!.SelectFace(LicenseFace.Account); _license!.Refresh(); Host.Update();
+        if (_licenseController == null || _license == null)
+            throw new InvalidOperationException("Account input fixture could not open its native license presenter.");
+        _licenseController.SelectFace(LicenseFace.Account);
+        _license.Refresh();
+        Host.Update();
         return _license.Document;
     }
     internal void EndInputCheck()
