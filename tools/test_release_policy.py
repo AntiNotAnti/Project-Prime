@@ -78,6 +78,9 @@ class NativeReleasePackagingTests(unittest.TestCase):
                 verifier.ROOT=Path(directory)
                 sources=verifier.ROOT/"native/rmlui-poc"
                 sources.mkdir(parents=True)
+                # The production fingerprint also includes CMakeLists.txt.
+                # Supply that pinned build input in the isolated test tree.
+                (sources/"CMakeLists.txt").write_bytes(b"project(ProjectPrimeRmlUi)\n")
                 source=sources/"projectprime_rmlui.cpp"
                 source.write_bytes(b"line one\nline two\n")
                 lf=verifier.fingerprint()
