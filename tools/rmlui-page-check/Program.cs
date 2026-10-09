@@ -116,6 +116,18 @@ launcher.HandleIntent(Action("notice:dismiss:0",home,6),out _);
 launcher.Flush();
 Check(native.Bools[(home.DocumentId,"visible:notice_empty")], "Dismissing the last alert restores an empty inbox");
 Check(launcher.Back(out _) && !launcher.NoticeOpen, "Notice Back restores launcher navigation ownership");
+launcher.ObserveSocialNotices(1,0,false,true);
+launcher.Flush();
+Check(native.Bools[(home.DocumentId,"visible:notice_badge")], "First incoming invite generates an unread alert");
+launcher.HandleIntent(Action("notice:toggle",home,7),out _);
+launcher.Flush();
+Check(!native.Bools[(home.DocumentId,"visible:notice_badge")], "Opening notices acknowledges the previous invite count");
+launcher.HandleIntent(Action("notice:close",home,8),out _);
+launcher.ObserveSocialNotices(2,0,false,true);
+launcher.Flush();
+Check(native.Bools[(home.DocumentId,"visible:notice_badge")], "A newly arrived invite reactivates the badge after previous acknowledgement");
+launcher.ObserveSocialNotices(0,0,false,true);
+launcher.Flush();
 
 Check(launcher.HandleIntent(Action("home:drawer-open",home,10),out var consumed) && consumed.Kind==0, "Drawer opens locally");
 launcher.AfterUpdate();
