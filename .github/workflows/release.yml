@@ -694,6 +694,7 @@ jobs:
           VERSION: ${{ needs.resolve.outputs.version }}
         run: |
           python3 -m unittest discover -s tools -p 'test_studio_packaging.py'
+          python3 -m unittest discover -s tools -p 'test_release_manifest_writer.py'
           python3 tools/studio-pair.py smoke publish/linux-x64/ProjectPrime publish/linux-x64/ProjectPrimeStudio "$VERSION"
           for server in linux-arm64 linux-x64-server win-x64-server; do
             test ! -e "publish/$server/ProjectPrimeStudio"
