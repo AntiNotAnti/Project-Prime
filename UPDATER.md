@@ -65,6 +65,16 @@ Desktop replacement is manifest-driven. Every new desktop package records the fi
 
 The first upgrade from a pre-manifest build uses a conservative legacy cleanup that only removes historical Project Prime/Fruity Prime/MphRead executable/runtime names. The staged package also generates a manifest defensively, so Version Manager and older release packages converge on the same clean-install layout after one manifest-aware update.
 
+## Windows update failure recovery
+
+On Windows, the current launcher stays open until the new staged executable acknowledges the update-worker handoff. The new worker bypasses normal game startup, waits for the previous process to finish shutting down (up to two minutes), and retries transient file-sharing conflicts after verifying transaction recovery.
+
+The worker writes a persistent log to `logs/ProjectPrime-updater.log` inside the existing installation. The log survives the next launch's `.update` staging cleanup. If the worker cannot install the update, it first verifies the existing installation's recovery state and, when safe, restarts the original launcher with automatic update checks disabled **for that one session**. Windows displays the failure reason and the log location rather than closing silently. A successful update always starts the installed executable from the original directory, not the staging copy.
+
+If an update still fails, close both **Project Prime** and **Project Prime Studio**, check the updater log for a Windows sharing violation or access-denied error, and use the matching published Windows ZIP for manual replacement. Keep user-owned `paths.txt`, settings, saves, replays and maps in place.
+
+The package-independent regression checks in `dotnet run --project tools/updatecheck -c Release` now exercise real acknowledged, prematurely terminated and timed-out child processes. A Windows release-package integration test is still required to validate the full binary swap and visual relaunch on an actual Windows host.
+
 ## Security model
 
 The client never carries a GitHub token. It only consumes the public GitHub Releases API and accepts HTTPS release URLs supplied by GitHub from GitHub/GitHubusercontent hosts.
