@@ -195,12 +195,13 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 (int)self.DesiredPresentMode(enabled));
         }
 
-        internal static void SetVSync(bool enabled)
+        internal static void SetVSync(bool enabled, bool restoreSurface = false)
         {
             var self = Current;
             PresentMode requestedMode = self.DesiredPresentMode(enabled);
             if (!ModernSurfaceLifecyclePolicy.PresentModeNeedsReapply(
-                    self._vsync, enabled, (int)self._presentMode, (int)requestedMode))
+                    self._vsync, enabled, (int)self._presentMode, (int)requestedMode,
+                    restoreSurface))
                 return;
             bool reconfigure = ModernSurfaceLifecyclePolicy.CanConfigure(
                 (int)self._width, (int)self._height, self._device.Surface != null);
@@ -209,7 +210,8 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             self._presentMode = requestedMode;
             if (reconfigure)
             {
-                Mods.DebugLog.Line("frametiming", $"restoring modern present mode {requestedMode}");
+                Mods.DebugLog.Line("frametiming",
+                    $"restoring modern present mode {requestedMode} (focus={restoreSurface})");
                 self.ConfigureSurface();
             }
         }

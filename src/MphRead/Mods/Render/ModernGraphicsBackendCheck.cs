@@ -171,8 +171,11 @@ namespace MphRead.Mods.Render
                 && !ModernSurfaceLifecyclePolicy.PresentModeNeedsReapply(
                     appliedVsync: false, requestedVsync: false, activeMode: 1, requestedMode: 1)
                 && !ModernSurfaceLifecyclePolicy.PresentModeNeedsReapply(
-                    appliedVsync: true, requestedVsync: true, activeMode: 0, requestedMode: 0),
-                "VSync and present-mode drift are detected without redundant reconfigure", ref failures);
+                    appliedVsync: true, requestedVsync: true, activeMode: 0, requestedMode: 0)
+                && ModernSurfaceLifecyclePolicy.PresentModeNeedsReapply(
+                    appliedVsync: true, requestedVsync: true, activeMode: 0, requestedMode: 0,
+                    restoreSurface: true),
+                "VSync drift and one-shot focus restore are detected without redundant reconfigure", ref failures);
         }
 
         private sealed class RecordingLowLatencyProvider : ILowLatencyProvider

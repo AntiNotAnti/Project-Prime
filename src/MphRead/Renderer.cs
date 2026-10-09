@@ -8843,6 +8843,7 @@ localCenter *= _profileHudScale;
         private bool _reportedModernBlockingFallback;
         private bool _appliedModernBackend;
         private bool _presentationPolicyDirty = true;
+        private bool _restorePresentationAfterFocus;
         private long _presentationInputRevision = Mods.Input.GamepadContexts.Revision;
 
         private static unsafe double MonitorRefreshRate(NativeWindow window)
@@ -8892,8 +8893,10 @@ localCenter *= _profileHudScale;
             bool displayPaced = Mods.Render.DesktopFramePacing.UseDisplayPacing(cap, refreshRate);
 #if !MPHREAD_SERVER
             bool presentModeDrift = modern && Mods.Render.ModernGraphicsCompat.NeedsVSyncUpdate(displayPaced);
+            bool restorePresentation = modern && _restorePresentationAfterFocus && IsFocused;
 #else
             const bool presentModeDrift = false;
+            const bool restorePresentation = false;
 #endif
             bool linuxFallback = !modern && Mods.Render.DesktopFramePacing.LinuxVSyncIgnored(
                 OperatingSystem.IsLinux(), cap, refreshRate,
@@ -8907,7 +8910,7 @@ localCenter *= _profileHudScale;
             }
             _linuxVSyncFallback = linuxFallback;
 
-            if (!sourceChanged && !backendChanged && !presentModeDrift
+            if (!sourceChanged && !backendChanged && !presentModeDrift && !restorePresentation
                 && linuxFallback == _appliedLinuxVSyncFallback)
             {
                 return;
@@ -8924,7 +8927,12 @@ localCenter *= _profileHudScale;
                 // non-blocking mode whenever an explicit numeric cap needs
                 // software pacing. If the backend can offer only FIFO, never
                 // stack OpenTK's cap on top of that blocking presentation clock.
-                Mods.Render.ModernGraphicsCompat.SetVSync(displayPaced);
+                // A temporary focus loss can invalidate a swapchain's actual
+                // presentation state without changing the saved settings.
+                // Reconfigure once on focus regain; never per rendered frame.
+                Mods.Render.ModernGraphicsCompat.SetVSync(displayPaced,
+                    restoreSurface: restorePresentation);
+                _restorePresentationAfterFocus = false;
                 bool blocks = Mods.Render.ModernGraphicsCompat.PresentationBlocks;
                 UpdateFrequency = Mods.Render.DesktopFramePacing.SoftwareFrequency(
                     cap, refreshRate, displayPaced, blocks, linuxVSyncFallback: false);
@@ -9345,6 +9353,7 @@ localCenter *= _profileHudScale;
         {
             Mods.WindowMode.FocusChanged(this, e.IsFocused);
             _presentationPolicyDirty = true;
+            if (e.IsFocused) _restorePresentationAfterFocus = true;
             Mods.Input.GamepadContexts.Focused = e.IsFocused;
             if (!e.IsFocused)
             {

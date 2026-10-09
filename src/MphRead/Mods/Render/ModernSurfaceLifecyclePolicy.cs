@@ -49,6 +49,7 @@ internal static class ModernSurfaceLifecyclePolicy
     // A recreated surface may recover a different present mode without a
     // settings change. Check both the saved VSync request and the live mode.
     internal static bool PresentModeNeedsReapply(
-        bool appliedVsync, bool requestedVsync, int activeMode, int requestedMode) =>
-        appliedVsync != requestedVsync || activeMode != requestedMode;
+        bool appliedVsync, bool requestedVsync, int activeMode, int requestedMode,
+        bool restoreSurface = false) =>
+        restoreSurface || appliedVsync != requestedVsync || activeMode != requestedMode;
 }
