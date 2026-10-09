@@ -77,6 +77,11 @@ Check(history.Count > 1 && history[1].Version == new Version(1, 1, 0),
     "version manager includes older releases for explicit downgrade");
 Check(history.Count > 1 && UpdateDownload.SupportsDigest(history[1].AssetDigest),
     "older release keeps its verified package digest");
+if (args.Length == 3 && args[0] == "--real-release-swap")
+{
+    InstallationChecks.RunRealReleaseSwap(args[1], args[2], Check);
+    return failures == 0 ? 0 : 1;
+}
 if (args.Length == 0)
     Check(!BuildVersion.IsRelease, "unstamped assembly remains a local build");
 else
