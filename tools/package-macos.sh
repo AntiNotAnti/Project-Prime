@@ -43,11 +43,24 @@ for executable in ProjectPrime ProjectPrimeStudio; do
     # .NET/native dependencies probe beside each own apphost. Apple treats
     # non-code subdirectories in MacOS as nested code, so move data to Resources.
     ditto "$root" "$contents/MacOS"
-    for resource in maps fidelity-baselines gamecontrollerdb.txt gamecontrollerdb.LICENSE PRIME-WGPU.json; do
+    # RmlUi document trees, licenses and source manifests are resources, not
+    # executable code. In Contents/MacOS codesign treats nested text files as
+    # unsigned code ("In subcomponent: .../licenses/*.txt"). Keep the native
+    # dylib beside its apphost, but seal supporting data under Resources.
+    for resource in maps fidelity-baselines gamecontrollerdb.txt gamecontrollerdb.LICENSE PRIME-WGPU.json PRIME-RMLUI.json licenses rmlui; do
         if [[ -e "$contents/MacOS/$resource" ]]; then
             mv "$contents/MacOS/$resource" "$contents/Resources/$resource"
         fi
     done
+    # The game resolves RmlUi from Contents/Resources when bundled on macOS.
+    # Verify it is not accidentally omitted while leaving Studio's independent
+    # Avalonia project free of a native UI payload.
+    if [[ "$executable" == ProjectPrime && -f "$root/rmlui/prime_home.rml" ]]; then
+        [[ -f "$contents/Resources/rmlui/prime_home.rml" && ! -e "$contents/MacOS/rmlui" ]] || {
+            echo 'error: RmlUi bundle data must live in Contents/Resources' >&2
+            exit 1
+        }
+    fi
     # Portable PDBs are data. Keeping them in the executable directory makes
     # strict bundle verification classify them as unsigned nested code.
     for symbols in "$contents/MacOS"/*.pdb; do
