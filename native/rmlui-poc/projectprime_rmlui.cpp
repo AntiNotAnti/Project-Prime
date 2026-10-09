@@ -165,6 +165,9 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
         {"route:theatre", PrimeIntentKind::Navigate, 5}, {"route:settings", PrimeIntentKind::Navigate, 6},
         {"route:news", PrimeIntentKind::Navigate, 7}, {"route:adventure", PrimeIntentKind::Navigate, 8},
         {"route:social", PrimeIntentKind::Navigate, 9}, {"quit", PrimeIntentKind::Quit, 0},
+        {"notice:toggle", PrimeIntentKind::NoticeAction, 0},
+        {"notice:close", PrimeIntentKind::NoticeAction, 1},
+        {"notice:versions", PrimeIntentKind::NoticeAction, 2},
         {"home:drawer-open", PrimeIntentKind::HomeDrawerOpen, 0},
         {"home:drawer-close", PrimeIntentKind::HomeDrawerClose, 0},
         {"home:deploy", PrimeIntentKind::HomeDeploy, 0},
@@ -395,6 +398,14 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     }
     for (int index = 0; index < 4096; ++index) if (action == "results:map:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::ResultsMap); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 4; ++index) {
+        if (action == "notice:open:" + std::to_string(index)) {
+            intent.kind = uint32_t(PrimeIntentKind::NoticeAction); intent.argument = 3 + index; return true;
+        }
+        if (action == "notice:dismiss:" + std::to_string(index)) {
+            intent.kind = uint32_t(PrimeIntentKind::NoticeAction); intent.argument = 7 + index; return true;
+        }
     }
     for (int index = 0; index < 15; ++index) if (action == "setup:action:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::SetupAction); intent.argument = index; return true;
