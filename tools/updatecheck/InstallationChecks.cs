@@ -29,72 +29,93 @@ internal static class InstallationChecks
     }
 
     /// <summary>
-    /// Exercise the actual published v0.1.46 -> v0.1.52 package boundary,
-    /// without launching the game or requiring any copyrighted game files.
-    /// Paths are unpacked, SHA-256 verified release assets supplied by CI.
+    /// Regression boundary for the real SHA-256-verified v0.1.46 desktop
+    /// release, plus a deterministic future paired-release fixture.
+    /// v0.1.52's publicly hosted archives were withdrawn; tests must not
+    /// depend on a URL that no longer exists. The malformed-metadata and
+    /// Linux runtime-lock cases are reconstructed from their recorded faults.
     /// </summary>
-    internal static void RunRealReleaseSwap(string oldDirectory, string incomingDirectory,
+    internal static void RunPublishedLegacyFixture(string oldDirectory,
         Action<bool, string> check)
     {
         string game = OperatingSystem.IsWindows() ? "ProjectPrime.exe" : "ProjectPrime";
         string studio = OperatingSystem.IsWindows() ? "ProjectPrimeStudio.exe" : "ProjectPrimeStudio";
         string installed = Path.GetFullPath(oldDirectory);
-        string next = Path.GetFullPath(incomingDirectory);
-        string oldExecutable = Path.Combine(installed, game);
-        string newExecutable = Path.Combine(next, game);
-        check(File.Exists(oldExecutable) && File.Exists(newExecutable),
-            "both published release archives contain their platform executable");
-        check(File.Exists(Path.Combine(next, studio)),
-            "v0.1.52 published release contains standalone Studio executable");
-        void DiagnoseManifest(string directory)
-        {
-            string manifestPath = Path.Combine(directory, ReleaseInstallation.ManifestName);
-            using var raw = System.Text.Json.JsonDocument.Parse(File.ReadAllText(manifestPath));
-            foreach (var entry in raw.RootElement.GetProperty("Files").EnumerateArray())
-            {
-                string item = entry.GetString()!;
-                try { ReleaseInstallation.OwnedPath(directory, item); }
-                catch (InvalidDataException ex)
-                {
-                    Console.WriteLine("PUBLISHED ARCHIVE INCOMPATIBLE PATH: "
-                        + System.Text.Json.JsonSerializer.Serialize(item)
-                        + " // " + ex.Message);
-                }
-            }
-        }
-        DiagnoseManifest(installed);
-        DiagnoseManifest(next);
-        var older = ReleaseInstallation.ReadManifest(installed);
-        check(older?.Files.Contains(game) == true,
-            "published v0.1.46 package has a valid release manifest");
+        string installedBinary = Path.Combine(installed, game);
+        check(File.Exists(installedBinary), "published v0.1.46 archive includes its game executable");
+        var previous = ReleaseInstallation.ReadManifest(installed);
+        check(previous?.Files.Contains(game) == true,
+            "published v0.1.46 manifest and owned executable are valid");
 
-        string worker = Path.Combine(Path.GetTempPath(),
-            "prime-published-helper-" + Guid.NewGuid().ToString("N"));
-        string before = ReleaseInstallation.Hash(oldExecutable);
+        string scratch = Path.Combine(Path.GetTempPath(),
+            "prime-published-legacy-" + Guid.NewGuid().ToString("N"));
+        string workerDirectory = Path.Combine(scratch, "worker");
+        string staged = Path.Combine(scratch, "next");
+        Directory.CreateDirectory(staged);
+        string originalHash = ReleaseInstallation.Hash(installedBinary);
         try
         {
-            string savedWorker = DesktopUpdate.PrepareUpdateWorker(installed, worker, game);
-            check(ReleaseInstallation.Hash(savedWorker) == before,
-                "the update worker is the original published v0.1.46 executable");
+            string worker = DesktopUpdate.PrepareUpdateWorker(
+                installed, workerDirectory, game);
+            check(ReleaseInstallation.Hash(worker) == originalHash,
+                "updater helper copies the actual published v0.1.46 executable");
+
             File.WriteAllText(Path.Combine(installed, "test-owned-settings.json"), "keep settings");
-            File.WriteAllText(Path.Combine(installed, "test-player-map.ppmap"), "keep player map");
-            bool rejectedBadPublishedRelease = false;
-            try { ReleaseInstallation.ValidateIncoming(next, installed); }
+            File.WriteAllText(Path.Combine(installed, "test-player-map.ppmap"), "keep map");
+
+            // Faithfully reproduce v0.1.52's missing hidden paired metadata:
+            // Studio was present, but its .project-prime-desktop.json was
+            // removed by upload-artifact's default hidden-file policy.
+            File.WriteAllText(Path.Combine(staged, game), "new game fixture");
+            File.WriteAllText(Path.Combine(staged, studio), "new Studio fixture");
+            ReleaseInstallation.EnsureManifest(staged);
+            bool missingPairRejected = false;
+            try { ReleaseInstallation.ValidateIncoming(staged, installed); }
             catch (InvalidDataException ex)
             {
-                rejectedBadPublishedRelease = true;
-                Console.WriteLine("EXPECTED V0.1.52 PACKAGE REJECTION: " + ex.Message);
+                missingPairRejected = ex.Message.Contains("metadata",
+                    StringComparison.OrdinalIgnoreCase);
             }
-            check(rejectedBadPublishedRelease,
-                "malformed published v0.1.52 package rejected before game exits");
-            check(ReleaseInstallation.Hash(Path.Combine(installed, game)) == before
+            check(missingPairRejected, "v0.1.52-style missing paired metadata is refused before exit");
+
+            // Restore a complete pair, then reproduce the Linux-only lock
+            // leak that caused the published release's Invalid release path.
+            File.WriteAllText(Path.Combine(staged, ".project-prime-desktop.json"),
+                System.Text.Json.JsonSerializer.Serialize(new {
+                    Version = 1, GameVersion = "0.1.53",
+                    StudioVersion = "0.1.53", IpcVersion = 1
+                }));
+            File.Delete(Path.Combine(staged, ReleaseInstallation.ManifestName));
+            ReleaseInstallation.EnsureManifest(staged);
+            File.WriteAllText(Path.Combine(staged, ".project-prime-update.lock"), "");
+            bool lockRejected = false;
+            try { ReleaseInstallation.ValidateIncoming(staged, installed); }
+            catch (InvalidDataException ex)
+            {
+                lockRejected = ex.Message.Contains("lock",
+                    StringComparison.OrdinalIgnoreCase);
+            }
+            check(lockRejected, "v0.1.52-style leaked updater lock is refused before exit");
+            check(ReleaseInstallation.Hash(installedBinary) == originalHash
                 && File.ReadAllText(Path.Combine(installed, "test-owned-settings.json")) == "keep settings"
-                && File.ReadAllText(Path.Combine(installed, "test-player-map.ppmap")) == "keep player map",
-                "refused v0.1.52 upgrade preserves the original game and user files");
+                && File.ReadAllText(Path.Combine(installed, "test-player-map.ppmap")) == "keep map",
+                "both malformed-package rejections preserve published v0.1.46 and user files");
+
+            // A rebuilt, complete paired payload must be accepted and
+            // committed without executing the incoming binary first.
+            File.Delete(Path.Combine(staged, ".project-prime-update.lock"));
+            ReleaseInstallation.ValidateIncoming(staged, installed);
+            ReleaseInstallation.Apply(staged, installed);
+            check(File.ReadAllText(Path.Combine(installed, game)) == "new game fixture"
+                && File.ReadAllText(Path.Combine(installed, studio)) == "new Studio fixture",
+                "repaired paired release upgrades legacy installation atomically");
+            check(File.ReadAllText(Path.Combine(installed, "test-owned-settings.json")) == "keep settings"
+                && File.ReadAllText(Path.Combine(installed, "test-player-map.ppmap")) == "keep map",
+                "repaired cross-version upgrade preserves user-owned files");
         }
         finally
         {
-            if (Directory.Exists(worker)) Directory.Delete(worker, recursive: true);
+            if (Directory.Exists(scratch)) Directory.Delete(scratch, recursive: true);
         }
     }
 
