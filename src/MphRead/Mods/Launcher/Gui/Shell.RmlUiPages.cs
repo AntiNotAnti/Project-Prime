@@ -229,6 +229,8 @@ internal static partial class Shell
 
     private static bool BackNativePage()
     {
+        if (RmlUiPrototype.Pages?.NoticeOpen == true)
+        { RmlUiPrototype.Pages.CloseNotices(); return true; }
         if (_nativeQueue != default && RmlUiPrototype.Pages?.Manager.Top == _nativeQueue)
         { _rmlMultiplayer?.QueueLeave(); TickNativeQueue(); return true; }
         if (_nativeMaps?.Active == true) { _nativeMaps.Dispose(); _nativeMaps = null; return true; }
