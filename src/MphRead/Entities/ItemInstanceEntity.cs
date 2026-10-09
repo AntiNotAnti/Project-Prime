@@ -200,6 +200,15 @@ namespace MphRead.Entities
         // pickups for the depth buffer to clip per pixel.
         private bool IsPickupVisuallyVisible()
         {
+#if !MPHREAD_SERVER
+            // The reported Ice Hive bleed-through is on legacy OpenGL.
+            // Keep Vulkan/DX12/Metal presentation unchanged until separately
+            // reproduced; they have their own depth and stencil backends.
+            if (Mods.Render.ModernGraphicsCompat.Active)
+            {
+                return true;
+            }
+#endif
             if (_scene.Room == null || (_scene.CameraMode != CameraMode.Player
                 && !_scene.Services.IsReplica))
             {
