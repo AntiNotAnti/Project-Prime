@@ -39,6 +39,7 @@ internal static class NetLiveImpactInbox
         if (Count == Capacity) { NetImpactDiagnostics.Record(impact.Fact, ImpactStage.Expired); return false; }
         int at = (_head + Count) % Capacity; Pending[at] = impact; Arrived[at] = NetSession.NetFrame; Count++;
         NetImpactDiagnostics.Record(impact.Fact, ImpactStage.LiveIngress, impact.Presentation.Component);
+        NetPredictedKillPresentation.Fact(impact.Fact);
         return true;
     }
     internal static bool TryTake(out LiveCombatImpact impact, out uint arrived)

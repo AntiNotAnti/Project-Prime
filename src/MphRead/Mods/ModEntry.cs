@@ -622,6 +622,7 @@ namespace MphRead.Mods
                 Console.WriteLine("[net] -claimfastpath accepts off or shadow; enabled is unavailable until exact component suppression and attack ordering are proven.");
                 return true;
             }
+            Network.NetPredictedKillPresentation.Enabled = HasFlag(args, "predictedkillvisuals") && !HasFlag(args, "nohitprediction");
             Network.NetImpactDiagnostics.Enabled = HasFlag(args, "liveimpactdebug");
             Network.NetCombatFactPublisher.LiveEnabled = HasFlag(args, "liveimpacts") && !HasFlag(args, "noliveimpacts");
             if (HasFlag(args, "nohitprediction"))

@@ -861,6 +861,8 @@ namespace MphRead.Mods.Network
                         flags, claimedLethal, victim.Position, launchFrame,
                         direction ?? Vector3.Zero, afflictions, predictedBodyDamage: claimedDamage, continuousPhase: continuousPhase, direct: direct, shotId: shotId, shotKey: shotKey);
                     StampClaim(victim.SlotIndex, at, claimId);
+                    if (claimedLethal && direct && beam == BeamType.Imperialist && !victim.IsAltForm)
+                        NetPredictedKillPresentation.Start(shotKey ?? ShotKey.For(attacker.SlotIndex, shotId), (byte)victim.SlotIndex, claimId);
                 }
                 if (headshot && !self)
                 {
@@ -1640,6 +1642,7 @@ namespace MphRead.Mods.Network
             {
                 int at = (_pendingHead[slot] + i) % PendingCapacity;
                 if (_pendingClaim[slot, at] != ack.ClaimId) continue;
+                NetPredictedKillPresentation.Ack(ack);
                 int predicted = _pendingDamage[slot, at];
                 bool head = _pendingHeadshot[slot, at];
                 int healthBefore = PlayerEntity._players[slot]?.Health ?? 0;

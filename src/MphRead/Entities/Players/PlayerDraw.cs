@@ -248,6 +248,8 @@ namespace MphRead.Entities
                     if (!drawAlive && Mods.Cosmetics.Death.DeathPresentationRuntime.Visible(_cosmeticDeath, CosmeticDeathDefinition, _scene.ElapsedTime))
                         transform = Mods.Cosmetics.Death.DeathPresentationRuntime.Pose(CosmeticDeathDefinition,
                             _cosmeticDeath.Progress(_scene.ElapsedTime, CosmeticDeathDefinition)) * transform;
+                    if (!_scene.Services.IsReplica && drawAlive && !IsMainPlayer)
+                        transform = Mods.Network.NetPredictedKillPresentation.DrawPose(SlotIndex) * transform;
                     for (int i = 0; i < model.Nodes.Count; i++)
                     {
                         Node node = model.Nodes[i];

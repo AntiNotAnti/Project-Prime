@@ -402,7 +402,7 @@ namespace MphRead.Mods.Network
             SpectatorMode.Reset();
             DemoRecorder.Stop();
             NetCosmetics.Live.Reset();
-            ReplayCapture.Reset(); NetImpactDiagnostics.Reset(); NetLiveImpactInbox.Reset(); NetLiveImpactPresenter.Reset(); NetCombatFactPublisher.Reset();
+            ReplayCapture.Reset(); NetImpactDiagnostics.Reset(); NetLiveImpactInbox.Reset(); NetLiveImpactPresenter.Reset(); NetPredictedKillPresentation.Reset(); NetCombatFactPublisher.Reset();
             NetMatchSync.Reset();
             NetSlotManager.Reset();
             NetDamage.Reset();
@@ -930,6 +930,8 @@ namespace MphRead.Mods.Network
                     break;
                 case PacketType.ReplayShotFact when Role == NetRole.Client && !IsAuthority && !_playback:
                     ReplayCapture.AcceptedShotFact(packet.Payload, NetFrame);
+                    if (NetPredictedKillPresentation.Enabled && ReplayShotFactPacket.TryRead(packet.Payload, out var killFact))
+                        NetPredictedKillPresentation.Fact(killFact);
                     break;
                 case PacketType.Snapshot when Role == NetRole.Client:
                     HandleSnapshot(packet);
@@ -1604,7 +1606,7 @@ namespace MphRead.Mods.Network
             bool newEpoch = !previous.HasValue || state.AuthorityEpoch != previous.Value.AuthorityEpoch;
             ServerMatch = state;
             if (newMatch || newEpoch || previous?.RoomKey != state.RoomKey)
-            { ReplayCapture.Reset(); NetImpactDiagnostics.Reset(); NetLiveImpactInbox.Reset(); NetLiveImpactPresenter.Reset(); NetCombatFactPublisher.Reset(); }
+            { ReplayCapture.Reset(); NetImpactDiagnostics.Reset(); NetLiveImpactInbox.Reset(); NetLiveImpactPresenter.Reset(); NetPredictedKillPresentation.Reset(); NetCombatFactPublisher.Reset(); }
             ReplayCapture.AcceptedMatch(state);
             if (newMatch) ReplayCapture.Event(ReplayEventType.MatchStarted);
             if (state.Ending && previous?.Ending != true) ReplayCapture.Event(ReplayEventType.MatchEnded);

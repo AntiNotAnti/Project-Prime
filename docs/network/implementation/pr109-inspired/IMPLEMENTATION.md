@@ -133,3 +133,27 @@ and exact-component suppression design before continuation into enabled settleme
 
 39 decision/bounded-history assertions pass; existing claim-stress and health-shot
 arbitration fixtures are rerun unchanged. Slice 2 PR: https://github.com/AntiNotAnti/Project-Prime/pull/412.
+
+## Slice 4: opt-in render-only kill tickets
+
+`-predictedkillvisuals` (off by default; disabled by `-nohitprediction`) allows a local
+Imperialist lethal prediction against a biped to rotate only its render matrix around
+the feet. The victim's health, simulation pose, collision, animation state, score,
+respawn and killcam are untouched. `NetHitPrediction.DeathEnabled` remains false.
+Other weapons/alt forms keep ordinary immediate hit feedback.
+
+Tickets fence full ShotKey, victim generation/life and claim ID. Repeated speculative
+hits cannot restart a fall. Exact lethal CombatAck or server fact confirms once;
+denial/other-shooter lethal facts recover over six simulation frames. A missing verdict
+expires at RTT + 18 frames, clamped to 24–60 frames; focus/time gaps cannot extend the
+absolute simulation deadline on the next pose read. A confirmed ticket also has a bounded
+18-frame wait for the real death state. Respawn/epoch/occupant changes discard it.
+This is a provisional visual pose, not an authored fall animation. Snapshot-only
+contradiction before a verdict is handled by expiry; extensive high-loss reversal and
+trade/render acceptance remains unverified, so no default enablement is justified.
+
+18 ticket and integration assertions pass (including idempotence, wrong identities,
+expiry/wrap, double hits, smooth recovery and unchanged snapshot health/pose/flags).
+The existing 3,338,739 health/shot assertions still pass. Source proof that enabled
+claim settlement remains blocked is independent of this strictly cosmetic prototype.
+Slice 3 PR: https://github.com/AntiNotAnti/Project-Prime/pull/413.
