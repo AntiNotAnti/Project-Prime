@@ -644,29 +644,31 @@ namespace MphRead.Mods.Launcher.Gui
                     var basicMode = ControllerNav.Find(settings, "settings.mode.basic")!;
                     basicMode.Focus(); FocusNavigator.Key(basicMode, Key.Enter); Drain(window);
 
+                    // OpenGL is now the only renderer, so exercise the real
+                    // graphics-search and category-reset workflow instead of
+                    // looking for a removed backend selection row.
+                    Check(!settings.GetVisualDescendants().OfType<ChoiceRow>()
+                        .Any(row => row.Label == "Renderer"),
+                        "OpenGL-only settings contain no renderer selector");
                     var settingsSearch = (TextBox)ControllerNav.Find(settings, "settings.search")!;
-                    settingsSearch.Text = "renderer"; Drain(window);
-                    var rendererResult = settings.GetVisualDescendants().OfType<PrimeButton>()
-                        .First(button => button.Label == "RENDERER");
-                    rendererResult.Focus(); FocusNavigator.Key(rendererResult, Key.Enter); Drain(window);
+                    settingsSearch.Text = "render scale"; Drain(window);
+                    var scaleResult = settings.GetVisualDescendants().OfType<PrimeButton>()
+                        .First(button => button.Label == "RENDER SCALE");
+                    scaleResult.Focus(); FocusNavigator.Key(scaleResult, Key.Enter); Drain(window);
                     Check(settings.GetVisualDescendants().OfType<TextBlock>().Any(block =>
-                            block.Text?.Contains("graphics backend", StringComparison.OrdinalIgnoreCase) == true),
-                        "Settings search focuses a result and surfaces per-setting help");
-                    var renderer = settings.GetVisualDescendants().OfType<ChoiceRow>()
-                        .First(row => row.IsEffectivelyVisible && row.Label == "Renderer");
-                    int rendererBefore = renderer.Index;
-                    renderer.Index = rendererBefore == 0 ? 1 : 0;
+                            block.Text?.Contains("internal 3D resolution", StringComparison.OrdinalIgnoreCase) == true),
+                        "Settings search focuses existing OpenGL resolution control and shows help");
+                    var graphicsScale = settings.GetVisualDescendants().OfType<SliderRow>()
+                        .First(row => row.IsEffectivelyVisible && row.Label == "Render scale");
+                    int scaleBefore = graphicsScale.Value;
+                    graphicsScale.Value = scaleBefore == RenderOptions.MaxScale
+                        ? scaleBefore - 5 : scaleBefore + 5;
                     Drain(window);
-                    if (renderer.Index != rendererBefore)
-                    {
-                        Check(settings.GetVisualDescendants().OfType<TextBlock>().Any(block =>
-                                block.Text?.Contains("RENDERER REQUIRES RESTART", StringComparison.Ordinal) == true),
-                            "renderer edit surfaces restart-required draft state");
-                        var graphicsReset = ControllerNav.Find(settings, "settings.category.reset")!;
-                        graphicsReset.Focus(); FocusNavigator.Key(graphicsReset, Key.Enter); Drain(window);
-                        Check(renderer.Index == rendererBefore,
-                            "Graphics category reset restores renderer selection");
-                    }
+                    Check(settings.IsDirty, "OpenGL scale edit marks settings draft dirty");
+                    var graphicsReset = ControllerNav.Find(settings, "settings.category.reset")!;
+                    graphicsReset.Focus(); FocusNavigator.Key(graphicsReset, Key.Enter); Drain(window);
+                    Check(graphicsScale.Value == scaleBefore && !settings.IsDirty,
+                        "Graphics category reset restores OpenGL scale without renderer restart");
 
                     settings.ShowSection("Display"); Drain(window);
                     CheckTeamCycling();
