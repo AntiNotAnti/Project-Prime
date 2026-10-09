@@ -24,6 +24,15 @@ internal static class ServerPerformanceBenchmark
             int steps = args.Length > 5 ? (int)(double.Parse(args[5], System.Globalization.CultureInfo.InvariantCulture) * 60) : 1800;
             if (players is < 2 or > 8 || steps is < 60 or > 36000) throw new ArgumentOutOfRangeException(nameof(args));
             NetCombatProfile.Enabled = Array.IndexOf(args, "--impact-profile") >= 0;
+            bool serverScratch = Array.IndexOf(args, "--impact-server-scratch") >= 0;
+            // Historical baseline assemblies lack these optional feature gates.
+            foreach (var feature in new[] { (Type: typeof(NetAcceptedAttacks), Name: "EmissionScratchEnabled"),
+                (Type: typeof(NetUnlagged), Name: "ClaimPoseCacheEnabled") })
+            {
+                var property = feature.Type.GetProperty(feature.Name, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+                if (property == null && serverScratch) throw new InvalidOperationException("This assembly has no server scratch feature");
+                property?.SetValue(null, serverScratch);
+            }
             var sim = new ServerSim();
             if (!sim.Start(room, GameMode.Battle, players, _ => { }, () => { })) return 1;
             try
@@ -87,7 +96,7 @@ internal static class ServerPerformanceBenchmark
                     mean = durations.Average(), p50 = durations[(int)(steps * .5)], p95 = durations[(int)(steps * .95)],
                     p99 = durations[(int)(steps * .99)], p999 = durations[(int)(steps * .999)], worst = durations[^1], unit = "milliseconds",
                     peakWorkingSetBytes = Process.GetCurrentProcess().PeakWorkingSet64,
-                    profileEnabled = NetCombatProfile.Enabled, profile = NetCombatProfile.Capture(),
+                    profileEnabled = NetCombatProfile.Enabled, serverScratch, profile = NetCombatProfile.Capture(),
                     allocations, allocationsPerStep = allocations / (double)steps, gen0, gen1, gen2, overruns,
                     dropped = sim.DroppedSteps, stalls = sim.Stalls, failures = sim.StepFailures - errors,
                     lag = new { compensated = NetUnlagged.ShotsCompensated, rewind = NetUnlagged.FramesRewound,

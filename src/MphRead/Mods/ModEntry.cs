@@ -625,6 +625,7 @@ namespace MphRead.Mods
             }
             Network.NetPredictedKillPresentation.Enabled = HasFlag(args, "predictedkillvisuals") && !HasFlag(args, "nohitprediction");
             Network.NetCombatProfile.Enabled = HasFlag(args, "impactprofile");
+            Network.NetAcceptedAttacks.EmissionScratchEnabled = Network.NetUnlagged.ClaimPoseCacheEnabled = HasFlag(args, "impactserverscratch");
             Network.NetImpactDiagnostics.Enabled = HasFlag(args, "liveimpactdebug");
             Network.NetCombatFactPublisher.LiveEnabled = HasFlag(args, "liveimpacts") && !HasFlag(args, "noliveimpacts");
             if (HasFlag(args, "nohitprediction"))

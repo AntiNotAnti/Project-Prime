@@ -1,0 +1,608 @@
+[map] 2ad6ea5ea9904fd8b558101987cdfea2.ppmap FP-MAP-010: Duplicate runtime name: MY ARENA.
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] validation_summary.json FP-MAP-001: At least one material is required.
+[map] validation_summary.json FP-MAP-014: At least one player spawn is required.
+[map] my arena.json FP-MAP-010: Duplicate runtime name: MY ARENA.
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+[net] slot 0 (Samus) wears suit 1
+[net] slot 1 (Samus) wears suit 2 -- asked for 1
+scratch paired players=2 enabled=False emissionMedian=0.008600ms bytes=536576 poseMedian=0.006700ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+scratch paired players=2 enabled=True emissionMedian=0.008300ms bytes=372736 poseMedian=0.001700ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] slot 2 activated (Scratch) -- 3 player(s) in scene
+[net] slot 3 activated (Scratch) -- 4 player(s) in scene
+[net] player slots prepared -- local slot -1, 4 active, AI enabled only on authoritative bot slots
+[net] slot 2 (Samus) wears suit 3 -- asked for 1
+[net] slot 3 (Samus) wears suit 4 -- asked for 1
+scratch paired players=4 enabled=False emissionMedian=0.022800ms bytes=1073152 poseMedian=0.013300ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] slot 2 activated (Scratch) -- 3 player(s) in scene
+[net] slot 3 activated (Scratch) -- 4 player(s) in scene
+[net] player slots prepared -- local slot -1, 4 active, AI enabled only on authoritative bot slots
+scratch paired players=4 enabled=True emissionMedian=0.022800ms bytes=745472 poseMedian=0.003200ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] slot 2 activated (Scratch) -- 3 player(s) in scene
+[net] slot 3 activated (Scratch) -- 4 player(s) in scene
+[net] slot 4 activated (Scratch) -- 5 player(s) in scene
+[net] slot 5 activated (Scratch) -- 6 player(s) in scene
+[net] slot 6 activated (Scratch) -- 7 player(s) in scene
+[net] slot 7 activated (Scratch) -- 8 player(s) in scene
+[net] player slots prepared -- local slot -1, 8 active, AI enabled only on authoritative bot slots
+[net] slot 4 (Samus) wears suit 4 -- asked for 1
+[net] slot 5 (Samus) wears suit 4 -- asked for 1
+[net] slot 6 (Samus) wears suit 4 -- asked for 1
+[net] slot 7 (Samus) wears suit 4 -- asked for 1
+scratch paired players=8 enabled=False emissionMedian=0.058300ms bytes=2170880 poseMedian=0.027200ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] slot 2 activated (Scratch) -- 3 player(s) in scene
+[net] slot 3 activated (Scratch) -- 4 player(s) in scene
+[net] slot 4 activated (Scratch) -- 5 player(s) in scene
+[net] slot 5 activated (Scratch) -- 6 player(s) in scene
+[net] slot 6 activated (Scratch) -- 7 player(s) in scene
+[net] slot 7 activated (Scratch) -- 8 player(s) in scene
+[net] player slots prepared -- local slot -1, 8 active, AI enabled only on authoritative bot slots
+scratch paired players=8 enabled=True emissionMedian=0.058300ms bytes=1515520 poseMedian=0.006600ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+scratch paired players=2 enabled=True emissionMedian=0.008400ms bytes=372736 poseMedian=0.001600ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+scratch paired players=2 enabled=False emissionMedian=0.008600ms bytes=536576 poseMedian=0.006700ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] slot 2 activated (Scratch) -- 3 player(s) in scene
+[net] slot 3 activated (Scratch) -- 4 player(s) in scene
+[net] player slots prepared -- local slot -1, 4 active, AI enabled only on authoritative bot slots
+scratch paired players=4 enabled=True emissionMedian=0.023000ms bytes=745472 poseMedian=0.003200ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] slot 2 activated (Scratch) -- 3 player(s) in scene
+[net] slot 3 activated (Scratch) -- 4 player(s) in scene
+[net] player slots prepared -- local slot -1, 4 active, AI enabled only on authoritative bot slots
+scratch paired players=4 enabled=False emissionMedian=0.023400ms bytes=1073152 poseMedian=0.013600ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] slot 2 activated (Scratch) -- 3 player(s) in scene
+[net] slot 3 activated (Scratch) -- 4 player(s) in scene
+[net] slot 4 activated (Scratch) -- 5 player(s) in scene
+[net] slot 5 activated (Scratch) -- 6 player(s) in scene
+[net] slot 6 activated (Scratch) -- 7 player(s) in scene
+[net] slot 7 activated (Scratch) -- 8 player(s) in scene
+[net] player slots prepared -- local slot -1, 8 active, AI enabled only on authoritative bot slots
+scratch paired players=8 enabled=True emissionMedian=0.058100ms bytes=1515520 poseMedian=0.007100ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] slot 2 activated (Scratch) -- 3 player(s) in scene
+[net] slot 3 activated (Scratch) -- 4 player(s) in scene
+[net] slot 4 activated (Scratch) -- 5 player(s) in scene
+[net] slot 5 activated (Scratch) -- 6 player(s) in scene
+[net] slot 6 activated (Scratch) -- 7 player(s) in scene
+[net] slot 7 activated (Scratch) -- 8 player(s) in scene
+[net] player slots prepared -- local slot -1, 8 active, AI enabled only on authoritative bot slots
+scratch paired players=8 enabled=False emissionMedian=0.060600ms bytes=2170880 poseMedian=0.027400ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+scratch paired players=2 enabled=False emissionMedian=0.008400ms bytes=536576 poseMedian=0.006700ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+scratch paired players=2 enabled=True emissionMedian=0.008000ms bytes=372736 poseMedian=0.001500ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] slot 2 activated (Scratch) -- 3 player(s) in scene
+[net] slot 3 activated (Scratch) -- 4 player(s) in scene
+[net] player slots prepared -- local slot -1, 4 active, AI enabled only on authoritative bot slots
+scratch paired players=4 enabled=False emissionMedian=0.023000ms bytes=1073152 poseMedian=0.013400ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] slot 2 activated (Scratch) -- 3 player(s) in scene
+[net] slot 3 activated (Scratch) -- 4 player(s) in scene
+[net] player slots prepared -- local slot -1, 4 active, AI enabled only on authoritative bot slots
+scratch paired players=4 enabled=True emissionMedian=0.022800ms bytes=745472 poseMedian=0.003200ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] slot 2 activated (Scratch) -- 3 player(s) in scene
+[net] slot 3 activated (Scratch) -- 4 player(s) in scene
+[net] slot 4 activated (Scratch) -- 5 player(s) in scene
+[net] slot 5 activated (Scratch) -- 6 player(s) in scene
+[net] slot 6 activated (Scratch) -- 7 player(s) in scene
+[net] slot 7 activated (Scratch) -- 8 player(s) in scene
+[net] player slots prepared -- local slot -1, 8 active, AI enabled only on authoritative bot slots
+scratch paired players=8 enabled=False emissionMedian=0.058500ms bytes=2170880 poseMedian=0.027400ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Scratch) -- 1 player(s) in scene
+[net] slot 1 activated (Scratch) -- 2 player(s) in scene
+[net] slot 2 activated (Scratch) -- 3 player(s) in scene
+[net] slot 3 activated (Scratch) -- 4 player(s) in scene
+[net] slot 4 activated (Scratch) -- 5 player(s) in scene
+[net] slot 5 activated (Scratch) -- 6 player(s) in scene
+[net] slot 6 activated (Scratch) -- 7 player(s) in scene
+[net] slot 7 activated (Scratch) -- 8 player(s) in scene
+[net] player slots prepared -- local slot -1, 8 active, AI enabled only on authoritative bot slots
+scratch paired players=8 enabled=True emissionMedian=0.058500ms bytes=1515520 poseMedian=0.006800ms
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Policy) -- 1 player(s) in scene
+[net] slot 1 activated (Policy) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+PASS: 57 real authority attack/resource policy assertions
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Context) -- 1 player(s) in scene
+[net] slot 1 activated (Context) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+FIRE CONTEXT PASS native fixture actor spawned
+FIRE CONTEXT PASS ordinary source native spawn/PowerBeam/False/False
+FIRE CONTEXT PASS successful native source emits one event/PowerBeam/False
+FIRE CONTEXT PASS native mid-step body supports native muzzle/PowerBeam/False
+FIRE CONTEXT PASS compact source body/up round trip/PowerBeam/False
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/PowerBeam/False
+FIRE CONTEXT PASS ordinary repeated fire admitted/PowerBeam/False
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/PowerBeam/False
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/PowerBeam/False
+FIRE CONTEXT PASS normal admitted native launch/PowerBeam
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/PowerBeam/False
+FIRE CONTEXT PASS repeated carrier cannot launch twice/PowerBeam/False
+FIRE CONTEXT PASS ordinary source native spawn/PowerBeam/False/True
+FIRE CONTEXT PASS successful native source emits one event/PowerBeam/True
+FIRE CONTEXT PASS native mid-step body supports native muzzle/PowerBeam/True
+FIRE CONTEXT PASS compact source body/up round trip/PowerBeam/True
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/PowerBeam/True
+FIRE CONTEXT PASS ordinary repeated fire admitted/PowerBeam/True
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/PowerBeam/True
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/PowerBeam/True
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/PowerBeam/True
+FIRE CONTEXT PASS repeated carrier cannot launch twice/PowerBeam/True
+FIRE CONTEXT PASS ordinary source native spawn/PowerBeam/True/False
+FIRE CONTEXT PASS successful native source emits one event/PowerBeam/False
+FIRE CONTEXT PASS native mid-step body supports native muzzle/PowerBeam/False
+FIRE CONTEXT PASS compact source body/up round trip/PowerBeam/False
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/PowerBeam/False
+FIRE CONTEXT PASS ordinary repeated fire admitted/PowerBeam/False
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/PowerBeam/False
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/PowerBeam/False
+FIRE CONTEXT PASS normal admitted native launch/PowerBeam
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/PowerBeam/False
+FIRE CONTEXT PASS repeated carrier cannot launch twice/PowerBeam/False
+FIRE CONTEXT PASS ordinary source native spawn/PowerBeam/True/True
+FIRE CONTEXT PASS successful native source emits one event/PowerBeam/True
+FIRE CONTEXT PASS native mid-step body supports native muzzle/PowerBeam/True
+FIRE CONTEXT PASS compact source body/up round trip/PowerBeam/True
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/PowerBeam/True
+FIRE CONTEXT PASS ordinary repeated fire admitted/PowerBeam/True
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/PowerBeam/True
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/PowerBeam/True
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/PowerBeam/True
+FIRE CONTEXT PASS repeated carrier cannot launch twice/PowerBeam/True
+FIRE CONTEXT PASS ordinary source native spawn/Missile/False/False
+FIRE CONTEXT PASS successful native source emits one event/Missile/False
+FIRE CONTEXT PASS native mid-step body supports native muzzle/Missile/False
+FIRE CONTEXT PASS compact source body/up round trip/Missile/False
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/Missile/False
+FIRE CONTEXT PASS ordinary repeated fire admitted/Missile/False
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/Missile/False
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/Missile/False
+FIRE CONTEXT PASS normal admitted native launch/Missile
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/Missile/False
+FIRE CONTEXT PASS repeated carrier cannot launch twice/Missile/False
+FIRE CONTEXT PASS ordinary source native spawn/Missile/False/True
+FIRE CONTEXT PASS successful native source emits one event/Missile/True
+FIRE CONTEXT PASS native mid-step body supports native muzzle/Missile/True
+FIRE CONTEXT PASS compact source body/up round trip/Missile/True
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/Missile/True
+FIRE CONTEXT PASS ordinary repeated fire admitted/Missile/True
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/Missile/True
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/Missile/True
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/Missile/True
+FIRE CONTEXT PASS repeated carrier cannot launch twice/Missile/True
+FIRE CONTEXT PASS ordinary source native spawn/Missile/True/False
+FIRE CONTEXT PASS successful native source emits one event/Missile/False
+FIRE CONTEXT PASS native mid-step body supports native muzzle/Missile/False
+FIRE CONTEXT PASS compact source body/up round trip/Missile/False
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/Missile/False
+FIRE CONTEXT PASS ordinary repeated fire admitted/Missile/False
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/Missile/False
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/Missile/False
+FIRE CONTEXT PASS normal admitted native launch/Missile
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/Missile/False
+FIRE CONTEXT PASS repeated carrier cannot launch twice/Missile/False
+FIRE CONTEXT PASS ordinary source native spawn/Missile/True/True
+FIRE CONTEXT PASS successful native source emits one event/Missile/True
+FIRE CONTEXT PASS native mid-step body supports native muzzle/Missile/True
+FIRE CONTEXT PASS compact source body/up round trip/Missile/True
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/Missile/True
+FIRE CONTEXT PASS ordinary repeated fire admitted/Missile/True
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/Missile/True
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/Missile/True
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/Missile/True
+FIRE CONTEXT PASS repeated carrier cannot launch twice/Missile/True
+FIRE CONTEXT PASS ordinary source native spawn/Imperialist/False/False
+FIRE CONTEXT PASS successful native source emits one event/Imperialist/False
+FIRE CONTEXT PASS native mid-step body supports native muzzle/Imperialist/False
+FIRE CONTEXT PASS compact source body/up round trip/Imperialist/False
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/Imperialist/False
+FIRE CONTEXT PASS ordinary repeated fire admitted/Imperialist/False
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/Imperialist/False
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/Imperialist/False
+FIRE CONTEXT PASS normal admitted native launch/Imperialist
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/Imperialist/False
+FIRE CONTEXT PASS repeated carrier cannot launch twice/Imperialist/False
+FIRE CONTEXT PASS ordinary source native spawn/Imperialist/False/True
+FIRE CONTEXT PASS successful native source emits one event/Imperialist/True
+FIRE CONTEXT PASS native mid-step body supports native muzzle/Imperialist/True
+FIRE CONTEXT PASS compact source body/up round trip/Imperialist/True
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/Imperialist/True
+FIRE CONTEXT PASS ordinary repeated fire admitted/Imperialist/True
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/Imperialist/True
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/Imperialist/True
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/Imperialist/True
+FIRE CONTEXT PASS repeated carrier cannot launch twice/Imperialist/True
+FIRE CONTEXT PASS ordinary source native spawn/ShockCoil/False/False
+FIRE CONTEXT PASS successful native source emits one event/ShockCoil/False
+FIRE CONTEXT PASS native mid-step body supports native muzzle/ShockCoil/False
+FIRE CONTEXT PASS compact source body/up round trip/ShockCoil/False
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/ShockCoil/False
+FIRE CONTEXT PASS ordinary repeated fire admitted/ShockCoil/False
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/ShockCoil/False
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/ShockCoil/False
+FIRE CONTEXT PASS normal admitted native launch/ShockCoil
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/ShockCoil/False
+FIRE CONTEXT PASS repeated carrier cannot launch twice/ShockCoil/False
+FIRE CONTEXT PASS ordinary source native spawn/ShockCoil/False/True
+FIRE CONTEXT PASS successful native source emits one event/ShockCoil/True
+FIRE CONTEXT PASS native mid-step body supports native muzzle/ShockCoil/True
+FIRE CONTEXT PASS compact source body/up round trip/ShockCoil/True
+FIRE CONTEXT PASS protocol41 fire retains old pose without synthetic source body/ShockCoil/True
+FIRE CONTEXT PASS ordinary repeated fire admitted/ShockCoil/True
+FIRE CONTEXT PASS carrier movement/aim cannot change admitted firing pose/ShockCoil/True
+FIRE CONTEXT PASS pre-step carrier and firing body may differ/ShockCoil/True
+FIRE CONTEXT PASS normal/recovered native pose/damage/scope parity/ShockCoil/True
+FIRE CONTEXT PASS repeated carrier cannot launch twice/ShockCoil/True
+FIRE CONTEXT PASS native capped landing camera reaches its source displacement
+FIRE CONTEXT PASS ordinary native landing-camera source spawn
+FIRE CONTEXT PASS landing camera produces one non-transition native body event
+FIRE CONTEXT PASS ordinary landing muzzle exceeds a zero-current-bob allowance
+FIRE CONTEXT PASS native source landing muzzle remains valid after current camera bob resets
+FIRE CONTEXT PASS delayed native landing source admitted with its original body
+FIRE CONTEXT PASS delayed native landing launch preserves original muzzle
+FIRE CONTEXT PASS ordinary native turret source spawn
+FIRE CONTEXT PASS native turret produces original body event
+FIRE CONTEXT PASS delayed native turret binds to retained ACK body after relocation
+FIRE CONTEXT PASS delayed native turret keeps original body/muzzle relationship
+FIRE CONTEXT PASS ordinary native pre-pause beam spawn
+FIRE CONTEXT PASS pre-pause native beam retains authored identity
+FIRE CONTEXT PASS ordinary native pre-pause bomb spawn
+FIRE CONTEXT PASS pre-pause bomb is in native scene pool
+FIRE CONTEXT PASS pause cancels held charge and continuous shooting without release
+FIRE CONTEXT PASS resume silently retires native beams and bombs
+FIRE CONTEXT PASS resume attack cleanup preserves life hunter health and ammunition
+FIRE CONTEXT PASS resume cleanup creates no native hit damage or claim
+FIRE CONTEXT PASS pause discards only queued outgoing fire history
+FIRE CONTEXT PASS ordinary native fresh shot after pause cleanup
+FIRE CONTEXT PASS same-life next authored fire ID stays monotonic after pause
+FIRE CONTEXT PASS 45-frame boundary admitted exactly
+FIRE CONTEXT PASS one fractional tick outside 45 frames refused
+FIRE CONTEXT PASS fractional point inside 45 frames admitted
+FIRE CONTEXT PASS fractional future ACK refused
+FIRE CONTEXT PASS absent exact ACK refused
+FIRE CONTEXT PASS configured launch/contact/claim ceiling honored fractionally
+FIRE CONTEXT PASS native fixture has no scene step failures
+FIRE CONTEXT PASS 156 assertions (native fixture; no live network prediction assertion)
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (CHECK0) -- 1 player(s) in scene
+[net] slot 1 activated (CHECK1) -- 2 player(s) in scene
+COMBAT PASS spawn both players
+COMBAT PASS InvalidHitClaimIsRefused/offset=0.5 result=applied
+COMBAT PASS InvalidHitClaimIsRefused/offset=1 result=applied
+COMBAT PASS InvalidHitClaimIsRefused/offset=1.5 result=applied
+COMBAT PASS InvalidHitClaimIsRefused/offset=2 result=applied
+COMBAT PASS InvalidHitClaimIsRefused/offset=2.5 result=hit point outside reconciliation radius
+COMBAT PASS InvalidHitClaimIsRefused/offset=4 result=hit point outside reconciliation radius
+COMBAT PASS InvalidHitClaimIsRefused/valid missile impulse
+COMBAT PASS InvalidHitClaimIsRefused/forged impulse rejected
+COMBAT PASS InvalidHitClaimIsRefused/affinity Battlehammer impulse accepted
+COMBAT PASS InvalidHitClaimIsRefused/Battlehammer impulse above native airburst admission ceiling rejected
+COMBAT PASS invulnerable target cannot be reported or prepaid as rescued damage
+COMBAT PASS repeated claim does not duplicate per-weapon outcome counters
+COMBAT PASS MutualKillOrdering/earlier=-1 reversed=False arrivalGap=0 ADead=True BDead=True
+COMBAT PASS CanonicalClaimDeaths/earlier=-1 reversed=False arrivalGap=0
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS MutualKillOrdering/earlier=-1 reversed=False arrivalGap=1 ADead=True BDead=True
+COMBAT PASS CanonicalClaimDeaths/earlier=-1 reversed=False arrivalGap=1
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS MutualKillOrdering/earlier=-1 reversed=False arrivalGap=8 ADead=True BDead=True
+COMBAT PASS CanonicalClaimDeaths/earlier=-1 reversed=False arrivalGap=8
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS MutualKillOrdering/earlier=-1 reversed=True arrivalGap=0 ADead=True BDead=True
+COMBAT PASS CanonicalClaimDeaths/earlier=-1 reversed=True arrivalGap=0
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS MutualKillOrdering/earlier=-1 reversed=True arrivalGap=1 ADead=True BDead=True
+COMBAT PASS CanonicalClaimDeaths/earlier=-1 reversed=True arrivalGap=1
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS MutualKillOrdering/earlier=-1 reversed=True arrivalGap=8 ADead=True BDead=True
+COMBAT PASS CanonicalClaimDeaths/earlier=-1 reversed=True arrivalGap=8
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS MutualKillOrdering/earlier=0 reversed=False arrivalGap=0 ADead=False BDead=True
+COMBAT PASS CanonicalClaimDeaths/earlier=0 reversed=False arrivalGap=0
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS MutualKillOrdering/earlier=0 reversed=False arrivalGap=1 ADead=False BDead=True
+COMBAT PASS CanonicalClaimDeaths/earlier=0 reversed=False arrivalGap=1
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS MutualKillOrdering/earlier=0 reversed=False arrivalGap=8 ADead=False BDead=True
+COMBAT PASS CanonicalClaimDeaths/earlier=0 reversed=False arrivalGap=8
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS MutualKillOrdering/earlier=0 reversed=True arrivalGap=0 ADead=False BDead=True
+COMBAT PASS CanonicalClaimDeaths/earlier=0 reversed=True arrivalGap=0
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS MutualKillOrdering/earlier=0 reversed=True arrivalGap=1 ADead=False BDead=True
+COMBAT PASS CanonicalClaimDeaths/earlier=0 reversed=True arrivalGap=1
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS MutualKillOrdering/earlier=0 reversed=True arrivalGap=8 ADead=False BDead=True
+COMBAT PASS CanonicalClaimDeaths/earlier=0 reversed=True arrivalGap=8
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS MutualKillOrdering/earlier=1 reversed=False arrivalGap=0 ADead=True BDead=False
+COMBAT PASS CanonicalClaimDeaths/earlier=1 reversed=False arrivalGap=0
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS MutualKillOrdering/earlier=1 reversed=False arrivalGap=1 ADead=True BDead=False
+COMBAT PASS CanonicalClaimDeaths/earlier=1 reversed=False arrivalGap=1
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS MutualKillOrdering/earlier=1 reversed=False arrivalGap=8 ADead=True BDead=False
+COMBAT PASS CanonicalClaimDeaths/earlier=1 reversed=False arrivalGap=8
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS MutualKillOrdering/earlier=1 reversed=True arrivalGap=0 ADead=True BDead=False
+COMBAT PASS CanonicalClaimDeaths/earlier=1 reversed=True arrivalGap=0
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS MutualKillOrdering/earlier=1 reversed=True arrivalGap=1 ADead=True BDead=False
+COMBAT PASS CanonicalClaimDeaths/earlier=1 reversed=True arrivalGap=1
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS MutualKillOrdering/earlier=1 reversed=True arrivalGap=8 ADead=True BDead=False
+COMBAT PASS CanonicalClaimDeaths/earlier=1 reversed=True arrivalGap=8
+COMBAT PASS duplicate claims do not duplicate canonical deaths
+COMBAT PASS earlier claim stream cannot starve a verdict past the arbitration deadline
+COMBAT PASS dedicated input arriving before step retains source phase
+COMBAT PASS continuous golden damage cadence/10
+COMBAT PASS continuous golden damage cadence/15
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=10 initialOffset=0
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=10 initialOffset=1
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=10 initialOffset=5
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=10 initialOffset=19
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=15 initialOffset=0
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=15 initialOffset=1
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=15 initialOffset=5
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=15 initialOffset=19
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=32 initialOffset=0
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=32 initialOffset=1
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=32 initialOffset=5
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=32 initialOffset=19
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=47 initialOffset=0
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=47 initialOffset=1
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=47 initialOffset=5
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=47 initialOffset=19
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=64 initialOffset=0
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=64 initialOffset=1
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=64 initialOffset=5
+COMBAT PASS ContinuousPhaseAgreesAcrossPeers/damage=64 initialOffset=19
+COMBAT PASS retained source event has legal authority resource/cadence evidence
+COMBAT PASS recovered event ACK is selected before validating a newer carrier ACK
+COMBAT PASS recovered press spawns from retained fire event
+COMBAT PASS non-1:1 carrier ACK retains original ShotId and launch clock
+COMBAT PASS authority applies recovered physical hit once
+COMBAT PASS recovered shot double-hit regression: later claim never rescues duplicate damage
+COMBAT PASS repeated or reordered carrier cannot fire twice
+COMBAT PASS retained source event has legal authority resource/cadence evidence
+COMBAT PASS second legally spaced shot with same launch clock spawns independently
+COMBAT PASS distinct ShotIds at the same launch frame both pay exactly once
+COMBAT PASS retained source event has legal authority resource/cadence evidence
+COMBAT PASS recovered Imperialist quick-scope leaves newer carrier zoom state intact
+COMBAT PASS recovered scoped Imperialist quick-scope actually spawns
+COMBAT PASS recovered scoped Imperialist keeps full headshot damage
+COMBAT PASS repeated scoped Imperialist carrier cannot fire twice
+COMBAT PASS retained source event has legal authority resource/cadence evidence
+COMBAT PASS lost ReleaseFire retains observed charge and control edge
+COMBAT PASS retained ReleaseFire actually spawns
+COMBAT PASS retained ReleaseFire carries independent shot identity
+COMBAT PASS repeated ReleaseFire does not spawn twice
+COMBAT PASS retained source event has legal authority resource/cadence evidence
+COMBAT PASS lost AutomaticFire retains observed charge and control edge
+COMBAT PASS retained AutomaticFire actually spawns
+COMBAT PASS retained AutomaticFire carries independent shot identity
+COMBAT PASS repeated AutomaticFire does not spawn twice
+COMBAT PASS randomized fractional historical collision cache equals uncached history after ring wrap
+COMBAT PASS DeadHeldFireDoesNotSpawnGhostShot/PowerBeam hp=99 load=Initial, Active, SlotActive, Spawned fired=5->5 match=InProgress
+COMBAT PASS DeadHeldFireDoesNotSpawnGhostShot/Missile hp=99 load=Initial, Active, SlotActive, Spawned fired=5->5 match=InProgress
+COMBAT PASS DeadHeldFireDoesNotSpawnGhostShot/Imperialist hp=98 load=Initial, Active, SlotActive, Spawned fired=5->5 match=InProgress
+COMBAT PASS DeadHeldFireDoesNotSpawnGhostShot/Magmaul hp=97 load=Initial, Active, SlotActive, Spawned fired=5->5 match=InProgress
+COMBAT PASS DeadHeldFireDoesNotSpawnGhostShot/ShockCoil hp=96 load=Initial, Active, SlotActive, Spawned fired=5->5 match=InProgress
+COMBAT PASS DeadHeldFireDoesNotSpawnGhostShot/Judicator hp=96 load=Initial, Active, SlotActive, Spawned fired=5->5 match=InProgress
+COMBAT PASS DeadHeldFireDoesNotSpawnGhostShot/Battlehammer hp=96 load=Initial, Active, SlotActive, Spawned fired=5->5 match=InProgress
+COMBAT PASS DeadHeldFireDoesNotSpawnGhostShot/VoltDriver hp=96 load=Initial, Active, SlotActive, Spawned fired=5->5 match=InProgress
+COMBAT PASS DeadHeldFireDoesNotSpawnGhostShot/OmegaCannon hp=96 load=Initial, Active, SlotActive, Spawned fired=5->5 match=InProgress
+COMBAT PASS FiredCounterRequiresActualSpawn/empty missile
+COMBAT PASS post-match fired count consumes exactly one canonical successful trigger
+COMBAT PASS production projectile/Missile
+COMBAT PASS ProjectileLifecycleAcrossShooterDeath/Missile
+COMBAT PASS actual spawn allocates new life
+COMBAT projectile Missile lifespan=0.13s survivesSpawn=True valid=True
+COMBAT PASS ProjectileLifecycleAcrossShooterRespawn/Missile
+COMBAT PASS rescued flight cannot pay twice after respawn/Missile
+COMBAT PASS old launch still damages target/Missile
+COMBAT PASS forged launch life rejected
+COMBAT PASS ricochet child keeps original fire event/Missile
+COMBAT PASS production projectile/Missile
+COMBAT PASS charged missile uses homing flight
+COMBAT PASS ProjectileLifecycleAcrossShooterDeath/Missile
+COMBAT PASS actual spawn allocates new life
+COMBAT projectile Missile lifespan=8.50s survivesSpawn=True valid=True
+COMBAT PASS ProjectileLifecycleAcrossShooterRespawn/Missile
+COMBAT PASS rescued flight cannot pay twice after respawn/Missile
+COMBAT PASS old launch still damages target/Missile
+COMBAT PASS forged launch life rejected
+COMBAT PASS ricochet child keeps original fire event/Missile
+COMBAT PASS production projectile/Magmaul
+COMBAT PASS ProjectileLifecycleAcrossShooterDeath/Magmaul
+COMBAT PASS actual spawn allocates new life
+COMBAT projectile Magmaul lifespan=1.50s survivesSpawn=True valid=True
+COMBAT PASS ProjectileLifecycleAcrossShooterRespawn/Magmaul
+COMBAT PASS rescued flight cannot pay twice after respawn/Magmaul
+COMBAT PASS old launch still damages target/Magmaul
+COMBAT PASS forged launch life rejected
+COMBAT PASS ricochet child keeps original fire event/Magmaul
+COMBAT PASS production projectile/Judicator
+COMBAT PASS ProjectileLifecycleAcrossShooterDeath/Judicator
+COMBAT PASS actual spawn allocates new life
+COMBAT projectile Judicator lifespan=8.50s survivesSpawn=True valid=True
+COMBAT PASS ProjectileLifecycleAcrossShooterRespawn/Judicator
+COMBAT PASS rescued flight cannot pay twice after respawn/Judicator
+COMBAT PASS old launch still damages target/Judicator
+COMBAT PASS forged launch life rejected
+COMBAT PASS ricochet child keeps original fire event/Judicator
+COMBAT PASS no simulation failures
+COMBAT PASS 162 assertions
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] player slots prepared -- local slot -1, 0 active, AI enabled only on authoritative bot slots
+[net] slot 0 activated (ALT0) -- 1 player(s) in scene
+[net] slot 1 activated (ALT1) -- 2 player(s) in scene
+[net] slot 2 activated (ALT2) -- 3 player(s) in scene
+[net] slot 3 activated (ALT3) -- 4 player(s) in scene
+[net] slot 4 activated (ALT4) -- 5 player(s) in scene
+[net] slot 5 activated (ALT5) -- 6 player(s) in scene
+[net] slot 6 activated (ALT6) -- 7 player(s) in scene
+[net] slot 7 activated (ALT7) -- 8 player(s) in scene
+[net] slot 1 (Kanden) wears suit 1
+[net] slot 2 (Trace) wears suit 1
+[net] slot 3 (Sylux) wears suit 1
+[net] slot 4 (Noxus) wears suit 1
+[net] slot 5 (Spire) wears suit 1
+[net] slot 6 (Weavel) wears suit 1
+[net] slot 7 (Samus) wears suit 2 -- asked for 1
+ALT MATRIX LAN rtt=0 jitter=0 loss=0% reorder=0% attempts=239 visible=119 authority=119 beamDisagreeBefore=0 beamDisagreeAfter=0 contactVisible=119 contactHistorical=119 contactLive=0 historicalOnly=119 liveOnly=0 historyMisses=0 meanRewind=0.00 sweepDistance=4
+ALT MATRIX moderate rtt=100 jitter=20 loss=1% reorder=1% attempts=232 visible=113 authority=113 beamDisagreeBefore=7 beamDisagreeAfter=0 contactVisible=113 contactHistorical=113 contactLive=21 historicalOnly=92 liveOnly=0 historyMisses=0 meanRewind=8.38 sweepDistance=4
+ALT MATRIX severe rtt=250 jitter=40 loss=2% reorder=1% attempts=222 visible=110 authority=110 beamDisagreeBefore=20 beamDisagreeAfter=0 contactVisible=110 contactHistorical=110 contactLive=5 historicalOnly=105 liveOnly=0 historyMisses=0 meanRewind=18.36 sweepDistance=4
+ALT MATRIX extreme rtt=320 jitter=80 loss=5% reorder=3% attempts=209 visible=106 authority=106 beamDisagreeBefore=24 beamDisagreeAfter=0 contactVisible=106 contactHistorical=106 contactLive=5 historicalOnly=101 liveOnly=0 historyMisses=0 meanRewind=25.20 sweepDistance=4
+ALT SCENE PASS 995 checks; history+contact 0.0102 ms/frame, 0 bytes; alt contact: attempts 3, visible checks 0, visible overlaps 0, checks 56, historical 5, live 3, historical-only 2, live-only 0, unavailable 9, noxus-live-fallback 7, sweep-only 1, rewind total 123.50, sweep distance 28.00
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Early proof) -- 1 player(s) in scene
+[net] slot 1 activated (Early proof) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+[net] slot 1 (Samus) wears suit 2 -- asked for 1
+early-proof mode=Off older=False damage=1 savedFrames=0 health=98
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Early proof) -- 1 player(s) in scene
+[net] slot 1 activated (Early proof) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+early-proof mode=Off older=False damage=2 savedFrames=0 health=0
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Early proof) -- 1 player(s) in scene
+[net] slot 1 activated (Early proof) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+early-proof mode=Off older=True damage=1 savedFrames=0 health=98
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Early proof) -- 1 player(s) in scene
+[net] slot 1 activated (Early proof) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+early-proof mode=Off older=True damage=2 savedFrames=0 health=0
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Early proof) -- 1 player(s) in scene
+[net] slot 1 activated (Early proof) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+early-proof mode=Shadow older=False damage=1 savedFrames=0 health=98
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Early proof) -- 1 player(s) in scene
+[net] slot 1 activated (Early proof) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+early-proof mode=Shadow older=False damage=2 savedFrames=0 health=0
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Early proof) -- 1 player(s) in scene
+[net] slot 1 activated (Early proof) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+early-proof mode=Shadow older=True damage=1 savedFrames=0 health=98
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Early proof) -- 1 player(s) in scene
+[net] slot 1 activated (Early proof) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+early-proof mode=Shadow older=True damage=2 savedFrames=0 health=0
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Early proof) -- 1 player(s) in scene
+[net] slot 1 activated (Early proof) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+early-proof mode=Enabled older=False damage=1 savedFrames=18 health=98
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Early proof) -- 1 player(s) in scene
+[net] slot 1 activated (Early proof) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+early-proof mode=Enabled older=False damage=2 savedFrames=18 health=0
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Early proof) -- 1 player(s) in scene
+[net] slot 1 activated (Early proof) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+early-proof mode=Enabled older=True damage=1 savedFrames=0 health=98
+[net] player slots built, main player = slot 0
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[net] slot 0 activated (Early proof) -- 1 player(s) in scene
+[net] slot 1 activated (Early proof) -- 2 player(s) in scene
+[net] player slots prepared -- local slot -1, 2 active, AI enabled only on authoritative bot slots
+early-proof mode=Enabled older=True damage=2 savedFrames=0 health=0
+PASS: 178 native early-settlement assertions
+PASS: 1925 server scratch assertions

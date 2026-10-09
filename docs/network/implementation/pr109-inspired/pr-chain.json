@@ -415,6 +415,53 @@
         "tools/live-impact/run-validation.py",
         "tools/nettest/LiveImpactTests.cs"
       ]
+    },
+    {
+      "slice": 7,
+      "url": "https://github.com/AntiNotAnti/Project-Prime/pull/417",
+      "branch": "codex/impact-07-claim-proof",
+      "baseSha": "a67215ad4eb0395d3be294b9ca5819e6092a5ced",
+      "implementationHeadSha": "b0cd8821daec6c2558f33f1f0527747170cc988f",
+      "changedFiles": [
+        "docs/network/implementation/pr109-inspired/IMPLEMENTATION.md",
+        "docs/network/validation/live-impact/claim-proof/accepted-fire-context.log",
+        "docs/network/validation/live-impact/claim-proof/architecture.log",
+        "docs/network/validation/live-impact/claim-proof/authority-combat.log",
+        "docs/network/validation/live-impact/claim-proof/claim-stress.log",
+        "docs/network/validation/live-impact/claim-proof/health-shots.log",
+        "docs/network/validation/live-impact/claim-proof/impact-baseline.log",
+        "docs/network/validation/live-impact/claim-proof/impact-claim-fastpath.log",
+        "docs/network/validation/live-impact/claim-proof/impact-claim-native.log",
+        "docs/network/validation/live-impact/claim-proof/impact-crossview.log",
+        "docs/network/validation/live-impact/claim-proof/impact-profile.log",
+        "docs/network/validation/live-impact/claim-proof/impact-transport.log",
+        "docs/network/validation/live-impact/claim-proof/impact-visual-kills.log",
+        "docs/network/validation/live-impact/claim-proof/lagcomp-shadow.log",
+        "docs/network/validation/live-impact/claim-proof/live-impact.log",
+        "docs/network/validation/live-impact/claim-proof/network-lifecycle.log",
+        "docs/network/validation/live-impact/claim-proof/replay-protocol42.log",
+        "docs/network/validation/live-impact/claim-proof/results.json",
+        "docs/network/validation/live-impact/claim-proof/server-2.json",
+        "docs/network/validation/live-impact/claim-proof/server-2.log",
+        "docs/network/validation/live-impact/claim-proof/server-4.json",
+        "docs/network/validation/live-impact/claim-proof/server-4.log",
+        "docs/network/validation/live-impact/claim-proof/server-8.json",
+        "docs/network/validation/live-impact/claim-proof/server-8.log",
+        "docs/network/validation/live-impact/claim-proof/transport-stress.log",
+        "docs/network/validation/live-impact/claim-proof/weapon-policy.log",
+        "src/MphRead/Mods/ModEntry.cs",
+        "src/MphRead/Mods/Network/ClaimEarlySettlementDecision.cs",
+        "src/MphRead/Mods/Network/NetAcceptedAttacks.cs",
+        "src/MphRead/Mods/Network/NetDamage.cs",
+        "src/MphRead/Mods/Network/NetEarlyClaimCheck.cs",
+        "src/MphRead/Mods/Network/NetHitClaims.cs",
+        "src/MphRead/Mods/Network/NetRescueIndex.cs",
+        "src/MphRead/Mods/Network/NetworkAuthorityPolicyCheck.cs",
+        "tools/live-impact/run-validation.py",
+        "tools/nettest/ClaimEarlySettlementTests.cs",
+        "tools/nettest/Program.cs"
+      ],
+      "draft": true
     }
   ]
 }

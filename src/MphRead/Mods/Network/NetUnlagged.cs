@@ -298,6 +298,7 @@ namespace MphRead.Mods.Network
 
         public static void ResetSlot(int slot)
         {
+            InvalidateClaimPoses();
             _collisionCacheActive = false;
             if (slot < 0 || slot >= Slots) return;
             NetContactLagComp.ResetSlot(slot);
@@ -366,6 +367,7 @@ namespace MphRead.Mods.Network
 
         public static void Reset()
         {
+            InvalidateClaimPoses(); ClaimPoseCacheHits = ClaimPoseCacheMisses = 0;
             _collisionCacheActive = false;
             NetContactLagComp.Reset();
             FormRewinds = FormMismatches = KandenHistoricalSegmentChecks = KandenHistoricalSegmentHits = 0; Array.Clear(_formLog);
@@ -415,6 +417,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static void Record(uint frame)
         {
+            InvalidateClaimPoses();
             _collisionCacheActive = false;
             if (!Enabled)
             {
@@ -493,6 +496,29 @@ namespace MphRead.Mods.Network
             public HistoricalPlayerPose Pose;
             public Vector3 Turret;
         }
+        // Reuses immutable player-history reads between claims in one history
+        // revision. No collision/LOS decision or mutable world geometry is cached.
+        internal static bool ClaimPoseCacheEnabled { get; set; }
+        internal static long ClaimPoseCacheHits, ClaimPoseCacheMisses;
+        private static uint _claimPoseRevision = 1;
+        private static readonly CollisionCacheEntry[,] _claimPoses = new CollisionCacheEntry[Slots, HistoryFrames];
+        private static void InvalidateClaimPoses()
+        {
+            if (++_claimPoseRevision == 0) { Array.Clear(_claimPoses); _claimPoseRevision = 1; }
+        }
+        private static bool ClaimPose(PlayerEntity player, double target, out HistoricalPlayerPose pose)
+        {
+            int slot = player.SlotIndex;
+            ushort generation = NetPlayerLifecycle.Generation(slot), life = NetPlayerLifecycle.Get(slot);
+            ref var cell = ref _claimPoses[slot, (int)((uint)target % HistoryFrames)];
+            if (cell.PoseQueried && cell.Token == _claimPoseRevision && cell.Frame == target
+                && cell.Generation == generation && cell.Life == life)
+            { ClaimPoseCacheHits++; pose = cell.Pose; return cell.PoseValid; }
+            ClaimPoseCacheMisses++;
+            cell = new() { Token = _claimPoseRevision, Frame = target, Generation = generation, Life = life, PoseQueried = true };
+            cell.PoseValid = BuildHistoricalPose(player, target, out cell.Pose);
+            pose = cell.Pose; return cell.PoseValid;
+        }
         private static readonly CollisionCacheEntry[,] _collisionCache = new CollisionCacheEntry[Slots, HistoryFrames];
         private static uint _collisionCacheToken;
         private static bool _collisionCacheActive;
@@ -514,8 +540,11 @@ namespace MphRead.Mods.Network
         internal static bool TryHistoricalPose(PlayerEntity player, double target, out HistoricalPlayerPose pose)
         {
             HistoricalCollisionQueries++;
-            if (!_collisionCacheActive || !double.IsFinite(target) || target < 1 || target >= uint.MaxValue)
+            if (!double.IsFinite(target) || target < 1 || target >= uint.MaxValue)
                 return BuildHistoricalPose(player, target, out pose);
+            if (!_collisionCacheActive)
+                return ClaimPoseCacheEnabled && (uint)player.SlotIndex < Slots
+                    ? ClaimPose(player, target, out pose) : BuildHistoricalPose(player, target, out pose);
             int slot = player.SlotIndex;
             ref var cell = ref CollisionCell(slot, target, NetPlayerLifecycle.Generation(slot), NetPlayerLifecycle.Get(slot));
             if (cell.PoseQueried) { HistoricalCollisionCacheHits++; pose = cell.Pose; return cell.PoseValid; }
