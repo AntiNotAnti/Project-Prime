@@ -33,6 +33,9 @@ internal static partial class Shell
         {
             _nativeNextSocialSummary = now + 250;
             SocialHomeSummary summary = SocialRuntime.Summary;
+            RmlUiPrototype.Pages?.ObserveSocialNotices(summary.InvitationCount, summary.IncomingRequests,
+                summary.TravelPending, summary.DirectoryLoaded);
+            RmlUiPrototype.Pages?.ObserveNewsNotice(_homeFeaturedDispatch?.Title, _homeFeaturedDispatch?.Summary);
             string party = summary.Party is { } group
                 ? $"PARTY // {group.MemberCount} MEMBERS" : "FRIENDS AND PARTY";
             string status = $"{summary.FriendsOnline} FRIENDS ONLINE // {summary.InvitationCount} INVITES";
