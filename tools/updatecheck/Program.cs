@@ -2,6 +2,8 @@ using System;
 using System.Text.Json;
 using MphRead.Mods.Update;
 
+if (InstallationChecks.RunChild(args) is int workerResult) return workerResult;
+
 int failures = 0;
 void Check(bool pass, string description)
 {
@@ -79,4 +81,5 @@ if (args.Length == 0)
     Check(!BuildVersion.IsRelease, "unstamped assembly remains a local build");
 else
     Check(BuildVersion.Current == Version.Parse(args[0]), "assembly release stamp survives commit metadata");
+if (args.Length == 0) InstallationChecks.Run(Check);
 return failures == 0 ? 0 : 1;
