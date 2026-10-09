@@ -226,6 +226,8 @@ jobs:
       # regressions in Create Lobby cannot ship behind a green packaging smoke.
       - name: updater handoff and rollback regressions
         run: dotnet run --project tools/updatecheck -c Release
+      - name: release manifest portability regression
+        run: python3 -m unittest discover -s tools -p 'test_release_manifest_writer.py'
       - name: hosted lobby allocation protocol
         run: dotnet run --project tools/nettest/nettest.csproj -c Release -- --lobby
       - name: cook the map bundles
@@ -488,6 +490,15 @@ jobs:
           TAG: ${{ needs.resolve.outputs.tag }}
         run: |
           set -euo pipefail
+          # Real smoke can create the updater's coordination lock in the
+          # publish folder. Never distribute/own that internal runtime file.
+          for target in win-x64 linux-x64 linux-arm64 win-x64-server linux-x64-server; do
+            rm -f "publish/$target/.project-prime-update.lock"
+            test ! -e "publish/$target/.project-prime-update-transaction" || {
+              echo "::error::$target contains a stale updater transaction"
+              exit 1
+            }
+          done
           mkdir -p dist
           cp LICENSE publish/win-x64/ 2>/dev/null || true
           cat > publish/win-x64/README.txt <<'NOTE'
