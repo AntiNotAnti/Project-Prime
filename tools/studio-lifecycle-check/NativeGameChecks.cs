@@ -8,7 +8,9 @@ using MphRead.Mods.MapEditor;
 using MphRead.Mods.MapGen;
 using MphRead.Mods.StudioIntegration;
 using ProjectPrime.Studio.IPC;
+using ProjectPrime.Studio.Map;
 using ProjectPrime.Studio.Protocol;
+using ProjectPrime.Studio.Settings;
 
 internal static partial class Program
 {
@@ -102,6 +104,17 @@ internal static partial class Program
             await WaitForPlaytestAsync(broker,play.PlaytestId,StudioPlaytestState.Started);
             Check(play.Identity?.PackageHash==updatedIdentity.PackageHash.ToString(),"actual stop/edit/rebuild/restart uses exact newly authored package identity");
             await CheckNativeMapUnchangedAsync(studio,edited,"native updated game scene preserves unsaved editor state and undo history");
+            Check((await broker.StopPlaytestAsync(play.PlaytestId)).Accepted, "native handoff test stops the previous scene");
+            await WaitForPlaytestAsync(broker,play.PlaytestId,StudioPlaytestState.Ended);
+            using (var integration = new GameBrokerMapIntegration(new StudioPaths(AppContext.BaseDirectory,profile)))
+            {
+                // Exercise the actual standalone Studio coordinator, not just direct broker
+                // admission: a returned task must mean an actual gameplay scene exists.
+                await integration.PlaytestAsync(updatedPackage,updatedIdentity,CancellationToken.None);
+                play=await broker.GetPlaytestStatusAsync(integration.ActivePlaytestId);
+                Check(play.Accepted && play.PlaytestState==StudioPlaytestState.Started,
+                    "production Studio playtest handoff waits for the actual native gameplay scene");
+            }
             await studio.StandardInput.WriteLineAsync("close-cancel");await studio.StandardInput.FlushAsync();await ReadNativeLineAsync(studio,"CLOSE-CANCELLED");
             await CheckNativeMapUnchangedAsync(studio,edited,"actual native Unsaved changes Cancel retains document and active game playtest");
             await CloseDirtyNativeProbeAsync(studio); studio.Dispose(); studio = null;
