@@ -168,7 +168,11 @@ namespace MphRead.Mods.Network
             // A window that is never shown or resized never gets OnResize,
             // which is what normally sets the viewport and sizes the
             // offscreen targets.
+#if MPHREAD_SERVER
+            GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
+#else
             Render.GraphicsApi.Viewport(0, 0, ClientSize.X, ClientSize.Y);
+#endif
             Scene.OnResize();
             NetSession.MarkMatchLoaded();
             _wallClock.Restart();
