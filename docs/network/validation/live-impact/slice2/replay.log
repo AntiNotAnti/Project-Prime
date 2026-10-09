@@ -1,0 +1,13 @@
+[replay] Recording interrupted; recover completed chunks from its .part file. Replay storage queue is full or closed.
+[replay] Recording interrupted; recover completed chunks from its .part file. Replay storage queue exceeded its byte budget.
+[net] server map: MP1 SANCTORUS (Battle, 300 s left)
+[net] server map: MP1 SANCTORUS (Battle, 0 s left)
+[replayformat] PASS 2962 checks (v2/v3/v4, order, metadata, CRC, recovery, extraction, malformed files)
+[replaycheck] timing: rates, presentation independence and deterministic receive clock passed
+[replaycheck] camera: interpolation, persistence, bounds, corruption and profiles passed
+[replayreview] rational exports, delayed kill clock, edit rollback and artifact ownership passed
+[replayhardening] identity fences, clip window, encoder progress/failure/cancellation passed
+[replaycheck] studio: analytics and highlight derivation passed
+[replaycheck] kill cam: eligibility and weapon labels passed
+[replaycheck] input: replay controller context isolation passed
+[replaycheck] studio: annotation sidecar round-trip passed

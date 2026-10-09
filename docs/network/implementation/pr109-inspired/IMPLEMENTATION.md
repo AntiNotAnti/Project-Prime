@@ -84,3 +84,30 @@ because this new macOS worktree lacked the pinned native libktx. Building the do
 runtime is the next verification step; this is not reported as a passing engineering gate.
 
 PR chain: slice 0 https://github.com/AntiNotAnti/Project-Prime/pull/410, base main.
+
+## Slice 2: conservative presentation
+
+The live client submits depth-tested weapon-colour endpoint particles through the same
+pure drawing helper as Replay Studio. A fixed 256-entry projectile index matches full
+ShotKey, weapon and primary projectile ordinal. Native child emissions can reuse spawn
+ordinals across calls, so children use an authority-only component (high bit set) and
+truthful fallback cues; they are **not** falsely matched by proximity. Rescued claims
+also fall back when their client-correlatable component is unknown. This is an explicit
+fidelity limitation, not full child correlation coverage.
+
+Native direct contacts capture a quantized offset before the historical victim pose is
+restored. Splash, turret, continuous and claims retain the authoritative world point.
+The presenter holds missing relays for three simulation frames, displays cues for six,
+and expires after 90. Existing matching native impact points suppress duplicate cues;
+known direct/splash pairs can share a blast cue. Continuous events are not blast-coalesced.
+A backwards, >60-degree, >4-unit or blocked correlation becomes an endpoint-only fallback.
+There is no live corrected tracer, synthetic projectile or gameplay transform mutation.
+These conservative thresholds are provisional, not empirically tuned recommendations.
+
+`--impact-crossview` currently means 22 **asset-free presentation contracts**, not an
+observed multi-camera success rate. Existing replay format/control checks pass after
+sharing the drawing helper. The pinned macOS libktx runtime now builds and the remaining
+engineering checks are being resumed. Rendered first-person/spectator/high-refresh and
+weapon-specific particles/audio remain unverified; default stays off.
+
+Slice 1 PR: https://github.com/AntiNotAnti/Project-Prime/pull/411 (depends on #410).

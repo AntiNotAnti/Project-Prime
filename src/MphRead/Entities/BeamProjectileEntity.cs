@@ -34,6 +34,7 @@ namespace MphRead.Entities
         // Detached claim witnesses distinguish actual native pellets/children
         // and accumulate real simulation/catch-up travel rather than ACK age.
         internal uint ModWitnessComponent { get; private set; }
+        internal uint ModPresentationComponent { get; private set; }
         internal uint ModClaimTravelFrames { get; private set; }
         private static int _nextWitnessComponent;
 
@@ -2081,6 +2082,7 @@ namespace MphRead.Entities
                     if (component == 0) component = unchecked((uint)System.Threading.Interlocked.Increment(ref _nextWitnessComponent));
                 }
                 beam.ModWitnessComponent = component;
+                beam.ModPresentationComponent = ImpactPresentationRules.Component(parent?.ModPresentationComponent ?? 0, i, parent != null);
                 beam.InitialSpeed = beam.Speed = speed;
                 beam.FinalSpeed = finalSpeed;
                 beam.SpeedDecayTime = speedDecayTime;
@@ -2763,6 +2765,7 @@ namespace MphRead.Entities
 
         private void SpawnCollisionEffect(CollisionResult colRes, bool noSplat)
         {
+            NetLiveImpactPresenter.NoteNativeImpact(this, colRes.Position);
             if (_scene.Services.IsReplica && _replayImpactHidden) return;
             if (CollisionEffect != 255)
             {
