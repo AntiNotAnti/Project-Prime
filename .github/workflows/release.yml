@@ -474,6 +474,11 @@ jobs:
         with:
           name: build-linux-${{ matrix.target }}
           path: publish/${{ matrix.target }}
+          # The paired-game metadata is a dotfile. upload-artifact drops it by
+          # default, which stripped .project-prime-desktop.json out of v0.1.52
+          # and made both Windows and Linux in-app updates reject the release.
+          # This path is a controlled publish directory (no user secrets).
+          include-hidden-files: true
           if-no-files-found: error
 
   release-android:
@@ -633,6 +638,28 @@ jobs:
           chmod +x publish/linux-x64/ProjectPrime publish/linux-x64/ProjectPrimeStudio
           chmod +x publish/linux-x64-server/ProjectPrime
           chmod +x publish/linux-arm64/ProjectPrime
+      - name: desktop pairing survived artifact transport
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          import os
+          for target, exe in (("win-x64", "ProjectPrimeStudio.exe"), ("linux-x64", "ProjectPrimeStudio")):
+              root = Path("publish") / target
+              pair_path = root / ".project-prime-desktop.json"
+              if not pair_path.is_file():
+                  raise SystemExit(f"::error::{target} lost paired metadata during artifact upload/download")
+              pair = json.loads(pair_path.read_text())
+              version = os.environ["VERSION"]
+              if pair.get("Version") != 1 or pair.get("GameVersion") != version or pair.get("StudioVersion") != version or not isinstance(pair.get("IpcVersion"), int) or pair["IpcVersion"] < 1:
+                  raise SystemExit(f"::error::{target} has invalid desktop compatibility metadata")
+              if not (root / exe).is_file():
+                  raise SystemExit(f"::error::{target} is missing its paired Studio executable")
+              print(f"{target}: paired game/Studio metadata and binaries verified")
+          PY
       - name: nothing from the game is in the output
         run: >
           tools/check-no-game-assets.sh publish/win-x64 publish/linux-x64
