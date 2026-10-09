@@ -115,6 +115,39 @@ internal static class ReleaseInstallation
         catch (ArgumentException) { } // The old process has already exited.
     }
 
+    /// <summary>
+    /// Fail a malformed cross-version archive while the currently installed
+    /// launcher can still display the reason. No installed files change.
+    /// The known v0.1.52 desktop assets are incomplete: paired metadata was
+    /// dropped from the upload and the Linux manifest owns an internal lock.
+    /// </summary>
+    internal static void ValidateIncoming(string source, string target)
+    {
+        EnsureManifest(source);
+        Manifest next = ReadManifest(source)
+            ?? throw new InvalidDataException("The incoming release manifest is missing.");
+        bool studio = next.Files.Any(p => Path.GetFileName(p) is
+            "ProjectPrimeStudio" or "ProjectPrimeStudio.exe");
+        if (studio)
+        {
+            string metadata = Path.Combine(source, ".project-prime-desktop.json");
+            if (!next.Files.Contains(".project-prime-desktop.json", Names) || !File.Exists(metadata))
+                throw new InvalidDataException(
+                    "Published release is missing required Game + Studio metadata. The update was not installed; use a corrected release.");
+            using var document = JsonDocument.Parse(File.ReadAllText(metadata));
+            JsonElement root = document.RootElement;
+            if (!root.TryGetProperty("GameVersion", out JsonElement game)
+                || !root.TryGetProperty("StudioVersion", out JsonElement editor)
+                || !String.Equals(game.GetString(), editor.GetString(), StringComparison.Ordinal)
+                || String.IsNullOrWhiteSpace(game.GetString()))
+                throw new InvalidDataException("Published Game and Studio versions do not match.");
+        }
+        if (!studio && (File.Exists(Path.Combine(target, "ProjectPrimeStudio"))
+                     || File.Exists(Path.Combine(target, "ProjectPrimeStudio.exe"))))
+            throw new InvalidDataException(
+                "An older standalone release cannot overwrite paired Project Prime Studio. Install it in a separate folder.");
+    }
+
     internal static void Apply(string source, string target, Action<int>? afterMutation = null)
     {
         source = Path.GetFullPath(source); target = Path.GetFullPath(target);
