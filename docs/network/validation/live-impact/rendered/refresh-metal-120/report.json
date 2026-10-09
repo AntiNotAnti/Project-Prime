@@ -1,0 +1,107 @@
+{
+  "schema": 1,
+  "scenarios": [
+    {
+      "scenario": "powerbeam-rtt250-loss2",
+      "rendered": true,
+      "authorityFactsRetained": 6,
+      "authorityRingOverwritten": 0,
+      "authorityByWeapon": {
+        "0": 6
+      },
+      "peers": [
+        {
+          "view": "peer0-impacts",
+          "liveIngressUnique": 6,
+          "authorityBacked": 6,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "0": 6
+          },
+          "localPredictionsRetained": 82,
+          "latencySamples": 6,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 978.295792,
+          "localHitToIngressP99Ms": 978.295792,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            224.943875,
+            242.393459,
+            242.447875,
+            258.725958,
+            267.889125,
+            978.295792
+          ],
+          "presentationClassified": 6,
+          "sameShotMatchedOrNative": 1,
+          "classificationByStage": {
+            "5": 5,
+            "6": 1
+          },
+          "classifiedAuthorityBacked": 6,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 5,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 5,
+          "ingressToDrawP90Ms": 25.995083,
+          "ingressToDrawP99Ms": 25.995083,
+          "drawInvariants": {
+            "checks": 3630,
+            "failures": 0
+          },
+          "classificationByWeapon": {
+            "0": 6
+          },
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer1-impacts",
+          "liveIngressUnique": 6,
+          "authorityBacked": 6,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "0": 6
+          },
+          "localPredictionsRetained": 0,
+          "latencySamples": 0,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": null,
+          "localHitToIngressP99Ms": null,
+          "ringOverwritten": 0,
+          "latenciesMs": [],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        }
+      ],
+      "limitations": [
+        "Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.",
+        "Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.",
+        "Presentation classifications/draw submissions are instrumented, not a pixel visibility metric. Screenshots require separate inspection; no cross-process timestamp subtraction is used."
+      ]
+    }
+  ]
+}

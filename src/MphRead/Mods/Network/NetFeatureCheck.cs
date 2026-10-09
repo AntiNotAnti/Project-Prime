@@ -528,7 +528,7 @@ namespace MphRead.Mods.Network
         /// network for a script that never pressed the button is exactly the
         /// kind of wrong answer this harness exists to avoid.
         /// </summary>
-        public bool Report(out int failures)
+        public bool Report(out int failures, bool symmetricScenario = true)
         {
             failures = 0;
             Record mine = _records[_localSlot];
@@ -567,7 +567,7 @@ namespace MphRead.Mods.Network
                 {
                     Emit("saw", them, feature, get(other));
                 }
-                fails += ReportOne(mine, other, them);
+                fails += ReportOne(mine, other, them, symmetricScenario);
             }
             if (!anyRemote)
             {
@@ -596,7 +596,7 @@ namespace MphRead.Mods.Network
             {
                 // A player nobody could hurt for a whole match is not a good
                 // player, it is a player the damage path never reached.
-                if (_records[slot].SpawnedFrames > 600 && _records[slot].DamageEvents == 0)
+                if (symmetricScenario && _records[slot].SpawnedFrames > 600 && _records[slot].DamageEvents == 0)
                 {
                     untouched.Add($"{GameState.Nicknames[slot]} (slot {slot})");
                 }
@@ -816,7 +816,7 @@ namespace MphRead.Mods.Network
         /// happening is not obviously broken. Anything needing the other
         /// side's account of itself is left to the cross-report comparison.
         /// </summary>
-        private int ReportOne(Record mine, Record other, string them)
+        private int ReportOne(Record mine, Record other, string them, bool symmetricScenario)
         {
             var report = new StringBuilder();
             int fails = 0;
@@ -824,7 +824,11 @@ namespace MphRead.Mods.Network
             void Line(string feature, double self, double seen, double needed, string unit,
                 bool applicable = true, bool pairwise = false)
             {
-                bool tested = applicable && (pairwise ? self + seen >= needed : self >= needed);
+                // The feature tour is symmetric; a sniper/runner rig or spectator
+                // does not promise that this remote performed my local actions.
+                // Its emitted per-slot counters are still compared across views.
+                bool tested = applicable && (pairwise ? self + seen >= needed
+                    : symmetricScenario ? self >= needed : seen >= needed);
                 bool ok = seen >= needed;
                 string verdict = !applicable ? "n/a" : !tested ? "untested"
                     : pairwise ? "ok" : ok ? "ok" : "FAIL";

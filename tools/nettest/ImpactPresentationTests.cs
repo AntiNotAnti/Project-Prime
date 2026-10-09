@@ -21,6 +21,20 @@ internal static class ImpactPresentationTests
             Check(!ImpactPresentationRules.CanCorrelate(position,velocity,position+Vector3.UnitY),"no sharp curve");
             Check(!ImpactPresentationRules.CanCorrelate(position,velocity,position+Vector3.UnitX*5),"bounded correction distance");
             Check(!ImpactPresentationRules.CanCorrelate(position,velocity,new(float.NaN,0,0)),"nonfinite rejected");
+            Check(ImpactVisualOptions.Configure("2","30","8"),"bounded visual options accepted");
+            Check(!ImpactPresentationRules.CanCorrelate(position,velocity,position+Vector3.UnitX*3),"configured distance enforced");
+            Check(!ImpactPresentationRules.CanCorrelate(position,velocity,position+new Vector3(1,1,0)),"configured angle enforced");
+            Check(!ImpactVisualOptions.Configure("NaN",null,null) && !ImpactVisualOptions.Configure(null,"61",null)
+                && !ImpactVisualOptions.Configure(null,null,"9"),"unsafe options rejected");
+            Check(ImpactVisualOptions.MaxDistance==2 && ImpactVisualOptions.HoldFrames==8,"invalid options do not partially mutate configuration");
+            ImpactVisualOptions.Configure(null,null,null);
+            var key=impact.Identity.Shot;
+            var endpoint=new ImpactDrawEndpoint(key,1,100,position);
+            Check(endpoint.TryPoint(key,1,100,out var drawPoint) && drawPoint==position,"same draw exact endpoint");
+            Check(!endpoint.TryPoint(key,1,101,out _) && !endpoint.TryPoint(key,2,100,out _),"next draw and wrong component cannot reuse endpoint");
+            Check(!endpoint.TryPoint(key with {LifeId=(ushort)(key.LifeId+1)},1,100,out _)
+                && !endpoint.TryPoint(key with {AuthorityEpoch=key.AuthorityEpoch+1},1,100,out _)
+                && !endpoint.TryPoint(key with {ShotId=key.ShotId+1},1,100,out _),"pooled beam/life/epoch cannot reuse endpoint");
             Check(position==new Vector3(10,20,30) && velocity==Vector3.UnitX,"visual rules preserve simulation values");
             Check(ImpactPresentationRules.Component(0,0,false)==1 && ImpactPresentationRules.Component(0,1,false)==2,"pellet ordinals");
             Check(ImpactPresentationRules.Component(1,0,true)==0 && ImpactPresentationRules.Component(2,0,true)==0,"unproven child lineage never guesses a match");
@@ -48,6 +62,6 @@ internal static class ImpactPresentationTests
             Console.WriteLine($"PASS: {checks} impact presentation assertions");return 0;
         }
         catch(Exception ex){Console.Error.WriteLine(ex);return 1;}
-        finally{NetSession.Stop();NetCombatFactPublisher.LiveEnabled=false;}
+        finally{ImpactVisualOptions.Configure(null,null,null);NetSession.Stop();NetCombatFactPublisher.LiveEnabled=false;}
     }
 }

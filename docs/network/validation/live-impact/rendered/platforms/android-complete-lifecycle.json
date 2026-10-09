@@ -1,0 +1,23 @@
+[
+  {
+    "cycle": 0,
+    "deviceStart": 1791526971,
+    "reportModified": 1791526971,
+    "report": "PASS Vulkan device/surface/acquire/draw/readback/present/ui-overlay frames=4",
+    "fresh": true
+  },
+  {
+    "cycle": 1,
+    "deviceStart": 1791526975,
+    "reportModified": 1791526975,
+    "report": "PASS Vulkan device/surface/acquire/draw/readback/present/ui-overlay frames=5",
+    "fresh": true
+  },
+  {
+    "cycle": 2,
+    "deviceStart": 1791526979,
+    "reportModified": 1791526979,
+    "report": "PASS Vulkan device/surface/acquire/draw/readback/present/ui-overlay frames=6",
+    "fresh": true
+  }
+]

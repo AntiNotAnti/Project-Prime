@@ -1,0 +1,2546 @@
+[
+  {
+    "source": "/tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer0-impacts.json",
+    "path": "metal-nine/missile-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "3bdf14f5c6d563a0b6548e316ca59ad6092da5da02aae2cc41b8a3c3bbf8f956",
+    "bytes": 25542
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer1-impacts.json",
+    "path": "metal-nine/missile-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "ab203c8f04c726267506a338bf5205fbca31a4462265d331df3fd5c3c2ef464c",
+    "bytes": 24614
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer2.log",
+    "path": "metal-nine/missile-rtt250-loss2/peer2.log.gz",
+    "sha256": "85f4371cd8175c73ac48c02f4731348db88945d60fe1b70283f6dbe686456dc5",
+    "bytes": 13278
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer0.log",
+    "path": "metal-nine/missile-rtt250-loss2/peer0.log.gz",
+    "sha256": "df5f8ec36c3f3c2aac51f1ffee4271d19b73c3cdc873b47cce751c82c838b759",
+    "bytes": 13465
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer1.log",
+    "path": "metal-nine/missile-rtt250-loss2/peer1.log.gz",
+    "sha256": "d5be5687dd8effc35c13ed8fa2a1c021f8295d95c8d401d04216cb1fbb7f0f78",
+    "bytes": 13187
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer2-impacts.json",
+    "path": "metal-nine/missile-rtt250-loss2/peer2-impacts.json.gz",
+    "sha256": "bc15a6ebf3073e5982a4955defb56078201f558dfb156d18cf1715d3d70f32d3",
+    "bytes": 24677
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/missile-rtt250-loss2/server.log",
+    "path": "metal-nine/missile-rtt250-loss2/server.log.gz",
+    "sha256": "45a1fa8a76bbe57cae239c631e223b8c91be8cb799780411965077f8ea9f34e3",
+    "bytes": 7811
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/missile-rtt250-loss2/server-impacts.json",
+    "path": "metal-nine/missile-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "7e0eff1d93d9dd508c3aa21041e28bf06a6b32d3e1114bfa11b7cbf78fc4633b",
+    "bytes": 36693
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/powerbeam-rtt250-loss2/peer0-impacts.json",
+    "path": "metal-nine/powerbeam-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "2be6d3272e3bdeaecb163168dfa9e8e22920305c12e8d4e67e397b4f1739bbab",
+    "bytes": 75233
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/powerbeam-rtt250-loss2/peer1-impacts.json",
+    "path": "metal-nine/powerbeam-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "6d7c7305861066c30f4b71111463f53fe53f00679cb12b7761de4be163a49be6",
+    "bytes": 74879
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/powerbeam-rtt250-loss2/peer2.log",
+    "path": "metal-nine/powerbeam-rtt250-loss2/peer2.log.gz",
+    "sha256": "39ee37634f60d44765b7e7ce495f67602544dd4f71888d7d6135ce6c836894d2",
+    "bytes": 14238
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/powerbeam-rtt250-loss2/peer0.log",
+    "path": "metal-nine/powerbeam-rtt250-loss2/peer0.log.gz",
+    "sha256": "63f8d010bffbe92b9280ec147baeb9efee34a053999a9180b6796b27edd4d74e",
+    "bytes": 10986
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/powerbeam-rtt250-loss2/peer1.log",
+    "path": "metal-nine/powerbeam-rtt250-loss2/peer1.log.gz",
+    "sha256": "1f2c1c36920fe691a3e331f226fcceb00d879dc1a10d114533ab3b5afe3e1d60",
+    "bytes": 14733
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/powerbeam-rtt250-loss2/peer2-impacts.json",
+    "path": "metal-nine/powerbeam-rtt250-loss2/peer2-impacts.json.gz",
+    "sha256": "4a94602c3909551b00bdc0400661214895e04c4bd30d39746ae3d7e236a7cc50",
+    "bytes": 75129
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/powerbeam-rtt250-loss2/server.log",
+    "path": "metal-nine/powerbeam-rtt250-loss2/server.log.gz",
+    "sha256": "5247a2322fa0fc28cc371b17bae0d74b1eea1fe2d7b62510e4f589753ca98b6b",
+    "bytes": 7910
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/powerbeam-rtt250-loss2/server-impacts.json",
+    "path": "metal-nine/powerbeam-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "6d56aabbf4510d8d95e2041b4dc138f235f0fb13916dedaec24eef0dc409f6f8",
+    "bytes": 53102
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/magmaul-rtt250-loss2/peer0-impacts.json",
+    "path": "metal-nine/magmaul-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "726431e94697f4e8e2b9721b66492cc32b3d8d636bafca1349addf459e5d75ca",
+    "bytes": 27813
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/magmaul-rtt250-loss2/peer1-impacts.json",
+    "path": "metal-nine/magmaul-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "33e57362c67815c9a7d3c6ce6a1b7987e8b6c0f1e253ca10512ed11107793460",
+    "bytes": 27003
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/magmaul-rtt250-loss2/peer2.log",
+    "path": "metal-nine/magmaul-rtt250-loss2/peer2.log.gz",
+    "sha256": "fe6a59ccd26e90fae83fe8432a4007d01ccc42f78f946a60ae30db4bdbd018a8",
+    "bytes": 13162
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/magmaul-rtt250-loss2/peer0.log",
+    "path": "metal-nine/magmaul-rtt250-loss2/peer0.log.gz",
+    "sha256": "43abc5c4cdff4bd350613a47fe42792776d937c4bd748cd3cf393ecc6c69eae0",
+    "bytes": 13335
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/magmaul-rtt250-loss2/peer1.log",
+    "path": "metal-nine/magmaul-rtt250-loss2/peer1.log.gz",
+    "sha256": "b26d2e12679df367504fa60b934e310d8df52ff0cfa4cc15307ddb20912c590f",
+    "bytes": 13564
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/magmaul-rtt250-loss2/peer2-impacts.json",
+    "path": "metal-nine/magmaul-rtt250-loss2/peer2-impacts.json.gz",
+    "sha256": "9c384420ab7645b4eb2775c9833bec87cc121bdb9875353ba79345fee6fa50f2",
+    "bytes": 25799
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/magmaul-rtt250-loss2/server.log",
+    "path": "metal-nine/magmaul-rtt250-loss2/server.log.gz",
+    "sha256": "a6e06d70c91e5cd58fcbb593701a9db19c7c91a8e904ac2d00bb9d9039a09ffc",
+    "bytes": 7960
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/magmaul-rtt250-loss2/server-impacts.json",
+    "path": "metal-nine/magmaul-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "ba78204596dbdfec43185a756ea7bb71f9ab377d6cfdcc418fff0f2f45359d8b",
+    "bytes": 36012
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/shockcoil-rtt250-loss2/peer0-impacts.json",
+    "path": "metal-nine/shockcoil-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "4a424d9f84201af0cc354ab633abb207a8aab715c7bea9f71cb4a18f6525244c",
+    "bytes": 539985
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/shockcoil-rtt250-loss2/peer1-impacts.json",
+    "path": "metal-nine/shockcoil-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "c01db0c123736ee1f1d1c67b7ebc4f7626ad24f2d43939680896752d9d054d2b",
+    "bytes": 395416
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/shockcoil-rtt250-loss2/peer2.log",
+    "path": "metal-nine/shockcoil-rtt250-loss2/peer2.log.gz",
+    "sha256": "bb6d2b313ebd73580d3fda132427e63445b0cf1c9c1dbd8448c32ca027fe3b6f",
+    "bytes": 19780
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/shockcoil-rtt250-loss2/peer0.log",
+    "path": "metal-nine/shockcoil-rtt250-loss2/peer0.log.gz",
+    "sha256": "cb945db49fd6c767d16bbcf771ceb30256b417ab0050acbd8285d1f8c260d136",
+    "bytes": 13609
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/shockcoil-rtt250-loss2/peer1.log",
+    "path": "metal-nine/shockcoil-rtt250-loss2/peer1.log.gz",
+    "sha256": "5c57c6cbbafdd319c2701f48b994d2b497e73d98c4c0a480039d93b7d0dd151a",
+    "bytes": 21213
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/shockcoil-rtt250-loss2/peer2-impacts.json",
+    "path": "metal-nine/shockcoil-rtt250-loss2/peer2-impacts.json.gz",
+    "sha256": "6c893b27a66e02da269388d280ea91382c88d2bdc15f0bc719c614e14b1275fe",
+    "bytes": 392055
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/shockcoil-rtt250-loss2/server.log",
+    "path": "metal-nine/shockcoil-rtt250-loss2/server.log.gz",
+    "sha256": "2bed792da9931d530401e007d31304cb6d6f2f93c995258235adc2eb467ab674",
+    "bytes": 8190
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/shockcoil-rtt250-loss2/server-impacts.json",
+    "path": "metal-nine/shockcoil-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "9e6cbd1989748eba0b08c299f4178cc5ec99bce7dbe32b38a6a3c03c2d1cdab7",
+    "bytes": 280506
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/battlehammer-rtt250-loss2/peer0-impacts.json",
+    "path": "metal-nine/battlehammer-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "1f69317e4786407b46c369e8b40261d97ef224a1e1faa441f9542a416d11e59f",
+    "bytes": 24765
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/battlehammer-rtt250-loss2/peer1-impacts.json",
+    "path": "metal-nine/battlehammer-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "35cef89d950ad30d9b840ceee3f313e6b33739aaab59953a9569acd9e9dbafdc",
+    "bytes": 23827
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/battlehammer-rtt250-loss2/peer2.log",
+    "path": "metal-nine/battlehammer-rtt250-loss2/peer2.log.gz",
+    "sha256": "a72e6396d1dbe52b29020f0bcc85f77fe1d5ae27feb84e0583a88b4d8ee6702a",
+    "bytes": 13615
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/battlehammer-rtt250-loss2/peer0.log",
+    "path": "metal-nine/battlehammer-rtt250-loss2/peer0.log.gz",
+    "sha256": "ab501451ba841fc7dbd95fb29584d5ca6abbf47c337449c9d5e716aee08aaafd",
+    "bytes": 11010
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/battlehammer-rtt250-loss2/peer1.log",
+    "path": "metal-nine/battlehammer-rtt250-loss2/peer1.log.gz",
+    "sha256": "cf7f39b5aa3321a3ab73f83ec1a079fc76728566a4b3d9437e3a9c9fc4139491",
+    "bytes": 13541
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/battlehammer-rtt250-loss2/peer2-impacts.json",
+    "path": "metal-nine/battlehammer-rtt250-loss2/peer2-impacts.json.gz",
+    "sha256": "3b366d0bca10e8688247c16f527c1c734cba9df7cc1c13cd6a1ed7cc28253061",
+    "bytes": 23802
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/battlehammer-rtt250-loss2/server.log",
+    "path": "metal-nine/battlehammer-rtt250-loss2/server.log.gz",
+    "sha256": "576fcae5cb0c95c2e44383ae9bb7d5973298536910ede70addf7b9689adb7b00",
+    "bytes": 7695
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/battlehammer-rtt250-loss2/server-impacts.json",
+    "path": "metal-nine/battlehammer-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "d8061a44ce706a4084ac53a451f7b89e1c7b0f21fd0a9a16332b3bc57dc351f6",
+    "bytes": 41665
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/judicator-rtt250-loss2/peer0-impacts.json",
+    "path": "metal-nine/judicator-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "0964686410603217857f7f72819037be404144020c4322ea5b5f0d2a1effa70e",
+    "bytes": 34921
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/judicator-rtt250-loss2/peer1-impacts.json",
+    "path": "metal-nine/judicator-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "0bef874cad737696871092be7ba3fa00f20f0db5c61942721315fcb44ffae7eb",
+    "bytes": 34689
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/judicator-rtt250-loss2/peer2.log",
+    "path": "metal-nine/judicator-rtt250-loss2/peer2.log.gz",
+    "sha256": "9c8738d6aa2c738ccb7618b16983bfb81b5548a770a3534f72b3cc2812947da9",
+    "bytes": 13172
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/judicator-rtt250-loss2/peer0.log",
+    "path": "metal-nine/judicator-rtt250-loss2/peer0.log.gz",
+    "sha256": "3a6ca202adca150d726ddd8d436f7ce676ae0c72becf02d7a5520ad4f836bf22",
+    "bytes": 13398
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/judicator-rtt250-loss2/peer1.log",
+    "path": "metal-nine/judicator-rtt250-loss2/peer1.log.gz",
+    "sha256": "7f70936f7d5f19ef361ec509562dd6007ae642e83bb62c5f88207166094b24a4",
+    "bytes": 13877
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/judicator-rtt250-loss2/peer2-impacts.json",
+    "path": "metal-nine/judicator-rtt250-loss2/peer2-impacts.json.gz",
+    "sha256": "61262e82624e220ddc94a3f1d30f03b1fbc136ef9fc87ae278da3b72db8710e7",
+    "bytes": 34418
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/judicator-rtt250-loss2/server.log",
+    "path": "metal-nine/judicator-rtt250-loss2/server.log.gz",
+    "sha256": "2596fc40e3855c2408134ce35589c89dbed6fe16509c92f02d1767f0f9a4b39f",
+    "bytes": 8042
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/judicator-rtt250-loss2/server-impacts.json",
+    "path": "metal-nine/judicator-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "c2f90841af7341f7fbc7509396444866de0b93e3bc1f8da0c782ed4695dbab55",
+    "bytes": 41369
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/sniper-rtt250-loss2/peer0-impacts.json",
+    "path": "metal-nine/sniper-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "a052c570078f2fe681c7b36608e3e214fdad87df1b30c7ffb727e542d5b45d54",
+    "bytes": 26932
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/sniper-rtt250-loss2/peer1-impacts.json",
+    "path": "metal-nine/sniper-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "e3638b91c502d16cc3e8b1f722b110b231120476014f2821ebcf97778d87121d",
+    "bytes": 25955
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/sniper-rtt250-loss2/peer2.log",
+    "path": "metal-nine/sniper-rtt250-loss2/peer2.log.gz",
+    "sha256": "535003d3c53dd87daee8e9539b3259848f89792403c276a5b901075ef159f746",
+    "bytes": 13163
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/sniper-rtt250-loss2/peer0.log",
+    "path": "metal-nine/sniper-rtt250-loss2/peer0.log.gz",
+    "sha256": "1bd314daa94a3e86d87aad0db38e7fe379fe6bb0f3972c2a055123bc6ba3a402",
+    "bytes": 13495
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/sniper-rtt250-loss2/peer1.log",
+    "path": "metal-nine/sniper-rtt250-loss2/peer1.log.gz",
+    "sha256": "14bc5465081673d88be7007925af8d501121f4ef00b77235d871c88078c73adc",
+    "bytes": 13439
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/sniper-rtt250-loss2/peer2-impacts.json",
+    "path": "metal-nine/sniper-rtt250-loss2/peer2-impacts.json.gz",
+    "sha256": "de39b524dcd94eaf8f07ddc7d7cfd2426396ceca9ce7305f1e7b1213d8484fc9",
+    "bytes": 25962
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/sniper-rtt250-loss2/server.log",
+    "path": "metal-nine/sniper-rtt250-loss2/server.log.gz",
+    "sha256": "768c58a8d0e9ddae0e44e9a4eac895f6a501bc5c65d74c73ca08adbfbc18b82c",
+    "bytes": 8130
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/sniper-rtt250-loss2/server-impacts.json",
+    "path": "metal-nine/sniper-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "4afe64d141264b5ffeda4fd057986cca2ebc44ad42fee34233f36e6f1b0d7d93",
+    "bytes": 37477
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/voltdriver-rtt250-loss2/peer0-impacts.json",
+    "path": "metal-nine/voltdriver-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "8386518b7312b67d721c4728aede05e942b82b26648536c3084f000fb425af37",
+    "bytes": 79817
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/voltdriver-rtt250-loss2/peer1-impacts.json",
+    "path": "metal-nine/voltdriver-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "7944e31b08153945c72f6a83e69f5f763a35aff161042bc405231626719aad89",
+    "bytes": 80450
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/voltdriver-rtt250-loss2/peer2.log",
+    "path": "metal-nine/voltdriver-rtt250-loss2/peer2.log.gz",
+    "sha256": "8a2dd79abc48b40dbfa5763afb47a5854832a89c29907bb3f7d3404f64d7df27",
+    "bytes": 13186
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/voltdriver-rtt250-loss2/peer0.log",
+    "path": "metal-nine/voltdriver-rtt250-loss2/peer0.log.gz",
+    "sha256": "700fd9baa293a9b7794c793988e71c9d2e03a2cb44c5c58f407167c304356e7f",
+    "bytes": 13627
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/voltdriver-rtt250-loss2/peer1.log",
+    "path": "metal-nine/voltdriver-rtt250-loss2/peer1.log.gz",
+    "sha256": "51617cbbe78f5f4075bf56f9121c9a68bdcc510935643ec03d21ede71a3420e8",
+    "bytes": 13588
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/voltdriver-rtt250-loss2/peer2-impacts.json",
+    "path": "metal-nine/voltdriver-rtt250-loss2/peer2-impacts.json.gz",
+    "sha256": "e415d08cf2b17a32ab4a34f641c15cfbb29cae216b13017545ec786d88d52723",
+    "bytes": 81820
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/voltdriver-rtt250-loss2/server.log",
+    "path": "metal-nine/voltdriver-rtt250-loss2/server.log.gz",
+    "sha256": "4f4cfc315d3c33636d4655426dac1848773ae0fc41252ecb98bfcbef42721e88",
+    "bytes": 8396
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/voltdriver-rtt250-loss2/server-impacts.json",
+    "path": "metal-nine/voltdriver-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "d7080173dc5bc639c53203ffa5a450564e27d51c688c93c02692a98090d01e36",
+    "bytes": 52434
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/omega-rtt250-loss2/peer0-impacts.json",
+    "path": "metal-nine/omega-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "38ea6492a03ad943d833852787f8d1b475b8f4808672e534e983f05b1b0738d6",
+    "bytes": 25494
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/omega-rtt250-loss2/peer1-impacts.json",
+    "path": "metal-nine/omega-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "fd1f6aac7bae6a8a03604e9a01cb01a4b228a88b7483797f50a8e91848a3fa64",
+    "bytes": 26012
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/omega-rtt250-loss2/peer2.log",
+    "path": "metal-nine/omega-rtt250-loss2/peer2.log.gz",
+    "sha256": "fa1babffc6c1e3ec1078229c84b1458dfe59917307bb2299dab9dc9de35afa18",
+    "bytes": 13047
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/omega-rtt250-loss2/peer0.log",
+    "path": "metal-nine/omega-rtt250-loss2/peer0.log.gz",
+    "sha256": "f3c38d7692c09ff4cd6de62eb8722daa045038203c9adcde24ea0f35fab50265",
+    "bytes": 13030
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/omega-rtt250-loss2/peer1.log",
+    "path": "metal-nine/omega-rtt250-loss2/peer1.log.gz",
+    "sha256": "a66e9cebe963052b5cc357c91dc6a372e06610609422a525f5502fdf5805f25c",
+    "bytes": 13475
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/omega-rtt250-loss2/peer2-impacts.json",
+    "path": "metal-nine/omega-rtt250-loss2/peer2-impacts.json.gz",
+    "sha256": "98bfd5112a8a5c3afe4ed25848920c0953a105df1b85e314df12995af29c9774",
+    "bytes": 25985
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/omega-rtt250-loss2/server.log",
+    "path": "metal-nine/omega-rtt250-loss2/server.log.gz",
+    "sha256": "31a3be54ed48c6564f8f8b7175c551b2d465e8303e1f783ca1c7e070b8866cbb",
+    "bytes": 7894
+  },
+  {
+    "source": "/tmp/pr109-rendered-matrix/omega-rtt250-loss2/server-impacts.json",
+    "path": "metal-nine/omega-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "7ef465212e90f1e4fb99d7a92ac7beafb4d965b45d022b5610d5eb42f15ec9ab",
+    "bytes": 36402
+  },
+  {
+    "source": "/tmp/pr109-kills-long/duel-rtt350-loss5/peer0-impacts.json",
+    "path": "kills-long/duel-rtt350-loss5/peer0-impacts.json.gz",
+    "sha256": "089508bc763667972e850ab254dabcbd192929d3b8fdb047e5d158252bd8ee14",
+    "bytes": 32260
+  },
+  {
+    "source": "/tmp/pr109-kills-long/duel-rtt350-loss5/peer1-impacts.json",
+    "path": "kills-long/duel-rtt350-loss5/peer1-impacts.json.gz",
+    "sha256": "82a1ceb8d3119cc33982d650bca239bc554eab3513dc116c09866e8cb2975e22",
+    "bytes": 34403
+  },
+  {
+    "source": "/tmp/pr109-kills-long/duel-rtt350-loss5/peer2.log",
+    "path": "kills-long/duel-rtt350-loss5/peer2.log.gz",
+    "sha256": "bc3f4323ee5134d47865138cef266250806df6d08bb7303d51e668f9401695b4",
+    "bytes": 13404
+  },
+  {
+    "source": "/tmp/pr109-kills-long/duel-rtt350-loss5/peer0.log",
+    "path": "kills-long/duel-rtt350-loss5/peer0.log.gz",
+    "sha256": "0f903c987a8d86dd805789ea95c1b2374fd5c2fc8be54e7a8d890255ee54d0f6",
+    "bytes": 13770
+  },
+  {
+    "source": "/tmp/pr109-kills-long/duel-rtt350-loss5/peer1.log",
+    "path": "kills-long/duel-rtt350-loss5/peer1.log.gz",
+    "sha256": "34fb101a37963de4dd8973cf65fccfda6c27f15d30ef3f7e43a4d0fe66b21ff0",
+    "bytes": 14082
+  },
+  {
+    "source": "/tmp/pr109-kills-long/duel-rtt350-loss5/server-impacts.json.server.json",
+    "path": "kills-long/duel-rtt350-loss5/server-impacts.json.server.json.gz",
+    "sha256": "ca3337eb168611810445992d1be44a7cdc0602b7631f4463d8262695fc3c2c93",
+    "bytes": 1947
+  },
+  {
+    "source": "/tmp/pr109-kills-long/duel-rtt350-loss5/peer2-impacts.json",
+    "path": "kills-long/duel-rtt350-loss5/peer2-impacts.json.gz",
+    "sha256": "e50353b52090b2b6ef9068281d6f3af492ec81badfaca01a987ad77690f3ed9d",
+    "bytes": 33316
+  },
+  {
+    "source": "/tmp/pr109-kills-long/duel-rtt350-loss5/server.log",
+    "path": "kills-long/duel-rtt350-loss5/server.log.gz",
+    "sha256": "33dccf1b6096031cbf97e4acb3415ed88794c4a461321da9494e868eabb25ae5",
+    "bytes": 159726
+  },
+  {
+    "source": "/tmp/pr109-kills-long/duel-rtt350-loss5/server-impacts.json",
+    "path": "kills-long/duel-rtt350-loss5/server-impacts.json.gz",
+    "sha256": "299893fc8ec91bcc427ded1a07c4b0dc3d3178b078eb892916bfb0b302e23e23",
+    "bytes": 48855
+  },
+  {
+    "source": "/tmp/pr109-native-variants/judicator-charged-rtt0-loss0/peer0-impacts.json",
+    "path": "native-variants/judicator-charged-rtt0-loss0/peer0-impacts.json.gz",
+    "sha256": "8a61292e1a996861623df4464e44a30162b4f311475a7a03d933a8d23a047f73",
+    "bytes": 15111
+  },
+  {
+    "source": "/tmp/pr109-native-variants/judicator-charged-rtt0-loss0/peer1-impacts.json",
+    "path": "native-variants/judicator-charged-rtt0-loss0/peer1-impacts.json.gz",
+    "sha256": "bcf9fc579198c67ab6d55fb2dc0fad7054c3ece6e2076ff6376cbd86b5dcf010",
+    "bytes": 15113
+  },
+  {
+    "source": "/tmp/pr109-native-variants/judicator-charged-rtt0-loss0/peer0.log",
+    "path": "native-variants/judicator-charged-rtt0-loss0/peer0.log.gz",
+    "sha256": "7f741bdb90098ee5ee2170615478552dd0ad8594624a1d5ce7c4f3d57da3a5f7",
+    "bytes": 3462
+  },
+  {
+    "source": "/tmp/pr109-native-variants/judicator-charged-rtt0-loss0/peer1.log",
+    "path": "native-variants/judicator-charged-rtt0-loss0/peer1.log.gz",
+    "sha256": "2020eb3ee1555e983a857a3299bd8a42aab436afffe86b0ca4870f596ea997e2",
+    "bytes": 3575
+  },
+  {
+    "source": "/tmp/pr109-native-variants/judicator-charged-rtt0-loss0/server.log",
+    "path": "native-variants/judicator-charged-rtt0-loss0/server.log.gz",
+    "sha256": "f71cc3391eb91a112f37622f0e4ce4e78a6c3bcc543a4bfd1350f952997630d2",
+    "bytes": 3994
+  },
+  {
+    "source": "/tmp/pr109-native-variants/judicator-charged-rtt0-loss0/server-impacts.json",
+    "path": "native-variants/judicator-charged-rtt0-loss0/server-impacts.json.gz",
+    "sha256": "955ac1cb40a81e974a3f74faa8ad5fbc4ebe4036302e169816b68ef526f76662",
+    "bytes": 30448
+  },
+  {
+    "source": "/tmp/pr109-native-variants/imperialist-unscoped-rtt0-loss0/peer0-impacts.json",
+    "path": "native-variants/imperialist-unscoped-rtt0-loss0/peer0-impacts.json.gz",
+    "sha256": "49a7fc4fb8682d449662ec4ef2dfb97bad27b9efac4bae2fd4f8450c8e0c39b5",
+    "bytes": 21271
+  },
+  {
+    "source": "/tmp/pr109-native-variants/imperialist-unscoped-rtt0-loss0/peer1-impacts.json",
+    "path": "native-variants/imperialist-unscoped-rtt0-loss0/peer1-impacts.json.gz",
+    "sha256": "894a4a73139cb1e7dea154a9c9b4093a653bda4211b5a1b5b2e98aabac2819c0",
+    "bytes": 19304
+  },
+  {
+    "source": "/tmp/pr109-native-variants/imperialist-unscoped-rtt0-loss0/peer0.log",
+    "path": "native-variants/imperialist-unscoped-rtt0-loss0/peer0.log.gz",
+    "sha256": "ea32ffe0a99e3e19d8c27e36fbfaca6549ca0dd8078d64033a39d72b8238e8ea",
+    "bytes": 3606
+  },
+  {
+    "source": "/tmp/pr109-native-variants/imperialist-unscoped-rtt0-loss0/peer1.log",
+    "path": "native-variants/imperialist-unscoped-rtt0-loss0/peer1.log.gz",
+    "sha256": "24627ad242df85b6b7744ea3f5c636fc8dfb2499e979e7c18ac147e4d57dfa94",
+    "bytes": 3584
+  },
+  {
+    "source": "/tmp/pr109-native-variants/imperialist-unscoped-rtt0-loss0/server.log",
+    "path": "native-variants/imperialist-unscoped-rtt0-loss0/server.log.gz",
+    "sha256": "aa2b125aff8700cab5744cbfe264797978f846a871a0da79d84ba8a89452696b",
+    "bytes": 4313
+  },
+  {
+    "source": "/tmp/pr109-native-variants/imperialist-unscoped-rtt0-loss0/server-impacts.json",
+    "path": "native-variants/imperialist-unscoped-rtt0-loss0/server-impacts.json.gz",
+    "sha256": "3649eaed228b27a3aef7e25650a206487b603e65a1a18387ecc25bb3d37f5789",
+    "bytes": 31437
+  },
+  {
+    "source": "/tmp/pr109-native-variants/voltdriver-charged-rtt250-loss2/peer0-impacts.json",
+    "path": "native-variants/voltdriver-charged-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "ba5355a97ea11d9de939871ebccffe4a724513356135cc2ae3d369e5c5df9232",
+    "bytes": 22074
+  },
+  {
+    "source": "/tmp/pr109-native-variants/voltdriver-charged-rtt250-loss2/peer1-impacts.json",
+    "path": "native-variants/voltdriver-charged-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "800b42ba7221d2f9d4181a0690360a3c1c6f32a4d50aaddba8fdce925adaeabd",
+    "bytes": 19614
+  },
+  {
+    "source": "/tmp/pr109-native-variants/voltdriver-charged-rtt250-loss2/peer0.log",
+    "path": "native-variants/voltdriver-charged-rtt250-loss2/peer0.log.gz",
+    "sha256": "7f788cae24b01d01153054f047d02746faceb5e05f513afb15291fc19e4512ab",
+    "bytes": 3751
+  },
+  {
+    "source": "/tmp/pr109-native-variants/voltdriver-charged-rtt250-loss2/peer1.log",
+    "path": "native-variants/voltdriver-charged-rtt250-loss2/peer1.log.gz",
+    "sha256": "7cde992e023479f5012210c065d4005c5ea37d8378a6920b273d7434a8637165",
+    "bytes": 3729
+  },
+  {
+    "source": "/tmp/pr109-native-variants/voltdriver-charged-rtt250-loss2/server.log",
+    "path": "native-variants/voltdriver-charged-rtt250-loss2/server.log.gz",
+    "sha256": "63a06f58529b4b2c4596cf056eb69efd31ce706c9826d251ec0445763563ab39",
+    "bytes": 4216
+  },
+  {
+    "source": "/tmp/pr109-native-variants/voltdriver-charged-rtt250-loss2/server-impacts.json",
+    "path": "native-variants/voltdriver-charged-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "ed2afc231dc551060efd3ac3637abac0b159a00f4e553976f53c8e41fb04594b",
+    "bytes": 32660
+  },
+  {
+    "source": "/tmp/pr109-native-variants/powerbeam-charged-rtt0-loss0/peer0-impacts.json",
+    "path": "native-variants/powerbeam-charged-rtt0-loss0/peer0-impacts.json.gz",
+    "sha256": "8c038d4f050c9fc6059a0059f28d1c491f69a567fb9f4f4e8a2ef3b912504192",
+    "bytes": 46014
+  },
+  {
+    "source": "/tmp/pr109-native-variants/powerbeam-charged-rtt0-loss0/peer1-impacts.json",
+    "path": "native-variants/powerbeam-charged-rtt0-loss0/peer1-impacts.json.gz",
+    "sha256": "f799172273ca7ad66755f5024cc8323833ece19841dfc2e6cf87db27002979e4",
+    "bytes": 38630
+  },
+  {
+    "source": "/tmp/pr109-native-variants/powerbeam-charged-rtt0-loss0/peer0.log",
+    "path": "native-variants/powerbeam-charged-rtt0-loss0/peer0.log.gz",
+    "sha256": "f0db9c85b2059711140b3550b3143545d0ef324eaf797edee00fa7881d0de86f",
+    "bytes": 3504
+  },
+  {
+    "source": "/tmp/pr109-native-variants/powerbeam-charged-rtt0-loss0/peer1.log",
+    "path": "native-variants/powerbeam-charged-rtt0-loss0/peer1.log.gz",
+    "sha256": "86308e2602fc8e17ac963d5961681a7ee0af1b1932771d6c8394f85c395eaf19",
+    "bytes": 3536
+  },
+  {
+    "source": "/tmp/pr109-native-variants/powerbeam-charged-rtt0-loss0/server.log",
+    "path": "native-variants/powerbeam-charged-rtt0-loss0/server.log.gz",
+    "sha256": "abe7de2cb92b22fc6d2f1d261ad117b64783aab2e6861c4df5dc82606dbba0eb",
+    "bytes": 4095
+  },
+  {
+    "source": "/tmp/pr109-native-variants/powerbeam-charged-rtt0-loss0/server-impacts.json",
+    "path": "native-variants/powerbeam-charged-rtt0-loss0/server-impacts.json.gz",
+    "sha256": "02210f0ae486c1fbcd2a03e54c431f80586efb75d0ebf2619d2783b154e66a01",
+    "bytes": 43055
+  },
+  {
+    "source": "/tmp/pr109-native-variants/missile-charged-rtt0-loss0/peer0-impacts.json",
+    "path": "native-variants/missile-charged-rtt0-loss0/peer0-impacts.json.gz",
+    "sha256": "c4b74eb6fb930b50392b1fdb87044b2af8f416d000c3ab269664c608161332a1",
+    "bytes": 21020
+  },
+  {
+    "source": "/tmp/pr109-native-variants/missile-charged-rtt0-loss0/peer1-impacts.json",
+    "path": "native-variants/missile-charged-rtt0-loss0/peer1-impacts.json.gz",
+    "sha256": "490a4826799fb5b7506ae29d62c345b717cab431c2117515cb5253c285121b31",
+    "bytes": 19545
+  },
+  {
+    "source": "/tmp/pr109-native-variants/missile-charged-rtt0-loss0/peer0.log",
+    "path": "native-variants/missile-charged-rtt0-loss0/peer0.log.gz",
+    "sha256": "bff0799bc834f8615123e576348ae63b8985b7f3b4ef2719690e8d988df05cbe",
+    "bytes": 3591
+  },
+  {
+    "source": "/tmp/pr109-native-variants/missile-charged-rtt0-loss0/peer1.log",
+    "path": "native-variants/missile-charged-rtt0-loss0/peer1.log.gz",
+    "sha256": "6162d31fb88c2e9fd4cbd935cd066e9ad061d58c877a14782360338f865b1598",
+    "bytes": 3569
+  },
+  {
+    "source": "/tmp/pr109-native-variants/missile-charged-rtt0-loss0/server.log",
+    "path": "native-variants/missile-charged-rtt0-loss0/server.log.gz",
+    "sha256": "521023e8b81c3e31d50737b6943bd55d88e5b830b39b943cce99e8b6e1c2e9ab",
+    "bytes": 3988
+  },
+  {
+    "source": "/tmp/pr109-native-variants/missile-charged-rtt0-loss0/server-impacts.json",
+    "path": "native-variants/missile-charged-rtt0-loss0/server-impacts.json.gz",
+    "sha256": "eb947f5bc24ad3f81e4d8b580f62e1b9c17e977447f3c46da131653b033f5318",
+    "bytes": 31889
+  },
+  {
+    "source": "/tmp/pr109-native-variants/magmaul-charged-rtt250-loss2/peer0-impacts.json",
+    "path": "native-variants/magmaul-charged-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "eeccc6d8228c3b8658d22dfed7a75c92e083440bc199569e1ac10b296d338de7",
+    "bytes": 15554
+  },
+  {
+    "source": "/tmp/pr109-native-variants/magmaul-charged-rtt250-loss2/peer1-impacts.json",
+    "path": "native-variants/magmaul-charged-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "be15e2f5873a3bf55025bfea1259d1d53fcb9a06e9c57166246428e092ce767f",
+    "bytes": 14545
+  },
+  {
+    "source": "/tmp/pr109-native-variants/magmaul-charged-rtt250-loss2/peer0.log",
+    "path": "native-variants/magmaul-charged-rtt250-loss2/peer0.log.gz",
+    "sha256": "dc373843b5d783f4adaca280f25fab2734b3762dea45647dbd32b86e5ba5fcd8",
+    "bytes": 3646
+  },
+  {
+    "source": "/tmp/pr109-native-variants/magmaul-charged-rtt250-loss2/peer1.log",
+    "path": "native-variants/magmaul-charged-rtt250-loss2/peer1.log.gz",
+    "sha256": "3f559b5d78800e629c35a318b5b614e45d19da25621b93d6386a4719e5f6d150",
+    "bytes": 3720
+  },
+  {
+    "source": "/tmp/pr109-native-variants/magmaul-charged-rtt250-loss2/server.log",
+    "path": "native-variants/magmaul-charged-rtt250-loss2/server.log.gz",
+    "sha256": "868df46a5561347c3e4e949b8b12cc28c1d5d1d6bb57d3bf602a99042d73c8e4",
+    "bytes": 4173
+  },
+  {
+    "source": "/tmp/pr109-native-variants/magmaul-charged-rtt250-loss2/server-impacts.json",
+    "path": "native-variants/magmaul-charged-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "c1a6f0e9368ef9e0b37d99d806de0e8445b66006f9dd373cecc83f0ff64b0535",
+    "bytes": 30001
+  },
+  {
+    "source": "/tmp/pr109-native-variants/omega-rtt0-loss0/peer0-impacts.json",
+    "path": "native-variants/omega-rtt0-loss0/peer0-impacts.json.gz",
+    "sha256": "1976d2cb0479afc1f2c1f9565aa22c9f385d3c8fd87a1de75a0d78449a42c863",
+    "bytes": 16337
+  },
+  {
+    "source": "/tmp/pr109-native-variants/omega-rtt0-loss0/peer1-impacts.json",
+    "path": "native-variants/omega-rtt0-loss0/peer1-impacts.json.gz",
+    "sha256": "b17f0ba01c63a3ae2ae96db9b58a53d785a8a2e6c46e025749efd3c00b16eecc",
+    "bytes": 16336
+  },
+  {
+    "source": "/tmp/pr109-native-variants/omega-rtt0-loss0/peer0.log",
+    "path": "native-variants/omega-rtt0-loss0/peer0.log.gz",
+    "sha256": "f694509f5a84fcd4894de5ff87f3fefeea073f565a3cd30f687a473e403ec775",
+    "bytes": 3521
+  },
+  {
+    "source": "/tmp/pr109-native-variants/omega-rtt0-loss0/peer1.log",
+    "path": "native-variants/omega-rtt0-loss0/peer1.log.gz",
+    "sha256": "c23206a33f0d0b29ab8a76d0cbb85d9315392eba3f16b6150c514172db173373",
+    "bytes": 3540
+  },
+  {
+    "source": "/tmp/pr109-native-variants/omega-rtt0-loss0/server.log",
+    "path": "native-variants/omega-rtt0-loss0/server.log.gz",
+    "sha256": "8fe8f436676c3474967b3203ec18319541dab146328ae15a024c934af432800f",
+    "bytes": 4194
+  },
+  {
+    "source": "/tmp/pr109-native-variants/omega-rtt0-loss0/server-impacts.json",
+    "path": "native-variants/omega-rtt0-loss0/server-impacts.json.gz",
+    "sha256": "bb29cf78b8c50c978e9228b123bf7b0493a3787c1492b2658b75cca714ec0fcc",
+    "bytes": 30272
+  },
+  {
+    "source": "/tmp/pr109-native-variants/magmaul-charged-rtt0-loss0/peer0-impacts.json",
+    "path": "native-variants/magmaul-charged-rtt0-loss0/peer0-impacts.json.gz",
+    "sha256": "809c38ec0d56e8a3518bfb3b3a65fb1ea2528161642e12efe7b95cc3a416c820",
+    "bytes": 19004
+  },
+  {
+    "source": "/tmp/pr109-native-variants/magmaul-charged-rtt0-loss0/peer1-impacts.json",
+    "path": "native-variants/magmaul-charged-rtt0-loss0/peer1-impacts.json.gz",
+    "sha256": "b835d7ce06c95061f6b8fe9433576320646676f1e4476f4196b0e24b0231c648",
+    "bytes": 18033
+  },
+  {
+    "source": "/tmp/pr109-native-variants/magmaul-charged-rtt0-loss0/peer0.log",
+    "path": "native-variants/magmaul-charged-rtt0-loss0/peer0.log.gz",
+    "sha256": "8349f219359012254e7ad474ea6b0d993eb0952ea96340f38ce3bc4485d4322c",
+    "bytes": 3593
+  },
+  {
+    "source": "/tmp/pr109-native-variants/magmaul-charged-rtt0-loss0/peer1.log",
+    "path": "native-variants/magmaul-charged-rtt0-loss0/peer1.log.gz",
+    "sha256": "40449f1bd3a1d0561fe3b6f7c5998e997717326d8a77d10f25782cc5284a0dc6",
+    "bytes": 3569
+  },
+  {
+    "source": "/tmp/pr109-native-variants/magmaul-charged-rtt0-loss0/server.log",
+    "path": "native-variants/magmaul-charged-rtt0-loss0/server.log.gz",
+    "sha256": "97dd43e5081bc041057c979aaaba4a1950dce628c47ae4cd057d249125779752",
+    "bytes": 4021
+  },
+  {
+    "source": "/tmp/pr109-native-variants/magmaul-charged-rtt0-loss0/server-impacts.json",
+    "path": "native-variants/magmaul-charged-rtt0-loss0/server-impacts.json.gz",
+    "sha256": "4d110e3e34c65f1e0ecee8eef8609d1c223dac95c7727ed9c337ee747c1aa7df",
+    "bytes": 31256
+  },
+  {
+    "source": "/tmp/pr109-native-variants/voltdriver-charged-rtt0-loss0/peer0-impacts.json",
+    "path": "native-variants/voltdriver-charged-rtt0-loss0/peer0-impacts.json.gz",
+    "sha256": "2cf06c4992c24dc3839d43345e80438e8a4150428b34666807d66962f7683d8c",
+    "bytes": 25052
+  },
+  {
+    "source": "/tmp/pr109-native-variants/voltdriver-charged-rtt0-loss0/peer1-impacts.json",
+    "path": "native-variants/voltdriver-charged-rtt0-loss0/peer1-impacts.json.gz",
+    "sha256": "7df9f4bb23711d3272cb22bc8e45221a6fbc90611155359f362f8db6d0e08ecb",
+    "bytes": 22589
+  },
+  {
+    "source": "/tmp/pr109-native-variants/voltdriver-charged-rtt0-loss0/peer0.log",
+    "path": "native-variants/voltdriver-charged-rtt0-loss0/peer0.log.gz",
+    "sha256": "5056cebbe99532a31da7b68aa48c35fc877bff3d76d5ffac0a6a6007c3541678",
+    "bytes": 3600
+  },
+  {
+    "source": "/tmp/pr109-native-variants/voltdriver-charged-rtt0-loss0/peer1.log",
+    "path": "native-variants/voltdriver-charged-rtt0-loss0/peer1.log.gz",
+    "sha256": "ace5df4c085a783e4e69dcfa23b2cdb8ba5e98a6464d535e87aacfc7184ba393",
+    "bytes": 3578
+  },
+  {
+    "source": "/tmp/pr109-native-variants/voltdriver-charged-rtt0-loss0/server.log",
+    "path": "native-variants/voltdriver-charged-rtt0-loss0/server.log.gz",
+    "sha256": "67c78f524732d64146cdd20a2776794fb19a78edeb3e40c82121d8e590eae09e",
+    "bytes": 3997
+  },
+  {
+    "source": "/tmp/pr109-native-variants/voltdriver-charged-rtt0-loss0/server-impacts.json",
+    "path": "native-variants/voltdriver-charged-rtt0-loss0/server-impacts.json.gz",
+    "sha256": "88784aad025ec720cf82d0be0eef90b03b4e118266b7bd573d5954c8c0b4347a",
+    "bytes": 33865
+  },
+  {
+    "source": "/tmp/pr109-native-variants/missile-charged-rtt250-loss2/peer0-impacts.json",
+    "path": "native-variants/missile-charged-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "af6ee8ea62da5b3d67bed64d4b216b1cdd4edc92d1e6d98aaaceceb2fc88bb0a",
+    "bytes": 22019
+  },
+  {
+    "source": "/tmp/pr109-native-variants/missile-charged-rtt250-loss2/peer1-impacts.json",
+    "path": "native-variants/missile-charged-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "089ce3afd016594460d1b10c9e47d2eeeb4b0f6e263ee440fea81b5667094aaa",
+    "bytes": 21033
+  },
+  {
+    "source": "/tmp/pr109-native-variants/missile-charged-rtt250-loss2/peer0.log",
+    "path": "native-variants/missile-charged-rtt250-loss2/peer0.log.gz",
+    "sha256": "fcd7d43af111560eb2dbb0b803321234fcb24c0b3f87704f4feb652e053cc987",
+    "bytes": 3778
+  },
+  {
+    "source": "/tmp/pr109-native-variants/missile-charged-rtt250-loss2/peer1.log",
+    "path": "native-variants/missile-charged-rtt250-loss2/peer1.log.gz",
+    "sha256": "6dbc45b80dedede6f9c968c3db5765a6cf584134f34713e7a6c6769779ffc2ef",
+    "bytes": 3720
+  },
+  {
+    "source": "/tmp/pr109-native-variants/missile-charged-rtt250-loss2/server.log",
+    "path": "native-variants/missile-charged-rtt250-loss2/server.log.gz",
+    "sha256": "e862fb73fbf94c40d783e67576b07f81abf5ffc494b26adc23c72876f600d393",
+    "bytes": 4307
+  },
+  {
+    "source": "/tmp/pr109-native-variants/missile-charged-rtt250-loss2/server-impacts.json",
+    "path": "native-variants/missile-charged-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "8d644f3beb988cecb8a597329fdd852c404362ad109458395f1f372226e4fdd5",
+    "bytes": 31918
+  },
+  {
+    "source": "/tmp/pr109-native-variants/powerbeam-charged-rtt250-loss2/peer0-impacts.json",
+    "path": "native-variants/powerbeam-charged-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "65ec456999c2fc466fffdac7267f81450714d095d63acc55312398acfcedf3c2",
+    "bytes": 46779
+  },
+  {
+    "source": "/tmp/pr109-native-variants/powerbeam-charged-rtt250-loss2/peer1-impacts.json",
+    "path": "native-variants/powerbeam-charged-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "33945211b130ae8ae21175202f6322d23395b6ee8c36909fc176e0e0d802f27c",
+    "bytes": 37914
+  },
+  {
+    "source": "/tmp/pr109-native-variants/powerbeam-charged-rtt250-loss2/peer0.log",
+    "path": "native-variants/powerbeam-charged-rtt250-loss2/peer0.log.gz",
+    "sha256": "202f171c0085829bfaf2d5f865145227433e68266e702407c641b8444756a6f2",
+    "bytes": 3751
+  },
+  {
+    "source": "/tmp/pr109-native-variants/powerbeam-charged-rtt250-loss2/peer1.log",
+    "path": "native-variants/powerbeam-charged-rtt250-loss2/peer1.log.gz",
+    "sha256": "1545f5ffbb9e1aaf1825c8ffe6f1295692427302b3d07174116c8c74c5017078",
+    "bytes": 3726
+  },
+  {
+    "source": "/tmp/pr109-native-variants/powerbeam-charged-rtt250-loss2/server.log",
+    "path": "native-variants/powerbeam-charged-rtt250-loss2/server.log.gz",
+    "sha256": "6e6b12be4b16bcb9015f564c97d3f81302e8d22cff24a66ea88236e47bea1c8d",
+    "bytes": 4213
+  },
+  {
+    "source": "/tmp/pr109-native-variants/powerbeam-charged-rtt250-loss2/server-impacts.json",
+    "path": "native-variants/powerbeam-charged-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "05a0da436ebe9a4f2e25645fbb39853e43adfa5d4edffc35e1e80e66ff1b5f75",
+    "bytes": 42773
+  },
+  {
+    "source": "/tmp/pr109-native-variants/imperialist-unscoped-rtt250-loss2/peer0-impacts.json",
+    "path": "native-variants/imperialist-unscoped-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "35f8a63dba2b43ff95e96d38e1e72bf4aef2c24e43c8f33368a2a5c946e427fc",
+    "bytes": 21272
+  },
+  {
+    "source": "/tmp/pr109-native-variants/imperialist-unscoped-rtt250-loss2/peer1-impacts.json",
+    "path": "native-variants/imperialist-unscoped-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "9c473ea1755582bbf2af5bb1512f45f63ff26833d5be815202b7ac3df3315359",
+    "bytes": 19303
+  },
+  {
+    "source": "/tmp/pr109-native-variants/imperialist-unscoped-rtt250-loss2/peer0.log",
+    "path": "native-variants/imperialist-unscoped-rtt250-loss2/peer0.log.gz",
+    "sha256": "b60d69772d912ffb83d84787bd61c364f8c59367f669287050c71caa55c2b66f",
+    "bytes": 3757
+  },
+  {
+    "source": "/tmp/pr109-native-variants/imperialist-unscoped-rtt250-loss2/peer1.log",
+    "path": "native-variants/imperialist-unscoped-rtt250-loss2/peer1.log.gz",
+    "sha256": "302ce8b90df51126d961bb27cb06a49b93d4633067f849f264753d846997309d",
+    "bytes": 3736
+  },
+  {
+    "source": "/tmp/pr109-native-variants/imperialist-unscoped-rtt250-loss2/server.log",
+    "path": "native-variants/imperialist-unscoped-rtt250-loss2/server.log.gz",
+    "sha256": "4f9c7cd47f028d8532f56913e473eb2194c4917cb6b2f09bb47a7dafaefec799",
+    "bytes": 4418
+  },
+  {
+    "source": "/tmp/pr109-native-variants/imperialist-unscoped-rtt250-loss2/server-impacts.json",
+    "path": "native-variants/imperialist-unscoped-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "5dfbc1aad62e0fa917edaafd2e4ca520ad110598a206b41c28d2b50e511ced35",
+    "bytes": 30790
+  },
+  {
+    "source": "/tmp/pr109-native-variants/omega-rtt250-loss2/peer0-impacts.json",
+    "path": "native-variants/omega-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "475282d8493cd97a6e17ab12cba5a3c5f508aad13fc8200592d8891e97b98a26",
+    "bytes": 16357
+  },
+  {
+    "source": "/tmp/pr109-native-variants/omega-rtt250-loss2/peer1-impacts.json",
+    "path": "native-variants/omega-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "970788d5db6f426e698bffb2a407b37dbc069c46885561e56a3d7a692efb05d3",
+    "bytes": 16364
+  },
+  {
+    "source": "/tmp/pr109-native-variants/omega-rtt250-loss2/peer0.log",
+    "path": "native-variants/omega-rtt250-loss2/peer0.log.gz",
+    "sha256": "fdcc49a7f75dc4e9e92382e93830d50748101d721747c67ceb91841d1adcc68a",
+    "bytes": 3672
+  },
+  {
+    "source": "/tmp/pr109-native-variants/omega-rtt250-loss2/peer1.log",
+    "path": "native-variants/omega-rtt250-loss2/peer1.log.gz",
+    "sha256": "6cd1d30cb02dcc1076a75b0df86caa02b7ef73893e59e4cbea2aaf75dc2dab96",
+    "bytes": 3690
+  },
+  {
+    "source": "/tmp/pr109-native-variants/omega-rtt250-loss2/server.log",
+    "path": "native-variants/omega-rtt250-loss2/server.log.gz",
+    "sha256": "f6b8ca5a985f2e471458af3c659650f7f078e65b777cc2f0762b84bc999c7a07",
+    "bytes": 4378
+  },
+  {
+    "source": "/tmp/pr109-native-variants/omega-rtt250-loss2/server-impacts.json",
+    "path": "native-variants/omega-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "24a42835c64d7e751aa85e7a774ff17087b9abdf818dff9d46958a63743918b3",
+    "bytes": 30874
+  },
+  {
+    "source": "/tmp/pr109-native-variants/judicator-charged-rtt250-loss2/peer0-impacts.json",
+    "path": "native-variants/judicator-charged-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "592950160102e3ac5d2f837bdada0906887e0a708443d23406b9375f2188df00",
+    "bytes": 15063
+  },
+  {
+    "source": "/tmp/pr109-native-variants/judicator-charged-rtt250-loss2/peer1-impacts.json",
+    "path": "native-variants/judicator-charged-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "78fa4ace6439ad4e78ccf43a28421de55226c8eded0b4f072404f1daa15a95c9",
+    "bytes": 15050
+  },
+  {
+    "source": "/tmp/pr109-native-variants/judicator-charged-rtt250-loss2/peer0.log",
+    "path": "native-variants/judicator-charged-rtt250-loss2/peer0.log.gz",
+    "sha256": "bc3c61d75b3035e02530e7ac7f449f1fc7e6eb488b5e11d471eb25801483b810",
+    "bytes": 3749
+  },
+  {
+    "source": "/tmp/pr109-native-variants/judicator-charged-rtt250-loss2/peer1.log",
+    "path": "native-variants/judicator-charged-rtt250-loss2/peer1.log.gz",
+    "sha256": "44033632abbfded84d474d6ad7646365ebc5d2aa73cb0d484b66fabcca5aaf68",
+    "bytes": 3726
+  },
+  {
+    "source": "/tmp/pr109-native-variants/judicator-charged-rtt250-loss2/server.log",
+    "path": "native-variants/judicator-charged-rtt250-loss2/server.log.gz",
+    "sha256": "e47288e24badd0aa95535dd220e76f31ae6f40ac65bb512be9e6e25b2e3f7d23",
+    "bytes": 4212
+  },
+  {
+    "source": "/tmp/pr109-native-variants/judicator-charged-rtt250-loss2/server-impacts.json",
+    "path": "native-variants/judicator-charged-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "7bc4cbaac4841cf6b7410627604bd6225dd10c90a638cd82f0c41277d9fc9fe9",
+    "bytes": 31426
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt150-loss2/peer0-impacts.json",
+    "path": "native-four/duel-rtt150-loss2/peer0-impacts.json.gz",
+    "sha256": "7b007497ca8f2beba98d8437b0cf3dcb9d240ac68f14c12441ab13fee3109e6a",
+    "bytes": 31560
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt150-loss2/peer1-impacts.json",
+    "path": "native-four/duel-rtt150-loss2/peer1-impacts.json.gz",
+    "sha256": "4b22de07bfbfff5b4ad345577cc40119e30f114a21a12bf85b27649e625883fc",
+    "bytes": 29978
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt150-loss2/peer3.log",
+    "path": "native-four/duel-rtt150-loss2/peer3.log.gz",
+    "sha256": "2fd44fcec2ed10f16ccbddc5d9f2513c56b0c56543d1aee2208fe0cd29d60218",
+    "bytes": 3876
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt150-loss2/peer2.log",
+    "path": "native-four/duel-rtt150-loss2/peer2.log.gz",
+    "sha256": "4b1737773d9b721c956541eef327a3057c86189c898d5332845dc8e74b8f4849",
+    "bytes": 3876
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt150-loss2/peer0.log",
+    "path": "native-four/duel-rtt150-loss2/peer0.log.gz",
+    "sha256": "560e35aa1035357d1169e208a9ef0bcb3546d912d3560dc7c685ea9303527e11",
+    "bytes": 3837
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt150-loss2/peer1.log",
+    "path": "native-four/duel-rtt150-loss2/peer1.log.gz",
+    "sha256": "2acebe626352d5ab15da0fdb62db5a77001823e7cc092d4b68bfb436fed416af",
+    "bytes": 3876
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt150-loss2/peer3-impacts.json",
+    "path": "native-four/duel-rtt150-loss2/peer3-impacts.json.gz",
+    "sha256": "7b5352e667b6115790fc0dfe0f050734cddadb549eaccf6a62e309d0f34cd23a",
+    "bytes": 30988
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt150-loss2/peer2-impacts.json",
+    "path": "native-four/duel-rtt150-loss2/peer2-impacts.json.gz",
+    "sha256": "93ec7891aea57474df6a07bc3007b0420be43043dd6f3e3823c5ae8aeb56884b",
+    "bytes": 32443
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt150-loss2/server.log",
+    "path": "native-four/duel-rtt150-loss2/server.log.gz",
+    "sha256": "e18ea1e3f83a9587f93f32b0af42b91ac74ffe5e19f1619d38cd8c8a97946c0a",
+    "bytes": 8011
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt150-loss2/server-impacts.json",
+    "path": "native-four/duel-rtt150-loss2/server-impacts.json.gz",
+    "sha256": "4a5d3b0aa2b91a81a8196162dd1605450e3ac76f49d4ea3af3a9b22254a13982",
+    "bytes": 39692
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt350-loss2/peer0-impacts.json",
+    "path": "native-four/duel-rtt350-loss2/peer0-impacts.json.gz",
+    "sha256": "51e7305daeacaff007a21f466e0cf3bc475840823986a351b64101d9f01bc17d",
+    "bytes": 32658
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt350-loss2/peer1-impacts.json",
+    "path": "native-four/duel-rtt350-loss2/peer1-impacts.json.gz",
+    "sha256": "15e28180a32326242606817976a1f968bcff9a6c2a8b9f25d5b11afaf2da7b4f",
+    "bytes": 33592
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt350-loss2/peer3.log",
+    "path": "native-four/duel-rtt350-loss2/peer3.log.gz",
+    "sha256": "6946c2b1d3f9b5bb33369bc2459691b9f6a0fc709c0424961617a1dd2f79f703",
+    "bytes": 3876
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt350-loss2/peer2.log",
+    "path": "native-four/duel-rtt350-loss2/peer2.log.gz",
+    "sha256": "b6939b6e0f98eac170a9c1c7180902aedb86a22792307a40c1f5659be8d5cb6f",
+    "bytes": 3878
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt350-loss2/peer0.log",
+    "path": "native-four/duel-rtt350-loss2/peer0.log.gz",
+    "sha256": "26ef8a973f6c408fff4bd1a0b61077535419dc6e11a8465c152864e94714529e",
+    "bytes": 3974
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt350-loss2/peer1.log",
+    "path": "native-four/duel-rtt350-loss2/peer1.log.gz",
+    "sha256": "115ee5d48c5ed235da225027fd6251425b86ce7673e30822b379c3c742410f36",
+    "bytes": 3877
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt350-loss2/peer3-impacts.json",
+    "path": "native-four/duel-rtt350-loss2/peer3-impacts.json.gz",
+    "sha256": "67a28b06bac6e8fc73eb278d2ae9d26ba0644a8a5a7c023963c502db0ba6ac03",
+    "bytes": 32632
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt350-loss2/peer2-impacts.json",
+    "path": "native-four/duel-rtt350-loss2/peer2-impacts.json.gz",
+    "sha256": "e6722261cc3d495c7c3707c5c817ee4ffdf6752f52c6b1fc801c71d0ce1b6cfe",
+    "bytes": 33073
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt350-loss2/server.log",
+    "path": "native-four/duel-rtt350-loss2/server.log.gz",
+    "sha256": "ec93548f6579069329afd569245149c1a508664003a311970d429f1208209adc",
+    "bytes": 9916
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt350-loss2/server-impacts.json",
+    "path": "native-four/duel-rtt350-loss2/server-impacts.json.gz",
+    "sha256": "c36b07d8529a86e3c1285c856fa48d7d752070cd33515300c7c583cbc083e8b1",
+    "bytes": 41495
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt150-loss2/peer0-impacts.json",
+    "path": "native-four/shockcoil-all-rtt150-loss2/peer0-impacts.json.gz",
+    "sha256": "d45c4a2f8e09d610d26b674501d31604f429f426551ca561e085b629f5256443",
+    "bytes": 587411
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt150-loss2/peer1-impacts.json",
+    "path": "native-four/shockcoil-all-rtt150-loss2/peer1-impacts.json.gz",
+    "sha256": "5aff7394cc9a091269975f16aec6cefdbedf0820ec342c69e30e162d9f65d5de",
+    "bytes": 649410
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt150-loss2/peer3.log",
+    "path": "native-four/shockcoil-all-rtt150-loss2/peer3.log.gz",
+    "sha256": "09ede4cf0295571dda2fc3912d8e984c1dc0f392db74350bbc8a0137dcbf34e1",
+    "bytes": 3921
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt150-loss2/peer2.log",
+    "path": "native-four/shockcoil-all-rtt150-loss2/peer2.log.gz",
+    "sha256": "735a7feee86e5b9aa5b678df31e358696845fce063083dd9d43f7193a29c7854",
+    "bytes": 3918
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt150-loss2/peer0.log",
+    "path": "native-four/shockcoil-all-rtt150-loss2/peer0.log.gz",
+    "sha256": "9574fdddafee36432be7cfece85cf9ad8fc365cd6c1acbc4b313d41f4caaf744",
+    "bytes": 3921
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt150-loss2/peer1.log",
+    "path": "native-four/shockcoil-all-rtt150-loss2/peer1.log.gz",
+    "sha256": "4858205e514a5cd553c0bdd23f11a3dd11a564f6059b9f89d29bded8b8ca6312",
+    "bytes": 3922
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt150-loss2/peer3-impacts.json",
+    "path": "native-four/shockcoil-all-rtt150-loss2/peer3-impacts.json.gz",
+    "sha256": "016fad8b0d4f8a97cf147c9d1019f982e22905e21cca92612a9c6d0da1f983fd",
+    "bytes": 630647
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt150-loss2/peer2-impacts.json",
+    "path": "native-four/shockcoil-all-rtt150-loss2/peer2-impacts.json.gz",
+    "sha256": "4599cb86f3b413d51f1c21c5a9a34cf29a3a7a211eb080cc58b9cc2359082efe",
+    "bytes": 616806
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt150-loss2/server.log",
+    "path": "native-four/shockcoil-all-rtt150-loss2/server.log.gz",
+    "sha256": "6ef2d82e0f642cb5a6dff82ab753280efa6ca0ab924000ca331825cea16fde3b",
+    "bytes": 9424
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt150-loss2/server-impacts.json",
+    "path": "native-four/shockcoil-all-rtt150-loss2/server-impacts.json.gz",
+    "sha256": "8c08c3471f5dcc012d2991a4f9ef78b6ea129d68b7cf08b25582583144336d7d",
+    "bytes": 507927
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt50-loss2/peer0-impacts.json",
+    "path": "native-four/shockcoil-all-rtt50-loss2/peer0-impacts.json.gz",
+    "sha256": "48ee4561d1df2939aa0f3b77d98f2eaa6d1ffff00689f42db0cdeeaa5442b8bf",
+    "bytes": 838958
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt50-loss2/peer1-impacts.json",
+    "path": "native-four/shockcoil-all-rtt50-loss2/peer1-impacts.json.gz",
+    "sha256": "d200b0e8d15b137092d16091bf9a0a66aceda063216c48e1ec7acb70eac3e8b6",
+    "bytes": 703214
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt50-loss2/peer3.log",
+    "path": "native-four/shockcoil-all-rtt50-loss2/peer3.log.gz",
+    "sha256": "0f92c93893e129c036bd8854c66cae2cc30638301b1d66ca45801edd5bc1b7a9",
+    "bytes": 3916
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt50-loss2/peer2.log",
+    "path": "native-four/shockcoil-all-rtt50-loss2/peer2.log.gz",
+    "sha256": "301bc8f09e6e08fd6c3aedd506f6dab0ec9fab1b7337b569bffadc733ea6d8ef",
+    "bytes": 3918
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt50-loss2/peer0.log",
+    "path": "native-four/shockcoil-all-rtt50-loss2/peer0.log.gz",
+    "sha256": "1c162fa3a389d4741f9d83e00503b733a01ab6c78ec6238bc517bae905d664e7",
+    "bytes": 3917
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt50-loss2/peer1.log",
+    "path": "native-four/shockcoil-all-rtt50-loss2/peer1.log.gz",
+    "sha256": "da84679dcdeb6a34d85fe350e4c7324fbf22005337307c7d90146ed9c2cf9494",
+    "bytes": 3918
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt50-loss2/peer3-impacts.json",
+    "path": "native-four/shockcoil-all-rtt50-loss2/peer3-impacts.json.gz",
+    "sha256": "d7747e604039f9bf809e49ebdeb90eb839db7904c905226dc50c0c24cb9cbc61",
+    "bytes": 753148
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt50-loss2/peer2-impacts.json",
+    "path": "native-four/shockcoil-all-rtt50-loss2/peer2-impacts.json.gz",
+    "sha256": "940ef0a321222616c1837f3e2507fa4b27e28af46a7e029cd066238c4e12abcc",
+    "bytes": 718395
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt50-loss2/server.log",
+    "path": "native-four/shockcoil-all-rtt50-loss2/server.log.gz",
+    "sha256": "b25c70d649106dd284362bd3729f2a17b8128d297e154c63ca3e7bff1aaab388",
+    "bytes": 9304
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt50-loss2/server-impacts.json",
+    "path": "native-four/shockcoil-all-rtt50-loss2/server-impacts.json.gz",
+    "sha256": "702fdcb416ab7bf84da61b5b09e26086b9a17e5d09cb8ace40f55d32e014e5f0",
+    "bytes": 523124
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt50-loss2/peer0-impacts.json",
+    "path": "native-four/duel-rtt50-loss2/peer0-impacts.json.gz",
+    "sha256": "a390f8baad0965117a18fe80e7570d213470117576dfd1f1f5b4d8864a4d24e8",
+    "bytes": 28926
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt50-loss2/peer1-impacts.json",
+    "path": "native-four/duel-rtt50-loss2/peer1-impacts.json.gz",
+    "sha256": "710741529f1b23b28561d3c1850f53c55e06d05d77e9d6edcbc9d2a547ab21e6",
+    "bytes": 29397
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt50-loss2/peer3.log",
+    "path": "native-four/duel-rtt50-loss2/peer3.log.gz",
+    "sha256": "6a0d109f638587dba0f1abe251e4975a6ed853d302d01ef300b709bd6a0b5ed2",
+    "bytes": 3833
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt50-loss2/peer2.log",
+    "path": "native-four/duel-rtt50-loss2/peer2.log.gz",
+    "sha256": "e5690c2c469e5385b6837c9166ebd48ab28d2f4ea948a1a048d7afd75848916f",
+    "bytes": 3872
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt50-loss2/peer0.log",
+    "path": "native-four/duel-rtt50-loss2/peer0.log.gz",
+    "sha256": "6c6e795146fc7d712643dd119be2aaa57a85cb3df64f790c108ee51c0bc09b3b",
+    "bytes": 3872
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt50-loss2/peer1.log",
+    "path": "native-four/duel-rtt50-loss2/peer1.log.gz",
+    "sha256": "b7b73e500a9ce1145434910f1cd5691c7fe267553dbf9c21e7e432120023585e",
+    "bytes": 3873
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt50-loss2/peer3-impacts.json",
+    "path": "native-four/duel-rtt50-loss2/peer3-impacts.json.gz",
+    "sha256": "18826f39809123b7269aba3c6bc58a28dd59d44ef617203c76945337113a5e03",
+    "bytes": 29452
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt50-loss2/peer2-impacts.json",
+    "path": "native-four/duel-rtt50-loss2/peer2-impacts.json.gz",
+    "sha256": "eab83b60eee54ed27461136af61bf997e6bee6101aea735393ce16e37cf30e1d",
+    "bytes": 29391
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt50-loss2/server.log",
+    "path": "native-four/duel-rtt50-loss2/server.log.gz",
+    "sha256": "16997975c2c3d247acded95ab5e36a258b4af79e4ad69fafd39793f081ffdfbf",
+    "bytes": 7580
+  },
+  {
+    "source": "/tmp/pr109-native-four/duel-rtt50-loss2/server-impacts.json",
+    "path": "native-four/duel-rtt50-loss2/server-impacts.json.gz",
+    "sha256": "482b0cf3a5c8f00537d0eae65389eeee6a8c8d33233a867b763165d82ffeeb12",
+    "bytes": 39682
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt350-loss2/peer0-impacts.json",
+    "path": "native-four/shockcoil-all-rtt350-loss2/peer0-impacts.json.gz",
+    "sha256": "657d89b51125f7bf1b23b2c9edc36e9c82a02fd504550d178b3a514637be5fa3",
+    "bytes": 620557
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt350-loss2/peer1-impacts.json",
+    "path": "native-four/shockcoil-all-rtt350-loss2/peer1-impacts.json.gz",
+    "sha256": "ddcf411af063cb8816effee32136592dc43bbadfbed39ee12f21383908246822",
+    "bytes": 653783
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt350-loss2/peer3.log",
+    "path": "native-four/shockcoil-all-rtt350-loss2/peer3.log.gz",
+    "sha256": "112e340e413a75876ad800516e87f6523978b4f06bee06c7594d65ec02c19b5c",
+    "bytes": 4018
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt350-loss2/peer2.log",
+    "path": "native-four/shockcoil-all-rtt350-loss2/peer2.log.gz",
+    "sha256": "5e2830dd2cf04e8859fe9c64f8e15f1edfd2d3d6eecc044b8c8ca572300fb421",
+    "bytes": 4017
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt350-loss2/peer0.log",
+    "path": "native-four/shockcoil-all-rtt350-loss2/peer0.log.gz",
+    "sha256": "a4637d56f41bb0aa10b6e18b0dc8e4321c919a139e3013df1d7114eaab3f3963",
+    "bytes": 3824
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt350-loss2/peer1.log",
+    "path": "native-four/shockcoil-all-rtt350-loss2/peer1.log.gz",
+    "sha256": "d0c76d01b6089f83bb5f5e4a4ea9b6ec5db39895eef09c8e9927e200ae03737b",
+    "bytes": 4020
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt350-loss2/peer3-impacts.json",
+    "path": "native-four/shockcoil-all-rtt350-loss2/peer3-impacts.json.gz",
+    "sha256": "704cbc0021e63bef4bbca1f9b974748700f23830d53e48d40e8d460ef9c41119",
+    "bytes": 641143
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt350-loss2/peer2-impacts.json",
+    "path": "native-four/shockcoil-all-rtt350-loss2/peer2-impacts.json.gz",
+    "sha256": "dc40f905ca2fc338aefccec6ed8ecfb59b47edbe77357e3bfcb7809efa310ead",
+    "bytes": 620872
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt350-loss2/server.log",
+    "path": "native-four/shockcoil-all-rtt350-loss2/server.log.gz",
+    "sha256": "1c498cb9df303018a7e5636e6e3c5c2ae3074553cee08b1311593607141fe7ab",
+    "bytes": 9656
+  },
+  {
+    "source": "/tmp/pr109-native-four/shockcoil-all-rtt350-loss2/server-impacts.json",
+    "path": "native-four/shockcoil-all-rtt350-loss2/server-impacts.json.gz",
+    "sha256": "413dd95707ef33bdaf417763424a05bb2bd97ec71fe9dde69d1f7c791a678e4b",
+    "bytes": 576158
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/peer0-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/peer0-impacts.json.gz",
+    "sha256": "47fd619c88294bf901ce187ee9748095852d93fec2cba558d8c9eecd4416f05c",
+    "bytes": 357766
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/peer7-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/peer7-impacts.json.gz",
+    "sha256": "92a493f717784f4c79055bb107517d46906bea4869001a9914d2738cebc6aa5d",
+    "bytes": 343928
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/peer6-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/peer6-impacts.json.gz",
+    "sha256": "33e6e4aef80ce65a742cd98179b1e87a1add83ff545d7f27158ecef29a5b3c3a",
+    "bytes": 378775
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/peer1-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/peer1-impacts.json.gz",
+    "sha256": "0bc5fa31698ec58180418a15f5b1e303257ac456a4d17b92fa915f4375fc54f2",
+    "bytes": 374021
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/peer3.log",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/peer3.log.gz",
+    "sha256": "60f5d16e35945003457a81b8e057dcc1cc120edce1bd1c113e23514db95c65a6",
+    "bytes": 4279
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/peer2.log",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/peer2.log.gz",
+    "sha256": "c7c5af2811f26a46aa3867bc2f4ff9f891fd07890943a1ead4b3aa4a0fe97f02",
+    "bytes": 4279
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/peer0.log",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/peer0.log.gz",
+    "sha256": "29523307286836f2a9d4df740384c3689657ff747d777d51247d372f382f70e5",
+    "bytes": 4279
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/peer1.log",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/peer1.log.gz",
+    "sha256": "9b08aa33e0d1f8e7562a7142edcbae4f4c980a7fd43c73b3e2214449030463f9",
+    "bytes": 4493
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/peer3-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/peer3-impacts.json.gz",
+    "sha256": "2379f5b8abf26031a5ed84153030501fba9494652a5f7b06fe42c6e8e70501bb",
+    "bytes": 347286
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/peer4-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/peer4-impacts.json.gz",
+    "sha256": "d00e317a2c630c86a759d12af24978393d2a69a6ba34e22527f8ce06fb7eeab6",
+    "bytes": 327074
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/peer5.log",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/peer5.log.gz",
+    "sha256": "25ead5d1d740ba3b2be1610a8e68189dc21df6bfb383ec6d354b8e3e0bf5d93b",
+    "bytes": 4280
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/peer4.log",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/peer4.log.gz",
+    "sha256": "ac3459ddb29f2a45ae5685be37562470a67924af59be31d095b551156d0894bc",
+    "bytes": 4675
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/peer6.log",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/peer6.log.gz",
+    "sha256": "b0efa62827fd071b97fa0826a39d453c08941df4c084d4f448f51a0e65b96d10",
+    "bytes": 4281
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/peer5-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/peer5-impacts.json.gz",
+    "sha256": "14d512c8d56d6974df218f5cac3b7bac87157de3b658bbefa2b64d19f19ff904",
+    "bytes": 379529
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/peer2-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/peer2-impacts.json.gz",
+    "sha256": "41d0278455c4eb7cb7d147ceefee5fae6ddb7d86e8f84076ff8c7fee9e5ae58b",
+    "bytes": 361629
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/peer7.log",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/peer7.log.gz",
+    "sha256": "61ae1b7baafb1bb505ae4106d14f2466335c58c1ff215558f3ca253221a6d0a1",
+    "bytes": 4280
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/server.log",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/server.log.gz",
+    "sha256": "8c2d4bb304b8dd7068227edb3fbcaee58255201d2dcd7a4587db5ae07b023dcb",
+    "bytes": 13261
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt0-loss0/server-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt0-loss0/server-impacts.json.gz",
+    "sha256": "4afef1166c7ff3b17ac8b9033203a608510548ff324eba7564da7bffc2e439bb",
+    "bytes": 288437
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/peer0-impacts.json",
+    "path": "native-eight/powerbeam-rtt0-loss0/peer0-impacts.json.gz",
+    "sha256": "26d368abf4526d7dd1c855c60fc72eae4791b1fa81f782112c46d1bbf8dabcef",
+    "bytes": 205334
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/peer7-impacts.json",
+    "path": "native-eight/powerbeam-rtt0-loss0/peer7-impacts.json.gz",
+    "sha256": "45de030d3ef9868eddc94a1642c908fab25428799507a44f46128ac8f65ced5d",
+    "bytes": 191424
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/peer6-impacts.json",
+    "path": "native-eight/powerbeam-rtt0-loss0/peer6-impacts.json.gz",
+    "sha256": "799886b5a415b849cf6f27caef0d86ef9135bf9abe724abfc9a3dc2b68a4b1f8",
+    "bytes": 201678
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/peer1-impacts.json",
+    "path": "native-eight/powerbeam-rtt0-loss0/peer1-impacts.json.gz",
+    "sha256": "a777fd691de3ebb2abecc2d0b95948f4e228dc981aa5339c614e24a2da839067",
+    "bytes": 191323
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/peer3.log",
+    "path": "native-eight/powerbeam-rtt0-loss0/peer3.log.gz",
+    "sha256": "9abb2e0ae32c1d60c8eac1ba2f6eb9e0347d94b809db55eef93e5a5414722301",
+    "bytes": 4228
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/peer2.log",
+    "path": "native-eight/powerbeam-rtt0-loss0/peer2.log.gz",
+    "sha256": "021d31d839e0fc0cbdbdca78be550233214fb3cc53a85d0b0cd986151cb2156b",
+    "bytes": 4174
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/peer0.log",
+    "path": "native-eight/powerbeam-rtt0-loss0/peer0.log.gz",
+    "sha256": "9d07a736c777e2853f35c365edb626fce13e3eafc4d0c1155dc29fd18181b0b3",
+    "bytes": 4212
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/peer1.log",
+    "path": "native-eight/powerbeam-rtt0-loss0/peer1.log.gz",
+    "sha256": "dafe6d87336e974e7f2ec380aa336606029a7572ac68ce52ff231b12e7c058b5",
+    "bytes": 4148
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/peer3-impacts.json",
+    "path": "native-eight/powerbeam-rtt0-loss0/peer3-impacts.json.gz",
+    "sha256": "95e60bfe6ab2821f39a7737bcc0bf2145b6f47aa66ce428a60959495cfd324e8",
+    "bytes": 192496
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/peer4-impacts.json",
+    "path": "native-eight/powerbeam-rtt0-loss0/peer4-impacts.json.gz",
+    "sha256": "10b96296826f530feb3cd715ac3b2f78bad6b32b914289fb41900e96b9dd9bbf",
+    "bytes": 206158
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/peer5.log",
+    "path": "native-eight/powerbeam-rtt0-loss0/peer5.log.gz",
+    "sha256": "90379261f3b5c96fb55f31b550e52825193566b61cfe933e3e3f412d32578e76",
+    "bytes": 4149
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/peer4.log",
+    "path": "native-eight/powerbeam-rtt0-loss0/peer4.log.gz",
+    "sha256": "5f5482c185de8728d68969461683e07d7613eecd6f6f294eb523090da8d6df14",
+    "bytes": 4173
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/peer6.log",
+    "path": "native-eight/powerbeam-rtt0-loss0/peer6.log.gz",
+    "sha256": "5243ab7a3974217c74a88d823dd117efd781e0d74178f6c151485866b963db7b",
+    "bytes": 4173
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/peer5-impacts.json",
+    "path": "native-eight/powerbeam-rtt0-loss0/peer5-impacts.json.gz",
+    "sha256": "a1c914745cbbf3ffd7de55aab109e220c387e778b48f07ea21f46b188dcb5470",
+    "bytes": 191321
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/peer2-impacts.json",
+    "path": "native-eight/powerbeam-rtt0-loss0/peer2-impacts.json.gz",
+    "sha256": "70ae4e76944dea35835d56e92b9bb1e8d36ae569ca53863b6742351d6cf91c18",
+    "bytes": 202279
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/peer7.log",
+    "path": "native-eight/powerbeam-rtt0-loss0/peer7.log.gz",
+    "sha256": "a6db2f59c0cbaf3186648f9fed2309ba2d03359eb1a606db1cab92d6bcd846f4",
+    "bytes": 4148
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/server.log",
+    "path": "native-eight/powerbeam-rtt0-loss0/server.log.gz",
+    "sha256": "cdba41f9f5b331c49b374202e909a07784aa091b9c8b30d462af5ec32ffd5382",
+    "bytes": 10624
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt0-loss0/server-impacts.json",
+    "path": "native-eight/powerbeam-rtt0-loss0/server-impacts.json.gz",
+    "sha256": "f58c4102b6a5709253afb64ea7a6728def9ae04c30fc095b31ec551635491be2",
+    "bytes": 112176
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/peer0-impacts.json",
+    "path": "native-eight/powerbeam-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "18b457d847735e0b92c34e8084569c18ad9c93ca9606c4493a8240eeb4f87747",
+    "bytes": 187405
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/peer7-impacts.json",
+    "path": "native-eight/powerbeam-rtt250-loss2/peer7-impacts.json.gz",
+    "sha256": "74f607082db11f5c52cc87b3202a6c4f3802cf08cc2dafe4d3e4d7aaf6b62884",
+    "bytes": 169062
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/peer6-impacts.json",
+    "path": "native-eight/powerbeam-rtt250-loss2/peer6-impacts.json.gz",
+    "sha256": "88e99a69c1104268f2d34a32a51bb8dfc5f2b6f90beab9da74ec62f99ec7ed4a",
+    "bytes": 186457
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/peer1-impacts.json",
+    "path": "native-eight/powerbeam-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "759cb5877fdf2c4502cc0eaf9c23ade50e4ea222e8517ffac3e80e1af55fb5e9",
+    "bytes": 172581
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/peer3.log",
+    "path": "native-eight/powerbeam-rtt250-loss2/peer3.log.gz",
+    "sha256": "79d544cb6def9d849c026f2909874aa005bba74fe32702f21dc57c9fda1f8d25",
+    "bytes": 4299
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/peer2.log",
+    "path": "native-eight/powerbeam-rtt250-loss2/peer2.log.gz",
+    "sha256": "2961b096f03b1b3f215230ad18419c648343a1c8afd1d4588b721dfc6d3e7953",
+    "bytes": 4323
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/peer0.log",
+    "path": "native-eight/powerbeam-rtt250-loss2/peer0.log.gz",
+    "sha256": "c087bb14625ec883c570775812a7357518d64ba52a9664a47c0b3546fc644732",
+    "bytes": 4227
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/peer1.log",
+    "path": "native-eight/powerbeam-rtt250-loss2/peer1.log.gz",
+    "sha256": "045961d02a2c9be20237cf3bbd3308d6a730c2b578fd107d3b9531d05717f834",
+    "bytes": 4299
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/peer3-impacts.json",
+    "path": "native-eight/powerbeam-rtt250-loss2/peer3-impacts.json.gz",
+    "sha256": "5db5c4251604dc0eb8a8caf93a9716a4c9a46ea7aa65f643a98fb3e0eb746b7c",
+    "bytes": 173536
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/peer4-impacts.json",
+    "path": "native-eight/powerbeam-rtt250-loss2/peer4-impacts.json.gz",
+    "sha256": "e58b4f723ba8b2f34247b6a871199cd56244d22c7571b5ce38b09b652c6243c7",
+    "bytes": 190377
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/peer5.log",
+    "path": "native-eight/powerbeam-rtt250-loss2/peer5.log.gz",
+    "sha256": "00902b2b9cf982db3467f3d64692d9d203f4f27faef9d67ea89740b9b2cc439f",
+    "bytes": 4299
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/peer4.log",
+    "path": "native-eight/powerbeam-rtt250-loss2/peer4.log.gz",
+    "sha256": "b680e1e18a0ebebaf10199f61b156591f05fe2c4e15d2ce3b59fc65127e69812",
+    "bytes": 4324
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/peer6.log",
+    "path": "native-eight/powerbeam-rtt250-loss2/peer6.log.gz",
+    "sha256": "e739d331d87a97dbd46a9afa5501d7a6e15d8ec2663967c66cbdd240f23b9888",
+    "bytes": 4323
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/peer5-impacts.json",
+    "path": "native-eight/powerbeam-rtt250-loss2/peer5-impacts.json.gz",
+    "sha256": "25e2404e42233a2e206cb8b47799361c5117778611d05072fab01d6a5eb29b70",
+    "bytes": 175044
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/peer2-impacts.json",
+    "path": "native-eight/powerbeam-rtt250-loss2/peer2-impacts.json.gz",
+    "sha256": "4d48b556f37f1c81759e7b4f7ce9f06e202acbf10ce1a18a416d1f14a07ca801",
+    "bytes": 181508
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/peer7.log",
+    "path": "native-eight/powerbeam-rtt250-loss2/peer7.log.gz",
+    "sha256": "3b58054096152b6b42555d7747851ca662b2cb0301f88a728a777e852b421d15",
+    "bytes": 4299
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/server.log",
+    "path": "native-eight/powerbeam-rtt250-loss2/server.log.gz",
+    "sha256": "f8cd5ea40e68650c3c84d7b1ba74e6cae83b16ccb1d14f6a2983e02e9bc0fcde",
+    "bytes": 15638
+  },
+  {
+    "source": "/tmp/pr109-native-eight/powerbeam-rtt250-loss2/server-impacts.json",
+    "path": "native-eight/powerbeam-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "6f7ffdcb9d73b66dd67117286e3ced549820158c47de2db67fdf57b473ce5e0f",
+    "bytes": 119993
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/peer0-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "a99cc62f628de2e558adfbd836add64d448ae320314c2e4ad04bbdd4d4834428",
+    "bytes": 847243
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/peer7-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/peer7-impacts.json.gz",
+    "sha256": "75e00a05ee8c87e2a1cd54531d1a28553c047d0cd2d47da418c06b78ddeb7b9c",
+    "bytes": 865396
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/peer6-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/peer6-impacts.json.gz",
+    "sha256": "44368755e58026b2de4de679ef5b5fa30b1d9b7ff1ed2bdfd492234ed5692932",
+    "bytes": 839937
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/peer1-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "38e106af205798d1b1f07e17876915e3c8acd7427b004e4b68a117a780789d4c",
+    "bytes": 887719
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/peer3.log",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/peer3.log.gz",
+    "sha256": "1809a7c11ea616c31e15b8c6160e2d0824af7a4a1f2a6f653a88f84d236ca235",
+    "bytes": 4343
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/peer2.log",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/peer2.log.gz",
+    "sha256": "eaf97ef5495c3d64bd25c59445a3f735f6bcce8a3c3f8d422384c8f95ad1bcb1",
+    "bytes": 4346
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/peer0.log",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/peer0.log.gz",
+    "sha256": "eac70ff17cdec57eef5522241a169a1bbcebe41c8341542e2e7cdc2abc497f4c",
+    "bytes": 4345
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/peer1.log",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/peer1.log.gz",
+    "sha256": "4eacaaedeadad91ffcab928cca1d68617144375b6fc5c4a2a5f14f118515d1a9",
+    "bytes": 4346
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/peer3-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/peer3-impacts.json.gz",
+    "sha256": "4a7cb7dd5cd379c2688a0e322a9aedc9ce39c43fdc771fbc6a26e53ff9b7d954",
+    "bytes": 843264
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/peer4-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/peer4-impacts.json.gz",
+    "sha256": "03792a944ebec40ec0fe7147d5ed51376dd7b7b6f56028b56b497558830ad8fb",
+    "bytes": 826471
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/peer5.log",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/peer5.log.gz",
+    "sha256": "887a7f5bac55686eea90704ce8c0efd8b442b7b0150a780bb61d6e534f5f778c",
+    "bytes": 4302
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/peer4.log",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/peer4.log.gz",
+    "sha256": "5016c379add41c0551f0671f122b050e2cf3577ffe6e9c7c6296411600dd30e0",
+    "bytes": 4342
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/peer6.log",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/peer6.log.gz",
+    "sha256": "d369a97f43558fa6d2f0b49abe3512c1bec92bf7f951e7e62379d988ef56b994",
+    "bytes": 4343
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/peer5-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/peer5-impacts.json.gz",
+    "sha256": "9f07525ea3d61c3b89c3c47cf864c5eebc19c92c432f08a149918fce09dbc4d7",
+    "bytes": 840800
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/peer2-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/peer2-impacts.json.gz",
+    "sha256": "ef05f9233bb5cd1f5c0d5c44349e07160e40dc6b801d043f5d6f8b7bfd6c9d27",
+    "bytes": 878734
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/peer7.log",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/peer7.log.gz",
+    "sha256": "5c05e3080f0bfbf957f1ce098b43d00824f9b926b71d94deb7b426a9e9494fc5",
+    "bytes": 4305
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/server.log",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/server.log.gz",
+    "sha256": "73e6c20ee5efb6da4c1677b82689280c8ee2726fb6d6fa6b3fd00f7a3f1a58e9",
+    "bytes": 13479
+  },
+  {
+    "source": "/tmp/pr109-native-eight/shockcoil-all-rtt250-loss2/server-impacts.json",
+    "path": "native-eight/shockcoil-all-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "c4ed3570d87b9c67cb4d77300d580d08ea3004264f545db89e3efd60d1fa48b5",
+    "bytes": 748074
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/peer0-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/peer0-impacts.json.gz",
+    "sha256": "3d202b68cda82a0c207dfa981166f98ba2aa08633044b182c0b5bc73dc0d145a",
+    "bytes": 347766
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/peer7-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/peer7-impacts.json.gz",
+    "sha256": "6e6b5250d88b56dc7dd8463694b838d9ca8623fe20771978c8a3ad409c9a60dc",
+    "bytes": 363478
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/peer6-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/peer6-impacts.json.gz",
+    "sha256": "fc353ae399def49cdc59c7005ce8d9271da8b5edf9876773aeb439d51653702c",
+    "bytes": 381587
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/peer1-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/peer1-impacts.json.gz",
+    "sha256": "ad3b09bc86b204b0f95b2acb6dc877866ec2803e672661e4a629d015d7637fac",
+    "bytes": 363124
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/peer3.log",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/peer3.log.gz",
+    "sha256": "052bb9c8165abc021abdbe1705679f886ab904b33126d3fc6f692de157de22fc",
+    "bytes": 4657
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/peer2.log",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/peer2.log.gz",
+    "sha256": "3e751214a6603036293da43a89eb8d87ae98925b310861cab9dddbfee2e684ef",
+    "bytes": 4691
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/peer0.log",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/peer0.log.gz",
+    "sha256": "e91672be362390672f49c9edb0a647216a37c6e9c06cf3c5bde2dafe2617b793",
+    "bytes": 4658
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/peer1.log",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/peer1.log.gz",
+    "sha256": "66fe5a0be6c8f4bc862e683be6a434a90e73edfe36dbf65e9245f5c68e9ad230",
+    "bytes": 4559
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/peer3-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/peer3-impacts.json.gz",
+    "sha256": "89fec7824ec8c9e21dd5b70585a931b06bc30da188ae43d14982a259d600a98e",
+    "bytes": 347464
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/peer4-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/peer4-impacts.json.gz",
+    "sha256": "70ec33ee2d43c6dab746d9c7e6199e9add72e62e27b0b27a4caf64d7d1d859bd",
+    "bytes": 342465
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/peer5.log",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/peer5.log.gz",
+    "sha256": "28676dd5f7f869098237028e13d8d2e34cd693f888905e62654022244ae0694b",
+    "bytes": 4659
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/peer4.log",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/peer4.log.gz",
+    "sha256": "43c0c005389cc729c485f42a6b41bd4f151348abe124f50e3db95c5ecd5ba098",
+    "bytes": 4653
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/peer6.log",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/peer6.log.gz",
+    "sha256": "b7113aaa18a28619c8a68b50f275d9b40a488566f59392b02198f75a0724e078",
+    "bytes": 4659
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/peer5-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/peer5-impacts.json.gz",
+    "sha256": "74862b098c05d12b74e33b50fe95d94684edf3f70d86b68c8f286f8baed374c9",
+    "bytes": 397742
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/peer2-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/peer2-impacts.json.gz",
+    "sha256": "83ddf49684e2454e1d7653f29953be8cce20729c78b9c659ff80c8cf31860510",
+    "bytes": 330967
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/peer7.log",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/peer7.log.gz",
+    "sha256": "9f131e8a4fa3831df52ee84409243d62c44ada0e1f4928cf03c4ba706dcc166a",
+    "bytes": 4618
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/server.log",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/server.log.gz",
+    "sha256": "df562a21b71249377d3fc4039e6717b067cebf5244fa658292e64e3ed60e7639",
+    "bytes": 15535
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt0-loss0/server-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt0-loss0/server-impacts.json.gz",
+    "sha256": "58f1956882b9d586eedf3888ed599e763fda19affcc42b9c7a7782b1900764bc",
+    "bytes": 298451
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/peer0-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "faaf16f779d678f06b8ff8163dda45a89326a4e813923023294678e93db31718",
+    "bytes": 1163645
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/peer7-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/peer7-impacts.json.gz",
+    "sha256": "ef29e9040aa34ace2fd680576b07c142a87a10f04e30656f33febfd0ca91ba8f",
+    "bytes": 1203677
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/peer6-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/peer6-impacts.json.gz",
+    "sha256": "e79fe94df3fa058278c218dda730f75016143f5085d18a1371937497346de741",
+    "bytes": 1202548
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/peer1-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "49d13db60bd2e40957560794c6482a61a309ed41f655c11c0ce2aafd9177c248",
+    "bytes": 1230958
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/peer3.log",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/peer3.log.gz",
+    "sha256": "abfa97104d28c6c83b4319c9a4a1f0d177f806b89d6b7b14b74abe749c583ea6",
+    "bytes": 4499
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/peer2.log",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/peer2.log.gz",
+    "sha256": "0d060b701c6f2f334a134b49927a99e91b2fabff5c7ad08fbd6140bb785e0b32",
+    "bytes": 4495
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/peer0.log",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/peer0.log.gz",
+    "sha256": "28334d286ca402ae2516ae659ab715a68947f3113c70dac2df305f5a27f3cc98",
+    "bytes": 4494
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/peer1.log",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/peer1.log.gz",
+    "sha256": "f2c22294e913ee1f6c17a859611d5c1409a95ae4b90f60b8b610e52119e376b0",
+    "bytes": 4500
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/peer3-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/peer3-impacts.json.gz",
+    "sha256": "924df3adad4f7653f13aa32083ada316219a30a753894ea482dd0c9162092510",
+    "bytes": 1207620
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/peer4-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/peer4-impacts.json.gz",
+    "sha256": "9a472a4b97f5c3dc08d3ec75a7f936de2b42578c806a93bff21ea031ac7ed806",
+    "bytes": 1148160
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/peer5.log",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/peer5.log.gz",
+    "sha256": "b79d65d3fabf83eaa43f612a235a35af7793d02b52e3a2d3d0706807db2f1755",
+    "bytes": 4494
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/peer4.log",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/peer4.log.gz",
+    "sha256": "bcc96cb496fefa155fe298bd16b23a02bb2265ce3becd172922c47678adfb42f",
+    "bytes": 4495
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/peer6.log",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/peer6.log.gz",
+    "sha256": "b68f980a973d76d7dbbdf0235898985852245dacab0cdbc037f654655ced47fc",
+    "bytes": 4497
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/peer5-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/peer5-impacts.json.gz",
+    "sha256": "adda8d2ca87640d3345f815c48aa457c8c92084111908d8d2bcc0a0abc1f64d6",
+    "bytes": 1150806
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/peer2-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/peer2-impacts.json.gz",
+    "sha256": "7808d34fb8abf753187943bfca9bb18b8b1ba140873e663339ae906b2be94186",
+    "bytes": 1156159
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/peer7.log",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/peer7.log.gz",
+    "sha256": "46133c2e7ea5b78677c25e0c862373773ae4a5b23eb6214286105d1f50bd534a",
+    "bytes": 4495
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/server.log",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/server.log.gz",
+    "sha256": "14df5a2ed8c6cfe371b1f84456b2bec3ecc4cdd3ea185cb98e6a07a39450f41c",
+    "bytes": 16364
+  },
+  {
+    "source": "/tmp/pr109-native-final-eight/shockcoil-all-rtt250-loss2/server-impacts.json",
+    "path": "native-final-eight/shockcoil-all-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "7b3ed4721bca1f2c2a10c233fd17449180a4b78225db4076f9d5593fdb833a81",
+    "bytes": 913749
+  },
+  {
+    "source": "/tmp/pr109-native-final-four/duel-rtt50-loss2/peer0-impacts.json",
+    "path": "native-final-four/duel-rtt50-loss2/peer0-impacts.json.gz",
+    "sha256": "1b358ab06d6ba6591aee9e12b93beaac7fdf8c625560d202ff0ea3d73f7b193b",
+    "bytes": 36019
+  },
+  {
+    "source": "/tmp/pr109-native-final-four/duel-rtt50-loss2/peer1-impacts.json",
+    "path": "native-final-four/duel-rtt50-loss2/peer1-impacts.json.gz",
+    "sha256": "3ce05042d4edfbbf06d5ff73bf0eb84b70528deb14880f692c56eb2e4c7b58f5",
+    "bytes": 34437
+  },
+  {
+    "source": "/tmp/pr109-native-final-four/duel-rtt50-loss2/peer3.log",
+    "path": "native-final-four/duel-rtt50-loss2/peer3.log.gz",
+    "sha256": "22d177ce62f64344049292a2b66e29f26f528399ef475bf46c590c8b4d38afbd",
+    "bytes": 4023
+  },
+  {
+    "source": "/tmp/pr109-native-final-four/duel-rtt50-loss2/peer2.log",
+    "path": "native-final-four/duel-rtt50-loss2/peer2.log.gz",
+    "sha256": "68eb8cb70908a0ec36a1df99e70b26775587cea81659f7d09866485b4a566e29",
+    "bytes": 4023
+  },
+  {
+    "source": "/tmp/pr109-native-final-four/duel-rtt50-loss2/peer0.log",
+    "path": "native-final-four/duel-rtt50-loss2/peer0.log.gz",
+    "sha256": "203148a86c58858f913a09f1ffa606d0dd9657dfb5ac509a110b68adebb48c5f",
+    "bytes": 4021
+  },
+  {
+    "source": "/tmp/pr109-native-final-four/duel-rtt50-loss2/peer1.log",
+    "path": "native-final-four/duel-rtt50-loss2/peer1.log.gz",
+    "sha256": "c9320105c48d23bf02226f5a73b95c613947abc7d9b79e1e4dd1a677e122d03e",
+    "bytes": 4023
+  },
+  {
+    "source": "/tmp/pr109-native-final-four/duel-rtt50-loss2/peer3-impacts.json",
+    "path": "native-final-four/duel-rtt50-loss2/peer3-impacts.json.gz",
+    "sha256": "dc7f56d06067ba4611c043b242d0384b111d6eeeceb30f247ac4d04cbe65ce93",
+    "bytes": 36869
+  },
+  {
+    "source": "/tmp/pr109-native-final-four/duel-rtt50-loss2/peer2-impacts.json",
+    "path": "native-final-four/duel-rtt50-loss2/peer2-impacts.json.gz",
+    "sha256": "db66a91296a07f8b8e4f1b43d830f6da1b180ebd06d3d39f8b48c74a1a3636b6",
+    "bytes": 36411
+  },
+  {
+    "source": "/tmp/pr109-native-final-four/duel-rtt50-loss2/server.log",
+    "path": "native-final-four/duel-rtt50-loss2/server.log.gz",
+    "sha256": "746fa3c909a5707b6121b35682b6e36623c42f3a7d2b4e441b8163006a8464ad",
+    "bytes": 10546
+  },
+  {
+    "source": "/tmp/pr109-native-final-four/duel-rtt50-loss2/server-impacts.json",
+    "path": "native-final-four/duel-rtt50-loss2/server-impacts.json.gz",
+    "sha256": "61e8913f3ad3a51d9f24900641583062f6de08da46b42bbb011f8f1a13406ec2",
+    "bytes": 45648
+  },
+  {
+    "source": "/tmp/pr109-native-final-omega/omega-rtt0-loss0/peer0-impacts.json",
+    "path": "native-final-omega/omega-rtt0-loss0/peer0-impacts.json.gz",
+    "sha256": "a8353462bf835a2c9245d021b1d6341a731a3253108c95ff3e87357a0893756d",
+    "bytes": 19386
+  },
+  {
+    "source": "/tmp/pr109-native-final-omega/omega-rtt0-loss0/peer1-impacts.json",
+    "path": "native-final-omega/omega-rtt0-loss0/peer1-impacts.json.gz",
+    "sha256": "eac1e84fb989dd4b4b1d2e0353c29a7a5b4771044db06ba343cb906efe97081e",
+    "bytes": 19390
+  },
+  {
+    "source": "/tmp/pr109-native-final-omega/omega-rtt0-loss0/peer0.log",
+    "path": "native-final-omega/omega-rtt0-loss0/peer0.log.gz",
+    "sha256": "939160837146a1bab5dffcf2b39f6ff23da8326070474d6a5379ba19b809fab2",
+    "bytes": 3548
+  },
+  {
+    "source": "/tmp/pr109-native-final-omega/omega-rtt0-loss0/peer1.log",
+    "path": "native-final-omega/omega-rtt0-loss0/peer1.log.gz",
+    "sha256": "f834fa99dd3e7cab90935f1482210f33b671e066332e11d7392e59311fa0ecfd",
+    "bytes": 3566
+  },
+  {
+    "source": "/tmp/pr109-native-final-omega/omega-rtt0-loss0/server.log",
+    "path": "native-final-omega/omega-rtt0-loss0/server.log.gz",
+    "sha256": "7c1357f8f249c8b3316a3ac221912c4c67aac2bb54338605a49bb9cf3ecf3f1f",
+    "bytes": 4405
+  },
+  {
+    "source": "/tmp/pr109-native-final-omega/omega-rtt0-loss0/server-impacts.json",
+    "path": "native-final-omega/omega-rtt0-loss0/server-impacts.json.gz",
+    "sha256": "5717ecfde66fc9117f1d07f4c8f429174593059b72f3ba9c584b375df6015eec",
+    "bytes": 35964
+  },
+  {
+    "source": "/tmp/pr109-native-final-omega/omega-rtt250-loss2/peer0-impacts.json",
+    "path": "native-final-omega/omega-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "74dfc617f37f52f64ef8ad76e8d05f58766c111da2a6c3eae67fbd15d04996fa",
+    "bytes": 18835
+  },
+  {
+    "source": "/tmp/pr109-native-final-omega/omega-rtt250-loss2/peer1-impacts.json",
+    "path": "native-final-omega/omega-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "5857e15d2e9b921bdd727530657e250336113ffdbdb70c04225d1588eb82b7df",
+    "bytes": 19307
+  },
+  {
+    "source": "/tmp/pr109-native-final-omega/omega-rtt250-loss2/peer0.log",
+    "path": "native-final-omega/omega-rtt250-loss2/peer0.log.gz",
+    "sha256": "1d69569f4607a5745bc096b7146329c13a9ff568ec7f512a2fd1696c062dccbf",
+    "bytes": 3699
+  },
+  {
+    "source": "/tmp/pr109-native-final-omega/omega-rtt250-loss2/peer1.log",
+    "path": "native-final-omega/omega-rtt250-loss2/peer1.log.gz",
+    "sha256": "dcff74117e6280dc574985e64d0c6a0ac51154a1a1333fd9f17f0ee81486c67e",
+    "bytes": 3678
+  },
+  {
+    "source": "/tmp/pr109-native-final-omega/omega-rtt250-loss2/server.log",
+    "path": "native-final-omega/omega-rtt250-loss2/server.log.gz",
+    "sha256": "3d6bf34557bfedac64e37eb90145b5291a7508ee55145c603f7ed73de75c22b4",
+    "bytes": 4624
+  },
+  {
+    "source": "/tmp/pr109-native-final-omega/omega-rtt250-loss2/server-impacts.json",
+    "path": "native-final-omega/omega-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "b344d2579ff4c712bebc13a8db55d429e5d7c0788514be347653f022dc4b6e60",
+    "bytes": 35066
+  },
+  {
+    "source": "/tmp/pr109-native-judicator-recheck/judicator-charged-rtt0-loss0/peer0-impacts.json",
+    "path": "judicator-recheck/judicator-charged-rtt0-loss0/peer0-impacts.json.gz",
+    "sha256": "926fa7d4250b240a29ded9b5173f2efdbbb051b6be5a6de2e4ac2fde104c5a3b",
+    "bytes": 25334
+  },
+  {
+    "source": "/tmp/pr109-native-judicator-recheck/judicator-charged-rtt0-loss0/peer1-impacts.json",
+    "path": "judicator-recheck/judicator-charged-rtt0-loss0/peer1-impacts.json.gz",
+    "sha256": "a3d727d8175b47c7f6adc5f4b27ab0b249be0fe3e34f687602495c8bdce75c2c",
+    "bytes": 22873
+  },
+  {
+    "source": "/tmp/pr109-native-judicator-recheck/judicator-charged-rtt0-loss0/peer0.log",
+    "path": "judicator-recheck/judicator-charged-rtt0-loss0/peer0.log.gz",
+    "sha256": "6c37e7e0c6c6e945db95e8488c1932ae333afaec1f7f5fb826cb48e979232343",
+    "bytes": 3737
+  },
+  {
+    "source": "/tmp/pr109-native-judicator-recheck/judicator-charged-rtt0-loss0/peer1.log",
+    "path": "judicator-recheck/judicator-charged-rtt0-loss0/peer1.log.gz",
+    "sha256": "994058ebf55545474f15a7b6e5bcba515bdc809654f7385a355b5687ed21f7be",
+    "bytes": 3753
+  },
+  {
+    "source": "/tmp/pr109-native-judicator-recheck/judicator-charged-rtt0-loss0/server.log",
+    "path": "judicator-recheck/judicator-charged-rtt0-loss0/server.log.gz",
+    "sha256": "c7da9dfb3bdc2315544559acd06cb38cdeba75e0dbb637976cb3cc9ff589b693",
+    "bytes": 6273
+  },
+  {
+    "source": "/tmp/pr109-native-judicator-recheck/judicator-charged-rtt0-loss0/server-impacts.json",
+    "path": "judicator-recheck/judicator-charged-rtt0-loss0/server-impacts.json.gz",
+    "sha256": "9c028c5965870e89c41faa2742a0f1e6a2d06d30ec0814396d2d338abe3bf810",
+    "bytes": 46815
+  },
+  {
+    "source": "/tmp/pr109-rendered-awake/powerbeam-rtt250-loss2/peer0-impacts.json",
+    "path": "opengl/powerbeam-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "e5f302a0e0a5385357a6b5da785f79c8da7c067a8b191dbf86e5b378ec619240",
+    "bytes": 74021
+  },
+  {
+    "source": "/tmp/pr109-rendered-awake/powerbeam-rtt250-loss2/peer1-impacts.json",
+    "path": "opengl/powerbeam-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "bfb9ad44613a9331c6de02a57a57f079e68aa3a3d27af6af579df28507cbd839",
+    "bytes": 62738
+  },
+  {
+    "source": "/tmp/pr109-rendered-awake/powerbeam-rtt250-loss2/peer2.log",
+    "path": "opengl/powerbeam-rtt250-loss2/peer2.log.gz",
+    "sha256": "231664dba84e5c6fd5dd7926ecbf685b0f09c00f2a5643e11b770ce5b12f986b",
+    "bytes": 13565
+  },
+  {
+    "source": "/tmp/pr109-rendered-awake/powerbeam-rtt250-loss2/peer0.log",
+    "path": "opengl/powerbeam-rtt250-loss2/peer0.log.gz",
+    "sha256": "82f7c7399d57b7763849b499f4dd3f8cd73293cede157368834d522076956312",
+    "bytes": 13181
+  },
+  {
+    "source": "/tmp/pr109-rendered-awake/powerbeam-rtt250-loss2/peer1.log",
+    "path": "opengl/powerbeam-rtt250-loss2/peer1.log.gz",
+    "sha256": "de2d6410a3a26ed76417a7962ad4d2d5455054c3f3d9638aa9ac2e46e6e815d9",
+    "bytes": 14325
+  },
+  {
+    "source": "/tmp/pr109-rendered-awake/powerbeam-rtt250-loss2/peer2-impacts.json",
+    "path": "opengl/powerbeam-rtt250-loss2/peer2-impacts.json.gz",
+    "sha256": "efa7b5533880f0fdd6c76962d96440f154819f0f256c107d41b94480b4e0d430",
+    "bytes": 62190
+  },
+  {
+    "source": "/tmp/pr109-rendered-awake/powerbeam-rtt250-loss2/server.log",
+    "path": "opengl/powerbeam-rtt250-loss2/server.log.gz",
+    "sha256": "42484fe7ae7ea3ec35bee528e1aa09ce85e8d2706b85cf8ac80ca73728312591",
+    "bytes": 14677
+  },
+  {
+    "source": "/tmp/pr109-rendered-awake/powerbeam-rtt250-loss2/server-impacts.json",
+    "path": "opengl/powerbeam-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "abb142f5d30ed00b3feb22cc58c168f6648bf0a50e112b414f7a436fee7d7797",
+    "bytes": 49776
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-240/powerbeam-rtt250-loss2/peer0-impacts.json",
+    "path": "refresh-metal-240/powerbeam-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "4e33b283957f36afd0b58bd69106e290005a49f1182c91acddbfc1158dd20110",
+    "bytes": 77828
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-240/powerbeam-rtt250-loss2/peer1-impacts.json",
+    "path": "refresh-metal-240/powerbeam-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "563eeba1bc36d2b8430eff46b753188e07c47bb125fcb9c527a302171a427a3f",
+    "bytes": 24195
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-240/powerbeam-rtt250-loss2/peer0.log",
+    "path": "refresh-metal-240/powerbeam-rtt250-loss2/peer0.log.gz",
+    "sha256": "0dfacea80178e9e0d40ede78fb27f5eb4dcd5491027f39aefee43f73e1d5652f",
+    "bytes": 10220
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-240/powerbeam-rtt250-loss2/peer1.log",
+    "path": "refresh-metal-240/powerbeam-rtt250-loss2/peer1.log.gz",
+    "sha256": "e1b4dd96dc82e4b4defbe7f3319bbcef93e1b36acc7921d28aa9fdb7ed8f8c9b",
+    "bytes": 3720
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-240/powerbeam-rtt250-loss2/server-impacts.json.server.json",
+    "path": "refresh-metal-240/powerbeam-rtt250-loss2/server-impacts.json.server.json.gz",
+    "sha256": "ce864b6fd9b756d4e7001341ee93e18d8bd89c50cfa2250cb77c46b113d19f89",
+    "bytes": 1944
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-240/powerbeam-rtt250-loss2/server.log",
+    "path": "refresh-metal-240/powerbeam-rtt250-loss2/server.log.gz",
+    "sha256": "66f9d41eab5d3bb99b469c5fd2b08026194cf2021b89a7bad7ed730e59b07fc4",
+    "bytes": 49170
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-240/powerbeam-rtt250-loss2/server-impacts.json",
+    "path": "refresh-metal-240/powerbeam-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "0f8c119cd8becce234b19c7df698e836b259c8ee889b440406c594ac4c61e48c",
+    "bytes": 67666
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-360/powerbeam-rtt250-loss2/peer0-impacts.json",
+    "path": "refresh-metal-360/powerbeam-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "89ec76b89036f5b264a2544cbe217ce7b56fed1ba0c8aeb85d621325ebae890b",
+    "bytes": 79812
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-360/powerbeam-rtt250-loss2/peer1-impacts.json",
+    "path": "refresh-metal-360/powerbeam-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "7fe637a2bdf4801e0ca73f33ad3d7fad40683af367e6d054dbb27c1ef74b256f",
+    "bytes": 24682
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-360/powerbeam-rtt250-loss2/peer0.log",
+    "path": "refresh-metal-360/powerbeam-rtt250-loss2/peer0.log.gz",
+    "sha256": "625bccbf313b53ff0f064f07ab29ca20b26aa3b083e3395b1418e868f2a65570",
+    "bytes": 10259
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-360/powerbeam-rtt250-loss2/peer1.log",
+    "path": "refresh-metal-360/powerbeam-rtt250-loss2/peer1.log.gz",
+    "sha256": "1b92ad01f0068011da8d81620a5f4488d3a3c1014e323249fc814cac53a64298",
+    "bytes": 3720
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-360/powerbeam-rtt250-loss2/server-impacts.json.server.json",
+    "path": "refresh-metal-360/powerbeam-rtt250-loss2/server-impacts.json.server.json.gz",
+    "sha256": "3375ad33d4fc0441e19dab5a677c0139e36c705baf6157e4db665f88d826386b",
+    "bytes": 1954
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-360/powerbeam-rtt250-loss2/server.log",
+    "path": "refresh-metal-360/powerbeam-rtt250-loss2/server.log.gz",
+    "sha256": "e51cab7bd4018f5f255cbe26bf1de2c22aa746278cc0417c57b97e494f752d98",
+    "bytes": 49157
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-360/powerbeam-rtt250-loss2/server-impacts.json",
+    "path": "refresh-metal-360/powerbeam-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "3f95c0a49d172a1332dd7e6e7e72ef59fd5ffe43b1a8947257a4b6f1b9965be8",
+    "bytes": 70892
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt350-loss5/peer0-impacts.json",
+    "path": "refresh-kills/duel-rtt350-loss5/peer0-impacts.json.gz",
+    "sha256": "aba45054ae02a68687a3f20a9d548b1dc7167733ba6dba643f80e4dd3ecfabd7",
+    "bytes": 18445
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt350-loss5/peer1-impacts.json",
+    "path": "refresh-kills/duel-rtt350-loss5/peer1-impacts.json.gz",
+    "sha256": "6764b7c1f1c1f6d338f3106c76da6f9991f6af3dc8b9b37563c6201b1d4202ba",
+    "bytes": 20361
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt350-loss5/peer2.log",
+    "path": "refresh-kills/duel-rtt350-loss5/peer2.log.gz",
+    "sha256": "5a90ff94961d583cb70b76e685a52b5de97c43d9d816505a76feca1e39acc618",
+    "bytes": 13069
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt350-loss5/peer0.log",
+    "path": "refresh-kills/duel-rtt350-loss5/peer0.log.gz",
+    "sha256": "2ce621cc012b415b0e520fc2b33bbda41d478530002b837102d8c48cc2fb457d",
+    "bytes": 13461
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt350-loss5/peer1.log",
+    "path": "refresh-kills/duel-rtt350-loss5/peer1.log.gz",
+    "sha256": "de9ab5ee41eaa6dfa2507bdc4fbcf4196671a10acf3048ab93f8891c8aabddf9",
+    "bytes": 11006
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt350-loss5/server-impacts.json.server.json",
+    "path": "refresh-kills/duel-rtt350-loss5/server-impacts.json.server.json.gz",
+    "sha256": "44704467e46ebe594d1bbcc7fa9e469e42848bd89e4cd495ffa55738aed1d953",
+    "bytes": 1954
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt350-loss5/peer2-impacts.json",
+    "path": "refresh-kills/duel-rtt350-loss5/peer2-impacts.json.gz",
+    "sha256": "9c9956ce9d18fab0591012b6f502589a4589bcab8d4d49d99aa6c4ea1e7a116c",
+    "bytes": 19873
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt350-loss5/server.log",
+    "path": "refresh-kills/duel-rtt350-loss5/server.log.gz",
+    "sha256": "5502da9b6260600725162ce9b25172f6955d219f54de5dee85c292ce71f1d738",
+    "bytes": 55317
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt350-loss5/server-impacts.json",
+    "path": "refresh-kills/duel-rtt350-loss5/server-impacts.json.gz",
+    "sha256": "6cf1962f404d1f18e1039d6f4c7f490098e5bcbea46d1462e3406e91fdbcc832",
+    "bytes": 30537
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt250-loss2/peer0-impacts.json",
+    "path": "refresh-kills/duel-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "4034cb4bca2e6085c0cc3a52539aad4c8aa6261acaa7270b597dd8ec9e568b34",
+    "bytes": 21008
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt250-loss2/peer1-impacts.json",
+    "path": "refresh-kills/duel-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "01be9e4a06801fc4115ba060db6a89ed30a2d961cca31e4e5fa979b63702c5be",
+    "bytes": 21092
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt250-loss2/peer2.log",
+    "path": "refresh-kills/duel-rtt250-loss2/peer2.log.gz",
+    "sha256": "b06ebec27057281b8e90bcf3a87e85ef58563521b6d170a39f16957cdedc7aa9",
+    "bytes": 13145
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt250-loss2/peer0.log",
+    "path": "refresh-kills/duel-rtt250-loss2/peer0.log.gz",
+    "sha256": "27d8f461fcf795219e33b86d5ca1417d2022ffc34d13def4130bae09afd386a5",
+    "bytes": 13683
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt250-loss2/peer1.log",
+    "path": "refresh-kills/duel-rtt250-loss2/peer1.log.gz",
+    "sha256": "201df6043b370901abeac941dc815e30317379179c89287b52a6965a5f7411d1",
+    "bytes": 13792
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt250-loss2/server-impacts.json.server.json",
+    "path": "refresh-kills/duel-rtt250-loss2/server-impacts.json.server.json.gz",
+    "sha256": "5ac47680659e680213a2133b07c3f26969b5eea7b7c112eea88f292e23979cdb",
+    "bytes": 1949
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt250-loss2/peer2-impacts.json",
+    "path": "refresh-kills/duel-rtt250-loss2/peer2-impacts.json.gz",
+    "sha256": "2beef8727ce588b2d5df38b85ed4532420613e7d0f79a1f10fe15c24b18f96ed",
+    "bytes": 21043
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt250-loss2/server.log",
+    "path": "refresh-kills/duel-rtt250-loss2/server.log.gz",
+    "sha256": "7bc4d2f611b1c9cf126361864af88678a6a8766398487155bec076dd30119a7e",
+    "bytes": 54353
+  },
+  {
+    "source": "/tmp/pr109-refresh/kills/duel-rtt250-loss2/server-impacts.json",
+    "path": "refresh-kills/duel-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "4c91d30c8848cbbc37c19495d2d30fce5a94ade5137ee4f695b1cf0f0fbd3386",
+    "bytes": 31732
+  },
+  {
+    "source": "/tmp/pr109-refresh/vulkan/missile-rtt250-loss2/peer0-impacts.json",
+    "path": "refresh-vulkan/missile-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "787b1c9f2e811003f405276aa6d6518d770bf9ef214eb1dded2bd22fe8646182",
+    "bytes": 20228
+  },
+  {
+    "source": "/tmp/pr109-refresh/vulkan/missile-rtt250-loss2/peer1-impacts.json",
+    "path": "refresh-vulkan/missile-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "951955761bfab09ed30b4e4c4f5238cbb519771723cb3ec6f23494b7202acd7d",
+    "bytes": 19355
+  },
+  {
+    "source": "/tmp/pr109-refresh/vulkan/missile-rtt250-loss2/peer2.log",
+    "path": "refresh-vulkan/missile-rtt250-loss2/peer2.log.gz",
+    "sha256": "6e83a880bfc96d01916a906d0b19c7abab1fd178bc48912e9ef00ebe4e0c0bf3",
+    "bytes": 13530
+  },
+  {
+    "source": "/tmp/pr109-refresh/vulkan/missile-rtt250-loss2/peer0.log",
+    "path": "refresh-vulkan/missile-rtt250-loss2/peer0.log.gz",
+    "sha256": "c766e73da733e4dd1d38a09bdca294fff6852ad546c150ec8ac318ee9bd55cd7",
+    "bytes": 13372
+  },
+  {
+    "source": "/tmp/pr109-refresh/vulkan/missile-rtt250-loss2/peer1.log",
+    "path": "refresh-vulkan/missile-rtt250-loss2/peer1.log.gz",
+    "sha256": "8d028ef5d44ebab61be120f452c7cea972b63a6442cc2cd1b1a384c337ad8028",
+    "bytes": 11215
+  },
+  {
+    "source": "/tmp/pr109-refresh/vulkan/missile-rtt250-loss2/server-impacts.json.server.json",
+    "path": "refresh-vulkan/missile-rtt250-loss2/server-impacts.json.server.json.gz",
+    "sha256": "605fdba02c9704447f480c34afe9f9c96302a486bdf4a3d6e97a2ad0fceaa06f",
+    "bytes": 1943
+  },
+  {
+    "source": "/tmp/pr109-refresh/vulkan/missile-rtt250-loss2/peer2-impacts.json",
+    "path": "refresh-vulkan/missile-rtt250-loss2/peer2-impacts.json.gz",
+    "sha256": "6dedd6da952146d28fc20f6c916643a9c4fe23153b097dd5a6cd076c5a2cbbe2",
+    "bytes": 19385
+  },
+  {
+    "source": "/tmp/pr109-refresh/vulkan/missile-rtt250-loss2/server.log",
+    "path": "refresh-vulkan/missile-rtt250-loss2/server.log.gz",
+    "sha256": "00f317307162664a86821a1948e69db3bce493d00d6dc673dcd11f1713239ce2",
+    "bytes": 54651
+  },
+  {
+    "source": "/tmp/pr109-refresh/vulkan/missile-rtt250-loss2/server-impacts.json",
+    "path": "refresh-vulkan/missile-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "ebcf5f48c848ee5bf7aaac9342edca060f80afa8ce31b3924b3e83d8c2820974",
+    "bytes": 31965
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-144/powerbeam-rtt250-loss2/peer0-impacts.json",
+    "path": "refresh-metal-144/powerbeam-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "7e6e188d3cc85c271ed75ef8c5cc067785196da646267cbf4d511094879bcbdd",
+    "bytes": 79783
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-144/powerbeam-rtt250-loss2/peer1-impacts.json",
+    "path": "refresh-metal-144/powerbeam-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "2afa5268584d440e965df030fc22dce29bb11d81ed60bbf564ac95ce1e8eb284",
+    "bytes": 24183
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-144/powerbeam-rtt250-loss2/peer0.log",
+    "path": "refresh-metal-144/powerbeam-rtt250-loss2/peer0.log.gz",
+    "sha256": "674bb27b00a2dd6609ec132a85739b5c026838fab6752ea69d474ad78d30558d",
+    "bytes": 10306
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-144/powerbeam-rtt250-loss2/peer1.log",
+    "path": "refresh-metal-144/powerbeam-rtt250-loss2/peer1.log.gz",
+    "sha256": "178382e85591114da1435eb50541f38ff4a88c7e2e947b8d3c05c8a6d0000fe6",
+    "bytes": 3720
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-144/powerbeam-rtt250-loss2/server-impacts.json.server.json",
+    "path": "refresh-metal-144/powerbeam-rtt250-loss2/server-impacts.json.server.json.gz",
+    "sha256": "ee9ce823eea9295be90bebf21c81f36c56d45e3676f9c4b53c260660375b84f8",
+    "bytes": 1943
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-144/powerbeam-rtt250-loss2/server.log",
+    "path": "refresh-metal-144/powerbeam-rtt250-loss2/server.log.gz",
+    "sha256": "38ef62b3965a7cfb6e43f0900f20bbd7efe4790aba8aba7334a5dc8c03b68e0c",
+    "bytes": 48982
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-144/powerbeam-rtt250-loss2/server-impacts.json",
+    "path": "refresh-metal-144/powerbeam-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "ac2cf879746a21c68727dd48dc3acc2d35082feccfdd4487447dd9d8beb5d24a",
+    "bytes": 69149
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-120/powerbeam-rtt250-loss2/peer0-impacts.json",
+    "path": "refresh-metal-120/powerbeam-rtt250-loss2/peer0-impacts.json.gz",
+    "sha256": "89a8003f300bd1cea54583197f7d44abfd856360a9cb94db84a472a666ba89d7",
+    "bytes": 75223
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-120/powerbeam-rtt250-loss2/peer1-impacts.json",
+    "path": "refresh-metal-120/powerbeam-rtt250-loss2/peer1-impacts.json.gz",
+    "sha256": "fd4b4dfa4a92ca4e0f9afeb64fa836f37563fe169dfe987a2d1238994cd67738",
+    "bytes": 24653
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-120/powerbeam-rtt250-loss2/peer0.log",
+    "path": "refresh-metal-120/powerbeam-rtt250-loss2/peer0.log.gz",
+    "sha256": "cd903f4466df25cae9caa93895a5c17fac3a095d94b18d062d43b4443aaa35dd",
+    "bytes": 10264
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-120/powerbeam-rtt250-loss2/peer1.log",
+    "path": "refresh-metal-120/powerbeam-rtt250-loss2/peer1.log.gz",
+    "sha256": "c5f09e196a342f7f43f43b023e4743235b9bcb4ba346dfd4af275b319a2334be",
+    "bytes": 3720
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-120/powerbeam-rtt250-loss2/server-impacts.json.server.json",
+    "path": "refresh-metal-120/powerbeam-rtt250-loss2/server-impacts.json.server.json.gz",
+    "sha256": "cf5b4e97fa28afc27c30f1796962620819e2a9692e3d86dad01076d69736e0f0",
+    "bytes": 1945
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-120/powerbeam-rtt250-loss2/server.log",
+    "path": "refresh-metal-120/powerbeam-rtt250-loss2/server.log.gz",
+    "sha256": "17eef7a2a38f6af842f1c401ecadc6801a62ea6843a82163907ec310711a60e8",
+    "bytes": 49017
+  },
+  {
+    "source": "/tmp/pr109-refresh/metal-120/powerbeam-rtt250-loss2/server-impacts.json",
+    "path": "refresh-metal-120/powerbeam-rtt250-loss2/server-impacts.json.gz",
+    "sha256": "005f7292db274d7a88c10204569bc2e550a70f62dcc40fd8017ce6de2c15cb88",
+    "bytes": 64917
+  }
+]

@@ -37,6 +37,10 @@ internal static class NetCheckSimulation
             // virtual presentation at 60 Hz, ACK stays on the initial snapshot
             // and every headless shot eventually asks for the rewind ceiling.
             NetSmoothing.PreparePresentation(1);
+            // A headless receiver has no draw owner. Drain the cosmetic inbox at
+            // its virtual presentation cadence so delivery tests do not merely
+            // fill 128 entries and stop consuming. No draw success is recorded.
+            while (NetLiveImpactInbox.TryTake(out _, out _)) { }
             steps++;
             foreach (var player in scene.Players.Items)
             {

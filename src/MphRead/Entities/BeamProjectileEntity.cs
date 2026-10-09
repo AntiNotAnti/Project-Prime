@@ -1300,6 +1300,26 @@ namespace MphRead.Entities
             return 0;
         }
 
+        private ImpactDrawEndpoint _liveImpactEndpoint;
+        internal bool ModSupportsLiveTrail => DrawFuncId is 0 or 1 or 2 or 3 or 6 or 7 or 10 or 12;
+        internal Vector3 ModLiveTrailOrigin => DrawFuncId is 0 or 1 ? BackPosition
+            : DrawFuncId is 6 or 12 ? PastPositions[8] : PastPositions[2];
+        internal void ModSetLiveDrawPoint(in LiveCombatImpact impact, Vector3 point)
+        {
+            if (ModSupportsLiveTrail && ModReplayIdentityMatches(ModLaunchKey, ModShotId, Beam, impact.Fact)
+                && ModPresentationComponent == impact.Presentation.Component)
+                _liveImpactEndpoint = new(ModLaunchKey, ModPresentationComponent, _scene.FrameCount, point);
+        }
+        private bool LiveEndpointAllowed => NetCombatFactPublisher.LiveEnabled && NetSession.Role == NetRole.Client
+            && !_scene.Services.IsReplica && !DemoPlayback.IsActive
+            && ModLaunchKey == ShotKey.For(ModLaunchKey.ShooterSlot, ModShotId);
+        private Vector3 LiveDrawPoint => LiveEndpointAllowed
+            && _liveImpactEndpoint.TryPoint(ModLaunchKey, ModPresentationComponent, _scene.FrameCount, out var point)
+                ? point : Position;
+        private Vector3 LiveTrailTip => LiveEndpointAllowed
+            && _liveImpactEndpoint.TryPoint(ModLaunchKey, ModPresentationComponent, _scene.FrameCount, out var point)
+                ? point : PastPositions[0];
+
         public override void GetDrawInfo()
         {
             if (Mods.ThumbnailMode.SuppressCombatPresentation) return;
@@ -1308,6 +1328,10 @@ namespace MphRead.Entities
             bool anchored = _scene.Services.IsReplica && _replayImpactPending
                 && _replayImpactDrawFrame == _scene.FrameCount;
             Vector3 position = Position, back = BackPosition, past0 = PastPositions[0];
+            bool auditLive = NetImpactDiagnostics.Enabled && NetCombatFactPublisher.LiveEnabled && !_scene.Services.IsReplica;
+            Vector3 velocity = Velocity; float lifespan = Lifespan; var flags = Flags;
+            Span<Vector3> history = auditLive ? stackalloc Vector3[PastPositions.Length] : Span<Vector3>.Empty;
+            if (auditLive) PastPositions.AsSpan().CopyTo(history);
             if (anchored)
             {
                 // Let the visible projectile/tracer terminate exactly where the
@@ -1336,6 +1360,16 @@ namespace MphRead.Entities
                     BackPosition = back;
                     PastPositions[0] = past0;
                 }
+                if (auditLive)
+                {
+                    NetImpactDiagnostics.DrawInvariantChecks++;
+                    if (Position != position || BackPosition != back || Velocity != velocity || Lifespan != lifespan
+                        || Flags != flags || !history.SequenceEqual(PastPositions))
+                    {
+                        NetImpactDiagnostics.DrawInvariantFailures++;
+                        throw new InvalidOperationException("Live projectile drawing changed simulation state.");
+                    }
+                }
             }
         }
 
@@ -1344,7 +1378,7 @@ namespace MphRead.Entities
         {
             if (!Flags.TestFlag(BeamFlags.Collided))
             {
-                _scene.AddSingleParticle(SingleType.Fuzzball, Position, Color, alpha: 1, scale: 1 / 4f);
+                _scene.AddSingleParticle(SingleType.Fuzzball, LiveDrawPoint, Color, alpha: 1, scale: 1 / 4f);
             }
             DrawTrail1(Fixed.ToFloat(122));
         }
@@ -1376,7 +1410,7 @@ namespace MphRead.Entities
         {
             if (!Flags.TestFlag(BeamFlags.Collided))
             {
-                _scene.AddSingleParticle(SingleType.Fuzzball, Position, Vector3.One, alpha: 1, scale: 1 / 4f);
+                _scene.AddSingleParticle(SingleType.Fuzzball, LiveDrawPoint, Vector3.One, alpha: 1, scale: 1 / 4f);
             }
             DrawTrail3(Fixed.ToFloat(204));
         }
@@ -1386,7 +1420,7 @@ namespace MphRead.Entities
         {
             if (!Flags.TestFlag(BeamFlags.Collided))
             {
-                _scene.AddSingleParticle(SingleType.Fuzzball, Position, Vector3.One, alpha: 1, scale: 1 / 4f);
+                _scene.AddSingleParticle(SingleType.Fuzzball, LiveDrawPoint, Vector3.One, alpha: 1, scale: 1 / 4f);
             }
             DrawTrail2(Fixed.ToFloat(204), 5);
         }
@@ -1430,9 +1464,9 @@ namespace MphRead.Entities
             float uvT = (texture.Height - (1 / 16f)) / texture.Height;
             Vector3[] uvsAndVerts = ArrayPool<Vector3>.Shared.Rent(8);
             uvsAndVerts[0] = Vector3.Zero;
-            uvsAndVerts[1] = new Vector3(Position.X - BackPosition.X, Position.Y - BackPosition.Y - height, Position.Z - BackPosition.Z);
+            uvsAndVerts[1] = new Vector3(LiveDrawPoint.X - BackPosition.X, LiveDrawPoint.Y - BackPosition.Y - height, LiveDrawPoint.Z - BackPosition.Z);
             uvsAndVerts[2] = new Vector3(0, uvT, 0);
-            uvsAndVerts[3] = new Vector3(Position.X - BackPosition.X, height + Position.Y - BackPosition.Y, Position.Z - BackPosition.Z);
+            uvsAndVerts[3] = new Vector3(LiveDrawPoint.X - BackPosition.X, height + LiveDrawPoint.Y - BackPosition.Y, LiveDrawPoint.Z - BackPosition.Z);
             uvsAndVerts[4] = new Vector3(uvS, 0, 0);
             uvsAndVerts[5] = new Vector3(0, -height, 0);
             uvsAndVerts[6] = new Vector3(uvS, uvT, 0);
@@ -1465,7 +1499,7 @@ namespace MphRead.Entities
                 {
                     uvS = (texture.Width / (float)(segments - 1) * i - (1 / 16f)) / texture.Width;
                 }
-                Vector3 vec = PastPositions[i * 2] - PastPositions[0];
+                Vector3 vec = i == 0 ? Vector3.Zero : PastPositions[i * 2] - LiveTrailTip;
                 uvsAndVerts[4 * i] = new Vector3(uvS, 0, 0);
                 uvsAndVerts[4 * i + 1] = new Vector3(vec.X, vec.Y - height, vec.Z);
                 uvsAndVerts[4 * i + 2] = new Vector3(uvS, uvT, 0);
@@ -1474,7 +1508,7 @@ namespace MphRead.Entities
             Material material = _trailModel.Model.Materials[0];
             float alpha = Math.Clamp(Lifespan * 30 * 8, 0, 31) / 31;
             _scene.AddRenderItem(RenderItemType.TrailMulti, alpha, _scene.GetNextPolygonId(), Color, material.XRepeat, material.YRepeat,
-                material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(PastPositions[0]), uvsAndVerts, _bindingId, trailCount: count);
+                material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(LiveTrailTip), uvsAndVerts, _bindingId, trailCount: count);
         }
 
         private void DrawTrail3(float height)
@@ -1490,19 +1524,19 @@ namespace MphRead.Entities
             uvsAndVerts[3] = new Vector3(0, height, 0);
             uvsAndVerts[4] = new Vector3(uvS2, 0, 0);
             uvsAndVerts[5] = new Vector3(
-                PastPositions[8].X - PastPositions[0].X,
-                PastPositions[8].Y - PastPositions[0].Y - height,
-                PastPositions[8].Z - PastPositions[0].Z
+                PastPositions[8].X - LiveTrailTip.X,
+                PastPositions[8].Y - LiveTrailTip.Y - height,
+                PastPositions[8].Z - LiveTrailTip.Z
             );
             uvsAndVerts[6] = new Vector3(uvS2, uvT2, 0);
-            uvsAndVerts[7] = new Vector3(PastPositions[8].X - PastPositions[0].X,
-                PastPositions[8].Y - PastPositions[0].Y + height,
-                PastPositions[8].Z - PastPositions[0].Z
+            uvsAndVerts[7] = new Vector3(PastPositions[8].X - LiveTrailTip.X,
+                PastPositions[8].Y - LiveTrailTip.Y + height,
+                PastPositions[8].Z - LiveTrailTip.Z
             );
             Material material = _trailModel.Model.Materials[0];
             float alpha = Math.Clamp(Lifespan * 30 * 8, 0, 31) / 31;
             _scene.AddRenderItem(RenderItemType.TrailSingle, alpha, _scene.GetNextPolygonId(), Color, material.XRepeat, material.YRepeat,
-                material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(PastPositions[0]), uvsAndVerts, _bindingId);
+                material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(LiveTrailTip), uvsAndVerts, _bindingId);
         }
 
         private void DrawTrail4(float height, float range, int segments)
@@ -1580,6 +1614,7 @@ namespace MphRead.Entities
             _soundSource.StopAllSfx();
             _replayImpactPending = _replayImpactHidden = false;
             _replayImpactDrawFrame = 0;
+            _liveImpactEndpoint = default;
             _replayImpactPosition = default;
             Lifespan = 0;
             if (Effect != null)
@@ -2072,6 +2107,8 @@ namespace MphRead.Entities
                 beam.BeamKind = weapon.BeamKind;
                 if (!scene.Services.IsReplica && NetLog.Enabled) NetShotDiagnostics.Trace("spawn", beam.ModLaunchKey, beam.Beam);
                 beam.Flags = flags;
+                if (!scene.Services.IsReplica && NetSession.IsServer && parent == null && beam.ModShotId != 0)
+                    NetImpactDiagnostics.NativeEmission((byte)beam.Beam, charged);
                 beam.NodeRef = nodeRef;
                 beam.Age = 0;
                 beam.ModClaimTravelFrames = inheritedTravel;
@@ -2790,6 +2827,7 @@ namespace MphRead.Entities
                 // the game uses BeamKind against "511" bits which accomplish the same thing as this terrain type check
                 if (!_scene.GameState.SinglePlayer || colRes.Terrain <= Terrain.Lava)
                 {
+                    int beforeElements = _scene.ModEffectElementCount;
                     var ent = BeamEffectEntity.Create(
                         new BeamEffectEntityData(CollisionEffect, noSplat, transform, colRes.EntityCollision), _scene);
                     if (ent != null)
@@ -2799,8 +2837,11 @@ namespace MphRead.Entities
                             ent.Scale = new Vector3(SplashRadius);
                         }
                         _scene.AddEntity(ent);
-                        NetLiveImpactPresenter.NoteNativeImpact(this, colRes.Position);
                     }
+                    // Particle-only effects return no entity. Count a native cue only
+                    // when the effect pool actually accepted it.
+                    if (ent != null || _scene.ModEffectElementCount > beforeElements)
+                        NetLiveImpactPresenter.NoteNativeImpact(this, colRes.Position);
                 }
                 // there are actually effect IDs to cover platform/enemy beams in these arrays (although most are 255)
                 byte splatEffect = _terSplat1P[(int)BeamKind][(int)colRes.Terrain];
@@ -2867,7 +2908,10 @@ namespace MphRead.Entities
             }
             if (effectId > 0)
             {
+                int beforeElements = _scene.ModEffectElementCount;
                 _scene.SpawnEffect(effectId, transform);
+                if (_scene.ModEffectElementCount > beforeElements)
+                    NetLiveImpactPresenter.NoteNativeImpact(this, Position);
             }
         }
 

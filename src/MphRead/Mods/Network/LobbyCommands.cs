@@ -373,6 +373,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         private void StopLobbyMatchRuntime(bool matchEnded)
         {
+            NetImpactDiagnostics.ExportServerRequested(_sim, LoopDiagnostics);
             NetImpactDiagnostics.ExportRequested();
             if (!matchEnded) AbandonCareerMatch();
             ServerReplayRecorder.Stop(matchEnded);

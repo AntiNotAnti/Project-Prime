@@ -1,0 +1,1425 @@
+{
+  "schema": 1,
+  "scenarios": [
+    {
+      "scenario": "duel-rtt150-loss2",
+      "rendered": false,
+      "authorityFactsRetained": 11,
+      "authorityRingOverwritten": 0,
+      "authorityByWeapon": {
+        "4": 11
+      },
+      "peers": [
+        {
+          "view": "peer0-impacts",
+          "liveIngressUnique": 11,
+          "authorityBacked": 11,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "4": 11
+          },
+          "localPredictionsRetained": 3,
+          "latencySamples": 3,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 295.39925,
+          "localHitToIngressP99Ms": 295.39925,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            282.322,
+            284.30825,
+            295.39925
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer1-impacts",
+          "liveIngressUnique": 11,
+          "authorityBacked": 11,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "4": 11
+          },
+          "localPredictionsRetained": 1,
+          "latencySamples": 1,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 311.588042,
+          "localHitToIngressP99Ms": 311.588042,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            311.588042
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer2-impacts",
+          "liveIngressUnique": 11,
+          "authorityBacked": 11,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "4": 11
+          },
+          "localPredictionsRetained": 5,
+          "latencySamples": 4,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 316.920333,
+          "localHitToIngressP99Ms": 316.920333,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            266.845709,
+            283.503,
+            298.640917,
+            316.920333
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer3-impacts",
+          "liveIngressUnique": 11,
+          "authorityBacked": 11,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "4": 11
+          },
+          "localPredictionsRetained": 3,
+          "latencySamples": 2,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 316.443417,
+          "localHitToIngressP99Ms": 316.443417,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            266.746667,
+            316.443417
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        }
+      ],
+      "limitations": [
+        "Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.",
+        "Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.",
+        "Presentation classifications/draw submissions are instrumented, not a pixel visibility metric. Screenshots require separate inspection; no cross-process timestamp subtraction is used."
+      ]
+    },
+    {
+      "scenario": "duel-rtt350-loss2",
+      "rendered": false,
+      "authorityFactsRetained": 12,
+      "authorityRingOverwritten": 0,
+      "authorityByWeapon": {
+        "4": 12
+      },
+      "peers": [
+        {
+          "view": "peer0-impacts",
+          "liveIngressUnique": 12,
+          "authorityBacked": 12,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "4": 12
+          },
+          "localPredictionsRetained": 3,
+          "latencySamples": 3,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 550.452667,
+          "localHitToIngressP99Ms": 550.452667,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            483.13025,
+            495.08375,
+            550.452667
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer1-impacts",
+          "liveIngressUnique": 12,
+          "authorityBacked": 12,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "4": 12
+          },
+          "localPredictionsRetained": 4,
+          "latencySamples": 3,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 517.757333,
+          "localHitToIngressP99Ms": 517.757333,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            498.600083,
+            499.168083,
+            517.757333
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer2-impacts",
+          "liveIngressUnique": 12,
+          "authorityBacked": 12,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "4": 12
+          },
+          "localPredictionsRetained": 3,
+          "latencySamples": 2,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 516.808375,
+          "localHitToIngressP99Ms": 516.808375,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            466.611,
+            516.808375
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer3-impacts",
+          "liveIngressUnique": 12,
+          "authorityBacked": 12,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "4": 12
+          },
+          "localPredictionsRetained": 3,
+          "latencySamples": 3,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 499.766791,
+          "localHitToIngressP99Ms": 499.766791,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            466.411292,
+            494.334375,
+            499.766791
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        }
+      ],
+      "limitations": [
+        "Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.",
+        "Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.",
+        "Presentation classifications/draw submissions are instrumented, not a pixel visibility metric. Screenshots require separate inspection; no cross-process timestamp subtraction is used."
+      ]
+    },
+    {
+      "scenario": "duel-rtt50-loss2",
+      "rendered": false,
+      "authorityFactsRetained": 10,
+      "authorityRingOverwritten": 0,
+      "authorityByWeapon": {
+        "4": 10
+      },
+      "peers": [
+        {
+          "view": "peer0-impacts",
+          "liveIngressUnique": 10,
+          "authorityBacked": 10,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "4": 10
+          },
+          "localPredictionsRetained": 2,
+          "latencySamples": 2,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 233.503166,
+          "localHitToIngressP99Ms": 233.503166,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            217.216542,
+            233.503166
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer1-impacts",
+          "liveIngressUnique": 10,
+          "authorityBacked": 10,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "4": 10
+          },
+          "localPredictionsRetained": 3,
+          "latencySamples": 3,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 200.625875,
+          "localHitToIngressP99Ms": 200.625875,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            132.842167,
+            182.531375,
+            200.625875
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer2-impacts",
+          "liveIngressUnique": 10,
+          "authorityBacked": 10,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "4": 10
+          },
+          "localPredictionsRetained": 3,
+          "latencySamples": 2,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 250.915167,
+          "localHitToIngressP99Ms": 250.915167,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            167.206,
+            250.915167
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer3-impacts",
+          "liveIngressUnique": 10,
+          "authorityBacked": 10,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "4": 10
+          },
+          "localPredictionsRetained": 3,
+          "latencySamples": 2,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 200.258541,
+          "localHitToIngressP99Ms": 200.258541,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            182.863334,
+            200.258541
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        }
+      ],
+      "limitations": [
+        "Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.",
+        "Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.",
+        "Presentation classifications/draw submissions are instrumented, not a pixel visibility metric. Screenshots require separate inspection; no cross-process timestamp subtraction is used."
+      ]
+    },
+    {
+      "scenario": "shockcoil-all-rtt150-loss2",
+      "rendered": false,
+      "authorityFactsRetained": 458,
+      "authorityRingOverwritten": 0,
+      "authorityByWeapon": {
+        "7": 458
+      },
+      "peers": [
+        {
+          "view": "peer0-impacts",
+          "liveIngressUnique": 128,
+          "authorityBacked": 128,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "7": 128
+          },
+          "localPredictionsRetained": 152,
+          "latencySamples": 31,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 315.99425,
+          "localHitToIngressP99Ms": 317.2325,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            248.944542,
+            249.076583,
+            249.895167,
+            250.715167,
+            266.287,
+            282.453541,
+            282.515042,
+            282.761,
+            282.87875,
+            282.951,
+            283.021667,
+            283.19175,
+            283.253083,
+            283.424209,
+            297.573708,
+            299.334875,
+            299.544875,
+            299.806833,
+            300.159417,
+            300.159583,
+            300.247959,
+            300.387417,
+            300.588459,
+            300.869,
+            306.642042,
+            314.064958,
+            315.54025,
+            315.99425,
+            316.641834,
+            316.857583,
+            317.2325
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer1-impacts",
+          "liveIngressUnique": 128,
+          "authorityBacked": 128,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "7": 128
+          },
+          "localPredictionsRetained": 199,
+          "latencySamples": 41,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 316.149666,
+          "localHitToIngressP99Ms": 350.368834,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            248.86725,
+            249.168416,
+            249.352833,
+            249.459542,
+            249.952958,
+            265.922625,
+            266.02475,
+            266.4655,
+            266.791,
+            266.932208,
+            282.123708,
+            282.177625,
+            282.213167,
+            282.383208,
+            282.400875,
+            282.816875,
+            283.3315,
+            283.582791,
+            283.648292,
+            283.796458,
+            284.117375,
+            284.136709,
+            298.906292,
+            299.165375,
+            299.289959,
+            299.336833,
+            299.442625,
+            299.468667,
+            299.754792,
+            299.828875,
+            299.844083,
+            300.399833,
+            300.406958,
+            305.577375,
+            315.639458,
+            316.093667,
+            316.149666,
+            316.296209,
+            316.410834,
+            317.037208,
+            350.368834
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer2-impacts",
+          "liveIngressUnique": 128,
+          "authorityBacked": 128,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "7": 128
+          },
+          "localPredictionsRetained": 110,
+          "latencySamples": 22,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 300.766333,
+          "localHitToIngressP99Ms": 316.053708,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            248.7155,
+            250.037708,
+            265.762916,
+            266.125583,
+            281.260792,
+            281.450083,
+            281.669208,
+            282.456458,
+            283.017833,
+            283.057667,
+            283.28,
+            283.415459,
+            283.718625,
+            283.791,
+            283.851875,
+            283.867625,
+            284.378125,
+            299.099625,
+            299.127375,
+            300.766333,
+            315.355167,
+            316.053708
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer3-impacts",
+          "liveIngressUnique": 128,
+          "authorityBacked": 128,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "7": 128
+          },
+          "localPredictionsRetained": 178,
+          "latencySamples": 33,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 314.117083,
+          "localHitToIngressP99Ms": 333.632333,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            232.272875,
+            233.285833,
+            233.807,
+            250.01525,
+            265.278125,
+            265.452833,
+            265.83625,
+            266.197125,
+            266.854875,
+            267.023292,
+            272.152083,
+            281.479083,
+            282.121708,
+            282.449584,
+            282.579625,
+            282.818625,
+            282.830875,
+            283.633959,
+            283.880583,
+            283.886583,
+            293.453875,
+            299.006458,
+            299.3545,
+            299.60675,
+            299.727042,
+            299.864333,
+            300.013167,
+            300.107916,
+            300.2065,
+            314.117083,
+            315.193291,
+            316.679125,
+            333.632333
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        }
+      ],
+      "limitations": [
+        "Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.",
+        "Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.",
+        "Presentation classifications/draw submissions are instrumented, not a pixel visibility metric. Screenshots require separate inspection; no cross-process timestamp subtraction is used."
+      ]
+    },
+    {
+      "scenario": "shockcoil-all-rtt350-loss2",
+      "rendered": false,
+      "authorityFactsRetained": 495,
+      "authorityRingOverwritten": 0,
+      "authorityByWeapon": {
+        "7": 495
+      },
+      "peers": [
+        {
+          "view": "peer0-impacts",
+          "liveIngressUnique": 128,
+          "authorityBacked": 128,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "7": 128
+          },
+          "localPredictionsRetained": 156,
+          "latencySamples": 22,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 515.681916,
+          "localHitToIngressP99Ms": 516.906292,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            449.182583,
+            449.257125,
+            465.587125,
+            465.777875,
+            466.035333,
+            466.210583,
+            466.397791,
+            481.674208,
+            482.268833,
+            482.524667,
+            483.011667,
+            483.0555,
+            483.521458,
+            483.522333,
+            484.512417,
+            485.372583,
+            499.130333,
+            500.108,
+            500.54875,
+            515.681916,
+            516.732834,
+            516.906292
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer1-impacts",
+          "liveIngressUnique": 128,
+          "authorityBacked": 128,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "7": 128
+          },
+          "localPredictionsRetained": 246,
+          "latencySamples": 39,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 516.561958,
+          "localHitToIngressP99Ms": 566.68125,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            449.038208,
+            449.788458,
+            449.789,
+            449.9315,
+            450.359584,
+            463.449375,
+            466.050166,
+            466.380792,
+            466.426666,
+            466.606417,
+            466.652417,
+            466.974583,
+            467.205583,
+            467.588,
+            482.183959,
+            483.157542,
+            483.228167,
+            483.5575,
+            483.742041,
+            484.122917,
+            498.749542,
+            498.812,
+            499.013791,
+            499.12525,
+            499.22475,
+            499.287125,
+            499.384791,
+            499.953292,
+            499.999459,
+            500.251958,
+            500.715416,
+            500.775,
+            516.04725,
+            516.286708,
+            516.299375,
+            516.561958,
+            517.186,
+            517.575667,
+            566.68125
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer2-impacts",
+          "liveIngressUnique": 128,
+          "authorityBacked": 128,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "7": 128
+          },
+          "localPredictionsRetained": 172,
+          "latencySamples": 38,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 515.962166,
+          "localHitToIngressP99Ms": 519.875959,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            449.58675,
+            465.277208,
+            465.833083,
+            465.957583,
+            466.493125,
+            466.695667,
+            466.823041,
+            467.195417,
+            467.286584,
+            467.309041,
+            467.806208,
+            481.168709,
+            481.412458,
+            481.620667,
+            482.028959,
+            482.302083,
+            482.384958,
+            483.120375,
+            483.255917,
+            483.348209,
+            483.367583,
+            483.441709,
+            483.478083,
+            483.627917,
+            498.546292,
+            498.713875,
+            498.843208,
+            499.173875,
+            499.212875,
+            499.454958,
+            499.559292,
+            499.908375,
+            499.95675,
+            500.550625,
+            515.962166,
+            515.988083,
+            516.060375,
+            519.875959
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer3-impacts",
+          "liveIngressUnique": 128,
+          "authorityBacked": 128,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "7": 128
+          },
+          "localPredictionsRetained": 206,
+          "latencySamples": 29,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 515.889292,
+          "localHitToIngressP99Ms": 534.313208,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            449.753041,
+            450.642,
+            465.64675,
+            466.67375,
+            481.135333,
+            481.640833,
+            481.931042,
+            482.021875,
+            482.437084,
+            482.586583,
+            482.762666,
+            482.802375,
+            482.885791,
+            483.583708,
+            484.33575,
+            498.242125,
+            498.63975,
+            499.03575,
+            499.296792,
+            499.336583,
+            499.542875,
+            499.640208,
+            499.950584,
+            500.171625,
+            500.268833,
+            511.021208,
+            515.889292,
+            516.748208,
+            534.313208
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        }
+      ],
+      "limitations": [
+        "Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.",
+        "Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.",
+        "Presentation classifications/draw submissions are instrumented, not a pixel visibility metric. Screenshots require separate inspection; no cross-process timestamp subtraction is used."
+      ]
+    },
+    {
+      "scenario": "shockcoil-all-rtt50-loss2",
+      "rendered": false,
+      "authorityFactsRetained": 511,
+      "authorityRingOverwritten": 0,
+      "authorityByWeapon": {
+        "7": 511
+      },
+      "peers": [
+        {
+          "view": "peer0-impacts",
+          "liveIngressUnique": 128,
+          "authorityBacked": 128,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "7": 128
+          },
+          "localPredictionsRetained": 153,
+          "latencySamples": 29,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 215.66775,
+          "localHitToIngressP99Ms": 248.735625,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            132.101959,
+            148.945417,
+            148.985792,
+            149.186583,
+            149.522375,
+            149.830875,
+            166.1115,
+            166.932166,
+            182.318,
+            182.448209,
+            182.992917,
+            183.2495,
+            183.26325,
+            183.416084,
+            183.987042,
+            198.763625,
+            199.240375,
+            199.381333,
+            199.720583,
+            199.852584,
+            199.858083,
+            200.083417,
+            200.098584,
+            211.283417,
+            214.771917,
+            215.172208,
+            215.66775,
+            216.237792,
+            248.735625
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer1-impacts",
+          "liveIngressUnique": 128,
+          "authorityBacked": 128,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "7": 128
+          },
+          "localPredictionsRetained": 208,
+          "latencySamples": 40,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 215.8545,
+          "localHitToIngressP99Ms": 216.692583,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            134.901459,
+            148.7955,
+            149.634875,
+            150.657167,
+            164.821917,
+            165.300417,
+            165.82325,
+            166.078417,
+            166.521667,
+            166.83275,
+            166.844417,
+            167.035542,
+            167.245209,
+            169.157125,
+            169.166,
+            182.196459,
+            182.802834,
+            183.072708,
+            183.097167,
+            183.665166,
+            183.684542,
+            183.981542,
+            184.032,
+            198.742417,
+            198.761083,
+            198.764791,
+            198.835708,
+            199.51225,
+            199.773334,
+            199.962875,
+            200.560833,
+            200.902791,
+            215.182625,
+            215.196792,
+            215.297875,
+            215.8545,
+            216.012292,
+            216.126208,
+            216.244792,
+            216.692583
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer2-impacts",
+          "liveIngressUnique": 128,
+          "authorityBacked": 128,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "7": 128
+          },
+          "localPredictionsRetained": 160,
+          "latencySamples": 30,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 200.741958,
+          "localHitToIngressP99Ms": 217.164291,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            150.647375,
+            165.786708,
+            165.789792,
+            165.881416,
+            166.151916,
+            166.336416,
+            166.497459,
+            166.966542,
+            167.375,
+            169.570208,
+            176.646166,
+            182.660708,
+            182.727083,
+            182.901542,
+            183.224,
+            183.370916,
+            183.924833,
+            198.157,
+            198.715416,
+            199.165583,
+            199.168334,
+            199.27725,
+            199.30725,
+            200.090791,
+            200.571208,
+            200.718125,
+            200.741958,
+            215.1515,
+            216.975333,
+            217.164291
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        },
+        {
+          "view": "peer3-impacts",
+          "liveIngressUnique": 128,
+          "authorityBacked": 128,
+          "authorityAbsent": 0,
+          "liveIngressByWeapon": {
+            "7": 128
+          },
+          "localPredictionsRetained": 108,
+          "latencySamples": 28,
+          "negativeCandidateLatencies": 0,
+          "localHitToIngressP90Ms": 215.772208,
+          "localHitToIngressP99Ms": 217.091417,
+          "ringOverwritten": 0,
+          "latenciesMs": [
+            133.580708,
+            148.607125,
+            149.522666,
+            163.848708,
+            164.630458,
+            165.9095,
+            165.95475,
+            166.011625,
+            166.798875,
+            182.110375,
+            182.146541,
+            182.609375,
+            182.715458,
+            182.985208,
+            183.157208,
+            183.293042,
+            183.40175,
+            183.508291,
+            184.187083,
+            193.872167,
+            198.376125,
+            199.567708,
+            200.201166,
+            200.321625,
+            200.386625,
+            215.772208,
+            216.516167,
+            217.091417
+          ],
+          "presentationClassified": 0,
+          "sameShotMatchedOrNative": 0,
+          "classificationByStage": {},
+          "classifiedAuthorityBacked": 0,
+          "classifiedAuthorityAbsent": 0,
+          "drawSubmitted": 0,
+          "drawSubmittedAuthorityAbsent": 0,
+          "ingressToDrawSamples": 0,
+          "ingressToDrawP90Ms": null,
+          "ingressToDrawP99Ms": null,
+          "drawInvariants": {
+            "checks": 0,
+            "failures": 0
+          },
+          "classificationByWeapon": {},
+          "predictedKills": {
+            "Started": 0,
+            "Confirmed": 0,
+            "Rejected": 0,
+            "Expired": 0
+          }
+        }
+      ],
+      "limitations": [
+        "Authority facts may predate peer readiness or lifecycle changes; missing facts are not a measured eligible-delivery failure rate.",
+        "Latency is local-hit to live ingress within one process, only for unambiguous one-hit/one-fact shot-victim groups.",
+        "Presentation classifications/draw submissions are instrumented, not a pixel visibility metric. Screenshots require separate inspection; no cross-process timestamp subtraction is used."
+      ]
+    }
+  ]
+}

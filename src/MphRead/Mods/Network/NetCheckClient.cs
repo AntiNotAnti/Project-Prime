@@ -87,6 +87,9 @@ namespace MphRead.Mods.Network
         private readonly int[] _remoteSpectatingFrames = new int[PlayerEntity.MaxPlayers];
         private readonly RemoteView[] _remotes = new RemoteView[PlayerEntity.MaxPlayers];
         private int _frame;
+        private ulong _lastImpactCue;
+        private int _impactShots;
+        internal static int RequestedFps { get; set; } = 60;
         private int _shots;
         private int _killcamFrames, _killcamStarts;
         private bool _killcamWasVisible;
@@ -109,7 +112,7 @@ namespace MphRead.Mods.Network
         private readonly NetFeatureCheck _features = new();
         private int _featureFailures;
 
-        private static GameWindowSettings GameSettings() => new() { UpdateFrequency = 60 };
+        private static GameWindowSettings GameSettings() => new() { UpdateFrequency = RequestedFps };
 
         private static NativeWindowSettings WindowSettings(int width, int height)
         {
@@ -139,6 +142,9 @@ namespace MphRead.Mods.Network
             {
                 _remotes[i] = new RemoteView();
             }
+#if !ANDROID && !MPHREAD_SERVER
+            _graphics = new Render.DesktopGraphicsSession(this);
+#endif
             Scene = new Scene(Size, KeyboardState, MouseState, _ => { }, Close);
             NetLaunch.BuildPlayers(Scene, hunter, color, teams: GameState.IsTeamMode(mode));
             Scene.AddRoom(roomKey, mode, playerCount: NetLaunch.RoomPlayerCount);
@@ -151,8 +157,10 @@ namespace MphRead.Mods.Network
         protected override void OnLoad()
         {
 #if !ANDROID && !MPHREAD_SERVER
-            _graphics = new Render.DesktopGraphicsSession(this);
+            if (Render.ModernGraphicsCompat.Active) Render.ModernGraphicsCompat.SetVSync(false);
+            else
 #endif
+            if (!Render.GraphicsBackendPolicy.ModernGameplayRequested) VSync = VSyncMode.Off;
             Scene.Size = ClientSize;
             Scene.OnLoad();
             NetSession.MarkMatchLoaded();
@@ -160,9 +168,10 @@ namespace MphRead.Mods.Network
             // A window that is never shown or resized never gets OnResize,
             // which is what normally sets the viewport and sizes the
             // offscreen targets.
-            GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
+            Render.GraphicsApi.Viewport(0, 0, ClientSize.X, ClientSize.Y);
             Scene.OnResize();
             NetSession.MarkMatchLoaded();
+            _wallClock.Restart();
         }
 
         protected override void OnRenderFrame(FrameEventArgs args)
@@ -174,6 +183,11 @@ namespace MphRead.Mods.Network
                 return;
             }
             _frame++;
+            if (_shotDirectory != null && _impactShots < 12 && NetLiveImpactPresenter.CueSerial != _lastImpactCue)
+            {
+                _lastImpactCue = NetLiveImpactPresenter.CueSerial;
+                Capture(Path.Combine(_shotDirectory, $"{_name}-impact-{_impactShots++:00}.png"));
+            }
             bool killcamVisible = Mods.KillCam.Presentation(Scene) != null;
             if (killcamVisible)
             {
@@ -194,7 +208,7 @@ namespace MphRead.Mods.Network
             Observe();
             _features.Observe(Scene);
             SampleScoreboardOnServerClock();
-            if (_shotDirectory != null && _frame % 120 == 0)
+            if (_shotDirectory != null && _frame % (RequestedFps * 2) == 0)
             {
                 string path = Path.Combine(_shotDirectory, $"{_name}-{_shots:00}.png");
                 if (Capture(path))
@@ -241,7 +255,7 @@ namespace MphRead.Mods.Network
             {
                 Console.WriteLine($"[netcheck] {_name} shared clip {++_clipTests}: {DemoClip.Save()}");
             }
-            if (_frame >= _seconds * 60)
+            if (_wallClock.Elapsed.TotalSeconds >= _seconds)
             {
                 Close();
             }
@@ -290,7 +304,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         private void UpdateSpectating()
         {
-            if (_spectateAt >= 0 && _spectateStartedFrame < 0 && _frame >= _spectateAt * 60)
+            if (_spectateAt >= 0 && _spectateStartedFrame < 0 && _wallClock.Elapsed.TotalSeconds >= _spectateAt)
             {
                 SpectatorMode.Start();
                 if (SpectatorMode.IsSpectating)
@@ -309,7 +323,7 @@ namespace MphRead.Mods.Network
                 }
             }
             if (_rejoinAt >= 0 && _rejoinedFrame < 0 && SpectatorMode.IsSpectating
-                && _frame >= _rejoinAt * 60)
+                && _wallClock.Elapsed.TotalSeconds >= _rejoinAt)
             {
                 SpectatorMode.Rejoin();
                 _rejoinedFrame = _frame;
@@ -868,7 +882,7 @@ namespace MphRead.Mods.Network
                     + $"of which {_duelShots} with an opponent in view, "
                     + $"busiest frame {_litFraction * 100:0.0}% lit");
             }
-            bool featuresOk = _features.Report(out int featureFailures);
+            bool featuresOk = _features.Report(out int featureFailures, symmetricScenario: !HitRig.Active && _spectateAt < 0);
             _featureFailures = featureFailures;
             Console.WriteLine();
             Console.WriteLine(Passed && featuresOk
@@ -936,6 +950,7 @@ namespace MphRead.Mods.Network
                     NetSession.LocalColor);
                 window.Run();
                 window.Report();
+                Console.WriteLine($"[netcheck] rendered frames={window._frame} elapsed={window._wallClock.Elapsed.TotalSeconds:F3}s targetFps={RequestedFps} actualFps={window._frame/window._wallClock.Elapsed.TotalSeconds:F1} impactCaptures={window._impactShots}");
                 return window.Passed && window._featureFailures == 0 ? 0 : 1;
             }
             catch (Exception ex)
@@ -959,6 +974,7 @@ namespace MphRead.Mods.Network
                     DemoClip.CompletePending(window?.Scene.Size ?? new Vector2i(256, 192));
                     Console.WriteLine($"[netcheck] {name} shared clip result: {DemoClip.LastSavedPath}; error={DemoClip.LastError ?? "none"}");
                 }
+                NetImpactDiagnostics.ExportRequested();
                 window?.Dispose();
                 SpectatorMode.Reset();
                 NetTestScript.Enabled = false;

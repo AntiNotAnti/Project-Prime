@@ -633,6 +633,13 @@ namespace MphRead.Mods
                 Console.WriteLine("[net] -claimfastpath accepts off, shadow or enabled.");
                 return true;
             }
+            if (!Network.ImpactVisualOptions.Configure(ValueAfter(args, "impactdistance"),
+                ValueAfter(args, "impactangle"), ValueAfter(args, "impacthold")))
+            {
+                Environment.ExitCode = 2;
+                Console.WriteLine("[net] impact distance must be 0..8 units, angle 0..60 degrees, hold 0..8 simulation frames.");
+                return true;
+            }
             Network.NetPredictedKillPresentation.Enabled = HasFlag(args, "predictedkillvisuals") && !HasFlag(args, "nohitprediction");
             Network.NetCombatProfile.Enabled = HasFlag(args, "impactprofile");
             Network.NetAcceptedAttacks.EmissionScratchEnabled = Network.NetUnlagged.ClaimPoseCacheEnabled = HasFlag(args, "impactserverscratch");
@@ -2326,6 +2333,12 @@ namespace MphRead.Mods
                 // A real window and a picture of it, for the half of this
                 // client's output that is HUD -- see NetCheckClient.ShowWindow.
                 Network.NetCheckClient.ShowWindow = HasFlag(args, "hudshots");
+                if (ValueAfter(args, "netcheckfps") is string renderFps)
+                {
+                    if (!int.TryParse(renderFps, out int targetFps) || targetFps is < 30 or > 360)
+                    { Environment.ExitCode = 2; Console.WriteLine("[netcheck] draw rate must be 30..360 FPS."); return true; }
+                    Network.NetCheckClient.RequestedFps = targetFps;
+                }
                 if (ValueAfter(args, "netchecklobbyplayers") is string lobbyPlayers)
                 {
                     if (!int.TryParse(lobbyPlayers, out int expectedPlayers) || expectedPlayers is < 1 or > 8)

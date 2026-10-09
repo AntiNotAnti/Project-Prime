@@ -1,0 +1,56 @@
+[
+  {
+    "name": "bot-ai",
+    "exit": 0,
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "tools/nettest/bin/Release/net10.0/nettest.dll",
+      "--bot-ai"
+    ]
+  },
+  {
+    "name": "bots-scene",
+    "exit": 0,
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "tools/nettest/bin/Release/net10.0/nettest.dll",
+      "--bots-scene",
+      "/Users/jarrett/Library/Application Support/Project Prime",
+      "MP1 SANCTORUS",
+      "7"
+    ]
+  },
+  {
+    "name": "bots-online",
+    "exit": 0,
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "tools/nettest/bin/Release/net10.0/nettest.dll",
+      "--bots-online",
+      "/Users/jarrett/Library/Application Support/Project Prime",
+      "MP1 SANCTORUS"
+    ]
+  },
+  {
+    "name": "alt-scene",
+    "exit": 0,
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "tools/nettest/bin/Release/net10.0/nettest.dll",
+      "--alt-scene",
+      "/Users/jarrett/Library/Application Support/Project Prime",
+      "MP1 SANCTORUS"
+    ]
+  },
+  {
+    "name": "continuous-scene",
+    "exit": 0,
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "tools/nettest/bin/Release/net10.0/nettest.dll",
+      "--continuous-scene",
+      "/Users/jarrett/Library/Application Support/Project Prime",
+      "MP1 SANCTORUS"
+    ]
+  }
+]

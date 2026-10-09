@@ -1,0 +1,70 @@
+[
+  {
+    "name": "theatre",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "/tmp/pr109-native-final-eight/runtime/ProjectPrime.dll",
+      "-mapdir",
+      "/tmp/pr109-arena-packages",
+      "-replaytheatrecheck",
+      "/tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer0/_demos/TEST ARENA_2026-10-09_01-02-05-567_52ca2f7a787d4e83bc7e856cd0d4f169.ppdemo",
+      "-shots",
+      "/tmp/pr109-replay-rendered/theatre"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "export",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "/tmp/pr109-native-final-eight/runtime/ProjectPrime.dll",
+      "-mapdir",
+      "/tmp/pr109-arena-packages",
+      "-replayexportcheck",
+      "/tmp/pr109-rendered-matrix/missile-rtt250-loss2/peer0/_demos/TEST ARENA_2026-10-09_01-02-05-567_52ca2f7a787d4e83bc7e856cd0d4f169.ppdemo",
+      "-output",
+      "/tmp/pr109-replay-rendered/export"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "world",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "/tmp/pr109-native-final-eight/runtime/ProjectPrime.dll",
+      "-mapdir",
+      "/tmp/pr109-arena-packages",
+      "-replayworldcheck",
+      "room:MP3 PROVING GROUND",
+      "-output",
+      "/tmp/pr109-replay-rendered/world"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "killcam",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "/tmp/pr109-native-final-eight/runtime/ProjectPrime.dll",
+      "-mapdir",
+      "/tmp/pr109-arena-packages",
+      "-replaykillcamcheck",
+      "/tmp/pr109-replay-rendered/world/Battle.ppdemo",
+      "-shots",
+      "/tmp/pr109-replay-rendered/killcam"
+    ],
+    "exit": 0
+  },
+  {
+    "name": "cadence",
+    "command": [
+      "/Users/jarrett/.dotnet/dotnet",
+      "/tmp/pr109-native-final-eight/runtime/ProjectPrime.dll",
+      "-mapdir",
+      "/tmp/pr109-arena-packages",
+      "-replaycadencecheck",
+      "/tmp/pr109-replay-rendered/world/Battle.ppdemo"
+    ],
+    "exit": 0
+  }
+]
