@@ -59,6 +59,7 @@ internal sealed partial class AndroidRmlUiSession : IDisposable
     private readonly Func<Task<Stream?>>? _pickRom;
     private readonly Queue<Action> _afterDispatch = new();
     private readonly NativeUpdateMonitor _updates = new();
+    private static readonly NewsDispatch? FeaturedNotice = new BundledNewsProvider().Read().FirstOrDefault();
     private OfflinePagePresenter? _offline;
     private AdventurePagePresenter? _adventure;
     private LicensePagePresenter? _license;
@@ -134,6 +135,7 @@ internal sealed partial class AndroidRmlUiSession : IDisposable
             ? Mods.Update.Updater.Available?.Tag : null);
         var social = SocialRuntime.Summary;
         Pages.ObserveSocialNotices(social.InvitationCount, social.IncomingRequests, social.TravelPending, social.DirectoryLoaded);
+        Pages.ObserveNewsNotice(FeaturedNotice?.Title, FeaturedNotice?.Summary);
         if (_updates.TryTakeAvailable(out var update)) { OpenSetup(required: false); _setup!.OpenLatest(update, automatic: true); }
         if (Pages.Manager.PageKey=="splash")RmlSplashPage.Layout(Host,Pages);
         else if (Pages.Manager.Page != default) Pages.PresentChrome(Pages.Manager.Page);
