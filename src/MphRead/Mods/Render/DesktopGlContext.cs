@@ -49,22 +49,6 @@ namespace MphRead.Mods.Render
             GLFW.DefaultWindowHints();
             Mods.DebugLog.Checkpoint("render", $"creating GLFW window for {GraphicsBackendPolicy.Resolved}");
 
-            if (GraphicsBackendPolicy.ModernGameplayRequested)
-            {
-                // Vulkan surfaces cannot be created for a GLFW window that
-                // already owns an OpenGL client API. Metal/DX12 follow the same
-                // path so one window contract covers every modern backend.
-                return new NativeWindowSettings
-                {
-                    ClientSize = new Vector2i(1280, 768),
-                    Title = Branding.Name,
-                    API = ContextAPI.NoAPI,
-                    Flags = ContextFlags.Default,
-                    AutoLoadBindings = false,
-                    StartVisible = false
-                };
-            }
-
             return new NativeWindowSettings
             {
                 ClientSize = new Vector2i(1280, 768),

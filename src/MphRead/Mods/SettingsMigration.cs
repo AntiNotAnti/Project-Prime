@@ -15,13 +15,16 @@ namespace MphRead.Mods
     /// </summary>
     public static class SettingsMigration
     {
-        public const int CurrentSchema = 8;
+        public const int CurrentSchema = 9;
 
         public static bool Apply(MenuSettings settings, out string summary)
         {
             var changed = new List<string>();
             int from = settings.SettingsSchemaVersion;
 
+            // Retired DX12/Vulkan/Metal and Auto preferences must never survive
+            // into a renderer restart or be shown as selectable settings.
+            settings.Renderer = Normalize(settings.Renderer, "OpenGL", "renderer", changed);
             settings.ResolutionScale = Normalize(settings.ResolutionScale,
                 RenderOptions.ParseScale(settings.ResolutionScale, 100)
                     .ToString(CultureInfo.InvariantCulture), "render scale", changed);
@@ -155,6 +158,7 @@ namespace MphRead.Mods
 
         public static void ResetPerformance(MenuSettings settings)
         {
+            settings.Renderer = "OpenGL";
             settings.ResolutionScale = "100";
             settings.FieldOfView = RenderOptions.DefaultFov.ToString(CultureInfo.InvariantCulture);
             settings.Lighting = "on";

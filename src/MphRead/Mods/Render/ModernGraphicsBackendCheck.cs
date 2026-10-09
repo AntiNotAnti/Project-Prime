@@ -8,38 +8,46 @@ namespace MphRead.Mods.Render
         public static int Run()
         {
             int failures = 0;
-            CheckDefault(GraphicsPlatform.Windows, GraphicsBackend.DirectX12, ref failures);
-            CheckDefault(GraphicsPlatform.MacOS, GraphicsBackend.Metal, ref failures);
-            CheckDefault(GraphicsPlatform.Linux, GraphicsBackend.Vulkan, ref failures);
-            CheckDefault(GraphicsPlatform.Android, GraphicsBackend.Vulkan, ref failures);
+            foreach (GraphicsPlatform platform in Enum.GetValues<GraphicsPlatform>())
+            {
+                CheckDefault(platform, GraphicsBackend.OpenGL, ref failures);
+                CheckSupported(platform, GraphicsBackend.Auto, true, ref failures);
+                CheckSupported(platform, GraphicsBackend.OpenGL, true, ref failures);
+                CheckSupported(platform, GraphicsBackend.DirectX12, false, ref failures);
+                CheckSupported(platform, GraphicsBackend.Vulkan, false, ref failures);
+                CheckSupported(platform, GraphicsBackend.Metal, false, ref failures);
+                Check(GraphicsBackendPolicy.Resolve(platform, GraphicsBackend.Auto) == GraphicsBackend.OpenGL
+                    && GraphicsBackendPolicy.Resolve(platform, GraphicsBackend.OpenGL) == GraphicsBackend.OpenGL
+                    && GraphicsBackendPolicy.ModernBackendsFor(platform).Count == 0,
+                    $"{platform} resolves Auto to OpenGL and exposes no modern choices", ref failures);
+            }
 
-            CheckSupported(GraphicsPlatform.Windows, GraphicsBackend.DirectX12, true, ref failures);
-            CheckSupported(GraphicsPlatform.Windows, GraphicsBackend.Vulkan, true, ref failures);
-            CheckSupported(GraphicsPlatform.Windows, GraphicsBackend.Metal, false, ref failures);
-
-            CheckSupported(GraphicsPlatform.MacOS, GraphicsBackend.Metal, true, ref failures);
-            CheckSupported(GraphicsPlatform.MacOS, GraphicsBackend.Vulkan, true, ref failures);
-            CheckSupported(GraphicsPlatform.MacOS, GraphicsBackend.DirectX12, false, ref failures);
-
-            CheckSupported(GraphicsPlatform.Linux, GraphicsBackend.Vulkan, true, ref failures);
-            CheckSupported(GraphicsPlatform.Linux, GraphicsBackend.Metal, false, ref failures);
-            CheckSupported(GraphicsPlatform.Linux, GraphicsBackend.DirectX12, false, ref failures);
-
-            CheckSupported(GraphicsPlatform.Android, GraphicsBackend.Vulkan, true, ref failures);
-            CheckSupported(GraphicsPlatform.Android, GraphicsBackend.Metal, false, ref failures);
-            CheckSupported(GraphicsPlatform.Android, GraphicsBackend.DirectX12, false, ref failures);
-
+            CheckAlias("auto", GraphicsBackend.Auto, ref failures);
             CheckAlias("d3d12", GraphicsBackend.DirectX12, ref failures);
             CheckAlias("directx12", GraphicsBackend.DirectX12, ref failures);
             CheckAlias("vk", GraphicsBackend.Vulkan, ref failures);
             CheckAlias("moltenvk", GraphicsBackend.Vulkan, ref failures);
             CheckAlias("metal", GraphicsBackend.Metal, ref failures);
             CheckAlias("opengl", GraphicsBackend.OpenGL, ref failures);
-            Check(GraphicsBackendPolicy.StartupGuardMatches("DirectX12", GraphicsBackend.DirectX12)
-                && GraphicsBackendPolicy.StartupGuardMatches("vulkan", GraphicsBackend.Vulkan)
-                && !GraphicsBackendPolicy.StartupGuardMatches("OpenGL", GraphicsBackend.DirectX12)
-                && !GraphicsBackendPolicy.StartupGuardMatches("broken", GraphicsBackend.DirectX12),
-                "startup recovery fence matches only the failed modern backend", ref failures);
+            GraphicsBackend[] choices = GraphicsBackendPolicy.RendererChoices();
+            Check(choices.Length == 1 && choices[0] == GraphicsBackend.OpenGL,
+                "only OpenGL is exposed to the settings UI", ref failures);
+
+            foreach (string retired in new[] { "dx12", "vulkan", "metal" })
+            {
+                bool refused = false;
+                try { GraphicsBackendPolicy.Configure(retired); }
+                catch (PlatformNotSupportedException) { refused = true; }
+                Check(refused && GraphicsBackendPolicy.Resolved == GraphicsBackend.OpenGL,
+                    $"retired renderer '{retired}' cannot become active", ref failures);
+            }
+            GraphicsBackendPolicy.Configure("auto");
+            Check(GraphicsBackendPolicy.Resolved == GraphicsBackend.OpenGL
+                && GraphicsBackendPolicy.Requested == GraphicsBackend.OpenGL
+                && !GraphicsBackendPolicy.ModernGameplayRequested
+                && !GraphicsBackendPolicy.StartupGuardMatches("vulkan", GraphicsBackend.Vulkan),
+                "Auto and stale startup guards cannot select a modern renderer", ref failures);
+            GraphicsBackendPolicy.Configure("opengl");
             CheckGeometry(ref failures);
             CheckSurfaceLifecycle(ref failures);
             CheckLowLatencyFoundation(ref failures);

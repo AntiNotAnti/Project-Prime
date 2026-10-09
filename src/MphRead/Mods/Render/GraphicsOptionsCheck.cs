@@ -144,6 +144,7 @@ namespace MphRead.Mods.Render
                 var settings = new MenuSettings
                 {
                     SettingsSchemaVersion = 0,
+                    Renderer = "vulkan",
                     ResolutionScale = "9999",
                     AntiAliasing = "not-a-mode",
                     ShadowQuality = "ultra",
@@ -156,6 +157,7 @@ namespace MphRead.Mods.Render
                 };
                 Check(SettingsMigration.Apply(settings, out string summary)
                     && settings.SettingsSchemaVersion == SettingsMigration.CurrentSchema
+                    && settings.Renderer == "OpenGL"
                     && settings.ResolutionScale == RenderOptions.MaxScale.ToString()
                     && settings.AntiAliasing == "off"
                     && settings.ShadowQuality == "ultra"
@@ -168,6 +170,17 @@ namespace MphRead.Mods.Render
                     && settings.CharacterModelReplacements == "on"
                     && summary.Length > 0,
                     "graphics settings migration clamps and normalizes new options");
+
+                var retiredRendererSettings = new MenuSettings
+                {
+                    SettingsSchemaVersion = SettingsMigration.CurrentSchema,
+                    Renderer = "DirectX12"
+                };
+                Check(SettingsMigration.Apply(retiredRendererSettings, out string rendererSummary)
+                    && retiredRendererSettings.Renderer == "OpenGL"
+                    && rendererSummary.Contains("renderer", StringComparison.OrdinalIgnoreCase)
+                    && !SettingsMigration.Apply(retiredRendererSettings, out _),
+                    "retired persisted renderer is migrated once and remains idempotent");
 
                 var previousHdSettings = new MenuSettings
                 {
