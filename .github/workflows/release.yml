@@ -924,10 +924,24 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve.outputs.sha }}
+      # Download only distributable archives. The release-rmlui-* artifacts
+      # carry raw native DLLs, manifests and licenses/ directories for build
+      # jobs; merging release-* would accidentally stage them for gh release.
       - uses: actions/download-artifact@v8
         with:
-          pattern: release-*
-          merge-multiple: true
+          name: release-desktop
+          path: dist
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-android
+          path: dist
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-osx-arm64
+          path: dist
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-osx-x64
           path: dist
       # Publish directly to this public repository. The built-in GITHUB_TOKEN
       # has contents: write above, so release creation and asset uploads need no
@@ -955,6 +969,39 @@ jobs:
             echo "::error::$REPOSITORY must remain public so clients can check releases without a GitHub credential."
             exit 1
           fi
+
+          # Ship only these eight finished archives, never intermediate
+          # native-bridge artifacts or loose licenses. Validate the entire
+          # staging directory before creating/updating a GitHub Release.
+          release_assets=(
+            "dist/ProjectPrime-$TAG-win-x64.zip"
+            "dist/ProjectPrime-$TAG-linux-x64.tar.gz"
+            "dist/ProjectPrime-$TAG-server-win-x64.zip"
+            "dist/ProjectPrime-$TAG-server-linux-x64.tar.gz"
+            "dist/ProjectPrime-$TAG-server-linux-arm64.tar.gz"
+            "dist/ProjectPrime-$TAG-android.apk"
+            "dist/ProjectPrime-$TAG-osx-arm64.tar.gz"
+            "dist/ProjectPrime-$TAG-osx-x64.tar.gz"
+          )
+          shopt -s nullglob dotglob
+          staged_assets=(dist/*)
+          if (( ${#staged_assets[@]} != ${#release_assets[@]} )); then
+            echo "::error::Release staging must contain exactly eight finished archives."
+            printf 'Staged item: %s\n' "${staged_assets[@]}" >&2
+            exit 1
+          fi
+          for asset in "${release_assets[@]}"; do
+            if [[ ! -f "$asset" || -L "$asset" ]]; then
+              echo "::error::Expected release archive missing or not a regular file: $asset"
+              exit 1
+            fi
+          done
+          for asset in "${staged_assets[@]}"; do
+            if [[ ! -f "$asset" || -L "$asset" ]]; then
+              echo "::error::Release staging contains a non-file or symlink: $asset"
+              exit 1
+            fi
+          done
 
           cat > notes.md <<'NOTE'
           **Project Prime**
@@ -990,7 +1037,33 @@ jobs:
               echo "::error::$TAG is already published; its assets cannot be replaced."
               exit 1
             fi
-            gh release upload "$TAG" dist/* --clobber \
+            # A previous failed upload using dist/* might already have put
+            # native bridge intermediates on this draft before reaching the
+            # licenses/ directory. Prune only those known accidental assets;
+            # preserve valid packages and refuse unrelated/manual additions.
+            current_assets=$(gh release view "$TAG" --repo "$REPOSITORY" --json assets --jq '.assets[].name')
+            while IFS= read -r existing; do
+              [[ -n "$existing" ]] || continue
+              case "$existing" in
+                PRIME-RMLUI.json|RMLUI-POC.txt|ProjectPrime.RmlUi.Native.dll|libProjectPrime.RmlUi.Native.so)
+                  gh release delete-asset "$TAG" "$existing" --yes --repo "$REPOSITORY"
+                  ;;
+                *)
+                  expected=false
+                  for asset in "${release_assets[@]}"; do
+                    if [[ "$existing" == "${asset##*/}" ]]; then
+                      expected=true
+                      break
+                    fi
+                  done
+                  if [[ "$expected" != true ]]; then
+                    echo "::error::Unexpected asset on draft $TAG: $existing. Review it before publishing."
+                    exit 1
+                  fi
+                  ;;
+              esac
+            done <<< "$current_assets"
+            gh release upload "$TAG" "${release_assets[@]}" --clobber \
               --repo "$REPOSITORY"
             gh release edit "$TAG" \
               --repo "$REPOSITORY" \
@@ -1000,7 +1073,7 @@ jobs:
                 --repo "$REPOSITORY" --draft=false
             fi
           else
-            args=(release create "$TAG" dist/* --repo "$REPOSITORY" \
+            args=(release create "$TAG" "${release_assets[@]}" --repo "$REPOSITORY" \
               --verify-tag --title "Project Prime $TAG" --notes-file notes.md)
             if [ "$PUBLISH_NOW" != "true" ]; then
               args+=(--draft)

@@ -9,6 +9,16 @@ import textwrap
 import unittest
 
 WORKFLOW=Path(__file__).resolve().parents[1]/".github/workflows/release.yml"
+RELEASE_ASSET_NAMES = (
+    "ProjectPrime-{tag}-win-x64.zip",
+    "ProjectPrime-{tag}-linux-x64.tar.gz",
+    "ProjectPrime-{tag}-server-win-x64.zip",
+    "ProjectPrime-{tag}-server-linux-x64.tar.gz",
+    "ProjectPrime-{tag}-server-linux-arm64.tar.gz",
+    "ProjectPrime-{tag}-android.apk",
+    "ProjectPrime-{tag}-osx-arm64.tar.gz",
+    "ProjectPrime-{tag}-osx-x64.tar.gz",
+)
 
 
 def step_script(name):
@@ -111,9 +121,18 @@ class NativeReleasePackagingTests(unittest.TestCase):
 
 
 class ReleasePolicyTests(unittest.TestCase):
-    def execute(self, step, **overrides):
+    def execute(self, step, *, extra_directory=False, extra_file=None, missing_asset=None, **overrides):
         with tempfile.TemporaryDirectory(prefix="prime release policy ") as directory:
-            directory=Path(directory);(directory/"dist").mkdir();(directory/"dist"/"package.zip").write_bytes(b"fixture")
+            directory=Path(directory);dist=directory/"dist";dist.mkdir()
+            for name in RELEASE_ASSET_NAMES:
+                (dist/name.format(tag="v1.2.3")).write_bytes(b"fixture")
+            if extra_directory:
+                (dist/"licenses").mkdir()
+                (dist/"licenses"/"RmlUi-LICENSE.txt").write_text("Native build metadata, not a release asset")
+            if extra_file:
+                (dist/extra_file).write_bytes(b"unexpected build artifact")
+            if missing_asset:
+                (dist/missing_asset.format(tag="v1.2.3")).unlink()
             gh=directory/"gh"
             gh.write_text('''#!/usr/bin/env python3
 import json,os,sys
@@ -121,7 +140,10 @@ args=sys.argv[1:]
 with open(os.environ["CALLS"],"a") as log:log.write(json.dumps(args)+"\\n")
 if args[:2]==["release","view"]:
     if os.environ["RELEASE_STATE"]=="missing":sys.exit(1)
-    if "--json" in args:print("true" if os.environ["RELEASE_STATE"]=="draft" else "false")
+    if "--json" in args:
+        kind=args[args.index("--json")+1]
+        if kind=="assets":print(os.environ.get("EXISTING_ASSETS",""))
+        else:print("true" if os.environ["RELEASE_STATE"]=="draft" else "false")
 elif args[:2]==["repo","view"]:print("PUBLIC")
 elif args and args[0]=="api":
     if any("/commits/" in a for a in args):
@@ -206,6 +228,65 @@ elif args and args[0]=="api":
         self.assertEqual(0,result.returncode,result.stderr)
         self.assertTrue(any(call[:2]==["release","upload"] for call in calls))
         self.assertTrue(any(call[:2]==["release","edit"] and "--draft=false" in call for call in calls))
+
+    def test_publisher_downloads_only_finished_package_artifacts(self):
+        publish=job_block("publish")
+        self.assertNotIn("pattern: release-*",publish)
+        self.assertNotIn("merge-multiple: true",publish)
+        for artifact in ("release-desktop", "release-android", "release-osx-arm64", "release-osx-x64"):
+            self.assertIn("name: "+artifact+"\n          path: dist",publish)
+        # Raw bridge-only artifacts have names release-rmlui-*, so their
+        # licenses/ trees must not enter the public release staging directory.
+        self.assertNotIn("name: release-rmlui-",publish)
+
+    def test_draft_uploads_only_the_eight_finished_archives(self):
+        result,calls,_=self.execute("release",RELEASE_STATE="draft")
+        self.assertEqual(result.returncode,0,result.stderr)
+        uploads=[call for call in calls if call[:2]==["release","upload"]]
+        self.assertEqual(len(uploads),1)
+        expected={"dist/"+name.format(tag="v1.2.3") for name in RELEASE_ASSET_NAMES}
+        self.assertEqual({part for part in uploads[0] if part.startswith("dist/")},expected)
+
+    def test_new_release_creates_only_the_eight_finished_archives(self):
+        result,calls,_=self.execute("release")
+        self.assertEqual(result.returncode,0,result.stderr)
+        creates=[call for call in calls if call[:2]==["release","create"]]
+        self.assertEqual(len(creates),1)
+        expected={"dist/"+name.format(tag="v1.2.3") for name in RELEASE_ASSET_NAMES}
+        self.assertEqual({part for part in creates[0] if part.startswith("dist/")},expected)
+
+    def test_release_rejects_native_license_directory_before_mutation(self):
+        for state in ("draft","missing"):
+            result,calls,_=self.execute("release",RELEASE_STATE=state,extra_directory=True)
+            self.assertNotEqual(result.returncode,0)
+            self.assertIn("Release staging must contain exactly eight finished archives",result.stdout)
+            self.assertFalse(any(call[:2] in (["release","upload"],["release","create"],["release","edit"])
+                                 for call in calls))
+
+    def test_release_rejects_extra_file_and_missing_archive_before_mutation(self):
+        for options in ({"extra_file":"libProjectPrime.RmlUi.Native.so"},
+                        {"missing_asset":RELEASE_ASSET_NAMES[0]}):
+            result,calls,_=self.execute("release",RELEASE_STATE="draft",**options)
+            self.assertNotEqual(result.returncode,0)
+            self.assertFalse(any(call[:2] in (["release","upload"],["release","create"],["release","edit"])
+                                 for call in calls))
+
+    def test_retry_prunes_only_known_native_intermediates_from_draft(self):
+        unwanted={"PRIME-RMLUI.json","RMLUI-POC.txt","ProjectPrime.RmlUi.Native.dll",
+                  "libProjectPrime.RmlUi.Native.so"}
+        existing="\n".join(sorted(unwanted)+["ProjectPrime-v1.2.3-android.apk"])
+        result,calls,_=self.execute("release",RELEASE_STATE="draft",EXISTING_ASSETS=existing)
+        self.assertEqual(result.returncode,0,result.stderr)
+        removed={call[3] for call in calls if call[:2]==["release","delete-asset"]}
+        self.assertEqual(removed,unwanted)
+        self.assertTrue(any(call[:2]==["release","upload"] for call in calls))
+
+    def test_draft_rejects_unknown_preexisting_asset(self):
+        result,calls,_=self.execute("release",RELEASE_STATE="draft",EXISTING_ASSETS="unexpected.jar")
+        self.assertNotEqual(result.returncode,0)
+        self.assertIn("Unexpected asset on draft",result.stdout)
+        self.assertFalse(any(call[:2] in (["release","upload"],["release","edit"],["release","delete-asset"])
+                             for call in calls))
 
     def test_missing_public_android_key_is_rejected(self):
         result,_,_=self.execute("unlock the android keystore")
