@@ -28,6 +28,58 @@ internal static class InstallationChecks
         return 2;
     }
 
+    /// <summary>
+    /// Exercise the actual published v0.1.46 -> v0.1.52 package boundary,
+    /// without launching the game or requiring any copyrighted game files.
+    /// Paths are unpacked, SHA-256 verified release assets supplied by CI.
+    /// </summary>
+    internal static void RunRealReleaseSwap(string oldDirectory, string incomingDirectory,
+        Action<bool, string> check)
+    {
+        string game = OperatingSystem.IsWindows() ? "ProjectPrime.exe" : "ProjectPrime";
+        string studio = OperatingSystem.IsWindows() ? "ProjectPrimeStudio.exe" : "ProjectPrimeStudio";
+        string installed = Path.GetFullPath(oldDirectory);
+        string next = Path.GetFullPath(incomingDirectory);
+        string oldExecutable = Path.Combine(installed, game);
+        string newExecutable = Path.Combine(next, game);
+        check(File.Exists(oldExecutable) && File.Exists(newExecutable),
+            "both published release archives contain their platform executable");
+        check(File.Exists(Path.Combine(next, studio))
+            && File.Exists(Path.Combine(next, ".project-prime-desktop.json")),
+            "v0.1.52 published release has paired Game + Studio payload");
+        var older = ReleaseInstallation.ReadManifest(installed);
+        var newer = ReleaseInstallation.ReadManifest(next);
+        check(older?.Files.Contains(game) == true
+            && newer?.Files.Contains(game) == true
+            && newer?.Files.Contains(studio) == true,
+            "both real archives carry their own release ownership manifest");
+
+        string worker = Path.Combine(Path.GetTempPath(),
+            "prime-published-helper-" + Guid.NewGuid().ToString("N"));
+        string before = ReleaseInstallation.Hash(oldExecutable);
+        string expected = ReleaseInstallation.Hash(newExecutable);
+        try
+        {
+            string savedWorker = DesktopUpdate.PrepareUpdateWorker(installed, worker, game);
+            check(ReleaseInstallation.Hash(savedWorker) == before,
+                "the update worker is the original published v0.1.46 executable");
+            File.WriteAllText(Path.Combine(installed, "test-owned-settings.json"), "keep settings");
+            File.WriteAllText(Path.Combine(installed, "test-player-map.ppmap"), "keep player map");
+            ReleaseInstallation.Apply(next, installed);
+            check(ReleaseInstallation.Hash(Path.Combine(installed, game)) == expected,
+                "v0.1.52 executable installed from verified published archive");
+            check(File.Exists(Path.Combine(installed, studio)),
+                "paired v0.1.52 Studio installed with the game");
+            check(File.ReadAllText(Path.Combine(installed, "test-owned-settings.json")) == "keep settings"
+                && File.ReadAllText(Path.Combine(installed, "test-player-map.ppmap")) == "keep player map",
+                "published cross-version upgrade retains user-owned files");
+        }
+        finally
+        {
+            if (Directory.Exists(worker)) Directory.Delete(worker, recursive: true);
+        }
+    }
+
     internal static void Run(Action<bool, string> check)
     {
         string executable = Environment.ProcessPath
