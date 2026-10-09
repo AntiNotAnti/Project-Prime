@@ -760,24 +760,36 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             self._scissorHeight = Math.Max(0, height);
         }
 
-        private void ApplyScissor(RenderPassEncoder* pass, int width, int height)
+        internal static (uint X, uint Y, uint Width, uint Height) ClipScissor(
+            int x, int y, int scissorWidth, int scissorHeight, int width, int height)
         {
-            // Render-pass coalescing preserves dynamic state between draws. A
-            // draw that disables GL scissoring must therefore explicitly restore
-            // the full target instead of inheriting the previous draw's rectangle.
+            // Clamp endpoints using wide integers so offscreen and zero-sized
+            // GL scissor rectangles preserve their actual coverage.
+            long left = Math.Clamp((long)x, 0, width);
+            long right = Math.Clamp((long)x + Math.Max(0, scissorWidth), 0, width);
+            long bottom = Math.Clamp((long)y, 0, height);
+            long top = Math.Clamp((long)y + Math.Max(0, scissorHeight), 0, height);
+            return ((uint)left, (uint)(height - top),
+                (uint)(right - left), (uint)(top - bottom));
+        }
+
+        private bool ApplyScissor(RenderPassEncoder* pass, int width, int height)
+        {
+            // Coalesced passes must explicitly restore the full rectangle after
+            // GL disables scissor.
             if (!_enabled.Contains(EnableCap.ScissorTest))
             {
                 _api.RenderPassEncoderSetScissorRect(pass, 0, 0, (uint)width, (uint)height);
-                return;
+                return true;
             }
-            // Clip both endpoints, not the origin followed by the old extent.
-            // Zero-area and wholly offscreen rectangles must remain empty.
-            long left = Math.Clamp((long)_scissorX, 0, width);
-            long right = Math.Clamp((long)_scissorX + _scissorWidth, 0, width);
-            long bottom = Math.Clamp((long)_scissorY, 0, height);
-            long top = Math.Clamp((long)_scissorY + _scissorHeight, 0, height);
-            _api.RenderPassEncoderSetScissorRect(pass, (uint)left, (uint)(height - top),
-                (uint)(right - left), (uint)(top - bottom));
+            var rectangle = ClipScissor(_scissorX, _scissorY,
+                _scissorWidth, _scissorHeight, width, height);
+            // Metal's HAL does not honor zero-area scissors consistently.
+            // Suppress the raster command, not GL state or queued commands.
+            if (rectangle.Width == 0 || rectangle.Height == 0) return false;
+            _api.RenderPassEncoderSetScissorRect(pass, rectangle.X, rectangle.Y,
+                rectangle.Width, rectangle.Height);
+            return true;
         }
 
         internal static int GenFramebuffer() => Current._resources.GenFramebuffer();
@@ -1768,8 +1780,8 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, geometryBuffers.VertexOffset, vertexBytes);
             _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, geometryBuffers.IndexOffset, indexBytes);
             _api.RenderPassEncoderSetViewport(pass, 0, 0, _width, _height, 0, 1);
-            ApplyScissor(pass, (int)_width, (int)_height);
-            _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
+            if (ApplyScissor(pass, (int)_width, (int)_height))
+                _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
             _api.RenderPassEncoderEnd(pass);
             EndCommands();
 

@@ -804,11 +804,47 @@ namespace MphRead.Mods.Launcher.Gui
                     }
                     shell.Dispose();
                     CheckStartup(directory);
-                    Deck.Still = false;
+                    // Motion begins only when Avalonia attaches the control to
+                    // a TopLevel and receives compositor frames. A detached
+                    // control must not complete just because RunJobs drained.
+                    bool oldReduceMotion = LauncherPrefs.ReduceMotion;
                     var animated = new PrimePanel(PrimeChrome.Text("motion"));
-                    HubMotion.Enter(animated); Dispatcher.UIThread.RunJobs();
-                    Check(animated.Opacity == 1 && animated.RenderTransform == null, "headless frame clock completes route motion");
-                    Deck.Still = true;
+                    var motionWindow = new Window
+                    {
+                        Width = 320, Height = 240, ShowInTaskbar = false,
+                        Position = new PixelPoint(-4000, -4000),
+                        WindowStartupLocation = WindowStartupLocation.Manual
+                    };
+                    try
+                    {
+                        Deck.Still = false;
+                        LauncherPrefs.ReduceMotion = false;
+                        HubMotion.Enter(animated);
+                        Dispatcher.UIThread.RunJobs();
+                        Check(TopLevel.GetTopLevel(animated) == null && animated.Opacity == 0
+                            && animated.RenderTransform != null,
+                            "detached route motion waits for visual attachment");
+                        motionWindow.Content = animated;
+                        motionWindow.Show();
+                        Drain(motionWindow);
+                        var motionDeadline = System.Diagnostics.Stopwatch.StartNew();
+                        while ((animated.Opacity != 1 || animated.RenderTransform != null)
+                            && motionDeadline.Elapsed < TimeSpan.FromSeconds(5))
+                        {
+                            System.Threading.Thread.Sleep(10);
+                            Drain(motionWindow);
+                        }
+                        Check(ReferenceEquals(TopLevel.GetTopLevel(animated), motionWindow)
+                            && animated.Opacity == 1 && animated.RenderTransform == null,
+                            "headless frame clock completes route motion after visual attachment");
+                    }
+                    finally
+                    {
+                        motionWindow.Content = null;
+                        motionWindow.Close();
+                        LauncherPrefs.ReduceMotion = oldReduceMotion;
+                        Deck.Still = true;
+                    }
                     int pulses = 0;
                     using var pulse = new PrimeUiPulse(TimeSpan.FromMilliseconds(10), () =>
                     { Check(Dispatcher.UIThread.CheckAccess(), "wall-clock pulse runs on UI thread"); pulses++; });
