@@ -192,19 +192,25 @@ internal sealed class HostedMapRequests : IDisposable
             {
                 // Rotation entries name their exact immutable SHA-256 package.
                 // Before contacting Community, look up a valid cached archive.
-                // Do not trust its filename: FromPackage hashes the bytes and
-                // reads its manifest, and both the requested name and SHA must
-                // match. A damaged cache still falls through to Community.
+                // Do not trust its filename: strictly validate package contents,
+                // requested name, SHA-256 and minimum protocol. A damaged or
+                // too-new cache still falls through to Community.
                 MapContentIdentity? cachedIdentity = null;
                 string cachedPath = Path.Combine(directory, entry.PackageHash + ".ppmap");
                 if (File.Exists(cachedPath))
                 {
                     try
                     {
-                        MapContentIdentity found = MapContentIdentity.FromPackage(cachedPath);
-                        if (found.PackageHash == entry.PackageHash
-                            && StringComparer.OrdinalIgnoreCase.Equals(found.RoomKey, entry.RoomKey))
-                            cachedIdentity = found;
+                        using var package = new MapPackageReader(cachedPath);
+                        MapPackageManifest? manifest = package.Manifest;
+                        if (manifest != null && manifest.MinimumProtocol <= NetConfig.ProtocolVersion
+                            && StringComparer.OrdinalIgnoreCase.Equals(manifest.Name, entry.RoomKey)
+                            && MapHash256.HashFile(cachedPath) == entry.PackageHash)
+                        {
+                            cachedIdentity = new MapContentIdentity(
+                                manifest.MapId, manifest.Name, MapHash256.Parse(manifest.ContentHash),
+                                entry.PackageHash, true);
+                        }
                     }
                     catch (InvalidDataException) { }
                 }
