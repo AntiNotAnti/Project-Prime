@@ -1,0 +1,24 @@
+[net] server map:  (None, 0 s left)
+[net] server map:  (None, 0 s left)
+[map] 2ad6ea5ea9904fd8b558101987cdfea2.ppmap FP-MAP-010: Duplicate runtime name: MY ARENA.
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] validation_summary.json FP-MAP-001: At least one material is required.
+[map] validation_summary.json FP-MAP-014: At least one player spawn is required.
+[map] my arena.json FP-MAP-010: Duplicate runtime name: MY ARENA.
+[net] server map:  (None, 0 s left)
+[net] server map:  (None, 0 s left)
+[net] server map:  (None, 0 s left)
+[net] server map:  (None, 0 s left)
+[net] server map:  (None, 0 s left)
+[net] server map:  (None, 0 s left)
+[net] server map:  (None, 0 s left)
+[net] server map:  (None, 0 s left)
+[net] server map:  (None, 0 s left)
+[net] server map:  (None, 0 s left)
+[net] server map:  (None, 0 s left)
+[net] server map:  (None, 0 s left)
+[net] server map:  (None, 0 s left)
+[net] server map:  (None, 0 s left)
+Ghost input matrix: 7776 weapon/profiles, 2 delivery streams, dropped=18360 duplicated=8424 reordered=14256
+PASS: 3338739 health/shot assertions

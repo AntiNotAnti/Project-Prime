@@ -22,6 +22,7 @@ jobs:
       - run: dotnet run --project tools/nettest -c Release --no-build -- --impact-transport
       - run: dotnet run --project tools/nettest -c Release --no-build -- --impact-crossview
       - run: dotnet run --project tools/nettest -c Release --no-build -- --impact-claim-fastpath
+      - run: dotnet run --project tools/nettest -c Release --no-build -- --impact-visual-kills
       - run: python3 tools/live-impact/run-validation.py --output artifacts/live-impact
       - uses: actions/upload-artifact@v6
         if: always()
