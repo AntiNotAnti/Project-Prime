@@ -36,7 +36,7 @@ public sealed record DesktopReleasePair(int Version, string GameVersion, string 
         if (pair != null && (!incomingStudio || !next.Files.Any(IsGame)))
             throw new InvalidDataException("The paired desktop release must include both application executables.");
         if (installedStudio && !incomingStudio)
-            throw new InvalidDataException("This update would remove Project Prime Studio. Install a complete paired desktop release.");
+            throw new InvalidDataException("The selected release does not contain Project Prime Studio and cannot replace this paired installation. For a legacy downgrade, extract that release into a separate folder instead.");
     }
 
     private static bool IsStudio(string path) => Path.GetFileName(path) is "ProjectPrimeStudio" or "ProjectPrimeStudio.exe";
